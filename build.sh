@@ -143,7 +143,7 @@ main() {
     configure_nix_flags
 
     status_msg "${YELLOW}" "Formatting Nix files..."
-    nix fmt "${FLAKE_DIR}"
+    treefmt "${FLAKE_DIR}"
 
     status_msg "${YELLOW}" "Validating flake configuration..."
     nix flake check "${FLAKE_DIR}" || {
