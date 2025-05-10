@@ -10,138 +10,137 @@
 
 let
   common = with pkgs; [
-    dash
-    python3
-    neovim
-    evil-helix # Helix with evil-mode (https://github.com/danymat/evil-helix)
-    git
-    tree
-    eza # exa maintained fork (https://github.com/eza-community/eza)
-    bash-language-server
-    zip
-    unzip
-    rar
-    unrar
-    p7zip-rar # supports extracting rar files
-    nil # Nix Language server
-    nixfmt-rfc-style # new RFC will be replaced with nixfmt in the future
-    nixfmt-tree # treefmt for Nix (https://treefmt.com/)
-    niv # Dependency manager for Nix  (https://github.com/nmattia/niv)
-    bat
-    ripgrep
-    fd
-    tealdeer
-    gnupg
-    openssl
     aspell
-    font-awesome
-    eva
+    bash-language-server
+    bat
     biome
     bitwarden-desktop
     bottom
-    catdoc
+    pandoc
+    dash
+    diffutils
     dua
     duf
-    diffutils
-    fzf
-    ghostscript
+    eva
+    evil-helix # Helix with evil-mode (https://github.com/danymat/evil-helix)
+    eza # exa maintained fork (https://github.com/eza-community/eza)
+    fd
     ffmpeg
     ffmpegthumbnailer
+    font-awesome
+    fq # jq for binary formats
+    fzf
+    ghostscript
+    ghostty # Terminal emulator
+    git
+    gnupg
     gst_all_1.gst-libav
     gst_all_1.gst-plugins-bad
     gst_all_1.gst-plugins-good
     gst_all_1.gst-plugins-ugly
     gst_all_1.gst-vaapi
+    htmlq # jq for HTML
     htop
     hunspell
     hunspellDicts.en-us-large
+    imagemagick
+    jnv # Interactive JSON filter using jq
     jq # JSON processor
     jq-lsp # jq language server
     jq-zsh-plugin # Interactively build jq expressions in Zsh
-    jnv # Interactive JSON filter using jq
-    htmlq # jq for HTML
+    kitty # Terminal emulator
+    less # More advanced file pager than \'more\'
+    meld # Visual diff and merge tool
+    neovim
+    nil # Nix Language server
+    niv # Dependency manager for Nix  (https://github.com/nmattia/niv)
+    nixfmt-rfc-style # new RFC will be replaced with nixfmt in the future
+    nixfmt-tree # treefmt for Nix (https://treefmt.com/)
+    openssl
+    p7zip-rar # supports extracting rar files
+    python3
+    rar
+    ripgrep
+    shfmt
+    tealdeer
+    tree
+    unrar
+    unzip
     xq # jq for XML
     yq # jq wrapper for YAML, XML, TOML
-    fq # jq for binary formats
-    imagemagick
-    ghostty # Terminal emulator
-    kitty # Terminal emulator
-    less # More advanced file pager than 'more'
-    meld # Visual diff and merge tool
-    shfmt
+    zip
 
   ];
 
   linuxPkgs = with pkgs; [
-    pciutils
-    nemo
-    ntfs3g
-    file
-    pipewire
-    protonvpn-gui
-    blueberry
     arandr
-    xdg-utils
+    autotiling
+    blueberry
     dmenu
-    dunst
-    rofi
     docker
     docker-compose
     dosfstools
+    dunst
     efitools
-    exiftool
     electron
-    keepassxc
     ethtool
-    zathura
-    mupdf-headless # Lightweight PDF, XPS, and E-book viewer and toolkit
+    exiftool
     feh
+    file
     flameshot
     fwupd
     gparted
     gvfs
-    hdparm
     hddtemp
+    hdparm
     hsetroot
     hwinfo
     i3
-    i3status-rust
     i3lock-fancy
-    autotiling
-    libnotify
-    networkmanager
-    networkmanager_dmenu
-    networkmanager-openvpn
-    networkmanager-openconnect
-    networkmanagerapplet
+    i3status-rust
     inetutils
+    inotify-tools
     iproute2
     iputils
     iwd
-    inotify-tools
-    linux-firmware
-    linuxHeaders
-    lsb-release # Prints certain LSB (Linux Standard Base) and Distribution information
-    lm_sensors # Tools for reading hardware sensors
-    lsof # List open files
-    logrotate # Rotates and compresses system logs
-    lsscsi # List SCSI devices
-    maim # Command-line screenshot utility
-    man # Linux manual pages
-    man-pages # Linux development manual pages
-    ntpd-rs # NTP daemon
-    ntpstat # NTP status
-    nwg-look # GTK3 settings editor
+    keepassxc
+    libnotify
     libplacebo # Video rendering library
     libva # Video acceleration API
     libva-utils # Video acceleration utilities
     libvirt # Virtualization API
-
+    linux-firmware
+    linuxHeaders
+    lm_sensors # Tools for reading hardware sensors
+    logrotate # Rotates and compresses system logs
+    lsof # List open files
+    lsb-release # Prints certain LSB (Linux Standard Base) and Distribution information
+    lsscsi # List SCSI devices
+    maim # Command-line screenshot utility
+    man # Linux manual pages
+    man-pages # Linux development manual pages
+    mupdf-headless # Lightweight PDF, XPS, and E-book viewer and toolkit
+    nemo
+    networkmanager
+    networkmanager_dmenu
+    networkmanager-openconnect
+    networkmanager-openvpn
+    networkmanagerapplet
+    ntfs3g
+    ntpd-rs # NTP daemon
+    ntpstat # NTP status
+    nwg-look # GTK3 settings editor
+    pciutils
+    pipewire
+    protonvpn-gui
+    rofi
+    xdg-utils
+    zathura
   ];
 
   darwinPkgs = with pkgs; [
-    mas
     homebrew
+    mas
   ];
 in
 {
