@@ -6,8 +6,12 @@
     blacklistedKernelModules = [ "nouveau" ]; # Disable open-source driver
 
     # NVIDIA modules for initrd (MUST come before other graphics modules)
-    initrd.kernelModules =
-      [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
+    initrd.kernelModules = [
+      "nvidia"
+      "nvidia_modeset"
+      "nvidia_uvm"
+      "nvidia_drm"
+    ];
 
     extraModulePackages = [ config.boot.kernelPackages.nvidia_x11 ];
 
@@ -45,8 +49,7 @@
         nvidiaBusId = "PCI:1:0:0"; # Typical NVIDIA dGPU
         sync.enable = true; # Enable PRIME synchronization
       };
-      package =
-        config.boot.kernelPackages.nvidia_x11; # Explicit package binding
+      package = config.boot.kernelPackages.nvidia_x11; # Explicit package binding
     };
   };
 

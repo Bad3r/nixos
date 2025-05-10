@@ -19,7 +19,9 @@
     v = "nvim";
   };
 
-  programs.zsh.sessionVariables = { ZDOTDIR = "${config.xdg.configHome}/zsh"; };
+  programs.zsh.sessionVariables = {
+    ZDOTDIR = "${config.xdg.configHome}/zsh";
+  };
 
   home.file.".bashrc".text = ''
     sudoKate() {
@@ -38,21 +40,6 @@
   '';
 
   home.file.".zshrc".text = ''
-    if [[ -o interactive ]]; then
-      exec zsh
-    fi
-
-    sudoKate() {
-    if [ $# -eq 0 ]; then
-        echo "Usage: sudoKate <file-or-directory> [more args...]"
-        return 1
-    fi
-    sudo env -u SUDO_USER -u KDESU_USER \
-        DISPLAY="$DISPLAY" \
-        XAUTHORITY="$XAUTHORITY" \
-        kate "$@"
-    }
-
     # GPG
     export GPG_TTY=$(tty)
   '';

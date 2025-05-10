@@ -7,10 +7,9 @@
   services.blueman.enable = false;
 
   # Safe package declaration without self-reference
-  environment.systemPackages = with pkgs;
-    [
-      blueberry
-      #bluez
-      #bluez-tools
-    ];
+  environment.systemPackages = with pkgs; [
+    blueberry
+    #bluez
+    #bluez-tools
+  ];
 }

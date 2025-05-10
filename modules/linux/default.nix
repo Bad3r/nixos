@@ -56,13 +56,12 @@
   services.openssh.enable = false;
 
   # Shell
-  environment.shells = with pkgs;
-    [
-      # bash
-      dash
-      # fish
-      # zsh
-    ];
+  environment.shells = with pkgs; [
+    # bash
+    dash
+    # fish
+    # zsh
+  ];
   # /bin/sh -> /bin/dash
   environment.binsh = "${pkgs.dash}/bin/dash";
 
@@ -83,5 +82,7 @@
   programs.ssh.extraConfig = ''
     IdentityAgent /run/user/%i/gnupg/S.gpg-agent.ssh
   '';
-  environment.variables = { OPENSSL_CONF = "/etc/ssl/openssl.cnf"; };
+  environment.variables = {
+    OPENSSL_CONF = "/etc/ssl/openssl.cnf";
+  };
 }

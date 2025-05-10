@@ -1,5 +1,6 @@
 # modules/common/locale.nix
-{ pkgs, ... }: {
+{ pkgs, ... }:
+{
   # Timezone and locale
   time.timeZone = "Asia/Riyadh";
 

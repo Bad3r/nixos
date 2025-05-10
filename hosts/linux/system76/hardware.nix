@@ -1,5 +1,6 @@
 # hosts/linux/system76/hardware.nix
-{ inputs, ... }: {
+{ inputs, ... }:
+{
   imports = [
     ./hardware-configuration.nix
     inputs.nixos-hardware.nixosModules.system76

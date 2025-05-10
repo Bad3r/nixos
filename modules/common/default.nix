@@ -1,7 +1,10 @@
 { config, pkgs, ... }:
 
 {
-  imports = [ ./locale.nix ./packages.nix ];
+  imports = [
+    ./locale.nix
+    ./packages.nix
+  ];
 
   # Programs
   programs.firefox.enable = true;

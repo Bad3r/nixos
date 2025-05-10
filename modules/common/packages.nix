@@ -1,16 +1,22 @@
 # modules/common/packages.nix
 # List packages installed in system profile. To search, run:
 # $ nix search wget
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   common = with pkgs; [
     dash
     python3
     neovim
+    evil-helix # Helix with evil-mode (https://github.com/danymat/evil-helix)
     git
     tree
-    eza
+    eza # exa maintained fork (https://github.com/eza-community/eza)
     bash-language-server
     zip
     unzip
@@ -18,7 +24,9 @@ let
     unrar
     p7zip-rar # supports extracting rar files
     nil # Nix Language server
-    nixfmt-rfc-style
+    nixfmt-rfc-style # new RFC will be replaced with nixfmt in the future
+    nixfmt-tree # treefmt for Nix (https://treefmt.com/)
+    niv # Dependency manager for Nix  (https://github.com/nmattia/niv)
     bat
     ripgrep
     fd
@@ -131,9 +139,14 @@ let
 
   ];
 
-  darwinPkgs = with pkgs; [ mas homebrew ];
-in {
-  environment.systemPackages = common
+  darwinPkgs = with pkgs; [
+    mas
+    homebrew
+  ];
+in
+{
+  environment.systemPackages =
+    common
     ++ (lib.optionals config.nixpkgs.hostPlatform.isLinux linuxPkgs)
     ++ (lib.optionals config.nixpkgs.hostPlatform.isDarwin darwinPkgs);
 }

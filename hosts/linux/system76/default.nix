@@ -1,5 +1,6 @@
 # hosts/linux/system76/default.nix
-{ inputs, pkgs, ... }: {
+{ inputs, pkgs, ... }:
+{
   system.stateVersion = "24.11";
   networking.hostName = "system76";
 
@@ -17,7 +18,13 @@
     isNormalUser = true;
     isSystemUser = false;
     home = "/home/vx";
-    extraGroups = [ "wheel" "networkmanager" "video" "render" "input" ];
+    extraGroups = [
+      "wheel"
+      "networkmanager"
+      "video"
+      "render"
+      "input"
+    ];
     initialPassword = null;
     hashedPassword = null;
     hashedPasswordFile = null;
