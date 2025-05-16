@@ -35,7 +35,7 @@
     coreutils
     gcc
     gnumake
-    nodejs_22
+    nodejs_24
     yarn
     openjdk
     clojure
