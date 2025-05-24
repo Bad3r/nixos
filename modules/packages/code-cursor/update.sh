@@ -3,8 +3,8 @@
 # shellcheck shell=bash
 set -eu -o pipefail
 
-# Extract version directly from the default.nix file
-currentVersion=$(grep "version = " default.nix | head -n1 | cut -d'"' -f2)
+SCRIPT_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
+currentVersion=$(grep "version = " "$SCRIPT_DIR/default.nix" | head -n1 | cut -d'"' -f2)
 echo "Current version: $currentVersion"
 
 declare -A platforms=( [x86_64-linux]='linux-x64' [aarch64-linux]='linux-arm64' [x86_64-darwin]='darwin-x64' [aarch64-darwin]='darwin-arm64' )
