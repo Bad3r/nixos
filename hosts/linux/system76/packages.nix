@@ -19,7 +19,6 @@
     jellyfin-mpv-shim # Jellyfin media server integration
 
     marktext
-    code-cursor
     vscode-fhs
     brave
     mattermost-desktop
@@ -42,4 +41,8 @@
     clojure-lsp
   ];
   #   chaotic.linuxPackages_cachyos.enable = true;
+
+  imports = [
+    ../../../modules/packages
+  ];
 }

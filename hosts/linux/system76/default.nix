@@ -1,7 +1,7 @@
 # hosts/linux/system76/default.nix
 { inputs, pkgs, ... }:
 {
-  system.stateVersion = "24.11";
+  system.stateVersion = "25.05";
   networking.hostName = "system76";
 
   imports = [
