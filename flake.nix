@@ -39,14 +39,7 @@
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      home-manager,
-      nixos-hardware,
-      treefmt-nix,
-      ...
-    }@inputs:
+    { self, nixpkgs, home-manager, nixos-hardware, treefmt-nix, ... }@inputs:
     let
       lib = nixpkgs.lib;
       supportedSystems = {
@@ -55,55 +48,48 @@
       };
 
       # List of system types to support
-      systems = [
-        "x86_64-linux"
-        "x86_64-darwin"
-      ];
+      systems = [ "x86_64-linux" "x86_64-darwin" ];
 
       # host discovery
-      discoverHosts =
-        type:
+      discoverHosts = type:
         let
           dir = ./hosts/${type};
           entries = builtins.attrNames (builtins.readDir dir);
-          validHost = host: builtins.pathExists (dir + "/${host}/default.nix") && (!lib.hasPrefix "." host);
-        in
-        lib.filter validHost entries;
+          validHost = host:
+            builtins.pathExists (dir + "/${host}/default.nix")
+            && (!lib.hasPrefix "." host);
+        in lib.filter validHost entries;
 
       linuxHosts = discoverHosts "linux";
       darwinHosts = discoverHosts "darwin";
       commonMods = [ ./modules/common ];
 
       # Small tool to iterate over each systems
-      eachSystem =
-        f:
-        nixpkgs.lib.genAttrs systems (
-          system:
-          f (
-            import nixpkgs {
-              inherit system;
-              config.allowUnfree = true;
-            }
-          )
-        );
+      eachSystem = f:
+        nixpkgs.lib.genAttrs systems (system:
+          f (import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+          }));
       # Eval the treefmt modules from ./treefmt.nix
-      treefmtEval = eachSystem (pkgs: treefmt-nix.lib.evalModule pkgs ./modules/common/treefmt.nix);
-    in
-    {
-      nixosConfigurations = lib.genAttrs linuxHosts (
-        host:
+      treefmtEval = eachSystem
+        (pkgs: treefmt-nix.lib.evalModule pkgs ./modules/common/treefmt.nix);
+    in {
+      nixosConfigurations = lib.genAttrs linuxHosts (host:
         lib.nixosSystem {
-          system = supportedSystems.linux;
           specialArgs = {
             inherit inputs lib;
           }; # Pass inputs and lib to all modules
           pkgs = import nixpkgs {
-            system = supportedSystems.linux;
+            hostPlatform = {
+              gcc.arch = "x86-64-v3";
+              gcc.tune = "x86-64-v3";
+              system = supportedSystems.linux;
+            };
             config.allowUnfree = true;
-            gcc.arch = "x86-64-v3";
-            gcc.tune = "x86-64-v3";
-            nixpkgs.overlays = [
-              (import ./overlays/input-packages.nix) # pkgs.master & pkgs.stable overlays
+            overlays = [
+              (import ./overlays/input-packages.nix
+                inputs) # pkgs.master & pkgs.stable overlays
             ];
           };
           modules = commonMods ++ [
@@ -113,10 +99,7 @@
             {
               # Nix configuration module
               nix.settings = {
-                experimental-features = [
-                  "nix-command"
-                  "flakes"
-                ];
+                experimental-features = [ "nix-command" "flakes" ];
                 substituters = [
                   "https://cache.nixos.org"
                   "https://nix-community.cachix.org"
@@ -142,11 +125,11 @@
               };
             }
           ];
-        }
-      );
+        });
 
       # for `nix fmt`
-      formatter = eachSystem (pkgs: treefmtEval.${pkgs.system}.config.build.wrapper);
+      formatter =
+        eachSystem (pkgs: treefmtEval.${pkgs.system}.config.build.wrapper);
       # for `nix flake check`
       checks = eachSystem (pkgs: {
         formatting = treefmtEval.${pkgs.system}.config.build.check self;
