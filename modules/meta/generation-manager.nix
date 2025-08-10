@@ -269,4 +269,11 @@
       '';
     };
   };
+  
+  # Make generation-manager available in user environments
+  flake.modules.homeManager.base =
+    { pkgs, ... }:
+    {
+      home.packages = [ config.flake.packages.${pkgs.system}.generation-manager ];
+    };
 }
