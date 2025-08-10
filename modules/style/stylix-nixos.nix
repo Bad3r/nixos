@@ -1,0 +1,19 @@
+# Module: stylix-nixos.nix
+# Purpose: NixOS-level stylix theming configuration
+# Namespace: flake.modules.nixos.base
+# Dependencies: inputs.stylix
+# Note: This only handles system-level theming, Home-Manager theming is separate
+
+{ inputs, lib, ... }:
+{
+  flake.modules.nixos.base = {
+    imports = [ inputs.stylix.nixosModules.stylix ];
+    
+    stylix = {
+      enable = lib.mkDefault true;
+      # Disable automatic Home-Manager import to avoid conflicts
+      # Home-Manager stylix is handled separately in stylix-home.nix
+      homeManagerIntegration.autoImport = false;
+    };
+  };
+}

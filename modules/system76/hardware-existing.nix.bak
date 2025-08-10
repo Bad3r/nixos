@@ -1,0 +1,160 @@
+# System76 Hardware Configuration
+# Based on old_nixos/hosts/linux/system76/hardware.nix and hardware-configuration.nix
+{ lib, inputs, config, ... }:
+{
+  configurations.nixos.system76.module = { modulesPath, pkgs, config, ... }: {
+    imports = [
+      (modulesPath + "/installer/scan/not-detected.nix")
+      inputs.nixos-hardware.nixosModules.system76
+    ];
+    
+    # Networking
+    networking.useDHCP = lib.mkDefault true;
+    
+    # Boot configuration - matching old_nixos/hosts/linux/system76/hardware.nix
+    boot = {
+      initrd = {
+        availableKernelModules = [
+          "xhci_pci"
+          "ahci"
+          "nvme"
+          "usbhid"
+          "usb_storage"
+          "sd_mod"
+          "sdhci_pci"
+        ];
+        
+        kernelModules = [
+          "nvidia"
+          "nvidia_modeset"
+          "nvidia_uvm"
+          "nvidia_drm"
+        ];
+        
+        # LUKS configuration - BOTH devices as shown in old config
+        luks.devices = {
+          # Root filesystem encryption (from hardware-configuration.nix)
+          "luks-de5ef033-553b-4943-be41-09125eb815b2" = {
+            device = "/dev/disk/by-uuid/de5ef033-553b-4943-be41-09125eb815b2";
+          };
+          
+          # Swap encryption (from hardware.nix - this ADDS to hardware-configuration.nix)
+          "luks-555de4f1-f4b6-4fd1-acd2-9d735ab4d9ec" = {
+            device = "/dev/disk/by-uuid/555de4f1-f4b6-4fd1-acd2-9d735ab4d9ec";
+          };
+        };
+        
+        # These are from old_nixos/modules/linux/default.nix
+        systemd.enable = true;
+        compressor = "zstd";
+      };
+      
+      # From hardware-configuration.nix
+      kernelModules = [ "kvm-intel" ];
+      
+      # From old_nixos/modules/linux/hardware/nvidia.nix
+      blacklistedKernelModules = [ "nouveau" ]; # Disable open-source driver
+      extraModulePackages = [ config.boot.kernelPackages.nvidia_x11 ];
+      
+      # NVIDIA kernel parameters from old_nixos/modules/linux/hardware/nvidia.nix
+      kernelParams = [
+        "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
+        "nvidia.NVreg_EnableGpuFirmware=1"
+      ];
+      
+      # Systemd-boot configuration from old_nixos/modules/linux/default.nix
+      loader = {
+        systemd-boot = {
+          enable = true;
+          editor = false;           # Disable boot entry editing for security
+          consoleMode = "auto";     # Automatic console mode detection
+          configurationLimit = 3;   # Keep only last 3 generations
+        };
+        efi.canTouchEfiVariables = true;
+      };
+    };
+    
+    # Filesystem configuration - from hardware-configuration.nix
+    fileSystems = {
+      "/" = {
+        device = "/dev/disk/by-uuid/54df1eda-4dc3-40d0-a6da-8d1d7ee612b2";
+        fsType = "ext4";
+      };
+      
+      "/boot" = {
+        device = "/dev/disk/by-uuid/98A9-C26F";
+        fsType = "vfat";
+        options = [
+          "fmask=0077"  # From hardware-configuration.nix
+          "dmask=0077"  # Secure permissions - owner only
+        ];
+      };
+    };
+    
+    # Swap configuration - from hardware-configuration.nix
+    swapDevices = [
+      { device = "/dev/disk/by-uuid/72b0d736-e0c5-4f72-bc55-f50f7492ceef"; }
+    ];
+    
+    # Hardware configuration
+    nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
+    hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+    
+    # System76-specific hardware support (replaces nixos-hardware module for now)
+    hardware.system76.enableAll = true;
+    
+    # NVIDIA configuration - from old_nixos/modules/linux/hardware/nvidia.nix
+    hardware.nvidia = {
+      modesetting.enable = true;
+      powerManagement = {
+        enable = true; # Fixes GPU power state transitions
+        finegrained = false; # Disable for desktop systems
+      };
+      open = false; # Use proprietary driver
+      nvidiaSettings = false; # Disable if not using nvidia-settings
+      package = config.boot.kernelPackages.nvidia_x11; # Explicit package binding
+      
+      # Prime configuration for hybrid graphics
+      prime = {
+        sync.enable = true;
+        # CONFIRM THESE WITH lspci -nn | grep -E "VGA|3D"
+        intelBusId = "PCI:0:2:0"; # Typical Intel iGPU
+        nvidiaBusId = "PCI:1:0:0"; # Typical NVIDIA dGPU
+      };
+    };
+    
+    # Graphics configuration - Updated for newer NixOS
+    services.xserver.videoDrivers = [ "nvidia" ]; # Force NVIDIA driver
+    hardware.graphics = {
+      enable = true;
+      enable32Bit = true;
+      extraPackages = with pkgs; [
+        nvidia-vaapi-driver
+        vaapiVdpau
+        libvdpau-va-gl
+        intel-media-driver
+      ];
+    };
+    
+    # Required for NVIDIA DRM kernel modesetting
+    environment.variables = {
+      GBM_BACKEND = "nvidia-drm";
+      __GLX_VENDOR_LIBRARY_NAME = "nvidia";
+      LIBVA_DRIVER_NAME = "nvidia";
+    };
+    
+    # Audio configuration handled in pc/pipewire.nix
+    
+    # Power management
+    powerManagement.cpuFreqGovernor = lib.mkDefault "powersave";
+    
+    environment.systemPackages = with pkgs; [
+      system76-firmware
+      firmware-manager
+      system76-keyboard-configurator
+    ];
+    
+    # State version - from old_nixos/hosts/linux/system76/default.nix
+    system.stateVersion = "25.05";
+  };
+}

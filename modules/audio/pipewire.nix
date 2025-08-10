@@ -1,0 +1,22 @@
+# Module: pipewire.nix
+# Purpose: System-level PipeWire audio configuration
+# Namespace: flake.modules.nixos.pc
+# Dependencies: None
+# Note: User-level GUI tools are in home/gui/audio/pipewire-gui.nix
+
+{ lib, ... }:
+{
+  flake.modules.nixos.pc = {
+    services.pipewire = {
+      enable = lib.mkDefault true;
+      alsa = {
+        enable = lib.mkDefault true;
+        support32Bit = lib.mkDefault true;
+      };
+      pulse.enable = lib.mkDefault true;
+    };
+    security.rtkit.enable = lib.mkDefault true;
+    
+    # PulseAudio is automatically disabled when PipeWire is enabled
+  };
+}
