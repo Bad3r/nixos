@@ -3,6 +3,10 @@
 # Namespace: flake.inputBranches
 # Pattern: Golden standard input management
 # Reference: Simplified from mightyiam/infra/modules/meta/input-branches.nix
+# 
+# NOTE: This is a simplified implementation without the external input-branches flake.
+# TODO: Future enhancement - integrate with git submodules and external input-branches flake
+#       for full functionality including rebasing and pushing commands.
 
 { lib, config, inputs, ... }:
 {
@@ -73,10 +77,11 @@
     };
   };
   
-  # Provide metadata about configured input branches
+  # Provide metadata about configured input branches (using pipe operators)
   config.flake.inputBranchesMetadata = {
-    totalBranches = lib.length (lib.attrNames config.flake.inputBranches);
-    branchNames = lib.attrNames config.flake.inputBranches;
-    patchedInputs = lib.filterAttrs (name: cfg: cfg.patches != []) config.flake.inputBranches;
+    totalBranches = config.flake.inputBranches |> lib.attrNames |> lib.length;
+    branchNames = config.flake.inputBranches |> lib.attrNames;
+    patchedInputs = config.flake.inputBranches 
+      |> lib.filterAttrs (name: cfg: cfg.patches != []);
   };
 }
