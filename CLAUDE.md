@@ -20,6 +20,18 @@ Personal NixOS/Home Manager configuration using the **Dendritic Pattern** - an a
 - **Shell**: ✅ DevShell with treefmt, statix, deadnix
 - **Testing**: ✅ Dendritic compliance tests, module tests, integration tests
 
+## Critical Requirements
+
+### Pipe Operators (MANDATORY)
+**IMPORTANT:** This configuration uses pipe operators (`|>`) extensively. ALL nix commands must include:
+```bash
+--extra-experimental-features pipe-operators
+```
+Or set environment variable:
+```bash
+export NIX_CONFIG="experimental-features = nix-command flakes pipe-operators"
+```
+
 ## Essential Commands
 
 ### Primary Build & Deploy
