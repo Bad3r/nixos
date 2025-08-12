@@ -1,7 +1,7 @@
 # Module: meta/module-tests.nix
-# Purpose: Docker containerization platform configuration
-# Namespace: flake.modules.nixos.desktop
-# Pattern: Package and program configuration
+# Purpose: Module testing framework for Dendritic Pattern compliance
+# Namespace: flake.checks
+# Pattern: Validates dendritic pattern implementation across all modules
 
 # Per-module testing framework
 # Validates individual modules against Dendritic Pattern requirements
