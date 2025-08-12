@@ -1,4 +1,3 @@
-
 { lib, config, ... }:
 {
   options.nix.settings = lib.mkOption {

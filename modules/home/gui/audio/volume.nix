@@ -1,4 +1,3 @@
-
 { lib, ... }:
 {
   flake.modules.homeManager.gui =
@@ -7,7 +6,6 @@
       step = 5;
       pactl = lib.getExe' pkgs.pulseaudio "pactl";
       mod = config.wayland.windowManager.sway.config.modifier;
-
       incVol =
         d:
         lib.concatStringsSep " " [

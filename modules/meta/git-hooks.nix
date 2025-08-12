@@ -1,8 +1,6 @@
-
 { inputs, lib, ... }:
 {
   imports = lib.optional (inputs ? git-hooks) inputs.git-hooks.flakeModule;
-  
   perSystem = { config, pkgs, ... }: {
     pre-commit = lib.mkIf (inputs ? git-hooks) {
       check.enable = true;

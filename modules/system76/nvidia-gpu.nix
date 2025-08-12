@@ -1,8 +1,3 @@
-# Note: Requires NVIDIA hardware - use specialisation for conditional activation
-
-# Host-specific NVIDIA configuration for system76
-# This contains hardware-specific settings and any additional config
-# not in the generic nvidia-gpu module
 { config, lib, ... }:
 {
   configurations.nixos.system76.module = { pkgs, ... }: {

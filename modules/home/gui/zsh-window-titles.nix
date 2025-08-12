@@ -1,6 +1,3 @@
-
-# modules/window-titles.nix
-
 {
   flake.modules.homeManager.gui.programs.zsh.initContent = ''
     precmd() {

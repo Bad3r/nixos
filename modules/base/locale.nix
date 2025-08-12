@@ -1,4 +1,3 @@
-
 { config, ... }:
 let
   timeZone = config.flake.meta.system.timezone;

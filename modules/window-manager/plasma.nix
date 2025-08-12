@@ -1,5 +1,3 @@
-
-# KDE Plasma Desktop Configuration (Simplified)
 { config, lib, ... }:
 {
   # System-level Plasma configuration

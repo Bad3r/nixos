@@ -1,4 +1,3 @@
-
 { config, lib, ... }:
 {
   flake.modules.nixos.workstation = { pkgs, ... }: {  # Security tools are workstation features

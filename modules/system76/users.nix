@@ -1,5 +1,3 @@
-
-# User configuration for System76
 { config, ... }:
 let
   username = config.flake.meta.owner.username;

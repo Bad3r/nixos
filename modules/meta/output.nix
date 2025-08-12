@@ -1,4 +1,3 @@
-
 { ... }:
 {
   # The flake.meta option is already defined in meta/owner.nix

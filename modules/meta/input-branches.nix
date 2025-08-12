@@ -1,4 +1,3 @@
-
 { lib, config, inputs, ... }:
 {
   options.flake.inputBranches = lib.mkOption {

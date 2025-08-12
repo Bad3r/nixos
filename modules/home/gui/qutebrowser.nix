@@ -1,13 +1,10 @@
-
 { lib, ... }:
 {
   flake.modules.homeManager.gui = hmArgs: {
     config = {
       programs.qutebrowser = {
         enable = true;
-
         loadAutoconfig = true;
-
         keyBindings.normal.e = "edit-url";
 
         extraConfig = ''

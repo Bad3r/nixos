@@ -1,6 +1,3 @@
-
-# modules/process-management.nix
-
 {
   flake.modules.homeManager.base =
     { pkgs, ... }:

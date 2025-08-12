@@ -1,11 +1,8 @@
-
-# Hardware-specific configuration for System76
 { config, ... }:
 {
   configurations.nixos.system76.module = { pkgs, lib, ... }: {
     # Platform configuration (required)
     nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
-    
     # System76 hardware support
     hardware.system76.enableAll = true;
     

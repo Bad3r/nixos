@@ -1,5 +1,3 @@
-
-# System76-specific packages
 { config, ... }:
 {
   configurations.nixos.system76.module = { pkgs, lib, ... }: {

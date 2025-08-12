@@ -1,4 +1,3 @@
-
 { lib, ... }:
 {
   flake.modules.homeManager.base.programs.zsh = {

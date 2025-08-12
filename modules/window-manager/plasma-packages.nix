@@ -1,4 +1,3 @@
-
 { ... }:
 {
   flake.modules.nixos.pc = { pkgs, ... }: {  # KDE applications are PC features

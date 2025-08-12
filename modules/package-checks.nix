@@ -1,6 +1,3 @@
-
-# modules/package-checks.nix
-
 { lib, ... }:
 {
   perSystem =

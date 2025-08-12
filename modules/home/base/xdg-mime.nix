@@ -1,6 +1,3 @@
-
-# modules/xdg-mime.nix
-
 {
   flake.modules.homeManager.base.xdg = {
     enable = true;

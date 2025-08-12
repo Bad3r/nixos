@@ -1,6 +1,3 @@
-
-# Nix daemon configuration
-# Enables experimental features including pipe operators
 {
   flake.modules.nixos.pc.nix = {
     # Enable experimental features system-wide

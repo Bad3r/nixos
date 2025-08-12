@@ -1,5 +1,3 @@
-
-# modules/system76/stylix.nix
 {
   configurations.nixos.system76.module = { pkgs, ... }: {
     stylix.base16Scheme = "${pkgs.base16-schemes}/share/themes/gruvbox-dark-medium.yaml";

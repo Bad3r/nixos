@@ -1,5 +1,3 @@
-# Note: This module sets up Home-Manager for the system
-
 {
   config,
   inputs,

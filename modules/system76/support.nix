@@ -1,9 +1,7 @@
-
 { ... }:
 {
   flake.modules.nixos.system76-support = { pkgs, ... }: {
     hardware.system76.enableAll = true;
-    
     environment.systemPackages = with pkgs; [
       system76-firmware
       firmware-manager

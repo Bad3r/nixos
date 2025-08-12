@@ -1,4 +1,3 @@
-
 { inputs, ... }:
 {
   flake.modules.homeManager.gui =

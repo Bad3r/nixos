@@ -1,6 +1,3 @@
-
-# modules/nix-community.nix
-
 {
   flake.modules.nixos.pc.nix.settings = {
     substituters = [ "https://nix-community.cachix.org" ];

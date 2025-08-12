@@ -1,6 +1,3 @@
-
-# modules/sudo.nix
-
 { config, ... }:
 {
   flake.modules.nixos.pc = { pkgs, ... }: {

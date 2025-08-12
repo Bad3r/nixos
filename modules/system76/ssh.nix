@@ -1,5 +1,3 @@
-# Note: This should be the actual host key from /etc/ssh/ssh_host_ed25519_key.pub
-
 { config, ... }:
 {
   configurations.nixos.system76.module = {

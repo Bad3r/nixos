@@ -1,4 +1,3 @@
-
 { lib, ... }:
 {
   # This option declaration allows modules to set flake.meta attributes

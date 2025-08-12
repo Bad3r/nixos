@@ -1,5 +1,3 @@
-
-# Documentation generation module
 { config, lib, ... }:
 {
   flake.modules.nixos.base = { pkgs, ... }: {

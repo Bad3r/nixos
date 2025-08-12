@@ -1,4 +1,3 @@
-
 { inputs, lib, ... }:
 let
   polyModule.stylix = lib.mkDefault {

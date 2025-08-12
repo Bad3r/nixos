@@ -1,4 +1,3 @@
-
 { config, lib, ... }:
 {
   flake.modules.nixos.base = { pkgs, ... }: {
@@ -7,7 +6,6 @@
     # 1. Add agenix or sops-nix to flake inputs
     # 2. Configure age/sops keys
     # 3. Set up encrypted secrets
-    
     environment.systemPackages = with pkgs; [
       age           # age encryption
       sops          # Mozilla SOPS

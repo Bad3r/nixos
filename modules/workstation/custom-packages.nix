@@ -1,4 +1,3 @@
-
 { config, lib, ... }:
 {
   # Custom packages for workstation environments

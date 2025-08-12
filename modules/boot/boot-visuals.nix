@@ -1,6 +1,3 @@
-
-# modules/boot/boot-visuals.nix
-# Boot visuals configuration following golden standard
 {
   flake.modules.nixos = {
     base = {

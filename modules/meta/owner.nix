@@ -1,4 +1,3 @@
-
 { lib, ... }:
 {
   # Define all metadata used throughout the configuration

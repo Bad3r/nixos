@@ -1,0 +1,58 @@
+[0;34m=== Dendritic Pattern Compliance Test ===[0m
+
+Checking flake.nix configuration...
+[0;32m✓[0m abort-on-warn is set to true
+[0;32m✓[0m Pipe operators in flake.nix
+
+Checking scripts for pipe operators...
+[0;31m✗[0m add-module-headers.sh: Missing pipe operators configuration
+[0;32m✓[0m build.sh has pipe operators
+[0;32m✓[0m final-boot-check.sh has pipe operators
+[0;32m✓[0m generate-dependency-graph.sh has pipe operators
+[0;31m✗[0m simplify-headers.sh: Missing pipe operators configuration
+[0;32m✓[0m test-build.sh has pipe operators
+[0;31m✗[0m test-named-modules.sh: Missing pipe operators configuration
+[0;32m✓[0m verify-boot-config.sh has pipe operators
+
+Checking host configuration pattern...
+[0;31m✗[0m Host configuration: Wrong pattern - should use configurations.nixos.system76.module
+
+Checking for literal path imports...
+[0;31m✗[0m Imports: Found 2 literal path imports
+  Files with literal imports:
+modules/meta/generation-manager.nix
+modules/meta/git-hooks.nix
+
+Checking import-tree usage...
+[0;32m✓[0m Using import-tree for module loading
+
+Checking state version...
+grep: modules/hosts/system76/: No such file or directory
+[0;31m✗[0m State version: Should be hardcoded, not from metadata
+
+Checking namespace structure...
+[1;33m⚠[0m Desktop namespace removed (was not necessary to remove)
+
+Checking namespace consistency...
+  nix-package.nix: Wrong namespace for base/
+  nix-settings.nix: Wrong namespace for base/
+  flake.modules.nixos.workstation = { pkgs, ... }: {
+[1;33m⚠[0m Found 2 modules with questionable namespaces
+
+Checking override patterns...
+[1;33m⚠[0m Found 15 mkForce uses - consider using mkDefault
+
+Testing build (dry-run)...
+[0;31m✗[0m Build test: Configuration fails to build or timed out
+
+======================================
+       COMPLIANCE REPORT              
+======================================
+[0;32mPassed:[0m 8
+[1;33mWarnings:[0m 3
+[0;31mFailed:[0m 7
+
+Compliance Score: 53/100
+[0;31m✗ NOT COMPLIANT[0m
+
+Critical issues found. Fix failures above before proceeding.

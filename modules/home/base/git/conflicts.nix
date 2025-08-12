@@ -1,4 +1,3 @@
-
 {
   flake.modules.homeManager.base.programs.git = {
     extraConfig = {

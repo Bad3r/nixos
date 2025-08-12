@@ -1,7 +1,3 @@
-
-# modules/pinentry.nix
-# mirror: https://github.com/gpg/pinentry
-
 { lib, ... }:
 {
   flake.modules.homeManager = {

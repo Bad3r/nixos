@@ -1,6 +1,3 @@
-
-# modules/video-player.nix
-
 {
   flake.modules.homeManager.gui = { pkgs, config, ... }: {
     programs.mpv = {

@@ -1,6 +1,3 @@
-
-# modules/editor.nix
-
 {
   flake.modules.nixos.pc.programs = {
     neovim = {

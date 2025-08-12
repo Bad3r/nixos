@@ -1,10 +1,7 @@
-
-# Development shell for NixOS configuration
 { inputs, ... }:
 {
   # Configure treefmt
   imports = [ inputs.treefmt-nix.flakeModule ];
-  
   perSystem = { pkgs, config, ... }: {
     devShells.default = pkgs.mkShell {
       packages = with pkgs; [

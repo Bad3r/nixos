@@ -1,0 +1,3 @@
+Phase 1.1 Summary: nvidia-gpu.nix already matches golden standard pattern
+- nixpkgs.allowedUnfreePackages correctly placed outside namespace (per golden standard)
+- No changes required

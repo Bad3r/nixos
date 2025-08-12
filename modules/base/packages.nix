@@ -1,5 +1,3 @@
-# Priority: All packages use mkDefault for easy override
-
 { lib, ... }:
 {
   flake.modules.nixos.base = { pkgs, ... }: {

@@ -1,13 +1,9 @@
-
-# Comprehensive testing infrastructure for all modules
-# Based on golden standard (mightyiam/infra) testing patterns
 { config, lib, pkgs, ... }:
 let
   # Helper to validate module namespaces
   validateNamespace = module: namespace:
     assert lib.hasAttrByPath ["flake" "modules" "nixos" namespace] config;
     true;
-    
   # Ensure no desktop namespace exists
   assertNoDesktopNamespace = 
     assert !(lib.hasAttrByPath ["flake" "modules" "nixos" "desktop"] config);

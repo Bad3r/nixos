@@ -1,5 +1,3 @@
-# Priority: Uses mkDefault for overrideable values
-
 { lib, ... }:
 {
   flake.modules.nixos.pc = { pkgs, ... }: {

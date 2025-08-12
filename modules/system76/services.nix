@@ -1,5 +1,3 @@
-
-# Service configurations for System76
 { config, ... }:
 {
   configurations.nixos.system76.module = { pkgs, lib, ... }: {

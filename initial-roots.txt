@@ -1,0 +1,11 @@
+/home/vx/.cache/nix/flake-registry.json -> /nix/store/pc6y12ccrlvmgfbp0rs34cbj8mbsyyvk-flake-registry.json
+/home/vx/.local/state/home-manager/gcroots/current-home -> /nix/store/v4576k6m9xccdcvnvijhyim31hk7knny-home-manager-generation
+/home/vx/.local/state/nix/profiles/home-manager-28-link -> /nix/store/fm879xl1nnii0xzsfjsbyr5n079zh0d6-home-manager-generation
+/home/vx/.local/state/nix/profiles/profile-2-link -> /nix/store/z80zzw7nj50yzihckd793q7lwc9sw3qb-profile
+/home/vx/git/infra/.pre-commit-config.yaml -> /nix/store/2iw89f6bg9sy78sb9inw0i4mqcgb85iz-pre-commit-config.json
+/home/vx/nixos/result -> /nix/store/fkmzba2bq8j4ff0xzfwakl74qg6q5py3-generation-manager
+/nix/var/nix/profiles/per-user/root/channels-1-link -> /nix/store/3wbb0lvrjhvhqby7lsbi7faf2bsch6s4-nixos-24.11.716947.26d499fc9f1d
+/nix/var/nix/profiles/system-107-link -> /nix/store/2xhaps7h28przwmmvb8s3a926ydryw1y-nixos-system-system76-25.11.20250806.c2ae88e
+/root/.cache/nix/flake-registry.json -> /nix/store/pc6y12ccrlvmgfbp0rs34cbj8mbsyyvk-flake-registry.json
+/run/booted-system -> /nix/store/xk5n2pix7f0sllq8fcx7rz6sb5jc9srd-nixos-system-system76-25.11.20250806.c2ae88e
+/run/current-system -> /nix/store/2xhaps7h28przwmmvb8s3a926ydryw1y-nixos-system-system76-25.11.20250806.c2ae88e

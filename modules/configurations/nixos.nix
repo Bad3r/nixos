@@ -1,4 +1,3 @@
-
 { lib, config, ... }:
 {
   options.configurations.nixos = lib.mkOption {

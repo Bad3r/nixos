@@ -1,10 +1,8 @@
-
 { lib, config, ... }:
 {
   flake.modules.nixos.pc = { pkgs, ... }: {
     # Note: Individual application configurations are in home-manager modules
     # This module provides system-level PC applications
-    
     # PC applications
     environment.systemPackages = with pkgs; lib.mkDefault [
       # Web browsers

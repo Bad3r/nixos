@@ -1,7 +1,3 @@
-
-# modules/xdg-dirs.nix
-# https://gitlab.freedesktop.org/xdg
-
 {
   flake.modules.homeManager.base =
     { config, ... }:

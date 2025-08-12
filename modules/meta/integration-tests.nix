@@ -1,12 +1,8 @@
-
-# Comprehensive integration tests for entire configuration
-# Tests system-wide Dendritic Pattern compliance
 { config, lib, pkgs, ... }:
 let
   # VM test for full system validation
   dendriticPatternTest = pkgs.nixosTest {
     name = "dendritic-pattern-compliance";
-    
     nodes.machine = { ... }: {
       imports = [ config.flake.nixosConfigurations.system76 ];
       

@@ -1,5 +1,3 @@
-# Note: User-level GUI tools are in home/gui/audio/pipewire-gui.nix
-
 { lib, ... }:
 {
   flake.modules.nixos.pc = {
