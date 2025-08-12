@@ -1,7 +1,3 @@
-# Module: home/base/xdg-mime.nix
-# Purpose: Xdg Mime configuration
-# Namespace: flake.modules.homeManager.base
-# Pattern: Home Manager base - CLI and terminal environment
 
 # modules/xdg-mime.nix
 

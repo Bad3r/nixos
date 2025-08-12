@@ -1,4 +1,3 @@
-# storage-redundancy.nix - Storage and filesystem
 
 { lib, ... }:
 {

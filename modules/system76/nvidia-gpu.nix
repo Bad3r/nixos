@@ -1,7 +1,3 @@
-# Module: system76/nvidia-gpu.nix
-# Purpose: NVIDIA GPU support with proprietary drivers and PRIME synchronization
-# Namespace: flake.modules.configurations
-# Pattern: Host configuration - System-specific settings and hardware
 # Note: Requires NVIDIA hardware - use specialisation for conditional activation
 
 # Host-specific NVIDIA configuration for system76

@@ -1,4 +1,3 @@
-# efi.nix - UEFI boot support
 
 {
   flake.modules = {

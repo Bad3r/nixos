@@ -1,4 +1,3 @@
-# pc.nix - Personal computer configuration
 
 { config, ... }:
 {

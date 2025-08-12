@@ -1,4 +1,3 @@
-# secrets.nix - Secrets
 
 { config, lib, ... }:
 {

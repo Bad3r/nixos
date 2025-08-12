@@ -1,4 +1,3 @@
-# docker.nix - Docker containerization platform
 
 { config, ... }:
 {

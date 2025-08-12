@@ -1,8 +1,3 @@
-# Module: meta/owner.nix
-# Purpose: Central metadata configuration for owner and system settings
-# Namespace: flake.meta
-# Pattern: Defines all configurable values used throughout the configuration
-# Dependencies: meta/flake-output.nix (declares the option)
 
 { lib, ... }:
 {

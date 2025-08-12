@@ -1,7 +1,3 @@
-# Module: meta/integration-tests.nix
-# Purpose: Network configuration and management
-# Namespace: flake.modules.nixos.base
-# Pattern: Base system configuration - Required by all NixOS systems
 
 # Comprehensive integration tests for entire configuration
 # Tests system-wide Dendritic Pattern compliance

@@ -1,7 +1,3 @@
-# Module: meta/generation-manager.nix
-# Purpose: System generation management tool with dry-run support
-# Namespace: perSystem packages
-# Pattern: Golden standard tooling
 # Reference: Based on mightyiam/infra pattern with enhancements
 
 { lib, config, ... }:

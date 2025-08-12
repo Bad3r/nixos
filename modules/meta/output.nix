@@ -1,4 +1,3 @@
-# output.nix - Placeholder for meta output configuration - option already defined in owner.nix
 
 { ... }:
 {

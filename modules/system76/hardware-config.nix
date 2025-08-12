@@ -1,7 +1,3 @@
-# Module: system76/hardware-config.nix
-# Purpose: Hardware Config configuration
-# Namespace: flake.modules.configurations
-# Pattern: Host configuration - System-specific settings and hardware
 
 # Hardware-specific configuration for System76
 { config, ... }:

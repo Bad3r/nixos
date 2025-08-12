@@ -1,7 +1,3 @@
-# Module: pc/sudo.nix
-# Purpose: Sudo and privilege escalation configuration
-# Namespace: flake.modules.nixos.pc
-# Pattern: Personal computer configuration - Extends base for desktop systems
 
 # modules/sudo.nix
 

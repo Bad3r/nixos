@@ -1,4 +1,3 @@
-# nix-ld.nix - Nix Ld
 
 { ... }:
 {

@@ -1,6 +1,3 @@
-# Module: packages.nix
-# Purpose: Essential system packages for all configurations
-# Namespace: flake.modules.nixos.base
 # Priority: All packages use mkDefault for easy override
 
 { lib, ... }:

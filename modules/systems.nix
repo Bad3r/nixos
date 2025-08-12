@@ -1,4 +1,3 @@
-# systems.nix - Systems
 
 {
   systems = [

@@ -1,7 +1,3 @@
-# Module: home/base/file-management/eza.nix
-# Purpose: Git version control configuration
-# Namespace: flake.modules.homeManager.base
-# Pattern: Home Manager base - CLI and terminal environment
 
 { lib, ... }:
 {

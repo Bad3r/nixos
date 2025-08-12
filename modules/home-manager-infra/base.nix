@@ -1,7 +1,3 @@
-# Module: home-manager-infra/base.nix
-# Purpose: Base configuration
-# Namespace: flake.modules.homeManager.base
-# Pattern: Home Manager base - CLI and terminal environment
 
 { config, ... }:
 {

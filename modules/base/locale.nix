@@ -1,7 +1,3 @@
-# Module: locale.nix
-# Purpose: Timezone and locale configuration
-# Namespace: flake.modules.nixos.base (should be in base, not separate)
-# Pattern: Uses metadata for configuration values
 
 { config, ... }:
 let

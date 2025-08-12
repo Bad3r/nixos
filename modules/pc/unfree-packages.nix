@@ -1,7 +1,3 @@
-# Module: pc/unfree-packages.nix
-# Purpose: System and user package configuration
-# Namespace: flake.modules.meta
-# Pattern: Metadata configuration - System-wide settings and values
 
 # modules/unfree-packages.nix
 

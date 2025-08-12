@@ -1,7 +1,3 @@
-# Module: home/base/xdg-dirs.nix
-# Purpose: Git version control configuration
-# Namespace: flake.modules.homeManager.base
-# Pattern: Home Manager base - CLI and terminal environment
 
 # modules/xdg-dirs.nix
 # https://gitlab.freedesktop.org/xdg

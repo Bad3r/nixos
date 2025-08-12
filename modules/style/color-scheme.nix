@@ -1,7 +1,3 @@
-# Module: style/color-scheme.nix
-# Purpose: Git version control configuration
-# Namespace: flake.modules.nixos.style
-# Pattern: Styling configuration - System-wide theming and appearance
 
 { inputs, lib, ... }:
 let

@@ -1,7 +1,3 @@
-# Module: home/gui/audio/sink-rotate.nix
-# Purpose: System and user package configuration
-# Namespace: flake.modules.homeManager.base
-# Pattern: Home Manager base - CLI and terminal environment
 
 { lib, withSystem, ... }:
 {

@@ -1,7 +1,3 @@
-# Module: custom-packages.nix
-# Purpose: Custom package definitions and overrides for workstation
-# Pattern: Extends workstation namespace as these are developer tools
-# Dependencies: None
 
 { config, lib, ... }:
 {

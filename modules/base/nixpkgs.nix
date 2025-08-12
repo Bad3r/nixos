@@ -1,6 +1,3 @@
-# Module: nixpkgs.nix
-# Purpose: Configure nixpkgs path for legacy nix commands
-# Namespace: flake.modules.nixos.base
 # Priority: Default values that can be overridden
 
 {

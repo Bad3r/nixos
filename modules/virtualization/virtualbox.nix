@@ -1,4 +1,3 @@
-# virtualbox.nix - VirtualBox virtualization
 
 { config, ... }:
 {

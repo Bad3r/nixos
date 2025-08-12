@@ -1,7 +1,3 @@
-# Module: base/users.nix
-# Purpose: Centralized user configuration for the system owner
-# Namespace: flake.modules.nixos.base
-# Pattern: Single source of truth for user account configuration
 
 { config, lib, ... }:
 {

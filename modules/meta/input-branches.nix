@@ -1,4 +1,3 @@
-# input-branches.nix - Manage flake input branches and patches
 
 { lib, config, inputs, ... }:
 {

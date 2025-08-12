@@ -1,6 +1,3 @@
-# Module: home-manager-setup.nix  
-# Purpose: Home-Manager configuration for all systems
-# Pattern: Extends base namespace as it's needed by all systems
 # Note: This module sets up Home-Manager for the system
 
 {

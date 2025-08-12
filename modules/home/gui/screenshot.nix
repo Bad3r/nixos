@@ -1,7 +1,3 @@
-# Module: home/gui/screenshot.nix
-# Purpose: Screenshot configuration for both Wayland and X11
-# Namespace: flake.modules.homeManager.gui
-# Pattern: Home Manager GUI - Graphical application configuration
 
 {
   flake.modules.homeManager.gui =

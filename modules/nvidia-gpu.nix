@@ -1,4 +1,3 @@
-# nvidia-gpu.nix - NVIDIA GPU support
 
 {
   flake.modules.nixos.nvidia-gpu = {

@@ -1,7 +1,3 @@
-# Module: boot-storage.nix
-# Purpose: Configure boot partitions and filesystems for redundancy
-# Namespace: flake.modules.nixos.base
-# Dependencies: storage-redundancy configuration
 
 { lib, ... }:
 {

@@ -1,4 +1,3 @@
-# workstation.nix - Development workstation configuration
 
 { config, ... }:
 {

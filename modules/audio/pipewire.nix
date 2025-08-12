@@ -1,7 +1,3 @@
-# Module: pipewire.nix
-# Purpose: System-level PipeWire audio configuration
-# Namespace: flake.modules.nixos.pc
-# Dependencies: None
 # Note: User-level GUI tools are in home/gui/audio/pipewire-gui.nix
 
 { lib, ... }:

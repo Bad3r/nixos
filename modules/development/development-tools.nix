@@ -1,4 +1,3 @@
-# development-tools.nix - Docker containerization platform
 
 { lib, config, ... }:
 let

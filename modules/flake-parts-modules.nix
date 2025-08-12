@@ -1,4 +1,3 @@
-# flake-parts-modules.nix - Flake Parts Modules
 
 { inputs, ... }:
 {

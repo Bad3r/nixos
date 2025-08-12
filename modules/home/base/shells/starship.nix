@@ -1,7 +1,3 @@
-# Module: home/base/shells/starship.nix
-# Purpose: Docker containerization platform configuration
-# Namespace: flake.modules.homeManager.base
-# Pattern: Home Manager base - CLI and terminal environment
 
 {
   flake.modules.homeManager.base.programs.starship = {

@@ -1,7 +1,3 @@
-# Module: home/gui/zsh-window-titles.nix
-# Purpose: Shell environment and configuration
-# Namespace: flake.modules.homeManager.gui
-# Pattern: Home Manager GUI - Graphical application configuration
 
 # modules/window-titles.nix
 

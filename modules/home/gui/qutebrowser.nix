@@ -1,7 +1,3 @@
-# Module: home/gui/qutebrowser.nix
-# Purpose: Qutebrowser configuration
-# Namespace: flake.modules.homeManager.gui
-# Pattern: Home Manager GUI - Graphical application configuration
 
 { lib, ... }:
 {

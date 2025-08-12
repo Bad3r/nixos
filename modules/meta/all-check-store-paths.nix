@@ -1,7 +1,3 @@
-# Module: meta/all-check-store-paths.nix
-# Purpose: Network configuration and management
-# Namespace: flake.modules.nixos.base
-# Pattern: Base system configuration - Required by all NixOS systems
 
 # Comprehensive testing infrastructure for all modules
 # Based on golden standard (mightyiam/infra) testing patterns

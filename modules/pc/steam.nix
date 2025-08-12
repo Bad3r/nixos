@@ -1,4 +1,3 @@
-# steam.nix - Steam gaming platform
 
 {
   nixpkgs.allowedUnfreePackages = [

@@ -1,6 +1,3 @@
-# Module: system76/ssh.nix
-# Purpose: Host-specific SSH public key for system76
-# Pattern: This is the HOST's SSH public key, not user's authorized_keys
 # Note: This should be the actual host key from /etc/ssh/ssh_host_ed25519_key.pub
 
 { config, ... }:

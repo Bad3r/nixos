@@ -1,4 +1,3 @@
-# git-hooks.nix - Git version control
 
 { inputs, lib, ... }:
 {

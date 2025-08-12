@@ -1,7 +1,3 @@
-# Module: audio-pipewire.nix
-# Purpose: PC-specific audio configuration and tools
-# Namespace: flake.modules.nixos.pc
-# Dependencies: Assumes base PipeWire is configured in pc namespace
 # Priority: Uses mkDefault for overrideable values
 
 { lib, ... }:

@@ -1,6 +1,3 @@
-# Module: meta/flake-output.nix
-# Purpose: Declare the flake.meta option for flake-parts
-# Pattern: Required for flake-parts to allow the flake.meta namespace
 
 { lib, ... }:
 {

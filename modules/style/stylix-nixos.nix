@@ -1,7 +1,3 @@
-# Module: stylix-nixos.nix
-# Purpose: NixOS-level stylix theming configuration
-# Namespace: flake.modules.nixos.base
-# Dependencies: inputs.stylix
 # Note: This only handles system-level theming, Home-Manager theming is separate
 
 { inputs, lib, ... }:

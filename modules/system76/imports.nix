@@ -1,6 +1,3 @@
-# Module: system76/imports.nix
-# Purpose: Define import chain for System76 host configuration
-# Pattern: Host-specific module composition
 # Import chain: workstation (includes pc→base) + nvidia-gpu
 
 { config, lib, ... }:

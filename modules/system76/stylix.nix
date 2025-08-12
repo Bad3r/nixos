@@ -1,7 +1,3 @@
-# Module: system76/stylix.nix
-# Purpose: Font configuration and management
-# Namespace: flake.modules.configurations
-# Pattern: Host configuration - System-specific settings and hardware
 
 # modules/system76/stylix.nix
 {

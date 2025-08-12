@@ -1,7 +1,3 @@
-# Module: home/gui/audio/volume.nix
-# Purpose: Volume configuration
-# Namespace: flake.modules.homeManager.gui
-# Pattern: Home Manager GUI - Graphical application configuration
 
 { lib, ... }:
 {

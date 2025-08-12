@@ -1,7 +1,3 @@
-# Module: window-manager/kde-packages.nix
-# Purpose: Kde Packages configuration
-# Namespace: flake.modules.nixos.pc
-# Pattern: Personal computer configuration - Extends base for desktop systems
 
 { config, ... }:
 {

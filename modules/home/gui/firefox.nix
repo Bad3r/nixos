@@ -1,7 +1,3 @@
-# Module: home/gui/firefox.nix
-# Purpose: Firefox configuration
-# Namespace: flake.modules.homeManager.gui
-# Pattern: Home Manager GUI - Graphical application configuration
 
 {
   flake.modules.homeManager.gui = {

@@ -1,4 +1,3 @@
-# security-tools.nix - Network configuration and management
 
 { config, lib, ... }:
 {

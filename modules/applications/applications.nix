@@ -1,4 +1,3 @@
-# applications.nix - PC GUI applications
 
 { lib, config, ... }:
 {

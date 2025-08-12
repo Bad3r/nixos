@@ -1,7 +1,3 @@
-# Module: system76/users.nix
-# Purpose: Docker containerization platform configuration
-# Namespace: flake.modules.configurations
-# Pattern: Host configuration - System-specific settings and hardware
 
 # User configuration for System76
 { config, ... }:

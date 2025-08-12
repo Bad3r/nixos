@@ -1,7 +1,3 @@
-# Module: style/opacity.nix
-# Purpose: Opacity configuration
-# Namespace: flake.modules.nixos.style
-# Pattern: Styling configuration - System-wide theming and appearance
 
 { lib, ... }:
 let

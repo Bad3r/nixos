@@ -1,4 +1,3 @@
-# networking.nix - Network configuration and management
 
 {
   flake.modules = {

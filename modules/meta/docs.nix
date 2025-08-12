@@ -1,8 +1,3 @@
-# Module: meta/docs.nix
-# Purpose: Network configuration and management
-# Namespace: flake.modules.nixos.base
-# Pattern: Base system configuration - Required by all NixOS systems
-# Dependencies: config.flake.modules.nixos or {}),
 
 # Documentation generation module
 { config, lib, ... }:
