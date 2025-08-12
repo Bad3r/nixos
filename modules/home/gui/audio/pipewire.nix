@@ -1,5 +1,3 @@
-# Note: System-level PipeWire config is in pc/pipewire.nix
-
 { lib, ... }:
 {
   flake.modules.homeManager.gui = { pkgs, ... }: {

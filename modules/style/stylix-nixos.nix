@@ -1,5 +1,3 @@
-# Note: This only handles system-level theming, Home-Manager theming is separate
-
 { inputs, lib, ... }:
 {
   flake.modules.nixos.base = {

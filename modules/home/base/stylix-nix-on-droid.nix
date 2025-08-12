@@ -1,5 +1,3 @@
-# Note: Specific to Nix-on-Droid environments
-
 { inputs, lib, ... }:
 {
   flake.modules.nixOnDroid.base = {

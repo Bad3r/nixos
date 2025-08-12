@@ -1,5 +1,3 @@
-# Reference: Based on mightyiam/infra pattern with enhancements
-
 { lib, config, ... }:
 {
   perSystem = { system, pkgs, ... }: {
