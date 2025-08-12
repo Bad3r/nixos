@@ -1,3 +1,8 @@
+# Module: home/gui/qutebrowser.nix
+# Purpose: Qutebrowser configuration
+# Namespace: flake.modules.homeManager.gui
+# Pattern: Home Manager GUI - Graphical application configuration
+
 { lib, ... }:
 {
   flake.modules.homeManager.gui = hmArgs: {
@@ -15,12 +20,14 @@
         '';
 
         settings = {
-          # TODO: Configure editor command when guiEditorCommand is available
-          # editor.command = [
-          #   hmArgs.config.guiEditorCommand
-          #   "{file}"
-          #   "+{line}"
-          # ];
+          # Editor command - uses system default editor
+          editor.command = [
+            "kitty"
+            "-e"
+            "nvim"
+            "{file}"
+            "+{line}"
+          ];
           tabs.tabs_are_windows = true;
 
           auto_save.session = true;

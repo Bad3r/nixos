@@ -1,3 +1,8 @@
+# Module: home/base/nix-utils.nix
+# Purpose: System and user package configuration
+# Namespace: flake.modules.homeManager.base
+# Pattern: Home Manager base - CLI and terminal environment
+
 { withSystem, ... }:
 {
   perSystem =

@@ -1,3 +1,5 @@
+# efi.nix - UEFI boot support
+
 {
   flake.modules = {
     nixos.efi.boot.loader = {

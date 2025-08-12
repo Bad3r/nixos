@@ -1,7 +1,4 @@
-# Module: applications.nix  
-# Purpose: PC GUI applications
-# Namespace: flake.modules.nixos.pc
-# Priority: Uses mkDefault for all packages
+# applications.nix - PC GUI applications
 
 { lib, config, ... }:
 {

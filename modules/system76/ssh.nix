@@ -6,8 +6,8 @@
 { config, ... }:
 {
   configurations.nixos.system76.module = {
-    # TODO: Replace with actual host SSH public key from the system
-    # This is used for SSH known_hosts entries
-    services.openssh.publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHj4fDeDKrAatG6IW5aEgA4ym8l+hj/r7Upeos11Gqu5 bad3r@unsigned.sh";
+    # This is the host's SSH public key from /etc/ssh/ssh_host_ed25519_key.pub
+    # Used for SSH known_hosts entries
+    services.openssh.publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBexeVWyByGvdIKyr6A5B71MKquyPCvdgyhP8DMrNmHm root@system76";
   };
 }

@@ -1,4 +1,4 @@
-# modules/systems.nix
+# systems.nix - Systems
 
 {
   systems = [

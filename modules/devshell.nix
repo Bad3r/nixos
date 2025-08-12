@@ -1,3 +1,9 @@
+# Module: devshell.nix
+# Purpose: System and user package configuration
+# Namespace: flake.modules.perSystem
+# Pattern: Per-system configuration - Architecture-specific packages and tools
+# Dependencies: inputs.treefmt-nix.flakeModule ,
+
 # Development shell for NixOS configuration
 { inputs, ... }:
 {

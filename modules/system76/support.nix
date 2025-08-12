@@ -1,3 +1,8 @@
+# Module: system76/support.nix
+# Purpose: Support configuration
+# Namespace: flake.modules.nixos.system76-support
+# Pattern: Hardware configuration module
+
 { ... }:
 {
   flake.modules.nixos.system76-support = { pkgs, ... }: {

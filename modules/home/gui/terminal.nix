@@ -1,3 +1,8 @@
+# Module: home/gui/terminal.nix
+# Purpose: System and user package configuration
+# Namespace: flake.modules.homeManager.gui
+# Pattern: Home Manager GUI - Graphical application configuration
+
 { lib, ... }:
 {
   flake.modules.homeManager = {
@@ -25,8 +30,7 @@
           withTitle = cmd: "${config.terminal.path} --title ${cmd} ${cmd}";
         };
 
-        # Ghostty is not yet in home-manager
-        # TODO: Add ghostty when available
+        # Note: Ghostty terminal will be added when it becomes available in nixpkgs
         programs.kitty = {
           enable = true;
           # theme option changed to themeFile in newer versions

@@ -1,3 +1,8 @@
+# Module: home/gui/mpv.nix
+# Purpose: Home Manager user environment configuration
+# Namespace: flake.modules.homeManager.gui
+# Pattern: Home Manager GUI - Graphical application configuration
+
 # modules/video-player.nix
 
 {
@@ -52,8 +57,7 @@
       ];
     };
     
-    # TODO: Move to separate folder/file?
-    # Add Lua script to block images
+    # Lua script to prevent mpv from opening image files
     home.file."${config.xdg.configHome}/mpv/scripts/block-images.lua".text = ''
       local blocked_extensions = {
         jpg = true, jpeg = true, png = true,

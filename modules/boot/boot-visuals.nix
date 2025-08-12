@@ -1,3 +1,8 @@
+# Module: boot/boot-visuals.nix
+# Purpose: Boot Visuals configuration
+# Namespace: flake.modules.nixos.boot
+# Pattern: Boot configuration - System initialization and bootloader
+
 # modules/boot/boot-visuals.nix
 # Boot visuals configuration following golden standard
 {

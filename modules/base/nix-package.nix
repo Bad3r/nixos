@@ -1,3 +1,8 @@
+# Module: base/nix-package.nix
+# Purpose: Nix Package configuration
+# Namespace: flake.modules.nixos
+# Pattern: Package and program configuration
+
 { lib, ... }:
 let
   polyModule =

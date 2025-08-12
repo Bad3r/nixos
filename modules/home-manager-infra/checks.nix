@@ -1,3 +1,9 @@
+# Module: home-manager-infra/checks.nix
+# Purpose: Home Manager user environment configuration
+# Namespace: flake.modules.perSystem
+# Pattern: Per-system configuration - Architecture-specific packages and tools
+# Dependencies: config.flake.modules.homeManager,config.flake.modules.homeManager,
+
 {
   config,
   lib,

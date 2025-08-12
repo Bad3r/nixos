@@ -1,3 +1,8 @@
+# Module: pc/pinentry.nix
+# Purpose: Git version control configuration
+# Namespace: flake.modules.nixos.pc
+# Pattern: Personal computer configuration - Extends base for desktop systems
+
 # modules/pinentry.nix
 # mirror: https://github.com/gpg/pinentry
 

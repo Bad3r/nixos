@@ -1,3 +1,8 @@
+# Module: system76/services.nix
+# Purpose: Services configuration
+# Namespace: flake.modules.configurations
+# Pattern: Host configuration - System-specific settings and hardware
+
 # Service configurations for System76
 { config, ... }:
 {

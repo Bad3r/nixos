@@ -1,3 +1,5 @@
+# storage-redundancy.nix - Storage and filesystem
+
 { lib, ... }:
 {
   flake.modules.nixos.base =

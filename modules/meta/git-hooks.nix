@@ -1,4 +1,5 @@
-# Pre-commit hooks for dendritic pattern compliance
+# git-hooks.nix - Git version control
+
 { inputs, lib, ... }:
 {
   imports = lib.optional (inputs ? git-hooks) inputs.git-hooks.flakeModule;

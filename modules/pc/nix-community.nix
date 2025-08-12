@@ -1,3 +1,8 @@
+# Module: pc/nix-community.nix
+# Purpose: Nix Community configuration
+# Namespace: flake.modules.nixos.pc
+# Pattern: Personal computer configuration - Extends base for desktop systems
+
 # modules/nix-community.nix
 
 {

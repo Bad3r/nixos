@@ -1,3 +1,5 @@
+# swap.nix - Swap space configuration
+
 {
   flake.modules.nixos.swap =  # Swap is optional storage (not all systems need it)
     { config, ... }:

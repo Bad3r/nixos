@@ -1,3 +1,5 @@
+# docker.nix - Docker containerization platform
+
 { config, ... }:
 {
   flake.modules.nixos.workstation = {

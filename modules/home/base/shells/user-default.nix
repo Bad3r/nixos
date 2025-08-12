@@ -1,3 +1,8 @@
+# Module: home/base/shells/user-default.nix
+# Purpose: Shell environment and configuration
+# Namespace: flake.modules.homeManager.base
+# Pattern: Home Manager base - CLI and terminal environment
+
 { lib, ... }:
 {
   flake.modules = {

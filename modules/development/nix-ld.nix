@@ -1,3 +1,5 @@
+# nix-ld.nix - Nix Ld
+
 { ... }:
 {
   flake.modules.nixos.workstation = { pkgs, ... }: {

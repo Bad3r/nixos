@@ -1,3 +1,8 @@
+# Module: home/base/file-management/archives.nix
+# Purpose: System and user package configuration
+# Namespace: flake.modules.homeManager.base
+# Pattern: Home Manager base - CLI and terminal environment
+
 { lib, ... }:
 {
   flake.modules.homeManager.base =

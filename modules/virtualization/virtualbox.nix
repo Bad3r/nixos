@@ -1,3 +1,5 @@
+# virtualbox.nix - VirtualBox virtualization
+
 { config, ... }:
 {
   flake.modules.nixos.workstation = {

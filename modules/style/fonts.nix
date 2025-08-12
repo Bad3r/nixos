@@ -1,3 +1,8 @@
+# Module: style/fonts.nix
+# Purpose: System and user package configuration
+# Namespace: flake.modules.nixos.style
+# Pattern: Styling configuration - System-wide theming and appearance
+
 { lib, ... }:
 let
   polyModule =

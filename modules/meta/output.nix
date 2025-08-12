@@ -1,6 +1,4 @@
-# Module: meta/output.nix
-# Purpose: Placeholder for meta output configuration - option already defined in owner.nix
-# This module can be used for additional meta-related functionality if needed
+# output.nix - Placeholder for meta output configuration - option already defined in owner.nix
 
 { ... }:
 {

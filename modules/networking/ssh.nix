@@ -1,3 +1,5 @@
+# ssh.nix - OpenSSH server configuration with security hardening
+
 { lib, config, ... }:
 let
   reachableNixoss =

@@ -1,3 +1,8 @@
+# Module: window-manager/plasma.nix
+# Purpose: KDE Plasma desktop environment configuration
+# Namespace: flake.modules.nixos.pc
+# Pattern: Personal computer configuration - Extends base for desktop systems
+
 # KDE Plasma Desktop Configuration (Simplified)
 { config, lib, ... }:
 {

@@ -4,9 +4,9 @@
 # Pattern: Golden standard tooling
 # Reference: Based on mightyiam/infra pattern with enhancements
 
-{ lib, pkgs, config, ... }:
+{ lib, config, ... }:
 {
-  perSystem = { system, ... }: {
+  perSystem = { system, pkgs, ... }: {
     packages.generation-manager = pkgs.writeShellApplication {
       name = "generation-manager";
       runtimeInputs = with pkgs; [ 
@@ -40,25 +40,25 @@
         }
         
         print_help() {
-          cat <<-HELP
-          ''${BLUE}Generation Manager - NixOS generation management tool''${NC}
-          
-          Usage: generation-manager <command> [args]
-          
-          Commands:
-            ''${GREEN}list''${NC}              List all system generations
-            ''${GREEN}clean [N]''${NC}         Keep only N most recent generations (default: 5)
-            ''${GREEN}switch <host>''${NC}     Switch to configuration for host
-            ''${GREEN}rollback [N]''${NC}      Rollback N generations (default: 1)
-            ''${GREEN}diff <g1> <g2>''${NC}    Compare two generations
-            ''${GREEN}current''${NC}           Show current generation info
-            ''${GREEN}gc''${NC}                Garbage collect after cleaning
-            ''${GREEN}score''${NC}             Calculate Dendritic Pattern compliance score
-            ''${GREEN}info <gen>''${NC}        Show detailed info about a generation
-          
-          Environment:
-            ''${YELLOW}DRY_RUN=true''${NC}      Show what would be done without doing it
-          HELP
+          cat <<HELP
+''${BLUE}Generation Manager - NixOS generation management tool''${NC}
+
+Usage: generation-manager <command> [args]
+
+Commands:
+  ''${GREEN}list''${NC}              List all system generations
+  ''${GREEN}clean [N]''${NC}         Keep only N most recent generations (default: 5)
+  ''${GREEN}switch <host>''${NC}     Switch to configuration for host
+  ''${GREEN}rollback [N]''${NC}      Rollback N generations (default: 1)
+  ''${GREEN}diff <g1> <g2>''${NC}    Compare two generations
+  ''${GREEN}current''${NC}           Show current generation info
+  ''${GREEN}gc''${NC}                Garbage collect after cleaning
+  ''${GREEN}score''${NC}             Calculate Dendritic Pattern compliance score
+  ''${GREEN}info <gen>''${NC}        Show detailed info about a generation
+
+Environment:
+  ''${YELLOW}DRY_RUN=true''${NC}      Show what would be done without doing it
+HELP
         }
         
         case "''${1:-help}" in
@@ -121,7 +121,7 @@
           rollback)
             gens="''${2:-1}"
             echo -e "''${YELLOW}Rolling back $gens generation(s)...''${NC}"
-            for i in $(seq 1 $gens); do
+            for _ in $(seq 1 "$gens"); do
               execute_cmd "nixos-rebuild switch --rollback"
             done
             ;;

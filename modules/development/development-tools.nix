@@ -1,3 +1,5 @@
+# development-tools.nix - Docker containerization platform
+
 { lib, config, ... }:
 let
   username = config.flake.meta.owner.username;

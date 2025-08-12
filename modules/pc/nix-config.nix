@@ -1,3 +1,8 @@
+# Module: pc/nix-config.nix
+# Purpose: Nix Config configuration
+# Namespace: flake.modules.nixos.pc
+# Pattern: Personal computer configuration - Extends base for desktop systems
+
 # Nix daemon configuration
 # Enables experimental features including pipe operators
 {

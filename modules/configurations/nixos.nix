@@ -1,3 +1,8 @@
+# Module: configurations/nixos.nix
+# Purpose: Nixos configuration
+# Namespace: flake.modules.nixos
+# Pattern: System configuration module
+
 { lib, config, ... }:
 {
   options.configurations.nixos = lib.mkOption {

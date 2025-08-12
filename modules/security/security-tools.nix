@@ -1,4 +1,5 @@
-# Security tools module
+# security-tools.nix - Network configuration and management
+
 { config, lib, ... }:
 {
   flake.modules.nixos.workstation = { pkgs, ... }: {  # Security tools are workstation features
@@ -64,7 +65,7 @@
       
       # Privacy tools
       tor
-      # tor-browser-bundle-bin  # TODO: Fix appimage build issue
+      # Note: tor-browser is available in home/gui/tor-browser.nix for GUI users
       
       # Certificate management
       certbot

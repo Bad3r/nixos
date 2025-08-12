@@ -1,9 +1,10 @@
-# modules/steam.nix
+# steam.nix - Steam gaming platform
 
 {
   nixpkgs.allowedUnfreePackages = [
     "steam"
     "steam-unwrapped"
   ];
+  
   flake.modules.nixos.pc.programs.steam.enable = true;
 }

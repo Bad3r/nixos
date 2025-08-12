@@ -16,17 +16,13 @@
     
     # Package overrides
     nixpkgs.config = {
-      # Allow specific unfree packages
       allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
         "vscode"
-        "vscode-fhs"
         "discord"
         "slack"
         "zoom"
         "spotify"
-        "steam"
-        "steam-original"
-        "steam-run"
+        "logseq"
       ];
     };
   };

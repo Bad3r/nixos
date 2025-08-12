@@ -1,3 +1,8 @@
+# Module: system76/network.nix
+# Purpose: Network configuration and management
+# Namespace: flake.modules.configurations
+# Pattern: Host configuration - System-specific settings and hardware
+
 # Network configuration for System76
 { config, ... }:
 {

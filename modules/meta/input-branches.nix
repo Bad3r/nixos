@@ -1,12 +1,4 @@
-# Module: meta/input-branches.nix
-# Purpose: Manage flake input branches and patches
-# Namespace: flake.inputBranches
-# Pattern: Golden standard input management
-# Reference: Simplified from mightyiam/infra/modules/meta/input-branches.nix
-# 
-# NOTE: This is a simplified implementation without the external input-branches flake.
-# TODO: Future enhancement - integrate with git submodules and external input-branches flake
-#       for full functionality including rebasing and pushing commands.
+# input-branches.nix - Manage flake input branches and patches
 
 { lib, config, inputs, ... }:
 {

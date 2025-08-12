@@ -1,4 +1,5 @@
-# Secret management module (placeholder for agenix/sops-nix)
+# secrets.nix - Secrets
+
 { config, lib, ... }:
 {
   flake.modules.nixos.base = { pkgs, ... }: {
