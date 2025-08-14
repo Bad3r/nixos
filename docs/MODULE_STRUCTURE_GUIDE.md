@@ -5,6 +5,7 @@ This guide explains the correct patterns for writing modules in this flake-parts
 ## Overview
 
 This repository uses:
+
 - **flake-parts**: For modular flake composition
 - **import-tree**: For automatic module discovery (all `.nix` files in `modules/` are imported)
 - **Namespace pattern**: Modules export to `flake.modules.nixos.*` or `flake.modules.homeManager.*`
@@ -24,13 +25,14 @@ Use this when your module needs to access `pkgs`:
     environment.systemPackages = with pkgs; [
       some-package
     ];
-    
+
     services.some-service.enable = true;
   };
 }
 ```
 
 **Key points:**
+
 - The module file takes `{ config, lib, ... }` (NO pkgs at this level)
 - The value assigned to `flake.modules.nixos.my-feature` is a FUNCTION that takes `{ pkgs, ... }`
 - This module can be imported by other modules using `config.flake.modules.nixos.my-feature`
@@ -46,7 +48,7 @@ Use this when your module needs to access `pkgs`:
       # System-level configuration
       services.my-service.enable = true;
     };
-    
+
     homeManager.base = {
       # User-level configuration
       programs.my-program.enable = true;
@@ -125,12 +127,15 @@ The `pkgs` parameter at the module file level is NOT populated in flake-parts co
 ## How Modules Are Used
 
 ### 1. Automatic Import
+
 All `.nix` files in `modules/` are automatically imported by import-tree (except files starting with `_`).
 
 ### 2. Module Registration
+
 Each module registers itself under `flake.modules.nixos.*` or `flake.modules.homeManager.*`.
 
 ### 3. Module Composition
+
 Modules can import each other:
 
 ```nix
@@ -143,13 +148,14 @@ Modules can import each other:
       my-feature
       another-feature
     ];
-    
+
     # Additional configuration
   };
 }
 ```
 
 ### 4. Host Configuration
+
 Host configurations use the registered modules:
 
 ```nix
@@ -161,7 +167,7 @@ Host configurations use the registered modules:
       config.flake.modules.nixos.workstation
       config.flake.modules.nixos.my-composite
     ];
-    
+
     networking.hostName = "my-host";
   };
 }
@@ -170,17 +176,20 @@ Host configurations use the registered modules:
 ## Module Types
 
 ### System Modules
+
 - Namespace: `flake.modules.nixos.*`
 - Purpose: NixOS system configuration
 - Example: services, packages, hardware config
 
 ### Home Manager Modules
+
 - Namespace: `flake.modules.homeManager.*`
 - Sub-namespaces: `base` (CLI), `gui` (graphical)
 - Purpose: User environment configuration
 - Example: dotfiles, user packages, desktop settings
 
 ### Host Modules
+
 - Namespace: `flake.modules.nixos."nixosConfigurations/*"`
 - Purpose: Define complete system configurations
 - Special handling by `nixosConfigurations.nix`
@@ -196,12 +205,14 @@ Host configurations use the registered modules:
 ## Debugging Tips
 
 ### Check Module Exports
+
 ```bash
 nix repl /home/vx/nixos
 > :p flake.modules.nixos
 ```
 
 ### Verify Module Structure
+
 ```bash
 nix eval /home/vx/nixos#nixosConfigurations.system76.config.environment.systemPackages
 ```

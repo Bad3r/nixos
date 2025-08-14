@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.swap =  # Swap is optional storage (not all systems need it)
+  flake.modules.nixos.swap =
     { config, ... }:
     {
       swapDevices =

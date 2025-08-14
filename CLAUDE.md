@@ -4,277 +4,315 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-Personal NixOS/Home Manager configuration using the **Dendritic Pattern** - an architecture where modules grow organically like dendrites, with automatic discovery and namespace-based composition. Uses Nix Flakes, flake-parts, and import-tree.
+This is a NixOS configuration using the **Dendritic Pattern** - an organic configuration growth pattern with automatic module discovery. The configuration follows the golden standard implementation from `mightyiam/infra`.
 
-### Architecture Principles
-- **Automatic Module Discovery**: All `.nix` files in `modules/` are auto-imported via import-tree
-- **No Explicit Imports**: Modules reference each other through namespaces, never file paths
-- **Metadata-Driven**: All configurable values live in `flake.meta`
-- **Namespace Composition**: Multiple modules contribute to shared namespaces that merge automatically
+### Core Dependencies
 
-### Current State
-- **Framework**: ✅ Dendritic pattern fully implemented with automatic imports
-- **Host**: ✅ System76 laptop with NVIDIA/Intel hybrid graphics, LUKS encryption
-- **Desktop**: ✅ KDE Plasma 6 with comprehensive configuration
-- **Development**: ✅ Multi-language toolchains, Docker, databases
-- **Shell**: ✅ DevShell with treefmt, statix, deadnix
-- **Testing**: ✅ Dendritic compliance tests, module tests, integration tests
+- **nixpkgs**: Unstable channel
+- **flake-parts**: Module system foundation
+- **import-tree**: Automatic module discovery
+- **home-manager**: User environment management
+- **stylix**: System-wide theming
+- **nixvim**: Neovim configuration framework
+- **treefmt-nix**: Multi-language formatting
 
-## Critical Requirements
+### Key Architecture Concepts
 
-### Pipe Operators (MANDATORY)
-**IMPORTANT:** This configuration uses pipe operators (`|>`) extensively. ALL nix commands must include:
-```bash
---extra-experimental-features pipe-operators
-```
-Or set environment variable:
-```bash
-export NIX_CONFIG="experimental-features = nix-command flakes pipe-operators"
-```
+1. **Dendritic Pattern**: Modules grow organically without explicit imports
+2. **Import-tree**: All `.nix` files in `modules/` are automatically imported via flake-parts
+3. **Namespace Composition**: Modules contribute to shared namespaces (`base` → `pc` → `workstation`)
+4. **Pipe Operators**: Mandatory experimental Nix feature used throughout
+5. **No Headers**: Modules start directly with Nix code - no comments or documentation headers
+6. **Function-based Modules**: Modules needing `pkgs` must return a function
 
 ## Essential Commands
 
-### Primary Build & Deploy
+### Quick Start (Most Common Commands)
+
 ```bash
-# Full build with optimizations (recommended)
-./build.sh --collect-garbage --optimize --offline
-
-# Quick rebuild
-nixos-rebuild switch --flake .#system76 --use-remote-sudo
-
-# Test build without switching
+# Build the system configuration (most common)
 nix build .#nixosConfigurations.system76.config.system.build.toplevel
 
-# Test in VM before deployment
-nixos-rebuild build-vm --flake .#system76
-```
-
-### Development
-```bash
-# Enter development shell
-nix develop
-
-# Format all code (Nix, JSON, shell scripts)
+# Format all Nix files
 nix fmt
-# or
-treefmt
 
-# Validate flake
-nix flake check
+# Enter development shell with formatting and analysis tools
+nix develop
+```
 
-# Show all outputs
-nix flake show
+### Building and Testing
 
-# Update dependencies
-nix flake update
+```bash
+# Build the system configuration
+nix build .#nixosConfigurations.system76.config.system.build.toplevel --extra-experimental-features "nix-command flakes pipe-operators"
 
-# Static analysis
-statix check
+# Alternative build with nixos-rebuild
+sudo nixos-rebuild build --flake .#system76 --extra-experimental-features "nix-command flakes pipe-operators"
 
-# Find dead code
-deadnix
+# Switch to new configuration (apply changes)
+sudo nixos-rebuild switch --flake .#system76 --extra-experimental-features "nix-command flakes pipe-operators"
 
-# Explore dependencies
+# Check flake validity
+nix flake check --extra-experimental-features "nix-command flakes pipe-operators"
+
+# Show flake outputs
+nix flake show --extra-experimental-features "nix-command flakes pipe-operators"
+
+# Enter development shell
+nix develop --extra-experimental-features "nix-command flakes pipe-operators"
+```
+
+### Code Quality
+
+```bash
+# Format Nix files (uses treefmt with nixfmt-rfc-style, prettier, shfmt)
+nix fmt
+
+# Alternative formatting command
+treefmt .
+
+# Explore dependencies (requires nix-tree package)
 nix-tree
+
+# Validate dendritic pattern compliance
+generation-manager score
 ```
 
-### Testing & Validation
+### System Management
+
 ```bash
-# Test dendritic pattern compliance
-./test-dendritic-compliance.sh
+# View current generation
+generation-manager current
 
-# Test named modules
-./test-named-modules.sh
+# List all generations
+generation-manager list
 
-# Quick validation build
-./test-build.sh
+# Switch to a generation
+sudo generation-manager switch <number>
 
-# Verify boot configuration
-./verify-boot-config.sh
-
-# Final boot check
-./final-boot-check.sh
-
-# Generate module dependency graph
-./generate-dependency-graph.sh
+# Update specific flake inputs
+nix flake update nixpkgs home-manager
 ```
 
-### Debugging
-```bash
-# Interactive REPL exploration
-nix repl .
-> :l
-> flake.modules.nixos.<TAB>
-> flake.modules.homeManager.<TAB>
+## Module Architecture
 
-# Check specific values
-nix eval .#nixosConfigurations.system76.config.networking.hostName
-nix eval .#nixosConfigurations.system76.config.system.stateVersion
+### Module Structure Pattern
 
-# Show module exports
-nix eval .#flake.modules.nixos --json | jq .
-
-# List installed packages
-nix eval .#nixosConfigurations.system76.config.environment.systemPackages --apply 'builtins.map (p: p.name)'
-```
-
-## Architecture & Module System
-
-### Namespace Hierarchy
-```
-flake.modules.nixos.base       # Core system (ALL systems need)
-flake.modules.nixos.pc          # Personal computer features
-flake.modules.nixos.workstation # Development features (imports pc→base)
-flake.modules.nixos."name"      # Named modules (optional features)
-flake.modules.homeManager.base  # User environment (CLI/minimal)
-flake.modules.homeManager.gui   # Graphical user environment
-```
-
-### Module Discovery & Composition
-```
-modules/
-├── meta/           # Metadata & configuration
-│   └── owner.nix   # Central metadata (username, email, etc.)
-├── base/           # Core system modules
-├── pc/             # Desktop/laptop modules
-├── workstation/    # Development modules
-├── system76/       # Host-specific configuration
-├── home/           # Home-manager modules
-│   ├── base/       # CLI environment
-│   └── gui/        # GUI applications
-└── *.nix           # All auto-imported
-```
-
-### Named Modules (Golden Standard)
-Only create named modules for features needed by SOME but not ALL systems:
-- `efi` - UEFI boot (not all systems use UEFI)
-- `swap` - Swap configuration (not all systems need swap)
-- `nvidia-gpu` - NVIDIA graphics (hardware-specific)
-
-### Module Patterns
-
-#### Basic Module
 ```nix
-{ config, lib, pkgs, ... }:
-{
-  flake.modules.nixos.pc = {
-    # Configuration
-  };
-}
-```
-
-#### Using Metadata
-```nix
-{ config, ... }:
-{
-  flake.modules.nixos.base = {
-    users.users.${config.flake.meta.owner.username} = {
-      description = config.flake.meta.owner.name;
-    };
-  };
-}
-```
-
-#### Conditional Features
-```nix
+# For modules needing packages:
 { config, lib, ... }:
 {
-  flake.modules.nixos.workstation = lib.mkIf config.flake.meta.features.development {
-    # Development tools
+  flake.modules.nixos.namespace = { pkgs, ... }: {
+    # Configuration using pkgs
+  };
+}
+
+# For simple modules:
+{ config, lib, ... }:
+{
+  flake.modules.nixos.namespace = {
+    # Direct configuration
   };
 }
 ```
 
-## Key Metadata (modules/meta/owner.nix)
+### Namespace Hierarchy
 
-Central configuration values used throughout:
-- **Owner**: username=`vx`, email=`bad3r@unsigned.sh`
-- **System**: timezone=`Asia/Riyadh`, stateVersion=`25.05`
-- **Network**: SSH port=`6234`
-- **Features**: development=`true`, virtualization=`true`
+- `base` - Core system configuration (all systems)
+- `pc` - Desktop/workstation features (extends base)
+- `workstation` - Development environment (extends pc)
 
-## System76 Hardware Specifics
+### Critical Rules
 
-- **Boot**: systemd-boot with LUKS encryption (2 devices)
-  - Root: UUID=de5ef033-553b-4943-be41-09125eb815b2
-  - Swap: UUID=555de4f1-f4b6-4fd1-acd2-9d735ab4d9ec
-- **Graphics**: NVIDIA/Intel hybrid with PRIME sync
-  - Intel: PCI:0:2:0
-  - NVIDIA: PCI:1:0:0
-- **Filesystem**: ext4 root, FAT32 /boot (umask 0077)
+1. **No explicit imports** - Modules reference each other through namespaces only
+2. **No module headers** - Start directly with Nix code (no comments at top)
+3. **Use pipe operators** - Required experimental feature (must be enabled in all nix commands)
+4. **Named modules only for optional features** - Like `nvidia-gpu`, `swap`, `security-tools`
+5. **Metadata only for owner info** - No feature flags or package versions
+6. **abort-on-warn = true** - Required in nixConfig for dendritic compliance
+7. **Flake-parts context** - `pkgs` is NOT available at module file level
+8. **Host pattern** - Hosts must use `configurations.nixos.<hostname>.module` pattern
+9. **No literal path imports** - Never use `imports = [ ./some/file.nix ]`
 
-## Development Environment
+## File Organization
 
-### Languages & Tools
-- **Node.js**: v22
-- **Python**: 3.12 with common packages
-- **Rust**: rustc, cargo, clippy, rustfmt
-- **Go**: Latest stable
-- **Clojure**: Leiningen, Boot
-- **Databases**: PostgreSQL 16, Redis
-- **Containers**: Docker with NVIDIA support
+### Core Modules
 
-### Shell Environment
-- **Default**: Zsh with oh-my-zsh
-- **Prompt**: Starship
-- **Tools**: fzf, ripgrep, eza, bat, yazi
-- **Terminal**: Kitty with Tokyo Night theme
-- **Editor**: Neovim with LSP, Treesitter
+- `modules/meta/owner.nix` - Owner metadata (username, email, SSH keys)
+- `modules/home-manager-setup.nix` - Home Manager integration
+- `modules/configurations/nixos.nix` - System configuration framework
+- `modules/{base,pc,workstation}.nix` - Namespace composition chains
+- `modules/flake-parts-modules.nix` - Flake-parts configuration with import-tree
 
-## Working with Modules
+### Host Configuration
+
+**Primary Host: `system76`**
+- `modules/system76/imports.nix` - Main host configuration entry point
+- Host-specific modules include:
+  - `boot.nix` - Boot configuration with LUKS encryption
+  - `filesystem.nix` - Btrfs with compression
+  - `hardware-config.nix` - Hardware-specific settings
+  - `nvidia-gpu.nix` - NVIDIA GPU support
+  - `network.nix` - Network configuration
+  - `services.nix` - System services
+  - `swap.nix` - Swap configuration (32GB)
+- Uses `configurations.nixos.system76.module` pattern
+- Namespace: `workstation` (includes base → pc → workstation)
+
+### Module Categories
+
+- `modules/audio/` - Audio system configuration (pipewire)
+- `modules/boot/` - Boot configuration (storage, initrd, visuals)
+- `modules/development/` - Development tools and environments
+- `modules/home/` - Home Manager modules
+- `modules/networking/` - Network and SSH configuration
+- `modules/security/` - Security tools and secrets management
+- `modules/storage/` - Storage management (swap, redundancy)
+- `modules/virtualization/` - Container and VM support
+- `modules/window-manager/` - Desktop environment (KDE/Plasma)
+
+### Testing Philosophy
+
+The configuration relies on:
+- Build-time validation via Nix's type system
+- Dendritic pattern's inherent structural safety
+- TOML generation for change tracking (`modules/meta/all-check-store-paths.nix`)
+- Generation manager's compliance scoring
+
+## Common Development Tasks
 
 ### Adding a New Module
+
 1. Create file in appropriate directory under `modules/`
-2. Export to correct namespace (base/pc/workstation or named)
-3. Use metadata from `config.flake.meta` instead of hardcoding
-4. Module is automatically discovered - no import needed
+2. Follow namespace pattern (contribute to existing namespace or create named module)
+3. No headers or comments at top of file
+4. Module automatically discovered by import-tree
 
-### Debugging Module Issues
-- **Infinite recursion**: Check for circular dependencies
-- **Option conflicts**: Use `lib.mkForce` or `lib.mkDefault`
-- **Module not found**: Ensure `.nix` extension and correct location
-- **Metadata missing**: Check `modules/meta/owner.nix`
+### Modifying System Configuration
 
-## Common Tasks
+1. Check namespace hierarchy: base → pc → workstation
+2. Add configuration to appropriate namespace level
+3. Use `config.flake.modules.nixos.*` to reference other modules
+4. Test with: `nix build .#nixosConfigurations.system76.config.system.build.toplevel`
 
-### Update System
-```bash
-# Update flake inputs and rebuild
-nix flake update
-./build.sh
+### Managing Unfree Packages
 
-# Update specific input
-nix flake lock --update-input nixpkgs
-```
+Add to appropriate module:
 
-### Test Changes
-```bash
-# Build without switching
-nix build .#nixosConfigurations.system76.config.system.build.toplevel
-
-# Test in VM
-nixos-rebuild build-vm --flake .#system76
-```
-
-### Rollback
-```bash
-# List generations
-sudo nix-env --list-generations -p /nix/var/nix/profiles/system
-
-# Switch to previous
-sudo nixos-rebuild switch --rollback
+```nix
+nixpkgs.allowedUnfreePackages = [ "package-name" ];
 ```
 
 ## Important Notes
 
-- **User**: System configured for user `vx` (defined in meta/owner.nix)
-- **Dendritic Pattern**: Never use explicit imports, rely on automatic discovery
-- **Metadata First**: All configurable values should reference `flake.meta`
-- **Experimental Features**: Uses pipe operators (enabled in nixConfig)
-- **State Version**: Currently "25.05" - do not change without migration
+### Experimental Features Required
 
-## Reference Documentation
+Always include `--extra-experimental-features "nix-command flakes pipe-operators"` or set:
 
-- Dendritic Pattern Guide: `DENDRITIC_PATTERN_GUIDE.md`
-- Migration Status: `MIGRATION_STATUS.md`
-- Module Structure: `docs/MODULE_STRUCTURE_GUIDE.md`
+```bash
+export NIX_CONFIG="experimental-features = nix-command flakes pipe-operators"
+```
+
+### Metadata Usage
+
+Only owner metadata should be centralized in `modules/meta/owner.nix`. System-specific settings go directly in modules.
+
+### Module Discovery
+
+All `.nix` files in `modules/` are automatically imported except those starting with `_`.
+
+### Library Prefixes
+
+Custom library functions use consistent prefixes (e.g., `mightyiam.lib.*`).
+
+## Troubleshooting
+
+### Common Errors & Solutions
+
+| Error | Solution |
+|-------|----------|
+| `attribute 'pkgs' missing` | Wrap module in function: `flake.modules.nixos.namespace = { pkgs, ... }: { ... }` |
+| `expected a set but got a function` | Remove function wrapper if module doesn't need `pkgs` |
+| `infinite recursion` | Check for circular namespace references |
+| `pipe operator` error | Add `--extra-experimental-features "pipe-operators"` |
+| `pkgs is undefined` | Only use `pkgs` inside the returned function, not at file level |
+
+### Debug Commands
+
+```bash
+# Interactive module exploration
+nix repl /home/vx/nixos
+> :p flake.modules.nixos
+
+# Check specific values
+nix eval .#nixosConfigurations.system76.config.networking.hostName
+
+# Verbose build trace
+nix build --show-trace .#nixosConfigurations.system76.config.system.build.toplevel
+```
+
+## Architecture Deep Dive
+
+### Module Import Chain
+
+The system uses a hierarchical namespace chain where each level extends the previous:
+
+1. `base` modules define core system settings
+2. `pc` imports `base` and adds desktop features
+3. `workstation` imports `pc` and adds development tools
+4. Host configuration (`system76`) selects which namespace to use
+
+### Flake-parts Integration
+
+- All `.nix` files in `modules/` are auto-imported via `import-tree`
+- The entry point is: `outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);`
+- Modules contribute to `flake.modules.nixos.*` namespaces
+- Host configurations are built via `configurations.nixos.<hostname>.module`
+
+### Package Access Pattern
+
+Modules needing packages must wrap their configuration in a function:
+
+```nix
+{ config, lib, ... }:
+{
+  flake.modules.nixos.namespace = { pkgs, ... }: {
+    # Can use pkgs here
+  };
+}
+```
+
+## Recent Migration Context
+
+The configuration was recently migrated to the Dendritic Pattern (2025-08-12), achieving 100/100 compliance. Key changes included:
+
+- Removed all module headers
+- Eliminated feature flags (anti-pattern)
+- Reorganized to namespace-based composition
+- Fixed library prefix inconsistencies
+- Simplified testing to TOML generation only
+
+## Development Shell
+
+The development shell (via `nix develop`) provides:
+- `nixfmt-rfc-style` - Nix code formatter
+- `nil` - Nix LSP for IDE integration
+- `nix-tree` - Dependency exploration
+- `nix-diff` - Generation comparison
+- `jq`/`yq` - JSON/YAML processing
+- `treefmt` - Multi-language formatter
+
+## Generation Management
+
+The `generation-manager` tool provides comprehensive system management:
+- `generation-manager list` - List all system generations
+- `generation-manager current` - Show current generation info
+- `generation-manager clean [N]` - Keep only N most recent generations
+- `generation-manager switch <host>` - Switch to configuration for host
+- `generation-manager rollback [N]` - Rollback N generations
+- `generation-manager diff <g1> <g2>` - Compare two generations
+- `generation-manager gc` - Run garbage collection
+- `generation-manager score` - Calculate Dendritic Pattern compliance
+- `generation-manager info <gen>` - Show detailed generation info
+
+Set `DRY_RUN=true` to preview commands without executing them.

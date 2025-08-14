@@ -4,7 +4,12 @@
 set -eo pipefail
 
 # Enable Nix experimental features
-export NIX_CONFIG="experimental-features = nix-command flakes pipe-operators"
+export NIX_CONFIG="
+accept-flake-config = true
+abort-on-warn = true
+allow-import-from-derivation = true
+experimental-features = nix-command flakes pipe-operators
+"
 
 # Initialize variables with defaults
 FLAKE_DIR="${PWD}"
@@ -139,7 +144,7 @@ collect_garbage() {
 }
 
 main() {
-    bash -c 'cd "${FLAKE_DIR}" && git add .'
+    bash -c "cd \"${FLAKE_DIR}\" && git add ."
     
     configure_nix_flags
 

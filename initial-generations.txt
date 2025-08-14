@@ -1,2 +1,0 @@
-Generation  Build-date           NixOS version           Kernel   Configuration Revision  Specialisation  Current
-107         2025-08-12 16:32:35  25.11.20250806.c2ae88e  6.12.41  Unknown                 []              True

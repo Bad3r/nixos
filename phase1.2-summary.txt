@@ -1,4 +1,0 @@
-Phase 1.2 Summary: efi.nix matches golden standard pattern
-- Golden standard at /home/vx/git/infra/modules/hardware/efi.nix ALSO modifies homeManager.base
-- This is the CORRECT pattern, not a violation
-- Only difference: directory location (boot/ vs hardware/)

@@ -23,7 +23,7 @@
             addresses = true;
           };
         };
-        
+
         # DNSCrypt proxy for encrypted DNS
         services.dnscrypt-proxy2 = {
           enable = false; # Set to true to enable encrypted DNS

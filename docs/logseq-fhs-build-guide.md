@@ -5,6 +5,7 @@ This guide documents how to build Logseq from source on NixOS using an FHS (File
 ## Why FHS?
 
 Logseq has a complex build process with:
+
 - 7 separate `yarn.lock` files across multiple workspaces
 - 37,000+ lines of JavaScript dependencies
 - Mixed technology stack (ClojureScript, React, Electron)
@@ -21,39 +22,39 @@ Create a file `logseq-build-env.nix`:
 
 pkgs.buildFHSEnv {
   name = "logseq-build";
-  
+
   targetPkgs = pkgs: with pkgs; [
     # Build tools
     yarn nodejs_20 clojure git
-    
+
     # System tools
     coreutils gnused findutils which
-    
+
     # For electron builds
     electron libnotify
-    
+
     # Libraries that Node modules might need
     python3 gnumake gcc
     glib nss nspr atk cups dbus expat libdrm
     xorg.libX11 xorg.libXcomposite xorg.libXdamage
     xorg.libXext xorg.libXfixes xorg.libXrandr xorg.libxcb
     pango cairo alsa-lib at-spi2-atk at-spi2-core
-    
+
     # For extracting AppImage
     libarchive
   ];
-  
+
   multiPkgs = pkgs: with pkgs; [
     zlib glibc
   ];
-  
+
   runScript = "bash";
-  
+
   profile = ''
     export ELECTRON_SKIP_BINARY_DOWNLOAD=1
     export ELECTRON_OVERRIDE_DIST_PATH=${pkgs.electron}/bin
     export NODE_OPTIONS="--max-old-space-size=8192"
-    
+
     echo "FHS Environment for Logseq build ready!"
     echo "To build Logseq:"
     echo "  cd ~/git/logseq"
@@ -111,11 +112,13 @@ EOF
 ## Building Logseq
 
 1. Enter the FHS environment:
+
    ```bash
    nix run ~/nixos#logseq-build-env
    ```
 
 2. Inside the environment, run the build script:
+
    ```bash
    cd ~/git/logseq
    ~/dotfiles/bin/sss-update-logseq
@@ -132,6 +135,7 @@ EOF
 ## Running Logseq
 
 After building:
+
 - **From terminal**: `~/.local/opt/logseq-desktop-git/Logseq`
 - **From launcher**: Look for "Logseq (Custom Build)"
 
@@ -140,6 +144,7 @@ Note: The binary is named `Logseq` with a capital L.
 ## Updating
 
 To check for updates:
+
 ```bash
 cd ~/git/logseq
 git fetch origin test/db

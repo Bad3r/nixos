@@ -5,7 +5,7 @@
   # to the flake.meta namespace.
   options.flake.meta = lib.mkOption {
     type = lib.types.anything;
-    default = {};
+    default = { };
     description = "Flake metadata that can be accessed by all modules";
   };
 }

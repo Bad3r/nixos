@@ -43,6 +43,7 @@ in
         home.packages = [
           pkgs.google-fonts
           pkgs.gucharmap
+          pkgs.nerd-fonts.jetbrains-mono
         ];
       };
 

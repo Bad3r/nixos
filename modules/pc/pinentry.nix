@@ -12,7 +12,7 @@
     gui =
       { pkgs, ... }:
       {
-        config.pinentry = lib.mkOverride 50 pkgs.pinentry-rofi;  # GUI override of base
+        config.pinentry = lib.mkOverride 50 pkgs.pinentry-rofi; # GUI override of base
       };
   };
 

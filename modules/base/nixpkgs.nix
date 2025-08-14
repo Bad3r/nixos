@@ -1,7 +1,9 @@
 {
-  flake.modules.nixos.base = { config, lib, ... }: {
-    nix.nixPath = lib.mkDefault [
-      "nixpkgs=${config.nixpkgs.flake.source}"
-    ];
-  };
+  flake.modules.nixos.base =
+    { config, lib, ... }:
+    {
+      nix.nixPath = lib.mkDefault [
+        "nixpkgs=${config.nixpkgs.flake.source}"
+      ];
+    };
 }

@@ -1,2 +1,0 @@
-Filesystem                                              Size  Used Avail Use% Mounted on
-/dev/disk/by-uuid/54df1eda-4dc3-40d0-a6da-8d1d7ee612b2  435G   66G  348G  16% /nix/store

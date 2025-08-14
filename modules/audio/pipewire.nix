@@ -10,7 +10,7 @@
       pulse.enable = lib.mkDefault true;
     };
     security.rtkit.enable = lib.mkDefault true;
-    
+
     # PulseAudio is automatically disabled when PipeWire is enabled
   };
 }

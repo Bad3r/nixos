@@ -2,89 +2,89 @@ name: Dendritic Pattern Compliance Check
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
   check-compliance:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Nix
-      uses: cachix/install-nix-action@v24
-      with:
-        extra_nix_config: |
-          experimental-features = nix-command flakes pipe-operators
-          abort-on-warn = true
-    
-    - name: Check flake
-      run: |
-        nix flake check --extra-experimental-features pipe-operators
-    
-    - name: Check namespace compliance
-      run: |
-        ./test-dendritic-compliance.sh
-    
-    - name: Build configurations
-      run: |
-        nix build .#nixosConfigurations.system76.config.system.build.toplevel \
-          --dry-run --extra-experimental-features pipe-operators
-    
-    - name: Generate dependency graph
-      run: |
-        ./generate-dependency-graph.sh
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: dependency-graph
-        path: |
-          module-dependencies.dot
-          module-dependencies.png
-          module-dependencies.svg
-        retention-days: 30
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes pipe-operators
+            abort-on-warn = true
+
+      - name: Check flake
+        run: |
+          nix flake check --extra-experimental-features pipe-operators
+
+      - name: Check namespace compliance
+        run: |
+          ./test-dendritic-compliance.sh
+
+      - name: Build configurations
+        run: |
+          nix build .#nixosConfigurations.system76.config.system.build.toplevel \
+            --dry-run --extra-experimental-features pipe-operators
+
+      - name: Generate dependency graph
+        run: |
+          ./generate-dependency-graph.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-graph
+          path: |
+            module-dependencies.dot
+            module-dependencies.png
+            module-dependencies.svg
+          retention-days: 30
 
   format-check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Nix
-      uses: cachix/install-nix-action@v24
-      with:
-        extra_nix_config: |
-          experimental-features = nix-command flakes pipe-operators
-    
-    - name: Check formatting
-      run: |
-        nix fmt --check --extra-experimental-features pipe-operators
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes pipe-operators
+
+      - name: Check formatting
+        run: |
+          nix fmt --check --extra-experimental-features pipe-operators
 
   module-validation:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Nix
-      uses: cachix/install-nix-action@v24
-      with:
-        extra_nix_config: |
-          experimental-features = nix-command flakes pipe-operators
-    
-    - name: Validate namespaces
-      run: |
-        # Check that no modules create wrong namespaces
-        ! grep -r "flake.modules.nixos.desktop" modules/ --include="*.nix"
-        ! grep -r "flake.modules.nixos.audio" modules/ --include="*.nix"
-        ! grep -r "flake.modules.nixos.boot" modules/ --include="*.nix"
-        ! grep -r "flake.modules.nixos.storage" modules/ --include="*.nix"
-    
-    - name: Check import-tree usage
-      run: |
-        grep -q "import-tree.*modules" flake.nix || exit 1
-    
-    - name: Check no literal imports
-      run: |
-        ! grep -r "imports.*\\./" modules/ --include="*.nix" || exit 1
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes pipe-operators
+
+      - name: Validate namespaces
+        run: |
+          # Check that no modules create wrong namespaces
+          ! grep -r "flake.modules.nixos.desktop" modules/ --include="*.nix"
+          ! grep -r "flake.modules.nixos.audio" modules/ --include="*.nix"
+          ! grep -r "flake.modules.nixos.boot" modules/ --include="*.nix"
+          ! grep -r "flake.modules.nixos.storage" modules/ --include="*.nix"
+
+      - name: Check import-tree usage
+        run: |
+          grep -q "import-tree.*modules" flake.nix || exit 1
+
+      - name: Check no literal imports
+        run: |
+          ! grep -r "imports.*\\./" modules/ --include="*.nix" || exit 1
