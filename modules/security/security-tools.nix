@@ -1,6 +1,6 @@
 {
   flake.modules.nixos.workstation =
-    { pkgs, ... }:
+    { pkgs, lib, ... }:
     {
       # Security tools are workstation features
       environment.systemPackages = with pkgs; [
@@ -76,7 +76,7 @@
       programs.gnupg.agent = {
         enable = true;
         enableSSHSupport = true;
-        pinentryPackage = pkgs.pinentry-qt;
+        pinentryPackage = lib.mkForce pkgs.pinentry-qt; # Override base pinentry for GUI systems
       };
 
       # Firewall configuration

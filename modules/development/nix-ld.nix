@@ -5,73 +5,76 @@
     {
       programs.nix-ld = {
         enable = true;
-        libraries = with pkgs; [
-          # Core system libraries
-          glibc
-          glib
-          openssl
-          nss
-          nspr
-          stdenv.cc.cc
-          stdenv.cc.cc.lib
-          zlib
-          
-          # Networking and communication
-          curl
-          dbus
-          
-          # Text and data processing
-          icu
-          libxml2
-          libxslt
-          
-          # Graphics libraries
-          freetype
-          fontconfig
-          gtk3
-          gdk-pixbuf
-          pango
-          cairo
-          atk
-          at-spi2-core
-          at-spi2-atk
-          
-          # X11 libraries
-          xorg.libX11
-          xorg.libXrandr
-          xorg.libXext
-          xorg.libXfixes
-          xorg.libXcomposite
-          xorg.libXdamage
-          xorg.libxcb
-          xorg.libxshmfence
-          xorg.libXxf86vm
-          xorg.libXv
-          xorg.libXinerama
-          xorg.libXtst
-          
-          # OpenGL/Vulkan/Graphics
-          mesa
-          libglvnd
-          libva
-          vulkan-loader
-          libdrm
-          libgbm
-          
-          # Audio
-          alsa-lib
-          cups
-          
-          # Other system libraries
-          libxkbcommon
-          expat
-          systemd
-        ] ++ lib.optionals (config.hardware.nvidia.modesetting.enable or false) [
-          # NVIDIA-specific libraries when NVIDIA GPU is present
-          config.hardware.nvidia.package
-        ];
+        libraries =
+          with pkgs;
+          [
+            # Core system libraries
+            glibc
+            glib
+            openssl
+            nss
+            nspr
+            stdenv.cc.cc
+            stdenv.cc.cc.lib
+            zlib
+
+            # Networking and communication
+            curl
+            dbus
+
+            # Text and data processing
+            icu
+            libxml2
+            libxslt
+
+            # Graphics libraries
+            freetype
+            fontconfig
+            gtk3
+            gdk-pixbuf
+            pango
+            cairo
+            atk
+            at-spi2-core
+            at-spi2-atk
+
+            # X11 libraries
+            xorg.libX11
+            xorg.libXrandr
+            xorg.libXext
+            xorg.libXfixes
+            xorg.libXcomposite
+            xorg.libXdamage
+            xorg.libxcb
+            xorg.libxshmfence
+            xorg.libXxf86vm
+            xorg.libXv
+            xorg.libXinerama
+            xorg.libXtst
+
+            # OpenGL/Vulkan/Graphics
+            mesa
+            libglvnd
+            libva
+            vulkan-loader
+            libdrm
+            libgbm
+
+            # Audio
+            alsa-lib
+            cups
+
+            # Other system libraries
+            libxkbcommon
+            expat
+            systemd
+          ]
+          ++ lib.optionals (config.hardware.nvidia.modesetting.enable or false) [
+            # NVIDIA-specific libraries when NVIDIA GPU is present
+            config.hardware.nvidia.package
+          ];
       };
-      
+
       # Essential packages for VSCode Remote SSH functionality
       environment.systemPackages = with pkgs; [
         # Core utilities that VSCode Server expects
@@ -80,10 +83,10 @@
         curl
         wget
         git
-        
+
         # Node.js for VSCode extensions
         nodejs_22
-        
+
         # Build tools for native extensions
         gcc
         gnumake
@@ -91,30 +94,30 @@
         coreutils
         gzip
         xz
-        
+
         # Python for extensions that require it
         python3
-        
+
         # Process management tools
         procps
         lsof
       ];
-      
+
       # Environment variables for VSCode Server
       environment.variables = {
         VSCODE_SERVER_TAR = "${pkgs.gnutar}/bin/tar";
         NODE_PATH = "${pkgs.nodejs_22}/lib/node_modules";
       };
-      
+
       # VSCode Server compatibility script
       environment.etc."vscode-server-fix.sh" = {
         text = ''
           #!/usr/bin/env bash
           # VSCode Server fix script for NixOS
           # This helps VSCode Server find the correct Node.js binary
-          
+
           VSCODE_SERVER_DIR="$HOME/.vscode-server"
-          
+
           if [ -d "$VSCODE_SERVER_DIR" ]; then
             echo "Fixing VSCode Server Node.js links..."
             
@@ -146,17 +149,17 @@
         '';
         mode = "0755";
       };
-      
+
       # Activation script to ensure Node.js is available in expected location
       system.activationScripts.vscodeServerCompat = lib.stringAfter [ "users" ] ''
         # Create common binary directory if it doesn't exist
         mkdir -p /run/current-system/sw/bin
-        
+
         # Ensure node binary is available where VSCode Server might look for it
         if [ ! -e /run/current-system/sw/bin/node ]; then
           ln -sf ${pkgs.nodejs_22}/bin/node /run/current-system/sw/bin/node 2>/dev/null || true
         fi
-        
+
         # Ensure npm is also available
         if [ ! -e /run/current-system/sw/bin/npm ]; then
           ln -sf ${pkgs.nodejs_22}/bin/npm /run/current-system/sw/bin/npm 2>/dev/null || true

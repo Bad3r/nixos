@@ -16,11 +16,11 @@
         system76-wallpapers
         firmware-manager
         system76-keyboard-configurator
-        
+
         # Additional system-specific tools
-        ktailctl  # KDE Tailscale GUI
-        localsend  # Local network file sharing
-        
+        ktailctl # KDE Tailscale GUI
+        localsend # Local network file sharing
+
         # Additional CLI tools for this system
         httpx
         curlie

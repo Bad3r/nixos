@@ -5,7 +5,7 @@
     {
       # X11 video driver
       services.xserver.videoDrivers = [ "nvidia" ];
-      
+
       # Graphics hardware configuration
       hardware.graphics = {
         enable = true;
@@ -16,7 +16,7 @@
           intel-media-driver
         ];
       };
-      
+
       # NVIDIA hardware configuration
       hardware.nvidia = {
         modesetting.enable = true;
@@ -30,7 +30,7 @@
           nvidiaBusId = "PCI:1:0:0";
         };
       };
-      
+
       # NVIDIA environment variables
       environment.variables = {
         GBM_BACKEND = "nvidia-drm";

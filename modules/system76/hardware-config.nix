@@ -5,10 +5,10 @@
     {
       # Platform configuration (required)
       nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
-      
+
       # CPU microcode updates
       hardware.cpu.intel.updateMicrocode = lib.mkDefault true;
-      
+
       # Kernel modules from nixos-generate-config
       boot.initrd.availableKernelModules = [
         "xhci_pci"
@@ -44,7 +44,7 @@
 
       # Enable NTFS support
       boot.supportedFilesystems = [ "ntfs" ];
-      
+
       # Boot loader configuration (CRITICAL - must be here for system to boot)
       boot.loader = {
         systemd-boot = {
@@ -55,7 +55,7 @@
         };
         efi.canTouchEfiVariables = true;
       };
-      
+
       # Filesystem configuration (CRITICAL - must be here for system to boot)
       fileSystems = {
         "/" = {
@@ -71,14 +71,14 @@
           ];
         };
       };
-      
+
       # LUKS encryption for root device
       boot.initrd.luks.devices."luks-de5ef033-553b-4943-be41-09125eb815b2".device =
         "/dev/disk/by-uuid/de5ef033-553b-4943-be41-09125eb815b2";
-      
+
       # Swap device
       swapDevices = [ { device = "/dev/disk/by-uuid/72b0d736-e0c5-4f72-bc55-f50f7492ceef"; } ];
-      
+
       # NVIDIA GPU support
       services.xserver.videoDrivers = [ "nvidia" ];
 

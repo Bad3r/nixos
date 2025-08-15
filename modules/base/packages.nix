@@ -51,6 +51,9 @@
         # Shell utilities
         bash-completion
         zsh-completions
+        atuin
+        starship
+        zoxide
 
         # System information
         pciutils

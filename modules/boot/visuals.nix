@@ -2,7 +2,6 @@
   flake.modules.nixos = {
     base = {
       # Base visual settings for ALL systems
-      stylix.targets.grub.enable = false;
       boot.kernelParams = [
         "quiet"
         "systemd.show_status=error"
