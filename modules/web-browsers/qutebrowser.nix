@@ -3,7 +3,7 @@
     { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [
-        qutebrowser
+        # qutebrowser  # Temporarily disabled: Python 3.13 compatibility issue with lxml-html-clean
       ];
     };
 }

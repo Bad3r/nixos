@@ -5,6 +5,7 @@
 This comprehensive migration plan addresses the integration of ~80+ missing packages and critical configurations from the old NixOS setup into the current Dendritic Pattern configuration. The plan ensures 100% compliance with the golden standard from `mightyiam/infra` while restoring full functionality.
 
 **Key Statistics:**
+
 - **Missing Packages:** 80+ critical packages
 - **Missing Services:** 5 major services (VSCode Remote, Enhanced Tailscale, etc.)
 - **Missing Features:** Impermanence, Plasma Manager, System76 hardware module
@@ -20,24 +21,28 @@ This comprehensive migration plan addresses the integration of ~80+ missing pack
 Based on the golden standard pattern, configurations must be organized into appropriate namespaces:
 
 1. **`base`** - Core system configuration (all systems)
+
    - Essential packages (coreutils, git, vim, etc.)
    - Basic networking and SSH
    - System utilities
    - Nix configuration
 
 2. **`pc`** - Desktop/workstation features (extends base)
+
    - GUI applications
    - Media tools
    - Desktop environment
    - Hardware support
 
 3. **`workstation`** - Development environment (extends pc)
+
    - Development tools and languages
    - Container/virtualization
    - AI tools
    - Advanced development features
 
 4. **Named Modules** - Optional features (as-needed basis)
+
    - `nvidia-gpu` - NVIDIA configuration
    - `swap` - Swap configuration
    - `vscode-remote` - VSCode Remote SSH support
@@ -80,6 +85,7 @@ All modules must follow these patterns:
 ### 1.1 Fix Current Compliance Issues [IMMEDIATE]
 
 **Actions:**
+
 1. Remove filesystem duplication from `modules/system76/imports.nix`
 2. Remove `tests/` directory (migrate to flake checks)
 3. Archive and remove `scripts/` directory
@@ -99,13 +105,13 @@ rm -rf tests/ scripts/
 { config, lib, ... }:
 {
   flake.modules.nixos.system76-hardware = { pkgs, ... }: {
-    imports = [ 
+    imports = [
       "${pkgs.nixos-hardware}/nixos/system76"
     ];
-    
+
     hardware.system76.power-daemon.enable = true;
     hardware.system76.kernel-modules.enable = true;
-    
+
     environment.systemPackages = with pkgs; [
       system76-power
       system76-firmware
@@ -116,6 +122,7 @@ rm -rf tests/ scripts/
 ```
 
 **Update flake.nix inputs:**
+
 ```nix
 inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 ```
@@ -130,21 +137,21 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
   flake.modules.nixos.nvidia-gpu = {
     specialisation.nvidia-gpu.configuration = {
       services.xserver.videoDrivers = [ "nvidia" ];
-      
+
       # Add missing kernel parameters
       boot.kernelParams = [
         "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
         "nvidia.NVreg_EnableGpuFirmware=1"
       ];
-      
+
       boot.blacklistedKernelModules = [ "nouveau" ];
-      boot.initrd.kernelModules = [ 
-        "nvidia" 
-        "nvidia_modeset" 
-        "nvidia_uvm" 
-        "nvidia_drm" 
+      boot.initrd.kernelModules = [
+        "nvidia"
+        "nvidia_modeset"
+        "nvidia_uvm"
+        "nvidia_drm"
       ];
-      
+
       hardware.graphics.extraPackages = with pkgs; [
         nvidia-vaapi-driver
         vaapiVdpau
@@ -152,7 +159,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
       ];
     };
   };
-  
+
   nixpkgs.allowedUnfreePackages = [
     "nvidia-x11"
     "nvidia-settings"
@@ -179,7 +186,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
         ClientAliveCountMax = 3;
         MaxAuthTries = 3;
       };
-      
+
       # Depend on tailscale when available
       extraConfig = ''
         Protocol 2
@@ -229,18 +236,18 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
         libxslt
         nspr
         nss
-        
+
         # Graphics
         libGL
         libva
         nvidia-vaapi-driver
-        
+
         # GTK and dependencies
         gtk3
         cairo
         pango
         gdk-pixbuf
-        
+
         # X11
         xorg.libX11
         xorg.libXcomposite
@@ -253,7 +260,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
         xorg.libXrender
         xorg.libXtst
         xorg.libxcb
-        
+
         # Additional libraries
         alsa-lib
         at-spi2-atk
@@ -278,7 +285,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
         zlib
       ];
     };
-    
+
     # VSCode Server compatibility
     environment.systemPackages = with pkgs; [
       nodejs_24
@@ -291,7 +298,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
         fi
       '')
     ];
-    
+
     # SSH environment for VSCode
     programs.ssh.extraConfig = ''
       Host *
@@ -320,12 +327,12 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
       rustc
       cargo
       go
-      
+
       # Language servers
       bash-language-server
       yaml-language-server
       json-lsp
-      
+
       # Build tools
       cmake
       gnumake
@@ -348,7 +355,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
       # AI Tools - need to be packaged or use from nixpkgs-unstable
       # claude-code  # Will need custom derivation
       # github-mcp-server  # Will need custom derivation
-      
+
       # Available AI tools
       ollama
       python312Packages.openai
@@ -370,7 +377,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
       enable = true;
       enableOnBoot = true;  # Change from false
       storageDriver = "overlay2";
-      
+
       # Docker daemon configuration
       daemon.settings = {
         features = {
@@ -383,9 +390,9 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
         };
       };
     };
-    
+
     users.extraGroups.docker.members = [ config.flake.meta.owner.username ];
-    
+
     environment.systemPackages = with pkgs; [
       docker-compose
       docker-buildx
@@ -411,7 +418,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
       enable = true;
       useRoutingFeatures = "server";
       openFirewall = true;
-      
+
       # Network optimization
       extraUpFlags = [
         "--advertise-routes=192.168.1.0/24"
@@ -419,7 +426,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
         "--accept-dns=false"
       ];
     };
-    
+
     # Network optimization with ethtool
     systemd.services.tailscale-optimize = {
       after = [ "tailscaled.service" ];
@@ -428,13 +435,13 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
         ${pkgs.ethtool}/bin/ethtool -K tailscale0 rx-udp-gro-forwarding on rx-gro-list off || true
       '';
     };
-    
+
     # Sysctl optimizations
     boot.kernel.sysctl = {
       "net.ipv4.ip_forward" = 1;
       "net.ipv6.conf.all.forwarding" = 1;
     };
-    
+
     environment.systemPackages = with pkgs; [
       ethtool
       ktailctl  # KDE Tailscale GUI
@@ -479,7 +486,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
       shfmt
       tealdeer
       uv
-      
+
       # System tools
       dnsutils
       ethtool
@@ -493,7 +500,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
       ntpd-rs
       ntpstat
       smartmontools
-      
+
       # File management
       nnn
       ranger
@@ -516,7 +523,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
       mpv
       vlc
       jellyfin-mpv-shim
-      
+
       # MPV scripts
       (mpv.override {
         scripts = with mpvScripts; [
@@ -525,17 +532,17 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
           quality-menu
         ];
       })
-      
+
       # Audio/Video tools
       audacity
       obs-studio
       kdenlive
-      
+
       # Image tools
       gimp
       inkscape
       krita
-      
+
       # Document tools
       libreoffice
       marktext
@@ -543,7 +550,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
       zathura
       mupdf
     ];
-    
+
     # MPV configuration
     environment.etc."mpv/mpv.conf".text = ''
       hwdec=auto
@@ -568,22 +575,22 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
       # Email
       thunderbird
       electron-mail
-      
+
       # Chat
       element-desktop
       mattermost-desktop
       discord
       slack
-      
+
       # File sharing
       localsend
       syncthing
-      
+
       # Remote access
       teamviewer
       rustdesk
     ];
-    
+
     # TeamViewer service
     services.teamviewer.enable = true;
   };
@@ -602,10 +609,10 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 { config, lib, ... }:
 {
   flake.modules.nixos.impermanence = { pkgs, ... }: {
-    imports = [ 
+    imports = [
       "${inputs.impermanence}/nixos/module.nix"
     ];
-    
+
     environment.persistence."/persist" = {
       hideMounts = true;
       directories = [
@@ -622,7 +629,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
         "/etc/ssh/ssh_host_rsa_key"
         "/etc/ssh/ssh_host_rsa_key.pub"
       ];
-      
+
       users.${config.flake.meta.owner.username} = {
         directories = [
           "Documents"
@@ -648,6 +655,7 @@ inputs.nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 ```
 
 **Update flake.nix:**
+
 ```nix
 inputs.impermanence.url = "github:nix-community/impermanence";
 ```
@@ -663,26 +671,26 @@ inputs.impermanence.url = "github:nix-community/impermanence";
     imports = [
       "${inputs.plasma-manager}/modules"
     ];
-    
+
     programs.plasma = {
       enable = true;
-      
+
       workspace = {
         lookAndFeel = "org.kde.breezedark.desktop";
         cursor.theme = "breeze_cursors";
-        
+
         windowDecorations = {
           theme = "Breeze";
           library = "org.kde.breeze";
         };
       };
-      
+
       shortcuts = {
         "KDE Keyboard Layout Switcher"."Switch to Next Keyboard Layout" = "Meta+Space";
         "kwin"."Window Maximize" = "Meta+Up";
         "kwin"."Window Minimize" = "Meta+Down";
       };
-      
+
       panels = [
         {
           location = "bottom";
@@ -702,6 +710,7 @@ inputs.impermanence.url = "github:nix-community/impermanence";
 ```
 
 **Update flake.nix:**
+
 ```nix
 inputs.plasma-manager.url = "github:pjones/plasma-manager";
 inputs.plasma-manager.inputs.nixpkgs.follows = "nixpkgs";
@@ -723,13 +732,13 @@ inputs.plasma-manager.inputs.home-manager.follows = "home-manager";
         src = ./packages/biglybt-custom;
         buildInputs = old.buildInputs ++ [ final.temurin-bin-24 ];
       });
-      
+
       # Other custom packages
       claude-code = final.callPackage ./packages/claude-code { };
       github-mcp-server = final.callPackage ./packages/github-mcp-server { };
     })
   ];
-  
+
   nixpkgs.allowedUnfreePackages = [
     "biglybt"
     "claude-code"
@@ -744,6 +753,7 @@ inputs.plasma-manager.inputs.home-manager.follows = "home-manager";
 ### File Creation Order
 
 1. **Week 1 - Critical**
+
    - [ ] Fix compliance issues (imports.nix)
    - [ ] `modules/hardware/system76.nix`
    - [ ] Update `modules/nvidia-gpu.nix`
@@ -752,6 +762,7 @@ inputs.plasma-manager.inputs.home-manager.follows = "home-manager";
    - [ ] `modules/development/vscode-remote.nix`
 
 2. **Week 2 - Development**
+
    - [ ] `modules/development/languages.nix`
    - [ ] `modules/development/ai-tools.nix`
    - [ ] Update `modules/virtualization/docker.nix`
@@ -773,7 +784,7 @@ Add to `flake.nix`:
 {
   inputs = {
     # Existing inputs...
-    
+
     # New required inputs
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
     impermanence.url = "github:nix-community/impermanence";
@@ -804,14 +815,14 @@ Update `modules/system76/imports.nix`:
       # impermanence
       # plasma-manager
     ];
-    
+
     # Keep boot configuration here
     boot.loader = {
       systemd-boot.enable = true;
       efi.canTouchEfiVariables = true;
       timeout = 3;
     };
-    
+
     # Remove filesystem configuration (already in filesystem.nix)
   };
 }
@@ -905,13 +916,10 @@ sudo nixos-rebuild switch --rollback
 
 1. **NVIDIA Changes** - May affect graphics
    - Test with: `nvidia-smi` after rebuild
-   
 2. **SSH Changes** - May affect remote access
    - Keep backup session open during changes
-   
 3. **Boot Parameters** - May affect boot
    - Test with VM first if possible
-   
 4. **Tailscale Routing** - May affect network
    - Have local access ready
 
@@ -921,26 +929,26 @@ sudo nixos-rebuild switch --rollback
 
 ### Functionality Metrics
 
-| Category | Old Config | Current | Target | Status |
-|----------|------------|---------|--------|--------|
-| Total Packages | 150+ | ~70 | 150+ | 🔄 |
-| Development Tools | Full | Partial | Full | 🔄 |
-| VSCode Remote | ✅ | ❌ | ✅ | 🔄 |
-| Tailscale Features | Advanced | Basic | Advanced | 🔄 |
-| Hardware Support | Complete | Partial | Complete | 🔄 |
-| Media Tools | Extensive | Basic | Extensive | 🔄 |
-| AI Tools | ✅ | ❌ | ✅ | 🔄 |
+| Category           | Old Config | Current | Target    | Status |
+| ------------------ | ---------- | ------- | --------- | ------ |
+| Total Packages     | 150+       | ~70     | 150+      | 🔄     |
+| Development Tools  | Full       | Partial | Full      | 🔄     |
+| VSCode Remote      | ✅         | ❌      | ✅        | 🔄     |
+| Tailscale Features | Advanced   | Basic   | Advanced  | 🔄     |
+| Hardware Support   | Complete   | Partial | Complete  | 🔄     |
+| Media Tools        | Extensive  | Basic   | Extensive | 🔄     |
+| AI Tools           | ✅         | ❌      | ✅        | 🔄     |
 
 ### Compliance Metrics
 
-| Requirement | Status | Target |
-|-------------|--------|--------|
-| Dendritic Pattern | 95/100 | 100/100 |
-| No Headers | ✅ | ✅ |
-| Namespace Usage | ✅ | ✅ |
-| No Explicit Imports | ✅ | ✅ |
-| Pipe Operators | ✅ | ✅ |
-| abort-on-warn | ✅ | ✅ |
+| Requirement         | Status | Target  |
+| ------------------- | ------ | ------- |
+| Dendritic Pattern   | 95/100 | 100/100 |
+| No Headers          | ✅     | ✅      |
+| Namespace Usage     | ✅     | ✅      |
+| No Explicit Imports | ✅     | ✅      |
+| Pipe Operators      | ✅     | ✅      |
+| abort-on-warn       | ✅     | ✅      |
 
 ### Performance Metrics
 
@@ -964,12 +972,14 @@ After migration:
 ### Continuous Improvement
 
 1. **Regular Updates**
+
    ```bash
    nix flake update
    nix build --rebuild
    ```
 
 2. **Package Audits**
+
    - Review unused packages quarterly
    - Check for security updates
    - Optimize closure size
@@ -984,11 +994,9 @@ After migration:
 1. **Home Manager Integration**
    - Migrate user configs to Home Manager
    - Use home-manager modules for user packages
-   
 2. **Secret Management**
    - Consider sops-nix or agenix
    - Secure API keys and passwords
-   
 3. **CI/CD Integration**
    - Automated compliance checks
    - Build testing on commits
@@ -1001,6 +1009,7 @@ After migration:
 This migration plan provides a comprehensive path to restore full functionality while maintaining perfect Dendritic Pattern compliance. The phased approach minimizes risk while ensuring each addition follows the golden standard patterns.
 
 **Key Success Factors:**
+
 1. Maintain namespace discipline
 2. Test after each phase
 3. Keep compliance at 100/100

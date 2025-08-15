@@ -7,23 +7,29 @@ After examining the actual content of configuration files in both repositories, 
 ## Critical Missing Configurations
 
 ### 1. Impermanence Support
+
 **Old Config**: Explicitly imports `impermanence.nixosModules.impermanence`
 **Current Config**: ❌ Not configured
 **Impact**: Stateless system configuration capability missing
 
 ### 2. Plasma Manager Integration
+
 **Old Config**: Full KDE Plasma configuration management via plasma-manager
+
 ```nix
 programs.plasma = {
   enable = true;
   workspace.lookAndFeel = "org.kde.breezedark.desktop";
 }
 ```
+
 **Current Config**: ❌ Missing
 **Impact**: Cannot manage KDE Plasma settings declaratively
 
 ### 3. VSCode Remote SSH Support
+
 **Old Config**: Complete module with:
+
 - Extended nix-ld libraries (40+ libraries)
 - VSCode Server compatibility fixes
 - Node.js path configuration
@@ -32,13 +38,16 @@ programs.plasma = {
 
 **Current Config**: Basic nix-ld with fewer libraries
 **Missing Libraries**:
+
 - `curl`, `icu`, `freetype`, `fontconfig`
 - `libxml2`, `libxslt`, `nspr`
 - `nvidia-vaapi-driver` (in nix-ld context)
 - `gtk3` extended dependencies
 
 ### 4. Enhanced Tailscale Configuration
+
 **Old Config Features Missing in Current**:
+
 - Network optimization with ethtool
 - Subnet router support (`useRoutingFeatures = "server"`)
 - IP forwarding sysctl settings
@@ -50,6 +59,7 @@ programs.plasma = {
 ### 5. SSH Server Configuration Differences
 
 **Old Config SSH Settings**:
+
 ```nix
 PasswordAuthentication = true
 X11Forwarding = true
@@ -61,6 +71,7 @@ Protocol 2
 ```
 
 **Current Config SSH Settings**:
+
 ```nix
 PasswordAuthentication = false  # Different!
 # No X11 forwarding configured
@@ -71,6 +82,7 @@ PasswordAuthentication = false  # Different!
 ### 6. User Configuration Differences
 
 **Old Config User Settings**:
+
 - Explicit null password handling
 - cryptHomeLuks support
 - ignoreShellProgramCheck = false
@@ -86,6 +98,7 @@ PasswordAuthentication = false  # Different!
 ### 7. NVIDIA Configuration Differences
 
 **Old Config NVIDIA Settings**:
+
 ```nix
 boot.blacklistedKernelModules = [ "nouveau" ]
 boot.initrd.kernelModules = [ "nvidia", "nvidia_modeset", "nvidia_uvm", "nvidia_drm" ]
@@ -106,6 +119,7 @@ hardware.graphics.extraPackages = [
 ### 8. Boot Configuration Differences
 
 **Old Config Boot Settings**:
+
 ```nix
 boot.loader.systemd-boot.configurationLimit = 3
 boot.loader.systemd-boot.editor = false
@@ -118,6 +132,7 @@ boot.initrd.compressor = "zstd"
 ### 9. Package Differences
 
 **Missing in Current Base Packages**:
+
 - `aspell`, `bash-language-server`, `bat`, `biome`
 - `pandoc`, `dash`, `diffutils`, `dua`, `duf`, `eva`
 - `evil-helix`, `eza`, `fd`, `ffmpeg` family
@@ -128,6 +143,7 @@ boot.initrd.compressor = "zstd"
 - `ripgrep`, `shfmt`, `tealdeer`, `uv`, `xq`, `yq`
 
 **Missing Linux-specific Packages**:
+
 - `arandr`, `autotiling`, `blueberry`, `dmenu`
 - `docker`, `docker-compose`, `dosfstools`, `dunst`
 - `electron`, `ethtool`, `feh`, `flameshot`
@@ -144,6 +160,7 @@ boot.initrd.compressor = "zstd"
 ### 10. System76-Specific Packages
 
 **Missing Packages**:
+
 - `system76-power`, `system76-wallpapers`
 - `system76-scheduler`, `system76-firmware`
 - `mpv` with scripts (thumbfast, cheatsheet, shim)
@@ -161,6 +178,7 @@ boot.initrd.compressor = "zstd"
 ### 11. Nix Configuration Differences
 
 **Old Config Nix Settings**:
+
 ```nix
 trusted-users = [ "root" "vx" ]
 auto-optimise-store = true
@@ -173,6 +191,7 @@ gcc.tune = "x86-64-v3"
 ### 12. Shell and Environment Differences
 
 **Old Config**:
+
 - Default shell: `zsh` with completion and syntax highlighting
 - /bin/sh -> dash
 - Multiple shells in environment
@@ -183,6 +202,7 @@ gcc.tune = "x86-64-v3"
 ### 13. Hardware Support Differences
 
 **Old Config Hardware**:
+
 - nixos-hardware.nixosModules.system76 import
 - Specific kernel modules for LUKS
 - Hardware sensors and firmware support
@@ -193,6 +213,7 @@ gcc.tune = "x86-64-v3"
 ### 14. Systemd and Service Differences
 
 **Old Config**:
+
 - SSH service depends on tailscaled
 - networkd-dispatcher for network optimization
 - X11 windowing system explicitly enabled
@@ -203,42 +224,46 @@ gcc.tune = "x86-64-v3"
 
 ## Configuration Feature Matrix
 
-| Configuration Area | Old Config | Current Config | Gap Analysis |
-|-------------------|------------|----------------|--------------|
-| Impermanence | ✅ Full | ❌ None | Critical for stateless |
-| Plasma Manager | ✅ Integrated | ❌ Missing | KDE management lost |
-| VSCode Remote | ✅ Complete | ⚠️ Partial | Missing libraries & fixes |
-| Tailscale | ✅ Advanced | ⚠️ Basic | No optimization/routing |
-| SSH Server | ✅ X11 Forward | ⚠️ Basic | No X11, different auth |
-| User Config | ✅ Detailed | ⚠️ Simple | Missing SSH client config |
-| NVIDIA | ✅ Full | ⚠️ Partial | Missing kernel params |
-| Boot | ✅ Optimized | ⚠️ Basic | Missing compression |
-| Packages | ✅ 150+ | ⚠️ ~70 | ~80 packages missing |
-| System76 HW | ✅ Complete | ❌ None | Hardware module missing |
-| Nix Settings | ✅ Optimized | ⚠️ Basic | No CPU optimization |
-| Shell Config | ✅ ZSH default | ⚠️ Different | Different approach |
+| Configuration Area | Old Config     | Current Config | Gap Analysis              |
+| ------------------ | -------------- | -------------- | ------------------------- |
+| Impermanence       | ✅ Full        | ❌ None        | Critical for stateless    |
+| Plasma Manager     | ✅ Integrated  | ❌ Missing     | KDE management lost       |
+| VSCode Remote      | ✅ Complete    | ⚠️ Partial     | Missing libraries & fixes |
+| Tailscale          | ✅ Advanced    | ⚠️ Basic       | No optimization/routing   |
+| SSH Server         | ✅ X11 Forward | ⚠️ Basic       | No X11, different auth    |
+| User Config        | ✅ Detailed    | ⚠️ Simple      | Missing SSH client config |
+| NVIDIA             | ✅ Full        | ⚠️ Partial     | Missing kernel params     |
+| Boot               | ✅ Optimized   | ⚠️ Basic       | Missing compression       |
+| Packages           | ✅ 150+        | ⚠️ ~70         | ~80 packages missing      |
+| System76 HW        | ✅ Complete    | ❌ None        | Hardware module missing   |
+| Nix Settings       | ✅ Optimized   | ⚠️ Basic       | No CPU optimization       |
+| Shell Config       | ✅ ZSH default | ⚠️ Different   | Different approach        |
 
 ## Critical Integration Losses
 
 ### 1. Development Workflow
+
 - No VSCode Remote SSH full support
 - Missing development languages (Clojure, Java 24)
 - No AI tools (Claude Code, GitHub MCP)
 - Missing container tools (docker, docker-compose)
 
 ### 2. System Management
+
 - No impermanence for rollback safety
 - Missing plasma-manager for KDE control
 - No TeamViewer for remote support
 - Missing system76 hardware optimizations
 
 ### 3. Network and Security
+
 - Tailscale not optimized for performance
 - SSH missing X11 forwarding
 - No VPN tools (ProtonVPN GUI)
 - Missing encryption tools (VeraCrypt, GPG-TUI)
 
 ### 4. Media and Productivity
+
 - No MPV with advanced scripts
 - Missing media server integration (Jellyfin)
 - No office tools (MarkText, Obsidian)
@@ -247,24 +272,28 @@ gcc.tune = "x86-64-v3"
 ## Migration Priority Recommendations
 
 ### Immediate (Security & Core Functionality)
+
 1. **SSH Configuration** - Add X11 forwarding, adjust auth settings
 2. **NVIDIA Kernel Parameters** - Add missing boot parameters
 3. **System76 Hardware Module** - Import nixos-hardware module
 4. **Trusted Users** - Configure for proper Nix operations
 
 ### High Priority (Development Workflow)
+
 1. **VSCode Remote Libraries** - Extend nix-ld configuration
 2. **Development Packages** - Add missing languages and tools
 3. **Docker & Containers** - Essential for modern development
 4. **AI Development Tools** - Claude Code, GitHub MCP
 
 ### Medium Priority (System Features)
+
 1. **Tailscale Optimization** - Network performance features
 2. **Impermanence** - Stateless configuration
 3. **Plasma Manager** - KDE declarative config
 4. **Boot Optimization** - Compression and limits
 
 ### Low Priority (Nice to Have)
+
 1. **Media Tools** - MPV scripts and integrations
 2. **Communication Apps** - Mattermost, Electron Mail
 3. **Additional Shells** - Dash, Fish configurations

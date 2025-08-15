@@ -147,6 +147,7 @@ nix flake update nixpkgs home-manager
 ### Host Configuration
 
 **Primary Host: `system76`**
+
 - `modules/system76/imports.nix` - Main host configuration entry point
 - Host-specific modules include:
   - `boot.nix` - Boot configuration with LUKS encryption
@@ -174,6 +175,7 @@ nix flake update nixpkgs home-manager
 ### Testing Philosophy
 
 The configuration relies on:
+
 - Build-time validation via Nix's type system
 - Dendritic pattern's inherent structural safety
 - TOML generation for change tracking (`modules/meta/all-check-store-paths.nix`)
@@ -229,13 +231,13 @@ Custom library functions use consistent prefixes (e.g., `mightyiam.lib.*`).
 
 ### Common Errors & Solutions
 
-| Error | Solution |
-|-------|----------|
-| `attribute 'pkgs' missing` | Wrap module in function: `flake.modules.nixos.namespace = { pkgs, ... }: { ... }` |
-| `expected a set but got a function` | Remove function wrapper if module doesn't need `pkgs` |
-| `infinite recursion` | Check for circular namespace references |
-| `pipe operator` error | Add `--extra-experimental-features "pipe-operators"` |
-| `pkgs is undefined` | Only use `pkgs` inside the returned function, not at file level |
+| Error                               | Solution                                                                          |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| `attribute 'pkgs' missing`          | Wrap module in function: `flake.modules.nixos.namespace = { pkgs, ... }: { ... }` |
+| `expected a set but got a function` | Remove function wrapper if module doesn't need `pkgs`                             |
+| `infinite recursion`                | Check for circular namespace references                                           |
+| `pipe operator` error               | Add `--extra-experimental-features "pipe-operators"`                              |
+| `pkgs is undefined`                 | Only use `pkgs` inside the returned function, not at file level                   |
 
 ### Debug Commands
 
@@ -295,6 +297,7 @@ The configuration was recently migrated to the Dendritic Pattern (2025-08-12), a
 ## Development Shell
 
 The development shell (via `nix develop`) provides:
+
 - `nixfmt-rfc-style` - Nix code formatter
 - `nil` - Nix LSP for IDE integration
 - `nix-tree` - Dependency exploration
@@ -305,6 +308,7 @@ The development shell (via `nix develop`) provides:
 ## Generation Management
 
 The `generation-manager` tool provides comprehensive system management:
+
 - `generation-manager list` - List all system generations
 - `generation-manager current` - Show current generation info
 - `generation-manager clean [N]` - Keep only N most recent generations

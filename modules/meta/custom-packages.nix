@@ -26,7 +26,7 @@
             dig +short myip.opendns.com @resolver1.opendns.com
 
             echo "DNS servers in use:"
-            cat /etc/resolv.conf | grep nameserver
+            grep nameserver /etc/resolv.conf
           '';
         };
       };

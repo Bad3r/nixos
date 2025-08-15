@@ -22,7 +22,7 @@ The dendritic pattern excels at managing multiple configuration types from a sin
       lfs.enable = true;
     };
   };
-  
+
   # Home Manager configuration
   flake.modules.homeManager.base = {
     programs.git = {
@@ -34,13 +34,13 @@ The dendritic pattern excels at managing multiple configuration types from a sin
       };
     };
   };
-  
+
   # Nix-on-Droid configuration
   flake.modules.nixOnDroid.base = {
     environment.packages = [ pkgs.git ];
     user.shell = "${pkgs.git}/bin/git";
   };
-  
+
   # Darwin (macOS) configuration
   flake.modules.darwin.base = {
     environment.systemPackages = [ pkgs.git ];
@@ -64,7 +64,7 @@ let
     gs = "git status";
     gc = "git commit";
   };
-  
+
   shellVariables = {
     EDITOR = "nvim";
     PAGER = "less";
@@ -76,12 +76,12 @@ in
     shellAliases = shellAliases;
     variables = shellVariables;
   };
-  
+
   flake.modules.homeManager.base.home = {
     shellAliases = shellAliases;
     sessionVariables = shellVariables;
   };
-  
+
   flake.modules.darwin.base.environment = {
     shellAliases = shellAliases;
     variables = shellVariables;
@@ -106,24 +106,24 @@ Handle platform differences elegantly:
       python3
     ];
   };
-  
+
   # Linux-specific (NixOS)
   flake.modules.nixos.development = { pkgs, ... }: {
     imports = [ config.flake.modules.allPlatforms.development ];
-    
+
     # Linux-only tools
     virtualisation.docker.enable = true;
     boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
   };
-  
+
   # macOS-specific (Darwin)
   flake.modules.darwin.development = { pkgs, ... }: {
     imports = [ config.flake.modules.allPlatforms.development ];
-    
+
     # macOS-only configuration
     homebrew.casks = [ "docker" ];
   };
-  
+
   # Mobile-specific (Nix-on-Droid)
   flake.modules.nixOnDroid.development = { pkgs, ... }: {
     # Subset for mobile
@@ -146,7 +146,7 @@ Load modules based on system capabilities:
 # modules/smart-gpu.nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.base = { config, lib, ... }: 
+  flake.modules.nixos.base = { config, lib, ... }:
   let
     hasNvidia = builtins.elem "nvidia" (config.services.xserver.videoDrivers or []);
     hasAmd = builtins.elem "amdgpu" (config.services.xserver.videoDrivers or []);
@@ -156,14 +156,14 @@ Load modules based on system capabilities:
       enable = lib.mkDefault (hasNvidia || hasAmd);
       driSupport = true;
       driSupport32Bit = lib.mkDefault (hasNvidia || hasAmd);
-      
-      extraPackages = with pkgs; 
+
+      extraPackages = with pkgs;
         lib.optionals hasAmd [ amdvlk rocm-opencl-icd ]
         ++ lib.optionals hasNvidia [ nvidia-vaapi-driver ];
     };
-    
+
     # Conditional kernel modules
-    boot.initrd.kernelModules = 
+    boot.initrd.kernelModules =
       lib.optionals hasNvidia [ "nvidia" "nvidia_modeset" "nvidia_uvm" ]
       ++ lib.optionals hasAmd [ "amdgpu" ];
   };
@@ -178,25 +178,25 @@ Automatically enable features based on hardware:
 # modules/hardware/auto-features.nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.base = { config, lib, pkgs, ... }: 
+  flake.modules.nixos.base = { config, lib, pkgs, ... }:
   let
     # Detect hardware capabilities
-    hasBluetooth = config.hardware.bluetooth.enable or 
+    hasBluetooth = config.hardware.bluetooth.enable or
       (builtins.elem "bluetooth" (config.boot.kernelModules or []));
-    
-    hasWifi = builtins.any (iface: iface.type == "wlan") 
+
+    hasWifi = builtins.any (iface: iface.type == "wlan")
       (lib.attrValues (config.networking.interfaces or {}));
-    
+
     isSSD = config.fileSystems."/".device.type or "hdd" == "ssd";
   in {
     # Auto-enable based on detection
     services.blueman.enable = lib.mkDefault hasBluetooth;
-    
-    networking.networkmanager.wifi.backend = 
+
+    networking.networkmanager.wifi.backend =
       lib.mkDefault (if hasWifi then "iwd" else "wpa_supplicant");
-    
+
     services.fstrim.enable = lib.mkDefault isSSD;
-    
+
     # Optimize for detected hardware
     boot.kernel.sysctl = lib.mkIf isSSD {
       "vm.swappiness" = 1;
@@ -277,7 +277,7 @@ let
       location = "us-east-1";
       ip = "10.0.1.20";
     };
-    
+
     # Workstations
     dev-laptop = {
       type = "laptop";
@@ -299,15 +299,15 @@ in
         base
         spec.type
       ] ++ map (role: config.flake.modules.nixos.${role}) spec.roles;
-      
+
       networking.hostName = hostname;
       networking.interfaces.eth0.ipv4.addresses = lib.optional (spec ? ip) {
         address = spec.ip;
         prefixLength = 24;
       };
-      
+
       # Location-specific settings
-      time.timeZone = 
+      time.timeZone =
         if lib.hasPrefix "us-east" (spec.location or "")
         then "America/New_York"
         else if lib.hasPrefix "us-west" (spec.location or "")
@@ -315,7 +315,7 @@ in
         else "UTC";
     };
   }) systems;
-  
+
   # Export system metadata for other uses
   flake.systems = systems;
 }
@@ -333,19 +333,19 @@ Coordinate deployments across systems:
   flake.deploymentGroups = {
     webservers = [ "prod-web-1" "prod-web-2" ];
     databases = [ "prod-db-1" "prod-db-2" ];
-    all-prod = config.flake.deploymentGroups.webservers 
+    all-prod = config.flake.deploymentGroups.webservers
       ++ config.flake.deploymentGroups.databases;
   };
-  
+
   # Generate deployment scripts
   perSystem = { pkgs, ... }: {
-    packages = lib.mapAttrs (group: systems: 
+    packages = lib.mapAttrs (group: systems:
       pkgs.writeShellScriptBin "deploy-${group}" ''
         #!/usr/bin/env bash
         set -euo pipefail
-        
+
         echo "Deploying to ${group}: ${lib.concatStringsSep ", " systems}"
-        
+
         ${lib.concatMapStringsSep "\n" (system: ''
           echo "Deploying ${system}..."
           nixos-rebuild switch \
@@ -354,7 +354,7 @@ Coordinate deployments across systems:
             --extra-experimental-features pipe-operators \
             --use-remote-sudo
         '') systems}
-        
+
         echo "Deployment complete!"
       ''
     ) config.flake.deploymentGroups;
@@ -376,13 +376,13 @@ Manage shared state across systems:
       default = {};
       description = "SSH public keys for users";
     };
-    
+
     certificates = lib.mkOption {
       type = lib.types.attrsOf lib.types.path;
       default = {};
       description = "TLS certificates";
     };
-    
+
     wireguardPeers = lib.mkOption {
       type = lib.types.listOf (lib.types.submodule {
         options = {
@@ -394,14 +394,14 @@ Manage shared state across systems:
       default = [];
     };
   };
-  
+
   config = {
     # Populate shared state
     flake.sharedState.sshKeys = {
       alice = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...";
       bob = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...";
     };
-    
+
     # Use shared state in modules
     flake.modules.nixos.base = {
       users.users = lib.mapAttrs (name: key: {
@@ -425,17 +425,17 @@ Create reusable hardware profiles:
   flake.modules.nixos.dell-xps-13 = { pkgs, ... }: {
     # Specific kernel modules
     boot.initrd.kernelModules = [ "i915" ];
-    boot.kernelParams = [ 
+    boot.kernelParams = [
       "mem_sleep_default=deep"
-      "nvme.noacpi=1" 
+      "nvme.noacpi=1"
     ];
-    
+
     # Hardware-specific packages
     environment.systemPackages = with pkgs; [
       dell-command-configure
       thermald
     ];
-    
+
     # Power management
     services.thermald.enable = true;
     services.tlp = {
@@ -446,7 +446,7 @@ Create reusable hardware profiles:
         STOP_CHARGE_THRESH_BAT0 = 90;
       };
     };
-    
+
     # Touchpad configuration
     services.xserver.libinput = {
       enable = true;
@@ -470,16 +470,16 @@ Use nixos-facter for hardware detection:
 let
   # Load hardware facts (generated by nixos-facter)
   facterReport = lib.importJSON ./facter.json;
-  
+
   # Detect hardware characteristics
   cpuVendor = facterReport.cpu.vendor or "unknown";
-  gpuVendor = lib.head (lib.mapAttrsToList 
-    (n: v: v.vendor) 
+  gpuVendor = lib.head (lib.mapAttrsToList
+    (n: v: v.vendor)
     (facterReport.gpus or {}));
   totalMemoryGB = facterReport.memory.total / (1024 * 1024 * 1024);
-  
+
   # Determine profile based on hardware
-  hardwareProfile = 
+  hardwareProfile =
     if cpuVendor == "GenuineIntel" && totalMemoryGB < 8
     then "low-power"
     else if gpuVendor == "NVIDIA Corporation"
@@ -490,16 +490,16 @@ let
 in
 {
   flake.modules.nixos.auto-hardware = {
-    imports = [ 
+    imports = [
       config.flake.modules.nixos.${hardwareProfile}
     ];
-    
+
     # Apply detected settings
-    boot.kernelPackages = 
-      if cpuVendor == "AuthenticAMD" 
+    boot.kernelPackages =
+      if cpuVendor == "AuthenticAMD"
       then pkgs.linuxPackages_zen
       else pkgs.linuxPackages_latest;
-    
+
     # Scale ZFS ARC based on memory
     boot.zfs.arc.max = lib.mkIf (totalMemoryGB > 16)
       (toString (totalMemoryGB / 2 * 1024 * 1024 * 1024));
@@ -521,19 +521,19 @@ Create abstractions for hardware variations:
       default = "desktop-1080p";
     };
   };
-  
+
   config.flake.modules.nixos.base = { config, lib, pkgs, ... }: {
-    services.xserver.dpi = 
+    services.xserver.dpi =
       if config.flake.hardware.display.profile == "desktop-4k" then 144
       else if config.flake.hardware.display.profile == "laptop" then 120
       else 96;
-    
+
     # Scaling for different displays
     environment.variables = lib.mkIf (config.flake.hardware.display.profile == "desktop-4k") {
       GDK_SCALE = "1.5";
       QT_SCALE_FACTOR = "1.5";
     };
-    
+
     # Multi-monitor setup
     services.autorandr = lib.mkIf (config.flake.hardware.display.profile == "multi-monitor") {
       enable = true;
@@ -611,29 +611,29 @@ in
       openssh.authorizedKeys.keys = userCfg.sshKeys;
     }) userRegistry;
   };
-  
+
   # Generate Home Manager configurations
   flake.modules.homeManager = lib.mapAttrs (username: userCfg: {
-    imports = [ 
+    imports = [
       config.flake.modules.homeManager.base
       config.flake.modules.homeManager.${userCfg.role}
     ];
-    
+
     home.username = username;
     home.homeDirectory = "/home/${username}";
   }) userRegistry;
-  
+
   # Role-specific configurations
   flake.modules.homeManager.developer = { pkgs, ... }: {
     programs.vscode.enable = true;
     programs.direnv.enable = true;
-    home.packages = with pkgs; [ 
+    home.packages = with pkgs; [
       docker-compose
       kubectl
       terraform
     ];
   };
-  
+
   flake.modules.homeManager.designer = { pkgs, ... }: {
     home.packages = with pkgs; [
       inkscape
@@ -670,7 +670,7 @@ Handle user-specific secrets:
       };
     });
   };
-  
+
   config = {
     # Define secrets
     flake.userSecrets = {
@@ -680,14 +680,14 @@ Handle user-specific secrets:
         gpgKey = ./secrets/alice-gpg.asc;
       };
     };
-    
+
     # Apply secrets
     flake.modules.nixos.base = { config, ... }: {
       users.users = lib.mapAttrs (username: secrets: {
         hashedPassword = secrets.passwordHash;
       }) config.flake.userSecrets;
     };
-    
+
     # User-specific WireGuard
     flake.modules.nixos.vpn = { config, ... }: {
       networking.wireguard.interfaces = lib.mapAttrs (username: secrets: {
@@ -719,7 +719,7 @@ Setup comprehensive CI/CD:
         push.branches = [ "main" ];
         pull_request.branches = [ "main" ];
       };
-      
+
       jobs = {
         check = {
           runs-on = "ubuntu-latest";
@@ -729,10 +729,10 @@ Setup comprehensive CI/CD:
             };
             fail-fast = false;
           };
-          
+
           steps = [
             { uses = "actions/checkout@v3"; }
-            { 
+            {
               uses = "cachix/install-nix-action@v22";
               with = {
                 extra_nix_config = ''
@@ -758,12 +758,12 @@ Setup comprehensive CI/CD:
             }
           ];
         };
-        
+
         deploy = {
           needs = [ "check" ];
           runs-on = "ubuntu-latest";
           if = "github.ref == 'refs/heads/main'";
-          
+
           steps = [
             { uses = "actions/checkout@v3"; }
             {
@@ -801,17 +801,17 @@ Implement GitOps-style deployment:
         ExecStart = pkgs.writeShellScript "update-system" ''
           #!/usr/bin/env bash
           set -euo pipefail
-          
+
           cd /etc/nixos
           git pull origin main
-          
+
           nixos-rebuild switch \
             --flake .#${config.networking.hostName} \
             --extra-experimental-features pipe-operators
         '';
       };
     };
-    
+
     systemd.timers.nixos-update = {
       description = "NixOS GitOps Update Timer";
       wantedBy = [ "timers.target" ];
@@ -836,7 +836,7 @@ Optimize module evaluation:
 { config, lib, ... }:
 {
   # Use lazy evaluation effectively
-  flake.modules.nixos.optimized = { config, lib, pkgs, ... }: 
+  flake.modules.nixos.optimized = { config, lib, pkgs, ... }:
   let
     # Expensive computations only when needed
     expensivePackageList = lib.mkIf config.services.xserver.enable
@@ -847,13 +847,13 @@ Optimize module evaluation:
       SystemMaxUse=1G
       RuntimeMaxUse=100M
     '';
-    
+
     # Lazy attribute sets
     environment.systemPackages = lib.mkMerge [
       (lib.mkIf config.services.xserver.enable expensivePackageList)
       [ pkgs.vim pkgs.git ]  # Always included
     ];
-    
+
     # Avoid recursive dependencies
     networking.hostName = lib.mkDefault "nixos";  # Not config.networking.hostName
   };
@@ -873,26 +873,26 @@ Optimize build times:
     nix.settings = {
       max-jobs = "auto";
       cores = 0;  # Use all cores
-      
+
       # Use binary caches
       substituters = [
         "https://cache.nixos.org"
         "https://nix-community.cachix.org"
       ];
-      
+
       trusted-public-keys = [
         "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
         "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
       ];
-      
+
       # Optimize store automatically
       auto-optimise-store = true;
-      
+
       # Garbage collection
       min-free = lib.mkDefault (1024 * 1024 * 1024);  # 1GB
       max-free = lib.mkDefault (10 * 1024 * 1024 * 1024);  # 10GB
     };
-    
+
     # Periodic optimization
     systemd.services.nix-optimise = {
       description = "Nix Store Optimization";
@@ -901,7 +901,7 @@ Optimize build times:
         ExecStart = "${pkgs.nix}/bin/nix-store --optimise";
       };
     };
-    
+
     systemd.timers.nix-optimise = {
       description = "Nix Store Optimization Timer";
       wantedBy = [ "timers.target" ];
@@ -930,14 +930,14 @@ Reduce memory usage:
       "vm.dirty_ratio" = 5;
       "vm.dirty_background_ratio" = 2;
     };
-    
+
     # Use zram for swap
     zramSwap = {
       enable = true;
       algorithm = "zstd";
       memoryPercent = 50;
     };
-    
+
     # Optimize systemd
     systemd.services = {
       "systemd-journald".serviceConfig = {
@@ -945,7 +945,7 @@ Reduce memory usage:
         MemoryHigh = "80M";
       };
     };
-    
+
     # Disable unnecessary services
     services.avahi.enable = lib.mkDefault false;
     services.printing.enable = lib.mkDefault false;
@@ -975,7 +975,7 @@ Implement security layers:
       "net.ipv4.conf.default.accept_source_route" = 0;
       "net.ipv4.icmp_echo_ignore_broadcasts" = 1;
       "net.ipv4.icmp_ignore_bogus_error_responses" = 1;
-      
+
       # Kernel hardening
       "kernel.kptr_restrict" = 2;
       "kernel.yama.ptrace_scope" = 1;
@@ -983,19 +983,19 @@ Implement security layers:
       "net.core.bpf_jit_harden" = 2;
       "kernel.ftrace_enabled" = false;
     };
-    
+
     # Security modules
     security = {
       apparmor.enable = true;
       audit.enable = true;
       auditd.enable = true;
-      
+
       sudo = {
         wheelNeedsPassword = true;
         execWheelOnly = true;
       };
     };
-    
+
     # Service hardening
     systemd.services = lib.mapAttrs (name: service: {
       serviceConfig = {
@@ -1028,7 +1028,7 @@ Implement secure secrets handling:
 { config, lib, inputs, ... }:
 {
   imports = [ inputs.agenix.nixosModules.default ];
-  
+
   options.flake.secrets = {
     path = lib.mkOption {
       type = lib.types.path;
@@ -1036,7 +1036,7 @@ Implement secure secrets handling:
       description = "Path to encrypted secrets";
     };
   };
-  
+
   config = {
     # Define secrets
     age.secrets = {
@@ -1045,14 +1045,14 @@ Implement secure secrets handling:
         owner = "systemd-network";
         group = "systemd-network";
       };
-      
+
       database-password = {
         file = "${config.flake.secrets.path}/database.age";
         owner = "postgres";
         group = "postgres";
         mode = "0400";
       };
-      
+
       ssl-cert = {
         file = "${config.flake.secrets.path}/ssl-cert.age";
         owner = "nginx";
@@ -1060,14 +1060,14 @@ Implement secure secrets handling:
         path = "/var/lib/ssl/cert.pem";
       };
     };
-    
+
     # Use secrets in services
     flake.modules.nixos.services = {
       services.postgresql.authentication = ''
         local all all peer
         host all all 127.0.0.1/32 md5
       '';
-      
+
       systemd.services.postgresql.serviceConfig = {
         ExecStartPre = "${pkgs.coreutils}/bin/cat ${config.age.secrets.database-password.path}";
       };
@@ -1087,7 +1087,7 @@ Test individual modules:
 { config, lib, pkgs, ... }:
 {
   # Define test cases
-  flake.checks = lib.mapAttrs (name: test: 
+  flake.checks = lib.mapAttrs (name: test:
     pkgs.nixosTest {
       name = "module-test-${name}";
       nodes.machine = {
@@ -1104,7 +1104,7 @@ Test individual modules:
         machine.succeed("curl http://localhost")
       '';
     };
-    
+
     postgresql = {
       module = config.flake.modules.nixos.database;
       script = ''
@@ -1126,7 +1126,7 @@ Test module combinations:
 {
   flake.checks.integration = pkgs.nixosTest {
     name = "integration-test";
-    
+
     nodes = {
       webserver = {
         imports = with config.flake.modules.nixos; [
@@ -1135,7 +1135,7 @@ Test module combinations:
           monitoring
         ];
       };
-      
+
       database = {
         imports = with config.flake.modules.nixos; [
           base
@@ -1143,27 +1143,27 @@ Test module combinations:
           backup
         ];
       };
-      
+
       client = {
         imports = [ config.flake.modules.nixos.base ];
       };
     };
-    
+
     testScript = ''
       # Start all nodes
       webserver.start()
       database.start()
       client.start()
-      
+
       # Test connectivity
       client.wait_for_unit("network.target")
       client.succeed("ping -c 1 webserver")
       client.succeed("ping -c 1 database")
-      
+
       # Test services
       webserver.wait_for_unit("nginx.service")
       database.wait_for_unit("postgresql.service")
-      
+
       # Test integration
       client.succeed("curl http://webserver")
       webserver.succeed("psql -h database -U testuser -c 'SELECT 1'")
@@ -1188,14 +1188,14 @@ let
       ports = [ "${toString port}:${toString port}" ];
       autoStart = true;
     };
-    
+
     services.nginx.virtualHosts."${name}.local" = {
       locations."/" = {
         proxyPass = "http://localhost:${toString port}";
         proxyWebsockets = true;
       };
     };
-    
+
     networking.firewall.allowedTCPPorts = [ port ];
   };
 in
@@ -1208,13 +1208,13 @@ in
       image = "company/api-gateway:latest";
       environment.LOG_LEVEL = "info";
     };
-    
+
     auth-service = mkMicroservice {
       name = "auth-service";
       port = 8081;
       image = "company/auth-service:latest";
     };
-    
+
     user-service = mkMicroservice {
       name = "user-service";
       port = 8082;
@@ -1237,15 +1237,15 @@ Create composition utilities:
     mergeModules = modules: lib.mkMerge (
       map (m: lib.mkDefault m) modules
     );
-    
+
     # Conditional module inclusion
-    includeIf = condition: module: 
+    includeIf = condition: module:
       lib.mkIf condition module;
-    
+
     # Override with priority
-    override = priority: module: 
+    override = priority: module:
       lib.mkOverride priority module;
-    
+
     # Module with metadata
     withMeta = meta: module: module // { inherit meta; };
   };

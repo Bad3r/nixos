@@ -32,18 +32,21 @@ grep -r "overlay\|packageOverrides\|mkDerivation" /etc/nixos
 Rate your configuration complexity:
 
 **Simple (1-2 files, <200 lines)**
+
 - Single machine
 - Basic services
 - Few customizations
 - Migration time: 1-2 hours
 
 **Moderate (3-10 files, 200-1000 lines)**
+
 - Multiple machines or roles
 - Several services
 - Some custom packages
 - Migration time: 2-4 hours
 
 **Complex (10+ files, 1000+ lines)**
+
 - Many machines with different roles
 - Complex service configurations
 - Multiple overlays and custom packages
@@ -55,6 +58,7 @@ Based on your assessment, create a checklist:
 
 ```markdown
 ## Migration Checklist
+
 - [ ] Backup current configuration
 - [ ] List all systems to migrate
 - [ ] Identify shared vs system-specific configs
@@ -132,6 +136,7 @@ EOF
 ### Understanding Import Transformation
 
 **Traditional Pattern:**
+
 ```nix
 # configuration.nix
 { config, pkgs, ... }:
@@ -148,6 +153,7 @@ EOF
 ```
 
 **Dendritic Pattern:**
+
 ```nix
 # modules/mysystem/imports.nix
 { config, ... }:
@@ -206,19 +212,20 @@ git add flake.nix
 ### Step 4: Convert Hardware Configuration
 
 **Traditional hardware-configuration.nix:**
+
 ```nix
 { config, lib, pkgs, modulesPath, ... }:
 {
   imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
-  
+
   boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" ];
   boot.kernelModules = [ "kvm-intel" ];
-  
+
   fileSystems."/" = {
     device = "/dev/disk/by-label/nixos";
     fsType = "ext4";
   };
-  
+
   fileSystems."/boot" = {
     device = "/dev/disk/by-label/boot";
     fsType = "vfat";
@@ -227,25 +234,26 @@ git add flake.nix
 ```
 
 **Dendritic modules/mysystem/hardware.nix:**
+
 ```nix
 { lib, ... }:
 {
   configurations.nixos.mysystem.module = { modulesPath, ... }: {
     imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
-    
+
     boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" ];
     boot.kernelModules = [ "kvm-intel" ];
-    
+
     fileSystems."/" = {
       device = "/dev/disk/by-label/nixos";
       fsType = "ext4";
     };
-    
+
     fileSystems."/boot" = {
       device = "/dev/disk/by-label/boot";
       fsType = "vfat";
     };
-    
+
     nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
   };
 }
@@ -254,6 +262,7 @@ git add flake.nix
 ### Step 5: Refactor Service Configurations
 
 **Traditional services/nginx.nix:**
+
 ```nix
 { config, pkgs, ... }:
 {
@@ -264,7 +273,7 @@ git add flake.nix
       root = "/var/www/example";
     };
   };
-  
+
   networking.firewall.allowedTCPPorts = [ 80 443 ];
 }
 ```
@@ -272,6 +281,7 @@ git add flake.nix
 **Dendritic approach - Split into reusable parts:**
 
 Create `modules/services/nginx.nix`:
+
 ```nix
 { ... }:
 {
@@ -281,13 +291,14 @@ Create `modules/services/nginx.nix`:
       recommendedProxySettings = true;
       recommendedTlsSettings = true;
     };
-    
+
     networking.firewall.allowedTCPPorts = [ 80 443 ];
   };
 }
 ```
 
 Create `modules/sites/example-com.nix`:
+
 ```nix
 { ... }:
 {
@@ -302,6 +313,7 @@ Create `modules/sites/example-com.nix`:
 ### Step 6: Migrate User Configurations
 
 **Traditional users.nix:**
+
 ```nix
 { config, pkgs, ... }:
 {
@@ -313,12 +325,13 @@ Create `modules/sites/example-com.nix`:
       "ssh-rsa AAAAB3..."
     ];
   };
-  
+
   programs.zsh.enable = true;
 }
 ```
 
 **Dendritic modules/users/alice.nix:**
+
 ```nix
 { config, ... }:
 {
@@ -332,13 +345,14 @@ Create `modules/sites/example-com.nix`:
       ];
     };
   };
-  
+
   # Add docker group only on development machines
   flake.modules.nixos.development.users.users.alice.extraGroups = [ "docker" ];
 }
 ```
 
 Create `modules/shells/zsh.nix`:
+
 ```nix
 {
   flake.modules.nixos.base.programs.zsh.enable = true;
@@ -350,6 +364,7 @@ Create `modules/shells/zsh.nix`:
 ### Scenario 1: Single Machine Configuration
 
 **Starting Point:**
+
 ```
 /etc/nixos/
 ├── configuration.nix
@@ -359,12 +374,14 @@ Create `modules/shells/zsh.nix`:
 **Migration Steps:**
 
 1. Create base structure:
+
 ```bash
 cd ~/nixos-dendritic
 mkdir -p modules/{mydesktop,base-config}
 ```
 
 2. Create configuration framework:
+
 ```nix
 # modules/configurations/nixos.nix
 { lib, config, ... }:
@@ -378,8 +395,8 @@ mkdir -p modules/{mydesktop,base-config}
       }
     );
   };
-  
-  config.flake.nixosConfigurations = 
+
+  config.flake.nixosConfigurations =
     lib.flip lib.mapAttrs config.configurations.nixos (
       name: { module }: lib.nixosSystem { modules = [ module ]; }
     );
@@ -387,6 +404,7 @@ mkdir -p modules/{mydesktop,base-config}
 ```
 
 3. Extract base configuration:
+
 ```nix
 # modules/base.nix
 { ... }:
@@ -394,11 +412,11 @@ mkdir -p modules/{mydesktop,base-config}
   flake.modules.nixos.base = {
     system.stateVersion = "24.11";
     nix.settings.experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
-    
+
     # Move all common settings here
     time.timeZone = "America/New_York";
     i18n.defaultLocale = "en_US.UTF-8";
-    
+
     # Common packages
     environment.systemPackages = with pkgs; [
       vim git wget
@@ -408,6 +426,7 @@ mkdir -p modules/{mydesktop,base-config}
 ```
 
 4. Create system-specific module:
+
 ```nix
 # modules/mydesktop/imports.nix
 { config, ... }:
@@ -432,6 +451,7 @@ mkdir -p modules/{mydesktop,base-config}
 ### Scenario 2: Multiple Machines with Shared Config
 
 **Starting Point:**
+
 ```
 /etc/nixos/
 ├── machines/
@@ -453,6 +473,7 @@ mkdir -p modules/{mydesktop,base-config}
 **Migration Strategy:**
 
 1. Identify commonalities:
+
 ```bash
 # Find duplicate configurations
 diff machines/laptop/configuration.nix machines/desktop/configuration.nix
@@ -462,6 +483,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 ```
 
 2. Create module hierarchy:
+
 ```nix
 # modules/pc.nix - Shared by laptop and desktop
 { config, ... }:
@@ -495,6 +517,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 ```
 
 3. Migrate each system:
+
 ```nix
 # modules/laptop/imports.nix
 { config, ... }:
@@ -511,6 +534,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 ### Scenario 3: Complex Multi-Role Systems
 
 **Starting Point:**
+
 ```
 /etc/nixos/
 ├── hosts/
@@ -535,6 +559,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 **Migration Approach:**
 
 1. Convert roles to named modules:
+
 ```nix
 # modules/roles/webserver.nix
 { config, ... }:
@@ -556,6 +581,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 ```
 
 2. Convert environments to modules:
+
 ```nix
 # modules/environments/production.nix
 { config, ... }:
@@ -569,6 +595,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 ```
 
 3. Compose systems from roles and environments:
+
 ```nix
 # modules/prod-web-1/imports.nix
 { config, ... }:
@@ -590,6 +617,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 ### Issue: Infinite Recursion
 
 **Symptom:**
+
 ```
 error: infinite recursion encountered
 ```
@@ -597,12 +625,14 @@ error: infinite recursion encountered
 **Common Causes and Solutions:**
 
 1. **Circular module dependencies:**
+
 ```nix
 # BAD: moduleA imports moduleB, moduleB imports moduleA
 # GOOD: Extract common parts to a third module
 ```
 
 2. **Self-referential configuration:**
+
 ```nix
 # BAD
 flake.modules.nixos.base = {
@@ -618,6 +648,7 @@ flake.modules.nixos.base = {
 ### Issue: Attribute Missing
 
 **Symptom:**
+
 ```
 error: attribute 'something' missing
 ```
@@ -625,6 +656,7 @@ error: attribute 'something' missing
 **Solutions:**
 
 1. Check module is being imported:
+
 ```nix
 # Verify file exists in modules/
 ls modules/
@@ -634,6 +666,7 @@ ls modules/
 ```
 
 2. Verify attribute path:
+
 ```nix
 # Use nix repl to explore
 nix repl --extra-experimental-features pipe-operators
@@ -644,6 +677,7 @@ nix repl --extra-experimental-features pipe-operators
 ### Issue: Option Already Defined
 
 **Symptom:**
+
 ```
 error: The option `something' is defined multiple times
 ```
@@ -651,6 +685,7 @@ error: The option `something' is defined multiple times
 **Solutions:**
 
 1. Use `mkDefault` for overridable values:
+
 ```nix
 # In base module
 networking.hostName = lib.mkDefault "default";
@@ -660,6 +695,7 @@ networking.hostName = "specific";  # Overrides default
 ```
 
 2. Use `mkMerge` for lists:
+
 ```nix
 environment.systemPackages = lib.mkMerge [
   (with pkgs; [ vim git ])
@@ -674,6 +710,7 @@ System boots but hardware features missing
 
 **Solution:**
 Ensure hardware module is properly scoped:
+
 ```nix
 # modules/mysystem/hardware.nix
 { ... }:
@@ -810,6 +847,7 @@ Don't try to migrate everything at once. Start with core functionality.
 ### 3. Test Continuously
 
 After each change:
+
 ```bash
 nix flake check --extra-experimental-features pipe-operators
 ```
@@ -824,16 +862,19 @@ sudo ln -s ~/nixos-backup/nixos /etc/nixos-backup
 ### 5. Document Changes
 
 Create a migration log:
+
 ```markdown
 # Migration Log
 
 ## 2024-01-15
+
 - Migrated base configuration
 - Extracted hardware settings
 - Issue: Network manager not starting
 - Fixed: Added to base module
 
 ## 2024-01-16
+
 - Migrated user configurations
 - Setup Home Manager
 ```
@@ -855,6 +896,7 @@ git commit -m "Phase 2: Services extracted"
 ### Package Sets
 
 **Before:**
+
 ```nix
 environment.systemPackages = with pkgs; [
   # Development
@@ -867,19 +909,21 @@ environment.systemPackages = with pkgs; [
 ```
 
 **After (separate modules):**
+
 ```nix
 # modules/packages/development.nix
-flake.modules.nixos.development.environment.systemPackages = 
+flake.modules.nixos.development.environment.systemPackages =
   with pkgs; [ git vim vscode ];
 
 # modules/packages/system-tools.nix
-flake.modules.nixos.base.environment.systemPackages = 
+flake.modules.nixos.base.environment.systemPackages =
   with pkgs; [ htop tree ];
 ```
 
 ### Service Groups
 
 Recognize related services:
+
 - Web stack: nginx + certbot + firewall rules
 - Database: postgresql + backup + monitoring
 - Development: docker + podman + virtualbox
@@ -887,6 +931,7 @@ Recognize related services:
 ### Hardware Patterns
 
 Common hardware groupings:
+
 - Laptop: battery + wifi + touchpad + brightness
 - Desktop: multiple monitors + audio + gaming
 - Server: RAID + IPMI + redundant networking

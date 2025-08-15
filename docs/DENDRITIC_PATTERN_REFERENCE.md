@@ -139,15 +139,15 @@ graph TD
 
 ### Where to Put Configuration
 
-| Configuration Type | Location | Example |
-|-------------------|----------|---------|
-| System-specific | `modules/[system]/` | `modules/laptop1/wifi.nix` |
-| Shared by some | Named module | `flake.modules.nixos.laptop` |
-| Needed by all | Extend base | `flake.modules.nixos.base.nix.settings` |
-| User-specific | `modules/users/` | `modules/users/alice.nix` |
-| Service config | `modules/services/` | `modules/services/nginx.nix` |
-| Hardware | `modules/hardware/` | `modules/hardware/nvidia.nix` |
-| Development | `modules/meta/` | `modules/meta/fmt.nix` |
+| Configuration Type | Location            | Example                                 |
+| ------------------ | ------------------- | --------------------------------------- |
+| System-specific    | `modules/[system]/` | `modules/laptop1/wifi.nix`              |
+| Shared by some     | Named module        | `flake.modules.nixos.laptop`            |
+| Needed by all      | Extend base         | `flake.modules.nixos.base.nix.settings` |
+| User-specific      | `modules/users/`    | `modules/users/alice.nix`               |
+| Service config     | `modules/services/` | `modules/services/nginx.nix`            |
+| Hardware           | `modules/hardware/` | `modules/hardware/nvidia.nix`           |
+| Development        | `modules/meta/`     | `modules/meta/fmt.nix`                  |
 
 ## Directory Structure Templates
 
@@ -314,7 +314,7 @@ project/
   flake.modules.nixos.base = { pkgs, ... }: {
     environment.systemPackages = [ pkgs.neovim ];
   };
-  
+
   # User-level
   flake.modules.homeManager.base = {
     programs.neovim = {
@@ -334,7 +334,7 @@ project/
 {
   flake.modules.nixos.base = { config, ... }: {
     services.xserver.videoDrivers = lib.mkDefault (
-      if builtins.elem "nvidia" config.hardware.opengl.extraPackages 
+      if builtins.elem "nvidia" config.hardware.opengl.extraPackages
       then [ "nvidia" ]
       else [ "modesetting" ]
     );
@@ -355,7 +355,7 @@ project/
       default = [ "/home" ];
     };
   };
-  
+
   config = lib.mkIf config.flake.backup.enable {
     flake.modules.nixos.base.services.restic.backups.main = {
       paths = config.flake.backup.paths;
@@ -395,7 +395,7 @@ project/
       # ...
     };
   };
-  
+
   # Make available to all systems
   flake.modules.nixos.base = { pkgs, ... }: {
     environment.systemPackages = [
@@ -415,19 +415,19 @@ project/
 {
   flake.modules.nixos.development = { pkgs, ... }: {
     virtualisation.docker.enable = true;
-    
+
     environment.systemPackages = with pkgs; [
       # Version control
       git gh
-      
+
       # Editors
       neovim vscode
-      
+
       # Languages
       rustc cargo
       nodejs
       python3
-      
+
       # Tools
       direnv
       just
@@ -463,10 +463,10 @@ project/
       recommendedProxySettings = true;
       recommendedTlsSettings = true;
     };
-    
+
     services.postgresql.enable = true;
     services.redis.servers."".enable = true;
-    
+
     networking.firewall.allowedTCPPorts = [ 80 443 ];
   };
 }
@@ -561,8 +561,8 @@ nix eval .#nixosConfigurations.mysystem.options \
 # Conditional debugging
 { lib, config, ... }:
 {
-  flake.modules.nixos.base = 
-    lib.optionalAttrs (config.debug or false) 
+  flake.modules.nixos.base =
+    lib.optionalAttrs (config.debug or false)
       (lib.traceSeq "Debug mode enabled" {});
 }
 ```
@@ -589,7 +589,7 @@ attrs
 
 ```nix
 # Avoid this
-imports = [ 
+imports = [
   ./some-file.nix  # Bad: literal import
   config.flake.modules.nixos.base  # Good: named reference
 ];
@@ -600,22 +600,24 @@ imports = [
 **A:** Several approaches:
 
 1. **Git submodules:**
+
 ```bash
 git submodule add https://github.com/user/shared-modules modules/shared
 ```
 
 2. **Flake input:**
+
 ```nix
 inputs.shared-modules.url = "github:user/shared-modules";
 # Then import in flake
-imports = [ 
+imports = [
   (inputs.import-tree ./modules)
   inputs.shared-modules.modules
 ];
 ```
 
 3. **Copy and customize:**
-Often the simplest - copy modules and adapt to your needs.
+   Often the simplest - copy modules and adapt to your needs.
 
 ### Q: What about secrets management?
 
@@ -680,10 +682,10 @@ Often the simplest - copy modules and adapt to your needs.
       }
     );
   };
-  
-  config.flake.darwinConfigurations = 
+
+  config.flake.darwinConfigurations =
     lib.flip lib.mapAttrs config.configurations.darwin (
-      name: { module }: 
+      name: { module }:
         inputs.darwin.lib.darwinSystem {
           modules = [ module ];
         }
@@ -696,6 +698,7 @@ Often the simplest - copy modules and adapt to your needs.
 **A:** Multiple approaches:
 
 1. **VM testing:**
+
 ```bash
 nix build .#nixosConfigurations.mysystem.config.system.build.vm \
   --extra-experimental-features pipe-operators
@@ -703,6 +706,7 @@ nix build .#nixosConfigurations.mysystem.config.system.build.vm \
 ```
 
 2. **Container testing:**
+
 ```nix
 # Create a container configuration
 configurations.nixos.test-container.module = {
@@ -712,6 +716,7 @@ configurations.nixos.test-container.module = {
 ```
 
 3. **Separate profile:**
+
 ```bash
 sudo nixos-rebuild build --flake .#test-system \
   --extra-experimental-features pipe-operators
@@ -721,6 +726,7 @@ sudo nixos-rebuild build --flake .#test-system \
 ### Q: What's the performance impact?
 
 **A:** Minimal to positive:
+
 - **Evaluation:** Similar to traditional (lazy evaluation helps)
 - **Build time:** Unchanged (same derivations)
 - **Maintenance time:** Significantly reduced

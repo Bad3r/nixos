@@ -16,12 +16,14 @@ The dendritic pattern is an architectural approach where:
 ### The Biological Metaphor
 
 Just as dendrites in neurons:
+
 - Automatically find and connect to other neurons
 - Form complex networks without central planning
 - Can reorganize and adapt as the system evolves
 - Create emergent behavior from simple rules
 
 Your Nix configuration:
+
 - Automatically discovers and loads all modules
 - Forms complex systems from simple, focused modules
 - Can be reorganized freely without breaking connections
@@ -54,6 +56,7 @@ The pattern solves these problems through:
 ### 1. Maintenance Simplicity
 
 **Traditional:**
+
 ```nix
 # configuration.nix
 { ... }: {
@@ -67,6 +70,7 @@ The pattern solves these problems through:
 ```
 
 **Dendritic:**
+
 ```nix
 # All modules automatically imported - no maintenance needed
 # modules/mysystem/imports.nix
@@ -84,6 +88,7 @@ The pattern solves these problems through:
 ### 2. Evolutionary Growth
 
 Your configuration grows organically:
+
 - Start with a few modules
 - Add new capabilities by dropping in files
 - Reorganize as patterns emerge
@@ -93,6 +98,7 @@ Your configuration grows organically:
 ### 3. Type Safety and Validation
 
 Flake-parts provides:
+
 - Strong typing for all module options
 - Compile-time validation
 - Clear error messages
@@ -101,6 +107,7 @@ Flake-parts provides:
 ### 4. Composability
 
 Modules compose at multiple levels:
+
 ```
 base → pc → workstation → your-specific-system
      ↘ server → web-server → your-server
@@ -117,6 +124,7 @@ imports = [ (inputs.import-tree ./modules) ];
 ```
 
 This:
+
 1. Recursively scans the `./modules` directory
 2. Loads every `.nix` file as a flake-parts module
 3. Ignores files/directories prefixed with `_`
@@ -132,6 +140,7 @@ This:
 ### Module Evaluation
 
 Each file becomes a function:
+
 ```nix
 { lib, config, inputs, ... }: {
   # Your module content
@@ -139,6 +148,7 @@ Each file becomes a function:
 ```
 
 These are standard flake-parts modules with access to:
+
 - `lib` - Nixpkgs library functions
 - `config` - The complete flake configuration
 - `inputs` - All flake inputs
@@ -165,16 +175,19 @@ Is this configuration needed by all systems?
 ### Examples of Good Named Modules
 
 ✅ **`flake.modules.nixos.laptop`**
+
 - Needed by: Laptop systems
 - Not needed by: Desktops, servers
 - Contains: Battery management, Wi-Fi, touchpad
 
 ✅ **`flake.modules.nixos.development`**
+
 - Needed by: Development machines
 - Not needed by: Production servers, kiosks
 - Contains: Compilers, editors, debugging tools
 
 ✅ **`flake.modules.nixos.nvidia-gpu`**
+
 - Needed by: Systems with NVIDIA GPUs
 - Not needed by: Systems with AMD/Intel graphics
 - Contains: NVIDIA drivers, CUDA support
@@ -182,14 +195,17 @@ Is this configuration needed by all systems?
 ### Examples of Bad Named Modules
 
 ❌ **`flake.modules.nixos.nix-settings`**
+
 - Why bad: Every NixOS system needs Nix
 - Better: Extend `base` module directly
 
 ❌ **`flake.modules.nixos.single-package`**
+
 - Why bad: Too granular, creates module proliferation
 - Better: Group related packages in semantic modules
 
 ❌ **`flake.modules.nixos.my-specific-server`**
+
 - Why bad: Only used by one system
 - Better: Put directly in that system's configuration
 
@@ -198,11 +214,13 @@ Is this configuration needed by all systems?
 ### Create a New Named Module When:
 
 1. **Multiple systems share configuration**
+
    - But not all systems need it
    - Clear semantic grouping exists
    - Likelihood of reuse is high
 
 2. **Hardware variations require different settings**
+
    - GPU vendors (NVIDIA vs AMD)
    - System types (laptop vs desktop)
    - Architectures (x86_64 vs aarch64)
@@ -215,6 +233,7 @@ Is this configuration needed by all systems?
 ### Extend Existing Modules When:
 
 1. **All systems need the configuration**
+
    ```nix
    # modules/git/enable.nix
    {
@@ -223,6 +242,7 @@ Is this configuration needed by all systems?
    ```
 
 2. **Adding to semantic groups**
+
    ```nix
    # modules/shells/bash.nix
    {
@@ -249,6 +269,7 @@ Is this configuration needed by all systems?
 ### 1. Path-Based Imports
 
 ❌ **Never do this:**
+
 ```nix
 {
   imports = [ ./some-module.nix ];
@@ -256,6 +277,7 @@ Is this configuration needed by all systems?
 ```
 
 ✅ **Always use named references:**
+
 ```nix
 {
   imports = with config.flake.modules.nixos; [ base pc ];
@@ -265,6 +287,7 @@ Is this configuration needed by all systems?
 ### 2. Over-Modularization
 
 ❌ **Too granular:**
+
 ```nix
 # One module per package
 modules/packages/wget.nix
@@ -273,6 +296,7 @@ modules/packages/vim.nix
 ```
 
 ✅ **Semantic grouping:**
+
 ```nix
 # Group by purpose
 modules/cli-tools.nix  # wget, curl, git, vim, etc.
@@ -281,11 +305,13 @@ modules/cli-tools.nix  # wget, curl, git, vim, etc.
 ### 3. Module Inheritance Chains
 
 ❌ **Deep inheritance:**
+
 ```nix
 base → base-plus → base-plus-plus → base-ultimate → actual-system
 ```
 
 ✅ **Flat composition:**
+
 ```nix
 base → pc → workstation
 base → server → web-server
@@ -294,12 +320,14 @@ base → server → web-server
 ### 4. Circular Dependencies
 
 ❌ **Modules depending on each other:**
+
 ```nix
 # moduleA extends moduleB
 # moduleB extends moduleA
 ```
 
 ✅ **One-way dependencies:**
+
 ```nix
 # Clear hierarchy: base ← pc ← workstation
 ```
@@ -307,11 +335,13 @@ base → server → web-server
 ### 5. Special Args Pass-Through
 
 ❌ **Leaking implementation details:**
+
 ```nix
 specialArgs = { inherit inputs; };
 ```
 
 ✅ **Module receives what it needs:**
+
 ```nix
 { config, inputs, ... }: {
   # inputs available automatically via flake-parts
@@ -374,12 +404,14 @@ modules/
 ### Module Composition Patterns
 
 1. **Additive Composition**
+
    ```nix
    # Each module adds capabilities
    imports = [ base networking audio graphics ];
    ```
 
 2. **Override Composition**
+
    ```nix
    # Later modules can override earlier ones
    imports = [ defaults customizations ];
@@ -388,7 +420,7 @@ modules/
 3. **Conditional Composition**
    ```nix
    # Include modules based on conditions
-   imports = [ base ] 
+   imports = [ base ]
      ++ lib.optional hasGpu gpu-support
      ++ lib.optional isLaptop power-management;
    ```
@@ -421,6 +453,7 @@ nixConfig.abort-on-warn = true;
 ```
 
 This ensures:
+
 - Clean evaluations
 - No deprecated features
 - Consistent code quality

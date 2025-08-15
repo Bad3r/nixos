@@ -26,6 +26,7 @@ echo "experimental-features = nix-command flakes pipe-operators" >> ~/.config/ni
 ```
 
 Example:
+
 ```bash
 nix flake check --extra-experimental-features pipe-operators
 nix build .#nixosConfigurations.mysystem.config.system.build.toplevel --extra-experimental-features pipe-operators
@@ -56,21 +57,21 @@ Create `flake.nix` in your configuration root:
   inputs = {
     # Core dependencies
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    
+
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
     };
-    
+
     # The magic: automatic module import
     import-tree.url = "github:vic/import-tree";
-    
+
     # Optional but recommended
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    
+
     # For formatting
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
@@ -82,7 +83,7 @@ Create `flake.nix` in your configuration root:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       # THE CORE MAGIC: All modules automatically imported
       imports = [ (inputs.import-tree ./modules) ];
-      
+
       # Provide root path for modules to reference
       _module.args.rootPath = ./.;
     };
@@ -158,7 +159,7 @@ Create `modules/configurations/nixos.nix`:
   config.flake = {
     # Transform configurations into NixOS systems
     nixosConfigurations = lib.flip lib.mapAttrs config.configurations.nixos (
-      name: { module }: 
+      name: { module }:
         lib.nixosSystem {
           modules = [ module ];
         }
@@ -189,7 +190,7 @@ Create `modules/base.nix`:
   flake.modules.nixos.base = { pkgs, ... }: {
     # Essential for all systems
     system.stateVersion = "24.11";  # Set to your NixOS version
-    
+
     # Critical: Enable experimental features
     nix = {
       settings = {
@@ -197,15 +198,15 @@ Create `modules/base.nix`:
         trusted-users = [ "root" "@wheel" ];
         auto-optimise-store = true;
       };
-      
+
       # Use latest stable Nix
       package = pkgs.nixVersions.stable;
     };
-    
+
     # Basic system configuration
     time.timeZone = "UTC";  # Override in specific systems
     i18n.defaultLocale = "en_US.UTF-8";
-    
+
     # Essential packages for all systems
     environment.systemPackages = with pkgs; [
       vim
@@ -213,7 +214,7 @@ Create `modules/base.nix`:
       wget
       curl
     ];
-    
+
     # Enable basic services
     services.openssh = {
       enable = true;
@@ -237,14 +238,14 @@ Create `modules/pc.nix` for desktop/laptop systems:
 {
   flake.modules.nixos.pc = { pkgs, ... }: {
     imports = [ config.flake.modules.nixos.base ];
-    
+
     # GUI-related configuration
     services.xserver = {
       enable = true;
       displayManager.gdm.enable = true;
       desktopManager.gnome.enable = true;
     };
-    
+
     # Audio
     sound.enable = true;
     hardware.pulseaudio.enable = false;
@@ -254,10 +255,10 @@ Create `modules/pc.nix` for desktop/laptop systems:
       alsa.support32Bit = true;
       pulse.enable = true;
     };
-    
+
     # Networking for desktop/laptop
     networking.networkmanager.enable = true;
-    
+
     # Common desktop packages
     environment.systemPackages = with pkgs; [
       firefox
@@ -274,7 +275,7 @@ Create `modules/laptop.nix` for laptop-specific features:
 {
   flake.modules.nixos.laptop = { ... }: {
     imports = [ config.flake.modules.nixos.pc ];
-    
+
     # Power management
     services.tlp = {
       enable = true;
@@ -285,11 +286,11 @@ Create `modules/laptop.nix` for laptop-specific features:
         STOP_CHARGE_THRESH_BAT0 = 80;
       };
     };
-    
+
     # Laptop-specific services
     services.thermald.enable = true;
     services.auto-cpufreq.enable = true;
-    
+
     # Touchpad support
     services.xserver.libinput = {
       enable = true;
@@ -298,7 +299,7 @@ Create `modules/laptop.nix` for laptop-specific features:
         tapping = true;
       };
     };
-    
+
     # Brightness control
     programs.light.enable = true;
   };
@@ -312,26 +313,26 @@ Create `modules/server.nix` for server systems:
 {
   flake.modules.nixos.server = { ... }: {
     imports = [ config.flake.modules.nixos.base ];
-    
+
     # Server-specific settings
     services.openssh.settings.PermitRootLogin = "prohibit-password";
-    
+
     # Disable GUI
     services.xserver.enable = false;
-    
+
     # Enable monitoring
     services.prometheus.exporters.node = {
       enable = true;
       enabledCollectors = [ "systemd" ];
     };
-    
+
     # Automatic updates
     system.autoUpgrade = {
       enable = true;
       allowReboot = true;
       dates = "02:00";
     };
-    
+
     # Firewall
     networking.firewall = {
       enable = true;
@@ -367,24 +368,24 @@ Create `modules/mysystem/hardware.nix`:
 {
   configurations.nixos.mysystem.module = { config, pkgs, modulesPath, ... }: {
     imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
-    
+
     boot.initrd.availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "sd_mod" ];
     boot.initrd.kernelModules = [ ];
     boot.kernelModules = [ "kvm-intel" ];
     boot.extraModulePackages = [ ];
-    
+
     fileSystems."/" = {
       device = "/dev/disk/by-label/nixos";
       fsType = "ext4";
     };
-    
+
     fileSystems."/boot" = {
       device = "/dev/disk/by-label/boot";
       fsType = "vfat";
     };
-    
+
     swapDevices = [ ];
-    
+
     nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
     hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
   };
@@ -398,11 +399,11 @@ Create `modules/mysystem/configuration.nix`:
 {
   configurations.nixos.mysystem.module = { pkgs, ... }: {
     networking.hostName = "mysystem";
-    
+
     # Bootloader
     boot.loader.systemd-boot.enable = true;
     boot.loader.efi.canTouchEfiVariables = true;
-    
+
     # Users
     users.users.myuser = {
       isNormalUser = true;
@@ -410,7 +411,7 @@ Create `modules/mysystem/configuration.nix`:
       extraGroups = [ "wheel" "networkmanager" ];
       shell = pkgs.bash;
     };
-    
+
     # System-specific packages
     environment.systemPackages = with pkgs; [
       htop
@@ -431,16 +432,16 @@ Create `modules/home-manager/nixos.nix`:
 {
   flake.modules.nixos.base = {
     imports = [ inputs.home-manager.nixosModules.home-manager ];
-    
+
     home-manager = {
       # Use system packages
       useGlobalPkgs = true;
-      
+
       # Pass through inputs
       extraSpecialArgs = {
         inherit inputs;
       };
-      
+
       # User configurations will be added by other modules
       users = {};
     };
@@ -457,11 +458,11 @@ Create `modules/home-manager/base.nix`:
     # Essential for all users
     home.stateVersion = "24.11";
     programs.home-manager.enable = true;
-    
+
     # Basic programs
     programs.bash.enable = true;
     programs.git.enable = true;
-    
+
     # XDG configuration
     xdg.enable = true;
     xdg.configFile."nix/nix.conf".text = ''
@@ -486,23 +487,23 @@ Create `modules/users/myuser.nix`:
       extraGroups = [ "wheel" "networkmanager" ];
       shell = pkgs.bash;
     };
-    
+
     # Link to Home Manager
     home-manager.users.myuser = {
       imports = [ config.flake.modules.homeManager.base ];
     };
   };
-  
+
   # Home Manager configuration
   flake.modules.homeManager.base = { pkgs, ... }: {
     home.username = "myuser";
     home.homeDirectory = "/home/myuser";
-    
+
     programs.git = {
       userName = "My Name";
       userEmail = "my.email@example.com";
     };
-    
+
     home.packages = with pkgs; [
       tree
       ripgrep
@@ -567,7 +568,7 @@ Create `modules/nvidia-gpu.nix`:
   flake.modules.nixos.nvidia-gpu = { config, ... }: {
     # Only for systems that import this module
     services.xserver.videoDrivers = [ "nvidia" ];
-    
+
     hardware.nvidia = {
       modesetting.enable = true;
       powerManagement.enable = true;
@@ -575,7 +576,7 @@ Create `modules/nvidia-gpu.nix`:
       nvidiaSettings = true;
       package = config.boot.kernelPackages.nvidiaPackages.stable;
     };
-    
+
     # CUDA support
     hardware.opengl = {
       enable = true;
@@ -597,7 +598,7 @@ Create `modules/development.nix`:
   flake.modules.nixos.development = { pkgs, ... }: {
     virtualisation.docker.enable = true;
     programs.direnv.enable = true;
-    
+
     environment.systemPackages = with pkgs; [
       gcc
       gnumake
@@ -605,7 +606,7 @@ Create `modules/development.nix`:
       python3
     ];
   };
-  
+
   # Home Manager development setup
   flake.modules.homeManager.development = { pkgs, ... }: {
     programs.vscode = {
@@ -615,7 +616,7 @@ Create `modules/development.nix`:
         rust-lang.rust-analyzer
       ];
     };
-    
+
     programs.direnv = {
       enable = true;
       nix-direnv.enable = true;
@@ -633,19 +634,19 @@ Create `modules/backup.nix`:
 {
   options.flake.backup = {
     enable = lib.mkEnableOption "backup system";
-    
+
     repository = lib.mkOption {
       type = lib.types.str;
       description = "Backup repository path";
     };
-    
+
     paths = lib.mkOption {
       type = lib.types.listOf lib.types.path;
       default = [ "/home" ];
       description = "Paths to backup";
     };
   };
-  
+
   config = lib.mkIf config.flake.backup.enable {
     flake.modules.nixos.base = { pkgs, ... }: {
       services.restic.backups.main = {
@@ -670,25 +671,25 @@ Create `modules/meta/fmt.nix`:
 { inputs, ... }:
 {
   imports = [ inputs.treefmt-nix.flakeModule ];
-  
+
   perSystem = { pkgs, ... }: {
     treefmt = {
       projectRootFile = "flake.nix";
-      
+
       programs = {
         # Nix formatting
         nixfmt.enable = true;
-        
+
         # Other formatters
         prettier = {
           enable = true;
           includes = [ "*.md" "*.yaml" "*.yml" "*.json" ];
         };
-        
+
         shfmt.enable = true;
         rustfmt.enable = true;
       };
-      
+
       settings.formatter.nixfmt = {
         includes = [ "*.nix" ];
       };
@@ -707,24 +708,24 @@ Create `modules/meta/devshell.nix`:
   perSystem = { pkgs, config, ... }: {
     devShells.default = pkgs.mkShell {
       name = "dendritic-dev";
-      
+
       packages = with pkgs; [
         # Nix tools
         nixpkgs-fmt
         nil  # Nix LSP
         nix-tree
         nix-diff
-        
+
         # Utilities
         git
         just
         fd
         ripgrep
-        
+
         # From treefmt
         config.treefmt.build.wrapper
       ];
-      
+
       shellHook = ''
         echo "Dendritic Pattern Development Shell"
         echo "Remember: Always use --extra-experimental-features pipe-operators"
@@ -757,12 +758,12 @@ Create `modules/packages/cli-tools.nix`:
       fd
       ripgrep
       eza
-      
+
       # System monitoring
       htop
       btop
       iotop
-      
+
       # Network tools
       wget
       curl
@@ -788,7 +789,7 @@ Create `modules/services/nginx.nix`:
       recommendedOptimisation = true;
       recommendedGzipSettings = true;
     };
-    
+
     networking.firewall.allowedTCPPorts = [ 80 443 ];
   };
 }

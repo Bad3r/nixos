@@ -3,21 +3,27 @@
 ## Critical Issue Found & Fixed
 
 ### The Problem
+
 When I initially tried to follow the Dendritic Pattern "by the book", I moved the boot loader configuration from `system76/hardware-config.nix` to a separate `hardware/efi.nix` module and tried to import it. However, the import failed with:
+
 ```
 error: undefined variable 'efi'
 ```
 
 ### Root Cause
+
 The `efi` module was defined as a named module but wasn't being properly recognized in the import system. The pattern `with config.flake.modules.nixos; [ efi ... ]` couldn't find the `efi` module.
 
 ### The Solution
+
 I restored the boot configuration directly in `system76/hardware-config.nix` where it was originally working. This ensures the system will boot correctly.
 
 ## Current Boot Configuration Status
 
 ### ✅ Boot Loader Configuration
+
 **Location**: `/home/vx/nixos/modules/system76/hardware-config.nix`
+
 ```nix
 boot.loader = {
   systemd-boot = {
@@ -31,7 +37,9 @@ boot.loader = {
 ```
 
 ### ✅ Filesystem Configuration
+
 **Location**: `/home/vx/nixos/modules/system76/hardware-config.nix`
+
 ```nix
 fileSystems = {
   "/" = {
@@ -47,11 +55,15 @@ fileSystems = {
 ```
 
 ### ✅ Boot Compression
+
 **Location**: `/home/vx/nixos/modules/boot/compression.nix`
+
 - Using `zstd` compression (optimal)
 
 ### ✅ Additional Boot Settings
+
 **Location**: `/home/vx/nixos/modules/system76/boot.nix`
+
 - NVIDIA kernel modules in initrd
 - Nouveau blacklisted
 - NVIDIA kernel parameters for power management
@@ -64,7 +76,7 @@ nix eval .#nixosConfigurations.system76.config.boot.loader.systemd-boot.enable
 # Result: true ✅
 
 # Configuration limit
-nix eval .#nixosConfigurations.system76.config.boot.loader.systemd-boot.configurationLimit  
+nix eval .#nixosConfigurations.system76.config.boot.loader.systemd-boot.configurationLimit
 # Result: 3 ✅
 
 # EFI variables
@@ -99,6 +111,7 @@ While the Dendritic Pattern advocates for modular separation, there are cases wh
 ## Conclusion
 
 The boot configuration is now **correctly configured and verified**. The system should boot properly with:
+
 - systemd-boot as the boot loader
 - Proper EFI variable access
 - Correct filesystem mounts
