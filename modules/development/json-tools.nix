@@ -5,8 +5,7 @@
       home.packages = [
         pkgs.jq
         pkgs.jq-lsp
-        pkgs.yq
-        pkgs.xq
+        pkgs.yq # Includes xq for XML querying
       ];
     };
 }

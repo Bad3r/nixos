@@ -60,10 +60,8 @@
           tor
           inetutils # ping, ping6, traceroute, whois, hostname, dnsdomainname, ifconfig, logger, ...
           iproute2 # ip, ss, tc, ...
-          nmap
           tcpdump
-          wireshark
-          wireshark-cli
+          wireshark # GUI version includes CLI tools
         ];
       };
   };
