@@ -13,6 +13,7 @@
         "recursive-nix"
       ];
       extra-system-features = [ "recursive-nix" ];
+      download-buffer-size = 268435456; # 256MB (default is 64MB)
     };
     flake.modules = {
       nixos.base.nix = {
