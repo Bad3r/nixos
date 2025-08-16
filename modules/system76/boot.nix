@@ -15,13 +15,10 @@
           "sdhci_pci"
         ];
 
-        # NVIDIA modules to load early
-        initrd.kernelModules = [
-          "nvidia"
-          "nvidia_modeset"
-          "nvidia_uvm"
-          "nvidia_drm"
-        ];
+        # CRITICAL FIX: Removed NVIDIA modules from initrd to prevent kernel panic
+        # NVIDIA drivers should only load after switch root, not in initrd
+        # Only Intel graphics (i915) should be in initrd for PRIME systems
+        initrd.kernelModules = [ "i915" ];
 
         # CPU virtualization
         kernelModules = [ "kvm-intel" ];

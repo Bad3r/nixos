@@ -18,6 +18,7 @@
         "usb_storage"
         "sd_mod"
         "sdhci_pci"
+        "ext4"  # Explicitly ensure ext4 module is available for root filesystem
       ];
       boot.kernelModules = [ "kvm-intel" ];
 
@@ -76,7 +77,11 @@
       boot.initrd.luks.devices."luks-de5ef033-553b-4943-be41-09125eb815b2".device =
         "/dev/disk/by-uuid/de5ef033-553b-4943-be41-09125eb815b2";
 
-      # Swap device
+      # LUKS encryption for swap device (CRITICAL FIX - was missing)
+      boot.initrd.luks.devices."luks-555de4f1-f4b6-4fd1-acd2-9d735ab4d9ec".device =
+        "/dev/disk/by-uuid/555de4f1-f4b6-4fd1-acd2-9d735ab4d9ec";
+
+      # Swap device (references the decrypted swap UUID)
       swapDevices = [ { device = "/dev/disk/by-uuid/72b0d736-e0c5-4f72-bc55-f50f7492ceef"; } ];
 
       # NVIDIA GPU support
