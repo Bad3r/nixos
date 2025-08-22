@@ -18,7 +18,7 @@
         "usb_storage"
         "sd_mod"
         "sdhci_pci"
-        "ext4"  # Explicitly ensure ext4 module is available for root filesystem
+        "ext4" # Explicitly ensure ext4 module is available for root filesystem
       ];
       boot.kernelModules = [ "kvm-intel" ];
 
@@ -83,9 +83,6 @@
 
       # Swap device (references the decrypted swap UUID)
       swapDevices = [ { device = "/dev/disk/by-uuid/72b0d736-e0c5-4f72-bc55-f50f7492ceef"; } ];
-
-      # NVIDIA GPU support
-      services.xserver.videoDrivers = [ "nvidia" ];
 
       # Enable touchpad support
       services.libinput = {

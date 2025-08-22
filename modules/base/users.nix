@@ -5,7 +5,6 @@
     {
       # Extend the owner's user account with additional groups
       users.users.${config.flake.meta.owner.username} = {
-        shell = pkgs.zsh; # Default shell
 
         # Additional base groups that the user should be in
         extraGroups = lib.mkAfter [
@@ -20,8 +19,5 @@
         # SSH authorized keys for remote access
         openssh.authorizedKeys.keys = config.flake.meta.owner.sshKeys;
       };
-
-      # Enable zsh since it's the default shell
-      programs.zsh.enable = true;
     };
 }

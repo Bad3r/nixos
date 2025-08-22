@@ -171,6 +171,7 @@ sudo nixos-rebuild switch --flake .#system76 \
 ✅ **BOOT CONFIGURATION COMPLETE AND VERIFIED**
 
 The system is properly configured to boot with:
+
 - Full disk encryption (LUKS)
 - systemd-boot UEFI boot loader
 - Optimized compression

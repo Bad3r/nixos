@@ -1,15 +1,15 @@
 {
   flake.modules.nixos = {
     base = {
-      # Base visual settings for ALL systems
+      # Boot without splash screen - show all boot messages
       boot.kernelParams = [
-        "quiet"
-        "systemd.show_status=error"
+        # "quiet" # Disabled - show kernel messages during boot
+        # "systemd.show_status=error" # Disabled - show systemd status
       ];
     };
     pc = {
-      # Plymouth only for desktop/laptop systems (servers don't need it)
-      boot.plymouth.enable = true;
+      # Plymouth splash screen disabled
+      boot.plymouth.enable = false;
     };
   };
 }

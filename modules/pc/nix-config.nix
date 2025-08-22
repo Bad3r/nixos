@@ -9,9 +9,9 @@
 
     # Keep existing optimizations
     settings = {
-      auto-optimise-store = false; # Can be enabled if desired
-      cores = 0; # Use all available cores
-      max-jobs = "auto"; # Automatic job count
+      auto-optimise-store = false;
+      cores = 0; # 0 == ALL
+      max-jobs = "auto";
     };
   };
 }

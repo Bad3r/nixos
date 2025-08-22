@@ -1,6 +1,5 @@
 { config, lib, ... }:
 {
-  # System-level Plasma configuration
   flake.modules.nixos.pc =
     { pkgs, ... }:
     {
@@ -19,32 +18,36 @@
       # Enable KDE Connect
       programs.kdeconnect.enable = true;
 
-      # X11 configuration for Plasma
-      services.xserver = {
+      # XDG portal for KDE
+      xdg.portal = {
         enable = true;
-        xkb = {
-          layout = "us";
-          variant = "";
-        };
+        extraPortals = [ pkgs.kdePackages.xdg-desktop-portal-kde ];
       };
 
       # KDE Packages
       environment.systemPackages = with pkgs; [
         # Core KDE apps
-        kdePackages.kate
-        kdePackages.kdenlive
-        kdePackages.ark
-        kdePackages.okular
-        kdePackages.gwenview
-        kdePackages.spectacle
-        kdePackages.kcalc
-        kdePackages.kcolorchooser
-        kdePackages.partitionmanager
+        kdePackages.kate # Text editor
+        kdePackages.kdenlive # Video editor
+        kdePackages.ark # Archive manager
+        kdePackages.okular # Document viewer
+        kdePackages.gwenview # Image viewer
+        kdePackages.spectacle # Screenshot tool
+        kdePackages.kcalc # Calculator
+        kdePackages.kcolorchooser # Color picker
+        kdePackages.partitionmanager # Disk management
+        kdePackages.kdeconnect-kde # Phone integration
 
         # Additional KDE utilities
-        kdePackages.filelight
-        kdePackages.kdf
-        krename # Not in kdePackages
+        kdePackages.filelight # Disk usage analyzer
+        kdePackages.kdf # Disk free utility
+        kdePackages.kcharselect # Character selector
+        kdePackages.kfind # File search
+        kdePackages.kruler # Screen ruler
+        kdePackages.kwalletmanager # Wallet management
+        kdePackages.ktimer # Timer
+        kdePackages.sweeper # System cleaner
+        krename # Batch file renamer (not in kdePackages)
 
         # Theming
         kdePackages.breeze-gtk
@@ -53,11 +56,6 @@
         # System tools
         kdePackages.plasma-systemmonitor
         kdePackages.ksystemlog
-
-        # KDE/Qt tools
-        libsForQt5.qt5ct
-        qt6ct
-        libsForQt5.qtstyleplugin-kvantum
 
         # Additional apps that integrate well with Plasma
         kdePackages.yakuake # Drop-down terminal

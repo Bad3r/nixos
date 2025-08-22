@@ -25,6 +25,7 @@
 ## Part 2: NixOS Recovery via EndeavourOS Live USB
 
 ### Prerequisites
+
 - EndeavourOS Live USB (already prepared)
 - Internet connection
 - Your GitHub repo with fixed NixOS configuration

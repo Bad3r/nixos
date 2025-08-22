@@ -2,7 +2,7 @@
   nixConfig = {
     abort-on-warn = true; # Required by dendritic pattern
     extra-experimental-features = [ "pipe-operators" ];
-    allow-import-from-derivation = false;
+    allow-import-from-derivation = true;
   };
 
   inputs = {
@@ -39,16 +39,6 @@
     nix-index-database = {
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    nix-on-droid = {
-      url = "github:nix-community/nix-on-droid";
-      inputs = {
-        home-manager.follows = "home-manager";
-        nixpkgs-docs.follows = "nixpkgs";
-        nixpkgs-for-bootstrap.follows = "nixpkgs";
-        nixpkgs.follows = "nixpkgs";
-      };
     };
 
     nixos-facter-modules.url = "github:numtide/nixos-facter-modules";

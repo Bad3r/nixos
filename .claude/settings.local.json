@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(nix-instantiate:*)",
+      "Bash(plasma-apply-lookandfeel:*)"
+    ]
+  }
+}

@@ -134,13 +134,13 @@ configure_nix_flags() {
 # Build result caching
 optimize_store() {
   status_msg "${YELLOW}" "Optimizing Nix store..."
-  sudo nix-store --optimise
+  nix-store --optimise
 }
 
 collect_garbage() {
   status_msg "${YELLOW}" "Running garbage collection..."
   nix-collect-garbage -d
-  sudo nix-collect-garbage -d
+  nix-collect-garbage -d
 }
 
 main() {
@@ -152,7 +152,7 @@ main() {
   nix fmt "${FLAKE_DIR}"
 
   status_msg "${YELLOW}" "Validating flake configuration..."
-  nix flake check "${FLAKE_DIR}" || {
+  nix flake check "${FLAKE_DIR}" --accept-flake-config || {
     error_msg "Flake validation failed"
     exit 1
   }
@@ -168,7 +168,6 @@ main() {
   status_msg "${YELLOW}" "Building system configuration for ${HOSTNAME}..."
   CMD=(nixos-rebuild switch
     --flake "${FLAKE_DIR}#${HOSTNAME}"
-    --ask-sudo-password
     "${NIX_FLAGS[@]}"
   )
   "${CMD[@]}"

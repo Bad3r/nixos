@@ -214,13 +214,11 @@ Is this configuration needed by all systems?
 ### Create a New Named Module When:
 
 1. **Multiple systems share configuration**
-
    - But not all systems need it
    - Clear semantic grouping exists
    - Likelihood of reuse is high
 
 2. **Hardware variations require different settings**
-
    - GPU vendors (NVIDIA vs AMD)
    - System types (laptop vs desktop)
    - Architectures (x86_64 vs aarch64)

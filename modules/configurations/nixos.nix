@@ -1,4 +1,9 @@
-{ lib, config, ... }:
+{
+  lib,
+  config,
+  inputs,
+  ...
+}:
 {
   options.configurations.nixos = lib.mkOption {
     type = lib.types.lazyAttrsOf (
@@ -12,7 +17,12 @@
 
   config.flake = {
     nixosConfigurations = lib.flip lib.mapAttrs config.configurations.nixos (
-      name: { module }: lib.nixosSystem { modules = [ module ]; }
+      name:
+      { module }:
+      inputs.nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux"; # Explicitly set the system architecture
+        modules = [ module ];
+      }
     );
 
     checks =

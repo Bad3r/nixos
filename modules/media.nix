@@ -1,8 +1,4 @@
 {
-  nixpkgs.allowedUnfreePackages = [
-    "spotify"
-    "logseq"
-  ];
 
   flake.modules.nixos.pc =
     { pkgs, ... }:
@@ -10,8 +6,8 @@
       environment.systemPackages =
         with pkgs;
         [
-          spotify
-          logseq
+          mpv
+          stash
           # Media processing
           ffmpeg-full
           ffmpegthumbnailer

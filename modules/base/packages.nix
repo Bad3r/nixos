@@ -28,8 +28,7 @@
         nettools
 
         # Text editors
-        vim
-        nano
+        neovim
 
         # System monitoring
         htop
@@ -37,21 +36,12 @@
         lsof
         sysstat
 
-        # Archive tools
-        gzip
-        bzip2
-        xz
-        zip
-        unzip
-        gnutar
-
         # Version control
         git
 
         # Shell utilities
         bash-completion
         zsh-completions
-        atuin
         starship
         zoxide
 

@@ -13,7 +13,6 @@
           };
           networkmanager.wifi.backend = "iwd";
         };
-        environment.systemPackages = [ pkgs.impala ]; # TUI for managing wifi on Linux
 
         services.avahi = {
           enable = false;
@@ -24,9 +23,9 @@
           };
         };
 
-        # DNSCrypt proxy for encrypted DNS
+        # DNSCrypt
         services.dnscrypt-proxy2 = {
-          enable = false; # Set to true to enable encrypted DNS
+          enable = true;
           settings = {
             ipv6_servers = false;
             require_dnssec = true;
@@ -47,21 +46,17 @@
       {
         home.packages = with pkgs; [
           bandwhich
-          #bind
           dnsutils # dig, nslookup, ...
-          dnscrypt-proxy2 # Encrypted DNS proxy tool
+          inetutils # ping, ping6, traceroute, whois, hostname, dnsdomainname, ifconfig, logger, ...
+          iproute2 # ip, ss, tc, ...
+          tcpdump
           nmap # includes ncat
           snicat # TLS & SNI aware netcat https://github.com/CTFd/snicat
           socat
           curl
           wget
           ethtool
-          gping
-          tor
-          inetutils # ping, ping6, traceroute, whois, hostname, dnsdomainname, ifconfig, logger, ...
-          iproute2 # ip, ss, tc, ...
-          tcpdump
-          wireshark # GUI version includes CLI tools
+          wireshark
         ];
       };
   };

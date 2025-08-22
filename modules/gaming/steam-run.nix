@@ -3,7 +3,10 @@
     { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [
-        steam-run
+        # "steam"
+        # "steam-run"
+        # "steam-unwrapped"
       ];
+      programs.steam.enable = false;
     };
 }

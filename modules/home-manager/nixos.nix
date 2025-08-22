@@ -11,6 +11,7 @@
       home-manager = {
         useGlobalPkgs = true;
         extraSpecialArgs.hasGlobalPkgs = true;
+        backupFileExtension = "backup";
 
         users.${config.flake.meta.owner.username}.imports = [
           (

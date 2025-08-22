@@ -1,0 +1,5 @@
+## Database access
+
+Discourse uses PostgreSQL to store most of its data. A database will automatically be enabled and a database and role created unless [`services.discourse.database.host`](options.html#opt-services.discourse.database.host) is changed from its default of `null` or [`services.discourse.database.createLocally`](options.html#opt-services.discourse.database.createLocally) is set to `false`.
+
+External database access can also be configured by setting [`services.discourse.database.host`](options.html#opt-services.discourse.database.host), [`services.discourse.database.username`](options.html#opt-services.discourse.database.username) and [`services.discourse.database.passwordFile`](options.html#opt-services.discourse.database.passwordFile) as appropriate. Note that you need to manually create a database called `discourse` (or the name you chose in [`services.discourse.database.name`](options.html#opt-services.discourse.database.name)) and allow the configured database user full access to it.

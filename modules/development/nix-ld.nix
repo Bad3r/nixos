@@ -150,20 +150,8 @@
         mode = "0755";
       };
 
-      # Activation script to ensure Node.js is available in expected location
-      system.activationScripts.vscodeServerCompat = lib.stringAfter [ "users" ] ''
-        # Create common binary directory if it doesn't exist
-        mkdir -p /run/current-system/sw/bin
-
-        # Ensure node binary is available where VSCode Server might look for it
-        if [ ! -e /run/current-system/sw/bin/node ]; then
-          ln -sf ${pkgs.nodejs_22}/bin/node /run/current-system/sw/bin/node 2>/dev/null || true
-        fi
-
-        # Ensure npm is also available
-        if [ ! -e /run/current-system/sw/bin/npm ]; then
-          ln -sf ${pkgs.nodejs_22}/bin/npm /run/current-system/sw/bin/npm 2>/dev/null || true
-        fi
-      '';
+      # Remove the problematic activation script that tries to use /run/current-system
+      # before it exists. Node.js is already in systemPackages which makes it available
+      # system-wide without needing these manual symlinks.
     };
 }
