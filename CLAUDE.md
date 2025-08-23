@@ -104,6 +104,9 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 # - Formats code with 'nix fmt'
 # - Validates flake with 'nix flake check'
 # - Updates flake inputs (unless --offline)
+# - Configures experimental features (nix-command, flakes, pipe-operators)
+# - Sets abort-on-warn=true and accept-flake-config=true
+# - Runs garbage collection twice when using --collect-garbage flag
 
 # Build the system configuration (direct nix command)
 nix build .#nixosConfigurations.system76.config.system.build.toplevel
@@ -315,6 +318,12 @@ The configuration relies on:
 - TOML generation for change tracking (`modules/meta/all-check-store-paths.nix`)
 - Generation manager's compliance scoring
 
+**Note**: There are no traditional unit tests. All validation happens at build time through:
+
+- `nix flake check` - Type checking and validation
+- `nix fmt` - Code formatting validation
+- Build process itself - Configuration validity
+
 ## Common Development Tasks
 
 ### Adding a New Module
@@ -427,6 +436,12 @@ nix eval .#nixosConfigurations.system76.config.networking.hostName
 
 # Verbose build trace
 nix build --show-trace .#nixosConfigurations.system76.config.system.build.toplevel
+
+# Debug module loading (check if a module is being imported)
+nix eval .#debug.allModules | jq | grep "module-name"
+
+# List all available flake outputs
+nix flake show --json | jq
 ```
 
 ### System Recovery
@@ -549,6 +564,12 @@ The `.claude/settings.local.json` file configures special permissions:
   - `WebSearch` - Web search capability for current information
   - `nix-instantiate:*` - Nix expression evaluation commands
   - `plasma-apply-lookandfeel:*` - KDE Plasma theme application commands
+
+**User-Level Rules**: This project follows user-level rules defined in `~/.claude/CLAUDE.md` which include:
+
+- TDD principles and strict git safety rules
+- No AI co-authorship mentions in commits
+- Verification requirements before making code claims
 
 ## Local Documentation
 

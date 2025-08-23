@@ -9,15 +9,17 @@ This directory contains the complete NixOS documentation converted to markdown f
 ## File Organization
 
 Files are numbered sequentially from `001_` to `460_` with descriptive names:
+
 - **001-050**: Core NixOS concepts (installation, configuration syntax, package management)
 - **051-100**: System services and networking
 - **100-300**: Individual service documentation (web services, databases, etc.)
-- **300-400**: Hardware support, system management, and specialized configurations  
+- **300-400**: Hardware support, system management, and specialized configurations
 - **400-460**: Development topics (writing modules, tests, documentation)
 
 ## Documentation Sections
 
 ### Installation & Getting Started (001-018)
+
 - NixOS version information
 - Obtaining and installing NixOS
 - Installation methods (graphical & manual)
@@ -25,6 +27,7 @@ Files are numbered sequentially from `001_` to `460_` with descriptive names:
 - Boot configuration
 
 ### Core Configuration (019-032)
+
 - Configuration syntax and NixOS configuration file
 - Abstractions and modularity
 - Package management (declarative & ad-hoc)
@@ -32,6 +35,7 @@ Files are numbered sequentially from `001_` to `460_` with descriptive names:
 - File systems (standard, LUKS-encrypted, SSHFS, overlayfs)
 
 ### Desktop Environments & Graphics (033-049)
+
 - X Window System configuration
 - Wayland
 - GPU acceleration (OpenCL, Vulkan, VA-API)
@@ -40,6 +44,7 @@ Files are numbered sequentially from `001_` to `460_` with descriptive names:
 - Themes and customization
 
 ### Networking & System (050-065)
+
 - Network configuration and NetworkManager
 - SSH access and configuration
 - IPv4/IPv6 configuration
@@ -48,6 +53,7 @@ Files are numbered sequentially from `001_` to `460_` with descriptive names:
 - Custom kernel modules and ZFS
 
 ### Services - Web Applications (082-168)
+
 - Web services: Nextcloud, Discourse, Lemmy, Akkoma, Pleroma
 - Analytics: Plausible, Matomo
 - Media: Castopod, Jellyfin, Pict-rs
@@ -56,6 +62,7 @@ Files are numbered sequentially from `001_` to `460_` with descriptive names:
 - File sharing: Pingvin Share, FileSender
 
 ### Services - Infrastructure (169-262)
+
 - Databases: PostgreSQL, FoundationDB
 - Monitoring: Prometheus exporters, Goss, Cert Spotter
 - Networking: DNS servers, Pi-hole, Yggdrasil, Netbird
@@ -64,6 +71,7 @@ Files are numbered sequentially from `001_` to `460_` with descriptive names:
 - Task management: Taskserver
 
 ### Services - Matrix Ecosystem (279-295)
+
 - Synapse homeserver
 - Element web client
 - Moderation tools (Mjolnir, Draupnir)
@@ -71,6 +79,7 @@ Files are numbered sequentially from `001_` to `460_` with descriptive names:
 - Bot framework (maubot)
 
 ### Hardware & System Tools (299-378)
+
 - Hardware wallets (Trezor, Digital Bitbox)
 - Display configuration and EDID management
 - Input methods (IBus, Fcitx5, etc.)
@@ -78,6 +87,7 @@ Files are numbered sequentially from `001_` to `460_` with descriptive names:
 - Emacs configuration
 
 ### System Management (379-418)
+
 - Service management with systemd
 - Container management
 - Boot entries and troubleshooting
@@ -85,6 +95,7 @@ Files are numbered sequentially from `001_` to `460_` with descriptive names:
 - System state and recovery
 
 ### Development & Advanced Topics (419-460)
+
 - Writing NixOS modules
 - NixOS test framework
 - Building documentation
