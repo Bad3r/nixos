@@ -19,6 +19,10 @@
         which
         tree
 
+        # Clipboard utilities
+        xclip
+        xsel
+
         # Network tools
         curl
         wget
@@ -44,6 +48,7 @@
         zsh-completions
         starship
         zoxide
+        atuin
 
         # System information
         pciutils
@@ -57,6 +62,7 @@
         gcc
         binutils
         pkg-config
+        biome
 
         # Nix utilities
         nix-output-monitor
