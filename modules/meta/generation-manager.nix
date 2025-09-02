@@ -1,7 +1,7 @@
-{ lib, config, ... }:
+{ config, ... }:
 {
   perSystem =
-    { system, pkgs, ... }:
+    { pkgs, ... }:
     {
       packages.generation-manager = pkgs.writeShellApplication {
         name = "generation-manager";

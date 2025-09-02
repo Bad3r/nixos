@@ -7,17 +7,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Most common tasks:**
 
 ```bash
-# Format and validate code (run after changes)
+# Format and validate Nix files (only needed after modifying .nix files)
 nix fmt && nix flake check
 
-# Build system (ONLY when user requests)
+# Enter development shell (includes pre-commit hooks setup)
+nix develop
+
+# Run linters and formatters
+nix develop -c pre-commit run --all-files
+
+# Build and switch configuration (⚠️ system-wide changes!)
 ./build.sh
 
-# Enter development shell
-nix develop
+# Build with optimizations (recommended)
+./build.sh --collect-garbage --optimize --offline
 
 # View current generation
 generation-manager current
+
+# Check git status (many files may show as modified due to formatting)
+git status
 ```
 
 ## Repository Overview
@@ -26,18 +35,24 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 
 ### Available Documentation
 
-- **Local NixOS docs**: Complete offline documentation in `nixos_docs_md/` directory (460+ files)
+⚠️ **IMPORTANT**: Always use local NixOS documentation first - do NOT use WebSearch, WebFetch, or Context7
+
+- **Local NixOS docs** (PRIMARY SOURCE): Complete offline documentation in `nixos_docs_md/` directory (460+ files)
+  - **ALWAYS search here first** for NixOS-related questions
   - Browse with: `ls nixos_docs_md/` or search with: `grep -r "topic" nixos_docs_md/`
   - Topics include: installation, configuration syntax, package management, services, hardware
+  - Example: `grep -r "postgresql" nixos_docs_md/` to find PostgreSQL configuration docs
+  - All NixOS module options and configurations are documented locally
 - **Dendritic Pattern docs**: Detailed guides in `docs/` directory
 - **Man pages**: `man configuration.nix`, `man home-configuration.nix`
 - **NixOS manual**: `nixos-help` command opens full manual in browser
+- **Logseq build guide**: `docs/logseq-fhs-build-guide.md` - Building Logseq from source in FHS environment
 
 ### System Information
 
 - **Hosts**:
   - `system76` - System76 laptop with NVIDIA GPU, LUKS encryption, and Btrfs filesystem
-  - `tec` - GMKtec K7 Plus mini PC with Intel graphics, LUKS encryption, and ext4 filesystem (Asia/Riyadh timezone)
+  - `tec` - GMKtec K7 Plus mini PC with Intel graphics, LUKS encryption, and ext4 filesystem (Most current host)
 - **User**: `vx` (defined in `modules/meta/owner.nix`)
 - **Desktop Environment**: KDE Plasma 6 with Wayland
 
@@ -71,8 +86,11 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 
 ### Quick Start (Most Common Commands)
 
+⚠️ **IMPORTANT**: Only run `./build.sh` when the user explicitly requests to build/switch the system configuration. This command makes system-wide changes.
+
 ```bash
 # Build and switch to new configuration using convenience script
+# WARNING: This applies changes system-wide - only run when explicitly requested!
 # Note: Automatically runs 'git add .' before building
 ./build.sh
 
@@ -82,10 +100,6 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 # Build for specific host (system76 or tec)
 ./build.sh --host tec
 # Or: ./build.sh -t tec
-
-# Build with specific flake directory
-./build.sh --flake-dir /path/to/nixos
-# Or: ./build.sh -p /path/to/nixos
 
 # Build with verbose output
 ./build.sh --verbose
@@ -97,16 +111,6 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 
 # Show help for all build options
 ./build.sh --help
-# Or: ./build.sh -h
-
-# Quick reference for build.sh flags:
-# -p, --flake-dir PATH    Set configuration directory
-# -t, --host HOST         Specify target hostname
-# -o, --offline           Build in offline mode
-# -v, --verbose           Enable verbose output
-# -d, --collect-garbage   Run garbage collection after build
-# -O, --optimize          Optimize Nix store after build
-# -h, --help              Show help message
 
 # build.sh automation features:
 # - Runs 'git add .' before building (stages all changes)
@@ -119,58 +123,29 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 # - Disables Nix sandbox for performance
 # - Shows "Build failed!" on any error with proper error trapping
 
-# Build the system configuration (direct nix command)
-nix build .#nixosConfigurations.system76.config.system.build.toplevel
-
 # Format all Nix files
 nix fmt
 
 # Enter development shell with formatting and analysis tools
 nix develop
 
-# Emergency: Boot previous generation (at systemd-boot menu)
-# Select older generation and press Enter
-
 # Emergency: Rollback to previous generation
 sudo nixos-rebuild switch --rollback
-```
-
-### Building and Testing
-
-```bash
-# Build the system configuration for system76
-nix build .#nixosConfigurations.system76.config.system.build.toplevel --extra-experimental-features "nix-command flakes pipe-operators"
-
-# Build for tec host
-nix build .#nixosConfigurations.tec.config.system.build.toplevel --extra-experimental-features "nix-command flakes pipe-operators"
-
-# Alternative build with nixos-rebuild
-sudo nixos-rebuild build --flake .#system76 --extra-experimental-features "nix-command flakes pipe-operators"
-
-# Switch to new configuration (apply changes)
-sudo nixos-rebuild switch --flake .#system76 --extra-experimental-features "nix-command flakes pipe-operators"
-
-# Check flake validity
-nix flake check --accept-flake-config --extra-experimental-features "nix-command flakes pipe-operators"
-
-# Show flake outputs
-nix flake show --accept-flake-config --extra-experimental-features "nix-command flakes pipe-operators"
-
-# Enter development shell
-nix develop --accept-flake-config --extra-experimental-features "nix-command flakes pipe-operators"
 ```
 
 ### Code Quality
 
 ```bash
-# Format Nix files (uses nixfmt-rfc-style via treefmt)
-# Note: Formatting is automatically applied by build.sh before building
+# Format Nix files (ONLY needed after modifying .nix files)
+# Uses nixfmt-rfc-style via treefmt
+# Note: build.sh automatically runs this before building
 nix fmt
 
-# Format other file types (JSON, shell scripts) via treefmt
+# Format other file types (JSON, shell scripts, Markdown) via treefmt
 nix develop -c treefmt
 
-# Check flake validity (includes abort-on-warn enforcement)
+# Check flake validity (ONLY needed after modifying .nix files)
+# Includes abort-on-warn enforcement
 nix flake check --accept-flake-config
 
 # Show flake outputs
@@ -193,10 +168,35 @@ nix-env -qaP '*' --description | grep <package>
 
 # Check store dependencies
 nix-store -q --requisites <path> | grep <package>
-
-# Note: Pre-commit hooks are available but disabled by default
-# Enable in modules/meta/git-hooks.nix if needed
 ```
+
+### Pre-commit Hooks & Linting
+
+**Pre-commit hooks** (automatically run on git commit):
+
+- `nixfmt-rfc-style` - Nix code formatting
+- `deadnix` - Find and remove dead Nix code
+- `statix` - Nix anti-pattern linter
+
+```bash
+# Install pre-commit hooks (done automatically in dev shell)
+pre-commit install
+
+# Run all hooks manually on staged files
+pre-commit run
+
+# Run hooks on all files (not just staged)
+pre-commit run --all-files
+
+# Run specific hook
+pre-commit run nixfmt-rfc-style
+pre-commit run deadnix
+pre-commit run statix
+
+# IMPORTANT: You MUST NOT bypass pre-commit hooks! Address all issues before proceeding.
+```
+
+**Note**: Many files may show as modified in git status after formatting - this is normal
 
 ### System Management
 
@@ -209,9 +209,6 @@ generation-manager list
 
 # Switch to a generation
 sudo generation-manager switch <number>
-
-# Update specific flake inputs
-nix flake update nixpkgs home-manager
 
 # Clean old generations (keep only last 5)
 generation-manager clean 5
@@ -273,6 +270,15 @@ nix-channel --update
 8. **Host pattern** - Hosts must use `configurations.nixos.<hostname>.module` pattern
 9. **No literal path imports** - Never use `imports = [ ./some/file.nix ]`
 
+## CI/CD
+
+- **GitHub Actions**: `.github/workflows/check.yml` - Automated compliance checking
+  - Validates Dendritic Pattern compliance
+  - Checks code formatting
+  - Validates namespace usage
+  - Builds configurations (dry-run)
+  - Generates dependency graphs
+
 ## File Organization
 
 ### Core Modules
@@ -307,7 +313,7 @@ nix-channel --update
 - Uses `configurations.nixos.system76.module` pattern
 - Namespace: `workstation` (includes base → pc → workstation)
 
-**Secondary Host: `tec`**
+**Secondary Host: `tec` (current)**
 
 - `modules/tec/imports.nix` - Main host configuration entry point
 - Host-specific modules follow same pattern as system76
@@ -316,19 +322,40 @@ nix-channel --update
 
 ### Module Categories
 
-- `modules/archive-mngmt/` - Archive management tools (file-roller, CLI tools)
+- `modules/archive-mngmt/` - Archive management tools (file-roller, CLI tools, zstd)
 - `modules/audio/` - Audio system configuration (pipewire)
 - `modules/boot/` - Boot configuration (storage, compression, visuals)
 - `modules/clipboard-mgmnt/` - Clipboard management (copyq)
-- `modules/development/` - Development tools and environments (includes nix-ld)
+- `modules/containers/` - Container tools (docker-compose, dive, lazydocker)
+- `modules/database/` - Database tools (sqlite)
+- `modules/development/` - Development tools and environments (includes nix-ld, AI tools like Cursor)
+- `modules/disk-management/` - Disk utilities (NTFS support)
+- `modules/encryption/` - Encryption tools (veracrypt)
+- `modules/file-management/` - File utilities (fzf, search, tree, view)
+- `modules/file-managers/` - GUI file managers (pcmanfm)
+- `modules/file-sharing/` - File sharing tools (localsend, qbittorrent)
+- `modules/gaming/` - Gaming-related configurations (steam-run)
+- `modules/git/` - Git tools (gh CLI, lazygit)
+- `modules/graphics/` - Graphics applications (gimp, inkscape, krita)
+- `modules/hardware/` - Hardware configuration (EFI)
 - `modules/home/` - Home Manager modules (includes backup-collisions.nix)
+- `modules/image-viewers/` - Image viewing tools (feh)
+- `modules/languages/` - Programming languages (go, java, javascript with nrm, python, rust)
+- `modules/media-players/` - Media players (mpv, vlc)
+- `modules/messaging-apps/` - Communication tools (discord, slack, telegram, zoom, etc.)
 - `modules/networking/` - Network and SSH configuration
-- `modules/security/` - Security tools and secrets management
-- `modules/storage/` - Storage management (swap, redundancy)
+- `modules/office/` - Office applications (libreoffice, obsidian, marktext)
+- `modules/password-managers/` - Password management (bitwarden, keepassxc)
+- `modules/pdf-viewers/` - PDF viewers (evince)
+- `modules/screenshots/` - Screenshot tools (flameshot)
+- `modules/security/` - Security tools and secrets management (gnupg, polkit)
+- `modules/storage/` - Storage management (swap, redundancy, tmp)
+- `modules/style/` - System theming (stylix)
+- `modules/system-utilities/` - System utilities (desktop-file-utils)
 - `modules/terminal/terminal-emulators/` - Terminal emulators (alacritty, cosmic-term, kitty, wezterm)
-- `modules/virtualization/` - Container and VM support
+- `modules/virtualization/` - Container and VM support (docker, virtualbox)
+- `modules/web-browsers/` - Web browsers (brave, firefox, tor-browser)
 - `modules/window-manager/` - Desktop environment (KDE/Plasma)
-- `modules/gaming/` - Gaming-related configurations
 - `modules/media.nix` - Media applications and codecs
 - `modules/bluetooth.nix` - Bluetooth support configuration
 
@@ -347,6 +374,68 @@ The configuration relies on:
 - `nix fmt` - Code formatting validation
 - Build process itself - Configuration validity
 
+### Testing & Validation Commands
+
+```bash
+# Dry-run build (validate without switching)
+nixos-rebuild build --flake .#hostname
+
+# Check flake outputs and structure
+nix flake show
+
+# Validate all flake outputs
+nix flake check --accept-flake-config
+
+# Check for dead code
+nix develop -c deadnix .
+
+# Check for anti-patterns
+nix develop -c statix check .
+
+# Test specific configuration attributes
+nix eval .#nixosConfigurations.system76.config.networking.hostName
+
+# Verbose error traces for debugging
+nix build --show-trace .#nixosConfigurations.system76.config.system.build.toplevel
+
+# Check dendritic pattern compliance score (should be 100/100)
+generation-manager score
+```
+
+## Documentation Usage Guidelines
+
+### When to Use Local Documentation
+
+**Always use local docs for:**
+
+- NixOS configuration options → `nixos_docs_md/`
+- NixOS services setup → `nixos_docs_md/`
+- Package management → `nixos_docs_md/`
+- System administration → `nixos_docs_md/`
+- Hardware configuration → `nixos_docs_md/`
+
+**Search examples:**
+
+```bash
+# Find PostgreSQL configuration
+grep -r "postgresql" nixos_docs_md/
+
+# Find networking options
+grep -r "networking\." nixos_docs_md/
+
+# Find specific service documentation
+ls nixos_docs_md/ | grep -i service_name
+```
+
+### When External Tools May Be Used
+
+**Use WebSearch/Context7 only for:**
+
+- Non-NixOS programming questions (Python, JavaScript, etc.)
+- Third-party library documentation not in NixOS
+- Current events or recent updates post-2025
+- General programming patterns
+
 ## Common Development Tasks
 
 ### Adding a New Module
@@ -361,13 +450,27 @@ The configuration relies on:
 1. Check namespace hierarchy: base → pc → workstation
 2. Add configuration to appropriate namespace level
 3. Use `config.flake.modules.nixos.*` to reference other modules
-4. After any major change or task completion, run:
+4. After any changes, run:
    ```bash
    nix fmt              # Format all Nix files
    nix flake check      # Validate configuration
    ```
 
-**⚠️ CRITICAL**: Do NOT run `./build.sh` or `nixos-rebuild` unless the user explicitly requests it. Building and switching configurations can have immediate system-wide effects.
+### Critical Workflow Rules
+
+**⚠️ NEVER run these unless explicitly requested:**
+
+- `./build.sh` or `nixos-rebuild switch` - These make system-wide changes
+- `git commit` - Never commit unless user explicitly asks
+- `git push` - Never push to remote unless user explicitly asks
+
+**✅ SAFE to run without asking:**
+
+- `nix fmt` - Code formatting (read-only check)
+- `nix flake check` - Validation (read-only)
+- `nix build` or `nixos-rebuild build` - Dry-run builds for validation
+- `pre-commit run` - Linting and formatting checks
+- `generation-manager score` - Compliance checking
 
 ### Managing Unfree Packages
 
@@ -423,6 +526,15 @@ Custom library functions use consistent prefixes (e.g., `mightyiam.lib.*`).
 5. **Never use feature flags** - Anti-pattern in dendritic architecture
 6. **Never mix namespace and named modules** - Use named modules only for optional features
 
+## Git Status and Modified Files
+
+**Note**: After running `nix fmt`, many files may show as modified in `git status`. This is normal and expected:
+
+- The formatter ensures consistent code style across all Nix files
+- These changes are typically whitespace and formatting adjustments
+- The `build.sh` script automatically runs `git add .` before building
+- Review changes with `git diff` before committing
+
 ## Troubleshooting
 
 ### Common Errors & Solutions
@@ -447,6 +559,24 @@ Custom library functions use consistent prefixes (e.g., `mightyiam.lib.*`).
 
 - Only use `pkgs` inside the returned function, not at file level
 
+**Flake warnings about overrides**
+
+- Warnings like `input 'X' has an override for a non-existent input 'Y'` are typically harmless
+- These occur when inputs try to override dependencies that aren't directly used
+- Can be safely ignored unless they cause build failures
+
+**Build failures with `abort-on-warn`**
+
+- This configuration enforces warning-free code
+- Any warning will cause the build to fail
+- Fix the warning or temporarily disable with `--no-abort-on-warn` for debugging
+
+**Git tree dirty warnings**
+
+- Normal when you have uncommitted changes
+- The warning doesn't prevent building
+- Use `git status` to see what's modified
+
 ### Debug Commands
 
 ```bash
@@ -466,19 +596,6 @@ nix eval .#debug.allModules | jq | grep "module-name"
 # List all available flake outputs
 nix flake show --json | jq
 ```
-
-### System Recovery
-
-For kernel panic or boot issues, see `docs/RECOVERY_GUIDE.md`. Quick emergency boot:
-
-1. **At systemd-boot**: Press `Space`, select entry, press `e`
-2. **Add kernel params**: `modprobe.blacklist=nvidia,nvidia_modeset,nvidia_uvm,nvidia_drm nouveau.modeset=0`
-3. **Press Enter** to boot
-
-For LUKS-encrypted systems:
-
-- Root: `/dev/disk/by-uuid/de5ef033-553b-4943-be41-09125eb815b2`
-- Swap: `/dev/disk/by-uuid/555de4f1-f4b6-4fd1-acd2-9d735ab4d9ec`
 
 ## Architecture Deep Dive
 
@@ -512,16 +629,6 @@ Modules needing packages must wrap their configuration in a function:
   };
 }
 ```
-
-## Recent Migration Context
-
-The configuration was recently migrated to the Dendritic Pattern (2025-08-12), achieving 100/100 compliance. Key changes included:
-
-- Removed all module headers
-- Eliminated feature flags (anti-pattern)
-- Reorganized to namespace-based composition
-- Fixed library prefix inconsistencies
-- Simplified testing to TOML generation only
 
 ## Development Shell
 
@@ -594,16 +701,9 @@ The `.claude/settings.local.json` file configures special permissions:
   - `plasma-apply-lookandfeel:*` - KDE Plasma theme application commands
   - `nix fmt:*` - Code formatting commands
   - `nix flake check:*` - Flake validation commands
-
-**User-Level Rules**: This project follows user-level rules defined in `~/.claude/CLAUDE.md` which include:
-
-- TDD principles and strict git safety rules
-- No AI co-authorship mentions in commits
-- Verification requirements before making code claims
-
-# important-instruction-reminders
-
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
+  - `nix log:*` - Build log inspection commands
+  - `nix-shell:*` - Nix shell environment commands
+  - `nix develop:*` - Development shell commands
+  - `mcp__sequential-thinking__sequentialthinking` - Sequential thinking tool for complex problems
+  - `mcp__context7__resolve-library-id` - Library ID resolution for documentation
+  - `mcp__context7__get-library-docs` - Fetch library documentation

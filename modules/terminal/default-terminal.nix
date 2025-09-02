@@ -1,5 +1,4 @@
-{ config, lib, ... }:
-{
+_: {
   flake.modules.nixos.pc =
     { pkgs, ... }:
     {
