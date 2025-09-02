@@ -1,8 +1,8 @@
 { config, ... }:
 {
-  flake.modules.homeManager.base = args: {
+  flake.modules.homeManager.base = _args: {
     home = {
-      username = config.flake.meta.owner.username;
+      inherit (config.flake.meta.owner) username;
       homeDirectory = "/home/${config.flake.meta.owner.username}";
     };
     programs.home-manager.enable = true;

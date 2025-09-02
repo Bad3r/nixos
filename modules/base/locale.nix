@@ -18,7 +18,7 @@
             LC_TELEPHONE = "en_US.UTF-8";
             LC_TIME = "en_US.UTF-8";
           };
-          glibcLocales = pkgs.glibcLocales;
+          inherit (pkgs) glibcLocales;
         };
         services.timesyncd.enable = true;
       };

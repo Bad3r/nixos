@@ -1,10 +1,10 @@
 { config, ... }:
 let
-  username = config.flake.meta.owner.username;
+  inherit (config.flake.meta.owner) username;
 in
 {
   configurations.nixos.system76.module =
-    { pkgs, lib, ... }:
+    { lib, ... }:
     {
       # Additional groups for system76 hardware and features
       # The base user is defined in base/users.nix
