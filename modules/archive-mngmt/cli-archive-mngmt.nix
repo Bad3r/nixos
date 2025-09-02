@@ -10,6 +10,7 @@
           gzip
           bzip2
           xz
+          zstd
           gnutar
           p7zip-rar # 7zip w/ support for rar
           rar
