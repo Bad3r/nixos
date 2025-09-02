@@ -1,5 +1,4 @@
-{ config, ... }:
-{
+_: {
   nixpkgs.allowedUnfreePackages = [
     "system76-wallpapers"
     "system76-wallpapers-0-unstable-2024-04-26"
@@ -8,7 +7,7 @@
   ];
 
   configurations.nixos.system76.module =
-    { pkgs, lib, ... }:
+    { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [
         # System76 hardware utilities

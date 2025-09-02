@@ -15,13 +15,18 @@
           config.treefmt.build.wrapper
         ];
 
+        inputsFrom = [ config.pre-commit.devShell ];
+
         shellHook = ''
           echo "🚀 NixOS Configuration Development Shell"
           echo ""
           echo "Available commands:"
           echo "  nix flake check    - Validate the flake"
           echo "  nix fmt            - Format Nix files"
+          echo "  pre-commit install - Install git hooks"
+          echo "  pre-commit run     - Run hooks on staged files"
           echo ""
+          ${config.pre-commit.installationScript}
         '';
       };
 

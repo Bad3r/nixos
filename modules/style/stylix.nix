@@ -25,7 +25,7 @@
       {
         stylix = {
           # Opacity settings for desktop systems
-          opacity = lib.genAttrs [ "applications" "desktop" "popups" "terminal" ] (n: 1.0);
+          opacity = lib.genAttrs [ "applications" "desktop" "popups" "terminal" ] (_n: 1.0);
 
           # Font configuration for desktop systems
           fonts = {
@@ -74,7 +74,7 @@
       {
         stylix = {
           # Opacity settings for GUI applications
-          opacity = lib.genAttrs [ "applications" "desktop" "popups" "terminal" ] (n: 1.0);
+          opacity = lib.genAttrs [ "applications" "desktop" "popups" "terminal" ] (_n: 1.0);
 
           # Font configuration for GUI applications
           fonts = {

@@ -1,5 +1,4 @@
-{ lib, config, ... }:
-{
+_: {
   flake.modules.nixos.workstation =
     { pkgs, ... }:
     {

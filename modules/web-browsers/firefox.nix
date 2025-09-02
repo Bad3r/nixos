@@ -1,7 +1,6 @@
-{ config, ... }:
-{
+_: {
   flake.modules.homeManager.gui =
-    { pkgs, config, ... }:
+    { pkgs, ... }:
     {
       programs.firefox = {
         enable = true;

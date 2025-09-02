@@ -1,7 +1,5 @@
 {
-  flake.modules.homeManager.base =
-    { pkgs, ... }:
-    {
-      programs.lazygit.enable = true;
-    };
+  flake.modules.homeManager.base = _: {
+    programs.lazygit.enable = true;
+  };
 }

@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake.modules.nixos.system76-support =
     { pkgs, ... }:
     {

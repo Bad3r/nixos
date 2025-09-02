@@ -1,7 +1,6 @@
-{ config, ... }:
-{
+_: {
   configurations.nixos.tec.module =
-    { pkgs, lib, ... }:
+    { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [
         # Development tools

@@ -1,8 +1,6 @@
 {
-  flake.modules.homeManager.base =
-    { pkgs, ... }:
-    {
-      programs.bat.enable = true;
-      programs.eza.enable = true;
-    };
+  flake.modules.homeManager.base = _: {
+    programs.bat.enable = true;
+    programs.eza.enable = true;
+  };
 }

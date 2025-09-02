@@ -1,5 +1,4 @@
-{ config, lib, ... }:
-{
+_: {
   configurations.nixos.system76.module =
     { pkgs, ... }:
     {

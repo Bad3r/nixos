@@ -1,7 +1,6 @@
-{ config, ... }:
-{
+_: {
   configurations.nixos.system76.module =
-    { pkgs, lib, ... }:
+    { lib, ... }:
     {
       # Networking
       networking = {

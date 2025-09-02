@@ -1,5 +1,4 @@
-{ config, ... }:
-{
+_: {
   configurations.nixos.tec.module =
     { lib, ... }:
     {

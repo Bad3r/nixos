@@ -1,9 +1,16 @@
 { inputs, ... }:
 {
   imports = [ inputs.git-hooks.flakeModule ];
-  perSystem =
-    { config, ... }:
-    {
-      pre-commit.check.enable = false;
+  perSystem = _: {
+    pre-commit = {
+      check.enable = true;
+      settings = {
+        hooks = {
+          nixfmt-rfc-style.enable = true;
+          deadnix.enable = true;
+          statix.enable = true;
+        };
+      };
     };
+  };
 }

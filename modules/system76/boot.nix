@@ -1,7 +1,6 @@
-{ config, ... }:
-{
+_: {
   configurations.nixos.system76.module =
-    { config, pkgs, ... }:
+    { config, ... }:
     {
       boot = {
         # Base kernel modules for System76 hardware
