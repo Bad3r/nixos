@@ -1,6 +1,6 @@
 ## Reverse proxy configuration
 
-The prefered method to run this service is behind a reverse proxy not to expose an open port. For example, here is a minimal Nginx configuration:
+The preferred method to run this service is behind a reverse proxy not to expose an open port. For example, here is a minimal Nginx configuration:
 
 ```programlisting
 {

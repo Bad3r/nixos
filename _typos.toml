@@ -3,6 +3,15 @@
 facter = "facter"  # nixos-facter-modules project name
 hda = "hda"        # QEMU hard disk parameter
 importas = "importas"  # execline command
+Hime = "Hime"      # Hime input method framework
+hime = "hime"      # Hime input method framework (lowercase)
+Mosquitto = "Mosquitto"  # Mosquitto MQTT broker
+mosquitto = "mosquitto"  # Mosquitto MQTT broker (lowercase)
+MUC = "MUC"        # Multi User Chat (XMPP term)
+muc = "muc"        # Multi User Chat (lowercase)
+crypted = "crypted"  # Common in cryptsetup commands
+browseable = "browseable"  # Samba configuration term
+resolveable = "resolveable"  # Alternative spelling of resolvable
 
 [files]
 extend-exclude = [

@@ -1,6 +1,6 @@
 ## Usage
 
-Paisa needs to have one of the following cli tools availabe in the PATH at runtime:
+Paisa needs to have one of the following cli tools available in the PATH at runtime:
 
 - ledger
 
