@@ -1,6 +1,11 @@
+{ config, ... }:
 {
-  nixpkgs.allowedUnfreePackages = [
-    "claude-code"
-    "github-mcp-server"
-  ];
+  flake.modules.nixos.workstation =
+    { pkgs, ... }:
+    {
+      environment.systemPackages = with pkgs; [
+        claude-code
+        github-mcp-server
+      ];
+    };
 }
