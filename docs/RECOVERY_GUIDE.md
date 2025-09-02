@@ -241,8 +241,8 @@ sudo cryptsetup -v luksOpen /dev/[your-device] test
 
 ## Success Indicators
 
-✅ `nixos-rebuild` completes without errors  
-✅ New generation created (check with `nixos-rebuild list-generations`)  
-✅ System boots without kernel panic  
-✅ Desktop environment loads properly  
+✅ `nixos-rebuild` completes without errors
+✅ New generation created (check with `nixos-rebuild list-generations`)
+✅ System boots without kernel panic
+✅ Desktop environment loads properly
 ✅ NVIDIA drivers work (after boot, not in initrd)

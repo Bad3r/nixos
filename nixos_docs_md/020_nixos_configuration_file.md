@@ -61,7 +61,7 @@ The option value `services.httpd.enable' in `/etc/nixos/configuration.nix' is no
 
 Options have various types of values. The most important are:
 
-Strings  
+Strings
 Strings are enclosed in double quotes, e.g.
 
 ```programlisting
@@ -86,7 +86,7 @@ Multi-line strings can be enclosed in _double single quotes_, e.g.
 
 The main difference is that it strips from each line a number of spaces equal to the minimal indentation of the string as a whole (disregarding the indentation of empty lines), and that characters like `"` and `\` are not special (making it more convenient for including things like shell code). See more info about this in the Nix manual [here](https://nixos.org/nix/manual/#ssec-values).
 
-Booleans  
+Booleans
 These can be `true` or `false`, e.g.
 
 ```programlisting
@@ -96,7 +96,7 @@ These can be `true` or `false`, e.g.
 }
 ```
 
-Integers  
+Integers
 For example,
 
 ```programlisting
@@ -107,7 +107,7 @@ For example,
 
 (Note that here the attribute name `net.ipv4.tcp_keepalive_time` is enclosed in quotes to prevent it from being interpreted as a set named `net` containing a set named `ipv4`, and so on. This is because it’s not a NixOS option but the literal name of a Linux kernel setting.)
 
-Sets  
+Sets
 Sets were introduced above. They are name/value pairs enclosed in braces, as in the option definition
 
 ```programlisting
@@ -120,7 +120,7 @@ Sets were introduced above. They are name/value pairs enclosed in braces, as in 
 }
 ```
 
-Lists  
+Lists
 The important thing to note about lists is that list elements are separated by whitespace, like this:
 
 ```programlisting
@@ -137,7 +137,7 @@ List elements can be any other type, e.g. sets:
 }
 ```
 
-Packages  
+Packages
 Usually, the packages you need are already part of the Nix Packages collection, which is a set that can be accessed through the function argument `pkgs`. Typical uses:
 
 ```programlisting

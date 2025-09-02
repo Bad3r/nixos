@@ -12,24 +12,24 @@ Many programs have configuration files where program-specific settings can be de
 
 By convention, formats like this are handled with a generic `settings` option, representing the full program configuration as a Nix value. The type of this option should represent the format. The most common formats have a predefined type and string generator already declared under `pkgs.formats`:
 
-`pkgs.formats.javaProperties` { _`comment`_ ? `"Generated with Nix"` }  
+`pkgs.formats.javaProperties` { _`comment`_ ? `"Generated with Nix"` }
 A function taking an attribute set with values
 
-`comment`  
+`comment`
 A string to put at the start of the file in a comment. It can have multiple lines.
 
 It returns the `type`: `attrsOf str` and a function `generate` to build a Java `.properties` file, taking care of the correct escaping, etc.
 
-`pkgs.formats.hocon` { _`generator`_ ? `<derivation>`, _`validator`_ ? `<derivation>`, _`doCheck`_ ? true }  
+`pkgs.formats.hocon` { _`generator`_ ? `<derivation>`, _`validator`_ ? `<derivation>`, _`doCheck`_ ? true }
 A function taking an attribute set with values
 
-`generator`  
+`generator`
 A derivation used for converting the JSON output from the nix settings into HOCON. This might be useful if your HOCON variant is slightly different from the java-based one, or for testing purposes.
 
-`validator`  
+`validator`
 A derivation used for verifying that the HOCON output is correct and parsable. This might be useful if your HOCON variant is slightly different from the java-based one, or for testing purposes.
 
-`doCheck`  
+`doCheck`
 Whether to enable/disable the validator check.
 
 It returns an attrset with a `type`, `generate` function, and a `lib` attset, as specified [below](#pkgs-formats-result). Some of the lib functions will be best understood if you have read the reference specification. You can find this specification here:
@@ -38,18 +38,18 @@ It returns an attrset with a `type`, `generate` function, and a `lib` attset, as
 
 Inside of `lib`, you will find these functions
 
-`mkInclude`  
+`mkInclude`
 This is used together with a specially named attribute `includes`, to include other HOCON sources into the document.
 
 The function has a shorthand variant where it is up to the HOCON parser to figure out what type of include is being used. The include will default to being non-required. If you want to be more explicit about the details of the include, you can provide an attrset with following arguments
 
-`required`  
+`required`
 Whether the parser should fail upon failure to include the document
 
-`type`  
+`type`
 Type of the source of the included document. Valid values are `file`, `url` and `classpath`. See upstream documentation for the semantics behind each value
 
-`value`  
+`value`
 The URI/path/classpath pointing to the source of the document to be included.
 
 `Example usage:`
@@ -76,7 +76,7 @@ The URI/path/classpath pointing to the source of the document to be included.
   }
 ```
 
-`mkAppend`  
+`mkAppend`
 This is used to invoke the `+=` operator. This can be useful if you need to add something to a list that is included from outside of nix. See upstream documentation for the semantics behind the `+=` operation.
 
 `Example usage:`
@@ -99,13 +99,13 @@ This is used to invoke the `+=` operator. This can be useful if you need to add 
   }
 ```
 
-`mkSubstitution`  
+`mkSubstitution`
 This is used to make HOCON substitutions. Similarly to `mkInclude`, this function has a shorthand variant where you just give it the string with the substitution value. The substitution is not optional by default. Alternatively, you can provide an attrset with more options
 
-`optional`  
+`optional`
 Whether the parser should fail upon failure to fetch the substitution value.
 
-`value`  
+`value`
 The name of the variable to use for substitution.
 
 See upstream documentation for semantics behind the substitution functionality.
@@ -130,13 +130,13 @@ See upstream documentation for semantics behind the substitution functionality.
 
 - classpath includes are not implemented in pyhocon, which is used for validating the HOCON output. This means that if you are using classpath includes, you will want to either use an alternative validator or set `doCheck = false` in the format options.
 
-`pkgs.formats.libconfig` { _`generator`_ ? `<derivation>`, _`validator`_ ? `<derivation>` }  
+`pkgs.formats.libconfig` { _`generator`_ ? `<derivation>`, _`validator`_ ? `<derivation>` }
 A function taking an attribute set with values
 
-`generator`  
+`generator`
 A derivation used for converting the JSON output from the nix settings into libconfig. This might be useful if your libconfig variant is slightly different from the original one, or for testing purposes.
 
-`validator`  
+`validator`
 A derivation used for verifying that the libconfig output is correct and parsable. This might be useful if your libconfig variant is slightly different from the original one, or for testing purposes.
 
 It returns an attrset with a `type`, `generate` function, and a `lib` attset, as specified [below](#pkgs-formats-result). Some of the lib functions will be best understood if you have read the reference specification. You can find this specification here:
@@ -145,7 +145,7 @@ It returns an attrset with a `type`, `generate` function, and a `lib` attset, as
 
 Inside of `lib`, you will find these functions
 
-`mkHex`, `mkOctal`, `mkFloat`  
+`mkHex`, `mkOctal`, `mkFloat`
 Use these to specify numbers in other formats.
 
 `Example usage:`
@@ -160,7 +160,7 @@ Use these to specify numbers in other formats.
   }
 ```
 
-`mkArray`, `mkList`  
+`mkArray`, `mkList`
 Use these to differentiate between whether a nix list should be considered as a libconfig array or a libconfig list. See the upstream documentation for the semantics behind these types.
 
 `Example usage:`
@@ -180,123 +180,123 @@ Use these to differentiate between whether a nix list should be considered as a 
 
 - The difference between 32bit and 64bit values became optional in libconfig 1.5, so we assume 64bit values for all numbers.
 
-`pkgs.formats.json` { }  
+`pkgs.formats.json` { }
 A function taking an empty attribute set (for future extensibility) and returning a set with JSON-specific attributes `type` and `generate` as specified [below](#pkgs-formats-result).
 
-`pkgs.formats.yaml` { }  
+`pkgs.formats.yaml` { }
 A function taking an empty attribute set (for future extensibility) and returning a set with YAML-specific attributes `type` and `generate` as specified [below](#pkgs-formats-result).
 
-`pkgs.formats.ini` { _`listsAsDuplicateKeys`_ ? false, _`listToValue`_ ? null, ... }  
+`pkgs.formats.ini` { _`listsAsDuplicateKeys`_ ? false, _`listToValue`_ ? null, ... }
 A function taking an attribute set with values
 
-`listsAsDuplicateKeys`  
+`listsAsDuplicateKeys`
 A boolean for controlling whether list values can be used to represent duplicate INI keys
 
-`listToValue`  
+`listToValue`
 A function for turning a list of values into a single value.
 
 It returns a set with INI-specific attributes `type` and `generate` as specified [below](#pkgs-formats-result). The type of the input is an _attrset_ of sections; key-value pairs where the key is the section name and the value is the corresponding content which is also an _attrset_ of key-value pairs for the actual key-value mappings of the INI format. The values of the INI atoms are subject to the above parameters (e.g. lists may be transformed into multiple key-value pairs depending on `listToValue`).
 
 The attribute `lib.type.atom` contains the used INI atom.
 
-`pkgs.formats.iniWithGlobalSection` { _`listsAsDuplicateKeys`_ ? false, _`listToValue`_ ? null, ... }  
+`pkgs.formats.iniWithGlobalSection` { _`listsAsDuplicateKeys`_ ? false, _`listToValue`_ ? null, ... }
 A function taking an attribute set with values
 
-`listsAsDuplicateKeys`  
+`listsAsDuplicateKeys`
 A boolean for controlling whether list values can be used to represent duplicate INI keys
 
-`listToValue`  
+`listToValue`
 A function for turning a list of values into a single value.
 
 It returns a set with INI-specific attributes `type` and `generate` as specified [below](#pkgs-formats-result). The type of the input is an _attrset_ of the structure `{ sections = {}; globalSection = {}; }` where _sections_ are several sections as with _pkgs.formats.ini_ and _globalSection_ being just a single attrset of key-value pairs for a single section, the global section which precedes the section definitions.
 
 The attribute `lib.type.atom` contains the used INI atom.
 
-`pkgs.formats.toml` { }  
+`pkgs.formats.toml` { }
 A function taking an empty attribute set (for future extensibility) and returning a set with TOML-specific attributes `type` and `generate` as specified [below](#pkgs-formats-result).
 
-`pkgs.formats.xml` { format ? “badgerfish”, withHeader ? true}  
+`pkgs.formats.xml` { format ? “badgerfish”, withHeader ? true}
 A function taking an attribute set with values and returning a set with XML-specific attributes `type` and `generate` as specified [below](#pkgs-formats-result).
 
-`format`  
+`format`
 Input format. Because XML can not be translated one-to-one, we have to use intermediate formats. Possible values:
 
 - `"badgerfish"`: Uses [badgerfish](http://www.sklar.com/badgerfish/) conversion.
 
-`withHeader`  
+`withHeader`
 Outputs the xml with header.
 
-`pkgs.formats.cdn` { }  
+`pkgs.formats.cdn` { }
 A function taking an empty attribute set (for future extensibility) and returning a set with [CDN](https://github.com/dzikoysk/cdn)-specific attributes `type` and `generate` as specified [below](#pkgs-formats-result).
 
-`pkgs.formats.elixirConf { elixir ? pkgs.elixir }`  
+`pkgs.formats.elixirConf { elixir ? pkgs.elixir }`
 A function taking an attribute set with values
 
-`elixir`  
+`elixir`
 The Elixir package which will be used to format the generated output
 
 It returns a set with Elixir-Config-specific attributes `type`, `lib`, and `generate` as specified [below](#pkgs-formats-result).
 
 The `lib` attribute contains functions to be used in settings, for generating special Elixir values:
 
-`mkRaw elixirCode`  
+`mkRaw elixirCode`
 Outputs the given string as raw Elixir code
 
-`mkGetEnv { envVariable, fallback ? null }`  
+`mkGetEnv { envVariable, fallback ? null }`
 Makes the configuration fetch an environment variable at runtime
 
-`mkAtom atom`  
+`mkAtom atom`
 Outputs the given string as an Elixir atom, instead of the default Elixir binary string. Note: lowercase atoms still needs to be prefixed with `:`
 
-`mkTuple array`  
+`mkTuple array`
 Outputs the given array as an Elixir tuple, instead of the default Elixir list
 
-`mkMap attrset`  
+`mkMap attrset`
 Outputs the given attribute set as an Elixir map, instead of the default Elixir keyword list
 
-`pkgs.formats.lua { asBindings ? false, multiline ? true, columnWidth ? 100, indentWidth ? 2, indentUsingTabs ? false }`  
+`pkgs.formats.lua { asBindings ? false, multiline ? true, columnWidth ? 100, indentWidth ? 2, indentUsingTabs ? false }`
 A function taking an attribute set with values
 
-`asBindings` (default `false`)  
+`asBindings` (default `false`)
 Whether to treat attributes as variable bindings
 
-`multiline` (default `true`)  
+`multiline` (default `true`)
 Whether to produce a multiline output. The output may still wrap across multiple lines if it would otherwise exceed `columnWidth`.
 
-`columnWidth` (default `100`)  
+`columnWidth` (default `100`)
 The column width to use to attempt to wrap lines.
 
-`indentWidth` (default `2`)  
+`indentWidth` (default `2`)
 The width of a single indentation level.
 
-`indentUsingTabs` (default `false`)  
+`indentUsingTabs` (default `false`)
 Whether the indentation should use tabs instead of spaces.
 
-`pkgs.formats.php { finalVariable }`  
+`pkgs.formats.php { finalVariable }`
 A function taking an attribute set with values
 
-`finalVariable`  
+`finalVariable`
 The variable that will store generated expression (usually `config`). If set to `null`, generated expression will contain `return`.
 
 It returns a set with PHP-Config-specific attributes `type`, `lib`, and `generate` as specified [below](#pkgs-formats-result).
 
 The `lib` attribute contains functions to be used in settings, for generating special PHP values:
 
-`mkRaw phpCode`  
+`mkRaw phpCode`
 Outputs the given string as raw PHP code
 
-`mkMixedArray list set`  
+`mkMixedArray list set`
 Creates PHP array that contains both indexed and associative values. For example, `lib.mkMixedArray [ "hello" "world" ] { "nix" = "is-great"; }` returns `['hello', 'world', 'nix' => 'is-great']`
 
 These functions all return an attribute set with these values:
 
-`type`  
+`type`
 A module system type representing a value of the format
 
-`lib`  
+`lib`
 Utility functions for convenience, or special interactions with the format. This attribute is optional. It may contain inside a `types` attribute containing types specific to this format.
 
-`generate` _`filename jsonValue`_  
+`generate` _`filename jsonValue`_
 A function that can render a value of the format to a file. Returns a file path.
 
 ### Note

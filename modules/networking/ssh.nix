@@ -54,8 +54,7 @@ in
     homeManager.base = args: {
       programs.ssh = {
         enable = true;
-        compression = true;
-        hashKnownHosts = false;
+        enableDefaultConfig = false; # Explicitly disable default config to avoid deprecation warning
         includes = [ "${args.config.home.homeDirectory}/.ssh/hosts/*" ];
         matchBlocks = lib.mkMerge (
           (lib.mapAttrsToList (_name: nixos: {
@@ -78,6 +77,8 @@ in
               "*" = {
                 setEnv.TERM = "xterm-256color";
                 identitiesOnly = true;
+                compression = true;
+                hashKnownHosts = false;
               };
             }
           ]

@@ -5,7 +5,14 @@
       "Bash(nix-instantiate:*)",
       "Bash(plasma-apply-lookandfeel:*)",
       "Bash(nix fmt:*)",
-      "Bash(nix flake check:*)"
+      "Bash(nix flake check:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(nix log:*)",
+      "Bash(nix-shell:*)",
+      "Bash(nix develop:*)",
+      "Bash(nix develop:*)"
     ]
   }
 }

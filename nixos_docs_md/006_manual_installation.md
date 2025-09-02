@@ -204,12 +204,12 @@ Use the following commands:
 
     If you’re using the graphical ISO image, other editors may be available (such as `vim`). If you have network access, you can also install other editors – for instance, you can install Emacs by running `nix-env -f '<nixpkgs>' -iA emacs`.
 
-    BIOS systems  
+    BIOS systems
     You _must_ set the option [`boot.loader.grub.device`](options.html#opt-boot.loader.grub.device) to specify on which disk the GRUB boot loader is to be installed. Without it, NixOS cannot boot.
 
     If there are other operating systems running on the machine before installing NixOS, the [`boot.loader.grub.useOSProber`](options.html#opt-boot.loader.grub.useOSProber) option can be set to `true` to automatically add them to the grub menu.
 
-    UEFI systems  
+    UEFI systems
     You must select a boot-loader, either systemd-boot or GRUB. The recommended option is systemd-boot: set the option [`boot.loader.systemd-boot.enable`](options.html#opt-boot.loader.systemd-boot.enable) to `true`. `nixos-generate-config` should do this automatically for new configurations when booted in UEFI mode.
 
     You may want to look at the options starting with [`boot.loader.efi`](options.html#opt-boot.loader.efi.canTouchEfiVariables) and [`boot.loader.systemd-boot`](options.html#opt-boot.loader.systemd-boot.enable) as well.

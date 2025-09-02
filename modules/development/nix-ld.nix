@@ -121,11 +121,11 @@
 
             if [ -d "$VSCODE_SERVER_DIR" ]; then
               echo "Fixing VSCode Server Node.js links..."
-              
+
               # Find all node binaries in VSCode Server
               find "$VSCODE_SERVER_DIR" -name node -type f 2>/dev/null | while read -r node_path; do
                 node_dir=$(dirname "$node_path")
-                
+
                 # Check if this is actually a VSCode Server node binary
                 if [[ "$node_path" == *"/bin/"* ]]; then
                   # Create a wrapper script
@@ -142,7 +142,7 @@
                   chmod +x "$node_path"
                 fi
               done
-              
+
               echo "VSCode Server fix applied successfully."
             else
               echo "VSCode Server directory not found. Run this script after connecting with VSCode Remote SSH."

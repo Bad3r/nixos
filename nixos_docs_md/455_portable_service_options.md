@@ -1,6 +1,6 @@
 ## Portable Service Options
 
-[`_module.args`](#service-opt-_module.args)  
+[`_module.args`](#service-opt-_module.args)
 Additional arguments passed to each module in addition to ones like `lib`, `config`, and `pkgs`, `modulesPath`.
 
 This option is also available to all submodules. Submodules do not inherit args from their parent module, nor do they provide args to their parent module or sibling submodules. The sole exception to this is the argument `name` which is provided by parent modules to a submodule and contains the attribute name the submodule is bound to, or a unique generated name if it is not bound to an attribute.
@@ -43,7 +43,7 @@ _Declared by:_
 | -------------------------------------------------------------------------------------------------------- |
 | ` `[`<nixpkgs/lib/modules.nix>`](https://github.com/NixOS/nixpkgs/blob/release-25.11/lib/modules.nix)` ` |
 
-[`process.argv`](#service-opt-process.argv)  
+[`process.argv`](#service-opt-process.argv)
 Command filename and arguments for starting this service. This is a raw command-line that should not contain any shell escaping. If expansion of environmental variables is required then use a shell script or `importas` from `pkgs.execline`.
 
 _Type:_ list of (string or absolute path convertible to it)
@@ -56,7 +56,7 @@ _Declared by:_
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ` `[`<nixpkgs/nixos/modules/system/service/portable/service.nix>`](https://github.com/NixOS/nixpkgs/blob/release-25.11/nixos/modules/system/service/portable/service.nix)` ` |
 
-[`services`](#service-opt-services)  
+[`services`](#service-opt-services)
 A collection of [modular services](https://nixos.org/manual/nixos/unstable/#modular-services) that are configured in one go.
 
 You could consider the sub-service relationship to be an ownership relation. It **does not** automatically create any other relationship between services (e.g. systemd slices), unless perhaps such a behavior is explicitly defined and enabled in another option.

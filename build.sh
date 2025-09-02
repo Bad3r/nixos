@@ -40,7 +40,7 @@ Options:
   -d, --collect-garbage  Run 'nix-collect-garbage -d' after build
   -O, --optimize         Optimize Nix store after build
   -h, --help             Show this help message
-  
+
   Usage Example:
   $0 --collect-garbage --optimize --offline
 " "${0##*/}" "${PWD}" "$(hostname)"

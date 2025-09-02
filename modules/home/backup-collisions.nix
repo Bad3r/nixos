@@ -34,20 +34,20 @@
         if $needsBackup; then
           echo "Backing up existing configuration files to $backupDir"
           mkdir -p "$backupDir"
-          
+
           for file in "''${files[@]}"; do
             if [[ -e "$file" && ! -L "$file" ]]; then
               # Create parent directory structure in backup
               relPath="''${file#$HOME/}"
               backupFile="$backupDir/$relPath"
               mkdir -p "$(dirname "$backupFile")"
-              
+
               # Move the file to backup
               echo "  Backing up: $file"
               mv "$file" "$backupFile"
             fi
           done
-          
+
           echo "Backup completed. Files saved to: $backupDir"
         fi
       '';

@@ -6,13 +6,13 @@ Emacs can be installed in the normal way for Nix (see [_Package Management_](#se
 
 Nixpkgs defines several basic Emacs packages. The following are attributes belonging to the `pkgs` set:
 
-`emacs`  
+`emacs`
 The latest stable version of Emacs using the [GTK 2](http://www.gtk.org) widget toolkit.
 
-`emacs-nox`  
+`emacs-nox`
 Emacs built without any dependency on X11 libraries.
 
-`emacsMacport`  
+`emacsMacport`
 Emacs with the “Mac port” patches, providing a more native look and feel under macOS.
 
 If those aren’t suitable, then the following imitation Emacs editors are also available in Nixpkgs: [Zile](https://www.gnu.org/software/zile/), [mg](http://homepage.boetes.org/software/mg/), [Yi](http://yi-editor.github.io/), [jmacs](https://joe-editor.sourceforge.io/).

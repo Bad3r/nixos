@@ -1,6 +1,6 @@
 _: {
   flake.modules.nixos.pc =
-    { pkgs, ... }:
+    { pkgs, lib, ... }:
     {
       # Display manager
       services.displayManager.sddm = {
@@ -10,6 +10,9 @@ _: {
 
       # Plasma 6 desktop
       services.desktopManager.plasma6.enable = true;
+
+      # Set Qt platform theme (kde6 is not yet a valid value, use kde)
+      qt.platformTheme = lib.mkForce "kde";
 
       # Required for some KDE apps
       programs.dconf.enable = true;

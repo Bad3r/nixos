@@ -1,0 +1,11 @@
+[default.extend-words]
+# Technical terms and project names
+facter = "facter"  # nixos-facter-modules project name
+hda = "hda"        # QEMU hard disk parameter
+importas = "importas"  # execline command
+
+[files]
+extend-exclude = [
+    "nixos_docs_md/*.md",  # Documentation files with many technical terms
+    "flake.lock",          # Generated file
+]

@@ -7,14 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Most common tasks:**
 
 ```bash
-# Format and validate Nix files (only needed after modifying .nix files)
-nix fmt && nix flake check
+# Validate changes (run after ANY modification to .nix files)
+nix develop -c pre-commit run --all-files
 
 # Enter development shell (includes pre-commit hooks setup)
 nix develop
-
-# Run linters and formatters
-nix develop -c pre-commit run --all-files
 
 # Build and switch configuration (⚠️ system-wide changes!)
 ./build.sh
@@ -28,6 +25,14 @@ generation-manager current
 # Check git status (many files may show as modified due to formatting)
 git status
 ```
+
+**Validation workflow after changes:**
+
+1. Run pre-commit hooks: `nix develop -c pre-commit run --all-files`
+2. If issues found → Create a plan to fix them
+3. Implement fixes systematically
+4. Re-run hooks until all pass
+5. Final check: `nix flake check --accept-flake-config`
 
 ## Repository Overview
 
@@ -136,38 +141,26 @@ sudo nixos-rebuild switch --rollback
 ### Code Quality
 
 ```bash
-# Format Nix files (ONLY needed after modifying .nix files)
-# Uses nixfmt-rfc-style via treefmt
-# Note: build.sh automatically runs this before building
-nix fmt
+# PRIMARY: Run all pre-commit hooks (formatting, dead code, anti-patterns)
+nix develop -c pre-commit run --all-files
 
-# Format other file types (JSON, shell scripts, Markdown) via treefmt
-nix develop -c treefmt
+# Individual formatting commands (use pre-commit hooks instead when possible):
+nix fmt                   # Format Nix files only
+nix develop -c treefmt    # Format all file types
 
-# Check flake validity (ONLY needed after modifying .nix files)
-# Includes abort-on-warn enforcement
-nix flake check --accept-flake-config
+# Validation and checking:
+nix flake check --accept-flake-config  # Validate flake (includes abort-on-warn)
+nix flake show                          # Show flake outputs
+generation-manager score                # Validate dendritic pattern compliance
 
-# Show flake outputs
-nix flake show
+# Dependency management:
+nix flake update                        # Update all flake inputs
+nix flake update nixpkgs home-manager   # Update specific inputs
+nix-tree                                # Explore dependencies
 
-# Update flake.lock file (all inputs)
-nix flake update
-
-# Update specific inputs only
-nix flake update nixpkgs home-manager
-
-# Explore dependencies (requires nix-tree package)
-nix-tree
-
-# Validate dendritic pattern compliance
-generation-manager score
-
-# Query available packages
-nix-env -qaP '*' --description | grep <package>
-
-# Check store dependencies
-nix-store -q --requisites <path> | grep <package>
+# Package queries:
+nix-env -qaP '*' --description | grep <package>  # Query available packages
+nix-store -q --requisites <path> | grep <package>  # Check store dependencies
 ```
 
 ### Pre-commit Hooks & Linting
@@ -178,25 +171,37 @@ nix-store -q --requisites <path> | grep <package>
 - `deadnix` - Find and remove dead Nix code
 - `statix` - Nix anti-pattern linter
 
+**Workflow for addressing linting issues:**
+
 ```bash
-# Install pre-commit hooks (done automatically in dev shell)
-pre-commit install
+# Step 1: Run all hooks to identify issues
+nix develop -c pre-commit run --all-files
 
-# Run all hooks manually on staged files
-pre-commit run
+# Step 2: If issues found, STOP and create a plan:
+# - List all issues by type
+# - Identify root causes
+# - Plan fixes in order (formatting → dead code → anti-patterns)
+# - Use TodoWrite tool to track the plan
 
-# Run hooks on all files (not just staged)
-pre-commit run --all-files
+# Step 3: Implement fixes systematically
+# Run specific hooks to verify each fix:
+nix develop -c pre-commit run nixfmt-rfc-style --all-files  # Format issues
+nix develop -c pre-commit run deadnix --all-files           # Dead code
+nix develop -c pre-commit run statix --all-files            # Anti-patterns
 
-# Run specific hook
-pre-commit run nixfmt-rfc-style
-pre-commit run deadnix
-pre-commit run statix
+# Step 4: Final verification
+nix develop -c pre-commit run --all-files  # Must pass cleanly
 
-# IMPORTANT: You MUST NOT bypass pre-commit hooks! Address all issues before proceeding.
+# Additional commands:
+pre-commit install        # Install hooks (done automatically in dev shell)
+pre-commit run           # Run on staged files only
 ```
 
-**Note**: Many files may show as modified in git status after formatting - this is normal
+**IMPORTANT**:
+
+- NEVER bypass pre-commit hooks! All issues must be addressed
+- Create a plan BEFORE fixing issues to avoid cascading problems
+- Many files may show as modified after formatting - this is normal
 
 ### System Management
 
@@ -450,10 +455,24 @@ ls nixos_docs_md/ | grep -i service_name
 1. Check namespace hierarchy: base → pc → workstation
 2. Add configuration to appropriate namespace level
 3. Use `config.flake.modules.nixos.*` to reference other modules
-4. After any changes, run:
+4. **After any changes, follow this workflow:**
+
    ```bash
-   nix fmt              # Format all Nix files
-   nix flake check      # Validate configuration
+   # Step 1: Run pre-commit hooks to identify all issues
+   nix develop -c pre-commit run --all-files
+
+   # Step 2: If issues are found, create a plan to address them
+   # - Review each issue type (formatting, dead code, anti-patterns)
+   # - Determine root causes
+   # - Plan fixes in logical order
+
+   # Step 3: Implement fixes systematically
+   # - Address one issue type at a time
+   # - Run hooks after each fix to verify
+
+   # Step 4: Final validation
+   nix develop -c pre-commit run --all-files  # Should pass cleanly
+   nix flake check --accept-flake-config      # Final validation
    ```
 
 ### Critical Workflow Rules
