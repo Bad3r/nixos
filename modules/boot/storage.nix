@@ -3,19 +3,17 @@
   flake.modules.nixos.boot-redundancy =
     { config, ... }:
     {
-      boot.loader.grub.mirroredBoots =
-        config.storage.redundancy.range
-        |> lib.map (i: [
+      boot.loader.grub.mirroredBoots = lib.mkMerge (
+        lib.map (i: [
           {
             devices = [ "nodev" ];
             path = "/boot${i}";
           }
-        ])
-        |> lib.mkMerge;
+        ]) config.storage.redundancy.range
+      );
 
-      fileSystems =
-        config.storage.redundancy.range
-        |> lib.map (i: {
+      fileSystems = lib.mkMerge (
+        lib.map (i: {
           "/boot${i}" = {
             device = "/dev/disk/by-partlabel/boot${i}";
             fsType = "vfat";
@@ -24,7 +22,7 @@
               "dmask=0022"
             ];
           };
-        })
-        |> lib.mkMerge;
+        }) config.storage.redundancy.range
+      );
     };
 }

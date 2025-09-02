@@ -4,13 +4,14 @@ let
     { pkgs, ... }:
     {
       nix.package =
-        pkgs.nixVersions
-        |> lib.attrNames
-        |> lib.filter (lib.hasPrefix "nix_")
-        |> lib.naturalSort
-        |> lib.last
-        |> lib.flip lib.getAttr pkgs.nixVersions
-        |> lib.mkDefault;
+        let
+          versions = lib.attrNames pkgs.nixVersions;
+          nixVersions = lib.filter (lib.hasPrefix "nix_") versions;
+          sorted = lib.naturalSort nixVersions;
+          latest = lib.last sorted;
+          package = lib.getAttr latest pkgs.nixVersions;
+        in
+        lib.mkDefault package;
     };
 in
 {

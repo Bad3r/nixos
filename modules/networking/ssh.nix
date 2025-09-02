@@ -1,15 +1,13 @@
 { lib, config, ... }:
 let
-  reachableNixoss =
-    config.flake.nixosConfigurations
-    |> lib.filterAttrs (
-      _name: nixos:
-      !(lib.any isNull [
-        nixos.config.networking.domain
-        nixos.config.networking.hostName
-        nixos.config.services.openssh.publicKey
-      ])
-    );
+  reachableNixoss = lib.filterAttrs (
+    _name: nixos:
+    !(lib.any isNull [
+      nixos.config.networking.domain
+      nixos.config.networking.hostName
+      nixos.config.services.openssh.publicKey
+    ])
+  ) config.flake.nixosConfigurations;
 in
 {
   flake.modules = {
@@ -46,14 +44,10 @@ in
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGPoHVrToSwWfz+DaUX68A9v70V7k3/REqGxiDqjLOS+"
         ];
 
-        programs.ssh.knownHosts =
-          reachableNixoss
-          |> lib.mapAttrs (
-            _name: nixos: {
-              hostNames = [ nixos.config.networking.fqdn ];
-              inherit (nixos.config.services.openssh) publicKey;
-            }
-          );
+        programs.ssh.knownHosts = lib.mapAttrs (_name: nixos: {
+          hostNames = [ nixos.config.networking.fqdn ];
+          inherit (nixos.config.services.openssh) publicKey;
+        }) reachableNixoss;
       };
     };
 
@@ -63,16 +57,13 @@ in
         compression = true;
         hashKnownHosts = false;
         includes = [ "${args.config.home.homeDirectory}/.ssh/hosts/*" ];
-        matchBlocks =
-          reachableNixoss
-          |> lib.mapAttrsToList (
-            _name: nixos: {
-              "${nixos.config.networking.fqdn}" = {
-                identityFile = "~/.ssh/keys/infra_ed25519";
-              };
-            }
-          )
-          |> lib.concat [
+        matchBlocks = lib.mkMerge (
+          (lib.mapAttrsToList (_name: nixos: {
+            "${nixos.config.networking.fqdn}" = {
+              identityFile = "~/.ssh/id_ed25519";
+            };
+          }) reachableNixoss)
+          ++ [
             {
               # Tailscale host configuration
               "system76-tailscale" = {
@@ -90,7 +81,7 @@ in
               };
             }
           ]
-          |> lib.mkMerge;
+        );
       };
     };
   };

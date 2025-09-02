@@ -10,7 +10,13 @@
         };
         range = lib.mkOption {
           type = lib.types.listOf lib.types.str;
-          default = config.storage.redundancy.count |> lib.flip lib.sub 1 |> lib.range 0 |> lib.map toString;
+          default =
+            let
+              inherit (config.storage.redundancy) count;
+              maxIndex = lib.sub count 1;
+              range = lib.range 0 maxIndex;
+            in
+            lib.map toString range;
         };
       };
     };
