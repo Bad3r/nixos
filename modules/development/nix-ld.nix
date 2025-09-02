@@ -75,79 +75,81 @@
           ];
       };
 
-      # Essential packages for VSCode Remote SSH functionality
-      environment.systemPackages = with pkgs; [
-        # Core utilities that VSCode Server expects
-        bash
-        gnutar
-        curl
-        wget
-        git
+      # Essential packages, variables, and scripts for VSCode Remote SSH functionality
+      environment = {
+        systemPackages = with pkgs; [
+          # Core utilities that VSCode Server expects
+          bash
+          gnutar
+          curl
+          wget
+          git
 
-        # Node.js for VSCode extensions
-        nodejs_22
+          # Node.js for VSCode extensions
+          nodejs_22
 
-        # Build tools for native extensions
-        gcc
-        gnumake
-        binutils
-        coreutils
-        gzip
-        xz
+          # Build tools for native extensions
+          gcc
+          gnumake
+          binutils
+          coreutils
+          gzip
+          xz
 
-        # Python for extensions that require it
-        python3
+          # Python for extensions that require it
+          python3
 
-        # Process management tools
-        procps
-        lsof
-      ];
+          # Process management tools
+          procps
+          lsof
+        ];
 
-      # Environment variables for VSCode Server
-      environment.variables = {
-        VSCODE_SERVER_TAR = "${pkgs.gnutar}/bin/tar";
-        NODE_PATH = "${pkgs.nodejs_22}/lib/node_modules";
-      };
+        # Environment variables for VSCode Server
+        variables = {
+          VSCODE_SERVER_TAR = "${pkgs.gnutar}/bin/tar";
+          NODE_PATH = "${pkgs.nodejs_22}/lib/node_modules";
+        };
 
-      # VSCode Server compatibility script
-      environment.etc."vscode-server-fix.sh" = {
-        text = ''
-          #!/usr/bin/env bash
-          # VSCode Server fix script for NixOS
-          # This helps VSCode Server find the correct Node.js binary
+        # VSCode Server compatibility script
+        etc."vscode-server-fix.sh" = {
+          text = ''
+            #!/usr/bin/env bash
+            # VSCode Server fix script for NixOS
+            # This helps VSCode Server find the correct Node.js binary
 
-          VSCODE_SERVER_DIR="$HOME/.vscode-server"
+            VSCODE_SERVER_DIR="$HOME/.vscode-server"
 
-          if [ -d "$VSCODE_SERVER_DIR" ]; then
-            echo "Fixing VSCode Server Node.js links..."
-            
-            # Find all node binaries in VSCode Server
-            find "$VSCODE_SERVER_DIR" -name node -type f 2>/dev/null | while read -r node_path; do
-              node_dir=$(dirname "$node_path")
+            if [ -d "$VSCODE_SERVER_DIR" ]; then
+              echo "Fixing VSCode Server Node.js links..."
               
-              # Check if this is actually a VSCode Server node binary
-              if [[ "$node_path" == *"/bin/"* ]]; then
-                # Create a wrapper script
-                mv "$node_path" "$node_path.original" 2>/dev/null || true
-                cat > "$node_path" << EOF
-          #!/usr/bin/env bash
-          # Wrapper to use system Node.js if the bundled one fails
-          if [ -f "\$(dirname "\$0")/node.original" ]; then
-            "\$(dirname "\$0")/node.original" "\$@" 2>/dev/null || ${pkgs.nodejs_22}/bin/node "\$@"
-          else
-            ${pkgs.nodejs_22}/bin/node "\$@"
-          fi
-          EOF
-                chmod +x "$node_path"
-              fi
-            done
-            
-            echo "VSCode Server fix applied successfully."
-          else
-            echo "VSCode Server directory not found. Run this script after connecting with VSCode Remote SSH."
-          fi
-        '';
-        mode = "0755";
+              # Find all node binaries in VSCode Server
+              find "$VSCODE_SERVER_DIR" -name node -type f 2>/dev/null | while read -r node_path; do
+                node_dir=$(dirname "$node_path")
+                
+                # Check if this is actually a VSCode Server node binary
+                if [[ "$node_path" == *"/bin/"* ]]; then
+                  # Create a wrapper script
+                  mv "$node_path" "$node_path.original" 2>/dev/null || true
+                  cat > "$node_path" << EOF
+            #!/usr/bin/env bash
+            # Wrapper to use system Node.js if the bundled one fails
+            if [ -f "\$(dirname "\$0")/node.original" ]; then
+              "\$(dirname "\$0")/node.original" "\$@" 2>/dev/null || ${pkgs.nodejs_22}/bin/node "\$@"
+            else
+              ${pkgs.nodejs_22}/bin/node "\$@"
+            fi
+            EOF
+                  chmod +x "$node_path"
+                fi
+              done
+              
+              echo "VSCode Server fix applied successfully."
+            else
+              echo "VSCode Server directory not found. Run this script after connecting with VSCode Remote SSH."
+            fi
+          '';
+          mode = "0755";
+        };
       };
 
       # Remove the problematic activation script that tries to use /run/current-system

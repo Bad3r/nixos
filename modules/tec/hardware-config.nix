@@ -1,52 +1,64 @@
-{ config, ... }:
-{
+_: {
   configurations.nixos.tec.module =
-    { pkgs, lib, ... }:
+    { lib, ... }:
     {
       # Platform configuration (required)
       nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 
-      # CPU microcode updates
-      hardware.cpu.intel.updateMicrocode = lib.mkDefault true;
+      # Hardware configuration
+      hardware = {
+        # CPU microcode updates
+        cpu.intel.updateMicrocode = lib.mkDefault true;
 
-      # Kernel modules from nixos-generate-config
-      boot.initrd.availableKernelModules = [
-        "xhci_pci"
-        "thunderbolt"
-        "nvme"
-        "uas"
-        "usb_storage"
-        "usbhid"
-        "sd_mod"
-      ];
-      boot.initrd.kernelModules = [ ];
-      boot.kernelModules = [ "kvm-intel" ];
-      boot.extraModulePackages = [ ];
-
-      # Enable Bluetooth
-      hardware.bluetooth = {
-        enable = true;
-        powerOnBoot = true;
-        settings = {
-          General = {
-            Experimental = true;
-            KernelExperimental = true;
+        # Enable Bluetooth
+        bluetooth = {
+          enable = true;
+          powerOnBoot = true;
+          settings = {
+            General = {
+              Experimental = true;
+              KernelExperimental = true;
+            };
           };
         };
       };
 
-      # Enable NTFS support
-      boot.supportedFilesystems = [ "ntfs" ];
+      # Boot configuration
+      boot = {
+        # Kernel modules and initrd configuration
+        initrd = {
+          availableKernelModules = [
+            "xhci_pci"
+            "thunderbolt"
+            "nvme"
+            "uas"
+            "usb_storage"
+            "usbhid"
+            "sd_mod"
+          ];
+          kernelModules = [ ];
 
-      # Boot loader configuration
-      boot.loader = {
-        systemd-boot = {
-          enable = true;
-          editor = false;
-          consoleMode = "auto";
-          configurationLimit = 3;
+          # LUKS encryption for root device
+          luks.devices."luks-29c517ce-ea2a-416e-8340-223deda4aacf".device =
+            "/dev/disk/by-uuid/29c517ce-ea2a-416e-8340-223deda4aacf";
         };
-        efi.canTouchEfiVariables = true;
+
+        kernelModules = [ "kvm-intel" ];
+        extraModulePackages = [ ];
+
+        # Enable NTFS support
+        supportedFilesystems = [ "ntfs" ];
+
+        # Boot loader configuration
+        loader = {
+          systemd-boot = {
+            enable = true;
+            editor = false;
+            consoleMode = "auto";
+            configurationLimit = 3;
+          };
+          efi.canTouchEfiVariables = true;
+        };
       };
 
       # Filesystem configuration
@@ -64,10 +76,6 @@
           ];
         };
       };
-
-      # LUKS encryption for root device
-      boot.initrd.luks.devices."luks-29c517ce-ea2a-416e-8340-223deda4aacf".device =
-        "/dev/disk/by-uuid/29c517ce-ea2a-416e-8340-223deda4aacf";
 
       # Swap device
       swapDevices = [ { device = "/dev/disk/by-uuid/49b87403-5321-493f-8dc8-4a9ff5333c5a"; } ];
