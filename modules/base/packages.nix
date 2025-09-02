@@ -10,6 +10,11 @@
         procps
         psmisc
 
+        # Text processing
+        less
+        diffutils
+        patch
+
         # File management
         file
         findutils
@@ -18,6 +23,7 @@
         gnused
         which
         tree
+        rsync
 
         # Clipboard utilities
         xclip
@@ -30,6 +36,12 @@
         iproute2
         dnsutils
         nettools
+        traceroute
+        mtr
+        nmap
+        tcpdump
+        iftop
+        nethogs
 
         # Text editors
         neovim
@@ -49,6 +61,11 @@
         starship
         zoxide
         atuin
+        bc
+
+        # Terminal multiplexers
+        tmux
+        screen
 
         # System information
         pciutils
