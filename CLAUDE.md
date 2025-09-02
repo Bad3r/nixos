@@ -24,6 +24,15 @@ generation-manager current
 
 This is a NixOS configuration using the **Dendritic Pattern** - an organic configuration growth pattern with automatic module discovery. The configuration follows the golden standard implementation from `mightyiam/infra`.
 
+### Available Documentation
+
+- **Local NixOS docs**: Complete offline documentation in `nixos_docs_md/` directory (460+ files)
+  - Browse with: `ls nixos_docs_md/` or search with: `grep -r "topic" nixos_docs_md/`
+  - Topics include: installation, configuration syntax, package management, services, hardware
+- **Dendritic Pattern docs**: Detailed guides in `docs/` directory
+- **Man pages**: `man configuration.nix`, `man home-configuration.nix`
+- **NixOS manual**: `nixos-help` command opens full manual in browser
+
 ### System Information
 
 - **Hosts**:
@@ -99,7 +108,7 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 # -O, --optimize          Optimize Nix store after build
 # -h, --help              Show help message
 
-# Note: build.sh automatically:
+# build.sh automation features:
 # - Runs 'git add .' before building (stages all changes)
 # - Formats code with 'nix fmt'
 # - Validates flake with 'nix flake check'
@@ -107,6 +116,8 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 # - Configures experimental features (nix-command, flakes, pipe-operators)
 # - Sets abort-on-warn=true and accept-flake-config=true
 # - Runs garbage collection twice when using --collect-garbage flag
+# - Disables Nix sandbox for performance
+# - Shows "Build failed!" on any error with proper error trapping
 
 # Build the system configuration (direct nix command)
 nix build .#nixosConfigurations.system76.config.system.build.toplevel
@@ -156,11 +167,20 @@ nix develop --accept-flake-config --extra-experimental-features "nix-command fla
 # Note: Formatting is automatically applied by build.sh before building
 nix fmt
 
+# Format other file types (JSON, shell scripts) via treefmt
+nix develop -c treefmt
+
 # Check flake validity (includes abort-on-warn enforcement)
 nix flake check --accept-flake-config
 
 # Show flake outputs
 nix flake show
+
+# Update flake.lock file (all inputs)
+nix flake update
+
+# Update specific inputs only
+nix flake update nixpkgs home-manager
 
 # Explore dependencies (requires nix-tree package)
 nix-tree
@@ -173,6 +193,9 @@ nix-env -qaP '*' --description | grep <package>
 
 # Check store dependencies
 nix-store -q --requisites <path> | grep <package>
+
+# Note: Pre-commit hooks are available but disabled by default
+# Enable in modules/meta/git-hooks.nix if needed
 ```
 
 ### System Management
@@ -509,8 +532,13 @@ The development shell (via `nix develop`) provides:
 - `nix-tree` - Dependency exploration
 - `nix-diff` - Generation comparison
 - `jq`/`yq` - JSON/YAML processing
-- `treefmt` - Multi-language formatter
+- `treefmt` - Multi-language formatter with:
+  - `nixfmt` - Nix files (enabled)
+  - `prettier` - JSON, YAML, Markdown files (enabled)
+  - `shfmt` - Shell scripts (enabled)
 - `generation-manager` - System generation management utility
+
+Shell includes a helpful welcome message with common commands.
 
 ## Generation Management
 
@@ -564,6 +592,8 @@ The `.claude/settings.local.json` file configures special permissions:
   - `WebSearch` - Web search capability for current information
   - `nix-instantiate:*` - Nix expression evaluation commands
   - `plasma-apply-lookandfeel:*` - KDE Plasma theme application commands
+  - `nix fmt:*` - Code formatting commands
+  - `nix flake check:*` - Flake validation commands
 
 **User-Level Rules**: This project follows user-level rules defined in `~/.claude/CLAUDE.md` which include:
 
@@ -571,14 +601,9 @@ The `.claude/settings.local.json` file configures special permissions:
 - No AI co-authorship mentions in commits
 - Verification requirements before making code claims
 
-## Local Documentation
+# important-instruction-reminders
 
-NixOS includes extensive local documentation:
-
-- **Manual pages**: `man configuration.nix`, `man home-configuration.nix`
-- **NixOS manual**: Use `nixos-help` command to open the full manual in a browser
-- **Build logs**: `nix log <package-path>` to show build logs if available
-- **Local docs**: Complete NixOS documentation available in `nixos_docs_md/` directory
-  - Numbered files (001-460) covering all NixOS topics
-  - Topics include: installation, configuration syntax, package management, services, hardware support, and advanced features
-  - Use `ls nixos_docs_md/` to browse available documentation
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
