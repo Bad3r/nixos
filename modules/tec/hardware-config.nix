@@ -14,8 +14,9 @@
         "xhci_pci"
         "thunderbolt"
         "nvme"
-        "usbhid"
+        "uas"
         "usb_storage"
+        "usbhid"
         "sd_mod"
       ];
       boot.initrd.kernelModules = [ ];
@@ -51,11 +52,11 @@
       # Filesystem configuration
       fileSystems = {
         "/" = {
-          device = "/dev/disk/by-uuid/d0d73e02-1e44-4238-8000-80c094bd8197";
+          device = "/dev/disk/by-uuid/e368affc-9d20-4b80-a45f-ff517e126aed";
           fsType = "ext4";
         };
         "/boot" = {
-          device = "/dev/disk/by-uuid/E12E-D274";
+          device = "/dev/disk/by-uuid/538E-2B1B";
           fsType = "vfat";
           options = [
             "fmask=0077"
@@ -65,14 +66,10 @@
       };
 
       # LUKS encryption for root device
-      boot.initrd.luks.devices."luks-cc8bbfe7-0728-4b81-b820-f591249497bd".device =
-        "/dev/disk/by-uuid/cc8bbfe7-0728-4b81-b820-f591249497bd";
-
-      # Additional LUKS device from configuration.nix
-      boot.initrd.luks.devices."luks-a08024b1-ea03-4826-9f6d-a4ed89ad0448".device =
-        "/dev/disk/by-uuid/a08024b1-ea03-4826-9f6d-a4ed89ad0448";
+      boot.initrd.luks.devices."luks-29c517ce-ea2a-416e-8340-223deda4aacf".device =
+        "/dev/disk/by-uuid/29c517ce-ea2a-416e-8340-223deda4aacf";
 
       # Swap device
-      swapDevices = [ { device = "/dev/disk/by-uuid/9cd8cdee-8a7f-4973-af17-75bb89579cd6"; } ];
+      swapDevices = [ { device = "/dev/disk/by-uuid/49b87403-5321-493f-8dc8-4a9ff5333c5a"; } ];
     };
 }

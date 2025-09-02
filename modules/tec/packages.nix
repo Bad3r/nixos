@@ -4,6 +4,10 @@
     { pkgs, lib, ... }:
     {
       environment.systemPackages = with pkgs; [
+        # Development tools
+        kiro-fhs # Kiro editor with FHS environment
+        vscode-fhs # VS Code with FHS environment
+
         # Additional system-specific tools
         ktailctl # KDE Tailscale GUI
         localsend # Local network file sharing
