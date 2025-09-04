@@ -3,8 +3,7 @@
     { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [
-        marktext
-        glow # Terminal-based markdown renderer
+        pandoc
       ];
     };
 }

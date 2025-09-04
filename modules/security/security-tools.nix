@@ -41,6 +41,7 @@
         # Security scanners
         lynis
         chkrootkit
+        vt-cli # VirusTotal Command Line Interface
 
         # Authentication
         yubico-piv-tool
