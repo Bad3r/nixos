@@ -18,6 +18,7 @@ _: {
         yq
         tokei
         hyperfine
+        git-filter-repo
 
         # Network Tools
         curl

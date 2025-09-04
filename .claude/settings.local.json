@@ -12,7 +12,8 @@
       "Bash(nix log:*)",
       "Bash(nix-shell:*)",
       "Bash(nix develop:*)",
-      "Bash(nix develop:*)"
+      "Bash(nix develop:*)",
+      "Bash(nix-env:*)"
     ]
   }
 }
