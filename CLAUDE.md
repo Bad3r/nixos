@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Quick Reference
 
 **Validate changes (ALWAYS run after modifying .nix files):**
+
 ```bash
 # Run all pre-commit hooks
 nix develop -c pre-commit run --all-files
@@ -20,6 +21,7 @@ nixos-rebuild build --flake .#$(hostname)
 ```
 
 **Build system (⚠️ ONLY when user explicitly requests):**
+
 ```bash
 # Build and switch configuration (system-wide changes!)
 ./build.sh
@@ -52,6 +54,7 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 ⚠️ **IMPORTANT**: Always use local documentation first:
 
 1. **Local NixOS docs** (`nixos_docs_md/` - 460+ files):
+
    ```bash
    # Search local docs FIRST for NixOS questions
    grep -r "postgresql" nixos_docs_md/
@@ -79,6 +82,7 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 2. **No module headers** - Start directly with Nix code
 3. **Namespace hierarchy**: `base` → `pc` → `workstation`
 4. **Function wrapping** - Only when module needs `pkgs`:
+
    ```nix
    # Needs pkgs - wrap in function:
    { config, lib, ... }:
@@ -96,6 +100,7 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
      };
    }
    ```
+
 5. **Experimental features required**: `pipe-operators` must be enabled
 6. **abort-on-warn = true** - Enforced for clean builds
 
@@ -175,6 +180,7 @@ nix develop -c pre-commit run --all-files  # Must pass cleanly
 ## Pre-commit Hooks
 
 Automatically run on git commit:
+
 - `nixfmt-rfc-style` - Nix formatting
 - `deadnix` - Dead code detection
 - `statix` - Anti-pattern linting
@@ -216,6 +222,7 @@ modules/
 ## Build Script Details
 
 The `build.sh` script:
+
 - Runs `git add .` automatically before building
 - Formats code with `nix fmt`
 - Validates with `nix flake check`
@@ -226,6 +233,7 @@ The `build.sh` script:
 - Shows "Build failed!" on errors
 
 Options:
+
 - `--host HOST` / `-t HOST` - Target host (system76/tec)
 - `--offline` / `-o` - Skip flake updates
 - `--collect-garbage` / `-d` - Run GC twice after build
@@ -263,12 +271,15 @@ Options:
 ### Common Errors
 
 **`attribute 'pkgs' missing`**
+
 - Wrap module in function: `{ pkgs, ... }: { ... }`
 
 **`infinite recursion`**
+
 - Check for circular namespace references
 
 **`pipe operator` error**
+
 - Add `--extra-experimental-features "pipe-operators"`
 
 ### Debug Commands
@@ -290,6 +301,7 @@ nix eval .#debug.allModules | jq | grep "module-name"
 ## Development Shell
 
 The `nix develop` shell provides:
+
 - `nixfmt-rfc-style` - Nix formatter
 - `nil` - Nix LSP
 - `nix-tree` - Dependency explorer
@@ -301,6 +313,7 @@ The `nix develop` shell provides:
 ## Allowed Claude Code Commands
 
 These commands run without user approval (configured in `.claude/settings.local.json`):
+
 - `WebSearch` - Web search capability
 - `nix-instantiate:*` - Nix evaluation
 - `nix fmt:*` - Code formatting
@@ -312,6 +325,7 @@ These commands run without user approval (configured in `.claude/settings.local.
 ## Quick Validation Checklist
 
 Before any system changes:
+
 ```bash
 # 1. Format check
 nix fmt
