@@ -2,38 +2,32 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🚨 CRITICAL RULE
+
+**You MUST NOT run any system build or modification commands without explicit user permission.**
+
+When user modifies `.nix` files, you may ONLY:
+
+1. Run validation commands (`nix fmt`, pre-commit hooks, `nix flake check`)
+2. Inform the user that validation is complete
+3. Wait for explicit instruction before proceeding with any system changes
+
 ## Quick Reference
 
 **Validate changes (ALWAYS run after modifying .nix files):**
 
 ```bash
-# Run all pre-commit hooks
-nix develop -c pre-commit run --all-files
-
-# Quick format check
+# Step 1: Format check
 nix fmt
 
-# Full validation suite
-nix develop -c pre-commit run --all-files && \
-generation-manager score && \
-nix flake check --accept-flake-config && \
-nixos-rebuild build --flake .#$(hostname)
-```
+# Step 2: Run all pre-commit hooks
+nix develop -c pre-commit run --all-files
 
-**Build system (⚠️ ONLY when user explicitly requests):**
+# Step 3: Check Dendritic Pattern compliance
+generation-manager score  # Should be 90/90
 
-```bash
-# Build and switch configuration (system-wide changes!)
-./build.sh
-
-# Build with optimizations (recommended)
-./build.sh --collect-garbage --optimize --offline
-
-# Build for specific host
-./build.sh --host tec  # or system76
-
-# Dry-run build (safe - no system changes)
-nixos-rebuild build --flake .#$(hostname)
+# Step 4: Validate flake
+nix flake check --accept-flake-config
 ```
 
 ## Repository Overview
@@ -102,7 +96,7 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
    ```
 
 5. **Experimental features required**: `pipe-operators` must be enabled
-6. **abort-on-warn = true** - Enforced for clean builds
+6. **abort-on-warn = true** - Warnings treated as errors
 
 ### Import Guidelines
 
@@ -155,10 +149,6 @@ nix flake check --accept-flake-config
 # Update flake inputs
 nix flake update
 nix flake update nixpkgs home-manager  # Specific inputs
-
-# Check what would change
-nixos-rebuild build --flake .#$(hostname)
-nix-diff $(readlink /run/current-system) result
 ```
 
 ### System Management
@@ -171,9 +161,6 @@ generation-manager clean 5            # Keep only last 5
 generation-manager switch <host>      # Switch to host config
 generation-manager rollback [N]       # Rollback N generations
 generation-manager diff <g1> <g2>     # Compare generations
-
-# Emergency rollback
-sudo nixos-rebuild switch --rollback
 
 # Garbage collection
 sudo nix-collect-garbage -d          # Remove old generations
@@ -241,43 +228,21 @@ modules/
 3. No headers - start directly with Nix code
 4. Module automatically discovered - no manual imports needed
 
-## Build Script Details
+## Command Permissions
 
-The `build.sh` script:
+### ⛔ Requires explicit user permission:
 
-- Runs `git add .` automatically before building
-- Formats code with `nix fmt`
-- Validates with `nix flake check`
-- Updates flake inputs (unless `--offline`)
-- Configures experimental features automatically
-- Sets `abort-on-warn=true` and `accept-flake-config=true`
-- Disables sandbox for performance
-- Shows "Build failed!" on errors
-
-Options:
-
-- `--host HOST` / `-t HOST` - Target host (system76/tec)
-- `--offline` / `-o` - Skip flake updates
-- `--collect-garbage` / `-d` - Run GC twice after build
-- `--optimize` / `-O` - Optimize store after build
-- `--verbose` / `-v` - Verbose output
-
-## Critical Warnings
-
-### ⚠️ NEVER run without explicit user request:
-
-- `./build.sh` - Makes system-wide changes
-- `nixos-rebuild switch` - Applies new configuration
 - `git commit` - Commits changes
 - `git push` - Pushes to remote
+- Any system modification commands
 
 ### ✅ SAFE to run anytime:
 
 - `nix fmt` - Format check only
-- `nix flake check` - Validation only
-- `nixos-rebuild build` - Dry-run build
+- `nix flake check` - Validation only (does NOT build system)
 - `pre-commit run` - Linting checks
 - `generation-manager score` - Compliance check
+- `git status`, `git diff` - View changes only
 
 ## Common Pitfalls
 
@@ -310,9 +275,6 @@ Options:
 # Check specific config values
 nix eval .#nixosConfigurations.$(hostname).config.networking.hostName
 
-# Verbose build trace
-nix build --show-trace .#nixosConfigurations.$(hostname).config.system.build.toplevel
-
 # Interactive exploration
 nix repl /home/vx/nixos
 
@@ -340,29 +302,5 @@ These commands run without user approval (configured in `.claude/settings.local.
 - `nix-instantiate:*` - Nix evaluation
 - `nix fmt:*` - Code formatting
 - `nix flake check:*` - Validation
-- `nix log:*` - Build logs
 - `nix develop:*` - Dev shell
 - MCP tools for sequential thinking and documentation
-
-## Quick Validation Checklist
-
-Before any system changes:
-
-```bash
-# 1. Format check
-nix fmt
-
-# 2. Pre-commit validation
-nix develop -c pre-commit run --all-files
-
-# 3. Dendritic compliance
-generation-manager score  # Should be 90/90
-
-# 4. Flake validation
-nix flake check --accept-flake-config
-
-# 5. Dry-run build
-nixos-rebuild build --flake .#$(hostname)
-```
-
-Only proceed with `./build.sh` if all checks pass and user explicitly requests system changes.

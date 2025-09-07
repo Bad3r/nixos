@@ -1,17 +1,17 @@
 {
-  flake.modules.nixos.base =
+  nixpkgs.allowedUnfreePackages = [ "protonvpn-gui" ];
+
+  flake.modules.nixos.pc =
     { pkgs, ... }:
     {
-      services.tailscale = {
-        enable = true;
-        useRoutingFeatures = "client";
-        openFirewall = true;
-      };
-      environment.systemPackages = [
-        pkgs.tailscale
-        pkgs.ktailctl
+      environment.systemPackages = with pkgs; [
+        protonvpn-gui
+        openvpn
+        wireguard-tools
       ];
-      networking.nftables.enable = true;
-      networking.firewall.trustedInterfaces = [ "tailscale0" ];
+
+      # Enable necessary services for VPN functionality
+      services.resolved.enable = true;
+      networking.firewall.checkReversePath = "loose";
     };
 }

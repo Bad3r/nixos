@@ -6,19 +6,17 @@
 }:
 {
   flake.modules = {
-    nixos.base =
-      { pkgs, ... }:
-      {
-        imports = [ inputs.stylix.nixosModules.stylix ];
-        stylix = {
-          enable = true;
-          homeManagerIntegration.autoImport = false;
-          # Use gruvbox dark theme by default
-          base16Scheme = lib.mkDefault "${pkgs.base16-schemes}/share/themes/gruvbox-dark-medium.yaml";
-          polarity = lib.mkDefault "dark";
-          targets.grub.enable = false;
-        };
+    nixos.base = {
+      imports = [ inputs.stylix.nixosModules.stylix ];
+      stylix = {
+        enable = true;
+        homeManagerIntegration.autoImport = false;
+        # Use gruvbox dark theme by default
+        base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/gruvbox-dark-medium.yaml";
+        polarity = lib.mkDefault "dark";
+        targets.grub.enable = false;
       };
+    };
 
     nixos.pc =
       { pkgs, ... }:
@@ -56,18 +54,16 @@
         fonts.fontconfig.enable = true;
       };
 
-    homeManager.base =
-      { pkgs, ... }:
-      {
-        imports = [ inputs.stylix.homeModules.stylix ];
-        stylix = {
-          enable = true;
-          # Use gruvbox dark theme by default
-          base16Scheme = lib.mkDefault "${pkgs.base16-schemes}/share/themes/gruvbox-dark-medium.yaml";
-          polarity = lib.mkDefault "dark";
-          targets.kde.enable = false;
-        };
+    homeManager.base = {
+      imports = [ inputs.stylix.homeModules.stylix ];
+      stylix = {
+        enable = true;
+        # Use gruvbox dark theme by default
+        base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/gruvbox-dark-medium.yaml";
+        polarity = lib.mkDefault "dark";
+        targets.kde.enable = false;
       };
+    };
 
     homeManager.gui =
       { pkgs, ... }:

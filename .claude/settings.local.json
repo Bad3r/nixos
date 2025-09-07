@@ -14,7 +14,8 @@
       "Bash(nix develop:*)",
       "Bash(nix develop:*)",
       "Bash(nix-env:*)",
-      "Bash(generation-manager score:*)"
+      "Bash(generation-manager score:*)",
+      "Read(/home/vx/git/infra/**)"
     ]
   }
 }

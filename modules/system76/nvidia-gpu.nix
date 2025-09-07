@@ -13,6 +13,8 @@ _: {
           vaapiVdpau
           libvdpau-va-gl
           intel-media-driver
+          libva-utils
+          vulkan-validation-layers
         ];
       };
 

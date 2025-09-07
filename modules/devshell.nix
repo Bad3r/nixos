@@ -1,10 +1,14 @@
 { inputs, ... }:
 {
-  imports = [ inputs.treefmt-nix.flakeModule ];
+  imports = [
+    inputs.treefmt-nix.flakeModule
+    inputs.make-shell.flakeModules.default
+  ];
   perSystem =
     { pkgs, config, ... }:
     {
-      devShells.default = pkgs.mkShell {
+      # Use make-shells pattern for better modularity
+      make-shells.default = {
         packages = with pkgs; [
           nixfmt-rfc-style
           nil # Nix LSP
@@ -25,6 +29,7 @@
           echo "  nix fmt            - Format Nix files"
           echo "  pre-commit install - Install git hooks"
           echo "  pre-commit run     - Run hooks on staged files"
+          echo "  write-files        - Generate managed files (README.md)"
           echo ""
           ${config.pre-commit.installationScript}
         '';

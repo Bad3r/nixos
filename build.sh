@@ -180,6 +180,7 @@ main() {
     optimize_store
   fi
 
+  sudo chown -R vx: "$PWD"/.git && git add -A
   status_msg "${GREEN}" "Build completed successfully!"
 }
 

@@ -61,6 +61,9 @@ _: {
 
         # Additional apps that integrate well with Plasma
         kdePackages.yakuake # Drop-down terminal
+
+        # Plasma widgets and addons (includes Split Digital Clock, Win7 Show Desktop, etc.)
+        kdePackages.kdeplasma-addons
       ];
     };
 }
