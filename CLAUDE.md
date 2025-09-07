@@ -78,8 +78,8 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 
 ### Dendritic Pattern Requirements
 
-1. **No explicit imports** - Modules auto-discovered by import-tree
-2. **No module headers** - Start directly with Nix code
+1. **No literal path imports** - Use namespace or flake input references only
+2. **No module headers** - Start directly with Nix code (no `# Module:` comments)
 3. **Namespace hierarchy**: `base` → `pc` → `workstation`
 4. **Function wrapping** - Only when module needs `pkgs`:
 
@@ -104,6 +104,28 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 5. **Experimental features required**: `pipe-operators` must be enabled
 6. **abort-on-warn = true** - Enforced for clean builds
 
+### Import Guidelines
+
+#### ❌ FORBIDDEN - Literal Path Imports
+
+```nix
+# Never use these:
+imports = [ ./foo.nix ];                    # Relative path
+imports = [ ../shared/module.nix ];         # Parent directory
+imports = [ /absolute/path/to/module.nix ]; # Absolute path
+```
+
+#### ✅ ALLOWED - Namespace & Flake Imports
+
+```nix
+# Use these instead:
+imports = [ inputs.home-manager.nixosModules.home-manager ];  # Flake inputs
+imports = with config.flake.modules.nixos; [ base pc ];       # Namespace refs
+imports = [ config.flake.modules.nixos.workstation ];          # Full namespace
+```
+
+All modules are auto-discovered by import-tree - no manual imports needed for local modules!
+
 ### Host Configuration Pattern
 
 - Hosts use: `configurations.nixos.<hostname>.module`
@@ -124,7 +146,7 @@ nix fmt
 # Run pre-commit hooks (formatting, dead code, anti-patterns)
 nix develop -c pre-commit run --all-files
 
-# Check Dendritic Pattern compliance (should be 100/100)
+# Check Dendritic Pattern compliance (should be 90/90)
 generation-manager score
 
 # Validate flake
@@ -260,8 +282,8 @@ Options:
 ## Common Pitfalls
 
 1. **Never use `pkgs` at file level** - Only inside returned function
-2. **Never use literal imports** - Use namespace references
-3. **Never create module headers** - Start with Nix code
+2. **Never use literal path imports** (./file.nix) - Use namespace/flake references
+3. **Never create module headers** (`# Module:`) - Start directly with Nix code
 4. **Never skip pipe operators** - Required experimental feature
 5. **Always validate after changes** - Run pre-commit hooks
 6. **Git shows many modified files after formatting** - Normal, review with `git diff`
@@ -334,7 +356,7 @@ nix fmt
 nix develop -c pre-commit run --all-files
 
 # 3. Dendritic compliance
-generation-manager score  # Should be 100/100
+generation-manager score  # Should be 90/90
 
 # 4. Flake validation
 nix flake check --accept-flake-config

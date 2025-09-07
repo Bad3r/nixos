@@ -13,7 +13,8 @@
       "Bash(nix-shell:*)",
       "Bash(nix develop:*)",
       "Bash(nix develop:*)",
-      "Bash(nix-env:*)"
+      "Bash(nix-env:*)",
+      "Bash(generation-manager score:*)"
     ]
   }
 }

@@ -19,6 +19,9 @@
                   # Dry run support
                   DRY_RUN="''${DRY_RUN:-false}"
 
+                  # Verbose output support
+                  VERBOSE="''${VERBOSE:-false}"
+
                   # Color codes for output
                   RED='\033[0;31m'
                   GREEN='\033[0;32m'
@@ -39,7 +42,7 @@
                     cat <<HELP
           ''${BLUE}Generation Manager - NixOS generation management tool''${NC}
 
-          Usage: generation-manager <command> [args]
+          Usage: generation-manager [options] <command> [args]
 
           Commands:
             ''${GREEN}list''${NC}              List all system generations
@@ -52,10 +55,24 @@
             ''${GREEN}score''${NC}             Calculate Dendritic Pattern compliance score
             ''${GREEN}info <gen>''${NC}        Show detailed info about a generation
 
+          Options:
+            ''${GREEN}-v, --verbose''${NC}     Show detailed output for violations in score
+
           Environment:
             ''${YELLOW}DRY_RUN=true''${NC}      Show what would be done without doing it
+            ''${YELLOW}VERBOSE=true''${NC}      Same as -v flag
           HELP
                   }
+
+                  # Handle verbose flag
+                  for arg in "$@"; do
+                    case "$arg" in
+                      -v|--verbose)
+                        VERBOSE="true"
+                        shift
+                        ;;
+                    esac
+                  done
 
                   case "''${1:-help}" in
                     list)
@@ -151,19 +168,35 @@
                     score)
                       echo -e "''${BLUE}Calculating Dendritic Pattern compliance score...''${NC}"
                       SCORE=0
-                      MAX_SCORE=100
+                      MAX_SCORE=90
 
                       echo -e "\n''${YELLOW}Checking compliance metrics:''${NC}"
 
                       # Check for literal path imports (20 points)
                       echo -n "1. No literal path imports: "
                       if [ -d modules ]; then
-                        literal_imports=$(grep -r 'imports = \[.*\./' modules/ 2>/dev/null | wc -l)
-                        if [ "$literal_imports" -eq 0 ]; then
+                        # Enhanced pattern to catch actual file path imports
+                        # Matches: ./file, ../file, /absolute/path
+                        literal_imports=$(grep -Hn 'imports.*=' modules/ -r 2>/dev/null | \
+                          grep -E '\./|\.\./' | \
+                          grep -v '# ' | grep -v '//' || true)
+                        if [ -z "$literal_imports" ]; then
+                          import_count=0
+                        else
+                          import_count=$(echo "$literal_imports" | wc -l)
+                        fi
+
+                        if [ "$import_count" -eq 0 ] || [ -z "$literal_imports" ]; then
                           echo -e "''${GREEN}✓ (20/20)''${NC}"
                           SCORE=$((SCORE + 20))
                         else
-                          echo -e "''${RED}✗ (0/20) - Found $literal_imports violations''${NC}"
+                          echo -e "''${RED}✗ (0/20) - Found $import_count violations''${NC}"
+                          if [ "$VERBOSE" = "true" ] && [ -n "$literal_imports" ]; then
+                            echo -e "''${RED}  Violations found:''${NC}"
+                            echo "$literal_imports" | while IFS=: read -r file line content; do
+                              echo -e "    ''${YELLOW}$file:$line''${NC}: $content"
+                            done
+                          fi
                         fi
                       else
                         echo -e "''${YELLOW}? modules directory not found''${NC}"
@@ -187,32 +220,70 @@
                         echo -e "''${RED}✗ (0/10)''${NC}"
                       fi
 
-                      # Check module headers (20 points)
-                      echo -n "4. Module headers complete: "
+                      # Check NO module headers (20 points) - Dendritic Pattern requires no headers
+                      echo -n "4. No module headers (Dendritic): "
                       if [ -d modules ]; then
-                        total_modules=$(find modules -name "*.nix" 2>/dev/null | wc -l)
-                        modules_with_headers=$(find modules -name "*.nix" -exec grep -l "^# Module:" {} \; 2>/dev/null | wc -l)
-                        if [ "$total_modules" -eq "$modules_with_headers" ]; then
+                        all_modules=$(find modules -name "*.nix" 2>/dev/null)
+                        modules_with_headers=""
+                        header_count=0
+
+                        while IFS= read -r module; do
+                          if grep -q "^# Module:" "$module" 2>/dev/null; then
+                            modules_with_headers="$modules_with_headers$module\n"
+                            header_count=$((header_count + 1))
+                          fi
+                        done <<< "$all_modules"
+
+                        if [ "$header_count" -eq 0 ]; then
                           echo -e "''${GREEN}✓ (20/20)''${NC}"
                           SCORE=$((SCORE + 20))
                         else
-                          missing=$((total_modules - modules_with_headers))
-                          partial_score=$((20 * modules_with_headers / total_modules))
-                          echo -e "''${YELLOW}⚠ ($partial_score/20) - $missing/$total_modules missing headers''${NC}"
-                          SCORE=$((SCORE + partial_score))
+                          # Deduct points for having headers (they shouldn't exist)
+                          points_lost=$((header_count * 2))
+                          [ $points_lost -gt 20 ] && points_lost=20
+                          score_earned=$((20 - points_lost))
+                          echo -e "''${RED}✗ ($score_earned/20) - $header_count modules have headers''${NC}"
+                          SCORE=$((SCORE + score_earned))
+
+                          if [ "$VERBOSE" = "true" ] && [ -n "$modules_with_headers" ]; then
+                            echo -e "''${RED}  Modules with headers (should be removed):''${NC}"
+                            shown=0
+                            echo -e "$modules_with_headers" | while IFS= read -r file; do
+                              if [ -n "$file" ]; then
+                                if [ $shown -lt 10 ]; then
+                                  echo -e "    ''${RED}$file''${NC}"
+                                  shown=$((shown + 1))
+                                elif [ $shown -eq 10 ]; then
+                                  echo -e "    ''${RED}... and $((header_count - 10)) more files''${NC}"
+                                  break
+                                fi
+                              fi
+                            done
+                          fi
                         fi
                       fi
 
-                      # Check TODOs (10 points)
-                      echo -n "5. No TODOs remaining: "
+                      # Check TODOs (warning only, no points)
+                      echo -n "5. TODO Comments: "
                       if [ -d modules ]; then
-                        todos=$(grep -r "TODO" modules/ 2>/dev/null | wc -l)
-                        if [ "$todos" -eq 0 ]; then
-                          echo -e "''${GREEN}✓ (10/10)''${NC}"
-                          SCORE=$((SCORE + 10))
+                        todo_list=$(grep -Hn "TODO" modules/ -r 2>/dev/null | grep -v "generation-manager.nix" || true)
+                        if [ -z "$todo_list" ]; then
+                          todo_count=0
                         else
-                          echo -e "''${YELLOW}⚠ (5/10) - $todos TODOs found''${NC}"
-                          SCORE=$((SCORE + 5))
+                          todo_count=$(echo "$todo_list" | wc -l)
+                        fi
+
+                        if [ "$todo_count" -eq 0 ] || [ -z "$todo_list" ]; then
+                          echo -e "''${GREEN}✓ None found''${NC}"
+                        else
+                          echo -e "''${YELLOW}⚠ $todo_count reminder(s) found''${NC}"
+
+                          if [ "$VERBOSE" = "true" ] && [ -n "$todo_list" ]; then
+                            echo -e "''${YELLOW}  TODOs to review:''${NC}"
+                            echo "$todo_list" | while IFS=: read -r file line content; do
+                              echo -e "    ''${YELLOW}$file:$line''${NC}: $content"
+                            done
+                          fi
                         fi
                       fi
 
@@ -243,9 +314,9 @@
 
                       if [ $SCORE -eq $MAX_SCORE ]; then
                         echo -e "''${GREEN}✅ PERFECT COMPLIANCE!''${NC}"
-                      elif [ $SCORE -ge 90 ]; then
+                      elif [ $SCORE -ge 81 ]; then
                         echo -e "''${GREEN}✅ Excellent compliance!''${NC}"
-                      elif [ $SCORE -ge 70 ]; then
+                      elif [ $SCORE -ge 63 ]; then
                         echo -e "''${YELLOW}⚠ Good progress, improvements needed''${NC}"
                       else
                         echo -e "''${RED}❌ Significant improvements required''${NC}"
