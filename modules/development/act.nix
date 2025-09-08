@@ -8,11 +8,8 @@ _: {
         {
           path_ = ".actrc";
           drv = pkgs.writeText ".actrc" ''
-            # Default platform images (catthehacker) to match GitHub runners
-            -P ubuntu-latest=catthehacker/ubuntu:act-latest
-            -P ubuntu-24.04=catthehacker/ubuntu:act-24.04
-            -P ubuntu-22.04=catthehacker/ubuntu:act-22.04
-            -P ubuntu-20.04=catthehacker/ubuntu:act-20.04
+            # Map ubuntu-latest to latest LTS (24.04) tag on GHCR
+            -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04
 
             # Default workflows directory
             -W .github/workflows

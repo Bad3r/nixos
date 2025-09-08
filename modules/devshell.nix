@@ -37,10 +37,27 @@
               text = ''
                 set -euo pipefail
                 DRY=""
-                if [ "''${1:-}" = "-n" ] || [ "''${1:-}" = "--dry-run" ]; then
-                  DRY="-n"
-                  shift || true
-                fi
+                JOB=""
+                EXTRA=()
+                while [ $# -gt 0 ]; do
+                  case "$1" in
+                    -n|--dry-run)
+                      DRY="-n"; shift;;
+                    -j)
+                      shift;
+                      if [ $# -gt 0 ]; then
+                        JOB="$1"; shift;
+                      else
+                        echo "gh-actions-run: -j requires a job name" >&2; exit 2;
+                      fi;;
+                    --)
+                      shift; break;;
+                    -*)
+                      EXTRA+=("$1"); shift;;
+                    *)
+                      if [ -z "$JOB" ]; then JOB="$1"; shift; else EXTRA+=("$1"); shift; fi;;
+                  esac
+                done
 
                 if [ -z "''${DRY}" ]; then
                   if ! command -v docker >/dev/null 2>&1; then
@@ -55,9 +72,10 @@
                 fi
 
                 # Run all workflows for the push event; include defaults for robustness
-                exec act ''${DRY} \
+                if [ -n "$JOB" ]; then EXTRA=("-j" "$JOB" "''${EXTRA[@]}"); fi
+                exec act ''${DRY} "''${EXTRA[@]}" \
                   -W .github/workflows \
-                  -P ubuntu-latest=catthehacker/ubuntu:act-latest \
+                  -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04 \
                   push "$@"
               '';
             };
@@ -69,7 +87,7 @@
                   echo "No workflows found at .github/workflows" >&2
                   exit 1
                 fi
-                exec act -W .github/workflows -P ubuntu-latest=catthehacker/ubuntu:act-latest -l
+                exec act -W .github/workflows -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04 -l
               '';
             };
           in
