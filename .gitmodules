@@ -1,0 +1,12 @@
+[submodule "inputs/nixpkgs"]
+	path = inputs/nixpkgs
+	url = ./.
+	branch = inputs/main/nixpkgs
+[submodule "inputs/home-manager"]
+	path = inputs/home-manager
+	url = ./.
+	branch = inputs/main/home-manager
+[submodule "inputs/stylix"]
+	path = inputs/stylix
+	url = ./.
+	branch = inputs/main/stylix

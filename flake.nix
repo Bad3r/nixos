@@ -12,7 +12,7 @@
       url = "github:platomav/CPUMicrocodes";
     };
 
-    files.url = "github:bad3r/files";
+    files.url = "github:mightyiam/files";
 
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
@@ -28,14 +28,14 @@
     };
 
     home-manager = {
-      url = "github:nix-community/home-manager/master";
+      url = "./inputs/home-manager";
       flake = true;
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     import-tree.url = "github:vic/import-tree";
 
-    input-branches.url = "github:bad3r/input-branches";
+    input-branches.url = "github:mightyiam/input-branches";
 
     make-shell = {
       url = "github:nicknovitski/make-shell";
@@ -59,7 +59,7 @@
 
     nixos-facter-modules.url = "github:numtide/nixos-facter-modules";
 
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "./inputs/nixpkgs";
 
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
@@ -94,7 +94,8 @@
     };
 
     stylix = {
-      url = "github:danth/stylix";
+      url = "./inputs/stylix";
+      flake = true;
       inputs = {
         # Only follow inputs that actually exist in stylix
         nixpkgs.follows = "nixpkgs";

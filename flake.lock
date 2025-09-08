@@ -184,13 +184,13 @@
       "locked": {
         "lastModified": 1750263550,
         "narHash": "sha256-EW/QJ8i/13GgiynBb6zOMxhLU1uEkRqmzbIDEP23yVA=",
-        "owner": "bad3r",
+        "owner": "mightyiam",
         "repo": "files",
         "rev": "5f4ef1fd1f9012354a9748be093e277675d10f07",
         "type": "github"
       },
       "original": {
-        "owner": "bad3r",
+        "owner": "mightyiam",
         "repo": "files",
         "type": "github"
       }
@@ -374,19 +374,14 @@
         ]
       },
       "locked": {
-        "lastModified": 1756842514,
-        "narHash": "sha256-XbtRMewPGJwTNhBC4pnBu3w/xT1XejvB0HfohC2Kga8=",
-        "owner": "nix-community",
-        "repo": "home-manager",
-        "rev": "30fc1b532645a21e157b6e33e3f8b4c154f86382",
-        "type": "github"
+        "path": "./inputs/home-manager",
+        "type": "path"
       },
       "original": {
-        "owner": "nix-community",
-        "ref": "master",
-        "repo": "home-manager",
-        "type": "github"
-      }
+        "path": "./inputs/home-manager",
+        "type": "path"
+      },
+      "parent": []
     },
     "import-tree": {
       "locked": {
@@ -411,13 +406,13 @@
       "locked": {
         "lastModified": 1753162131,
         "narHash": "sha256-NjymU8oMQV/1mdXg/PLLyCTRgPQLyK6FL4bYDsUJSIw=",
-        "owner": "bad3r",
+        "owner": "mightyiam",
         "repo": "input-branches",
         "rev": "0063a4331e31b07cb23a236e92ad13c8bbb564a4",
         "type": "github"
       },
       "original": {
-        "owner": "bad3r",
+        "owner": "mightyiam",
         "repo": "input-branches",
         "type": "github"
       }
@@ -539,19 +534,14 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1756542300,
-        "narHash": "sha256-tlOn88coG5fzdyqz6R93SQL5Gpq+m/DsWpekNFhqPQk=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "d7600c775f877cd87b4f5a831c28aa94137377aa",
-        "type": "github"
+        "path": "./inputs/nixpkgs",
+        "type": "path"
       },
       "original": {
-        "owner": "NixOS",
-        "ref": "nixos-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
+        "path": "./inputs/nixpkgs",
+        "type": "path"
+      },
+      "parent": []
     },
     "nixpkgs-lib": {
       "locked": {
@@ -740,18 +730,14 @@
         "tinted-zed": "tinted-zed"
       },
       "locked": {
-        "lastModified": 1756811338,
-        "narHash": "sha256-fwgklhY9kJSTDMGuwHJUVBCuJDVvxxljjGOLhxC84ko=",
-        "owner": "danth",
-        "repo": "stylix",
-        "rev": "989312ab49e6eb1d076f9d194d43f9f9c513087e",
-        "type": "github"
+        "path": "./inputs/stylix",
+        "type": "path"
       },
       "original": {
-        "owner": "danth",
-        "repo": "stylix",
-        "type": "github"
-      }
+        "path": "./inputs/stylix",
+        "type": "path"
+      },
+      "parent": []
     },
     "systems": {
       "locked": {
