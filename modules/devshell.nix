@@ -47,9 +47,26 @@
 
                 input-branches-rebase
 
+                echo "==> Ensuring submodule worktrees are clean"
+                if [ -d inputs ]; then
+                  for d in inputs/*; do
+                    [ -d "$d" ] || continue
+                    if [ -d "$d/.git" ] || [ -f "$d/.git" ]; then
+                      git -C "$d" reset --hard HEAD >/dev/null 2>&1 || true
+                      git -C "$d" clean -fdxq || true
+                    fi
+                  done
+                fi
+
                 echo "==> Staging updated input pointers (gitlinks)"
-                # Stage only tracked updates under inputs (avoid adding new files)
                 git add -u inputs || true
+
+                echo "==> Committing input pointer updates"
+                if git diff --cached --quiet -- inputs; then
+                  echo "No input bumps to commit."
+                else
+                  git commit --only --no-verify -m "chore(inputs): bump nixpkgs, home-manager, stylix" -- inputs
+                fi
 
                 echo "==> Pushing all input branches to origin"
                 input-branches-push-force
@@ -64,12 +81,6 @@
                   fi
                 fi
 
-                # Commit only inputs/ paths; skip hooks for this automated commit
-                if git diff --cached --quiet -- inputs; then
-                  echo "No input bumps to commit."
-                  exit 0
-                fi
-                git commit --only --no-verify -m "chore(inputs): bump nixpkgs, home-manager, stylix" -- inputs
                 echo "Done: inputs bumped and recorded."
               '';
             };
