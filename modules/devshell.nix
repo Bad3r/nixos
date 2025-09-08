@@ -1,4 +1,4 @@
-{ inputs, lib, ... }:
+{ inputs, ... }:
 {
   imports = [
     inputs.treefmt-nix.flakeModule
@@ -34,12 +34,24 @@
                 input-branches-push-force
 
                 echo "==> Recording updated submodule pointers in superproject"
-                git add inputs
+                # Guard: refuse if non-input files are already staged (unless overridden)
+                if git diff --name-only --cached | grep -v '^inputs/' -q; then
+                  if [ "''${ALLOW_NON_INPUT_STAGED:-}" != "1" ]; then
+                    echo "Refusing to commit: non-input files are staged." >&2
+                    echo "Unstage them or set ALLOW_NON_INPUT_STAGED=1 to override." >&2
+                    exit 2
+                  fi
+                fi
+
+                # Stage only tracked updates under inputs (avoid adding new files)
+                git add -u inputs || true
+
+                # Commit only inputs/ paths; skip hooks for this automated commit
                 if git diff --cached --quiet -- inputs; then
                   echo "No input bumps to commit."
                   exit 0
                 fi
-                git commit -m "chore(inputs): bump nixpkgs, home-manager, stylix"
+                git commit --only --no-verify -m "chore(inputs): bump nixpkgs, home-manager, stylix" -- inputs
                 echo "Done: inputs bumped and recorded."
               '';
             };
