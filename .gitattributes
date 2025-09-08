@@ -1,0 +1,6 @@
+# Enable readable diffs for SOPS-encrypted files (decrypt before diff)
+*.yaml diff=sopsdiffer
+*.yml diff=sopsdiffer
+*.json diff=sopsdiffer
+*.env diff=sopsdiffer
+*.ini diff=sopsdiffer

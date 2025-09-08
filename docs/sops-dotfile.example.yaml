@@ -1,0 +1,66 @@
+# .sops.yaml — SOPS recipient policy for this repository
+#
+# Purpose
+# - Define who (recipients) can encrypt/decrypt new secrets
+# - Apply different recipient sets based on file paths
+# - Keep secrets version-control friendly while avoiding plaintext in the store
+#
+# Notes
+# - Rules are evaluated sequentially; the first match wins
+# - After changing recipients, run:  sops updatekeys <encrypted-file>
+# - Avoid unintended Shamir semantics: keep pgp/age lists nested under a single key_groups item
+#   (do not add stray '-' at the same indentation, which would require multiple keys to decrypt)
+# - Prefer age recipients for simplicity; use pgp only if required
+# - To convert SSH Ed25519 keys to age recipients:
+#     ssh-to-age < ~/.ssh/id_ed25519.pub
+# - To get host age public key (if using /var/lib/sops-nix/key.txt):
+#     sudo age-keygen -y /var/lib/sops-nix/key.txt
+
+# Optional anchors for readability and reuse (YAML anchors are for humans; sops ignores this 'keys:' block)
+keys:
+  # Single admin user key (editor of secrets)
+  - &admin_user age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+  # Host keys (machines that decrypt at activation)
+  - &host_prod1 age1prodhostpublickeyzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+  - &host_dev1 age1devhostpublickeyaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+creation_rules:
+  # 1) Production secrets (restrict to admins + production hosts)
+  - path_regex: secrets/production/[^/]+\.(yaml|yml|json|env|ini)$
+    key_groups:
+      - age:
+          - *admin_user
+          - *host_prod1
+        # Add more admin/host recipients as needed
+
+  # 2) Development secrets (admins + development hosts)
+  - path_regex: secrets/development/[^/]+\.(yaml|yml|json|env|ini)$
+    key_groups:
+      - age:
+          - *admin_user
+          - *host_dev1
+
+  # 3) GitHub Actions token file — encrypt only the github_token field
+  - path_regex: secrets/act.yaml
+    encrypted_regex: "^(github_token)$"
+    key_groups:
+      - age:
+          - *admin_user
+        # Add host(s) that run 'act' locally if needed
+
+  # 4) Catch‑all for other secrets under secrets/ (YAML/JSON/dotenv/INI)
+  - path_regex: secrets/[^/]+\.(yaml|yml|json|env|ini)$
+    key_groups:
+      - age:
+          - *admin_user
+          - *host_prod1
+          - *host_dev1
+
+  # 5) (Optional) Binary secrets: encrypt entire files first, then commit *.enc files
+  #    Example command:  sops -e /path/to/file > secrets/binary/file.enc
+  # - path_regex: secrets/binary/.*\.enc$
+  #   key_groups:
+  #     - age:
+  #       - *admin_user
+  #       - *host_prod1

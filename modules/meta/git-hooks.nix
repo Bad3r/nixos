@@ -2,7 +2,11 @@
 {
   imports = [ inputs.git-hooks.flakeModule ];
   perSystem =
-    { pkgs, ... }:
+    {
+      pkgs,
+      lib,
+      ...
+    }:
     {
       pre-commit = {
         check.enable = true;
@@ -76,6 +80,82 @@
             # Config file validation
             check-yaml.enable = true;
             check-json.enable = true;
+
+            # Enforce that files in secret paths are SOPS-encrypted
+            ensure-sops = {
+              enable = true;
+              name = "ensure-sops";
+              entry = "${pkgs.pre-commit-hook-ensure-sops}/bin/pre-commit-hook-ensure-sops";
+              pass_filenames = true;
+              # Limit to common secret file types under the secrets/ directory
+              files = "^secrets/.*\\.(yaml|yml|json|env|ini)$";
+            };
+
+            # Managed files drift check (via files writer)
+            managed-files-drift =
+              let
+                driftChecker = pkgs.writeShellApplication {
+                  name = "check-managed-files-drift";
+                  runtimeInputs = [
+                    pkgs.git
+                    pkgs.coreutils
+                    pkgs.diffutils
+                    pkgs.gnugrep
+                    pkgs.gawk
+                  ];
+                  text = ''
+                    set -euo pipefail
+                    root=$(git rev-parse --show-toplevel)
+                    cd "$root"
+                    if ! command -v write-files >/dev/null 2>&1; then
+                      echo "write-files not found; skipping managed files drift check" >&2
+                      exit 0
+                    fi
+                    writer=$(command -v write-files)
+                    # Parse pairs of (store source -> destination) from the writer script
+                    # Lines look like: cat /nix/store/...-NAME > path
+                    mapfile -t pairs < <(grep -E '^cat /nix/store/.+ > .+$' "$writer" || true)
+                    if [ "''${#pairs[@]}" -eq 0 ]; then
+                      # No managed files declared; nothing to check
+                      exit 0
+                    fi
+                    drift=0
+                    echo "Checking managed files drift..."
+                    for line in "''${pairs[@]}"; do
+                      src=$(printf '%s' "$line" | awk '{print $2}')
+                      # take everything after the '>' and trim spaces
+                      dst_rel=$(printf '%s' "$line" | sed -E 's/^.*>\s*//')
+                      dst="$root/$dst_rel"
+                      if [ ! -f "$dst" ]; then
+                        echo "✗ Missing managed file: $dst_rel" >&2
+                        drift=1
+                        continue
+                      fi
+                      if ! cmp -s "$src" "$dst"; then
+                        echo "✗ Drift detected: $dst_rel" >&2
+                        # Show a short diff context for readability (non-fatal)
+                        diff -u --label "$dst_rel(expected)" "$src" --label "$dst_rel" "$dst" | sed 's/^/    /' || true
+                        drift=1
+                      fi
+                    done
+                    if [ "$drift" -ne 0 ]; then
+                      echo ""
+                      echo "Run: write-files, then commit the changes." >&2
+                      exit 1
+                    else
+                      echo "✓ Managed files are up to date."
+                    fi
+                  '';
+                };
+              in
+              {
+                enable = true;
+                name = "managed-files-drift";
+                entry = lib.getExe driftChecker;
+                pass_filenames = false;
+                always_run = true;
+                verbose = true;
+              };
           };
         };
       };

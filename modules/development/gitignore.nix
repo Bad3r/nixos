@@ -1,0 +1,74 @@
+_: {
+  # Generate and manage the project .gitignore via the files module
+  # Pattern mirrors modules/development/act.nix and modules/readme.nix
+  perSystem =
+    { pkgs, ... }:
+    {
+      files.files = [
+        {
+          path_ = ".gitignore";
+          drv = pkgs.writeText ".gitignore" ''
+              ########################################
+              # NixOS / Flakes outputs
+              ########################################
+              # Common Nix build symlinks
+              /result
+              /result-*
+              /result.*
+
+              ########################################
+              # Dev shells & tooling
+              ########################################
+              # pre-commit config is generated/symlinked via Nix in this repo
+              /.pre-commit-config.yaml
+              .pre-commit/
+
+              # direnv state
+              .direnv/
+              .envrc.local
+
+              # Tool/LSP caches present in this repo
+              .clj-kondo/
+              .lsp/
+              .kiro/
+              .code/
+
+              ########################################
+              # Editors, OS cruft, and temp files
+              ########################################
+              .idea/
+              .DS_Store
+              Thumbs.db
+              *.swp
+              *.swo
+              *~
+
+              ########################################
+              # Language/vendor caches (safe defaults)
+              ########################################
+              node_modules/
+              .cache/
+
+            ########################################
+            # Secrets safety (defense-in-depth)
+            # Do not commit private keys or local env files
+            ########################################
+            /.sops.yaml
+            *.agekey
+            *.key
+              *.pem
+              *.p12
+              *.pfx
+              .env
+              .env.*
+              # Common SSH/private key patterns (allow public keys)
+              id_*
+              !id_*.pub
+
+              # If decrypting SOPS files locally, ignore any decrypted outputs in secrets/
+              secrets/*.dec*
+          '';
+        }
+      ];
+    };
+}
