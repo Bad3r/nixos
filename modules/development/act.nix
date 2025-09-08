@@ -1,5 +1,4 @@
-{ config, ... }:
-{
+_: {
   # Provide default configuration for nektos/act
   # - Install configuration file in repo root via files module
   perSystem =
