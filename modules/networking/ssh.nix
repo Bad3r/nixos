@@ -56,33 +56,16 @@ in
         enable = true;
         enableDefaultConfig = false; # Explicitly disable default config to avoid deprecation warning
         includes = [ "${args.config.home.homeDirectory}/.ssh/hosts/*" ];
-        matchBlocks = lib.mkMerge (
-          (lib.mapAttrsToList (_name: nixos: {
-            "${nixos.config.networking.fqdn}" = {
-              identityFile = "~/.ssh/id_ed25519";
-            };
-          }) reachableNixoss)
-          ++ [
-            {
-              # Tailscale host configuration
-              "system76-tailscale" = {
-                hostname = "100.64.1.5";
-                user = args.config.home.username;
-                port = 22;
-                forwardX11 = true;
-                forwardAgent = true;
-              };
-            }
-            {
-              "*" = {
-                setEnv.TERM = "xterm-256color";
-                identitiesOnly = true;
-                compression = true;
-                hashKnownHosts = false;
-              };
-            }
-          ]
-        );
+        # Keep only sane defaults in the main config; host-specific
+        # settings are provided via per-file includes in ~/.ssh/hosts/*.
+        matchBlocks = {
+          "*" = {
+            identitiesOnly = true;
+            setEnv.TERM = "xterm-256color";
+            compression = false;
+            hashKnownHosts = false;
+          };
+        };
       };
     };
   };

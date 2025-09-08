@@ -53,35 +53,8 @@
                 entry = "${statixWrapper}/bin/statix-precommit-wrapper";
                 pass_filenames = true;
               };
-            flake-checker =
-              let
-                wrapper = pkgs.writeShellApplication {
-                  name = "flake-checker-local-aware";
-                  runtimeInputs = [
-                    pkgs.jq
-                    pkgs.coreutils
-                    pkgs.flake-checker
-                  ];
-                  text = ''
-                    set -euo pipefail
-                    # Skip when nixpkgs input is a local path (input-branches mirror)
-                    if [ -f flake.lock ] && jq -e '.nodes.nixpkgs.locked.type == "path"' < flake.lock >/dev/null 2>&1; then
-                      echo "flake-checker: skipped (nixpkgs is a local path input)"
-                      exit 0
-                    fi
-                    exec flake-checker "$@"
-                  '';
-                };
-              in
-              {
-                enable = true;
-                excludes = [
-                  "^inputs/"
-                  "^nixos_docs_md/"
-                ];
-                entry = "${wrapper}/bin/flake-checker-local-aware";
-                pass_filenames = false;
-              };
+            # flake-checker not used: we rely on
+            # `nix flake check` and pre-push submodule checks
 
             # Shell script quality
             shellcheck.enable = true;

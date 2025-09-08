@@ -61,6 +61,17 @@
                   push "$@"
               '';
             };
+            ghActionsList = pkgs.writeShellApplication {
+              name = "gh-actions-list";
+              text = ''
+                set -euo pipefail
+                if [ ! -d .github/workflows ]; then
+                  echo "No workflows found at .github/workflows" >&2
+                  exit 1
+                fi
+                exec act -W .github/workflows -P ubuntu-latest=catthehacker/ubuntu:act-latest -l
+              '';
+            };
           in
           [
             nixfmt-rfc-style
@@ -71,6 +82,7 @@
             jq
             yq
             ghActionsRun
+            ghActionsList
             inputBranchesCatalog
             config.packages.generation-manager
             config.treefmt.build.wrapper
@@ -90,6 +102,7 @@
           echo "  input-branches-catalog - List input-branches commands (if available)"
           echo "  write-files            - Generate managed files (README.md, .actrc)"
           echo "  gh-actions-run [-n]    - Run all GitHub Actions locally (use -n for dry run)"
+          echo "  gh-actions-list        - List discovered GitHub Actions jobs"
           echo ""
           ${config.pre-commit.installationScript}
         '';
