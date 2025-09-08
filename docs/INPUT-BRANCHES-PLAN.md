@@ -81,8 +81,8 @@ Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g
                       echo "Error: submodule ${path_} not clean"
                       exit 1
                     }
-                    git fetch
-                    git ls-remote --heads | grep -q "$current_commit" || {
+                    git fetch upstream
+                    git ls-remote upstream --heads | grep -q "$current_commit" || {
                       echo "Error: submodule ${path_} commit $current_commit is not pushed"
                       exit 1
                     }

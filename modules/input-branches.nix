@@ -71,8 +71,8 @@
                       echo "Error: submodule ${v.path_} not clean"
                       exit 1
                     }
-                    git fetch
-                    git ls-remote --heads | grep -q "$current_commit" || {
+                    git fetch upstream
+                    git ls-remote upstream --heads | grep -q "$current_commit" || {
                       echo "Error: submodule ${v.path_} commit $current_commit is not pushed"
                       exit 1
                     }
