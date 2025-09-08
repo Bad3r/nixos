@@ -46,6 +46,11 @@
                 fi
 
                 input-branches-rebase
+
+                echo "==> Staging updated input pointers (gitlinks)"
+                # Stage only tracked updates under inputs (avoid adding new files)
+                git add -u inputs || true
+
                 echo "==> Pushing all input branches to origin"
                 input-branches-push-force
 
@@ -58,9 +63,6 @@
                     exit 2
                   fi
                 fi
-
-                # Stage only tracked updates under inputs (avoid adding new files)
-                git add -u inputs || true
 
                 # Commit only inputs/ paths; skip hooks for this automated commit
                 if git diff --cached --quiet -- inputs; then
