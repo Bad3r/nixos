@@ -47,12 +47,18 @@
         stages = [ "pre-push" ];
         always_run = true;
         verbose = true;
+        require_serial = true;
         entry = lib.getExe (
           pkgs.writeShellApplication {
             name = "check-submodules-pushed";
             runtimeInputs = [
               pkgs.git
               pkgs.gnugrep
+              pkgs.gnused
+              pkgs.coreutils
+              pkgs.jq
+              pkgs.curl
+              pkgs.gh
             ];
             text =
               let
@@ -61,6 +67,7 @@
                   (
                     unset GIT_DIR
                     cd ${v.path_}
+                    echo "==> Checking ${v.path_}"
                     current_commit=$(git rev-parse --quiet HEAD)
                     [ -z "$current_commit" ] && {
                       echo "Error: could not find HEAD of submodule ${v.path_}"
@@ -72,24 +79,103 @@
                       exit 1
                     }
                     ref='${v.upstream.ref or "master"}'
-                    # Perform a shallow, blobless fetch to minimize data
-                    git fetch --depth=1 --filter=blob:none upstream "$ref" || {
-                      echo "Error: failed to fetch upstream/$ref for ${v.path_}"
-                      exit 1
-                    }
-                    # Try to verify ancestry; if history too shallow, deepen incrementally
-                    if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
-                      attempts=0
-                      while [ $attempts -lt 10 ]; do
-                        attempts=$((attempts+1))
-                        git fetch --deepen=100 --filter=blob:none upstream "$ref" || break
-                        if git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
-                          break
+
+                    # Detect squashed inputs: commit message contains "squashed upstream <sha>"
+                    msg=$(git log -1 --pretty=%B || true)
+                    upstream_sha=$(printf "%s" "$msg" | sed -n 's/.*squashed upstream \([0-9a-f]\{7,40\}\).*/\1/p' | head -n1)
+
+                    # Select target commit to verify (prefer embedded upstream sha when present)
+                    if [ -n "$upstream_sha" ]; then
+                      target_commit="$upstream_sha"
+                    else
+                      target_commit="$current_commit"
+                    fi
+                    if [ -n "$upstream_sha" ]; then
+                      echo "Detected squashed input; verifying upstream commit $upstream_sha on upstream/$ref"
+                    else
+                      echo "No squash marker; verifying local HEAD $current_commit on upstream/$ref"
+                    fi
+
+                    skip_fetch=""
+                    # If we have an upstream sha and the upstream is GitHub, try a lightweight API check first
+                    if [ -n "$upstream_sha" ]; then
+                      upstream_url=$(git remote get-url upstream 2>/dev/null || true)
+                      case "$upstream_url" in
+                        https://github.com/*|git@github.com:*)
+                          # Normalize to owner/repo without .git
+                          owner_repo="$upstream_url"
+                          owner_repo="''${owner_repo#git@github.com:}"
+                          owner_repo="''${owner_repo#https://github.com/}"
+                          owner_repo="''${owner_repo%.git}"
+                          owner="''${owner_repo%%/*}"
+                          repo="''${owner_repo#*/}"
+                          echo "GitHub compare: $owner/$repo $upstream_sha...$ref"
+                          if command -v gh >/dev/null 2>&1; then
+                            status=$(gh api \
+                              "repos/$owner/$repo/compare/$upstream_sha...$ref" \
+                              --jq .status 2>/dev/null || true)
+                          else
+                            resp=$(curl -sSL --connect-timeout 10 --max-time 30 \
+                                   -H "Accept: application/vnd.github+json" \
+                                   "https://api.github.com/repos/$owner/$repo/compare/$upstream_sha...$ref" || true)
+                            status=$(printf "%s" "$resp" | jq -r '.status // empty')
+                          fi
+                          # Accept when base (upstream_sha) is reachable from head (ref): ahead or identical
+                          if [ "$status" = "ahead" ] || [ "$status" = "identical" ]; then
+                            echo "GitHub reports commit is reachable on upstream/$ref (status=$status)."
+                            skip_fetch=1
+                          else
+                            [ -n "$status" ] || status="unknown"
+                            echo "GitHub API not conclusive (status=$status); will verify via git fetch."
+                          fi
+                          ;;
+                        *) ;;
+                      esac
+                    fi
+
+                    # Perform a shallow, blobless fetch to minimize data; show progress and fail fast on slow links
+                    # Clear any stale shallow.lock to avoid blocked fetches
+                    git_dir=$(git rev-parse --git-dir 2>/dev/null || true)
+                    if [ -n "$git_dir" ] && [ -f "$git_dir/shallow.lock" ]; then
+                      echo "Found stale shallow.lock in $git_dir; removing"
+                      rm -f "$git_dir/shallow.lock" || true
+                    fi
+
+                    if [ -z "$skip_fetch" ]; then
+                      # Initial fetch with progress and low-speed fail-fast; avoid interactive prompts
+                      if ! GIT_TERMINAL_PROMPT=0 \
+                           GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=30 \
+                           timeout 120s git fetch --depth=1 --filter=blob:none --progress -v upstream "$ref"; then
+                        echo "Warning: initial fetch failed or timed out for ${v.path_}; attempting shallow deepen"
+                      fi
+
+                      # Try to verify ancestry; if history too shallow, deepen incrementally
+                      if ! git merge-base --is-ancestor "$target_commit" "upstream/$ref"; then
+                        attempts=0
+                        while [ $attempts -lt 8 ]; do
+                          attempts=$((attempts+1))
+                          echo "Deepening history (attempt $attempts/8) for ${v.path_}..."
+                          # Clean up possible leftover shallow.lock before deepen
+                          git_dir=$(git rev-parse --git-dir 2>/dev/null || true)
+                          if [ -n "$git_dir" ] && [ -f "$git_dir/shallow.lock" ]; then
+                            echo "Found stale shallow.lock in $git_dir; removing"
+                            rm -f "$git_dir/shallow.lock" || true
+                          fi
+
+                          if ! GIT_TERMINAL_PROMPT=0 \
+                                GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=30 \
+                                timeout 120s git fetch --deepen=100 --filter=blob:none --progress -v upstream "$ref"; then
+                            echo "Warning: deepen fetch failed (attempt $attempts) for ${v.path_}"
+                            break
+                          fi
+                          if git merge-base --is-ancestor "$target_commit" "upstream/$ref"; then
+                            break
+                          fi
+                        done
+                        if ! git merge-base --is-ancestor "$target_commit" "upstream/$ref"; then
+                          echo "Error: submodule ${v.path_} commit $target_commit is not reachable from upstream/$ref"
+                          exit 1
                         fi
-                      done
-                      if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
-                        echo "Error: submodule ${v.path_} commit $current_commit is not reachable from upstream/$ref (after shallow fetch)"
-                        exit 1
                       fi
                     fi
                   )
