@@ -22,6 +22,8 @@
             }
           )
           config.flake.modules.homeManager.base
+          # Wire R2 sops-managed env by default (guarded on secrets/r2.env presence)
+          config.flake.modules.homeManager.r2Secrets
         ];
       };
     };

@@ -64,7 +64,44 @@
             shellcheck.enable = true;
 
             # Documentation and text quality
-            typos.enable = true;
+            typos =
+              let
+                typosConfig = pkgs.writeText "typos.toml" ''
+                  [default.extend-words]
+                  facter = "facter"
+                  hda = "hda"
+                  importas = "importas"
+                  Hime = "Hime"
+                  hime = "hime"
+                  Mosquitto = "Mosquitto"
+                  mosquitto = "mosquitto"
+                  MUC = "MUC"
+                  muc = "muc"
+                  crypted = "crypted"
+                  browseable = "browseable"
+                  resolveable = "resolveable"
+
+                  [files]
+                  extend-exclude = [
+                      "nixos_docs_md/*.md",
+                      "flake.lock",
+                      ".clj-kondo/**",
+                      "**/.clj-kondo/**",
+                      ".lsp/**",
+                      "**/.lsp/**",
+                  ]
+                '';
+              in
+              {
+                enable = true;
+                # Keep hook-level excludes lightweight; config handles deep ignores
+                excludes = [
+                  "^inputs/"
+                  "^nixos_docs_md/"
+                ];
+                entry = "${pkgs.typos}/bin/typos --config ${typosConfig}";
+                pass_filenames = true;
+              };
             trim-trailing-whitespace.enable = true;
 
             # Security
