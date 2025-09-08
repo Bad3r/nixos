@@ -27,9 +27,11 @@ _: {
               .direnv/
               .envrc.local
 
-              # Tool/LSP caches present in this repo
+              # Tool/LSP caches (top-level and nested)
               .clj-kondo/
               .lsp/
+              **/.clj-kondo/**
+              **/.lsp/**
               .kiro/
               .code/
 
