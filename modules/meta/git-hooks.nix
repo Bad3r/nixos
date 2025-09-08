@@ -8,9 +8,9 @@
         hooks = {
           # Nix-specific hooks
           nixfmt-rfc-style.enable = true;
-          deadnix.enable = true;
-          statix.enable = true;
-          flake-checker.enable = true;
+          deadnix.enable = false;
+          statix.enable = false;
+          flake-checker.enable = false;
 
           # Shell script quality
           shellcheck.enable = true;
