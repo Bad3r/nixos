@@ -5,6 +5,7 @@
       with config.flake.modules.nixos;
       [
         workstation
+        roles.warp-client
         nvidia-gpu
       ]
       ++ [

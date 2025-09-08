@@ -3,6 +3,7 @@
   configurations.nixos.tec.module = {
     imports = with config.flake.modules.nixos; [
       workstation
+      roles.warp-client
     ];
   };
 }

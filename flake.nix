@@ -105,6 +105,28 @@
       };
     };
 
+    # Official Cloudflare language SDKs as sources (non-flake repos)
+    cloudflare-go = {
+      flake = false;
+      url = "github:cloudflare/cloudflare-go";
+    };
+    cloudflare-python = {
+      flake = false;
+      url = "github:cloudflare/cloudflare-python";
+    };
+    cloudflare-rs = {
+      flake = false;
+      url = "github:cloudflare/cloudflare-rs";
+    };
+    node-cloudflare = {
+      flake = false;
+      url = "github:cloudflare/node-cloudflare";
+    };
+    workers-rs = {
+      flake = false;
+      url = "github:cloudflare/workers-rs";
+    };
+
     tinted-schemes = {
       flake = false;
       url = "github:tinted-theming/schemes";
@@ -112,6 +134,11 @@
 
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

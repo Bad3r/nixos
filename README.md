@@ -19,6 +19,7 @@ This means files can be moved around and nested in directories freely.
 The following files in this repository are generated and checked
 using [the _files_ flake-parts module](https://github.com/mightyiam/files):
 
+- `.actrc`
 - `README.md`
 
 ## Flake inputs for deduplication are prefixed

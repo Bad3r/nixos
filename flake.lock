@@ -67,6 +67,54 @@
         "type": "github"
       }
     },
+    "cloudflare-go": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1756430197,
+        "narHash": "sha256-dJIdQsQK5RQYmbGNaVa7OzP+m7d6Ob+TQ98tCHaR1pQ=",
+        "owner": "cloudflare",
+        "repo": "cloudflare-go",
+        "rev": "0432cfb6088c149506c6d866eb29004e5e78b462",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cloudflare",
+        "repo": "cloudflare-go",
+        "type": "github"
+      }
+    },
+    "cloudflare-python": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1750110171,
+        "narHash": "sha256-ryGHQitxa1NI/N70gm5YcOLyfI2/aBWY/bm6WifRynI=",
+        "owner": "cloudflare",
+        "repo": "cloudflare-python",
+        "rev": "ac1ae1cb4fe55b6b9493500d82d7b5267da3535f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cloudflare",
+        "repo": "cloudflare-python",
+        "type": "github"
+      }
+    },
+    "cloudflare-rs": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1754689025,
+        "narHash": "sha256-bM4kDMlhTIe2oO6as9eqj5C8IyxS08WVpwoQtrgqYns=",
+        "owner": "cloudflare",
+        "repo": "cloudflare-rs",
+        "rev": "85fc25c18555ae8da1d75d5eba97199808f95d86",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cloudflare",
+        "repo": "cloudflare-rs",
+        "type": "github"
+      }
+    },
     "cpu-microcodes": {
       "flake": false,
       "locked": {
@@ -586,6 +634,22 @@
         "type": "github"
       }
     },
+    "node-cloudflare": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1740459552,
+        "narHash": "sha256-edDnwiXkhStTm17DxzmfvI5yhEEaDkrM+YdMBZFUyAc=",
+        "owner": "cloudflare",
+        "repo": "node-cloudflare",
+        "rev": "e05477f47219cfef388a808170a8f8eaab887a20",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cloudflare",
+        "repo": "node-cloudflare",
+        "type": "github"
+      }
+    },
     "plasma-manager": {
       "inputs": {
         "home-manager": [
@@ -627,6 +691,9 @@
     },
     "root": {
       "inputs": {
+        "cloudflare-go": "cloudflare-go",
+        "cloudflare-python": "cloudflare-python",
+        "cloudflare-rs": "cloudflare-rs",
         "cpu-microcodes": "cpu-microcodes",
         "dedupe_flake-compat": "dedupe_flake-compat",
         "dedupe_flake-utils": "dedupe_flake-utils",
@@ -645,15 +712,18 @@
         "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs",
         "nixvim": "nixvim",
+        "node-cloudflare": "node-cloudflare",
         "plasma-manager": "plasma-manager",
         "refjump-nvim": "refjump-nvim",
         "sink-rotate": "sink-rotate",
         "smart-scrolloff-nvim": "smart-scrolloff-nvim",
+        "sops-nix": "sops-nix",
         "stylix": "stylix",
         "tinted-schemes": "tinted-schemes",
         "treefmt-nix": "treefmt-nix",
         "ucodenix": "ucodenix",
         "vim-autoread": "vim-autoread",
+        "workers-rs": "workers-rs",
         "zsh-auto-notify": "zsh-auto-notify"
       }
     },
@@ -700,6 +770,26 @@
       "original": {
         "owner": "tonymajestro",
         "repo": "smart-scrolloff.nvim",
+        "type": "github"
+      }
+    },
+    "sops-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1754988908,
+        "narHash": "sha256-t+voe2961vCgrzPFtZxha0/kmFSHFobzF00sT8p9h0U=",
+        "owner": "Mic92",
+        "repo": "sops-nix",
+        "rev": "3223c7a92724b5d804e9988c6b447a0d09017d48",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Mic92",
+        "repo": "sops-nix",
         "type": "github"
       }
     },
@@ -889,6 +979,22 @@
         "owner": "djoshea",
         "repo": "vim-autoread",
         "rev": "24061f84652d768bfb85d222c88580b3af138dab",
+        "type": "github"
+      }
+    },
+    "workers-rs": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1757109133,
+        "narHash": "sha256-APdFoe36ffeqQlyslV0TUr4/QQIn0aURsV3G4wXMgy4=",
+        "owner": "cloudflare",
+        "repo": "workers-rs",
+        "rev": "ae4a0b42e7dcd2ee7375da39971ce5f607597ded",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cloudflare",
+        "repo": "workers-rs",
         "type": "github"
       }
     },
