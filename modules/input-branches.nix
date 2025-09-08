@@ -72,10 +72,25 @@
                       exit 1
                     }
                     ref='${v.upstream.ref or "master"}'
-                    git fetch upstream "$ref"
-                    if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
-                      echo "Error: submodule ${v.path_} commit $current_commit is not reachable from upstream/$ref"
+                    # Perform a shallow, blobless fetch to minimize data
+                    git fetch --depth=1 --filter=blob:none upstream "$ref" || {
+                      echo "Error: failed to fetch upstream/$ref for ${v.path_}"
                       exit 1
+                    }
+                    # Try to verify ancestry; if history too shallow, deepen incrementally
+                    if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
+                      attempts=0
+                      while [ $attempts -lt 10 ]; do
+                        attempts=$((attempts+1))
+                        git fetch --deepen=100 --filter=blob:none upstream "$ref" || break
+                        if git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
+                          break
+                        fi
+                      done
+                      if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
+                        echo "Error: submodule ${v.path_} commit $current_commit is not reachable from upstream/$ref (after shallow fetch)"
+                        exit 1
+                      fi
                     fi
                   )
                 '') inputValues;

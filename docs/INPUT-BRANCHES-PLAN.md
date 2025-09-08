@@ -82,10 +82,24 @@ Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g
                       exit 1
                     }
                     ref='${v.upstream.ref or "master"}'
-                    git fetch upstream "$ref"
-                    if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
-                      echo "Error: submodule ${path_} commit $current_commit is not reachable from upstream/$ref"
+                    # Shallow, blobless fetch for speed
+                    git fetch --depth=1 --filter=blob:none upstream "$ref" || {
+                      echo "Error: failed to fetch upstream/$ref for ${path_}"
                       exit 1
+                    }
+                    if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
+                      attempts=0
+                      while [ $attempts -lt 10 ]; do
+                        attempts=$((attempts+1))
+                        git fetch --deepen=100 --filter=blob:none upstream "$ref" || break
+                        if git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
+                          break
+                        fi
+                      done
+                      if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
+                        echo "Error: submodule ${path_} commit $current_commit is not reachable from upstream/$ref (after shallow fetch)"
+                        exit 1
+                      fi
                     fi
                   )
                 ''
