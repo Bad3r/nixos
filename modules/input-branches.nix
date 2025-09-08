@@ -71,11 +71,12 @@
                       echo "Error: submodule ${v.path_} not clean"
                       exit 1
                     }
-                    git fetch upstream
-                    git ls-remote upstream --heads | grep -q "$current_commit" || {
-                      echo "Error: submodule ${v.path_} commit $current_commit is not pushed"
+                    ref='${v.upstream.ref or "master"}'
+                    git fetch upstream "$ref"
+                    if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
+                      echo "Error: submodule ${v.path_} commit $current_commit is not reachable from upstream/$ref"
                       exit 1
-                    }
+                    fi
                   )
                 '') inputValues;
                 withHeader = lib.concat [
