@@ -17,4 +17,6 @@ resolveable = "resolveable"  # Alternative spelling of resolvable
 extend-exclude = [
     "nixos_docs_md/*.md",  # Documentation files with many technical terms
     "flake.lock",          # Generated file
+    ".clj-kondo/**",       # Editor/cache files
+    ".lsp/**",             # Editor/cache files
 ]

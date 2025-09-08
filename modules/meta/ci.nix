@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   # Manage GitHub Actions workflow via files writer
   # Human-readable YAML adhering to GitHub Actions and Nix best practices.
   perSystem =
