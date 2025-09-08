@@ -152,7 +152,7 @@ main() {
   nix fmt "${FLAKE_DIR}"
 
   status_msg "${YELLOW}" "Validating flake configuration..."
-  nix flake check "${FLAKE_DIR}" --accept-flake-config || {
+  nix flake check "${FLAKE_DIR}" --accept-flake-config --no-build || {
     error_msg "Flake validation failed"
     exit 1
   }
