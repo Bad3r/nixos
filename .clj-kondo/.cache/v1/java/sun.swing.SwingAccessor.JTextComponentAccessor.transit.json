@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "dropLocationForPoint",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "setDropLocation",
+    ["^2", [["^ ", "^3", ["^2", ["^4"]]]]]
+  ]
+]

@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "getAnnotationType",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "getElementValues",
+    ["^2", [["^ ", "^3", ["^2", ["^4"]]]]]
+  ]
+]

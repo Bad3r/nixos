@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "defaultReadObject",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:public"]]]]],
+    "defaultWriteObject",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5"]]]]]
+  ]
+]

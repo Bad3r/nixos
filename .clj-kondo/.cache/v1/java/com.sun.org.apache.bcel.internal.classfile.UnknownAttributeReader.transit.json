@@ -1,0 +1,9 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "createAttribute",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]
+  ]
+]

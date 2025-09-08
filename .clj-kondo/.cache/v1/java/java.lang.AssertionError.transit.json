@@ -1,0 +1,9 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "AssertionError",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:public"]]]]]
+  ]
+]

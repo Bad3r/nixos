@@ -1,0 +1,5 @@
+[
+  "^ ",
+  "~:members",
+  ["^ ", "BasicCursor", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
+]

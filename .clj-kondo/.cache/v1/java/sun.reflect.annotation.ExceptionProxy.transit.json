@@ -1,0 +1,12 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "generateException",
+    [
+      "~#set",
+      [["^ ", "~:flags", ["^2", ["~:method", "~:abstract", "~:protected"]]]]
+    ]
+  ]
+]

@@ -1,0 +1,9 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "generateTimestamp",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]
+  ]
+]

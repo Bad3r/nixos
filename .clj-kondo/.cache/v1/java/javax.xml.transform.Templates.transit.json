@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "newTransformer",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "getOutputProperties",
+    ["^2", [["^ ", "^3", ["^2", ["^4"]]]]]
+  ]
+]

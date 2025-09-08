@@ -1,0 +1,9 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "formatMessage",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:public"]]]]]
+  ]
+]

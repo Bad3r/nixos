@@ -1,0 +1,9 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "PixelToShapeLoopConverter",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:public"]]]]]
+  ]
+]

@@ -1,0 +1,16 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "isMnemonicHidden",
+    [
+      "~#set",
+      [["^ ", "~:flags", ["^2", ["~:method", "~:public", "~:static"]]]]
+    ],
+    "setMnemonicHidden",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5", "^6"]]]]],
+    "repaintMnemonicsInWindow",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5", "^6"]]]]]
+  ]
+]

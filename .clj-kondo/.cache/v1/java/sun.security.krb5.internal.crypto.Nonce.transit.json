@@ -1,0 +1,18 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "value",
+    [
+      "~#set",
+      [
+        [
+          "^ ",
+          "~:flags",
+          ["^2", ["~:method", "~:public", "~:static", "~:synchronized"]]
+        ]
+      ]
+    ]
+  ]
+]

@@ -1,0 +1,18 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "getInstance",
+    [
+      "~#set",
+      [
+        [
+          "^ ",
+          "~:flags",
+          ["^2", ["~:method", "~:public", "~:static", "~:synchronized"]]
+        ]
+      ]
+    ]
+  ]
+]

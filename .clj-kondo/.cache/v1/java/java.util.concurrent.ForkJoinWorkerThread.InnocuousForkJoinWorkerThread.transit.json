@@ -1,0 +1,17 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "InnocuousForkJoinWorkerThread",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "setUncaughtExceptionHandler",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:public"]]]]],
+    "setContextClassLoader",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^6"]]]]],
+    "onThreadLocalReset",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:final"]]]]],
+    "createGroup",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:static"]]]]]
+  ]
+]

@@ -1,0 +1,15 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "TranslatedException",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "fillInStackTrace",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:public"]]]]],
+    "encodeThrowable",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:static"]]]]],
+    "decodeThrowable",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^8"]]]]]
+  ]
+]

@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "convertStreamMetadata",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "convertImageMetadata",
+    ["^2", [["^ ", "^3", ["^2", ["^4"]]]]]
+  ]
+]

@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "XScrollPaneContentWindow",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "getWMName",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:public"]]]]]
+  ]
+]

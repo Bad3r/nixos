@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "event",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:field", "~:protected"]]]]],
+    "ExpandVetoException",
+    ["^2", [["^ ", "^3", ["^2", ["~:method", "~:public"]]]]]
+  ]
+]

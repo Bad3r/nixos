@@ -1,0 +1,14 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "createUI",
+    [
+      "~#set",
+      [["^ ", "~:flags", ["^2", ["~:method", "~:public", "~:static"]]]]
+    ],
+    "createCaret",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:protected"]]]]]
+  ]
+]

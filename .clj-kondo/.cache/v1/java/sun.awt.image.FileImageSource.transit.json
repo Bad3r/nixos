@@ -1,0 +1,13 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "imagefile",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:field"]]]]],
+    "FileImageSource",
+    ["^2", [["^ ", "^3", ["^2", ["~:method", "~:public"]]]]],
+    "getDecoder",
+    ["^2", [["^ ", "^3", ["^2", ["^6", "~:protected"]]]]]
+  ]
+]

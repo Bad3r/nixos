@@ -1,0 +1,5 @@
+[
+  "^ ",
+  "~:members",
+  ["^ ", "setNodeTest", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
+]

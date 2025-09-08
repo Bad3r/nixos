@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "newPermPlusAltPath",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "newPermUsingAltPath",
+    ["^2", [["^ ", "^3", ["^2", ["^4"]]]]]
+  ]
+]

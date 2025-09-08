@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "hasDeprecated",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:static"]]]]],
+    "reuseStackMaps",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5"]]]]]
+  ]
+]

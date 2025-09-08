@@ -1,0 +1,5 @@
+[
+  "^ ",
+  "~:members",
+  ["^ ", "applyAsDouble", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
+]

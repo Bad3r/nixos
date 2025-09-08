@@ -1,0 +1,17 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "name",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:field", "~:protected"]]]]],
+    "NamedKeyPairGenerator",
+    ["^2", [["^ ", "^3", ["^2", ["~:method", "^5"]]]]],
+    "initialize",
+    ["^2", [["^ ", "^3", ["^2", ["^7", "~:public"]]]]],
+    "generateKeyPair",
+    ["^2", [["^ ", "^3", ["^2", ["^7", "^9"]]]]],
+    "implGenerateKeyPair",
+    ["^2", [["^ ", "^3", ["^2", ["^7", "~:abstract", "^5"]]]]]
+  ]
+]

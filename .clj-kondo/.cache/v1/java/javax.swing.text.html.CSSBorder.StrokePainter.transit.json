@@ -1,0 +1,5 @@
+[
+  "^ ",
+  "~:members",
+  ["^ ", "paintStrokes", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
+]

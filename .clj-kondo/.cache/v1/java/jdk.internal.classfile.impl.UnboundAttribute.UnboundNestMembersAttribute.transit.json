@@ -1,0 +1,13 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "UnboundNestMembersAttribute",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:public"]]]]],
+    "nestMembers",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5"]]]]],
+    "attributeName",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5"]]]]]
+  ]
+]

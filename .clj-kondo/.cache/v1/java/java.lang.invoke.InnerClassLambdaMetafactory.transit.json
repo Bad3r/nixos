@@ -1,0 +1,27 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "CD_NotSerializableException",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:static", "~:field", "~:final"]]]]],
+    "methodDesc",
+    ["^2", [["^ ", "^3", ["^2", ["~:method", "^4"]]]]],
+    "MTD_CTOR_NOT_SERIALIZABLE_EXCEPTION",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5", "^6"]]]]],
+    "InnerClassLambdaMetafactory",
+    ["^2", [["^ ", "^3", ["^2", ["^8", "~:public"]]]]],
+    "classDesc",
+    ["^2", [["^ ", "^3", ["^2", ["^8", "^4"]]]]],
+    "accept",
+    ["^2", [["^ ", "^3", ["^2", ["^8", "^;"]]]]],
+    "forwardingMethod",
+    ["^2", [["^ ", "^3", ["^2", ["^8"]]]]],
+    "MTD_CTOR_SERIALIZED_LAMBDA",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5", "^6"]]]]],
+    "buildCallSite",
+    ["^2", [["^ ", "^3", ["^2", ["^8"]]]]],
+    "implClassDesc",
+    ["^2", [["^ ", "^3", ["^2", ["^8", "^4"]]]]]
+  ]
+]

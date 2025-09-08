@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "InternalFrameFocusTraversalPolicy",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:protected"]]]]],
+    "getInitialComponent",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:public"]]]]]
+  ]
+]

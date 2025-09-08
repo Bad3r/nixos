@@ -1,0 +1,5 @@
+[
+  "^ ",
+  "~:members",
+  ["^ ", "annotation", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
+]

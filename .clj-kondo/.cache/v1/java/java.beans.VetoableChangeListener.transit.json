@@ -1,0 +1,5 @@
+[
+  "^ ",
+  "~:members",
+  ["^ ", "vetoableChange", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
+]

@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "LinkedEntryIterator",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "next",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:public", "~:final"]]]]]
+  ]
+]

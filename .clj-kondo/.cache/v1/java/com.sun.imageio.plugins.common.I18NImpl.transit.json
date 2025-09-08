@@ -1,0 +1,18 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "getString",
+    [
+      "~#set",
+      [
+        [
+          "^ ",
+          "~:flags",
+          ["^2", ["~:method", "~:static", "~:final", "~:protected"]]
+        ]
+      ]
+    ]
+  ]
+]

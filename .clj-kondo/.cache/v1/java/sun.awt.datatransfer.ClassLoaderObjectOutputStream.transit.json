@@ -1,0 +1,15 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "ClassLoaderObjectOutputStream",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "annotateClass",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:protected"]]]]],
+    "annotateProxyClass",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^6"]]]]],
+    "getClassLoaderMap",
+    ["^2", [["^ ", "^3", ["^2", ["^4"]]]]]
+  ]
+]

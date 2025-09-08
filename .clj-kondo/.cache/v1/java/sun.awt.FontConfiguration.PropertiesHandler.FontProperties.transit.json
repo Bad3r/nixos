@@ -1,0 +1,12 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "put",
+    [
+      "~#set",
+      [["^ ", "~:flags", ["^1", ["~:method", "~:public", "~:synchronized"]]]]
+    ]
+  ]
+]

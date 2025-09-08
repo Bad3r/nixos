@@ -1,0 +1,13 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "Spi",
+    ["~#set", [["^ ", "~:flags", ["^1", ["~:method", "~:public"]]]]],
+    "engineGetAppConfigurationEntry",
+    ["^1", [["^ ", "^2", ["^1", ["^3", "^4"]]]]],
+    "engineRefresh",
+    ["^1", [["^ ", "^2", ["^1", ["^3", "^4", "~:synchronized"]]]]]
+  ]
+]

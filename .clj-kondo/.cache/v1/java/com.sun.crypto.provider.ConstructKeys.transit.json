@@ -1,0 +1,9 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "constructKey",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:static", "~:final"]]]]]
+  ]
+]

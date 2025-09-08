@@ -1,0 +1,5 @@
+[
+  "^ ",
+  "~:members",
+  ["^ ", "LiteralWriter", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
+]

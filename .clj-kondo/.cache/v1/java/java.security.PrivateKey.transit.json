@@ -1,0 +1,9 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "serialVersionUID",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:field"]]]]]
+  ]
+]

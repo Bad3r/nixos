@@ -1,0 +1,17 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "MarshalOutputStream",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:public"]]]]],
+    "replaceObject",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:final", "~:protected"]]]]],
+    "annotateClass",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^8"]]]]],
+    "annotateProxyClass",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^8"]]]]],
+    "writeLocation",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^8"]]]]]
+  ]
+]

@@ -1,0 +1,5 @@
+[
+  "^ ",
+  "~:members",
+  ["^ ", "getDisposer", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
+]

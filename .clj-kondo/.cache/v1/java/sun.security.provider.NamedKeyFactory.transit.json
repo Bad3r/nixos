@@ -1,0 +1,21 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "NamedKeyFactory",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:protected"]]]]],
+    "RawEncodedKeySpec",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:public"]]]]],
+    "engineGeneratePublic",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5"]]]]],
+    "engineGeneratePrivate",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5"]]]]],
+    "getFormat",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^7"]]]]],
+    "engineGetKeySpec",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5"]]]]],
+    "engineTranslateKey",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "^5"]]]]]
+  ]
+]

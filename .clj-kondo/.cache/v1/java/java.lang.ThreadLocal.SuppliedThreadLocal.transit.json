@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "SuppliedThreadLocal",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "initialValue",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:protected"]]]]]
+  ]
+]

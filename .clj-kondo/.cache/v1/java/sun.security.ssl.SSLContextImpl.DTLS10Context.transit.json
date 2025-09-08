@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "getClientDefaultProtocolVersions",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "getClientDefaultCipherSuites",
+    ["^2", [["^ ", "^3", ["^2", ["^4"]]]]]
+  ]
+]

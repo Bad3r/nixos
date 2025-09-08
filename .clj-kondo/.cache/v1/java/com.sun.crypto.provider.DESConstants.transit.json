@@ -1,0 +1,5 @@
+[
+  "^ ",
+  "~:members",
+  ["^ ", "DES_BLOCK_SIZE", ["~#set", [["^ ", "~:flags", ["^2", ["~:field"]]]]]]
+]

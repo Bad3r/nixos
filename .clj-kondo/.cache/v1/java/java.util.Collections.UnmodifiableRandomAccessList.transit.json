@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "UnmodifiableRandomAccessList",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]],
+    "subList",
+    ["^2", [["^ ", "^3", ["^2", ["^4", "~:public"]]]]]
+  ]
+]

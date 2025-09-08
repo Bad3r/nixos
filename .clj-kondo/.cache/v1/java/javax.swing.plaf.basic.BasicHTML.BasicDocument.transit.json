@@ -1,0 +1,5 @@
+[
+  "^ ",
+  "~:members",
+  ["^ ", "BasicDocument", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
+]

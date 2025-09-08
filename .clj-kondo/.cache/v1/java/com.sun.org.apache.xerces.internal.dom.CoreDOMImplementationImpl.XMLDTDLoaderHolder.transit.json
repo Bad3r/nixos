@@ -1,0 +1,11 @@
+[
+  "^ ",
+  "~:members",
+  [
+    "^ ",
+    "loader",
+    ["~#set", [["^ ", "~:flags", ["^2", ["~:field"]]]]],
+    "XMLDTDLoaderHolder",
+    ["^2", [["^ ", "^3", ["^2", ["~:method"]]]]]
+  ]
+]
