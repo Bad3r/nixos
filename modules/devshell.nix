@@ -29,6 +29,22 @@
                 cd "''${ROOT}"
 
                 echo "==> Rebasing all input branches onto upstream"
+                # Ensure submodules fetch from the superproject origin (not the relative './.')
+                PARENT_ORIGIN=$(git remote get-url --push origin 2>/dev/null || git remote get-url origin 2>/dev/null || true)
+                if [ -z "''${PARENT_ORIGIN}" ]; then
+                  echo "Error: could not resolve superproject origin URL" >&2
+                  exit 1
+                fi
+                if [ -d inputs ]; then
+                  for d in inputs/*; do
+                    [ -d "$d" ] || continue
+                    if [ -d "$d/.git" ] || [ -f "$d/.git" ]; then
+                      git -C "$d" remote set-url origin "''${PARENT_ORIGIN}"
+                      git -C "$d" remote set-url --push origin "''${PARENT_ORIGIN}"
+                    fi
+                  done
+                fi
+
                 input-branches-rebase
                 echo "==> Pushing all input branches to origin"
                 input-branches-push-force
