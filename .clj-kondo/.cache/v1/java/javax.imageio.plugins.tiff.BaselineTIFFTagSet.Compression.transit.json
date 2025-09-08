@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "Compression",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:public"]]]]]
-  ]
-]

@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "RawinP1363Format",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:public"]]]]]
-  ]
-]

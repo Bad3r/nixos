@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "getPropertyDescriptors",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:public"]]]]]
-  ]
-]

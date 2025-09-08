@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "getRowsForPaths",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]
-  ]
-]

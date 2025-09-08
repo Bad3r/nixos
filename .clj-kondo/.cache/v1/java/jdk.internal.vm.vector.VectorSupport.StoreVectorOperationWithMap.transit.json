@@ -1,5 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  ["^ ", "storeWithMap", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
-]

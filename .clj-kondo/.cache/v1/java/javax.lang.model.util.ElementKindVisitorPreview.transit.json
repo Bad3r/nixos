@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "ElementKindVisitorPreview",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:protected"]]]]]
-  ]
-]

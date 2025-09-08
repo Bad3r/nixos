@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "SeparatorUI",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:protected"]]]]]
-  ]
-]

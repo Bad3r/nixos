@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "getTableCellRendererComponent",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]
-  ]
-]

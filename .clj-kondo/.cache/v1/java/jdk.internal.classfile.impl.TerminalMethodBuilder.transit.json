@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "bufferedCodeBuilder",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]
-  ]
-]

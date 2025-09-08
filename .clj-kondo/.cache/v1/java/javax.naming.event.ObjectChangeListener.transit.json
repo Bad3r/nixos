@@ -1,5 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  ["^ ", "objectChanged", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
-]

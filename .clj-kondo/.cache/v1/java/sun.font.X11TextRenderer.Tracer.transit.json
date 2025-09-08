@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "doDrawGlyphList",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]
-  ]
-]

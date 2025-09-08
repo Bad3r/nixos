@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "getTreeCellRendererComponent",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]
-  ]
-]

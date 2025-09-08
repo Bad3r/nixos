@@ -1,5 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  ["^ ", "getPixelCount", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
-]

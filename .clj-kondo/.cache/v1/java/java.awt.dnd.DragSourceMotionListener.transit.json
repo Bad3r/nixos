@@ -1,5 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  ["^ ", "dragMouseMoved", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
-]

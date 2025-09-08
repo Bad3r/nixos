@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "checkMisdeclarations",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:static"]]]]]
-  ]
-]

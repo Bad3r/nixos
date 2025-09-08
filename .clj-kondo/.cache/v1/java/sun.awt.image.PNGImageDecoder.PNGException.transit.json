@@ -1,5 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  ["^ ", "PNGException", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
-]

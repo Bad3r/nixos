@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "parseShorthandMargin",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:static"]]]]]
-  ]
-]

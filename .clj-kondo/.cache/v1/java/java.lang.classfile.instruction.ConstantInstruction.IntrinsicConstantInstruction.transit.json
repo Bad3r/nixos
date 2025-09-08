@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "typeKind",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:default"]]]]]
-  ]
-]

@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "TypeKindVisitorPreview",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:protected"]]]]]
-  ]
-]

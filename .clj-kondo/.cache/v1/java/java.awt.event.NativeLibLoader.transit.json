@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "loadLibraries",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:static"]]]]]
-  ]
-]

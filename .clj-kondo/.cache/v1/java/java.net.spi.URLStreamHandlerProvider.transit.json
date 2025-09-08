@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "URLStreamHandlerProvider",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:protected"]]]]]
-  ]
-]

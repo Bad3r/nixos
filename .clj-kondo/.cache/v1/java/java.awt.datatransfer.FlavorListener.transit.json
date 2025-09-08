@@ -1,5 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  ["^ ", "flavorsChanged", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
-]

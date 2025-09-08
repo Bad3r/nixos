@@ -1,9 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  [
-    "^ ",
-    "MenuItemUI",
-    ["~#set", [["^ ", "~:flags", ["^2", ["~:method", "~:protected"]]]]]
-  ]
-]

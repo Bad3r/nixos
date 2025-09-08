@@ -1,5 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  ["^ ", "createFilter2", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
-]

@@ -1,5 +1,0 @@
-[
-  "^ ",
-  "~:members",
-  ["^ ", "checkGuard", ["~#set", [["^ ", "~:flags", ["^2", ["~:method"]]]]]]
-]
