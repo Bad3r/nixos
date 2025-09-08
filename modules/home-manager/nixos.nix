@@ -14,6 +14,7 @@
         backupFileExtension = "backup";
 
         users.${config.flake.meta.owner.username}.imports = [
+          inputs.sops-nix.homeManagerModules.sops
           (
             { osConfig, ... }:
             {

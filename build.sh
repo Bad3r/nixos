@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
+# Validation and build helper for this flake
 # Common Usage:
-# ./build.sh --collect-garbage --optimize --offline
+#   ./build.sh [--offline] [--verbose] [--auto-switch]
+#
+# This script performs validation (format, hooks, pattern score, flake checks),
+# then builds the system closure as the current user. It will prompt to switch
+# (sudo) interactively unless --auto-switch is provided. It never disables the
+# sandbox or performs GC/optimise, and it does not mutate repo file ownership.
+# Keep permission and state management declarative in NixOS modules.
 set -eo pipefail
 
-# Enable Nix experimental features
-export NIX_CONFIG="
-accept-flake-config = true
-abort-on-warn = true
-allow-import-from-derivation = true
-experimental-features = nix-command flakes pipe-operators
-"
+# Respect flake-provided nixConfig; avoid overriding via NIX_CONFIG here.
 
 # Initialize variables with defaults
 FLAKE_DIR="${PWD}"
 HOSTNAME="$(hostname)"
 OFFLINE=false
 VERBOSE=false
-OPTIMIZE_STORE=false
-GARBAGE_COLLECT=false
 NIX_FLAGS=()
+AUTO_SWITCH=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -37,12 +37,11 @@ Options:
   -t, --host HOST        Specify target hostname (default: %s)
   -o, --offline          Build in offline mode
   -v, --verbose          Enable verbose output
-  -d, --collect-garbage  Run 'nix-collect-garbage -d' after build
-  -O, --optimize         Optimize Nix store after build
+  --auto-switch          Switch non-interactively after a successful build
   -h, --help             Show this help message
 
   Usage Example:
-  $0 --collect-garbage --optimize --offline
+  $0 --offline
 " "${0##*/}" "${PWD}" "$(hostname)"
 }
 
@@ -76,12 +75,8 @@ while [[ $# -gt 0 ]]; do
     VERBOSE=true
     shift
     ;;
-  -O | --optimize)
-    OPTIMIZE_STORE=true
-    shift
-    ;;
-  -d | --collect-garbage)
-    GARBAGE_COLLECT=true
+  --auto-switch)
+    AUTO_SWITCH=true
     shift
     ;;
   --help)
@@ -114,7 +109,6 @@ configure_nix_flags() {
   flags+=(
     "--option" "cores" "0"
     "--option" "max-jobs" "auto"
-    "--option" "sandbox" "false"
   )
 
   # Offline mode
@@ -131,57 +125,45 @@ configure_nix_flags() {
   NIX_FLAGS=("${flags[@]}")
 }
 
-# Build result caching
-optimize_store() {
-  status_msg "${YELLOW}" "Optimizing Nix store..."
-  nix-store --optimise
-}
-
-collect_garbage() {
-  status_msg "${YELLOW}" "Running garbage collection..."
-  nix-collect-garbage -d
-  nix-collect-garbage -d
-}
-
 main() {
-  bash -c "cd \"${FLAKE_DIR}\" && git add ."
-
   configure_nix_flags
 
   status_msg "${YELLOW}" "Formatting Nix files..."
   nix fmt "${FLAKE_DIR}"
 
-  status_msg "${YELLOW}" "Validating flake configuration..."
-  nix flake check "${FLAKE_DIR}" --accept-flake-config --no-build || {
-    error_msg "Flake validation failed"
+  status_msg "${YELLOW}" "Running pre-commit hooks..."
+  nix develop "${NIX_FLAGS[@]}" -c pre-commit run --all-files
+
+  status_msg "${YELLOW}" "Scoring Dendritic Pattern compliance..."
+  generation-manager score
+
+  status_msg "${YELLOW}" "Validating flake (evaluation + invariants)..."
+  nix flake check "${FLAKE_DIR}" --accept-flake-config --no-build "${NIX_FLAGS[@]}"
+
+  status_msg "${GREEN}" "Validation completed successfully!"
+
+  status_msg "${YELLOW}" "Building system closure for ${HOSTNAME}..."
+  local SYSTEM_PATH
+  if ! SYSTEM_PATH=$(nix build "${FLAKE_DIR}#nixosConfigurations.${HOSTNAME}.config.system.build.toplevel" --no-link --print-out-paths "${NIX_FLAGS[@]}"); then
+    error_msg "Build failed for host '${HOSTNAME}'."
     exit 1
-  }
+  fi
+  printf "Built system closure: %s\n" "$SYSTEM_PATH"
 
-  # Skip updates in offline mode
-  if ! $OFFLINE; then
-    status_msg "${YELLOW}" "Updating all flake inputs..."
-    nix flake update "${FLAKE_DIR}" "${NIX_FLAGS[@]}"
+  # Switch step (requires sudo wrapper; when using sudo-rs, the wrapper is 'sudo')
+  if $AUTO_SWITCH; then
+    status_msg "${YELLOW}" "Auto-switching to new configuration (sudo -n; requires cached creds or NOPASSWD)..."
+    if /run/wrappers/bin/sudo -n "${SYSTEM_PATH}/bin/switch-to-configuration" switch; then
+      status_msg "${GREEN}" "System switched successfully!"
+    else
+      error_msg "Non-interactive switch failed. Ensure 'sudo -v' or a NOPASSWD rule, or rerun without --auto-switch."
+      exit 1
+    fi
   else
-    status_msg "${YELLOW}" "Skipping flake updates (offline mode)"
+    status_msg "${YELLOW}" "Switching to new configuration (sudo may prompt)..."
+    /run/wrappers/bin/sudo "${SYSTEM_PATH}/bin/switch-to-configuration" switch
+    status_msg "${GREEN}" "System switched successfully!"
   fi
-
-  status_msg "${YELLOW}" "Building system configuration for ${HOSTNAME}..."
-  CMD=(nixos-rebuild switch
-    --flake "${FLAKE_DIR}#${HOSTNAME}"
-    "${NIX_FLAGS[@]}"
-  )
-  "${CMD[@]}"
-
-  if $GARBAGE_COLLECT; then
-    collect_garbage
-  fi
-
-  if $OPTIMIZE_STORE; then
-    optimize_store
-  fi
-
-  sudo chown -R vx: "$PWD"/.git && git add -A
-  status_msg "${GREEN}" "Build completed successfully!"
 }
 
 trap 'error_msg "Build failed!"; exit 1' ERR

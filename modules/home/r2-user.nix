@@ -27,7 +27,6 @@
   #
   flake.modules.homeManager.base =
     {
-      inputs,
       pkgs,
       config,
       lib,
@@ -104,62 +103,39 @@
       };
     in
     {
-      # Ensure Home-Manager sops module is available for user-scoped secrets
-      imports = [ inputs.sops-nix.homeManagerModules.sops ];
+      # sops-nix HM module is imported centrally in modules/home-manager/nixos.nix
 
-      # Declare the user-scoped R2 env file via sops. We expect an encrypted
-      # file in the repo at secrets/r2.env (format=dotenv) per docs/sops-nixos.md.
-      # We guard on file existence to avoid evaluation failures.
-      #
-      # Example creation (dotenv):
-      #   sops secrets/r2.env
-      # with content lines like:
-      #   AWS_ACCESS_KEY_ID=...
-      #   AWS_SECRET_ACCESS_KEY=...
-      #   R2_ACCOUNT_ID=...
-      #   # or AWS_ENDPOINT_URL=...
-      _module.args = { };
-      config =
-        let
-          r2Env = ./../../secrets/r2.env;
-        in
-        lib.mkIf (builtins.pathExists r2Env) {
-          sops.secrets."cloudflare/r2/env" = {
-            sopsFile = r2Env;
-            format = "dotenv";
-            path = envFile;
-            mode = "0400";
-          };
-        };
-
-      # Minimal rclone remote using env overrides
-      xdg.configFile."rclone/rclone.conf".text = ''
-        [r2]
+      # Keep all assignments under `config` to satisfy strict checks
+      config = {
+        # Minimal rclone remote using env overrides
+        xdg.configFile."rclone/rclone.conf".text = ''
+          [r2]
           type = s3
           provider = Cloudflare
           # endpoint, access_key_id, and secret_access_key are provided at runtime via env:
           #   RCLONE_CONFIG_R2_ENDPOINT, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-      '';
+        '';
 
-      xdg.configFile."cloudflare/r2/README".text = ''
-        Cloudflare R2 per-user configuration
+        xdg.configFile."cloudflare/r2/README".text = ''
+          Cloudflare R2 per-user configuration
 
-        Place credentials in: ${envFile}
+          Place credentials in: ${envFile}
 
-        Example env file (chmod 0400):
-          AWS_ACCESS_KEY_ID=...
-          AWS_SECRET_ACCESS_KEY=...
-          R2_ACCOUNT_ID=...
-          # optional alternative:
-          # AWS_ENDPOINT_URL=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+          Example env file (chmod 0400):
+            AWS_ACCESS_KEY_ID=...
+            AWS_SECRET_ACCESS_KEY=...
+            R2_ACCOUNT_ID=...
+            # optional alternative:
+            # AWS_ENDPOINT_URL=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
 
-        See docs/sops-nixos.md and docs/sops-dotfile.example.yaml to manage
-        this file with sops (recommended).
-      '';
+          See docs/sops-nixos.md and docs/sops-dotfile.example.yaml to manage
+          this file with sops (recommended).
+        '';
 
-      home.packages = [
-        r2
-        r2s5
-      ];
+        home.packages = [
+          r2
+          r2s5
+        ];
+      };
     };
 }

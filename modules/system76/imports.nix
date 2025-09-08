@@ -2,13 +2,12 @@
 {
   configurations.nixos.system76.module = {
     imports =
-      with config.flake.modules.nixos;
-      [
+      (with config.flake.modules.nixos; [
         workstation
-        roles.warp-client
         nvidia-gpu
-      ]
+      ])
       ++ [
+        config.flake.modules.nixos."warp-client"
         inputs.nixos-hardware.nixosModules.system76
       ];
   };
