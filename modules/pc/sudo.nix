@@ -6,6 +6,11 @@
       security.sudo-rs = {
         enable = true; # replace sudo with memory-safe sudo-rs
         wheelNeedsPassword = true;
+        # Make interactive password prompt wait indefinitely and extend cached auth duration
+        extraConfig = ''
+          Defaults passwd_timeout=0
+          Defaults timestamp_timeout=10
+        '';
         extraRules = [
           {
             commands = [

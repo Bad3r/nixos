@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, lib, ... }:
 {
   imports = [
     inputs.treefmt-nix.flakeModule
@@ -12,6 +12,37 @@
         packages =
           with pkgs;
           let
+            # Update all input branches and record in superproject
+            inputBranchesUpdateAll = pkgs.writeShellApplication {
+              name = "input-branches-update-all";
+              runtimeInputs = [
+                pkgs.git
+              ]
+              ++ (if psArgs.config ? input-branches then psArgs.config.input-branches.commands.all else [ ]);
+              text = ''
+                set -euo pipefail
+                ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+                if [ -z "''${ROOT}" ] || [ ! -d "''${ROOT}/.git" ]; then
+                  echo "Error: run inside the superproject git repository" >&2
+                  exit 1
+                fi
+                cd "''${ROOT}"
+
+                echo "==> Rebasing all input branches onto upstream"
+                input-branches-rebase
+                echo "==> Pushing all input branches to origin"
+                input-branches-push-force
+
+                echo "==> Recording updated submodule pointers in superproject"
+                git add inputs
+                if git diff --cached --quiet -- inputs; then
+                  echo "No input bumps to commit."
+                  exit 0
+                fi
+                git commit -m "chore(inputs): bump nixpkgs, home-manager, stylix"
+                echo "Done: inputs bumped and recorded."
+              '';
+            };
             pushInputBranches = pkgs.writeShellApplication {
               name = "push-input-branches";
               text = ''
@@ -240,6 +271,7 @@
             yq
             ghActionsRun
             ghActionsList
+            inputBranchesUpdateAll
             pushInputBranches
             inputBranchesCatalog
             config.packages.generation-manager
@@ -258,6 +290,7 @@
           echo "  pre-commit install     - Install git hooks"
           echo "  pre-commit run         - Run hooks on staged files"
           echo "  input-branches-catalog - List input-branches commands (if available)"
+          echo "  input-branches-update-all - Rebase + push inputs, commit bumps"
           echo "  push-input-branches    - Push input branches (inputs/*) to origin"
           echo "  write-files            - Generate managed files (README.md, .actrc, .gitignore)"
           echo "  gh-actions-run [-n]    - Run all GitHub Actions locally (use -n for dry run)"

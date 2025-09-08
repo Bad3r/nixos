@@ -45,7 +45,7 @@
           set -euo pipefail
           # Load per-user R2 env if present
           if [ -f ${lib.escapeShellArg envFile} ]; then
-            # shellcheck disable=SC1090
+            # shellcheck disable=SC1091
             . ${lib.escapeShellArg envFile}
           fi
 
@@ -77,7 +77,7 @@
         text = ''
           set -euo pipefail
           if [ -f ${lib.escapeShellArg envFile} ]; then
-            # shellcheck disable=SC1090
+            # shellcheck disable=SC1091
             . ${lib.escapeShellArg envFile}
           fi
 

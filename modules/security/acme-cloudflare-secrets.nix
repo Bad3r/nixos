@@ -1,4 +1,4 @@
-{ inputs, lib, ... }:
+{ lib, ... }:
 {
   # System-scoped sops-nix declaration for the ACME DNS API token.
   #

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Validation and build helper for this flake
 # Common Usage:
-#   ./build.sh [--offline] [--verbose] [--auto-switch]
-#
-# This script performs validation (format, hooks, pattern score, flake checks),
-# then builds the system closure as the current user. It will prompt to switch
-# (sudo) interactively unless --auto-switch is provided. It never disables the
-# sandbox or performs GC/optimise, and it does not mutate repo file ownership.
-# Keep permission and state management declarative in NixOS modules.
+#   ./build.sh [--offline] [--verbose]
+##
+## This script performs validation (format, hooks, pattern score, flake checks),
+## then builds the system closure as the current user and switches using the
+## system sudo wrapper. It never disables the sandbox or performs GC/optimise,
+## and it does not mutate repo file ownership. Keep permission and state
+## management declarative in NixOS modules.
 set -eo pipefail
 
 # Respect flake-provided nixConfig; avoid overriding via NIX_CONFIG here.
@@ -18,7 +18,6 @@ HOSTNAME="$(hostname)"
 OFFLINE=false
 VERBOSE=false
 NIX_FLAGS=()
-AUTO_SWITCH=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -37,7 +36,6 @@ Options:
   -t, --host HOST        Specify target hostname (default: %s)
   -o, --offline          Build in offline mode
   -v, --verbose          Enable verbose output
-  --auto-switch          Switch non-interactively after a successful build
   -h, --help             Show this help message
 
   Usage Example:
@@ -73,10 +71,6 @@ while [[ $# -gt 0 ]]; do
     ;;
   -v | --verbose)
     VERBOSE=true
-    shift
-    ;;
-  --auto-switch)
-    AUTO_SWITCH=true
     shift
     ;;
   --help)
@@ -151,19 +145,9 @@ main() {
   printf "Built system closure: %s\n" "$SYSTEM_PATH"
 
   # Switch step (requires sudo wrapper; when using sudo-rs, the wrapper is 'sudo')
-  if $AUTO_SWITCH; then
-    status_msg "${YELLOW}" "Auto-switching to new configuration (sudo -n; requires cached creds or NOPASSWD)..."
-    if /run/wrappers/bin/sudo -n "${SYSTEM_PATH}/bin/switch-to-configuration" switch; then
-      status_msg "${GREEN}" "System switched successfully!"
-    else
-      error_msg "Non-interactive switch failed. Ensure 'sudo -v' or a NOPASSWD rule, or rerun without --auto-switch."
-      exit 1
-    fi
-  else
-    status_msg "${YELLOW}" "Switching to new configuration (sudo may prompt)..."
-    /run/wrappers/bin/sudo "${SYSTEM_PATH}/bin/switch-to-configuration" switch
-    status_msg "${GREEN}" "System switched successfully!"
-  fi
+  status_msg "${YELLOW}" "Switching to new configuration (sudo may prompt)..."
+  /run/wrappers/bin/sudo "${SYSTEM_PATH}/bin/switch-to-configuration" switch
+  status_msg "${GREEN}" "System switched successfully!"
 }
 
 trap 'error_msg "Build failed!"; exit 1' ERR
