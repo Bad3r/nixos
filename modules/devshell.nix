@@ -28,7 +28,7 @@
                 fi
                 cd "''${ROOT}"
 
-                echo "==> Rebasing all input branches onto upstream"
+                echo "==> Preparing submodules (normalize remotes, clean worktrees)"
                 # Ensure submodules fetch from the superproject origin (not the relative './.')
                 PARENT_ORIGIN=$(git remote get-url --push origin 2>/dev/null || git remote get-url origin 2>/dev/null || true)
                 if [ -z "''${PARENT_ORIGIN}" ]; then
@@ -41,10 +41,14 @@
                     if [ -d "$d/.git" ] || [ -f "$d/.git" ]; then
                       git -C "$d" remote set-url origin "''${PARENT_ORIGIN}"
                       git -C "$d" remote set-url --push origin "''${PARENT_ORIGIN}"
+                      # Ensure a clean slate for rebase operations
+                      git -C "$d" reset --hard HEAD >/dev/null 2>&1 || true
+                      git -C "$d" clean -fdxq || true
                     fi
                   done
                 fi
 
+                echo "==> Rebasing all input branches onto upstream"
                 input-branches-rebase
 
                 echo "==> Ensuring submodule worktrees are clean"
