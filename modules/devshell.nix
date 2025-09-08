@@ -32,6 +32,35 @@
                 echo "''${found}"
               '';
             };
+            ghActionsRun = pkgs.writeShellApplication {
+              name = "gh-actions-run";
+              text = ''
+                set -euo pipefail
+                DRY=""
+                if [ "''${1:-}" = "-n" ] || [ "''${1:-}" = "--dry-run" ]; then
+                  DRY="-n"
+                  shift || true
+                fi
+
+                if [ -z "''${DRY}" ]; then
+                  if ! command -v docker >/dev/null 2>&1; then
+                    echo "Docker not found. Install and start Docker, or use: gh-actions-run --dry-run" >&2
+                    exit 1
+                  fi
+                fi
+
+                if [ ! -d .github/workflows ]; then
+                  echo "No workflows found at .github/workflows" >&2
+                  exit 1
+                fi
+
+                # Run all workflows for the push event; include defaults for robustness
+                exec act ''${DRY} \
+                  -W .github/workflows \
+                  -P ubuntu-latest=catthehacker/ubuntu:act-latest \
+                  push "$@"
+              '';
+            };
           in
           [
             nixfmt-rfc-style
@@ -41,6 +70,7 @@
             act
             jq
             yq
+            ghActionsRun
             inputBranchesCatalog
             config.packages.generation-manager
             config.treefmt.build.wrapper
@@ -58,7 +88,8 @@
           echo "  pre-commit install     - Install git hooks"
           echo "  pre-commit run         - Run hooks on staged files"
           echo "  input-branches-catalog - List input-branches commands (if available)"
-          echo "  write-files            - Generate managed files (README.md)"
+          echo "  write-files            - Generate managed files (README.md, .actrc)"
+          echo "  gh-actions-run [-n]    - Run all GitHub Actions locally (use -n for dry run)"
           echo ""
           ${config.pre-commit.installationScript}
         '';
