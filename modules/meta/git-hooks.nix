@@ -13,7 +13,13 @@
         settings = {
           hooks = {
             # Nix-specific hooks
-            nixfmt-rfc-style.enable = true;
+            nixfmt-rfc-style = {
+              enable = true;
+              excludes = [
+                "^inputs/"
+                "^nixos_docs_md/"
+              ];
+            };
             # Avoid scanning vendored inputs and large local docs
             deadnix = {
               enable = true;
@@ -61,7 +67,13 @@
             # `nix flake check` and pre-push submodule checks
 
             # Shell script quality
-            shellcheck.enable = true;
+            shellcheck = {
+              enable = true;
+              excludes = [
+                "^inputs/"
+                "^nixos_docs_md/"
+              ];
+            };
 
             # Documentation and text quality
             typos =
@@ -102,21 +114,46 @@
                 entry = "${pkgs.typos}/bin/typos --config ${typosConfig}";
                 pass_filenames = true;
               };
-            trim-trailing-whitespace.enable = true;
+            trim-trailing-whitespace = {
+              enable = true;
+              excludes = [
+                "^inputs/"
+                "^nixos_docs_md/"
+              ];
+            };
 
             # Security
-            detect-private-keys.enable = true;
+            detect-private-keys = {
+              enable = true;
+              excludes = [
+                "^inputs/"
+                "^nixos_docs_md/"
+              ];
+            };
             ripsecrets = {
               enable = true;
               excludes = [
                 "nixos_docs_md/.*\\.md$" # Documentation files with examples
                 "modules/networking/networking.nix" # Contains public minisign key
+                "^inputs/"
               ];
             };
 
             # Config file validation
-            check-yaml.enable = true;
-            check-json.enable = true;
+            check-yaml = {
+              enable = true;
+              excludes = [
+                "^inputs/"
+                "^nixos_docs_md/"
+              ];
+            };
+            check-json = {
+              enable = true;
+              excludes = [
+                "^inputs/"
+                "^nixos_docs_md/"
+              ];
+            };
 
             # Enforce that files in secret paths are SOPS-encrypted
             ensure-sops = {

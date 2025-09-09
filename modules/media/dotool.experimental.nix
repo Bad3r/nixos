@@ -1,4 +1,4 @@
-# modules/dotool.nix
+# modules/dotool.nix (experimental)
 # Example: echo type "hello, Friend" | dotool
 # Must add user to input group to use /dev/uinput
 

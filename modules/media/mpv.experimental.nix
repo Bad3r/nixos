@@ -1,5 +1,5 @@
-# modules/video-player.nix
-{pkgs, config, ...}:
+# modules/video-player.nix (experimental HM config)
+{ pkgs, config, ... }:
 {
   flake.modules.homeManager.gui.programs.mpv = {
     enable = true;
@@ -51,7 +51,6 @@
       #
     ];
   };
-  # TODO: Move to separate folder/file?
   # Add Lua script to block images
   home.file."${config.xdg.configHome}/mpv/scripts/block-images.lua".text = ''
     local blocked_extensions = {
