@@ -1,110 +1,43 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Repository Overview
-
-NixOS configuration using the **Dendritic Pattern** - automatic module discovery with no manual imports.
-- **Hosts**: `system76` (laptop, NVIDIA), `tec` (mini PC, Intel)
-- **User**: `vx` (in `modules/meta/owner.nix`)
-- **Desktop**: KDE Plasma 6 with Wayland
+# Repository Guidelines
 
 ## Project Structure & Module Organization
 
-- `flake.nix`: Entry point; defines inputs and auto-imports modules via `import-tree`
-- `modules/`: NixOS/Home-Manager modules by domain. Files prefixed with `_` are ignored
-  - `base/`: Core system (all hosts)
-  - `pc/`: Desktop features
-  - `workstation/`: Development tools
-  - `{system76,tec}/`: Host-specific configs
-- `modules/devshell.nix`: Dev tooling (treefmt, pre-commit, LSP)
-- `build.sh`: Validation and deployment script (requires permission)
-- `nixos_docs_md/`: 460+ local NixOS docs (search here first)
+- `flake.nix`: Flake entry; defines inputs and auto‑imports modules via `import-tree`.
+- `modules/`: NixOS/Home‑Manager modules by domain (`desktop/`, `shell/`, `security/`). Files prefixed with `_` are ignored. Example: `modules/desktop/plasma.nix`.
+- `modules/devshell.nix`: Dev tooling (treefmt, pre‑commit, LSP).
+- `docs/`, `.github/`, `nixos_docs_md/`: Documentation, CI, and local NixOS notes.
 
 ## Development & Validation Commands
 
-```bash
-nix develop                                      # Dev shell with tools
-nix fmt                                          # Format all files
-nix develop -c pre-commit run --all-files       # Run all validation hooks
-generation-manager score                         # Dendritic compliance (target: 90/90)
-nix flake check --accept-flake-config           # Validate flake
+- `nix develop`: Dev shell with formatter, LSP, hooks.
+- `nix fmt`: Format Nix/Shell/Markdown via treefmt.
+- `nix develop -c pre-commit run --all-files`: Run all hooks (format, lint, security, flake checks).
+- `generation-manager score`: Dendritic Pattern compliance (target 90/90).
+- `nix flake check --accept-flake-config`: Validate flake evaluation/invariants.
 
-# Safe validation workflow after .nix changes:
-./build.sh --dry-run                            # Validate without building
-```
+## Coding Style & Naming Conventions
 
-## Critical Architecture Rules
+- Nix: 2‑space indent; prefer `inherit` and attribute merging.
+- Modules: lowercase, hyphenated; one concern per file; use `_prefix.nix` to exclude.
+- Imports: no literal paths; rely on flake inputs + auto‑import.
+- Functions: wrap a module only when `pkgs` is required.
+- Formatting: treefmt‑nix (`nixfmt`, `shfmt`, `prettier`). Ensure `nix fmt` and pre‑commit hooks pass before commit.
 
-1. **No literal path imports** - Use namespace/flake refs only:
-   ```nix
-   # ❌ NEVER: imports = [ ./foo.nix ];
-   # ✅ OK: imports = with config.flake.modules.nixos; [ base pc ];
-   ```
+## Testing Guidelines
 
-2. **Module wrapping** - Only when `pkgs` needed:
-   ```nix
-   # Needs pkgs - wrap in function:
-   { config, lib, ... }:
-   {
-     flake.modules.nixos.namespace = { pkgs, ... }: {
-       environment.systemPackages = [ pkgs.vim ];
-     };
-   }
-   ```
+- Treat warnings as errors; hooks must pass cleanly.
+- Run the validation commands above from repo root; target 90/90 score.
+- Follow the Safety rule in Security & Configuration Tips.
 
-3. **Namespace hierarchy**: `base` → `pc` → `workstation`
-4. **Start files with Nix code** - No module headers/comments
-5. **Experimental features**: `pipe-operators` required
+## Commit & Pull Request Guidelines
 
-## Coding Style & Naming
+- Conventional Commits: `feat(scope): summary`, `fix(style): …`, `chore(dev): …`, `docs(...): …`.
+- PRs include description, affected hosts/modules, rationale, and `Closes #<id>`; add screenshots for UX/UI changes.
+- Keep scope small; avoid unrelated refactors.
 
-- Nix: 2-space indent; prefer `inherit` and attribute merging
-- Modules: lowercase-hyphenated; one concern per file
-- Functions: wrap only when `pkgs` required
-- Formatting: `nix fmt` must pass before commit
+## Security & Configuration Tips
 
-## Testing & Validation
-
-- Warnings treated as errors (`abort-on-warn = true`)
-- Pre-commit hooks must pass cleanly
-- Dendritic score must be 90/90
-- Run validation from repo root
-
-## System Management Commands
-
-```bash
-# Safe (no permission needed):
-generation-manager list                         # View generations
-generation-manager current                      # Show current
-generation-manager score                        # Check compliance
-git status / git diff                          # View changes
-
-# ⛔ FORBIDDEN without explicit permission:
-./build.sh                                      # Build and switch
-generation-manager switch/rollback              # Change system
-nixos-rebuild / nix build                       # System modifications
-sudo nix-collect-garbage                        # Cleanup
-```
-
-## Input Branch Management
-
-```bash
-# In dev shell:
-input-branches-update-all                       # Update all inputs
-push-input-branches                             # Push to origin
-input-branches-catalog                          # List commands
-```
-
-## Commit Guidelines
-
-- Conventional Commits: `feat(scope):`, `fix(module):`, `chore(deps):`
-- Sign commits with `-S` flag
-- Keep scope small; one logical change per commit
-
-## Security Rules
-
-- **NEVER** run system-modifying commands without permission
-- Search `nixos_docs_md/` before online docs
-- No secrets/keys in code
-- Validate all changes before commit
+- Never run system‑modifying commands: `nixos-rebuild`, `nix build`, `build.sh`, `generation-manager switch/rollback`, GC/optimize.
+- `nixConfig.abort-on-warn = true`.
+- Prefer local docs in `nixos_docs_md/` before going online.
+- Experimental features enabled: pipe operators.
