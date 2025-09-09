@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.workstation =
+  flake.nixosModules.workstation =
     { pkgs, ... }:
     let
       nrm = pkgs.writeShellScriptBin "nrm" ''

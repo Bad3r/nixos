@@ -1,6 +1,6 @@
 { config, ... }:
 {
-  flake.modules.nixos.lang.clojure.imports = with config.flake.modules.nixos.apps; [
+  flake.nixosModules.lang.clojure.imports = with config.flake.nixosModules.apps; [
     clojure-cli
     clojure-lsp
     leiningen

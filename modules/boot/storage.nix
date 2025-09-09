@@ -1,6 +1,6 @@
 { lib, ... }:
 {
-  flake.modules.nixos.boot-redundancy =
+  flake.nixosModules.boot-redundancy =
     { config, ... }:
     {
       boot.loader.grub.mirroredBoots = lib.mkMerge (

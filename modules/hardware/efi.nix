@@ -1,6 +1,6 @@
 {
-  flake.modules = {
-    nixos.efi.boot.loader = {
+  flake = {
+    nixosModules.efi.boot.loader = {
       systemd-boot = {
         enable = true;
         editor = false;
@@ -10,7 +10,7 @@
       efi.canTouchEfiVariables = true;
     };
 
-    homeManager.base =
+    homeManagerModules.base =
       { pkgs, ... }:
       {
         home.packages = [

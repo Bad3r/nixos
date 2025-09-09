@@ -15,14 +15,12 @@
       extra-system-features = [ "recursive-nix" ];
       download-buffer-size = 536870912; # 512MB (default is 64MB)
     };
-    flake.modules = {
-      nixos.base.nix = {
-        inherit (config.nix) settings;
-      };
+    flake.nixosModules.base.nix = {
+      inherit (config.nix) settings;
+    };
 
-      homeManager.base.nix = {
-        inherit (config.nix) settings;
-      };
+    flake.homeManagerModules.base.nix = {
+      inherit (config.nix) settings;
     };
   };
 }

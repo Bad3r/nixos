@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.mpv =
+  flake.nixosModules.apps.mpv =
     { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [

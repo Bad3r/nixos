@@ -1,6 +1,6 @@
 { config, ... }:
 {
-  flake.modules.homeManager.roles.terminals.imports = with config.flake.modules.homeManager.apps; [
+  flake.homeManagerModules.roles.terminals.imports = with config.flake.homeManagerModules.apps; [
     kitty
     alacritty
     wezterm

@@ -1,5 +1,5 @@
 _: {
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { lib, ... }:
     {
       # Fix qt.platformTheme compatibility between home-manager and nixos

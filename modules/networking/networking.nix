@@ -1,6 +1,6 @@
 {
-  flake.modules = {
-    nixos.pc = _: {
+  flake.nixosModules = {
+    pc = _: {
       networking = {
         wireless.iwd = {
           enable = true;
@@ -39,23 +39,24 @@
       };
     };
 
-    homeManager.base =
-      { pkgs, ... }:
-      {
-        home.packages = with pkgs; [
-          bandwhich
-          dnsutils # dig, nslookup, ...
-          inetutils # ping, ping6, traceroute, whois, hostname, dnsdomainname, ifconfig, logger, ...
-          iproute2 # ip, ss, tc, ...
-          tcpdump
-          nmap # includes ncat
-          snicat # TLS & SNI aware netcat https://github.com/CTFd/snicat
-          socat
-          curl
-          wget
-          ethtool
-          wireshark
-        ];
-      };
   };
+
+  flake.homeManagerModules.base =
+    { pkgs, ... }:
+    {
+      home.packages = with pkgs; [
+        bandwhich
+        dnsutils # dig, nslookup, ...
+        inetutils # ping, ping6, traceroute, whois, hostname, dnsdomainname, ifconfig, logger, ...
+        iproute2 # ip, ss, tc, ...
+        tcpdump
+        nmap # includes ncat
+        snicat # TLS & SNI aware netcat https://github.com/CTFd/snicat
+        socat
+        curl
+        wget
+        ethtool
+        wireshark
+      ];
+    };
 }

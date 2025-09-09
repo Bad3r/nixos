@@ -8,7 +8,7 @@
   # - Tunnels overview: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
   # - Declarative config: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/configuration/local-management/
   # - Ingress rules: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/configuration/local-management/ingress/
-  flake.modules.nixos.workstation =
+  flake.nixosModules.workstation =
     { pkgs, ... }:
     let
       # Replace with your real public hostname under your Cloudflare-managed zone

@@ -266,7 +266,7 @@
     };
 
   # Make generation-manager available in user environments
-  flake.modules.homeManager.base =
+  flake.homeManagerModules.base =
     { pkgs, ... }:
     {
       home.packages = [ config.flake.packages.${pkgs.system}.generation-manager ];

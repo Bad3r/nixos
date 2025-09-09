@@ -1,5 +1,5 @@
 _: {
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { lib, pkgs, ... }:
     {
       # Display manager

@@ -10,7 +10,7 @@
   #   and encrypt it using sops, following docs/sops-nixos.md and
   #   docs/sops-dotfile.example.yaml.
   # - This module guards on the file’s presence to avoid evaluation failures.
-  flake.modules.nixos.base =
+  flake.nixosModules.base =
     _:
     let
       cfTokenFile = ./../../secrets/cf-api-token.yaml;
