@@ -26,8 +26,8 @@
                 );
           })
           {
-            base = with config.flake.modules.homeManager; [ base ];
-            gui = with config.flake.modules.homeManager; [
+            base = with config.flake.homeManagerModules; [ base ];
+            gui = with config.flake.homeManagerModules; [
               base
               gui
             ];

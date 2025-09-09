@@ -10,8 +10,8 @@ let
   ) config.flake.nixosConfigurations;
 in
 {
-  flake.modules = {
-    nixos.base = {
+  flake = {
+    nixosModules.base = {
       options.services.openssh.publicKey = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
@@ -40,7 +40,7 @@ in
           '';
         };
 
-        users.users.${config.flake.meta.owner.username}.openssh.authorizedKeys.keys = [
+        users.users.${config.flake.lib.meta.owner.username}.openssh.authorizedKeys.keys = [
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGPoHVrToSwWfz+DaUX68A9v70V7k3/REqGxiDqjLOS+"
         ];
 
@@ -51,7 +51,7 @@ in
       };
     };
 
-    homeManager.base = args: {
+    homeManagerModules.base = args: {
       programs.ssh = {
         enable = true;
         enableDefaultConfig = false; # Explicitly disable default config to avoid deprecation warning

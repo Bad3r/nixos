@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.gui = _: {
+  flake.homeManagerModules.gui = _: {
     programs.lutris = {
       enable = true;
       # Lutris provides support for various game sources and runners

@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.gui = _: {
+  flake.homeManagerModules.gui = _: {
     programs.wezterm.enable = true;
   };
 }

@@ -1,8 +1,8 @@
 { config, ... }:
 {
   # Networking role: bring in networking apps and VPN defaults precisely
-  flake.modules.nixos.roles.net.imports =
-    (with config.flake.modules.nixos.apps; [
+  flake.nixosModules.roles.net.imports =
+    (with config.flake.nixosModules.apps; [
       httpx
       curlie
       tor
@@ -12,5 +12,5 @@
       ktailctl
       networkmanager-dmenu
     ])
-    ++ [ config.flake.modules.nixos.vpn-defaults ];
+    ++ [ config.flake.nixosModules.vpn-defaults ];
 }

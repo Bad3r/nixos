@@ -1,5 +1,5 @@
 _: {
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { pkgs, lib, ... }:
     {
       # Enable OpenGL/Graphics support for desktop applications

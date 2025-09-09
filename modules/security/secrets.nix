@@ -1,6 +1,6 @@
 { inputs, lib, ... }:
 {
-  flake.modules.nixos.base =
+  flake.nixosModules.base =
     { config, pkgs, ... }:
     let
       # Detect if act secret file exists to avoid evaluation failures
@@ -29,8 +29,8 @@
           sopsFile = ./../../secrets/act.yaml;
           mode = "0400";
           owner =
-            config.users.users.${config.flake.meta.owner.username}.name
-              or "${config.flake.meta.owner.username}";
+            config.users.users.${config.flake.lib.meta.owner.username}.name
+              or "${config.flake.lib.meta.owner.username}";
         };
 
         # Template an env file: GITHUB_TOKEN=...
@@ -40,8 +40,8 @@
           '';
           mode = "0400";
           owner =
-            config.users.users.${config.flake.meta.owner.username}.name
-              or "${config.flake.meta.owner.username}";
+            config.users.users.${config.flake.lib.meta.owner.username}.name
+              or "${config.flake.lib.meta.owner.username}";
         };
 
         # Expose a stable path for act to use

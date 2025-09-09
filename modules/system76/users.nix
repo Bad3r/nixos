@@ -1,6 +1,6 @@
 { config, ... }:
 let
-  inherit (config.flake.meta.owner) username;
+  inherit (config.flake.lib.meta.owner) username;
 in
 {
   configurations.nixos.system76.module =

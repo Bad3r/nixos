@@ -1,8 +1,8 @@
 { config, lib, ... }:
 {
-  flake.modules.nixos.base = _: {
+  flake.nixosModules.base = _: {
     # Extend the owner's user account with additional groups
-    users.users.${config.flake.meta.owner.username} = {
+    users.users.${config.flake.lib.meta.owner.username} = {
 
       # Additional base groups that the user should be in
       extraGroups = lib.mkAfter [
@@ -15,7 +15,7 @@
       ];
 
       # SSH authorized keys for remote access
-      openssh.authorizedKeys.keys = config.flake.meta.owner.sshKeys;
+      openssh.authorizedKeys.keys = config.flake.lib.meta.owner.sshKeys;
     };
   };
 }
