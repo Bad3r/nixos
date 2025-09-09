@@ -49,7 +49,6 @@ _: {
         kdePackages.kwalletmanager # Wallet management
         kdePackages.ktimer # Timer
         kdePackages.sweeper # System cleaner
-        krename # Batch file renamer (not in kdePackages)
         kdePackages.kdialog # CLI dialogs/notifications
 
         # Theming
