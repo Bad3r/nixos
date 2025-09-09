@@ -1,6 +1,7 @@
 {
   config,
   inputs,
+  lib,
   ...
 }:
 {
@@ -13,21 +14,25 @@
         extraSpecialArgs.hasGlobalPkgs = true;
         backupFileExtension = "backup";
 
-        users.${config.flake.meta.owner.username}.imports = [
-          inputs.sops-nix.homeManagerModules.sops
-          (
-            { osConfig, ... }:
-            {
-              home.stateVersion = osConfig.system.stateVersion;
-            }
-          )
-          config.flake.modules.homeManager.base
-          # Wire R2 sops-managed env by default (guarded on secrets/r2.env presence)
-          config.flake.modules.homeManager.r2Secrets
+        users.${config.flake.meta.owner.username}.imports =
+          let
+            hmRoles = config.flake.modules.homeManager.roles or { };
+          in
+          [
+            inputs.sops-nix.homeManagerModules.sops
+            (
+              { osConfig, ... }:
+              {
+                home.stateVersion = osConfig.system.stateVersion;
+              }
+            )
+            config.flake.modules.homeManager.base
+            # Wire R2 sops-managed env by default (guarded on secrets/r2.env presence)
+            config.flake.modules.homeManager.r2Secrets
+          ]
           # Optional HM roles (CLI and terminals)
-          config.flake.modules.homeManager.roles.cli
-          config.flake.modules.homeManager.roles.terminals
-        ];
+          ++ lib.optionals (hmRoles ? cli) [ hmRoles.cli ]
+          ++ lib.optionals (hmRoles ? terminals) [ hmRoles.terminals ];
       };
     };
 
