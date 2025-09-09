@@ -24,6 +24,9 @@
           config.flake.modules.homeManager.base
           # Wire R2 sops-managed env by default (guarded on secrets/r2.env presence)
           config.flake.modules.homeManager.r2Secrets
+          # Optional HM roles (CLI and terminals)
+          config.flake.modules.homeManager.roles.cli
+          config.flake.modules.homeManager.roles.terminals
         ];
       };
     };
