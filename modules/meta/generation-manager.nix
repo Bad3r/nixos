@@ -177,7 +177,7 @@
                       if [ -d modules ]; then
                         # Enhanced pattern to catch actual file path imports
                         # Matches: ./file, ../file, /absolute/path
-                        literal_imports=$(grep -Hn 'imports.*=' modules/ -r 2>/dev/null | \
+                        literal_imports=$(grep -Hn -E '^[[:space:]]*imports[[:space:]]*=' modules/ -r 2>/dev/null | \
                           grep -E '\./|\.\./' | \
                           grep -v '# ' | grep -v '//' || true)
                         if [ -z "$literal_imports" ]; then
