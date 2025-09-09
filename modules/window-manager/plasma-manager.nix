@@ -1,6 +1,6 @@
 { inputs, ... }:
 {
-  flake.modules.homeManager.pc = {
+  flake.homeManagerModules.pc = {
     imports = [ inputs.plasma-manager.homeManagerModules.plasma-manager ];
 
     programs.plasma = {

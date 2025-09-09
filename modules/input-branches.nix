@@ -27,7 +27,7 @@
   };
 
   # Import mitigation module and (optionally) force nixpkgs source to the local input path
-  flake.modules.nixos.base = {
+  flake.nixosModules.base = {
     imports = [ inputs.input-branches.modules.nixos.default ];
     nixpkgs.flake.source = lib.mkForce (rootPath + "/inputs/nixpkgs");
   };

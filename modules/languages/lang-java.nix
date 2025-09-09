@@ -1,6 +1,6 @@
 { config, ... }:
 {
-  flake.modules.nixos.lang.java.imports = with config.flake.modules.nixos.apps; [
+  flake.nixosModules.lang.java.imports = with config.flake.nixosModules.apps; [
     temurin-bin-24
   ];
 }

@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { pkgs, lib, ... }:
     {
       # Provide a curated baseline of KDE apps/utilities; later roles/users can extend/override

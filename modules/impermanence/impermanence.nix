@@ -5,7 +5,7 @@
   ...
 }:
 {
-  flake.modules.nixos.impermanence = {
+  flake.nixosModules.impermanence = {
     imports = [ inputs.impermanence.nixosModules.impermanence ];
 
     environment.persistence."/persist" = lib.mkIf (config.boot.impermanence.enable or false) {

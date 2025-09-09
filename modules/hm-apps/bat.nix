@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.apps.bat = _: {
+  flake.homeManagerModules.apps.bat = _: {
     programs.bat.enable = true;
   };
 }

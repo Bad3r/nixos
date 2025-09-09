@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.apps.kitty = _: {
+  flake.homeManagerModules.apps.kitty = _: {
     programs.kitty.enable = true;
   };
 }

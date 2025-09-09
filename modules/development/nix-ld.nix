@@ -1,6 +1,6 @@
 { lib, config, ... }:
 {
-  flake.modules.nixos.workstation =
+  flake.nixosModules.workstation =
     { pkgs, ... }:
     {
       programs.nix-ld = {

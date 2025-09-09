@@ -15,8 +15,6 @@ let
     };
 in
 {
-  flake.modules = {
-    nixos.base = polyModule;
-    homeManager.base = polyModule;
-  };
+  flake.nixosModules.base = polyModule;
+  flake.homeManagerModules.base = polyModule;
 }

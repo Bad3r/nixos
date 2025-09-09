@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.apps.eza = _: {
+  flake.homeManagerModules.apps.eza = _: {
     programs.eza.enable = true;
   };
 }

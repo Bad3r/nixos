@@ -12,7 +12,7 @@
 #   help        Help about any command
 #   version     print the version number and exit (also --version)
 {
-  flake.modules.homeManager.base =
+  flake.homeManagerModules.base =
     { pkgs, ... }:
     {
       home.packages = with pkgs; [

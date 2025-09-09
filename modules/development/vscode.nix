@@ -5,7 +5,7 @@
     "vscode-fhs"
   ];
 
-  flake.modules.nixos.workstation =
+  flake.nixosModules.workstation =
     { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [
