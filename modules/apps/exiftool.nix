@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.exiftool =
+  flake.nixosModules.apps.exiftool =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.exiftool ];

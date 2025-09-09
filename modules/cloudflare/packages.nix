@@ -30,7 +30,7 @@
   # - jq, xh: JSON and HTTP CLIs used to script Cloudflare APIs
   #   jq: https://jqlang.github.io/jq/
   #   xh: https://github.com/ducaale/xh
-  flake.modules.nixos.workstation =
+  flake.nixosModules.workstation =
     { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [

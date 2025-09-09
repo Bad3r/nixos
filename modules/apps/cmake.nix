@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.cmake =
+  flake.nixosModules.apps.cmake =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.cmake ];

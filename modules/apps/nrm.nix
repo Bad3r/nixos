@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.nrm =
+  flake.nixosModules.apps.nrm =
     { pkgs, ... }:
     {
       environment.systemPackages = [

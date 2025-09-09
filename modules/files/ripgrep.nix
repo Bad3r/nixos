@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.base =
+  flake.homeManagerModules.base =
     { pkgs, ... }:
     {
       home.packages = [ pkgs.ripgrep ];

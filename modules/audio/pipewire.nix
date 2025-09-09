@@ -1,6 +1,6 @@
 { lib, ... }:
 {
-  flake.modules.nixos.pc = {
+  flake.nixosModules.pc = {
     services.pipewire = {
       enable = lib.mkDefault true;
       alsa = {

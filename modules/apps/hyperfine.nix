@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.hyperfine =
+  flake.nixosModules.apps.hyperfine =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.hyperfine ];

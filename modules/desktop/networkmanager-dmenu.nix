@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.networkmanager_dmenu ];

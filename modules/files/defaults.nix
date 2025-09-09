@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.base =
+  flake.homeManagerModules.base =
     { pkgs, lib, ... }:
     {
       # Ensure these land before user-added packages, to allow later overrides

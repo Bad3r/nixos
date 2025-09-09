@@ -1,5 +1,5 @@
 _: {
-  flake.modules.nixos.pc = _: {
+  flake.nixosModules.pc = _: {
     # Enable AppImage support with binfmt registration
     # This allows AppImages to run directly like native executables
     programs.appimage = {

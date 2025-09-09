@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.ltrace =
+  flake.nixosModules.apps.ltrace =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.ltrace ];

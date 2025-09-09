@@ -1,5 +1,5 @@
 _: {
-  flake.modules.nixos.base =
+  flake.nixosModules.base =
     { pkgs, lib, ... }:
     {
       # Minimal core defaults. Additional tooling comes from roles or per-app modules.

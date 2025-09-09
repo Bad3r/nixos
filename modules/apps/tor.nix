@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.tor =
+  flake.nixosModules.apps.tor =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.tor ];

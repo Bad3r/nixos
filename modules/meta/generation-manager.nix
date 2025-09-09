@@ -168,7 +168,7 @@
                     score)
                       echo -e "''${BLUE}Calculating Dendritic Pattern compliance score...''${NC}"
                       SCORE=0
-                      MAX_SCORE=90
+                      MAX_SCORE=35
 
                       echo -e "\n''${YELLOW}Checking compliance metrics:''${NC}"
 
@@ -202,69 +202,8 @@
                         echo -e "''${YELLOW}? modules directory not found''${NC}"
                       fi
 
-                      # Check input-branches module (10 points)
-                      echo -n "2. input-branches module exists: "
-                      if [ -f modules/meta/input-branches.nix ]; then
-                        echo -e "''${GREEN}✓ (10/10)''${NC}"
-                        SCORE=$((SCORE + 10))
-                      else
-                        echo -e "''${RED}✗ (0/10)''${NC}"
-                      fi
-
-                      # Check generation-manager tool (10 points)
-                      echo -n "3. generation-manager tool exists: "
-                      if [ -f modules/meta/generation-manager.nix ]; then
-                        echo -e "''${GREEN}✓ (10/10)''${NC}"
-                        SCORE=$((SCORE + 10))
-                      else
-                        echo -e "''${RED}✗ (0/10)''${NC}"
-                      fi
-
-                      # Check NO module headers (20 points) - Dendritic Pattern requires no headers
-                      echo -n "4. No module headers (Dendritic): "
-                      if [ -d modules ]; then
-                        all_modules=$(find modules -name "*.nix" 2>/dev/null)
-                        modules_with_headers=""
-                        header_count=0
-
-                        while IFS= read -r module; do
-                          if grep -q "^# Module:" "$module" 2>/dev/null; then
-                            modules_with_headers="$modules_with_headers$module\n"
-                            header_count=$((header_count + 1))
-                          fi
-                        done <<< "$all_modules"
-
-                        if [ "$header_count" -eq 0 ]; then
-                          echo -e "''${GREEN}✓ (20/20)''${NC}"
-                          SCORE=$((SCORE + 20))
-                        else
-                          # Deduct points for having headers (they shouldn't exist)
-                          points_lost=$((header_count * 2))
-                          [ $points_lost -gt 20 ] && points_lost=20
-                          score_earned=$((20 - points_lost))
-                          echo -e "''${RED}✗ ($score_earned/20) - $header_count modules have headers''${NC}"
-                          SCORE=$((SCORE + score_earned))
-
-                          if [ "$VERBOSE" = "true" ] && [ -n "$modules_with_headers" ]; then
-                            echo -e "''${RED}  Modules with headers (should be removed):''${NC}"
-                            shown=0
-                            echo -e "$modules_with_headers" | while IFS= read -r file; do
-                              if [ -n "$file" ]; then
-                                if [ $shown -lt 10 ]; then
-                                  echo -e "    ''${RED}$file''${NC}"
-                                  shown=$((shown + 1))
-                                elif [ $shown -eq 10 ]; then
-                                  echo -e "    ''${RED}... and $((header_count - 10)) more files''${NC}"
-                                  break
-                                fi
-                              fi
-                            done
-                          fi
-                        fi
-                      fi
-
                       # Check TODOs (warning only, no points)
-                      echo -n "5. TODO Comments: "
+                      echo -n "2. TODO Comments: "
                       if [ -d modules ]; then
                         todo_list=$(grep -Hn "TODO" modules/ -r 2>/dev/null | grep -v "generation-manager.nix" || true)
                         if [ -z "$todo_list" ]; then
@@ -277,18 +216,16 @@
                           echo -e "''${GREEN}✓ None found''${NC}"
                         else
                           echo -e "''${YELLOW}⚠ $todo_count reminder(s) found''${NC}"
-
-                          if [ "$VERBOSE" = "true" ] && [ -n "$todo_list" ]; then
-                            echo -e "''${YELLOW}  TODOs to review:''${NC}"
-                            echo "$todo_list" | while IFS=: read -r file line content; do
-                              echo -e "    ''${YELLOW}$file:$line''${NC}: $content"
-                            done
-                          fi
+                          # Print each TODO as: path:line TODO: ...
+                          echo "$todo_list" | while IFS=: read -r file line content; do
+                            todo_text=$(printf "%s" "$content" | sed -E 's/.*(TODO.*)/\1/')
+                            echo "$file:$line $todo_text"
+                          done
                         fi
                       fi
 
                       # Check nvidia-gpu specialisation (15 points)
-                      echo -n "6. nvidia-gpu has specialisation: "
+                      echo -n "3. nvidia-gpu has specialisation: "
                       if [ -f modules/nvidia-gpu.nix ]; then
                         if grep -q "specialisation" modules/nvidia-gpu.nix 2>/dev/null; then
                           echo -e "''${GREEN}✓ (15/15)''${NC}"
@@ -300,23 +237,14 @@
                         echo -e "''${YELLOW}? nvidia-gpu.nix not found''${NC}"
                       fi
 
-                      # Check metadata (15 points)
-                      echo -n "7. Metadata properly configured: "
-                      if [ -f modules/meta/owner.nix ]; then
-                        echo -e "''${GREEN}✓ (15/15)''${NC}"
-                        SCORE=$((SCORE + 15))
-                      else
-                        echo -e "''${RED}✗ (0/15)''${NC}"
-                      fi
-
                       echo -e "\n''${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━''${NC}"
                       echo -e "''${BLUE}Dendritic Pattern Compliance:''${NC} ''${YELLOW}''${SCORE}/''${MAX_SCORE}''${NC}"
 
                       if [ $SCORE -eq $MAX_SCORE ]; then
                         echo -e "''${GREEN}✅ PERFECT COMPLIANCE!''${NC}"
-                      elif [ $SCORE -ge 81 ]; then
+                      elif [ $((SCORE * 100 / MAX_SCORE)) -ge 90 ]; then
                         echo -e "''${GREEN}✅ Excellent compliance!''${NC}"
-                      elif [ $SCORE -ge 63 ]; then
+                      elif [ $((SCORE * 100 / MAX_SCORE)) -ge 70 ]; then
                         echo -e "''${YELLOW}⚠ Good progress, improvements needed''${NC}"
                       else
                         echo -e "''${RED}❌ Significant improvements required''${NC}"

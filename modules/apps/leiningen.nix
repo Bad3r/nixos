@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.leiningen =
+  flake.nixosModules.apps.leiningen =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.leiningen ];
