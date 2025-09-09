@@ -1,6 +1,6 @@
 { config, ... }:
 {
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { pkgs, ... }:
     {
       security.sudo-rs = {
@@ -31,6 +31,6 @@
           }
         ];
       };
-      users.users.${config.flake.meta.owner.username}.extraGroups = [ "wheel" ];
+      users.users.${config.flake.lib.meta.owner.username}.extraGroups = [ "wheel" ];
     };
 }

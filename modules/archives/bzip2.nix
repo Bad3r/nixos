@@ -1,6 +1,6 @@
 { lib, ... }:
 {
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { pkgs, ... }:
     {
       environment.systemPackages = lib.mkDefault [ pkgs.bzip2 ];

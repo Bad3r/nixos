@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos = {
+  flake.nixosModules = {
     base = {
       # Boot without splash screen - show all boot messages
       boot.kernelParams = [

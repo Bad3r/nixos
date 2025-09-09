@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.base = {
+  flake.homeManagerModules.base = {
     # Enable automatic backup of existing files when Home Manager encounters collisions
     home.activation.backupCollisions = {
       # This script runs before the checkLinkTargets phase

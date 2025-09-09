@@ -4,7 +4,7 @@
     "steam-unwrapped"
   ];
 
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { pkgs, ... }:
     {
       programs.steam = {

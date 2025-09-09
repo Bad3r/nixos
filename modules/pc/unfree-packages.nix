@@ -4,20 +4,20 @@
     type = lib.types.listOf lib.types.str;
     default = [ ];
   };
-  config.flake.modules =
+  config.flake =
     let
       predicate = pkg: builtins.elem (lib.getName pkg) config.nixpkgs.allowedUnfreePackages;
     in
     {
-      nixos.base.nixpkgs.config.allowUnfreePredicate = predicate;
+      nixosModules.base.nixpkgs.config.allowUnfreePredicate = predicate;
 
-      homeManager.base = args: {
+      homeManagerModules.base = args: {
         nixpkgs.config = lib.mkIf (!(args.hasGlobalPkgs or false)) {
           allowUnfreePredicate = predicate;
         };
       };
     };
 
-  config.flake.meta.nixpkgs.allowedUnfreePackages = config.nixpkgs.allowedUnfreePackages;
+  config.flake.lib.meta.nixpkgs.allowedUnfreePackages = config.nixpkgs.allowedUnfreePackages;
 
 }

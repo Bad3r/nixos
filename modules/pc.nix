@@ -1,4 +1,4 @@
 { config, ... }:
 {
-  flake.modules.nixos.pc.imports = with config.flake.modules.nixos; [ base ];
+  flake.nixosModules.pc.imports = with config.flake.nixosModules; [ base ];
 }

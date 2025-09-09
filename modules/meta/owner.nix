@@ -1,7 +1,7 @@
 { config, ... }:
 {
   flake = {
-    meta.owner = {
+    lib.meta.owner = {
       username = "vx";
       email = "bad3r@unsigned.sh";
       name = "Bad3r";
@@ -11,15 +11,15 @@
       ];
     };
 
-    modules = {
-      nixos.base = {
-        users.users.${config.flake.meta.owner.username} = {
+    nixosModules = {
+      base = {
+        users.users.${config.flake.lib.meta.owner.username} = {
           isNormalUser = true;
           initialPassword = "";
           extraGroups = [ "input" ];
         };
 
-        nix.settings.trusted-users = [ config.flake.meta.owner.username ];
+        nix.settings.trusted-users = [ config.flake.lib.meta.owner.username ];
       };
     };
   };
