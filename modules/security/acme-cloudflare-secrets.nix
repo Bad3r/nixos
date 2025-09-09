@@ -11,7 +11,7 @@
   #   docs/sops-dotfile.example.yaml.
   # - This module guards on the file’s presence to avoid evaluation failures.
   flake.modules.nixos.base =
-    { config, ... }:
+    { ... }:
     let
       cfTokenFile = ./../../secrets/cf-api-token.yaml;
       cfTokenExists = builtins.pathExists cfTokenFile;
