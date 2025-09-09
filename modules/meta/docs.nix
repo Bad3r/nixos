@@ -1,6 +1,6 @@
 { config, lib, ... }:
 {
-  flake.modules.nixos.base =
+  flake.nixosModules.base =
     { pkgs, ... }:
     {
       system.build.docs = pkgs.writeTextFile {
@@ -15,7 +15,7 @@
 
           ## Enabled Modules
           ${lib.concatStringsSep "\n" (
-            lib.mapAttrsToList (name: _: "- ${name}") (config.flake.modules.nixos or { })
+            lib.mapAttrsToList (name: _: "- ${name}") (config.flake.nixosModules or { })
           )}
 
           ## Configuration Structure

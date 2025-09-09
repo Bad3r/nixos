@@ -25,7 +25,7 @@
   #   r2s5 ls s3://my-bucket/
   #   r2s5 cp ./file.txt s3://my-bucket/path/
   #
-  flake.modules.homeManager.base =
+  flake.homeManagerModules.base =
     {
       pkgs,
       config,

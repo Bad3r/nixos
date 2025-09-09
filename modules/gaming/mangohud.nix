@@ -1,14 +1,14 @@
 {
-  flake.modules = {
+  flake = {
     # Install MangoHud package at system level
-    nixos.pc =
+    nixosModules.pc =
       { pkgs, ... }:
       {
         environment.systemPackages = [ pkgs.mangohud ];
       };
 
     # Enable MangoHud in Home Manager with Stylix theme integration
-    homeManager.gui = _: {
+    homeManagerModules.gui = _: {
       programs.mangohud = {
         enable = true;
         # Stylix will automatically apply the color scheme to MangoHud

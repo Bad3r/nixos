@@ -4,7 +4,7 @@
 
 { lib, config, ... }:
 {
-  flake.modules.homeManager.base =
+  flake.homeManagerModules.base =
     { pkgs, ... }:
     let
       package = pkgs.dotool;
@@ -22,7 +22,7 @@
       };
     };
 
-  flake.modules.nixos.pc = {
-    users.users.${config.flake.meta.owner.username}.extraGroups = lib.mkAfter [ "input" ];
+  flake.nixosModules.pc = {
+    users.users.${config.flake.lib.meta.owner.username}.extraGroups = lib.mkAfter [ "input" ];
   };
 }

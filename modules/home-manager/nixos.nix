@@ -5,7 +5,7 @@
   ...
 }:
 {
-  flake.modules.nixos = {
+  flake.nixosModules = {
     base = {
       imports = [ inputs.home-manager.nixosModules.home-manager ];
 
@@ -14,9 +14,9 @@
         extraSpecialArgs.hasGlobalPkgs = true;
         backupFileExtension = "backup";
 
-        users.${config.flake.meta.owner.username}.imports =
+        users.${config.flake.lib.meta.owner.username}.imports =
           let
-            hmRoles = config.flake.modules.homeManager.roles or { };
+            hmRoles = config.flake.homeManagerModules.roles or { };
           in
           [
             inputs.sops-nix.homeManagerModules.sops
@@ -26,9 +26,9 @@
                 home.stateVersion = osConfig.system.stateVersion;
               }
             )
-            config.flake.modules.homeManager.base
+            config.flake.homeManagerModules.base
             # Wire R2 sops-managed env by default (guarded on secrets/r2.env presence)
-            config.flake.modules.homeManager.r2Secrets
+            config.flake.homeManagerModules.r2Secrets
           ]
           # Optional HM roles (CLI and terminals)
           ++ lib.optionals (hmRoles ? cli) [ hmRoles.cli ]
@@ -37,8 +37,8 @@
     };
 
     pc = {
-      home-manager.users.${config.flake.meta.owner.username}.imports = [
-        config.flake.modules.homeManager.gui
+      home-manager.users.${config.flake.lib.meta.owner.username}.imports = [
+        config.flake.homeManagerModules.gui
       ];
     };
   };

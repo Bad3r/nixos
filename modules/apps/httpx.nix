@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.httpx =
+  flake.nixosModules.apps.httpx =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.httpx ];

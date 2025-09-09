@@ -5,7 +5,7 @@
   # at ~/.config/cloudflare/r2/env (0400). Keep this separate from the base HM
   # module so that home-manager/checks (which load only base/gui) do not fail
   # when sops is not present in the synthetic check environment.
-  flake.modules.homeManager.r2Secrets =
+  flake.homeManagerModules.r2Secrets =
     { config, lib, ... }:
     let
       envFile = "${config.home.homeDirectory}/.config/cloudflare/r2/env";
