@@ -2,6 +2,12 @@ _: {
   configurations.nixos.tec.module =
     { pkgs, lib, ... }:
     {
+      # Temporary host-specific overrides: disable unconfigured services
+      # - Cloudflared Tunnel sample (placeholder UUID)
+      # - ACME Cloudflare DNS-01 sample (placeholder domain/token)
+      # These samples are part of the shared workstation module; until
+      # properly configured on this host, keep them disabled to avoid
+      # failing systemd units during evaluation/build.
       services = {
         # Enable printing
         printing = {
@@ -30,6 +36,9 @@ _: {
         # Enable thumbnail generation
         tumbler.enable = true;
 
+        # Ensure Cloudflared tunnel is disabled until configured
+        cloudflared.enable = lib.mkForce false;
+
         # Enable locate service
         locate = {
           enable = true;
@@ -41,6 +50,12 @@ _: {
 
         # Enable thermald for thermal management
         thermald.enable = true;
+      };
+
+      # Disable ACME sample certs until configured
+      security.acme = {
+        acceptTerms = lib.mkDefault false;
+        certs = lib.mkForce { };
       };
     };
 }
