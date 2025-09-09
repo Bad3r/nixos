@@ -1,90 +1,60 @@
 _: {
   flake.modules.nixos.base =
-    { pkgs, ... }:
+    { pkgs, lib, ... }:
     {
-      environment.systemPackages = with pkgs; [
-        # Core utilities
-        coreutils
-        util-linux
-        procps
-        psmisc
+      # Minimal core defaults. Additional tooling comes from roles or per-app modules.
+      environment.systemPackages = lib.mkBefore (
+        with pkgs;
+        [
+          # Core utilities
+          coreutils
+          util-linux
+          procps
+          psmisc
 
-        # Text processing
-        less
-        diffutils
-        patch
+          # Text processing
+          less
+          diffutils
+          patch
 
-        # File management
-        file
-        findutils
-        gawk
-        gnugrep
-        gnused
-        which
-        tree
-        rsync
+          # File management
+          file
+          findutils
+          gawk
+          gnugrep
+          gnused
+          which
 
-        # Clipboard utilities
-        xclip
-        xsel
+          # Clipboard utilities
+          xclip
+          xsel
 
-        # Network tools
-        curl
-        wget
-        iputils
-        iproute2
-        dnsutils
-        nettools
-        traceroute
-        mtr
-        nmap
-        tcpdump
-        iftop
-        nethogs
+          # Version control (baseline)
+          git
 
-        # Text editors
-        neovim
+          # Shell utilities
+          bash-completion
+          zsh-completions
+          starship
+          zoxide
+          atuin
+          bc
 
-        # System monitoring
-        htop
-        iotop
-        lsof
-        sysstat
+          # System monitoring/info
+          htop
+          lsof
+          sysstat
+          pciutils
+          usbutils
+          lshw
+          dmidecode
 
-        # Version control
-        git
-
-        # Shell utilities
-        bash-completion
-        zsh-completions
-        starship
-        zoxide
-        atuin
-        bc
-
-        # Terminal multiplexers
-        tmux
-        screen
-
-        # System information
-        pciutils
-        usbutils
-        lshw
-        dmidecode
-        exiftool
-
-        # Development basics
-        gnumake
-        gcc
-        binutils
-        pkg-config
-        biome
-
-        # Nix utilities
-        nix-output-monitor
-        nvd
-        nix-tree
-        nil # Nix LSP
-      ];
+          # Nix utilities
+          nix-output-monitor
+          nvd
+          nix-tree
+          nil # Nix LSP
+        ]
+      );
     };
 }
