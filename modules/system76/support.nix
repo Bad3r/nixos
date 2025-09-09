@@ -1,5 +1,5 @@
 _: {
-  flake.modules.nixos.system76-support =
+  flake.nixosModules.system76-support =
     { pkgs, ... }:
     {
       hardware.system76.enableAll = true;

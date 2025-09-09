@@ -1,6 +1,6 @@
 {
 
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { pkgs, lib, ... }:
     {
       # Add media toolchain after other package lists, to avoid surprising overrides

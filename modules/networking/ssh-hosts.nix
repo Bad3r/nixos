@@ -1,6 +1,6 @@
 _: {
   # Provide per-host SSH config via include files under ~/.ssh/hosts/*
-  flake.modules.homeManager.base = args: {
+  flake.homeManagerModules.base = args: {
     home.file = {
       ".ssh/hosts/tailscale".text = ''
         Host tailscale

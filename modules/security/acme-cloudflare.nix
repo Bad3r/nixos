@@ -9,7 +9,7 @@
   # - NixOS ACME: https://search.nixos.org/options?channel=unstable&show=security.acme
   # - Cloudflare DNS challenge: https://developers.cloudflare.com/ssl/edge-certificates/challenges/dns-01/
   # - Example from local docs: nixos_docs_md/222_quick_start.md
-  flake.modules.nixos.workstation =
+  flake.nixosModules.workstation =
     _:
     let
       domain = "doh.unsigned.sh"; # change me (your Cloudflare-managed zone)

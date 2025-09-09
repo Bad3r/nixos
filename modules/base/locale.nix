@@ -1,7 +1,7 @@
 {
-  flake.modules = {
+  flake.nixosModules = {
     # This should be in base namespace since all systems need locale
-    nixos.base =
+    base =
       { pkgs, ... }:
       {
         time.timeZone = "Asia/Riyadh";
@@ -22,6 +22,7 @@
         };
         services.timesyncd.enable = true;
       };
-    homeManager.base.home.sessionVariables.TZ = "Asia/Riyadh";
   };
+
+  flake.homeManagerModules.base.home.sessionVariables.TZ = "Asia/Riyadh";
 }

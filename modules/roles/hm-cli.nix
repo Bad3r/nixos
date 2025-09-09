@@ -1,6 +1,6 @@
 { config, ... }:
 {
-  flake.modules.homeManager.roles.cli.imports = with config.flake.modules.homeManager.apps; [
+  flake.homeManagerModules.roles.cli.imports = with config.flake.homeManagerModules.apps; [
     bat
     eza
     fzf

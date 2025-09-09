@@ -1,7 +1,7 @@
 {
   nixpkgs.allowedUnfreePackages = [ "protonvpn-gui" ];
 
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.protonvpn-gui ];

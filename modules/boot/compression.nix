@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.base = {
+  flake.nixosModules.base = {
     boot.initrd.compressor = "zstd";
   };
 }

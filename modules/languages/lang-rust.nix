@@ -1,6 +1,6 @@
 { config, ... }:
 {
-  flake.modules.nixos.lang.rust.imports = with config.flake.modules.nixos.apps; [
+  flake.nixosModules.lang.rust.imports = with config.flake.nixosModules.apps; [
     rustc
     cargo
   ];
