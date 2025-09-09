@@ -89,4 +89,4 @@ jobs:
       - name: Check import-tree usage
         run: grep -q "import-tree.*modules" flake.nix || exit 1
       - name: Check no literal imports
-        run: '! grep -r "imports.*\\./" modules/ --include="*.nix" || exit 1'
+        run: '! grep -r "imports.*\./" modules/ --include="*.nix" || exit 1'
