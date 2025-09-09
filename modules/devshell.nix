@@ -54,11 +54,11 @@
                 # Currently: keep home-manager squashed (avoid pulling full upstream history into our branch)
                 if [ -d inputs/home-manager ]; then
                   hm_branch=$(git config -f .gitmodules 'submodule.inputs/home-manager.branch' || true)
-                  if [ -z "${hm_branch}" ]; then
+                  if [ -z "''${hm_branch}" ]; then
                     hm_branch="inputs/$(git rev-parse --abbrev-ref HEAD)/home-manager"
                   fi
-                  git -C inputs/home-manager fetch origin "$hm_branch" || true
-                  git -C inputs/home-manager reset --hard "origin/${hm_branch}" >/dev/null 2>&1 || true
+                  git -C inputs/home-manager fetch origin "''${hm_branch}" || true
+                  git -C inputs/home-manager reset --hard "origin/''${hm_branch}" >/dev/null 2>&1 || true
                 fi
 
                 echo "==> Ensuring submodule worktrees are clean"
