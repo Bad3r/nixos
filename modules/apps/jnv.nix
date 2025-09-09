@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.jnv =
+  flake.nixosModules.apps.jnv =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.jnv ];

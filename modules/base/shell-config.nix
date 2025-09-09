@@ -1,6 +1,6 @@
 { inputs, ... }:
 {
-  flake.modules.nixos.base =
+  flake.nixosModules.base =
     { pkgs, ... }:
     {
       imports = [ inputs.nix-index-database.nixosModules.nix-index ];

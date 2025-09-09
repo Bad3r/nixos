@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.go =
+  flake.nixosModules.apps.go =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.go ];

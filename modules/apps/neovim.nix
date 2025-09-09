@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.neovim =
+  flake.nixosModules.apps.neovim =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.neovim ];

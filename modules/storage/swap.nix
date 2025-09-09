@@ -1,6 +1,6 @@
 { lib, ... }:
 {
-  flake.modules.nixos.swap =
+  flake.nixosModules.swap =
     { config, ... }:
     {
       swapDevices = lib.map (n: {

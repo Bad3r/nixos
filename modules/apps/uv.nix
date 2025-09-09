@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.uv =
+  flake.nixosModules.apps.uv =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.uv ];

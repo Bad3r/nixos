@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { pkgs, ... }:
     {
       services.dbus = {

@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.openvpn =
+  flake.nixosModules.apps.openvpn =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.openvpn ];

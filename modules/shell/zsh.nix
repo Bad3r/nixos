@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.workstation = {
+  flake.nixosModules.workstation = {
     programs.zsh = {
       enable = true;
       interactiveShellInit = ''

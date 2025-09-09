@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.base = {
+  flake.nixosModules.base = {
     # Replicate critical functionality from installer/scan/not-detected.nix
     # This module is essential for hardware detection and proper boot
 
