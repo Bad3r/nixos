@@ -1,6 +1,6 @@
 _: {
   flake.modules.nixos.pc =
-    { pkgs, lib, ... }:
+    { lib, pkgs, ... }:
     {
       # Display manager
       services.displayManager.sddm = {
@@ -26,44 +26,7 @@ _: {
         extraPortals = [ pkgs.kdePackages.xdg-desktop-portal-kde ];
       };
 
-      # KDE Packages
-      environment.systemPackages = with pkgs; [
-        # Core KDE apps
-        kdePackages.kate # Text editor
-        kdePackages.kdenlive # Video editor
-        kdePackages.ark # Archive manager
-        kdePackages.okular # Document viewer
-        kdePackages.gwenview # Image viewer
-        kdePackages.spectacle # Screenshot tool
-        kdePackages.kcalc # Calculator
-        kdePackages.kcolorchooser # Color picker
-        kdePackages.partitionmanager # Disk management
-        kdePackages.kdeconnect-kde # Phone integration
-
-        # Additional KDE utilities
-        kdePackages.filelight # Disk usage analyzer
-        kdePackages.kdf # Disk free utility
-        kdePackages.kcharselect # Character selector
-        kdePackages.kfind # File search
-        kdePackages.kruler # Screen ruler
-        kdePackages.kwalletmanager # Wallet management
-        kdePackages.ktimer # Timer
-        kdePackages.sweeper # System cleaner
-        kdePackages.kdialog # CLI dialogs/notifications
-
-        # Theming
-        kdePackages.breeze-gtk
-        kdePackages.breeze-icons
-
-        # System tools
-        kdePackages.plasma-systemmonitor
-        kdePackages.ksystemlog
-
-        # Additional apps that integrate well with Plasma
-        kdePackages.yakuake # Drop-down terminal
-
-        # Plasma widgets and addons (includes Split Digital Clock, Win7 Show Desktop, etc.)
-        kdePackages.kdeplasma-addons
-      ];
+      # Keep packages out of the service wiring; see plasma-defaults.nix and per-app modules
+      environment.systemPackages = lib.mkBefore [ ];
     };
 }

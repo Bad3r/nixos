@@ -1,13 +1,17 @@
 {
   flake.modules.homeManager.base =
-    { pkgs, ... }:
+    { pkgs, lib, ... }:
     {
-      home.packages = with pkgs; [
-        bat
-        eza
-        fd
-        ripgrep
-        tree
-      ];
+      # Ensure these land before user-added packages, to allow later overrides
+      home.packages = lib.mkBefore (
+        with pkgs;
+        [
+          bat
+          eza
+          fd
+          ripgrep
+          tree
+        ]
+      );
     };
 }

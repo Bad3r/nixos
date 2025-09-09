@@ -1,19 +1,17 @@
 _: {
   flake.modules.nixos.pc =
-    { pkgs, ... }:
+    { pkgs, lib, ... }:
     {
-      # Install kitty system-wide
-      environment.systemPackages = [ pkgs.kitty ];
+      # Install kitty early in the list so later roles/users can override
+      environment.systemPackages = lib.mkBefore [ pkgs.kitty ];
 
-      # Set kitty as the default terminal
-      environment.variables = {
-        TERMINAL = "kitty";
-      };
+      # Set kitty as the default terminal unless overridden later
+      environment.variables.TERMINAL = lib.mkDefault "kitty";
 
-      # Configure XDG mime associations for terminal
+      # Configure XDG mime associations for terminal (can be overridden later)
       xdg.mime.defaultApplications = {
-        "application/x-terminal-emulator" = "kitty.desktop";
-        "x-scheme-handler/terminal" = "kitty.desktop";
+        "application/x-terminal-emulator" = lib.mkDefault "kitty.desktop";
+        "x-scheme-handler/terminal" = lib.mkDefault "kitty.desktop";
       };
     };
 }

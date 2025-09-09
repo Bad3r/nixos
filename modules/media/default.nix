@@ -1,9 +1,10 @@
 {
 
   flake.modules.nixos.pc =
-    { pkgs, ... }:
+    { pkgs, lib, ... }:
     {
-      environment.systemPackages =
+      # Add media toolchain after other package lists, to avoid surprising overrides
+      environment.systemPackages = lib.mkAfter (
         with pkgs;
         [
           mpv
@@ -20,6 +21,7 @@
           gst-plugins-good
           gst-plugins-ugly
           gst-vaapi
-        ]);
+        ])
+      );
     };
 }
