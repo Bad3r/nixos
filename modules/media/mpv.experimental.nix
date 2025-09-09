@@ -1,7 +1,7 @@
 # modules/video-player.nix (experimental HM config)
 {
   flake.modules.homeManager.gui =
-    { pkgs, config, ... }:
+    { pkgs, ... }:
     {
       programs.mpv = {
         enable = true;
@@ -53,8 +53,8 @@
           #
         ];
       };
-      # Add Lua script to block images
-      home.file."${config.xdg.configHome}/mpv/scripts/block-images.lua".text = ''
+      # Add Lua script to block images (store under XDG config)
+      xdg.configFile."mpv/scripts/block-images.lua".text = ''
         local blocked_extensions = {
           jpg = true, jpeg = true, png = true,
           webp = true, bmp = true, tiff = true,
