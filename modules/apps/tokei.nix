@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.tokei =
+  flake.nixosModules.apps.tokei =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.tokei ];

@@ -1,5 +1,5 @@
 {
-  flake.modules.homeManager.base = _: {
+  flake.homeManagerModules.base = _: {
     programs.fzf = {
       enable = true;
       enableZshIntegration = true;

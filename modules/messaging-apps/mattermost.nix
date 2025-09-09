@@ -3,7 +3,7 @@
     "mattermost-desktop"
   ];
 
-  flake.modules.nixos.pc =
+  flake.nixosModules.pc =
     { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [

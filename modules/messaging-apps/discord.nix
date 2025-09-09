@@ -3,7 +3,7 @@
     "discord"
   ];
 
-  flake.modules.homeManager.gui =
+  flake.homeManagerModules.gui =
     { pkgs, ... }:
     {
       home.packages = with pkgs; [

@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.httpie =
+  flake.nixosModules.apps.httpie =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.httpie ];

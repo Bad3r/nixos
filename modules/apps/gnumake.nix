@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.gnumake =
+  flake.nixosModules.apps.gnumake =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.gnumake ];

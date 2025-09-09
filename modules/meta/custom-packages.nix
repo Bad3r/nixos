@@ -32,7 +32,7 @@
       };
     };
 
-  flake.modules.nixos.workstation =
+  flake.nixosModules.workstation =
     { pkgs, ... }:
     {
       environment.systemPackages = [

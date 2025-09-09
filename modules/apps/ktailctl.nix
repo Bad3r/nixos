@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.apps.ktailctl =
+  flake.nixosModules.apps.ktailctl =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.ktailctl ];

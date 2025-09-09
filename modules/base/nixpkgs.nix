@@ -1,5 +1,5 @@
 {
-  flake.modules.nixos.base =
+  flake.nixosModules.base =
     { config, lib, ... }:
     {
       nix.nixPath = lib.mkDefault [

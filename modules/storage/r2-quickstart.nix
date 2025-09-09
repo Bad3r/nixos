@@ -14,7 +14,7 @@
   # - S3 compatibility: https://developers.cloudflare.com/r2/api/s3/
   # rclone S3 docs: https://rclone.org/s3/
   # s5cmd docs: https://github.com/peak/s5cmd
-  flake.modules.nixos.workstation = _: {
+  flake.nixosModules.workstation = _: {
     environment.etc = {
       "cloudflare-r2/README".text = ''
         Cloudflare R2 quickstart files (examples)
