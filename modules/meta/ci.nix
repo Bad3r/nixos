@@ -5,6 +5,8 @@ _: {
     { pkgs, ... }:
     let
       githubTokenRef = "\${{ secrets.GITHUB_TOKEN }}";
+      # Avoid triggering compliance grep for literal path imports by composing the pattern
+      importsPattern = "im" + "ports.*\\./";
       workflow = ''
         name: Dendritic Pattern Compliance Check
         on:
@@ -97,7 +99,7 @@ _: {
               - name: Check import-tree usage
                 run: grep -q "import-tree.*modules" flake.nix || exit 1
               - name: Check no literal imports
-                run: '! grep -r "imports.*\\./" modules/ --include="*.nix" || exit 1'
+                run: '! grep -r "${importsPattern}" modules/ --include="*.nix" || exit 1'
       '';
     in
     {
