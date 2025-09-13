@@ -14,6 +14,70 @@ This means files can be moved around and nested in directories freely.
 > [!NOTE]
 > This pattern has been the inspiration of [an auto-imports library, import-tree](https://github.com/vic/import-tree).
 
+## Module Aggregators
+
+This flake exposes two mergeable aggregators:
+
+- `flake.nixosModules`: NixOS modules (freeform, nested namespaces allowed)
+- `flake.homeManagerModules`: Home Manager modules (freeform; with `base`, `gui`, and per-app under `apps`)
+
+Modules register themselves under these namespaces (e.g., `flake.nixosModules.pc`, `flake.homeManagerModules.base`).
+Composition uses named references, for example:
+
+```nix
+{ config, ... }:
+{
+  configurations.nixos.myhost.module = {
+    imports = with config.flake.nixosModules; [ base pc workstation ];
+  };
+}
+```
+
+Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules to avoid ordering issues.
+### Roles and App Composition
+
+- Roles are assembled from per-app modules under `flake.nixosModules.apps`.
+- To avoid import-order brittleness, resolve apps with `lib.hasAttrByPath` and `lib.getAttrFromPath` rather than `with`.
+- Stable role aliases are provided for hosts:
+
+  - `flake.nixosModules."role-dev"`
+  - `flake.nixosModules."role-media"`
+  - `flake.nixosModules."role-net"`
+
+Example host composition using aliases:
+
+```nix
+{ config, ... }:
+{
+  configurations.nixos.system76.module = {
+    imports =
+      (with config.flake.nixosModules; [
+        workstation
+        nvidia-gpu
+      ])
+      ++ [
+        config.flake.nixosModules."role-dev"
+      ];
+  };
+}
+```
+
+For a complete, type-correct composition plan and guidance, see
+`docs/RFC-001.md`.
+## Development Shell
+
+Enter the development shell:
+
+```bash
+nix develop
+```
+
+Useful commands:
+
+- `nix fmt` – format files
+- `pre-commit run --all-files` – run all hooks
+- `update-input-branches` – rebase vendored inputs, push inputs/* branches, and commit updated gitlinks
+- `nix flake check` – validate the flake
 ## Generated files
 
 The following files in this repository are generated and checked
