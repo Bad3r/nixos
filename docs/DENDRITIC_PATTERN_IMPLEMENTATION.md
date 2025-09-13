@@ -187,7 +187,7 @@ Create `modules/base.nix`:
 ```nix
 { lib, config, inputs, ... }:
 {
-  flake.modules.nixos.base = { pkgs, ... }: {
+  flake.nixosModules.base = { pkgs, ... }: {
     # Essential for all systems
     system.stateVersion = "24.11";  # Set to your NixOS version
 
@@ -236,8 +236,8 @@ Create `modules/pc.nix` for desktop/laptop systems:
 ```nix
 { config, ... }:
 {
-  flake.modules.nixos.pc = { pkgs, ... }: {
-    imports = [ config.flake.modules.nixos.base ];
+  flake.nixosModules.pc = { pkgs, ... }: {
+    imports = [ config.flake.nixosModules.base ];
 
     # GUI-related configuration
     services.xserver = {
@@ -273,8 +273,8 @@ Create `modules/laptop.nix` for laptop-specific features:
 ```nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.laptop = { ... }: {
-    imports = [ config.flake.modules.nixos.pc ];
+  flake.nixosModules.laptop = { ... }: {
+    imports = [ config.flake.nixosModules.pc ];
 
     # Power management
     services.tlp = {
@@ -311,8 +311,8 @@ Create `modules/server.nix` for server systems:
 ```nix
 { config, ... }:
 {
-  flake.modules.nixos.server = { ... }: {
-    imports = [ config.flake.modules.nixos.base ];
+  flake.nixosModules.server = { ... }: {
+    imports = [ config.flake.nixosModules.base ];
 
     # Server-specific settings
     services.openssh.settings.PermitRootLogin = "prohibit-password";
@@ -352,7 +352,7 @@ Create `modules/mysystem/imports.nix`:
 { config, ... }:
 {
   configurations.nixos.mysystem.module = {
-    imports = with config.flake.modules.nixos; [
+    imports = with config.flake.nixosModules; [
       base
       pc
       # Add other modules as needed
@@ -430,7 +430,7 @@ Create `modules/home-manager/nixos.nix`:
 ```nix
 { config, inputs, lib, ... }:
 {
-  flake.modules.nixos.base = {
+  flake.nixosModules.base = {
     imports = [ inputs.home-manager.nixosModules.home-manager ];
 
     home-manager = {
@@ -454,7 +454,7 @@ Create `modules/home-manager/base.nix`:
 ```nix
 { config, ... }:
 {
-  flake.modules.homeManager.base = { ... }: {
+  flake.homeManagerModules.base = { ... }: {
     # Essential for all users
     home.stateVersion = "24.11";
     programs.home-manager.enable = true;
@@ -480,7 +480,7 @@ Create `modules/users/myuser.nix`:
 { config, ... }:
 {
   # System-level user configuration
-  flake.modules.nixos.base = { pkgs, ... }: {
+  flake.nixosModules.base = { pkgs, ... }: {
     users.users.myuser = {
       isNormalUser = true;
       description = "My User";
@@ -490,12 +490,12 @@ Create `modules/users/myuser.nix`:
 
     # Link to Home Manager
     home-manager.users.myuser = {
-      imports = [ config.flake.modules.homeManager.base ];
+      imports = [ config.flake.homeManagerModules.base ];
     };
   };
 
   # Home Manager configuration
-  flake.modules.homeManager.base = { pkgs, ... }: {
+  flake.homeManagerModules.base = { pkgs, ... }: {
     home.username = "myuser";
     home.homeDirectory = "/home/myuser";
 
@@ -565,7 +565,7 @@ Create `modules/nvidia-gpu.nix`:
 ```nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.nvidia-gpu = { config, ... }: {
+  flake.nixosModules.nvidia-gpu = { config, ... }: {
     # Only for systems that import this module
     services.xserver.videoDrivers = [ "nvidia" ];
 
@@ -595,7 +595,7 @@ Create `modules/development.nix`:
 { config, ... }:
 {
   # NixOS-level development tools
-  flake.modules.nixos.development = { pkgs, ... }: {
+  flake.nixosModules.development = { pkgs, ... }: {
     virtualisation.docker.enable = true;
     programs.direnv.enable = true;
 
@@ -608,7 +608,7 @@ Create `modules/development.nix`:
   };
 
   # Home Manager development setup
-  flake.modules.homeManager.development = { pkgs, ... }: {
+  flake.homeManagerModules.development = { pkgs, ... }: {
     programs.vscode = {
       enable = true;
       extensions = with pkgs.vscode-extensions; [
@@ -648,7 +648,7 @@ Create `modules/backup.nix`:
   };
 
   config = lib.mkIf config.flake.backup.enable {
-    flake.modules.nixos.base = { pkgs, ... }: {
+    flake.nixosModules.base = { pkgs, ... }: {
       services.restic.backups.main = {
         repository = config.flake.backup.repository;
         paths = config.flake.backup.paths;
@@ -751,7 +751,7 @@ Create `modules/packages/cli-tools.nix`:
 ```nix
 { ... }:
 {
-  flake.modules.nixos.base = { pkgs, ... }: {
+  flake.nixosModules.base = { pkgs, ... }: {
     environment.systemPackages = with pkgs; [
       # File management
       tree
@@ -781,7 +781,7 @@ Create `modules/services/nginx.nix`:
 ```nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.webserver = { ... }: {
+  flake.nixosModules.webserver = { ... }: {
     services.nginx = {
       enable = true;
       recommendedProxySettings = true;
@@ -802,7 +802,7 @@ Create `modules/hardware/auto-detect.nix`:
 ```nix
 { lib, ... }:
 {
-  flake.modules.nixos.base = { config, ... }: {
+  flake.nixosModules.base = { config, ... }: {
     # Auto-detect video drivers
     services.xserver.videoDrivers = lib.mkDefault (
       if config.hardware.nvidia.modesetting.enable then [ "nvidia" ]
