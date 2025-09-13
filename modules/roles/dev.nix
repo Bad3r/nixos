@@ -24,6 +24,9 @@
       valgrind
       strace
       ltrace
+      # FHS-based dev tools
+      vscodeFhs
+      kiroFhs
     ])
     # Include Node dev namespace bundle (runtime + package managers)
     ++ [ config.flake.nixosModules.dev.node ];

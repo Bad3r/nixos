@@ -5,9 +5,9 @@
       (with config.flake.nixosModules; [
         workstation
         nvidia-gpu
+        roles.dev
       ])
       ++ [
-        config.flake.nixosModules.roles."dev-fhs"
         config.flake.nixosModules."warp-client"
         inputs.nixos-hardware.nixosModules.system76
       ];
