@@ -19,8 +19,8 @@
       inherit (config.nix) settings;
     };
 
-    flake.homeManagerModules.base.nix = {
-      inherit (config.nix) settings;
+    flake.homeManagerModules.base = _: {
+      nix.settings = config.nix.settings;
     };
   };
 }
