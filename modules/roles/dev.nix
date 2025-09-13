@@ -1,7 +1,8 @@
 { config, ... }:
 {
   # Development role: aggregate per-app modules via the apps namespace.
-  flake.nixosModules.roles.dev.imports =
+  # Expose under a flat key to avoid ordering issues when importing.
+  flake.nixosModules."role-dev".imports =
     (with config.flake.nixosModules.apps; [
       # editors
       neovim
