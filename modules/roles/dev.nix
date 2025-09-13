@@ -34,6 +34,7 @@
         "nodejs_22"
         "nodejs_24"
         "yarn"
+        "nrm"
         # FHS-based dev tools
         "vscodeFhs"
         "kiroFhs"
@@ -42,7 +43,5 @@
       getApp = name: lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules;
       apps = map getApp (lib.filter hasApp names);
     in
-    apps
-    # Include Node dev namespace bundle (runtime + package managers)
-    ++ [ config.flake.nixosModules.dev.node ];
+    apps;
 }
