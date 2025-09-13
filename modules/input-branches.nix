@@ -69,15 +69,26 @@
               ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
               cd "$ROOT"
 
-              # Determine current branch and update the local remote-tracking ref
+              # Determine current branch
               SP_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
-              # Ensure we have the latest origin/<branch> to compute changed submodules
-              git fetch --no-tags --quiet origin "+refs/heads/$SP_BRANCH:refs/remotes/origin/$SP_BRANCH" --depth=1 || true
 
-              BASE="origin/$SP_BRANCH"
-              if ! git rev-parse --verify -q "$BASE" >/dev/null; then
-                # Fallback to the root commit if the remote branch is missing
-                BASE=$(git rev-list --max-parents=0 HEAD | tail -n1)
+              # Prefer remote base from Git's pre-push stdin (format: local_sha local_ref remote_sha remote_ref)
+              BASE=""
+              # shellcheck disable=SC2034 # LOCAL_* and REMOTE_* used for clarity; only REMOTE_SHA is needed
+              if read -r LOCAL_SHA LOCAL_REF REMOTE_SHA REMOTE_REF; then
+                if [ -n "''${REMOTE_SHA:-}" ] && [ "''${REMOTE_SHA:-0000000}" != "0000000000000000000000000000000000000000" ]; then
+                  BASE="$REMOTE_SHA"
+                fi
+              fi < /dev/stdin || true
+
+              # Fallbacks when pre-push stdin didn't provide a remote base
+              if [ -z "$BASE" ]; then
+                if git rev-parse --verify -q "origin/$SP_BRANCH" >/dev/null; then
+                  BASE="origin/$SP_BRANCH"
+                else
+                  # Last resort: use the root commit
+                  BASE=$(git rev-list --max-parents=0 HEAD | tail -n1)
+                fi
               fi
 
               # Determine which input submodules changed in this push range
@@ -155,7 +166,8 @@
                         echo "Provenance OK: upstream sha is reachable (status=$status)."
                       else
                         [ -n "$status" ] || status="unknown"
-                        echo "Warning: provenance check inconclusive for $name (status=$status)." >&2
+                        echo "Error: provenance check failed for $name (status=$status)." >&2
+                        exit 1
                       fi
                       ;;
                     *) ;;
