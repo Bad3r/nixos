@@ -6,7 +6,7 @@ This checklist provides a systematic approach to reviewing and evaluating the cu
 
 - [ ] Enter development shell: `nix develop`
 - [ ] Ensure working directory is `/home/vx/nixos`
-- [ ] Check current host: `hostname` (should be `system76` or `tec`)
+- [ ] Check current host: `hostname` (should be `system76`)
 - [ ] Note current generation: `generation-manager current`
 
 ## 1. Code Quality & Compliance
@@ -111,16 +111,7 @@ This checklist provides a systematic approach to reviewing and evaluating the cu
 - [ ] Check for overlays: `grep -r "nixpkgs.overlays" modules/system76/`
 - [ ] Verify system.stateVersion: `grep "system.stateVersion" modules/system76/*.nix`
 
-### Tec Host (if applicable)
 
-- [ ] Review boot configuration: `cat modules/tec/boot.nix`
-  - [ ] LUKS encryption configured
-  - [ ] ext4 filesystem settings correct
-  - [ ] Boot loader configured properly
-- [ ] Check Intel graphics: No dedicated GPU module needed
-- [ ] Verify network settings: `cat modules/tec/network.nix`
-- [ ] Check for overlays: `grep -r "nixpkgs.overlays" modules/tec/`
-- [ ] Verify system.stateVersion: `grep "system.stateVersion" modules/tec/*.nix`
 
 ### Common Host Settings
 

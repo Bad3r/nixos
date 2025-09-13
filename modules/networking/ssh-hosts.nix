@@ -27,8 +27,6 @@ _: {
         Host system76.local
           IdentityFile ~/.ssh/id_ed25519
       '';
-
-      # tec host retired; keep entry removed
     };
   };
 }
