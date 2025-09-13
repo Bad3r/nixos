@@ -34,6 +34,7 @@ Composition uses named references, for example:
 ```
 
 Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules to avoid ordering issues.
+
 ## Development Shell
 
 Enter the development shell:
@@ -46,8 +47,9 @@ Useful commands:
 
 - `nix fmt` – format files
 - `pre-commit run --all-files` – run all hooks
-- `update-input-branches` – rebase vendored inputs, push inputs/* branches, and commit updated gitlinks
+- `update-input-branches` – rebase vendored inputs, push inputs/\* branches, and commit updated gitlinks
 - `nix flake check` – validate the flake
+
 ## Generated files
 
 The following files in this repository are generated and checked
