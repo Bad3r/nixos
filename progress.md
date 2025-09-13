@@ -2,5 +2,5 @@
 
 - fix(media): mpv HM module now uses `xdg.configFile` and removes unused param; flake checks pass.
 - feat(office): added `modules/office/planify.nix` to include `pkgs.planify` in `pc` systemPackages.
- - refactor(flake): moved `flake.meta` → `flake.lib.meta`, introduced `flake.nixosModules`/`flake.homeManagerModules`, and set flake-parts `systems = ["x86_64-linux"]` to address unknown output and incompatible systems warnings.
- - refactor(modules): codemodded ~125 modules from `flake.modules.*` to recognized `nixosModules`/`homeManagerModules` namespaces; continue with remaining files next.
+- refactor(flake): moved `flake.meta` → `flake.lib.meta`, introduced `flake.nixosModules`/`flake.homeManagerModules`, and set flake-parts `systems = ["x86_64-linux"]` to address unknown output and incompatible systems warnings.
+- refactor(modules): codemodded ~125 modules from `flake.modules.*` to recognized `nixosModules`/`homeManagerModules` namespaces; continue with remaining files next.

@@ -3,6 +3,9 @@ _: {
     { pkgs, lib, ... }:
     {
       services = {
+        # Disable samples and network clients until configured on this host
+        cloudflared.enable = lib.mkForce false;
+        cloudflare-warp.enable = lib.mkForce false;
         # Enable printing
         printing = {
           enable = lib.mkDefault true;
@@ -36,6 +39,12 @@ _: {
           enable = true;
           package = pkgs.plocate;
         };
+      };
+
+      # Disable ACME sample certs until configured with real domain/token
+      security.acme = {
+        acceptTerms = lib.mkDefault false;
+        certs = lib.mkForce { };
       };
     };
 }

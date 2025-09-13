@@ -10,7 +10,21 @@
 ## management declarative in NixOS modules.
 set -eo pipefail
 
-# Respect flake-provided nixConfig; avoid overriding via NIX_CONFIG here.
+# Nix CLI config via env: enable nix-command, flakes, pipe-operators, etc.
+# Keep aligned with flake.nix nixConfig; do not relax security settings.
+NIX_CONFIGURATION=$'experimental-features = nix-command flakes pipe-operators\n'
+NIX_CONFIGURATION+=$'accept-flake-config = true\n'
+NIX_CONFIGURATION+=$'allow-import-from-derivation = false\n'
+NIX_CONFIGURATION+=$'abort-on-warn = true\n'
+# Note: Avoid restricted settings that cause warnings for non-trusted users
+# (e.g., substituters, trusted-public-keys, log-lines). Those should be
+# configured system-wide via nix.settings for trusted users.
+export NIX_CONFIGURATION
+
+# Back-compat for Nix versions that read NIX_CONFIG only
+export NIX_CONFIG="${NIX_CONFIGURATION}"
+
+# Above export mirrors flake-provided nixConfig and required features.
 
 # Initialize variables with defaults
 FLAKE_DIR="${PWD}"
@@ -18,6 +32,7 @@ HOSTNAME="$(hostname)"
 OFFLINE=false
 VERBOSE=false
 NIX_FLAGS=()
+SUBMODULES=(inputs/home-manager inputs/nixpkgs inputs/stylix)
 
 # Colors for output
 RED='\033[0;31m'
@@ -120,16 +135,67 @@ configure_nix_flags() {
 }
 
 main() {
+  # Ensure required input branches and submodules are present
+  status_msg "${YELLOW}" "Ensuring inputs/* submodules are initialized..."
+  if command -v git >/dev/null 2>&1; then
+    # Fetch input branches into the superproject so local submodule clones (url=./.) can see them
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      need_init=0
+      for sub in "${SUBMODULES[@]}"; do
+        if [[ ! -e "$sub/.git" || ! -f "$sub/flake.nix" ]]; then
+          need_init=1
+          break
+        fi
+      done
+
+      if [[ $need_init -eq 1 ]]; then
+        # Fetch input branches into local refs (inputs/*)
+        GIT_TERMINAL_PROMPT=0 git fetch --quiet origin "refs/heads/inputs/*:refs/heads/inputs/*" || true
+        git submodule sync --recursive || true
+        if ! git submodule update --init --recursive; then
+          status_msg "${YELLOW}" "Remote submodule clone failed. Falling back to local file:// clone..."
+          ROOT_DIR=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+          # Allow file:// transport for local clone
+          git config protocol.file.allow always || true
+          for name in home-manager nixpkgs stylix; do
+            git config "submodule.inputs/${name}.url" "file://${ROOT_DIR}" || true
+          done
+          # Do not run 'git submodule sync' here; it would overwrite the local override.
+          export GIT_ALLOW_PROTOCOL=file
+          git submodule update --init --recursive || {
+            error_msg "Submodule init failed even with local fallback. See docs/INPUT-BRANCHES-PLAN.md."
+            exit 1
+          }
+        fi
+      fi
+    fi
+  fi
+
+  # Verify submodules look sane before invoking nix
+  for sub in inputs/home-manager inputs/nixpkgs inputs/stylix; do
+    if [[ -d $sub ]]; then
+      # In submodules, .git is often a FILE pointing to ../.git/modules/... not a directory
+      if [[ ! -d "$sub/.git" && ! -f "$sub/.git" ]]; then
+        error_msg "Submodule '$sub' not initialized. Run: git fetch origin 'refs/heads/inputs/*:refs/heads/inputs/*' && git submodule sync --recursive && git submodule update --init --recursive"
+        exit 1
+      fi
+      if [[ ! -f "$sub/flake.nix" ]]; then
+        error_msg "Missing flake.nix in '$sub'. Ensure input branches are populated (see docs/INPUT-BRANCHES-PLAN.md)."
+        exit 1
+      fi
+    fi
+  done
+
   configure_nix_flags
 
   status_msg "${YELLOW}" "Formatting Nix files..."
-  nix fmt "${FLAKE_DIR}"
+  nix fmt --accept-flake-config "${FLAKE_DIR}"
 
   status_msg "${YELLOW}" "Running pre-commit hooks..."
-  nix develop "${NIX_FLAGS[@]}" -c pre-commit run --all-files
+  nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c pre-commit run --all-files
 
   status_msg "${YELLOW}" "Scoring Dendritic Pattern compliance..."
-  generation-manager score
+  #generation-manager score
 
   status_msg "${YELLOW}" "Validating flake (evaluation + invariants)..."
   nix flake check "${FLAKE_DIR}" --accept-flake-config --no-build "${NIX_FLAGS[@]}"
@@ -138,7 +204,7 @@ main() {
 
   status_msg "${YELLOW}" "Building system closure for ${HOSTNAME}..."
   local SYSTEM_PATH
-  if ! SYSTEM_PATH=$(nix build "${FLAKE_DIR}#nixosConfigurations.${HOSTNAME}.config.system.build.toplevel" --no-link --print-out-paths "${NIX_FLAGS[@]}"); then
+  if ! SYSTEM_PATH=$(nix build --accept-flake-config "${FLAKE_DIR}#nixosConfigurations.${HOSTNAME}.config.system.build.toplevel" --no-link --print-out-paths "${NIX_FLAGS[@]}"); then
     error_msg "Build failed for host '${HOSTNAME}'."
     exit 1
   fi

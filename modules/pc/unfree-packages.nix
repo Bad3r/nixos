@@ -16,8 +16,8 @@
           allowUnfreePredicate = predicate;
         };
       };
-    };
 
-  config.flake.lib.meta.nixpkgs.allowedUnfreePackages = config.nixpkgs.allowedUnfreePackages;
+      lib.meta.nixpkgs.allowedUnfreePackages = config.nixpkgs.allowedUnfreePackages;
+    };
 
 }

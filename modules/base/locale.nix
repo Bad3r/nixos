@@ -24,5 +24,7 @@
       };
   };
 
-  flake.homeManagerModules.base.home.sessionVariables.TZ = "Asia/Riyadh";
+  flake.homeManagerModules.base = _: {
+    home.sessionVariables.TZ = "Asia/Riyadh";
+  };
 }

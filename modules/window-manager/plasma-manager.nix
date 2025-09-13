@@ -1,7 +1,7 @@
 { inputs, ... }:
 {
-  flake.homeManagerModules.pc = {
-    imports = [ inputs.plasma-manager.homeManagerModules.plasma-manager ];
+  flake.homeManagerModules.gui = {
+    imports = [ inputs.plasma-manager.homeModules.plasma-manager ];
 
     programs.plasma = {
       enable = true;
@@ -93,11 +93,11 @@
         };
       };
 
-      # Configure desktop effects
+      # Configure KWin settings and effects
       kwin = {
         effects = {
           dimAdminMode.enable = true;
-          slide.enable = true;
+          desktopSwitching.animation = "slide";
           cube.enable = false;
           wobblyWindows.enable = false;
         };
