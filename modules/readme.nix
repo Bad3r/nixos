@@ -4,6 +4,8 @@
     order = [
       "intro"
       "automatic-import"
+      "aggregators"
+      "devshell"
       "files"
       "flake-inputs-dedupe-prefix"
       "disallow-warnings"
@@ -64,6 +66,50 @@
           > [!NOTE]
           > This pattern has been the inspiration of [an auto-imports library, import-tree](https://github.com/vic/import-tree).
 
+        '';
+
+      aggregators =
+        # markdown
+        ''
+          ## Module Aggregators
+
+          This flake exposes two mergeable aggregators:
+
+          - `flake.nixosModules`: NixOS modules (freeform, nested namespaces allowed)
+          - `flake.homeManagerModules`: Home Manager modules (freeform; with `base`, `gui`, and per-app under `apps`)
+
+          Modules register themselves under these namespaces (e.g., `flake.nixosModules.pc`, `flake.homeManagerModules.base`).
+          Composition uses named references, for example:
+
+          ```nix
+          { config, ... }:
+          {
+            configurations.nixos.myhost.module = {
+              imports = with config.flake.nixosModules; [ base pc workstation ];
+            };
+          }
+          ```
+
+          Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules to avoid ordering issues.
+        '';
+
+      devshell =
+        # markdown
+        ''
+          ## Development Shell
+
+          Enter the development shell:
+
+          ```bash
+          nix develop
+          ```
+
+          Useful commands:
+
+          - `nix fmt` – format files
+          - `pre-commit run --all-files` – run all hooks
+          - `update-input-branches` – rebase vendored inputs, push inputs/* branches, and commit updated gitlinks
+          - `nix flake check` – validate the flake
         '';
     };
   };
