@@ -1,14 +1,17 @@
 { config, ... }:
 {
-  # Development role: aggregate precise per-app modules via apps namespace
+  # Development role: aggregate per-app modules via the apps namespace.
   flake.nixosModules.roles.dev.imports =
     (with config.flake.nixosModules.apps; [
+      # editors
       neovim
       vim
+      # build tools
       cmake
       gcc
       gnumake
       pkg-config
+      # JSON/YAML/tools
       jq
       yq
       jnv
@@ -20,10 +23,15 @@
       tealdeer
       httpie
       mitmproxy
+      # debugging
       gdb
       valgrind
       strace
       ltrace
+      # Node toolchains and managers
+      nodejs_22
+      nodejs_24
+      yarn
       # FHS-based dev tools
       vscodeFhs
       kiroFhs
