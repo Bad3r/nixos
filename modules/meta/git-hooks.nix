@@ -255,6 +255,50 @@
                 verbose = false;
               };
           };
+
+          # Enforce: forbid `with config.flake.nixosModules.apps;` usage in roles
+          forbid-with-apps-in-roles =
+            let
+              checker = pkgs.writeShellApplication {
+                name = "forbid-with-apps-in-roles";
+                runtimeInputs = [
+                  pkgs.ripgrep
+                  pkgs.gnugrep
+                  pkgs.coreutils
+                ];
+                text = ''
+                  set -euo pipefail
+                  cd "$(git rev-parse --show-toplevel)"
+                  PATTERN='with\s+config\.flake\.nixosModules\.apps\s*;'
+                  # Prefer ripgrep if available
+                  if command -v rg >/dev/null 2>&1; then
+                    if rg -n -S -e "$PATTERN" --glob '*.nix' modules/roles >/dev/null; then
+                      echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/*.nix" >&2
+                      echo "  Use helpers: config.flake.lib.nixos.getApp/getApps with explicit string names." >&2
+                      echo "  See docs/RFC-001.md for guidance." >&2
+                      rg -n -S -e "$PATTERN" --glob '*.nix' modules/roles || true
+                      exit 1
+                    fi
+                  else
+                    if grep -R -n -E "$PATTERN" --include='*.nix' modules/roles >/dev/null 2>&1; then
+                      echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/*.nix" >&2
+                      echo "  Use helpers: config.flake.lib.nixos.getApp/getApps with explicit string names." >&2
+                      echo "  See docs/RFC-001.md for guidance." >&2
+                      grep -R -n -E "$PATTERN" --include='*.nix' modules/roles || true
+                      exit 1
+                    fi
+                  fi
+                '';
+              };
+            in
+            {
+              enable = true;
+              name = "forbid-with-apps-in-roles";
+              entry = lib.getExe checker;
+              pass_filenames = false;
+              always_run = true;
+              verbose = true;
+            };
         };
       };
     };
