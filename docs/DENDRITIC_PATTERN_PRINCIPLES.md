@@ -76,7 +76,7 @@ The pattern solves these problems through:
 # modules/mysystem/imports.nix
 { config, ... }: {
   configurations.nixos.mysystem.module = {
-    imports = with config.flake.modules.nixos; [
+    imports = with config.flake.nixosModules; [
       base
       desktop
       # Reference by name, not path
@@ -174,19 +174,19 @@ Is this configuration needed by all systems?
 
 ### Examples of Good Named Modules
 
-✅ **`flake.modules.nixos.laptop`**
+✅ **`flake.nixosModules.laptop`**
 
 - Needed by: Laptop systems
 - Not needed by: Desktops, servers
 - Contains: Battery management, Wi-Fi, touchpad
 
-✅ **`flake.modules.nixos.development`**
+✅ **`flake.nixosModules.development`**
 
 - Needed by: Development machines
 - Not needed by: Production servers, kiosks
 - Contains: Compilers, editors, debugging tools
 
-✅ **`flake.modules.nixos.nvidia-gpu`**
+✅ **`flake.nixosModules.nvidia-gpu`**
 
 - Needed by: Systems with NVIDIA GPUs
 - Not needed by: Systems with AMD/Intel graphics
@@ -194,17 +194,17 @@ Is this configuration needed by all systems?
 
 ### Examples of Bad Named Modules
 
-❌ **`flake.modules.nixos.nix-settings`**
+❌ **`flake.nixosModules.nix-settings`**
 
 - Why bad: Every NixOS system needs Nix
 - Better: Extend `base` module directly
 
-❌ **`flake.modules.nixos.single-package`**
+❌ **`flake.nixosModules.single-package`**
 
 - Why bad: Too granular, creates module proliferation
 - Better: Group related packages in semantic modules
 
-❌ **`flake.modules.nixos.my-specific-server`**
+❌ **`flake.nixosModules.my-specific-server`**
 
 - Why bad: Only used by one system
 - Better: Put directly in that system's configuration
@@ -235,7 +235,7 @@ Is this configuration needed by all systems?
    ```nix
    # modules/git/enable.nix
    {
-     flake.modules.homeManager.base.programs.git.enable = true;
+     flake.homeManagerModules.base.programs.git.enable = true;
    }
    ```
 
@@ -244,7 +244,7 @@ Is this configuration needed by all systems?
    ```nix
    # modules/shells/bash.nix
    {
-     flake.modules.homeManager.base.programs.bash = {
+     flake.homeManagerModules.base.programs.bash = {
        enable = true;
        enableCompletion = true;
      };
@@ -255,7 +255,7 @@ Is this configuration needed by all systems?
    ```nix
    # modules/nix/settings.nix
    {
-     flake.modules.nixos.base.nix.settings = {
+     flake.nixosModules.base.nix.settings = {
        experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
        trusted-users = [ "root" "@wheel" ];
      };
@@ -278,7 +278,7 @@ Is this configuration needed by all systems?
 
 ```nix
 {
-  imports = with config.flake.modules.nixos; [ base pc ];
+  imports = with config.flake.nixosModules; [ base pc ];
 }
 ```
 

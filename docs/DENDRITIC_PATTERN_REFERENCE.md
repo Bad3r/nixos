@@ -92,7 +92,7 @@ nix run .#mypackage --extra-experimental-features pipe-operators
 # Interactive evaluation
 nix repl --extra-experimental-features pipe-operators
 > :lf .  # Load flake
-> config.flake.modules.nixos.<TAB>  # Explore
+> config.flake.nixosModules.<TAB>  # Explore
 
 # Show trace on error
 nix build .#something --show-trace --extra-experimental-features pipe-operators
@@ -139,15 +139,15 @@ graph TD
 
 ### Where to Put Configuration
 
-| Configuration Type | Location            | Example                                 |
-| ------------------ | ------------------- | --------------------------------------- |
-| System-specific    | `modules/[system]/` | `modules/laptop1/wifi.nix`              |
-| Shared by some     | Named module        | `flake.modules.nixos.laptop`            |
-| Needed by all      | Extend base         | `flake.modules.nixos.base.nix.settings` |
-| User-specific      | `modules/users/`    | `modules/users/alice.nix`               |
-| Service config     | `modules/services/` | `modules/services/nginx.nix`            |
-| Hardware           | `modules/hardware/` | `modules/hardware/nvidia.nix`           |
-| Development        | `modules/meta/`     | `modules/meta/fmt.nix`                  |
+| Configuration Type | Location            | Example                                |
+| ------------------ | ------------------- | -------------------------------------- |
+| System-specific    | `modules/[system]/` | `modules/laptop1/wifi.nix`             |
+| Shared by some     | Named module        | `flake.nixosModules.laptop`            |
+| Needed by all      | Extend base         | `flake.nixosModules.base.nix.settings` |
+| User-specific      | `modules/users/`    | `modules/users/alice.nix`              |
+| Service config     | `modules/services/` | `modules/services/nginx.nix`           |
+| Hardware           | `modules/hardware/` | `modules/hardware/nvidia.nix`          |
+| Development        | `modules/meta/`     | `modules/meta/fmt.nix`                 |
 
 ## Directory Structure Templates
 
@@ -254,13 +254,13 @@ project/
 ```nix
 # modules/git/enable.nix
 {
-  flake.modules.homeManager.base.programs.git.enable = true;
+  flake.homeManagerModules.base.programs.git.enable = true;
 }
 
 # modules/git/config.nix
 { config, ... }:
 {
-  flake.modules.homeManager.base.programs.git = {
+  flake.homeManagerModules.base.programs.git = {
     userName = config.flake.meta.owner.name;
     userEmail = config.flake.meta.owner.email;
   };
@@ -274,7 +274,7 @@ project/
 { config, lib, ... }:
 {
   configurations.nixos.laptop.module = {
-    imports = with config.flake.modules.nixos; [
+    imports = with config.flake.nixosModules; [
       base
       pc
     ] ++ lib.optional (builtins.pathExists ./work.nix) work;
@@ -288,8 +288,8 @@ project/
 # modules/pc.nix
 { config, ... }:
 {
-  flake.modules.nixos.pc = {
-    imports = [ config.flake.modules.nixos.base ];
+  flake.nixosModules.pc = {
+    imports = [ config.flake.nixosModules.base ];
     # Desktop/laptop common config
   };
 }
@@ -297,8 +297,8 @@ project/
 # modules/workstation.nix
 { config, ... }:
 {
-  flake.modules.nixos.workstation = {
-    imports = [ config.flake.modules.nixos.pc ];
+  flake.nixosModules.workstation = {
+    imports = [ config.flake.nixosModules.pc ];
     # Development workstation config
   };
 }
@@ -311,12 +311,12 @@ project/
 { config, ... }:
 {
   # System-level
-  flake.modules.nixos.base = { pkgs, ... }: {
+  flake.nixosModules.base = { pkgs, ... }: {
     environment.systemPackages = [ pkgs.neovim ];
   };
 
   # User-level
-  flake.modules.homeManager.base = {
+  flake.homeManagerModules.base = {
     programs.neovim = {
       enable = true;
       vimAlias = true;
@@ -332,7 +332,7 @@ project/
 # modules/hardware/gpu-auto.nix
 { lib, ... }:
 {
-  flake.modules.nixos.base = { config, ... }: {
+  flake.nixosModules.base = { config, ... }: {
     services.xserver.videoDrivers = lib.mkDefault (
       if builtins.elem "nvidia" config.hardware.opengl.extraPackages
       then [ "nvidia" ]
@@ -357,7 +357,7 @@ project/
   };
 
   config = lib.mkIf config.flake.backup.enable {
-    flake.modules.nixos.base.services.restic.backups.main = {
+    flake.nixosModules.base.services.restic.backups.main = {
       paths = config.flake.backup.paths;
       repository = "/backup";
       timerConfig.OnCalendar = "daily";
@@ -397,7 +397,7 @@ project/
   };
 
   # Make available to all systems
-  flake.modules.nixos.base = { pkgs, ... }: {
+  flake.nixosModules.base = { pkgs, ... }: {
     environment.systemPackages = [
       self.packages.${pkgs.system}.myapp
     ];
@@ -413,7 +413,7 @@ project/
 # modules/development/tools.nix
 { ... }:
 {
-  flake.modules.nixos.development = { pkgs, ... }: {
+  flake.nixosModules.development = { pkgs, ... }: {
     virtualisation.docker.enable = true;
 
     environment.systemPackages = with pkgs; [
@@ -441,7 +441,7 @@ project/
 { config, ... }:
 {
   configurations.nixos.devbox.module = {
-    imports = with config.flake.modules.nixos; [
+    imports = with config.flake.nixosModules; [
       base
       pc
       development
@@ -457,7 +457,7 @@ project/
 # modules/services/web-stack.nix
 { config, ... }:
 {
-  flake.modules.nixos.web-stack = {
+  flake.nixosModules.web-stack = {
     services.nginx = {
       enable = true;
       recommendedProxySettings = true;
@@ -474,7 +474,7 @@ project/
 # modules/sites/myapp.nix
 { config, ... }:
 {
-  flake.modules.nixos.web-stack.services.nginx.virtualHosts."myapp.com" = {
+  flake.nixosModules.web-stack.services.nginx.virtualHosts."myapp.com" = {
     enableACME = true;
     forceSSL = true;
     locations."/" = {
@@ -504,7 +504,7 @@ let
   };
 in
 {
-  flake.modules.nixos.base = { pkgs, ... }: {
+  flake.nixosModules.base = { pkgs, ... }: {
     users.users = lib.mapAttrs (name: cfg: {
       isNormalUser = true;
       uid = cfg.uid;
@@ -523,7 +523,7 @@ in
 # In nix repl
 nix repl --extra-experimental-features pipe-operators
 > :lf .
-> :p config.flake.modules.nixos  # Print all NixOS modules
+> :p config.flake.nixosModules  # Print all NixOS modules
 > :p config.configurations.nixos  # Print all configurations
 > :p config.flake.nixosConfigurations.mysystem.config.boot  # Explore specific config
 ```
@@ -553,7 +553,7 @@ nix eval .#nixosConfigurations.mysystem.options \
 # Add debug output to modules
 { lib, ... }:
 {
-  flake.modules.nixos.base = lib.traceSeq "Loading base module" {
+  flake.nixosModules.base = lib.traceSeq "Loading base module" {
     # config...
   };
 }
@@ -561,7 +561,7 @@ nix eval .#nixosConfigurations.mysystem.options \
 # Conditional debugging
 { lib, config, ... }:
 {
-  flake.modules.nixos.base =
+  flake.nixosModules.base =
     lib.optionalAttrs (config.debug or false)
       (lib.traceSeq "Debug mode enabled" {});
 }
@@ -591,7 +591,7 @@ attrs
 # Avoid this
 imports = [
   ./some-file.nix  # Bad: literal import
-  config.flake.modules.nixos.base  # Good: named reference
+  config.flake.nixosModules.base  # Good: named reference
 ];
 ```
 
@@ -627,7 +627,7 @@ imports = [
 # With agenix
 { config, ... }:
 {
-  flake.modules.nixos.base = {
+  flake.nixosModules.base = {
     age.secrets.password.file = "${config.flake.root}/secrets/password.age";
   };
 }
@@ -635,7 +635,7 @@ imports = [
 # With sops-nix
 { config, ... }:
 {
-  flake.modules.nixos.base = {
+  flake.nixosModules.base = {
     sops.defaultSopsFile = "${config.flake.root}/secrets/secrets.yaml";
   };
 }
@@ -649,7 +649,7 @@ imports = [
 # modules/architectures/x86_64.nix
 { ... }:
 {
-  flake.modules.nixos.x86_64 = {
+  flake.nixosModules.x86_64 = {
     nixpkgs.hostPlatform = "x86_64-linux";
     boot.kernelPackages = pkgs.linuxPackages_latest;
   };
@@ -658,7 +658,7 @@ imports = [
 # modules/architectures/aarch64.nix
 { ... }:
 {
-  flake.modules.nixos.aarch64 = {
+  flake.nixosModules.aarch64 = {
     nixpkgs.hostPlatform = "aarch64-linux";
     boot.kernelPackages = pkgs.linuxPackages_rpi4;
   };
@@ -710,7 +710,7 @@ nix build .#nixosConfigurations.mysystem.config.system.build.vm \
 ```nix
 # Create a container configuration
 configurations.nixos.test-container.module = {
-  imports = [ config.flake.modules.nixos.base ];
+  imports = [ config.flake.nixosModules.base ];
   boot.isContainer = true;
 };
 ```
@@ -741,7 +741,7 @@ sudo nixos-rebuild build --flake .#test-system \
 # modules/legacy.nix
 { ... }:
 {
-  flake.modules.nixos.legacy = {
+  flake.nixosModules.legacy = {
     imports = [ ../../old-config/configuration.nix ];
   };
 }

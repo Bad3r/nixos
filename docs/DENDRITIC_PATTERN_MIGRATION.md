@@ -159,7 +159,7 @@ EOF
 { config, ... }:
 {
   configurations.nixos.mysystem.module = {
-    imports = with config.flake.modules.nixos; [
+    imports = with config.flake.nixosModules; [
       base
       networking
       webserver
@@ -285,7 +285,7 @@ Create `modules/services/nginx.nix`:
 ```nix
 { ... }:
 {
-  flake.modules.nixos.webserver = {
+  flake.nixosModules.webserver = {
     services.nginx = {
       enable = true;
       recommendedProxySettings = true;
@@ -303,7 +303,7 @@ Create `modules/sites/example-com.nix`:
 { ... }:
 {
   # Extend the webserver module
-  flake.modules.nixos.webserver.services.nginx.virtualHosts."example.com" = {
+  flake.nixosModules.webserver.services.nginx.virtualHosts."example.com" = {
     enableACME = true;
     root = "/var/www/example";
   };
@@ -335,7 +335,7 @@ Create `modules/sites/example-com.nix`:
 ```nix
 { config, ... }:
 {
-  flake.modules.nixos.base = { pkgs, ... }: {
+  flake.nixosModules.base = { pkgs, ... }: {
     users.users.alice = {
       isNormalUser = true;
       extraGroups = [ "wheel" ];
@@ -347,7 +347,7 @@ Create `modules/sites/example-com.nix`:
   };
 
   # Add docker group only on development machines
-  flake.modules.nixos.development.users.users.alice.extraGroups = [ "docker" ];
+  flake.nixosModules.development.users.users.alice.extraGroups = [ "docker" ];
 }
 ```
 
@@ -355,7 +355,7 @@ Create `modules/shells/zsh.nix`:
 
 ```nix
 {
-  flake.modules.nixos.base.programs.zsh.enable = true;
+  flake.nixosModules.base.programs.zsh.enable = true;
 }
 ```
 
@@ -409,7 +409,7 @@ mkdir -p modules/{mydesktop,base-config}
 # modules/base.nix
 { ... }:
 {
-  flake.modules.nixos.base = {
+  flake.nixosModules.base = {
     system.stateVersion = "24.11";
     nix.settings.experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
 
@@ -432,7 +432,7 @@ mkdir -p modules/{mydesktop,base-config}
 { config, ... }:
 {
   configurations.nixos.mydesktop.module = {
-    imports = [ config.flake.modules.nixos.base ];
+    imports = [ config.flake.nixosModules.base ];
   };
 }
 
@@ -488,8 +488,8 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 # modules/pc.nix - Shared by laptop and desktop
 { config, ... }:
 {
-  flake.modules.nixos.pc = {
-    imports = [ config.flake.modules.nixos.base ];
+  flake.nixosModules.pc = {
+    imports = [ config.flake.nixosModules.base ];
     services.xserver.enable = true;
     # Other GUI-related config
   };
@@ -498,8 +498,8 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 # modules/laptop-hardware.nix
 { config, ... }:
 {
-  flake.modules.nixos.laptop-hardware = {
-    imports = [ config.flake.modules.nixos.pc ];
+  flake.nixosModules.laptop-hardware = {
+    imports = [ config.flake.nixosModules.pc ];
     services.tlp.enable = true;
     # Laptop-specific hardware
   };
@@ -508,8 +508,8 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 # modules/server.nix
 { config, ... }:
 {
-  flake.modules.nixos.server = {
-    imports = [ config.flake.modules.nixos.base ];
+  flake.nixosModules.server = {
+    imports = [ config.flake.nixosModules.base ];
     services.openssh.enable = true;
     # Server-specific config
   };
@@ -523,7 +523,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 { config, ... }:
 {
   configurations.nixos.laptop.module = {
-    imports = with config.flake.modules.nixos; [
+    imports = with config.flake.nixosModules; [
       laptop-hardware
       development  # If it's a dev machine
     ];
@@ -564,7 +564,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 # modules/roles/webserver.nix
 { config, ... }:
 {
-  flake.modules.nixos.webserver-role = {
+  flake.nixosModules.webserver-role = {
     services.nginx.enable = true;
     # Webserver configuration
   };
@@ -573,7 +573,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 # modules/roles/database.nix
 { config, ... }:
 {
-  flake.modules.nixos.database-role = {
+  flake.nixosModules.database-role = {
     services.postgresql.enable = true;
     # Database configuration
   };
@@ -586,7 +586,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 # modules/environments/production.nix
 { config, ... }:
 {
-  flake.modules.nixos.production-env = {
+  flake.nixosModules.production-env = {
     security.sudo.wheelNeedsPassword = true;
     services.fail2ban.enable = true;
     # Production hardening
@@ -601,7 +601,7 @@ grep -h "services\." machines/*/configuration.nix | sort | uniq -c
 { config, ... }:
 {
   configurations.nixos.prod-web-1.module = {
-    imports = with config.flake.modules.nixos; [
+    imports = with config.flake.nixosModules; [
       base
       server
       webserver-role
@@ -635,12 +635,12 @@ error: infinite recursion encountered
 
 ```nix
 # BAD
-flake.modules.nixos.base = {
+flake.nixosModules.base = {
   networking.hostName = config.networking.hostName;
 };
 
 # GOOD
-flake.modules.nixos.base = {
+flake.nixosModules.base = {
   networking.hostName = lib.mkDefault "defaultname";
 };
 ```
@@ -671,7 +671,7 @@ ls modules/
 # Use nix repl to explore
 nix repl --extra-experimental-features pipe-operators
 > :lf .
-> config.flake.modules.nixos.<tab>
+> config.flake.nixosModules.<tab>
 ```
 
 ### Issue: Option Already Defined
@@ -912,11 +912,11 @@ environment.systemPackages = with pkgs; [
 
 ```nix
 # modules/packages/development.nix
-flake.modules.nixos.development.environment.systemPackages =
+flake.nixosModules.development.environment.systemPackages =
   with pkgs; [ git vim vscode ];
 
 # modules/packages/system-tools.nix
-flake.modules.nixos.base.environment.systemPackages =
+flake.nixosModules.base.environment.systemPackages =
   with pkgs; [ htop tree ];
 ```
 

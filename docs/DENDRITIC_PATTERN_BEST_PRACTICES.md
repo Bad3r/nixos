@@ -15,7 +15,7 @@ The dendritic pattern excels at managing multiple configuration types from a sin
 { config, ... }:
 {
   # NixOS system configuration
-  flake.modules.nixos.base = { pkgs, ... }: {
+  flake.nixosModules.base = { pkgs, ... }: {
     environment.systemPackages = [ pkgs.git ];
     programs.git = {
       enable = true;
@@ -24,7 +24,7 @@ The dendritic pattern excels at managing multiple configuration types from a sin
   };
 
   # Home Manager configuration
-  flake.modules.homeManager.base = {
+  flake.homeManagerModules.base = {
     programs.git = {
       enable = true;
       delta.enable = true;
@@ -36,13 +36,13 @@ The dendritic pattern excels at managing multiple configuration types from a sin
   };
 
   # Nix-on-Droid configuration
-  flake.modules.nixOnDroid.base = {
+  flake.nixOnDroidModules.base = {
     environment.packages = [ pkgs.git ];
     user.shell = "${pkgs.git}/bin/git";
   };
 
   # Darwin (macOS) configuration
-  flake.modules.darwin.base = {
+  flake.darwinModules.base = {
     environment.systemPackages = [ pkgs.git ];
     programs.git.enable = true;
   };
@@ -72,17 +72,17 @@ let
 in
 {
   # Apply to all platforms
-  flake.modules.nixos.base.environment = {
+  flake.nixosModules.base.environment = {
     shellAliases = shellAliases;
     variables = shellVariables;
   };
 
-  flake.modules.homeManager.base.home = {
+  flake.homeManagerModules.base.home = {
     shellAliases = shellAliases;
     sessionVariables = shellVariables;
   };
 
-  flake.modules.darwin.base.environment = {
+  flake.darwinModules.base.environment = {
     shellAliases = shellAliases;
     variables = shellVariables;
   };
@@ -98,18 +98,20 @@ Handle platform differences elegantly:
 { config, lib, inputs, ... }:
 {
   # Shared development tools
-  flake.modules.allPlatforms.development = { pkgs, ... }: {
-    packages = with pkgs; [
-      rustc
-      cargo
-      nodejs
-      python3
-    ];
+  flake.nixosModules.allPlatforms = {
+    development = { pkgs, ... }: {
+      packages = with pkgs; [
+        rustc
+        cargo
+        nodejs
+        python3
+      ];
+    };
   };
 
   # Linux-specific (NixOS)
-  flake.modules.nixos.development = { pkgs, ... }: {
-    imports = [ config.flake.modules.allPlatforms.development ];
+  flake.nixosModules.development = { pkgs, ... }: {
+    imports = [ config.flake.nixosModules.allPlatforms.development ];
 
     # Linux-only tools
     virtualisation.docker.enable = true;
@@ -117,15 +119,15 @@ Handle platform differences elegantly:
   };
 
   # macOS-specific (Darwin)
-  flake.modules.darwin.development = { pkgs, ... }: {
-    imports = [ config.flake.modules.allPlatforms.development ];
+  flake.darwinModules.development = { pkgs, ... }: {
+    imports = [ config.flake.nixosModules.allPlatforms.development ];
 
     # macOS-only configuration
     homebrew.casks = [ "docker" ];
   };
 
   # Mobile-specific (Nix-on-Droid)
-  flake.modules.nixOnDroid.development = { pkgs, ... }: {
+  flake.nixOnDroidModules.development = { pkgs, ... }: {
     # Subset for mobile
     environment.packages = with pkgs; [
       git
@@ -146,7 +148,7 @@ Load modules based on system capabilities:
 # modules/smart-gpu.nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.base = { config, lib, ... }:
+  flake.nixosModules.base = { config, lib, ... }:
   let
     hasNvidia = builtins.elem "nvidia" (config.services.xserver.videoDrivers or []);
     hasAmd = builtins.elem "amdgpu" (config.services.xserver.videoDrivers or []);
@@ -178,7 +180,7 @@ Automatically enable features based on hardware:
 # modules/hardware/auto-features.nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.base = { config, lib, pkgs, ... }:
+  flake.nixosModules.base = { config, lib, pkgs, ... }:
   let
     # Detect hardware capabilities
     hasBluetooth = config.hardware.bluetooth.enable or
@@ -235,7 +237,7 @@ let
 in
 {
   # Generate container modules dynamically
-  flake.modules.nixos = lib.mapAttrs (name: spec: {
+  flake.nixosModules = lib.mapAttrs (name: spec: {
     virtualisation.oci-containers.containers.${name} = {
       inherit (spec) image;
       ports = spec.ports or [];
@@ -295,10 +297,10 @@ in
   # Generate configurations from registry
   configurations.nixos = lib.mapAttrs (hostname: spec: {
     module = { config, ... }: {
-      imports = with config.flake.modules.nixos; [
+      imports = with config.flake.nixosModules; [
         base
         spec.type
-      ] ++ map (role: config.flake.modules.nixos.${role}) spec.roles;
+      ] ++ map (role: config.flake.nixosModules.${role}) spec.roles;
 
       networking.hostName = hostname;
       networking.interfaces.eth0.ipv4.addresses = lib.optional (spec ? ip) {
@@ -403,7 +405,7 @@ Manage shared state across systems:
     };
 
     # Use shared state in modules
-    flake.modules.nixos.base = {
+    flake.nixosModules.base = {
       users.users = lib.mapAttrs (name: key: {
         openssh.authorizedKeys.keys = [ key ];
       }) config.flake.sharedState.sshKeys;
@@ -422,7 +424,7 @@ Create reusable hardware profiles:
 # modules/hardware/profiles/dell-xps-13.nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.dell-xps-13 = { pkgs, ... }: {
+  flake.nixosModules.dell-xps-13 = { pkgs, ... }: {
     # Specific kernel modules
     boot.initrd.kernelModules = [ "i915" ];
     boot.kernelParams = [
@@ -489,9 +491,9 @@ let
     else "standard";
 in
 {
-  flake.modules.nixos.auto-hardware = {
+  flake.nixosModules.auto-hardware = {
     imports = [
-      config.flake.modules.nixos.${hardwareProfile}
+      config.flake.nixosModules.${hardwareProfile}
     ];
 
     # Apply detected settings
@@ -522,7 +524,7 @@ Create abstractions for hardware variations:
     };
   };
 
-  config.flake.modules.nixos.base = { config, lib, pkgs, ... }: {
+  config.flake.nixosModules.base = { config, lib, pkgs, ... }: {
     services.xserver.dpi =
       if config.flake.hardware.display.profile == "desktop-4k" then 144
       else if config.flake.hardware.display.profile == "laptop" then 120
@@ -602,7 +604,7 @@ let
 in
 {
   # Generate user configurations
-  flake.modules.nixos.base = { pkgs, ... }: {
+  flake.nixosModules.base = { pkgs, ... }: {
     users.users = lib.mapAttrs (username: userCfg: {
       isNormalUser = true;
       uid = userCfg.uid;
@@ -613,10 +615,10 @@ in
   };
 
   # Generate Home Manager configurations
-  flake.modules.homeManager = lib.mapAttrs (username: userCfg: {
+  flake.homeManagerModules = lib.mapAttrs (username: userCfg: {
     imports = [
-      config.flake.modules.homeManager.base
-      config.flake.modules.homeManager.${userCfg.role}
+      config.flake.homeManagerModules.base
+      config.flake.homeManagerModules.${userCfg.role}
     ];
 
     home.username = username;
@@ -624,7 +626,7 @@ in
   }) userRegistry;
 
   # Role-specific configurations
-  flake.modules.homeManager.developer = { pkgs, ... }: {
+  flake.homeManagerModules.developer = { pkgs, ... }: {
     programs.vscode.enable = true;
     programs.direnv.enable = true;
     home.packages = with pkgs; [
@@ -634,7 +636,7 @@ in
     ];
   };
 
-  flake.modules.homeManager.designer = { pkgs, ... }: {
+  flake.homeManagerModules.designer = { pkgs, ... }: {
     home.packages = with pkgs; [
       inkscape
       gimp
@@ -682,14 +684,14 @@ Handle user-specific secrets:
     };
 
     # Apply secrets
-    flake.modules.nixos.base = { config, ... }: {
+    flake.nixosModules.base = { config, ... }: {
       users.users = lib.mapAttrs (username: secrets: {
         hashedPassword = secrets.passwordHash;
       }) config.flake.userSecrets;
     };
 
     # User-specific WireGuard
-    flake.modules.nixos.vpn = { config, ... }: {
+    flake.nixosModules.vpn = { config, ... }: {
       networking.wireguard.interfaces = lib.mapAttrs (username: secrets: {
         wg0 = {
           privateKeyFile = secrets.wireguardKey;
@@ -793,7 +795,7 @@ Implement GitOps-style deployment:
 { config, lib, ... }:
 {
   # Auto-update systems
-  flake.modules.nixos.gitops = { config, pkgs, ... }: {
+  flake.nixosModules.gitops = { config, pkgs, ... }: {
     systemd.services.nixos-update = {
       description = "NixOS GitOps Update";
       serviceConfig = {
@@ -836,7 +838,7 @@ Optimize module evaluation:
 { config, lib, ... }:
 {
   # Use lazy evaluation effectively
-  flake.modules.nixos.optimized = { config, lib, pkgs, ... }:
+  flake.nixosModules.optimized = { config, lib, pkgs, ... }:
   let
     # Expensive computations only when needed
     expensivePackageList = lib.mkIf config.services.xserver.enable
@@ -868,7 +870,7 @@ Optimize build times:
 # modules/performance/build.nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.base = { config, pkgs, ... }: {
+  flake.nixosModules.base = { config, pkgs, ... }: {
     # Parallel building
     nix.settings = {
       max-jobs = "auto";
@@ -922,7 +924,7 @@ Reduce memory usage:
 # modules/performance/memory.nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.memory-optimized = {
+  flake.nixosModules.memory-optimized = {
     # Tune kernel parameters
     boot.kernel.sysctl = {
       "vm.swappiness" = 10;
@@ -963,7 +965,7 @@ Implement security layers:
 # modules/security/hardening.nix
 { config, lib, ... }:
 {
-  flake.modules.nixos.hardened = { config, lib, pkgs, ... }: {
+  flake.nixosModules.hardened = { config, lib, pkgs, ... }: {
     # Kernel hardening
     boot.kernelPackages = pkgs.linuxPackages_hardened;
     boot.kernel.sysctl = {
@@ -1062,7 +1064,7 @@ Implement secure secrets handling:
     };
 
     # Use secrets in services
-    flake.modules.nixos.services = {
+    flake.nixosModules.services = {
       services.postgresql.authentication = ''
         local all all peer
         host all all 127.0.0.1/32 md5
@@ -1098,7 +1100,7 @@ Test individual modules:
     }
   ) {
     nginx = {
-      module = config.flake.modules.nixos.webserver;
+      module = config.flake.nixosModules.webserver;
       script = ''
         machine.wait_for_unit("nginx.service")
         machine.succeed("curl http://localhost")
@@ -1106,7 +1108,7 @@ Test individual modules:
     };
 
     postgresql = {
-      module = config.flake.modules.nixos.database;
+      module = config.flake.nixosModules.database;
       script = ''
         machine.wait_for_unit("postgresql.service")
         machine.succeed("sudo -u postgres psql -c 'SELECT 1'")
@@ -1129,7 +1131,7 @@ Test module combinations:
 
     nodes = {
       webserver = {
-        imports = with config.flake.modules.nixos; [
+        imports = with config.flake.nixosModules; [
           base
           webserver
           monitoring
@@ -1137,7 +1139,7 @@ Test module combinations:
       };
 
       database = {
-        imports = with config.flake.modules.nixos; [
+        imports = with config.flake.nixosModules; [
           base
           database
           backup
@@ -1145,7 +1147,7 @@ Test module combinations:
       };
 
       client = {
-        imports = [ config.flake.modules.nixos.base ];
+        imports = [ config.flake.nixosModules.base ];
       };
     };
 
@@ -1201,7 +1203,7 @@ let
 in
 {
   # Generate microservice modules
-  flake.modules.nixos = {
+  flake.nixosModules = {
     api-gateway = mkMicroservice {
       name = "api-gateway";
       port = 8080;
