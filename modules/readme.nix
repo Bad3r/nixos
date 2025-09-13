@@ -125,8 +125,8 @@
           }
           ```
 
-          For a strategic plan to centralize per-app registry and simplify composition, see
-          `docs/RFC-single-source-of-truth-app-modules.md`.
+          For a complete, type-correct composition plan and guidance, see
+          `docs/RFC-001.md`.
         '';
 
       devshell =
