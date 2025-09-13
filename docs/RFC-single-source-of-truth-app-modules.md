@@ -19,6 +19,12 @@ We want:
 - A stable, explicit data source for app registry.
 - A pattern that doesn’t depend on aggregator internals or `self` output peeking.
 
+## Current State
+
+- Roles/dev uses a robust lookup pattern with `lib.hasAttrByPath`/`lib.getAttrFromPath` against `config.flake.nixosModules.apps` and exposes a stable alias `flake.nixosModules."role-dev"` for host imports.
+- Roles/media and roles/net previously used `with config.flake.nixosModules.apps; [...]`. They have now been refactored to the same robust lookup pattern and expose aliases `role-media` and `role-net` for consistency. Extra imports (e.g., `"vpn-defaults"`, `media`) are preserved.
+- Home Manager roles already resolve per‑app modules via `hasAttrByPath/getAttrFromPath` at the glue layer and consume role data from `flake.lib.homeManager.roles`.
+
 ## Goals
 
 - Define `flake.lib.nixos.appModules :: attrsOf deferredModule` as the canonical app registry.
@@ -50,7 +56,7 @@ Trade‑offs:
 - Pros: Clear separation of data (registry) and presentation (aggregator). Stable composition points. Easier testing and tooling. Eliminates circular evaluation risks.
 - Cons: Touches many files to switch exports. Requires a migration phase and possible temporary compatibility shims.
 
-Given our capacity and desire for correctness, the benefits outweigh the costs.
+Given our capacity and desire for correctness, the benefits outweigh the costs. The immediate brittleness has been mitigated by the lookup pattern and aliases; this RFC now represents a strategic improvement to centralize the app registry and simplify long‑term composition and tooling.
 
 ## Design
 
@@ -180,36 +186,46 @@ Hosts import alias modules for consistency:
 
 ## Migration Plan
 
-1. Introduce the meta module
+### Stage 0 (complete): Unify roles and aliases
+
+- Use lookup pattern for dev/media/net and expose stable aliases `role-dev`, `role-media`, `role-net`.
+- Update hosts to import aliases. Avoid `with` in roles.
+
+### Stage 1: Prepare for inversion
+
+- Add a CI/pre‑commit rule to prevent introducing `with config.flake.nixosModules.apps` in roles.
+- Audit external consumers for direct `nixosModules.apps.<name>` usage; plan compatibility if needed.
+
+### Stage 2: Introduce the meta module
 
 - Add `modules/meta/apps-source-of-truth.nix` defining options and wiring `nixosModules.apps` from `appModules`.
 - Provide `getApp`, `getApps` helpers.
 - Optionally enable the compatibility bridge.
 
-2. Refactor app modules
+### Stage 3: Refactor app modules
 
 - For each `modules/apps/*.nix`, export to `flake.lib.nixos.appModules.<name> = app`.
 - Remove old `flake.nixosModules.apps.<name>` exports.
 - Start with apps referenced by `dev/media/net` roles to keep the first pass small.
 
-3. Refactor roles and bundles
+### Stage 4: Refactor roles and bundles
 
 - Switch to `getApps`/`getApp` for composing imports.
 - Keep additional non‑app imports intact.
 
-4. Add role aliases and update hosts
+### Stage 5: Add role aliases and update hosts (already done for core roles)
 
 - Define `role-dev`, `role-media`, `role-net` alias modules.
 - Update hosts to import alias modules.
 
-5. Validate
+### Stage 6: Validate
 
 - `nix flake check --accept-flake-config`
 - `nix develop -c pre-commit run --all-files`
 - `nix fmt`
 - `generation-manager score` (target 90/90)
 
-6. Remove compatibility bridge (optional)
+### Stage 7: Remove compatibility bridge (optional)
 
 - After confirming no consumers rely on `nixosModules.apps.<name>`.
 

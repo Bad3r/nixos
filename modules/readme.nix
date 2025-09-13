@@ -5,6 +5,7 @@
       "intro"
       "automatic-import"
       "aggregators"
+      "roles"
       "devshell"
       "files"
       "flake-inputs-dedupe-prefix"
@@ -91,6 +92,41 @@
           ```
 
           Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules to avoid ordering issues.
+        '';
+
+      roles =
+        # markdown
+        ''
+          ### Roles and App Composition
+
+          - Roles are assembled from per-app modules under `flake.nixosModules.apps`.
+          - To avoid import-order brittleness, resolve apps with `lib.hasAttrByPath` and `lib.getAttrFromPath` rather than `with`.
+          - Stable role aliases are provided for hosts:
+
+            - `flake.nixosModules."role-dev"`
+            - `flake.nixosModules."role-media"`
+            - `flake.nixosModules."role-net"`
+
+          Example host composition using aliases:
+
+          ```nix
+          { config, ... }:
+          {
+            configurations.nixos.system76.module = {
+              imports =
+                (with config.flake.nixosModules; [
+                  workstation
+                  nvidia-gpu
+                ])
+                ++ [
+                  config.flake.nixosModules."role-dev"
+                ];
+            };
+          }
+          ```
+
+          For a strategic plan to centralize per-app registry and simplify composition, see
+          `docs/RFC-single-source-of-truth-app-modules.md`.
         '';
 
       devshell =
