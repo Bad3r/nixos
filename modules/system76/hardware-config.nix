@@ -47,21 +47,35 @@ _: {
           ];
 
           # LUKS encryption for devices
-          luks.devices = {
-            # Root device
-            "luks-251cdcdc-bbb7-4530-8c77-f6d14071bb2d".device =
-              "/dev/disk/by-uuid/251cdcdc-bbb7-4530-8c77-f6d14071bb2d";
+          luks = {
+            # Reuse the first entered passphrase to unlock all LUKS devices
+            reusePassphrases = true;
 
-            # Swap device (encrypted)
-            "luks-42ddd341-f150-4d0e-b5a9-d3f209688b64".device =
-              "/dev/disk/by-uuid/42ddd341-f150-4d0e-b5a9-d3f209688b64";
+            devices = {
+              # Root device
+              "luks-251cdcdc-bbb7-4530-8c77-f6d14071bb2d".device =
+                "/dev/disk/by-uuid/251cdcdc-bbb7-4530-8c77-f6d14071bb2d";
+
+              # Swap device (encrypted)
+              "luks-42ddd341-f150-4d0e-b5a9-d3f209688b64".device =
+                "/dev/disk/by-uuid/42ddd341-f150-4d0e-b5a9-d3f209688b64";
+
+              # Data device on SATA SSD (LUKS2 over XFS)
+              data = {
+                device = "/dev/disk/by-uuid/183d1f98-e95d-4d6c-89de-cbed409bd9a0";
+                allowDiscards = true; # enable TRIM passthrough for SSD
+              };
+            };
           };
         };
 
         kernelModules = [ "kvm-intel" ];
 
-        # Enable NTFS support
-        supportedFilesystems = [ "ntfs" ];
+        # Enable filesystem support
+        supportedFilesystems = [
+          "ntfs"
+          "xfs"
+        ];
 
         # Boot loader configuration (CRITICAL - must be here for system to boot)
         loader = {
@@ -89,6 +103,15 @@ _: {
             "dmask=0077"
           ];
         };
+
+        # Mount for encrypted XFS volume on /dev/sda1 (via /dev/mapper/data)
+        "/data" = {
+          device = "/dev/disk/by-uuid/66f87ae8-7a0a-4b98-9c7e-78d72bde1e5c";
+          fsType = "xfs";
+          options = [
+            "noatime"
+          ];
+        };
       };
 
       # Swap device (references the decrypted swap UUID)
@@ -103,5 +126,10 @@ _: {
           naturalScrolling = true;
         };
       };
+
+      # Ensure mountpoint exists declaratively
+      systemd.tmpfiles.rules = [
+        "d /data 0755 root root -"
+      ];
     };
 }

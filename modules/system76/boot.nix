@@ -1,14 +1,18 @@
 _: {
   configurations.nixos.system76.module =
-    { config, ... }:
+    { config, pkgs, ... }:
     {
+      # Use latest kernel packages on this host
+      boot.kernelPackages = pkgs.linuxPackages_latest;
       boot = {
         # Base kernel modules for System76 hardware
         initrd.availableKernelModules = [
           "xhci_pci"
           "ahci"
           "nvme"
+          "thunderbolt"
           "usbhid"
+          "uas"
           "usb_storage"
           "sd_mod"
           "sdhci_pci"

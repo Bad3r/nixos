@@ -13,7 +13,13 @@
         "recursive-nix"
       ];
       extra-system-features = [ "recursive-nix" ];
-      download-buffer-size = 536870912; # 512MB (default is 64MB)
+      # Parallel downloads/connections
+      # Explicitly set to defaults for clarity, while still allowing host overrides.
+      http-connections = lib.mkDefault 25; # default = 25
+      max-substitution-jobs = 16; # default = 16 (number of parallel NAR downloads)
+      # Use HTTP/2 for downloads
+      http2 = true;
+      download-buffer-size = 268435456; # 256MB (default is 64MB)
     };
     flake.nixosModules.base.nix = {
       inherit (config.nix) settings;
