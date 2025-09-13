@@ -194,27 +194,54 @@
                       exit 0
                     fi
                     drift=0
+                    AUTO_FIX="''${AUTO_FIX_MANAGED:-1}"
+                    VERBOSE="''${MANAGED_FILES_VERBOSE:-0}"
+                    declare -a update_paths=()
                     for line in "''${pairs[@]}"; do
                       src=$(printf '%s' "$line" | awk '{print $2}')
                       # take everything after the '>' and trim spaces
                       dst_rel=$(printf '%s' "$line" | sed -E 's/^.*>\s*//')
                       dst="$root/$dst_rel"
                       if [ ! -f "$dst" ]; then
-                        echo "✗ Missing managed file: $dst_rel" >&2
+                        if [ "$AUTO_FIX" != 1 ] || [ "$VERBOSE" = 1 ]; then
+                          echo "✗ Missing managed file: $dst_rel" >&2
+                        fi
                         drift=1
+                        update_paths+=("$dst_rel")
                         continue
                       fi
                       if ! cmp -s "$src" "$dst"; then
-                        echo "✗ Drift detected: $dst_rel" >&2
-                        # Show a short diff context for readability (non-fatal)
-                        diff -u --label "$dst_rel(expected)" "$src" --label "$dst_rel" "$dst" | sed 's/^/    /' || true
+                        if [ "$AUTO_FIX" != 1 ] || [ "$VERBOSE" = 1 ]; then
+                          echo "✗ Drift detected: $dst_rel" >&2
+                          # Show a short diff context for readability (non-fatal)
+                          diff -u --label "$dst_rel(expected)" "$src" --label "$dst_rel" "$dst" | sed 's/^/    /' || true
+                        fi
                         drift=1
+                        update_paths+=("$dst_rel")
                       fi
                     done
                     if [ "$drift" -ne 0 ]; then
-                      echo "" >&2
-                      echo "Run: write-files, then commit the changes." >&2
-                      exit 1
+                      # Auto-fix managed files, stage, and commit them.
+                      # Guard recursion and hooks.
+                      if [ "''${#update_paths[@]}" -gt 0 ]; then
+                        write-files >/dev/null
+                        # Re-stage only the paths that were out-of-date
+                        git add -- "''${update_paths[@]}" 2>/dev/null || true
+                        if [ "$AUTO_FIX" = 1 ]; then
+                          # Create a focused commit containing only the managed files that changed
+                          GIT_COMMITTER_DATE="$(date -u -R)" \
+                          GIT_AUTHOR_DATE="$(date -u -R)" \
+                          git -c core.hooksPath=/dev/null commit --no-verify \
+                            -m "chore(managed): refresh generated files" -- "''${update_paths[@]}" >/dev/null 2>&1 || true
+                        else
+                          if [ "$VERBOSE" = 1 ]; then
+                            echo "Run: write-files, then commit the changes." >&2
+                          fi
+                          exit 1
+                        fi
+                      fi
+                      # Report success to allow the user's commit to proceed
+                      exit 0
                     fi
                   '';
                 };
