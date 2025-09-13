@@ -8,6 +8,8 @@
       ])
       ++ [
         config.flake.nixosModules."role-dev"
+        config.flake.nixosModules."role-media"
+        config.flake.nixosModules."role-net"
         config.flake.nixosModules."warp-client"
         inputs.nixos-hardware.nixosModules.system76
       ];
