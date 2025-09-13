@@ -131,13 +131,22 @@
                   sub_branch="inputs/$SP_BRANCH/$name"
                 fi
 
-                echo "Pushing $name HEAD $head_sha -> origin:$sub_branch"
-                git -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$sub_branch"
-
-                # Verify the branch exists on origin
-                if ! git ls-remote --heads "$PARENT_ORIGIN" "refs/heads/$sub_branch" | grep -q .; then
-                  echo "Error: failed to verify remote branch '$sub_branch' for $name" >&2
-                  exit 1
+                # Determine remote tip to use accurate force-with-lease
+                remote_sha=$(git ls-remote --heads "$PARENT_ORIGIN" "refs/heads/$sub_branch" | awk '{print $1}' | head -n1 || true)
+                if [ "''${remote_sha:-}" = "$head_sha" ]; then
+                  echo "Remote already at $head_sha; skipping push for $name"
+                else
+                  echo "Pushing $name HEAD $head_sha -> origin:$sub_branch (remote was ''${remote_sha:-<none>})"
+                  if [ -n "''${remote_sha:-}" ]; then
+                    git -C "$path" push --force-with-lease="refs/heads/$sub_branch:''$remote_sha" -u origin "HEAD:refs/heads/$sub_branch"
+                  else
+                    git -C "$path" push -u origin "HEAD:refs/heads/$sub_branch"
+                  fi
+                  # Verify the branch exists on origin
+                  if ! git ls-remote --heads "$PARENT_ORIGIN" "refs/heads/$sub_branch" | grep -q .; then
+                    echo "Error: failed to verify remote branch '$sub_branch' for $name" >&2
+                    exit 1
+                  fi
                 fi
 
                 # Lightweight provenance check: if commit message embeds an upstream sha and upstream is GitHub
