@@ -1,6 +1,6 @@
-{ config, ... }:
+{ config, lib, ... }:
 {
-  # Media role: aggregate media apps and defaults precisely
+  # Media role: aggregate media apps and optional defaults (if defined)
   flake.nixosModules.roles.media.imports =
     (with config.flake.nixosModules.apps; [
       mpv
@@ -9,8 +9,6 @@
       gwenview
       spectacle
     ])
-    ++ (with config.flake.nixosModules; [
-      # Include media toolchain defaults
-      media
-    ]);
+    # Optionally include a top-level 'media' defaults module if present
+    ++ lib.optional (lib.hasAttr "media" config.flake.nixosModules) config.flake.nixosModules.media;
 }

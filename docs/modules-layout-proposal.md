@@ -60,7 +60,7 @@ Consolidations and renames (to be done in a follow-up PR):
 
 Notes:
 
-- `import-tree` on `./modules` discovers modules by walking the tree; moving files or renaming folders does not require adding an index file. Avoid hard-coded path imports; use the existing `flake.modules.*` pattern everywhere.
+- `import-tree` on `./modules` discovers modules by walking the tree; moving files or renaming folders does not require adding an index file. Avoid hard-coded path imports; use the existing `flake.nixosModules.*` / `flake.homeManagerModules.*` patterns everywhere.
 
 ## Migration Plan
 
@@ -70,7 +70,7 @@ Notes:
    - Batch B: `files` consolidation.
    - Batch C: `media` consolidation and migration of `media.nix`.
 3. After each batch:
-   - Search/replace stray path references if any (most modules only declare `flake.modules.*`).
+   - Search/replace stray path references if any (most modules only declare `flake.nixosModules.*` or `flake.homeManagerModules.*`).
    - Run validation (see below).
 4. Follow-up cleanup:
    - Remove obsolete folders left empty after moves.
