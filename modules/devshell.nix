@@ -12,11 +12,13 @@
         packages =
           with pkgs;
           let
-            # Update all input branches and record in superproject
-            inputBranchesUpdateAll = pkgs.writeShellApplication {
-              name = "input-branches-update-all";
+            # Update input branches and record in superproject
+            updateInputBranches = pkgs.writeShellApplication {
+              name = "update-input-branches";
               runtimeInputs = [
                 pkgs.git
+                pkgs.gnugrep
+                pkgs.gnused
               ]
               ++ (if psArgs.config ? input-branches then psArgs.config.input-branches.commands.all else [ ]);
               text = ''
@@ -35,13 +37,38 @@
                   echo "Error: could not resolve superproject origin URL" >&2
                   exit 1
                 fi
+                SP_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
                 if [ -d inputs ]; then
                   for d in inputs/*; do
                     [ -d "$d" ] || continue
                     if [ -d "$d/.git" ] || [ -f "$d/.git" ]; then
                       git -C "$d" remote set-url origin "''${PARENT_ORIGIN}"
                       git -C "$d" remote set-url --push origin "''${PARENT_ORIGIN}"
-                      # Ensure a clean slate for rebase operations
+                      # Determine intended branch for this input
+                      name=$(basename "$d")
+                      gm_branch=$(git config -f .gitmodules "submodule.$d.branch" 2>/dev/null || true)
+                      target_branch=''${gm_branch:-inputs/''${SP_BRANCH}/''${name}}
+
+                      # If the repo is in an aborted temp state (unborn HEAD, temp branch, or dirty index),
+                      # try to restore it to the target branch tip from local or origin.
+                      current_branch=$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+                      if ! git -C "$d" rev-parse --verify -q HEAD >/dev/null 2>&1 \
+                        || [ "$current_branch" = "_input-branches-temp" ] \
+                        || [ -n "$(git -C "$d" status --porcelain)" ]; then
+                        # Prefer local branch if it exists
+                        if git -C "$d" rev-parse --verify -q "$target_branch" >/dev/null 2>&1; then
+                          git -C "$d" checkout -f "$target_branch" >/dev/null 2>&1 || true
+                          git -C "$d" reset --hard "$target_branch" >/dev/null 2>&1 || true
+                        else
+                          # Fall back to origin if accessible
+                          git -C "$d" fetch origin "refs/heads/$target_branch:refs/remotes/origin/$target_branch" >/dev/null 2>&1 || true
+                          if git -C "$d" rev-parse --verify -q "origin/$target_branch" >/dev/null 2>&1; then
+                            git -C "$d" checkout -B "$target_branch" "origin/$target_branch" >/dev/null 2>&1 || true
+                            git -C "$d" reset --hard "origin/$target_branch" >/dev/null 2>&1 || true
+                          fi
+                        fi
+                      fi
+                      # Final clean slate for rebase operations
                       git -C "$d" reset --hard HEAD >/dev/null 2>&1 || true
                       git -C "$d" clean -fdxq || true
                     fi
@@ -75,15 +102,72 @@
                 echo "==> Staging updated input pointers (gitlinks)"
                 git add -u inputs || true
 
-                echo "==> Committing input pointer updates"
+                echo "==> Committing input pointer updates (inputs-only)"
                 if git diff --cached --quiet -- inputs; then
                   echo "No input bumps to commit."
                 else
-                  git commit --only --no-verify -m "chore(inputs): bump nixpkgs, home-manager, stylix" -- inputs
+                  # Guard: refuse if non-input files are staged unless explicitly allowed
+                  if git diff --name-only --cached | grep -v '^inputs/' -q; then
+                    if [ "''${ALLOW_NON_INPUT_STAGED:-}" != "1" ]; then
+                      echo "Refusing to commit: non-input files are staged." >&2
+                      echo "Unstage them or set ALLOW_NON_INPUT_STAGED=1 to override." >&2
+                      exit 2
+                    fi
+                  fi
+                  git -c core.hooksPath=/dev/null commit --only --no-verify -m "chore(inputs): bump inputs (gitlinks only)" -- inputs
                 fi
 
-                echo "==> Pushing all input branches to origin"
-                input-branches-push-force
+                echo "==> Pushing input branches to origin (force-with-lease)"
+                SP_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+                if [ -d inputs ]; then
+                  for path in inputs/*; do
+                    [ -d "$path" ] || continue
+                    if [ ! -d "$path/.git" ] && [ ! -f "$path/.git" ]; then continue; fi
+                    name=$(basename "$path")
+                    echo "Superproject origin (push): $PARENT_ORIGIN"
+                    echo "==> Processing $name ($path)"
+
+                    # Ensure submodule origin push url points to superproject origin
+                    if ! git -C "$path" remote get-url origin >/dev/null 2>&1; then
+                      git -C "$path" remote add origin "$PARENT_ORIGIN"
+                    fi
+                    git -C "$path" remote set-url --push origin "$PARENT_ORIGIN"
+
+                    branch=$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+                    if [ -z "$branch" ] || [ "$branch" = "HEAD" ]; then
+                      gm_branch=$(git config -f .gitmodules "submodule.$path.branch" 2>/dev/null || echo "")
+                      if [ -n "$gm_branch" ]; then
+                        branch="$gm_branch"
+                        echo "Info: detached HEAD; using .gitmodules branch '$branch'"
+                      else
+                        branch="inputs/$SP_BRANCH/$name"
+                        echo "Info: detached HEAD; defaulting to '$branch'"
+                      fi
+                    fi
+
+                    # Hydrate any missing promisor objects before pushing (partial clone safety)
+                    if git -C "$path" remote get-url upstream >/dev/null 2>&1; then
+                      up_head=$(git -C "$path" rev-parse --abbrev-ref --symbolic-full-name upstream/HEAD 2>/dev/null | sed 's|^upstream/||' || true)
+                      if [ -n "$up_head" ]; then
+                        git -C "$path" fetch --no-filter upstream "$up_head" || true
+                      else
+                        git -C "$path" fetch --no-filter upstream || true
+                      fi
+                    fi
+
+                    echo "Pushing HEAD -> origin:$branch"
+                    git -c core.hooksPath=/dev/null -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$branch" || {
+                      echo "Error: push failed for $name" >&2
+                      exit 70
+                    }
+
+                    if git ls-remote --heads "$PARENT_ORIGIN" "$branch" | grep -qE "\srefs/heads/$branch$"; then
+                      echo "OK: origin has branch '$branch' for $name"
+                    else
+                      echo "Warning: could not verify branch '$branch' on origin for $name" >&2
+                    fi
+                  done
+                fi
 
                 echo "==> Recording updated submodule pointers in superproject"
                 # Guard: refuse if non-input files are already staged (unless overridden)
@@ -98,136 +182,7 @@
                 echo "Done: inputs bumped and recorded."
               '';
             };
-            pushInputBranches = pkgs.writeShellApplication {
-              name = "push-input-branches";
-              text = ''
-                                #!/usr/bin/env bash
-                                set -euo pipefail
 
-                                usage() {
-                                  cat <<'EOF'
-                Push input branches (inputs/*) to the repository origin.
-
-                Usage:
-                  push-input-branches [--debug] [<input> ...]
-
-                Options:
-                  --debug        Enable verbose logging (set -x) and extra diagnostics
-                  -h, --help     Show this help
-
-                Arguments:
-                  <input>        Optional list of inputs to push (e.g., nixpkgs home-manager stylix).
-                                 If omitted, auto-discovers inputs under inputs/*.
-
-                Behavior:
-                  - Ensures each submodule's push URL points to the superproject's origin
-                  - Pushes HEAD of each input to its current branch (e.g., inputs/<branch>/<name>)
-                  - Uses --force-with-lease and sets upstream on first push
-                  - Verifies presence of the branch on origin
-                EOF
-                                }
-
-                                DEBUG=0
-                                ARGS=()
-                                while [[ $# -gt 0 ]]; do
-                                  case "$1" in
-                                  --debug)
-                                    DEBUG=1; shift;;
-                                  -h|--help)
-                                    usage; exit 0;;
-                                  --)
-                                    shift; break;;
-                                  -*)
-                                    echo "Unknown option: $1" >&2; usage; exit 2;;
-                                  *)
-                                    ARGS+=("$1"); shift;;
-                                  esac
-                                done
-
-                                if [[ ''${DEBUG} -eq 1 ]]; then set -x; fi
-
-                                ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
-                                if [[ -z "$ROOT" || ! -d "$ROOT/.git" ]]; then
-                                  echo "Error: run this inside the superproject git repository" >&2
-                                  exit 1
-                                fi
-                                cd "$ROOT"
-
-                                PARENT_ORIGIN=$(git remote get-url --push origin 2>/dev/null || git remote get-url origin 2>/dev/null || true)
-                                if [[ -z "$PARENT_ORIGIN" ]]; then
-                                  echo "Error: could not resolve superproject origin push URL" >&2
-                                  exit 1
-                                fi
-
-                                declare -a TARGETS=()
-                                if [[ ''${#ARGS[@]} -gt 0 ]]; then
-                                  for name in "''${ARGS[@]}"; do
-                                    path="inputs/$name"
-                                    if [[ -d "$path/.git" || -f "$path/.git" ]]; then
-                                      TARGETS+=("$name")
-                                    else
-                                      echo "Warning: skipped '$name' (no git repo at $path)" >&2
-                                    fi
-                                  done
-                                else
-                                  shopt -s nullglob
-                                  for d in inputs/*; do
-                                    [[ -d "$d" ]] || continue
-                                    if [[ -d "$d/.git" || -f "$d/.git" ]]; then
-                                      TARGETS+=("$(basename "$d")")
-                                    fi
-                                  done
-                                  shopt -u nullglob
-                                fi
-
-                                if [[ ''${#TARGETS[@]} -eq 0 ]]; then
-                                  echo "Error: no input submodules found under inputs/*" >&2
-                                  exit 1
-                                fi
-
-                                echo "Superproject origin (push): $PARENT_ORIGIN"
-
-                                for name in "''${TARGETS[@]}"; do
-                                  path="inputs/$name"
-                                  echo "==> Processing $name ($path)"
-
-                                  if ! git -C "$path" remote get-url origin >/dev/null 2>&1; then
-                                    git -C "$path" remote add origin "$PARENT_ORIGIN"
-                                  fi
-                                  git -C "$path" remote set-url --push origin "$PARENT_ORIGIN"
-
-                                  branch=$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-                                  if [[ -z "$branch" || "$branch" == "HEAD" ]]; then
-                                    gm_branch=$(git config -f .gitmodules "submodule.$path.branch" 2>/dev/null || echo "")
-                                    if [[ -n "$gm_branch" ]]; then
-                                      branch="$gm_branch"
-                                      echo "Info: detached HEAD; using .gitmodules branch '$branch'"
-                                    else
-                                      sp_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
-                                      branch="inputs/$sp_branch/$name"
-                                      echo "Info: detached HEAD; defaulting to '$branch'"
-                                    fi
-                                  fi
-
-                                  echo "Pushing HEAD -> origin:$branch"
-                                  git -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$branch"
-
-                                  if git ls-remote --heads "$PARENT_ORIGIN" "$branch" | grep -qE "\srefs/heads/$branch$"; then
-                                    echo "OK: origin has branch '$branch' for $name"
-                                  else
-                                    echo "Warning: could not verify branch '$branch' on origin for $name" >&2
-                                  fi
-                                done
-
-                                echo "All requested input branches have been pushed."
-              '';
-              runtimeInputs = [
-                pkgs.git
-                pkgs.gnugrep
-                pkgs.coreutils
-                pkgs.gawk
-              ];
-            };
             inputBranchesCatalog = pkgs.writeShellApplication {
               name = "input-branches-catalog";
               text = ''
@@ -321,13 +276,13 @@
             nil # Nix LSP
             nix-tree
             nix-diff
+            zsh
             act
             jq
             yq
             ghActionsRun
             ghActionsList
-            inputBranchesUpdateAll
-            pushInputBranches
+            updateInputBranches
             inputBranchesCatalog
             config.packages.generation-manager
             config.treefmt.build.wrapper
@@ -345,13 +300,18 @@
           echo "  pre-commit install     - Install git hooks"
           echo "  pre-commit run         - Run hooks on staged files"
           echo "  input-branches-catalog - List input-branches commands (if available)"
-          echo "  input-branches-update-all - Rebase + push inputs, commit bumps"
-          echo "  push-input-branches    - Push input branches (inputs/*) to origin"
+          echo "  update-input-branches  - Rebase inputs, push inputs/* branches, commit bumps"
           echo "  write-files            - Generate managed files (README.md, .actrc, .gitignore)"
           echo "  gh-actions-run [-n]    - Run all GitHub Actions locally (use -n for dry run)"
           echo "  gh-actions-list        - List discovered GitHub Actions jobs"
           echo ""
           ${config.pre-commit.installationScript}
+
+          # Prefer zsh for interactive sessions
+          if [ -n "''${PS1-}" ] && [ -z "''${ZSH_VERSION-}" ] && [ -t 1 ]; then
+            export SHELL="${pkgs.zsh}/bin/zsh"
+            exec "${pkgs.zsh}/bin/zsh" -l
+          fi
         '';
       };
 
