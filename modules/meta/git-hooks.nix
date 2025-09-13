@@ -182,7 +182,7 @@
                     root=$(git rev-parse --show-toplevel)
                     cd "$root"
                     if ! command -v write-files >/dev/null 2>&1; then
-                      echo "write-files not found; skipping managed files drift check" >&2
+                      # Silent success when the writer is unavailable
                       exit 0
                     fi
                     writer=$(command -v write-files)
@@ -194,7 +194,6 @@
                       exit 0
                     fi
                     drift=0
-                    echo "Checking managed files drift..."
                     for line in "''${pairs[@]}"; do
                       src=$(printf '%s' "$line" | awk '{print $2}')
                       # take everything after the '>' and trim spaces
@@ -213,11 +212,9 @@
                       fi
                     done
                     if [ "$drift" -ne 0 ]; then
-                      echo ""
+                      echo "" >&2
                       echo "Run: write-files, then commit the changes." >&2
                       exit 1
-                    else
-                      echo "✓ Managed files are up to date."
                     fi
                   '';
                 };
@@ -228,7 +225,7 @@
                 entry = lib.getExe driftChecker;
                 pass_filenames = false;
                 always_run = true;
-                verbose = true;
+                verbose = false;
               };
           };
         };
