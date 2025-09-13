@@ -28,7 +28,7 @@
     };
 
     home-manager = {
-      url = "./inputs/home-manager";
+      url = "git+file:./inputs/home-manager";
       flake = true;
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -59,7 +59,7 @@
 
     nixos-facter-modules.url = "github:numtide/nixos-facter-modules";
 
-    nixpkgs.url = "./inputs/nixpkgs";
+    nixpkgs.url = "git+file:./inputs/nixpkgs";
 
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
@@ -94,7 +94,7 @@
     };
 
     stylix = {
-      url = "./inputs/stylix";
+      url = "git+file:./inputs/stylix";
       flake = true;
       inputs = {
         # Only follow inputs that actually exist in stylix

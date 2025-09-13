@@ -19,6 +19,30 @@
         };
       };
 
+      # Declare mergeable option schema for flake.nixosModules so that
+      # multiple files can contribute NixOS modules without conflicting definitions.
+      nixosModules = lib.mkOption {
+        type = lib.types.submodule {
+          # Allow arbitrary nested namespaces of deferred modules
+          freeformType = lib.types.attrsOf lib.types.deferredModule;
+          options = {
+            # Commonly-used nested namespaces (explicit for documentation/IDE help)
+            apps = lib.mkOption {
+              type = lib.types.attrsOf lib.types.deferredModule;
+              default = { };
+              description = "Per-app NixOS modules (merged by name)";
+            };
+            roles = lib.mkOption {
+              type = lib.types.attrsOf lib.types.deferredModule;
+              default = { };
+              description = "Role aggregators for NixOS (merged by name)";
+            };
+          };
+        };
+        default = { };
+        description = "Aggregated NixOS modules with freeform nested namespaces";
+      };
+
       # Declare mergeable option schema for flake.homeManagerModules so that
       # multiple files can contribute modules without conflicting definitions.
       homeManagerModules = lib.mkOption {
@@ -48,7 +72,5 @@
     };
   };
 
-  # Ensure `flake.modules` has a defined value to satisfy
-  # any consumers expecting this legacy aggregator.
-  config.flake.modules = { };
+  # No legacy `flake.modules` output; avoid unknown flake output warnings.
 }
