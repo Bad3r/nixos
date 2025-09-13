@@ -31,6 +31,7 @@ _: {
             "xhci_pci"
             "thunderbolt"
             "nvme"
+            "ahci"
             "uas"
             "usb_storage"
             "usbhid"
@@ -41,6 +42,8 @@ _: {
           # LUKS encryption for root device
           luks.devices."luks-29c517ce-ea2a-416e-8340-223deda4aacf".device =
             "/dev/disk/by-uuid/29c517ce-ea2a-416e-8340-223deda4aacf";
+
+          # (no additional LUKS devices)
         };
 
         kernelModules = [ "kvm-intel" ];
@@ -75,7 +78,10 @@ _: {
             "dmask=0077"
           ];
         };
+        # (no additional mounts)
       };
+
+      # (no additional tmpfiles rules)
 
       # Swap device
       swapDevices = [ { device = "/dev/disk/by-uuid/49b87403-5321-493f-8dc8-4a9ff5333c5a"; } ];

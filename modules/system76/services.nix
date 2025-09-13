@@ -6,14 +6,14 @@ _: {
         # Disable samples and network clients until configured on this host
         cloudflared.enable = lib.mkForce false;
         cloudflare-warp.enable = lib.mkForce false;
-        # Enable printing
+
+        # Disable printing by default on this host; remove Samsung driver
         printing = {
-          enable = lib.mkDefault true;
+          enable = lib.mkForce false;
           drivers = with pkgs; [
             gutenprint
             # hplip  # Requires unfree license
             brlaser
-            samsung-unified-linux-driver
           ];
         };
 
@@ -39,6 +39,12 @@ _: {
           enable = true;
           package = pkgs.plocate;
         };
+
+        # Enable weekly fstrim for SSDs
+        fstrim.enable = true;
+
+        # Thermal management (CPU/platform)
+        thermald.enable = true;
       };
 
       # Disable ACME sample certs until configured with real domain/token

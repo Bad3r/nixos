@@ -13,5 +13,8 @@ _: {
       boot.kernelParams = [
         "system76_acpi.brightness_hwmon=1"
       ];
+
+      # Enable LVFS firmware updates
+      services.fwupd.enable = true;
     };
 }

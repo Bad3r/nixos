@@ -16,7 +16,14 @@
         users.users.${config.flake.lib.meta.owner.username} = {
           isNormalUser = true;
           initialPassword = "";
-          extraGroups = [ "input" ];
+          # User-specific groups that should follow the owner across all hosts
+          extraGroups = [
+            "input"
+            "wheel"
+            "networkmanager"
+            "docker"
+            "libvirtd"
+          ];
         };
 
         nix.settings.trusted-users = [ config.flake.lib.meta.owner.username ];
