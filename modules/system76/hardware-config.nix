@@ -44,18 +44,17 @@ _: {
             "usb_storage"
             "sd_mod"
             "sdhci_pci"
-            "ext4" # Explicitly ensure ext4 module is available for root filesystem
           ];
 
           # LUKS encryption for devices
           luks.devices = {
             # Root device
-            "luks-de5ef033-553b-4943-be41-09125eb815b2".device =
-              "/dev/disk/by-uuid/de5ef033-553b-4943-be41-09125eb815b2";
+            "luks-251cdcdc-bbb7-4530-8c77-f6d14071bb2d".device =
+              "/dev/disk/by-uuid/251cdcdc-bbb7-4530-8c77-f6d14071bb2d";
 
-            # Swap device (CRITICAL FIX - was missing)
-            "luks-555de4f1-f4b6-4fd1-acd2-9d735ab4d9ec".device =
-              "/dev/disk/by-uuid/555de4f1-f4b6-4fd1-acd2-9d735ab4d9ec";
+            # Swap device (encrypted)
+            "luks-42ddd341-f150-4d0e-b5a9-d3f209688b64".device =
+              "/dev/disk/by-uuid/42ddd341-f150-4d0e-b5a9-d3f209688b64";
           };
         };
 
@@ -79,11 +78,11 @@ _: {
       # Filesystem configuration (CRITICAL - must be here for system to boot)
       fileSystems = {
         "/" = {
-          device = "/dev/disk/by-uuid/54df1eda-4dc3-40d0-a6da-8d1d7ee612b2";
+          device = "/dev/disk/by-uuid/7ea955bc-9272-4ffb-9b10-0537e812f31e";
           fsType = "ext4";
         };
         "/boot" = {
-          device = "/dev/disk/by-uuid/98A9-C26F";
+          device = "/dev/disk/by-uuid/13EA-A8F2";
           fsType = "vfat";
           options = [
             "fmask=0077"
@@ -93,7 +92,7 @@ _: {
       };
 
       # Swap device (references the decrypted swap UUID)
-      swapDevices = [ { device = "/dev/disk/by-uuid/72b0d736-e0c5-4f72-bc55-f50f7492ceef"; } ];
+      swapDevices = [ { device = "/dev/disk/by-uuid/03000410-3fba-4651-b5ae-70c1b470be8c"; } ];
 
       # Enable touchpad support
       services.libinput = {

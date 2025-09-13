@@ -82,10 +82,10 @@ jobs:
       - name: Validate namespaces
         run: |
           # Check that no modules create wrong namespaces
-          ! grep -r "flake.modules.nixos.desktop" modules/ --include="*.nix"
-          ! grep -r "flake.modules.nixos.audio" modules/ --include="*.nix"
-          ! grep -r "flake.modules.nixos.boot" modules/ --include="*.nix"
-          ! grep -r "flake.modules.nixos.storage" modules/ --include="*.nix"
+          ! grep -r "flake.nixosModules.desktop" modules/ --include="*.nix"
+          ! grep -r "flake.nixosModules.audio" modules/ --include="*.nix"
+          ! grep -r "flake.nixosModules.boot" modules/ --include="*.nix"
+          ! grep -r "flake.nixosModules.storage" modules/ --include="*.nix"
       - name: Check import-tree usage
         run: grep -q "import-tree.*modules" flake.nix || exit 1
       - name: Check no literal imports

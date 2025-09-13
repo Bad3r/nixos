@@ -16,7 +16,15 @@
 
         users.${config.flake.lib.meta.owner.username}.imports =
           let
-            hmRoles = config.flake.homeManagerModules.roles or { };
+            roles = config.flake.lib.homeManager.roles or { };
+            hasApp = name: lib.hasAttrByPath [ "apps" name ] config.flake.homeManagerModules;
+            getApp =
+              name:
+              if hasApp name then
+                lib.getAttrFromPath [ "apps" name ] config.flake.homeManagerModules
+              else
+                throw "Unknown Home Manager app '${name}' referenced by roles";
+            roleToModules = roleName: map getApp (roles.${roleName} or [ ]);
           in
           [
             inputs.sops-nix.homeManagerModules.sops
@@ -30,9 +38,9 @@
             # Wire R2 sops-managed env by default (guarded on secrets/r2.env presence)
             config.flake.homeManagerModules.r2Secrets
           ]
-          # Optional HM roles (CLI and terminals)
-          ++ lib.optionals (hmRoles ? cli) [ hmRoles.cli ]
-          ++ lib.optionals (hmRoles ? terminals) [ hmRoles.terminals ];
+          # Resolve role specs (data) to concrete HM app modules at the glue layer
+          ++ (roleToModules "cli")
+          ++ (roleToModules "terminals");
       };
     };
 
