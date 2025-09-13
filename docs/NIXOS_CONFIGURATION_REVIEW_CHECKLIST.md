@@ -111,8 +111,6 @@ This checklist provides a systematic approach to reviewing and evaluating the cu
 - [ ] Check for overlays: `grep -r "nixpkgs.overlays" modules/system76/`
 - [ ] Verify system.stateVersion: `grep "system.stateVersion" modules/system76/*.nix`
 
-
-
 ### Common Host Settings
 
 - [ ] SSH configuration secure: `grep -r "openssh" modules/*/ssh.nix`

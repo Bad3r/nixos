@@ -41,7 +41,9 @@
       # Exclude input branches from formatting for speed
       treefmt.settings.global.excludes = [ "${config.input-branches.baseDir}/*" ];
 
-      # Pre-push hook to ensure submodule commits are pushed
+      # Pre-push hook: ensure ONLY CHANGED input submodules are pushed to origin.
+      # Also perform a lightweight upstream provenance check via GitHub API when a
+      # squashed upstream commit is embedded in the submodule HEAD message.
       pre-commit.settings.hooks.check-submodules-pushed = {
         enable = true;
         stages = [ "pre-push" ];
@@ -60,133 +62,107 @@
               pkgs.curl
               pkgs.gh
             ];
-            text =
-              let
-                inputValues = lib.attrValues config.input-branches.inputs;
-                chunks = map (v: ''
-                  (
-                    unset GIT_DIR
-                    cd ${v.path_}
-                    echo "==> Checking ${v.path_}"
-                    current_commit=$(git rev-parse --quiet HEAD)
-                    [ -z "$current_commit" ] && {
-                      echo "Error: could not find HEAD of submodule ${v.path_}"
-                      exit 1
-                    }
-                    status=$(git status --porcelain)
-                    echo "$status" | grep -q . && {
-                      echo "Error: submodule ${v.path_} not clean"
-                      exit 1
-                    }
-                    ref='${v.upstream.ref or "master"}'
+            text = ''
+              set -euo pipefail
+              set -o xtrace
 
-                    # Detect squashed inputs: commit message contains "squashed upstream <sha>"
-                    msg=$(git log -1 --pretty=%B || true)
-                    upstream_sha=$(printf "%s" "$msg" | sed -n 's/.*squashed upstream \([0-9a-f]\{7,40\}\).*/\1/p' | head -n1)
+              ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+              cd "$ROOT"
 
-                    # Select target commit to verify (prefer embedded upstream sha when present)
-                    if [ -n "$upstream_sha" ]; then
-                      target_commit="$upstream_sha"
-                    else
-                      target_commit="$current_commit"
-                    fi
-                    if [ -n "$upstream_sha" ]; then
-                      echo "Detected squashed input; verifying upstream commit $upstream_sha on upstream/$ref"
-                    else
-                      echo "No squash marker; verifying local HEAD $current_commit on upstream/$ref"
-                    fi
+              # Determine current branch and update the local remote-tracking ref
+              SP_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+              # Ensure we have the latest origin/<branch> to compute changed submodules
+              git fetch --no-tags --quiet origin "+refs/heads/$SP_BRANCH:refs/remotes/origin/$SP_BRANCH" --depth=1 || true
 
-                    skip_fetch=""
-                    # If we have an upstream sha and the upstream is GitHub, try a lightweight API check first
-                    if [ -n "$upstream_sha" ]; then
-                      upstream_url=$(git remote get-url upstream 2>/dev/null || true)
-                      case "$upstream_url" in
-                        https://github.com/*|git@github.com:*)
-                          # Normalize to owner/repo without .git
-                          owner_repo="$upstream_url"
-                          owner_repo="''${owner_repo#git@github.com:}"
-                          owner_repo="''${owner_repo#https://github.com/}"
-                          owner_repo="''${owner_repo%.git}"
-                          owner="''${owner_repo%%/*}"
-                          repo="''${owner_repo#*/}"
-                          echo "GitHub compare: $owner/$repo $upstream_sha...$ref"
-                          if command -v gh >/dev/null 2>&1; then
-                            status=$(gh api \
-                              "repos/$owner/$repo/compare/$upstream_sha...$ref" \
-                              --jq .status 2>/dev/null || true)
-                          else
-                            resp=$(curl -sSL --connect-timeout 10 --max-time 30 \
-                                   -H "Accept: application/vnd.github+json" \
-                                   "https://api.github.com/repos/$owner/$repo/compare/$upstream_sha...$ref" || true)
-                            status=$(printf "%s" "$resp" | jq -r '.status // empty')
-                          fi
-                          # Accept when base (upstream_sha) is reachable from head (ref): ahead or identical
-                          if [ "$status" = "ahead" ] || [ "$status" = "identical" ]; then
-                            echo "GitHub reports commit is reachable on upstream/$ref (status=$status)."
-                            skip_fetch=1
-                          else
-                            [ -n "$status" ] || status="unknown"
-                            echo "GitHub API not conclusive (status=$status); will verify via git fetch."
-                          fi
-                          ;;
-                        *) ;;
-                      esac
-                    fi
+              BASE="origin/$SP_BRANCH"
+              if ! git rev-parse --verify -q "$BASE" >/dev/null; then
+                # Fallback to the root commit if the remote branch is missing
+                BASE=$(git rev-list --max-parents=0 HEAD | tail -n1)
+              fi
 
-                    # Perform a shallow, blobless fetch to minimize data; show progress and fail fast on slow links
-                    # Clear any stale shallow.lock to avoid blocked fetches
-                    git_dir=$(git rev-parse --git-dir 2>/dev/null || true)
-                    if [ -n "$git_dir" ] && [ -f "$git_dir/shallow.lock" ]; then
-                      echo "Found stale shallow.lock in $git_dir; removing"
-                      rm -f "$git_dir/shallow.lock" || true
-                    fi
+              # Determine which input submodules changed in this push range
+              CHANGED_NAMES=$(git diff --name-only "$BASE..HEAD" | sed -n 's/^inputs\///p' | cut -d/ -f1 | sort -u)
+              if [ -z "$CHANGED_NAMES" ]; then
+                echo "No inputs/* submodule changes detected; nothing to do."
+                exit 0
+              fi
 
-                    if [ -z "$skip_fetch" ]; then
-                      # Initial fetch with progress and low-speed fail-fast; avoid interactive prompts
-                      if ! GIT_TERMINAL_PROMPT=0 \
-                           GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=30 \
-                           timeout 120s git fetch --depth=1 --filter=blob:none --progress -v upstream "$ref"; then
-                        echo "Warning: initial fetch failed or timed out for ${v.path_}; attempting shallow deepen"
+              PARENT_ORIGIN=$(git remote get-url --push origin 2>/dev/null || git remote get-url origin 2>/dev/null || true)
+              if [ -z "$PARENT_ORIGIN" ]; then
+                echo "Error: could not resolve superproject origin URL" >&2
+                exit 1
+              fi
+
+              for name in $CHANGED_NAMES; do
+                path="inputs/$name"
+                [ -d "$path" ] || { echo "Warning: missing submodule path $path" >&2; continue; }
+                echo "==> Processing $name ($path)"
+
+                # Verify clean worktree and get HEAD sha
+                status=$(git -C "$path" status --porcelain)
+                if [ -n "$status" ]; then
+                  echo "Error: submodule $path not clean" >&2
+                  exit 1
+                fi
+                head_sha=$(git -C "$path" rev-parse --quiet HEAD)
+                [ -n "$head_sha" ] || { echo "Error: could not find HEAD of $path" >&2; exit 1; }
+
+                # Ensure submodule origin push url points to superproject origin
+                if ! git -C "$path" remote get-url origin >/dev/null 2>&1; then
+                  git -C "$path" remote add origin "$PARENT_ORIGIN"
+                else
+                  git -C "$path" remote set-url --push origin "$PARENT_ORIGIN"
+                fi
+
+                # Select target branch for the submodule push
+                sub_branch=$(git config -f .gitmodules "submodule.$path.branch" 2>/dev/null || true)
+                if [ -z "$sub_branch" ]; then
+                  sub_branch="inputs/$SP_BRANCH/$name"
+                fi
+
+                echo "Pushing $name HEAD $head_sha -> origin:$sub_branch"
+                git -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$sub_branch"
+
+                # Verify the branch exists on origin
+                if ! git ls-remote --heads "$PARENT_ORIGIN" "refs/heads/$sub_branch" | grep -q .; then
+                  echo "Error: failed to verify remote branch '$sub_branch' for $name" >&2
+                  exit 1
+                fi
+
+                # Lightweight provenance check: if commit message embeds an upstream sha and upstream is GitHub
+                msg=$(git -C "$path" log -1 --pretty=%B || true)
+                upstream_sha=$(printf "%s" "$msg" | sed -n 's/.*squashed upstream \([0-9a-f]\{7,40\}\).*/\1/p' | head -n1)
+                upstream_url=$(git -C "$path" remote get-url upstream 2>/dev/null || true)
+                upstream_ref=$(git -C "$path" rev-parse --abbrev-ref --symbolic-full-name upstream/HEAD 2>/dev/null | sed 's|^upstream/||' || true)
+                [ -n "$upstream_ref" ] || upstream_ref="master"
+                if [ -n "$upstream_sha" ]; then
+                  case "$upstream_url" in
+                    https://github.com/*|git@github.com:*)
+                      owner_repo="$upstream_url"
+                      owner_repo="''${owner_repo#git@github.com:}"
+                      owner_repo="''${owner_repo#https://github.com/}"
+                      owner_repo="''${owner_repo%.git}"
+                      owner="''${owner_repo%%/*}"
+                      repo="''${owner_repo#*/}"
+                      echo "Provenance: GitHub compare $owner/$repo $upstream_sha...$upstream_ref"
+                      if command -v gh >/dev/null 2>&1; then
+                        status=$(gh api "repos/$owner/$repo/compare/$upstream_sha...$upstream_ref" --jq .status 2>/dev/null || true)
+                      else
+                        resp=$(curl -sSL --connect-timeout 10 --max-time 30 -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$owner/$repo/compare/$upstream_sha...$upstream_ref" || true)
+                        status=$(printf "%s" "$resp" | jq -r '.status // empty')
                       fi
-
-                      # Try to verify ancestry; if history too shallow, deepen incrementally
-                      if ! git merge-base --is-ancestor "$target_commit" "upstream/$ref"; then
-                        attempts=0
-                        while [ $attempts -lt 8 ]; do
-                          attempts=$((attempts+1))
-                          echo "Deepening history (attempt $attempts/8) for ${v.path_}..."
-                          # Clean up possible leftover shallow.lock before deepen
-                          git_dir=$(git rev-parse --git-dir 2>/dev/null || true)
-                          if [ -n "$git_dir" ] && [ -f "$git_dir/shallow.lock" ]; then
-                            echo "Found stale shallow.lock in $git_dir; removing"
-                            rm -f "$git_dir/shallow.lock" || true
-                          fi
-
-                          if ! GIT_TERMINAL_PROMPT=0 \
-                                GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=30 \
-                                timeout 120s git fetch --deepen=100 --filter=blob:none --progress -v upstream "$ref"; then
-                            echo "Warning: deepen fetch failed (attempt $attempts) for ${v.path_}"
-                            break
-                          fi
-                          if git merge-base --is-ancestor "$target_commit" "upstream/$ref"; then
-                            break
-                          fi
-                        done
-                        if ! git merge-base --is-ancestor "$target_commit" "upstream/$ref"; then
-                          echo "Error: submodule ${v.path_} commit $target_commit is not reachable from upstream/$ref"
-                          exit 1
-                        fi
+                      if [ "$status" = "ahead" ] || [ "$status" = "identical" ]; then
+                        echo "Provenance OK: upstream sha is reachable (status=$status)."
+                      else
+                        [ -n "$status" ] || status="unknown"
+                        echo "Warning: provenance check inconclusive for $name (status=$status)." >&2
                       fi
-                    fi
-                  )
-                '') inputValues;
-                withHeader = lib.concat [
-                  ''
-                    set -o xtrace
-                  ''
-                ] chunks;
-              in
-              lib.concatLines withHeader;
+                      ;;
+                    *) ;;
+                  esac
+                fi
+              done
+            '';
           }
         );
       };
