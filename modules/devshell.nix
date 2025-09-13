@@ -179,6 +179,29 @@
                   fi
                 fi
 
+                echo "==> Updating flake.lock to track local inputs/* HEADs"
+                # Keep the lock file in sync with local inputs so evaluation uses the updated commits
+                # without manual 'nix flake lock' runs. Only update inputs/* that exist locally.
+                LOCK_UPDATED=0
+                if [ -d inputs/nixpkgs ]; then
+                  nix --accept-flake-config flake update --update-input nixpkgs || true
+                  LOCK_UPDATED=1
+                fi
+                if [ -d inputs/home-manager ]; then
+                  nix --accept-flake-config flake update --update-input home-manager || true
+                  LOCK_UPDATED=1
+                fi
+                if [ -d inputs/stylix ]; then
+                  nix --accept-flake-config flake update --update-input stylix || true
+                  LOCK_UPDATED=1
+                fi
+                if [ """$LOCK_UPDATED""" = 1 ] && git diff --quiet -- flake.lock; then
+                  : # no changes
+                elif [ """$LOCK_UPDATED""" = 1 ]; then
+                  git -c core.hooksPath=/dev/null add flake.lock
+                  git -c core.hooksPath=/dev/null commit --no-verify -m "chore(lock): update flake.lock for local inputs"
+                fi
+
                 echo "Done: inputs bumped and recorded."
               '';
             };
