@@ -1,3 +1,4 @@
+{ lib, ... }:
 {
   configurations.nixos.system76.module = _: {
     # This is the host's SSH public key from /etc/ssh/ssh_host_ed25519_key.pub
@@ -11,6 +12,15 @@
           IdentityAgent /run/user/1000/gnupg/S.gpg-agent.ssh
           SetEnv OPENSSL_CONF=/etc/ssl/openssl.cnf
       '';
+    };
+
+    # Prepare secure sshd settings without enabling the service on this host
+    services.openssh = {
+      enable = lib.mkDefault false;
+      settings = {
+        PasswordAuthentication = false;
+        PermitRootLogin = "no";
+      };
     };
   };
 }

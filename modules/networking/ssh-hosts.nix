@@ -17,6 +17,10 @@ _: {
           Port 443
           User git
           IdentitiesOnly yes
+          # Reuse SSH connection for GitHub only
+          ControlMaster auto
+          ControlPersist 15m
+          ControlPath ~/.ssh/ctl-%C
       '';
 
       ".ssh/hosts/system76.local".text = ''
@@ -24,10 +28,7 @@ _: {
           IdentityFile ~/.ssh/id_ed25519
       '';
 
-      ".ssh/hosts/tec.local".text = ''
-        Host tec.local
-          IdentityFile ~/.ssh/id_ed25519
-      '';
+      # tec host retired; keep entry removed
     };
   };
 }
