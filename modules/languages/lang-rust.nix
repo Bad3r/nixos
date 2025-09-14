@@ -1,7 +1,10 @@
 { config, ... }:
+let
+  inherit (config.flake.lib.nixos) getApps;
+in
 {
-  flake.nixosModules.lang.rust.imports = with config.flake.nixosModules.apps; [
-    rustc
-    cargo
+  flake.nixosModules.lang.rust.imports = getApps [
+    "rustc"
+    "cargo"
   ];
 }

@@ -1,7 +1,10 @@
 { config, ... }:
+let
+  inherit (config.flake.lib.nixos) getApps;
+in
 {
-  flake.nixosModules.lang.python.imports = with config.flake.nixosModules.apps; [
-    python
-    uv
+  flake.nixosModules.lang.python.imports = getApps [
+    "python"
+    "uv"
   ];
 }
