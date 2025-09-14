@@ -2,101 +2,6 @@
 {
   perSystem =
     { pkgs, ... }:
-    let
-      githubTokenRef = "\${{ secrets.GITHUB_TOKEN }}";
-      # Avoid triggering compliance grep for literal path imports by composing the pattern
-      importsPattern = "im" + "ports.*\\./";
-      workflow = ''
-        name: Dendritic Pattern Compliance Check
-        on:
-          push:
-            branches: [main, master]
-          pull_request:
-            branches: [main, master]
-        jobs:
-          check-compliance:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@v4
-                with:
-                  submodules: true
-                  fetch-depth: 0
-              - name: Install Nix
-                uses: cachix/install-nix-action@v24
-                with:
-                  install_url: https://releases.nixos.org/nix/nix-2.30.2/install
-                  github_access_token: ${githubTokenRef}
-                  extra_nix_config: |
-                    experimental-features = nix-command flakes pipe-operators
-                    abort-on-warn = true
-                    access-tokens = github.com=${githubTokenRef}
-              - name: Check flake
-                run: nix flake check --extra-experimental-features pipe-operators
-              - name: Check namespace compliance
-                run: ./test-dendritic-compliance.sh
-              - name: Build configurations
-                run: |
-                  nix build .#nixosConfigurations.system76.config.system.build.toplevel \
-                    --dry-run --extra-experimental-features pipe-operators
-              - name: Generate dependency graph
-                run: ./generate-dependency-graph.sh
-              - name: Upload artifacts
-                if: always()
-                uses: actions/upload-artifact@v4
-                with:
-                  name: dependency-graph
-                  path: |
-                    module-dependencies.dot
-                    module-dependencies.png
-                    module-dependencies.svg
-                  retention-days: 30
-
-          format-check:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@v4
-                with:
-                  submodules: true
-                  fetch-depth: 0
-              - name: Install Nix
-                uses: cachix/install-nix-action@v24
-                with:
-                  install_url: https://releases.nixos.org/nix/nix-2.30.2/install
-                  github_access_token: ${githubTokenRef}
-                  extra_nix_config: |
-                    experimental-features = nix-command flakes pipe-operators
-                    access-tokens = github.com=${githubTokenRef}
-              - name: Check formatting
-                run: nix fmt -- --check --extra-experimental-features pipe-operators
-
-          module-validation:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@v4
-                with:
-                  submodules: true
-                  fetch-depth: 0
-              - name: Install Nix
-                uses: cachix/install-nix-action@v24
-                with:
-                  install_url: https://releases.nixos.org/nix/nix-2.30.2/install
-                  github_access_token: ${githubTokenRef}
-                  extra_nix_config: |
-                    experimental-features = nix-command flakes pipe-operators
-                    access-tokens = github.com=${githubTokenRef}
-              - name: Validate namespaces
-                run: |
-                  # Check that no modules create wrong namespaces
-                  ! grep -r "flake.nixosModules.desktop" modules/ --include="*.nix"
-                  ! grep -r "flake.nixosModules.audio" modules/ --include="*.nix"
-                  ! grep -r "flake.nixosModules.boot" modules/ --include="*.nix"
-                  ! grep -r "flake.nixosModules.storage" modules/ --include="*.nix"
-              - name: Check import-tree usage
-                run: grep -q "import-tree.*modules" flake.nix || exit 1
-              - name: Check no literal imports
-                run: '! grep -r "${importsPattern}" modules/ --include="*.nix" || exit 1'
-      '';
-    in
     {
       checks = {
         role-aliases-exist = pkgs.writeText "role-aliases-exist-ok" (
@@ -134,11 +39,6 @@
         );
       };
 
-      files.files = [
-        {
-          path_ = ".github/workflows/check.yml";
-          drv = pkgs.writeText "ci-check.yml" workflow;
-        }
-      ];
+      # No managed files emitted here; workflow check is handled elsewhere.
     };
 }
