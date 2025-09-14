@@ -32,7 +32,9 @@ let
       # FHS-based dev tools
       "vscodeFhs"
       "kiroFhs"
-    ];
+    ]
+    # Adopt dev-node bundle as single source of truth
+    ++ [ config.flake.nixosModules."dev-node" ];
 in
 {
   flake.nixosModules.roles.dev.imports = importsList;
