@@ -37,6 +37,10 @@ _: {
               "extensions.autoDisableScopes" = 0;
               # Enable Firefox vertical tabs sidebar (when supported)
               "sidebar.verticalTabs" = true;
+              # Open Tabs sidebar by default on the left
+              "sidebar.open" = true;
+              "sidebar.position_start" = true;
+              "sidebar.command" = "viewTabsSidebar";
               # Enable VA-API hardware decoding (Wayland wrapper already set)
               "media.ffmpeg.vaapi.enabled" = true;
 
@@ -47,6 +51,26 @@ _: {
               # Reduce sponsored/newtab noise
               "browser.newtabpage.activity-stream.showSponsored" = false;
               "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
+              "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
+
+              # Privacy-friendly, non-breaking defaults
+              "privacy.donottrackheader.enabled" = true;
+              "privacy.globalprivacycontrol.enabled" = true;
+              # Disable Firefox Suggest (quicksuggest), keep engine suggestions working
+              "browser.urlbar.quicksuggest.enabled" = false;
+              "browser.urlbar.suggest.quicksuggest.nonsponsored" = false;
+              "browser.urlbar.suggest.quicksuggest.sponsored" = false;
+              # Reduce prefetching/speculative connections
+              "network.prefetch-next" = false;
+              "network.dns.disablePrefetch" = true;
+              "network.predictor.enabled" = false;
+              "network.predictor.enable-prefetch" = false;
+              "network.http.speculative-parallel-limit" = 0;
+              "browser.urlbar.speculativeConnect.enabled" = false;
+              # Disable Beacon API pings
+              "beacon.enabled" = false;
+              # Ensure stripping of known tracking parameters
+              "privacy.query_stripping.enabled" = true;
             };
 
             # Declarative search configuration
