@@ -32,6 +32,7 @@ HOSTNAME="$(hostname)"
 OFFLINE=false
 VERBOSE=false
 PREFER_CN_MIRRORS=false
+ALLOW_DIRTY=false
 NIX_FLAGS=()
 SUBMODULES=(inputs/home-manager inputs/nixpkgs inputs/stylix)
 
@@ -53,6 +54,7 @@ Options:
   -o, --offline          Build in offline mode
   -v, --verbose          Enable verbose output
       --prefer-cn-mirrors  Prefer fast CN mirrors for this run
+      --allow-dirty      Allow running with a dirty git worktree (not recommended)
   -h, --help             Show this help message
 
   Usage Example:
@@ -92,6 +94,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   --prefer-cn-mirrors)
     PREFER_CN_MIRRORS=true
+    shift
+    ;;
+  --allow-dirty)
+    ALLOW_DIRTY=true
     shift
     ;;
   --help)
@@ -140,7 +146,40 @@ configure_nix_flags() {
   NIX_FLAGS=("${flags[@]}")
 }
 
+ensure_clean_git_tree() {
+  # Respect explicit override via flag or env var
+  if ${ALLOW_DIRTY} || [[ "${ALLOW_DIRTY:-}" = "1" ]]; then
+    return 0
+  fi
+  if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    # Refresh the index and detect any changes (staged, unstaged, untracked)
+    git update-index -q --refresh || true
+    if ! git diff --quiet --ignore-submodules=dirty -- .; then
+      error_msg "Git worktree has unstaged changes. Commit or stash before building."
+      git status --porcelain=v1 | sed -n '1,50p' >&2 || true
+      printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
+      exit 2
+    fi
+    if ! git diff --cached --quiet --ignore-submodules=dirty -- .; then
+      error_msg "Git index has staged but uncommitted changes. Commit or stash before building."
+      git status --porcelain=v1 | sed -n '1,50p' >&2 || true
+      printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
+      exit 2
+    fi
+    # Consider untracked files as dirty to ensure reproducibility
+    if git ls-files --others --exclude-standard | grep -q .; then
+      error_msg "Untracked files present in the worktree. Commit, .gitignore, or remove them before building."
+      git ls-files --others --exclude-standard | sed -n '1,50p' >&2 || true
+      printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
+      exit 2
+    fi
+  fi
+}
+
 main() {
+  # Fail fast on dirty git trees to ensure reproducible builds
+  ensure_clean_git_tree
+
   # Optionally prefer CN mirrors for this run by overriding NIX_CONFIG.
   if $PREFER_CN_MIRRORS; then
     # Append to the already-exported NIX_CONFIGURATION and re-export.
