@@ -10,6 +10,7 @@
         extraConfig = ''
           Defaults passwd_timeout=0
           Defaults timestamp_timeout=10
+          Defaults env_keep += "SSH_AUTH_SOCK"
         '';
         extraRules = [
           {
