@@ -26,22 +26,38 @@ Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g
     input-branches.inputs = {
       nixpkgs = {
         upstream = {
-          url = "git@github.com:NixOS/nixpkgs.git";
+          url = "github:NixOS/nixpkgs";
           ref = "nixpkgs-unstable";  # Standard unstable branch
         };
         shallow = true;  # Saves ~3GB disk space
       };
       home-manager.upstream = {
-        url = "git@github.com:nix-community/home-manager.git";
+        url = "github:nix-community/home-manager";
         ref = "master";
       };
       stylix.upstream = {
-        url = "git@github.com:nix-community/stylix.git";
+        url = "github:nix-community/stylix";
         ref = "master";
       };
     };
     ```
   - Import the provided NixOS mitigation module: `imports = [ inputs.input-branches.modules.nixos.default ];` (disables git metadata and sets `nixpkgs.flake.source = null` to avoid superproject inclusion). This repo forces a local registry entry to match infra: `nixpkgs.flake.source = lib.mkForce (rootPath + "/inputs/nixpkgs");` — drop this override if not needed in your setup.
+
+### Shallow/Blobless Policy for nixpkgs
+
+- nixpkgs is maintained as a shallow, partial clone:
+  - `shallow = true` in `.gitmodules` for `inputs/nixpkgs`
+  - `remote.upstream.promisor = true` and `remote.upstream.partialclonefilter = blob:none`
+  - Optional: mirror the promisor/partialclonefilter on `remote.origin` inside the submodule
+- Dev workflow preserves bloblessness:
+  - The `update-input-branches` helper fetches nixpkgs with `--filter=blob:none` by default and only hydrates commit graphs.
+  - To opt-in to full hydration (rarely needed), set an environment variable when running the helper:
+
+    ```bash
+    HYDRATE_NIXPKGS=1 update-input-branches
+    ```
+
+  - This keeps day-to-day operations fast and disk usage small, while allowing explicit full hydration when required.
   - perSystem configuration:
 
     ```nix
@@ -136,14 +152,17 @@ Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g
   path = inputs/nixpkgs
   url = ./.
   branch = inputs/<current-branch>/nixpkgs
+  shallow = true
 [submodule "inputs/home-manager"]
   path = inputs/home-manager
   url = ./.
   branch = inputs/<current-branch>/home-manager
+  shallow = true
 [submodule "inputs/stylix"]
   path = inputs/stylix
   url = ./.
   branch = inputs/<current-branch>/stylix
+  shallow = true
 ```
 
 - After editing `.gitmodules`, run `git submodule sync --recursive`.
@@ -153,7 +172,24 @@ Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g
 - `nix develop`
 - `input-branches-init` (creates `inputs/<name>/` submodules on `inputs/<current-branch>/<name>`; branch name is derived from the current git branch)
 - Commit generated files: `git add inputs/ .gitmodules && git commit -m "inputs: init input branches"`
+- After editing `.gitmodules`, run: `git submodule sync --recursive`
 - After a fresh clone: `git submodule update --init --recursive`.
+
+### Recovery from size regressions (nixpkgs)
+
+If nixpkgs becomes large (lost shallow/partial state), reinitialize it:
+
+1. Save the current SHA: `HEAD=$(git -C inputs/nixpkgs rev-parse HEAD)`
+2. `git submodule deinit -f inputs/nixpkgs`
+3. `rm -rf .git/modules/inputs/nixpkgs inputs/nixpkgs`
+4. Recreate shallow+blobless (either):
+   - `git submodule update --init --depth 1 inputs/nixpkgs` (works when relative `url=./.` resolves locally), or
+   - Manual shallow clone from superproject origin, then absorb:
+     - `git clone --filter=blob:none --depth 1 "$(git remote get-url origin)" inputs/nixpkgs`
+     - `git -C inputs/nixpkgs fetch --filter=blob:none --depth 1 origin inputs/<branch>/nixpkgs:inputs/<branch>/nixpkgs`
+     - `git submodule absorbgitdirs inputs/nixpkgs`
+5. Ensure upstream promisor+filter: add `upstream` and set `promisor=true`, `partialclonefilter=blob:none`
+6. `git -C inputs/nixpkgs checkout inputs/<branch>/nixpkgs`
 
 ## Ongoing Workflow (no builds)
 
