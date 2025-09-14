@@ -31,15 +31,13 @@
     nixpkgs.flake.source = lib.mkForce (rootPath + "/inputs/nixpkgs");
   };
 
-  perSystem =
-    { config, ... }:
-    {
-      # Expose input-branches commands in the dev shell
-      make-shells.default.packages = config.input-branches.commands.all;
+  perSystem = psArgs: {
+    # Expose input-branches commands in the dev shell
+    make-shells.default.packages = psArgs.config.input-branches.commands.all;
 
-      # Exclude input branches from formatting for speed
-      treefmt.settings.global.excludes = [ "${config.input-branches.baseDir}/*" ];
+    # Exclude input branches from formatting for speed
+    treefmt.settings.global.excludes = [ "${psArgs.config.input-branches.baseDir}/*" ];
 
-      # Note: no pre-push hook is installed for inputs/* branches.
-    };
+    # Note: no pre-push hook is installed for inputs/* branches.
+  };
 }
