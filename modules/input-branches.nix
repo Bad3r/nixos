@@ -11,17 +11,17 @@
   input-branches.inputs = {
     nixpkgs = {
       upstream = {
-        url = "https://github.com/NixOS/nixpkgs.git";
+        url = "git@github.com:NixOS/nixpkgs.git";
         ref = "nixpkgs-unstable";
       };
       shallow = true;
     };
     home-manager.upstream = {
-      url = "https://github.com/nix-community/home-manager.git";
+      url = "git@github.com:nix-community/home-manager.git";
       ref = "master";
     };
     stylix.upstream = {
-      url = "https://github.com/nix-community/stylix.git";
+      url = "git@github.com:nix-community/stylix.git";
       ref = "master";
     };
   };

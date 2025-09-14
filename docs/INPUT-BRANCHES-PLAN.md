@@ -26,17 +26,17 @@ Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g
     input-branches.inputs = {
       nixpkgs = {
         upstream = {
-          url = "https://github.com/NixOS/nixpkgs.git";
+          url = "git@github.com:NixOS/nixpkgs.git";
           ref = "nixpkgs-unstable";  # Standard unstable branch
         };
         shallow = true;  # Saves ~3GB disk space
       };
       home-manager.upstream = {
-        url = "https://github.com/nix-community/home-manager.git";
+        url = "git@github.com:nix-community/home-manager.git";
         ref = "master";
       };
       stylix.upstream = {
-        url = "https://github.com/nix-community/stylix.git";
+        url = "git@github.com:nix-community/stylix.git";
         ref = "master";
       };
     };
