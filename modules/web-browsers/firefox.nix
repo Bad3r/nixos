@@ -1,7 +1,24 @@
 _: {
   flake.homeManagerModules.gui =
-    { pkgs, ... }:
     {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
+    let
+      cfg = config.home.firefoxPrivacy;
+    in
+    {
+      options.home.firefoxPrivacy = {
+        enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
+          default = false;
+        };
+        enableDRM = lib.mkEnableOption "Allow DRM/Widevine (EME) playback" // {
+          default = false;
+        };
+      };
+
       programs.firefox = {
         enable = true;
         package = pkgs.firefox;
@@ -77,12 +94,10 @@ _: {
               "privacy.firstparty.isolate" = true;
               "privacy.resistFingerprinting" = true;
 
-              # Disable WebRTC peer connections (prevents local IP leaks; breaks WebRTC apps)
-              "media.peerconnection.enabled" = false;
-
-              # Disable DRM / Widevine (blocks EME playback like Netflix)
-              "media.eme.enabled" = false;
-              "media.gmp-widevinecdm.enabled" = false;
+              # WebRTC/DRM toggles (optional via HM options)
+              "media.peerconnection.enabled" = cfg.enableWebRTC;
+              "media.eme.enabled" = cfg.enableDRM;
+              "media.gmp-widevinecdm.enabled" = cfg.enableDRM;
 
               # Cookie banner handling: attempt to auto-reject
               "cookiebanners.service.mode" = 1;
