@@ -53,8 +53,7 @@ _: {
               "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
               "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
 
-              # Privacy-friendly, non-breaking defaults
-              "privacy.donottrackheader.enabled" = true;
+              # Privacy-friendly defaults
               "privacy.globalprivacycontrol.enabled" = true;
               # Disable Firefox Suggest (quicksuggest), keep engine suggestions working
               "browser.urlbar.quicksuggest.enabled" = false;
@@ -71,6 +70,24 @@ _: {
               "beacon.enabled" = false;
               # Ensure stripping of known tracking parameters
               "privacy.query_stripping.enabled" = true;
+
+              # HTTPS-Only Mode and stronger isolation/fingerprinting defenses
+              "dom.security.https_only_mode" = true;
+              "dom.security.https_only_mode_pbm" = true;
+              "privacy.firstparty.isolate" = true;
+              "privacy.resistFingerprinting" = true;
+
+              # Disable WebRTC peer connections (prevents local IP leaks; breaks WebRTC apps)
+              "media.peerconnection.enabled" = false;
+
+              # Disable DRM / Widevine (blocks EME playback like Netflix)
+              "media.eme.enabled" = false;
+              "media.gmp-widevinecdm.enabled" = false;
+
+              # Cookie banner handling: attempt to auto-reject
+              "cookiebanners.service.mode" = 1;
+              "cookiebanners.service.mode.privateBrowsing" = 1;
+              "cookiebanners.ui.desktop.enabled" = true;
             };
 
             # Declarative search configuration
@@ -140,6 +157,12 @@ _: {
                   "ublock-privacy"
                   "ublock-unbreak"
                   "ublock-quick-fixes"
+                  # Extra lists to suppress cookie banners/annoyances
+                  "ublock-annoyances"
+                  "adguard-cookies"
+                  "ublock-cookies-adguard"
+                  "fanboy-cookiemonster"
+                  "ublock-cookies-easylist"
                 ];
               };
             };
