@@ -12,10 +12,10 @@ _: {
     {
       options.home.firefoxPrivacy = {
         enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
-          default = false;
+          default = true;
         };
         enableDRM = lib.mkEnableOption "Allow DRM/Widevine (EME) playback" // {
-          default = false;
+          default = true;
         };
       };
 
