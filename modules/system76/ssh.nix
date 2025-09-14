@@ -9,7 +9,6 @@
     programs.ssh = {
       extraConfig = ''
         Host *
-          IdentityAgent /run/user/1000/gnupg/S.gpg-agent.ssh
           SetEnv OPENSSL_CONF=/etc/ssl/openssl.cnf
       '';
     };

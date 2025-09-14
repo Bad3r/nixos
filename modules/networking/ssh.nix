@@ -61,6 +61,12 @@ in
         matchBlocks = {
           "*" = {
             identitiesOnly = true;
+            # Use GPG agent's stable symlink for SSH agent socket
+            identityAgent = "~/.gnupg/S.gpg-agent.ssh";
+            # Auto-add keys to agent on first use
+            addKeysToAgent = "yes";
+            # Default identity file; host-specific files can override in includes
+            identityFile = [ "~/.ssh/id_ed25519" ];
             setEnv.TERM = "xterm-256color";
             compression = false;
             hashKnownHosts = false;
