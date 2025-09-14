@@ -3,6 +3,36 @@
   perSystem =
     { pkgs, ... }:
     {
+      files.files = [
+        {
+          path_ = ".github/workflows/check.yml";
+          drv = pkgs.writeText "ci-check.yml" ''
+            name: Dendritic Pattern Compliance Check
+            on:
+              push:
+                branches: [ main, master ]
+              pull_request:
+                branches: [ main, master ]
+            jobs:
+              check:
+                runs-on: ubuntu-latest
+                steps:
+                  - uses: actions/checkout@v4
+                    with:
+                      submodules: true
+                      fetch-depth: 0
+                  - name: Install Nix
+                    uses: cachix/install-nix-action@v24
+                    with:
+                      install_url: https://releases.nixos.org/nix/nix-2.30.2/install
+                      extra_nix_config: |
+                        experimental-features = nix-command flakes pipe-operators
+                        abort-on-warn = true
+                  - name: Flake check
+                    run: nix flake check --accept-flake-config
+          '';
+        }
+      ];
       checks = {
         role-aliases-exist = pkgs.writeText "role-aliases-exist-ok" (
           if
@@ -39,6 +69,6 @@
         );
       };
 
-      # No managed files emitted here; workflow check is handled elsewhere.
+      # Managed files written above (README list includes workflow path).
     };
 }
