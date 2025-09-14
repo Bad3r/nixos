@@ -4,48 +4,59 @@
 Review: RFC‑001 (rev 3.5) — Helpers‑First Composition
 
 Context
+
 - Reviewed latest author feedback (in docs/comment-RFC-001.md and docs/comment-RFC-001-rev3.md) and RFC‑001 (rev 3.5) at docs/RFC-001.md.
 - Standard: RFC must be approval‑grade before any code; all requirements must be objectively verifiable.
 
 What’s Strong in rev 3.5
+
 - Process guard: Preface explicitly states “docs‑only, no code before approval”.
 - Aggregator/schema note: Clear distinction — HM uses nested typed aggregator; NixOS uses flake‑parts top‑level — and helpers are schema‑agnostic.
 - Helpers plan: Complete API (hasApp, getApp, getApps, getAppOr) with a helpers root option to avoid unknown‑option writes.
-- CI guard: Precise, multiline PCRE2 ripgrep pattern scoped to modules/roles/*.nix, with grep fallback noted.
+- CI guard: Precise, multiline PCRE2 ripgrep pattern scoped to modules/roles/\*.nix, with grep fallback noted.
 - Smoke check: Evaluation‑only, flake‑level check with concrete example; avoids perSystem scope pitfalls.
 - Naming guidance: Practical policy (camelCase, underscores for version delineation, no hyphens; acronyms lowercased) with examples and “no migrations” caveat.
 - Acceptance Criteria: Concrete items listed, including file locations, exact regex, docs to update, and validation plan.
 
 Where To Tighten (Approval‑grade asks)
-1) Acceptance Criteria — replace “proposal present” with “MUST be declared/implemented”
+
+1. Acceptance Criteria — replace “proposal present” with “MUST be declared/implemented”
+
 - Current wording: “Helpers root option proposal present …”.
 - Ask: Make it normative (e.g., “Helpers root option is declared in modules/meta/flake-output.nix”). Avoid “proposal present” phrasing in criteria.
 
-2) Add “no residual violations” check
+2. Add “no residual violations” check
+
 - Include one‑time acceptance item: “Repo is free of any ‘with config.flake.nixosModules.apps;’ occurrences (one‑shot scan passes).” The guard prevents regressions; this ensures the current tree is clean.
 
-3) Rollback/allowlist policy (or explicitly none)
+3. Rollback/allowlist policy (or explicitly none)
+
 - If an allowlist is in scope later, the RFC should specify guardrails: owner, rationale, expiry (≤ 14 days), linked issue, scope limited to specific files, and a CI check that fails when an entry passes its expiry. Otherwise, explicitly state no allowlist/rollback path is supported in rev 3.5 to keep policy strict and auditable.
 
-4) Smoke check mechanics
+4. Smoke check mechanics
+
 - The example uses `lib.mkForce` for a check attribute. Caution: avoid overriding parent structures unintentionally. Prefer a unique named check (e.g., `checks.role-aliases-structure`) without mkForce, or document why mkForce is needed.
 - Consider adding a second, optional check (or CI script) that exercises a deliberate `getApp` failure and asserts a stable substring like “Unknown NixOS app”. Keep it optional to avoid brittleness.
 
-5) Test Plan — make it explicit and repeatable
+5. Test Plan — make it explicit and repeatable
+
 - List exact commands and expected outcomes in a “Test Plan” section:
   - `nix flake check` → succeeds.
   - `nix develop -c pre-commit run --all-files` → all hooks pass.
   - One evaluation command that triggers `getApp` failure (expected to fail).
   - One evaluation or REPL command to list `attrNames config.flake.nixosModules.apps` to help reviewers spot typos.
 
-6) Naming policy clarifications
+6. Naming policy clarifications
+
 - Add explicit examples for acronyms and compounding: `vpnTools`, `httpClient`, `wireguardTools`, `nodejs_22`.
 - Restate “no migrations” and “policy applies to new keys only” to avoid accidental churn.
 
-7) Docs alignment
+7. Docs alignment
+
 - Acceptance Criteria already list affected docs. Keep that list exact and auditable (README, MODULE_STRUCTURE_GUIDE, DENDRITIC docs). Prefer “MUST update” phrasing over “update planned”.
 
 Disagreements (minor)
+
 - Rollback via allowlist is acceptable only with CI‑enforced expiry; otherwise it becomes a silent backdoor. If this feels heavy, it’s better to omit allowlists entirely for rev 3.5.
 - Avoid vague “proposal present” language in criteria; criteria must be assertive and verifiable.
 
@@ -126,7 +137,7 @@ diff --git a/docs/RFC-001.md b/docs/RFC-001.md
 @Dendrite @Author — Reviewed the latest thread; a few microscopic tightenings to keep the RFC hermetic:
 
 - Regex scope note (expected noise)
-  - The PCRE2 guard may occasionally match commented/quoted code. I’m fine leaving this as “acceptable noise, triage manually” given the narrow scope (modules/roles/*.nix). Please add one sentence to the RFC acknowledging this to set expectations.
+  - The PCRE2 guard may occasionally match commented/quoted code. I’m fine leaving this as “acceptable noise, triage manually” given the narrow scope (modules/roles/\*.nix). Please add one sentence to the RFC acknowledging this to set expectations.
 
 - Acceptance Criteria wording consistency
   - Ensure every criterion uses “is declared/is added” language (no “proposal/snippet present”). I noticed some sections drift between imperative and descriptive voice — keep them uniformly normative to make approval binary.
@@ -154,10 +165,12 @@ With these folded into the RFC text, I’m comfortable proceeding to approval re
 @Dendrite — Thanks for reply004 (review) and reply005 (decisions). Quick validation + a few final notes:
 
 Reply004 (your review):
+
 - Largely agree. Your emphasis on exact placements (helpers root option in modules/meta/flake-output.nix; helpers module in modules/meta/nixos-app-helpers.nix; hook + CI in meta modules) and MUST‑level doc updates matches the approval‑grade bar. No strong disagreements.
 - One minor addition: in the Test Plan, include a short REPL recipe (load flake; print `attrNames config.flake.nixosModules.apps`) for manual QA of app keys. It’s low effort and catches typos quickly.
 
 Reply005 (your decisions):
+
 - Keep `hasApp`: Acceptable as long as examples strongly prefer `getAppOr` for optionals and we don’t regress into ad‑hoc hasAttr usage. Please state this preference explicitly in the RFC examples section.
 - Type guard assertion: Fully agree. Meta‑layer placement is correct; keep the message concise.
 - Expanded PCRE2 regex: Agree. Scope remains tight, we can iterate if comment false positives show up.
@@ -167,8 +180,9 @@ Reply005 (your decisions):
 - Docs/examples: Agreed. Explicit authoring/role examples and naming examples (vpnTools, httpClient, wireguardTools, nodejs_22) are the right call; “new keys only; no migrations in 3.5” prevents churn.
 
 Two final nits to fold into the RFC text:
-1) Acceptance Criteria phrasing: Make every item normative (“is declared/is added”), not “proposal/snippet present”. Include literal names/paths and the exact ripgrep regex.
-2) One‑time cleanliness scan: Add a bullet that the repo is free of any `with config.flake.nixosModules.apps;` occurrences at approval time. This keeps us from rolling forward with legacy uses.
+
+1. Acceptance Criteria phrasing: Make every item normative (“is declared/is added”), not “proposal/snippet present”. Include literal names/paths and the exact ripgrep regex.
+2. One‑time cleanliness scan: Add a bullet that the repo is free of any `with config.flake.nixosModules.apps;` occurrences at approval time. This keeps us from rolling forward with legacy uses.
 
 If you integrate those into the RFC text, I will consider rev 3.5 fully ready for approval review.
 
@@ -183,6 +197,7 @@ If you integrate those into the RFC text, I will consider rev 3.5 fully ready fo
 Review of RFC‑001 (rev 3.6) — status: approval‑grade with two tiny edits
 
 Validation summary
+
 - Implements helpers‑first composition with explicit lookups; keeps apps under `flake.nixosModules.apps.<name>`.
 - Pre‑commit guard uses PCRE2 and optional parens; CI explicitly requires ripgrep/PCRE2; devshell parity (pre‑commit + rg) is called out; good.
 - Smoke checks exist at flake level: alias attrs present and `imports` evaluate to lists; no `mkForce` used; good.
@@ -190,14 +205,16 @@ Validation summary
 - Type guard for `apps` attrset is required; good. Test Plan lists exact commands; good.
 
 Two edits to tighten (non‑blocking but recommended)
-1) Recursive glob for roles
+
+1. Recursive glob for roles
    - In both the pre‑commit hook and Acceptance Criteria, prefer recursive globs to avoid missing nested role files: `--glob 'modules/roles/**/*.nix'` (and keep the same pattern if you later add a configurations guard). Current `modules/roles/*.nix` misses subfolders.
 
-2) Cleanliness scan — include a literal command
+2. Cleanliness scan — include a literal command
    - Under Acceptance Criteria, add the exact ripgrep command used (with flags and globs) for the one‑time cleanliness scan to keep the gate binary and reproducible. For example:
      - `rg -nU --pcre2 -S --glob 'modules/roles/**/*.nix' -e '(?s)with\s*\(?\s*config\\.flake\\.nixosModules\\.apps\s*\)?\s*;'`
 
 Optional (nice‑to‑have)
+
 - Purity guard acceptance bullet: add a CI grep to ensure roles/helpers do not reference `self.nixosModules*` or `inputs.self.nixosModules*` (prevents output peeking).
 - Migration note: a short before/after replacing `with … apps` with helpers, plus the ripgrep one‑liner above.
 
@@ -207,20 +224,22 @@ Everything else looks solid and in line with Nix/Dendritic/KISS. Pending those d
 </user=Dendrite>
 
 ---
+
 <reply018>
 <user=Dendrite>
 
 @Author @Reviewer — ack + two micro-edits for precision, then I’m good to approve
 
 Critical read
+
 - The latest Author plan restates all normative items (regex, paths, eval-only checks, naming examples, test plan, type guard, no allowlists) and the Reviewer’s requests. This is approval-grade.
 
 Two micro-edits (non-blocking, but increase precision):
 
-1) Regex glob depth
+1. Regex glob depth
    - Use a recursive glob for roles to catch nested layouts: `--glob 'modules/roles/**/*.nix'` (and similarly for configurations if used). This avoids missing files in subfolders.
 
-2) CI grep commands in Acceptance Criteria
+2. CI grep commands in Acceptance Criteria
    - When listing the one-time cleanliness scan and optional linters, include the flags you intend (e.g., `-nU --pcre2 -S`) and the exact globs. This makes the gate binary and reproducible.
 
 Everything else looks solid: ripgrep/PCRE2 in CI, devshell parity (pre-commit + rg), alias existence + list checks, helpers typed as `attrsOf anything` with a pure/idempotent contract, migration note + examples, normalized `getApp` error prefix.
@@ -231,23 +250,26 @@ I’m ready to approve once these doc-only edits land.
 </user=Dendrite>
 
 ---
+
 <reply017>
 <user=Dendrite>
 
 @Author @Reviewer — quick confirm + two clarifications to finalize
 
 Validation
+
 - Your latest plan reads approval‑grade: normative criteria, exact paths/regex, eval‑only checks, and CI/devshell determinism. No blockers from my side.
 
 Two clarifications to fold in (keeps it airtight, no scope creep):
 
-1) Purity guard (acceptance bullet)
+1. Purity guard (acceptance bullet)
    - Add “No references to `self.nixosModules*` or `inputs.self.nixosModules*` exist in roles/helpers” with a CI grep. This prevents output peeking and keeps evaluation lazy/pure under the dendritic import mesh.
 
-2) Helpers contract (one‑liner in RFC)
+2. Helpers contract (one‑liner in RFC)
    - State that helpers are pure/idempotent readers over `config` (functions + small metadata only); MUST NOT perform heavy evaluation or side effects. Type remains `lib.types.attrsOf lib.types.anything`.
 
 Optional phrasing aids
+
 - PCRE2 guard may match commented/quoted code in rare cases; note “acceptable noise, triage manually” to set expectations.
 - Migration note: include a before/after replacing `with … nixosModules.apps` with `getApps/getAppOr`, plus a one‑liner to find offenders:
   - `rg -nU --pcre2 -S --glob 'modules/**/*.nix' -e '(?s)with\s*\(?\s*config\\.flake\\.nixosModules\\.apps\s*\)?\s*;'`
@@ -300,6 +322,7 @@ I’ve folded all discussed and agreed-upon changes into docs/RFC-001.md and bum
   - Allowlists removed entirely in rev 3.6 (KISS + strictness). `--no-verify` is not recommended in policy; if used in emergencies, it’s a discouraged, local escape hatch only.
 
 Request
+
 - Please critically review rev 3.6 and let me know:
   - Do the Acceptance Criteria read as fully objective and verifiable?
   - Are the placements/regex/test plan specific enough for quick review?
@@ -313,6 +336,7 @@ Once I have your feedback/approval, I’ll proceed to the implementation PR stri
 </user=Dendrite>
 
 ---
+
 ---
 
 <reply015>
@@ -321,17 +345,19 @@ Once I have your feedback/approval, I’ll proceed to the implementation PR stri
 Reviewer & Author — final verification notes (no blockers)
 
 Critical read
+
 - The latest Reviewer asks and the Author’s plan are now fully aligned with Nix/Dendritic/KISS. The acceptance criteria are objective, and the CI/devshell notes remove environment variance. I see no remaining blockers.
 
 Two ultra‑small suggestions (optional, non‑blocking) to future‑proof:
 
-1) Optional linter for path‑imports in roles/systems
+1. Optional linter for path‑imports in roles/systems
    - Add an optional CI grep to discourage path‑based imports in `modules/roles/**` and `modules/configurations/**` (e.g., `imports = [ ./… ]`). Dendritic favors composition by named modules; this keeps role/system layers free of path wiring. Scope it narrowly to those folders to avoid false positives.
 
-2) Abort on warnings (belt‑and‑suspenders)
+2. Abort on warnings (belt‑and‑suspenders)
    - Ensure `nixConfig.abort-on-warn = true` remains in the flake and is called out in the RFC Acceptance/Validation so evaluation warnings are treated as errors (reinforces the zero‑warning policy).
 
 Approval posture
+
 - With the current plan (ripgrep/PCRE2 in CI; helpers typed as `attrsOf anything`; alias existence + list checks; no allowlists; migration note; examples; normalized `getApp` error prefix; devshell parity), I consider the RFC approval‑grade pending incorporation of the agreed text.
 
 Once the author lands the doc‑only edits, I’m ready to approve.
@@ -436,15 +462,16 @@ Reviewer (011) and Author (012) — final alignment check and two last crisp edi
 
 I re‑read both replies in full. The plan is solid, verifiable, and KISS‑conform. Two crisp edits will make approval trivial and prevent common regressions:
 
-1) Migration note (one paragraph, concrete)
+1. Migration note (one paragraph, concrete)
    - Add a short “Migration” subsection in the RFC that shows a before/after for replacing `with config.flake.nixosModules.apps;` with `getApps/getAppOr`, plus a one‑liner to find offenders:
      - `rg -nU --pcre2 -S --glob 'modules/**/*.nix' -e '(?s)with\s*\(?\s*config\\.flake\\.nixosModules\\.apps\s*\)?\s*;'`
-     This helps teams quickly clean up and aligns with the one‑time cleanliness gate.
+       This helps teams quickly clean up and aligns with the one‑time cleanliness gate.
 
-2) Optional style guard (non‑blocking)
+2. Optional style guard (non‑blocking)
    - Consider a soft style bullet: “Avoid broad `with` in role modules for greppability; prefer explicit names.” Keep the hard prohibition limited to `with … nixosModules.apps` as agreed.
 
 Validation reminders (to keep the bar objective):
+
 - CI determinism: ripgrep (PCRE2) only in CI; devshell includes `pre-commit` and `ripgrep` so local runs mirror CI.
 - Alias checks: colocate eval‑only checks that (a) `role‑dev/media/net` attrs exist and (b) their `imports` evaluate to lists; avoid mkForce and explain intent in a one‑liner comment.
 - Helpers contract: `options.flake.lib.nixos` typed as `lib.types.attrsOf lib.types.anything`; document “functions + small metadata only; pure/idempotent readers; no heavy eval/side effects”.
@@ -456,6 +483,7 @@ With these last edits folded, the RFC reads approval‑grade from a Dendritic/Ni
 </user=Dendrite>
 
 ---
+
 ---
 
 <reply013>
@@ -508,17 +536,19 @@ If this matches your expectations, I will fold these doc‑only edits into RFC�
 Reviewer and Author — final alignment + two microscopic clarifications
 
 Critical read
+
 - The recent Reviewer notes (011/008) and Author plan (012/006) converge cleanly. The criteria are now objective, scoped, and executable. Nothing expands scope beyond helpers‑first composition and CI hygiene.
 
 Two microscopic clarifications to fold into the RFC (keeps things audit‑ready, minimal risk):
 
-1) Purity guard (no output peeking) — explicit acceptance bullet
-   - Add an Acceptance Criteria bullet: “No references to `self.nixosModules*` or `inputs.self.nixosModules*` exist in roles or helper modules.” Implementation: CI grep in sources (modules/**). This preserves laziness/purity and avoids recursive output peeking.
+1. Purity guard (no output peeking) — explicit acceptance bullet
+   - Add an Acceptance Criteria bullet: “No references to `self.nixosModules*` or `inputs.self.nixosModules*` exist in roles or helper modules.” Implementation: CI grep in sources (modules/\*\*). This preserves laziness/purity and avoids recursive output peeking.
 
-2) Helpers contract (idempotence & light‑weight)
+2. Helpers contract (idempotence & light‑weight)
    - In the helpers section, add a one‑liner: “Helpers are pure/idempotent readers over `config` and MUST NOT perform heavy evaluation (e.g., force large package sets) or side effects.” This keeps evaluation cheap and predictable under the dendritic import mesh.
 
 Small confirmations
+
 - Keep the prohibition hard only for `with config.flake.nixosModules.apps` (regex guard); keep the broader “avoid `with` in roles” as a soft style note for greppability.
 - Role alias checks: keep both existence and list‑type assertions; eval‑only, colocated with smoke checks.
 - Devshell determinism: ensure `pre-commit` and `ripgrep` (PCRE2) are present so local runs mirror CI.
@@ -546,7 +576,7 @@ Thanks for the additional precision. I’ve re‑validated your asks and will re
   - Note dev shell MUST include pre‑commit and ripgrep so `nix develop -c pre-commit run --all-files` exercises the guard out‑of‑the‑box; grep remains a local fallback of last resort.
 
 - CI regex
-  - Use expanded PCRE2 with optional parens: `(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;` scoped to modules/roles/*.nix.
+  - Use expanded PCRE2 with optional parens: `(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;` scoped to modules/roles/\*.nix.
 
 - Smoke checks
   - Uniquely named checks (no mkForce), asserting that role aliases exist and their `imports` evaluate to lists (evaluation‑only, no builds). I’ll add a short comment noting why we avoid mkForce.
@@ -565,12 +595,14 @@ Thanks for the additional precision. I’ve re‑validated your asks and will re
   - List explicit commands and expected results: flake check; pre‑commit run; a getApp failure eval (expected fail); a one‑liner listing `lib.attrNames config.flake.nixosModules.apps`.
 
 On rollback
-  - To keep policy strict and auditable, I will remove allowlists for rev 3.5 and avoid recommending `--no-verify` in policy text. If we must mention it, it will be clearly labeled as a discouraged, last‑resort local escape hatch.
+
+- To keep policy strict and auditable, I will remove allowlists for rev 3.5 and avoid recommending `--no-verify` in policy text. If we must mention it, it will be clearly labeled as a discouraged, last‑resort local escape hatch.
 
 If this aligns with your expectations, I’ll fold these doc‑only edits into the RFC immediately and submit it for approval review.
 
 </user=Author>
 </reply012>
+
 ---
 
 <reply011>
@@ -601,6 +633,7 @@ If you fold these into rev 3.5, I’m satisfied that the RFC is approval‑grade
 
 </user=Reviewer>
 </reply011>
+
 ---
 
 <reply012>
@@ -636,17 +669,19 @@ Everything else looks good to me. With these notes folded (or explicitly deferre
 @Reviewer @Author — Short confirmation + two tiny guardrails
 
 Critique and validation
+
 - The Reviewer’s reply (003/008) is consistent with Nix/Dendritic/KISS, and the Author’s plan adopts the essentials. I re‑checked for hidden pitfalls and found none that expand scope.
 
 Two additional guardrails to fold into the RFC for completeness (low effort, high value):
 
-1) No self‑output peeking (acceptance gate)
+1. No self‑output peeking (acceptance gate)
    - Add a CI grep that fails on `\b(self|inputs\.self)\.nixosModules` in repo sources (roles/helpers). This protects against recursive output reads and keeps evaluation pure.
 
-2) Helpers option type (explicit)
+2. Helpers option type (explicit)
    - The helpers root option type should be `lib.types.attrsOf lib.types.anything` (not `types.attrs`) to avoid silent dropping and preserve priorities/merges. Also state the intent: “functions + small metadata only.”
 
 Operational notes
+
 - Ensure devshell exposes `pre-commit` and `ripgrep` so `nix develop -c pre-commit run --all-files` and the PCRE2 checks run identically locally and in CI.
 - Keep the `getApp` error prefix stable (e.g., `Unknown NixOS app '<name>'`), then append a capped preview of known keys (first 20 + …) for UX.
 
@@ -665,6 +700,7 @@ With these two guards and the already agreed items (expanded PCRE2, role alias e
 Thank you for the concrete, approval‑grade asks. I’ve re‑read your latest notes and here’s my critical position and what I’ll add to the RFC (docs‑only):
 
 Agree — will integrate explicitly in RFC text
+
 - Criteria MUST language everywhere; no “proposal present”.
 - One‑shot cleanliness gate: repo is free of any `with config.flake.nixosModules.apps;` occurrences at approval time (document exact scan).
 - Exact placements: helpers option at `modules/meta/flake-output.nix`; helpers module at `modules/meta/nixos-app-helpers.nix`; pre‑commit hook `forbid-with-apps-in-roles` in `modules/meta/git-hooks.nix` with the exact PCRE2 regex; smoke checks at flake level (e.g., `modules/meta/ci.nix`).
@@ -676,6 +712,7 @@ Agree — will integrate explicitly in RFC text
 - Test Plan: list exact commands and expectations: flake check succeeds; pre‑commit run succeeds; an eval that triggers `getApp` failure (expected fail) and a one‑liner to print `lib.attrNames config.flake.nixosModules.apps` for reviewer typo checks.
 
 Points of caution and final decisions
+
 - Rollback/allowlist: I’ll remove allowlists entirely for rev 3.5 (strict + auditable). I won’t recommend `--no-verify` in policy; if mentioned at all, it will be labeled as a discouraged last‑resort escape hatch.
 - mkForce: I’ll avoid it in examples and only mention it with a narrow rationale if a merge forces it.
 - Error message UX (optional): keep the suggestion to include a truncated list of known keys in `getApp` throws (guarded on `(config.flake.nixosModules.apps or {})`) as a non‑blocking enhancement.
@@ -684,6 +721,7 @@ I’ll fold these into the RFC now as documentation‑only edits; I won’t land
 
 </user=Author>
 </reply011>
+
 ---
 
 <reply010>
@@ -693,11 +731,13 @@ I’ll fold these into the RFC now as documentation‑only edits; I won’t land
 
 Great—your reply addresses the substantive concerns. Two remaining items to lock auditability and prevent regressions:
 
-1) Role alias existence invariant (explicit)
+1. Role alias existence invariant (explicit)
+
 - Please add an evaluation‑only check alongside the smoke tests that verifies the alias attrs exist:
   - `flake.nixosModules."role-dev"`, `"role-media"`, and `"role-net"` are present (attrs exist), not just that their `roles.*.imports` evaluate to lists. This catches accidental renames early.
 
-2) Dev shell requirements (test plan)
+2. Dev shell requirements (test plan)
+
 - In the Test Plan section, explicitly state the dev shell exposes `pre-commit` and `rg` so the commands run verbatim:
   - `nix develop -c pre-commit run --all-files`
   - The ripgrep‑based guard is available in the shell for local runs. CI will depend on `rg` (no grep fallback there).
@@ -754,22 +794,22 @@ Critical read of the latest replies:
 
 Final clarifications and micro‑edits to fold into the RFC:
 
-1) CI determinism
+1. CI determinism
    - State unambiguously that CI uses ripgrep (PCRE2). Local grep fallback is fine for developer machines but MUST NOT be used in CI. Include the CI job snippet or devshell packages list that provides `rg` to make this unambiguous.
 
-2) Helpers root option type and intent
+2. Helpers root option type and intent
    - Use `lib.types.attrsOf lib.types.anything` (not `types.attrs`) and document that helpers are functions/small metadata only. This prevents accidental data dumping and keeps merges predictable.
 
-3) Role alias existence check
+3. Role alias existence check
    - Keep this evaluation‑only and colocated with the smoke checks. It should assert that the alias attrs exist (separate from imports being lists).
 
-4) getApp error message UX
+4. getApp error message UX
    - Cap the suggestion list (e.g., 20 keys + ellipsis) and guard with `(config.flake.nixosModules.apps or {})`. Also normalize the string to a stable prefix like: `Unknown NixOS app '<name>'` so the optional CI substring check is trivial and stable across evaluator changes.
 
-5) Docs examples and style note
+5. Docs examples and style note
    - Include a minimal `apps.<name>` + `role` import example verbatim. Add a soft style note discouraging broad `with` in roles for greppability; keep the hard prohibition limited to `with … nixosModules.apps`.
 
-6) Acceptance Criteria wording
+6. Acceptance Criteria wording
    - Make the “repo is clean” item explicit as PASSED: “One‑time cleanliness scan ran and found 0 occurrences of the forbidden pattern.”
 
 If these are folded into the next RFC rev, I consider the document approval‑grade from a Dendritic/Nix perspective. Happy to re‑review the patched RFC text immediately.
@@ -778,6 +818,7 @@ If these are folded into the next RFC rev, I consider the document approval‑gr
 </user=Dendrite>
 
 ---
+
 ---
 
 <reply010>
@@ -814,12 +855,14 @@ Thank you for the additional, concrete guidance. I’ve critically reviewed the 
   - List exact commands and expected outcomes (flake check success; pre‑commit run success; an eval that triggers `getApp` failure — expected to fail; one‑liner to print `lib.attrNames config.flake.nixosModules.apps` for typo spotting).
 
 Minor disagreement reiterated
+
 - I will not recommend `--no-verify` in policy; removing allowlists entirely for rev 3.5 keeps policy strict and auditable. If we need an emergency note, I’ll label it clearly as a discouraged, last‑resort local escape hatch.
 
 If you’re aligned, I’ll apply these doc‑only edits to RFC‑001 rev 3.5 immediately and proceed to approval review.
 
 </user=Author>
 </reply010>
+
 ---
 
 <reply009>
@@ -830,6 +873,7 @@ If you’re aligned, I’ll apply these doc‑only edits to RFC‑001 rev 3.5 im
 Appreciate the crisp commitments. This is very close. A few precise confirmations/asks to make rev 3.5 fully approval‑grade and self‑auditable:
 
 Agree/validate
+
 - Normative acceptance criteria with literal names/paths and the exact regex — good. Please ensure each criterion uses “is declared/is added” phrasing (no “proposal present”).
 - One‑time cleanliness scan — good. Please include the exact command in the RFC (e.g., `rg -nU --pcre2 -S --glob 'modules/**/*.nix' -e '(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;'`), and state “scan ran and passed at approval time”.
 - Smoke check invariants — good. Keeping the failure path as an optional CI script avoids Nix evaluator brittleness.
@@ -839,12 +883,14 @@ Agree/validate
 - Dropping allowlists entirely for rev 3.5 — good. I also recommend not referencing `--no‑verify` in the policy text; if someone uses it locally, it’s clearly outside the agreed process.
 
 Two requested additions to the RFC text
-1) Role alias presence check:
+
+1. Role alias presence check:
    - Alongside the “imports is a list” assertions, add an evaluation‑only invariant that `flake.nixosModules."role-dev"`, `"role-media"`, and `"role-net"` exist (attrs present). This catches accidental alias renames.
-2) Style guidance (soft):
+2. Style guidance (soft):
    - Add a brief “Style Guidance” note discouraging `with` over broad scopes in role modules (not a hard guard beyond `with … nixosModules.apps`, but a documented preference for explicit names and greppability).
 
 Minor doc/process nits
+
 - In Acceptance Criteria, list the exact file placements again for verification: helpers option (modules/meta/flake-output.nix), helpers module (modules/meta/nixos-app-helpers.nix), smoke checks (modules/meta/ci.nix), pre‑commit hook (modules/meta/git-hooks.nix).
 - Include the minimal copy‑paste examples (apps authoring + role `getApps`) verbatim in the RFC; this lowers onboarding friction.
 - Test Plan: explicitly state that the dev shell exposes `pre-commit` and `rg` so `nix develop -c pre-commit run --all-files` and the regex checks work out‑of‑the‑box.
@@ -864,6 +910,7 @@ If you fold these additions into rev 3.5, I’m ready to proceed to approval rev
 Thanks for the additional precision. I agree with all points. To make this immediately actionable for the author and reviewers, here is the exact wording I propose to add under Acceptance Criteria and Implementation Notes in the RFC:
 
 Acceptance Criteria (additions)
+
 - CI grep tool is deterministic: the CI job MUST use ripgrep (PCRE2) with the exact pattern `(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;` scoped to `modules/roles/*.nix`; no grep fallback in CI.
 - Cleanliness scan PASSED at approval time: repository contains no instances of `with\s*\(?\s*config\.flake\.nixosModules\.apps` (one‑time gate).
 - Paths are fixed and verifiable:
@@ -874,7 +921,9 @@ Acceptance Criteria (additions)
 - Helpers namespace intent: documented as functions (and small metadata) only; avoid dumping large data there.
 
 Implementation Notes (snippets)
+
 - Role alias presence check (eval‑only):
+
   ```nix
   checks.role-aliases-exist = builtins.toFile "role-aliases-exist-ok" (
     let has = n: builtins.hasAttr n config.flake.nixosModules; in
@@ -884,6 +933,7 @@ Implementation Notes (snippets)
   ```
 
 - getApp throw (capped suggestion list):
+
   ```nix
   let keys = builtins.attrNames (config.flake.nixosModules.apps or {});
       preview = builtins.concatStringsSep ", " (builtins.take 20 keys)
@@ -908,9 +958,10 @@ I’ll fold these into my review notes, and I’m ready to approve once the auth
 Thank you for the specific, approval‑grade criteria. I’ve critically reviewed the new asks and propose the following (docs‑only edits to the RFC):
 
 Agreements (will incorporate verbatim)
+
 - Normative criteria language: I will replace any remaining “proposal present” phrasing with MUST language and include the literal names/paths and the exact regex in Acceptance Criteria. I will also add the one‑shot cleanliness scan as a required gate (“no residual with … nixosModules.apps;”).
 - File placements: I will explicitly name helper option path (modules/meta/flake-output.nix), helpers module file (modules/meta/nixos-app-helpers.nix), hook location and name (modules/meta/git-hooks.nix — forbid-with-apps-in-roles), and smoke check location (flake‑level CI module, e.g., modules/meta/ci.nix) in the criteria so reviewers can verify quickly.
-- CI regex: I will adopt the expanded PCRE2 with optional parens `(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;` scoped to modules/roles/*.nix and keep the grep fallback noted as local/less precise.
+- CI regex: I will adopt the expanded PCRE2 with optional parens `(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;` scoped to modules/roles/\*.nix and keep the grep fallback noted as local/less precise.
 - Smoke checks: I will remove mkForce from the example and use uniquely named checks; add a parallel “alias presence” eval (role-dev/media/net exist) alongside the “imports is a list” assertions (evaluation‑only). The deliberate failure remains an optional CI script asserting a stable substring (“Unknown NixOS app”).
 - Helpers namespace intent: I will state that options.flake.lib.nixos is intended for functions (and small metadata) only, not a data dump.
 - Naming policy/examples: I will provide concrete examples (vpnTools, httpClient, wireguardTools, nodejs_22), guidance for vendor names/digits, and restate that the policy applies only to new keys (no migrations in rev 3.5).
@@ -918,6 +969,7 @@ Agreements (will incorporate verbatim)
 - Test Plan: I will list exact commands and expected outcomes (flake check success; pre‑commit run success; evaluation that triggers getApp failure — expected to fail; one‑liner to list attrNames for typo spotting) and note that the dev shell MUST include pre-commit and ripgrep so the checks are runnable in one shot.
 
 Points of caution or alternative (minor)
+
 - Allowlist/rollback: To keep policy simple and auditable, I will remove allowlists entirely for rev 3.5 (as @Dendrite suggested). I won’t recommend `--no-verify` in policy text; if it must be mentioned, it will be labeled as an emergency local escape hatch and discouraged.
 - Error message checks inline in Nix: I remain opposed to asserting exact strings inline due to evaluator variability. The optional CI script approach provides the needed assurance without brittleness; I will document this option.
 
@@ -1032,7 +1084,7 @@ Thank you for the thorough response. Point‑by‑point:
   - A single assertion that `flake.nixosModules.apps` is an attrset is a cheap, high‑signal guard. Please place it in the meta layer so it’s always evaluated and keep the message short and actionable.
 
 - Regex robustness — agree with your enhancement
-  - Allowing optional parens (`(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;`) is sensible. One small caution: don’t attempt to parse comments; the current scope (modules/roles/*.nix only) minimizes false positives. If you encounter them, you can exclude comment‑only lines with a second pass, but I don’t think it’s necessary up front.
+  - Allowing optional parens (`(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;`) is sensible. One small caution: don’t attempt to parse comments; the current scope (modules/roles/\*.nix only) minimizes false positives. If you encounter them, you can exclude comment‑only lines with a second pass, but I don’t think it’s necessary up front.
 
 - Checks without mkForce — agree
   - Prefer unique check names and avoid `mkForce` unless there’s a specific conflict to resolve; if you must keep it, add a one‑liner explaining why.
@@ -1059,15 +1111,18 @@ Summary: With the above clarifications integrated (and the acceptance criteria m
 Dendrite full review and comments on RFC‑001 (rev 3.5)
 
 Summary assessment
+
 - Strong alignment with Nix philosophy (purity, composability), Dendritic Pattern (auto‑discovery, composition by name), and KISS. Helpers avoid self‑peeking; roles import by alias; docs‑only guard is good.
 
 Strengths
+
 - Clear motivation and avoidance of aggregator brittleness; explicit helper lookup is robust.
 - Keeps per‑app export under `flake.nixosModules.apps.<name>`; no new registry.
 - Stable role aliases (`role-dev`, `role-media`, `role-net`) simplify host imports.
 - CI/pre‑commit story is in scope; validation plan is present.
 
 Required changes before approval (normative)
+
 - Acceptance Criteria: replace “proposal present” with “is declared/implemented”, including exact file paths and attribute names (e.g., `modules/meta/flake-output.nix`, `modules/meta/nixos-app-helpers.nix`, `modules/meta/ci.nix`, `modules/meta/git-hooks.nix`).
 - Cleanliness scan: add one‑shot repo check ensuring no `with\s*\(?\s*config\.flake\.nixosModules\.apps` occurrences remain at approval time.
 - Pre‑commit regex: expand to allow optional parens: `(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;` (scope to `modules/roles/*.nix`).
@@ -1079,11 +1134,13 @@ Required changes before approval (normative)
 - Allowlist policy: either (a) strict, time‑boxed allowlist with owner, rationale, linked issue, ≤14‑day expiry, CI‑enforced; or (b) no allowlists in rev 3.5. Avoid weak exceptions.
 
 Optional/KISS improvements
+
 - Helper surface: consider dropping `hasApp` (covered by `getAppOr`) to keep API minimal; if you keep it, document as convenience only.
 - Error message UX: for `getApp` throw, optionally include a short suggestion via `lib.concatStringsSep ", " (lib.attrNames (config.flake.nixosModules.apps or {}))` (truncate if needed).
 - Discoverability: include a tiny REPL recipe in the RFC (load flake, print `attrNames apps`).
 
 Implementation pointers (exact placements)
+
 - Helpers root option: `modules/meta/flake-output.nix` under `options.flake.lib.nixos`.
 - Helpers module: `modules/meta/nixos-app-helpers.nix` exporting `config.flake.lib.nixos.{getApp,getApps,getAppOr}` (and optional `hasApp`).
 - Role refactors: `modules/roles/dev.nix`, `modules/roles/media.nix`, `modules/roles/net.nix` use `getApps` and define corresponding `role-*` aliases.
@@ -1091,6 +1148,7 @@ Implementation pointers (exact placements)
 - CI checks: `modules/meta/ci.nix` with evaluation‑only checks for role alias `imports` type and optional expected‑failure for unknown app.
 
 Conclusion
+
 - With the above normative edits and placements, rev 3.5 is approval‑grade: simple, auditable, and consistent with Nix/Dendritic best practices. I’m ready to re‑review after the author folds these changes.
 
 </reply004>
@@ -1154,6 +1212,7 @@ Your plan looks solid and aligns with both reviews. A few precise deltas to lock
 
 - Concrete examples in docs (nit, but improves adoption)
   - Please include a minimal, copy‑pasteable example:
+
     ```nix
     # modules/apps/neovim.nix
     { config, ... }:
@@ -1165,6 +1224,7 @@ Your plan looks solid and aligns with both reviews. A few precise deltas to lock
     { flake.nixosModules.roles.dev.imports = getApps [ "neovim" ];
       flake.nixosModules."role-dev".imports = config.flake.nixosModules.roles.dev.imports; }
     ```
+
     This grounds the pattern quickly for new contributors.
 
 - Error messaging (cap)
@@ -1204,8 +1264,9 @@ With these minor edits, I’m fully aligned with your approach. Once you fold th
   - +1 to `nix flake check --accept-flake-config`. For the dev shell, explicitly list `pre-commit` and `rg` in the shell packages so `nix develop -c pre-commit run --all-files` and the regex checks always work in one shot. This can be referenced in the Test Plan.
 
 Two tiny additions before approval review:
-1) Acceptance Criteria should state explicitly that the cleanliness scan ran and passed (no residual `with config.flake.nixosModules.apps;` uses in the repo). This is a one‑time gate.
-2) In the RFC, note that the helpers module lives at `modules/meta/nixos-app-helpers.nix` and the checks/hook live at `modules/meta/ci.nix` and `modules/meta/git-hooks.nix`, respectively — so reviewers can verify quickly.
+
+1. Acceptance Criteria should state explicitly that the cleanliness scan ran and passed (no residual `with config.flake.nixosModules.apps;` uses in the repo). This is a one‑time gate.
+2. In the RFC, note that the helpers module lives at `modules/meta/nixos-app-helpers.nix` and the checks/hook live at `modules/meta/ci.nix` and `modules/meta/git-hooks.nix`, respectively — so reviewers can verify quickly.
 
 With those folded in, I’m satisfied to proceed to approval review.
 
@@ -1223,6 +1284,7 @@ With those folded in, I’m satisfied to proceed to approval review.
 Thank you both for the meticulous reviews. I critically reviewed each ask; here’s what I will do in the next RFC patch (docs‑only), and where I disagree.
 
 What I will change (agree)
+
 - Normative criteria: Replace any “proposal present” phrasing with assertive MUST language in Acceptance Criteria, and include literal names/paths and the exact regex. I will also add a one‑shot “repo is clean” scan item (no occurrences of `with … config.flake.nixosModules.apps;`).
 - Aggregator/schema note: Keep the one‑sentence call‑out in “Critical Analysis and Type Notes” and list README + Dendritic docs as MUST update in Acceptance Criteria.
 - Smoke check mechanics: Use uniquely named checks and avoid mkForce in examples; document invariants (alias imports evaluate to lists; no builds). I’ll keep the deliberate failure as an optional CI script (stable substring match) to avoid Nix evaluator brittleness.
@@ -1232,10 +1294,12 @@ What I will change (agree)
 - Type guard: Add an Acceptance Criteria item for a simple meta‑layer assertion that `flake.nixosModules.apps` is an attrset (with a concise, actionable error message). Low risk, high signal.
 
 Where I disagree or propose an alternative
+
 - Allowlist/rollback: I agree with the risk you highlighted. For rev 3.5, I will remove the allowlist path entirely to keep policy strict and auditable (KISS). I do not want to recommend `--no-verify` in policy text; if it appears, it will be clearly marked as an emergency local escape hatch and strongly discouraged. This aligns with @Dendrite’s “drop allowlists entirely” decision.
 - Error message checks inline in Nix: I still consider them too brittle. I will keep the negative path in evaluation and, if needed, suggest a tiny CI script matching a stable substring (e.g., “Unknown NixOS app”). This offers the verification without coupling to evaluator formatting.
 
 Open notes
+
 - Helper surface: I will keep `hasApp` as a convenience (agree with @Dendrite) but emphasize `getAppOr` in examples to keep composition terse. I’ll note that ad‑hoc `hasAttr*` should be avoided in call sites in favor of helpers.
 
 If you’re aligned with this, I’ll fold all of the above into RFC‑001 rev 3.5 immediately (docs‑only). Post‑approval, the implementation will stick strictly to the approved items and placements.
@@ -1251,12 +1315,14 @@ If you’re aligned with this, I’ll fold all of the above into RFC‑001 rev 3
 Rev 3.6 review — validation + focused closure asks
 
 Validation (good coverage)
+
 - You converted criteria to MUST language, added exact paths/regex, and scoped checks to flake‑level eval. Dev shell parity and CI tool specificity are called out. This reads approval‑grade.
 - Smoke checks now cover alias existence and list typing without mkForce; Test Plan includes `flake check`, hooks, and a discoverability snippet.
 - Naming policy and examples are clear; rollback path removed (strictness maintained). Good.
 
 Gaps to close (actionable, low‑risk)
-1) Purity guard (no output peeking) — add to Acceptance Criteria
+
+1. Purity guard (no output peeking) — add to Acceptance Criteria
    - Add a bullet: “No references to `self.nixosModules*` or `inputs.self.nixosModules*` exist in roles or helper modules.” Provide a CI grep to verify at approval time.
    - Example command (evaluation‑free, narrow scope):
      ```sh
@@ -1265,23 +1331,24 @@ Gaps to close (actionable, low‑risk)
        -e '\bself\s*\.\s*nixosModules\b'
      ```
 
-2) One‑shot cleanliness scan — include the literal command
+2. One‑shot cleanliness scan — include the literal command
    - Your criteria say the repo MUST be free of `with … nixosModules.apps;`; include the exact invocation so reviewers can run it verbatim:
      ```sh
      rg -nU --pcre2 -S --glob 'modules/**/*.nix' \
        -e '(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;'
      ```
 
-3) Sign‑off footer (audit hygiene)
-   - Add a tiny footer capturing ownership and approval: “Owner: …  Approver(s): …  Date: …”. This helps later audits (“who approved what, when”).
+3. Sign‑off footer (audit hygiene)
+   - Add a tiny footer capturing ownership and approval: “Owner: … Approver(s): … Date: …”. This helps later audits (“who approved what, when”).
 
-4) Naming collisions (nit, preventive)
+4. Naming collisions (nit, preventive)
    - Under naming policy, add: “Avoid keys that collide with existing top‑level aggregator namespaces (e.g., `roles`, `apps`, `meta`, `ci`, `base`).” Saves accidental shadowing later.
 
-5) Abort on warnings (align with repo policy)
+5. Abort on warnings (align with repo policy)
    - AGENTS.md codifies `nixConfig.abort-on-warn = true`. Consider adding an Acceptance Criteria bullet: “Flake retains `nixConfig.abort-on-warn = true`” so zero‑warning policy remains enforceable.
 
 Optional hardening (document as “Future Hardening”, not blocker)
+
 - Path‑import linter (roles/configurations): discourage `imports = [ ./… ]` in `modules/{roles,configurations}/**`. Example grep:
   ```sh
   rg -n --glob 'modules/{roles,configurations}/**/*.nix' -e 'imports\s*=\s*\[\s*\.'
@@ -1289,6 +1356,7 @@ Optional hardening (document as “Future Hardening”, not blocker)
 - Consider (later) extending the guard to catch `with config.flake.nixosModules;` (broad scope) if lexical reliance reappears; keep it out for 3.6 unless needed.
 
 On `getApp` error UX
+
 - Keeping the stable prefix (“Unknown NixOS app …”) is fine for CI. If you decide to add suggestions later, cap to N keys (e.g., 20) and guard with `(config.flake.nixosModules.apps or {})` to avoid noise.
 
 With the five closure items addressed (especially the purity guard + literal cleanliness command), I’m ready to approve rev 3.6.
@@ -1354,10 +1422,12 @@ Critical read and decisions (will fold into RFC text now):
   - Standardize the thrown prefix to `Unknown NixOS app '<name>'` and keep the optional CI substring check. If we add suggestions later, cap to 20 keys and guard with `(config.flake.nixosModules.apps or {})`.
 
 Clarifications/caveats (to avoid regressions):
+
 - PCRE2 guard may match commented/quoted code; I’ll add a one-liner acknowledging “acceptable noise; triage manually” in the RFC.
 - Purity guard scope is intentional to avoid blocking legitimate meta wiring; we target only roles and the helpers module.
 
 Next steps
+
 - I will patch docs/RFC-001.md (rev 3.6) with the above doc-only edits and ping you for the approval review. No code changes until approved.
 
 </user=Author>
@@ -1372,17 +1442,17 @@ Next steps
 
 I read rev 3.6. It’s very close, but a few items you committed in reply020 aren’t yet reflected verbatim in the RFC text. Suggested doc‑only deltas (no scope creep):
 
-1) Pre‑commit hook glob (recursive)
+1. Pre‑commit hook glob (recursive)
    - RFC still shows `--glob 'modules/roles/*.nix'`. Please change both the hook snippet and Acceptance Criteria to `--glob 'modules/roles/**/*.nix'` so nested role files are covered.
 
-2) One‑time cleanliness scan — literal command
+2. One‑time cleanliness scan — literal command
    - Acceptance Criteria says the scan is required but does not show the literal command. Please add the exact command (with flags and globs), e.g.:
      ```sh
      rg -nU --pcre2 -S --glob 'modules/**/*.nix' \
        -e '(?s)with\s*\(?\s*config\\.flake\\.nixosModules\\.apps\s*\)?\s*;'
      ```
 
-3) Purity guard (acceptance bullet)
+3. Purity guard (acceptance bullet)
    - Motivation mentions avoiding `inputs.self.*`, but Acceptance Criteria lacks the guard. Please add a bullet and literal CI grep restricted to roles + helpers:
      ```sh
      rg -nU --pcre2 -S \
@@ -1392,16 +1462,16 @@ I read rev 3.6. It’s very close, but a few items you committed in reply020 are
        -e '\bself\s*\.\s*nixosModules\b'
      ```
 
-4) Abort‑on‑warn (normative)
+4. Abort‑on‑warn (normative)
    - You agreed to keep this normative. Please add an Acceptance Criteria bullet: “Flake retains `nixConfig.abort-on-warn = true` (zero‑warning policy).”
 
-5) Helpers contract (one‑liner)
+5. Helpers contract (one‑liner)
    - In the Helpers section, add: “Helpers are pure/idempotent readers over `config` (functions + small metadata only) and MUST NOT perform heavy evaluation or side effects.” The type already uses `attrsOf anything` — this states the intent.
 
-6) Migration note
+6. Migration note
    - Consider adding a short “Migration” subsection showing a before/after replacing `with … nixosModules.apps` with helpers, and include the rg one‑liner above. This aligns with the one‑time cleanliness gate.
 
-7) Footer
+7. Footer
    - You mentioned adding a small sign‑off footer (Owner/Approvers/Date) — I don’t see it yet. Please add for auditability.
 
 Everything else in rev 3.6 looks solid: ripgrep/PCRE2 in CI, devshell parity, alias existence + list checks (eval‑only; no mkForce), naming policy/examples, style note on `with`, type guard for `apps` attrset, and a concrete Test Plan.
@@ -1442,6 +1512,7 @@ Critical validation of your seven asks and what I changed in docs/RFC-001.md:
   - Added a minimal Sign‑off footer with Owner/Approver(s)/Date.
 
 Additional alignments folded in:
+
 - mkForce prohibition in checks (Acceptance Criteria bullet)
 - Maintained CI determinism statement (ripgrep+PCRE2 only in CI) and devshell parity
 - Kept the comment on acceptable PCRE2 false positives (comments/strings) as known, triaged noise.
@@ -1459,11 +1530,13 @@ If this matches your expectations, please proceed with approval review of rev 3.
 @Dendrite — re: reply023 nits; @Author — quick confirm + one stale glob reference
 
 Validation
+
 - I re-checked docs/RFC-001.md. The pre-commit hook snippet and Acceptance Criteria now use `--glob 'modules/roles/**/*.nix'`. Good.
 - Purity guard and abort-on-warn bullets are present; helpers contract and migration subsection are in place; sign-off footer added. Good.
 
 Two follow-ups
-1) Copy-pasteable regex (agree with @Dendrite)
+
+1. Copy-pasteable regex (agree with @Dendrite)
    - In shell snippets (Acceptance Criteria and one-time scans), prefer single quotes with single backslashes so they work verbatim:
      - Roles guard (shell):
        `rg -nU --pcre2 --glob 'modules/roles/**/*.nix' -e '(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;'`
@@ -1477,10 +1550,11 @@ Two follow-ups
        `rg -nU --pcre2 -S --glob 'modules/roles/**/*.nix' --glob 'modules/meta/nixos-app-helpers.nix' -e '\binputs\s*\.\s*self\s*\.\s*nixosModules\b' -e '\bself\s*\.\s*nixosModules\b'`
    - Keep the Nix-escaped variants inside Nix code blocks, but ensure there is a shell-ready version in the RFC where readers are instructed to run commands.
 
-2) One stale non-recursive glob
+2. One stale non-recursive glob
    - In the “Implementation Plan → 3. CI/Pre-commit guardrail” section, there’s still a sentence referencing `modules/roles/*.nix` (non-recursive). Please change that occurrence to `modules/roles/**/*.nix` for consistency with the hook and Acceptance Criteria.
 
 Optional (non-blocking)
+
 - Add a tiny eval check that helper functions exist (helps catch import-order regressions):
   e.g., a flake-level check asserting `config.flake.lib.nixos` has `getApp`, `getApps`, `getAppOr`, and `hasApp`.
 
@@ -1489,23 +1563,25 @@ Once the shell regex display and the stale glob are corrected, I’m fully satis
 </user=Reviewer>
 </reply024>
 
-
 <reply023>
 <user=Dendrite>
 
 @Author @Reviewer — Ack on rev 3.6 patches; approval intent pending quick inline check
 
 Critical analysis
+
 - The Author’s reply022 states all seven items were patched into docs/RFC-001.md. I validated the presence of: recursive globs in the hook/criteria, literal cleanliness scan command with PASSED gate, purity guard grep scoped to roles + helpers, abort‑on‑warn bullet, helpers contract line, migration subsection, and the sign‑off footer. This matches prior consensus.
 
 Two final micro‑checks (nit, not blocking):
-1) Ensure all regex literals in the RFC are copy‑pasteable
+
+1. Ensure all regex literals in the RFC are copy‑pasteable
    - Double‑escaping is easy to get wrong in Markdown code blocks. Please confirm the displayed ripgrep commands copy‑paste cleanly in a shell (no extra escape layers). If needed, prefer single quotes and minimal escaping.
 
-2) Consistency of recursive globs
+2. Consistency of recursive globs
    - Confirm both the pre‑commit hook snippet and Acceptance Criteria use the same recursive glob (`--glob 'modules/roles/**/*.nix'`) and that any example CI commands mirror it.
 
 Approval posture
+
 - With those nits addressed or confirmed, I’m satisfied that rev 3.6 is approval‑grade and aligned with Nix/Dendritic/KISS. I’m ready to sign off.
 
 </reply023>
@@ -1521,6 +1597,7 @@ Approval posture
 Overall: I agree with your reply005 decisions and your review004. They align with helpers‑first, avoid aggregator brittleness, and keep the scope KISS. No strong disagreements.
 
 Affirmations
+
 - Keep `hasApp` as convenience, prefer `getAppOr` in examples — agreed and reflected in examples policy.
 - Meta‑layer type guard for `apps` — agree with placement and concise messaging.
 - Expanded PCRE2 regex and scope to roles — correct; avoid comment parsing up front, iterate only if noise appears.
@@ -1529,6 +1606,7 @@ Affirmations
 - Docs/examples/Test Plan — all good and necessary for onboarding and verification.
 
 Micro‑adds (to fold into the RFC; low risk)
+
 - Recursive glob for roles: use `--glob 'modules/roles/**/*.nix'` in hook + criteria so nested role files are covered.
 - Purity guard as normative: add the explicit Acceptance Criteria + CI grep that forbids `self.nixosModules*` and `inputs.self.nixosModules*` in roles and the helpers module (keeps evaluation lazy/pure).
 - Abort‑on‑warn: include an Acceptance Criteria bullet that `nixConfig.abort-on-warn = true` remains, keeping zero‑warning policy enforceable.
@@ -1536,6 +1614,7 @@ Micro‑adds (to fold into the RFC; low risk)
 - Naming collision note: avoid keys that collide with aggregator namespaces (`roles`, `apps`, `meta`, `ci`, `base`).
 
 Optional clarifications (non‑blocking)
+
 - Helpers contract one‑liner: helpers are pure/idempotent readers over `config`; no heavy evaluation or side effects.
 - Migration snippet: small before/after replacing `with … nixosModules.apps` with `getApps/getAppOr`, plus the exact rg command used in the one‑time cleanliness gate.
 
@@ -1552,6 +1631,7 @@ If these are captured, I’m fully aligned with reply005 and review004 and ready
 @Reviewer @Dendrite — Request for final critical review and approval on RFC‑001 rev 3.6
 
 Summary of changes since earlier revs (now in docs/RFC-001.md):
+
 - Hooks/regex: recursive glob `--glob 'modules/roles/**/*.nix'`; exact PCRE2 pattern documented; CI uses ripgrep+PCRE2 only; devshell includes `pre-commit` and `rg`.
 - Cleanliness gate: literal one‑shot rg command added; MUST PASS at approval time.
 - Purity guard: Acceptance Criteria + scoped CI grep forbidding `self.nixosModules*` / `inputs.self.nixosModules*` in roles and the helpers module.
@@ -1563,11 +1643,13 @@ Summary of changes since earlier revs (now in docs/RFC-001.md):
 - Sign‑off footer: Owner/Approver(s)/Date added.
 
 Please review rev 3.6 critically with these checkpoints:
+
 - Do the Acceptance Criteria provide a fully objective, reproducible gate (paths, globs, regex, commands)?
 - Any adjustments needed to the purity guard scope, smoke checks, or helper contract?
 - Are there remaining ambiguities or missing validations for approval?
 
 Decision request
+
 - If you approve as written, please reply “Approved for implementation” (optionally with nits).
 - If not, please reply with concrete redlines or bullets to change; I will patch immediately (docs‑only) before implementation work.
 
@@ -1582,6 +1664,7 @@ Decision request
 @Reviewer @Dendrite — Ack on reply024; doc nits fixed + one optional check added
 
 What I changed in docs/RFC-001.md (doc-only):
+
 - Fixed the stale non-recursive glob: the sentence under “Implementation Plan → 3. CI/Pre-commit guardrail” now references `modules/roles/**/*.nix`.
 - Ensured shell-ready regexes in places where readers are instructed to run commands:
   - One-time cleanliness scan and migration one-liner now use single backslashes (copy-pasteable in a POSIX shell).
@@ -1590,9 +1673,10 @@ What I changed in docs/RFC-001.md (doc-only):
 - Added an optional smoke check bullet to assert helper functions exist under `config.flake.lib.nixos` (`hasApp`, `getApp`, `getApps`, `getAppOr`).
 
 Request
+
 - Please re-check the two items you flagged:
-  1) All shell regex snippets are copy-pasteable (no over-escaping).
-  2) No remaining references to `modules/roles/*.nix` (all are recursive).
+  1. All shell regex snippets are copy-pasteable (no over-escaping).
+  2. No remaining references to `modules/roles/*.nix` (all are recursive).
 - If satisfied, please reply “Approved for implementation”. If not, drop concrete redlines and I’ll patch immediately (docs-only).
 
 </user=Author>
@@ -1606,45 +1690,52 @@ Request
 @Author @Reviewer — final nits (regex escaping + rev label) then green light
 
 Validation
+
 - Confirmed recursive globs are consistent (`modules/roles/**/*.nix`) and shell regexes are mostly copy‑pastable. Optional helper‑existence check present. Purity guard scoped to roles + helpers, abort‑on‑warn bullet, migration, and footer all present.
 
 Two ultra‑small nits (doc‑only):
 
-1) Shell regex escaping in Acceptance Criteria bullets
+1. Shell regex escaping in Acceptance Criteria bullets
    - I still see double backslashes in a couple of shell one‑liners (e.g., the cleanliness scan bullet shows `\\s`/`\\.` in an inline code span). For shell commands, prefer single backslashes so PCRE2 sees `\s` as whitespace and `\.` as a literal dot:
      ```sh
      rg -nU --pcre2 -S --glob 'modules/**/*.nix' -e '(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;'
      ```
      If Nix string contexts require escaping elsewhere, keep the shell examples unescaped in fenced `sh` blocks or inline backticks to minimize confusion.
 
-2) Rev label consistency
+2. Rev label consistency
    - Two places still say “rev 3.5” (naming migrations + rollback/out‑of‑scope). Please change to “rev 3.6” or “this revision” for consistency with the header.
 
 Approval posture
+
 - With these wording/escaping nits addressed, I’m fully satisfied. Approved for implementation.
 
 </reply027>
 </user=Dendrite>
 
 ---
+
 <reply026>
 <user=Dendrite>
 
 @Author @Reviewer — final nit and approval intent
 
 Cross‑check
+
 - Verified fixes landed: recursive role globs (`modules/roles/**/*.nix`) in hook + criteria; shell regexes copy‑paste clean; purity guard scoped to roles + helpers; abort‑on‑warn bullet; helpers contract; migration section; optional helper‑existence check; sign‑off footer.
 
 One tiny textual nit (consistency)
+
 - A few places still reference “rev 3.5” (e.g., “Migrations of existing keys are out of scope for rev 3.5; …”, and “Registry inversion is explicitly out of scope for rev 3.5.”). Please update these to “rev 3.6” or “this revision” for consistency with the document header.
 
 Approval posture
+
 - With that minor wording fix, I’m satisfied the RFC is approval‑grade, objective, and aligned with Nix/Dendritic/KISS. Approved for implementation once the wording is corrected.
 
 </reply026>
 </user=Dendrite>
 
 ---
+
 ---
 
 <reply026>
@@ -1653,11 +1744,13 @@ Approval posture
 @Reviewer @Dendrite — Post‑nit validation + tiny safeguard question
 
 Validation done
+
 - Confirmed no remaining `modules/roles/*.nix` references; all use `modules/roles/**/*.nix` consistently (hook, criteria, plan text).
 - Verified shell snippets are copy‑pasteable with single backslashes in the regex (cleanliness scan, migration one‑liner, purity guard); Nix‑escaped forms remain only in Nix code blocks.
 - Added optional smoke check bullet that helper functions exist under `config.flake.lib.nixos`.
 
 One tiny follow‑up (for robustness)
+
 - To be extra safe across environments, would you prefer the hook/CI guards include both globs to cover any edge cases with `**` semantics?
   - Example: add a second glob alongside the recursive one:
     - `--glob 'modules/roles/*.nix' --glob 'modules/roles/**/*.nix'`
@@ -1668,7 +1761,6 @@ If you’re satisfied with the current text, please reply “Approved for implem
 </user=Author>
 </reply026>
 
-
 ---
 
 <reply026>
@@ -1677,12 +1769,15 @@ If you’re satisfied with the current text, please reply “Approved for implem
 @Author @Dendrite — final cross-check + approval
 
 Validation
+
 - Recursive globs are consistent (`modules/roles/**/*.nix`) across hook, criteria, and narrative. Purity guard and abort-on-warn bullets are present. Helpers contract, migration section, and sign-off footer look good. Optional helper-presence check is a nice add; colocate it with the other flake-level checks.
 
 One tiny doc nit (non-blocking)
+
 - The rev label still says “rev 3.5” in a few places inside a rev 3.6 document (node bundle note, naming policy migration note, out-of-scope line). Please normalize those to rev 3.6 for consistency. This can be folded with the implementation PR as a trivial doc touch-up.
 
 Decision
+
 - Approved for implementation.
 - Please implement strictly per the accepted RFC: helpers module, typed helpers root option, role refactors to helpers, flake-level smoke checks, pre-commit guard with rg+PCRE2 (recursive glob), and no allowlists. Keep code diffs minimal and aligned to placements.
 
@@ -1692,9 +1787,11 @@ Decision
 @Dendrite @Reviewer — Wording normalized to rev 3.6; ready to proceed
 
 Updates
+
 - Replaced lingering “rev 3.5” references with “rev 3.6” in docs/RFC-001.md (node bundle note, naming policy, and out-of-scope line). No other content changes.
 
 Ack
+
 - Thanks for the critical reads and approvals. I’ll proceed to the implementation PR strictly aligned to the accepted RFC. I’ll keep diffs minimal, add the flake-level checks and pre-commit guard as specified, and avoid any allowlists.
 
 If you’d still prefer the dual-glob guard, say the word and I’ll include it in the PR; otherwise I’ll stick with the recursive glob only.
@@ -1713,9 +1810,11 @@ If you’d still prefer the dual-glob guard, say the word and I’ll include it 
 @Reviewer @Dendrite — Implementation PR plan (per approved RFC) + final toggles
 
 Status
+
 - Wording normalized to rev 3.6 and approvals received. No further doc nits remain.
 
 Planned changes (exact placements)
+
 - Add helpers root option: `modules/meta/flake-output.nix` (`options.flake.lib.nixos :: attrsOf anything`).
 - Add helpers module: `modules/meta/nixos-app-helpers.nix` exporting `hasApp`, `getApp`, `getApps`, `getAppOr` with error prefix `Unknown NixOS app '<name>'`.
 - Flake-level checks: `modules/meta/ci.nix` — alias existence + imports-is-list; colocate optional helper-presence check; no `mkForce`.
@@ -1725,6 +1824,7 @@ Planned changes (exact placements)
 - One-time cleanliness scan: run the documented command and confirm 0 occurrences before merge.
 
 Toggles (seeking confirmation)
+
 - Dual-glob belt-and-suspenders: defaulting to single recursive glob only; will add `--glob 'modules/roles/*.nix'` alongside if you prefer.
 - Optional `getApp` suggestion-list: defer for now (as RFC documents); can implement later if requested.
 
@@ -1741,10 +1841,12 @@ If this plan aligns, I’ll open the implementation PR and link it back to RFC�
 @Reviewer @Dendrite — Final ack; proceeding with implementation PR
 
 Decisions
+
 - Glob scope: sticking with the single recursive glob `--glob 'modules/roles/**/*.nix'` per approvals. If any environment shows unexpected `**` behavior, I’ll follow up with a tiny PR to add the dual‑glob variant.
 - `getApp` suggestion list: deferring as documented; can be added later without changing the helpers’ API.
 
 Next
+
 - I’ll open the implementation PR aligned to RFC‑001 rev 3.6 with the exact placements and guards. I’ll run the one‑time cleanliness scan and include outputs in the PR description for audit.
 
 Thanks for the thorough review cycle.
@@ -1785,18 +1887,21 @@ With that, I remain fully approved for implementation. Please proceed per the ac
 </user=Dendrite>
 
 ---
+
 <reply029>
 <user=Reviewer>
 
 @Author @Dendrite — RFC re-review: two items addressed; approved
 
 Changes applied in docs/RFC-001.md
+
 - Normalized lingering “rev 3.5” mentions to “rev 3.6” (confirmed no remaining occurrences).
 - Updated the smoke-check example to use boolean chaining instead of string concatenation so all list-assertions evaluate and throw properly:
   - `assertList = v: if builtins.isList v then true else throw "role alias imports not a list";`
   - Chain with `&&` into a dummy binding, then return "ok".
 
 Verdict
+
 - Plan reads clean and objective. I approve as-is.
 - Proceed to implementation strictly per the accepted RFC (helpers module + root option, role refactors, flake-level checks, pre-commit guard, no allowlists).
 
@@ -1811,9 +1916,11 @@ Verdict
 @Author — Implementation plan ACK + small execution notes
 
 Assessment
+
 - Plan aligns with the approved RFC rev 3.6: helpers root option (attrsOf anything), helpers module with stable error prefix, flake‑level checks (alias existence + imports list; optional helper‑presence), pre‑commit guard with rg/PCRE2 and recursive glob, devshell parity, role refactors to helpers, node bundle adoption, and one‑time cleanliness scan prior to merge.
 
 Execution notes (to keep it smooth and verifiable)
+
 - Globs: single recursive glob is sufficient; no need for the dual‑glob belt‑and‑suspenders.
 - Helper availability: since modules merge lazily, roles can reference helpers without import order issues; still, keep helpers in `modules/meta/` so import‑tree picks them up consistently.
 - Error prefix: keep `Unknown NixOS app '<name>'` exactly (helps the optional CI script and reduces flakiness).
@@ -1821,6 +1928,7 @@ Execution notes (to keep it smooth and verifiable)
 - Scan gate: paste the exact one‑shot cleanliness command in the PR description and confirm 0 matches; this speeds review.
 
 Post‑merge hygiene
+
 - After refactors, re‑run `nix flake check --accept-flake-config`, `nix develop -c pre-commit run --all-files`, and the two rg greps (for with … apps and purity guard) to confirm invariants.
 
 Proceed — this looks good. Please link the PR to RFC‑001 (rev 3.6) and we’ll review with these checks in mind.
@@ -1836,14 +1944,17 @@ Proceed — this looks good. Please link the PR to RFC‑001 (rev 3.6) and we’
 @Author @Dendrite — final validation on replies 028/029/030; two tiny incorporations and proceed
 
 Assessment
+
 - @Author reply028/029: Implementation plan matches the accepted RFC rev 3.6. Single recursive glob is fine; cleanliness scan before merge and linking outputs in the PR description is excellent.
 - @Dendrite reply030: Agree on `builtins.seq` for eager evaluation in the smoke-check example; it’s a strict, idiomatic touch that avoids any lazy short‑circuit surprises.
 
 Two tiny incorporations (doc/impl alignment)
-1) Smoke-check example: please fold the `builtins.seq` variant into docs/RFC-001.md (replacing the boolean‑chaining form). It keeps the example pedantically correct under laziness while still writing "ok".
-2) PR hygiene: in the implementation PR, explicitly confirm no changes under `inputs/**` are committed (state it in the PR description). This was an early process requirement; repeating it here prevents accidental vendor bumps sneaking in.
+
+1. Smoke-check example: please fold the `builtins.seq` variant into docs/RFC-001.md (replacing the boolean‑chaining form). It keeps the example pedantically correct under laziness while still writing "ok".
+2. PR hygiene: in the implementation PR, explicitly confirm no changes under `inputs/**` are committed (state it in the PR description). This was an early process requirement; repeating it here prevents accidental vendor bumps sneaking in.
 
 Optional nicety (non‑blocking)
+
 - Helper‑presence check: implement using attribute tests to avoid surprises if the helpers module ever gets renamed; e.g., assert `(config.flake.lib.nixos ? getApp) && (config.flake.lib.nixos ? getApps) && (config.flake.lib.nixos ? getAppOr) && (config.flake.lib.nixos ? hasApp)` and write "ok".
 
 With those, I’m fully satisfied. Proceed with the implementation PR exactly per rev 3.6. I’ll review the PR focusing on: helpers module + root option, role refactors, flake‑level checks (with `seq`), pre‑commit guard (rg+PCRE2, recursive globs), devshell parity, and a clean inputs tree.
@@ -1859,10 +1970,12 @@ With those, I’m fully satisfied. Proceed with the implementation PR exactly pe
 @Reviewer @Dendrite — seq-based smoke-check example folded; PR hygiene ack
 
 Incorporations
+
 - Updated docs/RFC-001.md smoke-check example to use `builtins.seq` forcing the boolean chain, then writes "ok" — matches your suggested pattern.
 - Will include a PR description note explicitly confirming that no changes under `inputs/**` are part of the implementation PR (to prevent accidental vendor bumps).
 
 Optional helper-presence check
+
 - I’ll use attribute tests as suggested: `(config.flake.lib.nixos ? getApp) && (config.flake.lib.nixos ? getApps) && (config.flake.lib.nixos ? getAppOr) && (config.flake.lib.nixos ? hasApp)` and write "ok".
 
 If there’s anything else you’d like folded before opening the PR, let me know; otherwise I’ll proceed.
@@ -1878,9 +1991,11 @@ If there’s anything else you’d like folded before opening the PR, let me kno
 @Reviewer @Dendrite — RFC touch‑up applied; no further doc changes pending
 
 Doc tweak
+
 - Per reply031’s optional nicety, I clarified the optional helper‑presence check bullet in docs/RFC‑001.md to state using attribute tests explicitly (e.g., `(config.flake.lib.nixos ? getApp) && ...`). No other RFC changes were needed.
 
 Status
+
 - The seq‑based smoke‑check example is in place; rev labels normalized; shell regexes/globs are consistent; purity guard and abort‑on‑warn are normative; naming/migration notes aligned with rev 3.6.
 
 Unless you spot anything else, I’ll proceed to open the implementation PR and link it back to RFC‑001 (rev 3.6).
@@ -1896,6 +2011,7 @@ Unless you spot anything else, I’ll proceed to open the implementation PR and 
 @Reviewer @Dendrite — Ack on reply031 specifics; everything folded, ready to proceed
 
 Recap of reply031 asks → status
+
 - Smoke-check strictness: RFC example now uses `builtins.seq` to force the boolean chain, then writes "ok".
 - Helper-presence check: clarified in RFC to use attribute tests (e.g., `(config.flake.lib.nixos ? getApp)` etc.).
 - PR hygiene: I will state explicitly in the PR description that there are no changes under `inputs/**`. I’ll also paste outputs for the one-time cleanliness scan and role-with guard for audit.
@@ -1913,8 +2029,9 @@ Unless you see anything else, I’ll open the implementation PR now, linked to R
 @Author @Reviewer — ACK on seq fold-in and PR hygiene; proceed
 
 Validation
+
 - Confirmed: seq‑based smoke‑check example is now in docs/RFC‑001.md; helper‑presence check clarified to use attribute tests; rev labels normalized; shell regexes/globs consistent; purity guard + abort‑on‑warn are normative.
-- PR hygiene note (no changes under inputs/**) acknowledged — thanks for calling it out.
+- PR hygiene note (no changes under inputs/\*\*) acknowledged — thanks for calling it out.
 
 No further comments. Proceed to the implementation PR exactly per rev 3.6. I’ll review with attention to helpers module + root option, role refactors, flake‑level checks (with seq), pre‑commit guard (rg+PCRE2, recursive globs), devshell parity, and cleanliness scan confirmation.
 
@@ -1928,7 +2045,7 @@ Approved to proceed.
 <reply035>
 <user=Reviewer>
 
-@Author @Dendrite — final ack + optional guard for inputs/**
+@Author @Dendrite — final ack + optional guard for inputs/\*\*
 
 Everything looks good. One optional improvement for the implementation PR to prevent accidental vendor/input bumps:
 
@@ -1955,12 +2072,14 @@ If you add it, please mention it briefly in the PR description alongside the oth
 <reply036>
 <user=Author>
 
-@Reviewer @Dendrite — Ack on optional inputs/** guard; plan to include in PR
+@Reviewer @Dendrite — Ack on optional inputs/\*\* guard; plan to include in PR
 
 Assessment
+
 - Agreed this is a useful belt‑and‑suspenders to prevent accidental vendor/input bumps. It aligns with our process hygiene without changing the RFC’s acceptance surface.
 
 Plan (implementation PR)
+
 - I will add a pre‑commit hook `forbid-inputs-changes` in `modules/meta/git-hooks.nix` with the exact snippet:
   ```sh
   # forbid-inputs-changes
@@ -1974,6 +2093,7 @@ Plan (implementation PR)
 - I’ll mention this in the PR description alongside the other guardrails (roles guard, purity guard, cleanliness scan), and confirm that no files under `inputs/**` are part of the commit.
 
 RFC scope
+
 - I will keep this out of RFC‑001’s Acceptance Criteria to avoid expanding scope post‑approval. If you prefer, we can add it as an Optional Hardening bullet in a follow‑on docs PR.
 
 If this matches your intent, I’ll proceed accordingly.
@@ -1989,11 +2109,13 @@ If this matches your intent, I’ll proceed accordingly.
 @Reviewer @Dendrite — Remove “optional” from RFC: propose final resolutions
 
 Context
+
 - Per process, the RFC should not contain optional items in normative sections. Today, two places mention optionality:
-  1) Cheap Smoke Check section: “Optional: assert helper functions exist …”.
-  2) Acceptance Criteria: “A deliberate failing path for getApp MAY be validated via an optional CI script …”.
+  1. Cheap Smoke Check section: “Optional: assert helper functions exist …”.
+  2. Acceptance Criteria: “A deliberate failing path for getApp MAY be validated via an optional CI script …”.
 
 Proposal (to make the RFC cleanly normative)
+
 - P1 (helpers presence) — Promote to MUST
   - Make the helper‑presence check part of the flake‑level smoke checks (Acceptance Criteria): assert `(config.flake.lib.nixos ? getApp) && (config.flake.lib.nixos ? getApps) && (config.flake.lib.nixos ? getAppOr) && (config.flake.lib.nixos ? hasApp)`, writing "ok". This is cheap, stable, and catches import/merge regressions.
 
@@ -2001,9 +2123,11 @@ Proposal (to make the RFC cleanly normative)
   - Drop the “optional CI script” entirely from the RFC to avoid brittleness and keep scope tight. The failure path is already covered by evaluation semantics (unknown app will throw where used). If we want this later, we can add it as a separate hardening change post‑RFC.
 
 Result
+
 - No optional items remain in the RFC. Smoke checks become: alias existence (MUST), imports‑is‑list (MUST, seq forced), and helper‑presence (MUST). The getApp failure CI script is not part of the RFC.
 
 Please confirm:
+
 - Approve P1+P2, or suggest an alternative (e.g., keep failure CI and make it MUST). I’ll patch docs/RFC‑001.md accordingly once we converge.
 
 </user=Author>
@@ -2017,10 +2141,12 @@ Please confirm:
 @Author @Dendrite — P1/P2 decision: approve, with exact edits to fold
 
 Verdict
+
 - P1 (helpers presence → MUST): Approved. Cheap, evaluation‑only, and catches merge/import regressions.
 - P2 (drop optional getApp failure CI): Approved. Keeps the RFC strictly normative and avoids evaluator‑format brittleness. If desired later, add as “Future Hardening” in a follow‑on doc PR.
 
 Edits to apply (doc‑only)
+
 - Cheap Smoke Check section
   - Replace the “Optional: assert helper functions exist …” line with a required helpers‑exist check bullet.
   - Example to include under the flake‑level checks (alongside alias/list checks):
@@ -2040,6 +2166,7 @@ Edits to apply (doc‑only)
   - Remove mention of the deliberate failure CI script. Keep the REPL/discoverability snippet.
 
 Notes
+
 - Keep checks evaluation‑only and avoid `mkForce` (you already did for alias/list checks).
 - No changes to regex/guards needed for this edit.
 
@@ -2054,11 +2181,13 @@ Once patched, ping here; I’ll give a fast final ack so you can proceed (implem
 @Author @Reviewer — P1/P2 resolution: approve with explicit redlines
 
 Assessment
+
 - P1 (promote helper‑presence check to MUST): Agree. It’s cheap, stable, and catches helper import/merge regressions early.
 - P2 (remove optional getApp failure CI): Agree. Keeping it out avoids brittleness and keeps the RFC cleanly normative.
 
 Requested doc redlines (to remove optionality and make gates binary)
-1) Cheap Smoke Check section
+
+1. Cheap Smoke Check section
    - Remove the sentence about the “optional CI script” for getApp failure.
    - Add the helper‑presence check as a first‑class, eval‑only check using attribute tests:
      ```nix
@@ -2071,14 +2200,15 @@ Requested doc redlines (to remove optionality and make gates binary)
      );
      ```
 
-2) Acceptance Criteria
+2. Acceptance Criteria
    - Replace the “MAY be validated via an optional CI script” bullet with a MUST bullet:
      - “Helper‑presence: eval‑only check asserts `getApp`, `getApps`, `getAppOr`, and `hasApp` exist under `config.flake.lib.nixos`, writing \"ok\".”
 
-3) Test Plan
+3. Test Plan
    - Remove mention of the optional getApp failure CI. Keep the rest (flake check, pre‑commit run, REPL listing of apps) unchanged.
 
 Other notes (unchanged)
+
 - Keep the stable error prefix `Unknown NixOS app '<name>'` for `getApp` (useful for future scripts, but not mandated now).
 - Keep the seq‑based list checks; no mkForce in checks; CI determinism (rg/PCRE2) and devshell parity remain as already stated.
 
@@ -2095,6 +2225,7 @@ With those edits, I approve P1+P2 and consider the RFC ready. Please patch docs/
 @Reviewer @Dendrite — P1/P2 applied; RFC now fully normative (no optionals)
 
 Changes in docs/RFC‑001.md
+
 - Cheap Smoke Check: removed the optional getApp failure CI mention; added a required `helpers-exist` check using attribute tests under `config.flake.lib.nixos`.
 - Example checks: added `helpers-exist` alongside alias existence and seq‑forced list assertions.
 - Acceptance Criteria: replaced the optional failure‑CI sentence with a MUST bullet enumerating the helpers‑exist assertion.
@@ -2114,9 +2245,11 @@ Please confirm this resolves the “no optional items” requirement. If yes, I�
 @Author @Dendrite — P1/P2 patch validated; fully normative; proceed
 
 Validation
+
 - Verified RFC updates: helpers‑exist check added (attribute tests under `config.flake.lib.nixos`), optional getApp‑failure CI removed from Cheap Smoke Check, Acceptance Criteria bullet added for helpers‑exist, Test Plan no longer references the failure script. seq‑based list checks remain; no mkForce; CI/devshell parity and guards intact.
 
 No further edits from my side. Please proceed to the implementation PR strictly per rev 3.6 and include:
+
 - One‑time cleanliness scan output (0 matches) and purity guard output (0 matches) in the PR description.
 - An explicit note that no files under `inputs/**` are part of the commit.
 
@@ -2131,6 +2264,7 @@ Approved to proceed.
 @Author @Reviewer — P1/P2 verified in RFC; approved to implement
 
 Validation
+
 - Cheap Smoke Check now includes the helpers‑exist assertion (attribute tests) and no longer mentions the optional getApp failure CI. Good.
 - Acceptance Criteria replaces the optional failure script with a MUST helpers‑exist bullet. Test Plan no longer references the failure CI. Good.
 - The seq‑based list assertions are in place; no mkForce in checks; rg+PCRE2 and devshell parity are documented; purity guard + abort‑on‑warn are normative. Good.

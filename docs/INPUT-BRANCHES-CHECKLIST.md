@@ -57,7 +57,7 @@ Use this checklist to track implementation of the input-branches workflow in thi
 - [ ] Enter shell: `nix develop`
 - [ ] Initialize inputs: `input-branches-init`
 - [ ] Commit: `git add inputs/ .gitmodules && git commit -m "inputs: init input branches"`
- - [ ] Sync submodule config after editing `.gitmodules`: `git submodule sync --recursive`
+- [ ] Sync submodule config after editing `.gitmodules`: `git submodule sync --recursive`
 
 ## Post-Clone Reminder
 
