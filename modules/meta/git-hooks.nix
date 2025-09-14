@@ -267,24 +267,14 @@
                   text = ''
                     set -euo pipefail
                     cd "$(git rev-parse --show-toplevel)"
-                    PATTERN='with\s+config\.flake\.nixosModules\.apps\s*;'
-                    # Prefer ripgrep if available
-                    if command -v rg >/dev/null 2>&1; then
-                      if rg -n -S -e "$PATTERN" --glob '*.nix' modules/roles >/dev/null; then
-                        echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/*.nix" >&2
-                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps with explicit string names." >&2
-                        echo "  See docs/RFC-001.md for guidance." >&2
-                        rg -n -S -e "$PATTERN" --glob '*.nix' modules/roles || true
-                        exit 1
-                      fi
-                    else
-                      if grep -R -n -E "$PATTERN" --include='*.nix' modules/roles >/dev/null 2>&1; then
-                        echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/*.nix" >&2
-                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps with explicit string names." >&2
-                        echo "  See docs/RFC-001.md for guidance." >&2
-                        grep -R -n -E "$PATTERN" --include='*.nix' modules/roles || true
-                        exit 1
-                      fi
+                    # PCRE2 multi-line pattern, recursive glob
+                    if rg -nU --pcre2 --glob 'modules/roles/**/*.nix' \
+                      -e '(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;' >/dev/null; then
+                      echo "✗ Forbidden usage found in modules/roles/**/*.nix" >&2
+                      echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/RFC-001.md)." >&2
+                      rg -nU --pcre2 --glob 'modules/roles/**/*.nix' \
+                        -e '(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;' || true
+                      exit 1
                     fi
                   '';
                 };
@@ -292,6 +282,35 @@
               {
                 enable = true;
                 name = "forbid-with-apps-in-roles";
+                entry = lib.getExe checker;
+                pass_filenames = false;
+                always_run = true;
+                verbose = true;
+              };
+
+            # Optional hardening: forbid staged changes under inputs/** (belt-and-suspenders)
+            forbid-inputs-changes =
+              let
+                checker = pkgs.writeShellApplication {
+                  name = "forbid-inputs-changes";
+                  runtimeInputs = [
+                    pkgs.ripgrep
+                    pkgs.git
+                    pkgs.coreutils
+                  ];
+                  text = ''
+                    set -euo pipefail
+                    if git diff --cached --name-only | rg -n '^inputs/' >/dev/null; then
+                      echo "✗ Changes under inputs/ are not allowed in this repo" >&2
+                      git diff --cached --name-only | rg '^inputs/' || true
+                      exit 1
+                    fi
+                  '';
+                };
+              in
+              {
+                enable = true;
+                name = "forbid-inputs-changes";
                 entry = lib.getExe checker;
                 pass_filenames = false;
                 always_run = true;

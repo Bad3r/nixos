@@ -1,5 +1,6 @@
 { config, lib, ... }:
 let
+  inherit (config.flake.lib.nixos) getApps;
   names = [
     "mpv"
     "vlc"
@@ -7,10 +8,8 @@ let
     "gwenview"
     "spectacle"
   ];
-  hasApp = name: lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules;
-  getApp = name: lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules;
   roleImports =
-    (map getApp (lib.filter hasApp names))
+    getApps names
     ++ lib.optional (lib.hasAttr "media" config.flake.nixosModules) config.flake.nixosModules.media;
 in
 {

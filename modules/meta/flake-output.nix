@@ -3,6 +3,11 @@
   options = {
     flake = {
       lib = {
+        nixos = lib.mkOption {
+          type = lib.types.attrsOf lib.types.anything;
+          default = { };
+          description = "Helper functions for NixOS app composition (pure readers)";
+        };
         meta = lib.mkOption {
           type = lib.types.anything;
           default = { };

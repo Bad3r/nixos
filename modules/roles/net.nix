@@ -1,5 +1,6 @@
-{ config, lib, ... }:
+{ config, ... }:
 let
+  inherit (config.flake.lib.nixos) getApps;
   names = [
     "httpx"
     "curlie"
@@ -10,11 +11,7 @@ let
     "ktailctl"
     "networkmanager-dmenu"
   ];
-  hasApp = name: lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules;
-  getApp = name: lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules;
-  roleImports = (map getApp (lib.filter hasApp names)) ++ [
-    config.flake.nixosModules."vpn-defaults"
-  ];
+  roleImports = getApps names ++ [ config.flake.nixosModules."vpn-defaults" ];
 in
 {
   # Networking role: bring in networking apps via robust lookup and include VPN defaults
