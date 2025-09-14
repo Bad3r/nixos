@@ -11,8 +11,6 @@ _: {
           libva
           libvdpau
           libglvnd
-          # Intel VA-API driver (Coffee Lake and newer use iHD)
-          intel-media-driver
         ];
         extraPackages32 = with pkgs.pkgsi686Linux; [
           mesa
@@ -26,8 +24,6 @@ _: {
       environment.variables = {
         # Force software rendering if hardware acceleration fails
         LIBGL_ALWAYS_SOFTWARE = lib.mkDefault "0";
-        # Enable VA-API for video acceleration (can be overridden per-host)
-        LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
       };
 
       # Tools for VA-API diagnostics (vainfo)

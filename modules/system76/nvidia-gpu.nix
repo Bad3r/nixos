@@ -11,7 +11,6 @@ _: {
         extraPackages = with pkgs; [
           nvidia-vaapi-driver
           vaapiVdpau
-          libvdpau-va-gl
           intel-media-driver
           libva-utils
           vulkan-validation-layers
