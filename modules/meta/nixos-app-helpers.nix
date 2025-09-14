@@ -11,7 +11,7 @@
       else
         throw "Unknown NixOS app '${name}'";
 
-    getApps = names: map getApp names;
+    getApps = names: map getApp (builtins.filter hasApp names);
 
     getAppOr =
       name: default:
