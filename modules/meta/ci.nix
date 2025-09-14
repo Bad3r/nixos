@@ -1,43 +1,5 @@
 { config, ... }:
 {
-  # Flake-level evaluation checks (no builds)
-  checks = {
-    role-aliases-exist = builtins.toFile "role-aliases-exist-ok" (
-      if
-        (config.flake.nixosModules ? "role-dev")
-        && (config.flake.nixosModules ? "role-media")
-        && (config.flake.nixosModules ? "role-net")
-      then
-        "ok"
-      else
-        throw "role-* alias missing"
-    );
-
-    role-aliases-structure = builtins.toFile "role-aliases-structure-ok" (
-      let
-        assertList = v: if builtins.isList v then true else throw "role alias imports not a list";
-      in
-      builtins.seq (
-        assertList config.flake.nixosModules."role-dev".imports
-        && assertList config.flake.nixosModules."role-media".imports
-        && assertList config.flake.nixosModules."role-net".imports
-      ) "ok"
-    );
-
-    helpers-exist = builtins.toFile "helpers-exist-ok" (
-      if
-        (config.flake.lib.nixos ? getApp)
-        && (config.flake.lib.nixos ? getApps)
-        && (config.flake.lib.nixos ? getAppOr)
-        && (config.flake.lib.nixos ? hasApp)
-      then
-        "ok"
-      else
-        throw "missing one or more helper functions"
-    );
-  };
-  # Manage GitHub Actions workflow via files writer
-  # Human-readable YAML adhering to GitHub Actions and Nix best practices.
   perSystem =
     { pkgs, ... }:
     let
@@ -68,10 +30,6 @@
                     experimental-features = nix-command flakes pipe-operators
                     abort-on-warn = true
                     access-tokens = github.com=${githubTokenRef}
-              - name: Prefer HTTPS for GitHub
-                run: |
-                  git config --global url."https://github.com/".insteadOf git@github.com:
-                  git config --global url."https://github.com/".insteadOf ssh://git@github.com/
               - name: Check flake
                 run: nix flake check --extra-experimental-features pipe-operators
               - name: Check namespace compliance
@@ -140,6 +98,42 @@
       '';
     in
     {
+      checks = {
+        role-aliases-exist = builtins.toFile "role-aliases-exist-ok" (
+          if
+            (config.flake.nixosModules ? "role-dev")
+            && (config.flake.nixosModules ? "role-media")
+            && (config.flake.nixosModules ? "role-net")
+          then
+            "ok"
+          else
+            throw "role-* alias missing"
+        );
+
+        role-aliases-structure = builtins.toFile "role-aliases-structure-ok" (
+          let
+            assertList = v: if builtins.isList v then true else throw "role alias imports not a list";
+          in
+          builtins.seq (
+            assertList config.flake.nixosModules."role-dev".imports
+            && assertList config.flake.nixosModules."role-media".imports
+            && assertList config.flake.nixosModules."role-net".imports
+          ) "ok"
+        );
+
+        helpers-exist = builtins.toFile "helpers-exist-ok" (
+          if
+            (config.flake.lib.nixos ? getApp)
+            && (config.flake.lib.nixos ? getApps)
+            && (config.flake.lib.nixos ? getAppOr)
+            && (config.flake.lib.nixos ? hasApp)
+          then
+            "ok"
+          else
+            throw "missing one or more helper functions"
+        );
+      };
+
       files.files = [
         {
           path_ = ".github/workflows/check.yml";
