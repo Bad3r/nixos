@@ -4,6 +4,20 @@
 
 Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g., nixpkgs, home-manager, stylix) as branches inside this repo and reference them as submodules under `inputs/`. This improves patch tracking and rebasing while preserving upstream-first work.
 
+## Status
+
+- [x] inputs.self.submodules enabled in flake
+- [x] nixpkgs/home-manager/stylix redirected to `./inputs/*`
+- [x] `modules/input-branches.nix` added; flake module imported
+- [x] Upstreams configured; nixpkgs set `shallow = true`
+- [x] NixOS mitigation module imported and local nixpkgs source forced
+- [x] perSystem: commands exposed; `inputs/*` excluded from treefmt
+- [x] Pre-push hook present (implemented in `modules/input-branches.nix`)
+- [x] CI uses `actions/checkout@v4` with `submodules: true`, `fetch-depth: 0`
+- [x] Shallow/blobless default for nixpkgs with `HYDRATE_NIXPKGS` opt-in
+- [x] `.gitmodules` marks inputs/* as `shallow = true`
+- [x] Recovery procedure for nixpkgs size regressions documented
+
 ## Prerequisites
 
 - Nix 2.27+ with experimental features enabled:
@@ -58,79 +72,7 @@ Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g
     ```
 
   - This keeps day-to-day operations fast and disk usage small, while allowing explicit full hydration when required.
-  - perSystem configuration:
-
-    ```nix
-    perSystem = { config, pkgs, ... }: {
-      make-shells.default.packages = config.input-branches.commands.all;
-      treefmt.settings.global.excludes = [ "${config.input-branches.baseDir}/*" ];
-
-      # Pre-push hook to ensure submodules are pushed
-      pre-commit.settings.hooks.check-submodules-pushed = {
-        enable = true;
-        stages = [ "pre-push" ];
-        always_run = true;
-        verbose = true;
-        entry =
-          pkgs.writeShellApplication {
-            name = "check-submodules-pushed";
-            runtimeInputs = [
-              pkgs.git
-              pkgs.gnugrep
-            ];
-            text =
-              config.input-branches.inputs
-              |> lib.attrValues
-              |> map (
-                { path_, ... }:
-                ''
-                  (
-                    unset GIT_DIR
-                    cd ${path_}
-                    current_commit=$(git rev-parse --quiet HEAD)
-                    [ -z "$current_commit" ] && {
-                      echo "Error: could not find HEAD of submodule ${path_}"
-                      exit 1
-                    }
-                    status=$(git status --porcelain)
-                    echo "$status" | grep -q . && {
-                      echo "Error: submodule ${path_} not clean"
-                      exit 1
-                    }
-                    ref='${v.upstream.ref or "master"}'
-                    # Shallow, blobless fetch for speed
-                    git fetch --depth=1 --filter=blob:none upstream "$ref" || {
-                      echo "Error: failed to fetch upstream/$ref for ${path_}"
-                      exit 1
-                    }
-                    if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
-                      attempts=0
-                      while [ $attempts -lt 10 ]; do
-                        attempts=$((attempts+1))
-                        git fetch --deepen=100 --filter=blob:none upstream "$ref" || break
-                        if git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
-                          break
-                        fi
-                      done
-                      if ! git merge-base --is-ancestor "$current_commit" "upstream/$ref"; then
-                        echo "Error: submodule ${path_} commit $current_commit is not reachable from upstream/$ref (after shallow fetch)"
-                        exit 1
-                      fi
-                    fi
-                  )
-                ''
-              )
-              |> lib.concat [
-                ''
-                  set -o xtrace
-                ''
-              ]
-              |> lib.concatLines;
-          }
-          |> lib.getExe;
-      };
-    };
-    ```
+  - perSystem pre-push enforcement is already implemented in `modules/input-branches.nix`; no further action required here.
 
 - Dev shell and hooks:
   - `modules/devshell.nix` already enables treefmt and pre-commit; keep it as-is. Put the input-branches commands and pre-push hook in `modules/input-branches.nix` (above) to keep concerns separate. Keep `modules/meta/input-branches.nix` for metadata only.
