@@ -207,23 +207,28 @@ main() {
       done
 
       if [[ $need_init -eq 1 ]]; then
-        # Fetch input branches into local refs (inputs/*)
-        GIT_TERMINAL_PROMPT=0 git fetch --quiet origin "refs/heads/inputs/*:refs/heads/inputs/*" || true
         git submodule sync --recursive || true
-        if ! git submodule update --init --recursive; then
-          status_msg "${YELLOW}" "Remote submodule clone failed. Falling back to local file:// clone..."
-          ROOT_DIR=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-          # Allow file:// transport for local clone
-          git config protocol.file.allow always || true
-          for name in home-manager nixpkgs stylix; do
-            git config "submodule.inputs/${name}.url" "file://${ROOT_DIR}" || true
-          done
-          # Do not run 'git submodule sync' here; it would overwrite the local override.
-          export GIT_ALLOW_PROTOCOL=file
-          git submodule update --init --recursive || {
-            error_msg "Submodule init failed even with local fallback. See docs/INPUT-BRANCHES-PLAN.md."
+        # Try shallow init directly from the repo origin, not via superproject refs.
+        if ! git submodule update --init --recursive --depth 1; then
+          status_msg "${YELLOW}" "Submodule clone with relative URL failed. Retrying via origin remote..."
+          PARENT_ORIGIN=$(git remote get-url --push origin 2>/dev/null || git remote get-url origin 2>/dev/null || true)
+          if [[ -z "${PARENT_ORIGIN}" ]]; then
+            error_msg "Could not resolve superproject origin URL for submodule initialization."
             exit 1
-          }
+          fi
+          for name in home-manager nixpkgs stylix; do
+            git config "submodule.inputs/${name}.url" "${PARENT_ORIGIN}" || true
+          done
+          # Avoid protocol.file fallback; rely on network origin instead
+          if ! git submodule update --init --recursive --depth 1; then
+            error_msg "Submodule init failed from origin. See docs/INPUT-BRANCHES-PLAN.md."
+            exit 1
+          fi
+        fi
+        # Ensure nixpkgs submodule stays blobless for follow-up operations
+        if [[ -d inputs/nixpkgs ]]; then
+          git -C inputs/nixpkgs config remote.origin.promisor true || true
+          git -C inputs/nixpkgs config remote.origin.partialclonefilter blob:none || true
         fi
       fi
     fi
