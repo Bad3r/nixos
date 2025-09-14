@@ -182,6 +182,25 @@
                     *) ;;
                   esac
                 fi
+
+                # Avoid full hydration of nixpkgs when preparing a push.
+                # Keep blobless for speed unless explicitly overridden.
+                if git -C "$path" remote get-url upstream >/dev/null 2>&1; then
+                  up_head=$(git -C "$path" rev-parse --abbrev-ref --symbolic-full-name upstream/HEAD 2>/dev/null | sed 's|^upstream/||' || true)
+                  if [ "$name" = "nixpkgs" ] && [ -z "''${HYDRATE_NIXPKGS:-}" ]; then
+                    if [ -n "$up_head" ]; then
+                      git -C "$path" fetch --filter=blob:none upstream "$up_head" || true
+                    else
+                      git -C "$path" fetch --filter=blob:none upstream || true
+                    fi
+                  else
+                    if [ -n "$up_head" ]; then
+                      git -C "$path" fetch --no-filter upstream "$up_head" || true
+                    else
+                      git -C "$path" fetch --no-filter upstream || true
+                    fi
+                  fi
+                fi
               done
             '';
           }
