@@ -148,7 +148,7 @@ configure_nix_flags() {
 
 ensure_clean_git_tree() {
   # Respect explicit override via flag or env var
-  if ${ALLOW_DIRTY} || [[ "${ALLOW_DIRTY:-}" = "1" ]]; then
+  if ${ALLOW_DIRTY} || [[ ${ALLOW_DIRTY:-} == "1" ]]; then
     return 0
   fi
   if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
