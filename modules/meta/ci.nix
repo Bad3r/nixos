@@ -18,9 +18,9 @@
         assertList = v: if builtins.isList v then true else throw "role alias imports not a list";
       in
       builtins.seq (
-        assertList config.flake.nixosModules.roles.dev.imports
-        && assertList config.flake.nixosModules.roles.media.imports
-        && assertList config.flake.nixosModules.roles.net.imports
+        assertList config.flake.nixosModules."role-dev".imports
+        && assertList config.flake.nixosModules."role-media".imports
+        && assertList config.flake.nixosModules."role-net".imports
       ) "ok"
     );
 
