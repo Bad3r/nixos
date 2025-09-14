@@ -32,10 +32,7 @@ let
       # FHS-based dev tools
       "vscodeFhs"
       "kiroFhs"
-    ]
-    # Node toolchain bundle (single source of truth):
-    # includes: nodejs_22, nodejs_24, yarn, nrm
-    ++ [ config.flake.nixosModules.dev.node ];
+    ];
 in
 {
   flake.nixosModules.roles.dev.imports = importsList;
