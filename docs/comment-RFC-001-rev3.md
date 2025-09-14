@@ -18,7 +18,8 @@
 
 ## Technical Nits / Clarifications
 
-1) Declare `flake.lib.nixos` option
+1. Declare `flake.lib.nixos` option
+
 - Ensure `modules/meta/flake-output.nix` declares:
   ```nix
   options.flake.lib.nixos = lib.mkOption {
@@ -29,24 +30,30 @@
   ```
 - Rationale: avoids unknown‑option errors when helpers module sets `config.flake.lib.nixos.*`.
 
-2) Helpers module merge semantics
+2. Helpers module merge semantics
+
 - Multiple modules might extend `flake.lib.nixos`. Prefer simple attribute assignments inside a single helpers module to avoid accidental overwrites. If extended elsewhere, use `lib.mkMerge` or define each function only once to keep intent unambiguous.
 
-3) Smoke check placement
+3. Smoke check placement
+
 - Do not place the check under `perSystem` if it needs top‑level `config.flake.*`. Add it at flake level (e.g., `modules/meta/ci.nix`) or implement a tiny `checks.<system>.role-aliases-structure` that reads from the top‑level `config` via a closure.
 - Consider asserting both that the alias imports are lists and that `getApp` throws a clear error message for an unknown app (a dedicated negative test helps keep diagnostics consistent).
 
-4) CI regex
+4. CI regex
+
 - Prefer: `rg -nU --pcre2 --glob 'modules/roles/*.nix' -e '(?s)with\s+config\.flake\.nixosModules\.apps\s*;'`.
 - Optional extra hardening (documented but disabled by default): forbid `with config.flake.nixosModules;` in roles to avoid accidental lexical capture of unrelated names.
 
-5) Node bundle consistency
+5. Node bundle consistency
+
 - If you switch `roles/dev.nix` to use `config.flake.nixosModules.dev.node`, add a brief comment listing the bundle’s current contents and a note to update the bundle when toolchain components change. If you keep the explicit list instead, document that the bundle is not used and should be kept in sync or removed to prevent confusion.
 
-6) Dendritic docs alignment
+6. Dendritic docs alignment
+
 - Mirror the aggregator typing distinction (HM: nested typed; NixOS: flake‑parts top‑level) in the Dendritic docs to keep mental models consistent for contributors.
 
-7) Acceptance criteria (make approval crisp)
+7. Acceptance criteria (make approval crisp)
+
 - Add an explicit “Acceptance Criteria” section listing what must be true before the RFC is considered implemented and done, for example:
   - Helpers option (`flake.lib.nixos`) declared; helpers module exposes `hasApp/getApp/getApps/getAppOr`.
   - CI guard integrated with the specified regex and scope; no forbidden patterns remain.
@@ -103,25 +110,25 @@ Thank you for the precise and actionable review. Here is our point‑by‑point 
 - Header bump / process hygiene
   - Acknowledged. The RFC header has been bumped to rev 3. We will strictly avoid landing any code until the RFC is approved. Where the RFC text previously used “(complete)”, we are rewording to “to be executed upon approval” and explicitly calling out any prior work as prior art, not part of this RFC’s scope.
 
-- 1) Declare `flake.lib.nixos` option
+- 1. Declare `flake.lib.nixos` option
   - Agree. The RFC (rev 3) includes the helper root option under “Helpers (Complete Solution)” as a proposal, so that writing to `config.flake.lib.nixos.*` is type‑checked and warning‑free. This will be implemented only after approval.
 
-- 2) Helpers module merge semantics
+- 2. Helpers module merge semantics
   - Agree with caution. We will designate a single helpers module as the authoritative place to define `hasApp/getApp/getApps/getAppOr`. If we ever need to extend it elsewhere, we will use explicit merges and avoid overwrites. The RFC will state this to prevent accidental clobbering.
 
-- 3) Smoke check placement
+- 3. Smoke check placement
   - Agree on flake‑level placement to avoid scope issues. We also considered a “negative test” for `getApp`’s error message. We’re cautious here: asserting exact error strings in Nix checks can be brittle and hard to capture portably. Instead, we’ll keep the error text in the RFC for consistency and (optionally) implement a simple evaluation that intentionally triggers the failure, validating that it fails (not the exact string). If we do pursue message validation, we’ll gate it behind a tiny script in CI rather than inline Nix to avoid coupling to Nix’s error formatting.
 
-- 4) CI regex
+- 4. CI regex
   - Agree. We will use `rg -nU --pcre2 --glob 'modules/roles/*.nix' -e '(?s)with\\s+config\\.flake\\.nixosModules\\.apps\\s*;'` and keep the stricter `with config.flake.nixosModules;` check as a documented, opt‑in tightening.
 
-- 5) Node bundle consistency
+- 5. Node bundle consistency
   - Agree. We will choose a single source of truth. Our leaning is to include `config.flake.nixosModules.dev.node` in roles/dev to avoid duplication and annotate the bundle contents. If we choose the inverse (explicit list), we will deprecate the bundle to prevent drift. The RFC will reflect the choice clearly.
 
-- 6) Dendritic docs alignment
+- 6. Dendritic docs alignment
   - Agree. We will add a short note to the Dendritic docs: HM uses a nested typed aggregator; NixOS uses flake‑parts’ top‑level lazy attrset in this repo. This keeps contributor mental models aligned.
 
-- 7) Acceptance criteria
+- 7. Acceptance criteria
   - Agree. We will add an explicit “Acceptance Criteria” section to RFC‑001 rev 3 enumerating: (a) helper root option declared, (b) helpers module with hasApp/getApp/getApps/getAppOr, (c) CI regex guard integrated and passing, (d) flake‑level smoke check in place, (e) Node bundle decision implemented and documented, (f) docs updated (naming and aggregator typing), (g) flake check and pre‑commit pass, (h) no code merged before approval.
 
 - Optional enhancements
@@ -129,9 +136,11 @@ Thank you for the precise and actionable review. Here is our point‑by‑point 
   - Discoverability helper: We’ll add a note about a potential `getAppNames = lib.attrNames config.flake.nixosModules.apps` helper for REPL ergonomics, also non‑blocking.
 
 Disagreements (minor, noted)
+
 - We prefer not to assert exact error message contents inside Nix checks due to fragility across Nix versions and evaluation environments. We’ll document the message in the RFC for consistency and ensure a failing path exists; if a message check is desired, we’ll do it via a small CI script that can match robustly and be adjusted independently of the Nix evaluator.
 
 Next steps
+
 - Update RFC‑001 rev 3 to incorporate the acceptance criteria and the small doc clarifications above. Once approved, we’ll open a focused PR to (1) declare the helpers root option, (2) add the helpers module, (3) strengthen the pre‑commit regex, (4) add the flake‑level smoke check, and (5) unify the Node toolchain source of truth in roles/dev.
 
 ## reviewer comment 5
@@ -215,8 +224,8 @@ Thanks for the rev 3.2 clarifications. Point‑by‑point:
 
 - Naming policy — Partial agreement
   - Your proposed policy (camelCase by default, underscores for versioned names like nodejs_22, avoid hyphens) is acceptable; please codify it in the RFC and, ideally, in a short “Repo Naming Guidelines” doc referenced from the RFC. Two small asks:
-    1) Call out how to handle acronyms (e.g., HTTP → http, VPN → vpn) for consistency.
-    2) Note that a migration of existing keys is out of scope for rev 3 (avoid churn now; enforce the policy moving forward).
+    1. Call out how to handle acronyms (e.g., HTTP → http, VPN → vpn) for consistency.
+    2. Note that a migration of existing keys is out of scope for rev 3 (avoid churn now; enforce the policy moving forward).
 
 - Smoke check and error messages — Agree with your stance
   - A failing path is sufficient. If we add a CI script validating error text, keep it to a stable substring (e.g., “Unknown NixOS app”) and reference it in the RFC as optional.
@@ -225,10 +234,11 @@ Thanks for the rev 3.2 clarifications. Point‑by‑point:
   - Typo guard and an optional getAppNames/listApps helper can be documented as non‑blocking future hardening.
 
 Blocking items before approval
-1) Incorporate the Acceptance Criteria section in RFC‑001 rev 3 with objectively verifiable items.
-2) Insert the explicit aggregator/schema note in “Critical Analysis and Type Notes”.
-3) Add the naming policy text and explicitly state that migrations are out of scope for rev 3.
-4) Clarify the rollback/allowlist process in one or two sentences (owner, time‑box, follow‑up requirement), or remove it and default to “no rollback other than temporarily skipping a single commit via `--no-verify` with a linked issue”.
+
+1. Incorporate the Acceptance Criteria section in RFC‑001 rev 3 with objectively verifiable items.
+2. Insert the explicit aggregator/schema note in “Critical Analysis and Type Notes”.
+3. Add the naming policy text and explicitly state that migrations are out of scope for rev 3.
+4. Clarify the rollback/allowlist process in one or two sentences (owner, time‑box, follow‑up requirement), or remove it and default to “no rollback other than temporarily skipping a single commit via `--no-verify` with a linked issue”.
 
 Once these edits land, I’ll consider the RFC structurally complete and ready for approval review.
 
@@ -318,34 +328,41 @@ If you confirm this direction, I will update RFC‑001 rev 3 accordingly (docs�
 
 Thank you — this is getting close. A few final points to make the RFC fully approval‑grade:
 
-1) Acceptance Criteria — tighten to be objectively checkable
+1. Acceptance Criteria — tighten to be objectively checkable
+
 - Please include exact locations in the criteria (e.g., “helpers option declared in modules/meta/flake-output.nix”, “helpers module at modules/meta/nixos-app-helpers.nix exporting hasApp/getApp/getApps/getAppOr”, “CI hook resides in modules/meta/git-hooks.nix and uses the specified ripgrep pattern verbatim”).
 - For the smoke check, specify the file where it lives (e.g., modules/meta/ci.nix) and the exact assertions (alias imports must be lists; a deliberate failing path for getApp exists). You don’t need to commit to a string assertion, but note whether you will add a tiny CI script later for message substring checks.
 
-2) Aggregator/schema note — broaden the documentation scope
+2. Aggregator/schema note — broaden the documentation scope
+
 - One sentence in the RFC is good; however, also list “Dendritic docs and README updated to reflect the aggregator distinction (HM nested typed; NixOS flake‑parts top‑level)”. This belongs in the Acceptance Criteria so we don’t lose it.
 
-3) Rollback/allowlist — agree with constraints, ask for guardrails
+3. Rollback/allowlist — agree with constraints, ask for guardrails
+
 - I’m okay with a narrow, time‑boxed allowlist over `--no-verify`. To keep it from expanding silently, please add in the RFC:
   - That allowlist entries must include: owner, rationale, expiry date (≤ 14 days), and a linked issue.
   - A check (even a simple script) that fails CI when an entry passes its expiry.
   - Scope limited to specific files/lines, not patterns.
-If this feels heavy, it’s acceptable to omit the allowlist path entirely and rely on the strict guard (no back doors) — but then remove the rollback note entirely to avoid ambiguity.
+    If this feels heavy, it’s acceptable to omit the allowlist path entirely and rely on the strict guard (no back doors) — but then remove the rollback note entirely to avoid ambiguity.
 
-4) Naming policy — clarify acronyms and numeric suffixes
+4. Naming policy — clarify acronyms and numeric suffixes
+
 - Your proposal is sensible. Please add explicit examples for acronyms (e.g., `vpnTools`, `httpClient`) and for numeric suffixes (`nodejs_22`), and state: “Existing keys are not migrated in rev 3; policy applies only to new keys.” This prevents accidental churn.
 
-5) CI regex and environment — implementation note
+5. CI regex and environment — implementation note
+
 - The pattern looks right. Confirm in the RFC that the hook depends on pkgs.ripgrep (PCRE2 enabled) and that a grep fallback remains for environments without rg.
 
-6) Test plan — add a short section
+6. Test plan — add a short section
+
 - Include a “Test Plan” section listing commands to run and what success looks like:
   - `nix flake check` (no errors)
   - `nix develop -c pre-commit run --all-files` (all hooks pass)
   - A one‑liner to exercise getApp failure in evaluation (documented as expected to fail)
   - Optional: a script or command that enumerates `attrNames config.flake.nixosModules.apps` to help reviewers spot typos
 
-7) Process hygiene — re‑confirm
+7. Process hygiene — re‑confirm
+
 - Please re‑confirm in the RFC preface that no code will be merged until this RFC is approved. Rename any lingering “(complete)” tags to “(to be executed upon approval)” or “(prior work, not in scope)”.
 
 With these items incorporated into the RFC text, I’d consider rev 3 ready for approval review. I’ll re‑read the updated RFC once you commit those edits.
