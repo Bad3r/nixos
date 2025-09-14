@@ -2,6 +2,9 @@
   flake.nixosModules.workstation =
     { pkgs, lib, ... }:
     {
+      # Enable PAM ssh-agent authentication support system-wide.
+      security.pam.sshAgentAuth.enable = true;
+
       # Security tools are workstation features
       environment.systemPackages = with pkgs; [
         # Password managers
