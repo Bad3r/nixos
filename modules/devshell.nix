@@ -145,13 +145,23 @@
                       fi
                     fi
 
-                    # Hydrate any missing promisor objects before pushing (partial clone safety)
+                    # Hydrate commit graph for promisor remotes without pulling full blobs for nixpkgs
+                    # This preserves shallow+blobless setup per docs while keeping push safety for smaller inputs.
                     if git -C "$path" remote get-url upstream >/dev/null 2>&1; then
                       up_head=$(git -C "$path" rev-parse --abbrev-ref --symbolic-full-name upstream/HEAD 2>/dev/null | sed 's|^upstream/||' || true)
-                      if [ -n "$up_head" ]; then
-                        git -C "$path" fetch --no-filter upstream "$up_head" || true
+                      # Allow override to fully hydrate nixpkgs when explicitly requested
+                      if [ "$name" = "nixpkgs" ] && [ -z "''${HYDRATE_NIXPKGS:-}" ]; then
+                        if [ -n "$up_head" ]; then
+                          git -C "$path" fetch --filter=blob:none upstream "$up_head" || true
+                        else
+                          git -C "$path" fetch --filter=blob:none upstream || true
+                        fi
                       else
-                        git -C "$path" fetch --no-filter upstream || true
+                        if [ -n "$up_head" ]; then
+                          git -C "$path" fetch --no-filter upstream "$up_head" || true
+                        else
+                          git -C "$path" fetch --no-filter upstream || true
+                        fi
                       fi
                     fi
 
