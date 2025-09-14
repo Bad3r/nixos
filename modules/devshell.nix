@@ -75,8 +75,20 @@
                   done
                 fi
 
-                echo "==> Rebasing all input branches onto upstream"
-                input-branches-rebase
+                echo "==> Rebasing inputs (skip nixpkgs by default; set REBASE_NIXPKGS=1 to include)"
+                if command -v input-branch-rebase-home-manager >/dev/null 2>&1; then
+                  input-branch-rebase-home-manager || true
+                fi
+                if command -v input-branch-rebase-stylix >/dev/null 2>&1; then
+                  input-branch-rebase-stylix || true
+                fi
+                if [ -n "''${REBASE_NIXPKGS:-}" ]; then
+                  if command -v input-branch-rebase-nixpkgs >/dev/null 2>&1; then
+                    HYDRATE_NIXPKGS="''${HYDRATE_NIXPKGS:-}" input-branch-rebase-nixpkgs || true
+                  fi
+                else
+                  echo "Skipping nixpkgs rebase (REBASE_NIXPKGS unset)."
+                fi
                 # Maintain squashed policy for selected inputs by resetting them back to origin tip
                 # Currently: keep home-manager squashed (avoid pulling full upstream history into our branch)
                 if [ -d inputs/home-manager ]; then
@@ -166,10 +178,14 @@
                     fi
 
                     echo "Pushing HEAD -> origin:$branch"
-                    git -c core.hooksPath=/dev/null -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$branch" || {
-                      echo "Error: push failed for $name" >&2
-                      exit 70
-                    }
+                    if ! git -c core.hooksPath=/dev/null -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$branch"; then
+                      # Refresh remote state and retry once (handles 'stale info')
+                      git -C "$path" fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
+                      git -c core.hooksPath=/dev/null -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$branch" || {
+                        echo "Error: push failed for $name" >&2
+                        exit 70
+                      }
+                    fi
 
                     if git ls-remote --heads "$PARENT_ORIGIN" "$branch" | grep -qE "\srefs/heads/$branch$"; then
                       echo "OK: origin has branch '$branch' for $name"
