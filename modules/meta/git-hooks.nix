@@ -120,6 +120,11 @@
                 "^inputs/"
                 "^nixos_docs_md/"
               ];
+              # Restrict to pre-commit only; avoid pre-push stage
+              stages = [
+                "pre-commit"
+                "manual"
+              ];
             };
 
             # Security
