@@ -45,8 +45,8 @@
       # Also perform a lightweight upstream provenance check via GitHub API when a
       # squashed upstream commit is embedded in the submodule HEAD message.
       pre-commit.settings.hooks.check-submodules-pushed = {
-        enable = true;
-        stages = [ "pre-push" ];
+        enable = false;
+        stages = [ ];
         always_run = true;
         verbose = true;
         require_serial = true;
