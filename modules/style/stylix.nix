@@ -104,6 +104,7 @@
 
             # Firefox profile theming
             targets.firefox.profileNames = [ "primary" ];
+            targets.firefox.firefoxGnomeTheme.enable = true;
           };
 
           # Additional font packages

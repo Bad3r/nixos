@@ -11,6 +11,8 @@ _: {
           libva
           libvdpau
           libglvnd
+          # Intel VA-API driver (Coffee Lake and newer use iHD)
+          intel-media-driver
         ];
         extraPackages32 = with pkgs.pkgsi686Linux; [
           mesa
