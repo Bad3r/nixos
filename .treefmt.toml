@@ -1,0 +1,49 @@
+[formatter.nixfmt]
+command = "/nix/store/j1q0xab7mk9qki82libpzzqgrcyngrjk-nixfmt-1.0.0/bin/nixfmt"
+excludes = []
+includes = ["*.nix"]
+options = []
+
+[formatter.prettier]
+command = "/nix/store/zbn6kjr06qgfvbc9cl95mnxkabgph30b-prettier-3.6.2/bin/prettier"
+excludes = []
+includes = [
+    "*.cjs",
+    "*.css",
+    "*.html",
+    "*.js",
+    "*.json",
+    "*.json5",
+    "*.jsx",
+    "*.md",
+    "*.mdx",
+    "*.mjs",
+    "*.scss",
+    "*.ts",
+    "*.tsx",
+    "*.vue",
+    "*.yaml",
+    "*.yml",
+]
+options = ["--write"]
+
+[formatter.shfmt]
+command = "/nix/store/zsr06yh5kbsrahwxbi3mx0cjsbwaf7la-shfmt-3.12.0/bin/shfmt"
+excludes = []
+includes = ["*.sh", "*.bash", "*.envrc", "*.envrc.*"]
+options = ["-s", "-w", "-i", "2"]
+
+[global]
+excludes = [
+    "*.lock",
+    "*.patch",
+    "package-lock.json",
+    "go.mod",
+    "go.sum",
+    ".gitignore",
+    ".gitmodules",
+    ".hgignore",
+    ".svnignore",
+    "inputs/*",
+]
+on-unmatched = "warn"
