@@ -1,32 +1,42 @@
 _: {
   flake.nixosModules.pc =
-    { pkgs, lib, ... }:
     {
-      # Enable OpenGL/Graphics support for desktop applications
-      hardware.graphics = {
-        enable = true;
-        enable32Bit = true;
-        extraPackages = with pkgs; [
-          mesa
-          libva
-          libvdpau
-          libglvnd
-        ];
-        extraPackages32 = with pkgs.pkgsi686Linux; [
-          mesa
-          libva
-          libvdpau
-          libglvnd
-        ];
-      };
+      pkgs,
+      config,
+      lib,
+      ...
+    }:
+    let
+      cfg = config.pc.graphics-support;
+    in
+    {
+      options.pc.graphics-support.enable =
+        lib.mkEnableOption "Enable generic graphics support packages"
+        // {
+          default = true;
+        };
 
-      # Environment variables for proper graphics rendering
-      environment.variables = {
-        # Force software rendering if hardware acceleration fails
-        LIBGL_ALWAYS_SOFTWARE = lib.mkDefault "0";
-      };
+      config = lib.mkIf cfg.enable {
+        # Enable OpenGL/Graphics support for desktop applications
+        hardware.graphics = {
+          enable = true;
+          enable32Bit = true;
+          extraPackages = with pkgs; [
+            mesa
+            libva
+            libvdpau
+            libglvnd
+          ];
+          extraPackages32 = with pkgs.pkgsi686Linux; [
+            mesa
+            libva
+            libvdpau
+            libglvnd
+          ];
+        };
 
-      # Tools for VA-API diagnostics (vainfo)
-      environment.systemPackages = lib.mkAfter [ pkgs.libva-utils ];
+        # Tools for VA-API diagnostics (vainfo)
+        environment.systemPackages = lib.mkAfter [ pkgs.libva-utils ];
+      };
     };
 }
