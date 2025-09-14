@@ -210,6 +210,10 @@ main() {
   status_msg "${YELLOW}" "Formatting Nix files..."
   nix fmt --accept-flake-config "${FLAKE_DIR}"
 
+  # Ensure generated files are refreshed before running hooks
+  status_msg "${YELLOW}" "Refreshing managed files..."
+  nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c write-files || true
+
   status_msg "${YELLOW}" "Running pre-commit hooks..."
   nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c pre-commit run --all-files
 

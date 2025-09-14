@@ -144,7 +144,7 @@
 
           - `nix fmt` – format files
           - `pre-commit run --all-files` – run all hooks
-          - `update-input-branches` – rebase vendored inputs, push inputs/* branches, and commit updated gitlinks
+          - `update-input-branches` – rebase vendored inputs, push inputs/\* branches, and commit updated gitlinks
           - `nix flake check` – validate the flake
         '';
     };
