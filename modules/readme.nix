@@ -144,7 +144,7 @@
 
           - `nix fmt` – format files
           - `pre-commit run --all-files` – run all hooks
-          - `update-input-branches` – rebase vendored inputs, push inputs/* branches, and commit updated gitlinks
+          - `update-input-branches` – rebase vendored inputs, push inputs/* branches, and commit updated gitlinks. By default, keeps `inputs/nixpkgs` shallow and blobless; set `HYDRATE_NIXPKGS=1` to opt-in to full hydration when necessary.
           - `nix flake check` – validate the flake
         '';
     };
