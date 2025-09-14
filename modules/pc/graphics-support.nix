@@ -29,5 +29,8 @@ _: {
         # Enable VA-API for video acceleration (can be overridden per-host)
         LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
       };
+
+      # Tools for VA-API diagnostics (vainfo)
+      environment.systemPackages = lib.mkAfter [ pkgs.libva-utils ];
     };
 }
