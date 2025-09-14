@@ -99,7 +99,7 @@
     in
     {
       checks = {
-        role-aliases-exist = builtins.toFile "role-aliases-exist-ok" (
+        role-aliases-exist = pkgs.writeText "role-aliases-exist-ok" (
           if
             (config.flake.nixosModules ? "role-dev")
             && (config.flake.nixosModules ? "role-media")
@@ -110,7 +110,7 @@
             throw "role-* alias missing"
         );
 
-        role-aliases-structure = builtins.toFile "role-aliases-structure-ok" (
+        role-aliases-structure = pkgs.writeText "role-aliases-structure-ok" (
           let
             assertList = v: if builtins.isList v then true else throw "role alias imports not a list";
           in
@@ -121,7 +121,7 @@
           ) "ok"
         );
 
-        helpers-exist = builtins.toFile "helpers-exist-ok" (
+        helpers-exist = pkgs.writeText "helpers-exist-ok" (
           if
             (config.flake.lib.nixos ? getApp)
             && (config.flake.lib.nixos ? getApps)
