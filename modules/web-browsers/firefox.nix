@@ -1,5 +1,4 @@
-{ inputs, ... }:
-{
+_: {
   flake.homeManagerModules.gui =
     { pkgs, ... }:
     {
@@ -12,6 +11,16 @@
           DisableTelemetry = true;
           DisableFirefoxStudies = true;
           DisablePocket = true;
+          ExtensionSettings = {
+            "uBlock0@raymondhill.net" = {
+              installation_mode = "force_installed";
+              install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
+            };
+            "bitwarden@bitwarden.com" = {
+              installation_mode = "force_installed";
+              install_url = "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi";
+            };
+          };
         };
 
         # Language packs
@@ -97,27 +106,19 @@
             };
 
             # Extensions and per-extension settings
-            extensions =
-              let
-                inherit (inputs.dedupe_nur.legacyPackages.${pkgs.system}.repos.rycee) firefox-addons;
-              in
-              {
-                # Acknowledge that declarative settings override existing ones
-                force = true;
-                packages = with firefox-addons; [
-                  bitwarden
-                  ublock-origin
-                ];
+            extensions = {
+              # Acknowledge that declarative settings override existing ones
+              force = true;
 
-                settings."uBlock0@raymondhill.net".settings = {
-                  selectedFilterLists = [
-                    "ublock-filters"
-                    "ublock-privacy"
-                    "ublock-unbreak"
-                    "ublock-quick-fixes"
-                  ];
-                };
+              settings."uBlock0@raymondhill.net".settings = {
+                selectedFilterLists = [
+                  "ublock-filters"
+                  "ublock-privacy"
+                  "ublock-unbreak"
+                  "ublock-quick-fixes"
+                ];
               };
+            };
           };
         };
       };
