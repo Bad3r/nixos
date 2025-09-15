@@ -18,21 +18,23 @@ _: {
           "sdhci_pci"
         ];
 
-        # CRITICAL FIX: Removed NVIDIA modules from initrd to prevent kernel panic
-        # NVIDIA drivers should only load after switch root, not in initrd
-        # Only Intel graphics (i915) should be in initrd for PRIME systems
-        initrd.kernelModules = [ "i915" ];
+        # For dGPU-only: do not include Intel i915 in initrd
+        initrd.kernelModules = [ ];
 
         # CPU virtualization
         kernelModules = [ "kvm-intel" ];
 
-        # Blacklist nouveau driver to prevent conflicts
-        blacklistedKernelModules = [ "nouveau" ];
+        # Blacklist nouveau and i915 to prevent conflicts and enforce dGPU-only
+        blacklistedKernelModules = [
+          "nouveau"
+          "i915"
+        ];
 
         # NVIDIA kernel parameters
         kernelParams = [
           "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
           "nvidia.NVreg_EnableGpuFirmware=1"
+          "module_blacklist=i915"
         ];
 
         # Add NVIDIA driver to extra module packages

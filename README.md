@@ -53,7 +53,6 @@ Example host composition using aliases:
     imports =
       (with config.flake.nixosModules; [
         workstation
-        nvidia-gpu
       ])
       ++ [
         config.flake.nixosModules."role-dev"
@@ -64,20 +63,17 @@ Example host composition using aliases:
 
 For a complete, type-correct composition plan and guidance, see
 `docs/RFC-001.md`.
-## NVIDIA on Wayland (PRIME Offload)
+## NVIDIA on Wayland (dGPU-only default)
 
-This configuration uses KDE Plasma Wayland with NVIDIA PRIME Offload.
-The integrated GPU (iGPU) drives displays; the NVIDIA dGPU is used on‑demand.
+The default setup runs KDE Plasma Wayland with the NVIDIA dGPU as the only graphics path. The Intel iGPU is disabled to ensure reliable external display support via the dGPU.
 
-- Run apps on the NVIDIA GPU: `nvidia-offload <command>`
-  - Example: `nvidia-offload glxinfo | grep "OpenGL vendor"`
-  - Steam: set Launch Options to `nvidia-offload %command%`
 - Verify Wayland session: `echo $XDG_SESSION_TYPE` should print `wayland`.
+- VA‑API defaults to NVIDIA for NVDEC: `echo $LIBVA_DRIVER_NAME` prints `nvidia`.
+- Avoid setting `GBM_BACKEND` or `__GLX_VENDOR_LIBRARY_NAME` globally; let KWin and GLVND select.
 
-Caveats (Wayland + offload):
-- External monitors wired to the NVIDIA GPU may not appear. Use X11 with PRIME Sync instead, or advanced compositor routing to dGPU.
-- VA‑API defaults to the iGPU. For NVDEC on specific apps, set `LIBVA_DRIVER_NAME=nvidia` for that app only (avoid global overrides).
-- Do not set `GBM_BACKEND` or `__GLX_VENDOR_LIBRARY_NAME` globally; let the compositor/GLVND choose. Prefer per‑app overrides if needed.
+Notes:
+- This design removes all specialisations and hybrid PRIME offload/sync toggles for a single, predictable default.
+- If an application prefers iGPU VA‑API, override per-app: `LIBVA_DRIVER_NAME=iHD <app>`.
 ## Development Shell
 
 Enter the development shell:

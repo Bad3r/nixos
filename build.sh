@@ -33,6 +33,7 @@ OFFLINE=false
 VERBOSE=false
 PREFER_CN_MIRRORS=false
 ALLOW_DIRTY=false
+ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
 SUBMODULES=(inputs/home-manager inputs/nixpkgs inputs/stylix)
 
@@ -53,6 +54,7 @@ Options:
   -t, --host HOST        Specify target hostname (default: %s)
   -o, --offline          Build in offline mode
   -v, --verbose          Enable verbose output
+      --boot             Install as next-boot generation (do not activate now)
       --prefer-cn-mirrors  Prefer fast CN mirrors for this run
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
   -h, --help             Show this help message
@@ -94,6 +96,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   --prefer-cn-mirrors)
     PREFER_CN_MIRRORS=true
+    shift
+    ;;
+  --boot)
+    ACTION="boot"
     shift
     ;;
   --allow-dirty)
@@ -274,9 +280,22 @@ main() {
   printf "Built system closure: %s\n" "$SYSTEM_PATH"
 
   # Switch step (requires sudo wrapper; when using sudo-rs, the wrapper is 'sudo')
-  status_msg "${YELLOW}" "Switching to new configuration (sudo may prompt)..."
-  /run/wrappers/bin/sudo "${SYSTEM_PATH}/bin/switch-to-configuration" switch
-  status_msg "${GREEN}" "System switched successfully!"
+  case "${ACTION}" in
+  switch)
+    status_msg "${YELLOW}" "Switching to new configuration (sudo may prompt)..."
+    /run/wrappers/bin/sudo "${SYSTEM_PATH}/bin/switch-to-configuration" switch
+    status_msg "${GREEN}" "System switched successfully!"
+    ;;
+  boot)
+    status_msg "${YELLOW}" "Installing configuration for next boot only (sudo may prompt)..."
+    /run/wrappers/bin/sudo "${SYSTEM_PATH}/bin/switch-to-configuration" boot
+    status_msg "${GREEN}" "Generation installed. It will become active on next reboot."
+    ;;
+  *)
+    error_msg "Unknown ACTION: ${ACTION}"
+    exit 1
+    ;;
+  esac
 }
 
 trap 'error_msg "Build failed!"; exit 1' ERR
