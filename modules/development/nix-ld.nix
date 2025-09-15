@@ -3,7 +3,7 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      programs.nix-ld = {
+      config.programs.nix-ld = {
         enable = true;
         libraries =
           with pkgs;
@@ -76,7 +76,7 @@
       };
 
       # Essential packages, variables, and scripts for VSCode Remote SSH functionality
-      environment = {
+      config.environment = {
         systemPackages = with pkgs; [
           # Core utilities that VSCode Server expects
           bash
