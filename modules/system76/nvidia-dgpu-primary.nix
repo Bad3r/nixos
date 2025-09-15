@@ -9,7 +9,7 @@ _: {
       specialisation."nvidia-dgpu-primary-x11".configuration = {
         # Use X11 session for reliable PRIME Sync wiring
         services.displayManager.sddm.wayland.enable = lib.mkForce false;
-        services.xserver.displayManager.defaultSession = lib.mkForce "plasma";
+        services.displayManager.defaultSession = lib.mkForce "plasma";
 
         hardware.nvidia.prime = {
           # Make dGPU the primary renderer
