@@ -19,7 +19,7 @@ _: {
         };
       };
 
-      programs.firefox = {
+      config.programs.firefox = {
         enable = true;
         package = pkgs.firefox;
 

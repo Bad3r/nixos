@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.leiningen ];
+      config.environment.systemPackages = [ pkgs.leiningen ];
     };
 }

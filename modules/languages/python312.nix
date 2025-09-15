@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.python312 ];
+      config.environment.systemPackages = [ pkgs.python312 ];
     };
 }

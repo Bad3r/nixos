@@ -4,6 +4,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.temurin-bin-24 ];
+      config.environment.systemPackages = [ pkgs.temurin-bin-24 ];
     };
 }

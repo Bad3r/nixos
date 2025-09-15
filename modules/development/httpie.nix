@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.httpie ];
+      config.environment.systemPackages = [ pkgs.httpie ];
     };
 }

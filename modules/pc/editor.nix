@@ -1,5 +1,5 @@
 {
-  flake.nixosModules.pc = {
+  flake.nixosModules.pc = _: {
     programs.neovim = {
       enable = true;
       vimAlias = true;

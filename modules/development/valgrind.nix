@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.valgrind ];
+      config.environment.systemPackages = [ pkgs.valgrind ];
     };
 }

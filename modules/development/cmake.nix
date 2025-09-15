@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.cmake ];
+      config.environment.systemPackages = [ pkgs.cmake ];
     };
 }

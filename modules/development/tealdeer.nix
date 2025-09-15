@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.tealdeer ];
+      config.environment.systemPackages = [ pkgs.tealdeer ];
     };
 }

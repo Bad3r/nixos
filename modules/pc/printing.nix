@@ -1,3 +1,5 @@
-{
-  flake.nixosModules.pc.services.printing.enable = false;
+_: {
+  flake.nixosModules.pc = _: {
+    services.printing.enable = false;
+  };
 }

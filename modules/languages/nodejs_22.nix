@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.nodejs_22 ];
+      config.environment.systemPackages = [ pkgs.nodejs_22 ];
     };
 }

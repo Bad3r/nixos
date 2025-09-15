@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.strace ];
+      config.environment.systemPackages = [ pkgs.strace ];
     };
 }

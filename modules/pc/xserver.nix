@@ -1,5 +1,5 @@
 {
-  flake.nixosModules.pc = {
+  flake.nixosModules.pc = _: {
     services.xserver = {
       enable = true;
       xkb = {
