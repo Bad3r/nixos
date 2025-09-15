@@ -7,6 +7,9 @@
   perSystem =
     psArgs@{ pkgs, config, ... }:
     {
+      # Keep format checks fast and focused on this repo, not vendored inputs
+      treefmt.settings.global.excludes = [ "inputs/*" ];
+
       # Use make-shells pattern for better modularity
       make-shells.default = {
         packages =
