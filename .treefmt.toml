@@ -6,7 +6,7 @@ options = []
 
 [formatter.prettier]
 command = "/nix/store/zbn6kjr06qgfvbc9cl95mnxkabgph30b-prettier-3.6.2/bin/prettier"
-excludes = []
+excludes = ["README.md"]
 includes = [
     "*.cjs",
     "*.css",

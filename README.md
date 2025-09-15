@@ -34,12 +34,12 @@ Composition uses named references, for example:
 ```
 
 Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules to avoid ordering issues.
-
 ### Roles and App Composition
 
 - Roles are assembled from per-app modules under `flake.nixosModules.apps`.
 - To avoid import-order brittleness, resolve apps with `lib.hasAttrByPath` and `lib.getAttrFromPath` rather than `with`.
 - Stable role aliases are provided for hosts:
+
   - `flake.nixosModules."role-dev"`
   - `flake.nixosModules."role-media"`
   - `flake.nixosModules."role-net"`
@@ -64,7 +64,6 @@ Example host composition using aliases:
 
 For a complete, type-correct composition plan and guidance, see
 `docs/RFC-001.md`.
-
 ## Development Shell
 
 Enter the development shell:
