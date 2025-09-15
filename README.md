@@ -81,8 +81,6 @@ Useful commands:
 
 The `build.sh` helper refuses to run if the git worktree is dirty (tracked changes, staged changes, or untracked files) to keep builds reproducible. Override with `--allow-dirty` or `ALLOW_DIRTY=1` only when you know what you’re doing.
 
-- `nix flake check` – validate the flake
-
 ## Generated files
 
 The following files in this repository are generated and checked

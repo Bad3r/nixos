@@ -212,7 +212,7 @@ main() {
         if ! git submodule update --init --recursive --depth 1; then
           status_msg "${YELLOW}" "Submodule clone with relative URL failed. Retrying via origin remote..."
           PARENT_ORIGIN=$(git remote get-url --push origin 2>/dev/null || git remote get-url origin 2>/dev/null || true)
-          if [[ -z "${PARENT_ORIGIN}" ]]; then
+          if [[ -z ${PARENT_ORIGIN} ]]; then
             error_msg "Could not resolve superproject origin URL for submodule initialization."
             exit 1
           fi

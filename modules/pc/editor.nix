@@ -1,11 +1,11 @@
 {
-  flake.nixosModules.pc.programs = {
-    neovim = {
+  flake.nixosModules.pc = {
+    programs.neovim = {
       enable = true;
       vimAlias = true;
       viAlias = true;
       defaultEditor = true;
     };
-    nano.enable = false;
+    programs.nano.enable = false;
   };
 }
