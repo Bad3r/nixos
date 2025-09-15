@@ -2,7 +2,7 @@ _: {
   configurations.nixos.system76.module =
     { pkgs, ... }:
     {
-      # X11 video driver
+      # Install NVIDIA driver (needed even for Wayland offload)
       services.xserver.videoDrivers = [ "nvidia" ];
 
       # Graphics hardware configuration
@@ -17,7 +17,7 @@ _: {
         ];
       };
 
-      # NVIDIA hardware configuration
+      # NVIDIA hardware configuration for Wayland-friendly PRIME Offload
       hardware.nvidia = {
         modesetting.enable = true;
         powerManagement.enable = true;
@@ -25,17 +25,16 @@ _: {
         open = false;
         nvidiaSettings = true;
         prime = {
-          sync.enable = true;
+          # Use render offload instead of PRIME Sync for Wayland stability
+          sync.enable = false;
+          offload.enable = true;
+          offload.enableOffloadCmd = true; # provides `nvidia-offload`
           intelBusId = "PCI:0:2:0";
           nvidiaBusId = "PCI:1:0:0";
         };
       };
 
-      # NVIDIA environment variables
-      environment.variables = {
-        GBM_BACKEND = "nvidia-drm";
-        __GLX_VENDOR_LIBRARY_NAME = "nvidia";
-        LIBVA_DRIVER_NAME = "nvidia";
-      };
+      # Remove global NVIDIA env forcing; prefer defaults for hybrid iGPU+dGPU on Wayland
+      # (Per-app overrides like LIBVA_DRIVER_NAME=nvidia can still be used when needed.)
     };
 }
