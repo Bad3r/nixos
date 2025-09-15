@@ -6,6 +6,7 @@
       "automatic-import"
       "aggregators"
       "roles"
+      "nvidia-wayland-offload"
       "devshell"
       "files"
       "flake-inputs-dedupe-prefix"
@@ -127,6 +128,25 @@
 
           For a complete, type-correct composition plan and guidance, see
           `docs/RFC-001.md`.
+        '';
+
+      nvidia-wayland-offload =
+        # markdown
+        ''
+          ## NVIDIA on Wayland (PRIME Offload)
+
+          This configuration uses KDE Plasma Wayland with NVIDIA PRIME Offload.
+          The integrated GPU (iGPU) drives displays; the NVIDIA dGPU is used on‑demand.
+
+          - Run apps on the NVIDIA GPU: `nvidia-offload <command>`
+            - Example: `nvidia-offload glxinfo | grep "OpenGL vendor"`
+            - Steam: set Launch Options to `nvidia-offload %command%`
+          - Verify Wayland session: `echo $XDG_SESSION_TYPE` should print `wayland`.
+
+          Caveats (Wayland + offload):
+          - External monitors wired to the NVIDIA GPU may not appear. Use X11 with PRIME Sync instead, or advanced compositor routing to dGPU.
+          - VA‑API defaults to the iGPU. For NVDEC on specific apps, set `LIBVA_DRIVER_NAME=nvidia` for that app only (avoid global overrides).
+          - Do not set `GBM_BACKEND` or `__GLX_VENDOR_LIBRARY_NAME` globally; let the compositor/GLVND choose. Prefer per‑app overrides if needed.
         '';
 
       devshell =
