@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.rustc ];
+      config.environment.systemPackages = [ pkgs.rustc ];
     };
 }

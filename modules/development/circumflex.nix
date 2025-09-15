@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.circumflex ];
+      config.environment.systemPackages = [ pkgs.circumflex ];
     };
 }

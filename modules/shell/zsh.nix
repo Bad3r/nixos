@@ -1,6 +1,6 @@
 {
-  flake.nixosModules.workstation = {
-    programs.zsh = {
+  flake.nixosModules.workstation = _: {
+    config.programs.zsh = {
       enable = true;
       interactiveShellInit = ''
         # Disable treating # as comment in interactive shells

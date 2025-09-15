@@ -7,6 +7,6 @@
       '';
     in
     {
-      environment.systemPackages = [ nrm ];
+      config.environment.systemPackages = [ nrm ];
     };
 }

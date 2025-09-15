@@ -1,9 +1,22 @@
-{ config, ... }:
+{
+  config,
+  lib,
+  inputs,
+  ...
+}:
+let
+  nm = config.flake.nixosModules;
+in
 {
   configurations.nixos.system76.module = {
-    imports = with config.flake.nixosModules; [
-      base
-      ssh
-    ];
+    imports = [
+      inputs.nixos-hardware.nixosModules.system76
+      nm.workstation
+      nm.nvidia-gpu
+      nm."role-dev"
+      nm."role-media"
+      nm."role-net"
+    ]
+    ++ lib.optional (lib.hasAttr "ssh" nm) nm.ssh;
   };
 }

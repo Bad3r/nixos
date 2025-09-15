@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.mitmproxy ];
+      config.environment.systemPackages = [ pkgs.mitmproxy ];
     };
 }

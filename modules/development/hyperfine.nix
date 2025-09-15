@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.hyperfine ];
+      config.environment.systemPackages = [ pkgs.hyperfine ];
     };
 }

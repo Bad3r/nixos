@@ -2,6 +2,6 @@
   flake.nixosModules.workstation =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.neovim ];
+      config.environment.systemPackages = [ pkgs.neovim ];
     };
 }
