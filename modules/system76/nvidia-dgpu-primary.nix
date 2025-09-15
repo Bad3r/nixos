@@ -16,6 +16,8 @@ _: {
           sync.enable = lib.mkForce true;
           # Ensure offload is not active in this specialisation
           offload.enable = lib.mkForce false;
+          # Avoid assertion from upstream module: enableOffloadCmd requires offload/reverseSync
+          offload.enableOffloadCmd = lib.mkForce false;
         };
       };
     };
