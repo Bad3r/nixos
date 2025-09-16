@@ -17,6 +17,11 @@ _: {
         system76-wallpapers
         firmware-manager
         system76-keyboard-configurator
+
+        # PipeWire controls for selecting outputs and adjusting volume
+        pavucontrol
+        qpwgraph
+        helvum
       ];
     };
 }
