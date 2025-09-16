@@ -12,7 +12,7 @@ Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g
 - [x] Upstreams configured; nixpkgs set `shallow = true`
 - [x] NixOS mitigation module imported and local nixpkgs source forced
 - [x] perSystem: commands exposed; `inputs/*` excluded from treefmt
-- [x] Pre-push hook present (implemented in `modules/input-branches.nix`)
+- [x] Pre-push hook present (implemented in `modules/meta/git-hooks.nix`)
 - [x] CI uses `actions/checkout@v4` with `submodules: true`, `fetch-depth: 0`
 - [x] Shallow/blobless default for nixpkgs with `HYDRATE_NIXPKGS` opt-in
 - [x] `.gitmodules` marks inputs/\* as `shallow = true`
