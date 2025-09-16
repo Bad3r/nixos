@@ -7,12 +7,9 @@ _: {
       ...
     }:
     let
-      owner = config.flake.lib.meta.owner.username;
-      ownerGroup =
-        let
-          userCfg = config.users.users.${owner};
-        in
-        userCfg.group or owner;
+      owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] config "vx";
+      ownerCfg = lib.attrByPath [ "users" "users" owner ] { } config;
+      ownerGroup = ownerCfg.group or owner;
       chownData = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
     in
     {
