@@ -285,7 +285,7 @@
 
                     [[block]]
                     block = "net"
-                    device = "enp0s31f6"
+                    device = "enp4s0"
                     interval = 5
 
                     [[block]]
