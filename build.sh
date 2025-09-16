@@ -271,30 +271,21 @@ main() {
 
   status_msg "${GREEN}" "Validation completed successfully!"
 
-  status_msg "${YELLOW}" "Building system closure for ${HOSTNAME}..."
-  local SYSTEM_PATH
-  if ! SYSTEM_PATH=$(nix build --accept-flake-config "${FLAKE_DIR}#nixosConfigurations.${HOSTNAME}.config.system.build.toplevel" --no-link --print-out-paths "${NIX_FLAGS[@]}"); then
-    error_msg "Build failed for host '${HOSTNAME}'."
-    exit 1
-  fi
-  printf "Built system closure: %s\n" "$SYSTEM_PATH"
-
-  # Switch step (requires sudo wrapper; when using sudo-rs, the wrapper is 'sudo')
+  # Deploy using nixos-rebuild which handles profile + bootloader updates
+  status_msg "${YELLOW}" "Deploying '${HOSTNAME}' via nixos-rebuild (${ACTION})..."
   case "${ACTION}" in
-  switch)
-    status_msg "${YELLOW}" "Switching to new configuration (sudo may prompt)..."
-    /run/wrappers/bin/sudo "${SYSTEM_PATH}/bin/switch-to-configuration" switch
-    status_msg "${GREEN}" "System switched successfully!"
-    ;;
-  boot)
-    status_msg "${YELLOW}" "Installing configuration for next boot only (sudo may prompt)..."
-    /run/wrappers/bin/sudo "${SYSTEM_PATH}/bin/switch-to-configuration" boot
-    status_msg "${GREEN}" "Generation installed. It will become active on next reboot."
-    ;;
-  *)
-    error_msg "Unknown ACTION: ${ACTION}"
-    exit 1
-    ;;
+    switch|boot)
+      /run/wrappers/bin/sudo nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${HOSTNAME}" --accept-flake-config "${NIX_FLAGS[@]}"
+      if [[ "${ACTION}" == "switch" ]]; then
+        status_msg "${GREEN}" "System switched successfully!"
+      else
+        status_msg "${GREEN}" "Generation installed. It will become active on next reboot."
+      fi
+      ;;
+    *)
+      error_msg "Unknown ACTION: ${ACTION}"
+      exit 1
+      ;;
   esac
 }
 
