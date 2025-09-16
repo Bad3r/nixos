@@ -63,7 +63,6 @@ Example host composition using aliases:
 
 For a complete, type-correct composition plan and guidance, see
 `docs/RFC-001.md`.
-
 ## Development Shell
 
 Enter the development shell:
