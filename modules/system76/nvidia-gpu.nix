@@ -49,8 +49,8 @@ _: {
       # Docker GPU support (NVIDIA runtime)
       virtualisation.docker.enableNvidia = true;
 
-      # Host is NVIDIA dGPU-centric; disable Intel VA-API helper module to avoid confusion
-      pc.intel-gpu.enable = false;
+      # Host is NVIDIA dGPU-centric; ensure we don't enable Intel VA-API helpers here
+      # Intel VA-API module is not imported for this host, so no explicit disable is needed.
 
       # Enforce System76 NVIDIA graphics mode at boot (no specialisations)
       systemd.services.system76-graphics-nvidia = {

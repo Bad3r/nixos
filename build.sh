@@ -274,18 +274,18 @@ main() {
   # Deploy using nixos-rebuild which handles profile + bootloader updates
   status_msg "${YELLOW}" "Deploying '${HOSTNAME}' via nixos-rebuild (${ACTION})..."
   case "${ACTION}" in
-    switch|boot)
-      /run/wrappers/bin/sudo nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${HOSTNAME}" --accept-flake-config "${NIX_FLAGS[@]}"
-      if [[ "${ACTION}" == "switch" ]]; then
-        status_msg "${GREEN}" "System switched successfully!"
-      else
-        status_msg "${GREEN}" "Generation installed. It will become active on next reboot."
-      fi
-      ;;
-    *)
-      error_msg "Unknown ACTION: ${ACTION}"
-      exit 1
-      ;;
+  switch | boot)
+    /run/wrappers/bin/sudo nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${HOSTNAME}" --accept-flake-config "${NIX_FLAGS[@]}"
+    if [[ ${ACTION} == "switch" ]]; then
+      status_msg "${GREEN}" "System switched successfully!"
+    else
+      status_msg "${GREEN}" "Generation installed. It will become active on next reboot."
+    fi
+    ;;
+  *)
+    error_msg "Unknown ACTION: ${ACTION}"
+    exit 1
+    ;;
   esac
 }
 
