@@ -151,11 +151,7 @@ _: {
         unitConfig.RequiresMountsFor = [ "/data" ];
         serviceConfig = {
           Type = "oneshot";
-          ExecStart = [
-            "${pkgs.coreutils}/bin/chown"
-            "${owner}:${ownerGroup}"
-            "/data"
-          ];
+          ExecStart = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
         };
       };
     };
