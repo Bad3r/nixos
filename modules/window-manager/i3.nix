@@ -21,6 +21,7 @@
         dunst
         hsetroot
         i3lock
+        i3-auto-layout
         i3status-rust
         kitty
         firefox
