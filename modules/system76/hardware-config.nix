@@ -7,10 +7,10 @@ _: {
       ...
     }:
     let
-      owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] config "vx";
+      # Owner username for this host; keep in sync with meta.owner
+      owner = "vx";
       ownerCfg = lib.attrByPath [ "users" "users" owner ] { } config;
       ownerGroup = ownerCfg.group or owner;
-      chownData = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
     in
     {
       # Platform configuration (required)
@@ -151,7 +151,11 @@ _: {
         unitConfig.RequiresMountsFor = [ "/data" ];
         serviceConfig = {
           Type = "oneshot";
-          ExecStart = [ chownData ];
+          ExecStart = [
+            "${pkgs.coreutils}/bin/chown"
+            "${owner}:${ownerGroup}"
+            "/data"
+          ];
         };
       };
     };
