@@ -7,6 +7,7 @@
       ...
     }:
     let
+      netInterface = lib.attrByPath [ "gui" "i3" "netInterface" ] null config;
       mod = config.xsession.windowManager.i3.config.modifier;
       stylixAvailable = config ? stylix && config.stylix ? targets && config.stylix.targets ? i3;
       stylixExportedBarConfig =
@@ -269,195 +270,204 @@
         }
       ];
     in
-    lib.mkMerge [
-      {
-        home.packages = [ pkgs.rofimoji ];
+    {
+      options.gui.i3.netInterface = lib.mkOption {
+        description = "Primary network interface for the i3status net block.";
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "enp4s0";
+      };
 
-        home.file.".config/i3status-rust/config.toml".text = ''
-          icons_format = "{icon}"
+      config = lib.mkMerge [
+        {
+          home.packages = [ pkgs.rofimoji ];
 
-          [icons]
-          icons = "awesome6"
+          home.file.".config/i3status-rust/config.toml".text = ''
+            icons_format = "{icon}"
 
-                    [icons.overrides]
-                    cpu = ""
-                    update = ""
+            [icons]
+            icons = "awesome6"
 
-                    [[block]]
-                    block = "net"
-                    device = "enp4s0"
-                    interval = 5
+                      [icons.overrides]
+                      cpu = ""
+                      update = ""
 
-                    [[block]]
-                    block = "disk_space"
-                    path = "/"
-                    info_type = "available"
-                    alert_unit = "GB"
-                    interval = 20
-                    warning = 15.0
-                    alert = 10.0
+                      [[block]]
+                      block = "net"
+                      ${lib.optionalString (netInterface != null) "device = \"${netInterface}\"\n"}
+                      interval = 5
 
-                    [[block]]
-                    block = "memory"
-                    format = " $icon $mem_total_used_percents "
-                    format_alt = " $icon_swap $swap_used_percents "
+                      [[block]]
+                      block = "disk_space"
+                      path = "/"
+                      info_type = "available"
+                      alert_unit = "GB"
+                      interval = 20
+                      warning = 15.0
+                      alert = 10.0
 
-                    [[block]]
-                    block = "cpu"
-                    interval = 1
+                      [[block]]
+                      block = "memory"
+                      format = " $icon $mem_total_used_percents "
+                      format_alt = " $icon_swap $swap_used_percents "
 
-                    [[block]]
-                    block = "load"
-                    interval = 1
-                    format = " $icon $1m "
+                      [[block]]
+                      block = "cpu"
+                      interval = 1
 
-                    [[block]]
-                    block = "sound"
+                      [[block]]
+                      block = "load"
+                      interval = 1
+                      format = " $icon $1m "
 
-                    [[block]]
-                    block = "time"
-                    interval = 60
-                    format = " $timestamp.datetime(f:'%a %d/%m %R') "
-        '';
+                      [[block]]
+                      block = "sound"
 
-        xsession = {
-          enable = true;
-          windowManager.i3 = {
+                      [[block]]
+                      block = "time"
+                      interval = 60
+                      format = " $timestamp.datetime(f:'%a %d/%m %R') "
+          '';
+
+          xsession = {
             enable = true;
-            config = {
-              modifier = lib.mkDefault "Mod4";
-              terminal = kittyCommand;
-              menu = rofiCommand;
+            windowManager.i3 = {
+              enable = true;
+              config = {
+                modifier = lib.mkDefault "Mod4";
+                terminal = kittyCommand;
+                menu = rofiCommand;
 
-              floating = {
-                modifier = "Mod1";
-                border = 5;
-              };
+                floating = {
+                  modifier = "Mod1";
+                  border = 5;
+                };
 
-              focus = {
-                followMouse = true;
-                newWindow = "focus";
-              };
+                focus = {
+                  followMouse = true;
+                  newWindow = "focus";
+                };
 
-              window = {
-                border = 5;
-                hideEdgeBorders = "both";
-              };
+                window = {
+                  border = 5;
+                  hideEdgeBorders = "both";
+                };
 
-              workspaceAutoBackAndForth = true;
-              inherit workspaceOutputAssign;
+                workspaceAutoBackAndForth = true;
+                inherit workspaceOutputAssign;
 
-              gaps = {
-                inner = 2;
-                outer = 2;
-                top = 2;
-                bottom = 2;
-              };
+                gaps = {
+                  inner = 2;
+                  outer = 2;
+                  top = 2;
+                  bottom = 2;
+                };
 
-              bars = [
-                (
-                  {
-                    mode = "dock";
-                    hiddenState = "hide";
-                    position = "top";
-                    trayOutput = "primary";
-                    workspaceButtons = true;
-                    workspaceNumbers = true;
-                    statusCommand = lib.getExe pkgs.i3status-rust;
+                bars = [
+                  (
+                    {
+                      mode = "dock";
+                      hiddenState = "hide";
+                      position = "top";
+                      trayOutput = "primary";
+                      workspaceButtons = true;
+                      workspaceNumbers = true;
+                      statusCommand = lib.getExe pkgs.i3status-rust;
+                    }
+                    // stylixBarOptions
+                  )
+                ];
+
+                keybindings = lib.mkOptionDefault (
+                  workspaceBindings
+                  // moveContainerBindings
+                  // {
+                    "Control+Shift+q" = "kill";
+                    "${mod}+Return" = "exec ${kittyCommand}";
+                    "Control+Shift+t" = "exec ${kittyCommand}";
+                    "${mod}+w" = "exec ${firefoxCommand}";
+                    "${mod}+d" = "exec ${rofiCommand}";
+                    "${mod}+b" = "exec ${rofimojiCommand}";
+                    "${mod}+Shift+c" = "reload";
+                    "${mod}+Shift+r" = "restart";
+                    "${mod}+Shift+q" = "kill";
+                    "${mod}+Shift+e" = "exec systemctl suspend";
+                    "${mod}+s" = "exec ${screenshotCommand}";
+                    "${mod}+f" = "fullscreen toggle";
+                    "${mod}+semicolon" = "split horizontal";
+                    "${mod}+v" = "split vertical";
+                    "${mod}+t" = "split toggle";
+                    "${mod}+Shift+s" = "layout stacking";
+                    "${mod}+Shift+t" = "layout tabbed";
+                    "${mod}+Shift+x" = "layout toggle split";
+                    "${mod}+space" = "floating toggle";
+                    "${mod}+Shift+space" = "focus mode_toggle";
+                    "${mod}+p" = "focus parent";
+                    "${mod}+c" = "focus child";
+                    "${mod}+Shift+z" = "move scratchpad";
+                    "${mod}+z" = "scratchpad show";
+                    "${mod}+Shift+b" = "border toggle";
+                    "${mod}+n" = "border normal";
+                    "${mod}+y" = "border pixel 3";
+                    "${mod}+u" = "border none";
+                    "Mod1+1" = "workspace prev";
+                    "Mod1+2" = "workspace next";
+                    "${mod}+h" = "focus left";
+                    "${mod}+j" = "focus down";
+                    "${mod}+k" = "focus up";
+                    "${mod}+l" = "focus right";
+                    "${mod}+Shift+h" = "move left";
+                    "${mod}+Shift+j" = "move down";
+                    "${mod}+Shift+k" = "move up";
+                    "${mod}+Shift+l" = "move right";
+                    "XF86AudioPlay" = "exec ${playerctlCommand} play-pause";
+                    "XF86AudioNext" = "exec ${playerctlCommand} next";
+                    "XF86AudioPrev" = "exec ${playerctlCommand} previous";
+                    "XF86AudioStop" = "exec ${playerctlCommand} stop";
+                    "XF86AudioMute" = "exec ${pamixerCommand} -t";
+                    "XF86AudioRaiseVolume" = "exec ${pamixerCommand} -i 2";
+                    "XF86AudioLowerVolume" = "exec ${pamixerCommand} -d 2";
+                    "XF86MonBrightnessUp" = "exec ${xbacklightCommand} -inc 10";
+                    "XF86MonBrightnessDown" = "exec ${xbacklightCommand} -dec 10";
+                    "${mod}+Shift+g" = "mode \"${gapsModeName}\"";
                   }
-                  // stylixBarOptions
-                )
-              ];
+                );
 
-              keybindings = lib.mkOptionDefault (
-                workspaceBindings
-                // moveContainerBindings
-                // {
-                  "Control+Shift+q" = "kill";
-                  "${mod}+Return" = "exec ${kittyCommand}";
-                  "Control+Shift+t" = "exec ${kittyCommand}";
-                  "${mod}+w" = "exec ${firefoxCommand}";
-                  "${mod}+d" = "exec ${rofiCommand}";
-                  "${mod}+b" = "exec ${rofimojiCommand}";
-                  "${mod}+Shift+c" = "reload";
-                  "${mod}+Shift+r" = "restart";
-                  "${mod}+Shift+q" = "kill";
-                  "${mod}+Shift+e" = "exec systemctl suspend";
-                  "${mod}+s" = "exec ${screenshotCommand}";
-                  "${mod}+f" = "fullscreen toggle";
-                  "${mod}+semicolon" = "split horizontal";
-                  "${mod}+v" = "split vertical";
-                  "${mod}+t" = "split toggle";
-                  "${mod}+Shift+s" = "layout stacking";
-                  "${mod}+Shift+t" = "layout tabbed";
-                  "${mod}+Shift+x" = "layout toggle split";
-                  "${mod}+space" = "floating toggle";
-                  "${mod}+Shift+space" = "focus mode_toggle";
-                  "${mod}+p" = "focus parent";
-                  "${mod}+c" = "focus child";
-                  "${mod}+Shift+z" = "move scratchpad";
-                  "${mod}+z" = "scratchpad show";
-                  "${mod}+Shift+b" = "border toggle";
-                  "${mod}+n" = "border normal";
-                  "${mod}+y" = "border pixel 3";
-                  "${mod}+u" = "border none";
-                  "Mod1+1" = "workspace prev";
-                  "Mod1+2" = "workspace next";
-                  "${mod}+h" = "focus left";
-                  "${mod}+j" = "focus down";
-                  "${mod}+k" = "focus up";
-                  "${mod}+l" = "focus right";
-                  "${mod}+Shift+h" = "move left";
-                  "${mod}+Shift+j" = "move down";
-                  "${mod}+Shift+k" = "move up";
-                  "${mod}+Shift+l" = "move right";
-                  "XF86AudioPlay" = "exec ${playerctlCommand} play-pause";
-                  "XF86AudioNext" = "exec ${playerctlCommand} next";
-                  "XF86AudioPrev" = "exec ${playerctlCommand} previous";
-                  "XF86AudioStop" = "exec ${playerctlCommand} stop";
-                  "XF86AudioMute" = "exec ${pamixerCommand} -t";
-                  "XF86AudioRaiseVolume" = "exec ${pamixerCommand} -i 2";
-                  "XF86AudioLowerVolume" = "exec ${pamixerCommand} -d 2";
-                  "XF86MonBrightnessUp" = "exec ${xbacklightCommand} -inc 10";
-                  "XF86MonBrightnessDown" = "exec ${xbacklightCommand} -dec 10";
-                  "${mod}+Shift+g" = "mode \"${gapsModeName}\"";
-                }
-              );
+                keycodebindings = {
+                  "Mod1+23" = "layout toggle tabbed split";
+                  "${mod}+23" = "layout toggle splitv splith";
+                };
 
-              keycodebindings = {
-                "Mod1+23" = "layout toggle tabbed split";
-                "${mod}+23" = "layout toggle splitv splith";
+                modes = lib.mkOptionDefault { resize = resizeModeBindings; };
+
+                floating.criteria = [
+                  { class = "(?i)(?:qt5ct|pinentry)"; }
+                  { title = "(?i)(?:copying|deleting|moving)"; }
+                  { window_role = "(?i)(?:pop-up|setup)"; }
+                ];
+
+                window.commands = [
+                  {
+                    criteria = {
+                      urgent = "latest";
+                    };
+                    command = "focus";
+                  }
+                  {
+                    criteria = {
+                      class = "(?i)(?:qt5ct|pinentry)";
+                    };
+                    command = "floating enable, focus";
+                  }
+                ];
+
+                startup = startupCommands;
               };
 
-              modes = lib.mkOptionDefault { resize = resizeModeBindings; };
-
-              floating.criteria = [
-                { class = "(?i)(?:qt5ct|pinentry)"; }
-                { title = "(?i)(?:copying|deleting|moving)"; }
-                { window_role = "(?i)(?:pop-up|setup)"; }
-              ];
-
-              window.commands = [
-                {
-                  criteria = {
-                    urgent = "latest";
-                  };
-                  command = "focus";
-                }
-                {
-                  criteria = {
-                    class = "(?i)(?:qt5ct|pinentry)";
-                  };
-                  command = "floating enable, focus";
-                }
-              ];
-
-              startup = startupCommands;
+              extraConfig = lib.mkAfter extraConfig;
             };
-
-            extraConfig = lib.mkAfter extraConfig;
           };
-        };
-      }
-    ];
+        }
+      ];
+    };
 }
