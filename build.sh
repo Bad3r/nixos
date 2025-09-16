@@ -28,7 +28,8 @@ export NIX_CONFIG="${NIX_CONFIGURATION}"
 
 # Initialize variables with defaults
 FLAKE_DIR="${PWD}"
-HOSTNAME="$(hostname)"
+# Allow env override for host
+HOSTNAME="${NIXOS_HOST:-$(hostname)}"
 OFFLINE=false
 VERBOSE=false
 PREFER_CN_MIRRORS=false
@@ -262,11 +263,12 @@ main() {
   # 2) If current hostname isn't defined in flake but exactly one config exists, use it
   # 3) If multiple exist, prefer a host named "system76" if present
   # 4) Otherwise, abort with a clear error listing available hosts
+  FLAKE_REF="path:${FLAKE_DIR}"
   has_host=$(nix eval --accept-flake-config --json --expr \
-    "builtins.hasAttr \"${HOSTNAME}\" (builtins.getFlake \"${FLAKE_DIR}\").nixosConfigurations" 2>/dev/null || echo false)
+    "builtins.hasAttr \"${HOSTNAME}\" (builtins.getFlake \"${FLAKE_REF}\").nixosConfigurations" 2>/dev/null || echo false)
   if [[ "${has_host}" != "true" ]]; then
     mapfile -t CFGS < <(nix eval --accept-flake-config --raw --expr \
-      'builtins.concatStringsSep "\n" (builtins.attrNames (builtins.getFlake "'"${FLAKE_DIR}"'").nixosConfigurations)' 2>/dev/null | awk 'NF{print}')
+      'builtins.concatStringsSep "\n" (builtins.attrNames (builtins.getFlake "'"${FLAKE_REF}"'").nixosConfigurations)' 2>/dev/null | awk 'NF{print}')
     if [[ ${#CFGS[@]} -eq 1 ]]; then
       status_msg "${YELLOW}" "Auto-selecting the only configuration: ${CFGS[0]}"
       HOSTNAME="${CFGS[0]}"
