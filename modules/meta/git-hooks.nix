@@ -12,6 +12,98 @@
         check.enable = true;
         settings = {
           hooks = {
+            # Ensure inputs/* branches are pushed before pushing the superproject
+            ensure-input-branches-pushed =
+              let
+                ensureInputs = pkgs.writeShellApplication {
+                  name = "ensure-input-branches-pushed";
+                  runtimeInputs = [
+                    pkgs.git
+                    pkgs.gnugrep
+                    pkgs.gnused
+                    pkgs.coreutils
+                  ];
+                  text = ''
+                    set -euo pipefail
+
+                    ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+                    if [ -z ""${ROOT}" ] || [ ! -d ""${ROOT}/.git" ]; then
+                      # Not a git repo; nothing to do
+                      exit 0
+                    fi
+                    cd ""${ROOT}"
+
+                    # Derive superproject origin and branch
+                    PARENT_ORIGIN=$(git remote get-url --push origin 2>/dev/null || git remote get-url origin 2>/dev/null || true)
+                    if [ -z ""${PARENT_ORIGIN}" ]; then
+                      echo "ensure-input-branches-pushed: could not resolve superproject origin URL" >&2
+                      exit 1
+                    fi
+
+                    # Try to infer the superproject branch; fallback to main
+                    SP_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+
+                    # Iterate vendored inputs
+                    if [ -d inputs ]; then
+                      for path in inputs/*; do
+                        [ -d ""${path}" ] || continue
+                        if [ ! -d ""${path}/.git" ] && [ ! -f ""${path}/.git" ]; then
+                          continue
+                        fi
+                        name=$(basename ""${path}")
+
+                        # Determine target branch from .gitmodules hint or default
+                        gm_branch=$(git config -f .gitmodules "submodule.''${path}.branch" 2>/dev/null || true)
+                        target_branch=""${gm_branch:-inputs/""${SP_BRANCH}/""${name}}"
+
+                        # Ensure submodule remote origin exists and points to the superproject origin
+                        if ! git -C ""${path}" remote get-url origin >/dev/null 2>&1; then
+                          git -C ""${path}" remote add origin ""${PARENT_ORIGIN}"
+                        fi
+                        git -C ""${path}" remote set-url --push origin ""${PARENT_ORIGIN}"
+
+                        head_sha=$(git -C ""${path}" rev-parse HEAD)
+
+                        # See if remote branch exists and already contains head_sha
+                        remote_has_branch=0
+                        if git ls-remote --heads ""${PARENT_ORIGIN}" ""${target_branch}" | grep -qE "\srefs/heads/""${target_branch}"$"; then
+                          remote_has_branch=1
+                          # Refresh local view of remote branch
+                          git -C ""${path}" fetch -q origin "refs/heads/""${target_branch}":"refs/remotes/origin/""${target_branch}" || true
+                          if git -C ""${path}" rev-parse --verify -q "origin/""${target_branch}" >/dev/null 2>&1; then
+                            if git -C ""${path}" merge-base --is-ancestor ""${head_sha}" "origin/""${target_branch}"; then
+                              echo "OK: ''${name} up-to-date on origin:''${target_branch}"
+                              continue
+                            fi
+                          fi
+                        fi
+
+                        echo "Pushing ''${name} -> origin:''${target_branch} (HEAD ''${head_sha})"
+                        # Try a normal push first
+                        if ! git -c core.hooksPath=/dev/null -C ""${path}" push -u origin "HEAD:refs/heads/""${target_branch}"; then
+                          # If branch exists and diverged, retry with force-with-lease (common after rebase)
+                          if [ ""${remote_has_branch}" = 1 ]; then
+                            echo "Retry with --force-with-lease for ''${name} (rebased?)"
+                          fi
+                          git -c core.hooksPath=/dev/null -C ""${path}" push --force-with-lease -u origin "HEAD:refs/heads/""${target_branch}" || {
+                            echo "Error: push failed for ''${name}" >&2
+                            exit 70
+                          }
+                        fi
+                      done
+                    fi
+                  '';
+                };
+              in
+              {
+                enable = true;
+                name = "ensure-input-branches-pushed";
+                entry = lib.getExe ensureInputs;
+                pass_filenames = false;
+                always_run = true;
+                # Run automatically on git push, and allow manual execution
+                stages = [ "pre-push" "manual" ];
+              };
             # Nix-specific hooks
             nixfmt-rfc-style = {
               enable = true;
