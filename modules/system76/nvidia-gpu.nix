@@ -52,16 +52,7 @@ _: {
       # Intel VA-API module is not imported for this host, so no explicit disable is needed.
 
       # Enforce System76 NVIDIA graphics mode at boot (no specialisations)
-      systemd.services.system76-graphics-nvidia = {
-        description = "Ensure System76 graphics mode is NVIDIA";
-        wants = [ "system76-power.service" ];
-        after = [ "system76-power.service" ];
-        before = [ "display-manager.service" ];
-        wantedBy = [ "multi-user.target" ];
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.system76-power}/bin/system76-power graphics nvidia";
-        };
-      };
+      # Removed Pop!_OS-style enforcement of graphics mode.
+      # NixOS handles NVIDIA configuration via services.xserver + hardware.nvidia.
     };
 }
