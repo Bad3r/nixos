@@ -46,8 +46,7 @@ _: {
         ];
       };
 
-      # Docker GPU support (NVIDIA runtime)
-      virtualisation.docker.enableNvidia = lib.mkForce true;
+      # Docker GPU support for NVIDIA is configured via hardware.nvidia-container-toolkit
 
       # Host is NVIDIA dGPU-centric; ensure we don't enable Intel VA-API helpers here
       # Intel VA-API module is not imported for this host, so no explicit disable is needed.
