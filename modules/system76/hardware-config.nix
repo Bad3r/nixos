@@ -7,8 +7,8 @@ _: {
       ...
     }:
     let
-      # Owner username for this host; keep in sync with meta.owner
-      owner = "vx";
+      # Owner username for this host; sourced from flake meta
+      owner = config.flake.lib.meta.owner.username;
       ownerCfg = lib.attrByPath [ "users" "users" owner ] { } config;
       ownerGroup = ownerCfg.group or owner;
     in
