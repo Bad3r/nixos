@@ -273,6 +273,57 @@
       {
         home.packages = [ pkgs.rofimoji ];
 
+        home.file.".config/i3status-rust/config.toml".text = ''
+          [icons]
+          name = "awesome"
+
+          [icons.overrides]
+          cpu = ""
+          update = ""
+
+          [[block]]
+          block = "net"
+          device = "enp0s31f6"
+          interval = 5
+
+          [[block]]
+          block = "pacman"
+          interval = 10
+
+          [[block]]
+          block = "disk_space"
+          path = "/"
+          alias = "/"
+          info_type = "available"
+          unit = "GB"
+          interval = 20
+          warning = 15.0
+          alert = 10.0
+
+          [[block]]
+          block = "memory"
+          display_type = "memory"
+          format_mem = "{mem_total_used_percents}"
+          format_swap = "{swap_used_percents}"
+
+          [[block]]
+          block = "cpu"
+          interval = 1
+
+          [[block]]
+          block = "load"
+          interval = 1
+          format = "{1m}"
+
+          [[block]]
+          block = "sound"
+
+          [[block]]
+          block = "time"
+          interval = 60
+          format = "%a %d/%m %R"
+        '';
+
         xsession = {
           enable = true;
           windowManager.i3 = {
