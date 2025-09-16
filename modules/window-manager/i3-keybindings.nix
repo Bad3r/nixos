@@ -8,6 +8,13 @@
     }:
     let
       netInterface = lib.attrByPath [ "gui" "i3" "netInterface" ] null config;
+      stylixBarOverrides = lib.attrByPath [ "lib" "stylix" "i3status-rust" "bar" ] null config;
+      themeSettings = {
+        theme = "plain";
+      }
+      // lib.optionalAttrs (stylixBarOverrides != null) {
+        overrides = stylixBarOverrides;
+      };
       mod = config.xsession.windowManager.i3.config.modifier;
       stylixAvailable = config ? stylix && config.stylix ? targets && config.stylix.targets ? i3;
       stylixExportedBarConfig =
@@ -269,6 +276,11 @@
           notification = false;
         }
       ];
+      netBlock = {
+        block = "net";
+        interval = 5;
+      }
+      // lib.optionalAttrs (netInterface != null) { device = netInterface; };
     in
     {
       options.gui.i3.netInterface = lib.mkOption {
@@ -282,52 +294,52 @@
         {
           home.packages = [ pkgs.rofimoji ];
 
-          home.file.".config/i3status-rust/config.toml".text = ''
-            icons_format = "{icon}"
-
-            [icons]
-            icons = "awesome6"
-
-                      [icons.overrides]
-                      cpu = ""
-                      update = ""
-
-                      [[block]]
-                      block = "net"
-                      ${lib.optionalString (netInterface != null) "device = \"${netInterface}\"\n"}
-                      interval = 5
-
-                      [[block]]
-                      block = "disk_space"
-                      path = "/"
-                      info_type = "available"
-                      alert_unit = "GB"
-                      interval = 20
-                      warning = 15.0
-                      alert = 10.0
-
-                      [[block]]
-                      block = "memory"
-                      format = " $icon $mem_total_used_percents "
-                      format_alt = " $icon_swap $swap_used_percents "
-
-                      [[block]]
-                      block = "cpu"
-                      interval = 1
-
-                      [[block]]
-                      block = "load"
-                      interval = 1
-                      format = " $icon $1m "
-
-                      [[block]]
-                      block = "sound"
-
-                      [[block]]
-                      block = "time"
-                      interval = 60
-                      format = " $timestamp.datetime(f:'%a %d/%m %R') "
-          '';
+          programs.i3status-rust = {
+            enable = true;
+            bars.default = {
+              icons = "awesome6";
+              blocks = [
+                netBlock
+                {
+                  block = "disk_space";
+                  path = "/";
+                  info_type = "available";
+                  alert_unit = "GB";
+                  interval = 20;
+                  warning = 15.0;
+                  alert = 10.0;
+                }
+                {
+                  block = "memory";
+                  format = " $icon $mem_total_used_percents ";
+                  format_alt = " $icon_swap $swap_used_percents ";
+                }
+                {
+                  block = "cpu";
+                  interval = 1;
+                }
+                {
+                  block = "load";
+                  interval = 1;
+                  format = " $icon $1m ";
+                }
+                { block = "sound"; }
+                {
+                  block = "time";
+                  interval = 60;
+                  format = " $timestamp.datetime(f:'%a %d/%m %R') ";
+                }
+              ];
+              settings = {
+                icons_format = "{icon}";
+                icons.overrides = {
+                  cpu = "";
+                  update = "";
+                };
+                theme = themeSettings;
+              };
+            };
+          };
 
           xsession = {
             enable = true;
