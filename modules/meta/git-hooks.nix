@@ -102,7 +102,10 @@
                 pass_filenames = false;
                 always_run = true;
                 # Run automatically on git push, and allow manual execution
-                stages = [ "pre-push" "manual" ];
+                stages = [
+                  "pre-push"
+                  "manual"
+                ];
               };
             # Nix-specific hooks
             nixfmt-rfc-style = {
