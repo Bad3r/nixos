@@ -1,6 +1,20 @@
 _: {
   configurations.nixos.system76.module =
-    { lib, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      owner = config.flake.lib.meta.owner.username;
+      ownerGroup =
+        let
+          userCfg = config.users.users.${owner};
+        in
+        userCfg.group or owner;
+      chownData = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
+    in
     {
       # Platform configuration (required)
       nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
@@ -129,7 +143,19 @@ _: {
 
       # Ensure mountpoint exists declaratively
       systemd.tmpfiles.rules = [
-        "d /data 0755 root root -"
+        "d /data 0755 ${owner} ${ownerGroup} -"
       ];
+
+      systemd.services."data-ownership" = {
+        description = "Ensure /data ownership matches primary user";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "data.mount" ];
+        requires = [ "data.mount" ];
+        unitConfig.RequiresMountsFor = [ "/data" ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = [ chownData ];
+        };
+      };
     };
 }
