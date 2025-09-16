@@ -257,14 +257,16 @@ main() {
 
   configure_nix_flags
 
-  # Resolve target host more robustly:
+  # Resolve target host more robustly without trying to JSON-encode configurations
   # 1) Respect explicit --host/-t or NIXOS_HOST if provided
-  # 2) If not provided and current hostname isn't defined in flake,
-  #    but exactly one nixosConfigurations entry exists, use it.
-  # 3) If multiple exist, prefer a host named "system76" if present.
-  # 4) Otherwise, abort with a clear error listing available hosts.
-  if ! nix eval --accept-flake-config --json "${FLAKE_DIR}#nixosConfigurations.${HOSTNAME}" >/dev/null 2>&1; then
-    mapfile -t CFGS < <(nix eval --accept-flake-config --json "${FLAKE_DIR}#nixosConfigurations" | jq -r 'keys[]' 2>/dev/null || true)
+  # 2) If current hostname isn't defined in flake but exactly one config exists, use it
+  # 3) If multiple exist, prefer a host named "system76" if present
+  # 4) Otherwise, abort with a clear error listing available hosts
+  has_host=$(nix eval --accept-flake-config --json --expr \
+    "builtins.hasAttr \"${HOSTNAME}\" (builtins.getFlake \"${FLAKE_DIR}\").nixosConfigurations" 2>/dev/null || echo false)
+  if [[ "${has_host}" != "true" ]]; then
+    mapfile -t CFGS < <(nix eval --accept-flake-config --raw --expr \
+      'builtins.concatStringsSep "\n" (builtins.attrNames (builtins.getFlake "'"${FLAKE_DIR}"'").nixosConfigurations)' 2>/dev/null | awk 'NF{print}')
     if [[ ${#CFGS[@]} -eq 1 ]]; then
       status_msg "${YELLOW}" "Auto-selecting the only configuration: ${CFGS[0]}"
       HOSTNAME="${CFGS[0]}"
