@@ -19,4 +19,12 @@ in
     ]
     ++ lib.optional (lib.hasAttr "ssh" nm) nm.ssh;
   };
+
+  # Export the System76 configuration so the flake exposes it under nixosConfigurations
+  flake = lib.mkIf (lib.hasAttrByPath [ "configurations" "nixos" "system76" "module" ] config) {
+    nixosConfigurations.system76 = inputs.nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [ config.configurations.nixos.system76.module ];
+    };
+  };
 }
