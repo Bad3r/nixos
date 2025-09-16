@@ -15,6 +15,7 @@ When using the input‑branches workflow (vendored inputs under `inputs/*`), a f
   ```
 
 This can affect any of the three vendored inputs:
+
 - `inputs/nixpkgs`
 - `inputs/home-manager`
 - `inputs/stylix`
@@ -25,7 +26,7 @@ The superproject commits a gitlink for `inputs/<name>` pointing at a specific co
 
 ## Quick Fix (Push → Update → Check)
 
-1) Push the missing submodule commit to your monorepo, targeting the `inputs/<superproject-branch>/<name>` branch.
+1. Push the missing submodule commit to your monorepo, targeting the `inputs/<superproject-branch>/<name>` branch.
 
 - Example for `stylix` on superproject branch `main`:
 
@@ -39,13 +40,13 @@ The superproject commits a gitlink for `inputs/<name>` pointing at a specific co
   git -C inputs/<name> push -u origin HEAD:refs/heads/inputs/<sp_branch>/<name>
   ```
 
-2) Refresh the flake lock so it tracks the updated local input HEADs:
+2. Refresh the flake lock so it tracks the updated local input HEADs:
 
 ```bash
 nix --accept-flake-config flake update
 ```
 
-3) Re‑run checks:
+3. Re‑run checks:
 
 ```bash
 nix --accept-flake-config flake check --show-trace
@@ -85,4 +86,3 @@ If the error was caused by an unpushed submodule commit, the above sequence reso
 ## Notes
 
 - The “add `allRefs = true;` to `fetchGit`” hint you may see in errors does not apply here; Nix is fetching your submodule from this repository. The correct fix is to ensure the submodule commit exists on the expected `inputs/<sp_branch>/<name>` branch and then refresh the lock.
-
