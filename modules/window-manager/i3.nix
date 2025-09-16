@@ -5,17 +5,38 @@
       # X11 + i3 window manager
       services.xserver = {
         enable = lib.mkDefault true;
-        windowManager.i3.enable = true;
+        windowManager.i3 = {
+          enable = true;
+          package = pkgs.i3-gaps;
+        };
         displayManager.lightdm.enable = true;
       };
 
       # Renamed path for default session
       services.displayManager.defaultSession = "none+i3";
 
-      # Useful i3 companions
+      # Provide core tools referenced by the i3 session
       environment.systemPackages = with pkgs; [
-        i3status
+        arandr
+        dunst
+        hsetroot
         i3lock
+        i3status-rust
+        kitty
+        firefox
+        lxsession
+        maim
+        kdePackages.dolphin
+        xfce.xfce4-settings
+        networkmanagerapplet
+        pamixer
+        picom
+        playerctl
+        rofi
+        udiskie
+        xfce.xfce4-power-manager
+        xclip
+        xorg.xbacklight
       ];
     };
 }
