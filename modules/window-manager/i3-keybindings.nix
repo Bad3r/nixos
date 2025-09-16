@@ -291,9 +291,8 @@
                     [[block]]
                     block = "disk_space"
                     path = "/"
-                    alias = "/"
                     info_type = "available"
-                    unit = "GB"
+                    alert_unit = "GB"
                     interval = 20
                     warning = 15.0
                     alert = 10.0
