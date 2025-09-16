@@ -28,8 +28,7 @@ export NIX_CONFIG="${NIX_CONFIGURATION}"
 
 # Initialize variables with defaults
 FLAKE_DIR="${PWD}"
-# Allow env override for host
-HOSTNAME="${NIXOS_HOST:-$(hostname)}"
+HOSTNAME="$(hostname)"
 OFFLINE=false
 VERBOSE=false
 PREFER_CN_MIRRORS=false
@@ -257,31 +256,6 @@ main() {
   done
 
   configure_nix_flags
-
-  # Resolve target host more robustly without trying to JSON-encode configurations
-  # 1) Respect explicit --host/-t or NIXOS_HOST if provided
-  # 2) If current hostname isn't defined in flake but exactly one config exists, use it
-  # 3) If multiple exist, prefer a host named "system76" if present
-  # 4) Otherwise, abort with a clear error listing available hosts
-  FLAKE_REF="path:${FLAKE_DIR}"
-  has_host=$(nix eval --accept-flake-config --json --expr \
-    "builtins.hasAttr \"${HOSTNAME}\" (builtins.getFlake \"${FLAKE_REF}\").nixosConfigurations" 2>/dev/null || echo false)
-  if [[ "${has_host}" != "true" ]]; then
-    mapfile -t CFGS < <(nix eval --accept-flake-config --raw --expr \
-      'builtins.concatStringsSep "\n" (builtins.attrNames (builtins.getFlake "'"${FLAKE_REF}"'").nixosConfigurations)' 2>/dev/null | awk 'NF{print}')
-    if [[ ${#CFGS[@]} -eq 1 ]]; then
-      status_msg "${YELLOW}" "Auto-selecting the only configuration: ${CFGS[0]}"
-      HOSTNAME="${CFGS[0]}"
-    elif printf '%s\n' "${CFGS[@]}" | grep -qx "system76"; then
-      status_msg "${YELLOW}" "Falling back to configuration 'system76'"
-      HOSTNAME="system76"
-    else
-      error_msg "Host '${HOSTNAME}' not found in nixosConfigurations. Available: ${CFGS[*]:-(none)}"
-      printf "Pass --host NAME or set NIXOS_HOST=NAME.\n" >&2
-      exit 1
-    fi
-  fi
-  status_msg "${GREEN}" "Target host: ${HOSTNAME}"
 
   status_msg "${YELLOW}" "Formatting Nix files..."
   nix fmt --accept-flake-config "${FLAKE_DIR}"
