@@ -26,7 +26,9 @@ _: {
 
         # Power management
         upower.enable = true;
-        power-profiles-daemon.enable = true;
+        # Prefer system76-power (enabled via nixos-hardware + hardware.system76.enableAll)
+        # Avoid conflicting governors/services on laptops
+        power-profiles-daemon.enable = lib.mkForce false;
 
         # Enable GVFS for trash support, mounting, etc.
         gvfs.enable = true;
