@@ -257,6 +257,28 @@ main() {
 
   configure_nix_flags
 
+  # Resolve target host more robustly:
+  # 1) Respect explicit --host/-t or NIXOS_HOST if provided
+  # 2) If not provided and current hostname isn't defined in flake,
+  #    but exactly one nixosConfigurations entry exists, use it.
+  # 3) If multiple exist, prefer a host named "system76" if present.
+  # 4) Otherwise, abort with a clear error listing available hosts.
+  if ! nix eval --accept-flake-config --json "${FLAKE_DIR}#nixosConfigurations.${HOSTNAME}" >/dev/null 2>&1; then
+    mapfile -t CFGS < <(nix eval --accept-flake-config --json "${FLAKE_DIR}#nixosConfigurations" | jq -r 'keys[]' 2>/dev/null || true)
+    if [[ ${#CFGS[@]} -eq 1 ]]; then
+      status_msg "${YELLOW}" "Auto-selecting the only configuration: ${CFGS[0]}"
+      HOSTNAME="${CFGS[0]}"
+    elif printf '%s\n' "${CFGS[@]}" | grep -qx "system76"; then
+      status_msg "${YELLOW}" "Falling back to configuration 'system76'"
+      HOSTNAME="system76"
+    else
+      error_msg "Host '${HOSTNAME}' not found in nixosConfigurations. Available: ${CFGS[*]:-(none)}"
+      printf "Pass --host NAME or set NIXOS_HOST=NAME.\n" >&2
+      exit 1
+    fi
+  fi
+  status_msg "${GREEN}" "Target host: ${HOSTNAME}"
+
   status_msg "${YELLOW}" "Formatting Nix files..."
   nix fmt --accept-flake-config "${FLAKE_DIR}"
 
