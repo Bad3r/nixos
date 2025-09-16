@@ -281,6 +281,50 @@
         interval = 5;
       }
       // lib.optionalAttrs (netInterface != null) { device = netInterface; };
+      i3statusBlocks = [
+        netBlock
+        {
+          block = "disk_space";
+          path = "/";
+          info_type = "available";
+          alert_unit = "GB";
+          interval = 20;
+          warning = 15.0;
+          alert = 10.0;
+        }
+        {
+          block = "memory";
+          format = " $icon $mem_total_used_percents ";
+          format_alt = " $icon_swap $swap_used_percents ";
+        }
+        {
+          block = "cpu";
+          interval = 1;
+        }
+        {
+          block = "load";
+          interval = 1;
+          format = " $icon $1m ";
+        }
+        { block = "sound"; }
+        {
+          block = "time";
+          interval = 60;
+          format = " $timestamp.datetime(f:'%a %d/%m %R') ";
+        }
+      ];
+      i3statusBarConfig = {
+        icons = "awesome6";
+        blocks = i3statusBlocks;
+        settings = {
+          icons_format = "{icon}";
+          icons.overrides = {
+            cpu = "";
+            update = "";
+          };
+          theme = themeSettings;
+        };
+      };
     in
     {
       options.gui.i3.netInterface = lib.mkOption {
@@ -296,50 +340,11 @@
 
           programs.i3status-rust = {
             enable = true;
-            bars.default = {
-              icons = "awesome6";
-              blocks = [
-                netBlock
-                {
-                  block = "disk_space";
-                  path = "/";
-                  info_type = "available";
-                  alert_unit = "GB";
-                  interval = 20;
-                  warning = 15.0;
-                  alert = 10.0;
-                }
-                {
-                  block = "memory";
-                  format = " $icon $mem_total_used_percents ";
-                  format_alt = " $icon_swap $swap_used_percents ";
-                }
-                {
-                  block = "cpu";
-                  interval = 1;
-                }
-                {
-                  block = "load";
-                  interval = 1;
-                  format = " $icon $1m ";
-                }
-                { block = "sound"; }
-                {
-                  block = "time";
-                  interval = 60;
-                  format = " $timestamp.datetime(f:'%a %d/%m %R') ";
-                }
-              ];
-              settings = {
-                icons_format = "{icon}";
-                icons.overrides = {
-                  cpu = "";
-                  update = "";
-                };
-                theme = themeSettings;
-              };
-            };
+            bars.default = i3statusBarConfig;
           };
+
+          xdg.configFile."i3status-rust/config.toml".source =
+            config.xdg.configFile."i3status-rust/config-default.toml".source;
 
           xsession = {
             enable = true;
