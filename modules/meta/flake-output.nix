@@ -8,10 +8,18 @@
           default = { };
           description = "Flake metadata exposed under flake.lib.meta";
         };
-        homeManager.roles = lib.mkOption {
-          type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+        # Home Manager helper namespace with freeform functions and small metadata.
+        homeManager = lib.mkOption {
+          type = lib.types.submodule {
+            freeformType = lib.types.attrsOf lib.types.anything;
+            options.roles = lib.mkOption {
+              type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+              default = { };
+              description = "Role specifications for Home Manager (data only)";
+            };
+          };
           default = { };
-          description = "Role specifications for Home Manager (data only)";
+          description = "Helper functions and data for Home Manager (functions + small metadata only)";
         };
       };
 

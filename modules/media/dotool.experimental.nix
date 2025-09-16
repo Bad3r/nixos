@@ -17,7 +17,7 @@
       config = {
         home.packages = [ package ];
         xsession.windowManager.i3.config.startup = [
-          { command = "${lib.getExe pkgs.dotool "dotoold"}"; }
+          { command = "${lib.getExe' pkgs.dotool "dotoold"}"; }
         ]; # https://mynixos.com/home-manager/option/xsession.windowManager.i3.config.startup
       };
     };
