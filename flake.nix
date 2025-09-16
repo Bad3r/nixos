@@ -156,13 +156,6 @@
       flake = false;
       url = "github:MichaelAquilina/zsh-auto-notify";
     };
-    plasma-manager = {
-      url = "github:nix-community/plasma-manager";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        home-manager.follows = "home-manager";
-      };
-    };
 
     # _additional_ `inputs` only for deduplication
     dedupe_flake-compat.url = "github:edolstra/flake-compat";

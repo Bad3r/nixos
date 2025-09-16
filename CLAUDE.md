@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 
 - `flake.nix`: Flake entry; defines inputs and auto‑imports modules via `import-tree`.
-- `modules/`: NixOS/Home‑Manager modules by domain (`desktop/`, `shell/`, `security/`). Files prefixed with `_` are ignored. Example: `modules/desktop/plasma.nix`.
+- `modules/`: NixOS/Home‑Manager modules by domain (`desktop/`, `shell/`, `security/`). Files prefixed with `_` are ignored. Example: `modules/window-manager/i3.nix`.
 - `modules/devshell.nix`: Dev tooling (treefmt, pre‑commit, LSP).
 - `docs/`, `.github/`, `nixos_docs_md/`: Documentation, CI, and local NixOS notes.
 

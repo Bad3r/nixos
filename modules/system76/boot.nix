@@ -18,23 +18,19 @@ _: {
           "sdhci_pci"
         ];
 
-        # For dGPU-only: do not include Intel i915 in initrd
+        # Initrd modules (none required explicitly here)
         initrd.kernelModules = [ ];
 
         # CPU virtualization
         kernelModules = [ "kvm-intel" ];
 
-        # Blacklist nouveau and i915 to prevent conflicts and enforce dGPU-only
-        blacklistedKernelModules = [
-          "nouveau"
-          "i915"
-        ];
+        # Blacklist nouveau to avoid conflicts with proprietary NVIDIA driver
+        blacklistedKernelModules = [ "nouveau" ];
 
         # NVIDIA kernel parameters
         kernelParams = [
           "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
           "nvidia.NVreg_EnableGpuFirmware=1"
-          "module_blacklist=i915"
         ];
 
         # Add NVIDIA driver to extra module packages

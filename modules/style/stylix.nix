@@ -65,7 +65,7 @@
           # Use gruvbox dark theme by default
           base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/gruvbox-dark-medium.yaml";
           polarity = lib.mkDefault "dark";
-          targets.kde.enable = false;
+
         };
       };
 
