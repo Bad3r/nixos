@@ -58,7 +58,7 @@ _: {
               "sidebar.open" = true;
               "sidebar.position_start" = true;
               "sidebar.command" = "viewTabsSidebar";
-              # Enable VA-API hardware decoding (Wayland wrapper already set)
+              # Enable VA-API hardware decoding
               "media.ffmpeg.vaapi.enabled" = true;
 
               # Prefer portals for file picker and integration

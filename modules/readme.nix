@@ -6,7 +6,7 @@
       "automatic-import"
       "aggregators"
       "roles"
-      "nvidia-wayland-offload"
+
       "devshell"
       "files"
       "flake-inputs-dedupe-prefix"
@@ -127,22 +127,6 @@
 
           For a complete, type-correct composition plan and guidance, see
           `docs/RFC-001.md`.
-        '';
-
-      nvidia-wayland-offload =
-        # markdown
-        ''
-          ## NVIDIA on Wayland (dGPU-only default)
-
-          The default setup runs KDE Plasma Wayland with the NVIDIA dGPU as the only graphics path. The Intel iGPU is disabled to ensure reliable external display support via the dGPU.
-
-          - Verify Wayland session: `echo $XDG_SESSION_TYPE` should print `wayland`.
-          - VA‑API defaults to NVIDIA for NVDEC: `echo $LIBVA_DRIVER_NAME` prints `nvidia`.
-          - Avoid setting `GBM_BACKEND` or `__GLX_VENDOR_LIBRARY_NAME` globally; let KWin and GLVND select.
-
-          Notes:
-          - This design removes all specialisations and hybrid PRIME offload/sync toggles for a single, predictable default.
-          - If an application prefers iGPU VA‑API, override per-app: `LIBVA_DRIVER_NAME=iHD <app>`.
         '';
 
       devshell =

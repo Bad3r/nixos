@@ -16,7 +16,7 @@
         # GPG and encryption
         gnupg
         gpg-tui
-        pinentry-qt # For KDE
+        pinentry-qt
         age
         sops
 
@@ -79,7 +79,7 @@
       programs.gnupg.agent = {
         enable = true;
         enableSSHSupport = true;
-        pinentryPackage = lib.mkForce pkgs.pinentry-qt; # Override base pinentry for GUI systems
+        pinentryPackage = lib.mkForce pkgs.pinentry-qt;
       };
 
       # Firewall configuration

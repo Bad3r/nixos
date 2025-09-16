@@ -3,7 +3,6 @@
     "allow": [
       "WebSearch",
       "Bash(nix-instantiate:*)",
-      "Bash(plasma-apply-lookandfeel:*)",
       "Bash(nix fmt:*)",
       "Bash(nix flake check:*)",
       "mcp__sequential-thinking__sequentialthinking",

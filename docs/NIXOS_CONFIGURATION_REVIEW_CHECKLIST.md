@@ -155,7 +155,7 @@ This checklist provides a systematic approach to reviewing and evaluating the cu
 - [ ] Review service configurations: `grep -r "services\." modules/ | cut -d: -f1 | sort -u | head -20`
 - [ ] Review critical services:
   - [ ] Audio (pipewire): `cat modules/audio/pipewire.nix`
-  - [ ] Display (KDE Plasma): `cat modules/window-manager/plasma.nix`
+  - [ ] Display (i3/X11): `cat modules/window-manager/i3.nix`
   - [ ] Docker if needed: `cat modules/virtualization/docker.nix`
 
 ### Installed Applications
