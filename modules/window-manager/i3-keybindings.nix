@@ -19,6 +19,40 @@
       stylixAvailable = config ? stylix && config.stylix ? targets && config.stylix.targets ? i3;
       stylixExportedBarConfig =
         if stylixAvailable then config.stylix.targets.i3.exportedBarConfig else { };
+      stylixColors =
+        if stylixAvailable then lib.attrByPath [ "lib" "stylix" "colors" ] null config else null;
+      toLockColor =
+        colorHex:
+        let
+          trimmed = lib.removePrefix "#" colorHex;
+          normalized = if builtins.stringLength trimmed == 8 then trimmed else trimmed + "FF";
+        in
+        lib.strings.toUpper normalized;
+      stylixLockPalette =
+        if stylixColors != null then
+          {
+            background = toLockColor (lib.attrByPath [ "base00" ] "#262c36" stylixColors);
+            ring = toLockColor (
+              lib.attrByPath [ "base04" ] (lib.attrByPath [ "base05" ] "#768390" stylixColors) stylixColors
+            );
+            ringWrong = toLockColor (lib.attrByPath [ "base08" ] "#f47067" stylixColors);
+            ringVerify = toLockColor (lib.attrByPath [ "base0B" ] "#57ab5a" stylixColors);
+            line = toLockColor (
+              lib.attrByPath [ "base03" ] (lib.attrByPath [ "base04" ] "#545d68" stylixColors) stylixColors
+            );
+            text = toLockColor (lib.attrByPath [ "base05" ] "#cdd9e5" stylixColors);
+          }
+        else
+          null;
+      defaultLockPalette = {
+        background = "262C36FF";
+        ring = "768390FF";
+        ringWrong = "F47067FF";
+        ringVerify = "57AB5AFF";
+        line = "545D68FF";
+        text = "CDD9E5FF";
+      };
+      lockPalette = if stylixLockPalette != null then stylixLockPalette else defaultLockPalette;
       stylixFontName =
         if stylixAvailable && config.stylix.fonts ? sansSerif then
           config.stylix.fonts.sansSerif.name
@@ -44,15 +78,33 @@
       playerctlCommand = lib.getExe pkgs.playerctl;
       pamixerCommand = lib.getExe pkgs.pamixer;
       xbacklightCommand = lib.getExe pkgs.xorg.xbacklight;
-      xfsettingsdCommand = "${pkgs.xfce.xfce4-settings}/bin/xfsettingsd";
-      xfce4PowerManagerCommand = lib.getExe' pkgs.xfce.xfce4-power-manager "xfce4-power-manager";
-      lxsessionCommand = lib.getExe' pkgs.lxsession "lxsession";
-      picomCommand = lib.getExe' pkgs.picom "picom";
-      dunstCommand = lib.getExe' pkgs.dunst "dunst";
-      udiskieCommand = lib.getExe' pkgs.udiskie "udiskie";
-      nmAppletCommand = lib.getExe' pkgs.networkmanagerapplet "nm-applet";
-      dolphinCommand = lib.getExe' pkgs.kdePackages.dolphin "dolphin";
       screenshotCommand = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
+      lockScript = pkgs.writeShellApplication {
+        name = "i3lock-stylix";
+        runtimeInputs = [ pkgs.i3lock-color ];
+        text = ''
+          exec i3lock-color \
+            --color=${lockPalette.background} \
+            --inside-color=${lockPalette.background} \
+            --ring-color=${lockPalette.ring} \
+            --insidewrong-color=${lockPalette.background} \
+            --ringwrong-color=${lockPalette.ringWrong} \
+            --insidever-color=${lockPalette.background} \
+            --ringver-color=${lockPalette.ringVerify} \
+            --line-color=${lockPalette.line} \
+            --keyhl-color=${lockPalette.ringVerify} \
+            --bshl-color=${lockPalette.ringWrong} \
+            --time-color=${lockPalette.text} \
+            --date-color=${lockPalette.text} \
+            --layout-color=${lockPalette.text} \
+            --time-str="%H:%M:%S" \
+            --date-str="%A, %d %B %Y" \
+            --radius=120 \
+            --ring-width=10 \
+            --clock "$@"
+        '';
+      };
+      lockCommand = lib.getExe lockScript;
 
       workspaceNumbers = map toString (lib.range 1 10);
       toWorkspaceKey = ws: if ws == "10" then "0" else ws;
@@ -246,36 +298,6 @@
         }
       ];
 
-      startupCommands = [
-        {
-          command = lxsessionCommand;
-          notification = false;
-        }
-        {
-          command = xfsettingsdCommand;
-          notification = false;
-        }
-        {
-          command = xfce4PowerManagerCommand;
-          notification = false;
-        }
-        {
-          command = "${picomCommand} --experimental-backends";
-          notification = false;
-        }
-        {
-          command = dunstCommand;
-          notification = false;
-        }
-        {
-          command = "${udiskieCommand} -nas -f ${dolphinCommand} --terminal ${kittyCommand}";
-          notification = false;
-        }
-        {
-          command = nmAppletCommand;
-          notification = false;
-        }
-      ];
       netBlock = {
         block = "net";
         interval = 5;
@@ -306,7 +328,17 @@
           interval = 1;
           format = " $icon $1m ";
         }
+        {
+          block = "temperature";
+          interval = 10;
+          format = " $icon $max ";
+        }
         { block = "sound"; }
+        {
+          block = "battery";
+          interval = 30;
+          format = " $icon $percentage ";
+        }
         {
           block = "time";
           interval = 60;
@@ -334,17 +366,47 @@
         example = "enp4s0";
       };
 
+      options.gui.i3.lockCommand = lib.mkOption {
+        description = "Command used to lock the screen within the i3 session.";
+        type = lib.types.nullOr lib.types.str;
+        default = lockCommand;
+        example = "i3lock";
+      };
+
       config = lib.mkMerge [
         {
-          home.packages = [ pkgs.rofimoji ];
+          home.packages = [
+            pkgs.rofimoji
+            lockScript
+          ];
 
           programs.i3status-rust = {
             enable = true;
             bars.default = i3statusBarConfig;
           };
 
-          xdg.configFile."i3status-rust/config.toml".source =
-            config.xdg.configFile."i3status-rust/config-default.toml".source;
+          stylix.targets.i3.enable = lib.mkDefault true;
+
+          xdg.configFile = {
+            "i3status-rust/config.toml".source =
+              config.xdg.configFile."i3status-rust/config-default.toml".source;
+
+            "i3/scripts/i3lock-stylix" = {
+              mode = "0755";
+              text = ''
+                #!/usr/bin/env bash
+                exec ${lockCommand} "$@"
+              '';
+            };
+
+            "i3/scripts/blur-lock" = {
+              mode = "0755";
+              text = ''
+                #!/usr/bin/env bash
+                exec ${lockCommand} "$@"
+              '';
+            };
+          };
 
           xsession = {
             enable = true;
@@ -394,6 +456,12 @@
                     // stylixBarOptions
                   )
                 ];
+
+                assigns = lib.mkOptionDefault {
+                  "1" = [ { class = "(?i)(?:firefox)"; } ];
+                  "2" = [ { class = "(?i)(?:geany)"; } ];
+                  "3" = [ { class = "(?i)(?:thunar)"; } ];
+                };
 
                 keybindings = lib.mkOptionDefault (
                   workspaceBindings
@@ -447,6 +515,7 @@
                     "XF86MonBrightnessUp" = "exec ${xbacklightCommand} -inc 10";
                     "XF86MonBrightnessDown" = "exec ${xbacklightCommand} -dec 10";
                     "${mod}+Shift+g" = "mode \"${gapsModeName}\"";
+                    "${mod}+Control+l" = "exec ${lockCommand}";
                   }
                 );
 
@@ -477,8 +546,6 @@
                     command = "floating enable, focus";
                   }
                 ];
-
-                startup = startupCommands;
               };
 
               extraConfig = lib.mkAfter extraConfig;
