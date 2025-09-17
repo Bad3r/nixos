@@ -8,7 +8,8 @@
         settings = {
           # TODO: Wire the Context7 API key via nix-sops once secret management is available.
           show_raw_agent_reasoning = true;
-          experimental_use_exec_command_tool = true;
+          experimental_use_exec_command_tool = false;
+          sandbox_mode = "danger-full-access";
           model = "gpt-5-codex";
           approval_policy = "never";
           profile = "gpt-5-codex";
@@ -141,7 +142,6 @@
               model_reasoning_effort = "high";
               model_reasoning_summary = "detailed";
               model_verbosity = "high";
-              sandbox_mode = "danger-full-access";
             };
           };
         };
