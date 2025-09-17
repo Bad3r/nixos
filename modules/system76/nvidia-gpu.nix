@@ -4,7 +4,12 @@ _: {
     {
       # Xorg + NVIDIA
       services.xserver = {
-        videoDrivers = [ "nvidia" ];
+        # Allow modesetting driver for the Intel iGPU so PRIME sync can keep the
+        # internal panel visible when the dGPU is active.
+        videoDrivers = [
+          "intel"
+          "nvidia"
+        ];
         # Tear-free: Force full composition pipeline for NVIDIA
         screenSection = lib.mkDefault ''
           Option "metamodes" "nvidia-auto-select +0+0 {ForceFullCompositionPipeline=On}"
@@ -19,13 +24,18 @@ _: {
           vulkan-validation-layers
         ];
 
-        # NVIDIA driver (pure NVIDIA; no PRIME)
+        # NVIDIA driver with PRIME sync so the internal panel stays available
         nvidia = {
           modesetting.enable = true;
           powerManagement.enable = true;
           powerManagement.finegrained = false;
           open = false;
           nvidiaSettings = true;
+          prime = {
+            sync.enable = true;
+            intelBusId = "PCI:0:2:0";
+            nvidiaBusId = "PCI:1:0:0";
+          };
         };
 
         # Containers: NVIDIA container toolkit for GPU passthrough
