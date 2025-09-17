@@ -3,6 +3,7 @@
   # These are resolved to actual modules at the NixOS→HM glue layer.
   flake.lib.homeManager.roles = {
     cli = [
+      "codex"
       "bat"
       "eza"
       "fzf"
