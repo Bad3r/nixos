@@ -20,7 +20,7 @@
         arandr
         dunst
         hsetroot
-        i3lock
+        i3lock-color
         i3-auto-layout
         i3status-rust
         kitty
