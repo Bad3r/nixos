@@ -1,43 +1,36 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
+- `flake.nix` orchestrates inputs and auto-imports modules via `import-tree`; keep new modules under `modules/`.
+- `modules/` holds NixOS/Home-Manager modules grouped by domain (e.g., `desktop/`, `shell/`, `security/`); prefix filenames with `_` to disable auto-imports and keep one concern per file.
+- `modules/devshell.nix` provisions the dev shell, treefmt, pre-commit hooks, and language servers.
+- `docs/`, `.github/`, and `nixos_docs_md/` store reference docs, CI workflows, and host-specific notes.
+- `inputs/`, `scripts/`, and `secrets/` capture upstream flakes, helper scripts, and sensitive material (leave `secrets/` to repository owners).
 
-- `flake.nix`: Flake entry; defines inputs and auto‑imports modules via `import-tree`.
-- `modules/`: NixOS/Home‑Manager modules by domain (`desktop/`, `shell/`, `security/`). Files prefixed with `_` are ignored. Example: `modules/window-manager/i3.nix`.
-- `modules/devshell.nix`: Dev tooling (treefmt, pre‑commit, LSP).
-- `docs/`, `.github/`, `nixos_docs_md/`: Documentation, CI, and local NixOS notes.
-
-## Development & Validation Commands
-
-- `nix develop`: Dev shell with formatter, LSP, hooks.
-- `nix fmt`: Format Nix/Shell/Markdown via treefmt.
-- `nix develop -c pre-commit run --all-files`: Run all hooks (format, lint, security, flake checks).
-- `generation-manager score`: Dendritic Pattern compliance (target 90/90).
-- `nix flake check --accept-flake-config`: Validate flake evaluation/invariants.
+## Build, Test & Development Commands
+- `nix develop`: enter the dev environment with formatter, LSP, and hooks.
+- `nix fmt`: run treefmt (`nixfmt`, `shfmt`, `prettier`) over tracked sources.
+- `nix develop -c pre-commit run --all-files`: execute formatting, lint, security, and flake checks; treat failures as blockers.
+- `generation-manager score`: measure Dendritic Pattern compliance (target 90/90).
+- `nix flake check --accept-flake-config`: validate flake evaluation and repository invariants.
 
 ## Coding Style & Naming Conventions
-
-- Nix: 2‑space indent; prefer `inherit` and attribute merging.
-- Modules: lowercase, hyphenated; one concern per file; use `_prefix.nix` to exclude.
-- Imports: no literal paths; rely on flake inputs + auto‑import.
-- Functions: wrap a module only when `pkgs` is required.
-- Formatting: treefmt‑nix (`nixfmt`, `shfmt`, `prettier`). Ensure `nix fmt` and pre‑commit hooks pass before commit.
+- Use 2-space indentation in Nix; prefer `inherit` and attribute merging for clarity.
+- Name modules and attributes in lowercase with hyphens; avoid literal paths and rely on flake-provided imports.
+- Wrap modules in functions only when `pkgs` or other arguments are needed.
+- Format locally before committing; hooks enforce a zero-warning policy.
 
 ## Testing Guidelines
-
-- Treat warnings as errors; hooks must pass cleanly.
-- Run the validation commands above from repo root; target 90/90 score.
-- Follow the Safety rule in Security & Configuration Tips.
+- Rely on flake checks, pre-commit hooks, and `generation-manager score` for regression coverage.
+- Run validation commands from the repo root after each change; iterate until results are clean.
+- Document manual verification steps in PRs whenever behaviour or UX changes.
 
 ## Commit & Pull Request Guidelines
-
-- Conventional Commits: `feat(scope): summary`, `fix(style): …`, `chore(dev): …`, `docs(...): …`.
-- PRs include description, affected hosts/modules, rationale, and `Closes #<id>`; add screenshots for UX/UI changes.
-- Keep scope small; avoid unrelated refactors.
+- Follow Conventional Commits (`feat(scope): message`, `fix(style): message`, `docs(...): message`, etc.).
+- Keep PRs focused on a single concern; update related documentation alongside code.
+- Provide rationale, impacted hosts/modules, linked issues (`Closes #id`), and screenshots for UX-facing updates.
 
 ## Security & Configuration Tips
-
-- Never run system‑modifying commands: `nixos-rebuild`, `nix build`, `build.sh`, `generation-manager switch/rollback`, GC/optimize.
-- `nixConfig.abort-on-warn = true`.
-- Prefer local docs in `nixos_docs_md/` before going online.
-- Experimental features enabled: pipe operators.
+- Avoid system-altering commands (`nixos-rebuild`, `nix build`, `generation-manager switch`, garbage collection) unless instructed.
+- Honour `nixConfig.abort-on-warn = true`; resolve warnings instead of suppressing them.
+- Prefer local references in `nixos_docs_md/` before seeking external sources; note that experimental pipe operators are enabled.
