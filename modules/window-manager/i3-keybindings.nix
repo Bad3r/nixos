@@ -392,7 +392,7 @@
               config.xdg.configFile."i3status-rust/config-default.toml".source;
 
             "i3/scripts/i3lock-stylix" = {
-              mode = "0755";
+              executable = true;
               text = ''
                 #!/usr/bin/env bash
                 exec ${lockCommand} "$@"
@@ -400,7 +400,7 @@
             };
 
             "i3/scripts/blur-lock" = {
-              mode = "0755";
+              executable = true;
               text = ''
                 #!/usr/bin/env bash
                 exec ${lockCommand} "$@"
