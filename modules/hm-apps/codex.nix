@@ -9,9 +9,8 @@
           # TODO: Wire the Context7 API key via nix-sops once secret management is available.
           show_raw_agent_reasoning = true;
           experimental_use_exec_command_tool = true;
-          model_reasoning_summary_format = "experimental";
           model = "gpt-5-codex";
-          approval_policy = "on-failure";
+          approval_policy = "never";
           profile = "gpt-5-codex";
           shell_environment_policy = {
             "inherit" = "all";
@@ -137,7 +136,7 @@
           profiles = {
             gpt-5-codex = {
               model = "gpt-5-codex";
-              approval_policy = "on-failure";
+              approval_policy = "never";
               model_supports_reasoning_summaries = true;
               model_reasoning_effort = "high";
               model_reasoning_summary = "detailed";
