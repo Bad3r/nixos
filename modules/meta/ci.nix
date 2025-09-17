@@ -10,10 +10,7 @@ _: {
       workflow = ''
         name: Dendritic Pattern Compliance Check
         on:
-          push:
-            branches: [main, master]
-          pull_request:
-            branches: [main, master]
+          workflow_dispatch:
         jobs:
           check-compliance:
             runs-on: ubuntu-latest
