@@ -37,6 +37,7 @@
                 # "--api-key"
                 # "YOUR_API_KEY"
               ];
+              startup_timeout_ms = 60000;
             };
             memory = {
               command = "npx";
@@ -44,6 +45,7 @@
                 "-y"
                 "@modelcontextprotocol/server-memory"
               ];
+              startup_timeout_ms = 60000;
             };
             sequential-thinking = {
               command = "npx";
@@ -51,10 +53,12 @@
                 "-y"
                 "@modelcontextprotocol/server-sequential-thinking"
               ];
+              startup_timeout_ms = 60000;
             };
             time = {
               command = "uvx";
               args = [ "mcp-server-time" ];
+              startup_timeout_ms = 60000;
             };
             # Cloudflare MCP servers – https://github.com/cloudflare/mcp-server-cloudflare#cloudflare-mcp-server
             cfdocs = {
@@ -63,6 +67,7 @@
                 "mcp-remote"
                 "https://docs.mcp.cloudflare.com/sse"
               ];
+              startup_timeout_ms = 60000;
             };
             cfbindings = {
               command = "npx";
@@ -70,6 +75,7 @@
                 "mcp-remote"
                 "https://bindings.mcp.cloudflare.com/sse"
               ];
+              startup_timeout_ms = 60000;
             };
             cfbuilds = {
               command = "npx";
@@ -77,6 +83,7 @@
                 "mcp-remote"
                 "https://builds.mcp.cloudflare.com/sse"
               ];
+              startup_timeout_ms = 60000;
             };
             cfobservability = {
               command = "npx";
@@ -84,6 +91,7 @@
                 "mcp-remote"
                 "https://observability.mcp.cloudflare.com/sse"
               ];
+              startup_timeout_ms = 60000;
             };
             cfradar = {
               command = "npx";
@@ -91,6 +99,7 @@
                 "mcp-remote"
                 "https://radar.mcp.cloudflare.com/sse"
               ];
+              startup_timeout_ms = 60000;
             };
             cfcontainers = {
               command = "npx";
@@ -98,6 +107,7 @@
                 "mcp-remote"
                 "https://containers.mcp.cloudflare.com/sse"
               ];
+              startup_timeout_ms = 60000;
             };
             cfbrowser = {
               command = "npx";
@@ -105,6 +115,7 @@
                 "mcp-remote"
                 "https://browser.mcp.cloudflare.com/sse"
               ];
+              startup_timeout_ms = 60000;
             };
             cfgraphql = {
               command = "npx";
@@ -112,6 +123,7 @@
                 "mcp-remote"
                 "https://graphql.mcp.cloudflare.com/sse"
               ];
+              startup_timeout_ms = 60000;
             };
             deepwiki = {
               command = "npx";
@@ -119,6 +131,7 @@
                 "mcp-remote"
                 "https://mcp.deepwiki.com/mcp"
               ];
+              startup_timeout_ms = 60000;
             };
           };
           profiles = {
