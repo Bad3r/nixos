@@ -14,9 +14,8 @@
           ytdl-raw-options = "cookies-from-browser=firefox";
           profile = "high-quality"; # gpu-hq is deprecated
           vo = "gpu";
-          hwdec = "nvdec-copy"; # copies video back to system RAM
-          gpu-context = "x11";
-          x11-present = "yes";
+          hwdec = "auto";
+          gpu-context = "auto"; # let mpv pick a supported context (x11/wayland)
           save-position-on-quit = "no";
           video-sync = "display-resample";
           interpolation = "yes";
@@ -33,11 +32,11 @@
           "k" = "seek -5";
           "h" = "seek 5";
           "l" = "seek -5";
-          "n" = "cycle-next";
-          "p" = "cycle-prev";
-          "m" = "cycle-mute";
-          "v" = "cycle-video";
-          "a" = "cycle-audio";
+          "n" = "playlist-next";
+          "p" = "playlist-prev";
+          "m" = "cycle mute";
+          "v" = "cycle video";
+          "a" = "cycle audio";
           "[" = "add speed 0.1";
           "]" = "add speed -0.1";
         };
@@ -62,11 +61,11 @@
         }
 
         mp.add_hook("on_preloaded", 10, function()
-          local path = mp.get_property("path")
+          local path = mp.get_property("path") or ""
           local ext = path:match("%.([^%.]+)$") or ""
           if blocked_extensions[ext:lower()] then
             mp.msg.warn("Blocking image file: " .. path)
-            mp.command("stop")
+            mp.commandv("playlist-remove", "current")
           end
         end)
       '';
