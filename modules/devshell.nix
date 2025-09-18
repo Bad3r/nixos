@@ -30,7 +30,7 @@
                 ensure_partial_clone() {
                   local repo="$1"
                   [ -d "$repo" ] || return 0
-                  git -C "$repo" config extensions.partialClone >/dev/null 2>&1 || git -C "$repo" config extensions.partialClone origin
+                  git -C "$repo" config --unset extensions.partialClone >/dev/null 2>&1 || true
                   git -C "$repo" config remote.origin.promisor true >/dev/null 2>&1 || true
                   git -C "$repo" config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
                   if git -C "$repo" remote get-url upstream >/dev/null 2>&1; then
@@ -38,6 +38,26 @@
                     git -C "$repo" config remote.upstream.partialclonefilter blob:none >/dev/null 2>&1 || true
                   fi
                 }
+
+                declare -a suspended_partial_clone=()
+
+                suspend_partial_clone_if_needed() {
+                  local repo="$1"
+                  if git -C "$repo" config --get extensions.partialClone >/dev/null 2>&1; then
+                    git -C "$repo" config --unset extensions.partialClone || true
+                    suspended_partial_clone+=("$repo")
+                  fi
+                }
+
+                resume_partial_clone_configs() {
+                  local repo
+                  for repo in "''${suspended_partial_clone[@]}"; do
+                    ensure_partial_clone "$repo"
+                  done
+                  suspended_partial_clone=()
+                }
+
+                trap resume_partial_clone_configs EXIT
 
                 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
                 if [ -z "''${ROOT}" ] || [ ! -d "''${ROOT}/.git" ]; then
@@ -60,6 +80,9 @@
                     if [ -d "$d/.git" ] || [ -f "$d/.git" ]; then
                       git -C "$d" remote set-url origin "''${PARENT_ORIGIN}"
                       git -C "$d" remote set-url --push origin "''${PARENT_ORIGIN}"
+                      if git -C "$d" rev-parse --verify -q REBASE_HEAD >/dev/null 2>&1; then
+                        git -C "$d" rebase --abort >/dev/null 2>&1 || git -C "$d" rebase --quit >/dev/null 2>&1 || true
+                      fi
                       # Determine intended branch for this input
                       name=$(basename "$d")
                       gm_branch=$(git config -f .gitmodules "submodule.$d.branch" 2>/dev/null || true)
@@ -118,6 +141,17 @@
                   fi
                 else
                   echo "Skipping nixpkgs rebase (REBASE_NIXPKGS unset)."
+                fi
+                if [ -d inputs ]; then
+                  for d in inputs/*; do
+                    [ -d "$d" ] || continue
+                    if [ -d "$d/.git" ] || [ -f "$d/.git" ]; then
+                      if git -C "$d" rev-parse --verify -q REBASE_HEAD >/dev/null 2>&1; then
+                        echo "Warning: rebase for $(basename "$d") failed; aborting" >&2
+                        git -C "$d" rebase --abort >/dev/null 2>&1 || git -C "$d" rebase --quit >/dev/null 2>&1 || true
+                      fi
+                    fi
+                  done
                 fi
                 # Maintain squashed policy for selected inputs by resetting them back to origin tip
                 # Currently: keep home-manager squashed (avoid pulling full upstream history into our branch)
@@ -248,6 +282,7 @@
                 # without manual 'nix flake lock' runs. Only update inputs/* that exist locally.
                 LOCK_UPDATED=0
                 if [ -d inputs/nixpkgs ]; then
+                  suspend_partial_clone_if_needed inputs/nixpkgs
                   nix --accept-flake-config flake update --update-input nixpkgs || true
                   LOCK_UPDATED=1
                 fi
@@ -259,6 +294,8 @@
                   nix --accept-flake-config flake update --update-input stylix || true
                   LOCK_UPDATED=1
                 fi
+                resume_partial_clone_configs
+
                 if [ """$LOCK_UPDATED""" = 1 ] && git diff --quiet -- flake.lock; then
                   : # no changes
                 elif [ """$LOCK_UPDATED""" = 1 ]; then
