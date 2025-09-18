@@ -4,12 +4,8 @@ _: {
     {
       # Xorg + NVIDIA
       services.xserver = {
-        # Allow modesetting driver for the Intel iGPU so PRIME sync can keep the
-        # internal panel visible when the dGPU is active.
-        videoDrivers = [
-          "intel"
-          "nvidia"
-        ];
+        # Run the display server solely on the NVIDIA dGPU.
+        videoDrivers = [ "nvidia" ];
         # Tear-free: Force full composition pipeline for NVIDIA
         screenSection = lib.mkDefault ''
           Option "metamodes" "nvidia-auto-select +0+0 {ForceFullCompositionPipeline=On}"
@@ -24,23 +20,26 @@ _: {
           vulkan-validation-layers
         ];
 
-        # NVIDIA driver with PRIME sync so the internal panel stays available
+        # NVIDIA driver tuned for dedicated-only mode
         nvidia = {
           modesetting.enable = true;
           powerManagement.enable = true;
           powerManagement.finegrained = false;
           open = false;
           nvidiaSettings = true;
-          prime = {
-            sync.enable = true;
-            intelBusId = "PCI:0:2:0";
-            nvidiaBusId = "PCI:1:0:0";
+          prime = lib.mkForce {
+            # Keep the Intel iGPU disabled in both sync and offload modes.
+            offload.enable = false;
+            sync.enable = false;
           };
         };
 
         # Containers: NVIDIA container toolkit for GPU passthrough
         nvidia-container-toolkit.enable = true;
       };
+
+      # Prevent the Intel iGPU driver from loading so NVIDIA owns the display stack.
+      boot.blacklistedKernelModules = lib.mkAfter [ "i915" ];
 
       # Environment
       environment = {
