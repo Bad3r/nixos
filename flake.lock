@@ -424,7 +424,6 @@
       "locked": {
         "lastModified": 1757387344,
         "narHash": "sha256-LCxtQn9ajvOgGRbQIRUJgfP7clMGGvV1SDW1HcSb0zk=",
-        "ref": "refs/heads/inputs/main/home-manager",
         "rev": "911581abbe0fe158cfdd09b3a99797f98c4eab34",
         "revCount": 1,
         "type": "git",
