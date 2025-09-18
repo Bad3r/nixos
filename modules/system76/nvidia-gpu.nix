@@ -1,67 +1,111 @@
 _: {
   configurations.nixos.system76.module =
-    { pkgs, lib, ... }:
     {
-      # Xorg + NVIDIA
-      services.xserver = {
-        # Run the display server solely on the NVIDIA dGPU.
-        videoDrivers = [ "nvidia" ];
-        # Tear-free: Force full composition pipeline for NVIDIA
-        screenSection = lib.mkDefault ''
-          Option "metamodes" "nvidia-auto-select +0+0 {ForceFullCompositionPipeline=On}"
-        '';
+      config,
+      pkgs,
+      lib,
+      ...
+    }:
+    let
+      cfg = config.system76.gpu;
+    in
+    {
+      options.system76.gpu = {
+        mode = lib.mkOption {
+          type = lib.types.enum [
+            "hybrid-sync"
+            "nvidia-only"
+          ];
+          default = "hybrid-sync";
+          description = "Select how the System76 laptop wires the NVIDIA GPU into X.Org.";
+        };
+
+        intelBusId = lib.mkOption {
+          type = lib.types.str;
+          default = "PCI:0:2:0";
+          example = "PCI:0:2:0";
+          description = ''
+            PCI address for the Intel iGPU when PRIME sync is enabled. Determine via
+            `lspci -nn | grep VGA` if the default does not match this chassis.
+          '';
+        };
+
+        nvidiaBusId = lib.mkOption {
+          type = lib.types.str;
+          default = "PCI:1:0:0";
+          example = "PCI:1:0:0";
+          description = ''
+            PCI address for the NVIDIA dGPU when PRIME sync is enabled. Override if
+            `lspci -nn | grep NVIDIA` reports a different slot.
+          '';
+        };
       };
 
-      # Hardware configuration
-      hardware = {
-        # NVIDIA-related graphics libraries (generic graphics enablement lives in pc/graphics-support.nix)
-        graphics.extraPackages = with pkgs; [
-          nvidia-vaapi-driver
-          vulkan-validation-layers
-        ];
-
-        # NVIDIA driver tuned for dedicated-only mode
-        nvidia = {
-          modesetting.enable = true;
-          powerManagement.enable = true;
-          powerManagement.finegrained = false;
-          open = false;
-          nvidiaSettings = true;
-          prime = lib.mkForce {
-            # Keep the Intel iGPU disabled in both sync and offload modes.
-            offload.enable = false;
-            sync.enable = false;
+      config = lib.mkMerge [
+        {
+          services.xserver = {
+            videoDrivers = lib.mkDefault [ "nvidia" ];
+            # Tear-free: Force full composition pipeline for NVIDIA
+            screenSection = lib.mkDefault ''
+              Option "metamodes" "nvidia-auto-select +0+0 {ForceFullCompositionPipeline=On}"
+            '';
           };
-        };
 
-        # Containers: NVIDIA container toolkit for GPU passthrough
-        nvidia-container-toolkit.enable = true;
-      };
+          hardware = {
+            # NVIDIA-related graphics libraries (generic graphics enablement lives in pc/graphics-support.nix)
+            graphics.extraPackages = with pkgs; [
+              nvidia-vaapi-driver
+              vulkan-validation-layers
+            ];
 
-      # Prevent the Intel iGPU driver from loading so NVIDIA owns the display stack.
-      boot.blacklistedKernelModules = lib.mkAfter [ "i915" ];
+            nvidia = {
+              modesetting.enable = true;
+              powerManagement.enable = true;
+              powerManagement.finegrained = false;
+              open = false;
+              nvidiaSettings = true;
+            };
 
-      # Environment
-      environment = {
-        # Prefer NVIDIA implementations by default (override per-app as needed)
-        variables = {
-          LIBVA_DRIVER_NAME = lib.mkDefault "nvidia";
-          VDPAU_DRIVER = lib.mkDefault "nvidia";
-        };
-        # Diagnostics: vulkaninfo and glxinfo
-        systemPackages = with pkgs; [
-          vulkan-tools
-          mesa-demos
-        ];
-      };
+            # Containers: NVIDIA container toolkit for GPU passthrough
+            nvidia-container-toolkit.enable = true;
+          };
 
-      # Docker GPU support for NVIDIA is configured via hardware.nvidia-container-toolkit
+          # Diagnostics: vulkaninfo and glxinfo
+          environment.systemPackages = with pkgs; [
+            vulkan-tools
+            mesa-demos
+          ];
+        }
 
-      # Host is NVIDIA dGPU-centric; ensure we don't enable Intel VA-API helpers here
-      # Intel VA-API module is not imported for this host, so no explicit disable is needed.
+        (lib.mkIf (cfg.mode == "nvidia-only") {
+          # Keep the Intel iGPU disabled so only the dGPU drives displays.
+          hardware.nvidia.prime = {
+            offload.enable = lib.mkForce false;
+            sync.enable = lib.mkForce false;
+          };
 
-      # Enforce System76 NVIDIA graphics mode at boot (no specialisations)
-      # Removed Pop!_OS-style enforcement of graphics mode.
-      # NixOS handles NVIDIA configuration via services.xserver + hardware.nvidia.
+          boot.blacklistedKernelModules = lib.mkAfter [ "i915" ];
+
+          # Prefer NVIDIA VA-API/VDPAU implementations in dedicated mode.
+          environment.variables = {
+            LIBVA_DRIVER_NAME = lib.mkDefault "nvidia";
+            VDPAU_DRIVER = lib.mkDefault "nvidia";
+          };
+        })
+
+        (lib.mkIf (cfg.mode == "hybrid-sync") {
+          services.xserver.videoDrivers = [
+            "nvidia"
+            "modesetting"
+          ];
+
+          # Enable PRIME sync so the internal panel stays driven by the iGPU but surfaces are rendered on NVIDIA.
+          hardware.nvidia.prime = {
+            offload.enable = lib.mkForce false;
+            sync.enable = true;
+            inherit (cfg) intelBusId nvidiaBusId;
+          };
+        })
+      ];
     };
 }
