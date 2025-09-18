@@ -26,6 +26,19 @@
               ++ (if psArgs.config ? input-branches then psArgs.config.input-branches.commands.all else [ ]);
               text = ''
                 set -euo pipefail
+
+                ensure_partial_clone() {
+                  local repo="$1"
+                  [ -d "$repo" ] || return 0
+                  git -C "$repo" config extensions.partialClone >/dev/null 2>&1 || git -C "$repo" config extensions.partialClone origin
+                  git -C "$repo" config remote.origin.promisor true >/dev/null 2>&1 || true
+                  git -C "$repo" config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
+                  if git -C "$repo" remote get-url upstream >/dev/null 2>&1; then
+                    git -C "$repo" config remote.upstream.promisor true >/dev/null 2>&1 || true
+                    git -C "$repo" config remote.upstream.partialclonefilter blob:none >/dev/null 2>&1 || true
+                  fi
+                }
+
                 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
                 if [ -z "''${ROOT}" ] || [ ! -d "''${ROOT}/.git" ]; then
                   echo "Error: run inside the superproject git repository" >&2
@@ -52,28 +65,42 @@
                       gm_branch=$(git config -f .gitmodules "submodule.$d.branch" 2>/dev/null || true)
                       target_branch=''${gm_branch:-inputs/''${SP_BRANCH}/''${name}}
 
-                      # If the repo is in an aborted temp state (unborn HEAD, temp branch, or dirty index),
-                      # try to restore it to the target branch tip from local or origin.
-                      current_branch=$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-                      if ! git -C "$d" rev-parse --verify -q HEAD >/dev/null 2>&1 \
-                        || [ "$current_branch" = "_input-branches-temp" ] \
-                        || [ -n "$(git -C "$d" status --porcelain)" ]; then
-                        # Prefer local branch if it exists
-                        if git -C "$d" rev-parse --verify -q "$target_branch" >/dev/null 2>&1; then
-                          git -C "$d" checkout -f "$target_branch" >/dev/null 2>&1 || true
-                          git -C "$d" reset --hard "$target_branch" >/dev/null 2>&1 || true
-                        else
-                          # Fall back to origin if accessible
-                          git -C "$d" fetch origin "refs/heads/$target_branch:refs/remotes/origin/$target_branch" >/dev/null 2>&1 || true
-                          if git -C "$d" rev-parse --verify -q "origin/$target_branch" >/dev/null 2>&1; then
-                            git -C "$d" checkout -B "$target_branch" "origin/$target_branch" >/dev/null 2>&1 || true
-                            git -C "$d" reset --hard "origin/$target_branch" >/dev/null 2>&1 || true
+                      if [ "$name" = "nixpkgs" ]; then
+                        ensure_partial_clone "$d"
+                      fi
+
+                      if [ "$name" != "nixpkgs" ] || [ -n "''${HYDRATE_NIXPKGS:-}" ] || [ -n "''${KEEP_WORKTREE:-}" ]; then
+                        # If the repo is in an aborted temp state (unborn HEAD, temp branch, or dirty index),
+                        # try to restore it to the target branch tip from local or origin.
+                        current_branch=$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+                        if ! git -C "$d" rev-parse --verify -q HEAD >/dev/null 2>&1 \
+                          || [ "$current_branch" = "_input-branches-temp" ] \
+                          || [ -n "$(git -C "$d" status --porcelain)" ]; then
+                          # Prefer local branch if it exists
+                          if git -C "$d" rev-parse --verify -q "$target_branch" >/dev/null 2>&1; then
+                            git -C "$d" checkout -f "$target_branch" >/dev/null 2>&1 || true
+                            git -C "$d" reset --hard "$target_branch" >/dev/null 2>&1 || true
+                          else
+                            # Fall back to origin if accessible
+                            if [ "$name" = "nixpkgs" ] && [ -z "''${HYDRATE_NIXPKGS:-}" ]; then
+                              git -C "$d" fetch --filter=blob:none origin "refs/heads/$target_branch:refs/remotes/origin/$target_branch" >/dev/null 2>&1 || true
+                            else
+                              git -C "$d" fetch origin "refs/heads/$target_branch:refs/remotes/origin/$target_branch" >/dev/null 2>&1 || true
+                            fi
+                            if git -C "$d" rev-parse --verify -q "origin/$target_branch" >/dev/null 2>&1; then
+                              git -C "$d" checkout -B "$target_branch" "origin/$target_branch" >/dev/null 2>&1 || true
+                              git -C "$d" reset --hard "origin/$target_branch" >/dev/null 2>&1 || true
+                            fi
                           fi
                         fi
+                        git -C "$d" reset --hard HEAD >/dev/null 2>&1 || true
+                        git -C "$d" clean -fdxq || true
+                      else
+                        git -C "$d" fetch --filter=blob:none origin "refs/heads/$target_branch:refs/remotes/origin/$target_branch" >/dev/null 2>&1 || true
+                        if git -C "$d" rev-parse --verify -q "origin/$target_branch" >/dev/null 2>&1; then
+                          git -C "$d" branch --force "$target_branch" "origin/$target_branch" >/dev/null 2>&1 || true
+                        fi
                       fi
-                      # Final clean slate for rebase operations
-                      git -C "$d" reset --hard HEAD >/dev/null 2>&1 || true
-                      git -C "$d" clean -fdxq || true
                     fi
                   done
                 fi
@@ -108,6 +135,10 @@
                   for d in inputs/*; do
                     [ -d "$d" ] || continue
                     if [ -d "$d/.git" ] || [ -f "$d/.git" ]; then
+                      name=$(basename "$d")
+                      if [ "$name" = "nixpkgs" ] && [ -z "''${HYDRATE_NIXPKGS:-}" ] && [ -z "''${KEEP_WORKTREE:-}" ]; then
+                        continue
+                      fi
                       git -C "$d" reset --hard HEAD >/dev/null 2>&1 || true
                       git -C "$d" clean -fdxq || true
                     fi
@@ -183,7 +214,11 @@
                     echo "Pushing HEAD -> origin:$branch"
                     if ! git -c core.hooksPath=/dev/null -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$branch"; then
                       # Refresh remote state and retry once (handles 'stale info')
-                      git -C "$path" fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
+                      if [ "$name" = "nixpkgs" ] && [ -z "''${HYDRATE_NIXPKGS:-}" ]; then
+                        git -C "$path" fetch --filter=blob:none origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
+                      else
+                        git -C "$path" fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
+                      fi
                       git -c core.hooksPath=/dev/null -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$branch" || {
                         echo "Error: push failed for $name" >&2
                         exit 70

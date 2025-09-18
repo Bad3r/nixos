@@ -72,6 +72,19 @@ If the error was caused by an unpushed submodule commit, the above sequence reso
   git -C inputs/<name> merge-base --is-ancestor <gitlink-sha> origin/inputs/<sp_branch>/<name>
   ```
 
+## nixpkgs download is huge
+
+- `update-input-branches` now keeps `inputs/nixpkgs` as a partial clone. Expect commit metadata to download quickly while file blobs stay lazy.
+- If you previously hydrated the entire tree, reset it back to the lightweight layout:
+  ```bash
+  git submodule deinit inputs/nixpkgs
+  rm -rf .git/modules/inputs/nixpkgs inputs/nixpkgs
+  nix develop -c update-input-branches
+  ```
+  This recreates the submodule with the partial-clone configuration and replays the helper’s setup.
+- Need the full checkout temporarily? Run `HYDRATE_NIXPKGS=1 nix develop -c update-input-branches` and the helper will fetch blobs; omit the variable on the next run to go back to blobless mode.
+- Want to keep a hydrated worktree for manual patching? Set `KEEP_WORKTREE=1` when invoking the helper—the script skips the cleanup step so your checked-out files remain in place.
+
 ## Prevention
 
 - Use the provided helper which rebases/pushes input branches and updates `flake.lock` in one go:

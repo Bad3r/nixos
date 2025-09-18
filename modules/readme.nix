@@ -144,7 +144,7 @@
 
           - `nix fmt` – format files
           - `pre-commit run --all-files` – run all hooks
-          - `update-input-branches` – rebase vendored inputs, push inputs/\* branches, and commit updated gitlinks. By default, keeps `inputs/nixpkgs` shallow and blobless; set `HYDRATE_NIXPKGS=1` to opt-in to full hydration when necessary.
+          - `update-input-branches` – rebase vendored inputs, push inputs/\* branches, and commit updated gitlinks. The helper keeps `inputs/nixpkgs` as a blobless partial clone; set `HYDRATE_NIXPKGS=1` to hydrate temporarily or `KEEP_WORKTREE=1` to leave a checked-out tree intact.
 
           The `build.sh` helper refuses to run if the git worktree is dirty (tracked changes, staged changes, or untracked files) to keep builds reproducible. Override with `--allow-dirty` or `ALLOW_DIRTY=1` only when you know what you’re doing.
 

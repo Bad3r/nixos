@@ -26,6 +26,18 @@
                   text = ''
                     set -euo pipefail
 
+                    ensure_partial_clone() {
+                      local repo="$1"
+                      [ -d "$repo" ] || return 0
+                      git -C "$repo" config extensions.partialClone >/dev/null 2>&1 || git -C "$repo" config extensions.partialClone origin
+                      git -C "$repo" config remote.origin.promisor true >/dev/null 2>&1 || true
+                      git -C "$repo" config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
+                      if git -C "$repo" remote get-url upstream >/dev/null 2>&1; then
+                        git -C "$repo" config remote.upstream.promisor true >/dev/null 2>&1 || true
+                        git -C "$repo" config remote.upstream.partialclonefilter blob:none >/dev/null 2>&1 || true
+                      fi
+                    }
+
                     ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
                     if [ -z "''${ROOT}" ] || [ ! -d "''${ROOT}/.git" ]; then
                       # Not a git repo; nothing to do
@@ -52,6 +64,10 @@
                         fi
                         name=$(basename "''${path}")
 
+                        if [ "$name" = "nixpkgs" ]; then
+                          ensure_partial_clone "''${path}"
+                        fi
+
                         # Determine target branch from .gitmodules hint or default
                         gm_branch=$(git config -f .gitmodules "submodule.''${path}.branch" 2>/dev/null || true)
                         target_branch=''${gm_branch:-inputs/''${SP_BRANCH}/''${name}}
@@ -69,7 +85,11 @@
                         if git ls-remote --heads "''${PARENT_ORIGIN}" "''${target_branch}" | grep -qE "\srefs/heads/''${target_branch}$"; then
                           remote_has_branch=1
                           # Refresh local view of remote branch
-                          git -C "''${path}" fetch -q origin "refs/heads/''${target_branch}:refs/remotes/origin/''${target_branch}" || true
+                          if [ "$name" = "nixpkgs" ]; then
+                            git -C "''${path}" fetch --filter=blob:none -q origin "refs/heads/''${target_branch}:refs/remotes/origin/''${target_branch}" || true
+                          else
+                            git -C "''${path}" fetch -q origin "refs/heads/''${target_branch}:refs/remotes/origin/''${target_branch}" || true
+                          fi
                           if git -C "''${path}" rev-parse --verify -q "origin/''${target_branch}" >/dev/null 2>&1; then
                             if git -C "''${path}" merge-base --is-ancestor "''${head_sha}" "origin/''${target_branch}"; then
                               echo "OK: ''${name} up-to-date on origin:''${target_branch}"

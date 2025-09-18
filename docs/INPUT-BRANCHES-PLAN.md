@@ -72,6 +72,7 @@ Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g
     ```
 
   - This keeps day-to-day operations fast and disk usage small, while allowing explicit full hydration when required.
+  - Need to keep a working tree for patching? Invoke the helper with `KEEP_WORKTREE=1` to skip the cleanup/reset step; unset it to return to the blobless layout.
   - perSystem pre-push enforcement is already implemented in `modules/input-branches.nix`; no further action required here.
 
 - Dev shell and hooks:
