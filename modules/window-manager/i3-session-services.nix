@@ -44,8 +44,16 @@
             screen-locker = {
               enable = true;
               lockCmd = lockCommand;
-              inactiveInterval = 20;
-              xautolock.enable = false;
+              inactiveInterval = 3;
+              xautolock = {
+                enable = true;
+                extraOptions = [
+                  "-notify"
+                  "60"
+                  "-notifier"
+                  "${pkgs.xorg.xset}/bin/xset dpms force off"
+                ];
+              };
             };
           };
 
@@ -93,6 +101,12 @@
               };
             };
           };
+          xsession.initExtra = ''
+            ${pkgs.xorg.xset}/bin/xset s 60 60
+            ${pkgs.xorg.xset}/bin/xset s blank
+            ${pkgs.xorg.xset}/bin/xset +dpms
+            ${pkgs.xorg.xset}/bin/xset dpms 0 0 120
+          '';
         }
       );
     };
