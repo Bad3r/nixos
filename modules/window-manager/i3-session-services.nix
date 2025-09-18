@@ -44,7 +44,7 @@
             screen-locker = {
               enable = true;
               lockCmd = lockCommand;
-              inactiveInterval = 3;
+              inactiveInterval = 39;
               xautolock = {
                 enable = true;
                 extraOptions = [
