@@ -44,6 +44,7 @@
             screen-locker = {
               enable = true;
               lockCmd = lockCommand;
+              inactiveInterval = 20;
               xautolock.enable = false;
             };
           };
