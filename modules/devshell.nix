@@ -20,44 +20,10 @@
               name = "update-input-branches";
               runtimeInputs = [
                 pkgs.git
-                pkgs.gnugrep
-                pkgs.gnused
               ]
               ++ (if psArgs.config ? input-branches then psArgs.config.input-branches.commands.all else [ ]);
               text = ''
                 set -euo pipefail
-
-                ensure_partial_clone() {
-                  local repo="$1"
-                  [ -d "$repo" ] || return 0
-                  git -C "$repo" config --unset extensions.partialClone >/dev/null 2>&1 || true
-                  git -C "$repo" config remote.origin.promisor true >/dev/null 2>&1 || true
-                  git -C "$repo" config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
-                  if git -C "$repo" remote get-url upstream >/dev/null 2>&1; then
-                    git -C "$repo" config remote.upstream.promisor true >/dev/null 2>&1 || true
-                    git -C "$repo" config remote.upstream.partialclonefilter blob:none >/dev/null 2>&1 || true
-                  fi
-                }
-
-                declare -a suspended_partial_clone=()
-
-                suspend_partial_clone_if_needed() {
-                  local repo="$1"
-                  if git -C "$repo" config --get extensions.partialClone >/dev/null 2>&1; then
-                    git -C "$repo" config --unset extensions.partialClone || true
-                    suspended_partial_clone+=("$repo")
-                  fi
-                }
-
-                resume_partial_clone_configs() {
-                  local repo
-                  for repo in "''${suspended_partial_clone[@]}"; do
-                    ensure_partial_clone "$repo"
-                  done
-                  suspended_partial_clone=()
-                }
-
-                trap resume_partial_clone_configs EXIT
 
                 ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
                 if [ -z "''${ROOT}" ] || [ ! -d "''${ROOT}/.git" ]; then
@@ -66,244 +32,32 @@
                 fi
                 cd "''${ROOT}"
 
-                echo "==> Preparing submodules (normalize remotes, clean worktrees)"
-                # Ensure submodules fetch from the superproject origin (not the relative './.')
-                PARENT_ORIGIN=$(git remote get-url --push origin 2>/dev/null || git remote get-url origin 2>/dev/null || true)
-                if [ -z "''${PARENT_ORIGIN}" ]; then
-                  echo "Error: could not resolve superproject origin URL" >&2
-                  exit 1
-                fi
-                SP_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
-                if [ -d inputs ]; then
-                  for d in inputs/*; do
-                    [ -d "$d" ] || continue
-                    if [ -d "$d/.git" ] || [ -f "$d/.git" ]; then
-                      git -C "$d" remote set-url origin "''${PARENT_ORIGIN}"
-                      git -C "$d" remote set-url --push origin "''${PARENT_ORIGIN}"
-                      if git -C "$d" rev-parse --verify -q REBASE_HEAD >/dev/null 2>&1; then
-                        git -C "$d" rebase --abort >/dev/null 2>&1 || git -C "$d" rebase --quit >/dev/null 2>&1 || true
-                      fi
-                      # Determine intended branch for this input
-                      name=$(basename "$d")
-                      gm_branch=$(git config -f .gitmodules "submodule.$d.branch" 2>/dev/null || true)
-                      target_branch=''${gm_branch:-inputs/''${SP_BRANCH}/''${name}}
+                echo "==> Syncing submodules"
+                git submodule sync --recursive || true
+                git submodule update --init --recursive || true
 
-                      if [ "$name" = "nixpkgs" ]; then
-                        ensure_partial_clone "$d"
-                      fi
-
-                      if [ "$name" != "nixpkgs" ] || [ -n "''${HYDRATE_NIXPKGS:-}" ] || [ -n "''${KEEP_WORKTREE:-}" ]; then
-                        # If the repo is in an aborted temp state (unborn HEAD, temp branch, or dirty index),
-                        # try to restore it to the target branch tip from local or origin.
-                        current_branch=$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-                        if ! git -C "$d" rev-parse --verify -q HEAD >/dev/null 2>&1 \
-                          || [ "$current_branch" = "_input-branches-temp" ] \
-                          || [ -n "$(git -C "$d" status --porcelain)" ]; then
-                          # Prefer local branch if it exists
-                          if git -C "$d" rev-parse --verify -q "$target_branch" >/dev/null 2>&1; then
-                            git -C "$d" checkout -f "$target_branch" >/dev/null 2>&1 || true
-                            git -C "$d" reset --hard "$target_branch" >/dev/null 2>&1 || true
-                          else
-                            # Fall back to origin if accessible
-                            if [ "$name" = "nixpkgs" ] && [ -z "''${HYDRATE_NIXPKGS:-}" ]; then
-                              git -C "$d" fetch --filter=blob:none origin "refs/heads/$target_branch:refs/remotes/origin/$target_branch" >/dev/null 2>&1 || true
-                            else
-                              git -C "$d" fetch origin "refs/heads/$target_branch:refs/remotes/origin/$target_branch" >/dev/null 2>&1 || true
-                            fi
-                            if git -C "$d" rev-parse --verify -q "origin/$target_branch" >/dev/null 2>&1; then
-                              git -C "$d" checkout -B "$target_branch" "origin/$target_branch" >/dev/null 2>&1 || true
-                              git -C "$d" reset --hard "origin/$target_branch" >/dev/null 2>&1 || true
-                            fi
-                          fi
-                        fi
-                        git -C "$d" reset --hard HEAD >/dev/null 2>&1 || true
-                        git -C "$d" clean -fdxq || true
-                      else
-                        git -C "$d" fetch --filter=blob:none origin "refs/heads/$target_branch:refs/remotes/origin/$target_branch" >/dev/null 2>&1 || true
-                        if git -C "$d" rev-parse --verify -q "origin/$target_branch" >/dev/null 2>&1; then
-                          git -C "$d" branch --force "$target_branch" "origin/$target_branch" >/dev/null 2>&1 || true
-                        fi
-                      fi
-                    fi
-                  done
-                fi
-
-                echo "==> Rebasing inputs (skip nixpkgs by default; set REBASE_NIXPKGS=1 to include)"
-                if command -v input-branch-rebase-home-manager >/dev/null 2>&1; then
-                  input-branch-rebase-home-manager || true
-                fi
-                if command -v input-branch-rebase-stylix >/dev/null 2>&1; then
-                  input-branch-rebase-stylix || true
-                fi
-                if [ -n "''${REBASE_NIXPKGS:-}" ]; then
-                  if command -v input-branch-rebase-nixpkgs >/dev/null 2>&1; then
-                    HYDRATE_NIXPKGS="''${HYDRATE_NIXPKGS:-}" input-branch-rebase-nixpkgs || true
+                status=0
+                if command -v input-branches-rebase >/dev/null 2>&1; then
+                  if ! input-branches-rebase; then
+                    status=$?
+                    echo "Warning: input-branches-rebase exited with ''${status}" >&2
                   fi
-                else
-                  echo "Skipping nixpkgs rebase (REBASE_NIXPKGS unset)."
-                fi
-                if [ -d inputs ]; then
-                  for d in inputs/*; do
-                    [ -d "$d" ] || continue
-                    if [ -d "$d/.git" ] || [ -f "$d/.git" ]; then
-                      if git -C "$d" rev-parse --verify -q REBASE_HEAD >/dev/null 2>&1; then
-                        echo "Warning: rebase for $(basename "$d") failed; aborting" >&2
-                        git -C "$d" rebase --abort >/dev/null 2>&1 || git -C "$d" rebase --quit >/dev/null 2>&1 || true
-                      fi
-                    fi
-                  done
-                fi
-                # Maintain squashed policy for selected inputs by resetting them back to origin tip
-                # Currently: keep home-manager squashed (avoid pulling full upstream history into our branch)
-                if [ -d inputs/home-manager ]; then
-                  hm_branch=$(git config -f .gitmodules 'submodule.inputs/home-manager.branch' || true)
-                  if [ -z "''${hm_branch}" ]; then
-                    hm_branch="inputs/$(git rev-parse --abbrev-ref HEAD)/home-manager"
-                  fi
-                  git -C inputs/home-manager fetch origin "''${hm_branch}" || true
-                  git -C inputs/home-manager reset --hard "origin/''${hm_branch}" >/dev/null 2>&1 || true
                 fi
 
-                echo "==> Ensuring submodule worktrees are clean"
-                if [ -d inputs ]; then
-                  for d in inputs/*; do
-                    [ -d "$d" ] || continue
-                    if [ -d "$d/.git" ] || [ -f "$d/.git" ]; then
-                      name=$(basename "$d")
-                      if [ "$name" = "nixpkgs" ] && [ -z "''${HYDRATE_NIXPKGS:-}" ] && [ -z "''${KEEP_WORKTREE:-}" ]; then
-                        continue
-                      fi
-                      git -C "$d" reset --hard HEAD >/dev/null 2>&1 || true
-                      git -C "$d" clean -fdxq || true
-                    fi
-                  done
+                if command -v input-branches-push-force >/dev/null 2>&1; then
+                  input-branches-push-force || true
                 fi
 
-                echo "==> Staging updated input pointers (gitlinks)"
                 git add -u inputs || true
-
-                echo "==> Committing input pointer updates (inputs-only)"
                 if git diff --cached --quiet -- inputs; then
                   echo "No input bumps to commit."
                 else
-                  # Guard: refuse if non-input files are staged unless explicitly allowed
-                  if git diff --name-only --cached | grep -v '^inputs/' -q; then
-                    if [ "''${ALLOW_NON_INPUT_STAGED:-}" != "1" ]; then
-                      echo "Refusing to commit: non-input files are staged." >&2
-                      echo "Unstage them or set ALLOW_NON_INPUT_STAGED=1 to override." >&2
-                      exit 2
-                    fi
-                  fi
-                  git -c core.hooksPath=/dev/null commit --only --no-verify -m "chore(inputs): bump inputs (gitlinks only)" -- inputs
+                  git -c core.hooksPath=/dev/null commit --no-verify -m "chore(inputs): bump inputs (gitlinks only)" -- inputs
                 fi
 
-                echo "==> Pushing input branches to origin (force-with-lease)"
-                SP_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
-                if [ -d inputs ]; then
-                  for path in inputs/*; do
-                    [ -d "$path" ] || continue
-                    if [ ! -d "$path/.git" ] && [ ! -f "$path/.git" ]; then continue; fi
-                    name=$(basename "$path")
-                    echo "Superproject origin (push): $PARENT_ORIGIN"
-                    echo "==> Processing $name ($path)"
-
-                    # Ensure submodule origin push url points to superproject origin
-                    if ! git -C "$path" remote get-url origin >/dev/null 2>&1; then
-                      git -C "$path" remote add origin "$PARENT_ORIGIN"
-                    fi
-                    git -C "$path" remote set-url --push origin "$PARENT_ORIGIN"
-
-                    branch=$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-                    if [ -z "$branch" ] || [ "$branch" = "HEAD" ]; then
-                      gm_branch=$(git config -f .gitmodules "submodule.$path.branch" 2>/dev/null || echo "")
-                      if [ -n "$gm_branch" ]; then
-                        branch="$gm_branch"
-                        echo "Info: detached HEAD; using .gitmodules branch '$branch'"
-                      else
-                        branch="inputs/$SP_BRANCH/$name"
-                        echo "Info: detached HEAD; defaulting to '$branch'"
-                      fi
-                    fi
-
-                    # Hydrate commit graph for promisor remotes without pulling full blobs for nixpkgs
-                    # This preserves shallow+blobless setup per docs while keeping push safety for smaller inputs.
-                    if git -C "$path" remote get-url upstream >/dev/null 2>&1; then
-                      up_head=$(git -C "$path" rev-parse --abbrev-ref --symbolic-full-name upstream/HEAD 2>/dev/null | sed 's|^upstream/||' || true)
-                      # Allow override to fully hydrate nixpkgs when explicitly requested
-                      if [ "$name" = "nixpkgs" ] && [ -z "''${HYDRATE_NIXPKGS:-}" ]; then
-                        if [ -n "$up_head" ]; then
-                          git -C "$path" fetch --filter=blob:none upstream "$up_head" || true
-                        else
-                          git -C "$path" fetch --filter=blob:none upstream || true
-                        fi
-                      else
-                        if [ -n "$up_head" ]; then
-                          git -C "$path" fetch --no-filter upstream "$up_head" || true
-                        else
-                          git -C "$path" fetch --no-filter upstream || true
-                        fi
-                      fi
-                    fi
-
-                    echo "Pushing HEAD -> origin:$branch"
-                    if ! git -c core.hooksPath=/dev/null -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$branch"; then
-                      # Refresh remote state and retry once (handles 'stale info')
-                      if [ "$name" = "nixpkgs" ] && [ -z "''${HYDRATE_NIXPKGS:-}" ]; then
-                        git -C "$path" fetch --filter=blob:none origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
-                      else
-                        git -C "$path" fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
-                      fi
-                      git -c core.hooksPath=/dev/null -C "$path" push --force-with-lease -u origin "HEAD:refs/heads/$branch" || {
-                        echo "Error: push failed for $name" >&2
-                        exit 70
-                      }
-                    fi
-
-                    if git ls-remote --heads "$PARENT_ORIGIN" "$branch" | grep -qE "\srefs/heads/$branch$"; then
-                      echo "OK: origin has branch '$branch' for $name"
-                    else
-                      echo "Warning: could not verify branch '$branch' on origin for $name" >&2
-                    fi
-                  done
+                if [ ''${status} -ne 0 ]; then
+                  exit ''${status}
                 fi
-
-                echo "==> Recording updated submodule pointers in superproject"
-                # Guard: refuse if non-input files are already staged (unless overridden)
-                if git diff --name-only --cached | grep -v '^inputs/' -q; then
-                  if [ "''${ALLOW_NON_INPUT_STAGED:-}" != "1" ]; then
-                    echo "Refusing to commit: non-input files are staged." >&2
-                    echo "Unstage them or set ALLOW_NON_INPUT_STAGED=1 to override." >&2
-                    exit 2
-                  fi
-                fi
-
-                echo "==> Updating flake.lock to track local inputs/* HEADs"
-                # Keep the lock file in sync with local inputs so evaluation uses the updated commits
-                # without manual 'nix flake lock' runs. Only update inputs/* that exist locally.
-                LOCK_UPDATED=0
-                if [ -d inputs/nixpkgs ]; then
-                  suspend_partial_clone_if_needed inputs/nixpkgs
-                  nix --accept-flake-config flake update --update-input nixpkgs || true
-                  LOCK_UPDATED=1
-                fi
-                if [ -d inputs/home-manager ]; then
-                  nix --accept-flake-config flake update --update-input home-manager || true
-                  LOCK_UPDATED=1
-                fi
-                if [ -d inputs/stylix ]; then
-                  nix --accept-flake-config flake update --update-input stylix || true
-                  LOCK_UPDATED=1
-                fi
-                resume_partial_clone_configs
-
-                if [ """$LOCK_UPDATED""" = 1 ] && git diff --quiet -- flake.lock; then
-                  : # no changes
-                elif [ """$LOCK_UPDATED""" = 1 ]; then
-                  git -c core.hooksPath=/dev/null add flake.lock
-                  git -c core.hooksPath=/dev/null commit --no-verify -m "chore(lock): update flake.lock for local inputs"
-                fi
-
-                echo "Done: inputs bumped and recorded."
               '';
             };
 
