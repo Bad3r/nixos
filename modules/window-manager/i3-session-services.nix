@@ -45,15 +45,7 @@
               enable = true;
               lockCmd = lockCommand;
               inactiveInterval = 39;
-              xautolock = {
-                enable = true;
-                extraOptions = [
-                  "-notify"
-                  "60"
-                  "-notifier"
-                  "${pkgs.xorg.xset}/bin/xset dpms force off"
-                ];
-              };
+              xautolock.enable = false;
             };
           };
 
@@ -101,12 +93,6 @@
               };
             };
           };
-          xsession.initExtra = ''
-            ${pkgs.xorg.xset}/bin/xset s 60 60
-            ${pkgs.xorg.xset}/bin/xset s blank
-            ${pkgs.xorg.xset}/bin/xset +dpms
-            ${pkgs.xorg.xset}/bin/xset dpms 0 0 120
-          '';
         }
       );
     };
