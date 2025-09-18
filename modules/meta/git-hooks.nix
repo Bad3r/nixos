@@ -29,7 +29,7 @@
                     ensure_partial_clone() {
                       local repo="$1"
                       [ -d "$repo" ] || return 0
-                      git -C "$repo" config extensions.partialClone >/dev/null 2>&1 || git -C "$repo" config extensions.partialClone origin
+                      git -C "$repo" config --unset extensions.partialClone >/dev/null 2>&1 || true
                       git -C "$repo" config remote.origin.promisor true >/dev/null 2>&1 || true
                       git -C "$repo" config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
                       if git -C "$repo" remote get-url upstream >/dev/null 2>&1; then
