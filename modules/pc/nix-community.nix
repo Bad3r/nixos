@@ -1,17 +1,26 @@
 { lib, ... }:
+let
+  substitutersList = [
+    "https://mirrors.sjtug.sjtu.edu.cn/nix-channels/store"
+    "https://mirror.sjtu.edu.cn/nix-channels/store"
+    "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
+    "https://mirrors.ustc.edu.cn/nix-channels/store"
+    "https://cache.nixos.org/"
+    "https://cache.garnix.io"
+  ];
+  trustedKeys = [
+    "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
+  ];
+in
 {
   flake.nixosModules.pc = _: {
     nix.settings = {
-      # Force exact order to ensure mirrors are tried before cache.nixos.org
-      substituters = lib.mkForce [
-        "https://mirrors.sjtug.sjtu.edu.cn/nix-channels/store"
-        "https://mirror.sjtu.edu.cn/nix-channels/store"
-        "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
-        "https://mirrors.ustc.edu.cn/nix-channels/store"
-        "https://cache.nixos.org/"
-        "https://nix-community.cachix.org"
-      ];
-      trusted-public-keys = [ "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=" ];
+      # Force exact order so mirrors are attempted before cache.nixos.org
+      substituters = lib.mkForce substitutersList;
+      trusted-public-keys = trustedKeys;
+      narinfo-cache-negative-ttl = 0;
+      http-connections = 25;
+      http2 = true;
     };
   };
 }
