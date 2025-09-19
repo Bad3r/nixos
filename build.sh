@@ -31,7 +31,6 @@ FLAKE_DIR="${PWD}"
 HOSTNAME="$(hostname)"
 OFFLINE=false
 VERBOSE=false
-PREFER_CN_MIRRORS=false
 ALLOW_DIRTY=false
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
@@ -55,7 +54,6 @@ Options:
   -o, --offline          Build in offline mode
   -v, --verbose          Enable verbose output
       --boot             Install as next-boot generation (do not activate now)
-      --prefer-cn-mirrors  Prefer fast CN mirrors for this run
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
   -h, --help             Show this help message
 
@@ -92,10 +90,6 @@ while [[ $# -gt 0 ]]; do
     ;;
   -v | --verbose)
     VERBOSE=true
-    shift
-    ;;
-  --prefer-cn-mirrors)
-    PREFER_CN_MIRRORS=true
     shift
     ;;
   --boot)
@@ -186,19 +180,6 @@ main() {
   # Fail fast on dirty git trees to ensure reproducible builds
   ensure_clean_git_tree
 
-  # Optionally prefer CN mirrors for this run by overriding NIX_CONFIG.
-  if $PREFER_CN_MIRRORS; then
-    # Append to the already-exported NIX_CONFIGURATION and re-export.
-    NIX_CONFIGURATION+=$'substituters = https://mirrors.sjtug.sjtu.edu.cn/nix-channels/store https://mirror.sjtu.edu.cn/nix-channels/store https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store https://mirrors.ustc.edu.cn/nix-channels/store https://cache.nixos.org/\n'
-    NIX_CONFIGURATION+=$'trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=\n'
-    # Avoid sticky 404s while testing mirrors
-    NIX_CONFIGURATION+=$'narinfo-cache-negative-ttl = 0\n'
-    # Keep parallelism sensible
-    NIX_CONFIGURATION+=$'http-connections = 25\nhttp2 = true\n'
-    export NIX_CONFIGURATION
-    export NIX_CONFIG="${NIX_CONFIGURATION}"
-  fi
-
   # Ensure required input branches and submodules are present
   status_msg "${YELLOW}" "Ensuring inputs/* submodules are initialized..."
   if command -v git >/dev/null 2>&1; then
@@ -275,7 +256,7 @@ main() {
   status_msg "${YELLOW}" "Deploying '${HOSTNAME}' via nixos-rebuild (${ACTION})..."
   case "${ACTION}" in
   switch | boot)
-    /run/wrappers/bin/sudo nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${HOSTNAME}" --accept-flake-config "${NIX_FLAGS[@]}"
+    /run/wrappers/bin/sudo --preserve-env=NIX_CONFIG,NIX_CONFIGURATION nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${HOSTNAME}" --accept-flake-config "${NIX_FLAGS[@]}"
     if [[ ${ACTION} == "switch" ]]; then
       status_msg "${GREEN}" "System switched successfully!"
     else
