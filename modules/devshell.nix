@@ -158,6 +158,9 @@
             act
             jq
             yq
+            age
+            sops
+            ssh-to-age
             ghActionsRun
             ghActionsList
             updateInputBranches
