@@ -387,21 +387,19 @@
                   text = ''
                     set -euo pipefail
                     cd "$(git rev-parse --show-toplevel)"
-                    PATTERN='with\s+config\.flake\.nixosModules\.apps\s*;'
-                    # Prefer ripgrep if available
+                    PATTERN='(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;'
                     if command -v rg >/dev/null 2>&1; then
-                      if rg -n -S -e "$PATTERN" --glob '*.nix' modules/roles >/dev/null; then
-                        echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/*.nix" >&2
-                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps with explicit string names." >&2
-                        echo "  See docs/RFC-001.md for guidance." >&2
-                        rg -n -S -e "$PATTERN" --glob '*.nix' modules/roles || true
+                      if rg -nU --pcre2 -S --glob 'modules/roles/**/*.nix' -e "$PATTERN" >/dev/null; then
+                        echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/**/*.nix" >&2
+                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/RFC-001.md)." >&2
+                        echo "  Note: PCRE2 guard may flag commented or stringified code; triage manually if needed." >&2
+                        rg -nU --pcre2 -S --glob 'modules/roles/**/*.nix' -e "$PATTERN" || true
                         exit 1
                       fi
                     else
                       if grep -R -n -E "$PATTERN" --include='*.nix' modules/roles >/dev/null 2>&1; then
-                        echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/*.nix" >&2
-                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps with explicit string names." >&2
-                        echo "  See docs/RFC-001.md for guidance." >&2
+                        echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/**/*.nix" >&2
+                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/RFC-001.md)." >&2
                         grep -R -n -E "$PATTERN" --include='*.nix' modules/roles || true
                         exit 1
                       fi
