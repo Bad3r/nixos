@@ -9,7 +9,7 @@ This document shows how modules are authored and consumed in this flake-parts + 
   - `flake.nixosModules.<name>` for system configuration.
   - `flake.homeManagerModules.<name>` and `flake.homeManagerModules.apps.<name>` for Home Manager.
   - `configurations.nixos.<host>.module` for complete host definitions (transformed into `nixosConfigurations.<host>`).
-- Consumers compose these exports by *name*, never by literal path.
+- Consumers compose these exports by _name_, never by literal path.
 
 ## Authoring Patterns
 
@@ -108,12 +108,12 @@ Home Manager modules follow the same rules:
 
 ## Common Pitfalls (and Fixes)
 
-| Mistake | Fix |
-|---------|-----|
-| `{ config, lib, pkgs, ... }:` at the top of the file | Remove `pkgs` from the outer scope and wrap the exported value in a function that receives `{ pkgs, ... }`. |
-| Referencing modules via `./path/to/module.nix` | Import via `config.flake.nixosModules.<name>` or `config.flake.homeManagerModules.<name>` instead. |
-| Using `with config.flake.nixosModules.apps;` in roles | Replace with `lib.hasAttrByPath` + `lib.getAttrFromPath` (already enforced by pre-commit hooks). |
-| Forgetting to guard optional modules | Wrap definitions with `lib.mkIf` or `lib.optionals` so evaluation succeeds even when hardware/services are absent. |
+| Mistake                                               | Fix                                                                                                                |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `{ config, lib, pkgs, ... }:` at the top of the file  | Remove `pkgs` from the outer scope and wrap the exported value in a function that receives `{ pkgs, ... }`.        |
+| Referencing modules via `./path/to/module.nix`        | Import via `config.flake.nixosModules.<name>` or `config.flake.homeManagerModules.<name>` instead.                 |
+| Using `with config.flake.nixosModules.apps;` in roles | Replace with `lib.hasAttrByPath` + `lib.getAttrFromPath` (already enforced by pre-commit hooks).                   |
+| Forgetting to guard optional modules                  | Wrap definitions with `lib.mkIf` or `lib.optionals` so evaluation succeeds even when hardware/services are absent. |
 
 ## Introspection & Debugging
 

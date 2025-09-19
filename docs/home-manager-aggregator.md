@@ -4,12 +4,12 @@ This repository exposes Home Manager modules via a dedicated aggregator so they 
 
 ## Namespace Layout
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `flake.homeManagerModules.base` | Deferred module (merged) | Bootstrap for every user: shell defaults, CLI tools, shared options. |
-| `flake.homeManagerModules.gui` | Deferred module (merged) | Desktop integrations pulled into graphical hosts. |
-| `flake.homeManagerModules.apps.<name>` | Deferred module (per key) | Individual applications (CLI or GUI) addressed by name. |
-| `flake.homeManagerModules.r2Secrets`, `context7Secrets`, … | Deferred modules | Optional helpers that wire sops-managed material when present. |
+| Key                                                        | Type                      | Description                                                          |
+| ---------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------- |
+| `flake.homeManagerModules.base`                            | Deferred module (merged)  | Bootstrap for every user: shell defaults, CLI tools, shared options. |
+| `flake.homeManagerModules.gui`                             | Deferred module (merged)  | Desktop integrations pulled into graphical hosts.                    |
+| `flake.homeManagerModules.apps.<name>`                     | Deferred module (per key) | Individual applications (CLI or GUI) addressed by name.              |
+| `flake.homeManagerModules.r2Secrets`, `context7Secrets`, … | Deferred modules          | Optional helpers that wire sops-managed material when present.       |
 
 Modules register into these keys exactly once. Because flake-parts merges by attribute name, multiple files can extend `base`/`gui` safely:
 
