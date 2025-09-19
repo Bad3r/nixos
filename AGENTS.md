@@ -1,33 +1,36 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-
-Flake-driven imports auto-load everything under `modules/`; group by domain (`desktop/`, `shell/`, `security/`) and prefix `_` to opt out. `modules/devshell.nix` carries shared tooling, while reference docs, CI flows, and host notes live in `docs/`, `.github/`, and `nixos_docs_md`. Stage upstream flakes in `inputs/`, helper scripts in `scripts/`, and never commit anything sensitive under `secrets/`.
+- `modules/` autoloads by domain; keep features in `modules/desktop/`, `modules/shell/`, `modules/security/`, and prefix directories with `_` to park unfinished work.
+- Share tooling through `modules/devshell.nix`; contributor notes live in `docs/`, CI flows in `.github/`, and host-specific runbooks in `nixos_docs_md/`.
+- Pin upstream flakes inside `inputs/`, store helper utilities in `scripts/`, and leave `secrets/` empty in git history.
 
 ## Build, Test & Development Commands
-
-- `nix develop`: enter the pinned dev shell with formatters, language servers, and hooks.
-- `nix fmt`: run treefmt (`nixfmt`, `shfmt`, `prettier`) across tracked sources.
+- `nix develop`: enter the pinned dev shell with language servers, formatters, and pre-commit hooks.
+- `nix fmt`: run treefmt (nixfmt, shfmt, prettier) across tracked sources before committing.
 - `nix develop -c pre-commit run --all-files`: execute formatting, lint, security, and flake checks; treat failures as blockers.
-- `generation-manager score`: verify Dendritic Pattern compliance (target 90/90 before merging).
-- `nix flake check --accept-flake-config`: confirm flake evaluation and repository invariants.
+- `generation-manager score`: confirm Dendritic Pattern compliance; target 90/90 prior to merge.
+- `nix flake check --accept-flake-config`: validate flake evaluation and repository invariants.
 
 ## Coding Style & Naming Conventions
-
-Use 2-space indentation in Nix, rely on `inherit`, and merge attributes for clarity. Name modules and attributes with lowercase hyphenated identifiers, avoiding literal paths when flake inputs suffice. Wrap modules in functions only when extra arguments (such as `pkgs`) are required. Always format locally before pushing; hooks enforce a zero-warning policy.
+- Use 2-space indentation in Nix, prefer `inherit` for attribute reuse, and merge attribute sets for clarity.
+- Name modules and attributes with lowercase hyphenated identifiers (e.g. `desktop-portal`), leaning on flake inputs instead of literal paths.
+- Let `nix fmt` resolve formatting disagreements; avoid hand-editing generated files.
 
 ## Testing Guidelines
-
-Treat `nix develop -c pre-commit run --all-files` as the regression suite and rerun it after each change. Iterate until checks succeed, document manual verification in the PR, and record behaviour shifts in repo docs as needed.
+- Treat `nix develop -c pre-commit run --all-files` as the regression suite and rerun it after each change.
+- Document manual validation steps alongside code when behaviour changes, and update `nixos_docs_md/` if host procedures shift.
+- Re-check `generation-manager score` when touching module logic that could alter compliance metrics.
 
 ## Commit & Pull Request Guidelines
-
-Use Conventional Commits (e.g., `feat(modules): add sway tweaks`, `fix(shell): restore prompt`). Scope PRs to a single concern, update related docs alongside code, link issues with `Closes #id`, and include screenshots for UX-facing updates. Provide rationale and host impact so reviewers can reconcile changes quickly.
+- Follow Conventional Commits such as `feat(modules): add sway tweaks` or `fix(shell): restore prompt`.
+- Keep PRs single-purpose, describe host impact, link issues with `Closes #id`, and refresh related docs or screenshots.
+- Summarize verification steps in the PR body so reviewers can replay checks quickly.
 
 ## Security & Configuration Tips
-
-Avoid system-altering commands (`nixos-rebuild`, `nix build`, `generation-manager switch`, garbage collection) unless explicitly requested. Honour `nixConfig.abort-on-warn = true`; resolve warnings at the source. Prefer local references in `nixos_docs_md` before consulting external material, and remember experimental pipe operators are enabled in Nix expressions.
+- Avoid system-altering commands (`nixos-rebuild`, `nix build`, `generation-manager switch`, garbage collection) unless requested by repository owners.
+- Honour `nixConfig.abort-on-warn = true` by resolving warnings at the source and consulting `nixos_docs_md/` before external resources.
 
 ## Agent Interaction Protocol
-
-Assume the user is `default_user` unless evidence contradicts it, and confirm identity when uncertain. Start every interaction with the single phrase “Remembering...” while querying relevant details from your memory (the knowledge graph). Track new facts about identity, behaviours, preferences, goals, and relationships as conversations progress. When new information appears, update memory by creating entities for recurring people, organisations, or events, linking them to existing entities, and recording the observations for future sessions.
+- Assume the operator is `default_user`; if uncertain, confirm identity before acting.
+- Start every interaction with “Remembering...” while querying stored knowledge, and log new facts about people, preferences, and workflows in the knowledge graph.
