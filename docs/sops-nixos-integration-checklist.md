@@ -7,18 +7,18 @@ This checklist is an actionable plan to implement the patterns described in `doc
 - [x] Phase 0 — Prerequisites
   - [x] Nix flakes enabled; repo builds and evaluates.
   - [x] `sops` and `age` available locally (via devshell or system).
-- [ ] Phase 1 — Governance + Keys
-  - [ ] Create `.sops.yaml` with recipients (your admin key + host keys), readable diffs configured.
-  - [ ] Provision host Age key(s); add pubkeys to `.sops.yaml`; back up key files.
-  - [ ] Verify: `sops -e` works and diffs are readable; `sops -d` succeeds using `SOPS_AGE_KEY_FILE`.
+- [x] Phase 1 — Governance + Keys
+  - [x] Create `.sops.yaml` with recipients (your admin key + host keys), readable diffs configured. (Generated via `modules/security/sops-policy.nix`.)
+  - [x] Provision host Age key(s); add pubkeys to `.sops.yaml`; back up key files.
+  - [x] Verify: `sops -e` works and diffs are readable; `sops -d` succeeds using `SOPS_AGE_KEY_FILE`.
 - [x] Phase 2 — Wire sops‑nix
   - [x] Import `sops-nix` module(s); set `sops.age.keyFile`; choose default vs per‑secret.
   - [x] Verify: `nix flake check --accept-flake-config` evaluates.
-- [ ] Phase 3 — First Secret + Template
-  - [ ] Encrypt a secret file; declare `sops.secrets` and (optionally) `sops.templates`; expose a stable path.
-  - [ ] Verify: configuration evaluates; secret references use `.path`/templates (no eval‑time reads).
-- [ ] Phase 4 — Home‑Manager
-  - [ ] Import HM sops module; set user key; declare at least one user secret; order services after `sops-nix.service`.
+- [x] Phase 3 — First Secret + Template
+  - [x] Encrypt a secret file; declare `sops.secrets` and (optionally) `sops.templates`; expose a stable path. (See Context7 example in docs.)
+  - [x] Verify: configuration evaluates; secret references use `.path`/templates (no eval-time reads).
+- [x] Phase 4 — Home‑Manager
+  - [x] Import HM sops module; set user key; declare at least one user secret; order services after `sops-nix.service`.
 - [ ] Phase 5 — Dev Tooling + Hooks + Git Credentials
   - [ ] Install pre‑commit hooks; configure sops‑diff; set up Git credential helper per URL.
   - [ ] Verify: hook rejects plaintext in secret paths; `git ls-remote` works using helper.
@@ -36,11 +36,11 @@ This checklist is an actionable plan to implement the patterns described in `doc
 
 Cross‑reference: See `docs/sops-nixos.md` → Introduction, Key Management, Reference (Core Options).
 
-- [ ] Decide on crypto: prefer Age; use GPG only if required.
-- [ ] Add admin keys (Age pubkeys or GPG fingerprints) under `keys:` anchors.
-- [ ] Add host Age recipients for each NixOS machine.
-- [ ] Add targeted rules (e.g., `secrets/act.yaml` with `encrypted_regex: ^(github_token)$`).
-- [ ] Avoid unintended Shamir semantics: keep `key_groups` properly nested, do not add stray `-`.
+- [x] Decide on crypto: prefer Age; use GPG only if required.
+- [x] Add admin keys (Age pubkeys or GPG fingerprints) under `keys:` anchors.
+- [x] Add host Age recipients for each NixOS machine.
+- [x] Add targeted rules (e.g., `secrets/act.yaml` with `encrypted_regex: ^(github_token)$`).
+- [x] Avoid unintended Shamir semantics: keep `key_groups` properly nested, do not add stray `-`.
   - Clarification: Shamir secret sharing requires multiple keys to decrypt. Incorrect YAML structure can accidentally enable this, making secrets inaccessible with a single key. Ensure `age`/`pgp` lists are nested under `key_groups` without extraneous dashes.
 - [ ] Configure readable diffs:
   - [x] Add `.gitattributes`: `*.yaml diff=sopsdiffer`
@@ -51,13 +51,13 @@ Cross‑reference: See `docs/sops-nixos.md` → Introduction, Key Management, Re
 
 Cross‑reference: See `docs/sops-nixos.md` → Key Management (Age vs GPG, Key Generation Strategies).
 
-- [ ] On each host, create `/var/lib/sops-nix/key.txt` (0600; owner root):
-  - [ ] `sudo install -d -m 0700 -o root -g root /var/lib/sops-nix`
-  - [ ] `sudo age-keygen -o /var/lib/sops-nix/key.txt`
-  - [ ] `sudo chmod 0600 /var/lib/sops-nix/key.txt`
-- [ ] Capture and add public key to `.sops.yaml` recipients:
-  - [ ] `sudo grep -E '^# public key:' /var/lib/sops-nix/key.txt | sed 's/^# public key: //'`
-- [ ] Back up `/var/lib/sops-nix/key.txt` (host‑local secure backup).
+- [x] On each host, create `/var/lib/sops-nix/key.txt` (0600; owner root):
+  - [x] `sudo install -d -m 0700 -o root -g root /var/lib/sops-nix`
+  - [x] `sudo age-keygen -o /var/lib/sops-nix/key.txt`
+  - [x] `sudo chmod 0600 /var/lib/sops-nix/key.txt`
+- [x] Capture and add public key to `.sops.yaml` recipients:
+  - [x] `sudo grep -E '^# public key:' /var/lib/sops-nix/key.txt | sed 's/^# public key: //'`
+- [x] Back up `/var/lib/sops-nix/key.txt` (host‑local secure backup).
 - [ ] Optional: enable `sops.age.generateKey = true;` if operationally acceptable.
 
 ## NixOS: Wire sops‑nix in Base
@@ -73,11 +73,11 @@ Cross‑reference: See `docs/sops-nixos.md` → Installation and Setup, Referenc
 
 Cross‑reference: See `docs/sops-nixos.md` → Basic Usage (Declaring), Advanced Patterns (Templates), Quick Reference.
 
-- [ ] For each secret, declare with per‑secret `sopsFile` and strict perms:
-  - [ ] `mode = "0400";`
-  - [ ] `owner = config.users.users.<svcUser>.name;`
-  - [ ] `group = config.users.users.<svcUser>.group;` (when needed)
-- [ ] In services, reference `config.sops.secrets.<name>.path`.
+- [x] For each secret, declare with per‑secret `sopsFile` and strict perms:
+  - [x] `mode = "0400";`
+  - [x] `owner = config.users.users.<svcUser>.name;`
+  - [x] `group = config.users.users.<svcUser>.group;` (when needed)
+- [x] In services, reference `config.sops.secrets.<name>.path`.
 - [x] Do not rely on `/run/secrets.d/N` directly (N increments at each activation).
 - [x] NEVER read secrets at evaluation time (avoid `builtins.readFile` on secret paths). Read at runtime via `.path` or templates.
 - [ ] If a secret must be available before user creation, set `sops.secrets.<name>.neededForUsers = true;` and ensure it is root‑owned.

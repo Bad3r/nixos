@@ -79,6 +79,24 @@ Useful commands:
 
 The `build.sh` helper refuses to run if the git worktree is dirty (tracked changes, staged changes, or untracked files) to keep builds reproducible. Override with `--allow-dirty` or `ALLOW_DIRTY=1` only when you know what you’re doing.
 
+## Adding a new secret with sops-nix
+
+1. **Encrypt the payload** – run `sops secrets/<name>.yaml` (or `sops -e -i …`) so the file is stored as ciphertext. The canonical `.sops.yaml` in this repo already targets everything under `secrets/`.
+2. **Declare the secret in Nix** – add an entry under `sops.secrets."<namespace>/<name>"` (system or Home Manager). Point `sopsFile` to the encrypted file, set `key` when selecting a single YAML attribute, and write the decrypted material to a runtime path using `%r`.
+3. **Consume via the module API** – reference `config.sops.secrets."<namespace>/<name>".path` (or `placeholder`) from services, wrappers, or templates. Never read secrets at evaluation time.
+
+Example (Context7 MCP key for Codex):
+
+```nix
+sops.secrets."context7/api-key" = {
+  sopsFile = ./../../secrets/context7.yaml;
+  key = "context7_api_key";
+  path = "%r/context7/api-key";
+  mode = "0400";
+};
+```
+
+The Codex module wraps the decrypted path in a small script and only enables the MCP server when the secret exists, keeping evaluation pure while allowing runtime access.
 ## Generated files
 
 The following files in this repository are generated and checked

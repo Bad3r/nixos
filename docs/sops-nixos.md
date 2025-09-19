@@ -126,6 +126,11 @@ nix-shell -p ssh-to-age --run \
 
 ### 3. Create .sops.yaml Configuration
 
+> Repository note: `.sops.yaml` is generated from
+> `modules/security/sops-policy.nix` via the `files` module. Update that
+> module (or rotate the referenced Age keys) rather than editing the
+> rendered file in place.
+
 ```yaml
 # .sops.yaml
 keys:
@@ -382,6 +387,44 @@ sops.secrets."certificate" = {
 ```
 
 ## Advanced Patterns
+
+### Home Manager example: Context7 MCP API key
+
+1. **Encrypt** the payload so only ciphertext is tracked:
+
+   ```bash
+   sops secrets/context7.yaml
+   # Add/rotate the `context7_api_key` attribute, save, exit
+   ```
+
+2. **Declare** the secret for Home Manager, emitting it to the runtime
+   directory with `%r`:
+
+   ```nix
+   sops.secrets."context7/api-key" = {
+     sopsFile = ./../../secrets/context7.yaml;
+     key = "context7_api_key";
+     path = "%r/context7/api-key";
+     mode = "0400";
+   };
+   ```
+
+3. **Consume** the decrypted path lazily at runtime (never during
+   evaluation):
+
+   ```nix
+   let hasContext7 = config.sops.secrets ? "context7/api-key"; in
+   tools.mcp_servers =
+     (if hasContext7 then {
+        context7.command = "${context7Wrapper}/bin/context7-mcp";
+        context7.args = [ ];
+      } else {})
+     // otherServers;
+   ```
+
+The wrapper (`pkgs.writeShellApplication`) shells out to `npx` with the
+decrypted key. Evaluation stays pure, and the MCP server receives the key
+exactly where it expects it during activation.
 
 ### Templates
 
