@@ -1,59 +1,61 @@
-Act Secrets via sops-nix (age)
+# GitHub Token for `act` via sops-nix
 
-Overview
+This repository stores the personal access token used by `act` in `secrets/act.yaml` and renders `/etc/act/secrets.env` at activation time. The integration lives in `modules/security/secrets.nix` and follows the general guidance in `docs/sops-nixos.md`.
 
-- Manage a fine-grained GitHub PAT (Contents: read) using sops-nix.
-- Decrypt at activation time only; never store secrets in the Nix store.
-- Expose an env file `/etc/act/secrets.env` consumed by `act` locally.
+## Overview
 
-Prereqs
+- The `.sops.yaml` policy (generated from `modules/security/sops-policy.nix`) already targets `secrets/act.yaml` and encrypts only the `github_token` field.
+- `modules/security/secrets.nix` declares `sops.secrets."act/github_token"` and a template `sops.templates."act-env"` that becomes `/etc/act/secrets.env`.
+- The development shell command `gh-actions-run` automatically passes `--secret-file /etc/act/secrets.env` when the file exists. Override the path with `ACT_SECRETS_FILE=/path/to/env`.
 
-- age key on host: `/var/lib/sops-nix/key.txt` (root-only).
-- sops installed (provided via `modules/security/secrets.nix`).
+## Host Setup (one-time)
 
-Setup Steps
+1. Generate the Age host key if it does not already exist (see `docs/sops-nixos.md`).
+2. Ensure the host key is listed in `modules/security/sops-policy.nix` (it is named `host_primary` by default). Run `nix develop -c write-files` to refresh `.sops.yaml`.
 
-1. Generate age key (host):
-   sudo install -d -m 0700 -o root -g root /var/lib/sops-nix
-   sudo age-keygen -o /var/lib/sops-nix/key.txt
-   sudo chmod 0600 /var/lib/sops-nix/key.txt
+## Adding or Rotating the Token
 
-   # Show public key (starts with age1...)
+```bash
+# Edit (or create) the encrypted file
+sops secrets/act.yaml
 
-   sudo grep -E "^# public key: " /var/lib/sops-nix/key.txt | sed 's/^# public key: //'
+# Inside the editor, set the field
+# github_token: ghp_...
+```
 
-2. Add public key(s) to `.sops.yaml`:
-   - Edit `.sops.yaml` and insert your `age1...` in the `age:` array for `secrets/act.yaml`.
+After committing the encrypted file, switch the host:
 
-3. Create/rotate the PAT (fine-grained, Contents: read) and encrypt it:
+```bash
+sudo nixos-rebuild switch --flake .#system76
+```
 
-   # First-time create the encrypted file
+`sops-nix` decrypts the secret during activation and writes `/etc/act/secrets.env` with permissions `0400` and owner `${config.flake.lib.meta.owner.username}`.
 
-   sops --input-type yaml --output-type yaml \
-    --set 'github_token <YOUR_PAT>' secrets/act.yaml
+To verify locally (without printing the token):
 
-   # To edit later
+```bash
+sudo test -f /etc/act/secrets.env
+sudo grep -q '^GITHUB_TOKEN=' /etc/act/secrets.env
+```
 
-   sops secrets/act.yaml
+## Using the Token with `act`
 
-4. Switch your system to apply sops-nix (creates the template):
-   - Ensure the NixOS host imports this repo and `modules/security/secrets.nix` (auto-imported).
-   - On switch, sops-nix decrypts and renders `/etc/act/secrets.env` with 0400 perms.
+Run GitHub Actions locally:
 
-Usage with act
+```bash
+nix develop -c gh-actions-run -n     # dry run to verify configuration
+nix develop -c gh-actions-run        # full run (requires Docker)
+```
 
-- Dev shell provides `gh-actions-run`. It auto-detects:
-  - If `/etc/act/secrets.env` exists, it adds: `--secret-file /etc/act/secrets.env`.
-  - Override with `ACT_SECRETS_FILE=/path/to/env` if needed.
+Pass a different secret file if needed:
 
-CI notes
+```bash
+ACT_SECRETS_FILE=$PWD/tmp/secrets.env nix develop -c gh-actions-run
+```
 
-- CI uses the built-in `GITHUB_TOKEN` and configures Nix fetchers via:
-  access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-- Workflows also rewrite SSH → HTTPS to avoid SSH keys entirely.
+## Security Notes
 
-Security
-
-- Never store tokens in Nix strings (would enter the store).
-- Ensure `/var/lib/sops-nix/key.txt` is root-only (0600) and backed up securely.
-- Rotate PAT regularly; `sops secrets/act.yaml` and re-switch.
+- Secrets never enter the Nix store; they are decrypted at activation only.
+- `/etc/act/secrets.env` is owned by the repo owner user and has permissions `0400`.
+- Rotate PATs regularly and revoke unused tokens in GitHub.
+- Keep `/var/lib/sops-nix/key.txt` backed up securely; losing it prevents the host from decrypting secrets until you rotate the policy.
