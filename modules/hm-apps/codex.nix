@@ -1,6 +1,45 @@
 {
   flake.homeManagerModules.apps.codex =
-    { pkgs, ... }:
+    {
+      pkgs,
+      config,
+      ...
+    }:
+    let
+      hasContext7Secret = config.sops.secrets ? "context7/api-key";
+      context7Wrapper =
+        if hasContext7Secret then
+          pkgs.writeShellApplication {
+            name = "context7-mcp";
+            runtimeInputs = [
+              pkgs.coreutils
+              pkgs.nodejs
+            ];
+            text = ''
+              set -euo pipefail
+              key_file="${config.sops.secrets."context7/api-key".path}"
+              if [ ! -r "$key_file" ]; then
+                echo "context7-mcp-wrapper: missing Context7 API key at $key_file" >&2
+                exit 1
+              fi
+              api_key=$(tr -d '\n' < "$key_file")
+              exec npx -y @upstash/context7-mcp --api-key "$api_key" "$@"
+            '';
+          }
+        else
+          null;
+      context7Server =
+        if hasContext7Secret then
+          {
+            context7 = {
+              command = "${context7Wrapper}/bin/context7-mcp";
+              args = [ ];
+              startup_timeout_ms = 60000;
+            };
+          }
+        else
+          { };
+    in
     {
       programs.codex = {
         enable = true;
@@ -27,18 +66,7 @@
           tools = {
             web_search = true;
           };
-          mcp_servers = {
-            context7 = {
-              command = "npx";
-              args = [
-                "-y"
-                "@upstash/context7-mcp"
-                # TODO: Add the Context7 API key via nix-sops before enabling these args.
-                # "--api-key"
-                # "YOUR_API_KEY"
-              ];
-              startup_timeout_ms = 60000;
-            };
+          mcp_servers = context7Server // {
             memory = {
               command = "npx";
               args = [

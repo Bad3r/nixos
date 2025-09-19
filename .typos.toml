@@ -1,2 +1,6 @@
 [default.extend-words]
 laf = "laf"
+Iy = "Iy"
+
+[[default.ignore.files]]
+glob = "secrets/**"

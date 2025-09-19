@@ -37,6 +37,8 @@
             config.flake.homeManagerModules.base
             # Wire R2 sops-managed env by default (guarded on secrets/r2.env presence)
             config.flake.homeManagerModules.r2Secrets
+            # Provide Context7 API key via sops when available
+            config.flake.homeManagerModules.context7Secrets
           ]
           # Resolve role specs (data) to concrete HM app modules at the glue layer
           ++ (roleToModules "cli")
