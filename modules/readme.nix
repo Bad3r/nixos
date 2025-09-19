@@ -101,8 +101,8 @@
         ''
           ### Roles and App Composition
 
-          - Roles are assembled from per-app modules under `flake.nixosModules.apps`.
-          - To avoid import-order brittleness, resolve apps with `lib.hasAttrByPath` and `lib.getAttrFromPath` rather than `with`.
+          - Roles are assembled from per-app modules under `flake.nixosModules.apps`, using `config.flake.lib.nixos.getApps` / `getApp` for lookups.
+          - Avoid lexical `with` over `config.flake.nixosModules.apps`; the helper namespace keeps evaluation pure and consistent.
           - Stable role aliases are provided for hosts:
 
             - `flake.nixosModules."role-dev"`

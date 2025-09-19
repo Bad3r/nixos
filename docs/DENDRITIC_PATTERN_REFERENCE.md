@@ -64,11 +64,12 @@ For detailed patterns (multi-namespace modules, extending existing namespaces, c
 ## Apps, Roles, and Lookups
 
 - Per-app modules live under `flake.nixosModules.apps.<name>` and `flake.homeManagerModules.apps.<name>`.
-- Roles (e.g. `modules/roles/dev.nix`) resolve apps with
+- Helper surface: `modules/meta/nixos-app-helpers.nix` exposes `config.flake.lib.nixos.{hasApp,getApp,getApps,getAppOr}`. Consume apps through this namespace instead of re-implementing `lib.hasAttrByPath`/`lib.getAttrFromPath` in each role.
+- Role modules (e.g. `modules/roles/dev.nix`) compose their imports with
   ```nix
-  hasAttrByPath [ "apps" name ] config.flake.nixosModules
+  let getApps = config.flake.lib.nixos.getApps; in getApps [ "neovim" "httpie" ]
   ```
-  and `lib.getAttrFromPath` so missing apps fail loudly.
+  Optional imports (such as shared VPN defaults) remain explicit with short comments.
 - Stable aliases `flake.nixosModules."role-dev"`, `"role-media"`, `"role-net"` mirror the role contents for host imports.
 - Home Manager uses data-driven roles defined in `modules/meta/hm-roles.nix` and resolved in `modules/home-manager/nixos.nix`.
 
