@@ -1,188 +1,70 @@
 # Input Branches Adoption Plan
 
-## Goal
+This repository vendors selected flake inputs (`nixpkgs`, `home-manager`, `stylix`) as Git submodules under `inputs/` and tracks local patches on branches named `inputs/<superproject-branch>/<name>`. The pattern matches the implementation in [`mightyiam/infra`](https://github.com/mightyiam/infra) and is enforced by `modules/input-branches.nix`.
 
-Adopt the input-branches pattern used in infra to keep patched flake inputs (e.g., nixpkgs, home-manager, stylix) as branches inside this repo and reference them as submodules under `inputs/`. This improves patch tracking and rebasing while preserving upstream-first work.
+## Status Snapshot (September 2025)
 
-## Status
-
-- [x] inputs.self.submodules enabled in flake
-- [x] nixpkgs/home-manager/stylix redirected to `./inputs/*`
-- [x] `modules/input-branches.nix` added; flake module imported
-- [x] Upstreams configured; nixpkgs set `shallow = true`
-- [x] NixOS mitigation module imported and local nixpkgs source forced
-- [x] perSystem: commands exposed; `inputs/*` excluded from treefmt
-- [x] Pre-push hook present (implemented in `modules/meta/git-hooks.nix`)
-- [x] CI uses `actions/checkout@v4` with `submodules: true`, `fetch-depth: 0`
-- [x] Shallow/blobless default for nixpkgs with `HYDRATE_NIXPKGS` opt-in
-- [x] `.gitmodules` marks inputs/\* as `shallow = true`
-- [x] Recovery procedure for nixpkgs size regressions documented
+- ✅ `inputs.self.submodules = true` to expose submodule metadata to the flake evaluator.
+- ✅ `nixpkgs`, `home-manager`, and `stylix` point at local `./inputs/*` paths with `flake = true`.
+- ✅ `modules/input-branches.nix` imports the upstream flake module and rewires `nixpkgs.flake.source` to the local checkout.
+- ✅ per-system glue exposes helper commands and tells treefmt to skip `inputs/*`.
+- ✅ `.gitmodules` records each input with `url = ./.` and `shallow = true` for portability.
+- ✅ GitHub Actions checks out submodules (`submodules: true`, `fetch-depth: 0`).
+- ✅ `update-input-branches` helper keeps `inputs/nixpkgs` as a partial clone (blobless by default) and provides `HYDRATE_NIXPKGS` / `KEEP_WORKTREE` escape hatches.
 
 ## Prerequisites
 
-- Nix 2.27+ with experimental features enabled:
-  ```nix
-  experimental-features = nix-command flakes pipe-operators
-  ```
+- Use a recent Nix release that recognises `inputs.self.submodules` (repository tooling is tested with **Nix 2.31.1**).
+- Ensure `nixConfig.extra-experimental-features = [ "pipe-operators" ]` is honoured (already set in `flake.nix`).
+- Keep the primary remote named `origin`; helper scripts push and fetch from it.
 
-## Changes Required
+## Required Wiring
 
-- Flake inputs:
-  - Keep `inputs.self.submodules = true`.
-  - Point selected inputs to local paths: `nixpkgs.url = "./inputs/nixpkgs"`, `home-manager.url = "./inputs/home-manager"`, `stylix.url = "./inputs/stylix"` (match infra). Maintain `follows` as today.
-  - Keep other inputs remote as-is.
-  - Branch naming: commands derive branches as `inputs/<current-branch>/<name>` (examples often use `main`).
-  - Remote naming: ensure the primary remote is `origin` (commands push to `origin`).
-- Module: add `modules/input-branches.nix` (new file) to:
-  - `imports = [ inputs.input-branches.flakeModules.default ];`
-  - Configure upstreams with shallow clone for nixpkgs:
-    ```nix
-    input-branches.inputs = {
-      nixpkgs = {
-        upstream = {
-          url = "github:NixOS/nixpkgs";
-          ref = "nixpkgs-unstable";  # Standard unstable branch
-        };
-        shallow = true;  # Saves ~3GB disk space
-      };
-      home-manager.upstream = {
-        url = "github:nix-community/home-manager";
-        ref = "master";
-      };
-      stylix.upstream = {
-        url = "github:nix-community/stylix";
-        ref = "master";
-      };
-    };
-    ```
-  - Import the provided NixOS mitigation module: `imports = [ inputs.input-branches.modules.nixos.default ];` (disables git metadata and sets `nixpkgs.flake.source = null` to avoid superproject inclusion). This repo forces a local registry entry to match infra: `nixpkgs.flake.source = lib.mkForce (rootPath + "/inputs/nixpkgs");` — drop this override if not needed in your setup.
+1. **Flake Inputs** – already present in `flake.nix`:
+   ```nix
+   nixpkgs.url = "git+file:./inputs/nixpkgs";
+   home-manager.url = "git+file:./inputs/home-manager";
+   stylix.url = "git+file:./inputs/stylix";
+   ```
 
-### Shallow/Blobless Policy for nixpkgs
+2. **Module Import** – `modules/input-branches.nix`:
+   - Imports `inputs.input-branches.flakeModules.default`.
+   - Declares upstreams for all vendored inputs (nixpkgs uses `shallow = true`).
+   - Forces `nixpkgs.flake.source` to the local checkout so evaluation never hits the network when submodules are present.
+   - Exposes helper commands through `make-shells.default.packages` when the input-branches module is active.
+   - Tells treefmt to ignore `inputs/*` (faster formatting).
+   - Purposefully **does not** install a pre-push hook—pushing helpers live in the input-branches command set.
 
-- nixpkgs is maintained as a shallow, partial clone:
-  - `shallow = true` in `.gitmodules` for `inputs/nixpkgs`
-  - `remote.upstream.promisor = true` and `remote.upstream.partialclonefilter = blob:none`
-  - Optional: mirror the promisor/partialclonefilter on `remote.origin` inside the submodule
-- Dev workflow preserves bloblessness:
-  - The `update-input-branches` helper fetches nixpkgs with `--filter=blob:none` by default and only hydrates commit graphs.
-  - To opt-in to full hydration (rarely needed), set an environment variable when running the helper:
+3. **Dev Shell Integration** – the default shell surfaces:
+   - `input-branches-init`
+   - `input-branches-catalog`
+   - `update-input-branches`
+   - `input-branches-rebase-all`
+   - `input-branches-push-force`
 
-    ```bash
-    HYDRATE_NIXPKGS=1 update-input-branches
-    ```
+## Workflow Summary
 
-  - This keeps day-to-day operations fast and disk usage small, while allowing explicit full hydration when required.
-  - Need to keep a working tree for patching? Invoke the helper with `KEEP_WORKTREE=1` to skip the cleanup/reset step; unset it to return to the blobless layout.
-  - perSystem pre-push enforcement is already implemented in `modules/input-branches.nix`; no further action required here.
+1. Enter the shell: `nix develop`.
+2. Initialise (first-time only): `input-branches-init` then commit `.gitmodules` and the new submodule directories.
+3. Update inputs:
+   ```bash
+   nix develop -c update-input-branches    # rebases, pushes, refreshes flake.lock
+   ```
+4. Run validation (never skip):
+   ```bash
+   nix fmt
+   nix develop -c pre-commit run --all-files
+   generation-manager score
+   nix flake check --accept-flake-config
+   ```
+5. Push both the main branch and the `inputs/*` branches announced by the helper output.
 
-- Dev shell and hooks:
-  - `modules/devshell.nix` already enables treefmt and pre-commit; keep it as-is. Put the input-branches commands and pre-push hook in `modules/input-branches.nix` (above) to keep concerns separate. Keep `modules/meta/input-branches.nix` for metadata only.
-  - CI:
-  - Ensure Actions checkout uses submodules: `actions/checkout@v4` with `submodules: true` and `fetch-depth: 0`. Example:
-    ```yaml
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-        fetch-depth: 0
-    ```
+## Troubleshooting
 
-### Submodule Configuration (portability)
+- **Flake evaluation fails with “Cannot find Git revision …”** → the submodule commit was not pushed. Follow `docs/INPUT-BRANCHES-COMMON-ISSUES.md`.
+- **`inputs/nixpkgs` exploded in size** → run `git submodule deinit -f inputs/nixpkgs`, remove the directory, and re-run `update-input-branches`.
+- **Need a hydrated worktree** → set `KEEP_WORKTREE=1`. Combine with `HYDRATE_NIXPKGS=1` to fetch blobs temporarily.
 
-- Use repo-relative URLs for portability in `.gitmodules` and add branch hints for clarity:
+## Decommissioning
 
-```ini
-[submodule "inputs/nixpkgs"]
-  path = inputs/nixpkgs
-  url = ./.
-  branch = inputs/<current-branch>/nixpkgs
-  shallow = true
-[submodule "inputs/home-manager"]
-  path = inputs/home-manager
-  url = ./.
-  branch = inputs/<current-branch>/home-manager
-  shallow = true
-[submodule "inputs/stylix"]
-  path = inputs/stylix
-  url = ./.
-  branch = inputs/<current-branch>/stylix
-  shallow = true
-```
-
-- After editing `.gitmodules`, run `git submodule sync --recursive`.
-
-## Initialization (one-time, no builds)
-
-- `nix develop`
-- `input-branches-init` (creates `inputs/<name>/` submodules on `inputs/<current-branch>/<name>`; branch name is derived from the current git branch)
-- Commit generated files: `git add inputs/ .gitmodules && git commit -m "inputs: init input branches"`
-- After editing `.gitmodules`, run: `git submodule sync --recursive`
-- After a fresh clone: `git submodule update --init --recursive`.
-
-### Recovery from size regressions (nixpkgs)
-
-If nixpkgs becomes large (lost shallow/partial state), reinitialize it:
-
-1. Save the current SHA: `HEAD=$(git -C inputs/nixpkgs rev-parse HEAD)`
-2. `git submodule deinit -f inputs/nixpkgs`
-3. `rm -rf .git/modules/inputs/nixpkgs inputs/nixpkgs`
-4. Recreate shallow+blobless (either):
-   - `git submodule update --init --depth 1 inputs/nixpkgs` (works when relative `url=./.` resolves locally), or
-   - Manual shallow clone from superproject origin, then absorb:
-     - `git clone --filter=blob:none --depth 1 "$(git remote get-url origin)" inputs/nixpkgs`
-     - `git -C inputs/nixpkgs fetch --filter=blob:none --depth 1 origin inputs/<branch>/nixpkgs:inputs/<branch>/nixpkgs`
-     - `git submodule absorbgitdirs inputs/nixpkgs`
-5. Ensure upstream promisor+filter: add `upstream` and set `promisor=true`, `partialclonefilter=blob:none`
-6. `git -C inputs/nixpkgs checkout inputs/<branch>/nixpkgs`
-
-## Ongoing Workflow (no builds)
-
-- Validation checks (run before pushing):
-  - `nix fmt` - Format all Nix files
-  - `nix develop -c pre-commit run --all-files` - Run all pre-commit hooks (pre-commit stage)
-  - `generation-manager score` - Project-specific validation
-  - `nix flake check --accept-flake-config` - Verify flake outputs
-  - These explicit validation steps ensure CI/CD alignment and catch issues early
-  - Note: the pre-push hook runs on `git push`. To run it manually via pre-commit: `nix develop -c pre-commit run --hook-stage pre-push --all-files`.
-- Update a patched input:
-  - Edit under `inputs/<name>` on `inputs/<current-branch>/<name>`; commit and push that branch.
-  - Update reference in main: `git add inputs/<name> && git commit -m "<name>: bump"`.
-  - Rebase: `input-branches-rebase-<name>` (or loop over all); then `input-branches-push-force`.
-- Never run build/switch/GC commands from this repo automation.
-
-## Rollback & Exit
-
-- To revert: reset flake inputs back to GitHub URLs, remove submodules (`git rm -f inputs/<name>`), commit `.gitmodules` changes, and drop the module import.
-
-## Risks & Notes
-
-- Repo grows due to embedded inputs; treefmt excludes `inputs/*` to keep formatting fast.
-- Pre-push hook prevents broken submodule refs.
-- Minimal Nix version 2.27+ (requires `inputs.self.submodules`).
-- Use git checkout (not tarball) and enable submodules in CI (`actions/checkout@v4` with `submodules: true`).
-- Each input must be `flake = true` (have a `flake.nix`).
-- Superproject clean-state caveat: if needed, make the worktree dirty before Nix fetches submodules (see upstream README workaround).
-
-## Code Examples
-
-Example flake input redirects (partial):
-
-```nix
-{
-  inputs = {
-    self.submodules = true;
-    input-branches.url = "github:mightyiam/input-branches";
-
-    nixpkgs.url = "./inputs/nixpkgs";
-    home-manager = {
-      url = "./inputs/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    stylix = {
-      url = "./inputs/stylix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-  };
-}
-```
-
-Note: Examples may use pipe operators; equivalent expressions using standard lib combinators are acceptable.
+If you ever need to drop input branches, remove the submodules (`git rm inputs/<name>`), switch the flake inputs back to upstream URLs, clean up `.gitmodules`, and delete `modules/input-branches.nix` imports. Remember to update CI when you do this.

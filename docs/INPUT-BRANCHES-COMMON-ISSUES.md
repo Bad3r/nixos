@@ -43,13 +43,13 @@ The superproject commits a gitlink for `inputs/<name>` pointing at a specific co
 2. Refresh the flake lock so it tracks the updated local input HEADs:
 
 ```bash
-nix --accept-flake-config flake update
+nix flake update --accept-flake-config
 ```
 
 3. Re‑run checks:
 
 ```bash
-nix --accept-flake-config flake check --show-trace
+nix flake check --accept-flake-config --show-trace
 ```
 
 If the error was caused by an unpushed submodule commit, the above sequence resolves it.
