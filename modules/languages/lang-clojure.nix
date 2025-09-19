@@ -1,9 +1,13 @@
 { config, ... }:
 {
-  flake.nixosModules.lang.clojure.imports = with config.flake.nixosModules.apps; [
-    clojure-cli
-    clojure-lsp
-    leiningen
-    babashka
-  ];
+  flake.nixosModules.lang.clojure.imports =
+    let
+      inherit (config.flake.nixosModules) apps;
+    in
+    [
+      apps.clojure-cli
+      apps.clojure-lsp
+      apps.leiningen
+      apps.babashka
+    ];
 }
