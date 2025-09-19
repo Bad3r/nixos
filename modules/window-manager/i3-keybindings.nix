@@ -420,6 +420,7 @@
                 floating = {
                   modifier = "Mod1";
                   border = 5;
+                  titlebar = false;
                 };
 
                 focus = {
@@ -430,16 +431,17 @@
                 window = {
                   border = 5;
                   hideEdgeBorders = "both";
+                  titlebar = false;
                 };
 
                 workspaceAutoBackAndForth = true;
                 inherit workspaceOutputAssign;
 
                 gaps = {
-                  inner = 2;
-                  outer = 2;
-                  top = 2;
-                  bottom = 2;
+                  inner = 0;
+                  outer = 4;
+                  top = 6;
+                  bottom = 6;
                 };
 
                 bars = [
