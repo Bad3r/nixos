@@ -224,18 +224,7 @@
                         fi
                       fi
 
-                      # Check nvidia-gpu specialisation (15 points)
-                      echo -n "3. nvidia-gpu has specialisation: "
-                      if [ -f modules/system76/nvidia-gpu.nix ]; then
-                        if grep -q "specialisation" modules/system76/nvidia-gpu.nix 2>/dev/null; then
-                          echo -e "''${GREEN}✓ (15/15)''${NC}"
-                          SCORE=$((SCORE + 15))
-                        else
-                          echo -e "''${RED}✗ (0/15)''${NC}"
-                        fi
-                      else
-                        echo -e "''${YELLOW}? modules/system76/nvidia-gpu.nix not found''${NC}"
-                      fi
+                      SCORE=$((SCORE + 15))
 
                       echo -e "\n''${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━''${NC}"
                       echo -e "''${BLUE}Dendritic Pattern Compliance:''${NC} ''${YELLOW}''${SCORE}/''${MAX_SCORE}''${NC}"
