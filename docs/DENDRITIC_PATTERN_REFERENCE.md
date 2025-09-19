@@ -12,10 +12,10 @@ The Dendritic Pattern treats every file under `modules/` as a flake-parts module
 
 This flake exposes two merge-friendly aggregators:
 
-| Namespace | Purpose | Typical Exports |
-|-----------|---------|-----------------|
-| `flake.nixosModules` | System-level configuration | `base`, `pc`, `workstation`, `apps.<name>`, `roles.<name>`, `"role-dev"` aliases |
-| `flake.homeManagerModules` | Home Manager configuration | `base`, `gui`, `apps.<name>`, secrets helpers |
+| Namespace                  | Purpose                    | Typical Exports                                                                  |
+| -------------------------- | -------------------------- | -------------------------------------------------------------------------------- |
+| `flake.nixosModules`       | System-level configuration | `base`, `pc`, `workstation`, `apps.<name>`, `roles.<name>`, `"role-dev"` aliases |
+| `flake.homeManagerModules` | Home Manager configuration | `base`, `gui`, `apps.<name>`, secrets helpers                                    |
 
 Modules register themselves under these namespaces. Example (`modules/files/fzf.nix`):
 
@@ -50,7 +50,7 @@ Use `config.flake.nixosModules."role-dev"` (or the other `role-*` aliases) so ho
 
 Follow these rules when writing new modules:
 
-1. If you need `pkgs`, export a *function*:
+1. If you need `pkgs`, export a _function_:
    ```nix
    flake.nixosModules.dev-shell = { pkgs, ... }: { environment.systemPackages = with pkgs; [ jq yq ]; };
    ```

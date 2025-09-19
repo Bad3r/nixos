@@ -21,6 +21,7 @@ This repository vendors selected flake inputs (`nixpkgs`, `home-manager`, `styli
 ## Required Wiring
 
 1. **Flake Inputs** – already present in `flake.nix`:
+
    ```nix
    nixpkgs.url = "git+file:./inputs/nixpkgs";
    home-manager.url = "git+file:./inputs/home-manager";
