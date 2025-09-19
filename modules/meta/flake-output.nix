@@ -21,6 +21,16 @@
           default = { };
           description = "Helper functions and data for Home Manager (functions + small metadata only)";
         };
+        nixos = lib.mkOption {
+          type = lib.types.lazyAttrsOf lib.types.anything;
+          default = { };
+          description = "Helper functions and small metadata for NixOS modules (pure/idempotent; no heavy evaluation or side effects).";
+        };
+        checks = lib.mkOption {
+          type = lib.types.attrsOf lib.types.anything;
+          default = { };
+          description = "Flake-level evaluation checks (kept lightweight to avoid builds).";
+        };
       };
 
       homeManagerModules = lib.mkOption {
