@@ -158,6 +158,8 @@
             act
             jq
             yq
+            ripgrep
+            pre-commit
             age
             sops
             ssh-to-age

@@ -1,6 +1,10 @@
 { config, ... }:
 {
-  flake.nixosModules.lang.java.imports = with config.flake.nixosModules.apps; [
-    temurin-bin-24
-  ];
+  flake.nixosModules.lang.java.imports =
+    let
+      inherit (config.flake.nixosModules) apps;
+    in
+    [
+      apps.temurin-bin-24
+    ];
 }
