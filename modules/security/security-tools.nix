@@ -19,6 +19,8 @@
         pinentry-qt
         age
         sops
+        ssh-to-age
+        ssh-to-pgp
 
         # SSH tools
         openssh
