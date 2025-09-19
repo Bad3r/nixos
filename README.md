@@ -87,6 +87,7 @@ using [the _files_ flake-parts module](https://github.com/mightyiam/files):
 - `.actrc`
 - `.github/workflows/check.yml`
 - `.gitignore`
+- `.sops.yaml`
 - `.treefmt.toml`
 - `README.md`
 

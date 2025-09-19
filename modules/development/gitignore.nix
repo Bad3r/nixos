@@ -8,67 +8,67 @@ _: {
         {
           path_ = ".gitignore";
           drv = pkgs.writeText ".gitignore" ''
-              ########################################
-              # NixOS / Flakes outputs
-              ########################################
-              # Common Nix build symlinks
-              /result
-              /result-*
-              /result.*
-              *.log
-              ########################################
-              # Dev shells & tooling
-              ########################################
-              # pre-commit config is generated/symlinked via Nix in this repo
-              /.pre-commit-config.yaml
-              .pre-commit/
+            ########################################
+            # NixOS / Flakes outputs
+            ########################################
+            # Common Nix build symlinks
+            /result
+            /result-*
+            /result.*
+            *.log
 
-              # direnv state
-              .direnv/
-              .envrc.local
+            ########################################
+            # Dev shells & tooling
+            ########################################
+            # pre-commit config is generated/symlinked via Nix in this repo
+            /.pre-commit-config.yaml
+            .pre-commit/
 
-              # Tool/LSP caches (top-level and nested)
-              .clj-kondo/
-              .lsp/
-              **/.clj-kondo/**
-              **/.lsp/**
-              .kiro/
-              .code/
+            # direnv state
+            .direnv/
+            .envrc.local
 
-              ########################################
-              # Editors, OS cruft, and temp files
-              ########################################
-              .idea/
-              .DS_Store
-              Thumbs.db
-              *.swp
-              *.swo
-              *~
+            # Tool/LSP caches (top-level and nested)
+            .clj-kondo/
+            .lsp/
+            **/.clj-kondo/**
+            **/.lsp/**
+            .kiro/
+            .code/
 
-              ########################################
-              # Language/vendor caches (safe defaults)
-              ########################################
-              node_modules/
-              .cache/
+            ########################################
+            # Editors, OS cruft, and temp files
+            ########################################
+            .idea/
+            .DS_Store
+            Thumbs.db
+            *.swp
+            *.swo
+            *~
+
+            ########################################
+            # Language/vendor caches (safe defaults)
+            ########################################
+            node_modules/
+            .cache/
 
             ########################################
             # Secrets safety (defense-in-depth)
             # Do not commit private keys or local env files
             ########################################
-            /.sops.yaml
             *.agekey
             *.key
-              *.pem
-              *.p12
-              *.pfx
-              .env
-              .env.*
-              # Common SSH/private key patterns (allow public keys)
-              id_*
-              !id_*.pub
+            *.pem
+            *.p12
+            *.pfx
+            .env
+            .env.*
+            # Common SSH/private key patterns (allow public keys)
+            id_*
+            !id_*.pub
 
-              # If decrypting SOPS files locally, ignore any decrypted outputs in secrets/
-              secrets/*.dec*
+            # If decrypting SOPS files locally, ignore any decrypted outputs in secrets/
+            secrets/*.dec*
           '';
         }
       ];
