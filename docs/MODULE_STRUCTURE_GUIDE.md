@@ -112,7 +112,7 @@ Home Manager modules follow the same rules:
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `{ config, lib, pkgs, ... }:` at the top of the file  | Remove `pkgs` from the outer scope and wrap the exported value in a function that receives `{ pkgs, ... }`.        |
 | Referencing modules via `./path/to/module.nix`        | Import via `config.flake.nixosModules.<name>` or `config.flake.homeManagerModules.<name>` instead.                 |
-| Using `with config.flake.nixosModules.apps;` in roles | Replace with `lib.hasAttrByPath` + `lib.getAttrFromPath` (already enforced by pre-commit hooks).                   |
+| Using `with config.flake.nixosModules.apps;` in roles | Replace with `config.flake.lib.nixos.getApps` / `getApp` (enforced by pre-commit hooks).                           |
 | Forgetting to guard optional modules                  | Wrap definitions with `lib.mkIf` or `lib.optionals` so evaluation succeeds even when hardware/services are absent. |
 
 ## Introspection & Debugging
