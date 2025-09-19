@@ -24,6 +24,13 @@ This repository manages secrets with [sops](https://github.com/mozilla/sops) and
 2. Add the public key to `modules/security/sops-policy.nix` (it will replicate to `.sops.yaml` on the next `write-files`).
 3. Keep a secure offline copy of `/var/lib/sops-nix/key.txt`.
 
+### Home Manager user service
+
+The Home Manager side now runs `sops-nix.service` with an isolated home directory at
+`~/.local/share/sops-nix`. Make sure `~/.config/sops/age/keys.txt` contains the user Age
+identity (matching the `owner_bad3r` recipient). Because the service never sees `~/.ssh/`,
+hardware-backed SSH keys can coexist without breaking SOPS.
+
 ## Adding a New Secret
 
 1. Confirm the recipient exists in `.sops.yaml` (regenerate via `nix develop -c write-files` if you just edited the policy module).
@@ -63,12 +70,12 @@ The Home Manager module `modules/home/r2-user.nix` reads `sops.templates."r2"` (
 
 ## Common Issues
 
-| Symptom | Fix |
-|---------|-----|
-| `no secret material for …` | Check that the encrypted file exists. Declarations are guarded with `pathExists`. |
-| `Unknown recipient` while editing | Regenerate `.sops.yaml` (`nix develop -c write-files`) or add the key to `modules/security/sops-policy.nix`. |
-| `Permission denied` reading secret | Adjust the `owner`/`group` fields in the module; sops-nix enforces them strictly. |
-| `act` complaining about missing token | Ensure `/etc/act/secrets.env` exists (run `sudo nixos-rebuild switch` after editing secrets). |
+| Symptom                               | Fix                                                                                                          |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `no secret material for …`            | Check that the encrypted file exists. Declarations are guarded with `pathExists`.                            |
+| `Unknown recipient` while editing     | Regenerate `.sops.yaml` (`nix develop -c write-files`) or add the key to `modules/security/sops-policy.nix`. |
+| `Permission denied` reading secret    | Adjust the `owner`/`group` fields in the module; sops-nix enforces them strictly.                            |
+| `act` complaining about missing token | Ensure `/etc/act/secrets.env` exists (run `sudo nixos-rebuild switch` after editing secrets).                |
 
 ## Validation Commands
 
