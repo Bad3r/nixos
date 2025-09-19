@@ -281,8 +281,8 @@
               name = "ensure-sops";
               entry = "${pkgs.pre-commit-hook-ensure-sops}/bin/pre-commit-hook-ensure-sops";
               pass_filenames = true;
-              # Limit to common secret file types under the secrets/ directory
-              files = "^secrets/.*\\.(yaml|yml|json|env|ini)$";
+              # Align with example policy: include structured and binary encrypted secret formats
+              files = "^secrets/.*\\.(yaml|yml|json|env|ini|age|enc)$";
             };
 
             # Managed files drift check (via files writer)
