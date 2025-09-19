@@ -1,6 +1,12 @@
 { config, lib, ... }:
 let
-  names = [
+  helpers = config._module.args.nixosAppHelpers or { };
+  rawHelpers = (config.flake.lib.nixos or { }) // helpers;
+  fallbackHasApp = name: lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules;
+  fallbackGetApp = name: lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules;
+  fallbackGetApps = names: map fallbackGetApp (lib.filter fallbackHasApp names);
+  getApps = rawHelpers.getApps or fallbackGetApps;
+  netApps = [
     "httpx"
     "curlie"
     "tor"
@@ -10,16 +16,12 @@ let
     "ktailctl"
     "networkmanager-dmenu"
   ];
-  hasApp = name: lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules;
-  getApp = name: lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules;
-  roleImports = (map getApp (lib.filter hasApp names)) ++ [
-    config.flake.nixosModules."vpn-defaults"
-  ];
+  roleImports =
+    getApps netApps
+    # Non-app import: shared VPN defaults module lives outside the apps namespace.
+    ++ [ config.flake.nixosModules."vpn-defaults" ];
 in
 {
-  # Networking role: bring in networking apps via robust lookup and include VPN defaults
   flake.nixosModules.roles.net.imports = roleImports;
-
-  # Stable alias for host imports (avoid self-referencing nested aggregator)
   flake.nixosModules."role-net".imports = roleImports;
 }
