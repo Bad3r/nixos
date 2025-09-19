@@ -463,34 +463,22 @@ Templates allow embedding multiple secrets into configuration files. By default,
     };
   };
 
-  # Recommended: Git credential helper that reads the token at runtime
-  let
-    helper = pkgs.writeShellScriptBin "git-credential-sops" ''
-      #!/usr/bin/env bash
-      # Implements Git's credential helper protocol.
-      # Reads request on stdin, writes credentials on stdout.
-      # See: gitcredentials(7)
-      protocol="" host="" path="" username=""
-      while IFS= read -r line; do
-        case "$line" in
-          protocol=*) protocol="${line#protocol=}" ;;
-          host=*) host="${line#host=}" ;;
-          path=*) path="${line#path=}" ;;
-          username=*) username="${line#username=}" ;;
-        esac
-      done
-      echo username=oauth2
-      echo password=$(cat ${config.sops.secrets.github_token.path})
-    '';
-  in {
-    home.packages = [ helper ];
-    # Configure Git per-URL to use the credential helper for GitHub
-    # (run these once for the user):
-    #   git config --global credential.useHttpPath true
-    #   git config --global 'credential.https://github.com.helper' '!${helper}/bin/git-credential-sops'
-  }
+  home.packages = [
+    config.flake.packages.${pkgs.system}.git-credential-sops
+  ];
+
+  # Configure Git per-URL to use the credential helper for GitHub.
+  # Run these once for the user (helper is provided by the system profile):
+  #   export SOPS_GIT_TOKEN_PATH=/run/secrets/act/github_token
+  #   git config --global credential.useHttpPath true
+  #   git config --global 'credential.https://github.com.helper' '!git-credential-sops'
 }
 ```
+
+> Repository default: the shared Home-Manager base module sets
+> `sops.age.keyFile = "${config.home.homeDirectory}/.config/sops/age/keys.txt"`
+> (via `lib.mkDefault`). Create this file—or override the option—before running
+> `home-manager switch` to avoid decryption failures.
 
 ### CI/CD Integration
 

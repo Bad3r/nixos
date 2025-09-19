@@ -5,7 +5,7 @@ This checklist is an actionable plan to implement the patterns described in `doc
 ## Execution Order and Verification
 
 - [x] Phase 0 — Prerequisites
-  - [ ] Nix flakes enabled; repo builds and evaluates.
+  - [x] Nix flakes enabled; repo builds and evaluates.
   - [x] `sops` and `age` available locally (via devshell or system).
 - [ ] Phase 1 — Governance + Keys
   - [ ] Create `.sops.yaml` with recipients (your admin key + host keys), readable diffs configured.
@@ -13,7 +13,7 @@ This checklist is an actionable plan to implement the patterns described in `doc
   - [ ] Verify: `sops -e` works and diffs are readable; `sops -d` succeeds using `SOPS_AGE_KEY_FILE`.
 - [x] Phase 2 — Wire sops‑nix
   - [x] Import `sops-nix` module(s); set `sops.age.keyFile`; choose default vs per‑secret.
-  - [ ] Verify: `nix flake check --accept-flake-config` evaluates.
+  - [x] Verify: `nix flake check --accept-flake-config` evaluates.
 - [ ] Phase 3 — First Secret + Template
   - [ ] Encrypt a secret file; declare `sops.secrets` and (optionally) `sops.templates`; expose a stable path.
   - [ ] Verify: configuration evaluates; secret references use `.path`/templates (no eval‑time reads).
@@ -99,7 +99,7 @@ Cross‑reference: See `docs/sops-nixos.md` → Advanced Patterns (Templates), Q
 Cross‑reference: See `docs/sops-nixos.md` → Home‑Manager Integration, Quick Reference (Ordering).
 
 - [ ] Import `inputs.sops-nix.homeManagerModules.sops`.
-- [ ] Set user key: `sops.age.keyFile = "/home/<user>/.age-key.txt";` (no passphrase).
+- [x] Set user key: `sops.age.keyFile = "/home/<user>/.age-key.txt";` (no passphrase).
 - [ ] Use `%r` for runtime paths; optionally set `defaultSopsFile`.
 - [ ] Order dependent user services: `systemd.user.services.<name>.unitConfig.After = [ "sops-nix.service" ];` and optionally `Wants = [ "sops-nix.service" ];`.
 - [ ] Generate a developer Age key if needed:
@@ -111,7 +111,7 @@ Cross‑reference: See `docs/sops-nixos.md` → Home‑Manager Integration, Quic
 
 Cross‑reference: See `docs/sops-nixos.md` → Tools and Utilities, Quick Reference (Git credential helper).
 
-- [ ] Ensure devshell includes: `sops`, `age`, `ssh-to-age`, `ssh-to-pgp`, `act`, and helper scripts.
+- [x] Ensure devshell includes: `sops`, `age`, `ssh-to-age`, `ssh-to-pgp`, `act`, and helper scripts.
 - [ ] Add a short personal note for generating your Age key and adding it as a recipient.
 - [ ] Provide commands to list and dry‑run GitHub Actions locally.
 - [ ] Configure a Git credential helper that reads a sops‑managed token at runtime and scope it per URL:
