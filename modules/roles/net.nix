@@ -2,10 +2,14 @@
 let
   helpers = config._module.args.nixosAppHelpers or { };
   rawHelpers = (config.flake.lib.nixos or { }) // helpers;
-  fallbackHasApp = name: lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules;
-  fallbackGetApp = name: lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules;
-  fallbackGetApps = names: map fallbackGetApp (lib.filter fallbackHasApp names);
-  getApps = rawHelpers.getApps or fallbackGetApps;
+  fallbackGetApp =
+    name:
+    if lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules then
+      lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules
+    else
+      throw ("Unknown NixOS app '" + name + "' (role net)");
+  getApp = rawHelpers.getApp or fallbackGetApp;
+  getApps = rawHelpers.getApps or (names: map getApp names);
   netApps = [
     "httpx"
     "curlie"
