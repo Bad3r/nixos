@@ -1,231 +1,139 @@
-# NixOS Module Structure Guide
+# Module Structure Guide
 
-This guide explains the correct patterns for writing modules in this flake-parts + import-tree based NixOS configuration.
+This document shows how modules are authored and consumed in this flake-parts + import-tree repository. Read it together with `docs/DENDRITIC_PATTERN_REFERENCE.md` for the overall pattern.
 
-## Overview
+## Key Concepts
 
-This repository uses:
+- Every `.nix` file under `modules/` (unless prefixed with `_`) is a flake-parts module automatically imported by `import-tree`.
+- Modules register themselves under the aggregators exposed by this flake:
+  - `flake.nixosModules.<name>` for system configuration.
+  - `flake.homeManagerModules.<name>` and `flake.homeManagerModules.apps.<name>` for Home Manager.
+  - `configurations.nixos.<host>.module` for complete host definitions (transformed into `nixosConfigurations.<host>`).
+- Consumers compose these exports by *name*, never by literal path.
 
-- **flake-parts**: For modular flake composition
-- **import-tree**: For automatic module discovery (all `.nix` files in `modules/` are imported)
-- **Namespace pattern**: Modules export to `flake.nixosModules.*` or `flake.homeManagerModules.*`
+## Authoring Patterns
 
-## Module Structure Patterns
-
-### Pattern 1: Module That Needs Packages
-
-Use this when your module needs to access `pkgs`:
+### 1. Module That Needs `pkgs`
 
 ```nix
-# modules/my-feature.nix
-{ config, lib, ... }:
+# modules/development/json-tools.nix
+{ config, ... }:
 {
-  flake.nixosModules.my-feature = { pkgs, ... }: {
-    # Your NixOS configuration here
-    environment.systemPackages = with pkgs; [
-      some-package
-    ];
-
-    services.some-service.enable = true;
+  flake.homeManagerModules.base = { pkgs, ... }: {
+    home.packages = with pkgs; [ jq yq jnv ];
   };
 }
 ```
 
-**Key points:**
+- The outer function **does not** receive `pkgs`—flake-parts does not provide it at that level.
+- The value assigned to the aggregator key is a function (`{ pkgs, ... }:`) so you can access packages.
 
-- The module file takes `{ config, lib, ... }` (NO pkgs at this level)
-- The value assigned to `flake.nixosModules.my-feature` is a FUNCTION that takes `{ pkgs, ... }`
-- This module can be imported by other modules using `config.flake.nixosModules.my-feature`
-
-### Pattern 2: Module Contributing to Multiple Namespaces
+### 2. Module Without `pkgs`
 
 ```nix
-# modules/feature-with-home-manager.nix
-{ config, lib, pkgs, ... }:
-{
-  flake.nixosModules.my-feature = {
-    # System-level configuration
-    services.my-service.enable = true;
-  };
-
-  flake.homeManagerModules.base = {
-    # User-level configuration
-    programs.my-program.enable = true;
-  };
-}
-```
-
-### Pattern 3: Module Without Package Dependencies
-
-If your module doesn't need `pkgs`:
-
-```nix
-# modules/simple-config.nix
-{
-  flake.nixosModules.pc = {
-    time.timeZone = "America/New_York";
-    i18n.defaultLocale = "en_US.UTF-8";
-  };
-}
-```
-
-### Pattern 4: Module That Extends Existing Namespaces
-
-```nix
-# modules/extends-pc.nix
+# modules/networking/ssh-hosts.nix
 { lib, ... }:
 {
-  flake.nixosModules.pc = lib.mkIf true {
-    services.some-service.enable = true;
+  flake.homeManagerModules.base = _: {
+    programs.ssh.knownHosts = lib.mkMerge [ … ];
   };
 }
 ```
 
-## Common Pitfalls
+Return an attribute set directly when you do not need extra arguments.
 
-### ❌ WRONG: Using pkgs from Outer Scope
+### 3. Multi-namespace Module
 
 ```nix
-# DON'T DO THIS!
-{ config, lib, pkgs, ... }:  # ← pkgs is NOT available in flake-parts context
+# modules/git/git.nix
+{ pkgs, ... }:
 {
-  flake.nixosModules.my-feature = {  # ← This needs to be a function to access pkgs
-    environment.systemPackages = with pkgs; [ ... ];  # ← pkgs is undefined!
+  flake.nixosModules.git = { ... }: {
+    programs.git.enable = true;
+  };
+
+  flake.homeManagerModules.base = { pkgs, ... }: {
+    programs.git = {
+      enable = true;
+      package = pkgs.gitFull;
+    };
   };
 }
 ```
 
-The `pkgs` parameter at the module file level is NOT populated in flake-parts context.
+One file can populate both aggregators. Keep the scopes independent.
 
-### ✅ CORRECT: Module Value as Function
+### 4. Extending Existing Namespaces
 
 ```nix
-# When your module needs pkgs, make the value a function
-{ config, lib, ... }:  # ← No pkgs here - it's not available
+# modules/base/nix-settings.nix
+{ lib, ... }:
 {
-  flake.nixosModules.my-feature = { pkgs, ... }: {  # ← Function that takes pkgs
-    environment.systemPackages = with pkgs; [ ... ];  # ← Now pkgs is available
+  flake.nixosModules.base = lib.mkIf true {
+    nix.settings.experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
   };
 }
 ```
 
-### ✅ CORRECT: Module Without pkgs
+Use `lib.mkIf`, `lib.mkMerge`, and other option helpers to extend shared modules without clobbering their defaults.
+
+### 5. Host Modules
+
+Host definitions bundle modules together and live under `configurations.nixos.<host>.module`.
 
 ```nix
-# When your module doesn't need pkgs, use direct attribute set
-{ config, lib, ... }:
-{
-  flake.nixosModules.my-feature = {
-    services.some-service.enable = true;
-    networking.hostName = "example";
-  };
-}
-```
-
-## How Modules Are Used
-
-### 1. Automatic Import
-
-All `.nix` files in `modules/` are automatically imported by import-tree (except files starting with `_`).
-
-### 2. Module Registration
-
-Each module registers itself under `flake.nixosModules.*` or `flake.homeManagerModules.*`.
-
-### 3. Module Composition
-
-Modules can import each other:
-
-```nix
-# modules/composite.nix
+# modules/system76/imports.nix
 { config, ... }:
 {
-  flake.nixosModules.my-composite = {
+  configurations.nixos.system76.module = {
     imports = with config.flake.nixosModules; [
-      base-packages
-      my-feature
-      another-feature
+      base
+      pc
+      workstation
+      "role-dev"
     ];
-
-    # Additional configuration
   };
 }
 ```
 
-### 4. Host Configuration
+The helper in `modules/configurations/nixos.nix` transforms these into `nixosConfigurations.system76` outputs.
 
-Host configurations use the registered modules:
+## Home Manager Aggregator
 
-```nix
-# modules/nixosConfigurations/my-host.nix
-{ config, ... }:
-{
-  configurations.nixos.my-host.module = {
-    imports = [
-      config.flake.nixosModules.workstation
-      config.flake.nixosModules.my-composite
-    ];
+Home Manager modules follow the same rules:
 
-    networking.hostName = "my-host";
-  };
-}
-```
+- Shared modules land in `flake.homeManagerModules.base` and `flake.homeManagerModules.gui`.
+- App-specific modules live under `flake.homeManagerModules.apps.<name>`.
+- Roles are pure data in `flake.lib.homeManager.roles` and resolved in `modules/home-manager/nixos.nix`. See `docs/home-manager-aggregator.md` for details.
 
-## Module Types
+## Common Pitfalls (and Fixes)
 
-### System Modules
+| Mistake | Fix |
+|---------|-----|
+| `{ config, lib, pkgs, ... }:` at the top of the file | Remove `pkgs` from the outer scope and wrap the exported value in a function that receives `{ pkgs, ... }`. |
+| Referencing modules via `./path/to/module.nix` | Import via `config.flake.nixosModules.<name>` or `config.flake.homeManagerModules.<name>` instead. |
+| Using `with config.flake.nixosModules.apps;` in roles | Replace with `lib.hasAttrByPath` + `lib.getAttrFromPath` (already enforced by pre-commit hooks). |
+| Forgetting to guard optional modules | Wrap definitions with `lib.mkIf` or `lib.optionals` so evaluation succeeds even when hardware/services are absent. |
 
-- Namespace: `flake.nixosModules.*`
-- Purpose: NixOS system configuration
-- Example: services, packages, hardware config
-
-### Home Manager Modules
-
-- Namespace: `flake.homeManagerModules.*`
-- Sub-namespaces: `base` (CLI), `gui` (graphical)
-- Purpose: User environment configuration
-- Example: dotfiles, user packages, desktop settings
-
-### Host Modules
-
-- Namespace: `configurations.nixos.<name>.module`
-- Purpose: Define complete system configurations
-- Transformed into flake.nixosConfigurations by modules/configurations/nixos.nix
-
-## Best Practices
-
-1. **One Purpose Per Module**: Keep modules focused on a single feature or concern
-2. **Clear Naming**: Use descriptive names that indicate the module's purpose
-3. **Document Dependencies**: Comment when a module depends on others
-4. **Use Namespaces**: Organize related configurations under common namespaces
-5. **Avoid Deep Nesting**: Keep the module structure relatively flat
-
-## Debugging Tips
-
-### Check Module Exports
+## Introspection & Debugging
 
 ```bash
-nix repl /home/vx/nixos
-> :p flake.nixosModules
+nix develop -c nix repl
+> :lf .
+> :p config.flake.nixosModules            # inspect registered modules
+> :p config.flake.homeManagerModules.apps # inspect Home Manager apps
+
+nix eval .#nixosConfigurations.system76.config.boot.loader
 ```
 
-### Verify Module Structure
+`generation-manager score` evaluates a set of structural checks (no literal imports, required metadata, etc.) and must stay at **≥ 90/90** before merging.
 
-```bash
-nix eval /home/vx/nixos#nixosConfigurations.system76.config.environment.systemPackages
-```
+## Migration Tips
 
-### Common Errors
+1. Split large legacy configurations into logical modules under `modules/<domain>/`.
+2. Export each feature under a descriptive key (e.g. `flake.nixosModules.pipewire`).
+3. Move host-specific knobs into `configurations.nixos.<host>.module`.
+4. Replace `imports = [ ./foo.nix ];` with aggregator references.
+5. Run the validation suite: `nix fmt`, `nix develop -c pre-commit run --all-files`, `generation-manager score`, `nix flake check --accept-flake-config`.
 
-1. **"attribute 'pkgs' missing"**: Module needs `pkgs` in its parameter list
-2. **"expected a set but got a function"**: Remove function wrapper from flake.nixosModules assignment
-3. **"infinite recursion"**: Check for circular imports between modules
-
-## Migration from Traditional NixOS
-
-If migrating from a traditional NixOS configuration:
-
-1. Split configuration into logical modules
-2. Each module should export to `flake.nixosModules.<name>`
-3. Use the patterns above based on your needs
-4. Test incrementally by importing modules one at a time
+Following these patterns keeps modules composable and predictable throughout the Dendritic Pattern.

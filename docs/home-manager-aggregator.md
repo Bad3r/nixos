@@ -1,50 +1,79 @@
-Home Manager Aggregator (flake.homeManagerModules)
+# Home Manager Aggregator (`flake.homeManagerModules`)
 
-Overview
+This repository exposes Home Manager modules via a dedicated aggregator so they compose exactly like system modules.
 
-- Aggregation schema lives under `flake.homeManagerModules` with mergeable types:
-  - `base`: deferred module (merged across files)
-  - `gui`: deferred module (merged across files)
-  - `apps`: attrset of deferred modules keyed by app name (merged by key)
-- Roles are data (not modules) under `flake.lib.homeManager.roles` and are resolved to concrete modules at the glue layer.
+## Namespace Layout
 
-Defining modules
+| Key | Type | Description |
+|-----|------|-------------|
+| `flake.homeManagerModules.base` | Deferred module (merged) | Bootstrap for every user: shell defaults, CLI tools, shared options. |
+| `flake.homeManagerModules.gui` | Deferred module (merged) | Desktop integrations pulled into graphical hosts. |
+| `flake.homeManagerModules.apps.<name>` | Deferred module (per key) | Individual applications (CLI or GUI) addressed by name. |
+| `flake.homeManagerModules.r2Secrets`, `context7Secrets`, … | Deferred modules | Optional helpers that wire sops-managed material when present. |
 
-- Base module (merged):
-  flake.homeManagerModules.base = \_: {
-  home.sessionVariables.TZ = "Asia/Riyadh";
+Modules register into these keys exactly once. Because flake-parts merges by attribute name, multiple files can extend `base`/`gui` safely:
+
+```nix
+# modules/files/fzf.nix
+_: {
+  flake.homeManagerModules.base = { pkgs, ... }: {
+    programs.fzf.enable = true;
   };
+}
 
-- GUI module (merged):
+# modules/messaging-apps/discord.nix
+_: {
   flake.homeManagerModules.gui = { pkgs, ... }: {
-  home.packages = [ pkgs.libnotify ];
+    home.packages = [ pkgs.discord ];
   };
+}
+```
 
-- App modules (per-name, merged by key):
-  flake.homeManagerModules.apps.alacritty = \_: {
-  programs.alacritty.enable = true;
+Per-app modules live under `apps.<name>` and **must** be functions:
+
+```nix
+# modules/apps/kitty.nix
+_: {
+  flake.homeManagerModules.apps.kitty = { pkgs, ... }: {
+    programs.kitty.enable = true;
   };
+}
+```
 
-Roles as data
+## Roles as Data
 
-- Declare roles in `flake.lib.homeManager.roles` (data only):
-  {
-  cli = [ "bat" "eza" "fzf" ];
+Role membership is stored as pure data in `flake.lib.homeManager.roles` (`modules/meta/hm-roles.nix`). Example:
+
+```nix
+flake.lib.homeManager.roles = {
+  cli = [ "codex" "bat" "eza" "fzf" ];
   terminals = [ "kitty" "alacritty" "wezterm" ];
-  }
+};
+```
 
-Resolving roles to modules (glue)
+The glue layer in `modules/home-manager/nixos.nix` resolves those app names using guarded lookups:
 
-- At the NixOS→HM glue, map role names to app modules and append them to the user imports:
-  let
-  roles = config.flake.lib.homeManager.roles or { };
-  getApp = name: config.flake.homeManagerModules.apps.${name};
-    roleToModules = role: map getApp (roles.${role} or [ ]);
-  in
-  users.${user}.imports = [ ... ] ++ (roleToModules "cli") ++ (roleToModules "terminals");
+```nix
+hasApp = name: lib.hasAttrByPath [ "apps" name ] config.flake.homeManagerModules;
+getApp = name:
+  if hasApp name then lib.getAttrFromPath [ "apps" name ] config.flake.homeManagerModules
+  else throw "Unknown Home Manager app '${name}' referenced by roles";
+roleToModules = roleName: map getApp (roles.${roleName} or [ ]);
+```
 
-Notes
+Each user import list starts with base modules (`inputs.sops-nix.homeManagerModules.sops`, state-version glue, `base`, secrets helpers) and then appends `roleToModules "cli"` and `roleToModules "terminals"`. Extend roles by editing `modules/meta/hm-roles.nix`; no code changes required.
 
-- Always provide module functions (`_: { ... }`) for `base`, `gui`, and each `apps.<name>`.
-- Avoid dot-assignments like `flake.homeManagerModules.base.home.* = …`; use a module value instead.
-- Keep tests hermetic: do not import the aggregator directly in HM checks.
+## Authoring Rules
+
+1. **Always export a module value** – avoid `flake.homeManagerModules.base.home.sessionVariables = …;` style dot assignments.
+2. **Guard optional modules** – if an app depends on a secret or package, check for availability in the module body.
+3. **Keep names stable** – the key under `apps.<name>` is the lookup string used by roles. Prefer lowercase hyphen-less identifiers (`kitty`, `wezterm`, `codex`).
+4. **Document secrets** – when an app needs credentials, reference `docs/sops-nixos.md` so readers know how to provide them.
+
+## Validation
+
+- `nix fmt`
+- `nix develop -c pre-commit run --all-files`
+- `nix flake check --accept-flake-config`
+
+If you add a new role or change role membership, update `modules/meta/hm-roles.nix` and rerun the checks above. Any missing app reference throws during evaluation because of the guarded lookup.
