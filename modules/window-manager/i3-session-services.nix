@@ -15,84 +15,104 @@
           kittyCommand = lib.getExe pkgs.kitty;
           dolphinCommand = lib.getExe' pkgs.kdePackages.dolphin "dolphin";
           xfsettingsdCommand = "${pkgs.xfce.xfce4-settings}/bin/xfsettingsd";
-          xfce4PowerManagerCommand = lib.getExe' pkgs.xfce.xfce4-power-manager "xfce4-power-manager";
           lxsessionCommand = lib.getExe' pkgs.lxsession "lxsession";
           lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] null config;
         in
         {
-          services = {
-            dunst.enable = lib.mkDefault true;
-            picom = {
-              enable = lib.mkDefault true;
-              settings = lib.mkDefault {
-                backend = "glx";
-              };
-            };
-            udiskie = {
-              enable = lib.mkDefault true;
-              tray = lib.mkDefault "always";
-              settings = lib.mkDefault {
-                program_options = {
-                  file_manager = dolphinCommand;
-                  terminal = kittyCommand;
+          services = lib.mkMerge [
+            {
+              dunst.enable = lib.mkDefault true;
+              picom = {
+                enable = lib.mkDefault true;
+                settings = lib.mkDefault {
+                  backend = "glx";
                 };
               };
-            };
-            network-manager-applet.enable = lib.mkDefault true;
-          }
-          // lib.optionalAttrs (lockCommand != null) {
-            screen-locker = {
-              enable = true;
-              lockCmd = lockCommand;
-              inactiveInterval = 39;
-              xautolock.enable = false;
-            };
-          };
+              udiskie = {
+                enable = lib.mkDefault true;
+                tray = lib.mkDefault "always";
+                settings = lib.mkDefault {
+                  program_options = {
+                    file_manager = dolphinCommand;
+                    terminal = kittyCommand;
+                  };
+                };
+              };
+              network-manager-applet.enable = lib.mkDefault true;
+            }
+            (lib.optionalAttrs (lockCommand != null) {
+              screen-locker = {
+                enable = true;
+                lockCmd = lockCommand;
+                inactiveInterval = 39;
+                xautolock = {
+                  enable = true;
+                  detectSleep = true;
+                };
+                xss-lock.extraOptions = [ "--transfer-sleep-lock" ];
+              };
+            })
+          ];
 
-          systemd.user.services = {
-            lxsession = {
-              Unit = {
-                Description = "LXSession session manager";
-                After = [ "graphical-session.target" ];
-                PartOf = [ "graphical-session.target" ];
+          systemd.user.services = lib.mkMerge [
+            {
+              lxsession = {
+                Unit = {
+                  Description = "LXSession session manager";
+                  After = [ "graphical-session.target" ];
+                  PartOf = [ "graphical-session.target" ];
+                };
+                Install.WantedBy = [ "graphical-session.target" ];
+                Service = {
+                  ExecStart = lxsessionCommand;
+                  Restart = "on-failure";
+                };
               };
-              Install.WantedBy = [ "graphical-session.target" ];
-              Service = {
-                ExecStart = lxsessionCommand;
-                Restart = "on-failure";
-              };
-            };
 
-            xfsettingsd = {
-              Unit = {
-                Description = "Xfce settings daemon";
-                After = [ "graphical-session.target" ];
-                PartOf = [ "graphical-session.target" ];
+              xfsettingsd = {
+                Unit = {
+                  Description = "Xfce settings daemon";
+                  After = [ "graphical-session.target" ];
+                  PartOf = [ "graphical-session.target" ];
+                };
+                Install.WantedBy = [ "graphical-session.target" ];
+                Service = {
+                  ExecStart = xfsettingsdCommand;
+                  Restart = "on-failure";
+                };
               };
-              Install.WantedBy = [ "graphical-session.target" ];
-              Service = {
-                ExecStart = xfsettingsdCommand;
-                Restart = "on-failure";
+            }
+            (lib.optionalAttrs (lockCommand != null) {
+              "i3lock-handler" = {
+                Unit = {
+                  Description = "Lock screen for suspend events";
+                  Documentation = [ "man:i3lock(1)" ];
+                  After = [ "graphical-session.target" ];
+                  Before = [
+                    "lock.target"
+                    "sleep.target"
+                  ];
+                  PartOf = [
+                    "lock.target"
+                    "sleep.target"
+                  ];
+                  OnSuccess = [ "unlock.target" ];
+                };
+                Install = {
+                  WantedBy = [
+                    "lock.target"
+                    "sleep.target"
+                  ];
+                };
+                Service = {
+                  Type = "simple";
+                  ExecStart = "${lockCommand} --nofork";
+                  Restart = "on-failure";
+                  RestartSec = 0;
+                };
               };
-            };
-
-            "xfce4-power-manager" = {
-              Unit = {
-                Description = "Xfce power manager";
-                After = [
-                  "graphical-session.target"
-                  "tray.target"
-                ];
-                Requires = [ "tray.target" ];
-                PartOf = [ "graphical-session.target" ];
-              };
-              Install.WantedBy = [ "graphical-session.target" ];
-              Service = {
-                ExecStart = xfce4PowerManagerCommand;
-                Restart = "on-failure";
-              };
-            };
-          };
+            })
+          ];
         }
       );
     };
