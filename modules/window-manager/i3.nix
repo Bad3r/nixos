@@ -29,7 +29,7 @@
         dunst
         hsetroot
         i3lock-color
-        i3-auto-layout
+        autotiling-rs
         i3status-rust
         kitty
         firefox
