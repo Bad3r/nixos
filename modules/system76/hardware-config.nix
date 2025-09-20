@@ -163,5 +163,10 @@ in
           ExecStart = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
         };
       };
+
+      hardware.system76.darp6 = {
+        soundVendorId = lib.mkDefault "0x10de0083";
+        soundSubsystemId = lib.mkDefault "0x155895e2";
+      };
     };
 }

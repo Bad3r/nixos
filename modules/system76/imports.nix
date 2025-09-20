@@ -23,6 +23,7 @@ in
   configurations.nixos.system76.module = {
     imports = [
       inputs.nixos-hardware.nixosModules.system76
+      inputs.nixos-hardware.nixosModules.system76-darp6
       nixosModules.workstation
       nixosModules.system76-support
       nixosModules."role-dev"
