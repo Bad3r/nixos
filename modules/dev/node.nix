@@ -6,7 +6,6 @@
       inherit (config.flake.nixosModules) apps;
     in
     [
-      apps.nodejs_22
       apps.nodejs_24
       apps.yarn
       apps.nrm
