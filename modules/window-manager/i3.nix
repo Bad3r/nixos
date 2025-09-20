@@ -3,17 +3,25 @@
     { pkgs, lib, ... }:
     {
       # X11 + i3 window manager
-      services.xserver = {
-        enable = lib.mkDefault true;
-        windowManager.i3 = {
-          enable = true;
-          package = pkgs.i3-gaps;
+      services = {
+        xserver = {
+          enable = lib.mkDefault true;
+          windowManager.i3 = {
+            enable = true;
+            package = pkgs.i3-gaps;
+          };
+          displayManager.lightdm.enable = true;
         };
-        displayManager.lightdm.enable = true;
-      };
 
-      # Renamed path for default session
-      services.displayManager.defaultSession = "none+i3";
+        displayManager = {
+          # Renamed path for default session
+          defaultSession = "none+i3";
+        };
+
+        "systemd-lock-handler" = {
+          enable = lib.mkDefault true;
+        };
+      };
 
       # Provide core tools referenced by the i3 session
       environment.systemPackages = with pkgs; [
