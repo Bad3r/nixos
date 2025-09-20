@@ -345,14 +345,18 @@
           format = " $timestamp.datetime(f:'%a %d/%m %R') ";
         }
       ];
+      iconSet = "awesome6";
       i3statusBarConfig = {
-        icons = "awesome6";
+        icons = iconSet;
         blocks = i3statusBlocks;
         settings = {
           icons_format = "{icon}";
-          icons.overrides = {
-            cpu = "";
-            update = "";
+          icons = {
+            icons = iconSet;
+            overrides = {
+              cpu = "";
+              update = "";
+            };
           };
           theme = themeSettings;
         };
@@ -471,7 +475,6 @@
                   // {
                     "Control+Shift+q" = "kill";
                     "${mod}+Return" = "exec ${kittyCommand}";
-                    "Control+Shift+t" = "exec ${kittyCommand}";
                     "${mod}+w" = "exec ${firefoxCommand}";
                     "${mod}+d" = "exec ${rofiCommand}";
                     "${mod}+b" = "exec ${rofimojiCommand}";
@@ -546,6 +549,18 @@
                       class = "(?i)(?:qt5ct|pinentry)";
                     };
                     command = "floating enable, focus";
+                  }
+                  {
+                    criteria = {
+                      class = "(?i)^(?:firefox|librewolf|waterfox|floorp|zen(?:[- ]browser)?|brave-browser|vivaldi(?:-stable)?|chromium|google-chrome|microsoft-edge(?:-stable)?|tor(?:[- ]browser)?|thorium-browser)$";
+                    };
+                    command = "border pixel 1";
+                  }
+                  {
+                    criteria = {
+                      class = "(?i)^kitty$";
+                    };
+                    command = "border pixel 1";
                   }
                 ];
               };

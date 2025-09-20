@@ -29,6 +29,7 @@ in
       nixosModules."role-dev"
       nixosModules."role-media"
       nixosModules."role-net"
+      nixosModules."role-gaming"
     ]
     ++ lib.optional (lib.hasAttr "ssh" nixosModules) nixosModules.ssh;
   };

@@ -56,6 +56,19 @@
 
           systemd.user.services = lib.mkMerge [
             {
+              autotiling-rs = {
+                Unit = {
+                  Description = "Autotiling for i3";
+                  After = [ "graphical-session.target" ];
+                  PartOf = [ "graphical-session.target" ];
+                };
+                Install.WantedBy = [ "graphical-session.target" ];
+                Service = {
+                  ExecStart = "${lib.getExe pkgs.autotiling-rs} --replace";
+                  Restart = "on-failure";
+                };
+              };
+
               lxsession = {
                 Unit = {
                   Description = "LXSession session manager";

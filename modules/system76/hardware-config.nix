@@ -50,6 +50,9 @@ in
           #   hplipWithPlugin  # Requires unfree license
           # ];
         };
+
+        # Ship Intel Sound Open Firmware blobs for the Cannon Lake DSP
+        firmware = lib.mkAfter [ pkgs.sof-firmware ];
       };
 
       # Boot configuration

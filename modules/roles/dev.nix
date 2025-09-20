@@ -26,6 +26,7 @@ let
     "tokei"
     "hyperfine"
     "git-filter-repo"
+    "forgit"
     "exiftool"
     "niv"
     "tealdeer"

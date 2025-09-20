@@ -94,9 +94,8 @@ _: {
         })
 
         (lib.mkIf (cfg.mode == "hybrid-sync") {
-          services.xserver.videoDrivers = [
+          services.xserver.videoDrivers = lib.mkForce [
             "nvidia"
-            "modesetting"
           ];
 
           # Enable PRIME sync so the internal panel stays driven by the iGPU but surfaces are rendered on NVIDIA.
