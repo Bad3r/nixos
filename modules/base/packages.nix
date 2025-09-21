@@ -23,6 +23,7 @@ _: {
           gawk
           gnugrep
           gnused
+          rip2
           which
 
           # Clipboard utilities
