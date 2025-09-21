@@ -4,16 +4,9 @@
     { pkgs, ... }:
     {
       packages = {
-        hello-custom = pkgs.writeShellApplication {
-          name = "hello-custom";
-          runtimeInputs = with pkgs; [ coreutils ];
-          text = ''
-            echo "Hello from custom package!"
-          '';
-        };
 
-        dnsleak-cli = pkgs.writeShellApplication {
-          name = "dnsleak-cli";
+        dnsleak = pkgs.writeShellApplication {
+          name = "dnsleak";
           runtimeInputs = with pkgs; [
             curl
             jq
@@ -36,8 +29,7 @@
     { pkgs, ... }:
     {
       environment.systemPackages = [
-        config.flake.packages.${pkgs.system}.hello-custom
-        config.flake.packages.${pkgs.system}.dnsleak-cli
+        config.flake.packages.${pkgs.system}.dnsleak
       ];
     };
 }
