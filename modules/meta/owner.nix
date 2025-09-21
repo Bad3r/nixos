@@ -7,7 +7,7 @@
       name = "Bad3r";
       matrix = "@bad3r:matrix.org";
       sshKeys = [
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHj4fDeDKrAatG6IW5aEgA4ym8l+hj/r7Upeos11Gqu5 bad3r@unsigned.sh"
+        "sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29tAAAAIBBzWtUqOIpeaT+X+BvXKLZmhfevYbGDc0CLsuI3MfUdAAAABHNzaDo= bad3r@unsigned.sh"
       ];
     };
 
@@ -16,9 +16,8 @@
         users.users.${config.flake.lib.meta.owner.username} = {
           isNormalUser = true;
           initialPassword = "";
-          # User-specific groups that should follow the owner across all hosts
+
           extraGroups = [
-            "input"
             "wheel"
             "networkmanager"
             "docker"
