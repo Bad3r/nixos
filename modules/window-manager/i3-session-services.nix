@@ -49,7 +49,7 @@
                   enable = true;
                   detectSleep = true;
                 };
-                xss-lock.extraOptions = [ "--transfer-sleep-lock" ];
+                xss-lock.enable = false;
               };
             })
           ];

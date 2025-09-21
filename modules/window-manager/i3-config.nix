@@ -19,11 +19,26 @@
       };
       stylixAvailable = config ? stylix && config.stylix ? targets && config.stylix.targets ? i3;
       stylixBarOverrides = lib.attrByPath [ "lib" "stylix" "i3status-rust" "bar" ] null config;
+      baseThemeOverrides = {
+        idle_bg = "#1e1e2e";
+        idle_fg = "#cdd6f4";
+        good_bg = "#1d3557";
+        good_fg = "#f1faee";
+        info_bg = "#457b9d";
+        info_fg = "#f1faee";
+        warning_bg = "#e9c46a";
+        warning_fg = "#1d1d1d";
+        critical_bg = "#e76f51";
+        critical_fg = "#1d1d1d";
+        separator_bg = "#1e1e2e";
+        separator_fg = "#cdd6f4";
+      };
+      themeOverrideSet = lib.recursiveUpdate baseThemeOverrides (
+        if stylixBarOverrides != null then stylixBarOverrides else { }
+      );
       themeSettings = {
         theme = "plain";
-      }
-      // lib.optionalAttrs (stylixBarOverrides != null) {
-        overrides = stylixBarOverrides;
+        overrides = themeOverrideSet;
       };
       stylixExportedBarConfig =
         if stylixAvailable then config.stylix.targets.i3.exportedBarConfig else { };
@@ -97,11 +112,13 @@
       lockCommandValue = lib.attrByPath [ "gui" "i3" "lockCommand" ] lockCommandDefault config;
       i3Commands = lib.attrByPath [ "gui" "i3" "commands" ] commandsDefault config;
       netInterface = lib.attrByPath [ "gui" "i3" "netInterface" ] null config;
-      netBlock = {
+      netBlockBase = {
         block = "net";
         interval = 5;
-      }
-      // lib.optionalAttrs (netInterface != null) { device = netInterface; };
+        format = " $icon {$ssid|$device} $ip ";
+        format_alt = " $icon  $speed_down.eng(prefix:K)/s  $speed_up.eng(prefix:K)/s ";
+      };
+      netBlock = netBlockBase // lib.optionalAttrs (netInterface != null) { device = netInterface; };
       i3statusBlocks = [
         netBlock
         {
@@ -112,15 +129,18 @@
           interval = 20;
           warning = 15.0;
           alert = 10.0;
+          format = " $icon $available.eng(w:2) ";
+          format_alt = " $icon $used.eng(w:2) / $total.eng(w:2) ";
         }
         {
           block = "memory";
-          format = " $icon $mem_total_used_percents ";
-          format_alt = " $icon_swap $swap_used_percents ";
+          format = " $icon $mem_total_used_percents.eng(w:2) ";
+          format_alt = " $icon_swap $swap_used_percents.eng(w:2) ";
         }
         {
           block = "cpu";
           interval = 1;
+          format = " $icon $utilization ";
         }
         {
           block = "load";
@@ -132,7 +152,11 @@
           interval = 10;
           format = " $icon $max ";
         }
-        { block = "sound"; }
+        {
+          block = "sound";
+          format = " $icon $volume ";
+          format_muted = " $icon muted ";
+        }
         {
           block = "battery";
           interval = 30;
@@ -141,7 +165,7 @@
         {
           block = "time";
           interval = 60;
-          format = " $timestamp.datetime(f:'%a %d/%m %R') ";
+          format = " $icon $timestamp.datetime(f:'%a %d/%m %R') ";
         }
       ];
       stylixBarOptions =
@@ -192,14 +216,17 @@
                 ""
               ];
               net_wired = "";
-              net_down = " ";
-              net_up = " ";
+              net_down = "";
+              net_up = "";
               net_vpn = "";
               net_loopback = "";
               net_unknown = "";
             };
           };
           theme = themeSettings;
+          separator = "";
+          separator_bg = themeOverrideSet.separator_bg or baseThemeOverrides.separator_bg;
+          separator_fg = themeOverrideSet.separator_fg or baseThemeOverrides.separator_fg;
         };
       };
       workspaceOutputAssign = [
