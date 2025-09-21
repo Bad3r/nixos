@@ -335,7 +335,7 @@
 
               window = {
                 border = 5;
-                hideEdgeBorders = "both";
+                hideEdgeBorders = "none";
                 titlebar = false;
               };
 
@@ -343,10 +343,10 @@
               inherit workspaceOutputAssign;
 
               gaps = {
-                inner = 2;
-                outer = 2;
-                top = 2;
-                bottom = 2;
+                inner = 0;
+                outer = 4;
+                top = 6;
+                bottom = 6;
               };
 
               bars = [
@@ -396,9 +396,9 @@
                   command = "border pixel 5";
                 }
               ];
-
-              extraConfig = lib.mkAfter baseExtraConfig;
             };
+
+            extraConfig = lib.mkAfter baseExtraConfig;
           };
         };
       };
