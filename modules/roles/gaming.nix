@@ -15,7 +15,6 @@ let
     "wine-tools"
     "mangohud"
     "lutris"
-    "hollow-knight-silksong"
   ];
   roleImports = getApps gamingApps;
 in
