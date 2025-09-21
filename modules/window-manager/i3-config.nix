@@ -85,8 +85,32 @@
       lockPalette = if stylixLockPalette != null then stylixLockPalette else defaultLockPalette;
       lockScript = pkgs.writeShellApplication {
         name = "i3lock-stylix";
-        runtimeInputs = [ pkgs.i3lock-color ];
+        runtimeInputs = [
+          pkgs.i3lock-color
+          pkgs.procps
+          pkgs.xorg.xbacklight
+        ];
         text = ''
+          set -eu
+
+          cache_dir="''${XDG_CACHE_HOME:-$HOME/.cache}/i3lock"
+          brightness_file="$cache_dir/brightness"
+
+          restore_brightness() {
+            if [ -f "$brightness_file" ]; then
+              target=$(cat "$brightness_file")
+              xbacklight -set "$target" >/dev/null 2>&1 || true
+              rm -f "$brightness_file"
+            fi
+          }
+
+          if pgrep -x i3lock-color > /dev/null; then
+            exit 0
+          fi
+
+          mkdir -p "$cache_dir"
+          restore_brightness
+
           exec i3lock-color \
             --color=${lockPalette.background} \
             --inside-color=${lockPalette.background} \
