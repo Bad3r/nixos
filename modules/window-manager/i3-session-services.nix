@@ -17,6 +17,59 @@
           xfsettingsdCommand = "${pkgs.xfce.xfce4-settings}/bin/xfsettingsd";
           lxsessionCommand = lib.getExe' pkgs.lxsession "lxsession";
           lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] null config;
+          dimWarningScript = pkgs.writeShellApplication {
+            name = "i3-dim-warning";
+            runtimeInputs = [
+              pkgs.coreutils
+              pkgs.procps
+              pkgs.gawk
+              pkgs.xorg.xbacklight
+            ];
+            text = ''
+              set -eu
+
+              target=80
+              cache_dir="''${XDG_CACHE_HOME:-$HOME/.cache}/i3lock"
+              brightness_file="$cache_dir/brightness"
+
+              current=$(xbacklight -get 2>/dev/null || printf "")
+              if [ -z "$current" ]; then
+                exit 0
+              fi
+
+              if ! awk "BEGIN {exit !($current > $target)}"; then
+                exit 0
+              fi
+
+              mkdir -p "$cache_dir"
+              printf '%s\n' "$current" > "$brightness_file"
+
+              xbacklight -set "$target" >/dev/null 2>&1 || true
+
+              restore_brightness() {
+                if [ -f "$brightness_file" ]; then
+                  target_restore=$(cat "$brightness_file")
+                  xbacklight -set "$target_restore" >/dev/null 2>&1 || true
+                  rm -f "$brightness_file"
+                fi
+              }
+
+              (
+                set +e
+                set +u
+                for _ in $(seq 60); do
+                  sleep 1
+                  if pgrep -x i3lock-color >/dev/null; then
+                    exit 0
+                  fi
+                done
+
+                if ! pgrep -x i3lock-color >/dev/null; then
+                  restore_brightness
+                fi
+              ) &
+            '';
+          };
         in
         {
           services = lib.mkMerge [
@@ -48,6 +101,12 @@
                 xautolock = {
                   enable = true;
                   detectSleep = true;
+                  extraOptions = [
+                    "-notify"
+                    "60"
+                    "-notifier"
+                    (lib.getExe dimWarningScript)
+                  ];
                 };
               };
             })
