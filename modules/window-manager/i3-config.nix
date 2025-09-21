@@ -18,39 +18,8 @@
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
       };
       stylixAvailable = config ? stylix && config.stylix ? targets && config.stylix.targets ? i3;
-      stylixBarOverrides = lib.attrByPath [ "lib" "stylix" "i3status-rust" "bar" ] null config;
-      baseThemeOverrides = {
-        idle_bg = "#1e1e2e";
-        idle_fg = "#cdd6f4";
-        good_bg = "#1d3557";
-        good_fg = "#f1faee";
-        info_bg = "#457b9d";
-        info_fg = "#f1faee";
-        warning_bg = "#e9c46a";
-        warning_fg = "#1d1d1d";
-        critical_bg = "#e76f51";
-        critical_fg = "#1d1d1d";
-        separator_bg = "#1e1e2e";
-        separator_fg = "#cdd6f4";
-      };
-      themeOverrideSet = lib.recursiveUpdate baseThemeOverrides (
-        if stylixBarOverrides != null then stylixBarOverrides else { }
-      );
-      themeSettings = {
-        theme = "plain";
-        overrides = themeOverrideSet;
-      };
-      stylixExportedBarConfig =
-        if stylixAvailable then config.stylix.targets.i3.exportedBarConfig else { };
       stylixColors =
         if stylixAvailable then lib.attrByPath [ "lib" "stylix" "colors" ] null config else null;
-      stylixFontName =
-        if stylixAvailable && config.stylix.fonts ? sansSerif then
-          config.stylix.fonts.sansSerif.name
-        else
-          null;
-      stylixFontSize =
-        if stylixAvailable && config.stylix.fonts ? sizes then config.stylix.fonts.sizes.desktop else null;
       toLockColor =
         colorHex:
         let
@@ -179,7 +148,7 @@
         {
           block = "sound";
           format = " $icon $volume ";
-          format_muted = " $icon muted ";
+          show_volume_when_muted = false;
         }
         {
           block = "battery";
@@ -192,67 +161,60 @@
           format = " $icon $timestamp.datetime(f:'%a %d/%m %R') ";
         }
       ];
-      stylixBarOptions =
-        (lib.optionalAttrs (stylixExportedBarConfig ? colors) {
-          inherit (stylixExportedBarConfig) colors;
-        })
-        // (lib.optionalAttrs (stylixFontName != null && stylixFontSize != null) {
-          fonts = {
-            names = [ stylixFontName ];
-            size = stylixFontSize * 1.0;
-          };
-        });
-      iconSet = "awesome6";
-      i3statusBarConfig = {
-        icons = iconSet;
-        blocks = i3statusBlocks;
-        settings = {
-          icons_format = "{icon}";
-          icons = {
-            icons = iconSet;
-            overrides = {
-              cpu = "";
-              update = "";
-              temp = [
-                ""
-                ""
-                ""
-              ];
-              volume = [
-                ""
-                ""
-                ""
-              ];
-              volume_muted = "";
-              bat = [
-                ""
-                ""
-                ""
-                ""
-                ""
-              ];
-              bat_charging = "";
-              net_wireless = [
-                "▂"
-                "▃"
-                "▅"
-                "▇"
-                ""
-              ];
-              net_wired = "";
-              net_down = "";
-              net_up = "";
-              net_vpn = "";
-              net_loopback = "";
-              net_unknown = "";
+      i3statusBarConfig =
+        let
+          stylixThemeOverrides = lib.attrByPath [ "lib" "stylix" "i3status-rust" "bar" ] { } config;
+        in
+        {
+          blocks = i3statusBlocks;
+          settings = {
+            icons = {
+              icons = "awesome6";
+              overrides = {
+                cpu = "";
+                update = "";
+                temp = [
+                  ""
+                  ""
+                  ""
+                ];
+                volume = [
+                  ""
+                  ""
+                  ""
+                ];
+                volume_muted = "";
+                bat = [
+                  ""
+                  ""
+                  ""
+                  ""
+                  ""
+                ];
+                bat_charging = "";
+                net_wireless = [
+                  "▂"
+                  "▃"
+                  "▅"
+                  "▇"
+                  ""
+                ];
+                net_wired = "";
+                net_down = "";
+                net_up = "";
+                net_vpn = "";
+                net_loopback = "";
+                net_unknown = "";
+              };
+            };
+          }
+          // lib.optionalAttrs (stylixThemeOverrides != { }) {
+            theme = {
+              theme = "plain";
+              overrides = stylixThemeOverrides;
             };
           };
-          theme = themeSettings;
-          separator = "";
-          separator_bg = themeOverrideSet.separator_bg or baseThemeOverrides.separator_bg;
-          separator_fg = themeOverrideSet.separator_fg or baseThemeOverrides.separator_fg;
         };
-      };
       workspaceOutputAssign = [
         {
           workspace = "1";
@@ -411,7 +373,7 @@
                     workspaceNumbers = true;
                     statusCommand = lib.getExe pkgs.i3status-rust;
                   }
-                  // stylixBarOptions
+                  // config.stylix.targets.i3.exportedBarConfig
                 )
               ];
 
