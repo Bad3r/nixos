@@ -167,68 +167,70 @@
     in
     {
       config = lib.mkIf i3Enabled {
-        xsession.windowManager.i3.config = {
-          keybindings = lib.mkOptionDefault (
-            workspaceBindings
-            // moveContainerBindings
-            // {
-              "Control+Shift+q" = "kill";
-              "${mod}+Return" = "exec ${kittyCommand}";
-              "${mod}+w" = "exec ${firefoxCommand}";
-              "${mod}+d" = "exec ${rofiCommand}";
-              "${mod}+b" = "exec ${rofimojiCommand}";
-              "${mod}+Shift+c" = "reload";
-              "${mod}+Shift+r" = "restart";
-              "${mod}+Shift+q" = "kill";
-              "${mod}+Shift+e" = "exec systemctl suspend";
-              "${mod}+s" = "exec ${screenshotCommand}";
-              "${mod}+f" = "fullscreen toggle";
-              "${mod}+semicolon" = "split horizontal";
-              "${mod}+v" = "split vertical";
-              "${mod}+t" = "split toggle";
-              "${mod}+Shift+s" = "layout stacking";
-              "${mod}+Shift+t" = "layout tabbed";
-              "${mod}+Shift+x" = "layout toggle split";
-              "${mod}+space" = "floating toggle";
-              "${mod}+Shift+space" = "focus mode_toggle";
-              "${mod}+p" = "focus parent";
-              "${mod}+c" = "focus child";
-              "${mod}+Shift+z" = "move scratchpad";
-              "${mod}+z" = "scratchpad show";
-              "${mod}+Shift+b" = "border toggle";
-              "${mod}+n" = "border normal";
-              "${mod}+y" = "border pixel 3";
-              "${mod}+u" = "border none";
-              "Mod1+1" = "workspace prev";
-              "Mod1+2" = "workspace next";
-              "${mod}+h" = "focus left";
-              "${mod}+j" = "focus down";
-              "${mod}+k" = "focus up";
-              "${mod}+l" = "focus right";
-              "${mod}+Shift+h" = "move left";
-              "${mod}+Shift+j" = "move down";
-              "${mod}+Shift+k" = "move up";
-              "${mod}+Shift+l" = "move right";
-              "XF86AudioPlay" = "exec ${playerctlCommand} play-pause";
-              "XF86AudioNext" = "exec ${playerctlCommand} next";
-              "XF86AudioPrev" = "exec ${playerctlCommand} previous";
-              "XF86AudioStop" = "exec ${playerctlCommand} stop";
-              "XF86AudioMute" = "exec ${pamixerCommand} -t";
-              "XF86AudioRaiseVolume" = "exec ${pamixerCommand} -i 2";
-              "XF86AudioLowerVolume" = "exec ${pamixerCommand} -d 2";
-              "XF86MonBrightnessUp" = "exec ${xbacklightCommand} -inc 10";
-              "XF86MonBrightnessDown" = "exec ${xbacklightCommand} -dec 10";
-              "${mod}+Shift+g" = "mode \"${gapsModeName}\"";
-              "${mod}+Control+l" = "exec ${lockCommand}";
-            }
-          );
+        xsession.windowManager.i3 = {
+          config = {
+            keybindings = lib.mkOptionDefault (
+              workspaceBindings
+              // moveContainerBindings
+              // {
+                "Control+Shift+q" = "kill";
+                "${mod}+Return" = "exec ${kittyCommand}";
+                "${mod}+w" = "exec ${firefoxCommand}";
+                "${mod}+d" = "exec ${rofiCommand}";
+                "${mod}+b" = "exec ${rofimojiCommand}";
+                "${mod}+Shift+c" = "reload";
+                "${mod}+Shift+r" = "restart";
+                "${mod}+Shift+q" = "kill";
+                "${mod}+Shift+e" = "exec systemctl suspend";
+                "${mod}+s" = "exec ${screenshotCommand}";
+                "${mod}+f" = "fullscreen toggle";
+                "${mod}+semicolon" = "split horizontal";
+                "${mod}+v" = "split vertical";
+                "${mod}+t" = "split toggle";
+                "${mod}+Shift+s" = "layout stacking";
+                "${mod}+Shift+t" = "layout tabbed";
+                "${mod}+Shift+x" = "layout toggle split";
+                "${mod}+space" = "floating toggle";
+                "${mod}+Shift+space" = "focus mode_toggle";
+                "${mod}+p" = "focus parent";
+                "${mod}+c" = "focus child";
+                "${mod}+Shift+z" = "move scratchpad";
+                "${mod}+z" = "scratchpad show";
+                "${mod}+Shift+b" = "border toggle";
+                "${mod}+n" = "border normal";
+                "${mod}+y" = "border pixel 3";
+                "${mod}+u" = "border none";
+                "Mod1+1" = "workspace prev";
+                "Mod1+2" = "workspace next";
+                "${mod}+h" = "focus left";
+                "${mod}+j" = "focus down";
+                "${mod}+k" = "focus up";
+                "${mod}+l" = "focus right";
+                "${mod}+Shift+h" = "move left";
+                "${mod}+Shift+j" = "move down";
+                "${mod}+Shift+k" = "move up";
+                "${mod}+Shift+l" = "move right";
+                "XF86AudioPlay" = "exec ${playerctlCommand} play-pause";
+                "XF86AudioNext" = "exec ${playerctlCommand} next";
+                "XF86AudioPrev" = "exec ${playerctlCommand} previous";
+                "XF86AudioStop" = "exec ${playerctlCommand} stop";
+                "XF86AudioMute" = "exec ${pamixerCommand} -t";
+                "XF86AudioRaiseVolume" = "exec ${pamixerCommand} -i 2";
+                "XF86AudioLowerVolume" = "exec ${pamixerCommand} -d 2";
+                "XF86MonBrightnessUp" = "exec ${xbacklightCommand} -inc 10";
+                "XF86MonBrightnessDown" = "exec ${xbacklightCommand} -dec 10";
+                "${mod}+Shift+g" = "mode \"${gapsModeName}\"";
+                "${mod}+Control+l" = "exec ${lockCommand}";
+              }
+            );
 
-          keycodebindings = {
-            "Mod1+23" = "layout toggle tabbed split";
-            "${mod}+23" = "layout toggle splitv splith";
+            keycodebindings = {
+              "Mod1+23" = "layout toggle tabbed split";
+              "${mod}+23" = "layout toggle splitv splith";
+            };
+
+            modes = lib.mkOptionDefault { resize = resizeModeBindings; };
           };
-
-          modes = lib.mkOptionDefault { resize = resizeModeBindings; };
 
           extraConfig = lib.mkAfter gapsModesExtraConfig;
         };
