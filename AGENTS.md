@@ -41,3 +41,22 @@
 
 - Assume the operator is `default_user`; if uncertain, confirm identity before acting.
 - Start every interaction with “Remembering...” while querying stored knowledge, and log new facts about people, preferences, and workflows in the knowledge graph.
+
+## MCP Browser Tools
+
+- `accounts_list`: List the available Cloudflare Browser accounts; call once before other actions to pick the right tenant.
+- `set_active_account`: Point subsequent browser calls at the desired account by passing the `id` retrieved from `accounts_list`.
+- `get_url_html_content`: Fetch the raw HTML for a URL when you need full markup for parsing or inspection.
+- `get_url_markdown`: Convert a URL to simplified Markdown; use for quick readability or note-taking.
+- `get_url_screenshot`: Capture a rendered PNG of the target page for visual confirmation or archival.
+
+## DeepWiki Tools
+
+- `read_wiki_structure`: List the DeepWiki table of contents for a repository, so you can spot relevant sections quickly before diving in.
+- `read_wiki_contents`: Stream the full article text for a specific section slug when you need detailed background.
+- `ask_question`: Pose natural-language questions against the repo’s knowledge base to get concise, cited summaries on demand.
+
+## Context7 Tools
+
+- `resolve-library-id`: Look up the Context7-compatible identifier for a package or product name; call this first unless the exact ID is already supplied.
+- `get-library-docs`: Retrieve targeted documentation for a resolved library ID (optionally scoping by topic or token budget) to embed authoritative references in answers.
