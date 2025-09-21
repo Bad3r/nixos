@@ -49,7 +49,6 @@
                   enable = true;
                   detectSleep = true;
                 };
-                xss-lock.enable = false;
               };
             })
           ];
@@ -123,6 +122,9 @@
                   Restart = "on-failure";
                   RestartSec = 0;
                 };
+              };
+              "xss-lock" = {
+                Install.WantedBy = lib.mkForce [ ];
               };
             })
           ];
