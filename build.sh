@@ -256,7 +256,7 @@ main() {
   status_msg "${YELLOW}" "Deploying '${HOSTNAME}' via nixos-rebuild (${ACTION})..."
   case "${ACTION}" in
   switch | boot)
-    /run/wrappers/bin/sudo --preserve-env=NIX_CONFIG,NIX_CONFIGURATION nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${HOSTNAME}" --accept-flake-config "${NIX_FLAGS[@]}"
+    /run/wrappers/bin/sudo --preserve-env=NIX_CONFIG,NIX_CONFIGURATION,SSH_AUTH_SOCK nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${HOSTNAME}" --accept-flake-config "${NIX_FLAGS[@]}"
     if [[ ${ACTION} == "switch" ]]; then
       status_msg "${GREEN}" "System switched successfully!"
     else
