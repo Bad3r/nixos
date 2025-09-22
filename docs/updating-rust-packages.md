@@ -24,7 +24,7 @@ This guide summarizes the common flow for bumping Rust crates that live under `i
 ## 3. Update `package.nix`
 
 - Bump `version` and the `fetchFromGitHub` attributes to the new values.
-- Set `cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";` temporarily so Nix can compute the vendor hash on the next build.
+- Set `cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";` temporarily so Nix can compute the vendor hash on the next build. Using `lib.fakeSha256` is discouraged because it obscures the remaining work; the explicit dummy hash makes the follow-up replacement obvious in reviews.
 - Adjust any tooling regex or metadata if the new tag format changes (e.g. allowing `-alpha.1`).
 
 ## 4. Recompute `cargoHash`
