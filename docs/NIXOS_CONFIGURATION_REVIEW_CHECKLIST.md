@@ -32,7 +32,7 @@ Capture the resulting score/output in the review notes.
   ```
 - [ ] Confirm roles compose apps via guarded lookups (no `with config.flake.nixosModules.apps;`). Pre-commit enforces this, but double-check diffs in `modules/roles/`.
 - [ ] For any new module, ensure it exports under a namespace rather than importing by path.
-- [ ] When a change touches Home Manager modules, also review `modules/meta/hm-roles.nix` and `modules/home-manager/nixos.nix` to ensure role data and glue stay consistent.
+- [ ] When a change touches Home Manager modules, review `modules/home-manager/nixos.nix` to ensure the default app list reflects the intended behaviour.
 
 ## 3. Host Review (`system76`)
 
