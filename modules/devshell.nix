@@ -49,10 +49,30 @@
                 fi
 
                 git add -u inputs || true
-                if git diff --cached --quiet -- inputs; then
+
+                echo "==> Refreshing flake.lock for vendored inputs"
+                lock_args=()
+                while IFS= read -r path; do
+                  case "''${path}" in
+                    inputs/*)
+                      lock_args+=("--update-input" "''${path##*/}")
+                      ;;
+                    *) ;;
+                  esac
+                done < <(git config --file .gitmodules --get-regexp "^submodule\\..*\\.path" | awk "{print \$2}")
+
+                if [ "''${#lock_args[@]}" -gt 0 ]; then
+                  if nix flake lock "''${lock_args[@]}"; then
+                    git add flake.lock || true
+                  else
+                    echo "Warning: nix flake lock failed; leaving flake.lock untouched" >&2
+                  fi
+                fi
+
+                if git diff --cached --quiet -- inputs flake.lock; then
                   echo "No input bumps to commit."
                 else
-                  git -c core.hooksPath=/dev/null commit --no-verify -m "chore(inputs): bump inputs (gitlinks only)" -- inputs
+                  git -c core.hooksPath=/dev/null commit --no-verify -m "chore(inputs): bump vendored inputs" -- inputs flake.lock
                 fi
 
                 if [ ''${status} -ne 0 ]; then
