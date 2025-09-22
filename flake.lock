@@ -118,11 +118,11 @@
     "cpu-microcodes": {
       "flake": false,
       "locked": {
-        "lastModified": 1757762790,
-        "narHash": "sha256-/d9HoPNjYgXse2y3dKIVms5oeGBj5Gf3NbRJAdoYxcg=",
+        "lastModified": 1758484353,
+        "narHash": "sha256-zpbmZqUIhmTW01PunE5eXkYzQsMDqOOshr/KjNXeL7A=",
         "owner": "platomav",
         "repo": "CPUMicrocodes",
-        "rev": "940dd3dacd577144172372f8c8f2e176db0c9de4",
+        "rev": "518e82e753bbd7df44264cac38dc98e6a4ede8c6",
         "type": "github"
       },
       "original": {
@@ -176,11 +176,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1758482493,
-        "narHash": "sha256-0zR0RxMkqCDS6LXKQTkvsumf5TcfWtXTDppN4QXFsgg=",
+        "lastModified": 1758527908,
+        "narHash": "sha256-B2S1GEvcB7UR64VFslnOE7a40sknSGS/flIlwMzQ17k=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "b8392a3c142ba2d3c4145785c769f4f22e2a6ab7",
+        "rev": "1989eab0cce5405ea41fe3660c9259a5297a9b70",
         "type": "github"
       },
       "original": {
@@ -585,11 +585,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1758436456,
-        "narHash": "sha256-e0vm4luPzF74U7V9oXG5dcdlfaXgyoL+PcOJpV6NBbw=",
+        "lastModified": 1758528102,
+        "narHash": "sha256-JX9NNVNyP+Nqep/27uSmnbvlT8BWVW0JBx4k3hPVgLQ=",
         "ref": "refs/heads/_input-branches-temp",
-        "rev": "b7efbcd9f3ee1a979647a6041a06b25472423b75",
-        "revCount": 4,
+        "rev": "5c36a75dffc456c174fc3e9d3b2e7d1291bd9f37",
+        "revCount": 6,
         "type": "git",
         "url": "file:./inputs/nixpkgs"
       },
