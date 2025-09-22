@@ -4,4 +4,10 @@
     {
       environment.systemPackages = [ pkgs.tealdeer ];
     };
+
+  flake.nixosModules.workstation =
+    { pkgs, ... }:
+    {
+      environment.systemPackages = [ pkgs.tealdeer ];
+    };
 }

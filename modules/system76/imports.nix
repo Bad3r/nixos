@@ -5,7 +5,23 @@
   ...
 }:
 let
-  inherit (config.flake) nixosModules;
+  flake = config.flake or { };
+  nixosModules = flake.nixosModules or { };
+  hasModule = name: lib.hasAttr name nixosModules;
+  getModule = name: if hasModule name then lib.getAttr name nixosModules else null;
+  roleNames = [
+    "role-dev"
+    "role-media"
+    "role-net"
+    "role-gaming"
+  ];
+  roleModules = lib.filter (module: module != null) (map getModule roleNames);
+  baseModules = lib.filter (module: module != null) [
+    inputs.nixos-hardware.nixosModules.system76
+    inputs.nixos-hardware.nixosModules.system76-darp6
+    (getModule "workstation")
+    (getModule "system76-support")
+  ];
   selfRevision =
     let
       self = inputs.self or null;
@@ -21,17 +37,7 @@ let
 in
 {
   configurations.nixos.system76.module = {
-    imports = [
-      inputs.nixos-hardware.nixosModules.system76
-      inputs.nixos-hardware.nixosModules.system76-darp6
-      nixosModules.workstation
-      nixosModules.system76-support
-      nixosModules."role-dev"
-      nixosModules."role-media"
-      nixosModules."role-net"
-      nixosModules."role-gaming"
-    ]
-    ++ lib.optional (lib.hasAttr "ssh" nixosModules) nixosModules.ssh;
+    imports = baseModules ++ roleModules ++ lib.optional (hasModule "ssh") nixosModules.ssh;
   };
 
   # Export the System76 configuration so the flake exposes it under nixosConfigurations

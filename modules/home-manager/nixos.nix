@@ -16,15 +16,23 @@
 
         users.${config.flake.lib.meta.owner.username}.imports =
           let
-            roles = config.flake.lib.homeManager.roles or { };
-            hasApp = name: lib.hasAttrByPath [ "apps" name ] config.flake.homeManagerModules;
+            hmApps = config.flake.homeManagerModules.apps or { };
+            hasApp = name: lib.hasAttr name hmApps;
             getApp =
               name:
               if hasApp name then
-                lib.getAttrFromPath [ "apps" name ] config.flake.homeManagerModules
+                lib.getAttr name hmApps
               else
-                throw "Unknown Home Manager app '${name}' referenced by roles";
-            roleToModules = roleName: map getApp (roles.${roleName} or [ ]);
+                throw "Unknown Home Manager app '${name}' referenced by base imports";
+            defaultAppImports = [
+              "codex"
+              "bat"
+              "eza"
+              "fzf"
+              "kitty"
+              "alacritty"
+              "wezterm"
+            ];
           in
           [
             inputs.sops-nix.homeManagerModules.sops
@@ -40,9 +48,7 @@
             # Provide Context7 API key via sops when available
             config.flake.homeManagerModules.context7Secrets
           ]
-          # Resolve role specs (data) to concrete HM app modules at the glue layer
-          ++ (roleToModules "cli")
-          ++ (roleToModules "terminals");
+          ++ map getApp defaultAppImports;
       };
     };
 
