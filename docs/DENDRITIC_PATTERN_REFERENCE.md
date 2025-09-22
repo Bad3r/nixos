@@ -27,7 +27,7 @@ _: {
 }
 ```
 
-Home Manager glue lives in `modules/home-manager/nixos.nix`: it imports the base HM module, wires secrets, and resolves per-app roles via guarded lookups. See `docs/home-manager-aggregator.md` for the exact rules.
+Home Manager glue lives in `modules/home-manager/nixos.nix`: it imports the base HM module, wires secrets, and resolves the default app list via guarded lookups. See `docs/home-manager-aggregator.md` for the exact rules.
 
 ### Host Definitions
 
@@ -71,7 +71,7 @@ For detailed patterns (multi-namespace modules, extending existing namespaces, c
   ```
   Optional imports (such as shared VPN defaults) remain explicit with short comments.
 - Stable aliases `flake.nixosModules."role-dev"`, `"role-media"`, `"role-net"` mirror the role contents for host imports.
-- Home Manager uses data-driven roles defined in `modules/meta/hm-roles.nix` and resolved in `modules/home-manager/nixos.nix`.
+- Home Manager defaults import a guarded app list defined in `modules/home-manager/nixos.nix`; edit that file when the baseline set changes.
 
 ## Tooling and Required Commands
 
@@ -109,6 +109,6 @@ When adopting an existing configuration into the Dendritic Pattern:
 ## Further Reading
 
 - `docs/MODULE_STRUCTURE_GUIDE.md` – concrete module authoring patterns.
-- `docs/home-manager-aggregator.md` – how Home Manager roles and apps are resolved.
+- `docs/home-manager-aggregator.md` – how Home Manager app aggregation works.
 - `docs/INPUT-BRANCHES-PLAN.md` – managing vendored flake inputs.
 - `docs/NIXOS_CONFIGURATION_REVIEW_CHECKLIST.md` – review procedure for the current host.

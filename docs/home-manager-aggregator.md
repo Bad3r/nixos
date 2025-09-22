@@ -40,34 +40,34 @@ _: {
 }
 ```
 
-## Roles as Data
+## Default App Imports
 
-Role membership is stored as pure data in `flake.lib.homeManager.roles` (`modules/meta/hm-roles.nix`). Example:
-
-```nix
-flake.lib.homeManager.roles = {
-  cli = [ "codex" "bat" "eza" "fzf" ];
-  terminals = [ "kitty" "alacritty" "wezterm" ];
-};
-```
-
-The glue layer in `modules/home-manager/nixos.nix` resolves those app names using guarded lookups:
+The glue layer in `modules/home-manager/nixos.nix` imports a shared list of app modules directly from `flake.homeManagerModules.apps`. Each name is resolved via guarded lookups so evaluation fails fast when an expected app is missing:
 
 ```nix
-hasApp = name: lib.hasAttrByPath [ "apps" name ] config.flake.homeManagerModules;
+hmApps = config.flake.homeManagerModules.apps or { };
+hasApp = name: lib.hasAttr name hmApps;
 getApp = name:
-  if hasApp name then lib.getAttrFromPath [ "apps" name ] config.flake.homeManagerModules
-  else throw "Unknown Home Manager app '${name}' referenced by roles";
-roleToModules = roleName: map getApp (roles.${roleName} or [ ]);
+  if hasApp name then lib.getAttr name hmApps
+  else throw "Unknown Home Manager app '${name}' referenced by base imports";
+defaultAppImports = [
+  "codex"
+  "bat"
+  "eza"
+  "fzf"
+  "kitty"
+  "alacritty"
+  "wezterm"
+];
 ```
 
-Each user import list starts with base modules (`inputs.sops-nix.homeManagerModules.sops`, state-version glue, `base`, secrets helpers) and then appends `roleToModules "cli"` and `roleToModules "terminals"`. Extend roles by editing `modules/meta/hm-roles.nix`; no code changes required.
+Hosts that need additional Home Manager apps can append to the import list manually or create their own helper modules. Update `defaultAppImports` when you want the baseline profile to carry another app by default.
 
 ## Authoring Rules
 
 1. **Always export a module value** – avoid `flake.homeManagerModules.base.home.sessionVariables = …;` style dot assignments.
 2. **Guard optional modules** – if an app depends on a secret or package, check for availability in the module body.
-3. **Keep names stable** – the key under `apps.<name>` is the lookup string used by roles. Prefer lowercase hyphen-less identifiers (`kitty`, `wezterm`, `codex`).
+3. **Keep names stable** – the key under `apps.<name>` is what the glue layer references. Prefer lowercase hyphen-less identifiers (`kitty`, `wezterm`, `codex`).
 4. **Document secrets** – when an app needs credentials, reference `docs/sops-nixos.md` so readers know how to provide them.
 
 ## Validation
@@ -76,4 +76,4 @@ Each user import list starts with base modules (`inputs.sops-nix.homeManagerModu
 - `nix develop -c pre-commit run --all-files`
 - `nix flake check --accept-flake-config`
 
-If you add a new role or change role membership, update `modules/meta/hm-roles.nix` and rerun the checks above. Any missing app reference throws during evaluation because of the guarded lookup.
+When you change the default app list in `modules/home-manager/nixos.nix`, rerun the checks above. Any missing app reference still throws during evaluation because of the guarded lookup.

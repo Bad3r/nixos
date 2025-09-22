@@ -11,6 +11,11 @@ This document shows how modules are authored and consumed in this flake-parts + 
   - `configurations.nixos.<host>.module` for complete host definitions (transformed into `nixosConfigurations.<host>`).
 - Consumers compose these exports by _name_, never by literal path.
 
+## File Placement Rules
+
+- Store per-app modules in `modules/apps/<name>.nix`. Each file should export `flake.nixosModules.apps.<name>` and, when needed, mirror the package into default bundles such as `flake.nixosModules.pc` or `flake.nixosModules.workstation`.
+- Reserve domain directories under `modules/<domain>/` for higher-level features that configure services or compose multiple apps. If a module only installs packages, move it into `modules/apps/` and have roles or bundles import it.
+
 ## Authoring Patterns
 
 ### 1. Module That Needs `pkgs`
@@ -104,7 +109,7 @@ Home Manager modules follow the same rules:
 
 - Shared modules land in `flake.homeManagerModules.base` and `flake.homeManagerModules.gui`.
 - App-specific modules live under `flake.homeManagerModules.apps.<name>`.
-- Roles are pure data in `flake.lib.homeManager.roles` and resolved in `modules/home-manager/nixos.nix`. See `docs/home-manager-aggregator.md` for details.
+- Baseline app imports are listed directly in `modules/home-manager/nixos.nix`, which resolves app modules via guarded lookups. See `docs/home-manager-aggregator.md` for details.
 
 ## Common Pitfalls (and Fixes)
 
