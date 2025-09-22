@@ -9,7 +9,13 @@
     base = {
       imports = [ inputs.home-manager.nixosModules.home-manager ];
 
-      home-manager = {
+      options.home-manager.extraAppImports = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = "Additional Home Manager app keys appended to the default app list.";
+      };
+
+      config.home-manager = {
         useGlobalPkgs = true;
         extraSpecialArgs.hasGlobalPkgs = true;
         backupFileExtension = ".hm.bk";
@@ -33,6 +39,8 @@
               "alacritty"
               "wezterm"
             ];
+            extraAppImports = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
+            allAppImports = defaultAppImports ++ extraAppImports;
           in
           [
             inputs.sops-nix.homeManagerModules.sops
@@ -48,7 +56,7 @@
             # Provide Context7 API key via sops when available
             config.flake.homeManagerModules.context7Secrets
           ]
-          ++ map getApp defaultAppImports;
+          ++ map getApp allAppImports;
       };
     };
 
