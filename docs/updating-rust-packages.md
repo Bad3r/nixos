@@ -7,19 +7,24 @@ This guide summarizes the common flow for bumping Rust crates that live under `i
 - Identify the upstream tag you want, e.g. `rust-v0.40.0-alpha.1` for the Codex agent.
 - Confirm whether the project ships multiple products; pick the tag that corresponds to the Rust workspace we package.
 
-## 2. Prefetch the Source Tarball
+## 2. Prefetch the Source Tarball or Commit
 
-- Use `nix-prefetch-url --unpack <tarball-url>` to download and unpack the new release.
-- Convert the reported hash to SRI with `nix hash to-sri --type sha256 <nix-hash>`.
-- For Codex the command looks like:
+- For tagged releases, `nix-prefetch-url --unpack <tarball-url>` still works well. Convert the reported hash to SRI with `nix hash to-sri --type sha256 <nix-hash>`.
+- When tracking an arbitrary commit (no pre-built tarball), prefer `nix-prefetch-github` from nixpkgs so you get both the hash and the SRI in one step:
   ```sh
-  nix-prefetch-url --unpack https://github.com/openai/codex/archive/refs/tags/rust-v0.40.0-alpha.1.tar.gz
+  nix shell nixpkgs#nix-prefetch-github -c \
+    nix-prefetch-github <owner> <repo> --rev <commit-sha>
+  ```
+  The Codex agent example:
+  ```sh
+  nix shell nixpkgs#nix-prefetch-github -c \
+    nix-prefetch-github openai codex --rev 5996ee0e5f75e4f27afd76334db78a33a7fec997
   ```
 
 ## 3. Update `package.nix`
 
-- Bump `version` and the `fetchFromGitHub.hash` to the new values.
-- Set `cargoHash = lib.fakeSha256;` (or a dummy SRI) temporarily so Nix can compute the vendor hash on the next build.
+- Bump `version` and the `fetchFromGitHub` attributes to the new values.
+- Set `cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";` temporarily so Nix can compute the vendor hash on the next build.
 - Adjust any tooling regex or metadata if the new tag format changes (e.g. allowing `-alpha.1`).
 
 ## 4. Recompute `cargoHash`
