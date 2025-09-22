@@ -36,6 +36,47 @@
                 git submodule sync --recursive || true
                 git submodule update --init --recursive || true
 
+                ensure_partial_clone() {
+                  local rel=$1
+                  local upstream_url=$2
+                  local upstream_ref=$3
+
+                  if [ ! -d "''${ROOT}/''${rel}/.git" ]; then
+                    return
+                  fi
+
+                  pushd "''${ROOT}/''${rel}" >/dev/null
+
+                  if git remote | grep -qx upstream; then
+                    current_url=$(git remote get-url upstream || true)
+                    if [ "''${current_url}" != "''${upstream_url}" ]; then
+                      git remote set-url upstream "''${upstream_url}"
+                    fi
+                  else
+                    git remote add upstream "''${upstream_url}"
+                  fi
+
+                  git config remote.upstream.promisor true >/dev/null 2>&1 || true
+                  git config remote.upstream.partialclonefilter blob:none >/dev/null 2>&1 || true
+                  git config remote.origin.promisor true >/dev/null 2>&1 || true
+                  git config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
+                  git config extensions.partialclone upstream >/dev/null 2>&1 || true
+                  git config fetch.writeCommitGraph true >/dev/null 2>&1 || true
+
+                  git fetch --filter=blob:none --force upstream "''${upstream_ref}" >/dev/null 2>&1 || \
+                    git fetch --force upstream "''${upstream_ref}" >/dev/null 2>&1 || true
+
+                  if git rev-parse --verify _input-branches-temp >/dev/null 2>&1; then
+                    git branch -D _input-branches-temp >/dev/null 2>&1 || true
+                  fi
+
+                  popd >/dev/null
+                }
+
+                ensure_partial_clone inputs/nixpkgs https://github.com/NixOS/nixpkgs.git nixpkgs-unstable
+                ensure_partial_clone inputs/home-manager https://github.com/nix-community/home-manager.git master
+                ensure_partial_clone inputs/stylix https://github.com/nix-community/stylix.git master
+
                 status=0
                 if command -v input-branches-rebase >/dev/null 2>&1; then
                   if ! input-branches-rebase; then
