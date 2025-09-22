@@ -94,6 +94,7 @@
           ```
 
           Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules to avoid ordering issues.
+
         '';
 
       roles =
@@ -104,7 +105,6 @@
           - Roles are assembled from per-app modules under `flake.nixosModules.apps`, using `config.flake.lib.nixos.getApps` / `getApp` for lookups.
           - Avoid lexical `with` over `config.flake.nixosModules.apps`; the helper namespace keeps evaluation pure and consistent.
           - Stable role aliases are provided for hosts:
-
             - `flake.nixosModules."role-dev"`
             - `flake.nixosModules."role-media"`
             - `flake.nixosModules."role-net"`
@@ -128,6 +128,7 @@
 
           For a complete, type-correct composition plan and guidance, see
           `docs/RFC-001.md`.
+
         '';
 
       devshell =
@@ -172,6 +173,7 @@
           ```
 
           The Codex module wraps the decrypted path in a small script and only enables the MCP server when the secret exists, keeping evaluation pure while allowing runtime access.
+
         '';
     };
   };

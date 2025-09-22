@@ -24,5 +24,4 @@ let
 in
 {
   flake.nixosModules.roles.media.imports = roleImports;
-  flake.nixosModules."role-media".imports = roleImports;
 }

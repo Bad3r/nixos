@@ -38,7 +38,6 @@ let
     "strace"
     "ltrace"
     # Node toolchains and managers
-    "nodejs_22"
     "nodejs_24"
     "yarn"
     "nrm"

@@ -27,5 +27,4 @@ let
 in
 {
   flake.nixosModules.roles.net.imports = roleImports;
-  flake.nixosModules."role-net".imports = roleImports;
 }

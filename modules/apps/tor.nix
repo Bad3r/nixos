@@ -4,4 +4,10 @@
     {
       environment.systemPackages = [ pkgs.tor ];
     };
+
+  flake.nixosModules.base =
+    { pkgs, ... }:
+    {
+      environment.systemPackages = [ pkgs.tor ];
+    };
 }

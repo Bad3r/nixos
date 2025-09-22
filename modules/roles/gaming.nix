@@ -1,24 +1,25 @@
 { config, lib, ... }:
 let
   helpers = config._module.args.nixosAppHelpers or { };
-  rawHelpers = (config.flake.lib.nixos or { }) // helpers;
-  fallbackGetApp =
+  hasApp = helpers.hasApp or (name: lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules);
+  defaultGetApp =
     name:
-    if lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules then
+    if hasApp name then
       lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules
     else
       throw ("Unknown NixOS app '" + name + "' (role gaming)");
-  getApp = rawHelpers.getApp or fallbackGetApp;
-  getApps = rawHelpers.getApps or (names: map getApp names);
-  gamingApps = [
+  getApp = helpers.getApp or defaultGetApp;
+  desiredApps = [
     "steam"
     "wine-tools"
     "mangohud"
     "lutris"
   ];
-  roleImports = getApps gamingApps;
+  availableApps = lib.filter hasApp desiredApps;
+  missingApps = lib.filter (app: !(hasApp app)) desiredApps;
+  roleImports = map getApp availableApps;
 in
 {
   flake.nixosModules.roles.gaming.imports = roleImports;
-  flake.nixosModules."role-gaming".imports = roleImports;
+  _module.args._roleGamingMissingApps = missingApps;
 }
