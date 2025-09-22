@@ -422,11 +422,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1758571065,
-        "narHash": "sha256-PVcGdnZ1nFbuIkQGkZQ6RAaVA1JHHBe0wsl0uGMX5Os=",
+        "lastModified": 1758576871,
+        "narHash": "sha256-0VP5cVd6DyibHNPC/IJ5Ut+KuNYUeKmr5ltzf+IcpjA=",
         "ref": "refs/heads/inputs/main/home-manager",
-        "rev": "a41d73dca380d146ec1034f7b930b454f58db134",
-        "revCount": 2,
+        "rev": "fc2c9ec12d9de4c4d8f7fb6a3d208f6cba2330b6",
+        "revCount": 1,
         "type": "git",
         "url": "file:./inputs/home-manager"
       },
@@ -586,11 +586,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1758539350,
-        "narHash": "sha256-JX9NNVNyP+Nqep/27uSmnbvlT8BWVW0JBx4k3hPVgLQ=",
-        "ref": "refs/heads/_input-branches-temp",
-        "rev": "c92054fe2d5336c826d0f5581ea61a6f66e0e449",
-        "revCount": 8,
+        "lastModified": 1758577689,
+        "narHash": "sha256-5rdAi7CTvM/kSs6fHe1bREIva5W3TbImsto+dxG4mBo=",
+        "ref": "refs/heads/inputs/main/nixpkgs",
+        "rev": "e78bc54a82aa8383f3a95f8602e6a0aa575b9e67",
+        "revCount": 1,
         "type": "git",
         "url": "file:./inputs/nixpkgs"
       },
