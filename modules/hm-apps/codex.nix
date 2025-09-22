@@ -3,6 +3,7 @@
     {
       pkgs,
       config,
+      lib,
       ...
     }:
     let
@@ -43,7 +44,7 @@
     {
       programs.codex = {
         enable = true;
-        package = pkgs.codex;
+        package = null;
         settings = {
           # TODO: Wire the Context7 API key via nix-sops once secret management is available.
           show_raw_agent_reasoning = true;
@@ -175,5 +176,8 @@
         };
         custom-instructions = "";
       };
+
+      home.packages = [ pkgs.codex ];
+      home.sessionVariables.CODEX_HOME = lib.mkDefault "${config.xdg.configHome}/codex";
     };
 }
