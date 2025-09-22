@@ -86,7 +86,7 @@
           git
 
           # Node.js for VSCode extensions
-          nodejs_22
+          nodejs_24
 
           # Build tools for native extensions
           gcc
@@ -107,7 +107,7 @@
         # Environment variables for VSCode Server
         variables = {
           VSCODE_SERVER_TAR = "${pkgs.gnutar}/bin/tar";
-          NODE_PATH = "${pkgs.nodejs_22}/lib/node_modules";
+          NODE_PATH = "${pkgs.nodejs_24}/lib/node_modules";
         };
 
         # VSCode Server compatibility script
@@ -134,9 +134,9 @@
             #!/usr/bin/env bash
             # Wrapper to use system Node.js if the bundled one fails
             if [ -f "\$(dirname "\$0")/node.original" ]; then
-              "\$(dirname "\$0")/node.original" "\$@" 2>/dev/null || ${pkgs.nodejs_22}/bin/node "\$@"
+              "\$(dirname "\$0")/node.original" "\$@" 2>/dev/null || ${pkgs.nodejs_24}/bin/node "\$@"
             else
-              ${pkgs.nodejs_22}/bin/node "\$@"
+              ${pkgs.nodejs_24}/bin/node "\$@"
             fi
             EOF
                   chmod +x "$node_path"
@@ -151,9 +151,5 @@
           mode = "0755";
         };
       };
-
-      # Remove the problematic activation script that tries to use /run/current-system
-      # before it exists. Node.js is already in systemPackages which makes it available
-      # system-wide without needing these manual symlinks.
     };
 }
