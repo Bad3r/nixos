@@ -34,12 +34,12 @@ Composition uses named references, for example:
 ```
 
 Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules to avoid ordering issues.
+
 ### Roles and App Composition
 
 - Roles are assembled from per-app modules under `flake.nixosModules.apps`, using `config.flake.lib.nixos.getApps` / `getApp` for lookups.
 - Avoid lexical `with` over `config.flake.nixosModules.apps`; the helper namespace keeps evaluation pure and consistent.
 - Stable role aliases are provided for hosts:
-
   - `flake.nixosModules."role-dev"`
   - `flake.nixosModules."role-media"`
   - `flake.nixosModules."role-net"`
@@ -63,6 +63,7 @@ Example host composition using aliases:
 
 For a complete, type-correct composition plan and guidance, see
 `docs/RFC-001.md`.
+
 ## Development Shell
 
 Enter the development shell:
@@ -97,6 +98,7 @@ sops.secrets."context7/api-key" = {
 ```
 
 The Codex module wraps the decrypted path in a small script and only enables the MCP server when the secret exists, keeping evaluation pure while allowing runtime access.
+
 ## Generated files
 
 The following files in this repository are generated and checked
@@ -106,7 +108,6 @@ using [the _files_ flake-parts module](https://github.com/mightyiam/files):
 - `.github/workflows/check.yml`
 - `.gitignore`
 - `.sops.yaml`
-- `.treefmt.toml`
 - `README.md`
 
 ## Flake inputs for deduplication are prefixed

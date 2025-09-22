@@ -41,7 +41,8 @@
     text.readme.parts.files =
       let
         files = withSystem (builtins.head config.systems) (psArgs: psArgs.config.files.files);
-        fileList = map (file: "- `${file.path_}`") files;
+        filteredFiles = lib.filter (file: file.path_ != ".treefmt.toml") files;
+        fileList = map (file: "- `${file.path_}`") filteredFiles;
         sortedList = lib.naturalSort fileList;
         withHeader = lib.concat [
           # markdown
