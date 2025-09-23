@@ -6,6 +6,8 @@
     "nvidia-x11"
     "nvidia-settings"
     "p7zip-rar"
+    "rar"
+    "unrar"
   ];
 
   configurations.nixos.system76.module =
@@ -21,8 +23,6 @@
           system76-wallpapers
           firmware-manager
           system76-keyboard-configurator
-          p7zip
-          p7zip-rar
 
           # PipeWire controls for selecting outputs and adjusting volume
           pavucontrol
