@@ -1,5 +1,5 @@
 [formatter.nixfmt]
-command = "/nix/store/j1q0xab7mk9qki82libpzzqgrcyngrjk-nixfmt-1.0.0/bin/nixfmt"
+command = "/nix/store/l9pdm182h3qsp259j8yj7kyakrmblrx1-nixfmt-1.0.1/bin/nixfmt"
 excludes = []
 includes = ["*.nix"]
 options = []
