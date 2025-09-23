@@ -424,7 +424,6 @@
       "locked": {
         "lastModified": 1758576871,
         "narHash": "sha256-0VP5cVd6DyibHNPC/IJ5Ut+KuNYUeKmr5ltzf+IcpjA=",
-        "ref": "refs/heads/inputs/main/home-manager",
         "rev": "fc2c9ec12d9de4c4d8f7fb6a3d208f6cba2330b6",
         "revCount": 1,
         "type": "git",
@@ -492,6 +491,22 @@
         "owner": "NuschtOS",
         "ref": "v0.1.1",
         "repo": "ixx",
+        "type": "github"
+      }
+    },
+    "logseq": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1758615295,
+        "narHash": "sha256-tt0n22M0Xb8ReMFt3xq5OCnSuwz7Q+UnsZkKtPOUDuI=",
+        "owner": "logseq",
+        "repo": "logseq",
+        "rev": "ffb4d17f6e8410445094223669bbc2adb1dda80e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "logseq",
+        "repo": "logseq",
         "type": "github"
       }
     },
@@ -588,7 +603,6 @@
       "locked": {
         "lastModified": 1758578140,
         "narHash": "sha256-5rdAi7CTvM/kSs6fHe1bREIva5W3TbImsto+dxG4mBo=",
-        "ref": "refs/heads/inputs/main/nixpkgs",
         "rev": "65bab0467a142813e85b536a5c0c160c08f6890d",
         "revCount": 1,
         "type": "git",
@@ -691,6 +705,7 @@
         "home-manager": "home-manager",
         "import-tree": "import-tree",
         "input-branches": "input-branches",
+        "logseq": "logseq",
         "make-shell": "make-shell",
         "nix-index-database": "nix-index-database",
         "nixos-facter-modules": "nixos-facter-modules",
