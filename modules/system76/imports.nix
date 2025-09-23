@@ -14,6 +14,7 @@ let
     "role-media"
     "role-net"
     "role-gaming"
+    "role-files"
   ];
   roleModules = lib.filter (module: module != null) (map getModule roleNames);
   baseModules = lib.filter (module: module != null) [
