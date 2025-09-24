@@ -602,10 +602,10 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1758723358,
+        "lastModified": 1758742680,
         "narHash": "sha256-5rdAi7CTvM/kSs6fHe1bREIva5W3TbImsto+dxG4mBo=",
         "ref": "refs/heads/inputs/main/nixpkgs",
-        "rev": "77c314f7efa522e9b9811797fd8b6a93a1f14345",
+        "rev": "434b64ca6eb731286a95b6083316a3cdd3f12171",
         "revCount": 1,
         "type": "git",
         "url": "file:./inputs/nixpkgs"
