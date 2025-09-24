@@ -422,10 +422,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1758576871,
-        "narHash": "sha256-0VP5cVd6DyibHNPC/IJ5Ut+KuNYUeKmr5ltzf+IcpjA=",
-        "rev": "fc2c9ec12d9de4c4d8f7fb6a3d208f6cba2330b6",
-        "revCount": 1,
+        "lastModified": 1758719930,
+        "narHash": "sha256-DgHe1026Ob49CPegPMiWj1HNtlMTGQzfSZQQVlHC950=",
+        "ref": "refs/heads/inputs/main/home-manager",
+        "rev": "142acd7a7d9eb7f0bb647f053b4ddfd01fdfbf1d",
+        "revCount": 15,
         "type": "git",
         "url": "file:./inputs/home-manager"
       },
@@ -601,9 +602,10 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1758578140,
+        "lastModified": 1758723358,
         "narHash": "sha256-5rdAi7CTvM/kSs6fHe1bREIva5W3TbImsto+dxG4mBo=",
-        "rev": "65bab0467a142813e85b536a5c0c160c08f6890d",
+        "ref": "refs/heads/inputs/main/nixpkgs",
+        "rev": "77c314f7efa522e9b9811797fd8b6a93a1f14345",
         "revCount": 1,
         "type": "git",
         "url": "file:./inputs/nixpkgs"
@@ -819,11 +821,11 @@
         "tinted-zed": "tinted-zed"
       },
       "locked": {
-        "lastModified": 1757956156,
-        "narHash": "sha256-f0W7qbsCqpi6swQ5w8H+0YrAbNwsHgCFDkNRMTJjqrE=",
+        "lastModified": 1758716250,
+        "narHash": "sha256-PvOo4vSk7WAOhSifgL+rzExihquU9DOIOQPrUVuFHpE=",
         "ref": "refs/heads/inputs/main/stylix",
-        "rev": "0ce0103b498bb22f899ed8862d8d7f9503ed9cdb",
-        "revCount": 1193,
+        "rev": "526c882800837cce7676f3e11bb3e13e975c6032",
+        "revCount": 4,
         "type": "git",
         "url": "file:./inputs/stylix"
       },
