@@ -122,6 +122,10 @@
       flake = false;
       url = "github:cloudflare/node-cloudflare";
     };
+    logseq = {
+      flake = false;
+      url = "github:logseq/logseq";
+    };
     workers-rs = {
       flake = false;
       url = "github:cloudflare/workers-rs";
@@ -187,7 +191,10 @@
   outputs =
     inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
-      imports = [ (inputs.import-tree ./modules) ];
+      imports = [
+        (inputs.import-tree ./modules)
+        ./modules/apps/logseq-fhs.nix
+      ];
 
       systems = [
         "x86_64-linux"

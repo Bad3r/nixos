@@ -1,6 +1,10 @@
 [default.extend-words]
 laf = "laf"
 Iy = "Iy"
+edn = "edn"
+pn = "pn"
+abd = "abd"
+ba = "ba"
 
 [[default.ignore.files]]
 glob = "secrets/**"

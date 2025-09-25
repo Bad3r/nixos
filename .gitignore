@@ -35,7 +35,7 @@ Thumbs.db
 *.swp
 *.swo
 *~
-
+*.tgz
 ########################################
 # Language/vendor caches (safe defaults)
 ########################################
