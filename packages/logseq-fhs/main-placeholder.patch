@@ -1,0 +1,323 @@
+diff --git a/bb.edn b/bb.edn
+index 408137fb4..2de16904a 100644
+--- a/bb.edn
++++ b/bb.edn
+@@ -5,8 +5,7 @@
+   borkdude/rewrite-edn {:mvn/version "0.4.9"}
+   logseq/bb-tasks
+   #_{:local/root "../bb-tasks"}
+-  {:git/url "https://github.com/logseq/bb-tasks"
+-   :git/sha "70d3edeb287f5cec7192e642549a401f7d6d4263"}
++  {:local/root "@bb_tasks_src@"}
+   logseq/graph-parser
+   {:local/root "deps/graph-parser"}
+   org.clj-commons/digest
+diff --git a/clj-e2e/deps.edn b/clj-e2e/deps.edn
+index c67db133b..db4c8a1cb 100644
+--- a/clj-e2e/deps.edn
++++ b/clj-e2e/deps.edn
+@@ -1,8 +1,7 @@
+ {:paths ["src" "resources"]
+  :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+         ;; io.github.pfeodrippe/wally {:local/root "../../../wally"}
+-        io.github.pfeodrippe/wally {:git/url "https://github.com/logseq/wally"
+-                                    :sha "8571fae7c51400ac61c8b1026cbfba68279bc461"}
++        io.github.pfeodrippe/wally {:local/root "@wally_src@"}
+         ;; io.github.zmedelis/bosquet {:mvn/version "2025.03.28"}
+         org.clj-commons/claypoole          {:mvn/version "1.2.2"}
+         metosin/jsonista                   {:mvn/version "0.3.13"}
+@@ -17,7 +16,7 @@
+          :main-opts ["-m" "cognitect.test-runner"]
+          :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
+                       io.github.cognitect-labs/test-runner
+-                      {:git/tag "v0.5.1" :git/sha "dfb30dd"}}}
++                      {:local/root "@cognitect_test_runner_src@"}}}
+   :dev {:extra-paths ["dev" "test"]}
+   :dev-run-rtc-extra-test {:extra-paths ["dev" "test"]
+                            :exec-fn user/run-rtc-extra-test2}}}
+diff --git a/deps.edn b/deps.edn
+index 5d16fd962..a0abd2346 100644
+--- a/deps.edn
++++ b/deps.edn
+@@ -1,11 +1,9 @@
+ {:paths ["src/main" "src/electron" "src/resources"]
+  :deps
+  {org.clojure/clojure                   {:mvn/version "1.11.1"}
+-  rum/rum                               {:git/url "https://github.com/logseq/rum" ;; fork
+-                                         :sha     "5d672bf84ed944414b9f61eeb83808ead7be9127"}
++  rum/rum                               {:local/root "@rum_src@"}
+
+-  datascript/datascript                 {:git/url "https://github.com/logseq/datascript" ;; fork
+-                                         :sha     "45f6721bf2038c24eb9fe3afb422322ab3f473b5"}
++  datascript/datascript                 {:local/root "@datascript_src@"}
+
+   datascript-transit/datascript-transit {:mvn/version "0.3.0"}
+   borkdude/rewrite-edn                  {:mvn/version "0.4.9"}
+@@ -15,8 +13,7 @@
+   cljs-bean/cljs-bean                   {:mvn/version "1.5.0"}
+   prismatic/dommy                       {:mvn/version "1.1.0"}
+   org.clojure/core.match                {:mvn/version "1.0.0"}
+-  com.andrewmcveigh/cljs-time           {:git/url "https://github.com/logseq/cljs-time" ;; fork
+-                                         :sha     "5704fbf48d3478eedcf24d458c8964b3c2fd59a9"}
++  com.andrewmcveigh/cljs-time           {:local/root "@cljs_time_src@"}
+   ;; TODO: delete cljs-drag-n-drop and use dnd-kit
+   cljs-drag-n-drop/cljs-drag-n-drop     {:mvn/version "0.1.0"}
+   cljs-http/cljs-http                   {:mvn/version "0.1.48"}
+@@ -44,14 +41,9 @@
+   missionary/missionary                 {:mvn/version "b.44"}
+   meander/epsilon                       {:mvn/version "0.0.650"}
+
+-  io.github.open-spaced-repetition/cljc-fsrs {:git/sha "0e70e96a73cf63c85dcc2df4d022edf12806b239"
+-                                              ;; TODO: use https://github.com/open-spaced-repetition/cljc-fsrs
+-                                              ;; when PR merged
+-                                              ;; https://github.com/open-spaced-repetition/cljc-fsrs/pull/5
+-                                              :git/url "https://github.com/rcmerci/cljc-fsrs"}
++  io.github.open-spaced-repetition/cljc-fsrs {:local/root "@cljc_fsrs_src@"}
+   tick/tick                              {:mvn/version "0.7.5"}
+-  io.github.rcmerci/cljs-http-missionary {:git/url "https://github.com/RCmerci/cljs-http-missionary"
+-                                          :git/sha "d61ce7e29186de021a2a453a8cee68efb5a88440"}}
++  io.github.rcmerci/cljs-http-missionary {:local/root "@cljs_http_missionary_src@"}}
+
+  :aliases {:cljs {:extra-paths ["src/dev-cljs/" "src/test/" "src/electron/"]
+                   :extra-deps  {org.clojure/tools.namespace      {:mvn/version "0.2.11"}
+diff --git a/deps/cli/bb.edn b/deps/cli/bb.edn
+index a374894e4..314036f44 100644
+--- a/deps/cli/bb.edn
++++ b/deps/cli/bb.edn
+@@ -2,8 +2,7 @@
+  :deps
+  {logseq/bb-tasks
+   #_{:local/root "../../../bb-tasks"}
+-  {:git/url "https://github.com/logseq/bb-tasks"
+-   :git/sha "70d3edeb287f5cec7192e642549a401f7d6d4263"}}
++  {:local/root "@bb_tasks_src@"}}
+
+  :pods
+  {clj-kondo/clj-kondo {:version "2024.09.27"}}
+diff --git a/deps/cli/nbb.edn b/deps/cli/nbb.edn
+index 83f91f190..d184c01dd 100644
+--- a/deps/cli/nbb.edn
++++ b/deps/cli/nbb.edn
+@@ -2,5 +2,4 @@
+  :deps
+  {logseq/outliner
+   {:local/root "../outliner"}
+-  io.github.nextjournal/nbb-test-runner
+-  {:git/sha "b379325cfa5a3306180649da5de3bf5166414e71"}}}
++  io.github.nextjournal/nbb-test-runner {:local/root "@nbb_test_runner_src@"}}}
+diff --git a/deps/common/bb.edn b/deps/common/bb.edn
+index b0e65deb5..b58ba8ab5 100644
+--- a/deps/common/bb.edn
++++ b/deps/common/bb.edn
+@@ -2,8 +2,7 @@
+  :deps
+  {logseq/bb-tasks
+   #_{:local/root "../../../bb-tasks"}
+-  {:git/url "https://github.com/logseq/bb-tasks"
+-   :git/sha "70d3edeb287f5cec7192e642549a401f7d6d4263"}}
++  {:local/root "@bb_tasks_src@"}}
+
+  :pods
+  {clj-kondo/clj-kondo {:version "2024.09.27"}}
+diff --git a/deps/common/deps.edn b/deps/common/deps.edn
+index c411a0d0b..8b2b24056 100644
+--- a/deps/common/deps.edn
++++ b/deps/common/deps.edn
+@@ -1,6 +1,5 @@
+ {:paths ["src" "resources"]
+- :deps {com.andrewmcveigh/cljs-time           {:git/url "https://github.com/logseq/cljs-time" ;; fork
+-                                               :sha     "5704fbf48d3478eedcf24d458c8964b3c2fd59a9"}
++ :deps {com.andrewmcveigh/cljs-time           {:local/root "@cljs_time_src@"}
+         funcool/promesa                       {:mvn/version "11.0.678"}}
+  :aliases
+  {:test {:extra-paths ["test"]
+diff --git a/deps/common/nbb.edn b/deps/common/nbb.edn
+index 641514dea..9e6621e13 100644
+--- a/deps/common/nbb.edn
++++ b/deps/common/nbb.edn
+@@ -1,4 +1,3 @@
+ {:paths ["src" "resources"]
+  :deps
+- {io.github.nextjournal/nbb-test-runner
+-  {:git/sha "b379325cfa5a3306180649da5de3bf5166414e71"}}}
++ {io.github.nextjournal/nbb-test-runner {:local/root "@nbb_test_runner_src@"}}}
+diff --git a/deps/db/bb.edn b/deps/db/bb.edn
+index 1a01b0893..c3ce446cb 100644
+--- a/deps/db/bb.edn
++++ b/deps/db/bb.edn
+@@ -3,8 +3,7 @@
+  :deps
+  {logseq/bb-tasks
+   #_{:local/root "../../../bb-tasks"}
+-  {:git/url "https://github.com/logseq/bb-tasks"
+-   :git/sha "1d429e223baeade426d30a4ed1c8a110173a2402"}}
++  {:local/root "@bb_tasks_db_src@"}}
+
+  :pods
+  {clj-kondo/clj-kondo {:version "2024.09.27"}}
+diff --git a/deps/db/deps.edn b/deps/db/deps.edn
+index 8e609173f..eacdbcaa2 100644
+--- a/deps/db/deps.edn
++++ b/deps/db/deps.edn
+@@ -1,7 +1,6 @@
+ {:deps
+  ;; These nbb-logseq deps are kept in sync with https://github.com/logseq/nbb-logseq/blob/main/bb.edn
+- {datascript/datascript {:git/url "https://github.com/logseq/datascript" ;; fork
+-                         :sha     "45f6721bf2038c24eb9fe3afb422322ab3f473b5"}
++ {datascript/datascript {:local/root "@datascript_src@"}
+   datascript-transit/datascript-transit {:mvn/version "0.3.0"
+                                          :exclusions [datascript/datascript]}
+   cljs-bean/cljs-bean         {:mvn/version "1.5.0"}
+@@ -10,8 +9,7 @@
+
+   ;; Any other deps should be added here and to nbb.edn
+   logseq/common                {:local/root "../common"}
+-  logseq/clj-fractional-indexing        {:git/url "https://github.com/logseq/clj-fractional-indexing"
+-                                         :sha     "1087f0fb18aa8e25ee3bbbb0db983b7a29bce270"}
++  logseq/clj-fractional-indexing        {:local/root "@clj_fractional_indexing_src@"}
+   borkdude/rewrite-edn {:mvn/version "0.4.9"}
+   metosin/malli {:mvn/version "0.16.1"}
+   medley/medley {:mvn/version "1.4.0"}}
+diff --git a/deps/db/nbb.edn b/deps/db/nbb.edn
+index d131a94b3..7340fafea 100644
+--- a/deps/db/nbb.edn
++++ b/deps/db/nbb.edn
+@@ -6,8 +6,6 @@
+   metosin/malli {:mvn/version "0.16.1"}
+   ;; Used by db scripts with outliner.cli
+   borkdude/rewrite-edn {:mvn/version "0.4.9"}
+-  logseq/clj-fractional-indexing        {:git/url "https://github.com/logseq/clj-fractional-indexing"
+-                                         :sha     "1087f0fb18aa8e25ee3bbbb0db983b7a29bce270"}
+-  io.github.nextjournal/nbb-test-runner
+-  {:git/sha "b379325cfa5a3306180649da5de3bf5166414e71"}
++  logseq/clj-fractional-indexing        {:local/root "@clj_fractional_indexing_src@"}
++  io.github.nextjournal/nbb-test-runner {:local/root "@nbb_test_runner_src@"}
+   io.github.pez/baldr {:mvn/version "1.0.9"}}}
+diff --git a/deps/graph-parser/bb.edn b/deps/graph-parser/bb.edn
+index 9f089d863..855a7d685 100644
+--- a/deps/graph-parser/bb.edn
++++ b/deps/graph-parser/bb.edn
+@@ -5,2 +5 @@
+-  {:git/url "https://github.com/logseq/bb-tasks"
+-   :git/sha "70d3edeb287f5cec7192e642549a401f7d6d4263"}}
++  {:local/root "@bb_tasks_src@"}}
+diff --git a/deps/graph-parser/deps.edn b/deps/graph-parser/deps.edn
+index 2517d7dc6..e5054fdb2 100644
+--- a/deps/graph-parser/deps.edn
++++ b/deps/graph-parser/deps.edn
+@@ -1,8 +1,7 @@
+ {:paths ["src"]
+  :deps
+  ;; These nbb-logseq deps are kept in sync with https://github.com/logseq/nbb-logseq/blob/main/bb.edn
+- {com.andrewmcveigh/cljs-time {:git/url "https://github.com/logseq/cljs-time" ;; fork
+-                               :sha     "5704fbf48d3478eedcf24d458c8964b3c2fd59a9"}
++ {com.andrewmcveigh/cljs-time {:local/root "@cljs_time_src@"}
+   funcool/promesa             {:mvn/version "11.0.678"}
+   cljs-bean/cljs-bean         {:mvn/version "1.5.0"}
+
+diff --git a/deps/graph-parser/nbb.edn b/deps/graph-parser/nbb.edn
+index cce0c82c4..3551f8506 100644
+--- a/deps/graph-parser/nbb.edn
++++ b/deps/graph-parser/nbb.edn
+@@ -4,7 +4,6 @@
+   {:local/root "../common"}
+   logseq/db
+   {:local/root "../db"}
+-  io.github.nextjournal/nbb-test-runner
+-  {:git/sha "b379325cfa5a3306180649da5de3bf5166414e71"}
++  io.github.nextjournal/nbb-test-runner {:local/root "@nbb_test_runner_src@"}
+   borkdude/rewrite-edn {:mvn/version "0.4.9"}
+   io.github.pez/baldr {:mvn/version "1.0.9"}}}
+\ No newline at end of file
+diff --git a/deps/outliner/bb.edn b/deps/outliner/bb.edn
+index 91085725a..4f225b241 100644
+--- a/deps/outliner/bb.edn
++++ b/deps/outliner/bb.edn
+@@ -2,8 +2,7 @@
+  :deps
+  {logseq/bb-tasks
+   #_{:local/root "../../../bb-tasks"}
+-  {:git/url "https://github.com/logseq/bb-tasks"
+-   :git/sha "70d3edeb287f5cec7192e642549a401f7d6d4263"}}
++  {:local/root "@bb_tasks_src@"}}
+
+  :pods
+  {clj-kondo/clj-kondo {:version "2024.09.27"}}
+diff --git a/deps/outliner/deps.edn b/deps/outliner/deps.edn
+index 1e3c1eb69..afc41ee6a 100644
+--- a/deps/outliner/deps.edn
++++ b/deps/outliner/deps.edn
+@@ -1,7 +1,6 @@
+ {:deps
+  ;; These nbb-logseq deps are kept in sync with https://github.com/logseq/nbb-logseq/blob/main/bb.edn
+- {datascript/datascript {:git/url "https://github.com/logseq/datascript" ;; fork
+-                         :sha     "45f6721bf2038c24eb9fe3afb422322ab3f473b5"}
++ {datascript/datascript {:local/root "@datascript_src@"}
+   com.cognitect/transit-cljs {:mvn/version "0.8.280"}
+
+   ;; Any other deps should be added here and to nbb.edn
+diff --git a/deps/outliner/nbb.edn b/deps/outliner/nbb.edn
+index be96398d0..4edb62431 100644
+--- a/deps/outliner/nbb.edn
++++ b/deps/outliner/nbb.edn
+@@ -6,5 +6,4 @@
+   {:local/root "../graph-parser"}
+   metosin/malli
+   {:mvn/version "0.16.1"}
+-  io.github.nextjournal/nbb-test-runner
+-  {:git/sha "b379325cfa5a3306180649da5de3bf5166414e71"}}}
++  io.github.nextjournal/nbb-test-runner {:local/root "@nbb_test_runner_src@"}}}
+diff --git a/deps/publishing/bb.edn b/deps/publishing/bb.edn
+index 5d322c87f..4bac9f968 100644
+--- a/deps/publishing/bb.edn
++++ b/deps/publishing/bb.edn
+@@ -2,8 +2,7 @@
+  :deps
+  {logseq/bb-tasks
+   #_{:local/root "../../../bb-tasks"}
+-  {:git/url "https://github.com/logseq/bb-tasks"
+-   :git/sha "70d3edeb287f5cec7192e642549a401f7d6d4263"}}
++  {:local/root "@bb_tasks_src@"}}
+
+  :pods
+  {clj-kondo/clj-kondo {:version "2024.09.27"}}
+diff --git a/deps/publishing/nbb.edn b/deps/publishing/nbb.edn
+index aec86f1e8..dcee03d46 100644
+--- a/deps/publishing/nbb.edn
++++ b/deps/publishing/nbb.edn
+@@ -2,5 +2,4 @@
+  :deps
+  {logseq/db
+   {:local/root "../db"}
+-  io.github.nextjournal/nbb-test-runner
+-  {:git/sha "b379325cfa5a3306180649da5de3bf5166414e71"}}}
++  io.github.nextjournal/nbb-test-runner {:local/root "@nbb_test_runner_src@"}}}
+diff --git a/deps/shui/deps.edn b/deps/shui/deps.edn
+index 8206a42d8..b9e2fa5a2 100644
+--- a/deps/shui/deps.edn
++++ b/deps/shui/deps.edn
+@@ -3,8 +3,7 @@
+  {org.clojure/clojure                   {:mvn/version "1.11.1"}
+   org.clojure/clojurescript             {:mvn/version "1.11.132"}
+   funcool/promesa                       {:mvn/version "11.0.678"}
+-  rum/rum                               {:git/url "https://github.com/logseq/rum" ;; fork
+-                                         :sha     "5d672bf84ed944414b9f61eeb83808ead7be9127"}
++  rum/rum                               {:local/root "@rum_src@"}
+
+   medley/medley                         {:mvn/version "1.4.0"}
+   cljs-bean/cljs-bean                   {:mvn/version "1.5.0"}}}
+diff --git a/yarn.lock b/yarn.lock
+--- a/yarn.lock
++++ b/yarn.lock
+@@ -11266,3 +11266,11 @@ zwitch@^1.0.0:
+   version "1.0.5"
+   resolved "https://registry.yarnpkg.com/zwitch/-/zwitch-1.0.5.tgz#d11d7381ffed16b742f6af7b3f223d5cd9fe9920"
+   integrity sha512-V50KMwwzqJV0NpZIZFwfOD5/lyny3WlSzRiXgA0G7VUnRlqttta1L6UQIHzd6EuBY/cHGfwTIck7w1yH6Q5zUw==
++
++"electron-forge-maker-appimage@file:@electron_forge_maker_appimage_src@":
++  version "1.0.0"
++  resolved "file:@electron_forge_maker_appimage_src@"
++  dependencies:
++    "@electron-forge/maker-base" "^7.3.1"
++    "@electron-forge/shared-types" "^7.3.1"
++    app-builder-lib "^24.13.3"
