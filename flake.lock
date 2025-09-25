@@ -422,10 +422,10 @@
         ]
       },
       "locked": {
-        "lastModified": 1758719930,
+        "lastModified": 1758828246,
         "narHash": "sha256-DgHe1026Ob49CPegPMiWj1HNtlMTGQzfSZQQVlHC950=",
         "ref": "refs/heads/inputs/main/home-manager",
-        "rev": "142acd7a7d9eb7f0bb647f053b4ddfd01fdfbf1d",
+        "rev": "3b1aa5bd909b789e66f6d3c162519ca08c9bccf6",
         "revCount": 15,
         "type": "git",
         "url": "file:./inputs/home-manager"
