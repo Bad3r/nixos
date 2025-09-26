@@ -58,7 +58,7 @@
 
                   git config remote.upstream.promisor true >/dev/null 2>&1 || true
                   git config remote.upstream.partialclonefilter blob:none >/dev/null 2>&1 || true
-                  git config remote.origin.promisor true >/dev/null 2>&1 || true
+                  git config --unset remote.origin.promisor >/dev/null 2>&1 || true
                   git config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
                   git config extensions.partialclone upstream >/dev/null 2>&1 || true
                   git config fetch.writeCommitGraph true >/dev/null 2>&1 || true
