@@ -4,15 +4,16 @@
   ...
 }:
 let
-  roles =
-    if lib.hasAttrByPath [ "roles" ] config.flake.nixosModules then
-      config.flake.nixosModules.roles
-    else
-      throw "flake.nixosModules.roles missing while constructing workstation bundle";
-  getRole =
+  resolveRole =
     name:
-    if lib.hasAttr name roles then
-      lib.getAttr name roles
+    let
+      path = [
+        "roles"
+        name
+      ];
+    in
+    if lib.hasAttrByPath path config.flake.nixosModules then
+      lib.getAttrFromPath path config.flake.nixosModules
     else
       throw ("Unknown role '" + name + "' referenced by flake.nixosModules.workstation");
   workstationRoles = [
@@ -28,13 +29,13 @@ let
     "cloudflare"
   ];
   baseImport =
-    if lib.hasAttr "base" roles then
-      [ (getRole "base") ]
+    if lib.hasAttrByPath [ "roles" "base" ] config.flake.nixosModules then
+      [ (resolveRole "base") ]
     else if lib.hasAttrByPath [ "base" ] config.flake.nixosModules then
       [ (lib.getAttrFromPath [ "base" ] config.flake.nixosModules) ]
     else
       throw "flake.nixosModules.base missing while constructing workstation bundle";
 in
 {
-  flake.nixosModules.workstation.imports = baseImport ++ map getRole workstationRoles;
+  flake.nixosModules.workstation.imports = baseImport ++ map resolveRole workstationRoles;
 }
