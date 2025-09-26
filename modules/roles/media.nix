@@ -16,6 +16,7 @@ let
     "okular"
     "gwenview"
     "spectacle"
+    "media-toolchain"
   ];
   roleImports =
     getApps mediaApps
