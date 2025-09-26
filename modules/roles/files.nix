@@ -30,9 +30,15 @@ let
     "hdparm"
     "nvme-cli"
     "smartmontools"
+    "f3"
+    "gnome-disk-utility"
+    "iotop"
+    "kdiskmark"
     "dust"
     "duf"
     "filezilla"
+    "rip2"
+    "veracrypt"
   ];
   roleImports = getApps fileApps;
 in
