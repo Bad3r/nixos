@@ -25,6 +25,7 @@ let
     "productivity"
     "ai-agents"
     "gaming"
+    "security"
   ];
 in
 {
