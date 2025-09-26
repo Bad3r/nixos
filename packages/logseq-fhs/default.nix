@@ -345,9 +345,19 @@ let
     )
   ) yarnLocks;
 
+  resourcesWorkspace = lib.importJSON ./resources-workspace.json;
+  resourcesPackageJson = pkgs.writeText "logseq-resources-package.json" resourcesWorkspace.packageJson;
+  resourcesYarnLock = pkgs.writeText "logseq-resources-yarn.lock" resourcesWorkspace.yarnLock;
+
+  resourcesWorkspaceSrc = runCommand "logseq-${version}-resources-src" { } ''
+    mkdir -p "$out"
+    cp ${resourcesPackageJson} "$out/package.json"
+    cp ${resourcesYarnLock} "$out/yarn.lock"
+  '';
+
   resourcesOfflineCache = stdenv.mkDerivation {
     name = "logseq-${version}-yarn-resources";
-    src = ./resources-workspace;
+    src = resourcesWorkspaceSrc;
     dontInstall = true;
 
     nativeBuildInputs = [
@@ -371,7 +381,7 @@ let
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "1601n3n8934fvrv9lj3649bvxbri4c122482rp433ldvphf8hmz9";
+    outputHash = resourcesWorkspace.hash;
   };
 
   yarnOfflineCaches =
@@ -404,7 +414,7 @@ let
     fi
   '';
 
-  staticPackageJson = builtins.fromJSON (builtins.readFile ./resources-workspace/package.json);
+  staticPackageJson = builtins.fromJSON resourcesWorkspace.packageJson;
   electronVersion =
     let
       declared = staticPackageJson.devDependencies.electron or null;
@@ -579,7 +589,7 @@ let
       installPhase = "true";
       outputHashMode = "recursive";
       outputHashAlgo = "sha256";
-      outputHash = "sha256-OE5GOxj1JP2YnIP9o16L/jOCgfcx17oBU5Xm2CYVuO8=";
+      outputHash = "sha256-i4Up/gKFQSWJr48zvhFO6Cx5eEA6H2/uQRap/MU7J/8=";
     };
 
     postConfigure = ''
@@ -708,7 +718,7 @@ let
                         yarn run cljs:release-electron
                         yarn run webpack-app-build
 
-                        cp ${./resources-workspace/yarn.lock} static/yarn.lock
+                        cp ${resourcesYarnLock} static/yarn.lock
                         substituteInPlace static/yarn.lock \
                           --replace-warn '"electron-forge-maker-appimage@https://github.com/logseq/electron-forge-maker-appimage.git"' "\"electron-forge-maker-appimage@file:${gitDeps.electron_forge_maker_appimage_src}\"" \
                           --replace-warn "git+https://github.com/electron/node-gyp.git#${electronNodeGypRev}" "file:.nix-cache/git/electron-node-gyp" \
