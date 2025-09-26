@@ -39,12 +39,9 @@ Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules 
 
 - Roles are assembled from per-app modules under `flake.nixosModules.apps`, using `config.flake.lib.nixos.getApps` / `getApp` for lookups.
 - Avoid lexical `with` over `config.flake.nixosModules.apps`; the helper namespace keeps evaluation pure and consistent.
-- Stable role aliases are provided for hosts:
-  - `flake.nixosModules."role-dev"`
-  - `flake.nixosModules."role-media"`
-  - `flake.nixosModules."role-net"`
+- Import roles via the canonical namespace: `flake.nixosModules.roles.<name>` (for example, `flake.nixosModules.roles.dev`, `.media`, `.net`).
 
-Example host composition using aliases:
+Example host composition using the role namespace:
 
 ```nix
 { config, ... }:
@@ -55,7 +52,7 @@ Example host composition using aliases:
         workstation
       ])
       ++ [
-        config.flake.nixosModules."role-dev"
+        config.flake.nixosModules.roles.dev
       ];
   };
 }

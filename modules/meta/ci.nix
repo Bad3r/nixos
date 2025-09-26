@@ -1,8 +1,10 @@
 { config, ... }:
 let
   helpers = config.flake.lib.nixos or { };
-  assertList = v: if builtins.isList v then true else throw "role alias imports not a list";
-  roleAliasExists = name: builtins.hasAttr name config.flake.nixosModules;
+  assertList = v: if builtins.isList v then true else throw "role module imports not a list";
+  hasRoles = builtins.hasAttr "roles" config.flake.nixosModules;
+  roleModuleExists =
+    name: if hasRoles then builtins.hasAttr name config.flake.nixosModules.roles else false;
   workflowYml =
     let
       githubTokenRef = "\${{ secrets.GITHUB_TOKEN }}";
@@ -102,14 +104,14 @@ let
 in
 {
   flake.checks = {
-    role-aliases-exist = builtins.toFile "role-aliases-exist-ok" (
-      if roleAliasExists "role-dev" && roleAliasExists "role-media" && roleAliasExists "role-net" then
+    role-modules-exist = builtins.toFile "role-modules-exist-ok" (
+      if roleModuleExists "dev" && roleModuleExists "media" && roleModuleExists "net" then
         "ok"
       else
-        throw "role-* alias missing"
+        throw "role module missing"
     );
 
-    role-aliases-structure = builtins.toFile "role-aliases-structure-ok" (
+    role-modules-structure = builtins.toFile "role-modules-structure-ok" (
       builtins.seq (assertList config.flake.nixosModules.roles.dev.imports) (
         builtins.seq (assertList config.flake.nixosModules.roles.media.imports) (
           builtins.seq (assertList config.flake.nixosModules.roles.net.imports) "ok"

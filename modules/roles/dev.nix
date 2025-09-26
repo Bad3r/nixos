@@ -50,7 +50,4 @@ in
 {
   # Development role: aggregate per-app modules through shared helpers.
   flake.nixosModules.roles.dev.imports = roleImports;
-
-  # Stable alias for host imports to avoid duplicating lists across modules.
-  flake.nixosModules."role-dev".imports = roleImports;
 }

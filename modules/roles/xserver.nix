@@ -38,5 +38,4 @@ let
 in
 {
   flake.nixosModules.roles.xserver.imports = roleImports;
-  flake.nixosModules."role-xserver".imports = roleImports;
 }

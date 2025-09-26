@@ -14,7 +14,7 @@ This flake exposes two merge-friendly aggregators:
 
 | Namespace                  | Purpose                    | Typical Exports                                                                  |
 | -------------------------- | -------------------------- | -------------------------------------------------------------------------------- |
-| `flake.nixosModules`       | System-level configuration | `base`, `pc`, `workstation`, `apps.<name>`, `roles.<name>`, `"role-dev"` aliases |
+| `flake.nixosModules`       | System-level configuration | `base`, `pc`, `workstation`, `apps.<name>`, `roles.<name>`, `roles.dev` aliases |
 | `flake.homeManagerModules` | Home Manager configuration | `base`, `gui`, `apps.<name>`, secrets helpers                                    |
 
 Modules register themselves under these namespaces. Example (`modules/files/fzf.nix`):
@@ -39,12 +39,12 @@ configurations.nixos.system76.module = {
     base
     pc
     workstation
-    "role-dev"
+    roles.dev
   ];
 };
 ```
 
-Use `config.flake.nixosModules."role-dev"` (or the other `role-*` aliases) so host composition stays stable even if role internals change.
+Use `config.flake.nixosModules.roles.dev` (and the other role modules) so host composition stays stable even if role internals change.
 
 ## Authoring Modules
 
@@ -70,7 +70,7 @@ For detailed patterns (multi-namespace modules, extending existing namespaces, c
   let getApps = config.flake.lib.nixos.getApps; in getApps [ "neovim" "httpie" ]
   ```
   Optional imports (such as shared VPN defaults) remain explicit with short comments.
-- Stable aliases `flake.nixosModules."role-dev"`, `"role-media"`, `"role-net"` mirror the role contents for host imports.
+- Core roles under `flake.nixosModules.roles` (`dev`, `media`, `net`) mirror their import lists for host composition; reference them directly instead of duplicating the lists.
 - Home Manager defaults import a guarded app list defined in `modules/home-manager/nixos.nix`; edit that file when the baseline set changes.
 
 ## Tooling and Required Commands

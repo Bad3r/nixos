@@ -18,5 +18,4 @@ let
 in
 {
   flake.nixosModules.roles.productivity.imports = roleImports;
-  flake.nixosModules."role-productivity".imports = roleImports;
 }
