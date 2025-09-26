@@ -11,16 +11,20 @@ let
   getApp = rawHelpers.getApp or fallbackGetApp;
   getApps = rawHelpers.getApps or (names: map getApp names);
   netApps = [
+    "circumflex"
     "httpx"
     "httpie"
     "curlie"
     "curl"
     "wget"
     "tor"
+    "tor-browser"
     "openvpn"
     "wireguard-tools"
     "protonvpn-gui"
     "mitmproxy"
+    "localsend"
+    "qbittorrent"
     "ktailctl"
     "networkmanager-dmenu"
     "networkmanagerapplet"
