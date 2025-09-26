@@ -214,7 +214,7 @@ main() {
         fi
         # Ensure nixpkgs submodule stays blobless for follow-up operations
         if [[ -d inputs/nixpkgs ]]; then
-          git -C inputs/nixpkgs config remote.origin.promisor true || true
+          git -C inputs/nixpkgs config --unset remote.origin.promisor >/dev/null 2>&1 || true
           git -C inputs/nixpkgs config remote.origin.partialclonefilter blob:none || true
         fi
       fi

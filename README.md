@@ -39,7 +39,7 @@ Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules 
 
 - Roles are assembled from per-app modules under `flake.nixosModules.apps`, using `config.flake.lib.nixos.getApps` / `getApp` for lookups.
 - Avoid lexical `with` over `config.flake.nixosModules.apps`; the helper namespace keeps evaluation pure and consistent.
-- Import roles via the canonical namespace: `flake.nixosModules.roles.<name>` (for example, `flake.nixosModules.roles.dev`, `.media`, `.net`).
+- Import roles via `flake.nixosModules.roles.<name>` (for example, `.dev`, `.media`, `.net`).
 
 Example host composition using the role namespace:
 
