@@ -602,11 +602,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1758744895,
-        "narHash": "sha256-7cO43s0Grz03dvpMM5u1aZo5Ne3EXnguruaIJIeBRH8=",
+        "lastModified": 1758844165,
+        "narHash": "sha256-1l0w0jVwmgxqpxtcA/m+wY6VqgpA9j8Q/C6T5PQvF18=",
         "ref": "refs/heads/inputs/main/nixpkgs",
-        "rev": "95cd1bbc2bbbae8aec1cb515e29850ec0ceec51d",
-        "revCount": 2,
+        "rev": "8490c8466de45c3b783067017168fd4dae248bac",
+        "revCount": 4,
         "type": "git",
         "url": "file:./inputs/nixpkgs"
       },
