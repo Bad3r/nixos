@@ -24,6 +24,7 @@ This guide summarizes the common flow for bumping Rust crates that live under `i
 ## 3. Update `package.nix`
 
 - Bump `version` and the `fetchFromGitHub` attributes to the new values.
+- For the Codex agent specifically, upstream `codex --version` reports `codex-cli 0.0.0`, so keep `version = "0.0.0"` and rely on the pinned `rev`/hash values to communicate the actual update.
 - Set `cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";` temporarily so Nix can compute the vendor hash on the next build. Using `lib.fakeSha256` is discouraged here because it expands to a plain hexadecimal string without an SRI prefix, which triggers the `hash '0000…' does not include a type` error when Nix evaluates this package (we hit this consistently while bumping Codex). The explicit dummy SRI avoids the failure and makes the follow-up replacement obvious in reviews.
 - Adjust any tooling regex or metadata if the new tag format changes (e.g. allowing `-alpha.1`).
 
