@@ -29,9 +29,4 @@
       environment.systemPackages = [ pkgs.libnotify ];
     };
 
-  flake.nixosModules.pc =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.libnotify ];
-    };
 }
