@@ -1,4 +1,4 @@
-{ inputs, config, ... }:
+{ inputs, ... }:
 {
   # Expose official Cloudflare language SDK source trees via flake packages
   # so they are discoverable from this repository. These are not built
@@ -40,27 +40,7 @@
         workers-rs-src = mkSrc "workers-rs-src" inputs.workers-rs;
       };
     };
-
-  flake.nixosModules.workstation =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [
-        config.flake.packages.${pkgs.system}.cloudflare-go-src
-        config.flake.packages.${pkgs.system}.cloudflare-python-src
-        config.flake.packages.${pkgs.system}.cloudflare-rs-src
-        config.flake.packages.${pkgs.system}.node-cloudflare-src
-        config.flake.packages.${pkgs.system}.workers-rs-src
-      ];
-
-      # Friendly notice with pointers
-      assertions = [
-        {
-          assertion = true;
-          message = ''
-            Cloudflare SDK sources are exposed under flake packages.
-            See SDK repos for language-specific install instructions.
-          '';
-        }
-      ];
-    };
+  # SDK source packages are now consumed via dedicated app wrappers in
+  # modules/apps/*-sdk.nix. Import the corresponding roles (e.g.
+  # roles.dev.go.sdk.cloudflare) to surface them on a host.
 }
