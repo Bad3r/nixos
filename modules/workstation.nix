@@ -26,6 +26,7 @@ let
     "ai-agents"
     "gaming"
     "security"
+    "cloudflare"
   ];
 in
 {
