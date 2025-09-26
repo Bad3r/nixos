@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 import re
@@ -8,6 +9,52 @@ import sys
 import tempfile
 import urllib.parse
 from pathlib import Path
+
+
+def find_map_bounds(content: str, needle_index: int) -> tuple[int, int] | None:
+    depth = 0
+    start = None
+    for i in range(needle_index, -1, -1):
+        ch = content[i]
+        if ch == '}':
+            depth += 1
+        elif ch == '{':
+            if depth == 0:
+                start = i
+                break
+            depth -= 1
+    if start is None:
+        return None
+    depth = 0
+    for j in range(start, len(content)):
+        ch = content[j]
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                return start, j
+    return None
+
+
+def replace_git_map(content: str, rev_strings: list[str], placeholder: str) -> tuple[str, bool]:
+    for rev in rev_strings:
+        search_from = 0
+        while True:
+            idx = content.find(rev, search_from)
+            if idx == -1:
+                break
+            bounds = find_map_bounds(content, idx)
+            if bounds is None:
+                search_from = idx + len(rev)
+                continue
+            start, end = bounds
+            block = content[start : end + 1]
+            if placeholder in block:
+                return content, True
+            content = content[:start] + f'{{:local/root "{placeholder}"}}' + content[end + 1 :]
+            return content, True
+    return content, False
 
 
 def run(cmd, *, cwd=None, capture=False):
@@ -30,18 +77,74 @@ def nix_str(value: str) -> str:
     return json.dumps(str(value))
 
 
+def resolve_logseq_input(repo_root: Path, *, extra_args: list[str]) -> Path:
+    if repo_root == Path.cwd():
+        target = "./."
+    else:
+        target = json.dumps(str(repo_root))
+    expr = f"let fl = builtins.getFlake (toString {target}); in fl.inputs.logseq.outPath"
+    cmd = [
+        "nix",
+        "eval",
+        "--impure",
+        "--raw",
+        "--expr",
+        expr,
+    ]
+    if extra_args:
+        cmd[3:3] = extra_args
+    store_path = run(cmd, cwd=str(repo_root), capture=True).strip()
+    return Path(store_path)
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Refresh Logseq package inputs.")
+    parser.add_argument(
+        "logseq_source",
+        nargs="?",
+        help="Path to Logseq source tree; defaults to flake input",
+    )
+    parser.add_argument(
+        "--resolve-input",
+        action="store_true",
+        help="Resolve inputs.logseq via nix eval even if a path is provided",
+    )
+    parser.add_argument(
+        "--nix-extra-arg",
+        action="append",
+        default=["--accept-flake-config"],
+        help="Extra argument to pass before --raw in nix eval when resolving the input",
+    )
+    args = parser.parse_args()
+
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
-    logseq_arg = sys.argv[1] if len(sys.argv) > 1 else repo_root / "inputs/logseq"
-    logseq_repo = Path(os.environ.get("LOGSEQ_SOURCE_DIR", logseq_arg)).resolve()
+
+    # respect LOGSEQ_SOURCE_DIR env override first
+    env_override = os.environ.get("LOGSEQ_SOURCE_DIR")
+    candidate = Path(env_override) if env_override else None
+    if candidate is None:
+        if args.logseq_source:
+            candidate = Path(args.logseq_source)
+        else:
+            candidate = repo_root / "inputs/logseq"
+
+    logseq_repo = candidate
+    if args.resolve_input or not logseq_repo.exists():
+        logseq_repo = resolve_logseq_input(repo_root, extra_args=args.nix_extra_arg)
+    logseq_repo = logseq_repo.resolve()
 
     ensure(logseq_repo.is_dir(), f"error: unable to locate logseq source at '{logseq_repo}'")
 
     pkg_dir = repo_root / "packages/logseq-fhs"
     git_deps_file = pkg_dir / "git-deps.nix"
     yarn_deps_file = pkg_dir / "yarn-deps.nix"
-    resources_workspace_dir = pkg_dir / "resources-workspace"
+    resources_workspace_json = pkg_dir / "resources-workspace.json"
+    ensure(
+        resources_workspace_json.exists(),
+        f"missing resources JSON at '{resources_workspace_json}'",
+    )
+    resources_workspace_data = json.loads(resources_workspace_json.read_text())
     placeholder_patch = pkg_dir / "main-placeholder.patch"
 
     rg_proc = run_optional(["rg", ":git/(url|sha)", "-l"], cwd=logseq_repo)
@@ -102,7 +205,7 @@ def main():
         "rum_src": ("logseq", "rum", "5d672bf84ed944414b9f61eeb83808ead7be9127"),
         "datascript_src": ("logseq", "datascript", "45f6721bf2038c24eb9fe3afb422322ab3f473b5"),
         "cljs_time_src": ("logseq", "cljs-time", "5704fbf48d3478eedcf24d458c8964b3c2fd59a9"),
-        "cljc_fsrs_src": ("rcmerci", "cljc-fsrs", "0e70e96a73cf63c85dcc2df4d022edf12806b239"),
+        "cljc_fsrs_src": ("open-spaced-repetition", "cljc-fsrs", "eeef3520df664e51c3d0ba2031ec2ba071635442"),
         "cljs_http_missionary_src": ("RCmerci", "cljs-http-missionary", "d61ce7e29186de021a2a453a8cee68efb5a88440"),
         "clj_fractional_indexing_src": ("logseq", "clj-fractional-indexing", "1087f0fb18aa8e25ee3bbbb0db983b7a29bce270"),
         "wally_src": ("logseq", "wally", "8571fae7c51400ac61c8b1026cbfba68279bc461"),
@@ -209,20 +312,90 @@ def main():
     local_node_gyp = ".nix-cache/git/electron-node-gyp"
     local_maker = ".nix-cache/git/electron-forge-maker-appimage"
 
+    placeholders_without_patch = {"electron_node_gyp_src", "electron_forge_maker_appimage_src"}
+    placeholder_entries = [
+        {
+            "name": name,
+            "placeholder": f"@{name}@",
+            "rev": git_meta[name][2],
+            "require_patch": name not in placeholders_without_patch,
+        }
+        for name in git_order
+    ]
+
     with tempfile.TemporaryDirectory() as patched_dir_str:
         patched_dir = Path(patched_dir_str)
         shutil.copytree(logseq_repo, patched_dir, dirs_exist_ok=True)
         shutil.rmtree(patched_dir / ".git", ignore_errors=True)
-        subprocess.run(["patch", "-p1", "-i", str(placeholder_patch)], cwd=patched_dir, check=True)
+        subprocess.run(["chmod", "-R", "u+w", str(patched_dir)], check=True)
+
+        subprocess.run(["git", "init", "-q"], cwd=patched_dir, check=True)
+        subprocess.run([
+            "git",
+            "config",
+            "user.email",
+            "logseq-updater@example.com",
+        ], cwd=patched_dir, check=True)
+        subprocess.run([
+            "git",
+            "config",
+            "user.name",
+            "Logseq Updater",
+        ], cwd=patched_dir, check=True)
+        subprocess.run(["git", "add", "-A"], cwd=patched_dir, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "placeholder-base"], cwd=patched_dir, check=True)
+
+        missing_placeholders = []
+        for entry in placeholder_entries:
+            if not entry["require_patch"]:
+                continue
+            token = entry["placeholder"]
+            rev_full = entry["rev"]
+            rev_candidates = [rev_full, rev_full[:12], rev_full[:7]]
+            replaced = False
+            for rel in placeholder_files:
+                target = patched_dir / rel
+                text = target.read_text()
+                if token in text:
+                    replaced = True
+                    break
+                updated = text
+                changed = False
+                while True:
+                    updated, did_replace = replace_git_map(updated, rev_candidates, token)
+                    if not did_replace:
+                        break
+                    changed = True
+                if changed:
+                    target.write_text(updated)
+                    replaced = True
+            if not replaced:
+                missing_placeholders.append((token, rev_full))
+
+        if missing_placeholders:
+            sys.stderr.write("failed to place placeholder markers for:\n")
+            for token, rev in missing_placeholders:
+                sys.stderr.write(f"  {token} (rev {rev})\n")
+            sys.exit(1)
+
+        subprocess.run(["git", "add", "-A"], cwd=patched_dir, check=True)
+        diff_proc = subprocess.run(
+            ["git", "diff", "--binary", "HEAD"],
+            cwd=patched_dir,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        diff_text = diff_proc.stdout
+        if diff_text.strip():
+            placeholder_patch.write_text(diff_text)
+
+        shutil.rmtree(patched_dir / ".git", ignore_errors=True)
 
         resources_dir = patched_dir / "resources"
         resources_dir.mkdir(parents=True, exist_ok=True)
-        vendored_pkg = resources_workspace_dir / "package.json"
-        vendored_lock = resources_workspace_dir / "yarn.lock"
-        ensure(vendored_pkg.exists(), f"missing vendored {vendored_pkg}")
-        ensure(vendored_lock.exists(), f"missing vendored {vendored_lock}")
-        shutil.copy2(vendored_pkg, resources_dir / "package.json")
-        shutil.copy2(vendored_lock, resources_dir / "yarn.lock")
+        (resources_dir / "package.json").write_text(resources_workspace_data["packageJson"])
+        (resources_dir / "yarn.lock").write_text(resources_workspace_data["yarnLock"])
 
         placeholder_map = {f"@{name}@": git_paths[name] for name in git_order}
         for rel in placeholder_files:
@@ -446,23 +619,15 @@ def main():
 
         lines = ["{"]
         for attr, rel in yarn_entries:
-            hash_value = yarn_hashes[attr]
             if attr == "resources":
-                lines.append("  resources = {")
-                lines.append("    src = ./resources-workspace;")
-                lines.append("    sourceRoot = \".\";")
-                lines.append(f"    sha256 = \"{hash_value}\";")
-                lines.append("    yarnLock = \"yarn.lock\";")
-                lines.append("    lockFile = \"yarn.lock\";")
-                lines.append("    packageJSON = \"package.json\";")
-                lines.append("  };\n")
-            else:
-                lines.append(f"  {attr} = {{")
-                lines.append(f"    sourceRoot = \"{source_roots[attr]}\";")
-                lines.append(f"    sha256 = \"{hash_value}\";")
-                lines.append(f"    yarnLock = \"{rel}\";")
-                lines.append(f"    lockFile = \"{rel}\";")
-                lines.append("  };\n")
+                continue
+            hash_value = yarn_hashes[attr]
+            lines.append(f"  {attr} = {{")
+            lines.append(f"    sourceRoot = \"{source_roots[attr]}\";")
+            lines.append(f"    sha256 = \"{hash_value}\";")
+            lines.append(f"    yarnLock = \"{rel}\";")
+            lines.append(f"    lockFile = \"{rel}\";")
+            lines.append("  };\n")
         lines.append("}")
         yarn_deps_file.write_text("\n".join(lines) + "\n")
 
@@ -472,26 +637,43 @@ def main():
                 shutil.rmtree(dest)
             shutil.copytree(patched_dir, dest)
 
-        resources_workspace_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(patched_dir / "resources" / "package.json", resources_workspace_dir / "package.json")
-        shutil.copy2(patched_dir / "resources" / "yarn.lock", resources_workspace_dir / "yarn.lock")
+        resources_pkg = patched_dir / "resources" / "package.json"
+        resources_lock = patched_dir / "resources" / "yarn.lock"
 
-    package_path = resources_workspace_dir / "package.json"
-    package_data = json.loads(package_path.read_text())
-    package_data.setdefault("devDependencies", {})["electron-forge-maker-appimage"] = "file:@electron_forge_maker_appimage_src@"
-    package_path.write_text(json.dumps(package_data, indent=2) + "\n")
+        package_data = json.loads(resources_pkg.read_text())
+        package_data.setdefault("devDependencies", {})["electron-forge-maker-appimage"] = "file:@electron_forge_maker_appimage_src@"
+        new_package_json = json.dumps(package_data, indent=2) + "\n"
 
-    lock_path = resources_workspace_dir / "yarn.lock"
-    lock_text = lock_path.read_text()
-    lock_text = lock_text.replace(
-        f'"electron-forge-maker-appimage@file:{maker_path}"',
-        '"electron-forge-maker-appimage@file:@electron_forge_maker_appimage_src@"',
-    )
-    lock_text = lock_text.replace(
-        f'resolved "file:{maker_path}"',
-        'resolved "file:@electron_forge_maker_appimage_src@"',
-    )
-    lock_path.write_text(lock_text)
+        lock_text = resources_lock.read_text()
+        lock_text = lock_text.replace(
+            f'"electron-forge-maker-appimage@file:{maker_path}"',
+            '"electron-forge-maker-appimage@file:@electron_forge_maker_appimage_src@"',
+        )
+        lock_text = lock_text.replace(
+            f'resolved "file:{maker_path}"',
+            'resolved "file:@electron_forge_maker_appimage_src@"',
+        )
+
+        resources_output_hash = yarn_hashes.get("resources")
+        if resources_output_hash is None:
+            legacy_hash = resources_workspace_data.get("hash")
+            ensure(
+                legacy_hash is not None,
+                "missing resources hash: neither new nor legacy values are available",
+            )
+            resources_output_hash = legacy_hash
+
+        resources_workspace_json.write_text(
+            json.dumps(
+                {
+                    "packageJson": new_package_json,
+                    "yarnLock": lock_text,
+                    "hash": resources_output_hash,
+                },
+                indent=2,
+            )
+            + "\n"
+        )
 
     print(f"\nUpdated {git_deps_file.relative_to(repo_root)} and {yarn_deps_file.relative_to(repo_root)}")
     print("Re-run nix fmt if needed and rebuild the caches to validate the new hashes.")
