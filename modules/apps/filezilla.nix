@@ -28,9 +28,4 @@
       environment.systemPackages = [ pkgs.filezilla ];
     };
 
-  flake.nixosModules.workstation =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.filezilla ];
-    };
 }

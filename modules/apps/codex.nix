@@ -27,9 +27,4 @@
       environment.systemPackages = [ pkgs.codex ];
     };
 
-  flake.nixosModules.workstation =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.codex ];
-    };
 }
