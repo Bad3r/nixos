@@ -52,11 +52,4 @@
       ];
     };
 
-  flake.nixosModules.workstation =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [
-        config.flake.packages.${pkgs.system}.dnsleak
-      ];
-    };
 }

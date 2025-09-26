@@ -29,9 +29,4 @@
       environment.systemPackages = [ pkgs.clojure-lsp ];
     };
 
-  flake.nixosModules.workstation =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.clojure-lsp ];
-    };
 }
