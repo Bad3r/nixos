@@ -32,6 +32,7 @@ let
     "smartmontools"
     "dust"
     "duf"
+    "filezilla"
   ];
   roleImports = getApps fileApps;
 in
