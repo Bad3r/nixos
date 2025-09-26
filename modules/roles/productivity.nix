@@ -11,8 +11,13 @@ let
   getApp = rawHelpers.getApp or fallbackGetApp;
   getApps = rawHelpers.getApps or (names: map getApp names);
   productivityApps = [
+    "electron-mail"
     "logseqFhs"
+    "marktext"
+    "mattermost"
     "obsidian"
+    "pandoc"
+    "planify"
   ];
   roleImports = getApps productivityApps;
 in
