@@ -29,9 +29,4 @@
       environment.systemPackages = [ pkgs.obsidian ];
     };
 
-  flake.nixosModules.pc =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.obsidian ];
-    };
 }
