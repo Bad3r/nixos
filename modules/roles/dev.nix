@@ -19,6 +19,7 @@ let
     "gcc"
     "gnumake"
     "pkg-config"
+    "formatting"
     # JSON/YAML/tools
     "jq"
     "yq"
@@ -32,13 +33,16 @@ let
     "tealdeer"
     "httpie"
     "mitmproxy"
+    "nix-prefetch-github"
     # debugging
     "gdb"
     "valgrind"
     "strace"
     "ltrace"
+    "ent"
     # Node toolchains and managers
     "nodejs_24"
+    "nodejs_22"
     "yarn"
     "nrm"
     # FHS-based dev tools
