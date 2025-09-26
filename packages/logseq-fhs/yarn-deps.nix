@@ -1,7 +1,7 @@
 {
   root = {
     sourceRoot = ".";
-    sha256 = "0csyfa5lvh5lrq1n90ilisqf81sdkqm02dj17r16n041w65ssvkq";
+    sha256 = "1fl956zkn8pzfs1i5mwd0kkl0vd91i93r1d5z0pw3c4m1l51898x";
     yarnLock = "yarn.lock";
     lockFile = "yarn.lock";
   };
@@ -81,15 +81,6 @@
     sha256 = "0njf95pwl47pn3hcvnnrm7j5ghan0cqwcfdg6xbgqc16l4ipaw7h";
     yarnLock = "packages/ui/yarn.lock";
     lockFile = "packages/ui/yarn.lock";
-  };
-
-  resources = {
-    src = ./resources-workspace;
-    sourceRoot = ".";
-    sha256 = "19dmgiy902c4c31z9ds3cqbpxyjrdh8cawbniaz7s1prkn9fzkvr";
-    yarnLock = "yarn.lock";
-    lockFile = "yarn.lock";
-    packageJSON = "package.json";
   };
 
 }

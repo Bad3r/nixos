@@ -53,9 +53,9 @@ in
   };
 
   cljc_fsrs_src = fetchGitHub {
-    owner = "rcmerci";
+    owner = "open-spaced-repetition";
     repo = "cljc-fsrs";
-    rev = "0e70e96a73cf63c85dcc2df4d022edf12806b239";
+    rev = "eeef3520df664e51c3d0ba2031ec2ba071635442";
     hash = "sha256-C/SvcUTC9BS61T3XWJjolZFrYHwhu5vdrGtAsz1qePA=";
   };
 
