@@ -95,7 +95,7 @@ Host definitions bundle modules together and live under `configurations.nixos.<h
       base
       pc
       workstation
-      "role-dev"
+      roles.dev
     ];
   };
 }

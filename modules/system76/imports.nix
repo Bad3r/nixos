@@ -9,16 +9,23 @@ let
   nixosModules = flake.nixosModules or { };
   hasModule = name: lib.hasAttr name nixosModules;
   getModule = name: if hasModule name then lib.getAttr name nixosModules else null;
+  getRoleModule =
+    name:
+    if lib.hasAttrByPath [ "roles" name ] nixosModules then
+      lib.getAttrFromPath [ "roles" name ] nixosModules
+    else
+      null;
   roleNames = [
-    "role-dev"
-    "role-media"
-    "role-net"
-    "role-gaming"
-    "role-files"
-    "role-productivity"
-    "role-xserver"
+    "dev"
+    "media"
+    "net"
+    "gaming"
+    "files"
+    "productivity"
+    "ai-agents"
+    "xserver"
   ];
-  roleModules = lib.filter (module: module != null) (map getModule roleNames);
+  roleModules = lib.filter (module: module != null) (map getRoleModule roleNames);
   baseModules = lib.filter (module: module != null) [
     inputs.nixos-hardware.nixosModules.system76
     inputs.nixos-hardware.nixosModules.system76-darp6

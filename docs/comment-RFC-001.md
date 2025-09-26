@@ -11,7 +11,7 @@ This review acknowledges the benefits of a centralized registry but identifies s
 - We now declare explicit, mergeable schemas for both aggregators:
   - `options.flake.nixosModules` with nested `apps = attrsOf deferredModule` and `roles = attrsOf deferredModule` (default `{}`).
   - `options.flake.homeManagerModules` similarly typed.
-- Roles are being converged to robust composition patterns (guarded lookups; stable alias modules like `"role-dev"`).
+- Roles are being converged to robust composition patterns (guarded lookups; stable alias modules like `roles.dev`).
 - Unknown flake output `modules` was removed; we no longer emit a `modules` output or rely on it.
 
 Given this, the core motivation of the RFC (aggregator flattening/brittleness) is partly outdated: with a typed `apps = attrsOf deferredModule`, nested app modules under `flake.nixosModules.apps.<name>` are stable and discoverable.
@@ -102,7 +102,7 @@ This delivers the RFC intent (stable composition points, helpers, no self recurs
 ## Minor Comments & Nits
 
 - Naming: `flake.lib.nixos.appModules` is fine but slightly verbose; `flake.lib.nixos.apps` would be shorter and consistent with consumer-facing `nixosModules.apps`.
-- Role aliases: Good. Keep `flake.nixosModules."role-dev"` consistent with existing usage.
+- Role modules: Good. Keep `flake.nixosModules.roles.dev` consistent with existing usage.
 - HM symmetry: Consider adding `flake.lib.homeManager.appModules` in a separate RFC if symmetry is desired. Not required here.
 - Examples: Ensure all code examples use string names (e.g., `"neovim"`) rather than relying on lexical scope for clarity and to enforce the no-`with` convention.
 
@@ -134,7 +134,7 @@ The author’s response constructively addresses the main concerns and proposes 
   - Agreement that the low-disruption path (helpers over the existing typed aggregator) is preferable short term. Keeping the inversion as an optional long-term direction with pros/cons called out is reasonable.
 
 - Current state mismatch
-  - The response states roles/media and roles/net have been refactored to the robust lookup pattern and given aliases. In the current repo, `roles/media.nix` and `roles/net.nix` still rely on `with config.flake.nixosModules.apps; [...]` for the apps portion and do not define alias modules (`"role-media"`, `"role-net"`). Please update the RFC status or submit the code changes to reflect this.
+  - The response states roles/media and roles/net have been refactored to the robust lookup pattern and given aliases. In the current repo, `roles/media.nix` and `roles/net.nix` still rely on `with config.flake.nixosModules.apps; [...]` for the apps portion and do not define alias modules (`roles.media`, `roles.net`). Please update the RFC status or submit the code changes to reflect this.
 
 - Compatibility bridge drift
   - Agreed. CI invariants to enforce 1:1 mapping during any bridge period are essential.
@@ -148,7 +148,7 @@ The author’s response constructively addresses the main concerns and proposes 
 Action items to incorporate into the RFC’s “Next Steps”
 
 - Short term
-  - Implement `getApp/getApps` in `flake.lib.nixos` and refactor `roles/media.nix` and `roles/net.nix` to helpers + string lists; add alias modules (`"role-media"`, `"role-net"`).
+  - Implement `getApp/getApps` in `flake.lib.nixos` and refactor `roles/media.nix` and `roles/net.nix` to helpers + string lists; add alias modules (`roles.media`, `roles.net`).
   - Add a CI rule preventing `with config.flake.nixosModules.apps` in `modules/roles/*`.
 - Long term (optional)
   - If adopting inversion, use mirrored entries to respect the typed schema; add CI to keep registry and mirror in sync; time-box the bridge removal.

@@ -35,7 +35,7 @@ Where To Tighten (Approval‑grade asks)
 
 4. Smoke check mechanics
 
-- The example uses `lib.mkForce` for a check attribute. Caution: avoid overriding parent structures unintentionally. Prefer a unique named check (e.g., `checks.role-aliases-structure`) without mkForce, or document why mkForce is needed.
+- The example uses `lib.mkForce` for a check attribute. Caution: avoid overriding parent structures unintentionally. Prefer a unique named check (e.g., `checks.role-modules-structure`) without mkForce, or document why mkForce is needed.
 - Consider adding a second, optional check (or CI script) that exercises a deliberate `getApp` failure and asserts a stable substring like “Unknown NixOS app”. Keep it optional to avoid brittleness.
 
 5. Test Plan — make it explicit and repeatable
@@ -73,16 +73,16 @@ diff --git a/docs/RFC-001.md b/docs/RFC-001.md
 -### Cheap Smoke Check (Evaluation‑Only)
 +### Cheap Smoke Check (Evaluation‑Only)
 @@
--- Add a flake‑level check (placed in a meta CI module such as `modules/meta/ci.nix`) that asserts each role alias resolves to a list at evaluation time (no build), and includes a deliberate failing path for `getApp`.
-+- Add a flake‑level check (placed in a meta CI module such as `modules/meta/ci.nix`) that asserts each role alias resolves to a list at evaluation time (no build), and includes a deliberate failing path for `getApp`.
+-- Add a flake‑level check (placed in a meta CI module such as `modules/meta/ci.nix`) that asserts each role module resolves to a list at evaluation time (no build), and includes a deliberate failing path for `getApp`.
++- Add a flake‑level check (placed in a meta CI module such as `modules/meta/ci.nix`) that asserts each role module resolves to a list at evaluation time (no build), and includes a deliberate failing path for `getApp`.
 @@
 -  checks = {
--    role-aliases-structure = lib.mkForce (
--      builtins.toFile "role-aliases-structure-ok" (
+-    role-modules-structure = lib.mkForce (
+-      builtins.toFile "role-modules-structure-ok" (
 +  checks = {
-+    role-aliases-structure = builtins.toFile "role-aliases-structure-ok" (
++    role-modules-structure = builtins.toFile "role-modules-structure-ok" (
        let
-         assertList = v: if builtins.isList v then "ok" else throw "role alias imports not a list";
+         assertList = v: if builtins.isList v then "ok" else throw "role module imports not a list";
        in
 -        assertList config.flake.nixosModules.roles.dev.imports
 -        + assertList config.flake.nixosModules.roles.media.imports
@@ -143,7 +143,7 @@ diff --git a/docs/RFC-001.md b/docs/RFC-001.md
   - Ensure every criterion uses “is declared/is added” language (no “proposal/snippet present”). I noticed some sections drift between imperative and descriptive voice — keep them uniformly normative to make approval binary.
 
 - Alias check placement
-  - Place the “role alias attrs exist” check adjacent to the list‑type assertions in the same flake‑level CI module so reviewers find all invariants together.
+  - Place the “role module attrs exist” check adjacent to the list‑type assertions in the same flake‑level CI module so reviewers find all invariants together.
 
 - Devshell guarantees
   - State explicitly that `pre-commit` and `rg` are part of the dev shell’s packages. This avoids “works on my machine” cases during the Test Plan.
@@ -436,8 +436,8 @@ Critical confirmations to include in the RFC (docs‑only):
 - Style note on `with` — Agree (soft guidance)
   - Add a soft, non‑blocking guidance in the RFC discouraging `with` over broad scopes in role modules (beyond the hard guard for `with … nixosModules.apps`) to improve greppability and readability.
 
-- Role alias presence check — Agree
-  - Place alongside the smoke checks an eval‑only assertion that `flake.nixosModules."role-dev"`, `"role-media"`, and `"role-net"` exist, complementing the “imports is a list” checks.
+- Role module presence check — Agree
+  - Place alongside the smoke checks an eval‑only assertion that `flake.nixosModules.roles.dev`, `roles.media`, and `roles.net` exist, complementing the “imports is a list” checks.
 
 - Concrete examples — Agree
   - Add a minimal, copy‑paste example for `apps.<name>` authoring and `getApps` role composition to the RFC “Examples” section, verbatim as suggested.
@@ -505,7 +505,7 @@ I re‑read your latest notes carefully. Here’s my critical response and what 
     `(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;`
 
 - Smoke checks — Agree
-  - Avoid `mkForce`; add a presence check for `"role-dev"`, `"role-media"`, `"role-net"`; assert each alias’ `imports` evaluates to a list; all evaluation‑only.
+  - Avoid `mkForce`; add a presence check for `roles.dev`, `roles.media`, `roles.net`; assert each alias’ `imports` evaluates to a list; all evaluation‑only.
   - Keep the deliberate `getApp` failure as an optional CI script that matches a stable substring (“Unknown NixOS app”); no inline Nix string asserts.
 
 - Helpers namespace intent — Agree
@@ -550,7 +550,7 @@ Two microscopic clarifications to fold into the RFC (keeps things audit‑ready,
 Small confirmations
 
 - Keep the prohibition hard only for `with config.flake.nixosModules.apps` (regex guard); keep the broader “avoid `with` in roles” as a soft style note for greppability.
-- Role alias checks: keep both existence and list‑type assertions; eval‑only, colocated with smoke checks.
+- Role module checks: keep both existence and list‑type assertions; eval‑only, colocated with smoke checks.
 - Devshell determinism: ensure `pre-commit` and `ripgrep` (PCRE2) are present so local runs mirror CI.
 
 With those two clarifications added (purity guard, helpers contract), the RFC text reads approval‑grade from a Nix/Dendritic/KISS standpoint. I’m ready to approve after seeing the patched RFC.
@@ -579,7 +579,7 @@ Thanks for the additional precision. I’ve re‑validated your asks and will re
   - Use expanded PCRE2 with optional parens: `(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;` scoped to modules/roles/\*.nix.
 
 - Smoke checks
-  - Uniquely named checks (no mkForce), asserting that role aliases exist and their `imports` evaluate to lists (evaluation‑only, no builds). I’ll add a short comment noting why we avoid mkForce.
+  - Uniquely named checks (no mkForce), asserting that role modulees exist and their `imports` evaluate to lists (evaluation‑only, no builds). I’ll add a short comment noting why we avoid mkForce.
   - Keep the deliberate `getApp` failure as an optional CI script matching a stable substring (“Unknown NixOS app”), not an inline Nix assertion.
 
 - Helpers namespace intent
@@ -610,8 +610,8 @@ If this aligns with your expectations, I’ll fold these doc‑only edits into t
 
 @Author @Dendrite — Ack on reply006. A few surgical additions to make the RFC text fully audit‑ready:
 
-- Role aliases existence (still needed)
-  - Please add an evaluation‑only check that `flake.nixosModules."role-dev"`, `"role-media"`, and `"role-net"` attrs exist (in addition to validating their `imports` lists). This catches accidental alias renames independent of the list checks.
+- Role modules existence (still needed)
+  - Please add an evaluation‑only check that `flake.nixosModules.roles.dev`, `roles.media`, and `roles.net` attrs exist (in addition to validating their `imports` lists). This catches accidental alias renames independent of the list checks.
 
 - One‑shot cleanliness scan — include exact command
   - In Acceptance Criteria, add the literal command used and require it to have run and passed at approval time. For example:
@@ -651,7 +651,7 @@ If you fold these into rev 3.5, I’m satisfied that the RFC is approval‑grade
   - Please add a one‑line “Sign‑off” field in the RFC footer capturing the RFC owner and approver(s) with dates. It helps auditing later (“who approved what, when”).
 
 - Additional tiny sanity evals
-  - Alongside the role alias presence/type checks, consider a trivial per‑alias length check (e.g., `builtins.length importList >= 0`) just to force evaluation of the list and surface any latent lazy errors in construction. Not blocking, but I’ve seen it catch a bad import path early.
+  - Alongside the role module presence/type checks, consider a trivial per‑alias length check (e.g., `builtins.length importList >= 0`) just to force evaluation of the list and surface any latent lazy errors in construction. Not blocking, but I’ve seen it catch a bad import path early.
 
 - Naming collisions (nit)
   - Under naming policy, add: “Avoid app keys that collide with existing top‑level modules/roles (e.g., ‘roles’, ‘apps’, ‘base’).” It’s obvious, but it saves an hour someday.
@@ -685,7 +685,7 @@ Operational notes
 - Ensure devshell exposes `pre-commit` and `ripgrep` so `nix develop -c pre-commit run --all-files` and the PCRE2 checks run identically locally and in CI.
 - Keep the `getApp` error prefix stable (e.g., `Unknown NixOS app '<name>'`), then append a capped preview of known keys (first 20 + …) for UX.
 
-With these two guards and the already agreed items (expanded PCRE2, role alias existence check, no allowlists, examples, normative acceptance criteria), I’m satisfied the RFC will be approval‑grade. Happy to re‑review the patched text immediately.
+With these two guards and the already agreed items (expanded PCRE2, role module existence check, no allowlists, examples, normative acceptance criteria), I’m satisfied the RFC will be approval‑grade. Happy to re‑review the patched text immediately.
 
 </reply007>
 </user=Dendrite>
@@ -705,7 +705,7 @@ Agree — will integrate explicitly in RFC text
 - One‑shot cleanliness gate: repo is free of any `with config.flake.nixosModules.apps;` occurrences at approval time (document exact scan).
 - Exact placements: helpers option at `modules/meta/flake-output.nix`; helpers module at `modules/meta/nixos-app-helpers.nix`; pre‑commit hook `forbid-with-apps-in-roles` in `modules/meta/git-hooks.nix` with the exact PCRE2 regex; smoke checks at flake level (e.g., `modules/meta/ci.nix`).
 - CI regex: expanded PCRE2 with optional parens `(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;`, scoped to `modules/roles/*.nix`. Dev shell MUST include `pre-commit` and `rg`; grep fallback documented as less precise/local.
-- Smoke checks: uniquely named; assert role aliases exist and their `imports` evaluate to lists; evaluation‑only, no builds. Deliberate `getApp` failure validated by an optional CI script (stable substring), not inline Nix.
+- Smoke checks: uniquely named; assert role modulees exist and their `imports` evaluate to lists; evaluation‑only, no builds. Deliberate `getApp` failure validated by an optional CI script (stable substring), not inline Nix.
 - Helpers namespace note: intended for functions (and small metadata) only; typed as `attrsOf anything`.
 - Naming policy: add explicit examples for acronyms/compounds (vpnTools, httpClient, wireguardTools, nodejs_22), vendor/digits guidance; “new keys only; no migrations in 3.5”.
 - Docs alignment: MUST update `README.md`, `docs/MODULE_STRUCTURE_GUIDE.md`, and `docs/DENDRITIC_PATTERN_REFERENCE.md` for aggregator distinction, helper usage, and naming policy.
@@ -731,10 +731,10 @@ I’ll fold these into the RFC now as documentation‑only edits; I won’t land
 
 Great—your reply addresses the substantive concerns. Two remaining items to lock auditability and prevent regressions:
 
-1. Role alias existence invariant (explicit)
+1. Role module existence invariant (explicit)
 
 - Please add an evaluation‑only check alongside the smoke tests that verifies the alias attrs exist:
-  - `flake.nixosModules."role-dev"`, `"role-media"`, and `"role-net"` are present (attrs exist), not just that their `roles.*.imports` evaluate to lists. This catches accidental renames early.
+  - `flake.nixosModules.roles.dev`, `roles.media`, and `roles.net` are present (attrs exist), not just that their `roles.*.imports` evaluate to lists. This catches accidental renames early.
 
 2. Dev shell requirements (test plan)
 
@@ -765,7 +765,7 @@ I re‑read your latest (reply008) and the Author’s plan (reply006). Fully ali
   - In the “App Module Authoring Pattern” or “Roles Composition via Helpers”, include one explicit sentence: “For optional composition, prefer `getAppOr` over `hasApp + getApp`; use `hasApp` only for readability in conditionals.” This keeps call‑sites consistent and discoverable.
 
 - Alias stability (naming note)
-  - Add a short note that role alias names are part of the public interface and SHOULD remain stable; if a rename is needed, introduce the new alias and deprecate the old one over a short window before removal (documented in the RFC history).
+  - Add a short note that role module names are part of the public interface and SHOULD remain stable; if a rename is needed, introduce the new alias and deprecate the old one over a short window before removal (documented in the RFC history).
 
 - mkForce usage (explicit rule)
   - Beyond examples: Acceptance Criteria SHOULD state that checks MUST NOT rely on `mkForce` unless justified inline with a 1‑line comment. This prevents silent overrides becoming habit.
@@ -800,7 +800,7 @@ Final clarifications and micro‑edits to fold into the RFC:
 2. Helpers root option type and intent
    - Use `lib.types.attrsOf lib.types.anything` (not `types.attrs`) and document that helpers are functions/small metadata only. This prevents accidental data dumping and keeps merges predictable.
 
-3. Role alias existence check
+3. Role module existence check
    - Keep this evaluation‑only and colocated with the smoke checks. It should assert that the alias attrs exist (separate from imports being lists).
 
 4. getApp error message UX
@@ -884,8 +884,8 @@ Agree/validate
 
 Two requested additions to the RFC text
 
-1. Role alias presence check:
-   - Alongside the “imports is a list” assertions, add an evaluation‑only invariant that `flake.nixosModules."role-dev"`, `"role-media"`, and `"role-net"` exist (attrs present). This catches accidental alias renames.
+1. Role module presence check:
+   - Alongside the “imports is a list” assertions, add an evaluation‑only invariant that `flake.nixosModules.roles.dev`, `roles.media`, and `roles.net` exist (attrs present). This catches accidental alias renames.
 2. Style guidance (soft):
    - Add a brief “Style Guidance” note discouraging `with` over broad scopes in role modules (not a hard guard beyond `with … nixosModules.apps`, but a documented preference for explicit names and greppability).
 
@@ -917,18 +917,18 @@ Acceptance Criteria (additions)
   - Helpers root option lives in `modules/meta/flake-output.nix` under `options.flake.lib.nixos` (type: `lib.types.attrsOf lib.types.anything`).
   - Helpers implementation lives in `modules/meta/nixos-app-helpers.nix` exporting `config.flake.lib.nixos.{getApp,getApps,getAppOr}` (and optional `hasApp`).
   - CI checks live in `modules/meta/ci.nix`; pre‑commit hook lives in `modules/meta/git-hooks.nix`.
-- Role aliases exist: `flake.nixosModules."role-dev"`, `"role-media"`, and `"role-net"` are present as attributes (eval‑only check).
+- Role modules exist: `flake.nixosModules.roles.dev`, `roles.media`, and `roles.net` are present as attributes (eval‑only check).
 - Helpers namespace intent: documented as functions (and small metadata) only; avoid dumping large data there.
 
 Implementation Notes (snippets)
 
-- Role alias presence check (eval‑only):
+- Role module presence check (eval‑only):
 
   ```nix
-  checks.role-aliases-exist = builtins.toFile "role-aliases-exist-ok" (
+  checks.role-modules-exist = builtins.toFile "role-modules-exist-ok" (
     let has = n: builtins.hasAttr n config.flake.nixosModules; in
-    if has "role-dev" && has "role-media" && has "role-net" then "ok" else
-      throw "Missing one or more role aliases: role-dev/role-media/role-net"
+    if has roles.dev && has roles.media && has roles.net then "ok" else
+      throw "Missing one or more role modulees: role-dev/role-media/role-net"
   );
   ```
 
@@ -1118,7 +1118,7 @@ Strengths
 
 - Clear motivation and avoidance of aggregator brittleness; explicit helper lookup is robust.
 - Keeps per‑app export under `flake.nixosModules.apps.<name>`; no new registry.
-- Stable role aliases (`role-dev`, `role-media`, `role-net`) simplify host imports.
+- Stable role modulees (`role-dev`, `role-media`, `role-net`) simplify host imports.
 - CI/pre‑commit story is in scope; validation plan is present.
 
 Required changes before approval (normative)
@@ -1145,7 +1145,7 @@ Implementation pointers (exact placements)
 - Helpers module: `modules/meta/nixos-app-helpers.nix` exporting `config.flake.lib.nixos.{getApp,getApps,getAppOr}` (and optional `hasApp`).
 - Role refactors: `modules/roles/dev.nix`, `modules/roles/media.nix`, `modules/roles/net.nix` use `getApps` and define corresponding `role-*` aliases.
 - Pre‑commit hook: `modules/meta/git-hooks.nix` with the expanded PCRE2 and scope limited to `modules/roles/*.nix`.
-- CI checks: `modules/meta/ci.nix` with evaluation‑only checks for role alias `imports` type and optional expected‑failure for unknown app.
+- CI checks: `modules/meta/ci.nix` with evaluation‑only checks for role module `imports` type and optional expected‑failure for unknown app.
 
 Conclusion
 
@@ -1207,8 +1207,8 @@ Your plan looks solid and aligns with both reviews. A few precise deltas to lock
 - Style guard (optional but helpful)
   - Consider a soft style note (not a blocker): discourage `with` on large scopes generally in role modules (even beyond `apps`), since dendritic favors explicit names and it improves greppability. The hard guard remains only for `with … nixesModules.apps`.
 
-- Role alias presence check
-  - Add a simple eval‑only check that `flake.nixosModules."role-dev"`, `"role-media"`, and `"role-net"` exist as attrs (not just the `roles.*.imports` list checks). This catches accidental alias renames.
+- Role module presence check
+  - Add a simple eval‑only check that `flake.nixosModules.roles.dev`, `roles.media`, and `roles.net` exist as attrs (not just the `roles.*.imports` list checks). This catches accidental alias renames.
 
 - Concrete examples in docs (nit, but improves adoption)
   - Please include a minimal, copy‑pasteable example:
@@ -1222,7 +1222,7 @@ Your plan looks solid and aligns with both reviews. A few precise deltas to lock
     { config, ... }:
     let getApps = config.flake.lib.nixos.getApps; in
     { flake.nixosModules.roles.dev.imports = getApps [ "neovim" ];
-      flake.nixosModules."role-dev".imports = config.flake.nixosModules.roles.dev.imports; }
+      flake.nixosModules.roles.dev.imports = config.flake.nixosModules.roles.dev.imports; }
     ```
 
     This grounds the pattern quickly for new contributors.
@@ -1251,8 +1251,8 @@ With these minor edits, I’m fully aligned with your approach. Once you fold th
 - Style note on `with` — mild agreement
   - I’m fine documenting a soft rule discouraging `with` over broad scopes in roles. Let’s keep the hard prohibition limited to `with … nixosModules.apps` for now to avoid overreach.
 
-- Role alias presence check — agree
-  - Adding a simple eval check that `"role-dev"`, `"role-media"`, and `"role-net"` exist is a good complement to validating their `imports` type. Please place it alongside the smoke checks, and keep it evaluation‑only.
+- Role module presence check — agree
+  - Adding a simple eval check that `roles.dev`, `roles.media`, and `roles.net` exist is a good complement to validating their `imports` type. Please place it alongside the smoke checks, and keep it evaluation‑only.
 
 - Concrete examples — agree
   - The minimal copy‑paste example is exactly the right level of detail. Please include it verbatim in the RFC “Examples” section.
@@ -1400,7 +1400,7 @@ Critical read and decisions (will fold into RFC text now):
 - mkForce — Agree (ban in checks)
   - Add to Acceptance Criteria: smoke checks MUST NOT rely on `mkForce` unless justified inline with a one-line comment.
 
-- Role alias checks — Agree
+- Role module checks — Agree
   - Keep eval-only invariants: alias attrs exist and each `roles.*.imports` evaluates to a list; colocated in a flake-level CI module, no builds.
 
 - Naming policy tightenings — Agree
@@ -1820,7 +1820,7 @@ Planned changes (exact placements)
 - Flake-level checks: `modules/meta/ci.nix` — alias existence + imports-is-list; colocate optional helper-presence check; no `mkForce`.
 - Pre-commit guard: `modules/meta/git-hooks.nix` — `forbid-with-apps-in-roles` using `rg -nU --pcre2 --glob 'modules/roles/**/*.nix' -e '(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;'`.
 - Devshell parity: ensure `pre-commit` and `ripgrep` are included so `nix develop -c pre-commit run --all-files` works.
-- Role refactors: update `modules/roles/{dev,media,net}.nix` to use helpers; keep alias exports `flake.nixosModules."role-*"` unchanged; adopt `config.flake.nixosModules.dev.node` bundle in `role-dev` with a short comment.
+- Role refactors: update `modules/roles/{dev,media,net}.nix` to use helpers; expose the role modules under `flake.nixosModules.roles.*`; adopt `config.flake.nixosModules.dev.node` bundle in `role-dev` with a short comment.
 - One-time cleanliness scan: run the documented command and confirm 0 occurrences before merge.
 
 Toggles (seeking confirmation)
@@ -1866,9 +1866,9 @@ Thanks for the re‑review and approval. One micro‑tweak to the smoke‑check 
 - Prefer boolean asserts + `builtins.seq` to force evaluation instead of concatenating strings. Example:
 
 ```nix
-checks.role-aliases-structure = builtins.toFile "role-aliases-structure-ok" (
+checks.role-modules-structure = builtins.toFile "role-modules-structure-ok" (
   let
-    assertList = v: if builtins.isList v then true else throw "role alias imports not a list";
+    assertList = v: if builtins.isList v then true else throw "role module imports not a list";
     _ = builtins.seq (
       assertList config.flake.nixosModules.roles.dev.imports
       && assertList config.flake.nixosModules.roles.media.imports
@@ -1897,7 +1897,7 @@ Changes applied in docs/RFC-001.md
 
 - Normalized lingering “rev 3.5” mentions to “rev 3.6” (confirmed no remaining occurrences).
 - Updated the smoke-check example to use boolean chaining instead of string concatenation so all list-assertions evaluate and throw properly:
-  - `assertList = v: if builtins.isList v then true else throw "role alias imports not a list";`
+  - `assertList = v: if builtins.isList v then true else throw "role module imports not a list";`
   - Chain with `&&` into a dummy binding, then return "ok".
 
 Verdict
