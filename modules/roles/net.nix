@@ -7,18 +7,25 @@ let
     if lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules then
       lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules
     else
-      throw ("Unknown NixOS app '" + name + "' (role net)");
+      throw ("Unknown NixOS app '" + name + "' (net role)");
   getApp = rawHelpers.getApp or fallbackGetApp;
   getApps = rawHelpers.getApps or (names: map getApp names);
   netApps = [
     "httpx"
+    "httpie"
     "curlie"
+    "curl"
+    "wget"
     "tor"
     "openvpn"
     "wireguard-tools"
     "protonvpn-gui"
+    "mitmproxy"
     "ktailctl"
     "networkmanager-dmenu"
+    "networkmanagerapplet"
+    "networkmanager-openvpn"
+    "dnsleak" # TODO: Submit to Nixpkgs repo
   ];
   roleImports =
     getApps netApps

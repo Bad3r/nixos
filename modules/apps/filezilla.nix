@@ -11,9 +11,14 @@
 
   Options:
     filezilla: Launch the graphical client.
-    --locales=LANG: Override the desktop locale (normally autotected via environment variables).
+    --locales=LANG: Override the desktop locale (normally autodetected via environment variables).
     --config-dir=PATH: Use an alternate configuration directory for bookmarks and settings.
     --help: Display CLI flags and exit.
+
+  Example Usage:
+    * `filezilla` — Open the client to manage multiple FTP, FTPS, or SFTP sessions with drag-and-drop transfers.
+    * `filezilla --config-dir ~/.config/filezilla-work` — Separate work profiles, bookmarks, and queue settings.
+    * `filezilla --locales=de_DE` — Force a particular locale when the environment locale is unavailable.
 */
 
 {

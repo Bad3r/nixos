@@ -1,3 +1,23 @@
+/*
+  Package: logseq-fhs
+  Description: FHS-wrapped build of Logseq, the local-first knowledge graph and outliner.
+  Homepage: https://logseq.com/
+  Documentation: https://docs.logseq.com/
+  Repository: https://github.com/logseq/logseq
+
+  Summary:
+    * Packages Logseq within an FHS environment so Electron dependencies expecting traditional paths function correctly on NixOS.
+    * Enables journaling, graph-based note taking, and Markdown/Org-mode interop with plugins and sync capabilities.
+
+  Options:
+    logseq: Launch the Logseq desktop application from the wrapped environment.
+    (Further configuration happens through the Logseq UI and settings panels.)
+
+  Example Usage:
+    * `logseq` — Open your knowledge graph with the FHS wrapper ensuring compatibility.
+    * Configure graph locations and plugin marketplace via Logseq’s settings dialog.
+*/
+
 {
   inputs,
   lib,

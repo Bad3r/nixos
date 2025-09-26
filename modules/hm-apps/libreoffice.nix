@@ -1,3 +1,27 @@
+/*
+  Package: libreoffice
+  Description: Comprehensive, professional-quality productivity suite, a variant of openoffice.org.
+  Homepage: https://libreoffice.org/
+  Documentation: https://help.libreoffice.org/
+  Repository: https://git.libreoffice.org/core
+
+  Summary:
+    * Full office suite with Writer, Calc, Impress, Draw, Base, and Math supporting OpenDocument formats and Microsoft Office interoperability.
+    * Provides scripting, extension APIs, database connectivity, and integration with LibreOffice Online or remote storage.
+
+  Options:
+    libreoffice: Launch the start center for choosing applications.
+    libreoffice --writer <file>: Open directly in Writer with a document.
+    libreoffice --calc <file>: Start Calc spreadsheets or create a new workbook.
+    libreoffice --impress <file>: Open presentations in Impress.
+    libreoffice --convert-to <format> <file>: Convert documents via CLI in batch scripts.
+
+  Example Usage:
+    * `libreoffice --writer report.odt` — Jump straight into editing a Writer document.
+    * `libreoffice --calc data.xlsx` — Analyze spreadsheets with Calc’s pivot tables and functions.
+    * `libreoffice --convert-to pdf *.odt` — Convert multiple documents to PDF on the command line.
+*/
+
 {
   flake.homeManagerModules.apps.libreoffice =
     { pkgs, ... }:
