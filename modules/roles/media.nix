@@ -12,7 +12,7 @@ let
   getApps = rawHelpers.getApps or (names: map getApp names);
   mediaApps = [
     "mpv"
-    "vlc"
+    # "vlc"
     "okular"
     "gwenview"
     "spectacle"

@@ -1,3 +1,27 @@
+/*
+  Package: zoom
+  Description: Video conferencing and collaboration client.
+  Homepage: https://zoom.us/
+  Documentation: https://support.zoom.com/hc/en
+  Repository: https://github.com/logicalshift/zoom
+
+  Summary:
+    * Provides HD video/voice meetings, breakout rooms, screen sharing, and webinar features for distributed teams.
+    * Integrates with calendars, virtual backgrounds, recording to cloud/local storage, and enterprise security controls.
+
+  Options:
+    zoom: Launch the Zoom desktop client.
+    zoom --url="zoommtg://<meeting>": Join a meeting directly from a deep link.
+    zoom --atiomode=1: Start minimized in the system tray.
+    zoom --disable-gpu: Run with software rendering to work around GPU issues.
+    zoom --enable-features=WaylandWindowDecorations: Improve window handling on Wayland compositors.
+
+  Example Usage:
+    * `zoom` — Open the client to schedule or join meetings.
+    * `zoom --url="zoommtg://zoom.us/join?action=join&confno=123456789"` — Join a meeting straight from the command line.
+    * `zoom --disable-gpu` — Resolve rendering problems on thin clients or remote desktops.
+*/
+
 {
   nixpkgs.allowedUnfreePackages = [ "zoom" ];
 

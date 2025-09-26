@@ -1,3 +1,28 @@
+/*
+  Package: codex
+  Description: Lightweight coding agent that runs in your terminal.
+  Homepage: https://github.com/openai/codex
+  Documentation: https://github.com/openai/codex/blob/main/docs/getting-started.md
+  Repository: https://github.com/openai/codex
+
+  Summary:
+    * Provides an interactive TUI that orchestrates code edits, tests, and tooling via OpenAI Codex with sandboxed execution and approvals.
+    * Supports non-interactive automation, session resume, Model Context Protocol servers, and configurable instructions through `config.toml` and `AGENTS.md`.
+
+  Options:
+    codex: Launch the interactive terminal UI and sign in with ChatGPT or API key.
+    codex "<prompt>": Start a new session pre-populated with a task description.
+    codex exec "<prompt>": Run Codex in automation mode without the TUI.
+    codex resume --last: Reopen the most recent session transcript.
+    codex --cd <path>: Set the working directory Codex should operate in.
+    codex completion <shell>: Generate shell completion scripts for Bash, Zsh, or Fish.
+
+  Example Usage:
+    * `codex "Write unit tests for src/date.ts"` — Ask Codex to draft and run new tests in the current repo.
+    * `codex exec "explain utils.py"` — Produce a non-interactive explanation suitable for piping to other tools.
+    * `codex resume --last` — Continue collaborating in the most recent workspace without starting from scratch.
+*/
+
 {
   flake.homeManagerModules.apps.codex =
     {
