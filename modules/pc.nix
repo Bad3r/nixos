@@ -16,7 +16,6 @@ let
     else
       throw ("Unknown role '" + name + "' referenced by flake.nixosModules.pc");
   pcRoles = [
-    "base"
     "xserver"
     "files"
     "dev"
@@ -27,7 +26,14 @@ let
     "gaming"
     "security"
   ];
+  baseImport =
+    if lib.hasAttr "base" roles then
+      [ (getRole "base") ]
+    else if lib.hasAttrByPath [ "base" ] config.flake.nixosModules then
+      [ (lib.getAttrFromPath [ "base" ] config.flake.nixosModules) ]
+    else
+      throw "flake.nixosModules.base missing while constructing pc bundle";
 in
 {
-  flake.nixosModules.pc.imports = map getRole pcRoles;
+  flake.nixosModules.pc.imports = baseImport ++ map getRole pcRoles;
 }
