@@ -28,9 +28,4 @@
       environment.systemPackages = [ pkgs.skim ];
     };
 
-  flake.nixosModules.workstation =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.skim ];
-    };
 }
