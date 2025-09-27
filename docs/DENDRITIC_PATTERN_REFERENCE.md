@@ -12,10 +12,10 @@ The Dendritic Pattern treats every file under `modules/` as a flake-parts module
 
 This flake exposes two merge-friendly aggregators:
 
-| Namespace                  | Purpose                    | Typical Exports                                                                  |
-| -------------------------- | -------------------------- | -------------------------------------------------------------------------------- |
+| Namespace                  | Purpose                    | Typical Exports                                                                 |
+| -------------------------- | -------------------------- | ------------------------------------------------------------------------------- |
 | `flake.nixosModules`       | System-level configuration | `base`, `pc`, `workstation`, `apps.<name>`, `roles.<name>`, `roles.dev` aliases |
-| `flake.homeManagerModules` | Home Manager configuration | `base`, `gui`, `apps.<name>`, secrets helpers                                    |
+| `flake.homeManagerModules` | Home Manager configuration | `base`, `gui`, `apps.<name>`, secrets helpers                                   |
 
 Modules register themselves under these namespaces. Example (`modules/files/fzf.nix`):
 
