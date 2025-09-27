@@ -11,22 +11,23 @@
 
 ## 2. Comparison With Current From-Source Build
 
-| Aspect | From-source derivation | Vendor release artifact |
-| --- | --- | --- |
-| Build inputs | Git clone of `inputs.logseq` + 12 git deps, dozens of yarn lockfiles, Maven cache | Single fixed-output zip |
-| Electron version | 37.2.6 pinned in derivation | 34.5.6 embedded by upstream |
-| Output layout | `$out/share/logseq/app` + locales copied from `static/out/Logseq-linux-x64` | `Logseq-linux-x64/` already matches expected layout |
-| Tooling overhead | `scripts/update-logseq-sources.py`, `main-placeholder.patch`, `yarn-deps.nix`, `resources-workspace.json`, Maven bootstrap | None—hash bump updates version |
-| Desktop integration | `.desktop` generated during install phase | Release lacks `.desktop` (we must continue to provide one) |
-| Launcher | Wrapper execs store Electron with `--disable-setuid-sandbox` | Can call bundled `Logseq` binary with same flag |
-| Offline guarantees | Painful—must regen caches for every upstream change | Hash check on single archive (still reproducible) |
+| Aspect              | From-source derivation                                                                                                     | Vendor release artifact                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Build inputs        | Git clone of `inputs.logseq` + 12 git deps, dozens of yarn lockfiles, Maven cache                                          | Single fixed-output zip                                    |
+| Electron version    | 37.2.6 pinned in derivation                                                                                                | 34.5.6 embedded by upstream                                |
+| Output layout       | `$out/share/logseq/app` + locales copied from `static/out/Logseq-linux-x64`                                                | `Logseq-linux-x64/` already matches expected layout        |
+| Tooling overhead    | `scripts/update-logseq-sources.py`, `main-placeholder.patch`, `yarn-deps.nix`, `resources-workspace.json`, Maven bootstrap | None—hash bump updates version                             |
+| Desktop integration | `.desktop` generated during install phase                                                                                  | Release lacks `.desktop` (we must continue to provide one) |
+| Launcher            | Wrapper execs store Electron with `--disable-setuid-sandbox`                                                               | Can call bundled `Logseq` binary with same flag            |
+| Offline guarantees  | Painful—must regen caches for every upstream change                                                                        | Hash check on single archive (still reproducible)          |
 
 ## 3. Proposed Packaging Approach
 
 1. **Introduce binary derivation**
-   - Replace the `logseq-unwrapped` derivation with a simple fixed-output fetch (e.g. `fetchzip` against release URL parameterised by version & hash).
-   - Install the unpacked `Logseq-linux-x64` directory under `$out/share/logseq`. Preserve permissions; ensure `chrome-sandbox` remains non-setuid.
-   - Copy `resources/app/icon.png` into `$out/share/icons/hicolor/512x512/apps/logseq.png` (same as today) and place a `.desktop` template under `$out/share/applications/logseq.desktop` targeting the wrapper (`Exec=logseq-fhs %U`).
+   - Replace the `logseq-unwrapped` derivation with a fixed-output `fetchzip` that derives the release URL from a version string: `https://github.com/logseq/logseq/releases/download/${version}/Logseq-linux-x64-${version}.zip`.
+   - Use the `stripRoot = false` pattern or post-fetch `mkdir`/`mv` to ensure the unpacked tree lives under `Logseq-linux-x64/`. Install that directory into `$out/share/logseq`, preserving permissions (especially `chrome-sandbox` which must remain non-setuid).
+   - Remove upstream auto-update scaffolding (`resources/app/update.js`, `resources/app/app-update.yml`, and related assets) during `installPhase` so the binary doesn’t attempt in-place updates against the read-only store.
+   - Copy `resources/app/icon.png` into `$out/share/icons/hicolor/512x512/apps/logseq.png` and install a `.desktop` template under `$out/share/applications/logseq.desktop` targeting the wrapper (`Exec=logseq-fhs %U`).
 
 2. **Reuse FHS wrapper**
    - Keep `buildFHSEnv` wrapper but adjust the runtime script to execute `$store_root/Logseq` (bundled binary) with `--disable-setuid-sandbox` when needed. Continue exporting `NIXOS_OZONE_WL`, `GTK_USE_PORTAL`, etc.
@@ -38,7 +39,7 @@
 
 4. **Delete legacy build scaffolding**
    - Remove `packages/logseq-fhs/git-deps.nix`, `yarn-deps.nix`, `main-placeholder.patch`, `resources-workspace.json`, and Python helpers (`rewrite-static-lock.py`, `scripts/update-logseq-sources.py`).
-   - Simplify `packages/logseq-fhs/default.nix` to only fetch, install, and wrap the binary.
+   - Simplify `packages/logseq-fhs/default.nix` to only fetch, install (with auto-update assets removed), and wrap the binary.
 
 ## 4. Implementation Checklist
 
@@ -46,10 +47,11 @@
 2. Update `mkLogseqPackages` (or replace entirely) to return binary variant; adjust `modules/apps/logseq-fhs.nix` to drop `inputs.logseq` dependency.
 3. Move the existing wrapper script to call the bundled `Logseq` binary; verify `--disable-setuid-sandbox` and Wayland flags still apply.
 4. Re-create `.desktop` entry referencing `logseq-fhs %U` (can reuse current template minus build artifacts).
-5. Delete unused files & tooling (docs referencing them must be rewritten).
-6. Update documentation (including `docs/logseq-fhs-plan.md`) to describe binary-based workflow, benefits, and trade-offs.
-7. Run `nix fmt`, `statix`, and `nix flake check` after cleanup.
-8. Execute `nix build .#logseq-fhs` to confirm the binary wrapper works offline; smoke-test on target environment.
+5. Audit other references to `logseq-unwrapped` (flake outputs, tests, devshells, docs) and update them before removing the old derivation.
+6. Delete unused files & tooling (rewrite docs referencing them to avoid stale instructions).
+7. Update documentation (including `docs/logseq-fhs-plan.md`) to describe binary-based workflow, benefits, and trade-offs.
+8. Run `nix fmt`, `statix`, and `nix flake check` after cleanup.
+9. Execute `nix build .#logseq-fhs` to confirm the binary wrapper works offline; smoke-test on target environment.
 
 ## 5. Validation Plan
 
