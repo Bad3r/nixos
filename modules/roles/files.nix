@@ -36,6 +36,7 @@ let
     "kdiskmark"
     "dust"
     "duf"
+    "dua"
     "filezilla"
     "rip2"
     "veracrypt"
