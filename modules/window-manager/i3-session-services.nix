@@ -122,7 +122,7 @@
                 };
                 Install.WantedBy = [ "graphical-session.target" ];
                 Service = {
-                  ExecStart = "${lib.getExe pkgs.autotiling-rs} --replace";
+                  ExecStart = lib.getExe pkgs.autotiling-rs;
                   Restart = "on-failure";
                 };
               };
