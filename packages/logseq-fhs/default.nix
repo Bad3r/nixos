@@ -104,6 +104,28 @@ let
       cp -r ./* "$out/share/logseq/"
       shopt -u dotglob
 
+      # Some upstream archives place the full tree under a release-named
+      # directory (e.g. "logseq-<ver>-binary/Logseq-linux-x64"). Flatten any
+      # such staging folder so the wrapper can discover the binary at
+      # "$out/share/logseq/Logseq".
+      shopt -s nullglob
+      for stage_dir in "$out/share/logseq"/logseq-*; do
+        if [ -d "''${stage_dir}/Logseq-linux-x64" ]; then
+          shopt -s dotglob
+          mv "''${stage_dir}/Logseq-linux-x64"/* "$out/share/logseq/"
+          shopt -u dotglob
+          rm -rf "''${stage_dir}"
+        fi
+      done
+
+      if [ -d "$out/share/logseq/Logseq-linux-x64" ]; then
+        shopt -s dotglob
+        mv "$out/share/logseq/Logseq-linux-x64"/* "$out/share/logseq/"
+        shopt -u dotglob
+        rm -rf "$out/share/logseq/Logseq-linux-x64"
+      fi
+      shopt -u nullglob
+
       # remove auto-update scaffolding if present
       rm -f "$out/share/logseq/resources/app/update.js"
       rm -f "$out/share/logseq/resources/app/app-update.yml"
@@ -182,6 +204,13 @@ let
     export ELECTRON_IS_DEV=0
     export NIXOS_OZONE_WL="''${NIXOS_OZONE_WL:-1}"
     export GTK_USE_PORTAL=1
+    if [ ! -x "$STORE_ROOT/Logseq" ]; then
+      echo "logseq-fhs-runtime: expected binary at $STORE_ROOT/Logseq" >&2
+      echo "Found the following contents:" >&2
+      ls "$STORE_ROOT" >&2
+      exit 1
+    fi
+
     exec "$STORE_ROOT/Logseq" --disable-setuid-sandbox "$@"
   '';
 
