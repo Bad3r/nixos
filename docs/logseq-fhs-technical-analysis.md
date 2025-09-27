@@ -1,59 +1,64 @@
 # Logseq FHS Packaging Technical Analysis
 
-_Date: 2025-09-26_
+## Overview
 
-## Snapshot of Flake Integration
+Logseq is packaged from the upstream flake input and built with an Electron 37 runtime wrapped inside an FHS environment. The build graph produces two primary outputs: a deterministic `logseq-unwrapped` derivation that performs the full web/electron build, and an `logseq-fhs` wrapper that layers in runtime libraries and desktop integration. Supporting Python automation refreshes git and Yarn dependencies, injects placeholder rewrites, and maintains offline caches to preserve reproducibility.
 
-- `modules/apps/logseq-fhs.nix` wires `inputs.logseq` through `mkLogseqPackages`, exposing `logseq-fhs` and `logseq-unwrapped` via `perSystem.packages` and `flakes.nixosModules.apps` bundles. The module intentionally keeps surface area small: it only installs the wrapped desktop app into `environment.systemPackages`, relying on the FHS build for runtime quirks.
-- The Electron runtime is provided by `pkgs.electron_37`; the source revision string becomes `version = "unstable-${substring 0 8 inputs.logseq.rev}"`, matching the plan’s goal of tracking upstream `main` without curating semantic releases.
+## Module Integration (`modules/apps/logseq-fhs.nix`)
 
-## Derivation Pipeline (`packages/logseq-fhs/default.nix`)
+- Exposes a reusable `mkLogseqPackages` helper which imports the package set from `packages/logseq-fhs` while pinning Electron 37 and propagating the upstream source revision. The helper is reused for per-system packages and for module/app wiring.
+- Provides a minimal `logseqAppModule` that injects the wrapped executable into `environment.systemPackages`. The module is exported both as `flake.nixosModules.apps.logseqFhs` (camelCase) and `flake.nixosModules.apps."logseq-fhs"` for compatibility with naming conventions, and bundled into the `workstation` profile.
+- Delegates configuration to Logseq itself rather than exposing Nix options, consistent with the app-centric module approach described in the plan.
 
-1. **Source normalisation**
-   - `git-deps.nix` resolves every upstream git dependency to an immutable fetcher. `main-placeholder.patch` rewrites Clojure workspace manifests to reference `@placeholder@` tokens, letting the build swap git URLs for local store paths later.
-   - `placeholderSubstitutionScript` and `rewriteYarnLocksScript` run in `patchedSrc`, replacing placeholder markers and rewriting `yarn.lock` entries so that Yarn points to `.nix-cache/git/*` copies instead of remote git hosts.
+## Package Architecture (`packages/logseq-fhs/default.nix`)
 
-2. **Offline Yarn caches**
-   - `yarn-deps.nix` enumerates every workspace lockfile. During evaluation, `fetchYarnDeps` materialises offline mirrors for those locks. `addNodeGyp` augments the root cache with the manually bundled `node-gyp` tarball required by Electron Forge.
-   - `resources-workspace.json` carries a vendored `package.json`, `yarn.lock`, and the expected `prefetch-yarn-deps` hash for the Forge packaging workspace. `resourcesOfflineCache` uses those texts to rebuild the mirror under Nix while enforcing `outputHashMode = "recursive"` for determinism.
+### Source Patching & Git Placeholders
 
-3. **Build phase highlights**
-   - `clojureWithCache` wraps the compiler toolchain so all Maven fetches stay inside `$TMPDIR/home`, aligning with the plan’s “deterministic cache creation” requirement.
-   - The main build script batches workspace installs (`yarn --cwd packages/ui ...`, `yarn --cwd static ...`) with offline mirrors, patches shebangs, and executes the upstream pipeline: `gulp build`, `cljs:release-electron`, `webpack-app-build`, then Electron Forge packaging inside `static/`.
-   - `rewrite-static-lock.py` post-processes `static/yarn.lock`, translating registry URLs into cache filenames that match `prefetch-yarn-deps` output. It mirrors the plan’s warning about keeping Yarn’s naming convention intact.
-   - Electron assets (`electron-v37.2.6-linux-x64.zip` and `SHASUMS256.txt`) plus builder caches (AppImage, snap templates, FPM, zstd) are downloaded ahead of time and re-injected into the build via `ELECTRON_OVERRIDE_DIST_PATH`, `ELECTRON_CACHE`, and `ELECTRON_BUILDER_CACHE`.
+- Imports pre-fetched git dependencies via `git-deps.nix`, then applies `main-placeholder.patch` to replace every `:git/url` stanza in Clojure/BB workspace manifests with sentinel strings. The derivation substitutes those placeholders with store paths before builds, ensuring offline resolution and aligning with plan requirements for comprehensive placeholder coverage.
+- Maintains a `placeholderSubstitutionScript` that traverses all known `.edn`/`.bb` files; missing placeholders produce a hard failure (`grep` guard) so new upstream references are detected early.
 
-4. **Install phase**
-   - The derivation exports the unpacked app into `$out/share/logseq`, hoisting locales, `.pak` files, and the icon. A thin wrapper script resolves the correct Electron app root before launching.
+### Yarn Offline Mirrors & Resources Cache
 
-## FHS Runtime Wrapper
+- Enumerates every workspace lockfile through `yarn-deps.nix` and materializes offline caches with `fetchYarnDeps`. The derivation additionally constructs a custom resources workspace (via `resources-workspace.json`) to capture the Electron Forge stage, including hand-curated tarballs for `@electron/node-gyp` and the dugite native binary.
+- During build, the script registers each offline cache via a helper that primes temporary writable mirrors and feeds them to `yarnConfigHook`, guaranteeing that `yarn install --offline --frozen-lockfile` succeeds across workspaces. Scoped packages in `static/yarn.lock` are rewritten using `rewrite-static-lock.py` so `resolved` entries point at the vendored cache.
 
-- `buildFHSEnv` packages the unwrapped result with the full suite of Electron runtime libraries (GTK3, PipeWire/ALSA, libdrm, libX\*, NSS, libsecret, mesa). The wrapper seeds environment defaults (`ELECTRON_DISABLE_SECURITY_WARNINGS`, `GTK_USE_PORTAL`, `NIXOS_OZONE_WL`) and re-exports the desktop file so that `Exec` points at `logseq-fhs`.
-- By symlinking `logseq` to the wrapper and shipping icon/desktop assets, the FHS app covers both CLI and desktop integration use-cases outlined in the plan.
+### Build Phases & Tooling
 
-## Resources Workspace Role
+- Bootstraps a deterministic Maven repository (`mavenRepo`) by running `clj -P -M:cljs` inside a fixed HOME and CA bundle, matching the plan’s guidance about cache priming.
+- Forces the full upstream pipeline inside the sandbox: root install, per-workspace installs (libs, amplify, tldraw, ui), their associated build steps, and finally the Electron Forge packaging executed under `static/`. Environment variables disable telemetry and set `npm_config_nodedir` for node-gyp rebuilds. Electron artifacts and SHASUMS are injected into cache directories so Forge never downloads binaries.
+- The install phase copies `static/out/Logseq-linux-x64` into `$out/share/logseq`, bundling locales and `.pak` assets, and emits a launcher that toggles Wayland behaviour when `NIXOS_OZONE_WL` is set. Desktop files and icons are propagated through `copyDesktopItems` and later stitched into the FHS wrapper.
 
-- `resources-workspace.json` is the single source of truth for the packaging workspace: it locks down Electron/Forge versions, injects the `electron-forge-maker-appimage` git dependency placeholder, and stores the offline hash consumed by `resourcesOfflineCache`.
-- During builds, the `static` workspace copies this lockfile and `rewrite-static-lock.py` rewrites its `resolved` URLs to the local cache, ensuring Electron Forge remains offline-capable.
+### FHS Wrapper
+
+- `logseq-fhs` is built via `pkgs.buildFHSEnv`. It reuses the unwrapped derivation, embeds Electron-friendly libraries (GTK stack, PipeWire/ALSA, NSS, libdrm/mesa, etc.), exports helpful defaults (`NIXOS_OZONE_WL`, `GTK_USE_PORTAL`), and symlinks a `logseq` alias for compatibility. The wrapper preserves upstream desktop metadata but switches the launcher command to `logseq-fhs %U` to ensure environment setup.
+
+## Dependency Metadata (`packages/logseq-fhs/*.nix`)
+
+- `git-deps.nix` enumerates every non-NPM upstream repository with pinned revisions, mirroring the automation metadata in the updater script.
+- `yarn-deps.nix` stores the base32 hashes for each workspace’s offline cache, allowing incremental updates per lockfile.
+- `main-placeholder.patch` transforms upstream source files to depend on placeholder tokens, covering root, per-workspace, and CLI manifests. The breadth of files indicates prior breakage scenarios (e.g., outliner/publishing) have been accounted for.
+- `rewrite-static-lock.py` renames `resolved` URLs in `static/yarn.lock` to local cache filenames while preserving Yarn’s naming convention, preventing cache misses when Electron Forge resolves tarballs.
 
 ## Update Workflow (`scripts/update-logseq-sources.py`)
 
-- The updater resolves the Logseq checkout (flake input or explicit path), verifies placeholder coverage, and regenerates `main-placeholder.patch` by committing placeholder substitutions in a temporary git repo.
-- It rewrites every `yarn.lock` to reference local git mirrors, prefetches each workspace via `nix run nixpkgs#prefetch-yarn-deps`, and emits fresh `packages/logseq-fhs/yarn-deps.nix` entries.
-- `resources` handling mirrors the runtime: the script stages the vendored `package.json`/`yarn.lock`, runs `prefetch-yarn-deps` to compute `yarn_hashes["resources"]`, and writes an updated JSON bundle.
+- Accepts an optional path to a Logseq checkout or resolves the flake input, then prefetches every git dependency with `nix-prefetch-git`, regenerating `git-deps.nix` and assembling placeholder metadata.
+- Stages a temporary copy of the source tree, applies placeholder rewrites to `deps.edn`/`bb.edn`/workspace files (adding new patch hunks if upstream moved definitions), and ensures full coverage before emitting `main-placeholder.patch`.
+- Rewrites all workspace lockfiles to reference local caches, copies the `node-gyp` tarball and maker repo into `.nix-cache/git/…`, and runs `prefetch-yarn-deps` for each lockfile to refresh `yarn-deps.nix` hashes. Static workspace lockfiles are rewritten via the Python helper so scoped packages map to the sanitized filenames expected by Yarn.
+- Updates `resources-workspace.json` to keep the vendored `resources/package.json` and `yarn.lock` in sync, normalises references to the maker git dependency, and records the offline cache hash. Optional debug modes emit SRI forms and dump the patched tree for inspection.
+- The script enforces a clean placeholder state and directs maintainers to rebuild caches after running, aligning with the plan’s emphasis on fail-fast validation.
 
-### Regression: frozen `resources` hash
+## Alignment With Implementation Plan
 
-- At the final write, the script sets `resources_output_hash = resources_workspace_data.get("hash", yarn_hashes["resources"])`. When the JSON already contains a `hash`, the code reuses the old value instead of the new `prefetch` result. Any upstream change to `resources/package.json` or `resources/yarn.lock` therefore produces mismatched tarballs: the derivation expects the stale hash, while `prefetchYarnDeps` produces new content.
-- Fix expectation: always store `yarn_hashes["resources"]` (falling back only if the attr is missing, e.g. migrating from legacy files). Without this, `resourcesOfflineCache` (`packages/logseq-fhs/default.nix:166-191`) will fail with an output hash mismatch on the next update.
+- The derivation mirrors the plan’s two-stage build, explicit offline mirrors, Maven cache isolation, and Electron Forge packaging steps. Every precaution documented in the plan—placeholder substitution, resources workspace vendoring, git tarball injection, per-workspace builds—appears in the live implementation.
+- Module exposure follows the prescribed `modules/apps/<tool>.nix` convention, exports both `apps.<name>` variants, and refrains from duplicate `flake.packages` entries, addressing the post-mortem lesson.
+- The updater script operationalises the plan’s “prefetch helper” concept, including guardrails for new upstream workspaces and instructions to rerun formatting/linting afterward.
 
-## Alignment with `docs/logseq-fhs-plan.md`
+## Observations & Recommendations
 
-- The implemented pipeline follows the documented stages: placeholder-driven git vending, exhaustive Yarn cache prefetching, two-phase Electron Forge packaging, and an FHSEnv wrapper with the prescribed runtime packages.
-- The plan’s cautions about cache naming, offline Forge execution, and Maven home isolation are all reflected in the derivation. The outstanding gap is the updater regression above, which contradicts the “rebuild caches to validate new hashes” directive.
+1. **Hash Drift Visibility** – `electronArchiveHashes` currently hardcodes hashes for 37.2.6. If upstream bumps Electron, the build will fail until the hash map grows. Consider deriving hashes via `nix-prefetch-url` inside the updater or adding a failure hint to the script so maintainers know where to update.
+2. **Resources Cache Regeneration** – `resources-workspace.json` holds a static lock snapshot. Documenting a workflow (or embedding into the updater) for regenerating this JSON when upstream changes the static workspace would reduce risk of stale tarball references.
+3. **Runtime Dependencies** – The FHS wrapper pulls a broad set of desktop libraries but omits optional portals like `xdg-desktop-portal-gtk`. Evaluate whether additional portals or PipeWire ALSA modules improve Wayland compatibility.
+4. **Testing Hooks** – Given the complex pipeline, adding automated `nix build .#logseq-unwrapped` checks to CI or `pre-commit` could catch regressions when upstream lockfiles change.
+5. **Documentation Sync** – The plan mentions documenting QA steps in `nixos_docs_md/`. Ensuring future updates also refresh that location will keep operator procedures current.
 
-## Recommendations
-
-1. Update `scripts/update-logseq-sources.py` to assign `resources_output_hash = yarn_hashes["resources"]` and optionally emit an explicit warning if the JSON value differs from the freshly computed hash.
-2. Add a post-update sanity check (`nix hash convert` or even `nix build .#logseq-fhs -L`) to the contributor workflow so hash drift is caught immediately.
-3. Consider capturing the computed `electronVersion` inside `resources-workspace.json` metadata to simplify cross-checks between `package.json` and the derivation when Electron releases move.
+Overall, the packaging faithfully implements the documented strategy, emphasizing offline repeatability, deterministic dependency pinning, and an end-user-friendly FHS wrapper.
