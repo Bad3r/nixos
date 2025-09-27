@@ -10,11 +10,10 @@
     * Supports custom actions, bookmarking, remote filesystems via GVfs, and drag-and-drop between panels.
 
   Options:
-    pcmanfm: Launch the graphical file manager.
-    pcmanfm --desktop: Manage the desktop background and icons.
-    pcmanfm --daemon-mode: Run in the background to handle mounts and desktops.
-    pcmanfm --set-wallpaper=<file>: Apply a wallpaper through the LXDE desktop.
-    pcmanfm --profile <name>: Use an alternate profile directory for settings.
+    --desktop: Manage the desktop background and icons when running under LXDE or Openbox.
+    --daemon-mode: Keep pcmanfm running in the background to handle automounts and desktop management.
+    --set-wallpaper=<file>: Apply a wallpaper through pcmanfm’s desktop integration.
+    --profile <name>: Use an alternate profile directory for settings and bookmarks.
 
   Example Usage:
     * `pcmanfm` — Browse local and remote files using a lightweight GTK interface.

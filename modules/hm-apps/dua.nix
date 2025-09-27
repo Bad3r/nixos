@@ -10,11 +10,9 @@
     * Supports deletion workflows, JSON output, and navigation similar to `ncdu` with blazing-fast Rust performance.
 
   Options:
-    dua: Launch the interactive TUI in the current directory.
-    dua --summarize <paths>: Print a non-interactive usage summary for paths.
-    dua i <path>: Open the interactive inspector rooted at a path.
-    dua --format human|bytes|si: Control how sizes are rendered.
-    dua cache clear: Remove cached traversal data.
+    --summarize <paths>: Print non-interactive disk-usage summaries for one or more paths.
+    --format human|bytes|si: Control how sizes are rendered in batch output.
+    --version: Display the installed dua-cli version.
 
   Example Usage:
     * `dua` — Inspect disk usage interactively starting at the current working directory.

@@ -10,11 +10,10 @@
     * Provides scripting, extension APIs, database connectivity, and integration with LibreOffice Online or remote storage.
 
   Options:
-    libreoffice: Launch the start center for choosing applications.
-    libreoffice --writer <file>: Open directly in Writer with a document.
-    libreoffice --calc <file>: Start Calc spreadsheets or create a new workbook.
-    libreoffice --impress <file>: Open presentations in Impress.
-    libreoffice --convert-to <format> <file>: Convert documents via CLI in batch scripts.
+    --writer <file>: Open directly in Writer with a document.
+    --calc <file>: Start Calc spreadsheets or create a new workbook.
+    --impress <file>: Open presentations in Impress.
+    --convert-to <format> <file>: Convert documents via CLI in batch scripts.
 
   Example Usage:
     * `libreoffice --writer report.odt` — Jump straight into editing a Writer document.

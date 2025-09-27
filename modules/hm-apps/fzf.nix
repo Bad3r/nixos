@@ -10,11 +10,11 @@
     * Provides shell widgets and completion hooks so `Ctrl-T`, `Ctrl-R`, and custom bindings open interactive pickers within your shell session.
 
   Options:
-    fzf --preview <command>: Render a preview window for the currently selected entry.
-    fzf --bind <key>:<action>: Customize keyboard mappings or trigger commands mid-search.
-    fzf --query <string>: Start the finder with an initial query pre-populated.
-    fzf --multi: Enable selection of multiple entries prior to output.
-    fzf-tmux -p [height[%]][,width[%]][,x,y]: Launch fzf in a tmux popup with specific dimensions.
+    --preview <command>: Render a preview window for the currently selected entry.
+    --bind <key>:<action>: Customize keyboard mappings or trigger commands mid-search.
+    --query <string>: Start the finder with an initial query pre-populated.
+    --multi: Enable selection of multiple entries prior to output.
+    --tmux=popup: Launch fzf inside a tmux popup with controlled dimensions (`fzf-tmux -p`).
 
   Example Usage:
     * `fzf` — Pipe in a list (for example `rg --files | fzf`) to interactively filter entries.

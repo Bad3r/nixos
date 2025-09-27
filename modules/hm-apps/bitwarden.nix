@@ -10,11 +10,10 @@
     * Supports organizations, TOTP codes, file attachments, and offline access with end-to-end encryption.
 
   Options:
-    bitwarden: Launch the desktop client application.
-    bitwarden --args="--proxy-server=<host:port>": Route traffic through a custom proxy (Electron flag).
-    bitwarden --ozone-platform-hint=auto: Enable native Wayland window decorations on Linux compositors.
-    bitwarden --version: Print the installed Bitwarden client version and exit.
-    bitwarden --disable-gpu: Fallback to software rendering for systems with GPU issues.
+    --args="--proxy-server=<host:port>": Route traffic through a custom proxy (Electron flag).
+    --ozone-platform-hint=auto: Enable native Wayland window decorations on Linux compositors.
+    --version: Print the installed Bitwarden client version and exit.
+    --disable-gpu: Fallback to software rendering for systems with GPU issues.
 
   Example Usage:
     * `bitwarden` — Open the desktop vault for interactive logins and vault management.

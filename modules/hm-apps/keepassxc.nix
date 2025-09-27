@@ -10,11 +10,10 @@
     * Offers SSH agent, passkey, auto-type, and secret service support for seamless credential workflows across platforms.
 
   Options:
-    keepassxc: Launch the desktop GUI for vault management.
-    keepassxc --pw-stdin: Read the database password from stdin for scripting.
-    keepassxc --config <file>: Load a custom configuration file.
-    keepassxc --browser: Enable the KeePassXC-Browser integration handshake.
-    keepassxc-cli <command>: Use the CLI toolkit for operations like `ls`, `show`, and `diceware`.
+    --pw-stdin: Read the database password from stdin for scripting.
+    --config <file>: Load a custom configuration file.
+    --browser: Enable the KeePassXC-Browser integration handshake.
+    --version: Show the installed version and exit (useful for CI workflows).
 
   Example Usage:
     * `keepassxc` — Unlock and manage passwords in an encrypted KDBX database.

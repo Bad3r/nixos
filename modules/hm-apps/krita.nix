@@ -10,11 +10,10 @@
     * Supports resource bundles, scripting with Python, and workflows tailored for illustration, comics, and concept art.
 
   Options:
-    krita: Launch the painting workspace.
-    krita --canvas-only: Start in distraction-free canvas mode.
-    krita --nosplash: Skip the splash screen on startup.
-    krita --profile <icc>: Apply a specific color profile when opening.
-    krita --export <file>: Export documents via command-line (works with additional `--export-filename`).
+    --canvas-only: Start in distraction-free canvas mode.
+    --nosplash: Skip the splash screen on startup.
+    --profile <icc>: Apply a specific color profile when opening.
+    --export <file>: Export documents via command-line (works with additional `--export-filename`).
 
   Example Usage:
     * `krita` — Open the full interface for drawing and animation.

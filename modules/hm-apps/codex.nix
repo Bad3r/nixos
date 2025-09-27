@@ -10,12 +10,10 @@
     * Supports non-interactive automation, session resume, Model Context Protocol servers, and configurable instructions through `config.toml` and `AGENTS.md`.
 
   Options:
-    codex: Launch the interactive terminal UI and sign in with ChatGPT or API key.
-    codex "<prompt>": Start a new session pre-populated with a task description.
-    codex exec "<prompt>": Run Codex in automation mode without the TUI.
-    codex resume --last: Reopen the most recent session transcript.
-    codex --cd <path>: Set the working directory Codex should operate in.
-    codex completion <shell>: Generate shell completion scripts for Bash, Zsh, or Fish.
+    --cd <path>: Set the working directory Codex should operate in before executing tasks.
+    --profile <name>: Select a saved profile configuration for the current session.
+    --approval-policy <mode>: Override the approval policy (for example `never`, `always`, `manual`).
+    --sandbox-mode <mode>: Adjust the sandbox level for commands launched by Codex.
 
   Example Usage:
     * `codex "Write unit tests for src/date.ts"` — Ask Codex to draft and run new tests in the current repo.

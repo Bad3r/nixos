@@ -10,11 +10,11 @@
     * Provides layout splits, session management, kitten subcommands, and remote control sockets for automation.
 
   Options:
-    kitty --config <file>: Launch with a custom configuration file.
-    kitty --session <file>: Restore a saved layout with tabs and splits.
-    kitty +kitten themes: Browse and apply color schemes interactively.
-    kitty @ <command>: Send remote control commands to a running kitty instance.
-    kitty +kitten ssh <host>: Start an SSH session leveraging kitty’s graphics protocol.
+    --config <file>: Launch kitty with an alternate configuration file.
+    --session <file>: Restore a saved layout containing tabs and splits on startup.
+    +kitten themes: Browse and apply color schemes interactively using the themes kitten.
+    --single-instance: Reuse the existing kitty instance, creating new windows within it.
+    +kitten ssh <host>: Initiate SSH sessions that inherit kitty’s graphics protocol extensions.
 
   Example Usage:
     * `kitty` — Start the terminal emulator with the default configuration.

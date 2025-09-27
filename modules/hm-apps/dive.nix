@@ -10,11 +10,10 @@
     * Supports CI gating via efficiency scores, layer-by-layer comparisons, and integration with registries or tarballs.
 
   Options:
-    dive <image>: Inspect a locally available image (Docker, Podman, or tarball).
-    dive --ci <image>: Run in CI mode and exit non-zero when the efficiency score violates thresholds.
-    dive --config <file>: Use an alternate YAML configuration.
-    dive --highestWastedBytes: Sort layers by wasted space.
-    dive --export <path>: Write layer analysis results to a JSON file.
+    --ci <image>: Run in CI mode and exit non-zero when the efficiency score violates thresholds.
+    --config <file>: Use an alternate YAML configuration.
+    --highestWastedBytes: Sort layers by wasted space in the TUI.
+    --export <path>: Write layer analysis results to a JSON file.
 
   Example Usage:
     * `dive nginx:latest` — Explore filesystem changes per layer in an interactive TUI.

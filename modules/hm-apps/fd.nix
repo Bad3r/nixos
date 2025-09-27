@@ -10,11 +10,10 @@
     * Integrates with fdignore/gitignore, advanced filtering, and command execution hooks for pairing with other tools.
 
   Options:
-    fd <pattern> <path>: Search for entries matching a pattern under a path.
-    fd --extension <ext>: Restrict matches to a file extension (e.g., `rs`, `md`).
-    fd --type f|d|x: Filter by file, directory, or executable type.
-    fd --exec <cmd> {} \;: Run a command for each match.
-    fd --hidden --no-ignore: Include hidden files and disable ignore rules.
+    --extension <ext>: Restrict matches to a file extension (e.g., `rs`, `md`).
+    --type f|d|x: Filter by file, directory, or executable type.
+    --exec <cmd> {} \;: Run a command for each match.
+    --hidden --no-ignore: Include hidden files and disable ignore rules.
 
   Example Usage:
     * `fd config ~/.config` — Quickly locate configuration files under a directory tree.

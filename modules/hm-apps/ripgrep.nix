@@ -10,11 +10,10 @@
     * Provides PCRE2 optional backend, binary file detection, ripgrep config files, and structured output controls.
 
   Options:
-    rg <pattern> <paths>: Search for regex matches across files and directories.
-    rg --type <lang>: Restrict searches to files recognized for a language (see `rg --type-list`).
-    rg --files: List files that would be searched while honoring ignore rules.
-    rg --hidden --glob '!target/*': Include hidden files but exclude glob patterns.
-    rg --json: Emit machine-readable JSON results for tooling.
+    --type <lang>: Restrict searches to files recognized for a language (see `rg --type-list`).
+    --files: List files that would be searched while honoring ignore rules.
+    --hidden --glob '!target/*': Include hidden files but exclude glob patterns.
+    --json: Emit machine-readable JSON results for tooling.
 
   Example Usage:
     * `rg TODO src` — Locate TODO comments throughout a codebase with default ignore rules.

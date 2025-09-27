@@ -10,11 +10,10 @@
     * Supports ACID transactions, virtual tables, FTS5 search, JSON functions, and an interactive shell for lightweight data exploration.
 
   Options:
-    sqlite3 <database>: Open the interactive shell on a database file or `:memory:` store.
-    sqlite3 -cmd "PRAGMA foreign_keys = ON;": Execute statements before entering interactive mode.
-    sqlite3 -batch <database> <script.sql>: Run SQL non-interactively and exit on errors.
-    sqlite3 -readonly <database>: Open the database in read-only mode to prevent writes.
-    sqlite3 .dump <database>: Export the entire database schema and data as SQL text.
+    -cmd "PRAGMA foreign_keys = ON;": Execute statements before entering interactive mode.
+    -batch <database> <script.sql>: Run SQL non-interactively and exit on errors.
+    -readonly <database>: Open the database in read-only mode to prevent writes.
+    -line: Format query results as single-line records for easier parsing.
 
   Example Usage:
     * `sqlite3 todo.db "CREATE TABLE IF NOT EXISTS tasks(id INTEGER PRIMARY KEY, title TEXT);"` — Run schema migrations inline.

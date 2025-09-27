@@ -10,11 +10,10 @@
     * Provides safety number verification, multi-device support, and cross-platform encrypted voice/video calls.
 
   Options:
-    signal-desktop: Launch the desktop client.
-    signal-desktop --start-in-tray: Start minimized to the system tray (Electron flag).
-    signal-desktop --enable-features=WaylandWindowDecorations: Improve Wayland integration.
-    signal-desktop --proxy-server=<host:port>: Connect via proxy when required.
-    signal-desktop --disable-gpu: Use software rendering for compatibility or remote sessions.
+    --start-in-tray: Start minimized to the system tray.
+    --enable-features=WaylandWindowDecorations: Improve Wayland integration on compatible compositors.
+    --proxy-server=<host:port>: Connect via proxy when required.
+    --disable-gpu: Use software rendering for compatibility or remote sessions.
 
   Example Usage:
     * `signal-desktop` — Pair with the Signal mobile app to sync encrypted conversations on desktop.

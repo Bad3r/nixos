@@ -10,11 +10,10 @@
     * Integrates with GNOME desktop features such as printing, dark mode, embedded thumbnails, and document history syncing.
 
   Options:
-    evince <file>: Launch the document viewer with a specific file.
-    evince --fullscreen <file>: Start in full-screen presentation mode.
-    evince --page-label=<label> <file>: Jump directly to a labeled page.
-    evince --named-destination=<name> <file>: Open a PDF named destination for precise navigation.
-    evince --presentation <file>: Begin a slide-friendly presentation view.
+    --fullscreen: Start in full-screen presentation mode.
+    --page-label=<label>: Jump directly to a labeled page when opening a document.
+    --named-destination=<name>: Open a PDF named destination for precise navigation.
+    --presentation: Begin a slide-friendly presentation view.
 
   Example Usage:
     * `evince design-review.pdf` — View PDF documentation within GNOME or other Wayland/X11 sessions.

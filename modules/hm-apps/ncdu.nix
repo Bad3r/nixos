@@ -10,11 +10,10 @@
     * Efficiently scans large filesystems with configurable depth and supports exporting/importing scan data.
 
   Options:
-    ncdu <path>: Scan directory usage interactively.
-    ncdu -o <file>: Export scan results to a file for later inspection.
-    ncdu --exclude <pattern>: Skip directories matching a pattern.
-    ncdu --prune: Remove entries that match the current filter from the disk.
-    ncdu -x: Stay on a single filesystem and avoid crossing mount points.
+    -o <file>: Export scan results to a file for later inspection.
+    --exclude <pattern>: Skip directories matching a pattern.
+    --prune: Remove entries that match the current filter from the disk.
+    -x: Stay on a single filesystem and avoid crossing mount points.
 
   Example Usage:
     * `ncdu /var` — Investigate disk usage in `/var` and delete logs or caches interactively.

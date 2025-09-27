@@ -10,11 +10,10 @@
     * Supports system tray controls, DBus shortcuts, Wayland/X11 backends, and custom keyboard shortcuts.
 
   Options:
-    flameshot gui: Open the interactive capture interface with annotation tools.
-    flameshot full: Capture the entire screen immediately.
-    flameshot screen --number <index>: Capture a specific monitor in multi-display setups.
-    flameshot config: Launch the configuration window for shortcuts, paths, and appearance.
-    flameshot gui --raw: Pipe capture data to stdout for scripting.
+    --raw: Pipe capture data to stdout for scripting (usable with `flameshot gui --raw`).
+    --delay <ms>: Add a delay before capture begins, allowing time to stage windows.
+    --number <index>: Capture a specific monitor in multi-display setups (`flameshot screen --number`).
+    --path <dir>: Save screenshots to a particular directory instead of prompting (`flameshot full --path`).
 
   Example Usage:
     * `flameshot gui` — Draw annotations, blur sensitive data, and copy to clipboard before sharing.

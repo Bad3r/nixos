@@ -10,11 +10,11 @@
     * Supports multiple themes, custom highlighting assets, and convenient diff/line filtering switches.
 
   Options:
-    bat --style=plain,numbers: Control decorations such as line numbers, grid, and header.
-    bat --paging=never|always|auto: Override interaction with the pager.
-    bat --line-range <start>:<end>: Show only the specified lines.
-    bat --list-themes: Enumerate installed highlight themes.
-    bat --diff: Highlight diff hunks passed on stdin with inline change markers.
+    --style=plain,numbers: Control decorations such as line numbers, grid, and header.
+    --paging=never|always|auto: Override interaction with the pager.
+    --line-range <start>:<end>: Show only the specified lines.
+    --list-themes: Enumerate installed highlight themes.
+    --diff: Highlight diff hunks passed on stdin with inline change markers.
 
   Example Usage:
     * `bat README.md` — Preview a Markdown file with syntax highlighting and pager integration.

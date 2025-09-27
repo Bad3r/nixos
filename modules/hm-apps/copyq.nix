@@ -10,11 +10,10 @@
     * Supports cross-platform tray integration, tabbed clip organization, and synchronization through commands or plugins.
 
   Options:
-    copyq: Launch the system tray daemon and clipboard UI.
-    copyq toggle: Show or hide the main window via CLI.
-    copyq add <text>: Append custom text into the clipboard history.
-    copyq paste <index>: Paste a stored item directly into the focused window.
-    copyq config <key> <value>: Adjust runtime configuration settings.
+    --start-server: Launch the system tray daemon without opening the UI immediately.
+    --toggle: Show or hide the main window via the running daemon.
+    --insert <text>: Append custom text into the clipboard history from the CLI.
+    --paste <index>: Paste a stored item directly into the focused window.
 
   Example Usage:
     * `copyq` — Start the clipboard manager and expose the tray icon to manage history entries.
