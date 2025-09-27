@@ -20,13 +20,11 @@
 
           ## Configuration Structure
           - Base modules provide core system functionality
-          - PC modules provide desktop/laptop features
-          - Workstation modules provide developer tools
+          - Workstation modules provide desktop, laptop, and developer tooling
 
           ## Module Namespaces
           - nixos.base: Core system configuration
-          - nixos.pc: Personal computer features
-          - nixos.workstation: Developer workstation features
+          - nixos.workstation: Desktop and developer workstation features
 
           ## Directory Organization
           - audio/: Sound subsystem configuration

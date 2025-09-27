@@ -1,6 +1,6 @@
 { lib, ... }:
 {
-  flake.nixosModules.pc =
+  flake.nixosModules.workstation =
     { pkgs, ... }:
     {
       # PC-specific audio packages

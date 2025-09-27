@@ -1,5 +1,5 @@
 {
-  flake.nixosModules.pc =
+  flake.nixosModules.workstation =
     { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [

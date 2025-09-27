@@ -1,6 +1,6 @@
 { lib, ... }:
 {
-  flake.nixosModules.pc = _: {
+  flake.nixosModules.workstation = _: {
     services.pipewire = {
       enable = lib.mkDefault true;
       alsa = {

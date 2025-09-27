@@ -123,14 +123,15 @@
               ];
               startup_timeout_ms = 60000;
             };
-            cfbindings = {
-              command = "npx";
-              args = [
-                "mcp-remote"
-                "https://bindings.mcp.cloudflare.com/sse"
-              ];
-              startup_timeout_ms = 60000;
-            };
+            # cfbindings disabled at user request.
+            # cfbindings = {
+            #   command = "npx";
+            #   args = [
+            #     "mcp-remote"
+            #     "https://bindings.mcp.cloudflare.com/sse"
+            #   ];
+            #   startup_timeout_ms = 60000;
+            # };
             cfbuilds = {
               command = "npx";
               args = [

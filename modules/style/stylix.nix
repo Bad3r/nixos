@@ -18,7 +18,7 @@
         };
       };
 
-      pc =
+      workstation =
         { pkgs, ... }:
         {
           stylix = {

@@ -1,5 +1,5 @@
 {
-  flake.nixosModules.pc = _: {
+  flake.nixosModules.workstation = _: {
     # Enable experimental features system-wide
     nix.settings.experimental-features = [
       "nix-command"

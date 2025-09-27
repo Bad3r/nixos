@@ -1,5 +1,5 @@
 _: {
-  flake.nixosModules.pc =
+  flake.nixosModules.workstation =
     { pkgs, lib, ... }:
     {
       # Install kitty early in the list so later roles/users can override

@@ -26,9 +26,9 @@ Capture the resulting score/output in the review notes.
 
 ## 2. Module Topology
 
-- [ ] Confirm the base → pc → workstation chain is intact:
+- [ ] Confirm the base → workstation chain is intact:
   ```bash
-  rg 'flake.nixosModules\.(base|pc|workstation)' modules/base modules/pc modules/workstation
+  rg 'flake.nixosModules\.(base|workstation)' modules/base modules/workstation
   ```
 - [ ] Confirm roles compose apps via guarded lookups (no `with config.flake.nixosModules.apps;`). Pre-commit enforces this, but double-check diffs in `modules/roles/`.
 - [ ] For any new module, ensure it exports under a namespace rather than importing by path.

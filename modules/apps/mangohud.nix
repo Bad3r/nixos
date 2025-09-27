@@ -29,7 +29,7 @@
         environment.systemPackages = [ pkgs.mangohud ];
       };
 
-    nixosModules.pc =
+    nixosModules.workstation =
       { pkgs, ... }:
       {
         environment.systemPackages = [ pkgs.mangohud ];

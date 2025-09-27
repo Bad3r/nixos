@@ -22,7 +22,7 @@
       };
     };
 
-  flake.nixosModules.pc = _: {
+  flake.nixosModules.workstation = _: {
     users.users.${config.flake.lib.meta.owner.username}.extraGroups = lib.mkAfter [ "input" ];
   };
 }

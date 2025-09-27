@@ -59,11 +59,5 @@
           ++ map getApp allAppImports;
       };
     };
-
-    pc = {
-      home-manager.users.${config.flake.lib.meta.owner.username}.imports = [
-        config.flake.homeManagerModules.gui
-      ];
-    };
   };
 }

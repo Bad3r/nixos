@@ -1,5 +1,5 @@
 {
-  flake.nixosModules.pc =
+  flake.nixosModules.workstation =
     { pkgs, ... }:
     {
       # X11 forwarding for GUI systems
