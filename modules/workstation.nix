@@ -4,6 +4,7 @@
   ...
 }:
 let
+  inherit (config.flake.lib.meta.owner) username;
   roleHelpers = config._module.args.nixosRoleHelpers or { };
   rawResolveRole = roleHelpers.getRole or (_: null);
   resolveRole =
@@ -36,7 +37,17 @@ let
       [ (lib.getAttrFromPath [ "base" ] config.flake.nixosModules) ]
     else
       throw "flake.nixosModules.base missing while constructing workstation bundle";
+  hmGuiModule =
+    let
+      hmModules = config.flake.homeManagerModules or { };
+    in
+    lib.attrByPath [ "gui" ] null hmModules;
 in
 {
-  flake.nixosModules.workstation.imports = baseImport ++ map resolveRole workstationRoles;
+  flake.nixosModules.workstation = {
+    imports = baseImport ++ map resolveRole workstationRoles;
+    config = lib.mkIf (hmGuiModule != null) {
+      home-manager.users.${username}.imports = [ hmGuiModule ];
+    };
+  };
 }

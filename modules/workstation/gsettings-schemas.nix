@@ -1,5 +1,5 @@
 _: {
-  flake.nixosModules.pc =
+  flake.nixosModules.workstation =
     { pkgs, lib, ... }:
     {
       # Add GSettings desktop schemas for GTK/Electron applications

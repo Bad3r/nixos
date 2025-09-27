@@ -44,6 +44,6 @@
     in
     {
       apps.steam = steamModule;
-      pc = steamModule;
+      workstation = steamModule;
     };
 }

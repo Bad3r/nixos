@@ -1,6 +1,6 @@
 { config, ... }:
 {
-  flake.nixosModules.pc =
+  flake.nixosModules.workstation =
     { pkgs, ... }:
     {
       security.sudo-rs = {

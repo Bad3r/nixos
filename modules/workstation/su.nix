@@ -1,5 +1,5 @@
 _: {
-  flake.nixosModules.pc = _: {
+  flake.nixosModules.workstation = _: {
     # Preserve environment by default when using `su` (keeps SSH_AUTH_SOCK)
     environment.shellAliases.su = "su -p";
 

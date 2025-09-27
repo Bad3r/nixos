@@ -1,5 +1,5 @@
-{
-  flake.nixosModules.pc =
+let
+  i3SessionModule =
     { pkgs, lib, ... }:
     {
       # X11 + i3 window manager
@@ -13,14 +13,9 @@
           displayManager.lightdm.enable = true;
         };
 
-        displayManager = {
-          # Renamed path for default session
-          defaultSession = "none+i3";
-        };
+        displayManager.defaultSession = lib.mkDefault "none+i3";
 
-        "systemd-lock-handler" = {
-          enable = lib.mkDefault true;
-        };
+        "systemd-lock-handler".enable = lib.mkDefault true;
       };
 
       # Provide core tools referenced by the i3 session
@@ -48,4 +43,7 @@
         xorg.xbacklight
       ];
     };
+in
+{
+  flake.nixosModules."window-manager".i3 = i3SessionModule;
 }

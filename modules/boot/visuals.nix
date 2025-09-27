@@ -7,7 +7,7 @@
         # "systemd.show_status=error" # Disabled - show systemd status
       ];
     };
-    pc = {
+    workstation = {
       # Plymouth splash screen disabled
       boot.plymouth.enable = false;
     };

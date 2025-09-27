@@ -81,14 +81,14 @@
           - `flake.nixosModules`: NixOS modules (freeform, nested namespaces allowed)
           - `flake.homeManagerModules`: Home Manager modules (freeform; with `base`, `gui`, and per-app under `apps`)
 
-          Modules register themselves under these namespaces (e.g., `flake.nixosModules.pc`, `flake.homeManagerModules.base`).
+          Modules register themselves under these namespaces (e.g., `flake.nixosModules.workstation`, `flake.homeManagerModules.base`).
           Composition uses named references, for example:
 
           ```nix
           { config, ... }:
           {
             configurations.nixos.myhost.module = {
-              imports = with config.flake.nixosModules; [ base pc workstation ];
+              imports = with config.flake.nixosModules; [ base workstation ];
             };
           }
           ```

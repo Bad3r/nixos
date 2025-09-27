@@ -1,6 +1,6 @@
 {
   flake.nixosModules = {
-    pc = _: {
+    workstation = _: {
       networking = {
         wireless.iwd = {
           enable = true;

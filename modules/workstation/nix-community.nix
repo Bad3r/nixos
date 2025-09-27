@@ -13,7 +13,7 @@ let
   ];
 in
 {
-  flake.nixosModules.pc = _: {
+  flake.nixosModules.workstation = _: {
     nix.settings = {
       # Force exact order so mirrors are attempted before cache.nixos.org
       substituters = lib.mkForce substitutersList;

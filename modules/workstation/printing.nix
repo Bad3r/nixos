@@ -1,5 +1,5 @@
 _: {
-  flake.nixosModules.pc = _: {
+  flake.nixosModules.workstation = _: {
     services.printing.enable = false;
   };
 }
