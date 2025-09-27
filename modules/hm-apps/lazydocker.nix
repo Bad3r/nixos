@@ -10,11 +10,10 @@
     * Supports log streaming, resource metrics, shell entry, and command execution without typing long docker commands.
 
   Options:
-    lazydocker: Launch the interactive TUI pointing at the local Docker daemon.
-    lazydocker --config <file>: Use a custom YAML configuration (default `~/.config/lazydocker/config.yml`).
-    lazydocker --debug: Enable verbose logging to diagnose issues.
-    lazydocker --version: Print the client version and exit.
-    lazydocker -H <host>: Connect to a remote Docker host via DOCKER_HOST syntax.
+    --config <file>: Use a custom YAML configuration (default `~/.config/lazydocker/config.yml`).
+    --debug: Enable verbose logging to diagnose issues.
+    --version: Print the client version and exit.
+    -H <host>: Connect to a remote Docker host via DOCKER_HOST syntax.
 
   Example Usage:
     * `lazydocker` — Explore running containers, view logs, and manage compose stacks from the terminal.

@@ -10,11 +10,10 @@
     * Provides `docker compose` and legacy `docker-compose` entry points for build, deploy, logs, and scaling workflows.
 
   Options:
-    docker-compose up: Build, (re)create, start, and attach to the containers for a service.
-    docker-compose down: Stop containers and remove networks, images, and volumes based on flags.
-    docker-compose logs --follow: Tail service logs with stream multiplexing.
-    docker-compose exec <service> <cmd>: Run a one-off command in a running service container.
-    docker-compose config --services: Print validated compose services or the entire merged configuration.
+    --profile <name>: Enable or disable service profiles when running compose commands.
+    --project-name <name>: Override the default project name derived from the working directory.
+    --env-file <file>: Load environment variables from a specific file instead of `.env`.
+    --progress plain: Switch build output to plain text for CI environments.
 
   Example Usage:
     * `docker-compose up -d` — Launch the defined services in detached mode.

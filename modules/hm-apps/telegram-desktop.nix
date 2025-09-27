@@ -10,11 +10,10 @@
     * Provides secret chats, customizable themes, message scheduling, and file transfers up to 2 GB per item.
 
   Options:
-    telegram-desktop: Launch the desktop application.
-    telegram-desktop --startintray: Start minimized to the system tray.
-    telegram-desktop --proxy-server=<host:port>: Route traffic through proxy (Qt argument `--proxy` equates to CLI flag).
-    telegram-desktop --enable-features=WaylandWindowDecorations: Improve Wayland integration.
-    telegram-desktop --debug: Emit verbose logs for troubleshooting.
+    --startintray: Start minimized to the system tray while continuing to receive notifications.
+    --proxy-server=<host:port>: Route network traffic through a proxy.
+    --enable-features=WaylandWindowDecorations: Improve Wayland integration on compatible compositors.
+    --debug: Emit verbose logs for troubleshooting.
 
   Example Usage:
     * `telegram-desktop` — Join chats, channels, and voice rooms from the desktop client.

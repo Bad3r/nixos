@@ -10,11 +10,10 @@
     * Supports advanced color management, GEGL-based processing, and extensibility via Python Scheme plug-ins.
 
   Options:
-    gimp: Launch the graphical editor.
-    gimp --batch <script>: Execute Scheme or Python batch scripts headlessly.
-    gimp --no-interface <file>: Process files without loading the full UI.
-    gimp --verbose: Emit plugin and initialization logs for debugging.
-    gimp --new-instance: Start a separate instance rather than reusing the existing session.
+    --batch <script>: Execute Scheme or Python batch scripts headlessly.
+    --no-interface <file>: Process files without loading the full UI.
+    --verbose: Emit plugin and initialization logs for debugging.
+    --new-instance: Start a separate instance rather than reusing the existing session.
 
   Example Usage:
     * `gimp` — Open the full-featured UI for image editing.

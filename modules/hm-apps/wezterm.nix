@@ -10,11 +10,10 @@
     * Provides multiplexing tabs/panes, font fallback, SSH multiplexer with `wezterm ssh`, and nightly features like background tasks.
 
   Options:
-    wezterm: Launch the terminal GUI with the default configuration.
-    wezterm start --cwd <path>: Open a new tab rooted at a specific directory.
-    wezterm ssh <target>: Connect to remote hosts using the built-in SSH client.
-    wezterm ls-fonts: Inspect font fallback and shaping support.
-    wezterm cli set-tab-title <title>: Control tab titles programmatically.
+    --config-file <path>: Launch wezterm with an alternate configuration file.
+    --cwd <path>: Specify the working directory for new tabs via `wezterm start --cwd`.
+    --ssh-domain <name>: Target a configured SSH domain when spawning remote tabs.
+    --log-level <trace|debug|info>: Adjust diagnostic verbosity for troubleshooting.
 
   Example Usage:
     * `wezterm` — Start the GPU-accelerated terminal and multiplexer.

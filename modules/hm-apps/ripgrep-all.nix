@@ -10,11 +10,10 @@
     * Supports caching, pre-processing, and multi-tool pipelines to search PDFs, Office docs, images, videos, and data stores.
 
   Options:
-    rga <pattern> <paths>: Search across supported formats using regex patterns.
-    rga --type pdf|epub|docx: Limit extraction to specific document types.
-    rga --files-with-matches <pattern>: List files that contain matches without printing lines.
-    rga --rga-cache-dir <dir>: Override the cache directory used for extracted text.
-    rga-preproc --type-list: Show the available extractors and whether required tools are installed.
+    --type pdf|epub|docx: Limit extraction to specific document types.
+    --files-with-matches <pattern>: List files that contain matches without printing lines.
+    --rga-cache-dir <dir>: Override the cache directory used for extracted text.
+    --type-list: Show the available extractors and whether required tools are installed (`rga-preproc --type-list`).
 
   Example Usage:
     * `rga "encryption" docs/` — Find references across PDFs, Markdown, Office documents, and archives.

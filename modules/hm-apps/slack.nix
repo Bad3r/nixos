@@ -9,11 +9,10 @@
     * Provides offline sync, enterprise key management, workflow automation, and compliance exports for organizations.
 
   Options:
-    slack: Launch the desktop application.
-    slack --enable-features=WaylandWindowDecorations: Improve window behavior on Wayland compositors.
-    slack --proxy-server=<host:port>: Route traffic through a proxy (Chromium flag).
-    slack --disable-gpu: Run using software rendering to avoid GPU driver issues.
-    slack --version: Display the current Slack client version.
+    --enable-features=WaylandWindowDecorations: Improve window behavior on Wayland compositors.
+    --proxy-server=<host:port>: Route traffic through an explicit proxy.
+    --disable-gpu: Run using software rendering to avoid GPU driver issues.
+    --version: Display the current Slack client version.
 
   Example Usage:
     * `slack` — Open the desktop client to collaborate in channels and direct messages.

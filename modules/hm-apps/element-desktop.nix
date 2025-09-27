@@ -10,11 +10,10 @@
     * Supports custom homeservers, bridging, offline message queueing, and cross-signing for verifying devices.
 
   Options:
-    element-desktop: Launch the Element desktop application.
-    element-desktop --profile <name>: Use a specific profile directory (Electron flag `--profile`).
-    element-desktop --enable-features=WaylandWindowDecorations: Enable Wayland support on compatible compositors.
-    element-desktop --proxy-server=<host:port>: Route network traffic through an explicit proxy.
-    element-desktop --disable-gpu: Run without GPU acceleration if drivers misbehave.
+    --profile <name>: Use a specific profile directory (Electron `--profile`).
+    --enable-features=WaylandWindowDecorations: Enable Wayland window decorations on compatible compositors.
+    --proxy-server=<host:port>: Route network traffic through an explicit proxy.
+    --disable-gpu: Run without GPU acceleration if drivers misbehave.
 
   Example Usage:
     * `element-desktop` — Start the Matrix client and sign into personal or enterprise homeservers.

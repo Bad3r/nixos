@@ -10,11 +10,10 @@
     * Supports filtering by patterns, printing full paths, showing permissions, and generating JSON/CSV outputs.
 
   Options:
-    tree: Print directory contents recursively starting from the current directory.
-    tree -L <depth>: Limit recursion depth.
-    tree -a: Include hidden files in the listing.
-    tree -I <pattern>: Exclude files/directories matching a glob pattern.
-    tree -H <url>: Generate HTML output with links to files relative to a base URL.
+    -L <depth>: Limit recursion depth when rendering the tree.
+    -a: Include hidden files in the listing.
+    -I <pattern>: Exclude files or directories matching a glob pattern.
+    -H <url>: Generate HTML output with links relative to a base URL.
 
   Example Usage:
     * `tree -L 2` — Summarize the current directory up to two levels deep.

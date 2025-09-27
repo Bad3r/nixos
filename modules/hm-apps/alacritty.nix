@@ -10,11 +10,11 @@
     * Integrates tightly with external tools—IPC via `alacritty msg`, live config reloads, and shell key bindings—while avoiding built-in tabs or splits.
 
   Options:
-    alacritty --config-file <path>: Launch with an alternate TOML configuration file.
-    alacritty --hold: Keep the window open after the child process exits.
-    alacritty --embed <window-id>: Reparent the terminal into an existing X11 window.
-    alacritty --option key=value: Override configuration fields from the CLI.
-    alacritty msg create-window: Spawn an additional window in the running daemon.
+    --config-file <path>: Launch with an alternate TOML configuration file.
+    --hold: Keep the window open after the child process exits.
+    --embed <window-id>: Reparent the terminal into an existing X11 window.
+    --option key=value: Override configuration fields from the CLI.
+    --class <general>[,<instance>]: Set the window class for integration with tiling window managers.
 
   Example Usage:
     * `alacritty` — Start a fresh terminal using the default configuration file.

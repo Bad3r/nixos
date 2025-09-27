@@ -10,11 +10,10 @@
     * Integrates with GNOME Files and other file managers to offer context-menu compression workflows and encrypted archives.
 
   Options:
-    file-roller: Launch the GTK interface for managing archives.
-    file-roller --extract-to=<dir> <archive>: Unpack the archive into a specific directory.
-    file-roller --add-to=<archive> <files>: Create or append files to an archive from the command line.
-    file-roller --default-dir=<dir>: Start the UI rooted in a particular directory.
-    file-roller --version: Show the installed release number and exit.
+    --extract-to=<dir> <archive>: Unpack the archive into a specific directory.
+    --add-to=<archive> <files>: Create or append files to an archive from the command line.
+    --default-dir=<dir>: Start the UI rooted in a particular directory.
+    --version: Show the installed release number and exit.
 
   Example Usage:
     * `file-roller` — Open the GUI to browse and manipulate archives.

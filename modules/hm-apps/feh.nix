@@ -10,11 +10,10 @@
     * Supports complex multi-monitor setups, keyboard-driven navigation, and scripting via extensive command-line flags.
 
   Options:
-    feh <path>: View images individually or as a slideshow.
-    feh --recursive <dir>: Include images from subdirectories.
-    feh --bg-fill <image>: Set the desktop background using feh’s wallpaper helper.
-    feh --zoom <percent>: Adjust zoom level on startup.
-    feh --list: Print metadata about images instead of opening the viewer.
+    --recursive <dir>: Include images from subdirectories when browsing.
+    --bg-fill <image>: Set the desktop background using feh’s wallpaper helper.
+    --zoom <percent>: Adjust zoom level on startup.
+    --list: Print metadata about images instead of opening the viewer.
 
   Example Usage:
     * `feh ~/Pictures` — Browse photos in slideshow mode with keyboard navigation.

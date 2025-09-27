@@ -10,11 +10,10 @@
     * Offers Vim-like navigation, synctex integration for LaTeX, recoloring, bookmarks, and scriptable key bindings.
 
   Options:
-    zathura <file>: Open a document with the configured plugin stack.
-    zathura --page=<number> <file>: Jump to a specific page number on startup.
-    zathura --config-dir=<dir>: Use an alternate configuration directory.
-    zathura --synctex-forward=<line:column:file>: Activate forward search from editors like Vim/LaTeX.
-    zathura --fork: Daemonize the viewer, freeing the calling shell immediately.
+    --page=<number>: Jump to a specific page number on startup.
+    --config-dir=<dir>: Use an alternate configuration directory.
+    --synctex-forward=<line:column:file>: Activate forward search from LaTeX editors.
+    --fork: Daemonize the viewer, freeing the calling shell immediately.
 
   Example Usage:
     * `zathura thesis.pdf` — Navigate a PDF with keyboard-driven commands and minimal chrome.

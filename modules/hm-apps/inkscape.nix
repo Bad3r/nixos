@@ -10,11 +10,10 @@
     * Integrates with numerous import/export formats, live path effects, extensions, and scripting via Python.
 
   Options:
-    inkscape: Launch the graphical editor.
-    inkscape --export-type=png <file.svg>: Export vector artwork to PNG.
-    inkscape --batch-process <files>: Process multiple files without opening UI.
-    inkscape --select=<id>: Focus a specific object by ID on startup.
-    inkscape --verb=<action>: Invoke classic verbs for automated transformations (1.x compatibility).
+    --export-type=png <file.svg>: Export vector artwork to PNG.
+    --batch-process <files>: Process multiple files without opening the UI.
+    --select=<id>: Focus a specific object by ID on startup.
+    --verb=<action>: Invoke classic verbs for automated transformations (1.x compatibility).
 
   Example Usage:
     * `inkscape logo.svg` — Edit scalable vector graphics with layers and path editing tools.

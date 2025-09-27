@@ -9,11 +9,10 @@
     * Integrates with rich presence APIs, access controls, and notification settings across desktop and mobile clients.
 
   Options:
-    discord: Launch the desktop client.
-    discord --version: Print the installed Discord client version and exit.
-    discord --enable-features=WaylandWindowDecorations: Enable native decorations when using Wayland.
-    discord --disable-gpu: Fall back to software rendering on unsupported GPUs.
-    discord --proxy-server=<host:port>: Route network traffic through a proxy (Chromium flag).
+    --version: Print the installed Discord client version and exit.
+    --enable-features=WaylandWindowDecorations: Enable native decorations when using Wayland.
+    --disable-gpu: Fall back to software rendering on unsupported GPUs.
+    --proxy-server=<host:port>: Route network traffic through a proxy (Chromium flag).
 
   Example Usage:
     * `discord` — Open the Electron-based client for chat and voice calls.

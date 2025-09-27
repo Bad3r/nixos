@@ -10,11 +10,11 @@
     * Implements modern terminal UX with configurable presets, sort options, human-readable sizes, and recursive depth limits.
 
   Options:
-    eza --long: Show extended metadata including permissions, owners, and timestamps.
-    eza --tree: Render directory trees recursively with indentation.
-    eza --git: Display Git status for tracked files.
-    eza --icons: Show icons (requires nerd font) alongside filenames.
-    eza --sort=size: Sort entries by size; other keys include time, name, extension.
+    --long: Show extended metadata including permissions, owners, and timestamps.
+    --tree: Render directory trees recursively with indentation.
+    --git: Display Git status for tracked files.
+    --icons: Show icons (requires nerd font) alongside filenames.
+    --sort=size: Sort entries by size; other keys include time, name, extension.
 
   Example Usage:
     * `eza --long --git` — Inspect working tree state with detailed metadata and Git indicators.
