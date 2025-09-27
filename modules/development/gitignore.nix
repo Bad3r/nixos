@@ -31,11 +31,17 @@ _: {
             # Tool/LSP caches (top-level and nested)
             .clj-kondo/
             .lsp/
+            .claude/
             **/.clj-kondo/**
             **/.lsp/**
             .kiro/
+            tmp/
+            .tmp/
             .code/
             **/__pycache__
+            .vscode/
+            .log/
+            log/
             ########################################
             # Editors, OS cruft, and temp files
             ########################################
