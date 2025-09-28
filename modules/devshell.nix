@@ -36,6 +36,14 @@
                 git submodule sync --recursive || true
                 git submodule update --init --recursive || true
 
+                # Allow callers to disable the partial-clone optimisation if it is
+                # causing repeated blob fetches. Set USE_PARTIAL_CLONES=0 (or any
+                # other value that does not evaluate to 1) before invoking the
+                # helper to keep fully hydrated checkouts.
+                partial_clone_enabled() {
+                  [ "''${USE_PARTIAL_CLONES:-1}" = "1" ]
+                }
+
                 ensure_partial_clone() {
                   local rel=$1
                   local upstream_url=$2
@@ -56,15 +64,25 @@
                     git remote add upstream "''${upstream_url}"
                   fi
 
-                  git config remote.upstream.promisor true >/dev/null 2>&1 || true
-                  git config remote.upstream.partialclonefilter blob:none >/dev/null 2>&1 || true
-                  git config --unset remote.origin.promisor >/dev/null 2>&1 || true
-                  git config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
-                  git config extensions.partialclone upstream >/dev/null 2>&1 || true
                   git config fetch.writeCommitGraph true >/dev/null 2>&1 || true
 
-                  git fetch --filter=blob:none --force upstream "''${upstream_ref}" >/dev/null 2>&1 || \
+                  if partial_clone_enabled; then
+                    git config remote.upstream.promisor true >/dev/null 2>&1 || true
+                    git config remote.upstream.partialclonefilter blob:none >/dev/null 2>&1 || true
+                    git config --unset remote.origin.promisor >/dev/null 2>&1 || true
+                    git config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
+                    git config extensions.partialclone upstream >/dev/null 2>&1 || true
+
+                    git fetch --filter=blob:none --force upstream "''${upstream_ref}" >/dev/null 2>&1 || \
+                      git fetch --force upstream "''${upstream_ref}" >/dev/null 2>&1 || true
+                  else
+                    git config --unset remote.upstream.promisor >/dev/null 2>&1 || true
+                    git config --unset remote.upstream.partialclonefilter >/dev/null 2>&1 || true
+                    git config --unset remote.origin.partialclonefilter >/dev/null 2>&1 || true
+                    git config --unset extensions.partialclone >/dev/null 2>&1 || true
+
                     git fetch --force upstream "''${upstream_ref}" >/dev/null 2>&1 || true
+                  fi
 
                   if git rev-parse --verify _input-branches-temp >/dev/null 2>&1; then
                     git branch -D _input-branches-temp >/dev/null 2>&1 || true
