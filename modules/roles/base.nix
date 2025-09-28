@@ -43,17 +43,11 @@ let
     "zoxide"
     "atuin"
     "bc"
-    "htop"
     "lsof"
-    "sysstat"
     "pciutils"
     "usbutils"
     "lshw"
     "dmidecode"
-    "nix-output-monitor"
-    "nvd"
-    "nix-tree"
-    "nil"
   ];
   roleImports = [ baseModule ] ++ getApps baseApps;
 in

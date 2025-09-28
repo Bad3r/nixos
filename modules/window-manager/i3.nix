@@ -30,7 +30,7 @@ let
         firefox
         lxsession
         maim
-        kdePackages.dolphin
+        nemo
         xfce.xfce4-settings
         networkmanagerapplet
         pamixer
@@ -42,6 +42,11 @@ let
         xclip
         xorg.xbacklight
       ];
+
+      xdg.mime.defaultApplications = {
+        "inode/directory" = lib.mkDefault "nemo.desktop";
+        "application/x-directory" = lib.mkDefault "nemo.desktop";
+      };
     };
 in
 {

@@ -13,7 +13,7 @@
       config = lib.mkIf i3Enabled (
         let
           kittyCommand = lib.getExe pkgs.kitty;
-          dolphinCommand = lib.getExe' pkgs.kdePackages.dolphin "dolphin";
+          nemoCommand = lib.getExe' pkgs.nemo "nemo";
           xfsettingsdCommand = "${pkgs.xfce.xfce4-settings}/bin/xfsettingsd";
           lxsessionCommand = lib.getExe' pkgs.lxsession "lxsession";
           lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] null config;
@@ -86,7 +86,7 @@
                 tray = lib.mkDefault "always";
                 settings = lib.mkDefault {
                   program_options = {
-                    file_manager = dolphinCommand;
+                    file_manager = nemoCommand;
                     terminal = kittyCommand;
                   };
                 };

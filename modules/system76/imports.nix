@@ -23,6 +23,7 @@ let
     "files"
     "productivity"
     "ai-agents"
+    "cli"
     "xserver"
   ];
   roleModules = lib.filter (module: module != null) (map getRoleModule roleNames);

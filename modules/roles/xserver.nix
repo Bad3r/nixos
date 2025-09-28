@@ -7,9 +7,42 @@ let
     if lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules then
       lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules
     else
-      throw ("Unknown NixOS app '" + name + "' (role xserver)");
-  getApp = rawHelpers.getApp or fallbackGetApp;
-  getApps = rawHelpers.getApps or (names: map getApp names);
+      let
+        appFile = ../apps + "/${name}.nix";
+        imported = if builtins.pathExists appFile then import appFile else null;
+        modulePath = [
+          "flake"
+          "nixosModules"
+          "apps"
+          name
+        ];
+      in
+      if imported != null && lib.hasAttrByPath modulePath imported then
+        lib.getAttrFromPath modulePath imported
+      else
+        throw ("Unknown NixOS app '" + name + "' (role xserver)");
+  getApp =
+    name:
+    let
+      tryRaw =
+        if rawHelpers ? getApp then
+          builtins.tryEval (rawHelpers.getApp name)
+        else
+          {
+            success = false;
+            value = null;
+          };
+    in
+    if tryRaw.success then tryRaw.value else fallbackGetApp name;
+  getApps =
+    names:
+    if rawHelpers ? getApps then
+      let
+        attempt = builtins.tryEval (rawHelpers.getApps names);
+      in
+      if attempt.success then attempt.value else map getApp names
+    else
+      map getApp names;
   i3SessionModule =
     { pkgs, lib, ... }:
     {
@@ -33,16 +66,13 @@ let
     "autotiling-rs"
     "blueberry"
     "brave"
-    "cosmic-term"
     "desktop-file-utils"
     "dmenu"
-    "dolphin"
     "dunst"
     "firefox"
     "hsetroot"
     "i3lock-color"
     "i3status-rust"
-    "kitty"
     "libnotify"
     "lxsession"
     "maim"

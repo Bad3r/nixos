@@ -18,19 +18,28 @@
     * Configure graph locations and plugin marketplace via Logseq’s settings dialog.
 */
 
-_:
+{
+  inputs,
+  lib,
+  ...
+}:
 let
-  logseqVersion = "0.10.14";
-  logseqSha256 = "07b0r02qv50ckfkmq5w9r1vnhldg01hffz9hx2gl1x1dq3g39kpz";
+  inherit (lib) substring;
+
+  logseqRev = inputs.logseq.rev or "main";
+  logseqVersion = "unstable-" + substring 0 8 logseqRev;
+  logseqSrc = inputs.logseq;
 
   mkLogseqPackages =
     pkgs:
     (pkgs.callPackage ../../packages/logseq-fhs {
-      version = logseqVersion;
-      sha256 = logseqSha256;
-      releaseTag = logseqVersion;
+      prefetchYarnDeps = pkgs.prefetch-yarn-deps;
     })
-      { };
+      {
+        inherit logseqSrc;
+        version = logseqVersion;
+        electronPackage = pkgs.electron_37;
+      };
 
   logseqAppModule =
     { pkgs, ... }:
