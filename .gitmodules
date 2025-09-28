@@ -2,14 +2,11 @@
   path = inputs/nixpkgs
   url = ./
   branch = inputs/main/nixpkgs
-  shallow = true
 [submodule "inputs/home-manager"]
   path = inputs/home-manager
   url = ./
   branch = inputs/main/home-manager
-  shallow = true
 [submodule "inputs/stylix"]
   path = inputs/stylix
   url = ./
   branch = inputs/main/stylix
-  shallow = true
