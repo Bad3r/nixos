@@ -21,11 +21,50 @@ let
     else
       { };
 
-  availableApps =
+  appsDir = ../apps;
+
+  baseApps =
     if lib.hasAttrByPath [ "apps" ] config.flake.nixosModules then
       flattenApps config.flake.nixosModules.apps
     else
       { };
+
+  appFiles = builtins.readDir appsDir;
+
+  generatedApps = lib.foldlAttrs (
+    acc: fileName: fileInfo:
+    let
+      hasSuffix = lib.hasSuffix ".nix" fileName;
+    in
+    if fileInfo == "regular" && hasSuffix then
+      let
+        appName = lib.removeSuffix ".nix" fileName;
+      in
+      if builtins.hasAttr appName baseApps then
+        acc
+      else
+        let
+          filePath = appsDir + "/${fileName}";
+          imported = import filePath;
+          path = [
+            "flake"
+            "nixosModules"
+            "apps"
+            appName
+          ];
+        in
+        if lib.hasAttrByPath path imported then
+          acc
+          // builtins.listToAttrs [
+            (lib.nameValuePair appName (lib.getAttrFromPath path imported))
+          ]
+        else
+          acc
+    else
+      acc
+  ) { } appFiles;
+
+  availableApps = baseApps // generatedApps;
 
   appKeys = lib.attrNames availableApps;
 
@@ -38,12 +77,33 @@ let
         builtins.getAttr name availableApps
       else
         let
+          maybeFile = appsDir + "/${name}.nix";
+          fallbackModule =
+            if builtins.pathExists maybeFile then
+              let
+                imported = import maybeFile;
+                path = [
+                  "flake"
+                  "nixosModules"
+                  "apps"
+                  name
+                ];
+              in
+              if lib.hasAttrByPath path imported then
+                lib.getAttrFromPath path imported
+              else
+                lib.trace "nixos-app-helpers: app module missing path ${builtins.concatStringsSep "." path}" null
+            else
+              lib.trace "nixos-app-helpers: missing app file ${toString maybeFile}" null;
           previewList = lib.take 20 appKeys;
           preview = lib.concatStringsSep ", " previewList;
           ellipsis = if lib.length appKeys > 20 then ", …" else "";
           suggestion = if appKeys == [ ] then "" else " Known keys (partial): ${preview}${ellipsis}";
         in
-        throw ("Unknown NixOS app '" + name + "'" + suggestion);
+        if fallbackModule != null then
+          lib.trace "nixos-app-helpers: fallback loaded ${name}" fallbackModule
+        else
+          throw ("Unknown NixOS app '" + name + "'" + suggestion);
 
     getApps = names: map getApp names;
 
@@ -54,4 +114,5 @@ in
   _module.args.nixosAppHelpers = helpers;
 
   flake.lib.nixos = helpers;
+
 }

@@ -49,6 +49,11 @@ _: {
         thermald.enable = true;
       };
 
+      xdg.mime.defaultApplications = {
+        "inode/directory" = lib.mkForce "nemo.desktop";
+        "application/x-directory" = lib.mkForce "nemo.desktop";
+      };
+
       # Disable ACME sample certs until configured with real domain/token
       security.acme = {
         acceptTerms = lib.mkDefault false;

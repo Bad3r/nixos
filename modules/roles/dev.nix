@@ -29,11 +29,9 @@ let
     "git-filter-repo"
     "forgit"
     "exiftool"
-    "niv"
     "tealdeer"
     "httpie"
     "mitmproxy"
-    "nix-prefetch-github"
     # debugging
     "gdb"
     "valgrind"
