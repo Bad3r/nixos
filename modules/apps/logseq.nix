@@ -100,8 +100,15 @@ in
         exec ${logseqFhs}/bin/logseq-fhs "$@"
       '';
 
+      iconSrc = "${logseqRepo}/static/resources/app/icon.png";
+
       logseqIcon = pkgs.runCommand "logseq-icon" { } ''
-        install -Dm644 ${logseqRepo}/static/resources/app/icon.png $out/share/icons/hicolor/512x512/apps/logseq.png
+        set -euo pipefail
+        dest="$out/share/icons/hicolor/512x512/apps"
+        mkdir -p "$dest"
+        if [ -f ${iconSrc} ]; then
+          install -m644 ${iconSrc} "$dest/logseq.png"
+        fi
       '';
 
       logseqDesktop = pkgs.writeTextFile {
