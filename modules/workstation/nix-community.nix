@@ -2,9 +2,6 @@
 let
   substitutersList = [
     "https://cache.garnix.io"
-    "https://mirrors.sjtug.sjtu.edu.cn/nix-channels/store"
-    "https://mirror.sjtu.edu.cn/nix-channels/store"
-    "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
     "https://cache.nixos.org/"
   ];
   trustedKeys = [
