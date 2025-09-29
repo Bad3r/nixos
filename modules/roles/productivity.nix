@@ -12,7 +12,7 @@ let
   getApps = rawHelpers.getApps or (names: map getApp names);
   productivityApps = [
     "electron-mail"
-    "logseqFhs"
+    # "logseqFhs"
     "marktext"
     "mattermost"
     "obsidian"
