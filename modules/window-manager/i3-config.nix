@@ -32,12 +32,12 @@
           {
             background = toLockColor (lib.attrByPath [ "base00" ] "#262c36" stylixColors);
             ring = toLockColor (
-              lib.attrByPath [ "base04" ] (lib.attrByPath [ "base05" ] "#768390" stylixColors) stylixColors
+              lib.attrByPath [ "base04" ] (lib.attrByPath [ "base05" ] "#576270" stylixColors) stylixColors
             );
             ringWrong = toLockColor (lib.attrByPath [ "base08" ] "#f47067" stylixColors);
             ringVerify = toLockColor (lib.attrByPath [ "base0B" ] "#57ab5a" stylixColors);
             line = toLockColor (
-              lib.attrByPath [ "base03" ] (lib.attrByPath [ "base04" ] "#545d68" stylixColors) stylixColors
+              lib.attrByPath [ "base03" ] (lib.attrByPath [ "base04" ] "#3d444d" stylixColors) stylixColors
             );
             text = toLockColor (lib.attrByPath [ "base05" ] "#cdd9e5" stylixColors);
           }
@@ -45,10 +45,10 @@
           null;
       defaultLockPalette = {
         background = "262C36FF";
-        ring = "768390FF";
+        ring = "576270FF";
         ringWrong = "F47067FF";
         ringVerify = "57AB5AFF";
-        line = "545D68FF";
+        line = "3D444DFF";
         text = "CDD9E5FF";
       };
       lockPalette = if stylixLockPalette != null then stylixLockPalette else defaultLockPalette;

@@ -11,7 +11,7 @@ let
     if lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules then
       lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules
     else
-      throw ("Unknown NixOS app '" + name + "' (role dev python)");
+      throw ("Unknown NixOS app '" + name + "' (role dev py)");
   getApp = rawHelpers.getApp or fallbackGetApp;
   getApps = rawHelpers.getApps or (names: map getApp names);
 
@@ -19,7 +19,7 @@ let
     if lib.hasAttrByPath [ "lang" "python" ] config.flake.nixosModules then
       lib.getAttrFromPath [ "lang" "python" ] config.flake.nixosModules
     else
-      throw "flake.nixosModules.lang.python missing while constructing role.dev.python";
+      throw "flake.nixosModules.lang.python missing while constructing role.dev.py";
 
   pythonApps = [
     "python"
@@ -30,5 +30,5 @@ let
   pythonImports = [ pythonModule ] ++ getApps pythonApps;
 in
 {
-  flake.nixosModules.roles.dev.python.imports = pythonImports;
+  flake.nixosModules.roles.dev.py.imports = pythonImports;
 }
