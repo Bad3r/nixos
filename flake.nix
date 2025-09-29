@@ -184,7 +184,7 @@
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         (inputs.import-tree ./modules)
-        ./modules/apps/logseq-fhs.nix
+        ./modules/apps/logseq.nix
       ];
 
       systems = [
