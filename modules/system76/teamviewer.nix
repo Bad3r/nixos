@@ -2,6 +2,6 @@
   nixpkgs.allowedUnfreePackages = [ "teamviewer" ];
 
   configurations.nixos.system76.module = {
-    services.teamviewer.enable = true;
+    services.teamviewer.enable = false;
   };
 }
