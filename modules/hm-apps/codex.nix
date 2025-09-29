@@ -30,6 +30,9 @@
       ...
     }:
     let
+      codexOverlay = final: _prev: {
+        codex = final.callPackage ../../packages/codex { };
+      };
       hasContext7Secret = config.sops.secrets ? "context7/api-key";
       context7Wrapper =
         if hasContext7Secret then
@@ -65,6 +68,7 @@
           { };
     in
     {
+      nixpkgs.overlays = [ codexOverlay ];
       programs.codex = {
         enable = true;
         package = null;
