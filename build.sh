@@ -34,8 +34,6 @@ VERBOSE=false
 ALLOW_DIRTY=false
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
-SUBMODULES=(inputs/home-manager inputs/nixpkgs inputs/stylix)
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -179,62 +177,6 @@ ensure_clean_git_tree() {
 main() {
   # Fail fast on dirty git trees to ensure reproducible builds
   ensure_clean_git_tree
-
-  # Ensure required input branches and submodules are present
-  status_msg "${YELLOW}" "Ensuring inputs/* submodules are initialized..."
-  if command -v git >/dev/null 2>&1; then
-    # Fetch input branches into the superproject so local submodule clones (url=./.) can see them
-    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      need_init=0
-      for sub in "${SUBMODULES[@]}"; do
-        if [[ ! -e "$sub/.git" || ! -f "$sub/flake.nix" ]]; then
-          need_init=1
-          break
-        fi
-      done
-
-      if [[ $need_init -eq 1 ]]; then
-        git submodule sync --recursive || true
-        # Try shallow init directly from the repo origin, not via superproject refs.
-        if ! git submodule update --init --recursive --depth 1; then
-          status_msg "${YELLOW}" "Submodule clone with relative URL failed. Retrying via origin remote..."
-          PARENT_ORIGIN=$(git remote get-url --push origin 2>/dev/null || git remote get-url origin 2>/dev/null || true)
-          if [[ -z ${PARENT_ORIGIN} ]]; then
-            error_msg "Could not resolve superproject origin URL for submodule initialization."
-            exit 1
-          fi
-          for name in home-manager nixpkgs stylix; do
-            git config "submodule.inputs/${name}.url" "${PARENT_ORIGIN}" || true
-          done
-          # Avoid protocol.file fallback; rely on network origin instead
-          if ! git submodule update --init --recursive --depth 1; then
-            error_msg "Submodule init failed from origin. See docs/INPUT-BRANCHES-PLAN.md."
-            exit 1
-          fi
-        fi
-        # Ensure nixpkgs submodule stays blobless for follow-up operations
-        if [[ -d inputs/nixpkgs ]]; then
-          git -C inputs/nixpkgs config --unset remote.origin.promisor >/dev/null 2>&1 || true
-          git -C inputs/nixpkgs config remote.origin.partialclonefilter blob:none || true
-        fi
-      fi
-    fi
-  fi
-
-  # Verify submodules look sane before invoking nix
-  for sub in inputs/home-manager inputs/nixpkgs inputs/stylix; do
-    if [[ -d $sub ]]; then
-      # In submodules, .git is often a FILE pointing to ../.git/modules/... not a directory
-      if [[ ! -d "$sub/.git" && ! -f "$sub/.git" ]]; then
-        error_msg "Submodule '$sub' not initialized. Run: git fetch origin 'refs/heads/inputs/*:refs/heads/inputs/*' && git submodule sync --recursive && git submodule update --init --recursive"
-        exit 1
-      fi
-      if [[ ! -f "$sub/flake.nix" ]]; then
-        error_msg "Missing flake.nix in '$sub'. Ensure input branches are populated (see docs/INPUT-BRANCHES-PLAN.md)."
-        exit 1
-      fi
-    fi
-  done
 
   configure_nix_flags
 
