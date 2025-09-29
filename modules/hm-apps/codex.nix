@@ -30,9 +30,10 @@
       ...
     }:
     let
-      codexOverlay = final: _prev: {
-        codex = final.callPackage ../../packages/codex { };
-      };
+      codexPkg = lib.attrByPath [ "flake" "packages" pkgs.system "codex" ] (pkgs.callPackage
+        ../../packages/codex
+        { }
+      ) config;
       hasContext7Secret = config.sops.secrets ? "context7/api-key";
       context7Wrapper =
         if hasContext7Secret then
@@ -68,10 +69,9 @@
           { };
     in
     {
-      nixpkgs.overlays = [ codexOverlay ];
       programs.codex = {
         enable = true;
-        package = null;
+        package = codexPkg;
         settings = {
           # TODO: Wire the Context7 API key via nix-sops once secret management is available.
           show_raw_agent_reasoning = true;

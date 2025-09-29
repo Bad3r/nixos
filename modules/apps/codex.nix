@@ -21,16 +21,27 @@
 */
 
 {
-  flake.nixosModules.apps.codex =
+  perSystem =
     { pkgs, ... }:
     {
-      nixpkgs.overlays = [
-        (final: _prev: {
-          codex = final.callPackage ../../packages/codex { };
-        })
-      ];
+      packages.codex = pkgs.callPackage ../../packages/codex { };
+    };
 
-      environment.systemPackages = [ pkgs.codex ];
+  flake.nixosModules.apps.codex =
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
+    let
+      codexPkg = lib.attrByPath [ "flake" "packages" pkgs.system "codex" ] (pkgs.callPackage
+        ../../packages/codex
+        { }
+      ) config;
+    in
+    {
+      environment.systemPackages = [ codexPkg ];
     };
 
 }
