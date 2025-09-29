@@ -422,16 +422,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1758828246,
-        "narHash": "sha256-DgHe1026Ob49CPegPMiWj1HNtlMTGQzfSZQQVlHC950=",
-        "rev": "3b1aa5bd909b789e66f6d3c162519ca08c9bccf6",
-        "revCount": 15,
-        "type": "git",
-        "url": "file:./inputs/home-manager"
+        "lastModified": 1759106866,
+        "narHash": "sha256-GjLvAl7qxGxKtop6ghasxjQ1biTT7pA+WU45byzMl/4=",
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "rev": "619ae569293b6427d23cce4854eb4f3c33af3eec",
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "file:./inputs/home-manager"
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "type": "github"
       }
     },
     "import-tree": {
@@ -601,17 +602,18 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1759146921,
-        "narHash": "sha256-xb1l1l4GTS4TZJEa2QJS7w0aPjFSElwma1B+89ka6/E=",
-        "ref": "refs/heads/inputs/main/nixpkgs",
-        "rev": "d1193e1c0800703c44395cc9dc134c957d8b25db",
-        "revCount": 3,
-        "type": "git",
-        "url": "file:./inputs/nixpkgs"
+        "lastModified": 1759070547,
+        "narHash": "sha256-JVZl8NaVRYb0+381nl7LvPE+A774/dRpif01FKLrYFQ=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "647e5c14cbd5067f44ac86b74f014962df460840",
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "file:./inputs/nixpkgs"
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
       }
     },
     "nixpkgs-lib": {
@@ -822,15 +824,15 @@
       "locked": {
         "lastModified": 1759131326,
         "narHash": "sha256-fFhUx2C0Wtz0YkndtnlpSesrqj4lP3d5BUnMprpXtTk=",
-        "ref": "refs/heads/inputs/main/stylix",
+        "owner": "nix-community",
+        "repo": "stylix",
         "rev": "fe74ba4ade9f3bb1496fbff27cc7a0ca873e40c4",
-        "revCount": 1205,
-        "type": "git",
-        "url": "file:./inputs/stylix"
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "file:./inputs/stylix"
+        "owner": "nix-community",
+        "repo": "stylix",
+        "type": "github"
       }
     },
     "systems": {
