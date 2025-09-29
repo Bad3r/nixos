@@ -205,7 +205,7 @@
         custom-instructions = "";
       };
 
-      home.packages = [ pkgs.codex ];
+      home.packages = [ codexPkg ];
       home.sessionVariables.CODEX_HOME = lib.mkDefault "${config.xdg.configHome}/codex";
     };
 }
