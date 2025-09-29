@@ -30,10 +30,22 @@
       ...
     }:
     let
-      codexPkg = lib.attrByPath [ "flake" "packages" pkgs.system "codex" ] (pkgs.callPackage
+      baseCodexPkg = lib.attrByPath [ "flake" "packages" pkgs.system "codex" ] (pkgs.callPackage
         ../../packages/codex
         { }
       ) config;
+      codexPkg =
+        if lib.versionAtLeast (lib.getVersion baseCodexPkg) "0.2.0" then
+          baseCodexPkg
+        else
+          # Upstream reports version 0.0.0 even on modern builds; wrap with a
+          # synthetic name so Home Manager writes TOML config instead of the
+          # legacy YAML path.
+          pkgs.symlinkJoin {
+            name = "codex-0.2.0-toml";
+            paths = [ baseCodexPkg ];
+            meta = baseCodexPkg.meta or { };
+          };
       hasContext7Secret = config.sops.secrets ? "context7/api-key";
       context7Wrapper =
         if hasContext7Secret then
