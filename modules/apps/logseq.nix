@@ -160,12 +160,16 @@ in
           remote_rev=$(git rev-parse "$remote/$branch")
 
           if [ "$local_rev" = "$remote_rev" ]; then
+            echo "logseq update: already up to date ($local_rev)"
             exit 0
           fi
 
+          echo "logseq update: updating to $remote/$branch ($remote_rev)"
           git reset --hard "$remote/$branch"
 
+          echo "logseq update: rebuilding via ${logseqBuilder}"
           nix develop ${escapeShellArg rootPath}#logseq --accept-flake-config --command ${escapeShellArg logseqBuilder} -f
+          echo "logseq update: completed"
         '';
       };
     in
