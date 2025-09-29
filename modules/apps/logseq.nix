@@ -100,6 +100,24 @@ in
         exec ${logseqFhs}/bin/logseq-fhs "$@"
       '';
 
+      logseqDesktop = pkgs.writeTextFile {
+        name = "logseq-desktop";
+        destination = "/share/applications/logseq.desktop";
+        text = ''
+          [Desktop Entry]
+          Name=Logseq Desktop
+          Exec=logseq %U
+          Terminal=false
+          Type=Application
+          Icon=${logseqRepo}/static/resources/app/icon.png
+          StartupWMClass=Logseq
+          Comment=A privacy-first, open-source platform for knowledge management and collaboration.
+          MimeType=x-scheme-handler/logseq;
+          Categories=Office;Productivity;Utility;TextEditor;
+          NoDisplay=false
+        '';
+      };
+
       logseqUpdateScript = pkgs.writeShellApplication {
         name = "logseq-update";
         runtimeInputs = [
@@ -150,6 +168,7 @@ in
     {
       environment.systemPackages = [
         logseqCommand
+        logseqDesktop
         logseqUpdateScript
       ];
 
