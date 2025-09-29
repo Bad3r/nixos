@@ -29,6 +29,8 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   sourceRoot = "${finalAttrs.src.name}/codex-rs";
 
+  patches = [ ./disable-update-check.patch ];
+
   cargoHash = "sha256-c4bg3kELz0F6YbeS9ScsTu+X5LWGJohA8EszDi6NySE=";
 
   nativeBuildInputs = [
