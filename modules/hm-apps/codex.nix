@@ -218,6 +218,9 @@
       };
 
       home.packages = [ codexPkg ];
-      home.sessionVariables.CODEX_HOME = lib.mkDefault "${config.xdg.configHome}/codex";
+      home.sessionVariables = {
+        CODEX_HOME = lib.mkDefault "${config.xdg.configHome}/codex";
+        CODEX_DISABLE_UPDATE_CHECK = "1";
+      };
     };
 }

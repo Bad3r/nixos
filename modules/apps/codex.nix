@@ -42,6 +42,7 @@
     in
     {
       environment.systemPackages = [ codexPkg ];
+      environment.sessionVariables.CODEX_DISABLE_UPDATE_CHECK = "1";
     };
 
 }
