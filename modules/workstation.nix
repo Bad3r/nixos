@@ -13,11 +13,13 @@ let
     name:
     let
       candidate = rawResolveRole name;
+      namePath = lib.splitString "." name;
+      rolePath = [ "roles" ] ++ namePath;
     in
     if candidate != null then
       candidate
-    else if lib.hasAttrByPath [ "roles" name ] nixosModules then
-      lib.getAttrFromPath [ "roles" name ] nixosModules
+    else if lib.hasAttrByPath rolePath nixosModules then
+      lib.getAttrFromPath rolePath nixosModules
     else
       throw ("Unknown role '" + name + "' referenced by flake.nixosModules.workstation");
   workstationRoles = [
@@ -36,11 +38,16 @@ let
   devLanguageModules =
     let
       devAttrset = lib.attrByPath [ "roles" "dev" ] { } nixosModules;
-      isRoleModule = _name: value: builtins.isAttrs value && (value ? imports);
-      languageNames = lib.attrNames (lib.filterAttrs isRoleModule devAttrset);
-      getLanguageModule = name: lib.getAttrFromPath [ "roles" "dev" name ] nixosModules;
+      collectRoleModules =
+        attrset: isRoot:
+        let
+          childAttrs = lib.filterAttrs (_: value: builtins.isAttrs value) attrset;
+          childModules = lib.concatMap (child: collectRoleModules child false) (lib.attrValues childAttrs);
+          ownModules = if (!isRoot && attrset ? imports) then [ attrset ] else [ ];
+        in
+        ownModules ++ childModules;
     in
-    map getLanguageModule languageNames;
+    collectRoleModules devAttrset true;
   baseImport =
     if rawResolveRole "base" != null then
       [ (resolveRole "base") ]
