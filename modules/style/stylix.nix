@@ -11,8 +11,8 @@
         stylix = {
           enable = true;
           homeManagerIntegration.autoImport = false;
-          # Use gruvbox dark theme by default
-          base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/gruvbox-dark-medium.yaml";
+          # Use GitHub Dark Dimmed theme by default
+          base16Scheme = lib.mkDefault ./github-dark-dimmed.base16.yaml;
           polarity = lib.mkDefault "dark";
           targets.grub.enable = false;
         };
@@ -62,8 +62,8 @@
         imports = [ inputs.stylix.homeModules.stylix ];
         stylix = {
           enable = true;
-          # Use gruvbox dark theme by default
-          base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/gruvbox-dark-medium.yaml";
+          # Use GitHub Dark Dimmed theme by default
+          base16Scheme = lib.mkDefault ./github-dark-dimmed.base16.yaml;
           polarity = lib.mkDefault "dark";
 
         };

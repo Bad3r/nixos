@@ -35,19 +35,14 @@ let
     "security"
     "cloudflare"
   ];
-  devLanguageModules =
-    let
-      devAttrset = lib.attrByPath [ "roles" "dev" ] { } nixosModules;
-      collectRoleModules =
-        attrset: isRoot:
-        let
-          childAttrs = lib.filterAttrs (_: value: builtins.isAttrs value) attrset;
-          childModules = lib.concatMap (child: collectRoleModules child false) (lib.attrValues childAttrs);
-          ownModules = if (!isRoot && attrset ? imports) then [ attrset ] else [ ];
-        in
-        ownModules ++ childModules;
-    in
-    collectRoleModules devAttrset true;
+  devLanguageRoles = [
+    "dev.nix"
+    "dev.py"
+    "dev.go"
+    "dev.rs"
+    "dev.clj"
+  ];
+  devLanguageModules = map resolveRole devLanguageRoles;
   baseImport =
     if rawResolveRole "base" != null then
       [ (resolveRole "base") ]

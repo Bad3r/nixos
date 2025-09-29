@@ -54,7 +54,9 @@ rustPlatform.buildRustPackage (finalAttrs: {
   '';
 
   postFixup = ''
-    wrapProgram $out/bin/codex --prefix PATH : ${lib.makeBinPath [ ripgrep ]}
+    wrapProgram $out/bin/codex \
+      --set CODEX_DISABLE_UPDATE_CHECK 1 \
+      --prefix PATH : ${lib.makeBinPath [ ripgrep ]}
   '';
 
   doInstallCheck = true;
