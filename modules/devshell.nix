@@ -73,8 +73,12 @@
                     git config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
                     git config extensions.partialclone upstream >/dev/null 2>&1 || true
 
+                  if partial_clone_enabled; then
                     git fetch --filter=blob:none --force upstream "''${upstream_ref}" >/dev/null 2>&1 || \
                       git fetch --force upstream "''${upstream_ref}" >/dev/null 2>&1 || true
+                  else
+                    git fetch --force --prune upstream "''${upstream_ref}" >/dev/null 2>&1 || true
+                  fi
                   else
                     git config --unset remote.upstream.promisor >/dev/null 2>&1 || true
                     git config --unset remote.upstream.partialclonefilter >/dev/null 2>&1 || true
