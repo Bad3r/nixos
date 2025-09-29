@@ -6,7 +6,7 @@
   };
 
   inputs = {
-    self.submodules = true;
+    self.submodules = false;
     cpu-microcodes = {
       flake = false;
       url = "github:platomav/CPUMicrocodes";
@@ -28,8 +28,7 @@
     };
 
     home-manager = {
-      url = "git+file:./inputs/home-manager";
-      flake = true;
+      url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -59,7 +58,7 @@
 
     nixos-facter-modules.url = "github:numtide/nixos-facter-modules";
 
-    nixpkgs.url = "git+file:./inputs/nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
@@ -94,10 +93,8 @@
     };
 
     stylix = {
-      url = "git+file:./inputs/stylix";
-      flake = true;
+      url = "github:nix-community/stylix";
       inputs = {
-        # Only follow inputs that actually exist in stylix
         nixpkgs.follows = "nixpkgs";
         nur.follows = "dedupe_nur";
         systems.follows = "dedupe_systems";
