@@ -12,8 +12,8 @@
         command-not-found.enable = true;
         nix-index = {
           enable = true;
-          enableBashIntegration = false;
-          enableZshIntegration = false;
+          enableBashIntegration = false; # mutually exclusive w/ command-not-found
+          enableZshIntegration = false; # mutually exclusive w/ command-not-found
         };
       };
       users.mutableUsers = true;
