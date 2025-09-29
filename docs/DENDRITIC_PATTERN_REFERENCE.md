@@ -87,7 +87,6 @@ nix flake check --accept-flake-config
 
 Additional helpers:
 
-- `nix develop -c update-input-branches` – rebase and push vendored inputs under `inputs/*`.
 - `nix develop -c gh-actions-run -n` – dry-run GitHub Actions locally with `act`.
 - `write-files` – refresh generated files (managed by `modules/meta/docs.nix`).
 
