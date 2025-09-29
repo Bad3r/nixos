@@ -34,8 +34,6 @@
 
     import-tree.url = "github:vic/import-tree";
 
-    input-branches.url = "github:mightyiam/input-branches";
-
     make-shell = {
       url = "github:nicknovitski/make-shell";
       inputs.flake-compat.follows = "dedupe_flake-compat";

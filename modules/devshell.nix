@@ -5,7 +5,7 @@
     inputs.make-shell.flakeModules.default
   ];
   perSystem =
-    psArgs@{ pkgs, config, ... }:
+    { pkgs, config, ... }:
     {
       # Keep format checks fast and focused on this repo, not vendored inputs
       treefmt.settings.global.excludes = [ "inputs/*" ];
@@ -15,155 +15,6 @@
         packages =
           with pkgs;
           let
-            # Update input branches and record in superproject
-            updateInputBranches = pkgs.writeShellApplication {
-              name = "update-input-branches";
-              runtimeInputs = [
-                pkgs.git
-              ]
-              ++ (if psArgs.config ? input-branches then psArgs.config.input-branches.commands.all else [ ]);
-              text = ''
-                set -euo pipefail
-
-                ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
-                if [ -z "''${ROOT}" ] || [ ! -d "''${ROOT}/.git" ]; then
-                  echo "Error: run inside the superproject git repository" >&2
-                  exit 1
-                fi
-                cd "''${ROOT}"
-
-                echo "==> Syncing submodules"
-                git submodule sync --recursive || true
-                git submodule update --init --recursive || true
-
-                # Allow callers to disable the partial-clone optimisation if it is
-                # causing repeated blob fetches. Set USE_PARTIAL_CLONES=0 (or any
-                # other value that does not evaluate to 1) before invoking the
-                # helper to keep fully hydrated checkouts.
-                partial_clone_enabled() {
-                  [ "''${USE_PARTIAL_CLONES:-1}" = "1" ]
-                }
-
-                ensure_partial_clone() {
-                  local rel=$1
-                  local upstream_url=$2
-                  local upstream_ref=$3
-
-                  if [ ! -d "''${ROOT}/''${rel}/.git" ]; then
-                    return
-                  fi
-
-                  pushd "''${ROOT}/''${rel}" >/dev/null
-
-                  if git remote | grep -qx upstream; then
-                    current_url=$(git remote get-url upstream || true)
-                    if [ "''${current_url}" != "''${upstream_url}" ]; then
-                      git remote set-url upstream "''${upstream_url}"
-                    fi
-                  else
-                    git remote add upstream "''${upstream_url}"
-                  fi
-
-                  git config fetch.writeCommitGraph true >/dev/null 2>&1 || true
-
-                  if partial_clone_enabled; then
-                    git config remote.upstream.promisor true >/dev/null 2>&1 || true
-                    git config remote.upstream.partialclonefilter blob:none >/dev/null 2>&1 || true
-                    git config --unset remote.origin.promisor >/dev/null 2>&1 || true
-                    git config remote.origin.partialclonefilter blob:none >/dev/null 2>&1 || true
-                    git config extensions.partialclone upstream >/dev/null 2>&1 || true
-
-                  if partial_clone_enabled; then
-                    git fetch --filter=blob:none --force upstream "''${upstream_ref}" >/dev/null 2>&1 || \
-                      git fetch --force upstream "''${upstream_ref}" >/dev/null 2>&1 || true
-                  else
-                    git fetch --force --prune upstream "''${upstream_ref}" >/dev/null 2>&1 || true
-                  fi
-                  else
-                    git config --unset remote.upstream.promisor >/dev/null 2>&1 || true
-                    git config --unset remote.upstream.partialclonefilter >/dev/null 2>&1 || true
-                    git config --unset remote.origin.partialclonefilter >/dev/null 2>&1 || true
-                    git config --unset extensions.partialclone >/dev/null 2>&1 || true
-
-                    git fetch --force upstream "''${upstream_ref}" >/dev/null 2>&1 || true
-                  fi
-
-                  if git rev-parse --verify _input-branches-temp >/dev/null 2>&1; then
-                    git branch -D _input-branches-temp >/dev/null 2>&1 || true
-                  fi
-
-                  popd >/dev/null
-                }
-
-                ensure_partial_clone inputs/nixpkgs https://github.com/NixOS/nixpkgs.git nixpkgs-unstable
-                ensure_partial_clone inputs/home-manager https://github.com/nix-community/home-manager.git master
-                ensure_partial_clone inputs/stylix https://github.com/nix-community/stylix.git master
-
-                status=0
-                if command -v input-branches-rebase >/dev/null 2>&1; then
-                  if ! input-branches-rebase; then
-                    status=$?
-                    echo "Warning: input-branches-rebase exited with ''${status}" >&2
-                  fi
-                fi
-
-                if command -v input-branches-push-force >/dev/null 2>&1; then
-                  input-branches-push-force || true
-                fi
-
-                git add -u inputs || true
-
-                echo "==> Refreshing flake.lock for vendored inputs"
-                lock_args=()
-                while IFS= read -r path; do
-                  case "''${path}" in
-                    inputs/*)
-                      lock_args+=("--update-input" "''${path##*/}")
-                      ;;
-                    *) ;;
-                  esac
-                done < <(git config --file .gitmodules --get-regexp "^submodule\\..*\\.path" | awk "{print \$2}")
-
-                if [ "''${#lock_args[@]}" -gt 0 ]; then
-                  if nix flake lock "''${lock_args[@]}"; then
-                    git add flake.lock || true
-                  else
-                    echo "Warning: nix flake lock failed; leaving flake.lock untouched" >&2
-                  fi
-                fi
-
-                if git diff --cached --quiet -- inputs flake.lock; then
-                  echo "No input bumps to commit."
-                else
-                  git -c core.hooksPath=/dev/null commit --no-verify -m "chore(inputs): bump vendored inputs" -- inputs flake.lock
-                fi
-
-                if [ ''${status} -ne 0 ]; then
-                  exit ''${status}
-                fi
-              '';
-            };
-
-            inputBranchesCatalog = pkgs.writeShellApplication {
-              name = "input-branches-catalog";
-              text = ''
-                set -euo pipefail
-                # Find input-branches commands in PATH
-                found=$(
-                  IFS=:
-                  for d in $PATH; do
-                    ls -1 "$d"/input-branches-* "$d"/input-branch-* 2>/dev/null || true
-                  done | awk 'NF' | sort -u
-                )
-                if [ -z "''${found}" ]; then
-                  echo "No input-branches commands found in PATH."
-                  echo "If you expect them, enable the input-branches module and add its commands to the dev shell."
-                  exit 0
-                fi
-                echo "Input-branches command catalog:";
-                echo "''${found}"
-              '';
-            };
             ghActionsRun = pkgs.writeShellApplication {
               name = "gh-actions-run";
               text = ''
@@ -249,12 +100,9 @@
             ssh-to-pgp
             ghActionsRun
             ghActionsList
-            updateInputBranches
-            inputBranchesCatalog
             config.packages.generation-manager
             config.treefmt.build.wrapper
-          ]
-          ++ (if psArgs.config ? input-branches then psArgs.config.input-branches.commands.all else [ ]);
+          ];
 
         inputsFrom = [ config.pre-commit.devShell ];
 
@@ -266,8 +114,6 @@
           echo "  nix fmt                - Format Nix files"
           echo "  pre-commit install     - Install git hooks"
           echo "  pre-commit run         - Run hooks on staged files"
-          echo "  input-branches-catalog - List input-branches commands (if available)"
-          echo "  update-input-branches  - Rebase inputs, push inputs/* branches, commit bumps"
           echo "  write-files            - Generate managed files (README.md, .actrc, .gitignore)"
           echo "  gh-actions-run [-n]    - Run all GitHub Actions locally (use -n for dry run)"
           echo "  gh-actions-list        - List discovered GitHub Actions jobs"
