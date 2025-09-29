@@ -100,6 +100,10 @@ in
         exec ${logseqFhs}/bin/logseq-fhs "$@"
       '';
 
+      logseqIcon = pkgs.runCommand "logseq-icon" { } ''
+        install -Dm644 ${logseqRepo}/static/resources/app/icon.png $out/share/icons/hicolor/512x512/apps/logseq.png
+      '';
+
       logseqDesktop = pkgs.writeTextFile {
         name = "logseq-desktop";
         destination = "/share/applications/logseq.desktop";
@@ -109,7 +113,7 @@ in
           Exec=logseq %U
           Terminal=false
           Type=Application
-          Icon=${logseqRepo}/static/resources/app/icon.png
+          Icon=logseq
           StartupWMClass=Logseq
           Comment=A privacy-first, open-source platform for knowledge management and collaboration.
           MimeType=x-scheme-handler/logseq;
@@ -168,6 +172,7 @@ in
     {
       environment.systemPackages = [
         logseqCommand
+        logseqIcon
         logseqDesktop
         logseqUpdateScript
       ];
