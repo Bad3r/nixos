@@ -24,6 +24,12 @@
   flake.nixosModules.apps.codex =
     { pkgs, ... }:
     {
+      nixpkgs.overlays = [
+        (final: _prev: {
+          codex = final.callPackage ../../packages/codex { };
+        })
+      ];
+
       environment.systemPackages = [ pkgs.codex ];
     };
 
