@@ -15,11 +15,7 @@ let
   getApp = rawHelpers.getApp or fallbackGetApp;
   getApps = rawHelpers.getApps or (names: map getApp names);
 
-  rustModule =
-    if lib.hasAttrByPath [ "lang" "rust" ] config.flake.nixosModules then
-      lib.getAttrFromPath [ "lang" "rust" ] config.flake.nixosModules
-    else
-      throw "flake.nixosModules.lang.rust missing while constructing role.dev.rs";
+  rustModule = config.flake.nixosModules.lang.rust;
 
   rustApps = [
     "rust-analyzer"

@@ -15,11 +15,7 @@ let
   getApp = rawHelpers.getApp or fallbackGetApp;
   getApps = rawHelpers.getApps or (names: map getApp names);
 
-  goModule =
-    if lib.hasAttrByPath [ "lang" "go" ] config.flake.nixosModules then
-      lib.getAttrFromPath [ "lang" "go" ] config.flake.nixosModules
-    else
-      throw "flake.nixosModules.lang.go missing while constructing role.dev.go";
+  goModule = config.flake.nixosModules.lang.go;
 
   goApps = [
     "go"

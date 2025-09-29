@@ -15,11 +15,7 @@ let
   getApp = rawHelpers.getApp or fallbackGetApp;
   getApps = rawHelpers.getApps or (names: map getApp names);
 
-  pythonModule =
-    if lib.hasAttrByPath [ "lang" "python" ] config.flake.nixosModules then
-      lib.getAttrFromPath [ "lang" "python" ] config.flake.nixosModules
-    else
-      throw "flake.nixosModules.lang.python missing while constructing role.dev.py";
+  pythonModule = config.flake.nixosModules.lang.python;
 
   pythonApps = [
     "python"
