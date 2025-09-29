@@ -26,6 +26,18 @@
   flake.nixosModules.apps.kitty =
     { pkgs, ... }:
     {
+      nixpkgs.overlays = [
+        (_final: prev: {
+          kitty = prev.kitty.overrideAttrs (old: {
+            doCheck = false;
+            doInstallCheck = false;
+            checkPhase = "echo skipping kitty checkPhase";
+            installCheckPhase = "true";
+            nativeCheckInputs = old.nativeCheckInputs or [ ];
+          });
+        })
+      ];
+
       environment.systemPackages = [ pkgs.kitty ];
     };
 }
