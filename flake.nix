@@ -117,10 +117,6 @@
       flake = false;
       url = "github:cloudflare/node-cloudflare";
     };
-    logseq = {
-      flake = false;
-      url = "github:logseq/logseq";
-    };
     workers-rs = {
       flake = false;
       url = "github:cloudflare/workers-rs";

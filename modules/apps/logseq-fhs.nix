@@ -1,81 +1,162 @@
-/*
-  Package: logseq-fhs
-  Description: FHS-wrapped build of Logseq, the local-first knowledge graph and outliner.
-  Homepage: https://logseq.com/
-  Documentation: https://docs.logseq.com/
-  Repository: https://github.com/logseq/logseq
-
-  Summary:
-    * Packages Logseq within an FHS environment so Electron dependencies expecting traditional paths function correctly on NixOS.
-    * Enables journaling, graph-based note taking, and Markdown/Org-mode interop with plugins and sync capabilities.
-
-  Options:
-    logseq: Launch the Logseq desktop application from the wrapped environment.
-    (Further configuration happens through the Logseq UI and settings panels.)
-
-  Example Usage:
-    * `logseq` — Open your knowledge graph with the FHS wrapper ensuring compatibility.
-    * Configure graph locations and plugin marketplace via Logseq’s settings dialog.
-*/
-
 {
-  inputs,
   lib,
   ...
 }:
 let
-  inherit (lib) substring;
+  inherit (lib) escapeShellArg;
 
-  logseqRev = inputs.logseq.rev or "main";
-  logseqVersion = "unstable-" + substring 0 8 logseqRev;
-  logseqSrc = inputs.logseq;
+  logseqRepo = "/home/vx/git/logseq";
+  logseqBinary = "${logseqRepo}/static/out/Logseq-linux-x64/Logseq";
+  logseqBuilder = "/home/vx/dotfiles/.local/bin/sss-update-logseq";
 
-  mkLogseqPackages =
-    pkgs:
-    (pkgs.callPackage ../../packages/logseq-fhs {
-      prefetchYarnDeps = pkgs.prefetch-yarn-deps;
-    })
-      {
-        inherit logseqSrc;
-        version = logseqVersion;
-        electronPackage = pkgs.electron_37;
+  runtimePackages =
+    pkgs: with pkgs; [
+      alsa-lib
+      at-spi2-atk
+      at-spi2-core
+      atk
+      cairo
+      cups
+      dbus
+      dejavu_fonts
+      expat
+      fontconfig
+      freetype
+      gdk-pixbuf
+      glib
+      gtk3
+      harfbuzz
+      krb5
+      libappindicator-gtk3
+      libdrm
+      libnotify
+      libpulseaudio
+      libsecret
+      libuuid
+      libxkbcommon
+      nspr
+      nss
+      pango
+      pipewire
+      udev
+      xdg-desktop-portal
+      xdg-user-dirs
+      xdg-utils
+      zlib
+
+      libglvnd
+      libgbm
+      mesa
+
+      pkgs.xorg.libX11
+      pkgs.xorg.libXScrnSaver
+      pkgs.xorg.libXcomposite
+      pkgs.xorg.libXcursor
+      pkgs.xorg.libXdamage
+      pkgs.xorg.libXext
+      pkgs.xorg.libXfixes
+      pkgs.xorg.libXi
+      pkgs.xorg.libXrandr
+      pkgs.xorg.libXrender
+      pkgs.xorg.libXtst
+      pkgs.xorg.libxcb
+      pkgs.xorg.libXau
+      pkgs.xorg.libXdmcp
+    ];
+in
+{
+  flake.nixosModules.apps.logseq =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      rootPath = builtins.toString (config._module.args.rootPath or ../..);
+
+      logseqRunner = pkgs.writeShellScript "logseq-run" ''
+        set -euo pipefail
+        if [ ! -x ${escapeShellArg logseqBinary} ]; then
+          echo "logseq binary missing at ${logseqBinary}. Run logseq-update." >&2
+          exit 1
+        fi
+        exec ${escapeShellArg logseqBinary} "$@"
+      '';
+
+      logseqFhs = pkgs.buildFHSEnv {
+        name = "logseq-fhs";
+        targetPkgs = runtimePackages;
+        runScript = "${logseqRunner}";
+        profile = ''
+          # bind host shared memory for Chromium/Electron
+          if [ -w /dev/shm ]; then
+            bwrapArgs+=(--dev-bind /dev/shm /dev/shm)
+          fi
+        '';
       };
 
-  logseqAppModule =
-    { pkgs, ... }:
-    let
-      logseqPackages = mkLogseqPackages pkgs;
+      logseqCommand = pkgs.writeShellScriptBin "logseq" ''
+        exec ${logseqFhs}/bin/logseq-fhs "$@"
+      '';
+
+      logseqUpdateScript = pkgs.writeShellApplication {
+        name = "logseq-update";
+        runtimeInputs = [
+          pkgs.git
+          pkgs.nix
+          pkgs.coreutils
+          pkgs.gnugrep
+          pkgs.gawk
+          pkgs.util-linux
+        ];
+        text = ''
+          set -euo pipefail
+
+          repo=${escapeShellArg logseqRepo}
+          branch=master
+          remote=origin
+
+          if [ ! -d "$repo/.git" ]; then
+            echo "logseq update: skipping (repo not found at $repo)" >&2
+            exit 0
+          fi
+
+          cd "$repo"
+
+          if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            echo "logseq update: $repo is not a git repository" >&2
+            exit 1
+          fi
+
+          git fetch --quiet "$remote" "$branch" || {
+            echo "logseq update: git fetch failed (offline?)" >&2
+            exit 0
+          }
+
+          local_rev=$(git rev-parse HEAD)
+          remote_rev=$(git.rev-parse "$remote/$branch")
+
+          if [ "$local_rev" = "$remote_rev" ]; then
+            exit 0
+          fi
+
+          git reset --hard "$remote/$branch"
+
+          nix develop ${escapeShellArg rootPath}#logseq --accept-flake-config --command ${escapeShellArg logseqBuilder} -f
+        '';
+      };
     in
     {
       environment.systemPackages = [
-        logseqPackages."logseq-fhs"
+        logseqCommand
+        logseqUpdateScript
       ];
-    };
-in
-{
-  perSystem =
-    { pkgs, ... }:
-    {
-      packages = {
-        "logseq-fhs" = (mkLogseqPackages pkgs)."logseq-fhs";
-        "logseq-fhs-unwrapped" = (mkLogseqPackages pkgs)."logseq-unwrapped";
-      };
-    };
 
-  flake = {
-    nixosModules = {
-      apps = {
-        logseqFhs = logseqAppModule;
-        "logseq-fhs" = logseqAppModule;
-      };
-
-      workstation =
-        { pkgs, ... }:
-        {
-          environment.systemPackages = [
-            (mkLogseqPackages pkgs)."logseq-fhs"
-          ];
-        };
+      system.activationScripts.logseq-update = lib.stringAfter [ "users" ] ''
+        if id -u vx >/dev/null 2>&1 && [ -d ${escapeShellArg logseqRepo} ]; then
+          runuser -l vx -c '${logseqUpdateScript}/bin/logseq-update' || true
+        fi
+      '';
     };
-  };
 }
