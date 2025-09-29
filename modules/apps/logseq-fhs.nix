@@ -135,7 +135,7 @@ in
           }
 
           local_rev=$(git rev-parse HEAD)
-          remote_rev=$(git.rev-parse "$remote/$branch")
+          remote_rev=$(git rev-parse "$remote/$branch")
 
           if [ "$local_rev" = "$remote_rev" ]; then
             exit 0
