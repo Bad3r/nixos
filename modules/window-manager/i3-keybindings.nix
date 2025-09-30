@@ -163,6 +163,8 @@
       pamixerCommand = commands.volume;
       xbacklightCommand = commands.brightness;
       screenshotCommand = commands.screenshot;
+      logseqToggleCommand =
+        commands.logseqToggle or "${config.xdg.configHome}/i3/scripts/toggle_logseq.sh";
       lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] (lib.getExe pkgs.i3lock-color) config;
     in
     {
@@ -202,6 +204,7 @@
                 "${mod}+u" = "border none";
                 "Mod1+1" = "workspace prev";
                 "Mod1+2" = "workspace next";
+                "Mod1+3" = "exec --no-startup-id ${logseqToggleCommand}";
                 "${mod}+h" = "focus left";
                 "${mod}+j" = "focus down";
                 "${mod}+k" = "focus up";
