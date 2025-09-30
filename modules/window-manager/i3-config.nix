@@ -7,6 +7,104 @@
       ...
     }:
     let
+      windowUtilsLib = pkgs.writeText "window_utils" ''
+        #!/bin/sh
+
+        # window_utils.sh: Calculate window position and size for i3 scratchpads
+
+        SCREEN_SCALE=1.0
+        TOPBAR_HEIGHT=29
+        TOP_GAP=6
+        BOTTOM_GAP=6
+        OUTER_GAP=4
+
+        get_primary_monitor_info() {
+          xrandr --query | awk '/ connected primary/ {print $4}'
+        }
+
+        calculate() {
+          echo "$1" | bc
+        }
+
+        calculate_int() {
+          echo "$1" | bc | awk '{printf "%.0f\\n", $1}'
+        }
+
+        calculate_window_geometry() {
+          primary_monitor=$(get_primary_monitor_info)
+
+          if [ -z "$primary_monitor" ]; then
+            echo "Error: No primary monitor detected!" >&2
+            exit 1
+          fi
+
+          screen_width=$(echo "$primary_monitor" | cut -d'x' -f1)
+          screen_height=$(echo "$primary_monitor" | cut -d'x' -f2 | cut -d'+' -f1)
+          screen_offset_x=$(echo "$primary_monitor" | awk -F '+' '{print $2}')
+          screen_offset_y=$(echo "$primary_monitor" | awk -F '+' '{print $3}')
+
+          if [ "$screen_width" -eq 3440 ] && [ "$screen_height" -eq 1440 ] && [ "$screen_offset_x" -eq 1440 ] && [ "$screen_offset_y" -eq 651 ]; then
+            export TARGET_WIDTH=1134
+            export TARGET_HEIGHT=1389
+            export TARGET_X=2593
+            export TARGET_Y=691
+            return
+          fi
+
+          aspect_ratio=$(calculate "$screen_width / $screen_height")
+
+          scaled_width=$(calculate_int "$screen_width * $SCREEN_SCALE")
+          scaled_height=$(calculate_int "$screen_height * $SCREEN_SCALE")
+
+          if [ "$(echo "$aspect_ratio >= 2.0" | bc)" -eq 1 ]; then
+            target_width=$(calculate_int "$scaled_width / 3 - $OUTER_GAP")
+          else
+            target_width=$(calculate_int "$scaled_width / 2 - $OUTER_GAP")
+          fi
+
+          target_height=$(calculate_int "$scaled_height - $TOPBAR_HEIGHT - $TOP_GAP - $BOTTOM_GAP")
+          target_x=$(calculate_int "$screen_offset_x + $scaled_width - $target_width")
+          target_y=$(calculate_int "$screen_offset_y + $TOPBAR_HEIGHT + $TOP_GAP")
+
+          export TARGET_WIDTH="$target_width"
+          export TARGET_HEIGHT="$target_height"
+          export TARGET_X="$target_x"
+          export TARGET_Y="$target_y"
+        }
+      '';
+      toggleLogseqScript = pkgs.writeShellApplication {
+        name = "toggle-logseq";
+        runtimeInputs = [
+          pkgs.bc
+          pkgs.xorg.xrandr
+          pkgs.procps
+          pkgs.libnotify
+          pkgs.i3
+          pkgs.coreutils
+        ];
+        text = ''
+          : "''${USR_LIB_DIR:="''${HOME}/.local/lib"}"
+          window_utils_lib="${windowUtilsLib}"
+
+          if [ -f "''${USR_LIB_DIR}/window_utils" ]; then
+            window_utils_lib="''${USR_LIB_DIR}/window_utils"
+          fi
+
+          # shellcheck source=/dev/null
+          . "$window_utils_lib"
+
+          calculate_window_geometry
+
+          if ! pgrep -xi logseq >/dev/null; then
+            notify-send "Logseq" "Starting Logseq..."
+            i3-msg "exec --no-startup-id i3-scratchpad-show-or-create 'Logseq' 'logseq'"
+            sleep 30
+          fi
+
+          # shellcheck disable=SC2140
+          i3-msg "[class=\"Logseq\"] scratchpad show, move position ''${TARGET_X}px ''${TARGET_Y}px, resize set ''${TARGET_WIDTH}px ''${TARGET_HEIGHT}px"
+        '';
+      };
       commandsDefault = {
         launcher = "${lib.getExe pkgs.rofi} -modi drun -show drun";
         terminal = lib.getExe pkgs.kitty;
@@ -16,10 +114,11 @@
         volume = lib.getExe pkgs.pamixer;
         brightness = lib.getExe pkgs.xorg.xbacklight;
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
+        logseqToggle = lib.getExe toggleLogseqScript;
       };
-      stylixAvailable = config ? stylix && config.stylix ? targets && config.stylix.targets ? i3;
-      stylixColors =
-        if stylixAvailable then lib.attrByPath [ "lib" "stylix" "colors" ] null config else null;
+      # Unconditional Stylix colors (Stylix is always available)
+      stylixColorsStrict = config.lib.stylix.colors;
+      stylixColorsStrictWithHash = stylixColorsStrict.withHashtag or stylixColorsStrict;
       toLockColor =
         colorHex:
         let
@@ -27,31 +126,15 @@
           normalized = if builtins.stringLength trimmed == 8 then trimmed else trimmed + "FF";
         in
         lib.strings.toUpper normalized;
-      stylixLockPalette =
-        if stylixColors != null then
-          {
-            background = toLockColor (lib.attrByPath [ "base00" ] "#262c36" stylixColors);
-            ring = toLockColor (
-              lib.attrByPath [ "base04" ] (lib.attrByPath [ "base05" ] "#576270" stylixColors) stylixColors
-            );
-            ringWrong = toLockColor (lib.attrByPath [ "base08" ] "#f47067" stylixColors);
-            ringVerify = toLockColor (lib.attrByPath [ "base0B" ] "#57ab5a" stylixColors);
-            line = toLockColor (
-              lib.attrByPath [ "base03" ] (lib.attrByPath [ "base04" ] "#3d444d" stylixColors) stylixColors
-            );
-            text = toLockColor (lib.attrByPath [ "base05" ] "#cdd9e5" stylixColors);
-          }
-        else
-          null;
-      defaultLockPalette = {
-        background = "262C36FF";
-        ring = "576270FF";
-        ringWrong = "F47067FF";
-        ringVerify = "57AB5AFF";
-        line = "3D444DFF";
-        text = "CDD9E5FF";
+      # Build lock palette directly from Stylix colors (no fallbacks)
+      lockPalette = {
+        background = toLockColor stylixColorsStrictWithHash.base00;
+        ring = toLockColor stylixColorsStrictWithHash.base04;
+        ringWrong = toLockColor stylixColorsStrictWithHash.base08;
+        ringVerify = toLockColor stylixColorsStrictWithHash.base0B;
+        line = toLockColor stylixColorsStrictWithHash.base03;
+        text = toLockColor stylixColorsStrictWithHash.base05;
       };
-      lockPalette = if stylixLockPalette != null then stylixLockPalette else defaultLockPalette;
       lockScript = pkgs.writeShellApplication {
         name = "i3lock-stylix";
         runtimeInputs = [
@@ -296,7 +379,14 @@
         home.packages = [
           pkgs.rofimoji
           lockScript
+          toggleLogseqScript
         ];
+
+        home.file = {
+          ".local/lib/window_utils" = {
+            source = windowUtilsLib;
+          };
+        };
 
         programs.i3status-rust = {
           enable = true;
@@ -323,6 +413,11 @@
               #!/usr/bin/env bash
               exec ${lockCommandValue} "$@"
             '';
+          };
+
+          "i3/scripts/toggle_logseq.sh" = {
+            executable = true;
+            source = "${toggleLogseqScript}/bin/toggle-logseq";
           };
         };
 
@@ -352,14 +447,39 @@
                 titlebar = false;
               };
 
+              # Make split-direction hint use the same color as borders
+              # (indicator equals border per state). Keep scope minimal and
+              # avoid self-referencing config to prevent recursion.
+              colors = {
+                focused.indicator = lib.mkForce stylixColorsStrictWithHash.base0D;
+                urgent.indicator = lib.mkForce stylixColorsStrictWithHash.base08;
+
+                # Grouped per-state overrides to satisfy linters and avoid repetition
+                focusedInactive = {
+                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
+                  border = lib.mkForce stylixColorsStrictWithHash.base00;
+                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                };
+                unfocused = {
+                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
+                  border = lib.mkForce stylixColorsStrictWithHash.base00;
+                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                };
+                placeholder = {
+                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
+                  border = lib.mkForce stylixColorsStrictWithHash.base00;
+                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                };
+              };
+
               workspaceAutoBackAndForth = true;
               inherit workspaceOutputAssign;
 
               gaps = {
                 inner = 0;
-                outer = 4;
-                top = 6;
-                bottom = 6;
+                outer = 0;
+                top = 0;
+                bottom = 0;
               };
 
               bars = [
