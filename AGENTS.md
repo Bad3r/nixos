@@ -1,40 +1,34 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-
-- Keep per-app modules in `modules/apps/<tool>.nix`, exporting `flake.nixosModules.apps.<name>` plus default bundles such as `pc` and `workstation`.
-- Use domain folders like `modules/networking/`, `modules/security/`, and `modules/cloudflare/` to compose higher-level options; do not install packages directly there.
-- Stage experiments under directories prefixed with `_`, share contributor tooling in `modules/devshell.nix`, and track operational notes in `docs/` and `nixos_docs_md/`.
-- Pin upstream flakes inside `inputs/`, store helper scripts in `scripts/`, keep `.github/` for CI, and ensure `secrets/` stays empty in git history.
+Modules auto-load from `modules/`; keep production files unprefixed and group by domain (`modules/apps` for app bundles, `modules/roles` for host roles, `modules/configurations` for entrypoints). Shared derivations live in `packages/`, helper scripts in `scripts/`, and long-form docs in `docs/` or `nixos_docs_md/`. Only store encrypted payloads under `secrets/` and declare them via `sops.secrets`. Generated artefacts such as `.gitignore`, `.sops.yaml`, and CI workflows are owned by the files module—update source definitions instead of editing outputs.
 
 ## Build, Test, and Development Commands
+- `nix develop` — enter the pinned dev shell with treefmt, pre-commit, and helper utilities.
+- `nix fmt` — run treefmt (nixfmt, shfmt, prettier) across tracked sources.
+- `nix develop -c pre-commit run --all-files` — execute the hook suite; treat failures as blocking.
+- `nix flake check --accept-flake-config` — validate option schemas, overlays, packages, and tests.
+- `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` or `./build.sh --host <host> [--boot|--offline]` — build/switch target systems; reserve `--allow-dirty` for emergencies.
 
-- `nix develop`: enter the pinned dev shell with language servers, formatters, and repo hooks preloaded.
-- `nix fmt`: run treefmt (nixfmt, shfmt, prettier) on tracked sources; run before every commit.
-- `nix develop -c pre-commit run --all-files`: execute the full lint, security, and flake suite; treat any failure as a blocker.
-- `nix flake check --accept-flake-config`: confirm flake evaluation, module invariants, and option sanity.
-- `generation-manager score`: verify Dendritic Pattern compliance; target 90/90 prior to merge.
+## Coding Style & Verification
+Use two-space indentation in Nix, prefer lowercase hyphenated identifiers, and surface modules through namespace exports rather than literal path imports. Prefix experiments with `_` to skip auto-discovery. Let treefmt manage formatting and avoid modifying generated files by hand. Keep `nix flake check` green, compile host closures before PRs, sanity-check module changes with targeted `nix eval` or `nix run`, and document any manual validation directly in the PR description.
 
-## Coding Style & Naming Conventions
+## Commit & PR Guidelines
+Follow Conventional Commits (`type(scope): summary`) as in current history. Keep commits focused, note affected hosts/modules, list validation commands, and add screenshots only for user-facing changes. Link issues or TODO follow-ups and request review from maintainers owning the touched namespace.
 
-- Use 2-space indentation in Nix, rely on `inherit` for shared values, and merge attribute sets for clarity.
-- Prefer lowercase-hyphenated option names (e.g., `desktop-portal`) and align module filenames with the exported app name.
-- Let `nix fmt` resolve disagreements; avoid editing generated outputs by hand.
+## Security, Operations & Forbidden Commands
+Encrypt secrets with sops-nix and update `.sops.yaml` via its source definition. Never commit decrypted material. Unless explicitly requested by an owner, do *not* run `nixos-rebuild`, `nix build` against live hosts, `generation-manager switch`, `nix-collect-garbage`, or `sudo nix-collect-garbage`. Honour `nixConfig.abort-on-warn = true` by fixing warnings at the source.
 
-## Testing Guidelines
-
-- Treat `nix develop -c pre-commit run --all-files` as the regression suite and rerun after every change.
-- Document manual validation steps in PR descriptions and update `nixos_docs_md/` when host procedures change.
-- Re-run `generation-manager score` whenever module logic could affect compliance metrics.
-
-## Commit & Pull Request Guidelines
-
-- Follow Conventional Commits such as `feat(modules): add sway tweaks` or `fix(shell): restore prompt`.
-- Keep PRs single-purpose, describe host impact, link issues with `Closes #id`, and attach relevant logs or screenshots.
-- Summarize verification steps so reviewers can replay them quickly; note any outstanding risks or follow-up work.
-
-## Security & Agent Protocols
-
-- Avoid system-altering commands (`nixos-rebuild`, `nix build`, `generation-manager switch`, garbage collection) unless explicitly requested by repo owners.
-- Honour `nixConfig.abort-on-warn = true` by resolving warnings at the source.
-- Assume the operator is `default_user`, begin each interaction with “Remembering...”, and log new workflow knowledge in the shared knowledge graph.
+## MCP Tool Reference
+- **context7** — Resolve library identifiers and pull up-to-date docs/snippets for code questions; call `resolve-library-id` before `get-library-docs` unless you already know the Context7 path. citeturn0search1
+- **cfbuilds** — Surface Worker build inventory and logs via Workers Builds tools (`workers_list`, `workers_builds_list_builds`, `workers_builds_get_build`, `workers_builds_get_build_logs`, `workers_builds_set_active_worker`) after picking the tenant with `accounts_list`/`set_active_account`. citeturn17search1
+- **memory** — Maintain shared context with CRUD tools (`create_entities`, `add_observations`, `create_relations`, and matching delete/search operations); use it to persist project facts between sessions.
+- **cfgraphql** — Query Cloudflare analytics through the GraphQL API; enumerate accounts with `accounts_list`, inspect schema with `graphql_schema_overview/search/type_details`, and run scoped requests via `graphql_query` while keeping `set_active_account` aligned. citeturn17search1
+- **cfbrowser** — Fetch rendered pages, Markdown, or screenshots through Browser Rendering when a tenant is selected (`accounts_list` → `set_active_account`), enabling agents to review live web content. citeturn19view0
+- **cfobservability** — Explore Workers logs with `observability_keys`, `observability_values`, and `query_worker_observability`, supplementing code changes with real invocation evidence. citeturn19view0
+- **cfradar** — Answer traffic, AS, and anomaly questions using Radar datasets (`get_http_data`, `get_domains_ranking`, `get_traffic_anomalies`, etc.) after selecting the correct account. citeturn19view0
+- **deepwiki** — Navigate repository knowledge bases via `read_wiki_structure`, `read_wiki_contents`, and `ask_question` for cited summaries.
+- **time** — Convert or fetch timestamps (`convert_time`, `get_current_time`) to coordinate changes or maintenance windows across time zones.
+- **cfcontainers** — Spin up Cloudflare container sandboxes for command execution or file edits with `container_initialize`, `container_exec`, and companion file operations. citeturn19view0
+- **sequential-thinking** — Capture structured, multi-step reasoning traces with `sequentialthinking`; use it to log plan/critique cycles in long tasks.
+- **cfdocs** — Search Cloudflare documentation on demand when the Documentation server is enabled; combine `search_cloudflare_documentation` with workflow-specific follow-ups like `migrate_pages_to_workers_guide`. citeturn19view0
