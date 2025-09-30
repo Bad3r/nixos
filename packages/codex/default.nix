@@ -14,7 +14,7 @@
 }:
 
 let
-  rev = "16057e76b0843afef5ac75c46f2989ab2a1347ff";
+  rev = "bf76258cdc279dfd09f6c06508f8c5f65d427927";
 in
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "codex";
@@ -24,7 +24,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     owner = "openai";
     repo = "codex";
     inherit rev;
-    hash = "sha256-S9oFK3dCBdn4paO5/KWBM9J8xBDyNPv0ul80vyS/6IA=";
+    hash = "sha256-ux6/7596nA8yg3EJR8sHNphpd4U+1lZbsmY7iFJZD6s=";
   };
 
   sourceRoot = "${finalAttrs.src.name}/codex-rs";
