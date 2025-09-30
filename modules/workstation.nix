@@ -4,7 +4,6 @@
   ...
 }:
 let
-  inherit (config.flake.lib.meta.owner) username;
   flakeAttrs = config.flake or { };
   nixosModules = flakeAttrs.nixosModules or { };
   roleHelpers = config._module.args.nixosRoleHelpers or { };
@@ -82,17 +81,33 @@ let
       [ (lib.getAttrFromPath [ "base" ] nixosModules) ]
     else
       throw "flake.nixosModules.base missing while constructing workstation bundle";
-  hmGuiModule =
-    let
-      hmModules = flakeAttrs.homeManagerModules or { };
-    in
-    lib.attrByPath [ "gui" ] null hmModules;
+  hmModules = flakeAttrs.homeManagerModules or { };
+  hmGuiModule = lib.attrByPath [ "gui" ] null hmModules;
+  hmAppModules = hmModules.apps or { };
 in
 {
   flake.nixosModules.workstation = {
     imports = baseImport ++ map resolveRole workstationRoles ++ devLanguageModules;
-    config = lib.mkIf (hmGuiModule != null) {
-      home-manager.users.${username}.imports = [ hmGuiModule ];
-    };
+    config = lib.mkIf (hmGuiModule != null) (
+      let
+        extraNames = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
+        getAppModule =
+          name:
+          let
+            module = lib.attrByPath [ name ] null hmAppModules;
+          in
+          if module != null then
+            module
+          else
+            throw ("Unknown Home Manager app '" + name + "' referenced by workstation role");
+        extraAppModules = map getAppModule extraNames;
+      in
+      {
+        # Append the GUI bundle for all Home Manager users while keeping the
+        # imports built by modules/home-manager/nixos.nix (which collect
+        # extraAppImports like flameshot).
+        home-manager.sharedModules = lib.mkAfter ([ hmGuiModule ] ++ extraAppModules);
+      }
+    );
   };
 }
