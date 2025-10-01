@@ -24,6 +24,12 @@ Follow Conventional Commits (`type(scope): summary`) as in current history. Keep
 
 Encrypt secrets with sops-nix and update `.sops.yaml` via its source definition. Never commit decrypted material. Unless explicitly requested by an owner, do _not_ run `nixos-rebuild`, `nix build` against live hosts, `generation-manager switch`, `nix-collect-garbage`, or `sudo nix-collect-garbage`. Honour `nixConfig.abort-on-warn = true` by fixing warnings at the source.
 
+## Local Upstream Mirrors
+
+- Stylix source checkout is available at `$HOME/git/stylix`.
+- Home Manager source checkout is available at `$HOME/git/home-manager`.
+- i3 window manager documentation checkout is available at `$HOME/git/i3wm-docs`.
+
 ## MCP Tool Reference
 
 - **context7** — Resolve library identifiers and pull up-to-date docs/snippets for code questions; call `resolve-library-id` before `get-library-docs` unless you already know the Context7 path. citeturn0search1
