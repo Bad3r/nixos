@@ -21,16 +21,22 @@
     * `rip undo` — Restore the most recently removed item to its original location.
 */
 
-{
-  flake.nixosModules.apps.rip2 =
+let
+  ripModule =
     { pkgs, ... }:
     {
       environment.systemPackages = [ pkgs.rip2 ];
-    };
 
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.rip2 ];
+      environment.sessionVariables.RIP_GRAVEYARD = "/tmp/rip-graveyard";
+
+      systemd.tmpfiles.rules = [
+        # Ensure the rip graveyard exists on every boot with sticky permissions
+        "d /tmp/rip-graveyard 1777 root root -"
+      ];
     };
+in
+{
+  flake.nixosModules.apps.rip2 = ripModule;
+
+  flake.nixosModules.base = ripModule;
 }
