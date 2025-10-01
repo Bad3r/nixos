@@ -18,6 +18,7 @@ let
     "obsidian"
     "pandoc"
     "planify"
+    "raindrop"
   ];
   roleImports = getApps productivityApps;
 in
