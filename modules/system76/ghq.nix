@@ -1,4 +1,8 @@
-{ lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 let
   mirrorRepos = [
     "NixOS/nixpkgs"
@@ -19,9 +23,16 @@ let
       repos = mirrorRepos;
     };
   };
+  ghqRootModule =
+    let
+      nixosModules = (config.flake or { }).nixosModules or { };
+    in
+    lib.attrByPath [ "git" "ghq-root" ] null nixosModules;
 in
 {
   configurations.nixos.system76.module = _: {
+    imports = lib.optional (ghqRootModule != null) ghqRootModule;
+
     config = {
       git.ghqRoot.enable = true;
 
