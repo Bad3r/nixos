@@ -70,6 +70,33 @@
               ) &
             '';
           };
+          autotilingLauncher = pkgs.writeShellApplication {
+            name = "autotiling-rs-launcher";
+            runtimeInputs = [
+              pkgs.coreutils
+              pkgs.i3
+              pkgs.autotiling-rs
+            ];
+            text = ''
+              set -euo pipefail
+
+              socket=""
+              for _ in $(seq 30); do
+                socket="$(${lib.getExe pkgs.i3} --get-socketpath 2>/dev/null || true)"
+                if [ -n "$socket" ] && [ -S "$socket" ]; then
+                  break
+                fi
+                sleep 1
+              done
+
+              if [ -z "$socket" ] || [ ! -S "$socket" ]; then
+                echo "autotiling-rs: failed to locate i3 socket" >&2
+                exit 1
+              fi
+
+              exec env I3SOCK="$socket" ${lib.getExe pkgs.autotiling-rs}
+            '';
+          };
         in
         {
           services = lib.mkMerge [
@@ -122,7 +149,7 @@
                 };
                 Install.WantedBy = [ "graphical-session.target" ];
                 Service = {
-                  ExecStart = lib.getExe pkgs.autotiling-rs;
+                  ExecStart = lib.getExe autotilingLauncher;
                   Restart = "on-failure";
                 };
               };

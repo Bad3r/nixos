@@ -230,7 +230,7 @@
         }
         {
           block = "sound";
-          format = " $icon $volume ";
+          format = " $icon {$volume|muted} ";
           show_volume_when_muted = false;
         }
         {
@@ -430,6 +430,14 @@
               inherit (i3Commands) terminal;
               menu = i3Commands.launcher;
 
+              startup = lib.mkAfter [
+                {
+                  command = "${lib.getExe' pkgs.hsetroot "hsetroot"} -solid '${stylixColorsStrictWithHash.base00}'";
+                  always = true;
+                  notification = false;
+                }
+              ];
+
               floating = {
                 modifier = "Mod1";
                 border = 5;
@@ -456,7 +464,7 @@
 
                 # Grouped per-state overrides to satisfy linters and avoid repetition
                 focusedInactive = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
+                  indicator = lib.mkForce stylixColorsStrictWithHash.base00;
                   border = lib.mkForce stylixColorsStrictWithHash.base00;
                   childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
                 };
