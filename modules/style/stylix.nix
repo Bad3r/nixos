@@ -11,8 +11,8 @@
         stylix = {
           enable = true;
           homeManagerIntegration.autoImport = false;
-          # Use GitHub Dark Dimmed theme by default
-          base16Scheme = lib.mkDefault ./github-dark-dimmed.base16.yaml;
+          # Use OneDark theme by default
+          base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/onedark.yaml";
           polarity = lib.mkDefault "dark";
           targets.grub.enable = false;
         };
@@ -62,8 +62,8 @@
         imports = [ inputs.stylix.homeModules.stylix ];
         stylix = {
           enable = true;
-          # Use GitHub Dark Dimmed theme by default
-          base16Scheme = lib.mkDefault ./github-dark-dimmed.base16.yaml;
+          # Use OneDark theme by default
+          base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/onedark.yaml";
           polarity = lib.mkDefault "dark";
 
         };
