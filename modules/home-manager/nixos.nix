@@ -35,6 +35,7 @@
               "bat"
               "eza"
               "fzf"
+              "ghq-mirror"
               "kitty"
               "alacritty"
               "wezterm"
