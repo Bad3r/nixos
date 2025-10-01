@@ -10,7 +10,7 @@
   electron,
   xdg-utils,
   glib-networking,
-  nss-cacert,
+  cacert,
 }:
 let
   iconIco = fetchurl {
@@ -53,7 +53,7 @@ let
       electron
       xdg-utils
       glib-networking
-      nss-cacert
+      cacert
       coreutils
     ];
     text = ''
