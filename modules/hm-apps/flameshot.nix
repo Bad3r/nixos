@@ -23,8 +23,50 @@
 
 {
   flake.homeManagerModules.apps.flameshot =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.flameshot ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      stylixColors = lib.attrByPath [ "lib" "stylix" "colors" ] { } config;
+      stylixColorsWithHash = lib.attrByPath [ "withHashtag" ] { } stylixColors;
+      getColor =
+        name:
+        if lib.hasAttr name stylixColorsWithHash then
+          stylixColorsWithHash.${name}
+        else if lib.hasAttr name stylixColors then
+          stylixColors.${name}
+        else
+          "#740096";
+      picturesDirRaw = config.xdg.userDirs.pictures or null;
+      picturesDir =
+        if picturesDirRaw == null then "${config.home.homeDirectory}/Pictures" else picturesDirRaw;
+      screenshotDir = "${picturesDir}/screenshots";
+    in
+    {
+      xdg.userDirs.enable = lib.mkDefault true;
+      xdg.userDirs.createDirectories = lib.mkDefault true;
+
+      home.activation.ensureFlameshotScreenshotDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        mkdir -p '${screenshotDir}'
+      '';
+
+      services.flameshot = {
+        enable = true;
+        package = pkgs.flameshot;
+        settings = {
+          General = {
+            copyOnDoubleClick = true;
+            saveLastRegion = true;
+            copyPathAfterSave = true;
+            savePath = screenshotDir;
+            savePathFixed = true;
+            uiColor = getColor "base0D";
+            contrastUiColor = getColor "base01";
+          };
+        };
+      };
     };
 }
