@@ -29,6 +29,16 @@ Encrypt secrets with sops-nix and update `.sops.yaml` via its source definition.
 - Stylix source checkout is available at `$HOME/git/stylix`.
 - Home Manager source checkout is available at `$HOME/git/home-manager`.
 - i3 window manager documentation checkout is available at `$HOME/git/i3wm-docs`.
+- nixpkgs mirror is available at `$HOME/git/nixpkgs`.
+- nixos-hardware mirror is available at `$HOME/git/nixos-hardware`.
+- nixvim mirror is available at `$HOME/git/nixvim`.
+- treefmt-nix mirror is available at `$HOME/git/treefmt-nix`.
+- git-hooks.nix mirror is available at `$HOME/git/git-hooks.nix`.
+- sops-nix mirror is available at `$HOME/git/sops-nix`.
+- import-tree mirror is available at `$HOME/git/import-tree`.
+- files module source is available at `$HOME/git/files`.
+
+New mirrors can be added under `$HOME/git` whenever pulling upstream source locally will speed up fixes or debugging.
 
 ## MCP Tool Reference
 
