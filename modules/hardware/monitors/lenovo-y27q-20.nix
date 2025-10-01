@@ -1,9 +1,6 @@
 _:
 let
-  defaultIccSource = builtins.path {
-    name = "lenovo-y27q-20.icm";
-    path = /data/Hardware/Lenovo-Y27q-20/leny27q-20.icm;
-  };
+  defaultIccSource = ./profiles/leny27q-20.icm;
   defaultProfileFileName = "leny27q-20.icm";
   defaultVendor = "LEN";
   defaultModel = "Lenovo Y27q-20";
@@ -113,7 +110,7 @@ let
         iccSource = lib.mkOption {
           type = lib.types.path;
           default = defaultIccSource;
-          example = /data/Hardware/Lenovo-Y27q-20/leny27q-20.icm;
+          example = ./profiles/leny27q-20.icm;
           description = ''
             Path to the ICC/ICM color profile to install. The file is copied into the
             Nix store at build time for reproducibility.
