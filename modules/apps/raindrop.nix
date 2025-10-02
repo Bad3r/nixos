@@ -17,6 +17,8 @@
   ...
 }:
 {
+  nixpkgs.allowedUnfreePackages = [ "electron" ];
+
   perSystem =
     { pkgs, ... }:
     {
