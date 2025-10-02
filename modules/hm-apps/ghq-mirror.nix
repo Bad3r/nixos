@@ -141,7 +141,7 @@
                       fi
                       local idx
                       for (( idx = count - 1; idx >= max_backups; idx-- )); do
-                        $git_bin -C "$repo" stash drop ''${stashes[$idx]} >/dev/null 2>&1 || true
+                        $git_bin -C "$repo" stash drop "''${stashes[$idx]}" >/dev/null 2>&1 || true
                       done
                     }
 
@@ -155,7 +155,7 @@
                       fi
                       local idx
                       for (( idx = max_backups; idx < count; idx++ )); do
-                        $git_bin -C "$repo" branch -D ''${branches[$idx]} >/dev/null 2>&1 || true
+                        $git_bin -C "$repo" branch -D "''${branches[$idx]}" >/dev/null 2>&1 || true
                       done
                     }
 
@@ -329,71 +329,76 @@
         };
       };
 
-      config = lib.mkIf cfg.enable {
-        assertions = [
-          {
-            assertion = cfg.maxBackups >= 1;
-            message = "programs.ghqMirror.maxBackups must be at least 1";
-          }
-        ];
-
-        home = {
-          packages = [
-            pkgs.git
-            pkgs.gh
-            pkgs.ghq
-            ghqMirrorScript
+      config = lib.mkMerge [
+        {
+          programs.ghqMirror.enable = lib.mkDefault true;
+        }
+        (lib.mkIf cfg.enable {
+          assertions = [
+            {
+              assertion = cfg.maxBackups >= 1;
+              message = "programs.ghqMirror.maxBackups must be at least 1";
+            }
           ];
 
-          sessionVariables.GHQ_ROOT = lib.mkDefault cfg.root;
-
-          activation = {
-            ghqMirrorBootstrap = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-              ${runner}
-            '';
-          }
-          // lib.optionalAttrs cfg.installExtension {
-            ghqMirrorExtension = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-              export PATH=${runtimePath}:$PATH
-              export GH_NO_UPDATE_NOTIFIER=1
-              ext_dir="${config.xdg.dataHome}/gh/extensions/gh-q"
-              if [ ! -d "$ext_dir" ]; then
-                ${ghBin} extension install koki-develop/gh-q || true
-              else
-                ${ghBin} extension upgrade gh-q || true
-              fi
-            '';
-          };
-        };
-
-        programs.git.extraConfig."ghq.root" = lib.mkOverride 10 cfg.root;
-
-        systemd.user.services."ghq-mirror" = {
-          Unit = {
-            Description = "Refresh ghq mirrors";
-            After = [ "network-online.target" ];
-            Wants = [ "network-online.target" ];
-          };
-          Service = {
-            Type = "oneshot";
-            Environment = [
-              "GH_NO_UPDATE_NOTIFIER=1"
-              "GIT_TERMINAL_PROMPT=0"
+          home = {
+            packages = [
+              pkgs.git
+              pkgs.gh
+              pkgs.ghq
+              ghqMirrorScript
             ];
-            ExecStart = runner;
-          };
-        };
 
-        systemd.user.timers."ghq-mirror" = lib.mkIf cfg.timer.enable {
-          Unit.Description = "Periodic ghq mirror refresh";
-          Timer = {
-            OnCalendar = cfg.timer.onCalendar;
-            Persistent = true;
-            AccuracySec = "1h";
-          };
-          Install.WantedBy = [ "timers.target" ];
-        };
+            sessionVariables.GHQ_ROOT = lib.mkDefault cfg.root;
 
-      };
+            activation = {
+              ghqMirrorBootstrap = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+                ${runner}
+              '';
+            }
+            // lib.optionalAttrs cfg.installExtension {
+              ghqMirrorExtension = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+                export PATH=${runtimePath}:$PATH
+                export GH_NO_UPDATE_NOTIFIER=1
+                ext_dir="${config.xdg.dataHome}/gh/extensions/gh-q"
+                if [ ! -d "$ext_dir" ]; then
+                  ${ghBin} extension install koki-develop/gh-q || true
+                else
+                  ${ghBin} extension upgrade gh-q || true
+                fi
+              '';
+            };
+          };
+
+          programs.git.extraConfig.ghq.root = lib.mkOverride 10 cfg.root;
+
+          systemd.user.services."ghq-mirror" = {
+            Unit = {
+              Description = "Refresh ghq mirrors";
+              After = [ "network-online.target" ];
+              Wants = [ "network-online.target" ];
+            };
+            Service = {
+              Type = "oneshot";
+              Environment = [
+                "GH_NO_UPDATE_NOTIFIER=1"
+                "GIT_TERMINAL_PROMPT=0"
+              ];
+              ExecStart = runner;
+            };
+          };
+
+          systemd.user.timers."ghq-mirror" = lib.mkIf cfg.timer.enable {
+            Unit.Description = "Periodic ghq mirror refresh";
+            Timer = {
+              OnCalendar = cfg.timer.onCalendar;
+              Persistent = true;
+              AccuracySec = "1h";
+            };
+            Install.WantedBy = [ "timers.target" ];
+          };
+
+        })
+      ];
     };
 }

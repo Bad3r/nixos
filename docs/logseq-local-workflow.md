@@ -6,17 +6,27 @@ environment so it can run anywhere on NixOS.
 
 ## Automated Updates
 
-Every time the Nix configuration is rebuilt, the activation script:
+Logseq is refreshed automatically in two places:
 
-1. Fetches `origin/master` in `/home/vx/git/logseq`.
-2. If a new commit is available, hard resets the local tree to match upstream.
-3. Invokes `nix develop .#logseq --accept-flake-config -c ~/dotfiles/.local/bin/sss-update-logseq -f`
-   to rebuild the Electron bundle.
-4. The rebuilt application is placed under `~/git/logseq/static/out/Logseq-linux-x64/`.
+1. **System activation** – Every time you rebuild the NixOS configuration the
+   activation script runs `logseq-update` as user `vx`. The helper:
+   - fetches `origin/master` in `/home/vx/git/logseq`;
+   - hard-resets the tree if a new commit is available; and then
+   - calls `nix develop .#logseq --accept-flake-config --command ~/dotfiles/.local/bin/sss-update-logseq -f`
+     to rebuild the Electron bundle. The resulting binaries land in
+     `~/git/logseq/static/out/Logseq-linux-x64/`.
 
-If the update step fails (for example, due to working offline) the activation
-script exits without aborting the rebuild. Re-running the rebuild will retry the
-update.
+2. **Nightly service** – The user-level timer `logseq-build.timer` (defined in
+   `modules/system76/ghq.nix`) fires daily at 03:30 with `Persistent=true`.
+   It pulls in `ghq-mirror.service` first so the shared `/git` mirror is
+   current, then runs the same Logseq build command. The wrapper script keeps a
+   cache in `$XDG_CACHE_HOME/logseq-build/last-built-rev`, so the timer skips the
+   rebuild when the current commit matches the last successful build. Force a
+   rebuild with `sss-update-logseq -f` if you need to regenerate assets without
+   fetching new commits.
+
+If either path fails (for example, while offline) the activation/timer job exits
+non-fatally; re-running the build or waiting for the next timer tick will retry.
 
 ## Running Logseq
 
@@ -39,4 +49,4 @@ manually or re-run `nixos-rebuild switch` to trigger the activation hook.
 - Manual update: `logseq-update`
 
 You can manually force an update with `logseq-update` if you need to rebuild
-outside of a full system rebuild.
+outside of a full system rebuild or the nightly timer.
