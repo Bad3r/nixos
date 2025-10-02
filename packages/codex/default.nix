@@ -14,7 +14,7 @@
 }:
 
 let
-  rev = "b8195a17e572a149d89ebea3a080a456787e3432";
+  rev = "f895d4cbb314bf476de35f5547fe032ed7fd0457";
 in
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "codex";
@@ -24,14 +24,14 @@ rustPlatform.buildRustPackage (finalAttrs: {
     owner = "openai";
     repo = "codex";
     inherit rev;
-    hash = "sha256-VRgCYAG7SwrTeug9je4fgzk8IT3QEJdM8Wt3Bqk9cTk=";
+    hash = "sha256-U+Uyi6xgnTuSsfvflfm7fWddaJrCiRLYd1GYTHhTznk=";
   };
 
   sourceRoot = "${finalAttrs.src.name}/codex-rs";
 
   patches = [ ./disable-update-check.patch ];
 
-  cargoHash = "sha256-YsuhqalVZY7DBR5+3tfZDhz9rgtheiKj5cGmbcfOP+k=";
+  cargoHash = "sha256-sZY0aimXT4XhATBfCs2TjRt+Hc66bypCszvZcuKhxwc=";
 
   nativeBuildInputs = [
     installShellFiles
