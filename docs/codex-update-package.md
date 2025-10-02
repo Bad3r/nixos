@@ -28,40 +28,25 @@ Record the reported `hash` value—you will plug it into the derivation.
 
 ## 4. Recompute `cargoHash`
 
-The easiest way to get the vendor hash is to run `cargo vendor` yourself so you avoid multiple full Nix builds:
-
-1. Evaluate the package once to locate the fetched source:
-   ```sh
-   nix eval --raw .#packages.x86_64-linux.codex.src
-   ```
-2. Copy the `codex-rs` workspace from that store path to a writable directory (`mktemp -d` works well) and `chmod` it if needed.
-3. Enter the repo dev shell and vendor the dependencies:
-   ```sh
-   nix develop -c cargo vendor --locked --versioned-dirs
-   ```
-4. Compute the SRI for the generated `vendor` tree:
-   ```sh
-   nix hash path vendor
-   ```
-5. Paste the result back into `cargoHash` in `packages/codex/default.nix`.
-
-Make sure whatever shell or CI runner you are using allows at least a 30 minute timeout (for example `timeout_ms = 1_800_000` in the Codex CLI). Large dependency graphs routinely need the full window, so try to capture every change you need from a single vendoring attempt.
-
-## 5. (Optional) Validate the Derivation
-
-When time allows, run:
+Let Nix report the correct vendor hash—this is the authoritative value. After setting `cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";`, trigger a build:
 
 ```sh
 nix build .#packages.x86_64-linux.codex
 ```
 
-That ensures the vendored tree matches what Nix expects and catches any build regressions.
+The build will fail with a fixed-output derivation mismatch and print both the placeholder and the expected SRI. Copy the `got:` value from that error message into `cargoHash` in `packages/codex/default.nix`. **Do not** attempt to recalculate the vendor hash via `cargo vendor`/`nix hash path`; those workflows can drift and waste time.
+
+If you already hit the hash mismatch and updated `cargoHash`, stop here—there is no need to rebuild just to see it succeed.
+
+## 5. Defer Final Verification
+
+Do **not** perform a full verification build once the hashes line up. Leave the final `nix build`/`nix flake check` runs to the requesting maintainer so they can execute them in their own environment.
 
 ## 6. Tips to Minimize Future Hash Runs
 
-- **Reuse `cargo vendor` state:** Run the vendoring step manually in a dev shell as shown above; it skips downstream build phases and finishes as soon as the crates are copied.
-- **Keep the Cargo cache warm:** Preserve `~/.config/cargo/registry` and `~/.config/cargo/git` between updates so the vendor run reuses previously downloaded crates instead of fetching gigabytes again.
-- **Add binary caches when possible:** Extra Nix cache endpoints (e.g. corporate or community mirrors) reduce time spent pulling toolchains during validation builds, letting you focus on vendoring only once.
-- **Archive previous vendor trees:** Stash the `vendor` directory and its hash for each Codex update. If the dependency graph barely changes, diffing against the archived tree helps confirm whether a new vendoring pass is necessary before spending another long run.
+- **Capture the mismatch once:** As soon as Nix prints the `got:` hash, stash it in your notes or PR description so you never need to re-run the placeholder build.
+- **Keep the Cargo cache warm:** Preserve `~/.config/cargo/registry` and `~/.config/cargo/git` between updates so the single `nix build` needed for the mismatch pulls dependencies faster.
+- **Add binary caches when possible:** Extra Nix cache endpoints (e.g. corporate or community mirrors) reduce time spent downloading toolchains during that initial build.
+- **Archive previous hashes:** Tracking past `got:` values makes it easy to spot when the dependency graph genuinely shifted versus when only the source revision changed.
 
 Following these steps keeps Codex pinned to the desired revision while minimizing wasted time on repeated hash calculations.
