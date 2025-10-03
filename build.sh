@@ -31,7 +31,7 @@ FLAKE_DIR="${PWD}"
 HOSTNAME="$(hostname)"
 OFFLINE=false
 VERBOSE=false
-ALLOW_DIRTY=false
+ALLOW_DIRTY=${ALLOW_DIRTY:-false}
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
 # Colors for output
@@ -110,6 +110,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# When explicitly allowing dirty trees, suppress Nix's dirty tree warning.
+if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+  NIX_CONFIGURATION+=$'warn-dirty = false\n'
+  export NIX_CONFIGURATION
+  export NIX_CONFIG="${NIX_CONFIGURATION}"
+fi
+
 # Validate configuration directory
 if [[ ! -d ${FLAKE_DIR} ]]; then
   error_msg "Configuration directory not found: ${FLAKE_DIR}"
@@ -146,7 +153,7 @@ configure_nix_flags() {
 
 ensure_clean_git_tree() {
   # Respect explicit override via flag or env var
-  if ${ALLOW_DIRTY} || [[ ${ALLOW_DIRTY:-} == "1" ]]; then
+  if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
     return 0
   fi
   if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
