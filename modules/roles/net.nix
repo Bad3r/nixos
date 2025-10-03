@@ -23,8 +23,6 @@ let
     "wireguard-tools"
     "protonvpn-gui"
     "mitmproxy"
-    "localsend"
-    "qbittorrent"
     "ktailctl"
     "networkmanager-dmenu"
     "networkmanagerapplet"
