@@ -23,6 +23,7 @@ let
     "files"
     "file-sharing"
     "productivity"
+    "pentesting-devshell"
     "chat"
     "ai-agents"
     "cli"
