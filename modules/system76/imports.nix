@@ -21,9 +21,12 @@ let
     "net"
     "gaming"
     "files"
+    "file-sharing"
     "productivity"
+    "chat"
     "ai-agents"
     "cli"
+    "desktop"
     "xserver"
   ];
   roleModules = lib.filter (module: module != null) (map getRoleModule roleNames);
