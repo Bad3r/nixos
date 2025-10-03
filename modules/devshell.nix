@@ -4,6 +4,7 @@
     inputs.treefmt-nix.flakeModule
     inputs.make-shell.flakeModules.default
     ./devshell/logseq.nix
+    ./devshell/pentesting.nix
   ];
   perSystem =
     { pkgs, config, ... }:
