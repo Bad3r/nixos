@@ -27,37 +27,42 @@ let
   ];
 in
 {
-  configurations.nixos.system76.module = _: {
-    imports = lib.optional (ghqRootModule != null) ghqRootModule;
+  configurations.nixos.system76.module =
+    _:
+    let
+      base = {
+        imports = lib.optional (ghqRootModule != null) ghqRootModule;
 
-    git.ghqRoot.enable = true;
+        home-manager.users.${owner} = {
+          programs.ghqMirror.repos = lib.mkForce mirrorRepos;
 
-    home-manager.users.${owner} = {
-      programs.ghqMirror.repos = lib.mkForce mirrorRepos;
+          systemd.user.services."logseq-build" = {
+            Unit = {
+              Description = "Nightly Logseq build";
+              After = [ "ghq-mirror.service" ];
+              Wants = [ "ghq-mirror.service" ];
+            };
+            Service = {
+              Type = "oneshot";
+              Environment = [
+                "NIX_CONFIG=experimental-features = nix-command flakes pipe-operators\nabort-on-warn = false\nallow-import-from-derivation = false\naccept-flake-config = true\n"
+              ];
+              ExecStart = "${lib.escapeShellArg "/run/current-system/sw/bin/nix"} develop ${lib.escapeShellArg rootPath}#logseq --command ${lib.escapeShellArg logseqUpdater}";
+            };
+          };
 
-      systemd.user.services."logseq-build" = {
-        Unit = {
-          Description = "Nightly Logseq build";
-          After = [ "ghq-mirror.service" ];
-          Wants = [ "ghq-mirror.service" ];
-        };
-        Service = {
-          Type = "oneshot";
-          Environment = [
-            "NIX_CONFIG=experimental-features = nix-command flakes pipe-operators\nabort-on-warn = false\nallow-import-from-derivation = false\naccept-flake-config = true\n"
-          ];
-          ExecStart = "${lib.escapeShellArg "/run/current-system/sw/bin/nix"} develop ${lib.escapeShellArg rootPath}#logseq --command ${lib.escapeShellArg logseqUpdater}";
+          systemd.user.timers."logseq-build" = {
+            Unit.Description = "Nightly Logseq rebuild";
+            Timer = {
+              OnCalendar = "03:30";
+              Persistent = true;
+            };
+            Install.WantedBy = [ "timers.target" ];
+          };
         };
       };
 
-      systemd.user.timers."logseq-build" = {
-        Unit.Description = "Nightly Logseq rebuild";
-        Timer = {
-          OnCalendar = "03:30";
-          Persistent = true;
-        };
-        Install.WantedBy = [ "timers.target" ];
-      };
-    };
-  };
+      gitCfg = if ghqRootModule != null then { git.ghqRoot.enable = true; } else { };
+    in
+    base // gitCfg;
 }
