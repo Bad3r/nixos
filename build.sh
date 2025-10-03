@@ -8,7 +8,7 @@
 ## system sudo wrapper. It never disables the sandbox or performs GC/optimise,
 ## and it does not mutate repo file ownership. Keep permission and state
 ## management declarative in NixOS modules.
-set -eo pipefail
+set -Ee -o pipefail
 
 # Nix CLI config via env: enable nix-command, flakes, pipe-operators, etc.
 # Keep aligned with flake.nix nixConfig; do not relax security settings.
@@ -70,6 +70,15 @@ status_msg() {
 error_msg() {
   printf "%bError:%b %s\n" "${RED}" "${NC}" "$1" >&2
 }
+
+trap_error() {
+  local exit_code=$?
+  local failed_command=${BASH_COMMAND}
+  error_msg "Command '${failed_command}' failed with exit code ${exit_code}."
+  exit "${exit_code}"
+}
+
+trap trap_error ERR
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -219,5 +228,4 @@ main() {
   esac
 }
 
-trap 'error_msg "Build failed!"; exit 1' ERR
 main
