@@ -7,26 +7,21 @@ let
     if lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules then
       lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules
     else
-      throw ("Unknown NixOS app '" + name + "' (role cloudflare)");
+      throw ("Unknown NixOS app '" + name + "' (role file-sharing)");
   getApp = rawHelpers.getApp or fallbackGetApp;
   getApps = rawHelpers.getApps or (names: map getApp names);
-  cloudflareApps = [
-    "wrangler"
-    "flarectl"
-    "terraform"
-    "cf-terraforming"
-    "cloudflared"
-    "cloudflare-warp"
-    "wgcf"
-    "s5cmd"
-    "minio-client"
-    "awscli2"
-    "worker-build"
-    "jq"
-    "xh"
+  fileSharingApps = [
+    "qbittorrent"
+    "localsend"
+    "rclone"
+    "rsync"
+    "nicotine"
+    "filen-cli"
+    "filen-desktop"
+    "dropbox"
   ];
-  roleImports = getApps cloudflareApps;
+  roleImports = getApps fileSharingApps;
 in
 {
-  flake.nixosModules.roles.cloudflare.imports = roleImports;
+  flake.nixosModules.roles."file-sharing".imports = roleImports;
 }

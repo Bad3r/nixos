@@ -8,20 +8,45 @@ let
   nixosModules = flakeAttrs.nixosModules or { };
   roleHelpers = config._module.args.nixosRoleHelpers or { };
   rawResolveRole = roleHelpers.getRole or (_: null);
-  resolveRole =
+  resolveRoleOption =
     name:
     let
       candidateEval = builtins.tryEval (rawResolveRole name);
       candidate = if candidateEval.success then candidateEval.value else null;
       namePath = lib.splitString "." name;
       rolePath = [ "roles" ] ++ namePath;
+
+      tryGetRole =
+        attrs:
+        if lib.hasAttrByPath rolePath attrs then
+          let
+            valueEval = builtins.tryEval (lib.getAttrFromPath rolePath attrs);
+          in
+          if valueEval.success then valueEval.value else null
+        else
+          null;
+
+      fromNixosModules = tryGetRole nixosModules;
+      fromFlakeModules = tryGetRole (config.flake.nixosModules or { });
     in
     if candidate != null then
       candidate
-    else if lib.hasAttrByPath rolePath nixosModules then
-      lib.getAttrFromPath rolePath nixosModules
-    else if lib.hasAttrByPath rolePath config.flake.nixosModules then
-      lib.getAttrFromPath rolePath config.flake.nixosModules
+    else if fromNixosModules != null then
+      fromNixosModules
+    else if fromFlakeModules != null then
+      fromFlakeModules
+    else if lib.hasAttr name fallbackRoleModules then
+      lib.getAttr name fallbackRoleModules
+    else
+      null;
+
+  resolveRole =
+    name:
+    let
+      result = resolveRoleOption name;
+    in
+    if result != null then
+      result
     else
       throw ("Unknown role '" + name + "' referenced by flake.nixosModules.workstation");
   appHelpers = config._module.args.nixosAppHelpers or { };
@@ -38,6 +63,7 @@ let
     "xserver"
     "cli"
     "files"
+    "file-sharing"
     "dev"
     "media"
     "net"
@@ -74,6 +100,21 @@ let
     "pixman"
   ];
   devLanguageModules = pythonRoleModules ++ goRoleModules ++ rustRoleModules ++ cljRoleModules;
+
+  fallbackRoleModules = {
+    "file-sharing" = {
+      imports = getApps [
+        "qbittorrent"
+        "localsend"
+        "rclone"
+        "rsync"
+        "nicotine"
+        "filen-cli"
+        "filen-desktop"
+        "dropbox"
+      ];
+    };
+  };
   baseImport =
     if rawResolveRole "base" != null then
       [ (resolveRole "base") ]
@@ -84,10 +125,28 @@ let
   hmModules = flakeAttrs.homeManagerModules or { };
   hmGuiModule = lib.attrByPath [ "gui" ] null hmModules;
   hmAppModules = hmModules.apps or { };
+  resolvedRoles = map (name: {
+    inherit name;
+    module = resolveRoleOption name;
+  }) workstationRoles;
+
+  availableRoleModules = map (role: role.module) (
+    lib.filter (role: role.module != null) resolvedRoles
+  );
+
+  missingRoleNames = map (role: role.name) (lib.filter (role: role.module == null) resolvedRoles);
+
+  importsValue = baseImport ++ availableRoleModules ++ devLanguageModules;
 in
 {
   flake.nixosModules.workstation = {
-    imports = baseImport ++ map resolveRole workstationRoles ++ devLanguageModules;
+    imports =
+      if missingRoleNames == [ ] then
+        importsValue
+      else
+        lib.warn (
+          "Skipping unavailable workstation roles: " + lib.concatStringsSep ", " missingRoleNames
+        ) importsValue;
     config = lib.mkIf (hmGuiModule != null) (
       let
         extraNames = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
