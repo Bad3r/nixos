@@ -120,7 +120,7 @@
           status=$?
           set -e
 
-          if [ "${status}" -ne 0 ] || [ -z "${WINDOW_ID}" ]; then
+          if [ "''${status}" -ne 0 ] || [ -z "''${WINDOW_ID}" ]; then
             echo "Failed to detect new window for mark ''${I3_MARK}" >&2
             exit 1
           fi
