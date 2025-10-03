@@ -26,18 +26,11 @@ let
         i3lock-color
         autotiling-rs
         i3status-rust
-        kitty
-        firefox
         lxsession
         maim
-        nemo
-        xfce.xfce4-settings
-        networkmanagerapplet
-        pamixer
         picom
-        playerctl
         rofi
-        udiskie
+        xfce.xfce4-settings
         xfce.xfce4-power-manager
         xclip
         xorg.xbacklight
