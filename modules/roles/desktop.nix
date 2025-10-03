@@ -15,7 +15,17 @@ let
   i3Module = lib.attrByPath [ "window-manager" "i3" ] config.flake.nixosModules null;
 
   desktopApps = [
+    "blueberry"
+    "brave"
+    "firefox"
     "kcolorchooser"
+    "kitty"
+    "libnotify"
+    "nemo"
+    "networkmanagerapplet"
+    "pamixer"
+    "playerctl"
+    "udiskie"
   ];
 
   roleImports =
