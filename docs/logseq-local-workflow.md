@@ -16,8 +16,7 @@ Logseq is refreshed automatically in two places:
      to rebuild the Electron bundle. The resulting binaries land in
      `~/git/logseq/static/out/Logseq-linux-x64/`.
 
-2. **Nightly service** – The user-level timer `logseq-build.timer` (defined in
-   `modules/system76/ghq.nix`) fires daily at 03:30 with `Persistent=true`.
+2. **Nightly service** – The user-level timer `logseq-build.timer` (defined by the Logseq app module and enabled through the `productivity` role) fires daily at 03:30 with `Persistent=true`.
    It pulls in `ghq-mirror.service` first so the shared `/git` mirror is
    current, then runs the same Logseq build command. The wrapper script keeps a
    cache in `$XDG_CACHE_HOME/logseq-build/last-built-rev`, so the timer skips the

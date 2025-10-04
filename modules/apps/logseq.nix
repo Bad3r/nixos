@@ -75,6 +75,8 @@ in
     let
       rootPath = builtins.toString (config._module.args.rootPath or ../..);
       cfg = config.apps.logseq;
+      ownerRaw = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] config null;
+      owner = if lib.isString ownerRaw then ownerRaw else "vx";
 
       logseqRunner = pkgs.writeShellScript "logseq-run" ''
         set -euo pipefail
@@ -182,26 +184,136 @@ in
       };
     in
     {
-      options.apps.logseq.runOnActivation = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = "Run logseq-update during system activation.";
+      options.apps.logseq = {
+        runOnActivation = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Run logseq-update during system activation.";
+        };
+
+        updateTimer = {
+          enable = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = "Enable the user-level systemd timer that rebuilds Logseq nightly.";
+          };
+
+          onCalendar = lib.mkOption {
+            type = lib.types.str;
+            default = "03:30";
+            description = "systemd OnCalendar expression controlling when the nightly Logseq build runs.";
+          };
+        };
+
+        ghq = {
+          enable = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = "Provision ghq mirror integration required for local Logseq builds.";
+          };
+
+          repo = lib.mkOption {
+            type = lib.types.str;
+            default = "logseq/logseq";
+            description = "Repository spec mirrored via ghq to back the local Logseq build.";
+          };
+
+          root = lib.mkOption {
+            type = lib.types.str;
+            default = "/git";
+            description = "Shared ghq root path mirrored by the nightly Logseq build.";
+          };
+
+          group = lib.mkOption {
+            type = lib.types.str;
+            default = "users";
+            description = "POSIX group owning the shared ghq root.";
+          };
+
+          mode = lib.mkOption {
+            type = lib.types.str;
+            default = "2775";
+            description = "Octal permissions applied to the ghq root (setgid by default).";
+          };
+        };
       };
 
-      config = {
-        environment.systemPackages = [
-          logseqCommand
-          logseqIcon
-          logseqDesktop
-          logseqUpdateScript
+      config =
+        let
+          ghqEnabled = cfg.ghq.enable && owner != null;
+          updateTimerEnabled = cfg.updateTimer.enable && ghqEnabled;
+          nixConfigEnv =
+            "NIX_CONFIG=experimental-features = nix-command flakes pipe-operators\\n"
+            + "abort-on-warn = false\\n"
+            + "allow-import-from-derivation = false\\n"
+            + "accept-flake-config = true\\n";
+        in
+        lib.mkMerge [
+          (lib.mkIf cfg.ghq.enable {
+            assertions = [
+              {
+                assertion = owner != null;
+                message = "apps.logseq.ghq.enable requires config.flake.lib.meta.owner.username to be set.";
+              }
+            ];
+          })
+          {
+            environment.systemPackages = [
+              logseqCommand
+              logseqIcon
+              logseqDesktop
+              logseqUpdateScript
+            ];
+          }
+          (lib.mkIf cfg.runOnActivation {
+            system.activationScripts.logseq-update = lib.stringAfter [ "users" ] ''
+              if id -u vx >/dev/null 2>&1 && [ -d ${escapeShellArg logseqRepo} ]; then
+                runuser -l vx -c '${logseqUpdateScript}/bin/logseq-update' || true
+              fi
+            '';
+          })
+          (lib.mkIf ghqEnabled {
+            environment.systemPackages = lib.mkAfter [
+              pkgs.ghq
+              pkgs.git
+              pkgs.coreutils
+            ];
+
+            environment.sessionVariables.GHQ_ROOT = lib.mkDefault cfg.ghq.root;
+
+            systemd.tmpfiles.rules = lib.mkAfter [
+              "d ${cfg.ghq.root} ${cfg.ghq.mode} root ${cfg.ghq.group} - -"
+            ];
+
+            home-manager.users.${owner} = {
+              programs.ghqMirror = {
+                root = lib.mkDefault cfg.ghq.root;
+                repos = lib.mkBefore [ cfg.ghq.repo ];
+              };
+
+              systemd.user.services."logseq-build" = {
+                Unit = {
+                  Description = "Nightly Logseq build";
+                  After = [ "ghq-mirror.service" ];
+                  Wants = [ "ghq-mirror.service" ];
+                };
+                Service = {
+                  Type = "oneshot";
+                  Environment = [ nixConfigEnv ];
+                  ExecStart = "${lib.escapeShellArg (logseqUpdateScript + "/bin/logseq-update")}";
+                };
+              };
+
+              systemd.user.timers."logseq-build" = lib.mkIf updateTimerEnabled {
+                Unit.Description = "Nightly Logseq rebuild";
+                Timer = {
+                  OnCalendar = cfg.updateTimer.onCalendar;
+                  Persistent = true;
+                };
+                Install.WantedBy = [ "timers.target" ];
+              };
+            };
+          })
         ];
-      }
-      // lib.mkIf cfg.runOnActivation {
-        system.activationScripts.logseq-update = lib.stringAfter [ "users" ] ''
-          if id -u vx >/dev/null 2>&1 && [ -d ${escapeShellArg logseqRepo} ]; then
-            runuser -l vx -c '${logseqUpdateScript}/bin/logseq-update' || true
-          fi
-        '';
-      };
     };
 }
