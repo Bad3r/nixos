@@ -74,6 +74,7 @@ in
     }:
     let
       rootPath = builtins.toString (config._module.args.rootPath or ../..);
+      cfg = config.apps.logseq;
 
       logseqRunner = pkgs.writeShellScript "logseq-run" ''
         set -euo pipefail
@@ -181,17 +182,26 @@ in
       };
     in
     {
-      environment.systemPackages = [
-        logseqCommand
-        logseqIcon
-        logseqDesktop
-        logseqUpdateScript
-      ];
+      options.apps.logseq.runOnActivation = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Run logseq-update during system activation.";
+      };
 
-      system.activationScripts.logseq-update = lib.stringAfter [ "users" ] ''
-        if id -u vx >/dev/null 2>&1 && [ -d ${escapeShellArg logseqRepo} ]; then
-          runuser -l vx -c '${logseqUpdateScript}/bin/logseq-update' || true
-        fi
-      '';
+      config = {
+        environment.systemPackages = [
+          logseqCommand
+          logseqIcon
+          logseqDesktop
+          logseqUpdateScript
+        ];
+      }
+      // lib.mkIf cfg.runOnActivation {
+        system.activationScripts.logseq-update = lib.stringAfter [ "users" ] ''
+          if id -u vx >/dev/null 2>&1 && [ -d ${escapeShellArg logseqRepo} ]; then
+            runuser -l vx -c '${logseqUpdateScript}/bin/logseq-update' || true
+          fi
+        '';
+      };
     };
 }

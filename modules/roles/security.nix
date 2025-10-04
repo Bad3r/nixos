@@ -14,6 +14,7 @@ let
     "gopass"
     "gpg-tui"
     "veracrypt"
+    "burpsuite"
   ];
   roleImports = getApps securityApps;
 in
