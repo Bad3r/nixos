@@ -16,6 +16,7 @@ let
     else
       null;
   roleNames = [
+    "base"
     "dev"
     "media"
     "net"
@@ -23,6 +24,9 @@ let
     "files"
     "file-sharing"
     "productivity"
+    "security"
+    "cloudflare"
+    "warp-client"
     "pentesting-devshell"
     "chat"
     "ai-agents"
@@ -54,6 +58,9 @@ in
 {
   configurations.nixos.system76.module = {
     imports = baseModules ++ roleModules ++ lib.optional (hasModule "ssh") nixosModules.ssh;
+    config.environment.systemPackages = lib.mkAfter [
+      inputs.nixpkgs.legacyPackages.x86_64-linux.logseq
+    ];
   };
 
   # Export the System76 configuration so the flake exposes it under nixosConfigurations

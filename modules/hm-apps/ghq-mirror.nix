@@ -308,6 +308,12 @@
           description = "Maximum number of stashes and backup branches to retain.";
         };
 
+        runOnActivation = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Run ghq-mirror once immediately during Home Manager activation.";
+        };
+
         timer = {
           enable = lib.mkOption {
             type = lib.types.bool;
@@ -351,23 +357,25 @@
 
             sessionVariables.GHQ_ROOT = lib.mkDefault cfg.root;
 
-            activation = {
-              ghqMirrorBootstrap = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-                ${runner}
-              '';
-            }
-            // lib.optionalAttrs cfg.installExtension {
-              ghqMirrorExtension = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-                export PATH=${runtimePath}:$PATH
-                export GH_NO_UPDATE_NOTIFIER=1
-                ext_dir="${config.xdg.dataHome}/gh/extensions/gh-q"
-                if [ ! -d "$ext_dir" ]; then
-                  ${ghBin} extension install koki-develop/gh-q || true
-                else
-                  ${ghBin} extension upgrade gh-q || true
-                fi
-              '';
-            };
+            activation = lib.mkMerge [
+              (lib.mkIf cfg.runOnActivation {
+                ghqMirrorBootstrap = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+                  ${runner}
+                '';
+              })
+              (lib.mkIf cfg.installExtension {
+                ghqMirrorExtension = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+                  export PATH=${runtimePath}:$PATH
+                  export GH_NO_UPDATE_NOTIFIER=1
+                  ext_dir="${config.xdg.dataHome}/gh/extensions/gh-q"
+                  if [ ! -d "$ext_dir" ]; then
+                    ${ghBin} extension install koki-develop/gh-q || true
+                  else
+                    ${ghBin} extension upgrade gh-q || true
+                  fi
+                '';
+              })
+            ];
           };
 
           programs.git.extraConfig.ghq.root = lib.mkOverride 10 cfg.root;

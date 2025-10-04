@@ -1,4 +1,9 @@
-{ lib, config, ... }:
+{
+  lib,
+  config,
+  inputs,
+  ...
+}:
 let
   flattenRoles =
     module:
@@ -19,10 +24,26 @@ let
       { };
 
   availableRoles =
-    if lib.hasAttrByPath [ "roles" ] config.flake.nixosModules then
-      flattenRoles config.flake.nixosModules.roles
-    else
-      { };
+    let
+      fromConfig =
+        if
+          config ? flake
+          && config.flake ? nixosModules
+          && lib.hasAttrByPath [ "roles" ] config.flake.nixosModules
+        then
+          flattenRoles config.flake.nixosModules.roles
+        else
+          { };
+      fromSelf =
+        let
+          selfModules = (inputs.self.outputs or { }).nixosModules or { };
+        in
+        if lib.hasAttrByPath [ "roles" ] selfModules then
+          flattenRoles (lib.getAttrFromPath [ "roles" ] selfModules)
+        else
+          { };
+    in
+    fromConfig // fromSelf;
 
   roleHelpers = rec {
     hasRole = name: builtins.hasAttr name availableRoles;
