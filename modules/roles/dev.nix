@@ -29,7 +29,6 @@ let
     "git-filter-repo"
     "forgit"
     "exiftool"
-    "tealdeer"
     "httpie"
     "mitmproxy"
     # debugging
