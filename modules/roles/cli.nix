@@ -19,6 +19,7 @@ let
     "sysstat"
     "direnv"
     "nix-direnv"
+    "tealdeer"
   ];
   roleImports = getApps cliApps;
 in
