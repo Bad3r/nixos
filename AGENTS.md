@@ -18,11 +18,13 @@ Use two-space indentation in Nix, prefer lowercase hyphenated identifiers, and s
 
 ## Commit & PR Guidelines
 
-Follow Conventional Commits (`type(scope): summary`) as in current history. Keep commits focused, note affected hosts/modules, list validation commands, and add screenshots only for user-facing changes. Link issues or TODO follow-ups and request review from maintainers owning the touched namespace.
+Follow Conventional Commits (`type(scope): summary`) as in current history. Keep commits focused, note affected hosts/modules, list validation commands, and add screenshots only for user-facing changes. Link issues or TODO follow-ups and request review from maintainers owning the touched namespace. When staging or committing, include only the files you actually changed; never touch, reset, remove, or otherwise modify untracked/dirty files that you didn’t edit.
 
 ## Security, Operations & Forbidden Commands
 
-Encrypt secrets with sops-nix and update `.sops.yaml` via its source definition. Never commit decrypted material. Unless explicitly requested by an owner, do _not_ run `nixos-rebuild`, `nix build` against live hosts, `generation-manager switch`, `nix-collect-garbage`, or `sudo nix-collect-garbage`. Honour `nixConfig.abort-on-warn = true` by fixing warnings at the source.
+Encrypt secrets with sops-nix and update `.sops.yaml` via its source definition. Never commit decrypted material. Unless explicitly requested by an owner, do _not_ run `nixos-rebuild`, `nix build` against live hosts, `generation-manager switch`, `nix-collect-garbage`, or `sudo nix-collect-garbage`. Honour `nixConfig.abort-on-warn = true` by fixing warnings at the source. Use the `rip` tool (instead of `rm`) when removing files so deletions stay recoverable.
+
+Avoid destructive git operations unless the user tells you to. In particular, never run `git checkout` or `git reset` without explicit user permission.
 
 ## Local Upstream Mirrors
 

@@ -20,7 +20,17 @@ let
     "planify"
     "raindrop"
   ];
-  roleImports = getApps productivityApps;
+
+  logseqRoleSettings =
+    { lib, ... }:
+    {
+      apps.logseq = {
+        ghq.enable = lib.mkDefault true;
+        updateTimer.enable = lib.mkDefault true;
+        updateTimer.onCalendar = lib.mkDefault "03:30";
+      };
+    };
+  roleImports = getApps productivityApps ++ [ logseqRoleSettings ];
 in
 {
   flake.nixosModules.roles.productivity.imports = roleImports;
