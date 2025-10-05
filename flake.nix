@@ -44,6 +44,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nix-logseq-git-flake = {
+      url = "path:/home/vx/git/nix-logseq-git-flake";
+    };
+
     # nix-on-droid = {
     #   url = "github:nix-community/nix-on-droid";
     #   inputs = {
@@ -184,13 +188,16 @@
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         (inputs.import-tree ./modules)
-        ./modules/apps/logseq.nix
       ];
 
       systems = [
         "x86_64-linux"
       ];
 
-      _module.args.rootPath = ./.;
+      _module.args = {
+        rootPath = ./.;
+        inherit inputs;
+        pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
+      };
     };
 }

@@ -28,20 +28,12 @@ in
   configurations.nixos.system76.module =
     { lib, ... }:
     let
-      overrideModule =
-        { lib, options, ... }:
-        lib.mkIf (lib.hasAttrByPath [ "apps" "logseq" "runOnActivation" ] options) {
-          apps.logseq.runOnActivation = lib.mkForce false;
-        };
-
-      importsList = lib.optional (ghqRootModule != null) ghqRootModule ++ [ overrideModule ];
-
       gitCfg = lib.optionalAttrs (ghqRootModule != null) {
         git.ghqRoot.enable = true;
       };
     in
     {
-      imports = importsList;
+      imports = lib.optional (ghqRootModule != null) ghqRootModule;
 
       home-manager.users.${owner} = {
         programs.ghqMirror.repos = lib.mkForce mirrorRepos;

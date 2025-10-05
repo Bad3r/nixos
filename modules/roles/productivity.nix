@@ -2,6 +2,7 @@
 let
   helpers = config._module.args.nixosAppHelpers or { };
   rawHelpers = (config.flake.lib.nixos or { }) // helpers;
+  inputs = config._module.args.inputs or { };
   fallbackGetApp =
     name:
     if lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules then
@@ -22,12 +23,15 @@ let
   ];
 
   logseqRoleSettings =
-    { lib, ... }:
-    {
-      apps.logseq = {
-        ghq.enable = lib.mkDefault true;
-        updateTimer.enable = lib.mkDefault true;
-        updateTimer.onCalendar = lib.mkDefault "03:30";
+    { config, lib, ... }:
+    lib.mkIf (config ? environment) {
+      environment.systemPackages = lib.mkDefault [
+        inputs.nix-logseq-git-flake.packages.${config.system}.logseq
+      ];
+      services.logseq = {
+        enable = lib.mkDefault true;
+        timerOnCalendar = lib.mkDefault "02:00";
+        package = lib.mkDefault inputs.nix-logseq-git-flake.packages.${config.system}.logseq;
       };
     };
   roleImports = getApps productivityApps ++ [ logseqRoleSettings ];

@@ -64,7 +64,25 @@ let
       acc
   ) { } appFiles;
 
-  availableApps = baseApps // generatedApps;
+  inherit ((config._module.args or { inputs = { }; })) inputs;
+
+  logseqFlake =
+    if lib.hasAttr "nix-logseq-git-flake" inputs then inputs.nix-logseq-git-flake else null;
+
+  logseqApp =
+    if logseqFlake == null then
+      { }
+    else
+      (
+        let
+          inherit (logseqFlake.nixosModules) logseq;
+        in
+        {
+          inherit logseq;
+        }
+      );
+
+  availableApps = baseApps // generatedApps // logseqApp;
 
   appKeys = lib.attrNames availableApps;
 
