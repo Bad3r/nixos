@@ -1,51 +1,40 @@
-# Logseq Local Workflow
+# Logseq Nightly Workflow
 
-Logseq is managed from the local clone at `/home/vx/git/logseq`. The flake no longer
-builds Logseq from source; instead, it wraps the locally built binary in an FHS
-environment so it can run anywhere on NixOS.
+Logseq is no longer built locally from the `/home/vx/git/logseq` checkout. Nightly
+artifacts are produced by the `nix-logseq-git-flake` GitHub repository and published
+as GitHub Releases. Hosts download the pre-built Electron bundle and wrap it in an
+FHS environment supplied by the flake.
 
-## Automated Updates
+## Nightly Build Pipeline
 
-Logseq is refreshed automatically in two places:
+1. **GitHub Actions (00:00 UTC)**
+   - Clones the official `logseq/logseq` repository at `master`.
+   - Runs the upstream build flow (`yarn install`, `npx gulp build`, `yarn cljs:release-electron`, `yarn electron:make`).
+   - Packages `Logseq-linux-x64` into `logseq-linux-x64-<rev>.tar.gz`.
+   - Creates or updates the release `nightly-YYYYMMDD` and uploads the tarball.
+   - Updates `data/logseq-nightly.json` in the flake repo with the release tag, SRI hash, upstream revision, and publish timestamp.
+   - Runs `nix fmt`, `nix flake check`, `nix build .#logseq`, and `nix run .#logseq -- --version` before committing the manifest update.
 
-1. **System activation** – Every time you rebuild the NixOS configuration the
-   activation script runs `logseq-update` as user `vx`. The helper:
-   - fetches `origin/master` in `/home/vx/git/logseq`;
-   - hard-resets the tree if a new commit is available; and then
-   - calls `nix develop .#logseq --accept-flake-config --command ~/dotfiles/.local/bin/sss-update-logseq -f`
-     to rebuild the Electron bundle. The resulting binaries land in
-     `~/git/logseq/static/out/Logseq-linux-x64/`.
+2. **Flake Manifest**
+   - `data/logseq-nightly.json` always tracks the latest successful nightly release.
+   - The `packages.logseq` derivation fetches the tarball via the manifest, installs it under `$out/share/logseq`, and wraps the binary with an FHS env.
 
-2. **Nightly service** – The user-level timer `logseq-build.timer` (defined by the Logseq app module and enabled through the `productivity` role) fires daily at 03:30 with `Persistent=true`.
-   It pulls in `ghq-mirror.service` first so the shared `/git` mirror is
-   current, then runs the same Logseq build command. The wrapper script keeps a
-   cache in `$XDG_CACHE_HOME/logseq-build/last-built-rev`, so the timer skips the
-   rebuild when the current commit matches the last successful build. Force a
-   rebuild with `sss-update-logseq -f` if you need to regenerate assets without
-   fetching new commits.
+## Host Integration
 
-If either path fails (for example, while offline) the activation/timer job exits
-non-fatally; re-running the build or waiting for the next timer tick will retry.
+- The productivity role enables `services.logseq` which:
+  - Installs the flake package and desktop entry.
+  - Runs a systemd `logseq-sync.service` as the owner user.
+  - The service calls `nix build <flake>#logseq --print-out-paths` and emits structured JSON logs.
+  - `logseq-sync.timer` defaults to 02:00 UTC (two hours after the nightly release) and rebuilds only when the manifest hash changes.
 
-## Running Logseq
-
-The `logseq` command is provided by the flake and launches the locally built
-application inside an FHS user environment with all required Electron runtime
-dependencies. Example usage:
-
-```sh
-logseq --no-sandbox
-```
-
-If the wrapper reports that the Logseq binary is missing, run `logseq-update`
-manually or re-run `nixos-rebuild switch` to trigger the activation hook.
+- The service resolves the build directory automatically:
+  - `$HOME/nixos` if present for the owner user.
+  - `/etc/nixos` otherwise.
+  - If neither exists, the service logs an error and exits.
 
 ## Manual Maintenance
 
-- Repository path: `/home/vx/git/logseq`
-- Update script: `~/dotfiles/.local/bin/sss-update-logseq`
-- Wrapper: `logseq`
-- Manual update: `logseq-update`
-
-You can manually force an update with `logseq-update` if you need to rebuild
-outside of a full system rebuild or the nightly timer.
+- To force an update immediately, run `systemctl --user start logseq-sync.service` (or start the system-level unit if configured).
+- To inspect logs, use `journalctl -u logseq-sync.service` (or `--user-unit` for user services).
+- The `logseq` command is provided on `$PATH` by the flake package and launches the downloaded bundle inside the wrapped FHS environment.
+- Source checkouts under `/home/vx/git/logseq` are no longer required for day-to-day use.
