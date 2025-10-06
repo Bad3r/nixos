@@ -5,7 +5,7 @@ includes = ["*.nix"]
 options = []
 
 [formatter.prettier]
-command = "/nix/store/y051bmlqrpk345mv98nhfskvg1f2k4jq-prettier-3.6.2/bin/prettier"
+command = "/nix/store/5hdkjk9rdv6sh9y7wxd2lk73bvmp93hv-prettier-3.6.2/bin/prettier"
 excludes = ["README.md"]
 includes = [
     "*.cjs",
