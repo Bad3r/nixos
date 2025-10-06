@@ -32,6 +32,7 @@ HOSTNAME="$(hostname)"
 OFFLINE=false
 VERBOSE=false
 ALLOW_DIRTY=${ALLOW_DIRTY:-false}
+AUTO_UPDATE=false
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
 # Colors for output
@@ -53,6 +54,7 @@ Options:
   -v, --verbose          Enable verbose output
       --boot             Install as next-boot generation (do not activate now)
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
+      --update           Run 'nix flake update' and auto-commit before building
   -h, --help             Show this help message
 
   Usage Example:
@@ -105,6 +107,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   --allow-dirty)
     ALLOW_DIRTY=true
+    shift
+    ;;
+  --update)
+    AUTO_UPDATE=true
     shift
     ;;
   --help)
@@ -190,7 +196,25 @@ ensure_clean_git_tree() {
   fi
 }
 
+run_flake_update() {
+  status_msg "${YELLOW}" "Updating flake inputs..."
+  nix flake update "${FLAKE_DIR}"
+  if command -v git >/dev/null 2>&1; then
+    if git -C "${FLAKE_DIR}" diff --quiet -- flake.lock; then
+      status_msg "${GREEN}" "flake.lock already up to date."
+    else
+      status_msg "${YELLOW}" "Committing flake.lock changes..."
+      git -C "${FLAKE_DIR}" add flake.lock
+      git -C "${FLAKE_DIR}" commit -m "chore: update flake inputs"
+    fi
+  fi
+}
+
 main() {
+  if [[ ${AUTO_UPDATE} == "true" ]]; then
+    run_flake_update
+  fi
+
   # Fail fast on dirty git trees to ensure reproducible builds
   ensure_clean_git_tree
 
