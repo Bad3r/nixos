@@ -32,7 +32,7 @@
         mpv-shim-default-shaders
         mpvScripts.mpv-cheatsheet
         open-in-mpv
-        jellyfin-mpv-shim
+        # jellyfin-mpv-shim
       ];
     };
 

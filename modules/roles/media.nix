@@ -13,9 +13,9 @@ let
   mediaApps = [
     "mpv"
     # "vlc"
-    "okular"
-    "gwenview"
-    "spectacle"
+    # "okular"
+    # "gwenview"
+    # "spectacle"
     "media-toolchain"
   ];
   roleImports =
