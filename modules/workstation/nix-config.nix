@@ -9,7 +9,7 @@
 
     # Keep existing optimizations
     nix.settings = {
-      auto-optimise-store = false;
+      auto-optimise-store = true;
       cores = 0; # 0 == ALL
       max-jobs = "auto";
     };
