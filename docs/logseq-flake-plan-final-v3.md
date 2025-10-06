@@ -79,3 +79,5 @@ This version incorporates final clarifications: CI builds the Electron bundle, o
 - [x] Staging host: start service manually, verify JSON logs via `journalctl`, confirm timer schedule (simulated via `nix build .#logseq`).
 - [x] Observe nightly workflow producing release and manifest commit (validated via `act -j validate`; nightly job build step heavy).
 - [x] Update `docs/logseq-local-workflow.md` with new architecture and CI responsibilities.
+
+**Pending follow-up:** push commit `ci: compute manifest nar hash` and rerun `nightly.yml` once a Git credential with the `workflow` scope (or the hardware-backed SSH key) is available. Current manifest (`sha256-5gcJ…`) fails the flake check until the new SRI hash is published.
