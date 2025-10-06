@@ -28,11 +28,6 @@ let
       environment.systemPackages = lib.mkDefault [
         inputs.nix-logseq-git-flake.packages.${config.system}.logseq
       ];
-      services.logseq = {
-        enable = lib.mkDefault true;
-        timerOnCalendar = lib.mkDefault "02:00";
-        package = lib.mkDefault inputs.nix-logseq-git-flake.packages.${config.system}.logseq;
-      };
     };
   roleImports = getApps productivityApps ++ [ logseqRoleSettings ];
 in
