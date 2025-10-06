@@ -7,10 +7,14 @@
     };
 
   flake.nixosModules.apps.logseq =
-    { config, lib, ... }:
     {
-      environment.systemPackages = lib.mkDefault [
-        inputs.nix-logseq-git-flake.packages.${config.system}.logseq
+      lib,
+      pkgs,
+      ...
+    }:
+    {
+      environment.systemPackages = lib.mkAfter [
+        inputs.nix-logseq-git-flake.packages.${pkgs.system}.logseq
       ];
     };
 }

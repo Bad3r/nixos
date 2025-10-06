@@ -23,10 +23,15 @@ let
   ];
 
   logseqRoleSettings =
-    { config, lib, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     lib.mkIf (config ? environment) {
-      environment.systemPackages = lib.mkDefault [
-        inputs.nix-logseq-git-flake.packages.${config.system}.logseq
+      environment.systemPackages = lib.mkAfter [
+        inputs.nix-logseq-git-flake.packages.${pkgs.system}.logseq
       ];
     };
   roleImports = getApps productivityApps ++ [ logseqRoleSettings ];
