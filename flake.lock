@@ -176,11 +176,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1759773962,
-        "narHash": "sha256-hQYj8soIL0Nonz3rNAipaESmmCKTNiKcEmM23X9M9lo=",
+        "lastModified": 1759783224,
+        "narHash": "sha256-QTsVtR+MhvH6QTFcn31Jubm7qXltInAhTFdtsPifcbA=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "3aa6173861b1dab10b5c8bdcdb7ac6c127d115a0",
+        "rev": "9d6e275d4f74ac272aef29fb9845ea7da6559de6",
         "type": "github"
       },
       "original": {
@@ -537,8 +537,8 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1759776082,
-        "narHash": "sha256-uPBQYlNpSIz58HPMntMbfxfgH2Xgdeo5POaBJUkEsgE=",
+        "lastModified": 1759785647,
+        "narHash": "sha256-7mNVzOVu0/J2LInds6HOINi7RxJpo3OCG5w+6rZfGlI=",
         "path": "/home/vx/git/nix-logseq-git-flake",
         "type": "path"
       },
@@ -624,11 +624,11 @@
         "systems": "systems_2"
       },
       "locked": {
-        "lastModified": 1759768698,
-        "narHash": "sha256-hSTuhdHtDdTvCxCpz51v9dwckRS1HuMXLZeRhqWGZUQ=",
+        "lastModified": 1759785779,
+        "narHash": "sha256-lG+eG3o+P1o3jWQRiG8rpAxI1/Kti67tW5iko73YSK4=",
         "owner": "nix-community",
         "repo": "nixvim",
-        "rev": "ca7f98d9366b587c8e5b824f8437e79747d810fb",
+        "rev": "a68291151c0f8ca89effb865ee2f4824390fc991",
         "type": "github"
       },
       "original": {
