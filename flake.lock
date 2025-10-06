@@ -537,8 +537,8 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1759631746,
-        "narHash": "sha256-kEzmymZsRkGEsgXPcwSvoOtWTU+GoXuITWZvHvMx2xQ=",
+        "lastModified": 1759713216,
+        "narHash": "sha256-nT20MXWNyuDPAuujrQYuwho7p38H7zFY/HblfDgJffU=",
         "path": "/home/vx/git/nix-logseq-git-flake",
         "type": "path"
       },
