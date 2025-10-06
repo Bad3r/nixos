@@ -23,8 +23,9 @@
     {
       environment.systemPackages = with pkgs; [
         biome
-        shfmt
         nixfmt-rfc-style
+        shellcheck
+        shfmt
         treefmt
       ];
     };
