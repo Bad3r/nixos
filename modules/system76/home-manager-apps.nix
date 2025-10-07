@@ -7,6 +7,7 @@ let
     "dive"
     "docker-compose"
     "dua"
+    "claude-code"
     "element-desktop"
     # "evince"
     "fd"
@@ -56,12 +57,15 @@ in
             throw ("Home Manager app module '" + name + "' missing expected attrpath in " + toString filePath)
         else
           throw ("Home Manager app module file not found: " + toString filePath);
+      enableModuleFor =
+        name: if name == "claude-code" then { programs.claude-code.enable = lib.mkDefault true; } else null;
       extraAppModules = map getAppModule extraAppNames;
+      extraEnableModules = lib.filter (m: m != null) (map enableModuleFor extraAppNames);
     in
     {
       config = {
         home-manager.extraAppImports = lib.mkAfter extraAppNames;
-        home-manager.sharedModules = lib.mkAfter extraAppModules;
+        home-manager.sharedModules = lib.mkAfter (extraAppModules ++ extraEnableModules);
       };
     };
 }
