@@ -7,14 +7,23 @@
 
   Summary:
     * Provides a terminal client that connects to Claude for iterative coding, planning, and troubleshooting sessions.
-    * Ships a sane default MCP toolbox (Context7, Brave Search, Cloudflare suite, DeepWiki, memory/time helpers).
+    * Supports worktree context ingestion so Claude can read, diff, and suggest updates within git repositories.
+    * Supports MCP (Model Context Protocol) servers for tool integrations.
 
-  Notes:
-    * Context7 and Brave Search entries expect SOPS secrets at `sops.secrets."context7/api-key"` and `sops.secrets."brave/api-key"`.
+  Options:
+    claude-code login: Authenticate the CLI with an API key or OAuth flow.
+    claude-code worktree --task <prompt>: Start an interactive session using local git state.
+    claude-code mcp add <name> <command>: Add an MCP server.
+    claude-code mcp list: List configured MCP servers.
+
+  Example Usage:
+    * `claude-code login` — Initiate authentication and store encrypted credentials locally.
+    * `claude-code worktree --task "refactor telemetry collection"` — Ask Claude to propose git changes for a task.
+    * `claude-code mcp add memory "npx -y @modelcontextprotocol/server-memory"` — Add the memory MCP server.
 */
 
 {
-  flake.homeManagerModules.apps."claude-code" =
+  flake.homeManagerModules.apps.claude-code =
     {
       pkgs,
       config,
@@ -23,14 +32,11 @@
     }:
     let
       cfg = config.programs.claude-code;
-      defaultTimeoutMs = 60000;
 
-      hasSecret = name: lib.hasAttrByPath [ name ] config.sops.secrets;
-      getSecret = name: lib.getAttrFromPath [ name ] config.sops.secrets;
-
-      context7Secret = if hasSecret "context7/api-key" then getSecret "context7/api-key" else null;
+      # Helper to create Context7 wrapper if API key is available
+      hasContext7Secret = config.sops.secrets ? "context7/api-key";
       context7Wrapper =
-        if context7Secret != null && context7Secret ? path then
+        if hasContext7Secret then
           pkgs.writeShellApplication {
             name = "context7-mcp";
             runtimeInputs = [
@@ -39,9 +45,9 @@
             ];
             text = ''
               set -euo pipefail
-              key_file="${context7Secret.path}"
+              key_file="${config.sops.secrets."context7/api-key".path}"
               if [ ! -r "$key_file" ]; then
-                echo "context7-mcp: missing Context7 API key at $key_file" >&2
+                echo "context7-mcp-wrapper: missing Context7 API key at $key_file" >&2
                 exit 1
               fi
               api_key=$(tr -d '\n' < "$key_file")
@@ -51,221 +57,183 @@
         else
           null;
 
-      braveSecret = if hasSecret "brave/api-key" then getSecret "brave/api-key" else null;
-      braveWrapper =
-        if braveSecret != null && braveSecret ? path then
-          pkgs.writeShellApplication {
-            name = "brave-search-mcp";
-            runtimeInputs = [
-              pkgs.coreutils
-              pkgs.nodejs
-            ];
-            text = ''
-              set -euo pipefail
-              key_file="${braveSecret.path}"
-              if [ ! -r "$key_file" ]; then
-                echo "brave-search-mcp: missing Brave API key at $key_file" >&2
-                exit 1
-              fi
-              export BRAVE_API_KEY="$(tr -d '\n' < "$key_file")"
-              exec npx -y @modelcontextprotocol/server-brave-search "$@"
-            '';
+      # Context7 server configuration
+      context7Server =
+        if hasContext7Secret then
+          {
+            context7 = {
+              command = "${context7Wrapper}/bin/context7-mcp";
+              args = [ ];
+              startup_timeout_ms = 60000;
+            };
           }
         else
-          null;
+          { };
 
-      baseServers = {
+      # Default MCP servers configuration (matching codex)
+      defaultMcpServers = {
         memory = {
-          type = "stdio";
           command = "npx";
           args = [
             "-y"
             "@modelcontextprotocol/server-memory"
           ];
-          startup_timeout_ms = defaultTimeoutMs;
+          startup_timeout_ms = 60000;
         };
         sequential-thinking = {
-          type = "stdio";
           command = "npx";
           args = [
             "-y"
             "@modelcontextprotocol/server-sequential-thinking"
           ];
-          startup_timeout_ms = defaultTimeoutMs;
+          startup_timeout_ms = 60000;
         };
         time = {
-          type = "stdio";
           command = "uvx";
           args = [ "mcp-server-time" ];
-          startup_timeout_ms = defaultTimeoutMs;
+          startup_timeout_ms = 60000;
         };
+        # Cloudflare MCP servers
         cfdocs = {
-          type = "stdio";
           command = "npx";
           args = [
             "mcp-remote"
             "https://docs.mcp.cloudflare.com/sse"
           ];
-          startup_timeout_ms = defaultTimeoutMs;
+          startup_timeout_ms = 60000;
         };
         cfbuilds = {
-          type = "stdio";
           command = "npx";
           args = [
             "mcp-remote"
             "https://builds.mcp.cloudflare.com/sse"
           ];
-          startup_timeout_ms = defaultTimeoutMs;
+          startup_timeout_ms = 60000;
         };
         cfobservability = {
-          type = "stdio";
           command = "npx";
           args = [
             "mcp-remote"
             "https://observability.mcp.cloudflare.com/sse"
           ];
-          startup_timeout_ms = defaultTimeoutMs;
+          startup_timeout_ms = 60000;
         };
         cfradar = {
-          type = "stdio";
           command = "npx";
           args = [
             "mcp-remote"
             "https://radar.mcp.cloudflare.com/sse"
           ];
-          startup_timeout_ms = defaultTimeoutMs;
+          startup_timeout_ms = 60000;
         };
         cfcontainers = {
-          type = "stdio";
           command = "npx";
           args = [
             "mcp-remote"
             "https://containers.mcp.cloudflare.com/sse"
           ];
-          startup_timeout_ms = defaultTimeoutMs;
+          startup_timeout_ms = 60000;
         };
         cfbrowser = {
-          type = "stdio";
           command = "npx";
           args = [
             "mcp-remote"
             "https://browser.mcp.cloudflare.com/sse"
           ];
-          startup_timeout_ms = defaultTimeoutMs;
+          startup_timeout_ms = 60000;
         };
         cfgraphql = {
-          type = "stdio";
           command = "npx";
           args = [
             "mcp-remote"
             "https://graphql.mcp.cloudflare.com/sse"
           ];
-          startup_timeout_ms = defaultTimeoutMs;
+          startup_timeout_ms = 60000;
         };
         deepwiki = {
-          type = "http";
-          url = "https://mcp.deepwiki.com/mcp";
-          startup_timeout_ms = defaultTimeoutMs;
+          command = "npx";
+          args = [
+            "mcp-remote"
+            "https://mcp.deepwiki.com/mcp"
+          ];
+          startup_timeout_ms = 60000;
         };
-      };
+      }
+      // context7Server;
 
-      context7Server = lib.optionalAttrs (context7Wrapper != null) {
-        context7 = {
-          type = "stdio";
-          command = "${context7Wrapper}/bin/context7-mcp";
-          args = [ ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-      };
+      # Merge user configuration with defaults
+      mcpServers = lib.recursiveUpdate defaultMcpServers cfg.mcpServers;
 
-      braveServer = lib.optionalAttrs (braveWrapper != null) {
-        brave-search = {
-          type = "stdio";
-          command = "${braveWrapper}/bin/brave-search-mcp";
-          args = [ ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-      };
+      # Claude configuration file content
+      claudeConfig = {
+        mcpServers = mcpServers;
+      }
+      // cfg.settings;
 
-      defaultServers = baseServers // context7Server // braveServer;
-
-      defaultConfigFile = pkgs.writeText "claude-code-default-config.json" (
-        builtins.toJSON {
-          verbose = true;
-          preferredNotifChannel = "iterm2_with_bell";
-          editorMode = "vim";
-          supervisorMode = true;
-          autocheckpointingEnabled = true;
-          autoUpdates = false;
-          autoCompactEnabled = true;
-          diffTool = "kdiff";
-          mcpServers = defaultServers;
-        }
-      );
     in
     {
-      config = {
-        programs.claude-code = lib.mkIf cfg.enable {
-          package = lib.mkDefault pkgs.claude-code;
-          mcpServers = lib.mkOptionDefault defaultServers;
+      options.programs.claude-code = {
+        enable = lib.mkEnableOption "Claude Code CLI";
+
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = pkgs.claude-code;
+          description = "The Claude Code package to use";
         };
 
-        home.sessionVariables = lib.mkIf cfg.enable {
-          ANTHROPIC_MODEL = "opus";
-          DISABLE_AUTOUPDATER = "1";
-          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
-          DISABLE_TELEMETRY = "1";
-          CLAUDE_CODE_ENABLE_TELEMETRY = "0";
-          DISABLE_ERROR_REPORTING = "1";
-          DISABLE_NON_ESSENTIAL_MODEL_CALLS = "1";
-          CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "1";
-          CLAUDE_BASH_DEFAULT_TIMEOUT_MS = "240000";
-          CLAUDE_BASH_MAX_TIMEOUT_MS = "4800000";
-          BASH_MAX_OUTPUT_LENGTH = "1024";
-          MAX_THINKING_TOKENS = "32768";
-          CLAUDE_CODE_MAX_OUTPUT_TOKENS = "1";
-          MAX_MCP_OUTPUT_TOKENS = "32000";
-          cleanupPeriodDays = "30";
-        };
-
-        home.activation.claudeCodeMcpDefaults = lib.mkIf cfg.enable (
-          lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-            CLAUDE_CFG="${lib.escapeShellArg (config.home.homeDirectory + "/.claude.json")}"
-            TMP="$(mktemp)"
-            mkdir -p "$(dirname "$CLAUDE_CFG")"
-            if [ -f "$CLAUDE_CFG" ]; then
-              ${pkgs.jq}/bin/jq --slurpfile defaults ${defaultConfigFile} '
-                ($defaults[0]) as $d
-                | .mcpServers = (
-                    ($d.mcpServers // {}) as $defaultsM
-                    | (.mcpServers // {}) as $existing
-                    | reduce ($defaultsM | to_entries[]) as $entry ($existing;
-                        if has($entry.key) then . else . + {($entry.key): $entry.value} end
-                      )
-                  )
-                | .verbose = (.verbose // $d.verbose)
-                | .preferredNotifChannel = (.preferredNotifChannel // $d.preferredNotifChannel)
-                | .editorMode = (.editorMode // $d.editorMode)
-                | .supervisorMode = (.supervisorMode // $d.supervisorMode)
-                | .autocheckpointingEnabled = (.autocheckpointingEnabled // $d.autocheckpointingEnabled)
-                | .autoUpdates = (.autoUpdates // $d.autoUpdates)
-                | .autoCompactEnabled = (.autoCompactEnabled // $d.autoCompactEnabled)
-                | .diffTool = (.diffTool // $d.diffTool)
-              ' "$CLAUDE_CFG" > "$TMP"
-            else
-              cp ${defaultConfigFile} "$TMP"
-            fi
-            mv "$TMP" "$CLAUDE_CFG"
-          ''
-        );
-
-        warnings =
-          lib.optional (cfg.enable && context7Wrapper == null && hasSecret "context7/api-key") ''
-            programs.claude-code: Context7 secret detected but wrapper could not be created (missing path?).
-          ''
-          ++ lib.optional (cfg.enable && braveWrapper == null && hasSecret "brave/api-key") ''
-            programs.claude-code: Brave Search secret detected but wrapper could not be created (missing path?).
+        settings = lib.mkOption {
+          type = lib.types.attrsOf lib.types.anything;
+          default = { };
+          example = lib.literalExpression ''
+            {
+              autoUpdates = false;
+              verbose = true;
+              permissions = {
+                allow = [ "Bash(uv:*)" ];
+                deny = [ "Read(**/secrets/**)" ];
+              };
+            }
           '';
+          description = ''
+            Additional settings to merge into the Claude configuration file.
+            These will be merged with the MCP servers configuration.
+          '';
+        };
+
+        mcpServers = lib.mkOption {
+          type = lib.types.attrsOf (lib.types.attrsOf lib.types.anything);
+          default = { };
+          example = lib.literalExpression ''
+            {
+              my-server = {
+                command = "python";
+                args = [ "-m" "my_mcp_server" ];
+                env = {
+                  API_KEY = "secret";
+                };
+              };
+            }
+          '';
+          description = ''
+            MCP (Model Context Protocol) servers configuration.
+            Each server entry should contain at minimum a `command` field,
+            and optionally `args`, `env`, and other MCP server configuration.
+            Extends the default set of servers (memory, sequential-thinking, time, Cloudflare suite, deepwiki, context7).
+          '';
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        # Install the Claude Code package
+        home.packages = [ cfg.package ];
+
+        # Enable by default
+        programs.claude-code.enable = lib.mkDefault true;
+
+        # Create the Claude configuration file
+        home.file.".claude.json" = lib.mkIf (mcpServers != { } || cfg.settings != { }) {
+          text = builtins.toJSON claudeConfig;
+        };
       };
     };
 }
