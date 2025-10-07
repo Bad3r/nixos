@@ -7,6 +7,9 @@ extend-ignore-re = [
 
 [default.extend-words]
 example = "example"
+iterm2 = "iterm2"
+iterm2_with_bell = "iterm2_with_bell"
+iterm = "iterm"
 
 [files]
 # Skip encrypted secrets entirely; they are high-entropy ciphertext.
