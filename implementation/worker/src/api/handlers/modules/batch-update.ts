@@ -14,6 +14,7 @@ import type { Context } from 'hono';
 import type { Env, Module, BatchUpdateRequest } from '../../../types';
 import { CacheKeys } from '../../../types';
 import { z } from 'zod';
+import { createTextBlob, generateEmbedding } from '../../../lib/embeddings';
 
 // Validation schema
 const ModuleSchema = z.object({
@@ -234,6 +235,35 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
         if (c.env.CACHE) {
           const cacheKey = `module:${moduleData.namespace}:${moduleData.name}`;
           await c.env.CACHE.delete(cacheKey);
+        }
+
+        // Generate and store embedding for semantic search
+        if (c.env.AI && c.env.VECTORIZE) {
+          try {
+            const textBlob = createTextBlob({
+              name: moduleData.name,
+              description: moduleData.description,
+              namespace: moduleData.namespace,
+              options: moduleData.options || [],
+            });
+
+            const embedding = await generateEmbedding(c.env.AI, textBlob);
+
+            await c.env.VECTORIZE.upsert([
+              {
+                id: moduleData.path, // Use module path as vector ID
+                values: embedding,
+                metadata: {
+                  namespace: moduleData.namespace,
+                  name: moduleData.name,
+                  updatedAt: new Date().toISOString(),
+                },
+              },
+            ]);
+          } catch (error) {
+            // Don't fail module upload if embedding fails
+            console.warn(`Failed to generate embedding for ${moduleData.path}:`, error);
+          }
         }
 
       } catch (moduleError: any) {

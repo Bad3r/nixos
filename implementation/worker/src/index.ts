@@ -13,6 +13,7 @@ import { getModule } from './api/handlers/modules/get';
 import { searchModules } from './api/handlers/modules/search';
 import { batchUpdateModules } from './api/handlers/modules/batch-update';
 import { getStats } from './api/handlers/stats';
+import { backfillEmbeddings } from './api/handlers/admin/backfill-embeddings';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -122,6 +123,18 @@ app.post('/api/modules/batch', async (c, next) => {
   return next();
 }, batchUpdateModules);
 
+// Protected admin routes (timing-safe API key auth)
+app.post('/api/admin/backfill-embeddings', async (c, next) => {
+  const apiKey = c.req.header('X-API-Key');
+  const validKey = c.env.API_KEY;
+
+  if (!apiKey || !validKey || !(await timingSafeEqual(apiKey, validKey))) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  return next();
+}, backfillEmbeddings);
+
 // Root redirect to docs
 app.get('/', (c) => {
   return c.redirect('/docs');
@@ -171,6 +184,11 @@ app.get('/docs', (c) => {
         method: 'POST',
         path: '/api/modules/batch',
         description: 'Batch update modules (requires X-API-Key)',
+      },
+      backfillEmbeddings: {
+        method: 'POST',
+        path: '/api/admin/backfill-embeddings',
+        description: 'Backfill embeddings for existing modules (requires X-API-Key)',
       },
     },
     links: {
