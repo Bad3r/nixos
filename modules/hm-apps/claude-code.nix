@@ -1,6 +1,6 @@
 {
   flake.homeManagerModules.apps."claude-code" =
-    { ... }:
+    _:
     {
       home.file.".claude/settings.json" = {
         text = builtins.toJSON {
