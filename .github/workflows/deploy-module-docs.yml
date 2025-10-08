@@ -101,13 +101,11 @@ jobs:
 
       - name: Run database migrations
         working-directory: implementation/worker
-        continue-on-error: true
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           echo "Running database migrations..."
-          echo "Note: Migrations may fail if API token lacks D1 permissions or tables already exist"
           # Use the correct database name based on environment
           if [ "${{ github.event.inputs.environment || 'staging' }}" = "staging" ]; then
             DB_NAME="nixos-modules-db-staging"
@@ -117,7 +115,7 @@ jobs:
           npx wrangler d1 execute "$DB_NAME" \
             --file=migrations/0001_initial_schema.sql \
             --remote \
-            --env=${{ github.event.inputs.environment || 'staging' }} || echo "⚠️  Migrations failed (tables may already exist)"
+            --env=${{ github.event.inputs.environment || 'staging' }} || echo "⚠️  Migrations already applied or failed"
 
       - name: Deploy Worker
         id: worker-url
@@ -173,11 +171,11 @@ jobs:
         run: |
           echo "Verifying deployment..."
 
-          # Check health endpoint
-          curl -f "$WORKER_ENDPOINT/health" || exit 1
+          # Check health endpoint (with compression support)
+          curl -f --compressed "$WORKER_ENDPOINT/health" || exit 1
 
-          # Check stats endpoint
-          STATS=$(curl -s "$WORKER_ENDPOINT/api/stats")
+          # Check stats endpoint (with compression support)
+          STATS=$(curl -s --compressed "$WORKER_ENDPOINT/api/stats")
           echo "API Statistics:"
           echo "$STATS" | jq .
 
