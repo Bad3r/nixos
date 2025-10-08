@@ -204,9 +204,11 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
               }
             }
 
-            // Clear cache for this module
-            const cacheKey = `module:${moduleData.namespace}:${moduleData.name}`;
-            await c.env.CACHE.delete(cacheKey);
+            // Clear cache for this module (if KV is configured)
+            if (c.env.CACHE) {
+              const cacheKey = `module:${moduleData.namespace}:${moduleData.name}`;
+              await c.env.CACHE.delete(cacheKey);
+            }
 
           } catch (moduleError: any) {
             console.error(`Error processing module ${moduleData.path}:`, moduleError);
@@ -222,9 +224,11 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
       }
     }
 
-    // Clear list cache
-    await c.env.CACHE.delete(CacheKeys.moduleList('*'));
-    await c.env.CACHE.delete(CacheKeys.stats());
+    // Clear list cache (if KV is configured)
+    if (c.env.CACHE) {
+      await c.env.CACHE.delete(CacheKeys.moduleList('*'));
+      await c.env.CACHE.delete(CacheKeys.stats());
+    }
 
     // Log to analytics if enabled
     if (c.env.ANALYTICS) {
