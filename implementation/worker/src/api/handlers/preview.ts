@@ -507,11 +507,14 @@ export class PreviewHandler {
   }
 }
 
-// Export middleware
+// Create singleton instance
+const handler = new PreviewHandler();
+
+// Export middleware with properly bound methods
 export const previewRoutes = {
-  create: [validateBody(prPreviewSchema), new PreviewHandler().handleCreatePreview],
-  get: new PreviewHandler().handleGetPreview,
-  update: new PreviewHandler().handleUpdatePreview,
-  delete: new PreviewHandler().handleDeletePreview,
-  list: new PreviewHandler().handleListPreviews,
+  create: [validateBody(prPreviewSchema), handler.handleCreatePreview.bind(handler)],
+  get: handler.handleGetPreview.bind(handler),
+  update: handler.handleUpdatePreview.bind(handler),
+  delete: handler.handleDeletePreview.bind(handler),
+  list: handler.handleListPreviews.bind(handler),
 };

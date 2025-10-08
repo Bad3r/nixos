@@ -18,7 +18,28 @@ const app = new Hono<{ Bindings: Env }>();
 
 // Global middleware
 app.use('*', cors({
-  origin: '*', // Allow all origins for MVP, restrict in production
+  origin: (origin) => {
+    // Allow requests from the same origin or configured domains
+    const allowedOrigins = [
+      'https://nixos-modules.org',
+      'https://staging.nixos-modules.org',
+    ];
+
+    // In development, allow localhost
+    if (process.env.ENVIRONMENT === 'development') {
+      if (origin?.includes('localhost') || origin?.includes('127.0.0.1')) {
+        return origin;
+      }
+    }
+
+    // Check allowed origins
+    if (allowedOrigins.includes(origin || '')) {
+      return origin || '';
+    }
+
+    // Reject all other origins
+    return false;
+  },
   allowMethods: ['GET', 'POST', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'X-API-Key'],
   maxAge: 86400,
@@ -49,12 +70,52 @@ app.get('/api/modules/:namespace/:name', getModule);
 app.get('/api/modules/search', searchModules);
 app.get('/api/stats', getStats);
 
-// Protected API routes (simple API key auth)
+// Helper function for timing-safe string comparison
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+
+  const encoder = new TextEncoder();
+  const aBytes = encoder.encode(a);
+  const bBytes = encoder.encode(b);
+
+  // Use Web Crypto API for constant-time comparison
+  const aKey = await crypto.subtle.importKey(
+    'raw',
+    aBytes,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const bKey = await crypto.subtle.importKey(
+    'raw',
+    bBytes,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const aSignature = await crypto.subtle.sign('HMAC', aKey, new Uint8Array(1));
+  const bSignature = await crypto.subtle.sign('HMAC', bKey, new Uint8Array(1));
+
+  const aHash = new Uint8Array(aSignature);
+  const bHash = new Uint8Array(bSignature);
+
+  let result = 0;
+  for (let i = 0; i < aHash.length; i++) {
+    result |= aHash[i] ^ bHash[i];
+  }
+
+  return result === 0;
+}
+
+// Protected API routes (timing-safe API key auth)
 app.post('/api/modules/batch', async (c, next) => {
   const apiKey = c.req.header('X-API-Key');
   const validKey = c.env.API_KEY;
 
-  if (!apiKey || apiKey !== validKey) {
+  if (!apiKey || !validKey || !(await timingSafeEqual(apiKey, validKey))) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
 

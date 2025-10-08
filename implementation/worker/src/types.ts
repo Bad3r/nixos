@@ -6,6 +6,15 @@
 import type { D1Database, KVNamespace, R2Bucket, AnalyticsEngineDataset } from '@cloudflare/workers-types';
 
 /**
+ * Module types supported by the system
+ */
+export enum ModuleType {
+  NIXOS = 'nixos',
+  HOME_MANAGER = 'home-manager',
+  FLAKE = 'flake'
+}
+
+/**
  * Environment bindings for the Worker
  */
 export interface Env {
