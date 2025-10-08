@@ -210,15 +210,20 @@ let
   aggregatorAllowedKeys = [ "imports" "_file" "attrPath" "default" "name" ];
 
   isAggregator = value:
-    builtins.isAttrs value
-    && value ? imports
-    && (
-      let
-        attempt = builtins.tryEval value.imports;
-      in
-      attempt.success && builtins.isList attempt.value
-    )
-    && lib.all (key: lib.elem key aggregatorAllowedKeys) (builtins.attrNames value);
+    let
+      attempt = builtins.tryEval (
+        builtins.isAttrs value
+        && value ? imports
+        && (
+          let
+            importsAttempt = builtins.tryEval value.imports;
+          in
+          importsAttempt.success && builtins.isList importsAttempt.value
+        )
+        && lib.all (key: lib.elem key aggregatorAllowedKeys) (builtins.attrNames value)
+      );
+    in
+    attempt.success && attempt.value;
 
   collectModules =
     let
