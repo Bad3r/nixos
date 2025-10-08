@@ -6,16 +6,77 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 // Configuration
 const MIGRATIONS_DIR = path.join(__dirname, '..', 'migrations');
 const DB_NAME = 'nixos-modules-db';
+const CF_ACCOUNT_SECRET_PATH = path.resolve(__dirname, '../../..', 'secrets', 'cf-acc-id.yml');
+const CF_API_SECRET_PATH = path.resolve(__dirname, '../../..', 'secrets', 'cf-api-token.yml');
+
+const ensureCloudflareAccountId = () => {
+  if (process.env.CLOUDFLARE_ACCOUNT_ID) {
+    return;
+  }
+
+  if (!fs.existsSync(CF_ACCOUNT_SECRET_PATH)) {
+    console.warn(`⚠️  Cloudflare account ID secret not found at ${CF_ACCOUNT_SECRET_PATH}. Set CLOUDFLARE_ACCOUNT_ID manually.`);
+    return;
+  }
+
+  try {
+    const accountId = execFileSync('sops', ['-d', '--extract', '["cloudflare_account_id"]', CF_ACCOUNT_SECRET_PATH], {
+      encoding: 'utf8'
+    }).trim();
+
+    if (accountId) {
+      process.env.CLOUDFLARE_ACCOUNT_ID = accountId;
+      console.log('🔑 Loaded Cloudflare account ID from SOPS secrets');
+    } else {
+      console.warn('⚠️  Cloudflare account ID secret is empty');
+    }
+  } catch (error) {
+    console.warn(`⚠️  Failed to load Cloudflare account ID from SOPS: ${error.message}`);
+  }
+};
+
+const ensureCloudflareApiToken = () => {
+  if (process.env.CLOUDFLARE_API_TOKEN) {
+    if (!process.env.CF_API_TOKEN) {
+      process.env.CF_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
+    }
+    return;
+  }
+
+  if (!fs.existsSync(CF_API_SECRET_PATH)) {
+    console.warn(`⚠️  Cloudflare API token secret not found at ${CF_API_SECRET_PATH}. Set CLOUDFLARE_API_TOKEN manually.`);
+    return;
+  }
+
+  try {
+    const token = execFileSync('sops', ['-d', '--extract', '["cf_api_token"]', CF_API_SECRET_PATH], {
+      encoding: 'utf8'
+    }).trim();
+
+    if (token) {
+      process.env.CLOUDFLARE_API_TOKEN = token;
+      process.env.CF_API_TOKEN = token;
+      console.log('🔐 Loaded Cloudflare API token from SOPS secrets');
+    } else {
+      console.warn('⚠️  Cloudflare API token secret is empty');
+    }
+  } catch (error) {
+    console.warn(`⚠️  Failed to load Cloudflare API token from SOPS: ${error.message}`);
+  }
+};
 
 // Parse command line arguments
 const args = process.argv.slice(2);
 const isLocal = args.includes('--local');
 const env = args.find(arg => arg.startsWith('--env='))?.split('=')[1];
+
+ensureCloudflareApiToken();
+ensureCloudflareAccountId();
 
 console.log('🔄 D1 Database Migration Runner');
 console.log('================================');

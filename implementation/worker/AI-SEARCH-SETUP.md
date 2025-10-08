@@ -291,7 +291,7 @@ curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/sear
 | `wrangler.jsonc` | Worker configuration, bindings |
 | `src/services/ai-search.ts` | AI Search service implementation |
 | `src/api/handlers/modules/search.ts` | Search handler with mode routing |
-| `secrets/ai-gateway.yaml` | SOPS-encrypted AI Gateway token |
+| `secrets/cf-ai-gateway.yaml` | SOPS-encrypted AI Gateway token |
 
 ## Further Reading
 

@@ -3,17 +3,85 @@
 # Script to test AI Search functionality
 set -euo pipefail
 
-WORKER_URL="${WORKER_URL:-https://nixos-module-docs-api-staging.exploit.workers.dev}"
-
-echo "🔍 Testing AI Search Integration"
-echo "================================"
-echo ""
-
 # Colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+ACCOUNT_SECRET_FILE="$REPO_ROOT/secrets/cf-acc-id.yml"
+TOKEN_SECRET_FILE="$REPO_ROOT/secrets/cf-api-token.yml"
+
+load_cloudflare_account_id() {
+    if [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+        return
+    fi
+
+    if [ ! -f "$ACCOUNT_SECRET_FILE" ]; then
+        echo -e "${YELLOW}⚠️  Cloudflare account ID secret not found at $ACCOUNT_SECRET_FILE${NC}" >&2
+        return
+    fi
+
+    if ! command -v sops &> /dev/null; then
+        echo -e "${YELLOW}⚠️  sops not installed; cannot decrypt Cloudflare account ID${NC}" >&2
+        return
+    fi
+
+    if account_id=$(sops -d --extract '["cloudflare_account_id"]' "$ACCOUNT_SECRET_FILE" 2>/dev/null); then
+        account_id=$(echo "$account_id" | tr -d '\n\r')
+        if [ -n "$account_id" ]; then
+            export CLOUDFLARE_ACCOUNT_ID="$account_id"
+            echo -e "${GREEN}Loaded Cloudflare account ID from SOPS secrets${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Cloudflare account ID secret is empty${NC}" >&2
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Failed to decrypt Cloudflare account ID from $ACCOUNT_SECRET_FILE${NC}" >&2
+    fi
+}
+
+load_cloudflare_api_token() {
+    if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+        if [ -z "${CF_API_TOKEN:-}" ]; then
+            export CF_API_TOKEN="$CLOUDFLARE_API_TOKEN"
+        fi
+        return
+    fi
+
+    if [ ! -f "$TOKEN_SECRET_FILE" ]; then
+        echo -e "${YELLOW}⚠️  Cloudflare API token secret not found at $TOKEN_SECRET_FILE${NC}" >&2
+        return
+    fi
+
+    if ! command -v sops &> /dev/null; then
+        echo -e "${YELLOW}⚠️  sops not installed; cannot decrypt Cloudflare API token${NC}" >&2
+        return
+    fi
+
+    if token_value=$(sops -d --extract '["cf_api_token"]' "$TOKEN_SECRET_FILE" 2>/dev/null); then
+        token_value=$(echo "$token_value" | tr -d '\n\r')
+        if [ -n "$token_value" ]; then
+            export CLOUDFLARE_API_TOKEN="$token_value"
+            export CF_API_TOKEN="$token_value"
+            echo -e "${GREEN}Loaded Cloudflare API token from SOPS secrets${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Cloudflare API token secret is empty${NC}" >&2
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Failed to decrypt Cloudflare API token from $TOKEN_SECRET_FILE${NC}" >&2
+    fi
+}
+
+load_cloudflare_account_id
+load_cloudflare_api_token
+
+WORKER_URL="${WORKER_URL:-https://nixos-module-docs-api-staging.exploit.workers.dev}"
+
+echo "🔍 Testing AI Search Integration"
+echo "================================"
+echo ""
 
 # Test 1: Check API health
 echo "1️⃣  Checking API health..."
@@ -83,6 +151,42 @@ else
     echo "   This requires AI Search to be configured"
 fi
 echo ""
+
+# Optional: verify Cloudflare AI Search indexes when authenticated
+if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+    echo "6️⃣  Verifying AI Search indexes via Cloudflare API..."
+    if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+        echo -e "${YELLOW}⚠️  Cloudflare account ID unavailable; skipping API verification${NC}"
+    else
+        RESPONSE_FILE=$(mktemp)
+        HTTP_STATUS=$(curl -s -w "%{http_code}" -o "$RESPONSE_FILE" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/ai/ai-search/indexes")
+
+        if [ "$HTTP_STATUS" = "200" ]; then
+            INDEX_COUNT="unknown"
+            if command -v jq &> /dev/null; then
+                INDEX_COUNT=$(jq -r '.result | length' "$RESPONSE_FILE")
+                INDEX_NAMES=$(jq -r '.result[].name' "$RESPONSE_FILE" 2>/dev/null || echo "")
+            fi
+            echo -e "${GREEN}✓ Cloudflare API responded with $INDEX_COUNT index(es)${NC}"
+            if [ -n "${INDEX_NAMES:-}" ]; then
+                echo "   Indexes:"
+                echo "$INDEX_NAMES" | sed 's/^/     • /'
+            fi
+        else
+            echo -e "${YELLOW}⚠️  Failed to list AI Search indexes (HTTP $HTTP_STATUS)${NC}"
+            if [ -s "$RESPONSE_FILE" ]; then
+                echo "   Response: $(cat "$RESPONSE_FILE")"
+            fi
+        fi
+        rm -f "$RESPONSE_FILE"
+    fi
+    echo ""
+else
+    echo "6️⃣  (Skipped) Cloudflare API token not available"
+    echo ""
+fi
 
 # Summary
 echo "📊 Summary"

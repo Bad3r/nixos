@@ -15,6 +15,75 @@ print_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 print_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+ACCOUNT_SECRET_FILE="$REPO_ROOT/secrets/cf-acc-id.yml"
+TOKEN_SECRET_FILE="$REPO_ROOT/secrets/cf-api-token.yml"
+
+load_cloudflare_account_id() {
+    if [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+        return
+    fi
+
+    if [ ! -f "$ACCOUNT_SECRET_FILE" ]; then
+        print_warn "Cloudflare account ID secret not found at $ACCOUNT_SECRET_FILE. Set CLOUDFLARE_ACCOUNT_ID manually."
+        return
+    fi
+
+    if ! command -v sops &> /dev/null; then
+        print_warn "sops is not installed; cannot decrypt Cloudflare account ID. Set CLOUDFLARE_ACCOUNT_ID manually."
+        return
+    fi
+
+    if account_id=$(sops -d --extract '["cloudflare_account_id"]' "$ACCOUNT_SECRET_FILE" 2>/dev/null); then
+        account_id=$(echo "$account_id" | tr -d '\n\r')
+        if [ -n "$account_id" ]; then
+            export CLOUDFLARE_ACCOUNT_ID="$account_id"
+            print_info "Loaded Cloudflare account ID from SOPS secrets"
+        else
+            print_warn "Cloudflare account ID secret is empty"
+        fi
+    else
+        print_warn "Failed to decrypt Cloudflare account ID from $ACCOUNT_SECRET_FILE"
+    fi
+}
+
+load_cloudflare_api_token() {
+    if [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+        return
+    fi
+
+    if [ ! -f "$TOKEN_SECRET_FILE" ]; then
+        print_warn "Cloudflare API token secret not found at $TOKEN_SECRET_FILE. Set CLOUDFLARE_API_TOKEN manually."
+        return
+    fi
+
+    if ! command -v sops &> /dev/null; then
+        print_warn "sops is not installed; cannot decrypt Cloudflare API token. Set CLOUDFLARE_API_TOKEN manually."
+        return
+    fi
+
+    if token_value=$(sops -d --extract '["cf_api_token"]' "$TOKEN_SECRET_FILE" 2>/dev/null); then
+        token_value=$(echo "$token_value" | tr -d '\n\r')
+        if [ -n "$token_value" ]; then
+            export CLOUDFLARE_API_TOKEN="$token_value"
+            export CF_API_TOKEN="$token_value"
+            print_info "Loaded Cloudflare API token from SOPS secrets"
+        else
+            print_warn "Cloudflare API token secret is empty"
+        fi
+    else
+        print_warn "Failed to decrypt Cloudflare API token from $TOKEN_SECRET_FILE"
+    fi
+}
+
+load_cloudflare_account_id
+load_cloudflare_api_token
+
+if [ -n "${CLOUDFLARE_API_TOKEN:-}" ] && [ -z "${CF_API_TOKEN:-}" ]; then
+    export CF_API_TOKEN="$CLOUDFLARE_API_TOKEN"
+fi
+
 # Check if wrangler is installed
 if ! command -v wrangler &> /dev/null; then
     print_error "wrangler CLI is not installed. Please install it with: npm install -g wrangler"
