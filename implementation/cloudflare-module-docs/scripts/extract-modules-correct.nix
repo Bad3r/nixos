@@ -1,23 +1,34 @@
 # Correct NixOS Module Extraction Script
 # This properly evaluates modules before extracting their options and metadata
-{ flake, lib, pkgs }:
+{
+  flake,
+  lib,
+  pkgs,
+}:
 let
   # Helper to safely get attribute or default
-  getAttrOr = default: path: attrs:
+  getAttrOr =
+    default: path: attrs:
     lib.attrByPath path default attrs;
 
   # Helper to extract type information
-  extractType = type:
-    if type ? name then type.name
-    else if type ? _type then type._type
-    else "unknown";
+  extractType =
+    type:
+    if type ? name then
+      type.name
+    else if type ? _type then
+      type._type
+    else
+      "unknown";
 
   # Extract a single option's metadata
-  extractOption = path: opt:
+  extractOption =
+    path: opt:
     let
       # Handle both evaluated and unevaluated options
       actualOpt = if opt ? _type && opt._type == "option" then opt else opt;
-    in {
+    in
+    {
       path = lib.concatStringsSep "." path;
       type = extractType (actualOpt.type or null);
       description = actualOpt.description or null;
@@ -26,10 +37,11 @@ let
           if actualOpt.default ? _type then
             actualOpt.default._type
           else if builtins.isFunction actualOpt.default then
-            null  # Can't serialize functions
+            null # Can't serialize functions
           else
             actualOpt.default
-        else null;
+        else
+          null;
       example = actualOpt.example or null;
       readOnly = actualOpt.readOnly or false;
       internal = actualOpt.internal or false;
@@ -37,18 +49,23 @@ let
     };
 
   # Recursively extract options from an attribute set
-  extractOptions = path: attrs:
-    lib.flatten (lib.mapAttrsToList (name: value:
-      if value ? _type && value._type == "option" then
-        [ (extractOption (path ++ [name]) value) ]
-      else if builtins.isAttrs value && !(value ? _type) then
-        extractOptions (path ++ [name]) value
-      else
-        []
-    ) attrs);
+  extractOptions =
+    path: attrs:
+    lib.flatten (
+      lib.mapAttrsToList (
+        name: value:
+        if value ? _type && value._type == "option" then
+          [ (extractOption (path ++ [ name ]) value) ]
+        else if builtins.isAttrs value && !(value ? _type) then
+          extractOptions (path ++ [ name ]) value
+        else
+          [ ]
+      ) attrs
+    );
 
   # Process modules from the flake
-  processFlakeModule = namespace: name: modulePath:
+  processFlakeModule =
+    namespace: name: modulePath:
     let
       # Create a minimal evaluation for module inspection
       evaluated = lib.evalModules {
@@ -61,30 +78,28 @@ let
         specialArgs = {
           inherit pkgs lib;
           # Add common module arguments
-          config = {};
-          options = {};
+          config = { };
+          options = { };
         };
       };
 
       # Extract module metadata if available
-      meta = getAttrOr {} ["meta"] evaluated.config;
+      meta = getAttrOr { } [ "meta" ] evaluated.config;
 
       # Extract all options defined by this module
-      moduleOptions =
-        if evaluated ? options then
-          extractOptions [] evaluated.options
-        else [];
-    in {
+      moduleOptions = if evaluated ? options then extractOptions [ ] evaluated.options else [ ];
+    in
+    {
       inherit namespace name;
       path = modulePath;
       description = meta.description or null;
-      maintainers = meta.maintainers or [];
+      maintainers = meta.maintainers or [ ];
       options = moduleOptions;
       # Track if this is a role/profile module
       isRole = lib.hasPrefix "roles" namespace;
       isProfile = lib.hasPrefix "profiles" namespace;
       # Include any examples from meta
-      examples = meta.examples or [];
+      examples = meta.examples or [ ];
       # Check if module has enable option (common pattern)
       hasEnable = lib.any (opt: lib.hasSuffix ".enable" opt.path) moduleOptions;
     };
@@ -92,52 +107,49 @@ let
   # Process all nixosModules from the flake
   nixosModules =
     if flake ? nixosModules then
-      lib.mapAttrsToList (name: module:
+      lib.mapAttrsToList (
+        name: module:
         let
-          namespace =
-            if lib.hasInfix "." name then
-              lib.head (lib.splitString "." name)
-            else "root";
-          moduleName =
-            if lib.hasInfix "." name then
-              lib.last (lib.splitString "." name)
-            else name;
+          namespace = if lib.hasInfix "." name then lib.head (lib.splitString "." name) else "root";
+          moduleName = if lib.hasInfix "." name then lib.last (lib.splitString "." name) else name;
         in
-          processFlakeModule namespace moduleName module._file or name
+        processFlakeModule namespace moduleName module._file or name
       ) flake.nixosModules
-    else [];
+    else
+      [ ];
 
   # Process homeManagerModules similarly
   homeManagerModules =
     if flake ? homeManagerModules then
-      lib.mapAttrsToList (name: module:
-        processFlakeModule "home-manager" name (module._file or name)
+      lib.mapAttrsToList (
+        name: module: processFlakeModule "home-manager" name (module._file or name)
       ) flake.homeManagerModules
-    else [];
+    else
+      [ ];
 
   # Analyze module usage across configurations
   analyzeUsage =
     let
-      configs = flake.nixosConfigurations or {};
+      configs = flake.nixosConfigurations or { };
     in
-      lib.mapAttrs (hostName: hostConfig:
-        let
-          # Get the imports from the host configuration
-          imports = hostConfig.config.imports or [];
-          # Extract module names from imports
-          usedModules = lib.filter (x: x != null) (map (imp:
-            if builtins.isString imp then
-              lib.last (lib.splitString "/" imp)
-            else null
-          ) imports);
-        in {
-          host = hostName;
-          modules = usedModules;
-          # Include some host metadata
-          system = hostConfig.config.nixpkgs.system or "x86_64-linux";
-          stateVersion = hostConfig.config.system.stateVersion or null;
-        }
-      ) configs;
+    lib.mapAttrs (
+      hostName: hostConfig:
+      let
+        # Get the imports from the host configuration
+        imports = hostConfig.config.imports or [ ];
+        # Extract module names from imports
+        usedModules = lib.filter (x: x != null) (
+          map (imp: if builtins.isString imp then lib.last (lib.splitString "/" imp) else null) imports
+        );
+      in
+      {
+        host = hostName;
+        modules = usedModules;
+        # Include some host metadata
+        system = hostConfig.config.nixpkgs.system or "x86_64-linux";
+        stateVersion = hostConfig.config.system.stateVersion or null;
+      }
+    ) configs;
 
   # Final output structure
   output = {
@@ -162,13 +174,15 @@ let
       totalModules = (builtins.length nixosModules) + (builtins.length homeManagerModules);
       nixosModules = builtins.length nixosModules;
       homeManagerModules = builtins.length homeManagerModules;
-      totalOptions = lib.foldl' (acc: m: acc + (builtins.length m.options)) 0
-        (nixosModules ++ homeManagerModules);
-      hostsTracked = builtins.length (builtins.attrNames (flake.nixosConfigurations or {}));
+      totalOptions = lib.foldl' (acc: m: acc + (builtins.length m.options)) 0 (
+        nixosModules ++ homeManagerModules
+      );
+      hostsTracked = builtins.length (builtins.attrNames (flake.nixosConfigurations or { }));
     };
   };
 
-in {
+in
+{
   # Write the JSON output
   moduleData = pkgs.writeText "modules.json" (builtins.toJSON output);
 
