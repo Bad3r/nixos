@@ -92,14 +92,14 @@ transform_for_api() {
     def nonempty_object($v):
       if ($v // {}) == {} then null else $v end;
 
-    def build_option($entry):
-      { name: $entry.key }
-      + maybe("type"; $entry.value.type)
-      + maybe("description"; $entry.value.description)
-      + maybe("default_value"; $entry.value.default)
-      + maybe("example"; $entry.value.example)
-      + maybe("read_only"; $entry.value.readOnly)
-      + maybe("internal"; $entry.value.internal);
+    def build_option:
+      { name: .key }
+      + maybe("type"; .value.type)
+      + maybe("description"; .value.description)
+      + maybe("default_value"; .value.default)
+      + maybe("example"; .value.example)
+      + maybe("read_only"; .value.readOnly)
+      + maybe("internal"; .value.internal);
 
     {
       modules:
