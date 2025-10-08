@@ -208,19 +208,26 @@ let
       null;
 
   aggregatorAllowedKeys = [ "imports" "_file" "attrPath" "default" "name" ];
+  maxImportDepth = 3;
 
   isAggregator = value:
     let
       attempt = builtins.tryEval (
-        builtins.isAttrs value
-        && value ? imports
-        && (
+        if builtins.isAttrs value then
           let
-            importsAttempt = builtins.tryEval value.imports;
+            attrNames = builtins.attrNames value;
+            allowedKeys = lib.all (key: lib.elem key aggregatorAllowedKeys) attrNames;
           in
-          importsAttempt.success && builtins.isList importsAttempt.value
-        )
-        && lib.all (key: lib.elem key aggregatorAllowedKeys) (builtins.attrNames value)
+          value ? imports
+          && allowedKeys
+          && (
+            let
+              importsAttempt = builtins.tryEval value.imports;
+            in
+            importsAttempt.success && builtins.isList importsAttempt.value
+          )
+        else
+          false
       );
     in
     attempt.success && attempt.value;
@@ -239,16 +246,31 @@ let
           else
             [ ];
 
-        collectValue = value: path: source:
-          let
-            nextSource =
-              if builtins.isAttrs value && value ? _file then
-                relativePath value._file
-              else
-                source;
-          in
-          if isAggregator value then
-            lib.concatLists (map (entry: collectImportEntry entry path nextSource) (importsFor value))
+        collectValue = value: path: source: depth:
+          if depth >= maxImportDepth then
+            [
+              {
+                keyPath = path;
+                module = null;
+                sourcePath = source;
+                skipReason = "Skipped unresolved imports beyond depth " + toString maxImportDepth;
+              }
+            ]
+          else if isAggregator value then
+            let
+              aggregatorAttrsAttempt = builtins.tryEval value;
+              aggregatorAttrs =
+                if aggregatorAttrsAttempt.success && builtins.isAttrs aggregatorAttrsAttempt.value then
+                  aggregatorAttrsAttempt.value
+                else
+                  { };
+              nextSource =
+                if aggregatorAttrs ? _file then
+                  relativePath aggregatorAttrs._file
+                else
+                  source;
+            in
+            lib.concatLists (map (entry: collectImportEntry entry path nextSource (depth + 1)) (importsFor value))
           else if builtins.isFunction value then
             [
               {
@@ -258,17 +280,31 @@ let
               }
             ]
           else if builtins.isAttrs value then
+            let
+              resolvedSource =
+                if value ? _file then
+                  relativePath value._file
+                else
+                  source;
+            in
             [
               {
                 keyPath = path;
                 module = normalizeModule value;
-                sourcePath = nextSource;
+                sourcePath = resolvedSource;
               }
             ]
           else
-            [ ];
+            [
+              {
+                keyPath = path;
+                module = null;
+                sourcePath = source;
+                skipReason = "Skipped import for " + (lib.concatStringsSep "/" path) + " (unsupported value type)";
+              }
+            ];
 
-        collectImportEntry = entry: path: source:
+        collectImportEntry = entry: path: source: depth:
           let
             entrySource =
               if entry ? _file then relativePath entry._file else source;
@@ -277,22 +313,35 @@ let
           lib.concatLists (
             map (
               child:
-                if isAggregator child then
-                  collectValue child path entrySource
-                else if builtins.isAttrs child then
-                  lib.concatLists (
-                    lib.mapAttrsToList (
-                      name: value:
-                        collectValue value (path ++ [ name ]) entrySource
-                    ) child
-                  )
-                else
-                  [ ]
+                let
+                  attempt = builtins.tryEval (
+                    if builtins.isAttrs child then
+                      lib.concatLists (
+                        lib.mapAttrsToList (
+                          name: value:
+                            collectValue value (path ++ [ name ]) entrySource depth
+                        ) child
+                      )
+                    else
+                      collectValue child path entrySource depth
+                  );
+                in
+                if attempt.success then attempt.value else
+                  [
+                    {
+                      keyPath = path;
+                      module = null;
+                      sourcePath = entrySource;
+                      skipReason = "Skipped unresolved import for "
+                        + (lib.concatStringsSep "/" path) + ": "
+                        + stringifyError attempt.value;
+                    }
+                  ]
             ) inner
           );
       };
     in
-    recBind.collectValue;
+    value: path: source: recBind.collectValue value path source 0;
 
   # Collect module entries from flake.nixosModules
   moduleEntries =
@@ -310,6 +359,23 @@ let
   processModuleEntry =
     entry:
     let
+      skipMetadata =
+        let
+          keyPath = entry.keyPath or [ ];
+          namespace =
+            if keyPath == [ ] then "root" else builtins.head keyPath;
+          moduleName =
+            if keyPath == [ ] then "module"
+            else builtins.last keyPath;
+          fullName =
+            if keyPath == [ ] then "${namespace}/${moduleName}" else lib.concatStringsSep "/" keyPath;
+        in
+        {
+          path = entry.sourcePath or "unknown";
+          namespace = namespace;
+          name = moduleName;
+          fullName = fullName;
+        };
       attempt = builtins.tryEval (
         let
           keyPath = entry.keyPath or [ ];
@@ -374,7 +440,14 @@ let
         }
       );
     in
-    if attempt.success then
+    if entry ? skipReason then
+      let base = skipMetadata; in
+      base // {
+        documentation = null;
+        error = entry.skipReason;
+        extracted = false;
+      }
+    else if attempt.success then
       attempt.value
     else
       {
