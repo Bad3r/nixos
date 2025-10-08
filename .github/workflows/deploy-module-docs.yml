@@ -148,22 +148,28 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
+          set -euo pipefail
           echo "Deploying Worker to ${{ github.event.inputs.environment || 'staging' }}..."
 
-          # Deploy and capture output
-          DEPLOY_OUTPUT=$(npx wrangler deploy --env=${{ github.event.inputs.environment || 'staging' }} 2>&1)
-          echo "$DEPLOY_OUTPUT"
+          # Deploy with proper error handling
+          if ! npx wrangler deploy --env=${{ github.event.inputs.environment || 'staging' }} 2>&1 | tee deploy.log; then
+            echo "❌ Worker deployment failed:"
+            cat deploy.log
+            exit 1
+          fi
 
-          # Extract Worker URL from deployment output (matches *.*.workers.dev pattern)
-          WORKER_URL=$(echo "$DEPLOY_OUTPUT" | grep -oP 'https://[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.workers\.dev' | head -1)
+          # Extract Worker URL from deployment output
+          WORKER_URL=$(grep -oP 'https://[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.workers\.dev' deploy.log | head -1)
 
           if [ -z "$WORKER_URL" ]; then
-            echo "Failed to extract Worker URL from deployment output"
+            echo "❌ Failed to extract Worker URL from deployment output"
+            echo "Deployment log:"
+            cat deploy.log
             exit 1
           fi
 
           echo "worker-url=$WORKER_URL" >> $GITHUB_OUTPUT
-          echo "Worker deployed to: $WORKER_URL"
+          echo "✅ Worker deployed to: $WORKER_URL"
 
   upload-data:
     name: Upload Module Data
