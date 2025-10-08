@@ -33,6 +33,9 @@ OFFLINE=false
 VERBOSE=false
 ALLOW_DIRTY=${ALLOW_DIRTY:-false}
 AUTO_UPDATE=false
+SKIP_FMT=false
+SKIP_HOOKS=false
+SKIP_CHECK=false
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
 # Colors for output
@@ -55,6 +58,10 @@ Options:
       --boot             Install as next-boot generation (do not activate now)
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
       --update           Run 'nix flake update' and auto-commit before building
+      --skip-fmt         Skip the 'nix fmt' formatting step
+      --skip-hooks       Skip the pre-commit hooks validation
+      --skip-check       Skip the 'nix flake check' validation step
+      --skip-all         Skip all validation steps (fmt, hooks, check)
   -h, --help             Show this help message
 
   Usage Example:
@@ -111,6 +118,24 @@ while [[ $# -gt 0 ]]; do
     ;;
   --update)
     AUTO_UPDATE=true
+    shift
+    ;;
+  --skip-fmt)
+    SKIP_FMT=true
+    shift
+    ;;
+  --skip-hooks)
+    SKIP_HOOKS=true
+    shift
+    ;;
+  --skip-check)
+    SKIP_CHECK=true
+    shift
+    ;;
+  --skip-all)
+    SKIP_FMT=true
+    SKIP_HOOKS=true
+    SKIP_CHECK=true
     shift
     ;;
   --help)
@@ -220,17 +245,29 @@ main() {
 
   configure_nix_flags
 
-  status_msg "${YELLOW}" "Formatting Nix files..."
-  nix fmt --accept-flake-config "${FLAKE_DIR}"
+  if [[ ${SKIP_FMT} == "false" ]]; then
+    status_msg "${YELLOW}" "Formatting Nix files..."
+    nix fmt --accept-flake-config "${FLAKE_DIR}"
+  else
+    status_msg "${YELLOW}" "Skipping nix fmt (--skip-fmt flag used)..."
+  fi
 
-  status_msg "${YELLOW}" "Running pre-commit hooks..."
-  nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c pre-commit run --all-files
+  if [[ ${SKIP_HOOKS} == "false" ]]; then
+    status_msg "${YELLOW}" "Running pre-commit hooks..."
+    nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c pre-commit run --all-files
+  else
+    status_msg "${YELLOW}" "Skipping pre-commit hooks (--skip-hooks flag used)..."
+  fi
 
   status_msg "${YELLOW}" "Scoring Dendritic Pattern compliance..."
   #generation-manager score
 
-  status_msg "${YELLOW}" "Validating flake (evaluation + invariants)..."
-  nix flake check "${FLAKE_DIR}" --accept-flake-config --no-build "${NIX_FLAGS[@]}"
+  if [[ ${SKIP_CHECK} == "false" ]]; then
+    status_msg "${YELLOW}" "Validating flake (evaluation + invariants)..."
+    nix flake check "${FLAKE_DIR}" --accept-flake-config --no-build "${NIX_FLAGS[@]}"
+  else
+    status_msg "${YELLOW}" "Skipping flake check (--skip-check flag used)..."
+  fi
 
   status_msg "${GREEN}" "Validation completed successfully!"
 
