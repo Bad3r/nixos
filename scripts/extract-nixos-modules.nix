@@ -292,7 +292,8 @@ let
   # Collect module entries from flake.nixosModules
   moduleEntries =
     let
-      modulesAttr = flake.nixosModules or { };
+      flakeWithFallbackInputs = flake // { inputs = effectiveInputs; };
+      modulesAttr = flakeWithFallbackInputs.nixosModules or { };
     in
     lib.concatLists (
       lib.mapAttrsToList (
