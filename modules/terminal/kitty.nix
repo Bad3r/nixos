@@ -98,6 +98,7 @@
         "kitty_mod+v" = "paste_from_clipboard";
         "kitty_mod+s" = "paste_from_selection";
         "shift+insert" = "paste_from_selection";
+        "shift+enter" = "send_text all \\\\\\n";
         "kitty_mod+o" = "pass_selection_to_program";
         "kitty_mod+enter" = "new_window";
         "kitty_mod+equal" = "change_font_size all +2.0";
