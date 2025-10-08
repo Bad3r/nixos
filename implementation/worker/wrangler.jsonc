@@ -111,6 +111,9 @@
           "binding": "ANALYTICS"
         }
       ],
+      "ai": {
+        "binding": "AI"
+      },
       "vectorize": [
         {
           "binding": "VECTORIZE",
