@@ -79,6 +79,26 @@
           }
         else
           { };
+
+      mcp = import ../../lib/mcp-servers.nix {
+        inherit lib;
+        defaultTimeoutMs = 60000;
+      };
+
+      codexMcpServers = mcp.selectWithoutType {
+        sequential-thinking = true;
+        memory = true;
+        time = true;
+        cfdocs = true;
+        # cfbindings intentionally disabled at user request.
+        cfbuilds = true;
+        cfobservability = true;
+        cfradar = true;
+        cfcontainers = false; # conflicts w/ builtin review command
+        cfbrowser = true;
+        cfgraphql = true;
+        deepwiki = true;
+      };
     in
     {
       programs.codex = {
@@ -106,105 +126,7 @@
           tools = {
             web_search = true;
           };
-          mcp_servers = context7Server // {
-            memory = {
-              command = "npx";
-              args = [
-                "-y"
-                "@modelcontextprotocol/server-memory"
-              ];
-              startup_timeout_ms = 60000;
-            };
-            sequential-thinking = {
-              command = "npx";
-              args = [
-                "-y"
-                "@modelcontextprotocol/server-sequential-thinking"
-              ];
-              startup_timeout_ms = 60000;
-            };
-            time = {
-              command = "uvx";
-              args = [ "mcp-server-time" ];
-              startup_timeout_ms = 60000;
-            };
-            # Cloudflare MCP servers – https://github.com/cloudflare/mcp-server-cloudflare#cloudflare-mcp-server
-            cfdocs = {
-              command = "npx";
-              args = [
-                "mcp-remote"
-                "https://docs.mcp.cloudflare.com/sse"
-              ];
-              startup_timeout_ms = 60000;
-            };
-            # cfbindings disabled at user request.
-            # cfbindings = {
-            #   command = "npx";
-            #   args = [
-            #     "mcp-remote"
-            #     "https://bindings.mcp.cloudflare.com/sse"
-            #   ];
-            #   startup_timeout_ms = 60000;
-            # };
-            cfbuilds = {
-              command = "npx";
-              args = [
-                "mcp-remote"
-                "https://builds.mcp.cloudflare.com/sse"
-              ];
-              startup_timeout_ms = 60000;
-            };
-            cfobservability = {
-              command = "npx";
-              args = [
-                "mcp-remote"
-                "https://observability.mcp.cloudflare.com/sse"
-              ];
-              startup_timeout_ms = 60000;
-            };
-            cfradar = {
-              command = "npx";
-              args = [
-                "mcp-remote"
-                "https://radar.mcp.cloudflare.com/sse"
-              ];
-              startup_timeout_ms = 60000;
-            };
-            # Disabled because it conflicts with Codex CLI review feature.
-            # cfcontainers disabled at user request.
-            # cfcontainers = {
-            #   command = "npx";
-            #   args = [
-            #     "mcp-remote"
-            #     "https://containers.mcp.cloudflare.com/sse"
-            #   ];
-            #   startup_timeout_ms = 60000;
-            # };
-            cfbrowser = {
-              command = "npx";
-              args = [
-                "mcp-remote"
-                "https://browser.mcp.cloudflare.com/sse"
-              ];
-              startup_timeout_ms = 60000;
-            };
-            cfgraphql = {
-              command = "npx";
-              args = [
-                "mcp-remote"
-                "https://graphql.mcp.cloudflare.com/sse"
-              ];
-              startup_timeout_ms = 60000;
-            };
-            deepwiki = {
-              command = "npx";
-              args = [
-                "mcp-remote"
-                "https://mcp.deepwiki.com/mcp"
-              ];
-              startup_timeout_ms = 60000;
-            };
-          };
+          mcp_servers = context7Server // codexMcpServers;
           profiles = {
             gpt-5-codex = {
               model = "gpt-5-codex";
