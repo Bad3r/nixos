@@ -1,0 +1,98 @@
+name: Ingest to AI Search
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to ingest'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  ingest:
+    name: Ingest Modules to AI Search
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+
+    steps:
+      - name: Determine Worker URL
+        id: worker-url
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "url=https://nixos-module-docs-api.exploit.workers.dev" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://nixos-module-docs-api-staging.exploit.workers.dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger AI Search Ingestion
+        env:
+          WORKER_URL: ${{ steps.worker-url.outputs.url }}
+          API_KEY: ${{ secrets.MODULE_API_KEY }}
+        run: |
+          echo "Triggering AI Search ingestion for ${{ github.event.inputs.environment }}..."
+
+          RESPONSE=$(curl -X POST "$WORKER_URL/api/admin/ai-search/ingest" \
+            -H "X-API-Key: $API_KEY" \
+            -H "Content-Type: application/json" \
+            -w "\n%{http_code}" \
+            -s)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response:"
+          echo "$BODY" | jq . || echo "$BODY"
+
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+            echo "✅ Ingestion triggered successfully"
+          else
+            echo "❌ Ingestion failed with status $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Verify AI Search
+        env:
+          WORKER_URL: ${{ steps.worker-url.outputs.url }}
+        run: |
+          echo "Testing AI Search..."
+          sleep 10  # Wait for ingestion to process
+
+          # Test semantic search
+          RESULT=$(curl -s "$WORKER_URL/api/modules/search?q=system&mode=semantic")
+          MODE=$(echo "$RESULT" | jq -r '.mode')
+          VERSION=$(echo "$RESULT" | jq -r '.search_version // "unknown"')
+
+          echo "Search Mode: $MODE"
+          echo "Search Version: $VERSION"
+
+          if [ "$VERSION" = "ai-search" ]; then
+            echo "✅ AI Search is working!"
+          else
+            echo "⚠️  AI Search may still be processing (got version: $VERSION)"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          cat << EOF >> $GITHUB_STEP_SUMMARY
+          # AI Search Ingestion
+
+          ## Status
+          - **Environment**: ${{ github.event.inputs.environment }}
+          - **Worker URL**: ${{ steps.worker-url.outputs.url }}
+
+          ## Next Steps
+          Test the AI Search features:
+          \`\`\`bash
+          # Semantic search
+          curl "${{ steps.worker-url.outputs.url }}/api/modules/search?q=networking&mode=semantic"
+
+          # AI-powered responses
+          curl "${{ steps.worker-url.outputs.url }}/api/modules/search?q=how%20to%20configure%20ssh&ai=true"
+          \`\`\`
+          EOF
