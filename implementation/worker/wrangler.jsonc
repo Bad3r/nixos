@@ -35,7 +35,12 @@
     }
   ],
 
-
+  // Analytics Engine for tracking API usage and search queries
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS"
+    }
+  ],
 
   // Node.js compatibility for dependencies
 
@@ -86,6 +91,11 @@
         {
           "binding": "DOCUMENTS",
           "bucket_name": "nixos-modules-docs-staging"
+        }
+      ],
+      "analytics_engine_datasets": [
+        {
+          "binding": "ANALYTICS"
         }
       ]
     },
