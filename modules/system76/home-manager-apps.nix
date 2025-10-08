@@ -8,7 +8,6 @@ let
     "dive"
     "docker-compose"
     "dua"
-    "claude-code"
     "element-desktop"
     # "evince"
     "fd"
