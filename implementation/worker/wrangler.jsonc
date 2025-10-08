@@ -5,13 +5,6 @@
   "compatibility_date": "2025-10-08",
   "compatibility_flags": ["nodejs_compat"],
 
-  // Static assets configuration for frontend
-  "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
-    "html_handling": "auto-trailing-slash"
-  },
 
   // D1 Database for structured module data
   // Create with: npx wrangler d1 create nixos-modules-db
