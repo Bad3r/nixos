@@ -43,6 +43,7 @@ let
     "zoxide"
     "atuin"
     "bc"
+    "openssl"
     "lsof"
     "pciutils"
     "usbutils"
