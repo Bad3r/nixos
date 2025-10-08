@@ -216,6 +216,7 @@ jobs:
         uses: actions/download-artifact@v5.0.0
         with:
           name: extracted-modules
+          path: .cache/module-docs
 
       - name: Upload to Worker API
         timeout-minutes: 15 # Increased for chunked upload of 431+ modules (~11 batches)
