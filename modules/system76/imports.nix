@@ -40,7 +40,6 @@ let
     inputs.nixos-hardware.nixosModules.system76-darp6
     (getModule "workstation")
     (getModule "system76-support")
-    (getModule "security")
     (getModule "hardware-lenovo-y27q-20")
   ];
   selfRevision =

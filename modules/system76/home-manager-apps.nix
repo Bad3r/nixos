@@ -32,7 +32,6 @@ let
     "sqlite"
     "telegram-desktop"
     "tree"
-    "usbguard-notifier"
     "zathura"
     "zoom"
   ];
