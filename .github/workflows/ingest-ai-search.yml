@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to ingest'
+        description: "Environment to ingest"
         required: true
-        default: 'staging'
+        default: "staging"
         type: choice
         options:
           - staging
