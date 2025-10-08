@@ -35,15 +35,17 @@ extract_modules() {
 
     cd "$PROJECT_ROOT"
 
-    # Run the REAL Nix extraction script (extracts ALL 431+ modules)
-    log_info "Using real extractor: extract-nixos-modules.nix"
-    log_info "This will scan and extract ALL modules in the repository..."
+    # TEMPORARILY using simple extractor until real extractor path issues are fixed
+    # TODO: Fix extract-nixos-modules.nix to work with nix-instantiate --eval
+    # Issue: filesystem path access in pure evaluation context creates invalid store paths
+    log_warn "Using simplified extractor (mock data) - real extractor needs path handling fixes"
+    log_info "This extracts a representative sample of module types..."
 
     if nix-instantiate \
         --eval \
         --strict \
         --json \
-        -E "import $SCRIPT_DIR/extract-nixos-modules.nix { flakeRoot = $PROJECT_ROOT; }" \
+        -E "import $SCRIPT_DIR/extract-nixos-modules-simple.nix {}" \
         > "$OUTPUT_FILE" 2>/dev/null; then
 
         log_info "Modules extracted successfully to $OUTPUT_FILE"
