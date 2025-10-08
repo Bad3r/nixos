@@ -25,6 +25,7 @@ let
     else
       fallbackPkgs;
 
+<<<<<<< HEAD
   effectiveLib =
     if libOverride != null then
       libOverride
@@ -32,6 +33,9 @@ let
       pinnedPkgs.lib
     else
       fallbackPkgs.lib;
+=======
+  effectiveLib = libOverride;
+>>>>>>> b47062b4e (chore: apply treefmt exclusions and secret fixes)
 
   # Helper to obtain pkgs for an arbitrary system
   pkgsFor =
@@ -59,6 +63,7 @@ let
     pkgs = pinnedPkgs;
   };
 
+<<<<<<< HEAD
   lib = effectiveLib;
   filterAttrs =
     if lib ? filterAttrs then
@@ -67,6 +72,9 @@ let
       lib.attrsets.filterAttrs
     else
       builtins.throw "extract-nixos-modules: filterAttrs missing from selected lib";
+=======
+  inherit (effectiveLib) lib filterAttrs;
+>>>>>>> b47062b4e (chore: apply treefmt exclusions and secret fixes)
   stringifyError =
     value:
     let
@@ -285,8 +293,34 @@ let
 
   # Process all modules
   processedModules = map processModule moduleFiles;
+<<<<<<< HEAD
   successfulModules = processedModules;
   failedModules = processedModules;
+=======
+
+  # Separate successfully extracted modules from errors
+  successfulModules = builtins.filter (
+    m: builtins.isAttrs m && (m.extracted or false)
+  ) processedModules;
+  sanitizedSuccess = builtins.filter builtins.isAttrs successfulModules;
+  failedModules = builtins.filter (m: builtins.isAttrs m && !(m.extracted or false)) processedModules;
+
+  # Group modules by namespace
+  modulesByNamespace = builtins.groupBy (m: m.namespace or "unknown") sanitizedSuccess;
+
+  # Calculate statistics
+  stats = {
+    total = builtins.length moduleFiles;
+    extracted = builtins.length successfulModules;
+    failed = builtins.length failedModules;
+    namespaces = lib.attrNames modulesByNamespace;
+    extractionRate =
+      if builtins.length moduleFiles > 0 then
+        (builtins.length successfulModules * 100) / builtins.length moduleFiles
+      else
+        0;
+  };
+>>>>>>> b47062b4e (chore: apply treefmt exclusions and secret fixes)
 
   # Format module for JSON export
   formatModule =
@@ -368,6 +402,7 @@ let
         modules = map (m: m.fullName or "${namespace}/${m.name or "unknown"}") modules;
       }) namespaceGroups;
 
+<<<<<<< HEAD
     stats =
       let
         successList = builtins.filter (m: builtins.isAttrs m && (m.extracted or false)) processedModules;
@@ -384,6 +419,9 @@ let
         namespaces = lib.attrNames namespaceGroups;
         extractionRate = if totalModules > 0 then (extractedCount * 100) / totalModules else 0;
       };
+=======
+    modules = sanitizedSuccess;
+>>>>>>> b47062b4e (chore: apply treefmt exclusions and secret fixes)
 
     modules =
       let
@@ -391,6 +429,7 @@ let
       in
       map formatModule successList;
 
+<<<<<<< HEAD
     errors =
       let
         failureList = builtins.filter (m: builtins.isAttrs m && !(m.extracted or false)) processedModules;
@@ -400,6 +439,9 @@ let
         };
       in
       map sanitizeFailure failureList;
+=======
+    errors = [ ];
+>>>>>>> b47062b4e (chore: apply treefmt exclusions and secret fixes)
   };
 
 in
