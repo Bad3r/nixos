@@ -25,7 +25,6 @@ let
     else
       fallbackPkgs;
 
-<<<<<<< HEAD
   effectiveLib =
     if libOverride != null then
       libOverride
@@ -33,9 +32,6 @@ let
       pinnedPkgs.lib
     else
       fallbackPkgs.lib;
-=======
-  effectiveLib = libOverride;
->>>>>>> b47062b4e (chore: apply treefmt exclusions and secret fixes)
 
   # Helper to obtain pkgs for an arbitrary system
   pkgsFor =
@@ -63,7 +59,6 @@ let
     pkgs = pinnedPkgs;
   };
 
-<<<<<<< HEAD
   lib = effectiveLib;
   filterAttrs =
     if lib ? filterAttrs then
@@ -72,9 +67,6 @@ let
       lib.attrsets.filterAttrs
     else
       builtins.throw "extract-nixos-modules: filterAttrs missing from selected lib";
-=======
-  inherit (effectiveLib) lib filterAttrs;
->>>>>>> b47062b4e (chore: apply treefmt exclusions and secret fixes)
   stringifyError =
     value:
     let

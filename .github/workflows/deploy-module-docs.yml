@@ -57,9 +57,13 @@ jobs:
           ./scripts/extract-and-upload.sh --extract-only
 
           # Output statistics
-          if [ -f modules-extracted.json ]; then
-            MODULE_COUNT=$(jq -r '.stats.extracted' modules-extracted.json)
-            NAMESPACE_COUNT=$(jq -r '.namespaces | keys | length' modules-extracted.json)
+          CACHE_DIR=".cache/module-docs"
+          MODULE_JSON="$CACHE_DIR/modules-extracted.json"
+          API_JSON="$CACHE_DIR/modules-extracted.json.api.json"
+
+          if [ -f "$MODULE_JSON" ]; then
+            MODULE_COUNT=$(jq -r '.stats.extracted' "$MODULE_JSON")
+            NAMESPACE_COUNT=$(jq -r '.namespaces | keys | length' "$MODULE_JSON")
             echo "module-count=$MODULE_COUNT" >> $GITHUB_OUTPUT
             echo "namespace-count=$NAMESPACE_COUNT" >> $GITHUB_OUTPUT
             echo "✅ Extracted $MODULE_COUNT modules across $NAMESPACE_COUNT namespaces"
@@ -73,8 +77,8 @@ jobs:
         with:
           name: extracted-modules
           path: |
-            modules-extracted.json
-            modules-extracted.json.api.json
+            .cache/module-docs/modules-extracted.json
+            .cache/module-docs/modules-extracted.json.api.json
 
   deploy-worker:
     name: Deploy Cloudflare Worker
