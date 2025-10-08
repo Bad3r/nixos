@@ -16,7 +16,6 @@
 {
   flake.homeManagerModules.apps."claude-code" =
     {
-      pkgs,
       config,
       lib,
       ...
