@@ -1,0 +1,24 @@
+/*
+  Package: openssl
+  Description: Toolkit for Transport Layer Security (TLS) and cryptographic operations.
+  Homepage: https://www.openssl.org/
+  Documentation: https://docs.openssl.org/
+  Repository: https://github.com/openssl/openssl
+
+  Summary:
+    * Provides the `openssl` command-line utility for managing keys, certificates, and cryptographic primitives.
+    * Supplies the OpenSSL libraries used by applications that implement TLS/SSL and general-purpose cryptography.
+
+  Options:
+    version: Use `openssl version` to display the current library and tool version string.
+    genpkey: Run `openssl genpkey -algorithm RSA -out key.pem` to generate private keys.
+    s_client: Connect to TLS services with `openssl s_client -connect host:port` for debugging handshakes.
+*/
+
+{
+  flake.nixosModules.apps.openssl =
+    { pkgs, ... }:
+    {
+      environment.systemPackages = [ pkgs.openssl ];
+    };
+}

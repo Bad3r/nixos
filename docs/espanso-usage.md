@@ -19,6 +19,7 @@ The module is auto-imported when included in your Home Manager modules list:
 ```
 
 This automatically enables espanso with:
+
 - Both X11 and Wayland support (auto-detection based on `$WAYLAND_DISPLAY`)
 - Notifications disabled (less intrusive)
 - Common date/time triggers (`:date`, `:time`, `:now`, `:isodate`)
@@ -28,16 +29,16 @@ This automatically enables espanso with:
 
 Once enabled, the following triggers are available:
 
-| Trigger | Output | Example |
-|---------|--------|---------|
-| `:date` | Current date | `2025-10-08` |
-| `:time` | Current time | `14:30` |
-| `:now` | Date and time | `2025-10-08 14:30` |
-| `:isodate` | ISO 8601 format | `2025-10-08T14:30:00+0000` |
-| `:shebang` | Bash shebang | `#!/usr/bin/env bash` |
+| Trigger       | Output            | Example                                             |
+| ------------- | ----------------- | --------------------------------------------------- |
+| `:date`       | Current date      | `2025-10-08`                                        |
+| `:time`       | Current time      | `14:30`                                             |
+| `:now`        | Date and time     | `2025-10-08 14:30`                                  |
+| `:isodate`    | ISO 8601 format   | `2025-10-08T14:30:00+0000`                          |
+| `:shebang`    | Bash shebang      | `#!/usr/bin/env bash`                               |
 | `:shebangnix` | Nix-shell shebang | `#!/usr/bin/env nix-shell`<br>`#!nix-shell -i bash` |
-| `:todo` | TODO comment | `# TODO: ` |
-| `:fixme` | FIXME comment | `# FIXME: ` |
+| `:todo`       | TODO comment      | `# TODO: `                                          |
+| `:fixme`      | FIXME comment     | `# FIXME: `                                         |
 
 ## Customization
 
@@ -195,6 +196,7 @@ Use regex for more flexible matching:
 ### Default Behavior (Recommended)
 
 Both X11 and Wayland support are enabled by default on Linux. The module:
+
 - Configures `x11Support = true` and `waylandSupport = true`
 - Sets `package-wayland = pkgs.espanso-wayland`
 - Creates a wrapper script that checks `$WAYLAND_DISPLAY` at runtime
@@ -251,6 +253,7 @@ journalctl --user -u espanso -f
 ## Configuration Files
 
 Generated YAML files are located at:
+
 - `~/.config/espanso/config/*.yml` - Configuration files
 - `~/.config/espanso/match/*.yml` - Match files
 
@@ -317,6 +320,7 @@ Import in your home-manager configuration:
 ### Module Location
 
 The espanso module is auto-discovered from:
+
 - Source: `modules/hm-apps/espanso.nix`
 - Export: `flake.homeManagerModules.apps.espanso`
 
