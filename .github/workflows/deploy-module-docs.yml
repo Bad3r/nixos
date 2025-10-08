@@ -114,6 +114,7 @@ jobs:
           fi
           npx wrangler d1 execute "$DB_NAME" \
             --file=migrations/0001_initial_schema.sql \
+            --remote \
             --env=${{ github.event.inputs.environment || 'staging' }}
 
       - name: Deploy Worker
