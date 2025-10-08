@@ -100,29 +100,31 @@ curl http://localhost:8787/api/stats
 
 ### Public Endpoints (No Auth)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| GET | `/api/modules` | List all modules |
-| GET | `/api/modules/:namespace/:name` | Get specific module |
-| GET | `/api/modules/search` | Search modules |
-| GET | `/api/stats` | Global statistics |
+| Method | Endpoint                        | Description         |
+| ------ | ------------------------------- | ------------------- |
+| GET    | `/health`                       | Health check        |
+| GET    | `/api/modules`                  | List all modules    |
+| GET    | `/api/modules/:namespace/:name` | Get specific module |
+| GET    | `/api/modules/search`           | Search modules      |
+| GET    | `/api/stats`                    | Global statistics   |
 
 ### Protected Endpoints (API Key Required)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/modules/batch` | Batch update modules |
+| Method | Endpoint             | Description          |
+| ------ | -------------------- | -------------------- |
+| POST   | `/api/modules/batch` | Batch update modules |
 
 ### Query Parameters
 
 **List Modules**
+
 - `namespace`: Filter by namespace
 - `limit`: Results per page (1-100, default: 50)
 - `offset`: Pagination offset
 - `sort`: Sort by name/namespace/usage/updated
 
 **Search Modules**
+
 - `q`: Search query (min 2 chars)
 - `limit`: Results per page (1-50, default: 20)
 - `offset`: Pagination offset
@@ -146,6 +148,7 @@ API_KEY=your-secret-api-key
 ### Cloudflare Resources
 
 Run `scripts/setup.sh` to create:
+
 - D1 Database: `nixos-modules-db`
 - KV Namespace: `MODULE_CACHE`
 - R2 Bucket: `nixos-module-docs`
@@ -208,7 +211,7 @@ npm run test:e2e
 on:
   push:
     paths:
-      - 'modules/**'
+      - "modules/**"
 
 jobs:
   update:

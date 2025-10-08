@@ -1,11 +1,22 @@
 _: {
   # Ensure treefmt ignores vendored inputs to keep checks fast and focused
   perSystem =
-    { config, ... }:
+    { config, lib, ... }:
     {
       treefmt.settings = {
-        # Do not format vendored inputs
-        global.excludes = [ "inputs/*" ];
+        global.excludes = lib.mkForce [
+          "*.lock"
+          "*.patch"
+          "package-lock.json"
+          "go.mod"
+          "go.sum"
+          ".gitignore"
+          ".gitmodules"
+          ".hgignore"
+          ".svnignore"
+          "inputs/*"
+          "secrets/**"
+        ];
         # Generated README must match write-files output exactly; exclude from prettier
         formatter.prettier.excludes = [ "README.md" ];
       };

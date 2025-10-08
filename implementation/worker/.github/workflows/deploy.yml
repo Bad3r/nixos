@@ -6,20 +6,20 @@ on:
       - main
       - staging
     paths:
-      - 'implementation/worker/**'
-      - '.github/workflows/deploy.yml'
+      - "implementation/worker/**"
+      - ".github/workflows/deploy.yml"
   pull_request:
     branches:
       - main
       - staging
     paths:
-      - 'implementation/worker/**'
+      - "implementation/worker/**"
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy to'
+        description: "Environment to deploy to"
         required: true
-        default: 'staging'
+        default: "staging"
         type: choice
         options:
           - staging
@@ -34,8 +34,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: implementation/worker/package-lock.json
 
       - name: Install dependencies
@@ -44,11 +44,11 @@ jobs:
 
       - name: Run type checking
         working-directory: implementation/worker
-        run: npm run typecheck || true  # Continue even if typecheck fails for now
+        run: npm run typecheck || true # Continue even if typecheck fails for now
 
       - name: Run tests
         working-directory: implementation/worker
-        run: npm test || true  # Continue even if tests fail for now
+        run: npm test || true # Continue even if tests fail for now
 
   deploy:
     runs-on: ubuntu-latest
@@ -61,8 +61,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: implementation/worker/package-lock.json
 
       - name: Install dependencies

@@ -14,7 +14,7 @@ export class ModuleSearchComponent extends HTMLElement {
 
   constructor() {
     super();
-    this.shadow = this.attachShadow({ mode: 'open' });
+    this.shadow = this.attachShadow({ mode: "open" });
   }
 
   connectedCallback() {
@@ -93,9 +93,9 @@ export class ModuleSearchComponent extends HTMLElement {
     `;
 
     // Cache DOM references
-    this.searchInput = this.shadow.querySelector('#search-input');
-    this.resultsContainer = this.shadow.querySelector('#results');
-    this.loadingIndicator = this.shadow.querySelector('#loading');
+    this.searchInput = this.shadow.querySelector("#search-input");
+    this.resultsContainer = this.shadow.querySelector("#results");
+    this.loadingIndicator = this.shadow.querySelector("#loading");
   }
 
   private getStyles(): string {
@@ -319,32 +319,32 @@ export class ModuleSearchComponent extends HTMLElement {
 
   private setupEventListeners() {
     // Search input handler
-    this.searchInput?.addEventListener('input', (e) => {
+    this.searchInput?.addEventListener("input", (e) => {
       const target = e.target as HTMLInputElement;
       this.handleSearch(target.value);
     });
 
     // Filter change handlers
-    const namespaceFilter = this.shadow.querySelector('#namespace-filter');
-    const typeFilter = this.shadow.querySelector('#type-filter');
+    const namespaceFilter = this.shadow.querySelector("#namespace-filter");
+    const typeFilter = this.shadow.querySelector("#type-filter");
 
-    namespaceFilter?.addEventListener('change', () => {
+    namespaceFilter?.addEventListener("change", () => {
       if (this.searchInput?.value) {
         this.handleSearch(this.searchInput.value);
       }
     });
 
-    typeFilter?.addEventListener('change', () => {
+    typeFilter?.addEventListener("change", () => {
       if (this.searchInput?.value) {
         this.handleSearch(this.searchInput.value);
       }
     });
 
     // Result click handlers (using event delegation)
-    this.resultsContainer?.addEventListener('click', (e) => {
-      const resultItem = (e.target as HTMLElement).closest('.result-item');
+    this.resultsContainer?.addEventListener("click", (e) => {
+      const resultItem = (e.target as HTMLElement).closest(".result-item");
       if (resultItem) {
-        const moduleName = resultItem.getAttribute('data-module-name');
+        const moduleName = resultItem.getAttribute("data-module-name");
         if (moduleName) {
           this.handleModuleClick(moduleName);
         }
@@ -386,25 +386,29 @@ export class ModuleSearchComponent extends HTMLElement {
       // Build query parameters
       const params = new URLSearchParams({
         q: query,
-        limit: '20'
+        limit: "20",
       });
 
       // Add filters if selected
-      const namespaceFilter = this.shadow.querySelector('#namespace-filter') as HTMLSelectElement;
-      const typeFilter = this.shadow.querySelector('#type-filter') as HTMLSelectElement;
+      const namespaceFilter = this.shadow.querySelector(
+        "#namespace-filter",
+      ) as HTMLSelectElement;
+      const typeFilter = this.shadow.querySelector(
+        "#type-filter",
+      ) as HTMLSelectElement;
 
       if (namespaceFilter?.value) {
-        params.set('namespace', namespaceFilter.value);
+        params.set("namespace", namespaceFilter.value);
       }
 
       if (typeFilter?.value) {
-        params.set('type', typeFilter.value);
+        params.set("type", typeFilter.value);
       }
 
       const response = await fetch(`/api/v1/search?${params}`, {
         signal: this.currentRequest.signal,
         headers: {
-          'Accept': 'application/json',
+          Accept: "application/json",
         },
       });
 
@@ -414,14 +418,13 @@ export class ModuleSearchComponent extends HTMLElement {
 
       const data = await response.json();
       this.displayResults(data.modules || []);
-
     } catch (error) {
-      if ((error as Error).name === 'AbortError') {
+      if ((error as Error).name === "AbortError") {
         // Request was cancelled, ignore
         return;
       }
-      console.error('Search error:', error);
-      this.displayError('Search failed. Please try again.');
+      console.error("Search error:", error);
+      this.displayError("Search failed. Please try again.");
     } finally {
       this.hideLoading();
       this.currentRequest = null;
@@ -441,74 +444,84 @@ export class ModuleSearchComponent extends HTMLElement {
       return;
     }
 
-    const resultsHTML = modules.map(module => `
+    const resultsHTML = modules
+      .map(
+        (module) => `
       <div class="result-item" data-module-name="${this.escapeHtml(module.name)}">
         <div class="result-header">
           <span class="result-name">${this.escapeHtml(module.name)}</span>
-          <span class="result-type">${this.escapeHtml(module.type || 'nixos')}</span>
+          <span class="result-type">${this.escapeHtml(module.type || "nixos")}</span>
         </div>
         <div class="result-description">
-          ${this.escapeHtml(module.description || 'No description available')}
+          ${this.escapeHtml(module.description || "No description available")}
         </div>
         <div class="result-meta">
           <span class="result-meta-item">
             <span>📁</span>
-            <span>${this.escapeHtml(module.namespace || 'default')}</span>
+            <span>${this.escapeHtml(module.namespace || "default")}</span>
           </span>
-          ${module.optionCount ? `
+          ${
+            module.optionCount
+              ? `
             <span class="result-meta-item">
               <span>⚙️</span>
               <span>${module.optionCount} options</span>
             </span>
-          ` : ''}
+          `
+              : ""
+          }
         </div>
       </div>
-    `).join('');
+    `,
+      )
+      .join("");
 
     this.resultsContainer.innerHTML = resultsHTML;
   }
 
   private handleModuleClick(moduleName: string) {
     // Dispatch custom event for module selection
-    this.dispatchEvent(new CustomEvent('module-selected', {
-      detail: { moduleName },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent("module-selected", {
+        detail: { moduleName },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private clearResults() {
     if (this.resultsContainer) {
-      this.resultsContainer.innerHTML = '';
+      this.resultsContainer.innerHTML = "";
     }
   }
 
   private showLoading() {
-    this.loadingIndicator?.classList.remove('hidden');
+    this.loadingIndicator?.classList.remove("hidden");
     this.clearResults();
   }
 
   private hideLoading() {
-    this.loadingIndicator?.classList.add('hidden');
+    this.loadingIndicator?.classList.add("hidden");
   }
 
   private displayError(message: string) {
-    const errorEl = this.shadow.querySelector('#error');
+    const errorEl = this.shadow.querySelector("#error");
     if (errorEl) {
       errorEl.textContent = message;
-      errorEl.classList.remove('hidden');
+      errorEl.classList.remove("hidden");
       setTimeout(() => {
-        errorEl.classList.add('hidden');
+        errorEl.classList.add("hidden");
       }, 5000);
     }
   }
 
   private escapeHtml(text: string): string {
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   }
 }
 
 // Register the custom element
-customElements.define('module-search', ModuleSearchComponent);
+customElements.define("module-search", ModuleSearchComponent);

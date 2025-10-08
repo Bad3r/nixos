@@ -5,6 +5,7 @@
 The following secrets need to be added to your GitHub repository for automated deployments:
 
 ### 1. Cloudflare API Token (`CLOUDFLARE_API_TOKEN`)
+
 - Required for deploying Workers
 - Create at: https://dash.cloudflare.com/profile/api-tokens
 - Permissions needed:
@@ -16,14 +17,17 @@ The following secrets need to be added to your GitHub repository for automated d
   - Account: AI:Edit
 
 ### 2. Cloudflare Account ID (`CLOUDFLARE_ACCOUNT_ID`)
+
 - Found in Cloudflare dashboard URL or account settings
 - Format: 32-character string
 
 ### 3. API Key (`API_KEY`)
+
 - Used for protected admin endpoints
 - Generate a secure random key
 
 ### 4. AI Gateway Token (`AI_GATEWAY_TOKEN`)
+
 - Authentication token for AI Gateway
 - Required for authenticated AI Gateway requests
 
@@ -54,7 +58,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install dependencies
         run: npm ci

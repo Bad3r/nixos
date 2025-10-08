@@ -3,9 +3,9 @@
  * Configures test environment and global utilities
  */
 
-import { beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { mockDeep } from 'vitest-mock-extended';
-import type { Env } from '../src/types';
+import { beforeAll, afterAll, beforeEach, afterEach } from "vitest";
+import { mockDeep } from "vitest-mock-extended";
+import type { Env } from "../src/types";
 
 // Global test utilities
 declare global {
@@ -26,9 +26,9 @@ beforeAll(() => {
   global.testHelpers = {
     createMockRequest: (url: string, options?: RequestInit) => {
       return new Request(url, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         ...options,
       });
@@ -48,12 +48,12 @@ beforeAll(() => {
     },
 
     waitForAsync: (ms: number) => {
-      return new Promise(resolve => setTimeout(resolve, ms));
+      return new Promise((resolve) => setTimeout(resolve, ms));
     },
   };
 
   // Mock console methods in test
-  if (process.env.SILENT_TESTS === 'true') {
+  if (process.env.SILENT_TESTS === "true") {
     global.console.log = jest.fn();
     global.console.error = jest.fn();
     global.console.warn = jest.fn();
@@ -86,7 +86,7 @@ function createMockEnv(): Env {
   return {
     // Mock ASSETS fetcher
     ASSETS: {
-      fetch: jest.fn().mockResolvedValue(new Response('Mock asset')),
+      fetch: jest.fn().mockResolvedValue(new Response("Mock asset")),
       connect: jest.fn(),
     } as any,
 
@@ -134,7 +134,7 @@ function createMockEnv(): Env {
 
     // Mock AI
     AI: {
-      run: jest.fn().mockResolvedValue({ response: 'Mock AI response' }),
+      run: jest.fn().mockResolvedValue({ response: "Mock AI response" }),
     } as any,
 
     // Mock Rate Limiter
@@ -148,14 +148,14 @@ function createMockEnv(): Env {
     } as any,
 
     // Environment variables
-    JWT_SECRET: 'test-jwt-secret-at-least-32-characters',
-    API_TOKEN: 'test-api-token-at-least-32-characters',
-    CF_ACCESS_AUD: 'test-audience',
-    CF_ACCESS_TEAM_DOMAIN: 'test.cloudflareaccess.com',
-    ENVIRONMENT: 'test' as any,
-    CACHE_TTL: '60',
-    MAX_BATCH_SIZE: '10',
-    ENABLE_DEBUG: 'true',
+    JWT_SECRET: "test-jwt-secret-at-least-32-characters",
+    API_TOKEN: "test-api-token-at-least-32-characters",
+    CF_ACCESS_AUD: "test-audience",
+    CF_ACCESS_TEAM_DOMAIN: "test.cloudflareaccess.com",
+    ENVIRONMENT: "test" as any,
+    CACHE_TTL: "60",
+    MAX_BATCH_SIZE: "10",
+    ENABLE_DEBUG: "true",
   };
 }
 
@@ -172,10 +172,10 @@ export const testUtils = {
 
   // Create mock module data
   createMockModule: (overrides?: any) => ({
-    name: 'test-module',
-    namespace: 'test',
-    description: 'Test module description',
-    type: 'nixos',
+    name: "test-module",
+    namespace: "test",
+    description: "Test module description",
+    type: "nixos",
     options: [],
     declarations: [],
     metadata: {},
@@ -186,9 +186,9 @@ export const testUtils = {
   createMockSearchResults: (count: number = 5) => {
     return Array.from({ length: count }, (_, i) => ({
       name: `module-${i}`,
-      namespace: 'test',
+      namespace: "test",
       description: `Test module ${i} description`,
-      score: 1 - (i * 0.1),
+      score: 1 - i * 0.1,
     }));
   },
 
@@ -197,7 +197,7 @@ export const testUtils = {
     try {
       await fn();
     } catch (error) {
-      console.error('Async test failed:', error);
+      console.error("Async test failed:", error);
       throw error;
     }
   },
@@ -206,8 +206,8 @@ export const testUtils = {
   mockFetchResponse: (response: any) => {
     global.fetch = jest.fn().mockResolvedValue(
       new Response(JSON.stringify(response), {
-        headers: { 'Content-Type': 'application/json' },
-      })
+        headers: { "Content-Type": "application/json" },
+      }),
     );
   },
 };
@@ -215,14 +215,16 @@ export const testUtils = {
 // Extend expect matchers
 expect.extend({
   toBeValidUUID(received: string) {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const pass = uuidRegex.test(received);
 
     return {
       pass,
-      message: () => pass
-        ? `expected ${received} not to be a valid UUID`
-        : `expected ${received} to be a valid UUID`,
+      message: () =>
+        pass
+          ? `expected ${received} not to be a valid UUID`
+          : `expected ${received} to be a valid UUID`,
     };
   },
 
@@ -231,9 +233,10 @@ expect.extend({
 
     return {
       pass,
-      message: () => pass
-        ? `expected ${received} not to be within range ${floor} - ${ceiling}`
-        : `expected ${received} to be within range ${floor} - ${ceiling}`,
+      message: () =>
+        pass
+          ? `expected ${received} not to be within range ${floor} - ${ceiling}`
+          : `expected ${received} to be within range ${floor} - ${ceiling}`,
     };
   },
 });

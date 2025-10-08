@@ -3,105 +3,26 @@
  * Simplified for MVP implementation
  */
 
-import type { D1Database, KVNamespace, R2Bucket, AnalyticsEngineDataset, Ai } from '@cloudflare/workers-types';
+import type {
+  D1Database,
+  KVNamespace,
+  R2Bucket,
+  AnalyticsEngineDataset,
+  Ai,
+} from "@cloudflare/workers-types";
 
 /**
  * Module types supported by the system
  */
 export enum ModuleType {
-  NIXOS = 'nixos',
-  HOME_MANAGER = 'home-manager',
-  FLAKE = 'flake'
-}
-
-/**
- * AI Gateway binding interface
- */
-export interface AIGateway {
-  id: string;
-  // Add methods as needed for AI Gateway operations
-}
-
-/**
- * AI Search binding interface for automatic document processing
- */
-export interface AISearch {
-  index_name: string;
-  aiSearch(params: AISearchParams): Promise<AISearchResponse>;
-  search(params: SearchParams): Promise<SearchResponse>;
-  ingest(documents: Document[]): Promise<IngestResponse>;
+  NIXOS = "nixos",
+  HOME_MANAGER = "home-manager",
+  FLAKE = "flake",
 }
 
 /**
  * AI Search parameters
  */
-export interface AISearchParams {
-  query: string;
-  model?: string;
-  rewrite_query?: boolean;
-  max_num_results?: number;
-  ranking_options?: {
-    score_threshold?: number;
-  };
-  stream?: boolean;
-}
-
-/**
- * Search parameters for vector-only search
- */
-export interface SearchParams {
-  query: string;
-  max_num_results?: number;
-  ranking_options?: {
-    score_threshold?: number;
-  };
-}
-
-/**
- * AI Search response
- */
-export interface AISearchResponse {
-  response: string;
-  sources: Array<{
-    id: string;
-    score: number;
-    content: string;
-    metadata?: Record<string, any>;
-  }>;
-  model_used?: string;
-  query_rewritten?: string;
-}
-
-/**
- * Search response
- */
-export interface SearchResponse {
-  matches: Array<{
-    id: string;
-    score: number;
-    content: string;
-    metadata?: Record<string, any>;
-  }>;
-}
-
-/**
- * Document for ingestion
- */
-export interface Document {
-  id: string;
-  content: string;
-  metadata?: Record<string, any>;
-}
-
-/**
- * Ingest response
- */
-export interface IngestResponse {
-  success: boolean;
-  documents_processed: number;
-  errors?: string[];
-}
-
 /**
  * Environment bindings for the Worker
  */
@@ -115,14 +36,8 @@ export interface Env {
   // R2 for document storage
   DOCUMENTS: R2Bucket;
 
-  // Workers AI with AI Gateway integration
+  // Workers AI
   AI: Ai;
-
-  // AI Gateway for caching and model flexibility
-  AI_GATEWAY?: AIGateway;
-
-  // AI Search for automatic document processing
-  AI_SEARCH?: AISearch;
 
   // Analytics (optional)
   ANALYTICS?: AnalyticsEngineDataset;
@@ -136,10 +51,11 @@ export interface Env {
   MAX_BATCH_SIZE: string;
   ENABLE_DEBUG: string;
   API_VERSION: string;
+  AI_AUTORAG_NAME?: string;
+  AI_GATEWAY_ID?: string;
 
   // Secrets
   API_KEY: string;
-  AI_GATEWAY_TOKEN: string; // Authentication token for AI Gateway
 }
 
 /**
@@ -162,14 +78,14 @@ export interface Module {
  */
 export interface ModuleOption {
   id?: number;
-  module_id: number;
+  module_id?: number;
   name: string;
   type: string;
   default_value?: any; // JSON stored as string in DB
   description?: string;
   example?: any; // JSON stored as string in DB
-  read_only: boolean;
-  internal: boolean;
+  read_only?: boolean;
+  internal?: boolean;
 }
 
 /**
@@ -177,9 +93,9 @@ export interface ModuleOption {
  */
 export interface ModuleDependency {
   id?: number;
-  module_id: number;
+  module_id?: number;
   depends_on_path: string;
-  dependency_type: string;
+  dependency_type?: string;
 }
 
 /**
@@ -240,16 +156,16 @@ export interface Stats {
  */
 export interface ListModulesQuery {
   namespace?: string;
-  limit?: number;
-  offset?: number;
-  sort?: 'name' | 'namespace' | 'usage' | 'updated';
+  limit: number;
+  offset: number;
+  sort?: "name" | "namespace" | "usage" | "updated";
 }
 
 export interface SearchModulesQuery {
   q: string;
-  limit?: number;
-  offset?: number;
-  mode?: 'keyword' | 'semantic' | 'hybrid';
+  limit: number;
+  offset: number;
+  mode?: "keyword" | "semantic" | "hybrid" | "ai";
 }
 
 export interface BatchUpdateRequest {
@@ -263,7 +179,7 @@ export const CacheKeys = {
   module: (namespace: string, name: string) => `module:${namespace}:${name}`,
   moduleList: (params: string) => `modules:list:${params}`,
   search: (query: string) => `search:${query}`,
-  stats: () => 'stats:global',
+  stats: () => "stats:global",
   hostModules: (hostname: string) => `host:${hostname}:modules`,
 } as const;
 

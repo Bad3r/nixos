@@ -6,14 +6,14 @@
   # security.acme.certs.*.credentialFiles."CF_DNS_API_TOKEN_FILE".
   #
   # How to provide the encrypted file:
-  # - Create secrets/cf-api-token.yml with a YAML key `cf_api_token: <value>`
+  # - Create secrets/cf-api-token.yaml with a YAML key `cf_api_token: <value>`
   #   and encrypt it using sops, following docs/sops-nixos.md and
   #   docs/sops-dotfile.example.yaml.
   # - This module guards on the file’s presence to avoid evaluation failures.
   flake.nixosModules.base =
     _:
     let
-      cfTokenFile = ./../../secrets/cf-api-token.yml;
+      cfTokenFile = ./../../secrets/cf-api-token.yaml;
       cfTokenExists = builtins.pathExists cfTokenFile;
     in
     {

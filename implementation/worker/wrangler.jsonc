@@ -42,24 +42,9 @@
     }
   ],
 
-  // Workers AI with AI Gateway integration for better caching and model flexibility
+  // Workers AI binding
   "ai": {
     "binding": "AI"
-  },
-
-  // AI Gateway for model caching, rate limiting, and fallback providers
-  // Note: AI Gateway ID must be created in the Cloudflare dashboard first
-  // This enables automatic caching and provider fallback for AI operations
-  "ai_gateway": {
-    "binding": "AI_GATEWAY",
-    "id": "nixos-modules-gateway"
-  },
-
-  // AI Search configuration for automatic document processing and hybrid search
-  // This replaces the custom embedding pipeline with managed AI Search
-  "ai_search": {
-    "binding": "AI_SEARCH",
-    "index_name": "nixos-modules-search"
   },
 
   // Node.js compatibility for dependencies
@@ -75,7 +60,9 @@
     "CACHE_TTL": "300", // 5 minutes default
     "MAX_BATCH_SIZE": "50",
     "ENABLE_DEBUG": "true",
-    "API_VERSION": "v1"
+    "API_VERSION": "v1",
+    "AI_AUTORAG_NAME": "nixos-modules-search",
+    "AI_GATEWAY_ID": "nixos-modules-gateway"
   },
 
   // Secrets (configured via wrangler secret put)
@@ -91,7 +78,9 @@
         "CACHE_TTL": "60", // 1 minute for testing
         "MAX_BATCH_SIZE": "25",
         "ENABLE_DEBUG": "true",
-        "API_VERSION": "v1"
+        "API_VERSION": "v1",
+        "AI_AUTORAG_NAME": "nixos-modules-search-staging",
+        "AI_GATEWAY_ID": "nixos-modules-gateway-staging"
       },
       "d1_databases": [
         {
@@ -120,14 +109,6 @@
       ],
       "ai": {
         "binding": "AI"
-      },
-      "ai_gateway": {
-        "binding": "AI_GATEWAY",
-        "id": "nixos-modules-gateway-staging"
-      },
-      "ai_search": {
-        "binding": "AI_SEARCH",
-        "index_name": "nixos-modules-search-staging"
       }
     },
     "production": {
@@ -136,7 +117,9 @@
         "ENVIRONMENT": "production",
         "CACHE_TTL": "300", // 5 minutes
         "MAX_BATCH_SIZE": "50",
-        "ENABLE_DEBUG": "false"
+        "ENABLE_DEBUG": "false",
+        "AI_AUTORAG_NAME": "nixos-modules-search",
+        "AI_GATEWAY_ID": "nixos-modules-gateway"
       },
       "routes": [
         {

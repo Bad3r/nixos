@@ -6,8 +6,14 @@
  * - Service tokens for M2M communication
  */
 
-import { jwtVerify, SignJWT, createRemoteJWKSet, importPKCS8, importSPKI } from 'jose';
-import { z } from 'zod';
+import {
+  jwtVerify,
+  SignJWT,
+  createRemoteJWKSet,
+  importPKCS8,
+  importSPKI,
+} from "jose";
+import { z } from "zod";
 
 // Environment configuration
 export interface AuthEnv {
@@ -32,18 +38,18 @@ export interface AuthEnv {
 
 // Token types
 export enum TokenType {
-  USER = 'user',
-  SERVICE = 'service',
-  CLOUDFLARE_ACCESS = 'cf_access',
-  API_KEY = 'api_key'  // For backwards compatibility during migration
+  USER = "user",
+  SERVICE = "service",
+  CLOUDFLARE_ACCESS = "cf_access",
+  API_KEY = "api_key", // For backwards compatibility during migration
 }
 
 // Permission levels
 export enum Permission {
-  READ = 'read',
-  WRITE = 'write',
-  ADMIN = 'admin',
-  SUPER_ADMIN = 'super_admin'
+  READ = "read",
+  WRITE = "write",
+  ADMIN = "admin",
+  SUPER_ADMIN = "super_admin",
 }
 
 // User context from JWT
@@ -79,7 +85,7 @@ const JWTPayloadSchema = z.object({
   name: z.string().optional(),
   type: z.nativeEnum(TokenType).default(TokenType.USER),
   permissions: z.array(z.nativeEnum(Permission)).default([Permission.READ]),
-  scopes: z.array(z.string()).default(['modules:read']),
+  scopes: z.array(z.string()).default(["modules:read"]),
   iat: z.number(),
   exp: z.number(),
   iss: z.string(),
@@ -112,18 +118,18 @@ export class Auth {
    */
   async authenticate(request: Request): Promise<AuthContext> {
     // Try Cloudflare Access JWT first (highest priority)
-    const cfAccessToken = request.headers.get('Cf-Access-Jwt-Assertion');
+    const cfAccessToken = request.headers.get("Cf-Access-Jwt-Assertion");
     if (cfAccessToken) {
       return await this.validateCloudflareAccess(cfAccessToken);
     }
 
     // Try Bearer token (JWT or Service Token)
-    const authHeader = request.headers.get('Authorization');
-    if (authHeader?.startsWith('Bearer ')) {
+    const authHeader = request.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
 
       // Check if it's a service token (starts with 'st_')
-      if (token.startsWith('st_')) {
+      if (token.startsWith("st_")) {
         return await this.validateServiceToken(token);
       }
 
@@ -132,19 +138,19 @@ export class Auth {
     }
 
     // Try service token headers (for M2M communication)
-    const clientId = request.headers.get('CF-Access-Client-Id');
-    const clientSecret = request.headers.get('CF-Access-Client-Secret');
+    const clientId = request.headers.get("CF-Access-Client-Id");
+    const clientSecret = request.headers.get("CF-Access-Client-Secret");
     if (clientId && clientSecret) {
       return await this.validateServiceCredentials(clientId, clientSecret);
     }
 
     // Legacy API key support (for migration period)
-    const apiKey = request.headers.get('X-API-Key');
+    const apiKey = request.headers.get("X-API-Key");
     if (apiKey) {
       return await this.validateLegacyApiKey(apiKey);
     }
 
-    throw new AuthError('No valid authentication credentials provided', 401);
+    throw new AuthError("No valid authentication credentials provided", 401);
   }
 
   /**
@@ -152,13 +158,13 @@ export class Auth {
    */
   private async validateCloudflareAccess(token: string): Promise<AuthContext> {
     if (!this.env.CF_ACCESS_TEAM_DOMAIN || !this.env.CF_ACCESS_AUD) {
-      throw new AuthError('Cloudflare Access not configured', 500);
+      throw new AuthError("Cloudflare Access not configured", 500);
     }
 
     try {
       // Create JWKS from team domain
       const JWKS = createRemoteJWKSet(
-        new URL(`${this.env.CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`)
+        new URL(`${this.env.CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`),
       );
 
       // Verify the JWT
@@ -171,23 +177,30 @@ export class Auth {
       return {
         id: payload.sub as string,
         email: payload.email as string,
-        name: payload.name as string || payload.email as string,
+        name: (payload.name as string) || (payload.email as string),
         type: TokenType.CLOUDFLARE_ACCESS,
-        permissions: this.mapGroupsToPermissions(payload.groups as string[] || []),
-        scopes: ['modules:read', 'modules:search'],
+        permissions: this.mapGroupsToPermissions(
+          (payload.groups as string[]) || [],
+        ),
+        scopes: ["modules:read", "modules:search"],
         issuedAt: payload.iat!,
         expiresAt: payload.exp!,
         issuer: payload.iss!,
-        audience: Array.isArray(payload.aud) ? payload.aud : [payload.aud as string],
+        audience: Array.isArray(payload.aud)
+          ? payload.aud
+          : [payload.aud as string],
         rateLimitKey: `cf_access:${payload.sub}`,
-        groups: payload.groups as string[] || [],
+        groups: (payload.groups as string[]) || [],
         metadata: {
           country: payload.country,
           devicePosture: payload.device_posture,
         },
       };
     } catch (error) {
-      throw new AuthError(`Invalid Cloudflare Access token: ${error.message}`, 403);
+      throw new AuthError(
+        `Invalid Cloudflare Access token: ${error.message}`,
+        403,
+      );
     }
   }
 
@@ -200,7 +213,7 @@ export class Auth {
 
       // Use public key if available (RS256), otherwise use secret (HS256)
       if (this.env.JWT_PUBLIC_KEY) {
-        const publicKey = await importSPKI(this.env.JWT_PUBLIC_KEY, 'RS256');
+        const publicKey = await importSPKI(this.env.JWT_PUBLIC_KEY, "RS256");
         const result = await jwtVerify(token, publicKey);
         payload = result.payload;
       } else {
@@ -224,7 +237,9 @@ export class Auth {
         issuer: validatedPayload.iss,
         audience: Array.isArray(validatedPayload.aud)
           ? validatedPayload.aud
-          : validatedPayload.aud ? [validatedPayload.aud] : undefined,
+          : validatedPayload.aud
+            ? [validatedPayload.aud]
+            : undefined,
         rateLimitKey: `jwt:${validatedPayload.sub}`,
         groups: validatedPayload.groups,
         metadata: validatedPayload.metadata,
@@ -243,28 +258,30 @@ export class Auth {
       const tokenHash = await this.hashToken(token);
 
       // Look up in database
-      const result = await this.env.MODULES_DB
-        .prepare(`
+      const result = await this.env.MODULES_DB.prepare(
+        `
           SELECT * FROM service_tokens
           WHERE token_hash = ?
           AND (expires_at IS NULL OR expires_at > datetime('now'))
-        `)
+        `,
+      )
         .bind(tokenHash)
         .first();
 
       if (!result) {
-        throw new AuthError('Invalid or expired service token', 403);
+        throw new AuthError("Invalid or expired service token", 403);
       }
 
       const serviceToken = ServiceTokenSchema.parse(result);
 
       // Update last used timestamp
-      await this.env.MODULES_DB
-        .prepare(`
+      await this.env.MODULES_DB.prepare(
+        `
           UPDATE service_tokens
           SET last_used = datetime('now')
           WHERE id = ?
-        `)
+        `,
+      )
         .bind(serviceToken.id)
         .run();
 
@@ -278,12 +295,15 @@ export class Auth {
         expiresAt: serviceToken.expires_at
           ? Date.parse(serviceToken.expires_at) / 1000
           : Date.now() / 1000 + 31536000, // 1 year default
-        issuer: 'nixos-modules-api',
+        issuer: "nixos-modules-api",
         rateLimitKey: `service:${serviceToken.id}`,
         metadata: serviceToken.metadata,
       };
     } catch (error) {
-      throw new AuthError(`Service token validation failed: ${error.message}`, 403);
+      throw new AuthError(
+        `Service token validation failed: ${error.message}`,
+        403,
+      );
     }
   }
 
@@ -292,27 +312,29 @@ export class Auth {
    */
   private async validateServiceCredentials(
     clientId: string,
-    clientSecret: string
+    clientSecret: string,
   ): Promise<AuthContext> {
     // This could validate against Cloudflare Access service tokens
     // or custom service credentials in the database
 
     // For Cloudflare Access service tokens
-    if (this.env.CF_ACCESS_SERVICE_TOKEN_ID === clientId &&
-        this.env.CF_ACCESS_SERVICE_TOKEN_SECRET === clientSecret) {
+    if (
+      this.env.CF_ACCESS_SERVICE_TOKEN_ID === clientId &&
+      this.env.CF_ACCESS_SERVICE_TOKEN_SECRET === clientSecret
+    ) {
       return {
         id: clientId,
         type: TokenType.SERVICE,
         permissions: [Permission.WRITE, Permission.READ],
-        scopes: ['modules:write', 'modules:read'],
+        scopes: ["modules:write", "modules:read"],
         issuedAt: Date.now() / 1000,
         expiresAt: Date.now() / 1000 + 3600, // 1 hour
-        issuer: 'cloudflare-access',
+        issuer: "cloudflare-access",
         rateLimitKey: `cf_service:${clientId}`,
       };
     }
 
-    throw new AuthError('Invalid service credentials', 403);
+    throw new AuthError("Invalid service credentials", 403);
   }
 
   /**
@@ -320,36 +342,39 @@ export class Auth {
    */
   private async validateLegacyApiKey(apiKey: string): Promise<AuthContext> {
     // Look up API key in database
-    const result = await this.env.MODULES_DB
-      .prepare(`
+    const result = await this.env.MODULES_DB.prepare(
+      `
         SELECT * FROM api_keys
         WHERE key_hash = ?
         AND (expires_at IS NULL OR expires_at > datetime('now'))
         AND is_active = 1
-      `)
+      `,
+    )
       .bind(await this.hashToken(apiKey))
       .first();
 
     if (!result) {
-      throw new AuthError('Invalid API key', 403);
+      throw new AuthError("Invalid API key", 403);
     }
 
     // Log deprecation warning
-    console.warn(`Legacy API key used: ${result.id}. Please migrate to JWT tokens.`);
+    console.warn(
+      `Legacy API key used: ${result.id}. Please migrate to JWT tokens.`,
+    );
 
     return {
       id: result.id as string,
       name: result.name as string,
       type: TokenType.API_KEY,
       permissions: [Permission.WRITE, Permission.READ],
-      scopes: ['modules:write', 'modules:read'],
+      scopes: ["modules:write", "modules:read"],
       issuedAt: Date.parse(result.created_at as string) / 1000,
       expiresAt: Date.now() / 1000 + 3600, // 1 hour session
-      issuer: 'legacy-api',
+      issuer: "legacy-api",
       rateLimitKey: `api_key:${result.id}`,
       metadata: {
         deprecated: true,
-        migrateBy: '2025-06-01',
+        migrateBy: "2025-06-01",
       },
     };
   }
@@ -359,23 +384,23 @@ export class Auth {
    */
   async generateToken(
     subject: string,
-    claims: Partial<JWTPayloadSchema> = {}
+    claims: Partial<JWTPayloadSchema> = {},
   ): Promise<string> {
     const jwt = new SignJWT({
       ...claims,
       sub: subject,
       type: claims.type || TokenType.USER,
       permissions: claims.permissions || [Permission.READ],
-      scopes: claims.scopes || ['modules:read'],
+      scopes: claims.scopes || ["modules:read"],
     })
-      .setProtectedHeader({ alg: this.env.JWT_PRIVATE_KEY ? 'RS256' : 'HS256' })
+      .setProtectedHeader({ alg: this.env.JWT_PRIVATE_KEY ? "RS256" : "HS256" })
       .setIssuedAt()
-      .setIssuer('nixos-modules-api')
-      .setExpirationTime('24h');
+      .setIssuer("nixos-modules-api")
+      .setExpirationTime("24h");
 
     // Sign with private key or secret
     if (this.env.JWT_PRIVATE_KEY) {
-      const privateKey = await importPKCS8(this.env.JWT_PRIVATE_KEY, 'RS256');
+      const privateKey = await importPKCS8(this.env.JWT_PRIVATE_KEY, "RS256");
       return await jwt.sign(privateKey);
     } else {
       const secret = new TextEncoder().encode(this.env.JWT_SECRET);
@@ -390,7 +415,7 @@ export class Auth {
     name: string,
     permissions: Permission[],
     scopes: string[],
-    expiresIn?: number
+    expiresIn?: number,
   ): Promise<{ id: string; token: string }> {
     const id = crypto.randomUUID();
     const token = `st_${this.generateRandomToken(32)}`;
@@ -400,18 +425,19 @@ export class Auth {
       ? new Date(Date.now() + expiresIn * 1000).toISOString()
       : null;
 
-    await this.env.MODULES_DB
-      .prepare(`
+    await this.env.MODULES_DB.prepare(
+      `
         INSERT INTO service_tokens (id, name, token_hash, permissions, scopes, created_at, expires_at)
         VALUES (?, ?, ?, ?, ?, datetime('now'), ?)
-      `)
+      `,
+    )
       .bind(
         id,
         name,
         tokenHash,
         JSON.stringify(permissions),
         JSON.stringify(scopes),
-        expiresAt
+        expiresAt,
       )
       .run();
 
@@ -428,8 +454,10 @@ export class Auth {
     }
 
     // Admin has all permissions except super admin
-    if (auth.permissions.includes(Permission.ADMIN) &&
-        required !== Permission.SUPER_ADMIN) {
+    if (
+      auth.permissions.includes(Permission.ADMIN) &&
+      required !== Permission.SUPER_ADMIN
+    ) {
       return true;
     }
 
@@ -446,9 +474,9 @@ export class Auth {
     }
 
     // Check wildcard scopes (e.g., 'modules:*' matches 'modules:write')
-    const requiredParts = required.split(':');
-    return auth.scopes.some(scope => {
-      if (scope.endsWith('*')) {
+    const requiredParts = required.split(":");
+    return auth.scopes.some((scope) => {
+      if (scope.endsWith("*")) {
         const scopePrefix = scope.slice(0, -1);
         return required.startsWith(scopePrefix);
       }
@@ -462,11 +490,12 @@ export class Auth {
   async applyRateLimit(
     auth: AuthContext,
     request: Request,
-    limitType: 'api' | 'write' = 'api'
+    limitType: "api" | "write" = "api",
   ): Promise<void> {
-    const limiter = limitType === 'write'
-      ? this.env.WRITE_RATE_LIMITER
-      : this.env.API_RATE_LIMITER;
+    const limiter =
+      limitType === "write"
+        ? this.env.WRITE_RATE_LIMITER
+        : this.env.API_RATE_LIMITER;
 
     const { success, retryAfter } = await limiter.limit(auth.rateLimitKey);
 
@@ -474,7 +503,7 @@ export class Auth {
       throw new AuthError(
         `Rate limit exceeded. Retry after ${retryAfter} seconds`,
         429,
-        { 'Retry-After': retryAfter.toString() }
+        { "Retry-After": retryAfter.toString() },
       );
     }
   }
@@ -487,16 +516,16 @@ export class Auth {
 
     for (const group of groups) {
       switch (group.toLowerCase()) {
-        case 'admins':
-        case 'administrators':
+        case "admins":
+        case "administrators":
           permissions.add(Permission.ADMIN);
           permissions.add(Permission.WRITE);
           break;
-        case 'maintainers':
-        case 'editors':
+        case "maintainers":
+        case "editors":
           permissions.add(Permission.WRITE);
           break;
-        case 'super_admins':
+        case "super_admins":
           permissions.add(Permission.SUPER_ADMIN);
           permissions.add(Permission.ADMIN);
           permissions.add(Permission.WRITE);
@@ -513,19 +542,20 @@ export class Auth {
   private async hashToken(token: string): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(token);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   /**
    * Helper: Generate random token
    */
   private generateRandomToken(length: number): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     const array = new Uint8Array(length);
     crypto.getRandomValues(array);
-    return Array.from(array, byte => chars[byte % chars.length]).join('');
+    return Array.from(array, (byte) => chars[byte % chars.length]).join("");
   }
 }
 
@@ -536,10 +566,10 @@ export class AuthError extends Error {
   constructor(
     message: string,
     public statusCode: number,
-    public headers: Record<string, string> = {}
+    public headers: Record<string, string> = {},
   ) {
     super(message);
-    this.name = 'AuthError';
+    this.name = "AuthError";
   }
 }
 
@@ -553,19 +583,19 @@ export function authMiddleware(requiredPermission?: Permission) {
       const authContext = await auth.authenticate(c.req.raw);
 
       // Check permission if required
-      if (requiredPermission && !auth.hasPermission(authContext, requiredPermission)) {
-        return c.json(
-          { error: 'Insufficient permissions' },
-          403
-        );
+      if (
+        requiredPermission &&
+        !auth.hasPermission(authContext, requiredPermission)
+      ) {
+        return c.json({ error: "Insufficient permissions" }, 403);
       }
 
       // Apply rate limiting
       await auth.applyRateLimit(authContext, c.req.raw);
 
       // Add auth context to request
-      c.set('auth', authContext);
-      c.set('authService', auth);
+      c.set("auth", authContext);
+      c.set("authService", auth);
 
       await next();
     } catch (error) {
@@ -573,13 +603,10 @@ export function authMiddleware(requiredPermission?: Permission) {
         return c.json(
           { error: error.message },
           error.statusCode,
-          error.headers
+          error.headers,
         );
       }
-      return c.json(
-        { error: 'Authentication failed' },
-        401
-      );
+      return c.json({ error: "Authentication failed" }, 401);
     }
   };
 }

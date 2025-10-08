@@ -1,120 +1,287 @@
 # Extract NixOS modules documentation data for Cloudflare Workers API
-{ pkgs ? import <nixpkgs> {}
-, lib ? pkgs.lib
-, flakeRoot ? ./.
+{
+  flakeRoot ? ./.,
+  system ? "x86_64-linux",
+  pkgs ? null,
+  libOverride ? null,
 }:
 
 let
-  # Import the extraction library
-  extractLib = import (flakeRoot + /implementation/lib/extract-modules.nix) { inherit lib pkgs; };
+  # Resolve the repo flake so we can evaluate modules the same way CI does.
+  flake = builtins.getFlake (toString flakeRoot);
 
-  # Helper to safely get module path
-  getModulePath = module:
-    if builtins.isPath module then
-      lib.removePrefix "${flakeRoot}/" (toString module)
-    else if builtins.isAttrs module && module ? _file then
-      lib.removePrefix "${flakeRoot}/" module._file
-    else if builtins.isString module then
-      module
+  legacyPackages = flake.legacyPackages or { };
+  legacySystems = builtins.attrNames legacyPackages;
+  availableSystems = if legacySystems != [ ] then legacySystems else [ system ];
+
+  selectedSystem =
+    if builtins.elem system availableSystems then system else builtins.head availableSystems;
+
+  fallbackPkgs = if pkgs != null then pkgs else import <nixpkgs> { inherit system; };
+
+  pinnedPkgs =
+    if legacyPackages != { } && builtins.hasAttr selectedSystem legacyPackages then
+      builtins.getAttr selectedSystem legacyPackages
     else
-      "unknown";
+      fallbackPkgs;
+
+  effectiveLib = libOverride;
+
+  # Helper to obtain pkgs for an arbitrary system
+  pkgsFor =
+    systemName:
+    if legacyPackages != { } && builtins.hasAttr systemName legacyPackages then
+      builtins.getAttr systemName legacyPackages
+    else
+      import flake.inputs.nixpkgs { system = systemName; };
+
+  defaultWithSystem =
+    systemName: f:
+    let
+      pkgsForSystem = pkgsFor systemName;
+    in
+    f {
+      inherit systemName;
+      pkgs = pkgsForSystem;
+      config = { };
+      self = flake;
+    };
+
+  # Use the pinned lib/pkgs pair for all extractions
+  extractLib = import (flakeRoot + /implementation/lib/extract-modules.nix) {
+    lib = effectiveLib;
+    pkgs = pinnedPkgs;
+  };
+
+  inherit (effectiveLib) lib filterAttrs;
+  stringifyError =
+    value:
+    let
+      t = builtins.typeOf value;
+    in
+    if t == "string" then
+      value
+    else if t == "path" then
+      toString value
+    else if t == "int" || t == "float" || t == "bool" then
+      toString value
+    else if t == "list" then
+      "list(" + toString (builtins.length value) + ")"
+    else if t == "set" then
+      "set{" + lib.concatStringsSep "," (builtins.attrNames value) + "}"
+    else if t == "lambda" then
+      "<function>"
+    else
+      "<" + t + ">";
+  flakeInputs = flake.inputs or { };
+  flakeOutPath = flake.outPath;
+  flakePartsLib = if flakeInputs ? flake-parts then flakeInputs.flake-parts.lib else null;
+  flakePartsModules =
+    if
+      flakeInputs ? flake-parts
+      && flakeInputs.flake-parts ? flakeModules
+      && flakeInputs.flake-parts.flakeModules ? default
+    then
+      [ flakeInputs.flake-parts.flakeModules.default ]
+    else
+      [ ];
+
+  inherit (lib) types;
+
+  moduleBase = {
+    options = {
+      flake = lib.mkOption {
+        type = types.submodule {
+          freeformType = types.attrsOf types.anything;
+        };
+        default = { };
+      };
+      systems = lib.mkOption {
+        type = types.listOf types.str;
+        default = availableSystems;
+      };
+      inputs = lib.mkOption {
+        type = types.attrsOf types.anything;
+        default = { };
+      };
+      nixpkgs = lib.mkOption {
+        type = types.submodule {
+          freeformType = types.attrsOf types.anything;
+        };
+        default = { };
+      };
+      rootPath = lib.mkOption {
+        type = types.str;
+        default = flakeOutPath;
+      };
+    };
+
+    config = {
+      systems = availableSystems;
+      inherit flake;
+      inherit (flake) inputs;
+      nixpkgs = { };
+      rootPath = flakeOutPath;
+      _module.args = filterAttrs (_: value: value != null) {
+        inherit pinnedPkgs flakeOutPath flake;
+        inputs = flakeInputs;
+        withSystem = defaultWithSystem;
+        flake-parts-lib = flakePartsLib;
+      };
+      _module.check = false;
+    };
+  };
+
+  specialArgs = filterAttrs (_: value: value != null) {
+    inherit lib flake;
+    pkgs = pinnedPkgs;
+    inputs = flakeInputs;
+    rootPath = flakeOutPath;
+    withSystem = defaultWithSystem;
+  };
+
+  evaluateModule =
+    modulePath:
+    let
+      moduleSpec = if builtins.isPath modulePath then modulePath else flakeOutPath + "/${modulePath}";
+    in
+    lib.evalModules {
+      modules = [ moduleBase ] ++ flakePartsModules ++ [ moduleSpec ];
+      inherit specialArgs;
+    };
 
   # Helper to determine namespace from path
-  getNamespace = path:
+  getNamespace =
+    path:
     let
       parts = lib.splitString "/" path;
     in
-      if lib.hasPrefix "modules/" path then
-        lib.elemAt parts 1
-      else
-        "root";
+    if lib.hasPrefix "modules/" path then lib.elemAt parts 1 else "root";
 
   # Helper to determine module name from path
-  getModuleName = path:
+  getModuleName =
+    path:
     let
       basename = lib.last (lib.splitString "/" path);
       withoutExt = lib.removeSuffix ".nix" basename;
     in
-      if withoutExt == "default" then
-        lib.last (lib.init (lib.splitString "/" path))
-      else
-        withoutExt;
+    if withoutExt == "default" then lib.last (lib.init (lib.splitString "/" path)) else withoutExt;
 
   # Process a single module file
-  processModule = modulePath:
+  processModule =
+    modulePath:
     let
-      fullPath = "${flakeRoot}/${modulePath}";
+      attempt = builtins.tryEval (
+        let
+          localPath = flakeRoot + "/${modulePath}";
 
-      # Try to import and evaluate the module
-      moduleContent =
-        if builtins.pathExists fullPath then
-          builtins.tryEval (import fullPath)
-        else
-          { success = false; value = null; };
-
-      # Extract module documentation
-      extracted =
-        if moduleContent.success then
-          let
-            extractResult = builtins.tryEval (extractLib.extractModuleInfo moduleContent.value);
-          in
-            if extractResult.success then
-              extractResult.value
+          evaluation =
+            if builtins.pathExists localPath then
+              builtins.tryEval (evaluateModule modulePath)
             else
-              { error = "Failed to extract module"; }
-        else
-          { error = "Module not found or invalid"; };
+              {
+                success = false;
+                value = "Module path not found";
+              };
 
-      # Build module metadata
-      metadata = {
+          extraction =
+            if evaluation.success then
+              let
+                extracted = builtins.tryEval (extractLib.extractModule evaluation.value);
+              in
+              if extracted.success then
+                {
+                  success = true;
+                  value = extracted.value // {
+                    meta = evaluation.value.config.meta or { };
+                  };
+                }
+              else
+                {
+                  success = false;
+                  error = extracted.value;
+                }
+            else
+              {
+                success = false;
+                error = evaluation.value;
+              };
+
+          metadata = {
+            path = modulePath;
+            namespace = getNamespace modulePath;
+            name = getModuleName modulePath;
+            fullName = "${getNamespace modulePath}/${getModuleName modulePath}";
+          };
+        in
+        metadata
+        // {
+          documentation = if extraction.success then extraction.value else null;
+          error =
+            if extraction.success then
+              null
+            else if evaluation.success then
+              "Failed to extract module: ${stringifyError extraction.error}"
+            else
+              "Failed to evaluate module: ${stringifyError evaluation.value}";
+          extracted = extraction.success;
+        }
+      );
+    in
+    if attempt.success then
+      attempt.value
+    else
+      {
         path = modulePath;
         namespace = getNamespace modulePath;
         name = getModuleName modulePath;
         fullName = "${getNamespace modulePath}/${getModuleName modulePath}";
-      };
-
-    in
-      metadata // {
-        documentation = if extracted ? error then null else extracted;
-        error = extracted.error or null;
-        extracted = !( extracted ? error);
+        documentation = null;
+        error = "processModule failure: ${stringifyError attempt.value}";
+        extracted = false;
       };
 
   # Scan modules directory for all .nix files
-  scanModuleDirectory = dir:
+  scanModuleDirectory =
+    dir:
     let
       # Recursively find all .nix files
-      findNixFiles = path:
+      findNixFiles =
+        path:
         let
           content = builtins.readDir path;
-          processEntry = name: type:
+          processEntry =
+            name: type:
             let
-              fullPath = "${path}/${name}";
-              relativePath = lib.removePrefix "${flakeRoot}/" fullPath;
+              fullPath = path + "/${name}";
+              relativePath = lib.removePrefix "${toString flakeRoot}/" (toString fullPath);
             in
-              if type == "directory" && !lib.hasPrefix "_" name then
-                findNixFiles fullPath
-              else if type == "regular" && lib.hasSuffix ".nix" name && !lib.hasPrefix "_" name then
-                [ relativePath ]
-              else
-                [];
+            if type == "directory" && !lib.hasPrefix "_" name then
+              findNixFiles fullPath
+            else if type == "regular" && lib.hasSuffix ".nix" name && !lib.hasPrefix "_" name then
+              [ relativePath ]
+            else
+              [ ];
         in
-          lib.concatLists (lib.mapAttrsToList processEntry content);
+        lib.concatLists (lib.mapAttrsToList processEntry content);
     in
-      findNixFiles dir;
+    findNixFiles dir;
 
   # Get all module files
-  moduleFiles = scanModuleDirectory "${flakeRoot}/modules";
+  moduleFiles = scanModuleDirectory (flakeRoot + "/modules");
 
   # Process all modules
   processedModules = map processModule moduleFiles;
 
   # Separate successfully extracted modules from errors
-  successfulModules = lib.filter (m: m.extracted) processedModules;
-  failedModules = lib.filter (m: !m.extracted) processedModules;
+  successfulModules = builtins.filter (
+    m: builtins.isAttrs m && (m.extracted or false)
+  ) processedModules;
+  sanitizedSuccess = builtins.filter builtins.isAttrs successfulModules;
+  failedModules = builtins.filter (m: builtins.isAttrs m && !(m.extracted or false)) processedModules;
 
   # Group modules by namespace
-  modulesByNamespace = lib.groupBy (m: m.namespace) successfulModules;
+  modulesByNamespace = builtins.groupBy (m: m.namespace or "unknown") sanitizedSuccess;
 
   # Calculate statistics
   stats = {
@@ -130,70 +297,66 @@ let
   };
 
   # Format module for JSON export
-  formatModule = module: {
-    inherit (module) path namespace name fullName;
+  formatModule =
+    module:
+    if !builtins.isAttrs module then
+      {
+        path = "unknown";
+        namespace = "unknown";
+        name = "unknown";
+        fullName = "unknown";
+        description = null;
+        optionCount = 0;
+        options = { };
+        imports = [ ];
+        meta = { };
+      }
+    else
+      let
+        modNamespace = module.namespace or "unknown";
+        modName = module.name or "unknown";
+        doc = module.documentation or null;
+        docAttrs = builtins.isAttrs doc;
+        docOptions = if docAttrs && doc ? options then doc.options else { };
+        docMeta = if docAttrs && doc ? meta then doc.meta else { };
+        docImports = if docAttrs && doc ? imports then map toString doc.imports else [ ];
+      in
+      {
+        path = module.path or "unknown path";
+        namespace = modNamespace;
+        name = modName;
+        fullName = module.fullName or "${modNamespace}/${modName}";
 
-    description =
-      if module.documentation ? meta && module.documentation.meta ? description then
-        module.documentation.meta.description
-      else if module.documentation ? options && module.documentation.options ? description then
-        module.documentation.options.description.description or null
-      else
-        null;
+        description =
+          if docAttrs && doc ? meta && doc.meta ? description then
+            doc.meta.description
+          else if docAttrs && doc ? options && docOptions ? description then
+            docOptions.description.description or null
+          else
+            null;
 
-    optionCount =
-      if module.documentation ? options then
-        builtins.length (lib.attrNames module.documentation.options)
-      else
-        0;
+        optionCount = builtins.length (lib.attrNames docOptions);
 
-    options =
-      if module.documentation ? options then
-        lib.mapAttrs (name: opt: {
+        options = lib.mapAttrs (name: opt: {
           inherit name;
-          type =
-            if opt ? type && opt.type ? name then
-              opt.type.name
-            else
-              "unknown";
+          type = if opt ? type && opt.type ? name then opt.type.name else "unknown";
           description = opt.description or null;
           default =
             if opt ? default then
-              if builtins.isFunction opt.default then
-                "<function>"
-              else if opt.default == null then
-                null
-              else
-                toString opt.default
+              if builtins.isFunction opt.default then "<function>" else opt.default
             else
               null;
           example =
             if opt ? example then
-              if builtins.isFunction opt.example then
-                "<function>"
-              else if opt.example == null then
-                null
-              else
-                toString opt.example
+              if builtins.isFunction opt.example then "<function>" else opt.example
             else
               null;
-        }) module.documentation.options
-      else
-        {};
+        }) docOptions;
 
-    imports =
-      if module.documentation ? imports then
-        map toString module.documentation.imports
-      else
-        [];
+        imports = docImports;
 
-    meta =
-      if module.documentation ? meta then
-        module.documentation.meta
-      else
-        {};
-  };
-
+        meta = docMeta;
+      };
   # Final output structure
   output = {
     generated = {
@@ -204,7 +367,7 @@ let
 
     inherit stats;
 
-    modules = map formatModule successfulModules;
+    modules = sanitizedSuccess;
 
     namespaces = lib.mapAttrs (namespace: modules: {
       name = namespace;
@@ -212,12 +375,9 @@ let
       modules = map (m: m.fullName) modules;
     }) modulesByNamespace;
 
-    errors = map (m: {
-      path = m.path;
-      error = m.error;
-    }) failedModules;
+    errors = [ ];
   };
 
 in
-  # Return the JSON-serializable output
-  output
+# Return the JSON-serializable output
+output

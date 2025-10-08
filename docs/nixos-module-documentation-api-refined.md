@@ -5,6 +5,7 @@
 This document presents a production-ready implementation plan for a NixOS module documentation system leveraging Cloudflare's edge infrastructure. The system provides semantic search, real-time analytics, comprehensive security, and scalable architecture designed to handle 100M+ requests per month from day one.
 
 ### Key Improvements Over v1.0
+
 - **Semantic Search**: Vectorize + Workers AI replacing FTS5 for superior documentation discovery
 - **Security-First**: Zero Trust integration, JWT validation, and multi-layer rate limiting
 - **Real Observability**: Workers Logs, Analytics Engine, and distributed tracing
@@ -94,28 +95,30 @@ graph TB
 
 ### Component Responsibilities
 
-| Component | Purpose | Technology |
-|-----------|---------|------------|
-| API Gateway | Request routing, auth, rate limiting | Cloudflare Worker |
-| Module Store | Primary data storage | D1 Database |
-| Search Engine | Semantic search via embeddings | Vectorize + Workers AI |
-| Cache Layer | Frequent query caching | Workers KV |
-| Document Store | Large content storage | R2 |
-| Real-time State | WebSocket connections, live data | Durable Objects |
-| Analytics | Metrics and usage tracking | Analytics Engine |
-| Logs | Structured logging | Workers Logs |
+| Component       | Purpose                              | Technology             |
+| --------------- | ------------------------------------ | ---------------------- |
+| API Gateway     | Request routing, auth, rate limiting | Cloudflare Worker      |
+| Module Store    | Primary data storage                 | D1 Database            |
+| Search Engine   | Semantic search via embeddings       | Vectorize + Workers AI |
+| Cache Layer     | Frequent query caching               | Workers KV             |
+| Document Store  | Large content storage                | R2                     |
+| Real-time State | WebSocket connections, live data     | Durable Objects        |
+| Analytics       | Metrics and usage tracking           | Analytics Engine       |
+| Logs            | Structured logging                   | Workers Logs           |
 
 ---
 
 ## Technology Stack
 
 ### Core Infrastructure
+
 - **Runtime**: Cloudflare Workers (V8 Isolates)
 - **Language**: TypeScript 5.x with strict mode
 - **Framework**: Hono 4.x for routing
 - **Validation**: Zod for runtime type safety
 
 ### Data Storage
+
 - **Primary DB**: D1 (SQLite) for structured data
 - **Vector DB**: Vectorize for semantic search
 - **Cache**: Workers KV for hot data
@@ -123,11 +126,13 @@ graph TB
 - **State Management**: Durable Objects for real-time features
 
 ### AI/ML
+
 - **Embeddings**: Workers AI - `@cf/baai/bge-base-en-v1.5`
 - **Text Generation**: Workers AI - `@cf/meta/llama-3.1-8b-instruct`
 - **Query Rewriting**: Workers AI for search optimization
 
 ### Observability
+
 - **Metrics**: Workers Analytics Engine
 - **Logs**: Workers Logs with Logpush
 - **Tracing**: OpenTelemetry via Workers
@@ -140,11 +145,12 @@ graph TB
 ### Authentication & Authorization
 
 #### Multi-Layer Authentication
+
 ```typescript
 // src/auth/authenticator.ts
-import { Hono } from 'hono';
-import { jwt } from 'hono/jwt';
-import { z } from 'zod';
+import { Hono } from "hono";
+import { jwt } from "hono/jwt";
+import { z } from "zod";
 
 interface Env {
   JWT_SECRET: string;
@@ -159,12 +165,12 @@ export class Authenticator {
 
   // Layer 1: Cloudflare Access (Zero Trust)
   async validateCfAccess(request: Request): Promise<boolean> {
-    const token = request.headers.get('cf-access-jwt-assertion');
+    const token = request.headers.get("cf-access-jwt-assertion");
     if (!token) return false;
 
     try {
       const JWKS = createRemoteJWKSet(
-        new URL(`${this.env.CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`)
+        new URL(`${this.env.CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`),
       );
 
       const { payload } = await jwtVerify(token, JWKS, {
@@ -180,10 +186,10 @@ export class Authenticator {
 
   // Layer 2: API Key validation
   async validateApiKey(request: Request): Promise<boolean> {
-    const apiKey = request.headers.get('x-api-key');
+    const apiKey = request.headers.get("x-api-key");
     if (!apiKey) return false;
 
-    const keyData = await this.env.API_KEYS.get(apiKey, 'json');
+    const keyData = await this.env.API_KEYS.get(apiKey, "json");
     if (!keyData) return false;
 
     // Check expiry and permissions
@@ -192,8 +198,8 @@ export class Authenticator {
 
   // Layer 3: JWT for user sessions
   async validateJWT(request: Request): Promise<any> {
-    const auth = request.headers.get('authorization');
-    if (!auth?.startsWith('Bearer ')) return null;
+    const auth = request.headers.get("authorization");
+    if (!auth?.startsWith("Bearer ")) return null;
 
     const token = auth.slice(7);
     try {
@@ -213,14 +219,14 @@ export class RateLimiter {
   constructor(private env: Env) {}
 
   async checkLimits(request: Request): Promise<RateLimitResult> {
-    const ip = request.headers.get('cf-connecting-ip') || '';
-    const apiKey = request.headers.get('x-api-key') || '';
+    const ip = request.headers.get("cf-connecting-ip") || "";
+    const apiKey = request.headers.get("x-api-key") || "";
     const userId = await this.getUserId(request);
 
     // Hierarchical rate limiting
     const checks = await Promise.all([
       // Global rate limit
-      this.env.GLOBAL_LIMITER.limit({ key: 'global' }),
+      this.env.GLOBAL_LIMITER.limit({ key: "global" }),
 
       // Per-IP rate limit (loose)
       this.env.IP_LIMITER.limit({ key: ip }),
@@ -233,13 +239,13 @@ export class RateLimiter {
 
       // Per-endpoint rate limit
       this.env.ENDPOINT_LIMITER.limit({
-        key: `${request.method}:${new URL(request.url).pathname}`
+        key: `${request.method}:${new URL(request.url).pathname}`,
       }),
     ]);
 
     return {
-      allowed: checks.every(c => !c || c.success),
-      retryAfter: Math.max(...checks.map(c => c?.retryAfter || 0)),
+      allowed: checks.every((c) => !c || c.success),
+      retryAfter: Math.max(...checks.map((c) => c?.retryAfter || 0)),
       limits: checks,
     };
   }
@@ -255,43 +261,44 @@ export const securityHeaders = (): MiddlewareHandler => {
     await next();
 
     // Security headers
-    c.header('X-Content-Type-Options', 'nosniff');
-    c.header('X-Frame-Options', 'DENY');
-    c.header('X-XSS-Protection', '1; mode=block');
-    c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
-    c.header('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+    c.header("X-Content-Type-Options", "nosniff");
+    c.header("X-Frame-Options", "DENY");
+    c.header("X-XSS-Protection", "1; mode=block");
+    c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+    c.header("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
 
     // CSP
-    c.header('Content-Security-Policy', [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https:",
-      "font-src 'self' data:",
-      "connect-src 'self'",
-      "frame-ancestors 'none'",
-    ].join('; '));
+    c.header(
+      "Content-Security-Policy",
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: https:",
+        "font-src 'self' data:",
+        "connect-src 'self'",
+        "frame-ancestors 'none'",
+      ].join("; "),
+    );
   };
 };
 
 export const corsConfig = {
   origin: (origin: string) => {
     const allowed = [
-      'https://nixos.org',
+      "https://nixos.org",
       /^https:\/\/.*\.nixos\.org$/,
       /^https:\/\/localhost:\d+$/,
     ];
 
-    return allowed.some(pattern =>
-      typeof pattern === 'string'
-        ? pattern === origin
-        : pattern.test(origin)
+    return allowed.some((pattern) =>
+      typeof pattern === "string" ? pattern === origin : pattern.test(origin),
     );
   },
   credentials: true,
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
-  exposeHeaders: ['X-Request-Id', 'X-RateLimit-Remaining'],
+  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization", "X-API-Key"],
+  exposeHeaders: ["X-Request-Id", "X-RateLimit-Remaining"],
   maxAge: 86400,
 };
 ```
@@ -449,9 +456,9 @@ export class AdaptiveBatchProcessor {
     for (const param of params) {
       if (param === null || param === undefined) {
         size += 4; // NULL
-      } else if (typeof param === 'string') {
+      } else if (typeof param === "string") {
         size += new TextEncoder().encode(param).length;
-      } else if (typeof param === 'number') {
+      } else if (typeof param === "number") {
         size += 8; // Worst case for number
       } else if (param instanceof ArrayBuffer) {
         size += param.byteLength;
@@ -467,7 +474,7 @@ export class AdaptiveBatchProcessor {
   static async processBatch<T>(
     db: D1Database,
     items: T[],
-    prepareStatement: (item: T) => { sql: string; params: any[] }
+    prepareStatement: (item: T) => { sql: string; params: any[] },
   ): Promise<{
     success: T[];
     failed: T[];
@@ -486,16 +493,16 @@ export class AdaptiveBatchProcessor {
 
       while (retries < this.MAX_RETRIES && !batchSuccess) {
         try {
-          const statements = batch.map(item => {
+          const statements = batch.map((item) => {
             const { sql, params } = prepareStatement(item);
             return db.prepare(sql).bind(...params);
           });
 
           // Execute batch transaction
           await db.batch([
-            db.prepare('BEGIN IMMEDIATE'),
+            db.prepare("BEGIN IMMEDIATE"),
             ...statements,
-            db.prepare('COMMIT')
+            db.prepare("COMMIT"),
           ]);
 
           success.push(...batch);
@@ -508,7 +515,10 @@ export class AdaptiveBatchProcessor {
             for (const item of batch) {
               try {
                 const { sql, params } = prepareStatement(item);
-                await db.prepare(sql).bind(...params).run();
+                await db
+                  .prepare(sql)
+                  .bind(...params)
+                  .run();
                 success.push(item);
               } catch (itemError) {
                 failed.push(item);
@@ -517,8 +527,8 @@ export class AdaptiveBatchProcessor {
             }
           } else {
             // Exponential backoff
-            await new Promise(resolve =>
-              setTimeout(resolve, Math.pow(2, retries) * 1000)
+            await new Promise((resolve) =>
+              setTimeout(resolve, Math.pow(2, retries) * 1000),
             );
           }
         }
@@ -530,7 +540,7 @@ export class AdaptiveBatchProcessor {
 
   private static createAdaptiveBatches<T>(
     items: T[],
-    prepareStatement: (item: T) => { sql: string; params: any[] }
+    prepareStatement: (item: T) => { sql: string; params: any[] },
   ): T[][] {
     const batches: T[][] = [];
     let currentBatch: T[] = [];
@@ -546,8 +556,9 @@ export class AdaptiveBatchProcessor {
       if (
         currentBatch.length > 0 &&
         (currentSize + statementSize > this.MAX_STATEMENT_SIZE * 0.8 || // 80% safety margin
-         currentParams + paramCount > this.MAX_BOUND_PARAMETERS * 0.9 || // 90% safety margin
-         currentBatch.length >= Math.min(50, this.MAX_QUERIES_PER_REQUEST / 20)) // Dynamic batch size
+          currentParams + paramCount > this.MAX_BOUND_PARAMETERS * 0.9 || // 90% safety margin
+          currentBatch.length >=
+            Math.min(50, this.MAX_QUERIES_PER_REQUEST / 20)) // Dynamic batch size
       ) {
         // Start new batch
         batches.push(currentBatch);
@@ -592,34 +603,40 @@ export class DatabaseMigrator {
 
           for (const chunk of chunks) {
             await db.batch([
-              db.prepare('BEGIN IMMEDIATE'),
+              db.prepare("BEGIN IMMEDIATE"),
               ...chunk,
-              db.prepare('COMMIT'),
+              db.prepare("COMMIT"),
             ]);
           }
 
           // Record migration
-          await db.prepare('INSERT INTO migrations (version, applied_at) VALUES (?, ?)').bind(
-            migration.version,
-            new Date().toISOString()
-          ).run();
+          await db
+            .prepare(
+              "INSERT INTO migrations (version, applied_at) VALUES (?, ?)",
+            )
+            .bind(migration.version, new Date().toISOString())
+            .run();
         } else {
           // Small migration, single batch
           await db.batch([
-            db.prepare('BEGIN IMMEDIATE'),
+            db.prepare("BEGIN IMMEDIATE"),
             ...statements,
-            db.prepare('INSERT INTO migrations (version, applied_at) VALUES (?, ?)').bind(
-              migration.version,
-              new Date().toISOString()
-            ),
-            db.prepare('COMMIT'),
+            db
+              .prepare(
+                "INSERT INTO migrations (version, applied_at) VALUES (?, ?)",
+              )
+              .bind(migration.version, new Date().toISOString()),
+            db.prepare("COMMIT"),
           ]);
         }
       }
     }
   }
 
-  private chunkStatements(statements: D1PreparedStatement[], size: number): D1PreparedStatement[][] {
+  private chunkStatements(
+    statements: D1PreparedStatement[],
+    size: number,
+  ): D1PreparedStatement[][] {
     const chunks: D1PreparedStatement[][] = [];
     for (let i = 0; i < statements.length; i += size) {
       chunks.push(statements.slice(i, i + size));
@@ -639,26 +656,55 @@ export class DatabaseMigrator {
 // src/api/routes.ts
 export function setupRoutes(app: Hono<{ Bindings: Env }>) {
   // Public endpoints (cached aggressively)
-  app.get('/api/v1/modules', cache({ maxAge: 300 }), listModules);
-  app.get('/api/v1/modules/:namespace/:name', cache({ maxAge: 600 }), getModule);
-  app.get('/api/v1/modules/:id/versions', cache({ maxAge: 3600 }), getVersions);
-  app.get('/api/v1/search', cache({ maxAge: 60 }), searchModules);
-  app.get('/api/v1/stats', cache({ maxAge: 300 }), getStats);
+  app.get("/api/v1/modules", cache({ maxAge: 300 }), listModules);
+  app.get(
+    "/api/v1/modules/:namespace/:name",
+    cache({ maxAge: 600 }),
+    getModule,
+  );
+  app.get("/api/v1/modules/:id/versions", cache({ maxAge: 3600 }), getVersions);
+  app.get("/api/v1/search", cache({ maxAge: 60 }), searchModules);
+  app.get("/api/v1/stats", cache({ maxAge: 300 }), getStats);
 
   // Protected endpoints (require auth)
-  app.post('/api/v1/modules', authenticate, authorize('write'), createModule);
-  app.put('/api/v1/modules/:id', authenticate, authorize('write'), updateModule);
-  app.delete('/api/v1/modules/:id', authenticate, authorize('admin'), deleteModule);
-  app.post('/api/v1/modules/batch', authenticate, authorize('write'), batchUpdate);
+  app.post("/api/v1/modules", authenticate, authorize("write"), createModule);
+  app.put(
+    "/api/v1/modules/:id",
+    authenticate,
+    authorize("write"),
+    updateModule,
+  );
+  app.delete(
+    "/api/v1/modules/:id",
+    authenticate,
+    authorize("admin"),
+    deleteModule,
+  );
+  app.post(
+    "/api/v1/modules/batch",
+    authenticate,
+    authorize("write"),
+    batchUpdate,
+  );
 
   // Host usage endpoints
-  app.post('/api/v1/hosts/:hostname/usage', authenticate, reportUsage);
-  app.get('/api/v1/hosts/:hostname/modules', authenticate, getHostModules);
+  app.post("/api/v1/hosts/:hostname/usage", authenticate, reportUsage);
+  app.get("/api/v1/hosts/:hostname/modules", authenticate, getHostModules);
 
   // Admin endpoints
-  app.post('/api/v1/admin/reindex', authenticate, authorize('admin'), reindexSearch);
-  app.post('/api/v1/admin/cache/purge', authenticate, authorize('admin'), purgeCache);
-  app.get('/api/v1/admin/audit', authenticate, authorize('admin'), getAuditLog);
+  app.post(
+    "/api/v1/admin/reindex",
+    authenticate,
+    authorize("admin"),
+    reindexSearch,
+  );
+  app.post(
+    "/api/v1/admin/cache/purge",
+    authenticate,
+    authorize("admin"),
+    purgeCache,
+  );
+  app.get("/api/v1/admin/audit", authenticate, authorize("admin"), getAuditLog);
 }
 ```
 
@@ -666,11 +712,11 @@ export function setupRoutes(app: Hono<{ Bindings: Env }>) {
 
 ```typescript
 // src/graphql/schema.ts
-import { GraphQLSchema, GraphQLObjectType } from 'graphql';
+import { GraphQLSchema, GraphQLObjectType } from "graphql";
 
 export const schema = new GraphQLSchema({
   query: new GraphQLObjectType({
-    name: 'Query',
+    name: "Query",
     fields: {
       module: {
         type: ModuleType,
@@ -683,7 +729,10 @@ export const schema = new GraphQLSchema({
           if (args.id) {
             return context.dataSources.modules.getById(args.id);
           }
-          return context.dataSources.modules.getByName(args.namespace, args.name);
+          return context.dataSources.modules.getByName(
+            args.namespace,
+            args.name,
+          );
         },
       },
 
@@ -713,7 +762,7 @@ export const schema = new GraphQLSchema({
   }),
 
   mutation: new GraphQLObjectType({
-    name: 'Mutation',
+    name: "Mutation",
     fields: {
       updateModule: {
         type: ModuleType,
@@ -723,8 +772,8 @@ export const schema = new GraphQLSchema({
         },
         resolve: async (_, args, context) => {
           // Check auth
-          if (!context.user?.permissions.includes('write')) {
-            throw new GraphQLError('Unauthorized');
+          if (!context.user?.permissions.includes("write")) {
+            throw new GraphQLError("Unauthorized");
           }
 
           return context.dataSources.modules.update(args.id, args.input);
@@ -748,8 +797,8 @@ export class RealtimeHandler extends DurableObject {
   }
 
   async fetch(request: Request): Promise<Response> {
-    if (request.headers.get('Upgrade') !== 'websocket') {
-      return new Response('Expected WebSocket', { status: 400 });
+    if (request.headers.get("Upgrade") !== "websocket") {
+      return new Response("Expected WebSocket", { status: 400 });
     }
 
     const pair = new WebSocketPair();
@@ -769,15 +818,15 @@ export class RealtimeHandler extends DurableObject {
       const data = JSON.parse(message as string);
 
       switch (data.type) {
-        case 'subscribe':
+        case "subscribe":
           await this.handleSubscribe(ws, data);
           break;
-        case 'unsubscribe':
+        case "unsubscribe":
           await this.handleUnsubscribe(ws, data);
           break;
       }
     } catch (error) {
-      ws.send(JSON.stringify({ error: 'Invalid message' }));
+      ws.send(JSON.stringify({ error: "Invalid message" }));
     }
   }
 
@@ -1138,10 +1187,9 @@ export class SemanticSearch {
     // Generate embeddings for each chunk
     const embeddings = await Promise.all(
       chunks.map(async (chunk, index) => {
-        const embedding = await this.ai.run(
-          '@cf/baai/bge-base-en-v1.5',
-          { text: chunk.text }
-        );
+        const embedding = await this.ai.run("@cf/baai/bge-base-en-v1.5", {
+          text: chunk.text,
+        });
 
         return {
           id: `${module.id}-${index}`,
@@ -1154,7 +1202,7 @@ export class SemanticSearch {
             text: chunk.text,
           },
         };
-      })
+      }),
     );
 
     // Store in Vectorize
@@ -1163,30 +1211,34 @@ export class SemanticSearch {
     // Store metadata in D1
     await this.db.batch(
       chunks.map((chunk, index) =>
-        this.db.prepare(
-          `INSERT INTO search_index (module_id, vector_id, chunk_index, content, embedding_model)
-           VALUES (?, ?, ?, ?, ?)`
-        ).bind(
-          module.id,
-          `${module.id}-${index}`,
-          index,
-          chunk.text,
-          '@cf/baai/bge-base-en-v1.5'
-        )
-      )
+        this.db
+          .prepare(
+            `INSERT INTO search_index (module_id, vector_id, chunk_index, content, embedding_model)
+           VALUES (?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            module.id,
+            `${module.id}-${index}`,
+            index,
+            chunk.text,
+            "@cf/baai/bge-base-en-v1.5",
+          ),
+      ),
     );
   }
 
   // Search with query rewriting
-  async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
+  async search(
+    query: string,
+    options: SearchOptions = {},
+  ): Promise<SearchResult[]> {
     // Rewrite query for better results
     const rewrittenQuery = await this.rewriteQuery(query);
 
     // Generate query embedding
-    const queryEmbedding = await this.ai.run(
-      '@cf/baai/bge-base-en-v1.5',
-      { text: rewrittenQuery }
-    );
+    const queryEmbedding = await this.ai.run("@cf/baai/bge-base-en-v1.5", {
+      text: rewrittenQuery,
+    });
 
     // Search in Vectorize
     const results = await this.vectorize.query(queryEmbedding.data[0], {
@@ -1196,20 +1248,23 @@ export class SemanticSearch {
 
     // Enhance results with full module data
     const enhanced = await Promise.all(
-      results.matches.map(async match => {
-        const metadata = await this.db.prepare(
-          `SELECT m.*, si.content
+      results.matches.map(async (match) => {
+        const metadata = await this.db
+          .prepare(
+            `SELECT m.*, si.content
            FROM modules m
            JOIN search_index si ON si.module_id = m.id
-           WHERE si.vector_id = ?`
-        ).bind(match.id).first();
+           WHERE si.vector_id = ?`,
+          )
+          .bind(match.id)
+          .first();
 
         return {
           module: metadata,
           score: match.score,
           snippet: this.generateSnippet(metadata.content, query),
         };
-      })
+      }),
     );
 
     return enhanced;
@@ -1221,13 +1276,10 @@ export class SemanticSearch {
                    Original query: ${query}
                    Rewritten query:`;
 
-    const response = await this.ai.run(
-      '@cf/meta/llama-3.1-8b-instruct',
-      {
-        prompt,
-        max_tokens: 100,
-      }
-    );
+    const response = await this.ai.run("@cf/meta/llama-3.1-8b-instruct", {
+      prompt,
+      max_tokens: 100,
+    });
 
     return response.response || query;
   }
@@ -1240,12 +1292,12 @@ export class SemanticSearch {
     // Combine all text content
     const fullText = [
       `Module: ${module.namespace}/${module.name}`,
-      module.description || '',
-      ...module.options.map(opt =>
-        `Option: ${opt.name} - ${opt.description || ''}`
+      module.description || "",
+      ...module.options.map(
+        (opt) => `Option: ${opt.name} - ${opt.description || ""}`,
       ),
-      ...module.examples || [],
-    ].join('\n\n');
+      ...(module.examples || []),
+    ].join("\n\n");
 
     // Create overlapping chunks
     for (let i = 0; i < fullText.length; i += maxChunkSize - overlap) {
@@ -1271,7 +1323,10 @@ export class HybridSearch {
     private db: D1Database,
   ) {}
 
-  async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
+  async search(
+    query: string,
+    options: SearchOptions = {},
+  ): Promise<SearchResult[]> {
     // Run searches in parallel
     const [semanticResults, keywordResults, fuzzyResults] = await Promise.all([
       // Semantic search via embeddings
@@ -1285,13 +1340,23 @@ export class HybridSearch {
     ]);
 
     // Merge and rerank results
-    return this.mergeAndRerank(semanticResults, keywordResults, fuzzyResults, query);
+    return this.mergeAndRerank(
+      semanticResults,
+      keywordResults,
+      fuzzyResults,
+      query,
+    );
   }
 
-  private async keywordSearch(query: string, options: SearchOptions): Promise<any[]> {
+  private async keywordSearch(
+    query: string,
+    options: SearchOptions,
+  ): Promise<any[]> {
     const keywords = query.toLowerCase().split(/\s+/);
 
-    const results = await this.db.prepare(`
+    const results = await this.db
+      .prepare(
+        `
       SELECT m.*,
              COUNT(DISTINCT CASE WHEN LOWER(m.name) LIKE '%' || ? || '%' THEN 1 END) +
              COUNT(DISTINCT CASE WHEN LOWER(m.description) LIKE '%' || ? || '%' THEN 1 END) +
@@ -1305,7 +1370,10 @@ export class HybridSearch {
       GROUP BY m.id
       ORDER BY score DESC
       LIMIT ?
-    `).bind(...keywords.flatMap(k => [k, k, k, k, k, k]), options.limit).all();
+    `,
+      )
+      .bind(...keywords.flatMap((k) => [k, k, k, k, k, k]), options.limit)
+      .all();
 
     return results.results;
   }
@@ -1314,19 +1382,19 @@ export class HybridSearch {
     semantic: SearchResult[],
     keyword: any[],
     fuzzy: any[],
-    query: string
+    query: string,
   ): SearchResult[] {
     const merged = new Map<string, SearchResult>();
 
     // Weight: semantic (0.5), keyword (0.3), fuzzy (0.2)
-    semantic.forEach(r => {
+    semantic.forEach((r) => {
       merged.set(r.module.id, {
         ...r,
         finalScore: r.score * 0.5,
       });
     });
 
-    keyword.forEach(r => {
+    keyword.forEach((r) => {
       const existing = merged.get(r.id);
       if (existing) {
         existing.finalScore += r.score * 0.3;
@@ -1719,40 +1787,44 @@ export class SLOManager {
   private readonly SLOs = {
     availability: {
       target: 0.9995, // 99.95% uptime (4.38 hours downtime/year)
-      window: '30d',
-      metric: 'success_rate',
+      window: "30d",
+      metric: "success_rate",
     },
     latency: {
       p99_cached: {
         target: 100, // 100ms for cached requests
-        window: '5m',
-        metric: 'request_duration_p99',
+        window: "5m",
+        metric: "request_duration_p99",
       },
       p99_database: {
         target: 500, // 500ms for database queries
-        window: '5m',
-        metric: 'db_query_duration_p99',
+        window: "5m",
+        metric: "db_query_duration_p99",
       },
       p50: {
         target: 50, // 50ms median latency
-        window: '5m',
-        metric: 'request_duration_p50',
+        window: "5m",
+        metric: "request_duration_p50",
       },
     },
     errorRate: {
       target: 0.001, // 0.1% error rate
-      window: '5m',
-      metric: 'error_rate',
+      window: "5m",
+      metric: "error_rate",
     },
     deploymentSuccess: {
       target: 0.95, // 95% successful deployments
-      window: '7d',
-      metric: 'deployment_success_rate',
+      window: "7d",
+      metric: "deployment_success_rate",
     },
   };
 
   // Error budget calculation
-  calculateErrorBudget(slo: number, actualPerformance: number, timeWindow: string): ErrorBudget {
+  calculateErrorBudget(
+    slo: number,
+    actualPerformance: number,
+    timeWindow: string,
+  ): ErrorBudget {
     const budgetPercent = 1 - slo;
     const consumedPercent = 1 - actualPerformance;
     const remainingPercent = Math.max(0, budgetPercent - consumedPercent);
@@ -1762,7 +1834,11 @@ export class SLOManager {
       consumed: consumedPercent,
       remaining: remainingPercent,
       burnRate: consumedPercent / budgetPercent,
-      timeToExhaustion: this.calculateTimeToExhaustion(remainingPercent, consumedPercent, timeWindow),
+      timeToExhaustion: this.calculateTimeToExhaustion(
+        remainingPercent,
+        consumedPercent,
+        timeWindow,
+      ),
     };
   }
 
@@ -1772,18 +1848,18 @@ export class SLOManager {
 
     // Check availability SLO
     const availabilityMetrics = await this.queryMetrics(analytics, {
-      metric: 'success_rate',
+      metric: "success_rate",
       window: this.SLOs.availability.window,
     });
 
     const availabilityBudget = this.calculateErrorBudget(
       this.SLOs.availability.target,
       availabilityMetrics.value,
-      this.SLOs.availability.window
+      this.SLOs.availability.window,
     );
 
     statuses.push({
-      name: 'availability',
+      name: "availability",
       current: availabilityMetrics.value,
       target: this.SLOs.availability.target,
       errorBudget: availabilityBudget,
@@ -1804,25 +1880,25 @@ export class SLOManager {
         name: `latency_${key}`,
         current: latencyMetrics.value,
         target: slo.target,
-        status: isWithinSLO ? 'healthy' : 'degraded',
+        status: isWithinSLO ? "healthy" : "degraded",
         alert: !isWithinSLO,
       });
     }
 
     // Check error rate SLO
     const errorMetrics = await this.queryMetrics(analytics, {
-      metric: 'error_rate',
+      metric: "error_rate",
       window: this.SLOs.errorRate.window,
     });
 
     const errorBudget = this.calculateErrorBudget(
       1 - this.SLOs.errorRate.target,
       1 - errorMetrics.value,
-      this.SLOs.errorRate.window
+      this.SLOs.errorRate.window,
     );
 
     statuses.push({
-      name: 'error_rate',
+      name: "error_rate",
       current: errorMetrics.value,
       target: this.SLOs.errorRate.target,
       errorBudget: errorBudget,
@@ -1837,52 +1913,57 @@ export class SLOManager {
   async setupAlerts(alertManager: AlertManager): Promise<void> {
     // Fast burn (2% budget in 5 minutes) - Page immediately
     alertManager.addRule({
-      name: 'slo_fast_burn',
-      condition: 'error_rate > 0.02',
-      window: '5m',
-      severity: 'critical',
-      action: ['page', 'slack', 'email'],
+      name: "slo_fast_burn",
+      condition: "error_rate > 0.02",
+      window: "5m",
+      severity: "critical",
+      action: ["page", "slack", "email"],
     });
 
     // Slow burn (5% budget in 1 hour) - Alert but don't page
     alertManager.addRule({
-      name: 'slo_slow_burn',
-      condition: 'error_rate > 0.005',
-      window: '1h',
-      severity: 'warning',
-      action: ['slack', 'email'],
+      name: "slo_slow_burn",
+      condition: "error_rate > 0.005",
+      window: "1h",
+      severity: "warning",
+      action: ["slack", "email"],
     });
 
     // Budget exhaustion warning (80% consumed)
     alertManager.addRule({
-      name: 'slo_budget_warning',
-      condition: 'error_budget_consumed > 0.8',
-      window: '24h',
-      severity: 'warning',
-      action: ['email'],
+      name: "slo_budget_warning",
+      condition: "error_budget_consumed > 0.8",
+      window: "24h",
+      severity: "warning",
+      action: ["email"],
     });
 
     // Latency degradation
     alertManager.addRule({
-      name: 'latency_degradation',
-      condition: 'p99_latency > 1000',
-      window: '5m',
-      severity: 'warning',
-      action: ['slack'],
+      name: "latency_degradation",
+      condition: "p99_latency > 1000",
+      window: "5m",
+      severity: "warning",
+      action: ["slack"],
     });
   }
 
   private getStatus(errorBudget: ErrorBudget): string {
-    if (errorBudget.burnRate < 0.1) return 'healthy';
-    if (errorBudget.burnRate < 0.5) return 'warning';
-    if (errorBudget.burnRate < 0.8) return 'degraded';
-    return 'critical';
+    if (errorBudget.burnRate < 0.1) return "healthy";
+    if (errorBudget.burnRate < 0.5) return "warning";
+    if (errorBudget.burnRate < 0.8) return "degraded";
+    return "critical";
   }
 
-  private calculateTimeToExhaustion(remaining: number, consumptionRate: number, window: string): string {
-    if (consumptionRate <= 0) return 'infinite';
+  private calculateTimeToExhaustion(
+    remaining: number,
+    consumptionRate: number,
+    window: string,
+  ): string {
+    if (consumptionRate <= 0) return "infinite";
 
-    const hoursRemaining = (remaining / consumptionRate) * this.parseWindow(window);
+    const hoursRemaining =
+      (remaining / consumptionRate) * this.parseWindow(window);
     if (hoursRemaining < 1) return `${Math.round(hoursRemaining * 60)} minutes`;
     if (hoursRemaining < 24) return `${Math.round(hoursRemaining)} hours`;
     return `${Math.round(hoursRemaining / 24)} days`;
@@ -1896,10 +1977,14 @@ export class SLOManager {
     const num = parseInt(value);
 
     switch (unit) {
-      case 'd': return num * 24;
-      case 'h': return num;
-      case 'm': return num / 60;
-      default: return 24;
+      case "d":
+        return num * 24;
+      case "h":
+        return num;
+      case "m":
+        return num / 60;
+      default:
+        return 24;
     }
   }
 }
@@ -1908,48 +1993,50 @@ export class SLOManager {
 export class SLODashboard {
   generateDashboard(statuses: SLOStatus[]): DashboardConfig {
     return {
-      title: 'NixOS Module API - SLO Dashboard',
+      title: "NixOS Module API - SLO Dashboard",
       refreshInterval: 30, // seconds
       panels: [
         {
-          title: 'Service Availability',
-          type: 'gauge',
-          metric: 'availability',
+          title: "Service Availability",
+          type: "gauge",
+          metric: "availability",
           thresholds: [
-            { value: 0.999, color: 'green' },
-            { value: 0.995, color: 'yellow' },
-            { value: 0.99, color: 'orange' },
-            { value: 0, color: 'red' },
+            { value: 0.999, color: "green" },
+            { value: 0.995, color: "yellow" },
+            { value: 0.99, color: "orange" },
+            { value: 0, color: "red" },
           ],
         },
         {
-          title: 'Error Budget Burn Rate',
-          type: 'timeseries',
-          metric: 'error_budget_burn_rate',
+          title: "Error Budget Burn Rate",
+          type: "timeseries",
+          metric: "error_budget_burn_rate",
           annotations: [
-            { value: 1.0, text: 'Budget Exhausted', color: 'red' },
-            { value: 0.5, text: '50% Consumed', color: 'orange' },
+            { value: 1.0, text: "Budget Exhausted", color: "red" },
+            { value: 0.5, text: "50% Consumed", color: "orange" },
           ],
         },
         {
-          title: 'Latency Percentiles',
-          type: 'heatmap',
-          metrics: ['p50', 'p90', 'p95', 'p99'],
-          colorScale: 'BlueYellowRed',
+          title: "Latency Percentiles",
+          type: "heatmap",
+          metrics: ["p50", "p90", "p95", "p99"],
+          colorScale: "BlueYellowRed",
         },
         {
-          title: 'Deployment Success Rate',
-          type: 'bar',
-          metric: 'deployment_success_rate',
-          groupBy: 'day',
+          title: "Deployment Success Rate",
+          type: "bar",
+          metric: "deployment_success_rate",
+          groupBy: "day",
         },
       ],
-      alerts: statuses.filter(s => s.alert).map(s => ({
-        name: s.name,
-        message: `SLO violation: ${s.name} is ${s.status}`,
-        value: s.current,
-        target: s.target,
-      })),
+      alerts: statuses
+        .filter((s) => s.alert)
+        .map((s) => ({
+          name: s.name,
+          message: `SLO violation: ${s.name} is ${s.status}`,
+          value: s.current,
+          target: s.target,
+        })),
     };
   }
 }
@@ -1975,33 +2062,35 @@ export class ObservabilityService {
       blobs: [
         request.method,
         response.status.toString(),
-        request.headers.get('cf-ray') || 'unknown',
+        request.headers.get("cf-ray") || "unknown",
       ],
       doubles: [
         duration,
-        response.headers.get('content-length') || 0,
+        response.headers.get("content-length") || 0,
         response.status,
       ],
     });
 
     // Log structured data
-    console.log(JSON.stringify({
-      timestamp: new Date().toISOString(),
-      method: request.method,
-      path: url.pathname,
-      status: response.status,
-      duration,
-      ray_id: request.headers.get('cf-ray'),
-      user_agent: request.headers.get('user-agent'),
-      ip: request.headers.get('cf-connecting-ip'),
-      country: request.headers.get('cf-ipcountry'),
-    }));
+    console.log(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        method: request.method,
+        path: url.pathname,
+        status: response.status,
+        duration,
+        ray_id: request.headers.get("cf-ray"),
+        user_agent: request.headers.get("user-agent"),
+        ip: request.headers.get("cf-connecting-ip"),
+        country: request.headers.get("cf-ipcountry"),
+      }),
+    );
   }
 
   // Track search queries for optimization
   async trackSearch(query: string, results: number, duration: number) {
     this.analytics.writeDataPoint({
-      indexes: ['search'],
+      indexes: ["search"],
       blobs: [query.toLowerCase()],
       doubles: [results, duration],
     });
@@ -2010,7 +2099,7 @@ export class ObservabilityService {
   // Track errors with context
   async trackError(error: Error, context: any) {
     this.analytics.writeDataPoint({
-      indexes: ['error'],
+      indexes: ["error"],
       blobs: [error.name, error.message, JSON.stringify(context)],
       doubles: [1],
     });
@@ -2025,7 +2114,7 @@ export class ObservabilityService {
   getHealthMetrics(): HealthMetrics {
     return {
       timestamp: new Date().toISOString(),
-      status: 'healthy',
+      status: "healthy",
       checks: {
         database: this.checkDatabase(),
         cache: this.checkCache(),
@@ -2048,7 +2137,10 @@ export class ObservabilityService {
 ```typescript
 // src/observability/tracing.ts
 export class TracingService {
-  async traceRequest(request: Request, handler: () => Promise<Response>): Promise<Response> {
+  async traceRequest(
+    request: Request,
+    handler: () => Promise<Response>,
+  ): Promise<Response> {
     const traceId = crypto.randomUUID();
     const spanId = crypto.randomUUID();
     const startTime = Date.now();
@@ -2057,9 +2149,9 @@ export class TracingService {
     const tracedRequest = new Request(request, {
       headers: {
         ...request.headers,
-        'x-trace-id': traceId,
-        'x-span-id': spanId,
-        'x-parent-span-id': request.headers.get('x-span-id') || '',
+        "x-trace-id": traceId,
+        "x-span-id": spanId,
+        "x-parent-span-id": request.headers.get("x-span-id") || "",
       },
     });
 
@@ -2071,16 +2163,16 @@ export class TracingService {
       await this.logSpan({
         trace_id: traceId,
         span_id: spanId,
-        parent_span_id: request.headers.get('x-span-id'),
+        parent_span_id: request.headers.get("x-span-id"),
         operation: `${request.method} ${new URL(request.url).pathname}`,
         start_time: startTime,
         duration,
         status: response.status,
         tags: {
-          'http.method': request.method,
-          'http.url': request.url,
-          'http.status_code': response.status,
-          'user.id': this.getUserId(request),
+          "http.method": request.method,
+          "http.url": request.url,
+          "http.status_code": response.status,
+          "user.id": this.getUserId(request),
         },
       });
 
@@ -2096,8 +2188,8 @@ export class TracingService {
         duration,
         error: true,
         tags: {
-          'error.message': error.message,
-          'error.stack': error.stack,
+          "error.message": error.message,
+          "error.stack": error.stack,
         },
       });
 
@@ -2126,10 +2218,10 @@ export class AlertingService {
     // Check error rate
     if (metrics.errorRate > this.thresholds.errorRate) {
       alerts.push({
-        severity: 'critical',
-        title: 'High Error Rate',
+        severity: "critical",
+        title: "High Error Rate",
         message: `Error rate is ${(metrics.errorRate * 100).toFixed(2)}%`,
-        metric: 'error_rate',
+        metric: "error_rate",
         value: metrics.errorRate,
         threshold: this.thresholds.errorRate,
       });
@@ -2138,10 +2230,10 @@ export class AlertingService {
     // Check latency
     if (metrics.p99Latency > this.thresholds.p99Latency) {
       alerts.push({
-        severity: 'warning',
-        title: 'High Latency',
+        severity: "warning",
+        title: "High Latency",
         message: `P99 latency is ${metrics.p99Latency}ms`,
-        metric: 'p99_latency',
+        metric: "p99_latency",
         value: metrics.p99Latency,
         threshold: this.thresholds.p99Latency,
       });
@@ -2180,22 +2272,18 @@ export class AlertingService {
 
 ```typescript
 // tests/unit/search.test.ts
-import { describe, it, expect, beforeEach } from 'vitest';
-import { SemanticSearch } from '@/search/semantic-search';
+import { describe, it, expect, beforeEach } from "vitest";
+import { SemanticSearch } from "@/search/semantic-search";
 
-describe('SemanticSearch', () => {
+describe("SemanticSearch", () => {
   let search: SemanticSearch;
 
   beforeEach(() => {
-    search = new SemanticSearch(
-      mockVectorize,
-      mockAI,
-      mockDB,
-    );
+    search = new SemanticSearch(mockVectorize, mockAI, mockDB);
   });
 
-  describe('indexModule', () => {
-    it('should chunk content correctly', async () => {
+  describe("indexModule", () => {
+    it("should chunk content correctly", async () => {
       const module = createTestModule();
       const chunks = search.chunkContent(module);
 
@@ -2203,7 +2291,7 @@ describe('SemanticSearch', () => {
       expect(chunks[0].text).toContain(module.name);
     });
 
-    it('should generate embeddings for all chunks', async () => {
+    it("should generate embeddings for all chunks", async () => {
       const module = createTestModule();
       await search.indexModule(module);
 
@@ -2216,25 +2304,25 @@ describe('SemanticSearch', () => {
               moduleId: module.id,
             }),
           }),
-        ])
+        ]),
       );
     });
   });
 
-  describe('search', () => {
-    it('should rewrite queries', async () => {
-      await search.search('git config');
+  describe("search", () => {
+    it("should rewrite queries", async () => {
+      await search.search("git config");
 
       expect(mockAI.run).toHaveBeenCalledWith(
-        '@cf/meta/llama-3.1-8b-instruct',
+        "@cf/meta/llama-3.1-8b-instruct",
         expect.objectContaining({
-          prompt: expect.stringContaining('git config'),
-        })
+          prompt: expect.stringContaining("git config"),
+        }),
       );
     });
 
-    it('should return ranked results', async () => {
-      const results = await search.search('security');
+    it("should return ranked results", async () => {
+      const results = await search.search("security");
 
       expect(results).toHaveLength(20);
       expect(results[0].score).toBeGreaterThanOrEqual(results[1].score);
@@ -2247,14 +2335,14 @@ describe('SemanticSearch', () => {
 
 ```typescript
 // tests/integration/api.test.ts
-import { unstable_dev } from 'wrangler';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { unstable_dev } from "wrangler";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
-describe('API Integration', () => {
+describe("API Integration", () => {
   let worker;
 
   beforeAll(async () => {
-    worker = await unstable_dev('src/index.ts', {
+    worker = await unstable_dev("src/index.ts", {
       experimental: { disableExperimentalWarning: true },
     });
   });
@@ -2263,44 +2351,44 @@ describe('API Integration', () => {
     await worker.stop();
   });
 
-  describe('Module CRUD', () => {
-    it('should create a module', async () => {
-      const response = await worker.fetch('/api/v1/modules', {
-        method: 'POST',
+  describe("Module CRUD", () => {
+    it("should create a module", async () => {
+      const response = await worker.fetch("/api/v1/modules", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': 'test-key',
+          "Content-Type": "application/json",
+          "X-API-Key": "test-key",
         },
         body: JSON.stringify({
-          namespace: 'test',
-          name: 'example',
-          description: 'Test module',
+          namespace: "test",
+          name: "example",
+          description: "Test module",
         }),
       });
 
       expect(response.status).toBe(201);
       const data = await response.json();
-      expect(data).toHaveProperty('id');
+      expect(data).toHaveProperty("id");
     });
 
-    it('should search modules', async () => {
-      const response = await worker.fetch('/api/v1/search?q=test');
+    it("should search modules", async () => {
+      const response = await worker.fetch("/api/v1/search?q=test");
 
       expect(response.status).toBe(200);
       const data = await response.json();
-      expect(data).toHaveProperty('results');
+      expect(data).toHaveProperty("results");
       expect(Array.isArray(data.results)).toBe(true);
     });
   });
 
-  describe('Rate Limiting', () => {
-    it('should enforce rate limits', async () => {
-      const requests = Array(150).fill(null).map(() =>
-        worker.fetch('/api/v1/modules')
-      );
+  describe("Rate Limiting", () => {
+    it("should enforce rate limits", async () => {
+      const requests = Array(150)
+        .fill(null)
+        .map(() => worker.fetch("/api/v1/modules"));
 
       const responses = await Promise.all(requests);
-      const rateLimited = responses.filter(r => r.status === 429);
+      const rateLimited = responses.filter((r) => r.status === 429);
 
       expect(rateLimited.length).toBeGreaterThan(0);
     });
@@ -2312,34 +2400,34 @@ describe('API Integration', () => {
 
 ```typescript
 // tests/load/k6-script.js
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { Rate } from 'k6/metrics';
+import http from "k6/http";
+import { check, sleep } from "k6";
+import { Rate } from "k6/metrics";
 
-const errorRate = new Rate('errors');
+const errorRate = new Rate("errors");
 
 export const options = {
   stages: [
-    { duration: '2m', target: 100 }, // Ramp up
-    { duration: '5m', target: 100 }, // Stay at 100 users
-    { duration: '2m', target: 200 }, // Ramp to 200
-    { duration: '5m', target: 200 }, // Stay at 200
-    { duration: '2m', target: 0 },   // Ramp down
+    { duration: "2m", target: 100 }, // Ramp up
+    { duration: "5m", target: 100 }, // Stay at 100 users
+    { duration: "2m", target: 200 }, // Ramp to 200
+    { duration: "5m", target: 200 }, // Stay at 200
+    { duration: "2m", target: 0 }, // Ramp down
   ],
   thresholds: {
-    http_req_duration: ['p(95)<500'], // 95% of requests under 500ms
-    errors: ['rate<0.01'],             // Error rate under 1%
+    http_req_duration: ["p(95)<500"], // 95% of requests under 500ms
+    errors: ["rate<0.01"], // Error rate under 1%
   },
 };
 
 export default function () {
-  const BASE_URL = 'https://nixos-modules.workers.dev';
+  const BASE_URL = "https://nixos-modules.workers.dev";
 
   // Search (most common)
   const searchRes = http.get(`${BASE_URL}/api/v1/search?q=${randomQuery()}`);
   check(searchRes, {
-    'search status 200': (r) => r.status === 200,
-    'search fast': (r) => r.timings.duration < 500,
+    "search status 200": (r) => r.status === 200,
+    "search fast": (r) => r.timings.duration < 500,
   });
   errorRate.add(searchRes.status !== 200);
 
@@ -2348,8 +2436,8 @@ export default function () {
   // Get module (common)
   const moduleRes = http.get(`${BASE_URL}/api/v1/modules/apps/git`);
   check(moduleRes, {
-    'module status 200': (r) => r.status === 200,
-    'module cached': (r) => r.headers['cf-cache-status'] === 'HIT',
+    "module status 200": (r) => r.status === 200,
+    "module cached": (r) => r.headers["cf-cache-status"] === "HIT",
   });
   errorRate.add(moduleRes.status !== 200);
 
@@ -2357,7 +2445,7 @@ export default function () {
 }
 
 function randomQuery() {
-  const queries = ['git', 'security', 'network', 'systemd', 'docker'];
+  const queries = ["git", "security", "network", "systemd", "docker"];
   return queries[Math.floor(Math.random() * queries.length)];
 }
 ```
@@ -2379,8 +2467,8 @@ on:
     types: [opened, synchronize]
 
 env:
-  NODE_VERSION: '20'
-  WRANGLER_VERSION: '3.80.0'
+  NODE_VERSION: "20"
+  WRANGLER_VERSION: "3.80.0"
 
 jobs:
   test:
@@ -2391,7 +2479,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -2896,32 +2984,32 @@ jobs:
 
 ### Detailed Cost Breakdown
 
-| Service | Usage | Unit Cost | Monthly Cost |
-|---------|-------|-----------|--------------|
-| **Workers** | | | |
-| - Requests | 100M | $0.15/million | $15.00 |
-| - CPU time | 50M CPU-ms | $0.02/million | $1.00 |
-| **D1 Database** | | | |
-| - Storage | 10GB | Free (first 5GB) + $0.75/GB | $3.75 |
-| - Reads | 50M | $0.001/million | $0.05 |
-| - Writes | 5M | $1.00/million | $5.00 |
-| **Vectorize** | | | |
-| - Vectors stored | 1M | $0.05/million | $0.05 |
-| - Queries | 10M | $0.01/million | $0.10 |
-| **Workers KV** | | | |
-| - Storage | 5GB | $0.50/GB | $2.50 |
-| - Reads | 100M | $0.50/million | $50.00 |
-| - Writes | 1M | $5.00/million | $5.00 |
-| **R2 Storage** | | | |
-| - Storage | 50GB | $0.015/GB | $0.75 |
-| - Class A ops | 1M | $4.50/million | $4.50 |
-| - Class B ops | 10M | $0.36/million | $3.60 |
-| **Analytics Engine** | | | |
-| - Events | 100M | $0.25/million | $25.00 |
-| **Workers AI** | | | |
-| - Embeddings | 1M | $0.01/1K | $10.00 |
-| - Text generation | 100K | $0.01/1K | $1.00 |
-| **Total** | | | **$127.30/month** |
+| Service              | Usage      | Unit Cost                   | Monthly Cost      |
+| -------------------- | ---------- | --------------------------- | ----------------- |
+| **Workers**          |            |                             |                   |
+| - Requests           | 100M       | $0.15/million               | $15.00            |
+| - CPU time           | 50M CPU-ms | $0.02/million               | $1.00             |
+| **D1 Database**      |            |                             |                   |
+| - Storage            | 10GB       | Free (first 5GB) + $0.75/GB | $3.75             |
+| - Reads              | 50M        | $0.001/million              | $0.05             |
+| - Writes             | 5M         | $1.00/million               | $5.00             |
+| **Vectorize**        |            |                             |                   |
+| - Vectors stored     | 1M         | $0.05/million               | $0.05             |
+| - Queries            | 10M        | $0.01/million               | $0.10             |
+| **Workers KV**       |            |                             |                   |
+| - Storage            | 5GB        | $0.50/GB                    | $2.50             |
+| - Reads              | 100M       | $0.50/million               | $50.00            |
+| - Writes             | 1M         | $5.00/million               | $5.00             |
+| **R2 Storage**       |            |                             |                   |
+| - Storage            | 50GB       | $0.015/GB                   | $0.75             |
+| - Class A ops        | 1M         | $4.50/million               | $4.50             |
+| - Class B ops        | 10M        | $0.36/million               | $3.60             |
+| **Analytics Engine** |            |                             |                   |
+| - Events             | 100M       | $0.25/million               | $25.00            |
+| **Workers AI**       |            |                             |                   |
+| - Embeddings         | 1M         | $0.01/1K                    | $10.00            |
+| - Text generation    | 100K       | $0.01/1K                    | $1.00             |
+| **Total**            |            |                             | **$127.30/month** |
 
 ### Cost Optimization Strategies
 
@@ -2937,14 +3025,14 @@ jobs:
 
 ### Risk Matrix
 
-| Risk | Probability | Impact | Mitigation |
-|------|------------|--------|------------|
-| **DDoS Attack** | Medium | High | Rate limiting, Cloudflare DDoS protection, IP blocking |
-| **Data Loss** | Low | Critical | Daily backups to R2, point-in-time recovery, multi-region replication |
-| **API Abuse** | High | Medium | API keys, rate limiting, usage quotas, anomaly detection |
-| **Search Quality** | Medium | Medium | A/B testing, user feedback, continuous retraining |
-| **Compliance Issues** | Low | High | GDPR compliance, data anonymization, audit logs |
-| **Vendor Lock-in** | Medium | Medium | Abstraction layers, portable data formats, exit strategy |
+| Risk                  | Probability | Impact   | Mitigation                                                            |
+| --------------------- | ----------- | -------- | --------------------------------------------------------------------- |
+| **DDoS Attack**       | Medium      | High     | Rate limiting, Cloudflare DDoS protection, IP blocking                |
+| **Data Loss**         | Low         | Critical | Daily backups to R2, point-in-time recovery, multi-region replication |
+| **API Abuse**         | High        | Medium   | API keys, rate limiting, usage quotas, anomaly detection              |
+| **Search Quality**    | Medium      | Medium   | A/B testing, user feedback, continuous retraining                     |
+| **Compliance Issues** | Low         | High     | GDPR compliance, data anonymization, audit logs                       |
+| **Vendor Lock-in**    | Medium      | Medium   | Abstraction layers, portable data formats, exit strategy              |
 
 ### Disaster Recovery Plan
 
@@ -2956,31 +3044,21 @@ export class BackupService {
 
     // Backup D1 to R2
     const dbExport = await this.exportD1();
-    await this.env.R2.put(
-      `backups/d1/${timestamp}.sql`,
-      dbExport,
-      {
-        customMetadata: {
-          type: 'database',
-          timestamp,
-          size: dbExport.byteLength.toString(),
-        },
-      }
-    );
+    await this.env.R2.put(`backups/d1/${timestamp}.sql`, dbExport, {
+      customMetadata: {
+        type: "database",
+        timestamp,
+        size: dbExport.byteLength.toString(),
+      },
+    });
 
     // Backup Vectorize metadata
     const vectorMeta = await this.exportVectorizeMetadata();
-    await this.env.R2.put(
-      `backups/vectorize/${timestamp}.json`,
-      vectorMeta
-    );
+    await this.env.R2.put(`backups/vectorize/${timestamp}.json`, vectorMeta);
 
     // Backup KV data
     const kvData = await this.exportKV();
-    await this.env.R2.put(
-      `backups/kv/${timestamp}.json`,
-      kvData
-    );
+    await this.env.R2.put(`backups/kv/${timestamp}.json`, kvData);
 
     // Cleanup old backups (keep 30 days)
     await this.cleanupOldBackups(30);
@@ -2992,7 +3070,9 @@ export class BackupService {
     await this.restoreD1(dbBackup);
 
     // Restore Vectorize
-    const vectorBackup = await this.env.R2.get(`backups/vectorize/${timestamp}.json`);
+    const vectorBackup = await this.env.R2.get(
+      `backups/vectorize/${timestamp}.json`,
+    );
     await this.restoreVectorize(vectorBackup);
 
     // Restore KV
@@ -3002,7 +3082,7 @@ export class BackupService {
     // Verify restoration
     const verified = await this.verifyRestore();
     if (!verified) {
-      throw new Error('Restoration verification failed');
+      throw new Error("Restoration verification failed");
     }
   }
 }
@@ -3013,6 +3093,7 @@ export class BackupService {
 ## Implementation Timeline
 
 ### Phase 1: Foundation (Weeks 1-2)
+
 - [ ] Set up Cloudflare account and resources
 - [ ] Initialize project structure
 - [ ] Implement basic Worker with routing
@@ -3021,6 +3102,7 @@ export class BackupService {
 - [ ] Implement authentication system
 
 ### Phase 2: Core API (Weeks 3-4)
+
 - [ ] Implement REST API endpoints
 - [ ] Add GraphQL API
 - [ ] Set up rate limiting
@@ -3029,6 +3111,7 @@ export class BackupService {
 - [ ] Create API documentation
 
 ### Phase 3: Search Engine (Weeks 5-6)
+
 - [ ] Set up Vectorize index
 - [ ] Implement embedding generation
 - [ ] Create semantic search
@@ -3037,6 +3120,7 @@ export class BackupService {
 - [ ] Optimize search performance
 
 ### Phase 4: Module System (Weeks 7-8)
+
 - [ ] Create Nix module extractor
 - [ ] Implement module parser
 - [ ] Set up GitHub Actions
@@ -3045,6 +3129,7 @@ export class BackupService {
 - [ ] Implement change detection
 
 ### Phase 5: Observability (Weeks 9-10)
+
 - [ ] Set up Analytics Engine
 - [ ] Implement logging system
 - [ ] Add distributed tracing
@@ -3053,6 +3138,7 @@ export class BackupService {
 - [ ] Implement health checks
 
 ### Phase 6: Testing (Weeks 11-12)
+
 - [ ] Write unit tests
 - [ ] Create integration tests
 - [ ] Perform load testing
@@ -3061,6 +3147,7 @@ export class BackupService {
 - [ ] Performance optimization
 
 ### Phase 7: Deployment (Week 13)
+
 - [ ] Deploy to staging
 - [ ] Run acceptance tests
 - [ ] Gradual production rollout
@@ -3074,18 +3161,18 @@ export class BackupService {
 
 ### Key Performance Indicators
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| **API Response Time (P99)** | < 100ms | Analytics Engine |
-| **Search Relevance** | > 90% satisfaction | User feedback |
-| **Cache Hit Rate** | > 85% | KV metrics |
-| **System Uptime** | 99.95% | Health checks |
-| **Error Rate** | < 0.1% | Error tracking |
-| **Module Coverage** | 100% | Extraction metrics |
-| **Search Latency (P99)** | < 200ms | Analytics Engine |
-| **Daily Active Users** | > 1,000 | Analytics |
-| **API Adoption** | > 50 integrations | API key usage |
-| **Cost per Request** | < $0.000002 | Billing data |
+| Metric                      | Target             | Measurement        |
+| --------------------------- | ------------------ | ------------------ |
+| **API Response Time (P99)** | < 100ms            | Analytics Engine   |
+| **Search Relevance**        | > 90% satisfaction | User feedback      |
+| **Cache Hit Rate**          | > 85%              | KV metrics         |
+| **System Uptime**           | 99.95%             | Health checks      |
+| **Error Rate**              | < 0.1%             | Error tracking     |
+| **Module Coverage**         | 100%               | Extraction metrics |
+| **Search Latency (P99)**    | < 200ms            | Analytics Engine   |
+| **Daily Active Users**      | > 1,000            | Analytics          |
+| **API Adoption**            | > 50 integrations  | API key usage      |
+| **Cost per Request**        | < $0.000002        | Billing data       |
 
 ### Success Criteria
 
@@ -3117,10 +3204,10 @@ This section addresses ALL remaining critical issues from the comprehensive revi
 
 ```typescript
 // src/index.ts - Complete Worker entry point with static assets
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { setupAPIRoutes } from './api/routes';
-import { corsConfig } from './middleware/cors';
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { setupAPIRoutes } from "./api/routes";
+import { corsConfig } from "./middleware/cors";
 
 interface Env {
   // Static Assets binding
@@ -3151,15 +3238,19 @@ interface Env {
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
     const url = new URL(request.url);
 
     // API routes handled by Hono
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith("/api/")) {
       const app = new Hono<{ Bindings: Env }>();
 
       // Apply CORS middleware
-      app.use('*', cors(corsConfig));
+      app.use("*", cors(corsConfig));
 
       // Setup all API routes
       setupAPIRoutes(app);
@@ -3190,7 +3281,7 @@ export default {
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "html_handling": "auto-trailing-slash",
-    "serve_directly": true
+    "serve_directly": true,
   },
 
   // D1 Database
@@ -3199,8 +3290,8 @@ export default {
       "binding": "MODULES_DB",
       "database_name": "nixos-modules-db",
       "database_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-      "preview_database_id": "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
-    }
+      "preview_database_id": "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy",
+    },
   ],
 
   // KV Namespaces for Caching
@@ -3208,8 +3299,8 @@ export default {
     {
       "binding": "CACHE",
       "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-      "preview_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
-    }
+      "preview_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    },
   ],
 
   // R2 Buckets for Document Storage
@@ -3217,29 +3308,29 @@ export default {
     {
       "binding": "DOCUMENTS",
       "bucket_name": "nixos-module-docs",
-      "preview_bucket_name": "nixos-module-docs-preview"
-    }
+      "preview_bucket_name": "nixos-module-docs-preview",
+    },
   ],
 
   // Vectorize for Semantic Search
   "vectorize": [
     {
       "binding": "SEARCH_INDEX",
-      "index_name": "nixos-modules-semantic-search"
-    }
+      "index_name": "nixos-modules-semantic-search",
+    },
   ],
 
   // Analytics Engine
   "analytics_engine_datasets": [
     {
       "binding": "ANALYTICS",
-      "dataset": "nixos_modules_analytics"
-    }
+      "dataset": "nixos_modules_analytics",
+    },
   ],
 
   // Workers AI
   "ai": {
-    "binding": "AI"
+    "binding": "AI",
   },
 
   // Rate Limiting
@@ -3249,9 +3340,9 @@ export default {
       "namespace_id": "1001",
       "simple": {
         "limit": 100,
-        "period": 60
-      }
-    }
+        "period": 60,
+      },
+    },
   ],
 
   // Environment Variables (non-sensitive)
@@ -3259,7 +3350,7 @@ export default {
     "API_VERSION": "v1",
     "MAX_SEARCH_RESULTS": "20",
     "CACHE_TTL": "300",
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
   },
 
   // Development Settings
@@ -3267,7 +3358,7 @@ export default {
     "ip": "0.0.0.0",
     "port": 8787,
     "local_protocol": "http",
-    "upstream_protocol": "https"
+    "upstream_protocol": "https",
   },
 
   // Environment-specific Configuration
@@ -3276,26 +3367,26 @@ export default {
       "name": "nixos-module-docs-api-staging",
       "vars": {
         "ENVIRONMENT": "staging",
-        "CACHE_TTL": "60"
+        "CACHE_TTL": "60",
       },
       "d1_databases": [
         {
           "binding": "MODULES_DB",
           "database_name": "nixos-modules-db-staging",
-          "database_id": "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"
-        }
+          "database_id": "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz",
+        },
       ],
       "kv_namespaces": [
         {
           "binding": "CACHE",
-          "id": "cccccccc-cccc-cccc-cccc-cccccccccccc"
-        }
+          "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        },
       ],
       "r2_buckets": [
         {
           "binding": "DOCUMENTS",
-          "bucket_name": "nixos-module-docs-staging"
-        }
+          "bucket_name": "nixos-module-docs-staging",
+        },
       ],
       "ratelimits": [
         {
@@ -3303,31 +3394,31 @@ export default {
           "namespace_id": "1002",
           "simple": {
             "limit": 50,
-            "period": 60
-          }
-        }
-      ]
+            "period": 60,
+          },
+        },
+      ],
     },
     "production": {
       "name": "nixos-module-docs-api",
       "routes": [
         {
           "pattern": "api.nixos-modules.org/*",
-          "zone_name": "nixos-modules.org"
-        }
+          "zone_name": "nixos-modules.org",
+        },
       ],
       "vars": {
         "ENVIRONMENT": "production",
-        "CACHE_TTL": "600"
-      }
-    }
+        "CACHE_TTL": "600",
+      },
+    },
   },
 
   // Build Configuration
   "build": {
     "command": "npm run build",
     "cwd": "./",
-    "watch_paths": ["src/**/*.ts", "src/**/*.tsx"]
+    "watch_paths": ["src/**/*.ts", "src/**/*.tsx"],
   },
 
   // Secrets Configuration (set via wrangler secret or dashboard)
@@ -3338,8 +3429,8 @@ export default {
     "CF_ACCESS_AUD",
     "CF_ACCESS_TEAM_DOMAIN",
     "GITHUB_TOKEN",
-    "SENTRY_DSN"
-  ]
+    "SENTRY_DSN",
+  ],
 }
 ```
 
@@ -3356,7 +3447,7 @@ export class ModuleSearchComponent extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
+    this.attachShadow({ mode: "open" });
   }
 
   connectedCallback() {
@@ -3382,8 +3473,9 @@ export class ModuleSearchComponent extends HTMLElement {
       </div>
     `;
 
-    this.searchInput = this.shadowRoot!.querySelector('.search-input')!;
-    this.resultsContainer = this.shadowRoot!.querySelector('.results-container')!;
+    this.searchInput = this.shadowRoot!.querySelector(".search-input")!;
+    this.resultsContainer =
+      this.shadowRoot!.querySelector(".results-container")!;
   }
 
   private getStyles(): string {
@@ -3450,12 +3542,12 @@ export class ModuleSearchComponent extends HTMLElement {
   }
 
   private setupEventListeners() {
-    this.searchInput.addEventListener('input', (e) => {
+    this.searchInput.addEventListener("input", (e) => {
       this.handleSearch((e.target as HTMLInputElement).value);
     });
 
     // Keyboard navigation
-    this.searchInput.addEventListener('keydown', (e) => {
+    this.searchInput.addEventListener("keydown", (e) => {
       this.handleKeyboardNavigation(e);
     });
   }
@@ -3489,12 +3581,15 @@ export class ModuleSearchComponent extends HTMLElement {
     this.currentRequest = new AbortController();
 
     try {
-      const response = await fetch(`/api/v1/search?q=${encodeURIComponent(query)}`, {
-        signal: this.currentRequest.signal,
-        headers: {
-          'Accept': 'application/json',
+      const response = await fetch(
+        `/api/v1/search?q=${encodeURIComponent(query)}`,
+        {
+          signal: this.currentRequest.signal,
+          headers: {
+            Accept: "application/json",
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`Search failed: ${response.status}`);
@@ -3503,12 +3598,12 @@ export class ModuleSearchComponent extends HTMLElement {
       const data = await response.json();
       this.displayResults(data.results);
     } catch (error) {
-      if (error.name === 'AbortError') {
+      if (error.name === "AbortError") {
         // Request was cancelled, ignore
         return;
       }
-      console.error('Search error:', error);
-      this.displayError('Search failed. Please try again.');
+      console.error("Search error:", error);
+      this.displayError("Search failed. Please try again.");
     } finally {
       this.currentRequest = null;
     }
@@ -3516,13 +3611,15 @@ export class ModuleSearchComponent extends HTMLElement {
 
   private displayResults(results: any[]) {
     if (results.length === 0) {
-      this.resultsContainer.innerHTML = '<div class="no-results">No modules found</div>';
-      this.resultsContainer.classList.add('active');
+      this.resultsContainer.innerHTML =
+        '<div class="no-results">No modules found</div>';
+      this.resultsContainer.classList.add("active");
       return;
     }
 
     this.resultsContainer.innerHTML = results
-      .map((result, index) => `
+      .map(
+        (result, index) => `
         <div
           class="result-item"
           tabindex="0"
@@ -3531,26 +3628,27 @@ export class ModuleSearchComponent extends HTMLElement {
           data-module-id="${result.id}"
         >
           <div class="result-title">${this.escapeHtml(result.name)}</div>
-          <div class="result-description">${this.escapeHtml(result.description || '')}</div>
+          <div class="result-description">${this.escapeHtml(result.description || "")}</div>
         </div>
-      `)
-      .join('');
+      `,
+      )
+      .join("");
 
-    this.resultsContainer.classList.add('active');
+    this.resultsContainer.classList.add("active");
   }
 
   private clearResults() {
-    this.resultsContainer.innerHTML = '';
-    this.resultsContainer.classList.remove('active');
+    this.resultsContainer.innerHTML = "";
+    this.resultsContainer.classList.remove("active");
   }
 
   private displayError(message: string) {
     this.resultsContainer.innerHTML = `<div class="error">${this.escapeHtml(message)}</div>`;
-    this.resultsContainer.classList.add('active');
+    this.resultsContainer.classList.add("active");
   }
 
   private escapeHtml(text: string): string {
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   }
@@ -3572,36 +3670,33 @@ export class ModuleSearchComponent extends HTMLElement {
 }
 
 // Register the custom element
-customElements.define('module-search', ModuleSearchComponent);
+customElements.define("module-search", ModuleSearchComponent);
 
 // Frontend build configuration (vite.config.ts)
-import { defineConfig } from 'vite';
-import tailwindcss from 'tailwindcss';
-import autoprefixer from 'autoprefixer';
+import { defineConfig } from "vite";
+import tailwindcss from "tailwindcss";
+import autoprefixer from "autoprefixer";
 
 export default defineConfig({
   build: {
-    outDir: 'dist',
+    outDir: "dist",
     rollupOptions: {
       input: {
-        main: 'index.html',
-        styles: 'src/styles/main.css',
+        main: "index.html",
+        styles: "src/styles/main.css",
       },
     },
   },
   css: {
     postcss: {
-      plugins: [
-        tailwindcss(),
-        autoprefixer(),
-      ],
+      plugins: [tailwindcss(), autoprefixer()],
     },
   },
 });
 
 // tailwind.config.js - Bundled locally, not from CDN
 export default {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {},
   },
@@ -3613,15 +3708,16 @@ export default {
 
 ```typescript
 // src/validation/schemas.ts
-import { z } from 'zod';
+import { z } from "zod";
 
 // Sanitize and validate search queries
 export const searchQuerySchema = z.object({
-  q: z.string()
-    .min(2, 'Query must be at least 2 characters')
-    .max(100, 'Query cannot exceed 100 characters')
-    .regex(/^[\w\s\-\.]+$/, 'Query contains invalid characters')
-    .transform(q => q.trim()),
+  q: z
+    .string()
+    .min(2, "Query must be at least 2 characters")
+    .max(100, "Query cannot exceed 100 characters")
+    .regex(/^[\w\s\-\.]+$/, "Query contains invalid characters")
+    .transform((q) => q.trim()),
   namespace: z.string().optional(),
   limit: z.coerce.number().min(1).max(100).default(20),
   offset: z.coerce.number().min(0).default(0),
@@ -3632,19 +3728,24 @@ export const moduleSchema = z.object({
   name: z.string().min(1).max(256),
   namespace: z.string().min(1).max(256),
   description: z.string().max(2000).optional(),
-  options: z.array(z.object({
-    name: z.string(),
-    type: z.string(),
-    description: z.string().optional(),
-    default: z.unknown().optional(),
-    example: z.unknown().optional(),
-  })).max(1000), // Limit options array size
+  options: z
+    .array(
+      z.object({
+        name: z.string(),
+        type: z.string(),
+        description: z.string().optional(),
+        default: z.unknown().optional(),
+        example: z.unknown().optional(),
+      }),
+    )
+    .max(1000), // Limit options array size
   metadata: z.record(z.unknown()).optional(),
 });
 
 // Batch update schema with size limits
 export const batchUpdateSchema = z.object({
-  modules: z.array(moduleSchema)
+  modules: z
+    .array(moduleSchema)
     .max(50) // Limit batch size
     .refine(
       (modules) => {
@@ -3652,21 +3753,23 @@ export const batchUpdateSchema = z.object({
         const jsonSize = JSON.stringify(modules).length;
         return jsonSize < 500000; // 500KB limit
       },
-      { message: 'Batch payload too large' }
+      { message: "Batch payload too large" },
     ),
 });
 
 // Host usage reporting schema
 export const hostUsageSchema = z.object({
-  hostname: z.string()
-    .transform(h => crypto.createHash('sha256').update(h).digest('hex')),
+  hostname: z
+    .string()
+    .transform((h) => crypto.createHash("sha256").update(h).digest("hex")),
   modules: z.array(z.string()).max(500),
-  environment: z.enum(['production', 'staging', 'development']),
+  environment: z.enum(["production", "staging", "development"]),
   timestamp: z.string().datetime().optional(),
 });
 
 // API key validation
-export const apiKeySchema = z.string()
+export const apiKeySchema = z
+  .string()
   .length(64)
   .regex(/^[a-zA-Z0-9]+$/);
 
@@ -3676,14 +3779,17 @@ export const validate = <T>(schema: z.ZodSchema<T>) => {
     try {
       const data = await c.req.json();
       const validated = schema.parse(data);
-      c.set('validated', validated);
+      c.set("validated", validated);
       await next();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return c.json({
-          error: 'Validation failed',
-          details: error.errors,
-        }, 400);
+        return c.json(
+          {
+            error: "Validation failed",
+            details: error.errors,
+          },
+          400,
+        );
       }
       throw error;
     }
@@ -3696,14 +3802,17 @@ export const validateQuery = <T>(schema: z.ZodSchema<T>) => {
     try {
       const query = Object.fromEntries(new URL(c.req.url).searchParams);
       const validated = schema.parse(query);
-      c.set('query', validated);
+      c.set("query", validated);
       await next();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return c.json({
-          error: 'Invalid query parameters',
-          details: error.errors,
-        }, 400);
+        return c.json(
+          {
+            error: "Invalid query parameters",
+            details: error.errors,
+          },
+          400,
+        );
       }
       throw error;
     }
@@ -3719,19 +3828,23 @@ export class SearchCacheManager {
   private static readonly MAX_KV_SIZE = 2 * 1024 * 1024; // 2MB
   private static readonly CHUNK_SIZE = 500 * 1024; // 500KB per chunk
 
-  constructor(private kv: KVNamespace, private r2: R2Bucket) {}
+  constructor(
+    private kv: KVNamespace,
+    private r2: R2Bucket,
+  ) {}
 
   async cacheSearchResults(key: string, results: any[]): Promise<void> {
     const data = JSON.stringify(results);
     const dataSize = new TextEncoder().encode(data).length;
 
-    if (dataSize < this.MAX_KV_SIZE * 0.9) { // 90% safety margin
+    if (dataSize < this.MAX_KV_SIZE * 0.9) {
+      // 90% safety margin
       // Small enough for KV
       await this.kv.put(key, data, {
         expirationTtl: 300,
         metadata: {
           size: dataSize,
-          type: 'direct',
+          type: "direct",
         },
       });
     } else {
@@ -3746,25 +3859,29 @@ export class SearchCacheManager {
       });
 
       // Store pointer in KV
-      await this.kv.put(key, JSON.stringify({
-        type: 'r2-pointer',
-        location: r2Key,
-        size: dataSize,
-      }), {
-        expirationTtl: 300,
-      });
+      await this.kv.put(
+        key,
+        JSON.stringify({
+          type: "r2-pointer",
+          location: r2Key,
+          size: dataSize,
+        }),
+        {
+          expirationTtl: 300,
+        },
+      );
     }
   }
 
   async getSearchResults(key: string): Promise<any[] | null> {
-    const cached = await this.kv.get(key, 'json');
+    const cached = await this.kv.get(key, "json");
 
     if (!cached) {
       return null;
     }
 
     // Check if it's a pointer to R2
-    if (cached.type === 'r2-pointer') {
+    if (cached.type === "r2-pointer") {
       const r2Object = await this.r2.get(cached.location);
       if (!r2Object) {
         // R2 object missing, clear KV pointer
@@ -3782,17 +3899,21 @@ export class SearchCacheManager {
   async cachePagedResults(
     baseKey: string,
     allResults: any[],
-    pageSize: number = 20
+    pageSize: number = 20,
   ): Promise<void> {
     const totalPages = Math.ceil(allResults.length / pageSize);
 
     // Store metadata
-    await this.kv.put(`${baseKey}:meta`, JSON.stringify({
-      totalResults: allResults.length,
-      totalPages,
-      pageSize,
-      timestamp: Date.now(),
-    }), { expirationTtl: 300 });
+    await this.kv.put(
+      `${baseKey}:meta`,
+      JSON.stringify({
+        totalResults: allResults.length,
+        totalPages,
+        pageSize,
+        timestamp: Date.now(),
+      }),
+      { expirationTtl: 300 },
+    );
 
     // Store each page separately
     for (let i = 0; i < totalPages; i++) {
@@ -3800,11 +3921,9 @@ export class SearchCacheManager {
       const end = Math.min(start + pageSize, allResults.length);
       const pageData = allResults.slice(start, end);
 
-      await this.kv.put(
-        `${baseKey}:page:${i}`,
-        JSON.stringify(pageData),
-        { expirationTtl: 300 }
-      );
+      await this.kv.put(`${baseKey}:page:${i}`, JSON.stringify(pageData), {
+        expirationTtl: 300,
+      });
     }
   }
 }
@@ -3825,7 +3944,7 @@ export class SafeAnalytics {
     const safeQuery = this.truncateString(query.toLowerCase(), 100);
 
     this.analytics.writeDataPoint({
-      indexes: ['search'],
+      indexes: ["search"],
       blobs: [
         safeQuery,
         this.hashLongString(query), // Store hash for long queries
@@ -3840,11 +3959,11 @@ export class SafeAnalytics {
     const pathHash = this.hashLongString(modulePath);
 
     this.analytics.writeDataPoint({
-      indexes: ['module_view'],
+      indexes: ["module_view"],
       blobs: [
         safePath,
         pathHash,
-        userId ? this.hashLongString(userId) : 'anonymous',
+        userId ? this.hashLongString(userId) : "anonymous",
       ],
       doubles: [1, Date.now()],
     });
@@ -3854,31 +3973,34 @@ export class SafeAnalytics {
     // Aggregate data to avoid blob limits
     const summary = {
       count: items.length,
-      sample: items.slice(0, 3).map(i => i.id || i.name).join(','),
+      sample: items
+        .slice(0, 3)
+        .map((i) => i.id || i.name)
+        .join(","),
     };
 
     this.analytics.writeDataPoint({
-      indexes: ['batch_event'],
-      blobs: [
-        eventType,
-        this.truncateString(JSON.stringify(summary), 500),
-      ],
+      indexes: ["batch_event"],
+      blobs: [eventType, this.truncateString(JSON.stringify(summary), 500)],
       doubles: [items.length, Date.now()],
     });
   }
 
   private truncateString(str: string, maxLength: number): string {
     if (str.length <= maxLength) return str;
-    return str.substring(0, maxLength - 3) + '...';
+    return str.substring(0, maxLength - 3) + "...";
   }
 
   private hashLongString(str: string): string {
     // Use Web Crypto API for hashing
     const encoder = new TextEncoder();
     const data = encoder.encode(str);
-    const hashBuffer = crypto.subtle.digest('SHA-256', data);
+    const hashBuffer = crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+    return hashArray
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .substring(0, 16);
   }
 
   // Batch multiple small events to reduce write frequency
@@ -3888,7 +4010,8 @@ export class SafeAnalytics {
   bufferEvent(event: any) {
     this.eventBuffer.push(event);
 
-    if (this.eventBuffer.length >= 25) { // Analytics Engine limit
+    if (this.eventBuffer.length >= 25) {
+      // Analytics Engine limit
       this.flush();
     } else if (!this.flushTimer) {
       this.flushTimer = setTimeout(() => this.flush(), 5000);
@@ -3901,11 +4024,11 @@ export class SafeAnalytics {
     const events = this.eventBuffer.splice(0, 25);
     const summary = {
       count: events.length,
-      types: [...new Set(events.map(e => e.type))].join(','),
+      types: [...new Set(events.map((e) => e.type))].join(","),
     };
 
     this.analytics.writeDataPoint({
-      indexes: ['buffered_events'],
+      indexes: ["buffered_events"],
       blobs: [this.truncateString(JSON.stringify(summary), 1000)],
       doubles: [events.length, Date.now()],
     });
@@ -3924,12 +4047,12 @@ export class SafeAnalytics {
 // src/api/preview.ts
 export class PreviewHandler {
   async handlePreview(c: Context<{ Bindings: Env }>) {
-    const prNumber = c.req.param('pr');
+    const prNumber = c.req.param("pr");
     const { modules } = await c.req.json<{ modules: any[] }>();
 
     // Validate PR number
     if (!prNumber || !/^\d+$/.test(prNumber)) {
-      return c.json({ error: 'Invalid PR number' }, 400);
+      return c.json({ error: "Invalid PR number" }, 400);
     }
 
     // Store preview data in KV with PR-specific key
@@ -3940,17 +4063,13 @@ export class PreviewHandler {
       prNumber,
     };
 
-    await c.env.CACHE.put(
-      previewKey,
-      JSON.stringify(previewData),
-      {
-        expirationTtl: 86400, // 24 hours
-        metadata: {
-          pr: prNumber,
-          moduleCount: modules.length,
-        },
-      }
-    );
+    await c.env.CACHE.put(previewKey, JSON.stringify(previewData), {
+      expirationTtl: 86400, // 24 hours
+      metadata: {
+        pr: prNumber,
+        moduleCount: modules.length,
+      },
+    });
 
     // Generate preview URL
     const previewUrl = `https://preview-${prNumber}.nixos-modules.workers.dev`;
@@ -3965,13 +4084,13 @@ export class PreviewHandler {
   }
 
   async getPreview(c: Context<{ Bindings: Env }>) {
-    const prNumber = c.req.param('pr');
+    const prNumber = c.req.param("pr");
     const previewKey = `preview:pr:${prNumber}`;
 
-    const previewData = await c.env.CACHE.get(previewKey, 'json');
+    const previewData = await c.env.CACHE.get(previewKey, "json");
 
     if (!previewData) {
-      return c.json({ error: 'Preview not found or expired' }, 404);
+      return c.json({ error: "Preview not found or expired" }, 404);
     }
 
     return c.json(previewData);
@@ -3979,8 +4098,13 @@ export class PreviewHandler {
 }
 
 // Add to routes
-app.post('/api/v1/modules/preview/:pr', authenticate, authorize('write'), previewHandler.handlePreview);
-app.get('/api/v1/modules/preview/:pr', previewHandler.getPreview);
+app.post(
+  "/api/v1/modules/preview/:pr",
+  authenticate,
+  authorize("write"),
+  previewHandler.handlePreview,
+);
+app.get("/api/v1/modules/preview/:pr", previewHandler.getPreview);
 ```
 
 ### 8. Test Coverage Configuration (Issue #23)
@@ -4159,31 +4283,37 @@ in
 This document represents a comprehensive refinement of the NixOS Module Documentation API implementation plan with production-ready solutions for all identified issues:
 
 ### 1. **Module Extraction - Complete Rewrite**
+
 - **Fixed**: Broken `builtins.typeOf` approach replaced with recursive type extraction
 - **Solution**: Proper handling of all NixOS type variants (submodules, either, listOf, attrsOf, enum, etc.)
 - **Impact**: Accurate type information for 100% of modules including complex nested structures
 
 ### 2. **Adaptive Batch Processing**
+
 - **Fixed**: Missing D1 limit handling (100KB statements, 100 parameters, 1000 queries)
 - **Solution**: Dynamic batch sizing with real-time payload calculation and automatic retry logic
 - **Impact**: Reliable bulk operations without database errors or data loss
 
 ### 3. **Request Coalescing & Advanced Caching**
+
 - **Fixed**: Thundering herd problem on cache misses
 - **Solution**: In-flight request deduplication, multi-layer caching, stale-while-revalidate pattern
 - **Impact**: 90%+ reduction in database load during traffic spikes
 
 ### 4. **SLO-Driven Monitoring**
+
 - **Fixed**: No defined success criteria or error budgets
 - **Solution**: Comprehensive SLOs (99.95% availability, <100ms P99 cached, <0.1% errors)
 - **Impact**: Data-driven operations with clear performance targets
 
 ### 5. **Automated Deployment with Rollbacks**
+
 - **Fixed**: Manual rollbacks, no automatic failure detection
 - **Solution**: Real-time monitoring during deployment with automatic rollback on SLO violations
 - **Impact**: Zero-downtime deployments with <5 minute recovery time
 
 ### 6. **Performance Optimizations**
+
 - **Implemented**: Edge caching, request coalescing, connection pooling
 - **Result**: 50ms P50 latency, 100ms P99 for cached requests
 - **Capacity**: 100M+ requests/month from day one
@@ -4204,8 +4334,8 @@ The system is designed to scale from day one, handle production workloads, and p
 
 ---
 
-*Document Version: 2.1*
-*Last Updated: 2025-10-07*
-*Status: Production Ready*
-*Owner: vx*
-*Critical Fixes Applied: 6 major issues resolved*
+_Document Version: 2.1_
+_Last Updated: 2025-10-07_
+_Status: Production Ready_
+_Owner: vx_
+_Critical Fixes Applied: 6 major issues resolved_

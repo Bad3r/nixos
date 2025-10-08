@@ -5,6 +5,7 @@ This document explains how to set up and test the AI Search integration for the 
 ## Overview
 
 The API uses **Cloudflare AI Search** (AutoRAG) to provide:
+
 - 🔍 **Semantic Search**: Find modules by meaning, not just keywords
 - 🤖 **AI-Powered Responses**: Get natural language answers about modules
 - 🔀 **Hybrid Search**: Combine keyword and semantic search for best results
@@ -22,6 +23,7 @@ The API uses **Cloudflare AI Search** (AutoRAG) to provide:
 Go to: `Cloudflare Dashboard → AI → AI Search`
 
 Ensure you have an index with:
+
 - **Name**: `nixos-modules-search-staging` (for staging)
 - **Embedding Model**: `@cf/baai/bge-base-en-v1.5`
 - **AI Gateway**: `nixos-modules-gateway-staging`
@@ -34,6 +36,7 @@ The `MODULE_API_KEY` is stored in GitHub Secrets. You can either:
 **A) Use existing key** (if you have it)
 
 **B) Generate a new key:**
+
 ```bash
 # Generate secure key
 NEW_KEY=$(openssl rand -base64 32)
@@ -62,6 +65,7 @@ export API_KEY='your-module-api-key'
 ```
 
 Expected output:
+
 ```
 🔄 Triggering AI Search Ingestion
 ==================================
@@ -92,6 +96,7 @@ Run the comprehensive test script:
 ```
 
 Expected output:
+
 ```
 🔍 Testing AI Search Integration
 ================================
@@ -121,44 +126,50 @@ AI Responses: ✓
 ## Testing Examples
 
 ### Keyword Search (Traditional)
+
 ```bash
 curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/search?q=networking&mode=keyword"
 ```
 
 ### Semantic Search (AI-powered)
+
 ```bash
 curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/search?q=web%20server%20configuration&mode=semantic"
 ```
 
 ### Hybrid Search (Default)
+
 ```bash
 curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/search?q=firewall"
 ```
 
 ### AI-Powered Responses
+
 ```bash
 curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/search?q=how%20to%20configure%20ssh&ai=true"
 ```
 
 ### With Custom Model
+
 ```bash
 curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/search?q=docker%20setup&ai=true&model=@cf/meta/llama-3.1-8b-instruct"
 ```
 
 ## API Parameters
 
-| Parameter | Type | Description | Default |
-|-----------|------|-------------|---------|
-| `q` | string | Search query (min 2 chars) | Required |
-| `mode` | enum | `keyword`, `semantic`, `hybrid`, `ai` | `hybrid` |
-| `ai` | boolean | Enable AI-powered responses | `false` |
-| `model` | string | Override default LLM | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` |
-| `limit` | number | Results per page (1-50) | `20` |
-| `offset` | number | Pagination offset | `0` |
+| Parameter | Type    | Description                           | Default                                    |
+| --------- | ------- | ------------------------------------- | ------------------------------------------ |
+| `q`       | string  | Search query (min 2 chars)            | Required                                   |
+| `mode`    | enum    | `keyword`, `semantic`, `hybrid`, `ai` | `hybrid`                                   |
+| `ai`      | boolean | Enable AI-powered responses           | `false`                                    |
+| `model`   | string  | Override default LLM                  | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` |
+| `limit`   | number  | Results per page (1-50)               | `20`                                       |
+| `offset`  | number  | Pagination offset                     | `0`                                        |
 
 ## Response Structure
 
 ### Semantic/Hybrid Search Response
+
 ```json
 {
   "query": "networking",
@@ -186,6 +197,7 @@ curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/sear
 ```
 
 ### AI-Powered Response
+
 ```json
 {
   "query": "how to configure ssh",
@@ -209,6 +221,7 @@ curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/sear
 **Problem**: Search falls back to keyword mode
 
 **Solutions**:
+
 1. Check if AI Search index exists in dashboard
 2. Verify modules have been ingested: run `./scripts/trigger-ingestion.sh`
 3. Wait 15-30 seconds after ingestion for processing
@@ -218,6 +231,7 @@ curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/sear
 **Problem**: API_KEY is incorrect or not set
 
 **Solutions**:
+
 1. Verify `API_KEY` environment variable is set
 2. Check that Worker secret is configured: `npx wrangler secret list --env staging`
 3. Regenerate and update the key if needed
@@ -227,6 +241,7 @@ curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/sear
 **Problem**: `aiResponse` is null in response
 
 **Solutions**:
+
 1. Ensure `ai=true` parameter is set or `mode=ai`
 2. Check AI Gateway is configured and authenticated
 3. Verify AI_GATEWAY_TOKEN secret is set in Worker
@@ -278,20 +293,20 @@ curl "https://nixos-module-docs-api-staging.exploit.workers.dev/api/modules/sear
 
 ## Scripts Reference
 
-| Script | Purpose |
-|--------|---------|
-| `trigger-ingestion.sh` | Manually trigger AI Search ingestion |
-| `test-ai-search.sh` | Comprehensive AI Search testing |
-| `set-ai-gateway-secret.sh` | Set AI Gateway token from SOPS |
+| Script                     | Purpose                              |
+| -------------------------- | ------------------------------------ |
+| `trigger-ingestion.sh`     | Manually trigger AI Search ingestion |
+| `test-ai-search.sh`        | Comprehensive AI Search testing      |
+| `set-ai-gateway-secret.sh` | Set AI Gateway token from SOPS       |
 
 ## Configuration Files
 
-| File | Purpose |
-|------|---------|
-| `wrangler.jsonc` | Worker configuration, bindings |
-| `src/services/ai-search.ts` | AI Search service implementation |
+| File                                 | Purpose                          |
+| ------------------------------------ | -------------------------------- |
+| `wrangler.jsonc`                     | Worker configuration, bindings   |
+| `src/services/ai-search.ts`          | AI Search service implementation |
 | `src/api/handlers/modules/search.ts` | Search handler with mode routing |
-| `secrets/cf-ai-gateway.yaml` | SOPS-encrypted AI Gateway token |
+| `secrets/cf-ai-gateway.yaml`         | SOPS-encrypted AI Gateway token  |
 
 ## Further Reading
 

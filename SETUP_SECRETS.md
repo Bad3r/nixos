@@ -4,11 +4,11 @@
 
 The following secrets have been added to the repository:
 
-| Secret Name | Status | Description |
-|-------------|--------|-------------|
-| `CLOUDFLARE_ACCOUNT_ID` | ✅ Added | Your Cloudflare account ID |
-| `MODULE_API_KEY` | ✅ Added | API key for module upload authentication |
-| `CLOUDFLARE_API_TOKEN` | ⚠️ Manual Setup Required | Cloudflare API token for deployments |
+| Secret Name             | Status                   | Description                              |
+| ----------------------- | ------------------------ | ---------------------------------------- |
+| `CLOUDFLARE_ACCOUNT_ID` | ✅ Added                 | Your Cloudflare account ID               |
+| `MODULE_API_KEY`        | ✅ Added                 | API key for module upload authentication |
+| `CLOUDFLARE_API_TOKEN`  | ⚠️ Manual Setup Required | Cloudflare API token for deployments     |
 
 ## 🔑 Manual Setup Required: CLOUDFLARE_API_TOKEN
 
@@ -58,6 +58,7 @@ gh secret set CLOUDFLARE_API_TOKEN --repo Bad3r/nixos
 
 1. Create and add the `CLOUDFLARE_API_TOKEN` as described above
 2. Create GitHub environments (optional but recommended):
+
    ```bash
    # Create staging environment
    gh api --method PUT -H "Accept: application/vnd.github+json" \
@@ -96,12 +97,13 @@ The Worker also needs these environment variables set in `wrangler.jsonc`:
 {
   "vars": {
     "API_KEY": "use-wrangler-secret-instead",
-    "ENVIRONMENT": "staging"
-  }
+    "ENVIRONMENT": "staging",
+  },
 }
 ```
 
 For production secrets, use:
+
 ```bash
 cd implementation/worker
 npx wrangler secret put API_KEY --env staging
@@ -110,4 +112,4 @@ npx wrangler secret put API_KEY --env production
 
 ---
 
-*Generated: 2025-10-08*
+_Generated: 2025-10-08_

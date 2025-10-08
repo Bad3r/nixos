@@ -3,8 +3,8 @@
  * Configured for Cloudflare Workers testing with Miniflare
  */
 
-import { defineConfig } from 'vitest/config';
-import path from 'path';
+import { defineConfig } from "vitest/config";
+import path from "path";
 
 export default defineConfig({
   test: {
@@ -12,18 +12,18 @@ export default defineConfig({
     globals: true,
 
     // Use Miniflare environment for Workers testing
-    environment: 'miniflare',
+    environment: "miniflare",
 
     // Environment options
     environmentOptions: {
       bindings: {
         // Test environment bindings
-        ENVIRONMENT: 'test',
-        JWT_SECRET: 'test-secret-at-least-32-characters-long',
-        API_TOKEN: 'test-api-token-at-least-32-characters',
-        CACHE_TTL: '60',
-        MAX_BATCH_SIZE: '10',
-        ENABLE_DEBUG: 'true',
+        ENVIRONMENT: "test",
+        JWT_SECRET: "test-secret-at-least-32-characters-long",
+        API_TOKEN: "test-api-token-at-least-32-characters",
+        CACHE_TTL: "60",
+        MAX_BATCH_SIZE: "10",
+        ENABLE_DEBUG: "true",
       },
       kvPersist: false, // Use in-memory KV for tests
       d1Persist: false, // Use in-memory D1 for tests
@@ -31,36 +31,34 @@ export default defineConfig({
     },
 
     // Setup files
-    setupFiles: ['./test/setup.ts'],
+    setupFiles: ["./test/setup.ts"],
 
     // Test match patterns
     include: [
-      'src/**/*.{test,spec}.{js,ts,jsx,tsx}',
-      'test/**/*.{test,spec}.{js,ts,jsx,tsx}',
+      "src/**/*.{test,spec}.{js,ts,jsx,tsx}",
+      "test/**/*.{test,spec}.{js,ts,jsx,tsx}",
     ],
 
     // Coverage configuration
     coverage: {
       enabled: true,
-      provider: 'v8',
-      reporter: ['text', 'json', 'html', 'lcov'],
-      reportsDirectory: './coverage',
+      provider: "v8",
+      reporter: ["text", "json", "html", "lcov"],
+      reportsDirectory: "./coverage",
 
       // Files to include in coverage
-      include: [
-        'src/**/*.{js,ts,jsx,tsx}',
-      ],
+      include: ["src/**/*.{js,ts,jsx,tsx}"],
 
       // Files to exclude from coverage
       exclude: [
-        'node_modules',
-        'test',
-        'dist',
-        '*.config.ts',
-        'src/**/*.d.ts',
-        'src/**/*.test.ts',
-        'src/**/*.spec.ts',
-        'src/types.ts', // Type definitions
+        "node_modules",
+        "test",
+        "dist",
+        "*.config.ts",
+        "src/**/*.d.ts",
+        "src/**/*.test.ts",
+        "src/**/*.spec.ts",
+        "src/types.ts", // Type definitions
       ],
 
       // Coverage thresholds (80% minimum)
@@ -99,14 +97,14 @@ export default defineConfig({
 
     // Watch mode settings
     watch: false,
-    watchExclude: ['node_modules', 'dist', 'coverage'],
+    watchExclude: ["node_modules", "dist", "coverage"],
 
     // Reporter
-    reporters: ['default', 'html'],
+    reporters: ["default", "html"],
 
     // Output file for HTML reporter
     outputFile: {
-      html: './test-results/index.html',
+      html: "./test-results/index.html",
     },
 
     // Fail on first test failure in CI
@@ -119,7 +117,7 @@ export default defineConfig({
     allowOnly: !process.env.CI,
 
     // Pool options
-    pool: 'threads',
+    pool: "threads",
     poolOptions: {
       threads: {
         singleThread: false,
@@ -136,19 +134,19 @@ export default defineConfig({
   // Resolve configuration
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@test': path.resolve(__dirname, './test'),
+      "@": path.resolve(__dirname, "./src"),
+      "@test": path.resolve(__dirname, "./test"),
     },
   },
 
   // Build configuration (for test builds)
   build: {
-    target: 'esnext',
+    target: "esnext",
     sourcemap: true,
   },
 
   // Define configuration
   define: {
-    'process.env.NODE_ENV': '"test"',
+    "process.env.NODE_ENV": '"test"',
   },
 });

@@ -6,24 +6,24 @@ on:
       - main
       - feat/cf-auto-docs-api
     paths:
-      - 'modules/**'
-      - 'implementation/**'
-      - 'scripts/extract-*.nix'
-      - 'scripts/extract-and-upload.sh'
-      - '.github/workflows/deploy-module-docs.yml'
+      - "modules/**"
+      - "implementation/**"
+      - "scripts/extract-*.nix"
+      - "scripts/extract-and-upload.sh"
+      - ".github/workflows/deploy-module-docs.yml"
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Deployment environment'
+        description: "Deployment environment"
         required: true
-        default: 'staging'
+        default: "staging"
         type: choice
         options:
           - staging
           - production
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: "20"
 
 jobs:
   extract-modules:
@@ -50,7 +50,7 @@ jobs:
 
       - name: Extract modules
         id: extract
-        timeout-minutes: 20  # Increased for full repository extraction (431+ modules)
+        timeout-minutes: 20 # Increased for full repository extraction (431+ modules)
         run: |
           echo "Extracting ALL NixOS modules from repository..."
           ./scripts/extract-and-upload.sh --extract-only
@@ -213,7 +213,7 @@ jobs:
           name: extracted-modules
 
       - name: Upload to Worker API
-        timeout-minutes: 15  # Increased for chunked upload of 431+ modules (~11 batches)
+        timeout-minutes: 15 # Increased for chunked upload of 431+ modules (~11 batches)
         env:
           WORKER_ENDPOINT: ${{ needs.deploy-worker.outputs.worker-url }}
           API_KEY: ${{ secrets.MODULE_API_KEY }}

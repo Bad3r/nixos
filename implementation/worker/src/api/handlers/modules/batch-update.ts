@@ -10,11 +10,10 @@
  * - Ensures data consistency (no partial module updates)
  */
 
-import type { Context } from 'hono';
-import type { Env, Module, BatchUpdateRequest, ModuleWithOptions } from '../../../types';
-import { CacheKeys } from '../../../types';
-import { z } from 'zod';
-import { prepareDocumentForIngestion } from '../../../services/ai-search';
+import type { Context } from "hono";
+import type { Env, Module, BatchUpdateRequest } from "../../../types";
+import { CacheKeys } from "../../../types";
+import { z } from "zod";
 
 // Validation schema
 const ModuleSchema = z.object({
@@ -23,20 +22,28 @@ const ModuleSchema = z.object({
   namespace: z.string().min(1),
   description: z.string().optional(),
   examples: z.array(z.string()).optional(),
-  metadata: z.record(z.any()).optional(),
-  options: z.array(z.object({
-    name: z.string(),
-    type: z.string(),
-    default_value: z.any().optional(),
-    description: z.string().optional(),
-    example: z.any().optional(),
-    read_only: z.boolean().optional(),
-    internal: z.boolean().optional(),
-  })).optional(),
-  dependencies: z.array(z.object({
-    depends_on_path: z.string(),
-    dependency_type: z.string().optional(),
-  })).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
+  options: z
+    .array(
+      z.object({
+        name: z.string(),
+        type: z.string(),
+        default_value: z.any().optional(),
+        description: z.string().optional(),
+        example: z.any().optional(),
+        read_only: z.boolean().optional(),
+        internal: z.boolean().optional(),
+      }),
+    )
+    .optional(),
+  dependencies: z
+    .array(
+      z.object({
+        depends_on_path: z.string(),
+        dependency_type: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 
 const BatchUpdateSchema = z.object({
@@ -50,11 +57,14 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
     const validation = BatchUpdateSchema.safeParse(body);
 
     if (!validation.success) {
-      return c.json({
-        error: 'Invalid request data',
-        details: validation.error.flatten(),
-        timestamp: new Date().toISOString(),
-      }, 400);
+      return c.json(
+        {
+          error: "Invalid request data",
+          details: validation.error.flatten(),
+          timestamp: new Date().toISOString(),
+        },
+        400,
+      );
     }
 
     const { modules } = validation.data;
@@ -72,7 +82,7 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
       try {
         // Check if module exists
         const existingStmt = c.env.MODULES_DB.prepare(
-          'SELECT id FROM modules WHERE path = ?'
+          "SELECT id FROM modules WHERE path = ?",
         );
         const existing = await existingStmt.bind(moduleData.path).first();
 
@@ -82,7 +92,8 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
 
           // 1. Update module
           statements.push(
-            c.env.MODULES_DB.prepare(`
+            c.env.MODULES_DB.prepare(
+              `
               UPDATE modules
               SET
                 name = ?,
@@ -92,33 +103,36 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
                 metadata = ?,
                 updated_at = CURRENT_TIMESTAMP
               WHERE path = ?
-            `).bind(
+            `,
+            ).bind(
               moduleData.name,
               moduleData.namespace,
               moduleData.description || null,
               JSON.stringify(moduleData.examples || []),
               JSON.stringify(moduleData.metadata || {}),
-              moduleData.path
-            )
+              moduleData.path,
+            ),
           );
 
           // 2. Delete existing options
           statements.push(
             c.env.MODULES_DB.prepare(
-              'DELETE FROM module_options WHERE module_id = ?'
-            ).bind(existing.id)
+              "DELETE FROM module_options WHERE module_id = ?",
+            ).bind(existing.id),
           );
 
           // 3. Insert new options
           if (moduleData.options && moduleData.options.length > 0) {
             for (const option of moduleData.options) {
               statements.push(
-                c.env.MODULES_DB.prepare(`
+                c.env.MODULES_DB.prepare(
+                  `
                   INSERT INTO module_options (
                     module_id, name, type, default_value,
                     description, example, read_only, internal
                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                `).bind(
+                `,
+                ).bind(
                   existing.id,
                   option.name,
                   option.type,
@@ -126,8 +140,8 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
                   option.description || null,
                   JSON.stringify(option.example),
                   option.read_only ? 1 : 0,
-                  option.internal ? 1 : 0
-                )
+                  option.internal ? 1 : 0,
+                ),
               );
             }
           }
@@ -135,23 +149,25 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
           // 4. Delete existing dependencies
           statements.push(
             c.env.MODULES_DB.prepare(
-              'DELETE FROM module_dependencies WHERE module_id = ?'
-            ).bind(existing.id)
+              "DELETE FROM module_dependencies WHERE module_id = ?",
+            ).bind(existing.id),
           );
 
           // 5. Insert new dependencies
           if (moduleData.dependencies && moduleData.dependencies.length > 0) {
             for (const dep of moduleData.dependencies) {
               statements.push(
-                c.env.MODULES_DB.prepare(`
+                c.env.MODULES_DB.prepare(
+                  `
                   INSERT INTO module_dependencies (
                     module_id, depends_on_path, dependency_type
                   ) VALUES (?, ?, ?)
-                `).bind(
+                `,
+                ).bind(
                   existing.id,
                   dep.depends_on_path,
-                  dep.dependency_type || 'imports'
-                )
+                  dep.dependency_type || "imports",
+                ),
               );
             }
           }
@@ -159,43 +175,49 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
           // Execute all statements atomically
           await c.env.MODULES_DB.batch(statements);
           results.updated++;
-
         } else {
           // Create new module using atomic transactions
 
           // First transaction: Insert module
-          const insertResult = await c.env.MODULES_DB.prepare(`
+          const insertResult = await c.env.MODULES_DB.prepare(
+            `
             INSERT INTO modules (
               path, name, namespace, description, examples, metadata
             ) VALUES (?, ?, ?, ?, ?, ?)
-          `).bind(
-            moduleData.path,
-            moduleData.name,
-            moduleData.namespace,
-            moduleData.description || null,
-            JSON.stringify(moduleData.examples || []),
-            JSON.stringify(moduleData.metadata || {})
-          ).run();
+          `,
+          )
+            .bind(
+              moduleData.path,
+              moduleData.name,
+              moduleData.namespace,
+              moduleData.description || null,
+              JSON.stringify(moduleData.examples || []),
+              JSON.stringify(moduleData.metadata || {}),
+            )
+            .run();
 
           const moduleId = insertResult.meta.last_row_id;
           results.created++;
 
           // Second transaction: Insert options and dependencies atomically
-          if ((moduleData.options && moduleData.options.length > 0) ||
-              (moduleData.dependencies && moduleData.dependencies.length > 0)) {
-
+          if (
+            (moduleData.options && moduleData.options.length > 0) ||
+            (moduleData.dependencies && moduleData.dependencies.length > 0)
+          ) {
             const relatedStatements = [];
 
             // Insert options
             if (moduleData.options && moduleData.options.length > 0) {
               for (const option of moduleData.options) {
                 relatedStatements.push(
-                  c.env.MODULES_DB.prepare(`
+                  c.env.MODULES_DB.prepare(
+                    `
                     INSERT INTO module_options (
                       module_id, name, type, default_value,
                       description, example, read_only, internal
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                  `).bind(
+                  `,
+                  ).bind(
                     moduleId,
                     option.name,
                     option.type,
@@ -203,8 +225,8 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
                     option.description || null,
                     JSON.stringify(option.example),
                     option.read_only ? 1 : 0,
-                    option.internal ? 1 : 0
-                  )
+                    option.internal ? 1 : 0,
+                  ),
                 );
               }
             }
@@ -213,15 +235,17 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
             if (moduleData.dependencies && moduleData.dependencies.length > 0) {
               for (const dep of moduleData.dependencies) {
                 relatedStatements.push(
-                  c.env.MODULES_DB.prepare(`
+                  c.env.MODULES_DB.prepare(
+                    `
                     INSERT INTO module_dependencies (
                       module_id, depends_on_path, dependency_type
                     ) VALUES (?, ?, ?)
-                  `).bind(
+                  `,
+                  ).bind(
                     moduleId,
                     dep.depends_on_path,
-                    dep.dependency_type || 'imports'
-                  )
+                    dep.dependency_type || "imports",
+                  ),
                 );
               }
             }
@@ -237,41 +261,13 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
           await c.env.CACHE.delete(cacheKey);
         }
 
-        // Ingest into AI Search for semantic search
-        if (c.env.AI && c.env.AI_SEARCH) {
-          try {
-            // Prepare module data for AI Search
-            const moduleWithOptions: ModuleWithOptions = {
-              ...moduleData,
-              options: moduleData.options || [],
-              dependencies: moduleData.dependencies || [],
-            };
-
-            const document = prepareDocumentForIngestion(moduleWithOptions);
-
-            // Configure authenticated AI Gateway if available
-            const gatewayConfig = c.env.AI_GATEWAY ? {
-              gateway: {
-                id: c.env.AI_GATEWAY.id,
-                headers: {
-                  'cf-aig-authorization': `Bearer ${c.env.AI_GATEWAY_TOKEN}`
-                }
-              }
-            } : {};
-
-            // Ingest single document into AI Search
-            await c.env.AI.autorag('nixos-modules-search').ingest({
-              documents: [document],
-              ...gatewayConfig,
-            });
-          } catch (error) {
-            // Don't fail module upload if AI Search ingestion fails
-            console.warn(`Failed to ingest to AI Search for ${moduleData.path}:`, error);
-          }
-        }
-
+        // Note: Manual AI Search ingestion is no longer supported in the latest API.
+        // Once Cloudflare exposes ingestion for bindings again, re-introduce an uploader here.
       } catch (moduleError: any) {
-        console.error(`Error processing module ${moduleData.path}:`, moduleError);
+        console.error(
+          `Error processing module ${moduleData.path}:`,
+          moduleError,
+        );
         results.failed++;
         results.errors.push(`${moduleData.path}: ${moduleError.message}`);
       }
@@ -279,7 +275,7 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
 
     // Clear list cache (if KV is configured)
     if (c.env.CACHE) {
-      await c.env.CACHE.delete(CacheKeys.moduleList('*'));
+      await c.env.CACHE.delete(CacheKeys.moduleList("*"));
       await c.env.CACHE.delete(CacheKeys.stats());
     }
 
@@ -287,31 +283,41 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
     if (c.env.ANALYTICS) {
       try {
         c.env.ANALYTICS.writeDataPoint({
-          indexes: ['batch_update'],
-          blobs: ['modules'],
-          doubles: [results.updated, results.created, results.failed, Date.now()],
+          indexes: ["batch_update"],
+          blobs: ["modules"],
+          doubles: [
+            results.updated,
+            results.created,
+            results.failed,
+            Date.now(),
+          ],
         });
       } catch (error) {
-        console.warn('Analytics write error:', error);
+        console.warn("Analytics write error:", error);
       }
     }
 
     const success = results.failed === 0;
     const status = success ? 200 : 207; // 207 Multi-Status for partial success
 
-    return c.json({
-      success,
-      results,
-      timestamp: new Date().toISOString(),
-    }, status);
-
+    return c.json(
+      {
+        success,
+        results,
+        timestamp: new Date().toISOString(),
+      },
+      status,
+    );
   } catch (error: any) {
-    console.error('Batch update error:', error);
-    return c.json({
-      error: 'Failed to update modules',
-      message: error.message,
-      timestamp: new Date().toISOString(),
-    }, 500);
+    console.error("Batch update error:", error);
+    return c.json(
+      {
+        error: "Failed to update modules",
+        message: error.message,
+        timestamp: new Date().toISOString(),
+      },
+      500,
+    );
   }
 }
 
@@ -319,12 +325,7 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
 async function clearAllCaches(env: Env) {
   // This would ideally list and delete all keys, but KV doesn't support
   // listing keys efficiently. For MVP, we just clear known patterns.
-  const patterns = [
-    'module:*',
-    'modules:list:*',
-    'search:*',
-    'stats:*',
-  ];
+  const patterns = ["module:*", "modules:list:*", "search:*", "stats:*"];
 
   // Note: This is a simplified approach. In production, you might want
   // to track cache keys in a separate index or use cache tags.

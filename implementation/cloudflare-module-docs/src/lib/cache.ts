@@ -8,8 +8,8 @@
  * - Distributed invalidation via Durable Objects
  */
 
-import { z } from 'zod';
-import { DurableObject } from 'cloudflare:workers';
+import { z } from "zod";
+import { DurableObject } from "cloudflare:workers";
 
 // Cache configuration
 export interface CacheConfig {
@@ -43,21 +43,21 @@ interface CacheMetadata {
 
 // Cache key types
 export enum CacheKeyType {
-  MODULE = 'module',
-  SEARCH = 'search',
-  LIST = 'list',
-  STATS = 'stats',
-  DEPENDENCY = 'dep',
-  HOST = 'host'
+  MODULE = "module",
+  SEARCH = "search",
+  LIST = "list",
+  STATS = "stats",
+  DEPENDENCY = "dep",
+  HOST = "host",
 }
 
 // Cache invalidation patterns
 export enum InvalidationPattern {
-  EXACT = 'exact',
-  PREFIX = 'prefix',
-  TAG = 'tag',
-  DEPENDENCY = 'dependency',
-  ALL = 'all'
+  EXACT = "exact",
+  PREFIX = "prefix",
+  TAG = "tag",
+  DEPENDENCY = "dependency",
+  ALL = "all",
 }
 
 /**
@@ -80,16 +80,17 @@ export class CacheManager {
       type?: CacheKeyType;
       acceptStale?: boolean;
       validateFn?: (value: T) => boolean;
-    } = {}
+    } = {},
   ): Promise<T | null> {
     const versionedKey = this.getVersionedKey(key, options.type);
 
     try {
       // Try to get from KV with metadata
-      const { value, metadata } = await this.config.MODULE_CACHE.getWithMetadata<CacheMetadata>(
-        versionedKey,
-        { type: 'json' }
-      );
+      const { value, metadata } =
+        await this.config.MODULE_CACHE.getWithMetadata<CacheMetadata>(
+          versionedKey,
+          { type: "json" },
+        );
 
       if (!value || !metadata) {
         return null;
@@ -100,7 +101,8 @@ export class CacheManager {
       if (metadata.expires < now) {
         // Check if we can serve stale content
         if (options.acceptStale && metadata.staleWhileRevalidate) {
-          const staleDeadline = metadata.expires + metadata.staleWhileRevalidate * 1000;
+          const staleDeadline =
+            metadata.expires + metadata.staleWhileRevalidate * 1000;
           if (now < staleDeadline) {
             // Trigger background revalidation
             this.triggerRevalidation(key, options.type);
@@ -145,10 +147,13 @@ export class CacheManager {
       compress?: boolean;
       staleWhileRevalidate?: number;
       staleIfError?: number;
-    } = {}
+    } = {},
   ): Promise<void> {
     const versionedKey = this.getVersionedKey(key, options.type);
-    const ttl = Math.min(options.ttl || this.config.DEFAULT_TTL, this.config.MAX_TTL);
+    const ttl = Math.min(
+      options.ttl || this.config.DEFAULT_TTL,
+      this.config.MAX_TTL,
+    );
 
     try {
       // Prepare value
@@ -170,7 +175,7 @@ export class CacheManager {
         created: Date.now(),
         expires: Date.now() + ttl * 1000,
         etag: await this.generateETag(value),
-        contentType: 'application/json',
+        contentType: "application/json",
         compressed,
         tags: options.tags || [],
         dependencies: options.dependencies || [],
@@ -185,7 +190,7 @@ export class CacheManager {
         {
           expirationTtl: ttl,
           metadata,
-        }
+        },
       );
 
       // Store version mapping
@@ -224,7 +229,7 @@ export class CacheManager {
     options: {
       async?: boolean;
       broadcast?: boolean;
-    } = {}
+    } = {},
   ): Promise<number> {
     const invalidator = this.getInvalidator();
 
@@ -269,7 +274,7 @@ export class CacheManager {
       key: string;
       generator: () => Promise<any>;
       options?: any;
-    }>
+    }>,
   ): Promise<void> {
     const warmingPromises = items.map(async (item) => {
       try {
@@ -323,8 +328,8 @@ export class CacheManager {
         limit: 1000,
       });
 
-      const deletePromises = list.keys.map(key =>
-        this.config.MODULE_CACHE.delete(key.name)
+      const deletePromises = list.keys.map((key) =>
+        this.config.MODULE_CACHE.delete(key.name),
       );
 
       await Promise.all(deletePromises);
@@ -340,14 +345,14 @@ export class CacheManager {
    */
   private async invalidateByTag(tag: string): Promise<number> {
     const tagKey = `tag:${tag}`;
-    const keys = await this.config.VERSION_CACHE.get<string[]>(tagKey, 'json');
+    const keys = await this.config.VERSION_CACHE.get<string[]>(tagKey, "json");
 
     if (!keys || !keys.length) {
       return 0;
     }
 
-    const deletePromises = keys.map(key =>
-      this.config.MODULE_CACHE.delete(key)
+    const deletePromises = keys.map((key) =>
+      this.config.MODULE_CACHE.delete(key),
     );
 
     await Promise.all(deletePromises);
@@ -361,14 +366,14 @@ export class CacheManager {
    */
   private async invalidateByDependency(dependency: string): Promise<number> {
     const depKey = `dep:${dependency}`;
-    const keys = await this.config.VERSION_CACHE.get<string[]>(depKey, 'json');
+    const keys = await this.config.VERSION_CACHE.get<string[]>(depKey, "json");
 
     if (!keys || !keys.length) {
       return 0;
     }
 
-    const deletePromises = keys.map(key =>
-      this.config.MODULE_CACHE.delete(key)
+    const deletePromises = keys.map((key) =>
+      this.config.MODULE_CACHE.delete(key),
     );
 
     await Promise.all(deletePromises);
@@ -383,7 +388,7 @@ export class CacheManager {
   private async invalidateAll(): Promise<number> {
     // Increment version to invalidate all existing keys
     this.currentVersion = Date.now().toString(36);
-    await this.config.VERSION_CACHE.put('current_version', this.currentVersion);
+    await this.config.VERSION_CACHE.put("current_version", this.currentVersion);
 
     // Count approximate entries (KV list is eventually consistent)
     const list = await this.config.MODULE_CACHE.list({ limit: 1 });
@@ -396,7 +401,8 @@ export class CacheManager {
   private async registerTags(key: string, tags: string[]): Promise<void> {
     const tagPromises = tags.map(async (tag) => {
       const tagKey = `tag:${tag}`;
-      const existing = await this.config.VERSION_CACHE.get<string[]>(tagKey, 'json') || [];
+      const existing =
+        (await this.config.VERSION_CACHE.get<string[]>(tagKey, "json")) || [];
       existing.push(key);
       await this.config.VERSION_CACHE.put(tagKey, JSON.stringify(existing));
     });
@@ -407,10 +413,14 @@ export class CacheManager {
   /**
    * Register dependencies for a cache key
    */
-  private async registerDependencies(key: string, dependencies: string[]): Promise<void> {
+  private async registerDependencies(
+    key: string,
+    dependencies: string[],
+  ): Promise<void> {
     const depPromises = dependencies.map(async (dep) => {
       const depKey = `dep:${dep}`;
-      const existing = await this.config.VERSION_CACHE.get<string[]>(depKey, 'json') || [];
+      const existing =
+        (await this.config.VERSION_CACHE.get<string[]>(depKey, "json")) || [];
       existing.push(key);
       await this.config.VERSION_CACHE.put(depKey, JSON.stringify(existing));
     });
@@ -422,7 +432,7 @@ export class CacheManager {
    * Get versioned cache key
    */
   private getVersionedKey(key: string, type?: CacheKeyType): string {
-    const prefix = type ? `${type}:` : '';
+    const prefix = type ? `${type}:` : "";
     return `${this.currentVersion}:${prefix}${key}`;
   }
 
@@ -432,17 +442,20 @@ export class CacheManager {
   private async storeVersionMapping(
     key: string,
     versionedKey: string,
-    type?: CacheKeyType
+    type?: CacheKeyType,
   ): Promise<void> {
-    const mappingKey = `map:${type || 'default'}:${key}`;
+    const mappingKey = `map:${type || "default"}:${key}`;
     await this.config.VERSION_CACHE.put(mappingKey, versionedKey);
   }
 
   /**
    * Remove version mapping
    */
-  private async removeVersionMapping(key: string, type?: CacheKeyType): Promise<void> {
-    const mappingKey = `map:${type || 'default'}:${key}`;
+  private async removeVersionMapping(
+    key: string,
+    type?: CacheKeyType,
+  ): Promise<void> {
+    const mappingKey = `map:${type || "default"}:${key}`;
     await this.config.VERSION_CACHE.delete(mappingKey);
   }
 
@@ -462,9 +475,12 @@ export class CacheManager {
     const text = JSON.stringify(value);
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+    return hashArray
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .substring(0, 16);
   }
 
   /**
@@ -472,7 +488,7 @@ export class CacheManager {
    */
   private async compress(data: string): Promise<ArrayBuffer> {
     const encoder = new TextEncoder();
-    const stream = new CompressionStream('gzip');
+    const stream = new CompressionStream("gzip");
     const writer = stream.writable.getWriter();
     writer.write(encoder.encode(data));
     writer.close();
@@ -500,7 +516,7 @@ export class CacheManager {
    * Decompress data
    */
   private async decompress(data: ArrayBuffer): Promise<string> {
-    const stream = new DecompressionStream('gzip');
+    const stream = new DecompressionStream("gzip");
     const writer = stream.writable.getWriter();
     writer.write(new Uint8Array(data));
     writer.close();
@@ -514,14 +530,14 @@ export class CacheManager {
     }
 
     const decoder = new TextDecoder();
-    return chunks.map(chunk => decoder.decode(chunk)).join('');
+    return chunks.map((chunk) => decoder.decode(chunk)).join("");
   }
 
   /**
    * Get cache invalidator Durable Object
    */
   private getInvalidator(): CacheInvalidatorInstance {
-    const id = this.config.CACHE_INVALIDATOR.idFromName('global');
+    const id = this.config.CACHE_INVALIDATOR.idFromName("global");
     return this.config.CACHE_INVALIDATOR.get(id) as any;
   }
 }
@@ -536,12 +552,12 @@ export class CacheInvalidator extends DurableObject {
     const url = new URL(request.url);
 
     // Handle WebSocket upgrade for real-time invalidation
-    if (request.headers.get('Upgrade') === 'websocket') {
+    if (request.headers.get("Upgrade") === "websocket") {
       return this.handleWebSocket(request);
     }
 
     // Handle invalidation request
-    if (url.pathname === '/invalidate' && request.method === 'POST') {
+    if (url.pathname === "/invalidate" && request.method === "POST") {
       const { pattern, type } = await request.json<{
         pattern: string;
         type: InvalidationPattern;
@@ -551,7 +567,7 @@ export class CacheInvalidator extends DurableObject {
       return Response.json({ invalidated: count });
     }
 
-    return new Response('Not Found', { status: 404 });
+    return new Response("Not Found", { status: 404 });
   }
 
   /**
@@ -573,11 +589,14 @@ export class CacheInvalidator extends DurableObject {
   /**
    * WebSocket message handler
    */
-  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+  async webSocketMessage(
+    ws: WebSocket,
+    message: string | ArrayBuffer,
+  ): Promise<void> {
     try {
       const data = JSON.parse(message as string);
 
-      if (data.type === 'invalidate') {
+      if (data.type === "invalidate") {
         await this.broadcastInvalidation(data.pattern, data.invalidationType);
       }
     } catch (error) {
@@ -597,10 +616,10 @@ export class CacheInvalidator extends DurableObject {
    */
   private async broadcastInvalidation(
     pattern: string,
-    type: InvalidationPattern
+    type: InvalidationPattern,
   ): Promise<number> {
     const message = JSON.stringify({
-      type: 'invalidation',
+      type: "invalidation",
       pattern,
       invalidationType: type,
       timestamp: Date.now(),
@@ -623,7 +642,10 @@ export class CacheInvalidator extends DurableObject {
   /**
    * Perform actual invalidation
    */
-  async invalidate(pattern: string, type: InvalidationPattern): Promise<number> {
+  async invalidate(
+    pattern: string,
+    type: InvalidationPattern,
+  ): Promise<number> {
     // Broadcast to all connected clients
     await this.broadcastInvalidation(pattern, type);
 
@@ -640,12 +662,14 @@ interface CacheInvalidatorInstance {
 /**
  * Cache middleware for Hono
  */
-export function cacheMiddleware(options: {
-  keyGenerator?: (c: any) => string;
-  ttl?: number;
-  tags?: string[];
-  condition?: (c: any) => boolean;
-} = {}) {
+export function cacheMiddleware(
+  options: {
+    keyGenerator?: (c: any) => string;
+    ttl?: number;
+    tags?: string[];
+    condition?: (c: any) => boolean;
+  } = {},
+) {
   return async (c: any, next: any) => {
     // Check if caching should be applied
     if (options.condition && !options.condition(c)) {
@@ -666,7 +690,7 @@ export function cacheMiddleware(options: {
 
     if (cached) {
       // Cache hit
-      c.header('X-Cache', 'HIT');
+      c.header("X-Cache", "HIT");
       return c.json(cached);
     }
 
@@ -682,7 +706,7 @@ export function cacheMiddleware(options: {
         tags: options.tags,
         staleWhileRevalidate: 60,
       });
-      c.header('X-Cache', 'MISS');
+      c.header("X-Cache", "MISS");
     }
   };
 }

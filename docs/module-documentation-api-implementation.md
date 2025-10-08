@@ -52,6 +52,7 @@ graph TD
 ## Phase 1: Infrastructure Setup
 
 ### Objectives
+
 - Create Cloudflare account resources
 - Set up development environment
 - Initialize project structure
@@ -59,6 +60,7 @@ graph TD
 ### Tasks
 
 #### 1.1 Cloudflare Resources
+
 ```bash
 # Create D1 database
 npx wrangler d1 create nixos-modules-db
@@ -72,6 +74,7 @@ npx wrangler analytics-engine create MODULE_ANALYTICS
 ```
 
 #### 1.2 Project Structure
+
 ```
 cloudflare-module-docs/
 ├── src/
@@ -96,6 +99,7 @@ cloudflare-module-docs/
 ```
 
 #### 1.3 Dependencies
+
 ```json
 {
   "dependencies": {
@@ -112,6 +116,7 @@ cloudflare-module-docs/
 ```
 
 ### Success Criteria
+
 - [ ] D1 database created and accessible
 - [ ] KV namespaces configured
 - [ ] Project structure initialized
@@ -122,6 +127,7 @@ cloudflare-module-docs/
 ## Phase 2: Module Extraction
 
 ### Objectives
+
 - Parse NixOS modules from the dendritic pattern
 - Extract comprehensive metadata
 - Generate JSON for API consumption
@@ -129,6 +135,7 @@ cloudflare-module-docs/
 ### Implementation
 
 #### 2.1 Module Parser (Nix)
+
 ```nix
 # scripts/extract-modules.nix
 { config, lib, pkgs, ... }:
@@ -199,6 +206,7 @@ in {
 ```
 
 #### 2.2 Host Usage Tracker
+
 ```nix
 # modules/telemetry/module-tracker.nix
 { config, lib, pkgs, ... }:
@@ -233,6 +241,7 @@ in {
 ```
 
 ### Success Criteria
+
 - [ ] Module parser extracts all metadata
 - [ ] Handles dendritic pattern correctly
 - [ ] Generates valid JSON output
@@ -243,6 +252,7 @@ in {
 ## Phase 3: Worker API Development
 
 ### Objectives
+
 - Implement RESTful API endpoints
 - Handle authentication and authorization
 - Optimize for edge performance
@@ -250,49 +260,54 @@ in {
 ### API Endpoints
 
 #### 3.1 Public Endpoints (No Auth)
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | API documentation |
-| GET | `/api/modules` | List all modules |
-| GET | `/api/modules/search` | Full-text search |
-| GET | `/api/modules/:namespace/:name` | Get module details |
-| GET | `/api/modules/:namespace/:name/usage` | Get usage statistics |
-| GET | `/api/modules/:namespace/:name/dependencies` | Get dependency graph |
-| GET | `/api/hosts` | List all known hosts |
-| GET | `/api/stats` | Global statistics |
+
+| Method | Path                                         | Description          |
+| ------ | -------------------------------------------- | -------------------- |
+| GET    | `/`                                          | API documentation    |
+| GET    | `/api/modules`                               | List all modules     |
+| GET    | `/api/modules/search`                        | Full-text search     |
+| GET    | `/api/modules/:namespace/:name`              | Get module details   |
+| GET    | `/api/modules/:namespace/:name/usage`        | Get usage statistics |
+| GET    | `/api/modules/:namespace/:name/dependencies` | Get dependency graph |
+| GET    | `/api/hosts`                                 | List all known hosts |
+| GET    | `/api/stats`                                 | Global statistics    |
 
 #### 3.2 Protected Endpoints (API Key Required)
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/modules/batch` | Batch update modules |
-| POST | `/api/hosts/:hostname/modules` | Update host usage |
-| DELETE | `/api/modules/:namespace/:name` | Remove module |
-| POST | `/api/cache/purge` | Purge cache |
+
+| Method | Path                            | Description          |
+| ------ | ------------------------------- | -------------------- |
+| POST   | `/api/modules/batch`            | Batch update modules |
+| POST   | `/api/hosts/:hostname/modules`  | Update host usage    |
+| DELETE | `/api/modules/:namespace/:name` | Remove module        |
+| POST   | `/api/cache/purge`              | Purge cache          |
 
 #### 3.3 Implementation Example
+
 ```typescript
 // src/handlers/modules.ts
-import { Hono } from 'hono';
-import { z } from 'zod';
+import { Hono } from "hono";
+import { z } from "zod";
 
 const ModuleSchema = z.object({
   path: z.string(),
   name: z.string(),
   namespace: z.string(),
   description: z.string().optional(),
-  options: z.array(z.object({
-    name: z.string(),
-    type: z.string(),
-    default: z.any().optional(),
-    description: z.string().optional(),
-  })),
+  options: z.array(
+    z.object({
+      name: z.string(),
+      type: z.string(),
+      default: z.any().optional(),
+      description: z.string().optional(),
+    }),
+  ),
   imports: z.array(z.string()),
   examples: z.array(z.string()).optional(),
 });
 
 export const createModuleHandlers = (app: Hono<{ Bindings: Env }>) => {
   // List modules with pagination
-  app.get('/api/modules', async (c) => {
+  app.get("/api/modules", async (c) => {
     const { namespace, limit = 50, offset = 0 } = c.req.query();
 
     // Build query with optional namespace filter
@@ -300,15 +315,13 @@ export const createModuleHandlers = (app: Hono<{ Bindings: Env }>) => {
       SELECT m.*, COUNT(DISTINCT hu.hostname) as usage_count
       FROM modules m
       LEFT JOIN host_usage hu ON m.path = hu.module_path
-      ${namespace ? 'WHERE m.namespace = ?' : ''}
+      ${namespace ? "WHERE m.namespace = ?" : ""}
       GROUP BY m.id
       ORDER BY usage_count DESC, m.namespace, m.name
       LIMIT ? OFFSET ?
     `);
 
-    const params = namespace
-      ? [namespace, limit, offset]
-      : [limit, offset];
+    const params = namespace ? [namespace, limit, offset] : [limit, offset];
 
     const results = await query.bind(...params).all();
 
@@ -318,33 +331,37 @@ export const createModuleHandlers = (app: Hono<{ Bindings: Env }>) => {
         total: results.meta.row_count,
         limit,
         offset,
-      }
+      },
     });
   });
 
   // Full-text search
-  app.get('/api/modules/search', async (c) => {
-    const q = c.req.query('q');
+  app.get("/api/modules/search", async (c) => {
+    const q = c.req.query("q");
     if (!q) {
-      return c.json({ error: 'Query required' }, 400);
+      return c.json({ error: "Query required" }, 400);
     }
 
     // Check cache first
     const cacheKey = `search:${q}`;
-    const cached = await c.env.MODULE_CACHE.get(cacheKey, 'json');
+    const cached = await c.env.MODULE_CACHE.get(cacheKey, "json");
     if (cached) {
       return c.json(cached);
     }
 
     // Perform FTS5 search
-    const results = await c.env.MODULES_DB.prepare(`
+    const results = await c.env.MODULES_DB.prepare(
+      `
       SELECT m.*, snippet(modules_fts, 2, '<mark>', '</mark>', '...', 32) as snippet
       FROM modules m
       JOIN modules_fts ON m.id = modules_fts.rowid
       WHERE modules_fts MATCH ?
       ORDER BY rank
       LIMIT 20
-    `).bind(q).all();
+    `,
+    )
+      .bind(q)
+      .all();
 
     const response = {
       query: q,
@@ -353,11 +370,9 @@ export const createModuleHandlers = (app: Hono<{ Bindings: Env }>) => {
     };
 
     // Cache for 5 minutes
-    await c.env.MODULE_CACHE.put(
-      cacheKey,
-      JSON.stringify(response),
-      { expirationTtl: 300 }
-    );
+    await c.env.MODULE_CACHE.put(cacheKey, JSON.stringify(response), {
+      expirationTtl: 300,
+    });
 
     return c.json(response);
   });
@@ -365,6 +380,7 @@ export const createModuleHandlers = (app: Hono<{ Bindings: Env }>) => {
 ```
 
 ### Success Criteria
+
 - [ ] All endpoints implemented and tested
 - [ ] Authentication working correctly
 - [ ] Rate limiting in place
@@ -375,6 +391,7 @@ export const createModuleHandlers = (app: Hono<{ Bindings: Env }>) => {
 ## Phase 4: Database Schema & Search
 
 ### Objectives
+
 - Design efficient database schema
 - Implement full-text search
 - Optimize query performance
@@ -382,6 +399,7 @@ export const createModuleHandlers = (app: Hono<{ Bindings: Env }>) => {
 ### Database Schema
 
 #### 4.1 Core Tables
+
 ```sql
 -- modules table
 CREATE TABLE modules (
@@ -451,6 +469,7 @@ CREATE TABLE module_versions (
 ```
 
 #### 4.2 Full-Text Search Setup
+
 ```sql
 -- Create FTS5 virtual table
 CREATE VIRTUAL TABLE modules_fts USING fts5(
@@ -483,6 +502,7 @@ END;
 ```
 
 #### 4.3 Migration System
+
 ```typescript
 // src/db/migrations/001_initial.ts
 export const migration_001 = {
@@ -498,17 +518,18 @@ export const migration_001 = {
   },
   down: async (db: D1Database) => {
     await db.batch([
-      db.prepare('DROP TABLE IF EXISTS modules_fts'),
-      db.prepare('DROP TABLE IF EXISTS host_usage'),
-      db.prepare('DROP TABLE IF EXISTS module_dependencies'),
-      db.prepare('DROP TABLE IF EXISTS module_options'),
-      db.prepare('DROP TABLE IF EXISTS modules'),
+      db.prepare("DROP TABLE IF EXISTS modules_fts"),
+      db.prepare("DROP TABLE IF EXISTS host_usage"),
+      db.prepare("DROP TABLE IF EXISTS module_dependencies"),
+      db.prepare("DROP TABLE IF EXISTS module_options"),
+      db.prepare("DROP TABLE IF EXISTS modules"),
     ]);
   },
 };
 ```
 
 ### Success Criteria
+
 - [ ] Schema supports all required queries
 - [ ] FTS5 search returns relevant results
 - [ ] Indexes optimize common queries
@@ -519,6 +540,7 @@ export const migration_001 = {
 ## Phase 5: CI/CD Integration
 
 ### Objectives
+
 - Automate module extraction on changes
 - Deploy Worker updates safely
 - Implement rollback capabilities
@@ -526,6 +548,7 @@ export const migration_001 = {
 ### GitHub Actions Workflow
 
 #### 5.1 Module Documentation Update
+
 ```yaml
 # .github/workflows/update-module-docs.yml
 name: Update Module Documentation
@@ -534,17 +557,17 @@ on:
   push:
     branches: [main]
     paths:
-      - 'modules/**'
-      - 'flake.nix'
-      - 'flake.lock'
+      - "modules/**"
+      - "flake.nix"
+      - "flake.lock"
   pull_request:
     types: [opened, synchronize]
     paths:
-      - 'modules/**'
+      - "modules/**"
   workflow_dispatch:
     inputs:
       force_update:
-        description: 'Force update all modules'
+        description: "Force update all modules"
         type: boolean
         default: false
 
@@ -604,6 +627,7 @@ jobs:
 ```
 
 #### 5.2 Worker Deployment
+
 ```yaml
 # .github/workflows/deploy-worker.yml
 name: Deploy Documentation Worker
@@ -612,7 +636,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'cloudflare-module-docs/**'
+      - "cloudflare-module-docs/**"
   workflow_dispatch:
 
 jobs:
@@ -627,8 +651,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: cloudflare-module-docs/package-lock.json
 
       - name: Install dependencies
@@ -658,6 +682,7 @@ jobs:
 ```
 
 ### Success Criteria
+
 - [ ] Automatic extraction on module changes
 - [ ] Preview deployments for PRs
 - [ ] Production deployments on merge
@@ -668,6 +693,7 @@ jobs:
 ## Phase 6: Frontend Development
 
 ### Objectives
+
 - Create user-friendly search interface
 - Visualize module dependencies
 - Display usage statistics
@@ -675,6 +701,7 @@ jobs:
 ### Frontend Architecture
 
 #### 6.1 Technology Choices
+
 - **Framework**: Vanilla JS with Web Components (for simplicity)
 - **Styling**: Tailwind CSS via CDN
 - **Search**: Real-time with debouncing
@@ -682,39 +709,44 @@ jobs:
 - **Hosting**: Workers Static Assets
 
 #### 6.2 Core Features
+
 ```html
 <!-- public/index.html -->
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NixOS Module Explorer</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
-</head>
-<body class="bg-gray-50">
-  <!-- Search Component -->
-  <module-search></module-search>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NixOS Module Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"
+    />
+  </head>
+  <body class="bg-gray-50">
+    <!-- Search Component -->
+    <module-search></module-search>
 
-  <!-- Results Component -->
-  <module-results></module-results>
+    <!-- Results Component -->
+    <module-results></module-results>
 
-  <!-- Detail View Component -->
-  <module-detail></module-detail>
+    <!-- Detail View Component -->
+    <module-detail></module-detail>
 
-  <script type="module" src="/js/app.js"></script>
-</body>
+    <script type="module" src="/js/app.js"></script>
+  </body>
 </html>
 ```
 
 #### 6.3 Web Components
+
 ```javascript
 // public/js/components/module-search.js
 class ModuleSearch extends HTMLElement {
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
+    this.attachShadow({ mode: "open" });
     this.debounceTimer = null;
   }
 
@@ -746,8 +778,8 @@ class ModuleSearch extends HTMLElement {
       >
     `;
 
-    const input = this.shadowRoot.querySelector('input');
-    input.addEventListener('input', (e) => this.handleSearch(e.target.value));
+    const input = this.shadowRoot.querySelector("input");
+    input.addEventListener("input", (e) => this.handleSearch(e.target.value));
   }
 
   handleSearch(query) {
@@ -755,30 +787,37 @@ class ModuleSearch extends HTMLElement {
     this.debounceTimer = setTimeout(async () => {
       if (query.trim()) {
         const results = await this.searchModules(query);
-        this.dispatchEvent(new CustomEvent('search', {
-          detail: { query, results },
-          bubbles: true,
-          composed: true
-        }));
+        this.dispatchEvent(
+          new CustomEvent("search", {
+            detail: { query, results },
+            bubbles: true,
+            composed: true,
+          }),
+        );
       } else {
-        this.dispatchEvent(new CustomEvent('clear', {
-          bubbles: true,
-          composed: true
-        }));
+        this.dispatchEvent(
+          new CustomEvent("clear", {
+            bubbles: true,
+            composed: true,
+          }),
+        );
       }
     }, 300);
   }
 
   async searchModules(query) {
-    const response = await fetch(`/api/modules/search?q=${encodeURIComponent(query)}`);
+    const response = await fetch(
+      `/api/modules/search?q=${encodeURIComponent(query)}`,
+    );
     return response.json();
   }
 }
 
-customElements.define('module-search', ModuleSearch);
+customElements.define("module-search", ModuleSearch);
 ```
 
 ### Success Criteria
+
 - [ ] Responsive design works on mobile
 - [ ] Search returns results in < 200ms
 - [ ] Dependency graph visualization works
@@ -789,6 +828,7 @@ customElements.define('module-search', ModuleSearch);
 ## Phase 7: Monitoring & Observability
 
 ### Objectives
+
 - Track API performance and usage
 - Monitor search effectiveness
 - Alert on issues
@@ -796,6 +836,7 @@ customElements.define('module-search', ModuleSearch);
 ### Implementation
 
 #### 7.1 Analytics Engine Integration
+
 ```typescript
 // src/lib/analytics.ts
 interface AnalyticsEvent {
@@ -821,7 +862,7 @@ export class Analytics {
 
   trackSearch(query: string, resultsCount: number, duration: number) {
     this.dataset.writeDataPoint({
-      indexes: ['search'],
+      indexes: ["search"],
       blobs: [query.toLowerCase()],
       doubles: [resultsCount, duration],
     });
@@ -829,7 +870,7 @@ export class Analytics {
 
   trackCacheHit(key: string, hit: boolean) {
     this.dataset.writeDataPoint({
-      indexes: ['cache'],
+      indexes: ["cache"],
       blobs: [key],
       doubles: [hit ? 1 : 0],
     });
@@ -838,9 +879,10 @@ export class Analytics {
 ```
 
 #### 7.2 Health Checks
+
 ```typescript
 // src/handlers/health.ts
-app.get('/health', async (c) => {
+app.get("/health", async (c) => {
   const checks = {
     database: false,
     cache: false,
@@ -849,49 +891,53 @@ app.get('/health', async (c) => {
 
   // Check database
   try {
-    const result = await c.env.MODULES_DB.prepare('SELECT 1').first();
+    const result = await c.env.MODULES_DB.prepare("SELECT 1").first();
     checks.database = !!result;
   } catch (e) {
-    console.error('Database check failed:', e);
+    console.error("Database check failed:", e);
   }
 
   // Check cache
   try {
-    await c.env.MODULE_CACHE.put('health-check', 'ok', { expirationTtl: 60 });
-    const value = await c.env.MODULE_CACHE.get('health-check');
-    checks.cache = value === 'ok';
+    await c.env.MODULE_CACHE.put("health-check", "ok", { expirationTtl: 60 });
+    const value = await c.env.MODULE_CACHE.get("health-check");
+    checks.cache = value === "ok";
   } catch (e) {
-    console.error('Cache check failed:', e);
+    console.error("Cache check failed:", e);
   }
 
   // Check search
   try {
     const result = await c.env.MODULES_DB.prepare(
-      'SELECT 1 FROM modules_fts LIMIT 1'
+      "SELECT 1 FROM modules_fts LIMIT 1",
     ).first();
     checks.search = true;
   } catch (e) {
-    console.error('Search check failed:', e);
+    console.error("Search check failed:", e);
   }
 
-  const allHealthy = Object.values(checks).every(v => v);
+  const allHealthy = Object.values(checks).every((v) => v);
 
-  return c.json({
-    status: allHealthy ? 'healthy' : 'degraded',
-    checks,
-    timestamp: new Date().toISOString(),
-  }, allHealthy ? 200 : 503);
+  return c.json(
+    {
+      status: allHealthy ? "healthy" : "degraded",
+      checks,
+      timestamp: new Date().toISOString(),
+    },
+    allHealthy ? 200 : 503,
+  );
 });
 ```
 
 #### 7.3 Alerting
+
 ```yaml
 # .github/workflows/health-monitor.yml
 name: Health Monitor
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Every 5 minutes
+    - cron: "*/5 * * * *" # Every 5 minutes
   workflow_dispatch:
 
 jobs:
@@ -924,6 +970,7 @@ jobs:
 ```
 
 ### Success Criteria
+
 - [ ] All requests tracked in Analytics Engine
 - [ ] Health checks running every 5 minutes
 - [ ] Alerts firing within 10 minutes of issues
@@ -934,6 +981,7 @@ jobs:
 ## Phase 8: Testing & Validation
 
 ### Objectives
+
 - Ensure module parser correctness
 - Validate API endpoints
 - Test search relevance
@@ -941,6 +989,7 @@ jobs:
 ### Test Strategy
 
 #### 8.1 Unit Tests (Nix)
+
 ```nix
 # tests/module-parser.nix
 { pkgs, lib, ... }:
@@ -978,41 +1027,42 @@ in {
 ```
 
 #### 8.2 API Tests (Vitest)
+
 ```typescript
 // tests/api.test.ts
-import { describe, it, expect, beforeAll } from 'vitest';
-import { unstable_dev } from 'wrangler';
+import { describe, it, expect, beforeAll } from "vitest";
+import { unstable_dev } from "wrangler";
 
-describe('Module API', () => {
+describe("Module API", () => {
   let worker;
 
   beforeAll(async () => {
-    worker = await unstable_dev('src/index.ts', {
+    worker = await unstable_dev("src/index.ts", {
       experimental: { disableExperimentalWarning: true },
     });
   });
 
-  it('should list modules', async () => {
-    const response = await worker.fetch('/api/modules');
+  it("should list modules", async () => {
+    const response = await worker.fetch("/api/modules");
     expect(response.status).toBe(200);
 
     const data = await response.json();
-    expect(data).toHaveProperty('modules');
+    expect(data).toHaveProperty("modules");
     expect(Array.isArray(data.modules)).toBe(true);
   });
 
-  it('should search modules', async () => {
-    const response = await worker.fetch('/api/modules/search?q=test');
+  it("should search modules", async () => {
+    const response = await worker.fetch("/api/modules/search?q=test");
     expect(response.status).toBe(200);
 
     const data = await response.json();
-    expect(data).toHaveProperty('query', 'test');
-    expect(data).toHaveProperty('results');
+    expect(data).toHaveProperty("query", "test");
+    expect(data).toHaveProperty("results");
   });
 
-  it('should require auth for updates', async () => {
-    const response = await worker.fetch('/api/modules/batch', {
-      method: 'POST',
+  it("should require auth for updates", async () => {
+    const response = await worker.fetch("/api/modules/batch", {
+      method: "POST",
       body: JSON.stringify([]),
     });
     expect(response.status).toBe(401);
@@ -1021,6 +1071,7 @@ describe('Module API', () => {
 ```
 
 #### 8.3 End-to-End Tests
+
 ```bash
 #!/usr/bin/env bash
 # tests/e2e.sh
@@ -1052,6 +1103,7 @@ echo "All tests completed!"
 ```
 
 ### Success Criteria
+
 - [ ] > 80% code coverage
 - [ ] All critical paths tested
 - [ ] Search returns relevant results
@@ -1062,6 +1114,7 @@ echo "All tests completed!"
 ## Phase 9: Deployment & Migration
 
 ### Objectives
+
 - Deploy to production safely
 - Migrate existing documentation
 - Ensure zero downtime
@@ -1069,6 +1122,7 @@ echo "All tests completed!"
 ### Deployment Process
 
 #### 9.1 Pre-deployment Checklist
+
 - [ ] All tests passing
 - [ ] Security review completed
 - [ ] API keys rotated
@@ -1077,6 +1131,7 @@ echo "All tests completed!"
 - [ ] Monitoring alerts configured
 
 #### 9.2 Deployment Steps
+
 ```bash
 #!/usr/bin/env bash
 # scripts/deploy.sh
@@ -1113,6 +1168,7 @@ echo "✅ Deployment complete!"
 ```
 
 #### 9.3 Data Migration
+
 ```typescript
 // scripts/migrate-data.ts
 async function migrateExistingDocs() {
@@ -1128,12 +1184,13 @@ async function migrateExistingDocs() {
   }
 
   // Verify migration
-  const stats = await fetch(`${API_URL}/api/stats`).then(r => r.json());
-  console.log('Migration complete:', stats);
+  const stats = await fetch(`${API_URL}/api/stats`).then((r) => r.json());
+  console.log("Migration complete:", stats);
 }
 ```
 
 ### Success Criteria
+
 - [ ] Zero downtime during deployment
 - [ ] All modules migrated successfully
 - [ ] Performance metrics maintained
@@ -1144,6 +1201,7 @@ async function migrateExistingDocs() {
 ## Phase 10: Documentation & Maintenance
 
 ### Objectives
+
 - Document system for operators
 - Create runbooks for common issues
 - Establish maintenance schedule
@@ -1151,6 +1209,7 @@ async function migrateExistingDocs() {
 ### Documentation Requirements
 
 #### 10.1 API Documentation (OpenAPI)
+
 ```yaml
 # openapi.yaml
 openapi: 3.0.0
@@ -1190,26 +1249,30 @@ paths:
                   modules:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Module'
+                      $ref: "#/components/schemas/Module"
 ```
 
 #### 10.2 Runbooks
+
 ```markdown
 # Runbooks
 
 ## High API Latency
+
 1. Check cache hit rate in Analytics
 2. Verify D1 database performance
 3. Check for large result sets
 4. Consider increasing KV cache TTL
 
 ## Search Not Working
+
 1. Verify FTS5 index exists
 2. Rebuild search index if needed
 3. Check for database corruption
 4. Review recent schema changes
 
 ## Module Updates Failing
+
 1. Verify API key is valid
 2. Check GitHub Actions logs
 3. Validate JSON structure
@@ -1217,16 +1280,18 @@ paths:
 ```
 
 #### 10.3 Maintenance Schedule
-| Task | Frequency | Description |
-|------|-----------|-------------|
-| Rotate API keys | Monthly | Rotate all API keys and update secrets |
-| Review analytics | Weekly | Check for anomalies and usage patterns |
-| Update dependencies | Monthly | Update Worker and frontend dependencies |
-| Backup database | Daily | Export D1 database to R2 |
-| Performance review | Quarterly | Analyze and optimize slow queries |
-| Security audit | Quarterly | Review access logs and permissions |
+
+| Task                | Frequency | Description                             |
+| ------------------- | --------- | --------------------------------------- |
+| Rotate API keys     | Monthly   | Rotate all API keys and update secrets  |
+| Review analytics    | Weekly    | Check for anomalies and usage patterns  |
+| Update dependencies | Monthly   | Update Worker and frontend dependencies |
+| Backup database     | Daily     | Export D1 database to R2                |
+| Performance review  | Quarterly | Analyze and optimize slow queries       |
+| Security audit      | Quarterly | Review access logs and permissions      |
 
 ### Success Criteria
+
 - [ ] Complete API documentation available
 - [ ] Runbooks cover common scenarios
 - [ ] Team trained on operations
@@ -1259,14 +1324,14 @@ paths:
 
 ### Key Performance Indicators
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
+| Metric                  | Target  | Measurement          |
+| ----------------------- | ------- | -------------------- |
 | API Response Time (p99) | < 100ms | Cloudflare Analytics |
-| Search Relevance | > 90% | User feedback |
-| Cache Hit Rate | > 80% | KV Analytics |
-| Documentation Coverage | 100% | Module count |
-| Uptime | 99.9% | Health checks |
-| Deployment Frequency | Weekly | GitHub Actions |
+| Search Relevance        | > 90%   | User feedback        |
+| Cache Hit Rate          | > 80%   | KV Analytics         |
+| Documentation Coverage  | 100%    | Module count         |
+| Uptime                  | 99.9%   | Health checks        |
+| Deployment Frequency    | Weekly  | GitHub Actions       |
 
 ---
 
@@ -1274,18 +1339,18 @@ paths:
 
 ### Implementation Schedule
 
-| Phase | Duration | Dependencies |
-|-------|----------|--------------|
-| Phase 1: Infrastructure | 1 day | Cloudflare account |
-| Phase 2: Module Extraction | 2 days | Nix expertise |
-| Phase 3: Worker API | 3 days | Phase 1 complete |
-| Phase 4: Database & Search | 2 days | Phase 3 complete |
-| Phase 5: CI/CD | 1 day | Phases 2-4 complete |
-| Phase 6: Frontend | 3 days | Phase 3 complete |
-| Phase 7: Monitoring | 1 day | Phase 3 complete |
-| Phase 8: Testing | 2 days | Phases 3-6 complete |
-| Phase 9: Deployment | 1 day | All phases complete |
-| Phase 10: Documentation | 2 days | Deployment complete |
+| Phase                      | Duration | Dependencies        |
+| -------------------------- | -------- | ------------------- |
+| Phase 1: Infrastructure    | 1 day    | Cloudflare account  |
+| Phase 2: Module Extraction | 2 days   | Nix expertise       |
+| Phase 3: Worker API        | 3 days   | Phase 1 complete    |
+| Phase 4: Database & Search | 2 days   | Phase 3 complete    |
+| Phase 5: CI/CD             | 1 day    | Phases 2-4 complete |
+| Phase 6: Frontend          | 3 days   | Phase 3 complete    |
+| Phase 7: Monitoring        | 1 day    | Phase 3 complete    |
+| Phase 8: Testing           | 2 days   | Phases 3-6 complete |
+| Phase 9: Deployment        | 1 day    | All phases complete |
+| Phase 10: Documentation    | 2 days   | Deployment complete |
 
 **Total Timeline: ~18 days** (can be parallelized to ~10 days)
 
@@ -1295,22 +1360,22 @@ paths:
 
 ### A. Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| MODULE_DOCS_URL | API endpoint URL | Yes |
-| MODULE_DOCS_API_KEY | Authentication key | Yes |
-| CLOUDFLARE_API_TOKEN | Deployment token | Yes |
-| DISCORD_WEBHOOK | Alert webhook | No |
+| Variable             | Description        | Required |
+| -------------------- | ------------------ | -------- |
+| MODULE_DOCS_URL      | API endpoint URL   | Yes      |
+| MODULE_DOCS_API_KEY  | Authentication key | Yes      |
+| CLOUDFLARE_API_TOKEN | Deployment token   | Yes      |
+| DISCORD_WEBHOOK      | Alert webhook      | No       |
 
 ### B. Cost Estimation
 
-| Service | Usage | Monthly Cost |
-|---------|-------|--------------|
-| Workers (Bundled) | 10M requests | $5.00 |
-| D1 Database | 5GB storage | Free tier |
-| KV Storage | 1GB | Free tier |
-| Analytics Engine | 10M events | $0.25 |
-| **Total** | | **~$5.25/month** |
+| Service           | Usage        | Monthly Cost     |
+| ----------------- | ------------ | ---------------- |
+| Workers (Bundled) | 10M requests | $5.00            |
+| D1 Database       | 5GB storage  | Free tier        |
+| KV Storage        | 1GB          | Free tier        |
+| Analytics Engine  | 10M events   | $0.25            |
+| **Total**         |              | **~$5.25/month** |
 
 ### C. References
 
@@ -1331,5 +1396,5 @@ paths:
 
 ---
 
-*Last Updated: 2025-03-07*
-*Version: 1.0.0*
+_Last Updated: 2025-03-07_
+_Version: 1.0.0_

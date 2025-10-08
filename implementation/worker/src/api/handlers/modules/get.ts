@@ -3,19 +3,22 @@
  * Returns detailed module information including options and dependencies
  */
 
-import type { Context } from 'hono';
-import type { Env, ModuleWithOptions } from '../../../types';
-import { CacheKeys, CacheTTL } from '../../../types';
+import type { Context } from "hono";
+import type { Env, ModuleWithOptions } from "../../../types";
+import { CacheKeys, CacheTTL } from "../../../types";
 
 export async function getModule(c: Context<{ Bindings: Env }>) {
-  const namespace = c.req.param('namespace');
-  const name = c.req.param('name');
+  const namespace = c.req.param("namespace");
+  const name = c.req.param("name");
 
   if (!namespace || !name) {
-    return c.json({
-      error: 'Namespace and name are required',
-      timestamp: new Date().toISOString(),
-    }, 400);
+    return c.json(
+      {
+        error: "Namespace and name are required",
+        timestamp: new Date().toISOString(),
+      },
+      400,
+    );
   }
 
   // Generate cache key
@@ -24,13 +27,13 @@ export async function getModule(c: Context<{ Bindings: Env }>) {
   // Check cache (only if KV binding configured)
   if (c.env.CACHE) {
     try {
-      const cached = await c.env.CACHE.get(cacheKey, 'json');
+      const cached = await c.env.CACHE.get(cacheKey, "json");
       if (cached) {
-        c.header('X-Cache', 'HIT');
+        c.header("X-Cache", "HIT");
         return c.json(cached);
       }
     } catch (error) {
-      console.warn('Cache read error:', error);
+      console.warn("Cache read error:", error);
     }
   }
 
@@ -46,15 +49,20 @@ export async function getModule(c: Context<{ Bindings: Env }>) {
       GROUP BY m.id
     `);
 
-    const module = await moduleStmt.bind(namespace, name).first<ModuleWithOptions>();
+    const module = await moduleStmt
+      .bind(namespace, name)
+      .first<ModuleWithOptions>();
 
     if (!module) {
-      return c.json({
-        error: 'Module not found',
-        namespace,
-        name,
-        timestamp: new Date().toISOString(),
-      }, 404);
+      return c.json(
+        {
+          error: "Module not found",
+          namespace,
+          name,
+          timestamp: new Date().toISOString(),
+        },
+        404,
+      );
     }
 
     // Fetch options
@@ -81,13 +89,13 @@ export async function getModule(c: Context<{ Bindings: Env }>) {
     const dependencies = await depsStmt.bind(module.id).all();
 
     // Parse JSON fields
-    if (module.examples && typeof module.examples === 'string') {
+    if (module.examples && typeof module.examples === "string") {
       try {
         module.examples = JSON.parse(module.examples);
       } catch {}
     }
 
-    if (module.metadata && typeof module.metadata === 'string') {
+    if (module.metadata && typeof module.metadata === "string") {
       try {
         module.metadata = JSON.parse(module.metadata);
       } catch {}
@@ -95,12 +103,12 @@ export async function getModule(c: Context<{ Bindings: Env }>) {
 
     // Parse option JSON fields
     const parsedOptions = options.results.map((opt: any) => {
-      if (opt.default_value && typeof opt.default_value === 'string') {
+      if (opt.default_value && typeof opt.default_value === "string") {
         try {
           opt.default_value = JSON.parse(opt.default_value);
         } catch {}
       }
-      if (opt.example && typeof opt.example === 'string') {
+      if (opt.example && typeof opt.example === "string") {
         try {
           opt.example = JSON.parse(opt.example);
         } catch {}
@@ -120,48 +128,49 @@ export async function getModule(c: Context<{ Bindings: Env }>) {
     // Cache the response (only if KV binding configured)
     if (c.env.CACHE) {
       try {
-        await c.env.CACHE.put(
-          cacheKey,
-          JSON.stringify(response),
-          { expirationTtl: CacheTTL.module }
-        );
+        await c.env.CACHE.put(cacheKey, JSON.stringify(response), {
+          expirationTtl: CacheTTL.module,
+        });
       } catch (error) {
-        console.warn('Cache write error:', error);
+        console.warn("Cache write error:", error);
       }
     }
 
     // Also store in R2 for large content if needed (only if R2 binding configured)
-    if (c.env.DOCUMENTS && JSON.stringify(response).length > 25000) { // If larger than 25KB
+    if (c.env.DOCUMENTS && JSON.stringify(response).length > 25000) {
+      // If larger than 25KB
       try {
         await c.env.DOCUMENTS.put(
           `modules/${namespace}/${name}.json`,
           JSON.stringify(response),
           {
             httpMetadata: {
-              contentType: 'application/json',
+              contentType: "application/json",
             },
             customMetadata: {
               namespace,
               name,
               updatedAt: new Date().toISOString(),
             },
-          }
+          },
         );
       } catch (error) {
-        console.warn('R2 write error:', error);
+        console.warn("R2 write error:", error);
       }
     }
 
-    c.header('X-Cache', 'MISS');
+    c.header("X-Cache", "MISS");
     return c.json(response);
-
   } catch (error) {
-    console.error('Database error:', error);
-    return c.json({
-      error: 'Failed to fetch module',
-      namespace,
-      name,
-      timestamp: new Date().toISOString(),
-    }, 500);
+    console.error("Database error:", error);
+    return c.json(
+      {
+        error: "Failed to fetch module",
+        namespace,
+        name,
+        timestamp: new Date().toISOString(),
+      },
+      500,
+    );
   }
 }
