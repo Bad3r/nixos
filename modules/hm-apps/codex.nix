@@ -89,8 +89,8 @@
         sequential-thinking = true;
         memory = true;
         time = true;
-        cfdocs = true;
-        # cfbindings intentionally disabled at user request.
+          cfdocs = true;
+          cfbindings = false;
         cfbuilds = true;
         cfobservability = true;
         cfradar = true;

@@ -1,3 +1,24 @@
+/*
+  Centralized definitions and selection helpers for Model Context Protocol (MCP)
+  servers used across multiple agents.
+
+  Usage patterns:
+    - Import the module and call `select` to obtain full server configurations
+      (including `type`).
+    - Use `selectWithoutType` when the consumer expects TOML-only payloads (for
+      example Codex) that omit the `type` key.
+    - Pass booleans to toggle servers, strings to pick a named variant, or an
+      attrset with `variant` plus override keys to tweak command/args.
+
+  Example:
+    let
+      mcp = import ../../lib/mcp-servers.nix { inherit lib; };
+    in
+    mcp.select {
+      sequential-thinking = true;
+      deepwiki = { variant = "http"; startup_timeout_ms = 90000; };
+    };
+*/
 {
   lib,
   defaultTimeoutMs ? 60000,
@@ -6,12 +27,15 @@
 }:
 
 let
-  mkNpx = args: {
+  mkStdIo = command: args: {
     type = "stdio";
-    command = "npx";
-    inherit args;
+    inherit command args;
     startup_timeout_ms = defaultTimeoutMs;
   };
+
+  mkNpx = args: mkStdIo "npx" args;
+
+  mkUv = args: mkStdIo "uvx" args;
 
   mkNpxPackage =
     name:
@@ -45,12 +69,7 @@ let
     time = {
       default = "stdio";
       variants = {
-        stdio = {
-          type = "stdio";
-          command = "uvx";
-          args = [ "mcp-server-time" ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
+        stdio = mkUv [ "mcp-server-time" ];
       };
     };
 
@@ -72,6 +91,13 @@ let
       default = "stdio";
       variants = {
         stdio = mkNpxRemote "https://observability.mcp.cloudflare.com/sse";
+      };
+    };
+
+    cfbindings = {
+      default = "stdio";
+      variants = {
+        stdio = mkNpxRemote "https://bindings.mcp.cloudflare.com/sse";
       };
     };
 
@@ -173,7 +199,16 @@ let
           else
             value
         else
-          builtins.throw "Unsupported selection value for MCP server `" + name + "`.";
+          let
+            valueType = builtins.typeOf value;
+          in
+          builtins.throw (
+            "Unsupported selection value for MCP server `"
+            + name
+            + "` (type "
+            + valueType
+            + "). Expected bool, string, or attr set."
+          );
     in
     lib.filterAttrs (_: v: v != null) (lib.mapAttrs resolveValue selections);
 
