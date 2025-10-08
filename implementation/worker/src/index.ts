@@ -63,6 +63,65 @@ app.post('/api/modules/batch', async (c, next) => {
   return next();
 }, batchUpdateModules);
 
+// Root redirect to docs
+app.get('/', (c) => {
+  return c.redirect('/docs');
+});
+
+// Simple docs page
+app.get('/docs', (c) => {
+  return c.json({
+    name: 'NixOS Module Documentation API',
+    version: '1.0.0',
+    environment: c.env.ENVIRONMENT || 'development',
+    endpoints: {
+      health: {
+        method: 'GET',
+        path: '/health',
+        description: 'Health check endpoint',
+      },
+      stats: {
+        method: 'GET',
+        path: '/api/stats',
+        description: 'Get statistics about modules',
+      },
+      listModules: {
+        method: 'GET',
+        path: '/api/modules',
+        description: 'List all modules',
+        params: {
+          namespace: 'Filter by namespace (optional)',
+          limit: 'Limit results (default: 50)',
+          offset: 'Pagination offset (default: 0)',
+        },
+      },
+      getModule: {
+        method: 'GET',
+        path: '/api/modules/:namespace/:name',
+        description: 'Get a specific module',
+      },
+      searchModules: {
+        method: 'GET',
+        path: '/api/modules/search',
+        description: 'Search modules by name or description',
+        params: {
+          q: 'Search query (required)',
+        },
+      },
+      batchUpdate: {
+        method: 'POST',
+        path: '/api/modules/batch',
+        description: 'Batch update modules (requires X-API-Key)',
+      },
+    },
+    links: {
+      stats: '/api/stats',
+      modules: '/api/modules',
+      health: '/health',
+    },
+  });
+});
+
 // 404 handler for API routes
 app.all('/api/*', (c) => {
   return c.json({
@@ -72,27 +131,19 @@ app.all('/api/*', (c) => {
   }, 404);
 });
 
-// Root redirect to docs
-app.get('/', (c) => {
-  return c.redirect('/docs');
+// Catch-all 404 handler
+app.notFound((c) => {
+  return c.json({
+    error: 'Not Found',
+    path: c.req.path,
+    message: 'This endpoint does not exist. Visit /docs for API documentation.',
+    timestamp: new Date().toISOString(),
+  }, 404);
 });
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
-
-    // Handle API and health check routes with Hono
-    if (url.pathname.startsWith('/api/') || url.pathname === '/health') {
-      return app.fetch(request, env, ctx);
-    }
-
-    // Serve static assets (frontend) for all other routes
-    // This assumes ASSETS binding exists from wrangler.jsonc
-    if (env.ASSETS) {
-      return env.ASSETS.fetch(request);
-    }
-
-    // Fallback if no assets binding
-    return new Response('Not Found', { status: 404 });
+    // Route all requests through Hono (handles /, /api/*, /health, 404s, etc.)
+    return app.fetch(request, env, ctx);
   },
 } satisfies ExportedHandler<Env>;
