@@ -123,14 +123,16 @@ upload_chunk_with_retry() {
   log_info "Uploading chunk $chunk_num/$total_chunks..." >&2
 
   while [ $attempt -le $max_attempts ]; do
-    local response_file
+    local response_file chunk_file
     response_file=$(mktemp)
-    trap 'rm -f "$response_file"' RETURN
+    chunk_file=$(mktemp)
+    printf '%s' "$chunk_data" >"$chunk_file"
+    trap 'rm -f "$response_file" "$chunk_file"' RETURN
 
     http_code=$(curl -sS -w "%{http_code}" -o "$response_file" -X POST \
       -H "Content-Type: application/json" \
       -H "X-API-Key: $API_KEY" \
-      -d "$chunk_data" \
+      --data-binary @"$chunk_file" \
       "$WORKER_ENDPOINT/api/modules/batch")
 
     curl_status=$?
