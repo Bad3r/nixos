@@ -25,7 +25,13 @@ let
     else
       fallbackPkgs;
 
-  effectiveLib = libOverride;
+  effectiveLib =
+    if libOverride != null then
+      libOverride
+    else if pinnedPkgs ? lib then
+      pinnedPkgs.lib
+    else
+      fallbackPkgs.lib;
 
   # Helper to obtain pkgs for an arbitrary system
   pkgsFor =
@@ -53,7 +59,14 @@ let
     pkgs = pinnedPkgs;
   };
 
-  inherit (effectiveLib) lib filterAttrs;
+  lib = effectiveLib;
+  filterAttrs =
+    if lib ? filterAttrs then
+      lib.filterAttrs
+    else if lib ? attrsets && lib.attrsets ? filterAttrs then
+      lib.attrsets.filterAttrs
+    else
+      builtins.throw "extract-nixos-modules: filterAttrs missing from selected lib";
   stringifyError =
     value:
     let
@@ -272,29 +285,8 @@ let
 
   # Process all modules
   processedModules = map processModule moduleFiles;
-
-  # Separate successfully extracted modules from errors
-  successfulModules = builtins.filter (
-    m: builtins.isAttrs m && (m.extracted or false)
-  ) processedModules;
-  sanitizedSuccess = builtins.filter builtins.isAttrs successfulModules;
-  failedModules = builtins.filter (m: builtins.isAttrs m && !(m.extracted or false)) processedModules;
-
-  # Group modules by namespace
-  modulesByNamespace = builtins.groupBy (m: m.namespace or "unknown") sanitizedSuccess;
-
-  # Calculate statistics
-  stats = {
-    total = builtins.length moduleFiles;
-    extracted = builtins.length successfulModules;
-    failed = builtins.length failedModules;
-    namespaces = lib.attrNames modulesByNamespace;
-    extractionRate =
-      if builtins.length moduleFiles > 0 then
-        (builtins.length successfulModules * 100) / builtins.length moduleFiles
-      else
-        0;
-  };
+  successfulModules = processedModules;
+  failedModules = processedModules;
 
   # Format module for JSON export
   formatModule =
@@ -365,17 +357,49 @@ let
       extractorVersion = "1.0.0";
     };
 
-    inherit stats;
+    namespaces =
+      let
+        successList = builtins.filter (m: builtins.isAttrs m && (m.extracted or false)) processedModules;
+        namespaceGroups = builtins.groupBy (m: m.namespace or "unknown") successList;
+      in
+      lib.mapAttrs (namespace: modules: {
+        name = namespace;
+        moduleCount = builtins.length modules;
+        modules = map (m: m.fullName or "${namespace}/${m.name or "unknown"}") modules;
+      }) namespaceGroups;
 
-    modules = sanitizedSuccess;
+    stats =
+      let
+        successList = builtins.filter (m: builtins.isAttrs m && (m.extracted or false)) processedModules;
+        failureList = builtins.filter (m: builtins.isAttrs m && !(m.extracted or false)) processedModules;
+        namespaceGroups = builtins.groupBy (m: m.namespace or "unknown") successList;
+        totalModules = builtins.length moduleFiles;
+        extractedCount = builtins.length successList;
+        failedCount = builtins.length failureList;
+      in
+      {
+        total = totalModules;
+        extracted = extractedCount;
+        failed = failedCount;
+        namespaces = lib.attrNames namespaceGroups;
+        extractionRate = if totalModules > 0 then (extractedCount * 100) / totalModules else 0;
+      };
 
-    namespaces = lib.mapAttrs (namespace: modules: {
-      name = namespace;
-      moduleCount = builtins.length modules;
-      modules = map (m: m.fullName) modules;
-    }) modulesByNamespace;
+    modules =
+      let
+        successList = builtins.filter (m: builtins.isAttrs m && (m.extracted or false)) processedModules;
+      in
+      map formatModule successList;
 
-    errors = [ ];
+    errors =
+      let
+        failureList = builtins.filter (m: builtins.isAttrs m && !(m.extracted or false)) processedModules;
+        sanitizeFailure = m: {
+          path = m.path or "unknown path";
+          error = m.error or "unknown error";
+        };
+      in
+      map sanitizeFailure failureList;
   };
 
 in
