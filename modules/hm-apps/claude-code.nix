@@ -5,10 +5,6 @@
   Documentation: https://docs.anthropic.com/en/docs/claude-code/overview
   Repository: https://github.com/anthropics/claude-code
 
-  Summary:
-    * Provides a terminal client that connects to Claude for iterative coding, planning, and troubleshooting sessions.
-    * Ships a sane default MCP toolbox (Context7, Cloudflare suite, DeepWiki, memory/time helpers).
-
   Notes:
     * Context7 MCP server is only included when SOPS secret exists at `sops.secrets."context7/api-key"`.
 */
@@ -116,7 +112,7 @@
         };
       };
 
-      # Only include context7 if we have a valid API key
+      # Only include context7 if a valid API key exists
       context7mcp = lib.optionalAttrs (context7ApiKey != null && context7ApiKey ? path) {
         context7 = {
           type = "stdio";
@@ -223,7 +219,7 @@
           text = builtins.toJSON claudeSettings;
           onChange = ''
             # Ensure Claude Code picks up the new settings
-            echo "Claude Code settings updated from Nix configuration"
+            echo "✢ Claude Code: settings updated"
           '';
         };
 
