@@ -3,13 +3,7 @@
   flake.lib.security.usbguard =
     let
       baseRules = ''
-        # Allow USB hubs so topology can enumerate
-        allow with-interface equals { 09:*:* }
-
-        # Allow Human Interface Devices (keyboards, mice, digitizers)
-        allow with-interface equals { 03:00:* }
-        allow with-interface equals { 03:01:* }
-        allow with-interface equals { 03:02:* }
+        # Baseline: deny all devices. Hosts must explicitly enumerate allowed interfaces.
       '';
 
       defaultAuditRules = [
