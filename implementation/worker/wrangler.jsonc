@@ -52,11 +52,6 @@
     }
   ],
 
-  // Build configuration
-  "build": {
-    "command": "npm run build",
-    "cwd": "."
-  },
 
   // Node.js compatibility for dependencies
 
