@@ -65,3 +65,9 @@ id_*
 
 # If decrypting SOPS files locally, ignore any decrypted outputs in secrets/
 secrets/*.dec*
+
+########################################
+# Generated module extraction files
+########################################
+modules-extracted.json
+modules-extracted.json.api.json
