@@ -17,33 +17,6 @@
     }
   ],
 
-  // KV for caching frequently accessed data
-  // Create with: npx wrangler kv:namespace create MODULE_CACHE
-  "kv_namespaces": [
-    {
-      "binding": "CACHE",
-      "id": "TODO_RUN_WRANGLER_KV_CREATE", // Replace with actual ID from wrangler kv:namespace create
-      "preview_id": "TODO_RUN_WRANGLER_KV_CREATE_PREVIEW" // Replace with preview ID
-    }
-  ],
-
-  // R2 for large document storage (module content, examples)
-  // Create bucket with: npx wrangler r2 bucket create nixos-module-docs
-  "r2_buckets": [
-    {
-      "binding": "DOCUMENTS",
-      "bucket_name": "nixos-module-docs",
-      "preview_bucket_name": "nixos-module-docs-preview"
-    }
-  ],
-
-  // Analytics Engine for basic usage tracking (optional, can be removed for MVP)
-  "analytics_engine_datasets": [
-    {
-      "binding": "ANALYTICS",
-      "dataset": "nixos_modules_analytics"
-    }
-  ],
 
 
   // Node.js compatibility for dependencies
@@ -84,20 +57,6 @@
           "preview_database_id": "local-nixos-modules-db-staging"
         }
       ],
-      "kv_namespaces": [
-        {
-          "binding": "CACHE",
-          "id": "TODO_CREATE_STAGING_KV",
-          "preview_id": "TODO_CREATE_STAGING_KV_PREVIEW"
-        }
-      ],
-      "r2_buckets": [
-        {
-          "binding": "DOCUMENTS",
-          "bucket_name": "nixos-module-docs-staging",
-          "preview_bucket_name": "nixos-module-docs-staging-preview"
-        }
-      ]
     },
     "production": {
       "name": "nixos-module-docs-api",
