@@ -9,6 +9,7 @@ on:
       - 'modules/**'
       - 'implementation/**'
       - 'scripts/extract-*.nix'
+      - 'scripts/extract-and-upload.sh'
       - '.github/workflows/deploy-module-docs.yml'
   workflow_dispatch:
     inputs:
