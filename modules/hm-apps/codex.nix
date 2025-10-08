@@ -46,43 +46,8 @@
             paths = [ baseCodexPkg ];
             meta = baseCodexPkg.meta or { };
           };
-      hasContext7Secret = config.sops.secrets ? "context7/api-key";
-      context7Wrapper =
-        if hasContext7Secret then
-          pkgs.writeShellApplication {
-            name = "context7-mcp";
-            runtimeInputs = [
-              pkgs.coreutils
-              pkgs.nodejs
-            ];
-            text = ''
-              set -euo pipefail
-              key_file="${config.sops.secrets."context7/api-key".path}"
-              if [ ! -r "$key_file" ]; then
-                echo "context7-mcp-wrapper: missing Context7 API key at $key_file" >&2
-                exit 1
-              fi
-              api_key=$(tr -d '\n' < "$key_file")
-              exec npx -y @upstash/context7-mcp --api-key "$api_key" "$@"
-            '';
-          }
-        else
-          null;
-      context7Server =
-        if hasContext7Secret then
-          {
-            context7 = {
-              command = "${context7Wrapper}/bin/context7-mcp";
-              args = [ ];
-              startup_timeout_ms = 60000;
-            };
-          }
-        else
-          { };
-
       mcp = import ../../lib/mcp-servers.nix {
-        inherit lib;
-        defaultTimeoutMs = 60000;
+        inherit lib pkgs config;
       };
 
       codexMcpServers = mcp.selectWithoutType {
@@ -98,6 +63,7 @@
         cfbrowser = true;
         cfgraphql = true;
         deepwiki = true;
+        context7 = true;
       };
     in
     {
@@ -105,7 +71,6 @@
         enable = true;
         package = codexPkg;
         settings = {
-          # TODO: Wire the Context7 API key via nix-sops once secret management is available.
           show_raw_agent_reasoning = true;
           experimental_use_exec_command_tool = false;
           sandbox_mode = "danger-full-access";
@@ -126,7 +91,7 @@
           tools = {
             web_search = true;
           };
-          mcp_servers = context7Server // codexMcpServers;
+          mcp_servers = codexMcpServers;
           profiles = {
             gpt-5-codex = {
               model = "gpt-5-codex";

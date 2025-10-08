@@ -12,15 +12,20 @@
 
   Example:
     let
-      mcp = import ../../lib/mcp-servers.nix { inherit lib; };
+      mcp = import ../../lib/mcp-servers.nix {
+        inherit lib pkgs config;
+      };
     in
     mcp.select {
       sequential-thinking = true;
+      context7 = true;
       deepwiki = { variant = "http"; startup_timeout_ms = 90000; };
     };
 */
 {
   lib,
+  pkgs,
+  config,
   defaultTimeoutMs ? 60000,
   defaultVariants ? { },
   ...
@@ -37,6 +42,25 @@ let
 
   mkUv = args: mkStdIo "uvx" args;
 
+  context7ApiKeyPath = config.sops.secrets."context7/api-key".path;
+
+  context7Wrapper = pkgs.writeShellApplication {
+    name = "context7-mcp";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.nodejs
+    ];
+    text = ''
+      set -euo pipefail
+      if [ ! -r "${context7ApiKeyPath}" ]; then
+        echo "context7-mcp: missing API key at ${context7ApiKeyPath}" >&2
+        exit 1
+      fi
+      api_key=$(tr -d '\n' < "${context7ApiKeyPath}")
+      exec npx -y @upstash/context7-mcp --api-key "$api_key" "$@"
+    '';
+  };
+
   mkNpxPackage =
     name:
     mkNpx [
@@ -51,103 +75,125 @@ let
       url
     ];
 
-  serverCatalog = {
-    sequential-thinking = {
-      default = "stdio";
-      variants = {
-        stdio = mkNpxPackage "@modelcontextprotocol/server-sequential-thinking";
+  groupedCatalog = {
+    core = {
+      sequential-thinking = {
+        default = "stdio";
+        variants = {
+          stdio = mkNpxPackage "@modelcontextprotocol/server-sequential-thinking";
+        };
+      };
+
+      memory = {
+        default = "stdio";
+        variants = {
+          stdio = mkNpxPackage "@modelcontextprotocol/server-memory";
+        };
+      };
+
+      time = {
+        default = "stdio";
+        variants = {
+          stdio = mkUv [ "mcp-server-time" ];
+        };
       };
     };
 
-    memory = {
-      default = "stdio";
-      variants = {
-        stdio = mkNpxPackage "@modelcontextprotocol/server-memory";
+    cloudflare = {
+      cfdocs = {
+        default = "stdio";
+        variants = {
+          stdio = mkNpxRemote "https://docs.mcp.cloudflare.com/sse";
+        };
+      };
+
+      cfbuilds = {
+        default = "stdio";
+        variants = {
+          stdio = mkNpxRemote "https://builds.mcp.cloudflare.com/sse";
+        };
+      };
+
+      cfobservability = {
+        default = "stdio";
+        variants = {
+          stdio = mkNpxRemote "https://observability.mcp.cloudflare.com/sse";
+        };
+      };
+
+      cfbindings = {
+        default = "stdio";
+        variants = {
+          stdio = mkNpxRemote "https://bindings.mcp.cloudflare.com/sse";
+        };
+      };
+
+      cfradar = {
+        default = "stdio";
+        variants = {
+          stdio = mkNpxRemote "https://radar.mcp.cloudflare.com/sse";
+        };
+      };
+
+      cfcontainers = {
+        default = "stdio";
+        variants = {
+          stdio = mkNpxRemote "https://containers.mcp.cloudflare.com/sse";
+        };
+      };
+
+      cfbrowser = {
+        default = "stdio";
+        variants = {
+          stdio = mkNpxRemote "https://browser.mcp.cloudflare.com/sse";
+        };
+      };
+
+      cfgraphql = {
+        default = "stdio";
+        variants = {
+          stdio = mkNpxRemote "https://graphql.mcp.cloudflare.com/sse";
+        };
       };
     };
 
-    time = {
-      default = "stdio";
-      variants = {
-        stdio = mkUv [ "mcp-server-time" ];
+    external = {
+      deepwiki = {
+        default = "remote";
+        variants = {
+          remote = mkNpxRemote "https://mcp.deepwiki.com/mcp";
+          http = {
+            type = "http";
+            url = "https://mcp.deepwiki.com/mcp";
+            startup_timeout_ms = defaultTimeoutMs;
+          };
+        };
       };
-    };
 
-    cfdocs = {
-      default = "stdio";
-      variants = {
-        stdio = mkNpxRemote "https://docs.mcp.cloudflare.com/sse";
-      };
-    };
-
-    cfbuilds = {
-      default = "stdio";
-      variants = {
-        stdio = mkNpxRemote "https://builds.mcp.cloudflare.com/sse";
-      };
-    };
-
-    cfobservability = {
-      default = "stdio";
-      variants = {
-        stdio = mkNpxRemote "https://observability.mcp.cloudflare.com/sse";
-      };
-    };
-
-    cfbindings = {
-      default = "stdio";
-      variants = {
-        stdio = mkNpxRemote "https://bindings.mcp.cloudflare.com/sse";
-      };
-    };
-
-    cfradar = {
-      default = "stdio";
-      variants = {
-        stdio = mkNpxRemote "https://radar.mcp.cloudflare.com/sse";
-      };
-    };
-
-    cfcontainers = {
-      default = "stdio";
-      variants = {
-        stdio = mkNpxRemote "https://containers.mcp.cloudflare.com/sse";
-      };
-    };
-
-    cfbrowser = {
-      default = "stdio";
-      variants = {
-        stdio = mkNpxRemote "https://browser.mcp.cloudflare.com/sse";
-      };
-    };
-
-    cfgraphql = {
-      default = "stdio";
-      variants = {
-        stdio = mkNpxRemote "https://graphql.mcp.cloudflare.com/sse";
-      };
-    };
-
-    deepwiki = {
-      default = "remote";
-      variants = {
-        remote = mkNpxRemote "https://mcp.deepwiki.com/mcp";
-        http = {
-          type = "http";
-          url = "https://mcp.deepwiki.com/mcp";
-          startup_timeout_ms = defaultTimeoutMs;
+      context7 = {
+        default = "stdio";
+        variants = {
+          stdio = {
+            type = "stdio";
+            command = "${context7Wrapper}/bin/context7-mcp";
+            args = [ ];
+            startup_timeout_ms = defaultTimeoutMs;
+          };
         };
       };
     };
   };
 
-  catalogHas = name: builtins.hasAttr name serverCatalog;
+  flatServerCatalog = builtins.foldl' (acc: groupName: acc // groupedCatalog.${groupName}) { } (
+    lib.attrNames groupedCatalog
+  );
+
+  catalogHas = name: builtins.hasAttr name flatServerCatalog;
 
   getServerEntry =
     name:
     if catalogHas name then
-      serverCatalog.${name}
+      flatServerCatalog.${name}
     else
       builtins.throw "Unknown MCP server `" + name + "` requested; update modules/lib/mcp-servers.nix.";
 
@@ -216,8 +262,9 @@ let
 
 in
 {
-  inherit serverCatalog;
-  definitions = lib.mapAttrs (_: entry: entry.variants) serverCatalog;
+  catalogGroups = groupedCatalog;
+  serverCatalog = flatServerCatalog;
+  definitions = lib.mapAttrs (_: entry: entry.variants) flatServerCatalog;
 
   select = resolvedServers;
   selectWithoutType = selections: dropType (resolvedServers selections);

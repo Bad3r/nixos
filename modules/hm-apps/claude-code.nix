@@ -6,7 +6,7 @@
   Repository: https://github.com/anthropics/claude-code
 
   Notes:
-    * Context7 MCP server is only included when SOPS secret exists at `sops.secrets."context7/api-key"`.
+    * Assumes Context7 API key is provisioned via SOPS at `sops.secrets."context7/api-key"`.
 */
 
 {
@@ -14,19 +14,14 @@
     {
       config,
       lib,
+      pkgs,
       ...
     }:
     let
-      defaultTimeoutMs = 60000;
       defaultModel = "opus";
 
-      hasSecret = name: lib.hasAttrByPath [ name ] config.sops.secrets;
-      getSecret = name: lib.getAttrFromPath [ name ] config.sops.secrets;
-
-      context7ApiKey = if hasSecret "context7/api-key" then getSecret "context7/api-key" else null;
-
       mcp = import ../../lib/mcp-servers.nix {
-        inherit lib defaultTimeoutMs;
+        inherit lib pkgs config;
         defaultVariants = {
           deepwiki = "http";
         };
@@ -43,24 +38,10 @@
         cfbrowser = true;
         cfgraphql = true;
         deepwiki = true;
+        context7 = true;
       };
 
-      # Only include context7 if a valid API key exists
-      context7mcp = lib.optionalAttrs (context7ApiKey != null && context7ApiKey ? path) {
-        context7 = {
-          type = "stdio";
-          command = "npx";
-          args = [
-            "-y"
-            "@upstash/context7-mcp"
-            "--api-key"
-            "${context7ApiKey.path}"
-          ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-      };
-
-      defaultServers = claudeMcpServers // context7mcp;
+      defaultServers = claudeMcpServers;
 
       # Claude Code settings.json configuration
       claudeSettings = {
