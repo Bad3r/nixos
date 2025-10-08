@@ -119,26 +119,29 @@ upload_to_api() {
         return 1
     fi
 
-    # Upload using curl
-    response=$(curl -s -X POST \
+    # Upload using curl (save to temp file to avoid bash binary data issues)
+    local response_file=$(mktemp)
+    trap "rm -f $response_file" RETURN
+
+    http_code=$(curl -s --compressed -w "%{http_code}" -o "$response_file" -X POST \
         -H "Content-Type: application/json" \
         -H "X-API-Key: $API_KEY" \
         -d @"${OUTPUT_FILE}.api.json" \
         "$WORKER_ENDPOINT/api/modules/batch")
 
-    if echo "$response" | grep -q '"success":true'; then
-        log_info "Upload successful!"
+    if [ "$http_code" = "200" ]; then
+        log_info "Upload successful! (HTTP $http_code)"
 
-        if command -v jq &> /dev/null; then
-            echo "$response" | jq -r '.message'
-            local updated=$(echo "$response" | jq -r '.updated')
-            local created=$(echo "$response" | jq -r '.created')
+        if command -v jq &> /dev/null && [ -s "$response_file" ]; then
+            cat "$response_file" | jq -r '.message' 2>/dev/null || true
+            local updated=$(cat "$response_file" | jq -r '.updated' 2>/dev/null || echo "unknown")
+            local created=$(cat "$response_file" | jq -r '.created' 2>/dev/null || echo "unknown")
             log_info "  Updated: $updated modules"
             log_info "  Created: $created modules"
         fi
     else
-        log_error "Upload failed!"
-        echo "$response"
+        log_error "Upload failed! (HTTP $http_code)"
+        cat "$response_file" 2>/dev/null || echo "(no response body)"
         return 1
     fi
 }
