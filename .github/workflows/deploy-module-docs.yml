@@ -78,6 +78,8 @@ jobs:
     needs: extract-modules
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'staging' }}
+    outputs:
+      worker-url: ${{ steps.worker-url.outputs.worker-url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
