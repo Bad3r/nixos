@@ -171,20 +171,17 @@ jobs:
         run: |
           echo "Verifying deployment..."
 
-          # Check health endpoint (with compression support)
-          curl -f --compressed "$WORKER_ENDPOINT/health" || exit 1
+          # Check health endpoint (decompress with gunzip)
+          curl -sf "$WORKER_ENDPOINT/health" | gunzip || exit 1
 
-          # Check stats endpoint (save to temp file to handle compressed response)
-          STATS_FILE=$(mktemp)
-          trap "rm -f $STATS_FILE" EXIT
-
-          curl -s --compressed -o "$STATS_FILE" "$WORKER_ENDPOINT/api/stats"
+          # Check stats endpoint (decompress with gunzip and parse)
+          STATS=$(curl -s "$WORKER_ENDPOINT/api/stats" | gunzip)
 
           echo "API Statistics:"
-          cat "$STATS_FILE" | jq .
+          echo "$STATS" | jq .
 
           # Verify module count matches
-          UPLOADED_COUNT=$(cat "$STATS_FILE" | jq -r '.total_modules')
+          UPLOADED_COUNT=$(echo "$STATS" | jq -r '.stats.total_modules')
           EXPECTED_COUNT=${{ needs.extract-modules.outputs.module-count }}
 
           if [ "$UPLOADED_COUNT" -eq "$EXPECTED_COUNT" ]; then
