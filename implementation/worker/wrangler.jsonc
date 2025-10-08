@@ -42,18 +42,25 @@
     }
   ],
 
-  // Workers AI for generating embeddings
+  // Workers AI with AI Gateway integration for better caching and model flexibility
   "ai": {
     "binding": "AI"
   },
 
-  // Vectorize for semantic search
-  "vectorize": [
-    {
-      "binding": "VECTORIZE",
-      "index_name": "module-embeddings"
-    }
-  ],
+  // AI Gateway for model caching, rate limiting, and fallback providers
+  // Note: AI Gateway ID must be created in the Cloudflare dashboard first
+  // This enables automatic caching and provider fallback for AI operations
+  "ai_gateway": {
+    "binding": "AI_GATEWAY",
+    "id": "nixos-modules-gateway"
+  },
+
+  // AI Search configuration for automatic document processing and hybrid search
+  // This replaces the custom embedding pipeline with managed AI Search
+  "ai_search": {
+    "binding": "AI_SEARCH",
+    "index_name": "nixos-modules-search"
+  },
 
   // Node.js compatibility for dependencies
 
@@ -114,12 +121,14 @@
       "ai": {
         "binding": "AI"
       },
-      "vectorize": [
-        {
-          "binding": "VECTORIZE",
-          "index_name": "module-embeddings-staging"
-        }
-      ]
+      "ai_gateway": {
+        "binding": "AI_GATEWAY",
+        "id": "nixos-modules-gateway-staging"
+      },
+      "ai_search": {
+        "binding": "AI_SEARCH",
+        "index_name": "nixos-modules-search-staging"
+      }
     },
     "production": {
       "name": "nixos-module-docs-api",

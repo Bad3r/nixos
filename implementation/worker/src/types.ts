@@ -3,7 +3,7 @@
  * Simplified for MVP implementation
  */
 
-import type { D1Database, KVNamespace, R2Bucket, AnalyticsEngineDataset, Ai, VectorizeIndex } from '@cloudflare/workers-types';
+import type { D1Database, KVNamespace, R2Bucket, AnalyticsEngineDataset, Ai } from '@cloudflare/workers-types';
 
 /**
  * Module types supported by the system
@@ -12,6 +12,94 @@ export enum ModuleType {
   NIXOS = 'nixos',
   HOME_MANAGER = 'home-manager',
   FLAKE = 'flake'
+}
+
+/**
+ * AI Gateway binding interface
+ */
+export interface AIGateway {
+  id: string;
+  // Add methods as needed for AI Gateway operations
+}
+
+/**
+ * AI Search binding interface for automatic document processing
+ */
+export interface AISearch {
+  index_name: string;
+  aiSearch(params: AISearchParams): Promise<AISearchResponse>;
+  search(params: SearchParams): Promise<SearchResponse>;
+  ingest(documents: Document[]): Promise<IngestResponse>;
+}
+
+/**
+ * AI Search parameters
+ */
+export interface AISearchParams {
+  query: string;
+  model?: string;
+  rewrite_query?: boolean;
+  max_num_results?: number;
+  ranking_options?: {
+    score_threshold?: number;
+  };
+  stream?: boolean;
+}
+
+/**
+ * Search parameters for vector-only search
+ */
+export interface SearchParams {
+  query: string;
+  max_num_results?: number;
+  ranking_options?: {
+    score_threshold?: number;
+  };
+}
+
+/**
+ * AI Search response
+ */
+export interface AISearchResponse {
+  response: string;
+  sources: Array<{
+    id: string;
+    score: number;
+    content: string;
+    metadata?: Record<string, any>;
+  }>;
+  model_used?: string;
+  query_rewritten?: string;
+}
+
+/**
+ * Search response
+ */
+export interface SearchResponse {
+  matches: Array<{
+    id: string;
+    score: number;
+    content: string;
+    metadata?: Record<string, any>;
+  }>;
+}
+
+/**
+ * Document for ingestion
+ */
+export interface Document {
+  id: string;
+  content: string;
+  metadata?: Record<string, any>;
+}
+
+/**
+ * Ingest response
+ */
+export interface IngestResponse {
+  success: boolean;
+  documents_processed: number;
+  errors?: string[];
 }
 
 /**
@@ -27,11 +115,14 @@ export interface Env {
   // R2 for document storage
   DOCUMENTS: R2Bucket;
 
-  // Workers AI for generating embeddings
+  // Workers AI with AI Gateway integration
   AI: Ai;
 
-  // Vectorize for semantic search
-  VECTORIZE: VectorizeIndex;
+  // AI Gateway for caching and model flexibility
+  AI_GATEWAY?: AIGateway;
+
+  // AI Search for automatic document processing
+  AI_SEARCH?: AISearch;
 
   // Analytics (optional)
   ANALYTICS?: AnalyticsEngineDataset;
@@ -48,6 +139,7 @@ export interface Env {
 
   // Secrets
   API_KEY: string;
+  AI_GATEWAY_TOKEN: string; // Authentication token for AI Gateway
 }
 
 /**

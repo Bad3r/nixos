@@ -10,10 +10,10 @@ import type { Env } from './types';
 // API route handlers
 import { listModules } from './api/handlers/modules/list';
 import { getModule } from './api/handlers/modules/get';
-import { searchModules } from './api/handlers/modules/search';
+import { searchModules } from './api/handlers/modules/search'; // AI Search handler
 import { batchUpdateModules } from './api/handlers/modules/batch-update';
 import { getStats } from './api/handlers/stats';
-import { backfillEmbeddings } from './api/handlers/admin/backfill-embeddings';
+import { ingestToAISearch, getIngestionStatus } from './api/handlers/admin/ingest-ai-search'; // AI Search ingestion
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -68,8 +68,9 @@ app.get('/health', (c) => {
 // Public API routes (no auth required for MVP)
 app.get('/api/modules', listModules);
 app.get('/api/modules/:namespace/:name', getModule);
-app.get('/api/modules/search', searchModules);
+app.get('/api/modules/search', searchModules); // AI Search endpoint
 app.get('/api/stats', getStats);
+app.get('/api/admin/ai-search/status', getIngestionStatus); // AI Search status
 
 // Helper function for timing-safe string comparison
 async function timingSafeEqual(a: string, b: string): Promise<boolean> {
@@ -123,8 +124,8 @@ app.post('/api/modules/batch', async (c, next) => {
   return next();
 }, batchUpdateModules);
 
-// Protected admin routes (timing-safe API key auth)
-app.post('/api/admin/backfill-embeddings', async (c, next) => {
+// AI Search ingestion endpoint (protected)
+app.post('/api/admin/ai-search/ingest', async (c, next) => {
   const apiKey = c.req.header('X-API-Key');
   const validKey = c.env.API_KEY;
 
@@ -133,7 +134,7 @@ app.post('/api/admin/backfill-embeddings', async (c, next) => {
   }
 
   return next();
-}, backfillEmbeddings);
+}, ingestToAISearch);
 
 // Root redirect to docs
 app.get('/', (c) => {
@@ -175,10 +176,12 @@ app.get('/docs', (c) => {
       searchModules: {
         method: 'GET',
         path: '/api/modules/search',
-        description: 'Search modules by name or description',
+        description: 'AI-powered search with query rewriting and response generation',
         params: {
           q: 'Search query (required)',
-          mode: 'Search mode: keyword, semantic, or hybrid (default: hybrid)',
+          mode: 'Search mode: keyword, semantic, hybrid, or ai (default: hybrid)',
+          ai: 'Enable AI response generation (true/false)',
+          model: 'Override AI model (optional)',
           limit: 'Limit results (default: 20)',
           offset: 'Pagination offset (default: 0)',
         },
@@ -188,10 +191,19 @@ app.get('/docs', (c) => {
         path: '/api/modules/batch',
         description: 'Batch update modules (requires X-API-Key)',
       },
-      backfillEmbeddings: {
+      aiSearchIngest: {
         method: 'POST',
-        path: '/api/admin/backfill-embeddings',
-        description: 'Backfill embeddings for existing modules (requires X-API-Key)',
+        path: '/api/admin/ai-search/ingest',
+        description: 'Ingest modules into AI Search with automatic processing (requires X-API-Key)',
+        params: {
+          batch_size: 'Number of modules per batch (default: 100)',
+          clear: 'Clear index before ingestion (true/false)',
+        },
+      },
+      aiSearchStatus: {
+        method: 'GET',
+        path: '/api/admin/ai-search/status',
+        description: 'Get AI Search configuration and ingestion status',
       },
     },
     links: {

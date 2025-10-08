@@ -1,15 +1,16 @@
 /**
- * Search modules handler
- * Supports three search modes:
- * - keyword: FTS5 full-text search only
- * - semantic: Vectorize semantic search only
- * - hybrid: Both FTS5 and Vectorize, merged by relevance (default)
+ * Search modules handler - Using AI Search
+ * Supports four search modes:
+ * - keyword: Traditional keyword search using D1 FTS5
+ * - semantic: AI-powered semantic search
+ * - hybrid: Combined keyword and semantic search (default)
+ * - ai: AI-powered search with generated response
  */
 
 import type { Context } from 'hono';
 import type { Env, SearchModulesQuery, SearchResult } from '../../../types';
 import { CacheKeys, CacheTTL } from '../../../types';
-import { generateEmbedding } from '../../../lib/embeddings';
+import { performHybridSearch, trackSearchAnalytics } from '../../../services/ai-search';
 
 export async function searchModules(c: Context<{ Bindings: Env }>) {
   const query: SearchModulesQuery = {
@@ -18,6 +19,10 @@ export async function searchModules(c: Context<{ Bindings: Env }>) {
     offset: parseInt(c.req.query('offset') || '0'),
     mode: (c.req.query('mode') || 'hybrid') as 'keyword' | 'semantic' | 'hybrid',
   };
+
+  // Support new 'ai' mode for AI-powered responses
+  const aiMode = c.req.query('ai') === 'true' || query.mode === 'ai';
+  const model = c.req.query('model'); // Optional model override
 
   // Validate query
   if (!query.q || query.q.trim().length < 2) {
@@ -35,8 +40,10 @@ export async function searchModules(c: Context<{ Bindings: Env }>) {
     query.offset = 0;
   }
 
-  // Generate cache key (include mode)
-  const cacheKey = CacheKeys.search(`${query.q}:${query.limit}:${query.offset}:${query.mode}`);
+  // Generate cache key (include AI mode and model)
+  const cacheKey = CacheKeys.search(
+    `${query.q}:${query.limit}:${query.offset}:${query.mode}:${aiMode}:${model || 'default'}`
+  );
 
   // Check cache (only if KV binding configured)
   if (c.env.CACHE) {
@@ -44,6 +51,7 @@ export async function searchModules(c: Context<{ Bindings: Env }>) {
       const cached = await c.env.CACHE.get(cacheKey, 'json');
       if (cached) {
         c.header('X-Cache', 'HIT');
+        c.header('X-Search-Version', 'ai-search');
         return c.json(cached);
       }
     } catch (error) {
@@ -52,15 +60,81 @@ export async function searchModules(c: Context<{ Bindings: Env }>) {
   }
 
   try {
-    let results: any[] = [];
-    let totalCount = 0;
+    // Check if AI Search is available
+    const useAISearch = c.env.AI && c.env.AI_SEARCH;
 
-    // Execute searches based on mode
-    if (query.mode === 'keyword' || query.mode === 'hybrid') {
-      // Escape special characters for FTS5
+    if (!useAISearch && (query.mode === 'semantic' || query.mode === 'hybrid' || aiMode)) {
+      // Fallback to keyword search if AI Search not available
+      console.warn('AI Search not configured, falling back to keyword search');
+      query.mode = 'keyword';
+    }
+
+    let response: any;
+
+    if (useAISearch && query.mode !== 'keyword') {
+      // Use AI Search for semantic, hybrid, or AI-powered search
+      const searchResult = await performHybridSearch(c.env, query.q, {
+        limit: query.limit,
+        mode: aiMode ? 'ai' : query.mode,
+        generateResponse: aiMode,
+        model: model,
+      });
+
+      // Fetch full module data for the results
+      const modulePaths = searchResult.results.map(r => r.id);
+      let modules: any[] = [];
+
+      if (modulePaths.length > 0) {
+        const placeholders = modulePaths.map(() => '?').join(',');
+        const modulesResult = await c.env.MODULES_DB.prepare(`
+          SELECT
+            m.id,
+            m.path,
+            m.name,
+            m.namespace,
+            m.description,
+            m.created_at,
+            m.updated_at
+          FROM modules m
+          WHERE m.path IN (${placeholders})
+        `).bind(...modulePaths).all();
+
+        const modulesById = new Map(
+          modulesResult.results.map((m: any) => [m.path, m])
+        );
+
+        modules = searchResult.results.map(result => ({
+          ...modulesById.get(result.id),
+          relevance_score: result.score,
+          snippet: result.snippet,
+          match_type: 'ai_search',
+        })).filter(Boolean); // Filter out any null results
+      }
+
+      response = {
+        query: query.q,
+        mode: searchResult.mode,
+        results: modules,
+        count: modules.length,
+        ai_response: searchResult.aiResponse,
+        query_rewritten: searchResult.queryRewritten,
+        search_version: 'ai-search',
+        pagination: {
+          total: modules.length,
+          limit: query.limit,
+          offset: query.offset,
+          hasMore: false, // AI Search doesn't support traditional pagination
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      // Track analytics
+      trackSearchAnalytics(c.env, query.q, modules.length, searchResult.mode);
+
+    } else {
+      // Fallback to keyword search using FTS5
       const searchTerm = query.q.replace(/['"]/g, '');
 
-      // Perform FTS5 search with ranking
       const searchStmt = c.env.MODULES_DB.prepare(`
         SELECT
           m.id,
@@ -80,7 +154,6 @@ export async function searchModules(c: Context<{ Bindings: Env }>) {
       `);
 
       const ftsResults = await searchStmt.bind(searchTerm, query.limit, query.offset).all();
-      results = ftsResults.results || [];
 
       // Get total count for pagination
       const countStmt = c.env.MODULES_DB.prepare(`
@@ -90,88 +163,36 @@ export async function searchModules(c: Context<{ Bindings: Env }>) {
       `);
 
       const countResult = await countStmt.bind(searchTerm).first();
-      totalCount = countResult?.total || 0;
-    }
+      const totalCount = countResult?.total || 0;
 
-    // Semantic search
-    if ((query.mode === 'semantic' || query.mode === 'hybrid') &&
-        c.env.AI && c.env.VECTORIZE) {
-      try {
-        // Generate query embedding
-        const queryEmbedding = await generateEmbedding(c.env.AI, query.q);
+      response = {
+        query: query.q,
+        mode: 'keyword',
+        results: ftsResults.results || [],
+        count: totalCount,
+        search_version: 'fts5',
+        pagination: {
+          total: totalCount,
+          limit: query.limit,
+          offset: query.offset,
+          hasMore: query.offset + query.limit < totalCount,
+        },
+        timestamp: new Date().toISOString(),
+      };
 
-        // Query Vectorize
-        const vectorResults = await c.env.VECTORIZE.query(queryEmbedding, {
-          topK: query.limit,
-          returnMetadata: true,
-        });
-
-        // Fetch full module data for vector results
-        if (vectorResults.matches.length > 0) {
-          const vectorPaths = vectorResults.matches.map(m => m.id);
-          const placeholders = vectorPaths.map(() => '?').join(',');
-
-          const modulesResult = await c.env.MODULES_DB.prepare(`
-            SELECT
-              m.id,
-              m.path,
-              m.name,
-              m.namespace,
-              m.description,
-              m.created_at,
-              m.updated_at
-            FROM modules m
-            WHERE m.path IN (${placeholders})
-          `).bind(...vectorPaths).all();
-
-          const modulesById = new Map(
-            modulesResult.results.map((m: any) => [m.path, m])
-          );
-
-          const semanticResults = vectorResults.matches.map(match => ({
-            ...modulesById.get(match.id),
-            relevance_score: match.score,
-            match_type: 'semantic',
-          }));
-
-          // Merge results for hybrid mode
-          if (query.mode === 'hybrid') {
-            // Deduplicate by path, preferring higher relevance
-            const merged = new Map();
-            [...results, ...semanticResults].forEach((r: any) => {
-              if (!merged.has(r.path) ||
-                  r.relevance_score > merged.get(r.path).relevance_score) {
-                merged.set(r.path, r);
-              }
-            });
-            results = Array.from(merged.values())
-              .sort((a: any, b: any) => b.relevance_score - a.relevance_score)
-              .slice(0, query.limit);
-            totalCount = Math.max(totalCount, merged.size);
-          } else {
-            results = semanticResults;
-            totalCount = vectorResults.matches.length;
-          }
+      // Track analytics
+      if (c.env.ANALYTICS) {
+        try {
+          c.env.ANALYTICS.writeDataPoint({
+            indexes: ['search', 'keyword'],
+            blobs: [query.q.toLowerCase()],
+            doubles: [totalCount, Date.now()],
+          });
+        } catch (error) {
+          console.warn('Analytics write error:', error);
         }
-      } catch (error) {
-        console.warn('Semantic search failed, falling back to keyword:', error);
-        // Continue with keyword results if semantic fails
       }
     }
-
-    const response: SearchResult & { pagination: any; mode?: string } = {
-      query: query.q,
-      mode: query.mode,
-      results: results || [],
-      count: totalCount,
-      pagination: {
-        total: totalCount,
-        limit: query.limit,
-        offset: query.offset,
-        hasMore: query.offset + query.limit < totalCount,
-      },
-      timestamp: new Date().toISOString(),
-    };
 
     // Cache the response (only if KV binding configured)
     if (c.env.CACHE) {
@@ -186,26 +207,14 @@ export async function searchModules(c: Context<{ Bindings: Env }>) {
       }
     }
 
-    // Track search analytics if enabled
-    if (c.env.ANALYTICS) {
-      try {
-        c.env.ANALYTICS.writeDataPoint({
-          indexes: ['search', query.mode],
-          blobs: [query.q.toLowerCase()],
-          doubles: [totalCount, Date.now()],
-        });
-      } catch (error) {
-        console.warn('Analytics write error:', error);
-      }
-    }
-
     c.header('X-Cache', 'MISS');
+    c.header('X-Search-Version', response.search_version);
     return c.json(response);
 
   } catch (error) {
     console.error('Search error:', error);
 
-    // Fallback to LIKE search if FTS5 fails
+    // Fallback to LIKE search if everything fails
     try {
       const fallbackStmt = c.env.MODULES_DB.prepare(`
         SELECT
@@ -239,9 +248,11 @@ export async function searchModules(c: Context<{ Bindings: Env }>) {
         results: fallbackResults.results || [],
         count: fallbackResults.results?.length || 0,
         fallback: true,
+        search_version: 'fallback',
         timestamp: new Date().toISOString(),
       };
 
+      c.header('X-Search-Version', 'fallback');
       return c.json(response);
 
     } catch (fallbackError) {
