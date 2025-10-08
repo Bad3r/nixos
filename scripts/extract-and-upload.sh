@@ -148,11 +148,22 @@ upload_chunk_with_retry() {
       return 0
     else
       log_warn "  Attempt $attempt/$max_attempts failed (HTTP $http_code)"
-      if [ $attempt -lt $max_attempts ]; then
-        local delay=$((2 ** (attempt - 1)))
-        log_info "  Retrying in ${delay}s..."
-        sleep $delay
-      fi
+    if [ -s "$response_file" ]; then
+      log_warn "  Response body:"
+      cat "$response_file"
+    else
+      log_warn "  (empty response body)"
+    fi
+
+    if [ "$http_code" = "" ]; then
+      log_warn "  curl did not return an HTTP status (possible network error)"
+    fi
+
+    if [ $attempt -lt $max_attempts ]; then
+      local delay=$((2 ** (attempt - 1)))
+      log_info "  Retrying in ${delay}s..."
+      sleep $delay
+    fi
     fi
 
     ((attempt++))
