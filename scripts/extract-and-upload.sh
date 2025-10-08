@@ -123,7 +123,7 @@ upload_chunk_with_retry() {
     local max_attempts=3
     local attempt=1
 
-    log_info "Uploading chunk $chunk_num/$total_chunks..."
+    log_info "Uploading chunk $chunk_num/$total_chunks..." >&2
 
     while [ $attempt -le $max_attempts ]; do
         local response_file=$(mktemp)
