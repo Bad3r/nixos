@@ -209,7 +209,7 @@ upload_to_api() {
   # Get total module count
   local total_modules
   total_modules=$(jq '.modules | length' "${OUTPUT_FILE}.api.json")
-  local chunk_size=40 # Safe limit under API's 50 module max
+  local chunk_size="${CHUNK_SIZE:-10}" # Tune via env; stay well below Worker body limits
   local total_chunks=$(((total_modules + chunk_size - 1) / chunk_size))
 
   log_info "Total modules: $total_modules"
