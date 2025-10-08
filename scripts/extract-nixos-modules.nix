@@ -149,7 +149,20 @@ let
 
     config = {
       systems = availableSystems;
-      flake = flake // { inherit lib; };
+      flake =
+        flake
+        // {
+          inherit lib;
+          meta =
+            (flake.lib.meta or { })
+            // {
+              owner =
+                ownerMeta
+                // {
+                  username = defaultOwnerUsername;
+                };
+            };
+        };
       inputs = effectiveInputs;
       nixpkgs = { };
       rootPath = flakeOutPath;
@@ -160,12 +173,6 @@ let
           flake-parts-lib = flakePartsLib;
         };
       _module.check = false;
-
-      flake.lib.meta.owner =
-        (ownerMeta or { })
-        // {
-          username = defaultOwnerUsername;
-        };
     };
   };
 
