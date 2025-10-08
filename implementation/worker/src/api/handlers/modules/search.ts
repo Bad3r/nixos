@@ -34,15 +34,17 @@ export async function searchModules(c: Context<{ Bindings: Env }>) {
   // Generate cache key
   const cacheKey = CacheKeys.search(`${query.q}:${query.limit}:${query.offset}`);
 
-  // Check cache
-  try {
-    const cached = await c.env.CACHE.get(cacheKey, 'json');
-    if (cached) {
-      c.header('X-Cache', 'HIT');
-      return c.json(cached);
+  // Check cache (only if KV binding configured)
+  if (c.env.CACHE) {
+    try {
+      const cached = await c.env.CACHE.get(cacheKey, 'json');
+      if (cached) {
+        c.header('X-Cache', 'HIT');
+        return c.json(cached);
+      }
+    } catch (error) {
+      console.warn('Cache read error:', error);
     }
-  } catch (error) {
-    console.warn('Cache read error:', error);
   }
 
   try {
@@ -92,15 +94,17 @@ export async function searchModules(c: Context<{ Bindings: Env }>) {
       timestamp: new Date().toISOString(),
     };
 
-    // Cache the response
-    try {
-      await c.env.CACHE.put(
-        cacheKey,
-        JSON.stringify(response),
-        { expirationTtl: CacheTTL.search }
-      );
-    } catch (error) {
-      console.warn('Cache write error:', error);
+    // Cache the response (only if KV binding configured)
+    if (c.env.CACHE) {
+      try {
+        await c.env.CACHE.put(
+          cacheKey,
+          JSON.stringify(response),
+          { expirationTtl: CacheTTL.search }
+        );
+      } catch (error) {
+        console.warn('Cache write error:', error);
+      }
     }
 
     // Track search analytics if enabled

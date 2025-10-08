@@ -21,15 +21,17 @@ export async function getModule(c: Context<{ Bindings: Env }>) {
   // Generate cache key
   const cacheKey = CacheKeys.module(namespace, name);
 
-  // Check cache
-  try {
-    const cached = await c.env.CACHE.get(cacheKey, 'json');
-    if (cached) {
-      c.header('X-Cache', 'HIT');
-      return c.json(cached);
+  // Check cache (only if KV binding configured)
+  if (c.env.CACHE) {
+    try {
+      const cached = await c.env.CACHE.get(cacheKey, 'json');
+      if (cached) {
+        c.header('X-Cache', 'HIT');
+        return c.json(cached);
+      }
+    } catch (error) {
+      console.warn('Cache read error:', error);
     }
-  } catch (error) {
-    console.warn('Cache read error:', error);
   }
 
   try {
@@ -115,19 +117,21 @@ export async function getModule(c: Context<{ Bindings: Env }>) {
       timestamp: new Date().toISOString(),
     };
 
-    // Cache the response
-    try {
-      await c.env.CACHE.put(
-        cacheKey,
-        JSON.stringify(response),
-        { expirationTtl: CacheTTL.module }
-      );
-    } catch (error) {
-      console.warn('Cache write error:', error);
+    // Cache the response (only if KV binding configured)
+    if (c.env.CACHE) {
+      try {
+        await c.env.CACHE.put(
+          cacheKey,
+          JSON.stringify(response),
+          { expirationTtl: CacheTTL.module }
+        );
+      } catch (error) {
+        console.warn('Cache write error:', error);
+      }
     }
 
-    // Also store in R2 for large content if needed
-    if (JSON.stringify(response).length > 25000) { // If larger than 25KB
+    // Also store in R2 for large content if needed (only if R2 binding configured)
+    if (c.env.DOCUMENTS && JSON.stringify(response).length > 25000) { // If larger than 25KB
       try {
         await c.env.DOCUMENTS.put(
           `modules/${namespace}/${name}.json`,
