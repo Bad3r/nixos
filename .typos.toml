@@ -1,10 +1,16 @@
-[default.extend-words]
-laf = "laf"
-Iy = "Iy"
-edn = "edn"
-pn = "pn"
-abd = "abd"
-ba = "ba"
+[default]
+extend-ignore-re = [
+  "[A-Za-z0-9+/=]{32,}", # base64/age blobs
+  "-[A-Za-z0-9]{1,4}",   # short CLI flags (e.g. -Pn)
+  "\\.[A-Za-z0-9]{1,4}"  # short file ext. (e.g. .edn)
+]
 
-[[default.ignore.files]]
-glob = "secrets/**"
+[default.extend-words]
+example = "example"
+iterm2 = "iterm2"
+iterm2_with_bell = "iterm2_with_bell"
+iterm = "iterm"
+
+[files]
+# Skip encrypted secrets entirely; they are high-entropy ciphertext.
+extend-exclude = ["secrets/**"]
