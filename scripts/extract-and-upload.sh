@@ -86,28 +86,33 @@ transform_for_api() {
 
   # Transform the extracted data into the format expected by the API
   jq '
+    def maybe($k; $v):
+      if $v == null then {} else { ($k): $v } end;
+
+    def nonempty_object($v):
+      if ($v // {}) == {} then null else $v end;
+
+    def build_option($entry):
+      { name: $entry.key }
+      + maybe("type"; $entry.value.type)
+      + maybe("description"; $entry.value.description)
+      + maybe("default_value"; $entry.value.default)
+      + maybe("example"; $entry.value.example)
+      + maybe("read_only"; $entry.value.readOnly)
+      + maybe("internal"; $entry.value.internal);
+
     {
-        modules: .modules | map({
-            namespace: .namespace,
-            name: .name,
-            path: .path,
-            description: .description,
-            option_count: .optionCount,
-            options: .options | to_entries | map({
-                name: .key,
-                type: .value.type,
-                description: .value.description,
-                default_value: .value.default,
-                example: .value.example
-            }),
-            imports: .imports,
-            metadata: {
-                generated_at: .generated.timestamp,
-                nixpkgs_rev: .generated.nixpkgsRev
-            }
-        })
+      modules:
+        (.modules | map(
+          { namespace, name, path }
+          + maybe("description"; .description)
+          + (if (.options // {}) == {} then {}
+             else { options: (.options | to_entries | map(build_option)) }
+            end)
+          + maybe("metadata"; nonempty_object(.meta))
+        ))
     }
-    ' "$OUTPUT_FILE" >"${OUTPUT_FILE}.api.json"
+  ' "$OUTPUT_FILE" >"${OUTPUT_FILE}.api.json"
 
   log_info "Transformed data saved to ${OUTPUT_FILE}.api.json"
 }
