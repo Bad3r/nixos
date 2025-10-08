@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/cloudflare/wrangler/main/config-schema.json",
   "name": "nixos-module-docs-api",
   "main": "src/index.ts",
-  "compatibility_date": "2025-10-08",
+  "compatibility_date": "2025-02-11",
   "compatibility_flags": ["nodejs_compat"],
 
   // Static assets configuration for frontend
@@ -19,7 +19,7 @@
     {
       "binding": "MODULES_DB",
       "database_name": "nixos-modules-db",
-      "database_id": "4d6536f2-d773-4b9c-9108-35de92eeec88", // Production D1 database
+      "database_id": "TODO_RUN_WRANGLER_D1_CREATE", // Replace with actual ID from wrangler d1 create
       "preview_database_id": "local-nixos-modules-db" // For local development
     }
   ],
@@ -55,7 +55,8 @@
   // Build configuration
   "build": {
     "command": "npm run build",
-    "cwd": "."
+    "cwd": ".",
+    "watch_paths": ["src/**/*.ts"]
   },
 
   // Node.js compatibility for dependencies
@@ -92,7 +93,7 @@
         {
           "binding": "MODULES_DB",
           "database_name": "nixos-modules-db-staging",
-          "database_id": "93adfc86-1515-4ddf-a72c-931c49bd976a",
+          "database_id": "TODO_CREATE_STAGING_DB",
           "preview_database_id": "local-nixos-modules-db-staging"
         }
       ],
