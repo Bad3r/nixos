@@ -194,7 +194,11 @@ Use regex for more flexible matching:
 
 ### Default Behavior (Recommended)
 
-Both X11 and Wayland support are enabled by default on Linux. The module automatically selects the correct variant based on your graphical session.
+Both X11 and Wayland support are enabled by default on Linux. The module:
+- Configures `x11Support = true` and `waylandSupport = true`
+- Sets `package-wayland = pkgs.espanso-wayland`
+- Creates a wrapper script that checks `$WAYLAND_DISPLAY` at runtime
+- Automatically launches the correct binary based on your graphical session
 
 ### Optimizing Closure Size
 

@@ -18,7 +18,8 @@
 
   Display Server Support:
     * Both X11 and Wayland support enabled by default on Linux.
-    * Automatically switches between variants based on graphical session.
+    * Module sets x11Support=true, waylandSupport=true, and package-wayland=pkgs.espanso-wayland.
+    * Home Manager creates a wrapper that checks $WAYLAND_DISPLAY and launches the correct binary.
     * To reduce closure size, disable unused support:
       services.espanso.x11Support = false;  # Wayland-only
       services.espanso.waylandSupport = false;  # X11-only
@@ -38,10 +39,20 @@
 
 {
   flake.homeManagerModules.apps.espanso =
-    { lib, ... }:
+    { lib, pkgs, ... }:
+    let
+      isLinux = pkgs.stdenv.hostPlatform.isLinux;
+    in
     {
       services.espanso = {
         enable = true;
+
+        # Enable both X11 and Wayland support on Linux for auto-detection
+        x11Support = lib.mkDefault isLinux;
+        waylandSupport = lib.mkDefault isLinux;
+
+        # Ensure Wayland package is available when waylandSupport is enabled
+        package-wayland = lib.mkDefault (if isLinux then pkgs.espanso-wayland else null);
 
         # Default configuration
         configs = {
