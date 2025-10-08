@@ -26,6 +26,11 @@
           default = { };
           description = "Helper functions and small metadata for NixOS modules (pure/idempotent; no heavy evaluation or side effects).";
         };
+        security = lib.mkOption {
+          type = lib.types.attrsOf lib.types.anything;
+          default = { };
+          description = "Security helper data and utilities shared across modules.";
+        };
         checks = lib.mkOption {
           type = lib.types.attrsOf lib.types.anything;
           default = { };
