@@ -127,11 +127,17 @@ upload_chunk_with_retry() {
     response_file=$(mktemp)
     trap 'rm -f "$response_file"' RETURN
 
-    http_code=$(curl -s -w "%{http_code}" -o "$response_file" -X POST \
+    http_code=$(curl -sS -w "%{http_code}" -o "$response_file" -X POST \
       -H "Content-Type: application/json" \
       -H "X-API-Key: $API_KEY" \
       -d "$chunk_data" \
-      "$WORKER_ENDPOINT/api/modules/batch" 2>/dev/null)
+      "$WORKER_ENDPOINT/api/modules/batch")
+
+    curl_status=$?
+
+    if [ $curl_status -ne 0 ]; then
+      log_warn "  curl exited with status $curl_status"
+    fi
 
     if [ "$http_code" = "200" ] || [ "$http_code" = "207" ]; then
       local updated created failed
