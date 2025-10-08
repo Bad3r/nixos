@@ -87,6 +87,14 @@ let
     else
       "<" + t + ">";
   flakeInputs = flake.inputs or { };
+  fallbackInputs = {
+    impermanence = {
+      nixosModules = {
+        impermanence = (_: { });
+      };
+    };
+  };
+  effectiveInputs = fallbackInputs // flakeInputs;
   flakeOutPath = flake.outPath;
   flakePartsLib = if flakeInputs ? flake-parts then flakeInputs.flake-parts.lib else null;
   flakePartsModules =
@@ -101,7 +109,17 @@ let
 
   inherit (lib) types;
 
-  moduleBase = {
+  moduleBase =
+    let
+      ownerMeta =
+        if flake ? lib && flake.lib ? meta && flake.lib.meta ? owner then
+          flake.lib.meta.owner
+        else
+          { };
+      defaultOwnerUsername =
+        if ownerMeta ? username then ownerMeta.username else "owner";
+    in
+    {
     options = {
       flake = lib.mkOption {
         type = types.submodule {
@@ -132,161 +150,171 @@ let
     config = {
       systems = availableSystems;
       flake = flake // { inherit lib; };
-      inherit (flake) inputs;
+      inputs = effectiveInputs;
       nixpkgs = { };
       rootPath = flakeOutPath;
       _module.args = filterAttrs (_: value: value != null) {
         inherit pinnedPkgs flakeOutPath flake;
-        inputs = flakeInputs;
+        inputs = effectiveInputs;
         withSystem = defaultWithSystem;
-        flake-parts-lib = flakePartsLib;
-      };
+          flake-parts-lib = flakePartsLib;
+        };
       _module.check = false;
+
+      flake.lib.meta.owner =
+        (ownerMeta or { })
+        // {
+          username = defaultOwnerUsername;
+        };
     };
   };
 
   specialArgs = filterAttrs (_: value: value != null) {
     inherit lib flake;
     pkgs = pinnedPkgs;
-    inputs = flakeInputs;
+    inputs = effectiveInputs;
     rootPath = flakeOutPath;
     withSystem = defaultWithSystem;
   };
 
-  # Detect whether a value looks like a NixOS module definition.
-  isModuleValue = value:
-    builtins.isFunction value
-    || (builtins.isAttrs value && ((value ? options) || (value ? config) || (value ? imports)));
+  normalizeModule = value:
+    if builtins.isFunction value then value else (_: value);
 
-  # Recursively collect module definitions from an attrset, tracking the key path.
-  collectModuleEntries = value: path:
-    if isModuleValue value then
-      [
-        {
-          keyPath = path;
-          module = value;
-        }
-      ]
-    else if builtins.isAttrs value then
-      lib.concatLists (
-        lib.mapAttrsToList (
-          name: child:
-          collectModuleEntries child (path ++ [ name ])
-        ) value
-      )
+  relativePath = path:
+    if path == null then null else
+      let
+        asString = toString path;
+        prefix = "${toString flakeRoot}/";
+      in
+      if lib.hasPrefix prefix asString then
+        lib.removePrefix prefix asString
+      else
+        asString;
+
+  getAttrSource = attrset: name:
+    let
+      pos = builtins.unsafeGetAttrPos name attrset;
+    in
+    if pos ? file && pos.file != "" then
+      relativePath pos.file
     else
-      [ ];
+      null;
 
-  formatModuleKey = keyPath:
-    if keyPath == [ ] then
-      "<root>"
-    else
-      lib.concatStringsSep "." keyPath;
+  aggregatorAllowedKeys = [ "imports" "_file" "attrPath" "default" "name" ];
 
-  evaluateModule =
-    modulePath:
+  isAggregator = value:
+    builtins.isAttrs value
+    && value ? imports
+    && (
+      let
+        attempt = builtins.tryEval value.imports;
+      in
+      attempt.success && builtins.isList attempt.value
+    )
+    && lib.all (key: lib.elem key aggregatorAllowedKeys) (builtins.attrNames value);
+
+  collectModules =
     let
-      moduleSpec = if builtins.isPath modulePath then modulePath else flakeOutPath + "/${modulePath}";
-    in
-    lib.evalModules {
-      modules = [ moduleBase ] ++ flakePartsModules ++ [ moduleSpec ];
-      inherit specialArgs;
-    };
+      recBind = rec {
+        importsFor = value:
+          let
+            attempt = builtins.tryEval (
+              if builtins.isAttrs value && value ? imports then value.imports else [ ]
+            );
+          in
+          if attempt.success && builtins.isList attempt.value then
+            attempt.value
+          else
+            [ ];
 
-  # Helper to determine namespace from path
-  getNamespace =
-    path:
+        collectValue = value: path: source:
+          let
+            nextSource =
+              if builtins.isAttrs value && value ? _file then
+                relativePath value._file
+              else
+                source;
+          in
+          if isAggregator value then
+            lib.concatLists (map (entry: collectImportEntry entry path nextSource) (importsFor value))
+          else if builtins.isFunction value then
+            [
+              {
+                keyPath = path;
+                module = value;
+                sourcePath = source;
+              }
+            ]
+          else if builtins.isAttrs value then
+            [
+              {
+                keyPath = path;
+                module = normalizeModule value;
+                sourcePath = nextSource;
+              }
+            ]
+          else
+            [ ];
+
+        collectImportEntry = entry: path: source:
+          let
+            entrySource =
+              if entry ? _file then relativePath entry._file else source;
+            inner = importsFor entry;
+          in
+          lib.concatLists (
+            map (
+              child:
+                if isAggregator child then
+                  collectValue child path entrySource
+                else if builtins.isAttrs child then
+                  lib.concatLists (
+                    lib.mapAttrsToList (
+                      name: value:
+                        collectValue value (path ++ [ name ]) entrySource
+                    ) child
+                  )
+                else
+                  [ ]
+            ) inner
+          );
+      };
+    in
+    recBind.collectValue;
+
+  # Collect module entries from flake.nixosModules
+  moduleEntries =
     let
-      parts = lib.splitString "/" path;
+      modulesAttr = flake.nixosModules or { };
     in
-    if lib.hasPrefix "modules/" path then lib.elemAt parts 1 else "root";
+    lib.concatLists (
+      lib.mapAttrsToList (
+        name: value:
+          collectModules value [ name ] (getAttrSource modulesAttr name)
+      ) modulesAttr
+    );
 
-  # Helper to determine module name from path
-  getModuleName =
-    path:
-    let
-      basename = lib.last (lib.splitString "/" path);
-      withoutExt = lib.removeSuffix ".nix" basename;
-    in
-    if withoutExt == "default" then lib.last (lib.init (lib.splitString "/" path)) else withoutExt;
-
-  # Process a single module file
-  processModule =
-    modulePath:
+  processModuleEntry =
+    entry:
     let
       attempt = builtins.tryEval (
         let
-          localPath = flakeRoot + "/${modulePath}";
-
-          moduleExists = builtins.pathExists localPath;
-
-          importedModule =
-            if moduleExists then
-              import localPath
-            else
-              null;
-
-          callArgs = {
-            inherit lib;
-            pkgs = pinnedPkgs;
-            config = { };
-            options = { };
-            self = flake;
-            inputs = flakeInputs;
-            withSystem = defaultWithSystem;
-          };
-
-          moduleAttrsetAttempt =
-            if !moduleExists then
-              {
-                success = false;
-                value = "Module path not found";
-              }
-            else if builtins.isFunction importedModule then
-              builtins.tryEval (importedModule callArgs)
-            else
-              {
-                success = true;
-                value = importedModule;
-              };
-
-          moduleEntries =
-            if !moduleExists then
-              [ ]
-            else if moduleAttrsetAttempt.success
-              && builtins.isAttrs moduleAttrsetAttempt.value
-              && moduleAttrsetAttempt.value ? flake
-              && moduleAttrsetAttempt.value.flake ? nixosModules then
-              collectModuleEntries moduleAttrsetAttempt.value.flake.nixosModules [ ]
-            else if importedModule != null && isModuleValue importedModule then
-              [
-                {
-                  keyPath = [ ];
-                  module = importedModule;
-                }
-              ]
-            else
-              [ ];
+          keyPath = entry.keyPath or [ ];
+          namespace =
+            if keyPath == [ ] then "root" else builtins.head keyPath;
+          moduleName =
+            if keyPath == [ ] then "module"
+            else builtins.last keyPath;
+          fullName =
+            if keyPath == [ ] then "${namespace}/${moduleName}" else lib.concatStringsSep "/" keyPath;
 
           evaluation =
-            if moduleEntries == [ ] then
-              {
-                success = false;
-                value =
-                  if !moduleExists then
-                    "Module path not found"
-                  else if moduleAttrsetAttempt.success then
-                    "No NixOS modules discovered in file"
-                  else
-                    moduleAttrsetAttempt.value;
+            builtins.tryEval (
+              lib.evalModules {
+                modules = [ moduleBase ] ++ flakePartsModules ++ [ entry.module ];
+                inherit specialArgs;
               }
-            else
-              builtins.tryEval (
-                lib.evalModules {
-                  modules = [ moduleBase ] ++ flakePartsModules ++ (map (entry: entry.module) moduleEntries);
-                  inherit specialArgs;
-                }
-              );
+            );
 
           extraction =
             if evaluation.success then
@@ -298,37 +326,37 @@ let
                   success = true;
                   value = extracted.value // {
                     meta = evaluation.value.config.meta or { };
-                    moduleKeys = map (entry: formatModuleKey entry.keyPath) moduleEntries;
+                    moduleKeys = [ fullName ];
                   };
                 }
               else
                 {
                   success = false;
-                  error = extracted.value;
+                  error = stringifyError extracted.value;
                 }
             else
               {
                 success = false;
-                error = evaluation.value;
+                error = stringifyError evaluation.value;
               };
 
           metadata = {
-            path = modulePath;
-            namespace = getNamespace modulePath;
-            name = getModuleName modulePath;
-            fullName = "${getNamespace modulePath}/${getModuleName modulePath}";
+            path = entry.sourcePath or "unknown";
+            namespace = namespace;
+            name = moduleName;
+            fullName = fullName;
           };
         in
         metadata
         // {
           documentation = if extraction.success then extraction.value else null;
-          error =
-            if extraction.success then
-              null
-            else if evaluation.success then
-              "Failed to extract module: ${stringifyError extraction.error}"
-            else
-              "Failed to evaluate module: ${stringifyError evaluation.value}";
+        error =
+          if extraction.success then
+            null
+          else if evaluation.success then
+            "Failed to extract module: ${extraction.error}"
+          else
+            "Failed to evaluate module: ${stringifyError evaluation.value}";
           extracted = extraction.success;
         }
       );
@@ -337,46 +365,16 @@ let
       attempt.value
     else
       {
-        path = modulePath;
-        namespace = getNamespace modulePath;
-        name = getModuleName modulePath;
-        fullName = "${getNamespace modulePath}/${getModuleName modulePath}";
+        path = entry.sourcePath or "unknown";
+        namespace = "root";
+        name = "module";
+        fullName = lib.concatStringsSep "/" (entry.keyPath or [ "root" "module" ]);
         documentation = null;
         error = "processModule failure: ${stringifyError attempt.value}";
         extracted = false;
       };
 
-  # Scan modules directory for all .nix files
-  scanModuleDirectory =
-    dir:
-    let
-      # Recursively find all .nix files
-      findNixFiles =
-        path:
-        let
-          content = builtins.readDir path;
-          processEntry =
-            name: type:
-            let
-              fullPath = path + "/${name}";
-              relativePath = lib.removePrefix "${toString flakeRoot}/" (toString fullPath);
-            in
-            if type == "directory" && !lib.hasPrefix "_" name then
-              findNixFiles fullPath
-            else if type == "regular" && lib.hasSuffix ".nix" name && !lib.hasPrefix "_" name then
-              [ relativePath ]
-            else
-              [ ];
-        in
-        lib.concatLists (lib.mapAttrsToList processEntry content);
-    in
-    findNixFiles dir;
-
-  # Get all module files
-  moduleFiles = scanModuleDirectory (flakeRoot + "/modules");
-
-  # Process all modules
-  processedModules = map processModule moduleFiles;
+  processedModules = map processModuleEntry moduleEntries;
   successfulModules = processedModules;
   failedModules = processedModules;
 
@@ -467,7 +465,7 @@ let
         successList = builtins.filter (m: builtins.isAttrs m && (m.extracted or false)) processedModules;
         failureList = builtins.filter (m: builtins.isAttrs m && !(m.extracted or false)) processedModules;
         namespaceGroups = builtins.groupBy (m: m.namespace or "unknown") successList;
-        totalModules = builtins.length moduleFiles;
+        totalModules = builtins.length moduleEntries;
         extractedCount = builtins.length successList;
         failedCount = builtins.length failureList;
       in
