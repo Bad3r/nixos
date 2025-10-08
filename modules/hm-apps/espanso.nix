@@ -18,7 +18,7 @@
 
   Display Server Support:
     * Both X11 and Wayland support enabled by default on Linux.
-    * Module sets x11Support=true, waylandSupport=true, and package-wayland=pkgs.espanso-wayland.
+    * Module sets x11Support=true, waylandSupport=true, and packageWayland=pkgs.espanso-wayland.
     * Home Manager creates a wrapper that checks $WAYLAND_DISPLAY and launches the correct binary.
     * To reduce closure size, disable unused support:
       services.espanso.x11Support = false;  # Wayland-only
@@ -52,7 +52,7 @@
         waylandSupport = lib.mkDefault isLinux;
 
         # Ensure Wayland package is available when waylandSupport is enabled
-        package-wayland = lib.mkDefault (if isLinux then pkgs.espanso-wayland else null);
+        packageWayland = lib.mkDefault (if isLinux then pkgs.espanso-wayland else null);
 
         # Default configuration
         configs = {
