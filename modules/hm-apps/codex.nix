@@ -170,14 +170,16 @@
               ];
               startup_timeout_ms = 60000;
             };
-            cfcontainers = {
-              command = "npx";
-              args = [
-                "mcp-remote"
-                "https://containers.mcp.cloudflare.com/sse"
-              ];
-              startup_timeout_ms = 60000;
-            };
+            # Disabled because it conflicts with Codex CLI review feature.
+            # cfcontainers disabled at user request.
+            # cfcontainers = {
+            #   command = "npx";
+            #   args = [
+            #     "mcp-remote"
+            #     "https://containers.mcp.cloudflare.com/sse"
+            #   ];
+            #   startup_timeout_ms = 60000;
+            # };
             cfbrowser = {
               command = "npx";
               args = [
