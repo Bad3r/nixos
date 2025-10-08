@@ -129,7 +129,7 @@ upload_to_api() {
         -d @"${OUTPUT_FILE}.api.json" \
         "$WORKER_ENDPOINT/api/modules/batch")
 
-    if [ "$http_code" = "200" ]; then
+    if [ "$http_code" = "200" ] || [ "$http_code" = "207" ]; then
         log_info "Upload successful! (HTTP $http_code)"
 
         if command -v jq &> /dev/null && [ -s "$response_file" ]; then
