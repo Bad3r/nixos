@@ -42,6 +42,19 @@
     }
   ],
 
+  // Workers AI for generating embeddings
+  "ai": {
+    "binding": "AI"
+  },
+
+  // Vectorize for semantic search
+  "vectorize": [
+    {
+      "binding": "VECTORIZE",
+      "index_name": "module-embeddings"
+    }
+  ],
+
   // Node.js compatibility for dependencies
 
   // Basic observability
@@ -96,6 +109,12 @@
       "analytics_engine_datasets": [
         {
           "binding": "ANALYTICS"
+        }
+      ],
+      "vectorize": [
+        {
+          "binding": "VECTORIZE",
+          "index_name": "module-embeddings-staging"
         }
       ]
     },

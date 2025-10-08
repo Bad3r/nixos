@@ -3,7 +3,7 @@
  * Simplified for MVP implementation
  */
 
-import type { D1Database, KVNamespace, R2Bucket, AnalyticsEngineDataset } from '@cloudflare/workers-types';
+import type { D1Database, KVNamespace, R2Bucket, AnalyticsEngineDataset, Ai, VectorizeIndex } from '@cloudflare/workers-types';
 
 /**
  * Module types supported by the system
@@ -26,6 +26,12 @@ export interface Env {
 
   // R2 for document storage
   DOCUMENTS: R2Bucket;
+
+  // Workers AI for generating embeddings
+  AI: Ai;
+
+  // Vectorize for semantic search
+  VECTORIZE: VectorizeIndex;
 
   // Analytics (optional)
   ANALYTICS?: AnalyticsEngineDataset;
@@ -151,6 +157,7 @@ export interface SearchModulesQuery {
   q: string;
   limit?: number;
   offset?: number;
+  mode?: 'keyword' | 'semantic' | 'hybrid';
 }
 
 export interface BatchUpdateRequest {
