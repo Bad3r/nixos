@@ -34,16 +34,17 @@ jobs:
       namespace-count: ${{ steps.extract.outputs.namespace-count }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5.0.0
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v24
+        uses: cachix/install-nix-action@v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
           nix_path: nixpkgs=channel:nixos-unstable
+          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
 
       - name: Setup Nix cache
-        uses: cachix/cachix-action@v13
+        uses: cachix/cachix-action@v16
         with:
           name: nix-community
           skipPush: true
@@ -68,7 +69,7 @@ jobs:
           fi
 
       - name: Upload extracted modules
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: extracted-modules
           path: |
@@ -84,10 +85,10 @@ jobs:
       worker-url: ${{ steps.worker-url.outputs.worker-url }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5.0.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -205,10 +206,10 @@ jobs:
     environment: ${{ github.event.inputs.environment || 'staging' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5.0.0
 
       - name: Download extracted modules
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5.0.0
         with:
           name: extracted-modules
 
@@ -254,10 +255,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5.0.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 

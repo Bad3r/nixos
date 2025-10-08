@@ -6,7 +6,6 @@
   };
 
   inputs = {
-    self.submodules = false;
     cpu-microcodes = {
       flake = false;
       url = "github:platomav/CPUMicrocodes";
