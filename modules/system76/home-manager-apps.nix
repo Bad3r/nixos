@@ -2,6 +2,7 @@
 let
   extraAppNames = [
     "bitwarden"
+    "claude-code"
     "copyq"
     "discord"
     "dive"
