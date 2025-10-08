@@ -35,12 +35,15 @@ extract_modules() {
 
     cd "$PROJECT_ROOT"
 
-    # Run the Nix extraction script
+    # Run the REAL Nix extraction script (extracts ALL 431+ modules)
+    log_info "Using real extractor: extract-nixos-modules.nix"
+    log_info "This will scan and extract ALL modules in the repository..."
+
     if nix-instantiate \
         --eval \
         --strict \
         --json \
-        -E "import $SCRIPT_DIR/extract-nixos-modules-simple.nix {}" \
+        -E "import $SCRIPT_DIR/extract-nixos-modules.nix { flakeRoot = $PROJECT_ROOT; }" \
         > "$OUTPUT_FILE" 2>/dev/null; then
 
         log_info "Modules extracted successfully to $OUTPUT_FILE"
@@ -110,40 +113,126 @@ transform_for_api() {
     log_info "Transformed data saved to ${OUTPUT_FILE}.api.json"
 }
 
-# Step 3: Upload to Worker API
+# Helper: Upload single chunk with retry logic
+upload_chunk_with_retry() {
+    local chunk_data="$1"
+    local chunk_num="$2"
+    local total_chunks="$3"
+    local max_attempts=3
+    local attempt=1
+
+    log_info "Uploading chunk $chunk_num/$total_chunks..."
+
+    while [ $attempt -le $max_attempts ]; do
+        local response_file=$(mktemp)
+        trap "rm -f $response_file" RETURN
+
+        http_code=$(curl -s -w "%{http_code}" -o "$response_file" -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $API_KEY" \
+            -d "$chunk_data" \
+            "$WORKER_ENDPOINT/api/modules/batch" 2>/dev/null)
+
+        if [ "$http_code" = "200" ] || [ "$http_code" = "207" ]; then
+            if command -v jq &> /dev/null && [ -s "$response_file" ]; then
+                local updated=$(cat "$response_file" | jq -r '.results.updated' 2>/dev/null || echo "0")
+                local created=$(cat "$response_file" | jq -r '.results.created' 2>/dev/null || echo "0")
+                local failed=$(cat "$response_file" | jq -r '.results.failed' 2>/dev/null || echo "0")
+                echo "$updated,$created,$failed"
+            else
+                echo "0,0,0"
+            fi
+            return 0
+        else
+            log_warn "  Attempt $attempt/$max_attempts failed (HTTP $http_code)"
+            if [ $attempt -lt $max_attempts ]; then
+                local delay=$((2 ** (attempt - 1)))
+                log_info "  Retrying in ${delay}s..."
+                sleep $delay
+            fi
+        fi
+
+        ((attempt++))
+    done
+
+    log_error "  Chunk $chunk_num failed after $max_attempts attempts"
+    return 1
+}
+
+# Step 3: Upload to Worker API with chunking
 upload_to_api() {
-    log_info "Uploading to Cloudflare Worker API..."
+    log_info "Uploading to Cloudflare Worker API with chunked batches..."
 
     if [ ! -f "${OUTPUT_FILE}.api.json" ]; then
         log_error "Transformed data file not found"
         return 1
     fi
 
-    # Upload using curl (save to temp file for response parsing)
-    local response_file=$(mktemp)
-    trap "rm -f $response_file" RETURN
-
-    http_code=$(curl -s -w "%{http_code}" -o "$response_file" -X POST \
-        -H "Content-Type: application/json" \
-        -H "X-API-Key: $API_KEY" \
-        -d @"${OUTPUT_FILE}.api.json" \
-        "$WORKER_ENDPOINT/api/modules/batch")
-
-    if [ "$http_code" = "200" ] || [ "$http_code" = "207" ]; then
-        log_info "Upload successful! (HTTP $http_code)"
-
-        if command -v jq &> /dev/null && [ -s "$response_file" ]; then
-            cat "$response_file" | jq -r '.message' 2>/dev/null || true
-            local updated=$(cat "$response_file" | jq -r '.updated' 2>/dev/null || echo "unknown")
-            local created=$(cat "$response_file" | jq -r '.created' 2>/dev/null || echo "unknown")
-            log_info "  Updated: $updated modules"
-            log_info "  Created: $created modules"
-        fi
-    else
-        log_error "Upload failed! (HTTP $http_code)"
-        cat "$response_file" 2>/dev/null || echo "(no response body)"
+    if ! command -v jq &> /dev/null; then
+        log_error "jq is required for chunked uploads"
         return 1
     fi
+
+    # Get total module count
+    local total_modules=$(jq '.modules | length' "${OUTPUT_FILE}.api.json")
+    local chunk_size=40  # Safe limit under API's 50 module max
+    local total_chunks=$(( (total_modules + chunk_size - 1) / chunk_size ))
+
+    log_info "Total modules: $total_modules"
+    log_info "Chunk size: $chunk_size modules"
+    log_info "Total chunks: $total_chunks"
+
+    # Track aggregate statistics
+    local total_updated=0
+    local total_created=0
+    local total_failed=0
+    local chunks_succeeded=0
+    local chunks_failed=0
+
+    # Process each chunk
+    for ((chunk_idx=0; chunk_idx<total_chunks; chunk_idx++)); do
+        local start_idx=$((chunk_idx * chunk_size))
+        local chunk_num=$((chunk_idx + 1))
+
+        # Extract chunk from full dataset
+        local chunk_data=$(jq -c "{modules: .modules[$start_idx:$start_idx+$chunk_size]}" \
+            "${OUTPUT_FILE}.api.json")
+
+        # Upload with retry
+        if result=$(upload_chunk_with_retry "$chunk_data" "$chunk_num" "$total_chunks"); then
+            IFS=',' read -r updated created failed <<< "$result"
+            total_updated=$((total_updated + updated))
+            total_created=$((total_created + created))
+            total_failed=$((total_failed + failed))
+            chunks_succeeded=$((chunks_succeeded + 1))
+            log_info "  ✓ Chunk $chunk_num: $updated updated, $created created, $failed failed"
+        else
+            chunks_failed=$((chunks_failed + 1))
+            log_error "  ✗ Chunk $chunk_num: Upload failed"
+        fi
+
+        # Small delay between chunks to avoid rate limiting
+        if [ $chunk_num -lt $total_chunks ]; then
+            sleep 1
+        fi
+    done
+
+    # Final summary
+    log_info ""
+    log_info "Upload complete!"
+    log_info "  Total chunks: $total_chunks"
+    log_info "  Succeeded: $chunks_succeeded"
+    log_info "  Failed: $chunks_failed"
+    log_info "  Modules updated: $total_updated"
+    log_info "  Modules created: $total_created"
+    log_info "  Modules failed: $total_failed"
+
+    if [ $chunks_failed -gt 0 ]; then
+        log_warn "Some chunks failed to upload. Check logs above for details."
+        return 1
+    fi
+
+    return 0
 }
 
 # Step 4: Verify upload

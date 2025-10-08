@@ -50,8 +50,9 @@ jobs:
 
       - name: Extract modules
         id: extract
+        timeout-minutes: 20  # Increased for full repository extraction (431+ modules)
         run: |
-          echo "Extracting NixOS modules..."
+          echo "Extracting ALL NixOS modules from repository..."
           ./scripts/extract-and-upload.sh --extract-only
 
           # Output statistics
@@ -161,11 +162,12 @@ jobs:
           name: extracted-modules
 
       - name: Upload to Worker API
+        timeout-minutes: 15  # Increased for chunked upload of 431+ modules (~11 batches)
         env:
           WORKER_ENDPOINT: ${{ needs.deploy-worker.outputs.worker-url }}
           API_KEY: ${{ secrets.MODULE_API_KEY }}
         run: |
-          echo "Uploading module data to API..."
+          echo "Uploading module data to API (chunked batches)..."
           ./scripts/extract-and-upload.sh --upload-only \
             --endpoint "$WORKER_ENDPOINT" \
             --api-key "$API_KEY"
