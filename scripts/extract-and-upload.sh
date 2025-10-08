@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${PROJECT_ROOT}/.cache/module-docs"
 OUTPUT_FILE="${OUTPUT_DIR}/modules-extracted.json"
-WORKER_ENDPOINT="${WORKER_ENDPOINT:-http://localhost:8787}"
+WORKER_ENDPOINT="${WORKER_ENDPOINT:-https://nixos-module-docs-api-staging.exploit.workers.dev}"
 R2_BUCKET="${R2_BUCKET:-nixos-modules-docs-staging}"
 R2_PREFIX="${R2_PREFIX:-modules}"
 
