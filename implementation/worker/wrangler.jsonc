@@ -17,6 +17,24 @@
     }
   ],
 
+  // KV Namespace for caching API responses
+  // Created with: npx wrangler kv namespace create CACHE
+  "kv_namespaces": [
+    {
+      "binding": "CACHE",
+      "id": "a4333c2cffe3420c8fbe8bf11666ef8a"
+    }
+  ],
+
+  // R2 Bucket for large module documents (>25KB)
+  // Created with: npx wrangler r2 bucket create nixos-modules-docs
+  "r2_buckets": [
+    {
+      "binding": "DOCUMENTS",
+      "bucket_name": "nixos-modules-docs"
+    }
+  ],
+
 
 
   // Node.js compatibility for dependencies
@@ -47,7 +65,8 @@
         "ENVIRONMENT": "staging",
         "CACHE_TTL": "60", // 1 minute for testing
         "MAX_BATCH_SIZE": "25",
-        "ENABLE_DEBUG": "true"
+        "ENABLE_DEBUG": "true",
+        "API_VERSION": "v1"
       },
       "d1_databases": [
         {
@@ -57,6 +76,18 @@
           "preview_database_id": "local-nixos-modules-db-staging"
         }
       ],
+      "kv_namespaces": [
+        {
+          "binding": "CACHE",
+          "id": "9f78fec9395f4ef8b1cdbfe625433175"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "DOCUMENTS",
+          "bucket_name": "nixos-modules-docs-staging"
+        }
+      ]
     },
     "production": {
       "name": "nixos-module-docs-api",
