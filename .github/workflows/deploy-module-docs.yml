@@ -86,12 +86,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: implementation/worker/package-lock.json
 
       - name: Install dependencies
         working-directory: implementation/worker
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
       - name: Run database migrations
         working-directory: implementation/worker
