@@ -127,16 +127,6 @@ SELECT * FROM (
 )
 WHERE NOT EXISTS (SELECT 1 FROM host_usage LIMIT 1);
 
--- Update FTS index with option data
-UPDATE modules_fts
-SET option_names = (
-    SELECT GROUP_CONCAT(name, ' ')
-    FROM module_options
-    WHERE module_id = modules_fts.rowid
-  ),
-  option_descriptions = (
-    SELECT GROUP_CONCAT(description, ' ')
-    FROM module_options
-    WHERE module_id = modules_fts.rowid
-  )
-WHERE EXISTS (SELECT 1 FROM module_options WHERE module_id = modules_fts.rowid);
+-- Note: FTS index will be automatically updated by triggers
+-- The FTS table schema was simplified in 0002_fix_fts_schema.sql
+-- to only include name, namespace, and description columns
