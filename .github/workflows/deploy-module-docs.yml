@@ -116,24 +116,26 @@ jobs:
             --env=${{ github.event.inputs.environment || 'staging' }}
 
       - name: Deploy Worker
-        working-directory: implementation/worker
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          echo "Deploying Worker to ${{ github.event.inputs.environment || 'staging' }}..."
-          npx wrangler deploy \
-            --env=${{ github.event.inputs.environment || 'staging' }}
-
-      - name: Get Worker URL
         id: worker-url
         working-directory: implementation/worker
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          # Get the deployed worker URL
-          WORKER_URL="https://nixos-modules-${{ github.event.inputs.environment || 'staging' }}.$(echo ${{ secrets.CLOUDFLARE_ACCOUNT_ID }} | cut -c1-8).workers.dev"
+          echo "Deploying Worker to ${{ github.event.inputs.environment || 'staging' }}..."
+
+          # Deploy and capture output
+          DEPLOY_OUTPUT=$(npx wrangler deploy --env=${{ github.event.inputs.environment || 'staging' }} 2>&1)
+          echo "$DEPLOY_OUTPUT"
+
+          # Extract Worker URL from deployment output
+          WORKER_URL=$(echo "$DEPLOY_OUTPUT" | grep -oP 'https://[a-zA-Z0-9-]+\.workers\.dev' | head -1)
+
+          if [ -z "$WORKER_URL" ]; then
+            echo "Failed to extract Worker URL from deployment output"
+            exit 1
+          fi
+
           echo "worker-url=$WORKER_URL" >> $GITHUB_OUTPUT
           echo "Worker deployed to: $WORKER_URL"
 
