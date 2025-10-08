@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/cloudflare/wrangler/main/config-schema.json",
   "name": "nixos-module-docs-api",
   "main": "src/index.ts",
-  "compatibility_date": "2024-09-19",
+  "compatibility_date": "2025-02-11",
   "compatibility_flags": ["nodejs_compat"],
 
   // Static assets configuration for frontend
@@ -10,8 +10,7 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "html_handling": "auto-trailing-slash",
-    "serve_directly": true
+    "html_handling": "auto-trailing-slash"
   },
 
   // D1 Database for structured module data
@@ -61,7 +60,6 @@
   },
 
   // Node.js compatibility for dependencies
-  "node_compat": true,
 
   // Basic observability
   "observability": {
