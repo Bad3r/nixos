@@ -106,7 +106,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
+          set -euo pipefail
           echo "Running database migrations..."
+
           # Use the correct database name based on environment
           if [ "${{ github.event.inputs.environment || 'staging' }}" = "staging" ]; then
             DB_NAME="nixos-modules-db-staging"
@@ -117,11 +119,27 @@ jobs:
           # Run all migrations in order
           for migration in migrations/*.sql; do
             echo "Running migration: $migration"
-            npx wrangler d1 execute "$DB_NAME" \
+
+            # Try to run the migration
+            if npx wrangler d1 execute "$DB_NAME" \
               --file="$migration" \
               --remote \
-              --env=${{ github.event.inputs.environment || 'staging' }} || echo "⚠️  Migration $(basename $migration) already applied or failed"
+              --env=${{ github.event.inputs.environment || 'staging' }} 2>&1 | tee migration.log; then
+              echo "✅ Migration $(basename $migration) applied successfully"
+            else
+              EXIT_CODE=$?
+              # Check if it's an "already exists" error
+              if grep -qi "already exists\|duplicate\|unique constraint" migration.log; then
+                echo "ℹ️  Migration $(basename $migration) was already applied (table/index exists)"
+              else
+                echo "❌ Migration $(basename $migration) failed with error:"
+                cat migration.log
+                exit $EXIT_CODE
+              fi
+            fi
           done
+
+          echo "✅ All migrations completed successfully"
 
       - name: Deploy Worker
         id: worker-url

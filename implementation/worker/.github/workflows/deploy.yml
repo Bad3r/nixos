@@ -92,6 +92,47 @@ jobs:
           # Set AI_GATEWAY_TOKEN secret
           echo "${{ secrets.AI_GATEWAY_TOKEN }}" | npx wrangler secret put AI_GATEWAY_TOKEN --env ${{ steps.env.outputs.environment }}
 
+      - name: Run database migrations
+        working-directory: implementation/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          echo "Running database migrations..."
+
+          # Use the correct database name based on environment
+          if [ "${{ steps.env.outputs.environment }}" = "production" ]; then
+            DB_NAME="nixos-modules-db"
+          else
+            DB_NAME="nixos-modules-db-staging"
+          fi
+
+          # Run all migrations in order
+          for migration in migrations/*.sql; do
+            echo "Running migration: $migration"
+
+            # Try to run the migration
+            if npx wrangler d1 execute "$DB_NAME" \
+              --file="$migration" \
+              --remote \
+              --env=${{ steps.env.outputs.environment }} 2>&1 | tee migration.log; then
+              echo "✅ Migration $(basename $migration) applied successfully"
+            else
+              EXIT_CODE=$?
+              # Check if it's an "already exists" error
+              if grep -qi "already exists\|duplicate\|unique constraint" migration.log; then
+                echo "ℹ️  Migration $(basename $migration) was already applied (table/index exists)"
+              else
+                echo "❌ Migration $(basename $migration) failed with error:"
+                cat migration.log
+                exit $EXIT_CODE
+              fi
+            fi
+          done
+
+          echo "✅ All migrations completed successfully"
+
       - name: Deploy to Cloudflare Workers
         working-directory: implementation/worker
         env:
