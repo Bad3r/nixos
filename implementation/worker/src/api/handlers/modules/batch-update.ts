@@ -11,10 +11,10 @@
  */
 
 import type { Context } from 'hono';
-import type { Env, Module, BatchUpdateRequest } from '../../../types';
+import type { Env, Module, BatchUpdateRequest, ModuleWithOptions } from '../../../types';
 import { CacheKeys } from '../../../types';
 import { z } from 'zod';
-import { createTextBlob, generateEmbedding } from '../../../lib/embeddings';
+import { prepareDocumentForIngestion } from '../../../services/ai-search';
 
 // Validation schema
 const ModuleSchema = z.object({
@@ -237,32 +237,36 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
           await c.env.CACHE.delete(cacheKey);
         }
 
-        // Generate and store embedding for semantic search
-        if (c.env.AI && c.env.VECTORIZE) {
+        // Ingest into AI Search for semantic search
+        if (c.env.AI && c.env.AI_SEARCH) {
           try {
-            const textBlob = createTextBlob({
-              name: moduleData.name,
-              description: moduleData.description,
-              namespace: moduleData.namespace,
+            // Prepare module data for AI Search
+            const moduleWithOptions: ModuleWithOptions = {
+              ...moduleData,
               options: moduleData.options || [],
+              dependencies: moduleData.dependencies || [],
+            };
+
+            const document = prepareDocumentForIngestion(moduleWithOptions);
+
+            // Configure authenticated AI Gateway if available
+            const gatewayConfig = c.env.AI_GATEWAY ? {
+              gateway: {
+                id: c.env.AI_GATEWAY.id,
+                headers: {
+                  'cf-aig-authorization': `Bearer ${c.env.AI_GATEWAY_TOKEN}`
+                }
+              }
+            } : {};
+
+            // Ingest single document into AI Search
+            await c.env.AI.autorag('nixos-modules-search').ingest({
+              documents: [document],
+              ...gatewayConfig,
             });
-
-            const embedding = await generateEmbedding(c.env.AI, textBlob);
-
-            await c.env.VECTORIZE.upsert([
-              {
-                id: moduleData.path, // Use module path as vector ID
-                values: embedding,
-                metadata: {
-                  namespace: moduleData.namespace,
-                  name: moduleData.name,
-                  updatedAt: new Date().toISOString(),
-                },
-              },
-            ]);
           } catch (error) {
-            // Don't fail module upload if embedding fails
-            console.warn(`Failed to generate embedding for ${moduleData.path}:`, error);
+            // Don't fail module upload if AI Search ingestion fails
+            console.warn(`Failed to ingest to AI Search for ${moduleData.path}:`, error);
           }
         }
 
