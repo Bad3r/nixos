@@ -9,6 +9,7 @@ let
     "docker-compose"
     "dua"
     "element-desktop"
+    "espanso"
     # "evince"
     "fd"
     "feh"
@@ -31,6 +32,7 @@ let
     "sqlite"
     "telegram-desktop"
     "tree"
+    "usbguard-notifier"
     "zathura"
     "zoom"
   ];
