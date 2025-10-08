@@ -5,7 +5,13 @@
   ...
 }:
 let
-  usbguardLib = (inputs.self.lib.security or { }).usbguard or { };
+  usbguardLib =
+    let
+      libAttrs = import ../security/usbguard-lib.nix { inherit lib; };
+      flakeLib = libAttrs.flake or { };
+      securityLib = (flakeLib.lib or { }).security or { };
+    in
+    securityLib.usbguard or { };
   baseRules = lib.strings.trim (usbguardLib.baseRules or "");
   baseRulesFile = pkgs.writeText "usbguard-base.rules" baseRules;
   defaultsModule = usbguardLib.defaultsModule or null;
