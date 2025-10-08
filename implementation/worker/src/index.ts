@@ -178,6 +178,9 @@ app.get('/docs', (c) => {
         description: 'Search modules by name or description',
         params: {
           q: 'Search query (required)',
+          mode: 'Search mode: keyword, semantic, or hybrid (default: hybrid)',
+          limit: 'Limit results (default: 20)',
+          offset: 'Pagination offset (default: 0)',
         },
       },
       batchUpdate: {
