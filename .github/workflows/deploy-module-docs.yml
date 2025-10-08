@@ -171,6 +171,33 @@ jobs:
           echo "worker-url=$WORKER_URL" >> $GITHUB_OUTPUT
           echo "✅ Worker deployed to: $WORKER_URL"
 
+      - name: Set Worker Secrets
+        working-directory: implementation/worker
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Setting Worker secrets..."
+
+          # Set AI_GATEWAY_TOKEN secret
+          if [ -n "${{ secrets.AI_GATEWAY_TOKEN }}" ]; then
+            echo "Setting AI_GATEWAY_TOKEN secret..."
+            echo "${{ secrets.AI_GATEWAY_TOKEN }}" | npx wrangler secret put AI_GATEWAY_TOKEN --env=${{ github.event.inputs.environment || 'staging' }}
+            echo "✅ AI_GATEWAY_TOKEN set successfully"
+          else
+            echo "⚠️ AI_GATEWAY_TOKEN secret not found in GitHub Secrets"
+          fi
+
+          # Set API_KEY secret
+          if [ -n "${{ secrets.MODULE_API_KEY }}" ]; then
+            echo "Setting API_KEY secret..."
+            echo "${{ secrets.MODULE_API_KEY }}" | npx wrangler secret put API_KEY --env=${{ github.event.inputs.environment || 'staging' }}
+            echo "✅ API_KEY set successfully"
+          else
+            echo "⚠️ MODULE_API_KEY secret not found in GitHub Secrets"
+          fi
+
   upload-data:
     name: Upload Module Data
     needs: [extract-modules, deploy-worker]
