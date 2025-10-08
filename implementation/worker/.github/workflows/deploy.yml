@@ -86,8 +86,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          # Set API_KEY secret
-          echo "${{ secrets.API_KEY }}" | npx wrangler secret put API_KEY --env ${{ steps.env.outputs.environment }}
+          # Set API_KEY secret (for batch update endpoint)
+          echo "${{ secrets.MODULE_API_KEY }}" | npx wrangler secret put API_KEY --env ${{ steps.env.outputs.environment }}
 
           # Set AI_GATEWAY_TOKEN secret
           echo "${{ secrets.AI_GATEWAY_TOKEN }}" | npx wrangler secret put AI_GATEWAY_TOKEN --env ${{ steps.env.outputs.environment }}
