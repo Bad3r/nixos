@@ -9,6 +9,7 @@ let
     "docker-compose"
     "dua"
     "element-desktop"
+    "espanso"
     # "evince"
     "fd"
     "feh"
