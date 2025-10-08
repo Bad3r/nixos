@@ -112,10 +112,15 @@ jobs:
           else
             DB_NAME="nixos-modules-db"
           fi
-          npx wrangler d1 execute "$DB_NAME" \
-            --file=migrations/0001_initial_schema.sql \
-            --remote \
-            --env=${{ github.event.inputs.environment || 'staging' }} || echo "⚠️  Migrations already applied or failed"
+
+          # Run all migrations in order
+          for migration in migrations/*.sql; do
+            echo "Running migration: $migration"
+            npx wrangler d1 execute "$DB_NAME" \
+              --file="$migration" \
+              --remote \
+              --env=${{ github.event.inputs.environment || 'staging' }} || echo "⚠️  Migration $(basename $migration) already applied or failed"
+          done
 
       - name: Deploy Worker
         id: worker-url
