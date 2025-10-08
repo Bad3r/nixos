@@ -30,10 +30,11 @@
           extraList =
             if extraRules == null then
               [ ]
-            else if builtins.isList extraRules then
-              extraRules
             else
-              [ extraRules ];
+              (
+                assert lib.isList extraRules || throw "usbguard.mkRules expects a list of rule strings";
+                extraRules
+              );
           ruleset = [
             (lib.strings.trim baseRules)
           ]

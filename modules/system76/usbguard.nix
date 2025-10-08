@@ -20,9 +20,11 @@ let
     lib.attrByPath [ "lib" "meta" "owner" "username" ] inputs.self "vx"
   );
 
-  secretFile = ./../../secrets/usbguard/system76.yaml;
-  secretName = "usbguard/system76.rules";
-  secretRuntimePath = "/run/secrets/usbguard/system76.rules";
+  hostSlug = "system76";
+  secretDir = ../../secrets/usbguard;
+  secretFile = secretDir + "/${hostSlug}.yaml";
+  secretName = "usbguard/${hostSlug}.rules";
+  secretRuntimePath = "/run/secrets/usbguard/${hostSlug}.rules";
   secretExists = builtins.pathExists secretFile;
 
   runtimeRuleFile = "/var/lib/usbguard/rules.conf";
