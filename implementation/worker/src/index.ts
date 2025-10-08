@@ -5,7 +5,6 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { compress } from 'hono/compress';
 import type { Env } from './types';
 
 // API route handlers
@@ -18,7 +17,6 @@ import { getStats } from './api/handlers/stats';
 const app = new Hono<{ Bindings: Env }>();
 
 // Global middleware
-app.use('*', compress());
 app.use('*', cors({
   origin: '*', // Allow all origins for MVP, restrict in production
   allowMethods: ['GET', 'POST', 'OPTIONS'],

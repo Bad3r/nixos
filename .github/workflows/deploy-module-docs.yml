@@ -171,11 +171,11 @@ jobs:
         run: |
           echo "Verifying deployment..."
 
-          # Check health endpoint (decompress with gunzip)
-          curl -sf "$WORKER_ENDPOINT/health" | gunzip || exit 1
+          # Check health endpoint
+          curl -sf "$WORKER_ENDPOINT/health" || exit 1
 
-          # Check stats endpoint (decompress with gunzip and parse)
-          STATS=$(curl -s "$WORKER_ENDPOINT/api/stats" | gunzip)
+          # Check stats endpoint
+          STATS=$(curl -s "$WORKER_ENDPOINT/api/stats")
 
           echo "API Statistics:"
           echo "$STATS" | jq .

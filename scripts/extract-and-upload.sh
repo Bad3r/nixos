@@ -119,11 +119,11 @@ upload_to_api() {
         return 1
     fi
 
-    # Upload using curl (save to temp file to avoid bash binary data issues)
+    # Upload using curl (save to temp file for response parsing)
     local response_file=$(mktemp)
     trap "rm -f $response_file" RETURN
 
-    http_code=$(curl -s --compressed -w "%{http_code}" -o "$response_file" -X POST \
+    http_code=$(curl -s -w "%{http_code}" -o "$response_file" -X POST \
         -H "Content-Type: application/json" \
         -H "X-API-Key: $API_KEY" \
         -d @"${OUTPUT_FILE}.api.json" \
@@ -154,8 +154,8 @@ verify_upload() {
     response=$(curl -s "$WORKER_ENDPOINT/api/stats")
 
     if command -v jq &> /dev/null; then
-        local total=$(echo "$response" | jq -r '.total_modules')
-        local namespaces=$(echo "$response" | jq -r '.total_namespaces')
+        local total=$(echo "$response" | jq -r '.stats.total_modules')
+        local namespaces=$(echo "$response" | jq -r '.stats.namespaces | length')
 
         log_info "API statistics:"
         log_info "  Total modules: $total"
