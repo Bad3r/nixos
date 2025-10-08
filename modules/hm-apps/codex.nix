@@ -89,8 +89,8 @@
         sequential-thinking = true;
         memory = true;
         time = true;
-          cfdocs = true;
-          cfbindings = false;
+        cfdocs = true;
+        cfbindings = false;
         cfbuilds = true;
         cfobservability = true;
         cfradar = true;
