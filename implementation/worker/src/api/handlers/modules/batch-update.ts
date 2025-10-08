@@ -50,6 +50,86 @@ const BatchUpdateSchema = z.object({
   modules: z.array(ModuleSchema).max(100), // Limit batch size
 });
 
+function renderModuleMarkdown(moduleData: any): string {
+  const lines: string[] = [];
+
+  const title = `${moduleData.namespace}/${moduleData.name}`;
+  lines.push(`# ${title}`);
+  lines.push("");
+
+  lines.push(`- **Path:** \`${moduleData.path}\``);
+  lines.push(`- **Namespace:** \`${moduleData.namespace}\``);
+  lines.push(`- **Option count:** ${moduleData.option_count ?? moduleData.options?.length ?? 0}`);
+  lines.push("");
+
+  if (moduleData.description) {
+    lines.push("## Description");
+    lines.push("");
+    lines.push(moduleData.description);
+    lines.push("");
+  }
+
+  if (moduleData.options && moduleData.options.length > 0) {
+    lines.push("## Options");
+    lines.push("");
+
+    for (const option of moduleData.options) {
+      lines.push(`### \`${option.name}\``);
+      lines.push("");
+
+      if (option.type) {
+        lines.push(`- **Type:** \`${option.type}\``);
+      }
+
+      if (option.description) {
+        lines.push(`- **Description:** ${option.description.replace(/\s+/g, " ").trim()}`);
+      }
+
+      if (option.default_value !== undefined && option.default_value !== null) {
+        const defaultString =
+          typeof option.default_value === "string"
+            ? option.default_value
+            : JSON.stringify(option.default_value, null, 2);
+        lines.push(`- **Default:** \`${defaultString}\``);
+      }
+
+      if (option.example !== undefined && option.example !== null) {
+        const exampleString =
+          typeof option.example === "string"
+            ? option.example
+            : JSON.stringify(option.example, null, 2);
+        lines.push(`- **Example:** \`${exampleString}\``);
+      }
+
+      if (option.read_only !== undefined) {
+        lines.push(`- **Read-only:** ${option.read_only ? "yes" : "no"}`);
+      }
+      if (option.internal !== undefined) {
+        lines.push(`- **Internal:** ${option.internal ? "yes" : "no"}`);
+      }
+
+      lines.push("");
+    }
+  } else {
+    lines.push("_No documented options available._");
+    lines.push("");
+  }
+
+  if (moduleData.metadata && Object.keys(moduleData.metadata).length > 0) {
+    lines.push("## Metadata");
+    lines.push("");
+    lines.push("```json");
+    lines.push(JSON.stringify(moduleData.metadata, null, 2));
+    lines.push("```");
+    lines.push("");
+  }
+
+  lines.push(`_Last updated: ${new Date().toISOString()}_`);
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
   try {
     // Parse and validate request body
@@ -259,6 +339,33 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
         if (c.env.CACHE) {
           const cacheKey = `module:${moduleData.namespace}:${moduleData.name}`;
           await c.env.CACHE.delete(cacheKey);
+        }
+
+        // Store document for AI Search ingestion (if R2 is configured)
+        if (c.env.DOCUMENTS) {
+          try {
+            const markdown = renderModuleMarkdown(moduleData);
+            await c.env.DOCUMENTS.put(
+              `ai-search/modules/${moduleData.namespace}/${moduleData.name}.md`,
+              markdown,
+              {
+                httpMetadata: {
+                  contentType: "text/markdown",
+                },
+                customMetadata: {
+                  namespace: moduleData.namespace,
+                  name: moduleData.name,
+                  path: moduleData.path,
+                  updatedAt: new Date().toISOString(),
+                },
+              },
+            );
+          } catch (error) {
+            console.warn(
+              `AI Search document write failed for ${moduleData.path}:`,
+              error,
+            );
+          }
         }
 
         // Note: Manual AI Search ingestion is no longer supported in the latest API.
