@@ -4,6 +4,7 @@
   Homepage: https://docs.anthropic.com/en/docs/claude-code/overview
   Documentation: https://docs.anthropic.com/en/docs/claude-code/overview
   Repository: https://github.com/anthropics/claude-code
+
   Notes:
     * Context7 MCP server is only included when SOPS secret exists at `sops.secrets."context7/api-key"`.
 */
