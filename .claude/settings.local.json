@@ -22,7 +22,8 @@
       "Read(//home/vx/**)",
       "Bash(xargs ls:*)",
       "Bash(nix flake show:*)",
-      "Bash(/dev/null)"
+      "Bash(/dev/null)",
+      "mcp__cfdocs__search_cloudflare_documentation"
     ]
   }
 }
