@@ -1,10 +1,18 @@
 /**
  * Batch update modules handler
  * Used by CI/CD to update module documentation
+ *
+ * Uses D1 batch() API for atomic transactions:
+ * - Each module update/create is executed atomically
+ * - For existing modules: Single transaction with all operations
+ * - For new modules: Two transactions (insert module, then insert related data)
+ * - If any operation fails, the entire module transaction is rolled back
+ * - Ensures data consistency (no partial module updates)
  */
 
 import type { Context } from 'hono';
 import type { Env, Module, BatchUpdateRequest } from '../../../types';
+import { CacheKeys } from '../../../types';
 import { z } from 'zod';
 
 // Validation schema
@@ -58,119 +66,130 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
       errors: [] as string[],
     };
 
-    // Process modules in smaller batches for D1
-    const BATCH_SIZE = parseInt(c.env.MAX_BATCH_SIZE || '10');
-
-    for (let i = 0; i < modules.length; i += BATCH_SIZE) {
-      const batch = modules.slice(i, i + BATCH_SIZE);
-
+    // Process modules individually with atomic transactions
+    for (const moduleData of modules) {
       try {
-        // Process each module in the batch
-        for (const moduleData of batch) {
-          try {
-            // Check if module exists
-            const existingStmt = c.env.MODULES_DB.prepare(
-              'SELECT id FROM modules WHERE path = ?'
-            );
-            const existing = await existingStmt.bind(moduleData.path).first();
+        // Check if module exists
+        const existingStmt = c.env.MODULES_DB.prepare(
+          'SELECT id FROM modules WHERE path = ?'
+        );
+        const existing = await existingStmt.bind(moduleData.path).first();
 
-            if (existing) {
-              // Update existing module
-              const updateStmt = c.env.MODULES_DB.prepare(`
-                UPDATE modules
-                SET
-                  name = ?,
-                  namespace = ?,
-                  description = ?,
-                  examples = ?,
-                  metadata = ?,
-                  updated_at = CURRENT_TIMESTAMP
-                WHERE path = ?
-              `);
+        if (existing) {
+          // Update existing module using atomic transaction
+          const statements = [];
 
-              await updateStmt.bind(
-                moduleData.name,
-                moduleData.namespace,
-                moduleData.description || null,
-                JSON.stringify(moduleData.examples || []),
-                JSON.stringify(moduleData.metadata || {}),
-                moduleData.path
-              ).run();
+          // 1. Update module
+          statements.push(
+            c.env.MODULES_DB.prepare(`
+              UPDATE modules
+              SET
+                name = ?,
+                namespace = ?,
+                description = ?,
+                examples = ?,
+                metadata = ?,
+                updated_at = CURRENT_TIMESTAMP
+              WHERE path = ?
+            `).bind(
+              moduleData.name,
+              moduleData.namespace,
+              moduleData.description || null,
+              JSON.stringify(moduleData.examples || []),
+              JSON.stringify(moduleData.metadata || {}),
+              moduleData.path
+            )
+          );
 
-              results.updated++;
+          // 2. Delete existing options
+          statements.push(
+            c.env.MODULES_DB.prepare(
+              'DELETE FROM module_options WHERE module_id = ?'
+            ).bind(existing.id)
+          );
 
-              // Update options if provided
-              if (moduleData.options && moduleData.options.length > 0) {
-                // Delete existing options
-                await c.env.MODULES_DB.prepare(
-                  'DELETE FROM module_options WHERE module_id = ?'
-                ).bind(existing.id).run();
+          // 3. Insert new options
+          if (moduleData.options && moduleData.options.length > 0) {
+            for (const option of moduleData.options) {
+              statements.push(
+                c.env.MODULES_DB.prepare(`
+                  INSERT INTO module_options (
+                    module_id, name, type, default_value,
+                    description, example, read_only, internal
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `).bind(
+                  existing.id,
+                  option.name,
+                  option.type,
+                  JSON.stringify(option.default_value),
+                  option.description || null,
+                  JSON.stringify(option.example),
+                  option.read_only ? 1 : 0,
+                  option.internal ? 1 : 0
+                )
+              );
+            }
+          }
 
-                // Insert new options
-                for (const option of moduleData.options) {
-                  await c.env.MODULES_DB.prepare(`
-                    INSERT INTO module_options (
-                      module_id, name, type, default_value,
-                      description, example, read_only, internal
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                  `).bind(
-                    existing.id,
-                    option.name,
-                    option.type,
-                    JSON.stringify(option.default_value),
-                    option.description || null,
-                    JSON.stringify(option.example),
-                    option.read_only ? 1 : 0,
-                    option.internal ? 1 : 0
-                  ).run();
-                }
-              }
+          // 4. Delete existing dependencies
+          statements.push(
+            c.env.MODULES_DB.prepare(
+              'DELETE FROM module_dependencies WHERE module_id = ?'
+            ).bind(existing.id)
+          );
 
-              // Update dependencies if provided
-              if (moduleData.dependencies && moduleData.dependencies.length > 0) {
-                // Delete existing dependencies
-                await c.env.MODULES_DB.prepare(
-                  'DELETE FROM module_dependencies WHERE module_id = ?'
-                ).bind(existing.id).run();
+          // 5. Insert new dependencies
+          if (moduleData.dependencies && moduleData.dependencies.length > 0) {
+            for (const dep of moduleData.dependencies) {
+              statements.push(
+                c.env.MODULES_DB.prepare(`
+                  INSERT INTO module_dependencies (
+                    module_id, depends_on_path, dependency_type
+                  ) VALUES (?, ?, ?)
+                `).bind(
+                  existing.id,
+                  dep.depends_on_path,
+                  dep.dependency_type || 'imports'
+                )
+              );
+            }
+          }
 
-                // Insert new dependencies
-                for (const dep of moduleData.dependencies) {
-                  await c.env.MODULES_DB.prepare(`
-                    INSERT INTO module_dependencies (
-                      module_id, depends_on_path, dependency_type
-                    ) VALUES (?, ?, ?)
-                  `).bind(
-                    existing.id,
-                    dep.depends_on_path,
-                    dep.dependency_type || 'imports'
-                  ).run();
-                }
-              }
+          // Execute all statements atomically
+          await c.env.MODULES_DB.batch(statements);
+          results.updated++;
 
-            } else {
-              // Create new module
-              const insertStmt = c.env.MODULES_DB.prepare(`
-                INSERT INTO modules (
-                  path, name, namespace, description, examples, metadata
-                ) VALUES (?, ?, ?, ?, ?, ?)
-              `);
+        } else {
+          // Create new module using atomic transactions
 
-              const result = await insertStmt.bind(
-                moduleData.path,
-                moduleData.name,
-                moduleData.namespace,
-                moduleData.description || null,
-                JSON.stringify(moduleData.examples || []),
-                JSON.stringify(moduleData.metadata || {})
-              ).run();
+          // First transaction: Insert module
+          const insertResult = await c.env.MODULES_DB.prepare(`
+            INSERT INTO modules (
+              path, name, namespace, description, examples, metadata
+            ) VALUES (?, ?, ?, ?, ?, ?)
+          `).bind(
+            moduleData.path,
+            moduleData.name,
+            moduleData.namespace,
+            moduleData.description || null,
+            JSON.stringify(moduleData.examples || []),
+            JSON.stringify(moduleData.metadata || {})
+          ).run();
 
-              const moduleId = result.meta.last_row_id;
-              results.created++;
+          const moduleId = insertResult.meta.last_row_id;
+          results.created++;
 
-              // Insert options if provided
-              if (moduleData.options && moduleData.options.length > 0) {
-                for (const option of moduleData.options) {
-                  await c.env.MODULES_DB.prepare(`
+          // Second transaction: Insert options and dependencies atomically
+          if ((moduleData.options && moduleData.options.length > 0) ||
+              (moduleData.dependencies && moduleData.dependencies.length > 0)) {
+
+            const relatedStatements = [];
+
+            // Insert options
+            if (moduleData.options && moduleData.options.length > 0) {
+              for (const option of moduleData.options) {
+                relatedStatements.push(
+                  c.env.MODULES_DB.prepare(`
                     INSERT INTO module_options (
                       module_id, name, type, default_value,
                       description, example, read_only, internal
@@ -184,14 +203,16 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
                     JSON.stringify(option.example),
                     option.read_only ? 1 : 0,
                     option.internal ? 1 : 0
-                  ).run();
-                }
+                  )
+                );
               }
+            }
 
-              // Insert dependencies if provided
-              if (moduleData.dependencies && moduleData.dependencies.length > 0) {
-                for (const dep of moduleData.dependencies) {
-                  await c.env.MODULES_DB.prepare(`
+            // Insert dependencies
+            if (moduleData.dependencies && moduleData.dependencies.length > 0) {
+              for (const dep of moduleData.dependencies) {
+                relatedStatements.push(
+                  c.env.MODULES_DB.prepare(`
                     INSERT INTO module_dependencies (
                       module_id, depends_on_path, dependency_type
                     ) VALUES (?, ?, ?)
@@ -199,28 +220,26 @@ export async function batchUpdateModules(c: Context<{ Bindings: Env }>) {
                     moduleId,
                     dep.depends_on_path,
                     dep.dependency_type || 'imports'
-                  ).run();
-                }
+                  )
+                );
               }
             }
 
-            // Clear cache for this module (if KV is configured)
-            if (c.env.CACHE) {
-              const cacheKey = `module:${moduleData.namespace}:${moduleData.name}`;
-              await c.env.CACHE.delete(cacheKey);
-            }
-
-          } catch (moduleError: any) {
-            console.error(`Error processing module ${moduleData.path}:`, moduleError);
-            results.failed++;
-            results.errors.push(`${moduleData.path}: ${moduleError.message}`);
+            // Execute all related inserts atomically
+            await c.env.MODULES_DB.batch(relatedStatements);
           }
         }
 
-      } catch (batchError: any) {
-        console.error('Batch processing error:', batchError);
-        results.failed += batch.length;
-        results.errors.push(`Batch error: ${batchError.message}`);
+        // Clear cache for this module (if KV is configured)
+        if (c.env.CACHE) {
+          const cacheKey = `module:${moduleData.namespace}:${moduleData.name}`;
+          await c.env.CACHE.delete(cacheKey);
+        }
+
+      } catch (moduleError: any) {
+        console.error(`Error processing module ${moduleData.path}:`, moduleError);
+        results.failed++;
+        results.errors.push(`${moduleData.path}: ${moduleError.message}`);
       }
     }
 
