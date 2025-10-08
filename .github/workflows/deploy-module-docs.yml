@@ -128,8 +128,8 @@ jobs:
           DEPLOY_OUTPUT=$(npx wrangler deploy --env=${{ github.event.inputs.environment || 'staging' }} 2>&1)
           echo "$DEPLOY_OUTPUT"
 
-          # Extract Worker URL from deployment output
-          WORKER_URL=$(echo "$DEPLOY_OUTPUT" | grep -oP 'https://[a-zA-Z0-9-]+\.workers\.dev' | head -1)
+          # Extract Worker URL from deployment output (matches *.*.workers.dev pattern)
+          WORKER_URL=$(echo "$DEPLOY_OUTPUT" | grep -oP 'https://[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.workers\.dev' | head -1)
 
           if [ -z "$WORKER_URL" ]; then
             echo "Failed to extract Worker URL from deployment output"
