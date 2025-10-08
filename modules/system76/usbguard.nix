@@ -44,10 +44,11 @@ in
           };
 
           systemd.services.usbguard = {
+            after = lib.mkAfter [ "sops-install-secrets.service" ];
             preStart = lib.mkAfter ''
               install -D -m 0600 /dev/null ${runtimeRuleFile}
               cat ${baseRulesFile} > ${runtimeRuleFile}
-              if [ -s "${secretRuntimePath}" ]; then
+              if [ -s "${secretRuntimePath}" ] && [ -r "${secretRuntimePath}" ]; then
                 printf '\n# Host-specific overrides loaded from ${secretRuntimePath}\n' >> ${runtimeRuleFile}
                 cat "${secretRuntimePath}" >> ${runtimeRuleFile}
               fi
