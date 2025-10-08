@@ -6,7 +6,7 @@
   Repository: https://github.com/anthropics/claude-code
 
   Notes:
-    * Context7 MCP server is only included when SOPS secret exists at `sops.secrets."context7/api-key"`.
+    * Assumes Context7 API key is provisioned via SOPS at `sops.secrets."context7/api-key"`.
 */
 
 {
@@ -14,119 +14,34 @@
     {
       config,
       lib,
+      pkgs,
       ...
     }:
     let
-      defaultTimeoutMs = 60000;
       defaultModel = "opus";
 
-      hasSecret = name: lib.hasAttrByPath [ name ] config.sops.secrets;
-      getSecret = name: lib.getAttrFromPath [ name ] config.sops.secrets;
-
-      context7ApiKey = if hasSecret "context7/api-key" then getSecret "context7/api-key" else null;
-
-      baseServers = {
-        sequential-thinking = {
-          type = "stdio";
-          command = "npx";
-          args = [
-            "-y"
-            "@modelcontextprotocol/server-sequential-thinking"
-          ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-        time = {
-          type = "stdio";
-          command = "uvx";
-          args = [ "mcp-server-time" ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-        cfdocs = {
-          type = "stdio";
-          command = "npx";
-          args = [
-            "mcp-remote"
-            "https://docs.mcp.cloudflare.com/sse"
-          ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-        cfbuilds = {
-          type = "stdio";
-          command = "npx";
-          args = [
-            "mcp-remote"
-            "https://builds.mcp.cloudflare.com/sse"
-          ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-        cfobservability = {
-          type = "stdio";
-          command = "npx";
-          args = [
-            "mcp-remote"
-            "https://observability.mcp.cloudflare.com/sse"
-          ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-        cfradar = {
-          type = "stdio";
-          command = "npx";
-          args = [
-            "mcp-remote"
-            "https://radar.mcp.cloudflare.com/sse"
-          ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-        cfcontainers = {
-          type = "stdio";
-          command = "npx";
-          args = [
-            "mcp-remote"
-            "https://containers.mcp.cloudflare.com/sse"
-          ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-        cfbrowser = {
-          type = "stdio";
-          command = "npx";
-          args = [
-            "mcp-remote"
-            "https://browser.mcp.cloudflare.com/sse"
-          ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-        cfgraphql = {
-          type = "stdio";
-          command = "npx";
-          args = [
-            "mcp-remote"
-            "https://graphql.mcp.cloudflare.com/sse"
-          ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
-        deepwiki = {
-          type = "http";
-          url = "https://mcp.deepwiki.com/mcp";
-          startup_timeout_ms = defaultTimeoutMs;
+      mcp = import ../../lib/mcp-servers.nix {
+        inherit lib pkgs config;
+        defaultVariants = {
+          deepwiki = "http";
         };
       };
 
-      # Only include context7 if a valid API key exists
-      context7mcp = lib.optionalAttrs (context7ApiKey != null && context7ApiKey ? path) {
-        context7 = {
-          type = "stdio";
-          command = "npx";
-          args = [
-            "-y"
-            "@upstash/context7-mcp"
-            "--api-key"
-            "${context7ApiKey.path}"
-          ];
-          startup_timeout_ms = defaultTimeoutMs;
-        };
+      claudeMcpServers = mcp.select {
+        sequential-thinking = true;
+        time = true;
+        cfdocs = true;
+        cfbuilds = true;
+        cfobservability = true;
+        cfradar = true;
+        cfcontainers = true;
+        cfbrowser = true;
+        cfgraphql = true;
+        deepwiki = true;
+        context7 = true;
       };
 
-      defaultServers = baseServers // context7mcp;
+      defaultServers = claudeMcpServers;
 
       # Claude Code settings.json configuration
       claudeSettings = {
