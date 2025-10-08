@@ -131,7 +131,7 @@ let
 
     config = {
       systems = availableSystems;
-      inherit flake;
+      flake = flake // { inherit lib; };
       inherit (flake) inputs;
       nixpkgs = { };
       rootPath = flakeOutPath;
@@ -152,6 +152,36 @@ let
     rootPath = flakeOutPath;
     withSystem = defaultWithSystem;
   };
+
+  # Detect whether a value looks like a NixOS module definition.
+  isModuleValue = value:
+    builtins.isFunction value
+    || (builtins.isAttrs value && ((value ? options) || (value ? config) || (value ? imports)));
+
+  # Recursively collect module definitions from an attrset, tracking the key path.
+  collectModuleEntries = value: path:
+    if isModuleValue value then
+      [
+        {
+          keyPath = path;
+          module = value;
+        }
+      ]
+    else if builtins.isAttrs value then
+      lib.concatLists (
+        lib.mapAttrsToList (
+          name: child:
+          collectModuleEntries child (path ++ [ name ])
+        ) value
+      )
+    else
+      [ ];
+
+  formatModuleKey = keyPath:
+    if keyPath == [ ] then
+      "<root>"
+    else
+      lib.concatStringsSep "." keyPath;
 
   evaluateModule =
     modulePath:
@@ -188,14 +218,75 @@ let
         let
           localPath = flakeRoot + "/${modulePath}";
 
-          evaluation =
-            if builtins.pathExists localPath then
-              builtins.tryEval (evaluateModule modulePath)
+          moduleExists = builtins.pathExists localPath;
+
+          importedModule =
+            if moduleExists then
+              import localPath
             else
+              null;
+
+          callArgs = {
+            inherit lib;
+            pkgs = pinnedPkgs;
+            config = { };
+            options = { };
+            self = flake;
+            inputs = flakeInputs;
+            withSystem = defaultWithSystem;
+          };
+
+          moduleAttrsetAttempt =
+            if !moduleExists then
               {
                 success = false;
                 value = "Module path not found";
+              }
+            else if builtins.isFunction importedModule then
+              builtins.tryEval (importedModule callArgs)
+            else
+              {
+                success = true;
+                value = importedModule;
               };
+
+          moduleEntries =
+            if !moduleExists then
+              [ ]
+            else if moduleAttrsetAttempt.success
+              && builtins.isAttrs moduleAttrsetAttempt.value
+              && moduleAttrsetAttempt.value ? flake
+              && moduleAttrsetAttempt.value.flake ? nixosModules then
+              collectModuleEntries moduleAttrsetAttempt.value.flake.nixosModules [ ]
+            else if importedModule != null && isModuleValue importedModule then
+              [
+                {
+                  keyPath = [ ];
+                  module = importedModule;
+                }
+              ]
+            else
+              [ ];
+
+          evaluation =
+            if moduleEntries == [ ] then
+              {
+                success = false;
+                value =
+                  if !moduleExists then
+                    "Module path not found"
+                  else if moduleAttrsetAttempt.success then
+                    "No NixOS modules discovered in file"
+                  else
+                    moduleAttrsetAttempt.value;
+              }
+            else
+              builtins.tryEval (
+                lib.evalModules {
+                  modules = [ moduleBase ] ++ flakePartsModules ++ (map (entry: entry.module) moduleEntries);
+                  inherit specialArgs;
+                }
+              );
 
           extraction =
             if evaluation.success then
@@ -207,6 +298,7 @@ let
                   success = true;
                   value = extracted.value // {
                     meta = evaluation.value.config.meta or { };
+                    moduleKeys = map (entry: formatModuleKey entry.keyPath) moduleEntries;
                   };
                 }
               else
@@ -312,6 +404,7 @@ let
         docOptions = if docAttrs && doc ? options then doc.options else { };
         docMeta = if docAttrs && doc ? meta then doc.meta else { };
         docImports = if docAttrs && doc ? imports then map toString doc.imports else [ ];
+        docModuleKeys = if docAttrs && doc ? moduleKeys then doc.moduleKeys else [ ];
       in
       {
         path = module.path or "unknown path";
@@ -347,7 +440,8 @@ let
 
         imports = docImports;
 
-        meta = docMeta;
+        meta = docMeta
+          // (if docModuleKeys != [ ] then { moduleKeys = docModuleKeys; } else { });
       };
   # Final output structure
   output = {

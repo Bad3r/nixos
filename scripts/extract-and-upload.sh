@@ -15,6 +15,8 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${PROJECT_ROOT}/.cache/module-docs"
 OUTPUT_FILE="${OUTPUT_DIR}/modules-extracted.json"
 WORKER_ENDPOINT="${WORKER_ENDPOINT:-http://localhost:8787}"
+R2_BUCKET="${R2_BUCKET:-nixos-modules-docs-staging}"
+R2_PREFIX="${R2_PREFIX:-modules}"
 
 # Functions
 log_info() {
@@ -117,6 +119,28 @@ transform_for_api() {
   log_info "Transformed data saved to ${OUTPUT_FILE}.api.json"
 }
 
+# Step 3: Generate Markdown snapshots for AI Search ingestion
+generate_markdown_assets() {
+  log_info "Generating Markdown documentation snapshots..."
+
+  if ! command -v node &>/dev/null; then
+    log_error "Node.js is required to generate Markdown output"
+    return 1
+  fi
+
+  local markdown_dir="${OUTPUT_DIR}/markdown"
+
+  rm -rf "$markdown_dir"
+  mkdir -p "$markdown_dir"
+
+  if node "$SCRIPT_DIR/generate-module-markdown.js" "$OUTPUT_FILE" "$markdown_dir"; then
+    log_info "Markdown assets available in $markdown_dir"
+  else
+    log_error "Failed to generate Markdown assets"
+    return 1
+  fi
+}
+
 # Helper: Upload single chunk with retry logic
 upload_chunk_with_retry() {
   local chunk_data="$1"
@@ -192,12 +216,17 @@ upload_to_api() {
 
   if [ -z "${API_KEY:-}" ]; then
     if command -v sops &>/dev/null; then
-      API_KEY=$(sops -d --extract '["cf_api_token"]' "${PROJECT_ROOT}/secrets/cf-api-token.yaml" 2>/dev/null || true)
+      if [ -f "${PROJECT_ROOT}/secrets/module-api-key.yaml" ]; then
+        API_KEY=$(sops -d --extract '["module_api_key"]' "${PROJECT_ROOT}/secrets/module-api-key.yaml" 2>/dev/null || true)
+      fi
+      if [ -z "${API_KEY:-}" ] && [ -f "${PROJECT_ROOT}/secrets/cf-api-token.yaml" ]; then
+        API_KEY=$(sops -d --extract '["cf_api_token"]' "${PROJECT_ROOT}/secrets/cf-api-token.yaml" 2>/dev/null || true)
+      fi
     fi
   fi
 
   if [ -z "${API_KEY:-}" ]; then
-    log_error "API_KEY not provided. Set API_KEY env var or populate secrets/cf-api-token.yaml"
+    log_error "API_KEY not provided. Set API_KEY env var or populate secrets/module-api-key.yaml"
     return 1
   fi
 
@@ -275,7 +304,100 @@ upload_to_api() {
   return 0
 }
 
-# Step 4: Verify upload
+# Step 4: Upload Markdown files to R2 for AI Search ingestion
+upload_to_r2() {
+  if [ -z "${R2_BUCKET}" ]; then
+    log_warn "R2_BUCKET not set; skipping R2 upload step"
+    return 0
+  fi
+
+  if ! command -v wrangler &>/dev/null; then
+    log_error "wrangler CLI is required to upload files to R2"
+    return 1
+  fi
+
+  local markdown_dir="${OUTPUT_DIR}/markdown"
+  if [ ! -d "$markdown_dir" ]; then
+    log_warn "Markdown directory $markdown_dir not found; skipping R2 upload"
+    return 0
+  fi
+
+  local files=()
+  while IFS= read -r -d '' path; do
+    files+=("$path")
+  done < <(find "$markdown_dir" -type f -name '*.md' -print0)
+
+  local total="${#files[@]}"
+  if [ "$total" -eq 0 ]; then
+    log_warn "No Markdown files found to upload to R2"
+    return 0
+  fi
+
+  local concurrency="${R2_CONCURRENCY:-8}"
+  if ! [[ "$concurrency" =~ ^[0-9]+$ ]] || [ "$concurrency" -le 0 ]; then
+    concurrency=4
+  fi
+
+  log_info "Uploading $total Markdown file(s) to R2 bucket ${R2_BUCKET} (prefix: ${R2_PREFIX}) via wrangler (concurrency: ${concurrency})"
+
+  local success_file fail_file
+  success_file=$(mktemp)
+  fail_file=$(mktemp)
+
+  export MARKDOWN_DIR="$markdown_dir" R2_BUCKET R2_PREFIX success_file fail_file
+
+  upload_single_r2() {
+    local file="$1"
+    local relative="${file#$MARKDOWN_DIR/}"
+    local object_key="${R2_PREFIX}/${relative}"
+
+    log_info "[PID $$] ${relative} -> ${object_key}"
+
+    if output=$(wrangler r2 object put "${R2_BUCKET}/${object_key}" --file "$file" --content-type "text/markdown" --remote 2>&1); then
+      printf '%s\n' "$relative" >> "$success_file"
+    else
+      printf '%s|%s\n' "$relative" "$output" >> "$fail_file"
+    fi
+  }
+
+  export -f upload_single_r2 log_info
+
+  local running=0
+  for file in "${files[@]}"; do
+    upload_single_r2 "$file" &
+    running=$((running + 1))
+    if [ "$running" -ge "$concurrency" ]; then
+      wait -n
+      running=$((running - 1))
+    fi
+  done
+  wait
+
+  local success_count=0
+  local fail_count=0
+  if [ -s "$success_file" ]; then
+    success_count=$(wc -l < "$success_file")
+  fi
+  if [ -s "$fail_file" ]; then
+    fail_count=$(wc -l < "$fail_file")
+  fi
+
+  log_info "Uploaded $success_count/$total Markdown files to R2 bucket ${R2_BUCKET}"
+
+  if [ "$fail_count" -gt 0 ]; then
+    log_warn "$fail_count upload(s) failed:"
+    while IFS='|' read -r key msg; do
+      log_warn "  ${key}: ${msg}"
+    done < "$fail_file"
+    rm -f "$success_file" "$fail_file"
+    return 1
+  fi
+
+  rm -f "$success_file" "$fail_file"
+  return 0
+}
+
+# Step 5: Verify Worker API upload
 verify_upload() {
   log_info "Verifying upload..."
 
@@ -319,6 +441,10 @@ main() {
       UPLOAD_ONLY=true
       shift
       ;;
+    --bucket)
+      R2_BUCKET="$2"
+      shift 2
+      ;;
     --help)
       cat <<EOF
 Usage: $0 [OPTIONS]
@@ -328,11 +454,14 @@ Options:
     --api-key KEY      API key for authentication (default: development-key)
     --extract-only     Only extract modules, don't upload
     --upload-only      Only upload previously extracted modules
+    --bucket NAME      Override R2 bucket name (default: nixos-modules-docs-staging)
     --help            Show this help message
 
 Environment variables:
     WORKER_ENDPOINT    Worker endpoint URL
     API_KEY           API key for authentication
+    R2_BUCKET         Target R2 bucket (default: nixos-modules-docs-staging)
+    R2_PREFIX         Prefix for objects in R2 (default: modules)
 
 Examples:
     # Extract and upload to local development server
@@ -359,14 +488,19 @@ EOF
   # Execute steps
   if [ "${UPLOAD_ONLY:-false}" = "true" ]; then
     transform_for_api
+    generate_markdown_assets
+    upload_to_r2 || true
     upload_to_api
     verify_upload
   elif [ "${EXTRACT_ONLY:-false}" = "true" ]; then
     extract_modules
     transform_for_api
+    generate_markdown_assets
   else
     extract_modules
     transform_for_api
+    generate_markdown_assets
+    upload_to_r2 || true
     upload_to_api
     verify_upload
   fi

@@ -19,6 +19,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 ACCOUNT_SECRET_FILE="$REPO_ROOT/secrets/cf-acc-id.yaml"
 TOKEN_SECRET_FILE="$REPO_ROOT/secrets/cf-api-token.yaml"
+MODULE_API_KEY_FILE="$REPO_ROOT/secrets/module-api-key.yaml"
+MODULE_API_KEY_FIELD="module_api_key"
 
 load_cloudflare_account_id() {
   if [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
@@ -77,8 +79,36 @@ load_cloudflare_api_token() {
   fi
 }
 
+load_module_api_key() {
+  if [ -n "${MODULE_API_KEY:-}" ]; then
+    return
+  fi
+
+  if [ ! -f "$MODULE_API_KEY_FILE" ]; then
+    print_warn "Module API key secret not found at $MODULE_API_KEY_FILE. Set MODULE_API_KEY manually."
+    return
+  fi
+
+  if ! command -v sops &>/dev/null; then
+    print_warn "sops is not installed; cannot decrypt module API key. Set MODULE_API_KEY manually."
+    return
+  fi
+
+  if module_key=$(sops -d --extract '["'"$MODULE_API_KEY_FIELD"'"]' "$MODULE_API_KEY_FILE" 2>/dev/null); then
+    module_key=$(echo "$module_key" | tr -d '\n\r')
+    if [ -n "$module_key" ]; then
+      export MODULE_API_KEY="$module_key"
+      print_info "Loaded module API key from SOPS secrets"
+      return
+    fi
+  fi
+
+  print_warn "Module API key not found in SOPS secrets; skipping automatic configuration."
+}
+
 load_cloudflare_account_id
 load_cloudflare_api_token
+load_module_api_key
 
 if [ -n "${CLOUDFLARE_API_TOKEN:-}" ] && [ -z "${CF_API_TOKEN:-}" ]; then
   export CF_API_TOKEN="$CLOUDFLARE_API_TOKEN"
@@ -87,6 +117,11 @@ fi
 # Check if wrangler is installed
 if ! command -v wrangler &>/dev/null; then
   print_error "wrangler CLI is not installed. Please install it with: npm install -g wrangler"
+  exit 1
+fi
+
+if ! command -v jq &>/dev/null; then
+  print_error "jq is required for parsing Cloudflare CLI output. Please install jq."
   exit 1
 fi
 
@@ -115,14 +150,18 @@ fi
 
 # Create KV Namespace
 print_info "Creating KV namespace..."
-KV_OUTPUT=$(npx wrangler kv:namespace create MODULE_CACHE 2>&1 || true)
-if echo "$KV_OUTPUT" | grep -q "id ="; then
-  KV_ID=$(echo "$KV_OUTPUT" | grep -oE 'id = "[^"]*"' | sed 's/id = "//;s/"//')
-  print_info "KV namespace created with ID: $KV_ID"
-elif echo "$KV_OUTPUT" | grep -q "already exists"; then
-  print_warn "KV namespace 'MODULE_CACHE' already exists. Fetching ID..."
-  KV_LIST=$(npx wrangler kv:namespace list)
-  KV_ID=$(echo "$KV_LIST" | jq -r '.[] | select(.title | contains("MODULE_CACHE")) | .id' | head -n 1)
+KV_OUTPUT=$(npx wrangler kv namespace create CACHE 2>&1 || true)
+if echo "$KV_OUTPUT" | grep -q '"id"'; then
+  KV_ID=$(echo "$KV_OUTPUT" | jq -r '.id // empty')
+  if [ -z "$KV_ID" ]; then
+    KV_ID="TODO_RUN_WRANGLER_KV_CREATE"
+  else
+    print_info "KV namespace created with ID: $KV_ID"
+  fi
+elif echo "$KV_OUTPUT" | grep -qi "already exists"; then
+  print_warn "KV namespace 'CACHE' already exists. Fetching ID..."
+  KV_LIST=$(npx wrangler kv namespace list)
+  KV_ID=$(echo "$KV_LIST" | jq -r '.[] | select(.title == "CACHE") | .id' | head -n 1)
   if [ -z "$KV_ID" ]; then
     KV_ID="TODO_RUN_WRANGLER_KV_CREATE"
   fi
@@ -133,10 +172,15 @@ fi
 
 # Create KV Preview Namespace
 print_info "Creating KV preview namespace..."
-KV_PREVIEW_OUTPUT=$(npx wrangler kv:namespace create MODULE_CACHE --preview 2>&1 || true)
-if echo "$KV_PREVIEW_OUTPUT" | grep -q "preview_id"; then
-  KV_PREVIEW_ID=$(echo "$KV_PREVIEW_OUTPUT" | grep -oE 'preview_id = "[^"]*"' | sed 's/preview_id = "//;s/"//')
-  print_info "KV preview namespace created with ID: $KV_PREVIEW_ID"
+KV_PREVIEW_OUTPUT=$(npx wrangler kv namespace create CACHE --preview 2>&1 || true)
+if echo "$KV_PREVIEW_OUTPUT" | grep -q '"id"'; then
+  KV_PREVIEW_ID=$(echo "$KV_PREVIEW_OUTPUT" | jq -r '.id // empty')
+  if [ -z "$KV_PREVIEW_ID" ]; then
+    KV_PREVIEW_ID="TODO_RUN_WRANGLER_KV_CREATE_PREVIEW"
+  fi
+elif echo "$KV_PREVIEW_OUTPUT" | grep -qi "already exists"; then
+  print_warn "KV preview namespace already exists."
+  KV_PREVIEW_ID="TODO_RUN_WRANGLER_KV_CREATE_PREVIEW"
 else
   KV_PREVIEW_ID="TODO_RUN_WRANGLER_KV_CREATE_PREVIEW"
 fi
@@ -178,19 +222,17 @@ if [ -f "$CONFIG_FILE" ]; then
 
   # Update KV preview ID
   if [ "$KV_PREVIEW_ID" != "TODO_RUN_WRANGLER_KV_CREATE_PREVIEW" ]; then
-    sed -i "s/\"preview_id\": \"TODO_RUN_WRANGLER_KV_CREATE_PREVIEW\"/\"preview_id\": \"$KV_PREVIEW_ID\"/" "$CONFIG_FILE"
-    print_info "Updated KV preview namespace ID"
+    sed -i "s/\"preview_id\": \"TODO_RUN_WRANGLER_KV_CREATE_PREVIEW\"/\"preview_id\": \"$KV_PREVIEW_ID\"/" "$CONFIG_FILE" || true
   fi
 fi
 
 # Create API key secret
 print_info "Setting up API key secret..."
-read -r -p "Enter an API key for CI/CD authentication (or press Enter to skip): " API_KEY
-if [ -n "$API_KEY" ]; then
-  echo "$API_KEY" | npx wrangler secret put API_KEY
-  print_info "API key secret configured"
+if [ -n "${MODULE_API_KEY:-}" ]; then
+  echo "$MODULE_API_KEY" | npx wrangler secret put API_KEY
+  print_info "API key secret configured from SOPS"
 else
-  print_warn "Skipped API key configuration. Run 'npx wrangler secret put API_KEY' later."
+  print_warn "Module API key not found; skipping API key configuration. Run 'npx wrangler secret put API_KEY' later."
 fi
 
 print_info "Setup complete! Summary:"
