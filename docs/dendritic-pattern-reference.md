@@ -1,5 +1,7 @@
 # Dendritic Pattern Reference
 
+> For a full-stack view of how the flake, aggregators, hosts, Home Manager, and tooling interlock, start with `docs/configuration-architecture.md`. This reference focuses specifically on the Dendritic auto-import pattern and how it constrains module authoring.
+
 The Dendritic Pattern treats every file under `modules/` as a flake-parts module, composing them organically through shared aggregators. This repository follows the canonical implementation from [`mightyiam/infra`](https://github.com/mightyiam/infra) and keeps the pattern intentionally lightweight: add a module, export it under a namespace, and the flake wires it up automatically.
 
 ## Automatic Module Discovery
@@ -58,7 +60,7 @@ Follow these rules when writing new modules:
 4. Prefer `lib.mkIf` + predicates over ad-hoc `if` statements at the top level.
 5. Cross-reference other modules via the aggregator (`config.flake.nixosModules.<name>`), never via path literals.
 
-For detailed patterns (multi-namespace modules, extending existing namespaces, common pitfalls) reference `docs/MODULE_STRUCTURE_GUIDE.md`.
+For detailed patterns (multi-namespace modules, extending existing namespaces, common pitfalls) reference `docs/module-structure-guide.md`.
 
 ## Apps, Roles, and Lookups
 
@@ -76,7 +78,7 @@ For detailed patterns (multi-namespace modules, extending existing namespaces, c
 
 The dev shell (`nix develop`) provides all tooling. The repository already enables `pipe-operators` globally via `nixConfig.extra-experimental-features`, so you **do not** need to append `--extra-experimental-features` to commands.
 
-Run the following before every push:
+Run the following before every push (see `docs/configuration-architecture.md#6-validation--continuous-checks` for additional context and diagnostics):
 
 ```bash
 nix fmt
@@ -88,11 +90,11 @@ nix flake check --accept-flake-config
 Additional helpers:
 
 - `nix develop -c gh-actions-run -n` – dry-run GitHub Actions locally with `act`.
-- `write-files` – refresh generated files (managed by `modules/meta/docs.nix`).
+- `write-files` – refresh managed files (managed by `modules/meta/docs.nix`).
 
 ## Secrets and SOPS
 
-Secrets are managed with `sops-nix`. See `docs/sops-nixos.md` for the house style and `docs/SECRETS_ACT.md` for the `act` helper secret. Secret templates expose stable paths (e.g. `/etc/act/secrets.env`) and only render when the encrypted file exists.
+Secrets are managed with `sops-nix`. See `docs/sops/README.md` for the house style and `docs/sops/secrets-act.md` for the `act` helper secret. Secret templates expose stable paths (e.g. `/etc/act/secrets.env`) and only render when the encrypted file exists.
 
 ## Migration Checklist
 
@@ -106,7 +108,8 @@ When adopting an existing configuration into the Dendritic Pattern:
 
 ## Further Reading
 
-- `docs/MODULE_STRUCTURE_GUIDE.md` – concrete module authoring patterns.
-- `docs/home-manager-aggregator.md` – how Home Manager app aggregation works.
-- `docs/INPUT-BRANCHES-PLAN.md` – managing vendored flake inputs.
-- `docs/NIXOS_CONFIGURATION_REVIEW_CHECKLIST.md` – review procedure for the current host.
+- `docs/configuration-architecture.md` – overall map of flakes, aggregators, hosts, and validation workflows.
+- `docs/module-structure-guide.md` – concrete module authoring patterns for system and Home Manager code.
+- `docs/home-manager-aggregator.md` – how Home Manager app aggregation works in this repository.
+- `docs/apps-module-style-guide.md` – expectations for per-app module headers and option documentation.
+- `docs/sops/README.md` – secrets workflow, policy regeneration, and validation checklist.

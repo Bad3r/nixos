@@ -54,7 +54,7 @@ hardware-backed SSH keys can coexist without breaking SOPS.
 - Encrypted file: `secrets/act.yaml` with field `github_token`.
 - Declaration lives in `modules/security/secrets.nix` (`sops.secrets."act/github_token"`).
 - Template renders `/etc/act/secrets.env` and the dev-shell helper `gh-actions-run` automatically picks it up unless `ACT_SECRETS_FILE` overrides the path.
-- Rotate with `sops secrets/act.yaml` and re-run `nixos-rebuild switch --flake .#system76` on the host.
+- Rotate with `sops secrets/act.yaml`, build via `nix build .#nixosConfigurations.system76.config.system.build.toplevel`, and deploy with `./build.sh --host system76 --boot` (or the approved helper for your host).
 
 ## Working With `r2.env`
 
@@ -75,7 +75,7 @@ The Home Manager module `modules/home/r2-user.nix` reads `sops.templates."r2"` (
 | `no secret material for …`            | Check that the encrypted file exists. Declarations are guarded with `pathExists`.                            |
 | `Unknown recipient` while editing     | Regenerate `.sops.yaml` (`nix develop -c write-files`) or add the key to `modules/security/sops-policy.nix`. |
 | `Permission denied` reading secret    | Adjust the `owner`/`group` fields in the module; sops-nix enforces them strictly.                            |
-| `act` complaining about missing token | Ensure `/etc/act/secrets.env` exists (run `sudo nixos-rebuild switch` after editing secrets).                |
+| `act` complaining about missing token | Ensure `/etc/act/secrets.env` exists (rerun `./build.sh --host <host> --boot` or the approved deployment helper after updating secrets). |
 
 ## Validation Commands
 

@@ -14,10 +14,6 @@
     glow --pager: Follow edits live in a scrollable preview.
     glow --style <dark|light>: Override the automatic theme choice.
     glow list --local: Browse cached documents managed by glow.
-
-  Example Usage:
-    * `glow README.md` — Preview a project README with syntax highlighting and soft wrapping.
-    * `glow --pager --style=dark docs/notes.md` — Keep a live-updating preview with a forced dark palette.
 */
 
 {
