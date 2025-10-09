@@ -30,7 +30,7 @@ let
     let
       data = record.data or { };
       attrPathList = data.attrPath or record.attrPath or [ ];
-      attrPathString = data.attrPathString or lib.concatStringsSep "." attrPathList;
+      attrPathString = data.attrPathString or builtins.concatStringsSep "." (map toString attrPathList);
     in
     {
       inherit (record)
