@@ -96,8 +96,9 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
-
-nix build .#moduleDocsExporter -o "$tmp_exporter/result"
+SYSTEM_ATTR=${NIX_SYSTEM:-$(nix eval --impure --raw --expr 'builtins.currentSystem')}
+EXPORTER_ATTR=".#packages.${SYSTEM_ATTR}.module-docs-exporter"
+nix build "$EXPORTER_ATTR" -o "$tmp_exporter/result"
 "$tmp_exporter/result/bin/module-docs-exporter" --format "$FORMATS" --out "$OUT_DIR"
 
 JSON_PATH="$OUT_DIR/json/modules.json"
