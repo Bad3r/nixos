@@ -17,14 +17,12 @@
 {
   flake.homeManagerModules.apps.nixvim =
     {
-      config,
       inputs,
       lib,
       ...
     }:
     let
-      inherit (lib) attrByPath mkDefault optional;
-      stylixModule = attrByPath [ "stylix" "targets" "nixvim" "exportedModule" ] null config;
+      inherit (lib) mkDefault;
       glowKeymaps = [
         {
           mode = [
@@ -50,7 +48,7 @@
       ];
     in
     {
-      imports = [ inputs.nixvim.homeModules.nixvim ] ++ optional (stylixModule != null) stylixModule;
+      imports = [ inputs.nixvim.homeModules.nixvim ];
 
       stylix.targets.nixvim.enable = mkDefault true;
 
