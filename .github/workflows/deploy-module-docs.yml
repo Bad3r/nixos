@@ -9,7 +9,7 @@ on:
       - "modules/**"
       - "implementation/**"
       - "scripts/extract-*.nix"
-      - "scripts/extract-and-upload.sh"
+      - "scripts/module-docs-upload.sh"
       - ".github/workflows/deploy-module-docs.yml"
   workflow_dispatch:
     inputs:
@@ -53,16 +53,16 @@ jobs:
         id: extract
         timeout-minutes: 20 # Increased for full repository extraction (431+ modules)
         run: |
-          echo "Extracting ALL NixOS modules from repository..."
-          ./scripts/extract-and-upload.sh --extract-only
+          set -euo pipefail
+          echo "Extracting ALL Nix modules via derivation-backed pipeline..."
+          ./scripts/module-docs-upload.sh --format json,md --out .cache/module-docs --dry-run --summary
 
           # Output statistics
           CACHE_DIR=".cache/module-docs"
-          MODULE_JSON="$CACHE_DIR/modules-extracted.json"
-          API_JSON="$CACHE_DIR/modules-extracted.json.api.json"
+          MODULE_JSON="$CACHE_DIR/json/modules.json"
 
           if [ -f "$MODULE_JSON" ]; then
-            MODULE_COUNT=$(jq -r '.stats.extracted' "$MODULE_JSON")
+            MODULE_COUNT=$(jq -r '.metadata.moduleCount' "$MODULE_JSON")
             NAMESPACE_COUNT=$(jq -r '.namespaces | keys | length' "$MODULE_JSON")
             echo "module-count=$MODULE_COUNT" >> $GITHUB_OUTPUT
             echo "namespace-count=$NAMESPACE_COUNT" >> $GITHUB_OUTPUT
@@ -77,8 +77,9 @@ jobs:
         with:
           name: extracted-modules
           path: |
-            .cache/module-docs/modules-extracted.json
-            .cache/module-docs/modules-extracted.json.api.json
+            .cache/module-docs/json/modules.json
+            .cache/module-docs/json/errors.ndjson
+            .cache/module-docs/md/modules.md
 
   deploy-worker:
     name: Deploy Cloudflare Worker
