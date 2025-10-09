@@ -17,6 +17,9 @@
           xfsettingsdCommand = "${pkgs.xfce.xfce4-settings}/bin/xfsettingsd";
           lxsessionCommand = lib.getExe' pkgs.lxsession "lxsession";
           lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] null config;
+          xssLockPackage = pkgs.xss-lock.overrideAttrs (old: {
+            cmakeFlags = (old.cmakeFlags or [ ]) ++ [ "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" ];
+          });
           dimWarningScript = pkgs.writeShellApplication {
             name = "i3-dim-warning";
             runtimeInputs = [
@@ -125,6 +128,9 @@
                 enable = true;
                 lockCmd = lockCommand;
                 inactiveInterval = 39;
+                xss-lock = {
+                  package = xssLockPackage; # CMake 3.5+ compatibility flag
+                };
                 xautolock = {
                   enable = true;
                   detectSleep = true;
