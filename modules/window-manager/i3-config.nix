@@ -251,9 +251,9 @@
       netInterface = lib.attrByPath [ "gui" "i3" "netInterface" ] null config;
       netBlockBase = {
         block = "net";
-        interval = 5;
-        format = " $icon {$ssid|$device} $ip ";
-        format_alt = " $icon  $speed_down.eng(prefix:K)/s  $speed_up.eng(prefix:K)/s ";
+        interval = 2;
+        format = " $icon  $speed_down.eng(prefix:K)/s  $speed_up.eng(prefix:K)/s ";
+        format_alt = " $icon {$ssid|$device} $ip ";
       };
       netBlock = netBlockBase // lib.optionalAttrs (netInterface != null) { device = netInterface; };
       i3statusBlocks = [
