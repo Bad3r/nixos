@@ -27,7 +27,9 @@
     { pkgs, ... }:
     let
       ltraceNoChecks = pkgs.ltrace.overrideAttrs (_: {
-        doCheck = false; # Skip flaky print-instruction-pointer dejagnu test run
+        dontCheck = true;
+        doCheck = false;
+        checkPhase = "true"; # tests are flaky across kernels
       });
     in
     {
