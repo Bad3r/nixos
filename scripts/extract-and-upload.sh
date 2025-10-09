@@ -98,8 +98,8 @@ transform_for_api() {
       { name: .key }
       + maybe("type"; .value.type)
       + maybe("description"; .value.description)
-      + { default_value: (.value.default? // null) }
-      + { example: (.value.example? // null) }
+      + maybe("default_value"; .value.default)
+      + maybe("example"; .value.example)
       + maybe("read_only"; .value.readOnly)
       + maybe("internal"; .value.internal);
 
@@ -108,11 +108,10 @@ transform_for_api() {
         (.modules | map(
           { namespace, name, path }
           + maybe("description"; .description)
-          + maybe("metadata"; nonempty_object(.meta))
-          + (if (.options // {}) == {}
-             then {}
+          + (if (.options // {}) == {} then {}
              else { options: (.options | to_entries | map(build_option)) }
             end)
+          + maybe("metadata"; nonempty_object(.meta))
         ))
     }
   ' "$OUTPUT_FILE" >"${OUTPUT_FILE}.api.json"
