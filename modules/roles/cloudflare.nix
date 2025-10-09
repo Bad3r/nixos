@@ -20,7 +20,7 @@ let
     "wgcf"
     "s5cmd"
     "minio-client"
-    "awscli2"
+    # "awscli2"
     "worker-build"
     "jq"
     "xh"
