@@ -21,10 +21,8 @@
 */
 
 {
-  flake.nixosModules.apps.metasploit =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.metasploit ];
-    };
+  flake.nixosModules.apps.metasploit = _: {
+    # Intentionally empty: metasploit stays in the pentesting devshell only.
+  };
 
 }
