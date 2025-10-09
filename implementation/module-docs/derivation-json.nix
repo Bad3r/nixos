@@ -2,17 +2,11 @@
   lib,
   pkgs,
   self,
-  inputs,
   flakeRoot ? ../../.,
 }:
 let
   data = import ./data.nix {
-    inherit
-      lib
-      flakeRoot
-      self
-      inputs
-      ;
+    inherit lib flakeRoot self;
     inherit (pkgs) system;
   };
   docLib = import ./lib { inherit lib; };
