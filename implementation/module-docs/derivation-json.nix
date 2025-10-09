@@ -2,6 +2,7 @@
   lib,
   pkgs,
   self,
+  inputs ? { },
   flakeRoot ? ../../.,
 }:
 let
@@ -10,8 +11,8 @@ let
     inherit (pkgs) system;
   };
   docLib = import ./lib { inherit lib; };
-  inputsAttr = self.inputs or { };
-  nixpkgsInput = inputsAttr.nixpkgs or { };
+  combinedInputs = inputs // (self.inputs or { });
+  nixpkgsInput = combinedInputs.nixpkgs or { };
 
   normalizeModuleRecord = module: {
     inherit (module)
