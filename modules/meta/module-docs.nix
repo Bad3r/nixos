@@ -5,7 +5,7 @@
   ...
 }:
 let
-  systems = config.systems;
+  inherit (config) systems;
   bundleName = "moduleDocsBundle";
 in
 {
@@ -24,8 +24,8 @@ in
       };
       moduleDocsExporter = pkgs.callPackage ../../packages/module-docs-exporter {
         inherit pkgs lib;
-        moduleDocsJson = moduleDocsJson;
-        moduleDocsMarkdown = moduleDocsMarkdown;
+        inherit moduleDocsJson;
+        inherit moduleDocsMarkdown;
       };
       moduleDocsBundle = pkgs.symlinkJoin {
         name = "module-docs-bundle";
@@ -36,21 +36,17 @@ in
       };
     in
     {
-      packages.module-docs-json = moduleDocsJson;
-      packages.module-docs-markdown = moduleDocsMarkdown;
-      packages.module-docs-exporter = moduleDocsExporter;
-      packages.module-docs-bundle = moduleDocsBundle;
-      packages.moduleDocsBundle = moduleDocsBundle;
-      packages.moduleDocsJson = moduleDocsJson;
-      packages.moduleDocsMarkdown = moduleDocsMarkdown;
-      packages.moduleDocsExporter = moduleDocsExporter;
-      apps."module-docs-exporter" = {
-        type = "app";
-        program = "${moduleDocsExporter}/bin/module-docs-exporter";
+      packages = {
+        module-docs-json = moduleDocsJson;
+        module-docs-markdown = moduleDocsMarkdown;
+        module-docs-exporter = moduleDocsExporter;
+        module-docs-bundle = moduleDocsBundle;
       };
-      apps.moduleDocsExporter = {
-        type = "app";
-        program = "${moduleDocsExporter}/bin/module-docs-exporter";
+      apps = {
+        "module-docs-exporter" = {
+          type = "app";
+          program = "${moduleDocsExporter}/bin/module-docs-exporter";
+        };
       };
       checks.module-docs = pkgs.runCommand "module-docs-check" { } ''
         ${moduleDocsExporter}/bin/module-docs-exporter --format json --out $TMPDIR/module-docs

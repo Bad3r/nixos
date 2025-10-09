@@ -12,7 +12,7 @@ let
   fallbackInputs = {
     impermanence = {
       nixosModules = {
-        impermanence = (_: { });
+        impermanence = _: { };
       };
     };
   };
@@ -38,13 +38,7 @@ let
     else
       fallbackPkgs;
 
-  effectiveLib =
-    if libOverride != null then
-      libOverride
-    else if pinnedPkgs ? lib then
-      pinnedPkgs.lib
-    else
-      fallbackPkgs.lib;
+  effectiveLib = if libOverride != null then libOverride else pinnedPkgs.lib or fallbackPkgs.lib;
 
   pkgsFor =
     systemName:
@@ -69,12 +63,12 @@ let
   lib = effectiveLib;
 
   filterAttrs =
-    if lib ? filterAttrs then
-      lib.filterAttrs
-    else if lib ? attrsets && lib.attrsets ? filterAttrs then
-      lib.attrsets.filterAttrs
-    else
-      builtins.throw "module-docs: filterAttrs missing from lib";
+    lib.filterAttrs or (
+      if lib ? attrsets && lib.attrsets ? filterAttrs then
+        lib.attrsets.filterAttrs
+      else
+        builtins.throw "module-docs: filterAttrs missing from lib"
+    );
 
   stringifyError =
     value:
@@ -114,7 +108,7 @@ let
     let
       ownerMeta =
         if flake ? lib && flake.lib ? meta && flake.lib.meta ? owner then flake.lib.meta.owner else { };
-      defaultOwnerUsername = if ownerMeta ? username then ownerMeta.username else "owner";
+      defaultOwnerUsername = ownerMeta.username or "owner";
     in
     {
       options = {
@@ -176,7 +170,7 @@ let
         nixpkgs = { };
         rootPath = flakeOutPath;
         _module.args = filterAttrs (_: value: value != null) {
-          pinnedPkgs = pinnedPkgs;
+          inherit pinnedPkgs;
           inherit flakeOutPath flake;
           inputs = effectiveInputs;
           withSystem = defaultWithSystem;
@@ -302,7 +296,7 @@ let
     recBind.collectValue;
 
   collectEntriesFor =
-    modulesAttr: namespace:
+    modulesAttr: _namespace:
     lib.concatLists (
       lib.mapAttrsToList (
         name: value: collectModules value [ name ] (getAttrSource modulesAttr name)
@@ -329,8 +323,8 @@ let
           evaluation
           ;
         originSystem = namespace;
-        skipReason = skipReason;
-        meta = meta;
+        inherit skipReason;
+        inherit meta;
       };
     in
     base
@@ -363,8 +357,8 @@ let
           moduleDoc = moduleDocAttempt.value;
         in
         {
-          namespace = namespace;
-          keyPath = entry.keyPath;
+          inherit namespace;
+          inherit (entry) keyPath;
           attrPath = entry.keyPath;
           sourcePath = entry.sourcePath or "unknown";
           status = if moduleDoc.skip then "skipped" else "ok";
@@ -373,8 +367,8 @@ let
         }
       else
         {
-          namespace = namespace;
-          keyPath = entry.keyPath;
+          inherit namespace;
+          inherit (entry) keyPath;
           attrPath = entry.keyPath;
           sourcePath = entry.sourcePath or "unknown";
           status = "error";
@@ -383,8 +377,8 @@ let
         }
     else
       {
-        namespace = namespace;
-        keyPath = entry.keyPath;
+        inherit namespace;
+        inherit (entry) keyPath;
         attrPath = entry.keyPath;
         sourcePath = entry.sourcePath or "unknown";
         status = "error";

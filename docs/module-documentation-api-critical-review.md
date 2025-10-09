@@ -18,7 +18,7 @@
 - `wrangler.jsonc`, setup script, and `package.json` updated with accurate bindings and TODO placeholders for environment-specific IDs.
 - D1 schema, FTS5 search configuration, and migration runner implemented under `implementation/worker/migrations/`.
 - Worker entry point and TypeScript handler layer implemented with routing, validation, and response helpers.
-- End-to-end extraction toolchain now emits Markdown snapshots and supports optional R2 uploads (`scripts/extract-and-upload.sh`, `scripts/generate-module-markdown.js`).
+- End-to-end extraction toolchain now emits Markdown snapshots and supports optional R2 uploads (`scripts/module-docs-upload.sh`, `packages/module-docs-markdown`).
 
 ### 🔄 In Progress
 
@@ -34,26 +34,26 @@
 
 ## Risks & Mitigations
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| Cloudflare resource IDs remain placeholders | Blocks deployment | Run `implementation/worker/scripts/setup.sh` and document issued IDs in `wrangler.jsonc` secrets/vars |
-| Module extraction pipeline unimplemented | API cannot ingest real data | Prioritise building the Nix extraction script and CLI upload path before frontend work |
-| Cache invalidation strategy undefined | Stale documentation possible | Add KV namespace flushing utility once ingestion exists |
-| Rate limiting and auth simplified for MVP | Potential abuse if exposed publicly | Keep Worker behind API key until Zero Trust integration lands |
+| Risk                                        | Impact                              | Mitigation                                                                                            |
+| ------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Cloudflare resource IDs remain placeholders | Blocks deployment                   | Run `implementation/worker/scripts/setup.sh` and document issued IDs in `wrangler.jsonc` secrets/vars |
+| Module extraction pipeline unimplemented    | API cannot ingest real data         | Prioritise building the Nix extraction script and CLI upload path before frontend work                |
+| Cache invalidation strategy undefined       | Stale documentation possible        | Add KV namespace flushing utility once ingestion exists                                               |
+| Rate limiting and auth simplified for MVP   | Potential abuse if exposed publicly | Keep Worker behind API key until Zero Trust integration lands                                         |
 
 ## Cost & Timeline Update
 
 - **Estimated monthly cost at launch scale (< 10M requests):** effectively free on Cloudflare’s tiers (< $1/month including R2 storage for seed data).
 - **Projected cost at 100M requests/month:** $50–100/month (Workers Unbound, D1, KV). Vector search and AI costs removed until Phase 2.
 
-| Phase | Revised Duration | Status |
-| --- | --- | --- |
-| Infrastructure & Config | 2 days | ✅ Complete |
-| Database & API Core | 5 days | ✅ Complete |
-| Module Extraction | 5 days | ✅ Complete |
-| Frontend MVP | 5 days | ⏳ Pending |
-| Tests & CI/CD | 8 days | ⏳ Pending |
-| Deployment Readiness | 5 days | ⏳ Pending |
+| Phase                   | Revised Duration | Status      |
+| ----------------------- | ---------------- | ----------- |
+| Infrastructure & Config | 2 days           | ✅ Complete |
+| Database & API Core     | 5 days           | ✅ Complete |
+| Module Extraction       | 5 days           | ✅ Complete |
+| Frontend MVP            | 5 days           | ⏳ Pending  |
+| Tests & CI/CD           | 8 days           | ⏳ Pending  |
+| Deployment Readiness    | 5 days           | ⏳ Pending  |
 
 **Overall completion:** ~40%, **estimated time to MVP:** 3–4 weeks of focused work.
 

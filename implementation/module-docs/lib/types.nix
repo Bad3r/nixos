@@ -127,28 +127,46 @@ let
 
     extractOption =
       name: option:
-      let
-        opt =
-          if option ? _type && option._type == "option" then
-            option
-          else if option ? type then
-            option
-          else
-            { type = types.unspecified; };
-      in
-      {
-        inherit name;
-        type = extractType (opt.type or types.unspecified);
-        default = opt.default or null;
-        defaultText = opt.defaultText or null;
-        example = opt.example or null;
-        description = opt.description or null;
-        readOnly = opt.readOnly or false;
-        visible = opt.visible or true;
-        internal = opt.internal or false;
-        hasApply = opt ? apply;
-        declarations = extractDeclarations opt;
-      };
+      if builtins.isFunction option then
+        {
+          inherit name;
+          type = {
+            type = "function";
+            value = "<function>";
+          };
+          default = null;
+          defaultText = null;
+          example = null;
+          description = null;
+          readOnly = false;
+          visible = true;
+          internal = false;
+          hasApply = false;
+          declarations = [ ];
+        }
+      else
+        let
+          opt =
+            if option ? _type && option._type == "option" then
+              option
+            else if option ? type then
+              option
+            else
+              { type = types.unspecified; };
+        in
+        {
+          inherit name;
+          type = extractType (opt.type or types.unspecified);
+          default = opt.default or null;
+          defaultText = opt.defaultText or null;
+          example = opt.example or null;
+          description = opt.description or null;
+          readOnly = opt.readOnly or false;
+          visible = opt.visible or true;
+          internal = opt.internal or false;
+          hasApply = opt ? apply;
+          declarations = extractDeclarations opt;
+        };
 
     extractOptions =
       prefix: opts:
@@ -159,19 +177,11 @@ let
             fullName = if prefix == "" then name else "${prefix}.${name}";
           in
           if value ? _type && value._type == "option" then
-            [
-              extractOption
-              fullName
-              value
-            ]
+            [ (extractOption fullName value) ]
           else if builtins.isAttrs value && !(value ? type) then
             extractOptions fullName value
           else
-            [
-              extractOption
-              fullName
-              value
-            ]
+            [ (extractOption fullName value) ]
         ) opts
       );
 

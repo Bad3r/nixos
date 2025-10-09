@@ -1,6 +1,6 @@
 # Apps Module Style Guide
 
-This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it alongside `modules/apps/ent.nix`, which serves as the canonical template.
+This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it alongside `modules/apps/ent.nix`, which serves as the canonical template, and refer to `docs/configuration-architecture.md` for the bigger-picture aggregator and helper context.
 
 ## Source Gathering
 
@@ -13,7 +13,7 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
 ## Scope
 
 - Applies to every NixOS app module exported under `flake.nixosModules.apps`.
-- Complements the repository-wide conventions noted in `MODULE_STRUCTURE_GUIDE.md`.
+- Complements the repository-wide conventions noted in `docs/module-structure-guide.md`.
 
 ## File Layout
 

@@ -13,7 +13,7 @@ let
       self
       inputs
       ;
-    system = pkgs.system;
+    inherit (pkgs) system;
   };
   docLib = import ./lib { inherit lib; };
 
@@ -43,7 +43,7 @@ let
 
   metadata = {
     generator = "module-docs-json";
-    system = pkgs.system;
+    inherit (pkgs) system;
     nixpkgsRevision = inputs.nixpkgs.rev or inputs.nixpkgs.shortRev or null;
     flakeRevision = self.rev or null;
     moduleCount = lib.length data.modules;
@@ -52,9 +52,9 @@ let
 
   jsonBody = {
     inherit metadata;
-    namespaces = lib.mapAttrs (name: modules: {
+    namespaces = lib.mapAttrs (_: modules: {
       stats = docLib.summarizeModules modules;
-      modules = modules;
+      inherit modules;
     }) normalizedNamespaces;
   };
 

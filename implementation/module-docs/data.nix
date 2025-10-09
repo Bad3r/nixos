@@ -2,7 +2,6 @@
   lib,
   flakeRoot ? ../../.,
   self,
-  inputs,
   system,
 }:
 let
@@ -13,12 +12,14 @@ let
   };
   docLib = import ./lib { inherit lib; };
 
-  sanitizeExampleValue =
+  sanitizeValue =
     value:
     if builtins.isAttrs value then
-      lib.mapAttrs (_: sanitizeExampleValue) value
+      lib.mapAttrs (_: sanitizeValue) value
     else if builtins.isList value then
-      map sanitizeExampleValue value
+      map sanitizeValue value
+    else if builtins.isPath value then
+      toString value
     else if builtins.isFunction value then
       "<function>"
     else
@@ -29,8 +30,7 @@ let
     let
       data = record.data or { };
       attrPathList = data.attrPath or record.attrPath or [ ];
-      attrPathString =
-        if data ? attrPathString then data.attrPathString else lib.concatStringsSep "." attrPathList;
+      attrPathString = data.attrPathString or lib.concatStringsSep "." attrPathList;
     in
     {
       inherit (record)
@@ -40,21 +40,21 @@ let
         sourcePath
         ;
       attrPath = attrPathList;
-      attrPathString = attrPathString;
-      skipReason = if data ? skipReason then data.skipReason else null;
-      tags = if data ? meta && data.meta ? tags then data.meta.tags else [ ];
-      meta = if data ? meta then data.meta else { };
-      options = if data ? options then sanitizeExampleValue data.options else { };
-      imports = if data ? imports then data.imports else [ ];
+      inherit attrPathString;
+      skipReason = data.skipReason or null;
+      tags = lib.attrByPath [ "meta" "tags" ] [ ] data;
+      meta = data.meta or { };
+      options = sanitizeValue (data.options or { });
+      imports = map sanitizeValue (data.imports or [ ]);
       examples =
         if data ? examples then
           map (example: {
             option = example.option or "";
-            example = sanitizeExampleValue (example.example or null);
+            example = sanitizeValue (example.example or null);
           }) data.examples
         else
           [ ];
-      config = if data ? config then sanitizeExampleValue data.config else { };
+      config = sanitizeValue (data.config or { });
     };
 
   namespaces = lib.mapAttrs (_: payload: payload.modules) graph.namespaces;

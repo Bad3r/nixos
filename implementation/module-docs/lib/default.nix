@@ -17,7 +17,6 @@ in
 
   inherit (renderLib)
     sanitizeValue
-    collectExamples
     moduleDocFromEvaluation
     ;
 

@@ -1,6 +1,6 @@
 # GitHub Token for `act` via sops-nix
 
-This repository stores the personal access token used by `act` in `secrets/act.yaml` and renders `/etc/act/secrets.env` at activation time. The integration lives in `modules/security/secrets.nix` and follows the general guidance in `docs/sops-nixos.md`.
+This repository stores the personal access token used by `act` in `secrets/act.yaml` and renders `/etc/act/secrets.env` at activation time. The integration lives in `modules/security/secrets.nix` and follows the general guidance in `docs/sops/sops-nixos.md`.
 
 ## Overview
 
@@ -10,7 +10,7 @@ This repository stores the personal access token used by `act` in `secrets/act.y
 
 ## Host Setup (one-time)
 
-1. Generate the Age host key if it does not already exist (see `docs/sops-nixos.md`).
+1. Generate the Age host key if it does not already exist (see `docs/sops/sops-nixos.md`).
 2. Ensure the host key is listed in `modules/security/sops-policy.nix` (it is named `host_primary` by default). Run `nix develop -c write-files` to refresh `.sops.yaml`.
 
 ## Adding or Rotating the Token

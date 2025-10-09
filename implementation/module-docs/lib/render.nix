@@ -1,13 +1,7 @@
 { lib }:
 typesLib:
 let
-  inherit (typesLib)
-    extractModule
-    extractOption
-    extractType
-    extractDeclarations
-    extractConfig
-    ;
+  inherit (typesLib) extractModule;
 
   sanitizeValue =
     value:
@@ -21,36 +15,6 @@ let
       map sanitizeValue value
     else
       value;
-
-  collectExamples =
-    module:
-    let
-      options = module.options or { };
-      recurse =
-        prefix: opts:
-        lib.concatLists (
-          lib.mapAttrsToList (
-            name: value:
-            let
-              fullName = if prefix == "" then name else "${prefix}.${name}";
-            in
-            if value ? example && value.example != null then
-              [
-                {
-                  option = fullName;
-                  example = if builtins.isFunction value.example then "<function>" else sanitizeValue value.example;
-                }
-              ]
-            else if builtins.isAttrs value && !(value ? type) then
-              recurse fullName value
-            else if builtins.isFunction value then
-              [ ]
-            else
-              [ ]
-          ) opts
-        );
-    in
-    recurse "" options;
 
   moduleDocFromEvaluation =
     {
@@ -75,12 +39,12 @@ let
         skipReason
         ;
       attrPath = attrPathList;
-      attrPathString = attrPathString;
+      inherit attrPathString;
       options = sanitizeValue extracted.options;
-      imports = extracted.imports;
+      inherit (extracted) imports;
       config = sanitizeValue extracted.config;
       meta = meta // {
-        skipReason = skipReason;
+        inherit skipReason;
         attrPath = attrPathString;
       };
       examples = [ ];
@@ -88,5 +52,5 @@ let
 
 in
 {
-  inherit sanitizeValue collectExamples moduleDocFromEvaluation;
+  inherit sanitizeValue moduleDocFromEvaluation;
 }

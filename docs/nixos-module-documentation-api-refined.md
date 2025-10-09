@@ -1658,12 +1658,15 @@ let
 in {
   moduleData = builtins.toJSON (collectModules);
 
-  packages.module-extractor = extractionScript;
+  packages.module-docs-json = import ../../implementation/module-docs/derivation-json.nix {
+    inherit pkgs lib;
+    self = inputs.self;
+    inherit inputs;
+  };
 
-  # CI/CD helper
-  apps.extract-and-upload = {
+  apps.module-docs-exporter = {
     type = "app";
-    program = "${extractionScript}/bin/extract-modules";
+    program = "${pkgs.callPackage ../../packages/module-docs-exporter { moduleDocsJson = packages.module-docs-json; moduleDocsMarkdown = pkgs.callPackage ../../packages/module-docs-markdown { inherit lib pkgs self inputs; }; }}/bin/module-docs-exporter";
   };
 }
 ```

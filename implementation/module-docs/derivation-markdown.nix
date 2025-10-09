@@ -13,7 +13,7 @@ let
       self
       inputs
       ;
-    system = pkgs.system;
+    inherit (pkgs) system;
   };
   docLib = import ./lib { inherit lib; };
 
@@ -21,7 +21,9 @@ let
     module:
     let
       optionCount = lib.length (lib.attrNames (module.options or { }));
-      title = module.attrPathString or "<anonymous>";
+      title = toString (module.attrPathString or "<anonymous>");
+      namespaceLabel = toString (module.namespace or "unknown");
+      sourceLabel = toString (module.sourcePath or "unknown");
       statusEmoji =
         if module.status == "ok" then
           "✅"
@@ -29,14 +31,22 @@ let
           "⚠️"
         else
           "❌";
-      skipLine = if module.skipReason != null then "- Skip reason: ${module.skipReason}\n" else "";
+      skipLine =
+        if module.skipReason != null then "- Skip reason: ${toString module.skipReason}\n" else "";
       errorLine =
-        if module.status == "error" && module.error != null then "- Error: ${module.error}\n" else "";
-      tagLine = if module.tags != [ ] then "- Tags: ${lib.concatStringsSep ", " module.tags}\n" else "";
+        if module.status == "error" && module.error != null then
+          "- Error: ${toString module.error}\n"
+        else
+          "";
+      tagLine =
+        let
+          tagStrings = map toString module.tags;
+        in
+        if tagStrings != [ ] then "- Tags: ${lib.concatStringsSep ", " tagStrings}\n" else "";
     in
     "### ${statusEmoji} ${title}\n"
-    + "- Namespace: ${module.namespace}\n"
-    + "- Source: ${module.sourcePath or "unknown"}\n"
+    + "- Namespace: ${namespaceLabel}\n"
+    + "- Source: ${sourceLabel}\n"
     + "- Options: ${toString optionCount}\n"
     + skipLine
     + errorLine
@@ -46,8 +56,9 @@ let
     name: modules:
     let
       stats = docLib.summarizeModules modules;
+      namespaceName = toString name;
       header =
-        "## Namespace ${name}\n"
+        "## Namespace ${namespaceName}\n"
         + "- Modules: ${toString stats.total}\n"
         + "- Extracted: ${toString stats.extracted}\n"
         + "- Skipped: ${toString stats.skipped}\n"

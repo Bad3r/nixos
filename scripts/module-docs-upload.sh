@@ -7,6 +7,9 @@ API_ENDPOINT="${WORKER_ENDPOINT:-https://nixos-module-docs-api-staging.exploit.w
 CHUNK_SIZE=100
 DRY_RUN=false
 UPLOAD=false
+SUMMARY=false
+TARBALL=""
+KEEP_EXPORTER=false
 
 usage() {
   cat <<USAGE
@@ -18,6 +21,9 @@ Usage: $0 [options]
   --chunk-size <n>     Upload chunk size for modules.json payloads (default: 100)
   --upload             Enable upload after export
   --dry-run            Skip upload while still exporting bundles
+  --summary            Print per-namespace stats when jq is available
+  --tarball <path>     Create a tar.gz archive of the exported bundle
+  --keep-exporter      Preserve the temporary moduleDocsExporter build output
   --help               Show this message
 USAGE
 }
@@ -52,6 +58,20 @@ while [ $# -gt 0 ]; do
   --dry-run)
     DRY_RUN=true
     ;;
+  --summary)
+    SUMMARY=true
+    ;;
+  --tarball)
+    shift
+    if [ $# -eq 0 ]; then
+      echo "--tarball requires a path" >&2
+      exit 1
+    fi
+    TARBALL="$1"
+    ;;
+  --keep-exporter)
+    KEEP_EXPORTER=true
+    ;;
   --help | -h)
     usage
     exit 0
@@ -66,11 +86,38 @@ while [ $# -gt 0 ]; do
 done
 
 tmp_exporter="$(mktemp -d)"
-trap 'rm -rf "$tmp_exporter"' EXIT
-nix build --impure .#moduleDocsExporter -o "$tmp_exporter/result"
+tmp_payload=""
+cleanup() {
+  if [ -n "$tmp_payload" ] && [ -f "$tmp_payload" ]; then
+    rm -f "$tmp_payload"
+  fi
+  if [ "$KEEP_EXPORTER" != true ] && [ -d "$tmp_exporter" ]; then
+    rm -rf "$tmp_exporter"
+  fi
+}
+trap cleanup EXIT
+
+nix build .#moduleDocsExporter -o "$tmp_exporter/result"
 "$tmp_exporter/result/bin/module-docs-exporter" --format "$FORMATS" --out "$OUT_DIR"
 
 JSON_PATH="$OUT_DIR/json/modules.json"
+if [ "$SUMMARY" = true ]; then
+  if [ ! -f "$JSON_PATH" ]; then
+    echo "Summary requested but $JSON_PATH is missing" >&2
+  elif command -v jq >/dev/null 2>&1; then
+    echo "Namespace summary from $JSON_PATH"
+    jq '.namespaces | to_entries[] | { namespace: .key, stats: .value.stats }' "$JSON_PATH"
+  else
+    echo "Summary requested but jq is not available" >&2
+  fi
+fi
+
+if [ -n "$TARBALL" ]; then
+  mkdir -p "$(dirname "$TARBALL")"
+  tar -czf "$TARBALL" -C "$OUT_DIR" .
+  echo "Wrote bundle archive to $TARBALL"
+fi
+
 if [ "$UPLOAD" = true ] && [ "$DRY_RUN" = false ]; then
   if [ -z "$API_KEY" ]; then
     echo "API key required for upload" >&2
@@ -85,7 +132,6 @@ if [ "$UPLOAD" = true ] && [ "$DRY_RUN" = false ]; then
     exit 4
   fi
   tmp_payload=$(mktemp)
-  trap 'rm -f "$tmp_payload"' EXIT
   idx=1
   chunk_count=0
   printf '' >"$tmp_payload"
