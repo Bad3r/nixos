@@ -59,7 +59,9 @@ function renderModuleMarkdown(moduleData: any): string {
 
   lines.push(`- **Path:** \`${moduleData.path}\``);
   lines.push(`- **Namespace:** \`${moduleData.namespace}\``);
-  lines.push(`- **Option count:** ${moduleData.option_count ?? moduleData.options?.length ?? 0}`);
+  lines.push(
+    `- **Option count:** ${moduleData.option_count ?? moduleData.options?.length ?? 0}`,
+  );
   lines.push("");
 
   if (moduleData.description) {
@@ -82,7 +84,9 @@ function renderModuleMarkdown(moduleData: any): string {
       }
 
       if (option.description) {
-        lines.push(`- **Description:** ${option.description.replace(/\s+/g, " ").trim()}`);
+        lines.push(
+          `- **Description:** ${option.description.replace(/\s+/g, " ").trim()}`,
+        );
       }
 
       if (option.default_value !== undefined && option.default_value !== null) {

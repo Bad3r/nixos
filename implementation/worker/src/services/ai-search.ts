@@ -55,7 +55,9 @@ export async function performHybridSearch(
   const autorag = env.AI.autorag(autoragName);
 
   if (generateResponse || mode === "ai") {
-    const response = (await autorag.aiSearch(baseRequest as any)) as unknown as {
+    const response = (await autorag.aiSearch(
+      baseRequest as any,
+    )) as unknown as {
       data: AutoRagItem[];
       response: string;
     };

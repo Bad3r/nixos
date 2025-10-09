@@ -12,8 +12,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const [inputPath = ".cache/module-docs/modules-extracted.json", outputDir = ".cache/module-docs/markdown"] =
-  process.argv.slice(2);
+const [
+  inputPath = ".cache/module-docs/modules-extracted.json",
+  outputDir = ".cache/module-docs/markdown",
+] = process.argv.slice(2);
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -62,7 +64,10 @@ function renderOption(optionName, option) {
     lines.push(option.description.trim());
   }
 
-  if (Object.prototype.hasOwnProperty.call(option, "example") && option.example !== null) {
+  if (
+    Object.prototype.hasOwnProperty.call(option, "example") &&
+    option.example !== null
+  ) {
     const renderedExample = toMarkdownValue(option.example);
     if (renderedExample) {
       lines.push("- **Example:**");
@@ -155,7 +160,9 @@ function main() {
     fs.writeFileSync(filePath, markdown, "utf-8");
   });
 
-  console.log(`Generated Markdown for ${modules.length} module(s) in ${outputDir}`);
+  console.log(
+    `Generated Markdown for ${modules.length} module(s) in ${outputDir}`,
+  );
 }
 
 main();

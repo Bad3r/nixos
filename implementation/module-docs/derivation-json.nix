@@ -1,0 +1,82 @@
+{
+  lib,
+  pkgs,
+  self,
+  inputs,
+  flakeRoot ? ../../.,
+}:
+let
+  data = import ./data.nix {
+    inherit
+      lib
+      flakeRoot
+      self
+      inputs
+      ;
+    system = pkgs.system;
+  };
+  docLib = import ./lib { inherit lib; };
+
+  normalizeModuleRecord = module: {
+    inherit (module)
+      namespace
+      status
+      error
+      sourcePath
+      attrPath
+      attrPathString
+      skipReason
+      tags
+      meta
+      options
+      imports
+      examples
+      config
+      ;
+  };
+
+  namespaces = data.normalizedNamespaces;
+  normalizedNamespaces = lib.mapAttrs (_: modules: map normalizeModuleRecord modules) namespaces;
+  errorsNdjson = lib.concatMap (modules: lib.filter (mod: mod.status == "error") modules) (
+    lib.attrValues normalizedNamespaces
+  );
+
+  metadata = {
+    generator = "module-docs-json";
+    system = pkgs.system;
+    nixpkgsRevision = inputs.nixpkgs.rev or inputs.nixpkgs.shortRev or null;
+    flakeRevision = self.rev or null;
+    moduleCount = lib.length data.modules;
+    namespaceCount = lib.length (lib.attrNames normalizedNamespaces);
+  };
+
+  jsonBody = {
+    inherit metadata;
+    namespaces = lib.mapAttrs (name: modules: {
+      stats = docLib.summarizeModules modules;
+      modules = modules;
+    }) normalizedNamespaces;
+  };
+
+  errorsPayload = map (module: {
+    inherit (module)
+      namespace
+      attrPathString
+      error
+      sourcePath
+      ;
+  }) errorsNdjson;
+
+in
+pkgs.runCommand "module-docs-json" { } ''
+    out_dir=$out/share/module-docs
+    mkdir -p "$out_dir"
+    cat >"$out_dir/modules.json" <<'JSON'
+  ${builtins.toJSON jsonBody}
+  JSON
+    ${lib.optionalString (errorsPayload != [ ]) ''
+          cat >"$out_dir/errors.ndjson" <<'NDJSON'
+      ${lib.concatStringsSep "\n" (map builtins.toJSON errorsPayload)}
+      NDJSON
+    ''}
+''

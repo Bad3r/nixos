@@ -219,11 +219,11 @@ if [ "$SEMANTIC_VERSION" != "ai-search" ]; then
   echo "2. Ingest modules (requires API_KEY):"
   if [ -n "${API_KEY:-}" ]; then
     echo "   curl -X POST \"$WORKER_URL/api/admin/ai-search/ingest\" \\"
-    echo "        -H \"X-API-Key: \$API_KEY\""
+    echo '        -H "X-API-Key: $API_KEY"'
   else
     echo "   export API_KEY='your-api-key-from-github-secrets'"
     echo "   curl -X POST \"$WORKER_URL/api/admin/ai-search/ingest\" \\"
-    echo "        -H \"X-API-Key: \$API_KEY\""
+    echo '        -H "X-API-Key: $API_KEY"'
   fi
   echo ""
   echo "3. Test again:"

@@ -218,11 +218,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: nix develop -c extract-modules
+      - run: nix run .#module-docs-exporter -- --format json --out .cache/module-docs
       - run: |
           curl -X POST https://api.nixos-modules.workers.dev/api/modules/batch \
             -H "X-API-Key: ${{ secrets.API_KEY }}" \
-            -d @modules.json
+            -d @.cache/module-docs/json/modules.json
 ```
 
 ## 🐛 Troubleshooting

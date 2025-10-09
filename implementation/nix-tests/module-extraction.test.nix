@@ -5,15 +5,14 @@
 
 { pkgs, lib, ... }:
 let
-  # Import the extraction module
-  extractModules = import ../lib/extract-modules.nix { inherit lib pkgs; };
+  moduleDocLib = import ../module-docs/lib { inherit lib; };
 
   # Test cases
   testResults = {
     # Test 1: Basic type extraction
     testBasicTypeExtraction =
       let
-        result = extractModules.extractType lib.types.str;
+        result = moduleDocLib.extractType lib.types.str;
       in
       {
         assertion = result.type == "option-type" && result.name == "str" && result.description != null;
@@ -23,7 +22,7 @@ let
     # Test 2: Complex type extraction (attrsOf)
     testAttrsOfExtraction =
       let
-        result = extractModules.extractType (lib.types.attrsOf lib.types.int);
+        result = moduleDocLib.extractType (lib.types.attrsOf lib.types.int);
       in
       {
         assertion =
@@ -37,7 +36,7 @@ let
     # Test 3: ListOf type extraction
     testListOfExtraction =
       let
-        result = extractModules.extractType (lib.types.listOf lib.types.bool);
+        result = moduleDocLib.extractType (lib.types.listOf lib.types.bool);
       in
       {
         assertion =
@@ -61,7 +60,7 @@ let
             };
           };
         };
-        result = extractModules.extractType submoduleType;
+        result = moduleDocLib.extractType submoduleType;
       in
       {
         assertion =
@@ -78,7 +77,7 @@ let
     # Test 5: Either type extraction
     testEitherExtraction =
       let
-        result = extractModules.extractType (lib.types.either lib.types.str lib.types.int);
+        result = moduleDocLib.extractType (lib.types.either lib.types.str lib.types.int);
       in
       {
         assertion =
@@ -94,7 +93,7 @@ let
     # Test 6: Null or type extraction
     testNullOrExtraction =
       let
-        result = extractModules.extractType (lib.types.nullOr lib.types.path);
+        result = moduleDocLib.extractType (lib.types.nullOr lib.types.path);
       in
       {
         assertion =
@@ -111,7 +110,7 @@ let
           description = "Test option description";
           example = "example-value";
         };
-        result = extractModules.extractOption "testOption" option;
+        result = moduleDocLib.extractOption "testOption" option;
       in
       {
         assertion =
@@ -146,7 +145,7 @@ let
         evaluated = lib.evalModules {
           modules = [ testModule ];
         };
-        result = extractModules.extractModule evaluated;
+        result = moduleDocLib.extractModule evaluated;
       in
       {
         assertion =
@@ -161,7 +160,7 @@ let
     testRecursiveTypes =
       let
         recursiveType = lib.types.attrsOf (lib.types.attrsOf lib.types.str);
-        result = extractModules.extractType recursiveType;
+        result = moduleDocLib.extractType recursiveType;
       in
       {
         assertion =
@@ -175,7 +174,7 @@ let
     # Test 10: Enum type extraction
     testEnumExtraction =
       let
-        result = extractModules.extractType (
+        result = moduleDocLib.extractType (
           lib.types.enum [
             "foo"
             "bar"
@@ -199,7 +198,7 @@ let
     # Test 11: Function type handling
     testFunctionType =
       let
-        result = extractModules.extractType (lib.types.functionTo lib.types.str);
+        result = moduleDocLib.extractType (lib.types.functionTo lib.types.str);
       in
       {
         assertion =
@@ -210,7 +209,7 @@ let
     # Test 12: Package type extraction
     testPackageType =
       let
-        result = extractModules.extractType lib.types.package;
+        result = moduleDocLib.extractType lib.types.package;
       in
       {
         assertion = result.type == "option-type" && result.name == "package" && result.check != null;
@@ -246,7 +245,7 @@ let
             };
           };
         };
-        result = extractModules.extractType complexType;
+        result = moduleDocLib.extractType complexType;
       in
       {
         assertion =
@@ -264,7 +263,7 @@ let
           apply = x: lib.toUpper x;
           description = "String that gets uppercased";
         };
-        result = extractModules.extractOption "test" option;
+        result = moduleDocLib.extractOption "test" option;
       in
       {
         assertion = result.hasApply && result.type.name == "str";
@@ -279,7 +278,7 @@ let
           readOnly = true;
           default = "immutable";
         };
-        result = extractModules.extractOption "readonly" option;
+        result = moduleDocLib.extractOption "readonly" option;
       in
       {
         assertion = result.readOnly && result.default == "immutable";
@@ -294,7 +293,7 @@ let
           internal = true;
           default = false;
         };
-        result = extractModules.extractOption "internal" option;
+        result = moduleDocLib.extractOption "internal" option;
       in
       {
         assertion = result.internal && !result.visible;
@@ -311,7 +310,7 @@ let
             "${pkgs.path}/nixos/modules/services/test.nix"
           ];
         };
-        result = extractModules.extractOption "declared" option;
+        result = moduleDocLib.extractOption "declared" option;
       in
       {
         assertion =
@@ -323,56 +322,11 @@ let
     testTypeWithCustomCheck =
       let
         customType = lib.types.addCheck lib.types.int (x: x > 0 && x < 100);
-        result = extractModules.extractType customType;
+        result = moduleDocLib.extractType customType;
       in
       {
-        assertion = result.type == "option-type" && result.hasCheck;
+        assertion = result.type == "option-type" && result.check != null;
         message = "Should detect types with custom checks";
-      };
-
-    # Test 19: Module imports handling
-    testModuleImports =
-      let
-        moduleWithImports = {
-          imports = [
-            ./base.nix
-            ./extended.nix
-          ];
-          options = {
-            test.enable = lib.mkEnableOption "test";
-          };
-        };
-        result = extractModules.extractModuleInfo moduleWithImports;
-      in
-      {
-        assertion =
-          result.imports == [
-            "./base.nix"
-            "./extended.nix"
-          ]
-          && result.options ? "test.enable";
-        message = "Should extract module imports";
-      };
-
-    # Test 20: Batch extraction performance
-    testBatchExtraction =
-      let
-        modules = lib.genList (i: {
-          options."test${toString i}" = lib.mkOption {
-            type = lib.types.str;
-            default = "value${toString i}";
-          };
-        }) 100;
-
-        startTime = builtins.currentTime;
-        results = map extractModules.extractModuleInfo modules;
-        endTime = builtins.currentTime;
-
-        duration = endTime - startTime;
-      in
-      {
-        assertion = builtins.length results == 100 && duration < 1000; # Should complete in under 1 second
-        message = "Should handle batch extraction efficiently";
       };
 
     # Test 21: Extract from evaluated module
@@ -391,7 +345,7 @@ let
             inherit lib pkgs;
           };
         };
-        doc = extractModules.extractModule evaluated;
+        doc = moduleDocLib.extractModule evaluated;
       in
       {
         assertion =

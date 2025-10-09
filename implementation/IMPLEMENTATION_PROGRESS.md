@@ -46,25 +46,15 @@
 
 ## 🔄 In Progress Tasks
 
-### 5. Module Extraction from Nix (0%)
+### 5. Module Extraction from Nix (100%)
 
-**Status**: Not started
-**Required**:
+**Status**: Complete
+**Highlights**:
 
-```nix
-# implementation/nix/extract-modules.nix
-{ config, lib, pkgs, ... }:
-let
-  extractModule = path: module: {
-    inherit path;
-    name = lib.last (lib.splitString "/" path);
-    namespace = lib.head (lib.splitString "/" (lib.removePrefix "modules/" path));
-    # ... extraction logic
-  };
-in {
-  moduleData = pkgs.writeText "modules.json" (builtins.toJSON allModules);
-}
-```
+- `implementation/module-docs/graph.nix` deterministically walks `flake.nixosModules` and `flake.homeManagerModules`, honors `docExtraction.skipReason`, and emits normalized module docs.
+- Shared helpers now live in `implementation/module-docs/lib/` (`types`, `render`, `metrics`) with regression coverage in `implementation/nix-tests/module-extraction.test.nix`.
+- Derivations `implementation/module-docs/derivation-json.nix` and `implementation/module-docs/derivation-markdown.nix` feed `packages/module-docs-json` and `packages/module-docs-markdown`.
+- `packages/module-docs-exporter` and `scripts/module-docs-upload.sh` provide CLI tooling plus optional batch uploads for the Workers API.
 
 ---
 
