@@ -7,12 +7,15 @@ let
     if lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules then
       lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules
     else
-      throw ("Unknown NixOS app '" + name + "' (virtualization:virtualbox)");
+      throw ("Unknown NixOS app '" + name + "' (virtualization:libvirt)");
   getApp = rawHelpers.getApp or fallbackGetApp;
-  virtualboxApp = getApp "virtualbox";
+  appImports = map getApp [
+    "qemu"
+    "virt-manager"
+  ];
 in
 {
-  flake.nixosModules.virtualization.virtualbox =
+  flake.nixosModules.virtualization.libvirt =
     {
       config,
       lib,
@@ -23,22 +26,30 @@ in
       owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] null config;
     in
     {
-      imports = [ virtualboxApp ];
+      imports = appImports;
 
       config = lib.mkMerge [
         {
-          virtualisation.virtualbox.host = {
+          virtualisation.libvirtd = {
             enable = true;
-            package = pkgs.virtualbox;
+            qemu = {
+              package = pkgs.qemu_kvm;
+              ovmf = {
+                enable = true;
+                packages = [ pkgs.OVMFFull.fd ];
+              };
+              runAsRoot = false;
+            };
           };
 
-          nixpkgs.allowedUnfreePackages = lib.mkAfter [
-            "virtualbox"
-            "virtualbox-extpack"
-          ];
+          programs.virt-manager.enable = true;
         }
         (lib.mkIf (owner != null) {
-          users.users.${owner}.extraGroups = lib.mkAfter [ "vboxusers" ];
+          users.users.${owner}.extraGroups = lib.mkAfter [
+            "kvm"
+            "libvirtd"
+            "qemu-libvirtd"
+          ];
         })
       ];
     };
