@@ -10,6 +10,8 @@ let
     inherit (pkgs) system;
   };
   docLib = import ./lib { inherit lib; };
+  inputsAttr = self.inputs or { };
+  nixpkgsInput = inputsAttr.nixpkgs or { };
 
   normalizeModuleRecord = module: {
     inherit (module)
@@ -38,7 +40,7 @@ let
   metadata = {
     generator = "module-docs-json";
     inherit (pkgs) system;
-    nixpkgsRevision = inputs.nixpkgs.rev or inputs.nixpkgs.shortRev or null;
+    nixpkgsRevision = nixpkgsInput.rev or nixpkgsInput.shortRev or null;
     flakeRevision = self.rev or null;
     moduleCount = lib.length data.modules;
     namespaceCount = lib.length (lib.attrNames normalizedNamespaces);
