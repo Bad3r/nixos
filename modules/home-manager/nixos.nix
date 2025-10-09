@@ -17,8 +17,11 @@
 
       config.home-manager = {
         useGlobalPkgs = true;
-        extraSpecialArgs.hasGlobalPkgs = true;
-        backupFileExtension = ".hm.bk";
+        extraSpecialArgs = {
+          hasGlobalPkgs = true;
+          inherit inputs;
+        };
+        backupFileExtension = "hm.bk";
 
         users.${config.flake.lib.meta.owner.username}.imports =
           let
