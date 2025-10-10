@@ -58,11 +58,31 @@
                     config.treefmt.build.wrapper
                     pkgs.git
                     pkgs.coreutils
+                    pkgs.util-linux
                   ];
                   text = ''
                     set -euo pipefail
 
-                    export TREEFMT_NO_CACHE=1
+                    cache_root="''${TREEFMT_CACHE_ROOT:-$PWD/.git/treefmt-cache}"
+                    if ! mkdir -p "''${cache_root}" 2>/dev/null; then
+                      cache_root="''${TMPDIR:-/tmp}/treefmt-cache"
+                      mkdir -p "''${cache_root}"
+                    fi
+
+                    cache_home="''${cache_root}/cache"
+                    mkdir -p "''${cache_home}"
+
+                    lock_file="''${cache_root}/cache.lock"
+                    lock_timeout="''${TREEFMT_CACHE_TIMEOUT:-30}"
+
+                    exec 9>"''${lock_file}"
+                    if ! flock -w "''${lock_timeout}" 9; then
+                      echo "treefmt: failed to acquire cache lock within ''${lock_timeout}s" >&2
+                      exit 1
+                    fi
+                    trap 'flock -u 9' EXIT
+
+                    export XDG_CACHE_HOME="''${cache_home}"
 
                     if [ "$#" -gt 0 ]; then
                       treefmt "$@"
