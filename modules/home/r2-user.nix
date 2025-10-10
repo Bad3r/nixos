@@ -6,7 +6,7 @@
   # from ~/.config/cloudflare/r2/env.
   #
   # Secrets: Do NOT store credentials in Nix. Create the env file securely,
-  # preferably via sops as outlined in docs/sops-nixos.md and
+  # preferably via sops as outlined in docs/sops/README.md and
   # docs/sops-dotfile.example.yaml. Example content:
   #
   #   # ~/.config/cloudflare/r2/env (0400)
@@ -56,7 +56,7 @@
           rce="''${RCLONE_CONFIG_R2_ENDPOINT:-}"
           set -u
           if [ -z "''${ak}" ] || [ -z "''${sk}" ]; then
-            echo "[r2] Missing AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY. See docs/sops-nixos.md." >&2
+            echo "[r2] Missing AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY. See docs/sops/README.md." >&2
             exit 1
           fi
 
@@ -88,7 +88,7 @@
           aeu="''${AWS_ENDPOINT_URL:-}"
           set -u
           if [ -z "''${ak}" ] || [ -z "''${sk}" ]; then
-            echo "[r2s5] Missing AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY. See docs/sops-nixos.md." >&2
+            echo "[r2s5] Missing AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY. See docs/sops/README.md." >&2
             exit 1
           fi
 
@@ -128,7 +128,7 @@
             # optional alternative:
             # AWS_ENDPOINT_URL=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
 
-          See docs/sops-nixos.md and docs/sops-dotfile.example.yaml to manage
+          See docs/sops/README.md and docs/sops-dotfile.example.yaml to manage
           this file with sops (recommended).
         '';
 

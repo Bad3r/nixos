@@ -2,7 +2,7 @@
   Package: codex
   Description: Lightweight coding agent that runs in your terminal.
   Homepage: https://github.com/openai/codex
-  Documentation: https://github.com/openai/codex/blob/main/docs/getting-started.md
+  Documentation: https://github.com/openai/codex/tree/main/docs
   Repository: https://github.com/openai/codex
 
   Summary:

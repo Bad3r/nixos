@@ -1,6 +1,6 @@
 # Home Manager Aggregator (`flake.homeManagerModules`)
 
-This repository exposes Home Manager modules via a dedicated aggregator so they compose exactly like system modules.
+This repository exposes Home Manager modules via a dedicated aggregator so they compose exactly like system modules. For the bigger picture (system aggregators, roles, hosts, tooling), see `docs/configuration-architecture.md`.
 
 ## Namespace Layout
 
@@ -21,10 +21,10 @@ _: {
   };
 }
 
-# modules/messaging-apps/discord.nix
+# modules/terminal/alacritty.nix
 _: {
-  flake.homeManagerModules.gui = { pkgs, ... }: {
-    home.packages = [ pkgs.discord ];
+  flake.homeManagerModules.gui = _: {
+    programs.alacritty.enable = true;
   };
 }
 ```
@@ -32,9 +32,9 @@ _: {
 Per-app modules live under `apps.<name>` and **must** be functions:
 
 ```nix
-# modules/apps/kitty.nix
+# modules/hm-apps/kitty.nix
 _: {
-  flake.homeManagerModules.apps.kitty = { pkgs, ... }: {
+  flake.homeManagerModules.apps.kitty = _: {
     programs.kitty.enable = true;
   };
 }
@@ -55,20 +55,21 @@ defaultAppImports = [
   "bat"
   "eza"
   "fzf"
+  "ghq-mirror"
   "kitty"
   "alacritty"
   "wezterm"
 ];
 ```
 
-Hosts that need additional Home Manager apps can append to the import list manually or create their own helper modules. Update `defaultAppImports` when you want the baseline profile to carry another app by default.
+Hosts that need additional Home Manager apps can append to the import list manually or create their own helper modules. The baked-in defaults (including `ghq-mirror` for mirroring upstream repos) are defined in `modules/home-manager/nixos.nix`; update that list and this example together whenever you add or remove a canonical app.
 
 ## Authoring Rules
 
 1. **Always export a module value** – avoid `flake.homeManagerModules.base.home.sessionVariables = …;` style dot assignments.
 2. **Guard optional modules** – if an app depends on a secret or package, check for availability in the module body.
 3. **Keep names stable** – the key under `apps.<name>` is what the glue layer references. Prefer lowercase hyphen-less identifiers (`kitty`, `wezterm`, `codex`).
-4. **Document secrets** – when an app needs credentials, reference `docs/sops-nixos.md` so readers know how to provide them.
+4. **Document secrets** – when an app needs credentials, reference `docs/sops/README.md` so readers know how to provide them.
 
 ## Validation
 
