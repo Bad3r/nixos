@@ -54,6 +54,7 @@ jobs:
         timeout-minutes: 20 # Increased for full repository extraction (431+ modules)
         run: |
           set -euo pipefail
+          export MODULE_DOCS_NIX_FLAGS='--override-input nix-logseq-git-flake path:./stubs/nix-logseq-git-flake'
           echo "Extracting ALL Nix modules via derivation-backed pipeline..."
           ./scripts/module-docs-upload.sh --format json,md --out .cache/module-docs --dry-run --summary
 

@@ -87,6 +87,11 @@ done
 
 tmp_exporter="$(mktemp -d)"
 tmp_payload=""
+build_args=()
+if [ -n "${MODULE_DOCS_NIX_FLAGS:-}" ]; then
+  # shellcheck disable=SC2206
+  build_args=(${MODULE_DOCS_NIX_FLAGS})
+fi
 cleanup() {
   if [ -n "$tmp_payload" ] && [ -f "$tmp_payload" ]; then
     rm -f "$tmp_payload"
@@ -98,7 +103,7 @@ cleanup() {
 trap cleanup EXIT
 SYSTEM_ATTR=${NIX_SYSTEM:-$(nix eval --impure --raw --expr 'builtins.currentSystem')}
 EXPORTER_ATTR=".#packages.${SYSTEM_ATTR}.module-docs-exporter"
-nix build "$EXPORTER_ATTR" -o "$tmp_exporter/result"
+nix build "${build_args[@]}" "$EXPORTER_ATTR" -o "$tmp_exporter/result"
 "$tmp_exporter/result/bin/module-docs-exporter" --format "$FORMATS" --out "$OUT_DIR"
 
 JSON_PATH="$OUT_DIR/json/modules.json"
