@@ -10,6 +10,7 @@ UPLOAD=false
 SUMMARY=false
 TARBALL=""
 KEEP_EXPORTER=false
+SKIP_EXPORT=false
 
 usage() {
   cat <<USAGE
@@ -24,6 +25,7 @@ Usage: $0 [options]
   --summary            Print per-namespace stats when jq is available
   --tarball <path>     Create a tar.gz archive of the exported bundle
   --keep-exporter      Preserve the temporary moduleDocsExporter build output
+  --skip-export        Skip running the exporter and reuse existing bundle
   --help               Show this message
 USAGE
 }
@@ -72,6 +74,9 @@ while [ $# -gt 0 ]; do
   --keep-exporter)
     KEEP_EXPORTER=true
     ;;
+  --skip-export)
+    SKIP_EXPORT=true
+    ;;
   --help | -h)
     usage
     exit 0
@@ -101,10 +106,17 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
-SYSTEM_ATTR=${NIX_SYSTEM:-$(nix eval --impure --raw --expr 'builtins.currentSystem')}
-EXPORTER_ATTR=".#packages.${SYSTEM_ATTR}.module-docs-exporter"
-nix build "${build_args[@]}" "$EXPORTER_ATTR" -o "$tmp_exporter/result"
-"$tmp_exporter/result/bin/module-docs-exporter" --format "$FORMATS" --out "$OUT_DIR"
+if [ "$SKIP_EXPORT" != true ]; then
+  SYSTEM_ATTR=${NIX_SYSTEM:-}
+  if [ -z "$SYSTEM_ATTR" ]; then
+    SYSTEM_ATTR=$(nix eval --impure --raw --expr 'builtins.currentSystem')
+  fi
+  EXPORTER_ATTR=".#packages.${SYSTEM_ATTR}.module-docs-exporter"
+  nix build "${build_args[@]}" "$EXPORTER_ATTR" -o "$tmp_exporter/result"
+  "$tmp_exporter/result/bin/module-docs-exporter" --format "$FORMATS" --out "$OUT_DIR"
+else
+  echo "Skipping module export; reusing bundle at $OUT_DIR"
+fi
 
 JSON_PATH="$OUT_DIR/json/modules.json"
 if [ "$SUMMARY" = true ]; then
