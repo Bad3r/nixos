@@ -123,14 +123,6 @@ Host definitions live under `configurations.nixos.<host>.module` (typed as `lib.
 | Git hooks / formatting | `modules/meta/git-hooks.nix`                              | Enables `nixfmt-rfc-style`, `deadnix`, `statix`, `typos`, managed file drift detection, etc.                       |
 | Generation manager     | `modules/meta/generation-manager.nix`                     | Provides the `generation-manager` CLI (packaged under `config.flake.packages.<system>.generation-manager`).        |
 
-### Module documentation bundle
-
-- `nix build .#moduleDocsBundle` produces `share/module-docs/modules.json` and `modules.md` without invoking impure scripts. The bundle also emits `errors.ndjson` when extractions fail.
-- `nix run .#module-docs-exporter -- --format json,md --out .cache/module-docs` copies the bundle into a working directory. The exporter accepts comma-separated formats, `--print-paths`, and inherits the derivation outputs, so it runs without additional builds.
-- `scripts/module-docs-upload.sh --dry-run` seeds `.cache/module-docs` via the exporter and previews upload batches. Add `--upload --api-key $MODULE_DOCS_API_KEY` (plus optional `--api-endpoint` and `--chunk-size`) to stream JSON chunks to the Cloudflare Worker batch API.
-- Modules can self-suppress docs with `docExtraction.skip = true;` or provide human context via `docExtraction.skipReason = "explain";`; the exporter surfaces both fields, and `checks.module-docs` fails when a module errors without either a skip flag or explicit reason.
-- Schema details for downstream consumers live in `docs/module-docs-schema.md` and include option layout, metadata, and skip semantics—update it whenever the JSON surface changes.
-
 **Dev shell onboarding:**
 
 ```bash
@@ -175,15 +167,15 @@ Additional diagnostics:
 
 ## 8. Resource & Reference Index
 
-| Topic                     | Local Reference                         | Description                                                                             |
-| ------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------- |
-| Dendritic overview        | `docs/dendritic-pattern-reference.md`   | Strategy for auto-imports and aggregator usage.                                         |
-| Module authoring          | `docs/module-structure-guide.md`        | Patterns for module shape, namespaces, and migration tips.                              |
-| Home Manager details      | `docs/home-manager-aggregator.md`       | Expanded coverage of HM namespace layout.                                               |
-| App metadata style        | `docs/apps-module-style-guide.md`       | Header / doc block requirements for `modules/apps`.                                     |
-| SOPS practices            | `docs/sops/` directory                  | Secrets workflow (see generated `.sops.yaml`).                                          |
-| Local NixOS manual mirror | `nixos_docs_md/`                        | Markdown mirror of the upstream NixOS manual (search with `rg` or open `options.html`). |
-| Home Manager manual       | `/home/vx/git/home-manager/docs/manual` | Upstream HM manual (Markdown), including `writing-modules`.                             |
+| Topic                     | Local Reference                       | Description                                                                                         |
+| ------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Dendritic overview        | `docs/dendritic-pattern-reference.md` | Strategy for auto-imports and aggregator usage.                                                     |
+| Module authoring          | `docs/module-structure-guide.md`      | Patterns for module shape, namespaces, and migration tips.                                          |
+| Home Manager details      | `docs/home-manager-aggregator.md`     | Expanded coverage of HM namespace layout.                                                           |
+| App metadata style        | `docs/apps-module-style-guide.md`     | Header / doc block requirements for `modules/apps`.                                                 |
+| SOPS practices            | `docs/sops/` directory                | Secrets workflow (see generated `.sops.yaml`).                                                      |
+| Local NixOS manual mirror | `nixos_docs_md/`                      | Markdown mirror of the upstream NixOS manual (search with `rg` or open `options.html`).             |
+| Home Manager manual       | `docs/manual/writing-modules.md`      | Pointers to the local `/home/vx/git/home-manager/docs/manual/` mirror, including `writing-modules`. |
 
 **Handy commands for exploration:**
 

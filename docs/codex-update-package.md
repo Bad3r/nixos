@@ -36,6 +36,10 @@ nix build .#packages.x86_64-linux.codex
 
 The build will fail with a fixed-output derivation mismatch and print both the placeholder and the expected SRI. Copy the `got:` value from that error message into `cargoHash` in `packages/codex/default.nix`. **Do not** attempt to recalculate the vendor hash via `cargo vendor`/`nix hash path`; those workflows can drift and waste time.
 
+> ⚠️ **If you see `No such file or directory` for `codex-0.0.0-vendor-staging`**
+>
+> That means the hash produced by the build does not match the value you recorded. Nix still leaves the correct vendor tree under `/nix/store/<hash>-codex-0.0.0-vendor-staging`; run `nix hash path --type sha256 --sri /nix/store/<hash>-codex-0.0.0-vendor-staging` and copy the result back into `cargoHash` in `packages/codex/default.nix`.
+
 If you already hit the hash mismatch and updated `cargoHash`, stop here—there is no need to rebuild just to see it succeed.
 
 ## 5. Defer Final Verification

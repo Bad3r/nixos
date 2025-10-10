@@ -21,10 +21,10 @@ _: {
   };
 }
 
-# modules/messaging-apps/discord.nix
+# modules/terminal/alacritty.nix
 _: {
-  flake.homeManagerModules.gui = { pkgs, ... }: {
-    home.packages = [ pkgs.discord ];
+  flake.homeManagerModules.gui = _: {
+    programs.alacritty.enable = true;
   };
 }
 ```
@@ -32,9 +32,9 @@ _: {
 Per-app modules live under `apps.<name>` and **must** be functions:
 
 ```nix
-# modules/apps/kitty.nix
+# modules/hm-apps/kitty.nix
 _: {
-  flake.homeManagerModules.apps.kitty = { pkgs, ... }: {
+  flake.homeManagerModules.apps.kitty = _: {
     programs.kitty.enable = true;
   };
 }
@@ -69,7 +69,7 @@ Hosts that need additional Home Manager apps can append to the import list manua
 1. **Always export a module value** – avoid `flake.homeManagerModules.base.home.sessionVariables = …;` style dot assignments.
 2. **Guard optional modules** – if an app depends on a secret or package, check for availability in the module body.
 3. **Keep names stable** – the key under `apps.<name>` is what the glue layer references. Prefer lowercase hyphen-less identifiers (`kitty`, `wezterm`, `codex`).
-4. **Document secrets** – when an app needs credentials, reference `docs/sops/sops-nixos.md` so readers know how to provide them.
+4. **Document secrets** – when an app needs credentials, reference `docs/sops/README.md` so readers know how to provide them.
 
 ## Validation
 

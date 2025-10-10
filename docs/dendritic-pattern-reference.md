@@ -94,7 +94,7 @@ Additional helpers:
 
 ## Secrets and SOPS
 
-Secrets are managed with `sops-nix`. See `docs/sops/sops-nixos.md` for the house style and `docs/sops/secrets-act.md` for the `act` helper secret. Secret templates expose stable paths (e.g. `/etc/act/secrets.env`) and only render when the encrypted file exists.
+Secrets are managed with `sops-nix`. See `docs/sops/README.md` for the house style and `docs/sops/secrets-act.md` for the `act` helper secret. Secret templates expose stable paths (e.g. `/etc/act/secrets.env`) and only render when the encrypted file exists.
 
 ## Migration Checklist
 
@@ -108,7 +108,8 @@ When adopting an existing configuration into the Dendritic Pattern:
 
 ## Further Reading
 
-- `docs/module-structure-guide.md` – concrete module authoring patterns.
-- `docs/home-manager-aggregator.md` – how Home Manager app aggregation works.
-- `docs/INPUT-BRANCHES-PLAN.md` – managing vendored flake inputs.
-- `docs/NIXOS_CONFIGURATION_REVIEW_CHECKLIST.md` – review procedure for the current host.
+- `docs/configuration-architecture.md` – overall map of flakes, aggregators, hosts, and validation workflows.
+- `docs/module-structure-guide.md` – concrete module authoring patterns for system and Home Manager code.
+- `docs/home-manager-aggregator.md` – how Home Manager app aggregation works in this repository.
+- `docs/apps-module-style-guide.md` – expectations for per-app module headers and option documentation.
+- `docs/sops/README.md` – secrets workflow, policy regeneration, and validation checklist.
