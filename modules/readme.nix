@@ -124,7 +124,7 @@
           ```
 
           For a complete, type-correct composition plan and guidance, see
-          `docs/RFC-001.md`.
+          `docs/configuration-architecture.md`.
 
         '';
 
