@@ -30,8 +30,17 @@ let
     let
       data = record.data or { };
       rawAttrPath = data.attrPath or record.attrPath or [ ];
-      attrPathList = if builtins.isList rawAttrPath then rawAttrPath else [ rawAttrPath ];
-      attrPathString = data.attrPathString or builtins.concatStringsSep "." (map toString attrPathList);
+      attrPathList =
+        if builtins.isList rawAttrPath then
+          rawAttrPath
+        else if builtins.isString rawAttrPath then
+          [ rawAttrPath ]
+        else
+          [
+            toString
+            rawAttrPath
+          ];
+      attrPathString = data.attrPathString or lib.concatStringsSep "." (map toString attrPathList);
     in
     {
       inherit (record)
