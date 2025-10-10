@@ -25,7 +25,7 @@ _: {
                       - *owner_bad3r
                       - *host_primary
 
-              - path_regex: secrets/.+\.(yaml|yml|json|env|ini)$
+              - path_regex: secrets/.+\.(yaml|yml|json|env|ini|asc)$
                 key_groups:
                   - age:
                       - *owner_bad3r
