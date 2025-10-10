@@ -1,6 +1,6 @@
 # Module Structure Guide
 
-This document shows how modules are authored and consumed in this flake-parts + import-tree repository. Read it together with `docs/DENDRITIC_PATTERN_REFERENCE.md` for the overall pattern.
+This document shows how modules are authored and consumed in this flake-parts + import-tree repository. Start with `docs/configuration-architecture.md` for the end-to-end architecture map, then return here for module-level authoring patterns. `docs/dendritic-pattern-reference.md` focuses on the auto-import foundations that make these patterns possible.
 
 ## Key Concepts
 

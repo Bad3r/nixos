@@ -276,7 +276,7 @@
                     if command -v rg >/dev/null 2>&1; then
                       if rg -nU --pcre2 -S --glob 'modules/roles/**/*.nix' -e "$PATTERN" >/dev/null; then
                         echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/**/*.nix" >&2
-                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/RFC-001.md)." >&2
+                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/configuration-architecture.md)." >&2
                         echo "  Note: PCRE2 guard may flag commented or stringified code; triage manually if needed." >&2
                         rg -nU --pcre2 -S --glob 'modules/roles/**/*.nix' -e "$PATTERN" || true
                         exit 1
@@ -284,7 +284,7 @@
                     else
                       if grep -R -n -E "$PATTERN" --include='*.nix' modules/roles >/dev/null 2>&1; then
                         echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/**/*.nix" >&2
-                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/RFC-001.md)." >&2
+                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/configuration-architecture.md)." >&2
                         grep -R -n -E "$PATTERN" --include='*.nix' modules/roles || true
                         exit 1
                       fi

@@ -1,11 +1,11 @@
 # Apps Module Style Guide
 
-This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it alongside `modules/apps/ent.nix`, which serves as the canonical template.
+This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it alongside `modules/apps/ent.nix`, which serves as the canonical template, and refer to `docs/configuration-architecture.md` for the bigger-picture aggregator and helper context.
 
 ## Source Gathering
 
 - Before editing a module header, confirm every fact from an authoritative source.
-- Start by inspecting the pinned nixpkgs expression for the package (`inputs/nixpkgs/.../<tool>/default.nix`) to capture `description`, `homepage`, current version, and upstream repository metadata.
+- Start by inspecting the pinned nixpkgs expression for the package to capture `description`, `homepage`, current version, and upstream repository metadata.
 - Use Context7 documentation fetches, DeepWiki repository insights, or an online search to cross-check details with official project documentation. Prioritize primary sources (project docs, release notes, upstream repository README).
 - Identify the canonical user manual or API reference and verify that the URL resolves (follow redirects when necessary). Prefer HTTPS endpoints maintained by the project owner.
 - Document which source satisfied each field in your working notes so reviewers can replay the lookup if needed.
@@ -13,7 +13,7 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
 ## Scope
 
 - Applies to every NixOS app module exported under `flake.nixosModules.apps`.
-- Complements the repository-wide conventions noted in `MODULE_STRUCTURE_GUIDE.md`.
+- Complements the repository-wide conventions noted in `docs/module-structure-guide.md`.
 
 ## File Layout
 
