@@ -186,16 +186,100 @@ let
       );
 
     extractModule =
-      evaluatedModule:
+      args:
       let
-        options = evaluatedModule.options or { };
-        config = evaluatedModule.config or { };
-        flatOptions = extractOptions "" options;
+        # Allow legacy callers to pass the evaluation attrset directly.
+        evaluation = args.evaluation or args;
+
+        evaluationOptions = evaluation.options or { };
+        evaluationConfig = evaluation.config or { };
+        flatOptions = extractOptions "" evaluationOptions;
+
+        # Context for determining which declarations belong to this module.
+        rawSourcePath = args.sourcePath or null;
+        extraAllowed = args.allowedSourcePaths or [ ];
+        configAllowed = (evaluationConfig.docExtraction or { }).allowedSourcePaths or [ ];
+        rootPathRaw = args.rootPath or evaluationConfig.rootPath or null;
+
+        normalizePath =
+          path:
+          if path == null then
+            null
+          else
+            let
+              str = toString path;
+            in
+            if lib.hasPrefix "./" str then lib.removePrefix "./" str else str;
+
+        rootPath =
+          let
+            raw = normalizePath rootPathRaw;
+          in
+          if raw == "" then null else raw;
+
+        allowedPaths =
+          let
+            combined =
+              (
+                if rawSourcePath == null then
+                  [ ]
+                else
+                  [
+                    normalizePath
+                    rawSourcePath
+                  ]
+              )
+              ++ (map normalizePath extraAllowed)
+              ++ (map normalizePath configAllowed);
+          in
+          lib.unique (lib.filter (p: p != null && p != "") combined);
+
+        relativizeToRoot =
+          file:
+          let
+            str = normalizePath file;
+          in
+          if str == null || rootPath == null then
+            str
+          else if lib.hasPrefix "${rootPath}/" str then
+            lib.removePrefix "${rootPath}/" str
+          else
+            str;
+
+        declarationMatches =
+          decl:
+          let
+            fileRaw = normalizePath (decl.file or null);
+            fileRelative = relativizeToRoot (decl.file or null);
+          in
+          if fileRaw == null then
+            false
+          else
+            lib.any (
+              allowed:
+              let
+                candidate = if builtins.isFunction allowed then null else normalizePath allowed;
+              in
+              candidate != null
+              && (fileRaw == candidate || fileRelative == candidate || lib.hasSuffix fileRaw candidate)
+            ) allowedPaths;
+
+        optionRelevant =
+          option:
+          let
+            declarations = option.declarations or [ ];
+          in
+          if allowedPaths == [ ] then
+            true
+          else
+            declarations != [ ] && lib.any declarationMatches declarations;
+
+        filteredOptions = lib.filter optionRelevant flatOptions;
       in
       {
-        options = lib.listToAttrs (map (opt: lib.nameValuePair opt.name opt) flatOptions);
-        config = extractConfig config;
-        imports = evaluatedModule.imports or [ ];
+        options = lib.listToAttrs (map (opt: lib.nameValuePair opt.name opt) filteredOptions);
+        config = extractConfig evaluationConfig;
+        imports = evaluation.imports or [ ];
       };
   };
 

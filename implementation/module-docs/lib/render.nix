@@ -27,7 +27,13 @@ let
       meta ? { },
     }:
     let
-      extracted = extractModule evaluation;
+      evaluationConfig = evaluation.config or { };
+      docExtractionCfg = evaluationConfig.docExtraction or { };
+      extracted = extractModule {
+        inherit evaluation sourcePath;
+        allowedSourcePaths = docExtractionCfg.allowedSourcePaths or [ ];
+        rootPath = evaluationConfig.rootPath or null;
+      };
       attrPathList = if builtins.isList attrPath then attrPath else [ attrPath ];
       attrPathString = lib.concatStringsSep "." attrPathList;
     in

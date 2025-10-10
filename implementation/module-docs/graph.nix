@@ -202,6 +202,14 @@ let
                 default = [ ];
                 description = "Custom tags associated with module extraction diagnostics.";
               };
+              allowedSourcePaths = lib.mkOption {
+                type = types.listOf types.str;
+                default = [ ];
+                description = ''
+                  Additional source-relative paths whose option declarations should be
+                  attributed to this module when generating documentation.
+                '';
+              };
             };
           };
           default = { };
