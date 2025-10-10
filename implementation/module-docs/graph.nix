@@ -16,7 +16,59 @@ let
       };
     };
   };
-  effectiveInputs = fallbackInputs // flakeInputsRaw;
+  pkgsForRaw =
+    systemName:
+    if pkgsOverride != null then
+      pkgsOverride
+    else
+      import flakeRaw.inputs.nixpkgs { system = systemName; };
+
+  legacySystemsRawAttempt = builtins.tryEval (builtins.attrNames (flakeRaw.legacyPackages or { }));
+
+  stubSystems =
+    let
+      raw = if legacySystemsRawAttempt.success then legacySystemsRawAttempt.value else [ ];
+      base = if raw == [ ] then [ system ] else raw;
+    in
+    if builtins.elem system base then base else base ++ [ system ];
+
+  stubLogseqPackageFor =
+    systemName:
+    let
+      pkgsForSystem = pkgsForRaw systemName;
+    in
+    pkgsForSystem.runCommand "logseq-unavailable" { } ''
+            mkdir -p "$out/share/doc"
+            cat <<'EOF' >"$out/share/doc/logseq-unavailable.txt"
+      module-docs: nix-logseq-git-flake unavailable on this builder; using stub package.
+      EOF
+    '';
+
+  logseqFallback = {
+    packages = builtins.listToAttrs (
+      map (systemName: {
+        name = systemName;
+        value = {
+          logseq = stubLogseqPackageFor systemName;
+        };
+      }) stubSystems
+    );
+  };
+
+  sanitizedLogseq =
+    if flakeInputsRaw ? nix-logseq-git-flake then
+      let
+        attempt = builtins.tryEval flakeInputsRaw.nix-logseq-git-flake;
+      in
+      if attempt.success then attempt.value else logseqFallback
+    else
+      logseqFallback;
+
+  normalizedInputs = flakeInputsRaw // {
+    nix-logseq-git-flake = sanitizedLogseq;
+  };
+
+  effectiveInputs = fallbackInputs // normalizedInputs;
   flake = flakeRaw // {
     inputs = effectiveInputs;
   };
