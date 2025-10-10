@@ -5,6 +5,7 @@
     {
       pkgs,
       lib,
+      config,
       ...
     }:
     {
@@ -13,13 +14,84 @@
         settings = {
           hooks = {
             # Nix-specific hooks
-            nixfmt-rfc-style = {
-              enable = true;
-              excludes = [
-                "^inputs/"
-                "^nixos_docs_md/"
-              ];
-            };
+            nixfmt-rfc-style =
+              let
+                nixfmtAutostage = pkgs.writeShellApplication {
+                  name = "nixfmt-precommit-autostage";
+                  runtimeInputs = [
+                    pkgs.nixfmt-rfc-style
+                    pkgs.git
+                    pkgs.coreutils
+                  ];
+                  text = ''
+                    set -euo pipefail
+                    if [ "$#" -eq 0 ]; then
+                      exit 0
+                    fi
+
+                    for f in "$@"; do
+                      if [ -f "$f" ]; then
+                        nixfmt -- "$f"
+                        if ! git diff --quiet -- "$f"; then
+                          git add -- "$f"
+                          printf "nixfmt: auto-formatted %s\\n" "$f" >&2
+                        fi
+                      fi
+                    done
+                  '';
+                };
+              in
+              {
+                enable = true;
+                excludes = [
+                  "^inputs/"
+                  "^nixos_docs_md/"
+                ];
+                entry = lib.getExe nixfmtAutostage;
+                pass_filenames = true;
+              };
+            treefmt =
+              let
+                treefmtAutostage = pkgs.writeShellApplication {
+                  name = "treefmt-precommit-autostage";
+                  runtimeInputs = [
+                    config.treefmt.build.wrapper
+                    pkgs.git
+                    pkgs.coreutils
+                  ];
+                  text = ''
+                    set -euo pipefail
+
+                    export TREEFMT_NO_CACHE=1
+
+                    if [ "$#" -gt 0 ]; then
+                      treefmt "$@"
+                      mapfile -t targets < <(printf "%s\n" "$@")
+                    else
+                      treefmt
+                      mapfile -t targets < <(git diff --name-only --diff-filter=ACM)
+                    fi
+
+                    if [ "''${#targets[@]}" -gt 0 ]; then
+                      for file in "''${targets[@]}"; do
+                        if [ -n "$file" ] && [ -e "$file" ] && ! git diff --quiet -- "$file"; then
+                          git add -- "$file"
+                          printf "treefmt: auto-formatted %s\\n" "$file" >&2
+                        fi
+                      done
+                    fi
+                  '';
+                };
+              in
+              {
+                enable = true;
+                excludes = [
+                  "^inputs/"
+                  "^nixos_docs_md/"
+                ];
+                pass_filenames = true;
+                entry = lib.getExe treefmtAutostage;
+              };
             # Avoid scanning vendored inputs and large local docs
             deadnix = {
               enable = true;
@@ -83,6 +155,7 @@
                   crypted = "crypted"
                   browseable = "browseable"
                   resolveable = "resolveable"
+                  "80CA80DA06B77EE708D57D9B5B92AB136C03BA48" = "80CA80DA06B77EE708D57D9B5B92AB136C03BA48"
 
                   [files]
                   extend-exclude = [

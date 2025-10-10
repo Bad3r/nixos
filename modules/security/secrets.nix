@@ -10,6 +10,9 @@
     let
       # Detect if act secret file exists to avoid evaluation failures
       actSecretExists = builtins.pathExists (./../../secrets + "/act.yaml");
+      gpgSecretExists = builtins.pathExists (./../../secrets + "/gpg/vx.asc");
+      ownerUsername = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] "vx" config;
+      ownerName = lib.attrByPath [ "users" "users" ownerUsername "name" ] ownerUsername config;
     in
     {
       imports = [ inputs.sops-nix.nixosModules.sops ];
@@ -34,9 +37,7 @@
       sops.secrets."act/github_token" = {
         sopsFile = ./../../secrets/act.yaml;
         mode = "0400";
-        owner =
-          config.users.users.${config.flake.lib.meta.owner.username}.name
-            or "${config.flake.lib.meta.owner.username}";
+        owner = ownerName;
       };
 
       # Template an env file: GITHUB_TOKEN=...
@@ -45,13 +46,19 @@
           GITHUB_TOKEN={{ .act/github_token }}
         '';
         mode = "0400";
-        owner =
-          config.users.users.${config.flake.lib.meta.owner.username}.name
-            or "${config.flake.lib.meta.owner.username}";
+        owner = ownerName;
       };
 
       # Expose a stable path for act to use
       environment.etc."act/secrets.env".source = config.sops.templates."act-env".path;
+    }
+    // lib.mkIf gpgSecretExists {
+      sops.secrets."gpg/vx-secret-key" = {
+        sopsFile = ./../../secrets/gpg/vx.asc;
+        format = "binary";
+        mode = "0400";
+        owner = ownerName;
+      };
     };
 
 }
