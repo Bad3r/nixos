@@ -20,7 +20,6 @@ in
       moduleDocsMarkdown = pkgs.callPackage ../../packages/module-docs-markdown {
         inherit lib pkgs;
         self = inputs.self or { };
-        inherit inputs;
       };
       moduleDocsExporter = pkgs.callPackage ../../packages/module-docs-exporter {
         inherit pkgs lib;

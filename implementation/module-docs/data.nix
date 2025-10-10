@@ -30,17 +30,22 @@ let
     let
       data = record.data or { };
       rawAttrPath = data.attrPath or record.attrPath or [ ];
-      attrPathList =
+      attrPathComponents =
         if builtins.isList rawAttrPath then
           rawAttrPath
         else if builtins.isString rawAttrPath then
-          [ rawAttrPath ]
+          let
+            pieces = lib.filter (piece: piece != "") (lib.splitString "." rawAttrPath);
+          in
+          if pieces == [ ] then [ rawAttrPath ] else pieces
         else
-          [
-            toString
-            rawAttrPath
-          ];
-      attrPathString = data.attrPathString or lib.concatStringsSep "." (map toString attrPathList);
+          [ rawAttrPath ];
+      attrPathList = map (
+        component: if builtins.isString component then component else toString component
+      ) attrPathComponents;
+      attrPathString = lib.attrByPath [
+        "attrPathString"
+      ] (builtins.concatStringsSep "." attrPathList) data;
     in
     {
       inherit (record)
