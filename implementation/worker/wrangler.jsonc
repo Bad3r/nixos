@@ -1,0 +1,134 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/wrangler/main/config-schema.json",
+  "name": "nixos-module-docs-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-10-08",
+  "compatibility_flags": ["nodejs_compat"],
+
+
+  // D1 Database for structured module data
+  // Create with: npx wrangler d1 create nixos-modules-db
+  "d1_databases": [
+    {
+      "binding": "MODULES_DB",
+      "database_name": "nixos-modules-db",
+      "database_id": "4d6536f2-d773-4b9c-9108-35de92eeec88", // Production D1 database
+      "preview_database_id": "local-nixos-modules-db" // For local development
+    }
+  ],
+
+  // KV Namespace for caching API responses
+  // Created with: npx wrangler kv namespace create CACHE
+  "kv_namespaces": [
+    {
+      "binding": "CACHE",
+      "id": "a4333c2cffe3420c8fbe8bf11666ef8a"
+    }
+  ],
+
+  // R2 Bucket for large module documents (>25KB)
+  // Created with: npx wrangler r2 bucket create nixos-modules-docs
+  "r2_buckets": [
+    {
+      "binding": "DOCUMENTS",
+      "bucket_name": "nixos-modules-docs"
+    }
+  ],
+
+  // Analytics Engine for tracking API usage and search queries
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS"
+    }
+  ],
+
+  // Workers AI binding
+  "ai": {
+    "binding": "AI"
+  },
+
+  // Node.js compatibility for dependencies
+
+  // Basic observability
+  "observability": {
+    "enabled": true
+  },
+
+  // Environment variables (non-secret)
+  "vars": {
+    "ENVIRONMENT": "development",
+    "CACHE_TTL": "300", // 5 minutes default
+    "MAX_BATCH_SIZE": "50",
+    "ENABLE_DEBUG": "true",
+    "API_VERSION": "v1",
+    "AI_AUTORAG_NAME": "nixos-modules-search",
+    "AI_GATEWAY_ID": "nixos-modules-gateway"
+  },
+
+  // Secrets (configured via wrangler secret put)
+  // API_KEY: for CI/CD webhook auth
+  // Run: npx wrangler secret put API_KEY
+
+  // Environment-specific configurations
+  "env": {
+    "staging": {
+      "name": "nixos-module-docs-api-staging",
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "CACHE_TTL": "60", // 1 minute for testing
+        "MAX_BATCH_SIZE": "25",
+        "ENABLE_DEBUG": "true",
+        "API_VERSION": "v1",
+        "AI_AUTORAG_NAME": "nixos-modules-search-staging",
+        "AI_GATEWAY_ID": "nixos-modules-gateway-staging"
+      },
+      "d1_databases": [
+        {
+          "binding": "MODULES_DB",
+          "database_name": "nixos-modules-db-staging",
+          "database_id": "93adfc86-1515-4ddf-a72c-931c49bd976a",
+          "preview_database_id": "local-nixos-modules-db-staging"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "CACHE",
+          "id": "9f78fec9395f4ef8b1cdbfe625433175"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "DOCUMENTS",
+          "bucket_name": "nixos-modules-docs-staging"
+        }
+      ],
+      "analytics_engine_datasets": [
+        {
+          "binding": "ANALYTICS"
+        }
+      ],
+      "ai": {
+        "binding": "AI"
+      }
+    },
+    "production": {
+      "name": "nixos-module-docs-api",
+      "vars": {
+        "ENVIRONMENT": "production",
+        "CACHE_TTL": "300", // 5 minutes
+        "MAX_BATCH_SIZE": "50",
+        "ENABLE_DEBUG": "false",
+        "AI_AUTORAG_NAME": "nixos-modules-search",
+        "AI_GATEWAY_ID": "nixos-modules-gateway"
+      },
+      "routes": [
+        {
+          "pattern": "api.nixos-modules.workers.dev/*"
+          // For custom domain, add after setting up domain in Cloudflare:
+          // "pattern": "api.nixos-modules.org/*",
+          // "zone_name": "nixos-modules.org"
+        }
+      ]
+    }
+  }
+}

@@ -6,7 +6,6 @@
   };
 
   inputs = {
-    self.submodules = false;
     cpu-microcodes = {
       flake = false;
       url = "github:platomav/CPUMicrocodes";
@@ -31,6 +30,8 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    impermanence.url = "github:nix-community/impermanence";
 
     import-tree.url = "github:vic/import-tree";
 

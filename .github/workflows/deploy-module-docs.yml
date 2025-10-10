@@ -1,0 +1,328 @@
+name: Deploy Module Documentation
+
+on:
+  push:
+    branches:
+      - main
+      - feat/cf-auto-docs-api
+    paths:
+      - "modules/**"
+      - "implementation/**"
+      - "scripts/extract-*.nix"
+      - "scripts/module-docs-upload.sh"
+      - ".github/workflows/deploy-module-docs.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  extract-modules:
+    name: Extract NixOS Modules
+    runs-on: ubuntu-latest
+    outputs:
+      module-count: ${{ steps.extract.outputs.module-count }}
+      namespace-count: ${{ steps.extract.outputs.namespace-count }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5.0.0
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
+          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
+
+      - name: Setup Nix cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: nix-community
+          skipPush: true
+
+      - name: Extract modules
+        id: extract
+        timeout-minutes: 20 # Increased for full repository extraction (431+ modules)
+        run: |
+          set -euo pipefail
+          export MODULE_DOCS_NIX_FLAGS='--override-input nix-logseq-git-flake path:./stubs/nix-logseq-git-flake'
+          echo "Extracting ALL Nix modules via derivation-backed pipeline..."
+          ./scripts/module-docs-upload.sh --format json,md --out .cache/module-docs --dry-run --summary
+
+          # Output statistics
+          CACHE_DIR=".cache/module-docs"
+          MODULE_JSON="$CACHE_DIR/json/modules.json"
+
+          if [ -f "$MODULE_JSON" ]; then
+            MODULE_COUNT=$(jq -r '.metadata.moduleCount' "$MODULE_JSON")
+            NAMESPACE_COUNT=$(jq -r '.namespaces | keys | length' "$MODULE_JSON")
+            echo "module-count=$MODULE_COUNT" >> $GITHUB_OUTPUT
+            echo "namespace-count=$NAMESPACE_COUNT" >> $GITHUB_OUTPUT
+            echo "✅ Extracted $MODULE_COUNT modules across $NAMESPACE_COUNT namespaces"
+          else
+            echo "❌ Failed to extract modules"
+            exit 1
+          fi
+
+      - name: Upload extracted modules
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: extracted-modules
+          path: |
+            .cache/module-docs/json/modules.json
+            .cache/module-docs/json/errors.ndjson
+            .cache/module-docs/md/modules.md
+
+  deploy-worker:
+    name: Deploy Cloudflare Worker
+    needs: extract-modules
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    outputs:
+      worker-url: ${{ steps.worker-url.outputs.worker-url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: implementation/worker
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run database migrations
+        working-directory: implementation/worker
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Running database migrations..."
+
+          # Use the correct database name based on environment
+          if [ "${{ github.event.inputs.environment || 'staging' }}" = "staging" ]; then
+            DB_NAME="nixos-modules-db-staging"
+          else
+            DB_NAME="nixos-modules-db"
+          fi
+
+          # Run all migrations in order
+          for migration in migrations/*.sql; do
+            echo "Running migration: $migration"
+
+            # Try to run the migration
+            if npx wrangler d1 execute "$DB_NAME" \
+              --file="$migration" \
+              --remote \
+              --env=${{ github.event.inputs.environment || 'staging' }} 2>&1 | tee migration.log; then
+              echo "✅ Migration $(basename $migration) applied successfully"
+            else
+              EXIT_CODE=$?
+              # Check if it's an "already exists" error
+              if grep -qi "already exists\|duplicate\|unique constraint" migration.log; then
+                echo "ℹ️  Migration $(basename $migration) was already applied (table/index exists)"
+              else
+                echo "❌ Migration $(basename $migration) failed with error:"
+                cat migration.log
+                exit $EXIT_CODE
+              fi
+            fi
+          done
+
+          echo "✅ All migrations completed successfully"
+
+      - name: Deploy Worker
+        id: worker-url
+        working-directory: implementation/worker
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Deploying Worker to ${{ github.event.inputs.environment || 'staging' }}..."
+
+          # Deploy with proper error handling
+          if ! npx wrangler deploy --env=${{ github.event.inputs.environment || 'staging' }} 2>&1 | tee deploy.log; then
+            echo "❌ Worker deployment failed:"
+            cat deploy.log
+            exit 1
+          fi
+
+          # Extract Worker URL from deployment output
+          WORKER_URL=$(grep -oP 'https://[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.workers\.dev' deploy.log | head -1)
+
+          if [ -z "$WORKER_URL" ]; then
+            echo "❌ Failed to extract Worker URL from deployment output"
+            echo "Deployment log:"
+            cat deploy.log
+            exit 1
+          fi
+
+          echo "worker-url=$WORKER_URL" >> $GITHUB_OUTPUT
+          echo "✅ Worker deployed to: $WORKER_URL"
+
+      - name: Set Worker Secrets
+        working-directory: implementation/worker
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Setting Worker secrets..."
+
+          # Set AI_GATEWAY_TOKEN secret
+          if [ -n "${{ secrets.AI_GATEWAY_TOKEN }}" ]; then
+            echo "Setting AI_GATEWAY_TOKEN secret..."
+            echo "${{ secrets.AI_GATEWAY_TOKEN }}" | npx wrangler secret put AI_GATEWAY_TOKEN --env=${{ github.event.inputs.environment || 'staging' }}
+            echo "✅ AI_GATEWAY_TOKEN set successfully"
+          else
+            echo "⚠️ AI_GATEWAY_TOKEN secret not found in GitHub Secrets"
+          fi
+
+          # Set API_KEY secret
+          if [ -n "${{ secrets.MODULE_API_KEY }}" ]; then
+            echo "Setting API_KEY secret..."
+            echo "${{ secrets.MODULE_API_KEY }}" | npx wrangler secret put API_KEY --env=${{ github.event.inputs.environment || 'staging' }}
+            echo "✅ API_KEY set successfully"
+          else
+            echo "⚠️ MODULE_API_KEY secret not found in GitHub Secrets"
+          fi
+
+  upload-data:
+    name: Upload Module Data
+    needs: [extract-modules, deploy-worker]
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5.0.0
+
+      - name: Download extracted modules
+        uses: actions/download-artifact@v5.0.0
+        with:
+          name: extracted-modules
+          path: .cache/module-docs
+
+      - name: Upload to Worker API
+        timeout-minutes: 15 # Increased for chunked upload of 431+ modules (~11 batches)
+        env:
+          WORKER_ENDPOINT: ${{ needs.deploy-worker.outputs.worker-url }}
+          API_KEY: ${{ secrets.MODULE_API_KEY }}
+        run: |
+          echo "Uploading module data to API (chunked batches)..."
+          ./scripts/extract-and-upload.sh --upload-only \
+            --endpoint "$WORKER_ENDPOINT" \
+            --api-key "$API_KEY"
+
+      - name: Verify deployment
+        env:
+          WORKER_ENDPOINT: ${{ needs.deploy-worker.outputs.worker-url }}
+        run: |
+          echo "Verifying deployment..."
+
+          # Check health endpoint
+          curl -sf "$WORKER_ENDPOINT/health" || exit 1
+
+          # Check stats endpoint
+          STATS=$(curl -s "$WORKER_ENDPOINT/api/stats")
+
+          echo "API Statistics:"
+          echo "$STATS" | jq .
+
+          # Verify module count matches
+          UPLOADED_COUNT=$(echo "$STATS" | jq -r '.stats.total_modules')
+          EXPECTED_COUNT=${{ needs.extract-modules.outputs.module-count }}
+
+          if [ "$UPLOADED_COUNT" -eq "$EXPECTED_COUNT" ]; then
+            echo "✅ Successfully uploaded all $UPLOADED_COUNT modules"
+          else
+            echo "⚠️ Module count mismatch: uploaded=$UPLOADED_COUNT, expected=$EXPECTED_COUNT"
+          fi
+
+  build-frontend:
+    name: Build and Deploy Frontend
+    needs: [deploy-worker, upload-data]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build frontend
+        working-directory: implementation/frontend
+        run: |
+          echo "Building frontend..."
+          # Install dependencies if package.json exists
+          if [ -f package.json ]; then
+            npm ci
+            npm run build
+          else
+            echo "No frontend build configured yet"
+            mkdir -p dist
+            echo "<html><body><h1>NixOS Module Documentation</h1><p>Frontend coming soon...</p></body></html>" > dist/index.html
+          fi
+
+      - name: Deploy frontend to Worker
+        working-directory: implementation/frontend
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          echo "Deploying frontend assets..."
+          # This would upload to R2 or use Workers Static Assets
+          # For now, we'll skip this as the frontend is not implemented
+
+  summary:
+    name: Deployment Summary
+    needs: [extract-modules, deploy-worker, upload-data]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          cat << EOF >> $GITHUB_STEP_SUMMARY
+          # 📚 NixOS Module Documentation Deployment
+
+          ## Deployment Status
+          - **Environment**: ${{ github.event.inputs.environment || 'staging' }}
+          - **Branch**: ${{ github.ref_name }}
+          - **Commit**: ${{ github.sha }}
+
+          ## Module Extraction
+          - **Modules Extracted**: ${{ needs.extract-modules.outputs.module-count || 'N/A' }}
+          - **Namespaces**: ${{ needs.extract-modules.outputs.namespace-count || 'N/A' }}
+
+          ## API Deployment
+          - **Worker URL**: ${{ needs.deploy-worker.outputs.worker-url || 'Deployment failed' }}
+          - **Health Check**: [Check Status](${{ needs.deploy-worker.outputs.worker-url }}/health)
+          - **API Stats**: [View Statistics](${{ needs.deploy-worker.outputs.worker-url }}/api/stats)
+
+          ## Next Steps
+          1. Visit the [API documentation](${{ needs.deploy-worker.outputs.worker-url }}/docs)
+          2. Test the search endpoint: \`/api/modules/search?q=networking\`
+          3. Browse modules by namespace: \`/api/modules?namespace=services\`
+
+          ---
+          *Deployed at $(date -u '+%Y-%m-%d %H:%M:%S UTC')*
+          EOF

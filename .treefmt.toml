@@ -45,6 +45,6 @@ excludes = [
     ".hgignore",
     ".svnignore",
     "inputs/*",
-    "inputs/*",
+    "secrets/**",
 ]
 on-unmatched = "warn"
