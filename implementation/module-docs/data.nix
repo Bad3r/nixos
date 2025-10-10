@@ -29,7 +29,8 @@ let
     record:
     let
       data = record.data or { };
-      attrPathList = data.attrPath or record.attrPath or [ ];
+      rawAttrPath = data.attrPath or record.attrPath or [ ];
+      attrPathList = if builtins.isList rawAttrPath then rawAttrPath else [ rawAttrPath ];
       attrPathString = data.attrPathString or builtins.concatStringsSep "." (map toString attrPathList);
     in
     {
