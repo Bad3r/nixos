@@ -14,6 +14,7 @@ let
     # editors
     "neovim"
     "vim"
+    "glow"
     # build tools
     "cmake"
     "gcc"

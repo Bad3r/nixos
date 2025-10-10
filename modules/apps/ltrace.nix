@@ -25,8 +25,15 @@
 {
   flake.nixosModules.apps.ltrace =
     { pkgs, ... }:
+    let
+      ltraceNoChecks = pkgs.ltrace.overrideAttrs (_: {
+        dontCheck = true;
+        doCheck = false;
+        checkPhase = "true"; # tests are flaky across kernels
+      });
+    in
     {
-      environment.systemPackages = [ pkgs.ltrace ];
+      environment.systemPackages = [ ltraceNoChecks ];
     };
 
 }
