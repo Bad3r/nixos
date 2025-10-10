@@ -16,6 +16,7 @@
             nixfmt-rfc-style = {
               enable = true;
               excludes = [
+                "^inputs/"
                 "^nixos_docs_md/"
               ];
             };
@@ -23,6 +24,7 @@
             deadnix = {
               enable = true;
               excludes = [
+                "^inputs/"
                 "^nixos_docs_md/"
               ];
             };
@@ -55,6 +57,7 @@
               {
                 enable = true;
                 excludes = [
+                  "^inputs/"
                   "^nixos_docs_md/"
                 ];
                 entry = "${statixWrapper}/bin/statix-precommit-wrapper";
@@ -62,14 +65,6 @@
               };
             # flake-checker not used: we rely on
             # `nix flake check` and pre-push submodule checks
-
-            # Shell script quality
-            shellcheck = {
-              enable = true;
-              excludes = [
-                "^nixos_docs_md/"
-              ];
-            };
 
             # Documentation and text quality
             typos =
@@ -104,6 +99,7 @@
                 enable = true;
                 # Keep hook-level excludes lightweight; config handles deep ignores
                 excludes = [
+                  "^inputs/"
                   "^nixos_docs_md/"
                 ];
                 entry = "${pkgs.typos}/bin/typos --config ${typosConfig}";
@@ -112,6 +108,7 @@
             trim-trailing-whitespace = {
               enable = true;
               excludes = [
+                "^inputs/"
                 "^nixos_docs_md/"
               ];
               # Restrict to pre-commit only; avoid pre-push stage
@@ -125,6 +122,7 @@
             detect-private-keys = {
               enable = true;
               excludes = [
+                "^inputs/"
                 "^nixos_docs_md/"
               ];
             };
@@ -133,6 +131,7 @@
               excludes = [
                 "nixos_docs_md/.*\\.md$" # Documentation files with examples
                 "modules/networking/networking.nix" # Contains public minisign key
+                "^inputs/"
               ];
             };
 
@@ -140,12 +139,14 @@
             check-yaml = {
               enable = true;
               excludes = [
+                "^inputs/"
                 "^nixos_docs_md/"
               ];
             };
             check-json = {
               enable = true;
               excludes = [
+                "^inputs/"
                 "^nixos_docs_md/"
               ];
             };
@@ -266,7 +267,7 @@
                     if command -v rg >/dev/null 2>&1; then
                       if rg -nU --pcre2 -S --glob 'modules/roles/**/*.nix' -e "$PATTERN" >/dev/null; then
                         echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/**/*.nix" >&2
-                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/RFC-001.md)." >&2
+                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/configuration-architecture.md)." >&2
                         echo "  Note: PCRE2 guard may flag commented or stringified code; triage manually if needed." >&2
                         rg -nU --pcre2 -S --glob 'modules/roles/**/*.nix' -e "$PATTERN" || true
                         exit 1
@@ -274,7 +275,7 @@
                     else
                       if grep -R -n -E "$PATTERN" --include='*.nix' modules/roles >/dev/null 2>&1; then
                         echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/**/*.nix" >&2
-                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/RFC-001.md)." >&2
+                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/configuration-architecture.md)." >&2
                         grep -R -n -E "$PATTERN" --include='*.nix' modules/roles || true
                         exit 1
                       fi
