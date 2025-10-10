@@ -25,6 +25,7 @@
         biome
         nixfmt-rfc-style
         shellcheck
+        prettier
         shfmt
         treefmt
       ];

@@ -66,15 +66,6 @@
             # flake-checker not used: we rely on
             # `nix flake check` and pre-push submodule checks
 
-            # Shell script quality
-            shellcheck = {
-              enable = true;
-              excludes = [
-                "^inputs/"
-                "^nixos_docs_md/"
-              ];
-            };
-
             # Documentation and text quality
             typos =
               let
