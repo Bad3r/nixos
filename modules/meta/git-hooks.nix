@@ -382,7 +382,7 @@
                 entry = lib.getExe checker;
                 pass_filenames = false;
                 always_run = true;
-                verbose = true;
+                verbose = false;
               };
           };
         };

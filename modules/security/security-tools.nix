@@ -1,81 +1,101 @@
 {
+  perSystem =
+    { pkgs, ... }:
+    {
+      packages."age-plugin-fido2prf" = pkgs.callPackage ../../packages/age-plugin-fido2prf { };
+    };
+
   flake.nixosModules.workstation =
-    { pkgs, lib, ... }:
+    {
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
+    let
+      agePluginPkg = lib.attrByPath [ "flake" "packages" pkgs.system "age-plugin-fido2prf" ] (
+        pkgs.callPackage
+        ../../packages/age-plugin-fido2prf
+        { }
+      ) config;
+    in
     {
       # Enable PAM ssh-agent authentication support system-wide.
       security.pam.sshAgentAuth.enable = true;
 
       # Security tools are workstation features
-      environment.systemPackages = with pkgs; [
-        # Password managers
-        bitwarden-desktop
-        bitwarden-cli
-        keepassxc
-        gopass
+      environment.systemPackages =
+        (with pkgs; [
+          # Password managers
+          bitwarden-desktop
+          bitwarden-cli
+          keepassxc
+          gopass
 
-        # GPG and encryption
-        gnupg
-        gpg-tui
-        pinentry-qt
-        age
-        sops
-        ssh-to-age
-        ssh-to-pgp
+          # GPG and encryption
+          gnupg
+          gpg-tui
+          pinentry-qt
+          age
+          sops
+          ssh-to-age
+          ssh-to-pgp
 
-        # SSH tools
-        openssh
-        mosh
-        sshfs
-        ssh-audit
+          # SSH tools
+          openssh
+          mosh
+          sshfs
+          ssh-audit
 
-        # Network security
-        nmap
-        wireshark
-        tcpdump
-        netcat
-        socat
+          # Network security
+          nmap
+          wireshark
+          tcpdump
+          netcat
+          socat
 
-        # VPN
-        openvpn
-        wireguard-tools
+          # VPN
+          openvpn
+          wireguard-tools
 
-        # File encryption
-        cryptsetup
-        # veracrypt  # Disabled: unfree license issue
+          # File encryption
+          cryptsetup
+          # veracrypt  # Disabled: unfree license issue
 
-        # Security scanners
-        lynis
-        vt-cli # VirusTotal Command Line Interface
+          # Security scanners
+          lynis
+          vt-cli # VirusTotal Command Line Interface
 
-        # Authentication
-        yubico-piv-tool
-        yubikey-manager
-        yubikey-personalization
+          # Authentication
+          yubico-piv-tool
+          yubikey-manager
+          yubikey-personalization
 
-        # Firewall management
-        iptables
-        nftables
+          # Firewall management
+          iptables
+          nftables
 
-        # Password generation
-        pwgen
-        xkcdpass
+          # Password generation
+          pwgen
+          xkcdpass
 
-        # Hash tools
-        hashcat
-        john
+          # Hash tools
+          hashcat
+          john
 
-        # Forensics
-        foremost
-        testdisk # includes photorec
+          # Forensics
+          foremost
+          testdisk # includes photorec
 
-        # Privacy tools
-        tor
-        # Note: tor-browser is available in home/gui/tor-browser.nix for GUI users
+          # Privacy tools
+          tor
+          # Note: tor-browser is available in home/gui/tor-browser.nix for GUI users
 
-        # Certificate management
-        certbot
-        mkcert
-      ];
+          # Certificate management
+          certbot
+          mkcert
+        ])
+        ++ [ agePluginPkg ];
 
       # GPG configuration
       programs.gnupg.agent = {

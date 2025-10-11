@@ -23,7 +23,10 @@
       ];
 
       # Configure sops-nix (key file path can be customized per host)
-      sops.age.keyFile = "/var/lib/sops-nix/key.txt";
+      sops.age = {
+        keyFile = "/var/lib/sops-nix/key.txt";
+        sshKeyPaths = [ ];
+      };
 
       # Only declare secrets if the encrypted file is present in repo
       # (prevents evaluation errors when secrets repo is absent)

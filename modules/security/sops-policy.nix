@@ -18,18 +18,24 @@ _: {
                   - age:
                       - *owner_bad3r
                       - *host_primary
+                    pgp:
+                      - 80CA80DA06B77EE708D57D9B5B92AB136C03BA48
 
               - path_regex: secrets/r2\.env
                 key_groups:
                   - age:
                       - *owner_bad3r
                       - *host_primary
+                    pgp:
+                      - 80CA80DA06B77EE708D57D9B5B92AB136C03BA48
 
               - path_regex: secrets/.+\.(yaml|yml|json|env|ini|asc)$
                 key_groups:
                   - age:
                       - *owner_bad3r
                       - *host_primary
+                    pgp:
+                      - 80CA80DA06B77EE708D57D9B5B92AB136C03BA48
           '';
         }
       ];
