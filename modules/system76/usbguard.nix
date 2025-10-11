@@ -21,7 +21,7 @@ let
   );
 
   hostSlug = "system76";
-  secretDir = ../../secrets/usbguard;
+  secretDir = inputs.secrets + "/usbguard";
   secretFile = secretDir + "/${hostSlug}.yaml";
   secretName = "usbguard/${hostSlug}.rules";
   secretRuntimePath = "/run/secrets/usbguard/${hostSlug}.rules";
