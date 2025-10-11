@@ -8,7 +8,6 @@ _: {
           path_ = ".sops.yaml";
           drv = pkgs.writeText ".sops.yaml" ''
             keys:
-              - &owner_bad3r age1xe57ms95l55wscjg2066unpy7quq3j7tnvj74r5d33d8kz9mjf3qr6z5p7
               - &host_primary age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf
 
             creation_rules:
@@ -16,26 +15,17 @@ _: {
                 encrypted_regex: "^(github_token)$"
                 key_groups:
                   - age:
-                      - *owner_bad3r
                       - *host_primary
-                    pgp:
-                      - 80CA80DA06B77EE708D57D9B5B92AB136C03BA48
 
               - path_regex: secrets/r2\.env
                 key_groups:
                   - age:
-                      - *owner_bad3r
                       - *host_primary
-                    pgp:
-                      - 80CA80DA06B77EE708D57D9B5B92AB136C03BA48
 
               - path_regex: secrets/.+\.(yaml|yml|json|env|ini|asc)$
                 key_groups:
                   - age:
-                      - *owner_bad3r
                       - *host_primary
-                    pgp:
-                      - 80CA80DA06B77EE708D57D9B5B92AB136C03BA48
           '';
         }
       ];
