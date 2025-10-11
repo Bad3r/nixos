@@ -1,0 +1,4 @@
+[submodule "secrets"]
+	path = secrets
+	url = git@github.com:Bad3r/secrets.git
+	branch = main
