@@ -1,8 +1,13 @@
 {
   flake.homeManagerModules.context7Secrets =
-    { config, lib, ... }:
+    {
+      config,
+      inputs,
+      lib,
+      ...
+    }:
     let
-      ctxFile = ./../../secrets/context7.yaml;
+      ctxFile = inputs.secrets + "/context7.yaml";
       keyPath = "${config.home.homeDirectory}/.local/share/context7/api-key";
     in
     {

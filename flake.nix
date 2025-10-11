@@ -6,7 +6,7 @@
   };
 
   inputs = {
-    self.submodules = false;
+    self.submodules = true;
     cpu-microcodes = {
       flake = false;
       url = "github:platomav/CPUMicrocodes";
@@ -71,6 +71,11 @@
         nixpkgs.follows = "nixpkgs";
         nuschtosSearch.follows = "dedupe_nuschtos-search";
       };
+    };
+
+    secrets = {
+      url = "path:./secrets";
+      flake = false;
     };
 
     refjump-nvim = {

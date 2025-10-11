@@ -176,11 +176,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1760158148,
-        "narHash": "sha256-HlFDqo7fbURiVZAIEeWgUyItX4pADiWUNYZEXrHYdfM=",
+        "lastModified": 1760175524,
+        "narHash": "sha256-DuTLAhYaEZSVrALu3YMX0dWB+jOQIm135CklCzzadpc=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "2776dd6b7a46ce65354c3bbb2eb5d6f2024ba5cc",
+        "rev": "953588a79396963bc07af4431d9ca33294643c14",
         "type": "github"
       },
       "original": {
@@ -694,6 +694,7 @@
         "nixvim": "nixvim",
         "node-cloudflare": "node-cloudflare",
         "refjump-nvim": "refjump-nvim",
+        "secrets": "secrets",
         "sink-rotate": "sink-rotate",
         "smart-scrolloff-nvim": "smart-scrolloff-nvim",
         "sops-nix": "sops-nix",
@@ -705,6 +706,18 @@
         "workers-rs": "workers-rs",
         "zsh-auto-notify": "zsh-auto-notify"
       }
+    },
+    "secrets": {
+      "flake": false,
+      "locked": {
+        "path": "./secrets",
+        "type": "path"
+      },
+      "original": {
+        "path": "./secrets",
+        "type": "path"
+      },
+      "parent": []
     },
     "sink-rotate": {
       "inputs": {

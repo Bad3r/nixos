@@ -38,7 +38,7 @@
     }
     // lib.mkIf actSecretExists {
       sops.secrets."act/github_token" = {
-        sopsFile = ./../../secrets/act.yaml;
+        sopsFile = inputs.secrets + "/act.yaml";
         mode = "0400";
         owner = ownerName;
       };
@@ -57,7 +57,7 @@
     }
     // lib.mkIf gpgSecretExists {
       sops.secrets."gpg/vx-secret-key" = {
-        sopsFile = ./../../secrets/gpg/vx.asc;
+        sopsFile = inputs.secrets + "/gpg/vx.asc";
         format = "binary";
         mode = "0400";
         owner = ownerName;

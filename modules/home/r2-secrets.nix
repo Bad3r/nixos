@@ -6,10 +6,15 @@
   # module so that home-manager/checks (which load only base/gui) do not fail
   # when sops is not present in the synthetic check environment.
   flake.homeManagerModules.r2Secrets =
-    { config, lib, ... }:
+    {
+      config,
+      inputs,
+      lib,
+      ...
+    }:
     let
       envFile = "${config.home.homeDirectory}/.config/cloudflare/r2/env";
-      r2Env = ./../../secrets/r2.env;
+      r2Env = inputs.secrets + "/r2.env";
     in
     {
       config = lib.mkIf (builtins.pathExists r2Env) {
