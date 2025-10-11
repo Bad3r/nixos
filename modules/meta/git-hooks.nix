@@ -82,7 +82,7 @@
                     fi
                     trap 'flock -u 9' EXIT
 
-                    export XDG_CACHE_HOME="''${cache_home}"
+                    export TREEFMT_CACHE_DB="''${cache_home}/eval-cache"
 
                     if [ "$#" -gt 0 ]; then
                       treefmt "$@"
