@@ -13,7 +13,7 @@ let
     "steam"
     "wine-tools"
     "mangohud"
-    "lutris"
+    # "lutris"  # Disabled: pulls insecure mbedtls-2.28.10 via its FHS env; re-enable once upstream drops mbedtls 2.x.
   ];
   availableApps = lib.filter hasApp desiredApps;
   missingApps = lib.filter (app: !(hasApp app)) desiredApps;
