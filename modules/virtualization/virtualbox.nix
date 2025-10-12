@@ -20,26 +20,29 @@ in
       ...
     }:
     let
+      cfg = config.virt.virtualbox.enable or false;
       owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] null config;
     in
     {
-      imports = [ virtualboxApp ];
+      imports = lib.optional cfg virtualboxApp;
 
-      config = lib.mkMerge [
-        {
-          virtualisation.virtualbox.host = {
-            enable = true;
-            package = pkgs.virtualbox;
-          };
+      config = lib.mkIf cfg (
+        lib.mkMerge [
+          {
+            virtualisation.virtualbox.host = {
+              enable = true;
+              package = pkgs.virtualbox;
+            };
 
-          nixpkgs.allowedUnfreePackages = lib.mkAfter [
-            "virtualbox"
-            "virtualbox-extpack"
-          ];
-        }
-        (lib.mkIf (owner != null) {
-          users.users.${owner}.extraGroups = lib.mkAfter [ "vboxusers" ];
-        })
-      ];
+            nixpkgs.allowedUnfreePackages = lib.mkAfter [
+              "virtualbox"
+              "virtualbox-extpack"
+            ];
+          }
+          (lib.mkIf (owner != null) {
+            users.users.${owner}.extraGroups = lib.mkAfter [ "vboxusers" ];
+          })
+        ]
+      );
     };
 }

@@ -9,13 +9,10 @@ let
     {
       config,
       lib,
-      pkgs,
       ...
     }:
     let
       cfg = config.services.pass-secret-service;
-      passPkg = cfg.package or pkgs.pass-secret-service;
-      aliasFile = "${passPkg}/share/systemd/user/dbus-org.freedesktop.secrets.service";
     in
     {
       services = {
@@ -23,9 +20,9 @@ let
         gnome-keyring.enable = lib.mkForce false;
       };
 
-      xdg.configFile."systemd/user/dbus-org.freedesktop.secrets.service" = lib.mkIf cfg.enable {
-        source = aliasFile;
-      };
+      systemd.user.services.pass-secret-service.Install.Alias = lib.mkIf cfg.enable [
+        "dbus-org.freedesktop.secrets.service"
+      ];
     };
 in
 {
