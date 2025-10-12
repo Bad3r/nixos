@@ -104,7 +104,13 @@ let
 
 in
 {
-  inherit matrix categories overrides aliases versionInfo;
+  inherit
+    matrix
+    categories
+    overrides
+    aliases
+    versionInfo
+    ;
   inherit (matrix)
     maxSegments
     vendorSegment

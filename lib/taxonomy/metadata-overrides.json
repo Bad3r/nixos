@@ -1,4064 +1,2363 @@
 {
   "accountsservice": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "acl": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "adwaita-icon-theme": {
     "canonicalAppStreamId": "Graphics",
-    "categories": [
-      "Graphics"
-    ],
-    "secondaryTags": [
-      "asset"
-    ],
+    "categories": ["Graphics"],
+    "secondaryTags": ["asset"],
     "reason": "Asset package without AppStream metadata detected by heuristics.",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "age-plugin-fido2prf": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "apparmor-bin-utils": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "apparmor-utils": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "appimage-run": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "arandr": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "attr": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "atuin": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "audit": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "autotiling-rs": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "babashka": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bash-completion": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bash-interactive": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bc": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bcache-tools": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bind": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "binutils-wrapper": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "biome": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bitwarden-cli": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bitwarden-desktop": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "blueberry": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bluetui": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bluez": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bottom": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "brave": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "btrfs-progs": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "burpsuite": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "bzip2": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "cargo": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "certbot": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "cf-terraforming": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "circumflex": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "claude-code": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "clippy": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "clojure": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "clojure-lsp": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "cloudflare-warp": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "cloudflared": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "cmake": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "coderabbit-cli": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "codex": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "colord": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "command-not-found": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "coreutils": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "coreutils-full": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "cosmic-term": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "cpio": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "cryptsetup": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "curl": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "curlie": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "dash": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "dbus": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "dconf": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ddrescue": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "delve": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "desktop-file-utils": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "diffutils": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "direnv": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "discord": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "dmenu": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "dmidecode": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "dnsleak": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "dosfstools": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "dragon-drop": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "dropbox": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "du-dust": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "dua": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "duf": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "dunst": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "e2fsprogs": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "electron-mail": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "element-desktop": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "f3": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "fail2ban": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ffmpeg-full": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ffmpegthumbnailer": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "file": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "filen-cli": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "filen-desktop": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "filezilla": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "findutils": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "firefox": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "firmware-manager": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "flarectl": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "fontconfig": {
     "canonicalAppStreamId": "Graphics",
-    "categories": [
-      "Graphics"
-    ],
-    "secondaryTags": [
-      "asset"
-    ],
+    "categories": ["Graphics"],
+    "secondaryTags": ["asset"],
     "reason": "Asset package without AppStream metadata detected by heuristics.",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "foremost": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "fuse": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "fwupd": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "gawk": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gcc-wrapper": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "gdb": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "getconf-glibc-2-40-66": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "getent-glibc-2-40-66": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ghostscript-with-X": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "git": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "git-filter-repo": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "github-mcp-server": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "glib": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "glibc": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "glibc-locales": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "asset"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["asset"],
     "reason": "Asset package without AppStream metadata detected by heuristics."
   },
   "glow": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gnome-disk-utility": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "gnome-themes-extra": {
     "canonicalAppStreamId": "Graphics",
-    "categories": [
-      "Graphics"
-    ],
-    "secondaryTags": [
-      "asset"
-    ],
+    "categories": ["Graphics"],
+    "secondaryTags": ["asset"],
     "reason": "Asset package without AppStream metadata detected by heuristics.",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "gnugrep": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gnumake": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "gnupg": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gnused": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gnutar": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "go": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "golangci-lint": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "gopass": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "gopls": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "gparted": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gpg-tui": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gsettings-desktop-schemas": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gst-libav": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gst-plugins-bad": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gst-plugins-good": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "gst-plugins-ugly": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gstreamer-vaapi": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gtk+3": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gtk4": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gvfs": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "gzip": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "hashcat": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "hdparm": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "helvum": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "hicolor-icon-theme": {
     "canonicalAppStreamId": "Graphics",
-    "categories": [
-      "Graphics"
-    ],
-    "secondaryTags": [
-      "asset"
-    ],
+    "categories": ["Graphics"],
+    "secondaryTags": ["asset"],
     "reason": "Asset package without AppStream metadata detected by heuristics.",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "hostname-debian": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "hsetroot": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "htop": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "httpie": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "httpx": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "hyperfine": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "i3": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "i3lock": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "i3lock-color": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "i3status": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "i3status-rust": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "iceauth": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "Image-ExifTool": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "imagemagick": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "iotop": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "iproute2": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "iptables": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "iputils": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "iwd": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "jnv": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "john": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "jq": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "kbd": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "kcolorchooser": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "kdiskmark": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "keepassxc": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "kexec-tools": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "kiro": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "kitty": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "kmod": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ktailctl": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ld-library-path": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "leiningen": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "less": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "libcap": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "libnotify": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "libressl": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "libva-utils": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "libvirt": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "lightdm": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "linux-pam": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "localsend": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "logseq": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "lshw": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "lsof": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ltrace": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "lvm2": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "lxsession": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "lynis": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "maim": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "man-db": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mangohud": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "marktext": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mattermost-desktop": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mesa-demos": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "minio-client": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mitmproxy": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "mkcert": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mkpasswd": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "modemmanager": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mosh": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mpv-cheatsheet": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mpv-shim-default-shaders": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mpv-thumbfast": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mpv-with-scripts-0-40-0": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "mtools": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ncurses": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nemo": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "neovim": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "network-manager-applet": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "networkmanager": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "NetworkManager-openvpn": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "networkmanager_dmenu": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "nftables": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nicotine-plus": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nix": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nix-bash-completions": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nix-direnv": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nix-index-with-full-db-0-1-9": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nix-info": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nix-zsh-completions": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nixfmt": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "nixos-build-vms": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nixos-configuration-reference-manpage": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "asset"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["asset"],
     "reason": "Asset package without AppStream metadata detected by heuristics."
   },
   "nixos-enter": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nixos-firewall-tool": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nixos-generate-config": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nixos-help": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nixos-icons": {
     "canonicalAppStreamId": "Graphics",
-    "categories": [
-      "Graphics"
-    ],
-    "secondaryTags": [
-      "asset"
-    ],
+    "categories": ["Graphics"],
+    "secondaryTags": ["asset"],
     "reason": "Asset package without AppStream metadata detected by heuristics.",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "nixos-install": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nixos-manual-html": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nixos-option": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nixos-rebuild-ng": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nixos-version": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nmap": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nodejs": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "nrm-2-0-1": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ntfs3g": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "nvidia-settings": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nvidia-x11-580-95-05-6-17-1": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "nvme-cli": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "obsidian": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "open-in-mpv": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "openssh": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "openssl": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "openvpn": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "pamixer": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "pandoc-cli": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "parted": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "patch": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "pavucontrol": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "pciutils": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "perl": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "picom": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "pinentry-qt": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "pipewire": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "pixman": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "pkg-config-wrapper": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "planify": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "playerctl": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "plocate": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "prettier": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "auxiliaryCategories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "formatter",
-      "cli"
-    ],
+    "categories": ["Development"],
+    "auxiliaryCategories": ["Utility"],
+    "secondaryTags": ["formatter", "cli"],
     "reason": "CLI formatter packaged without AppStream/AppData information."
   },
   "procps": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "proton-ge-bin": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "proton-run": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "protonvpn-gui": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "psmisc": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "pwgen": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "pyright": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "python3": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "qbittorrent": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "qemu-host-cpu-only": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "qpwgraph": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "qt5ct": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "qt6ct": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "raindrop": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "rclone": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "rip2": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "rofi-2-0-0": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "rsync": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "rtkit": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ruff": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "rust-analyzer": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "rustc": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "rustfmt": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "s5cmd": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "setxkbmap": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "shadow": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "shared-mime-info": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ShellCheck": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "shfmt": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "smartmontools": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "socat": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "sops": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "sound-theme-freedesktop": {
     "canonicalAppStreamId": "Graphics",
-    "categories": [
-      "Graphics"
-    ],
-    "secondaryTags": [
-      "asset"
-    ],
+    "categories": ["Graphics"],
+    "secondaryTags": ["asset"],
     "reason": "Asset package without AppStream metadata detected by heuristics.",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "speech-dispatcher": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ssh-audit": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "ssh-to-age": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "ssh-to-pgp": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "sshfs-fuse": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "starship": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "stash": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "steam": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "steam-run": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "strace": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "sudo-rs": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "sysstat": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "system76-firmware": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "system76-keyboard-configurator": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "system76-power": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "system76-scheduler": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "system76-wallpapers": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System",
-      "Settings"
-    ],
-    "auxiliaryCategories": [
-      "Graphics"
-    ],
-    "secondaryTags": [
-      "asset",
-      "hardware-integration"
-    ],
+    "categories": ["System", "Settings"],
+    "auxiliaryCategories": ["Graphics"],
+    "secondaryTags": ["asset", "hardware-integration"],
     "reason": "System76 wallpapers ship without AppStream metadata."
   },
   "systemd": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "tcpdump": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "tealdeer": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "telegram-desktop": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "terraform": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "testdisk": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "texinfo-interactive": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "time": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "tlp": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "tokei": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "tor": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "tor-browser": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "treefmt": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "tumbler": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "udiskie": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "udisks": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "upower": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "usbguard": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "usbutils": {
     "canonicalAppStreamId": "System",
-    "categories": [
-      "System"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["System"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "util-linux": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "uv": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "valgrind": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "ventoy": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "veracrypt": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "vim": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "vmware-workstation": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "vscode": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "vt-cli": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "vulkan-tools": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "wgcf": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "wget": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "which": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "wine-staging": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "wine-wow-staging": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "winetricks": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "wireguard-tools": {
     "canonicalAppStreamId": "Network",
-    "categories": [
-      "Network"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Network"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "System"
-    ]
+    "auxiliaryCategories": ["System"]
   },
   "wireplumber": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "wireshark-qt": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "worker-build": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "wrangler": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xauth": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xbacklight": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xclip": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xdg-desktop-portal": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xdg-desktop-portal-gtk": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xdg-utils": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xf86-input-evdev": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "xf86-input-libinput": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xfce4-power-manager": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xfce4-settings": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xfsprogs": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xh": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xhost": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xinput": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xkcdpass": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xkill": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xlsclients": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xorg-server": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xprop": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xrandr": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xrdb": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xsel": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xset": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xsetroot": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xterm": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "xz": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "yarn": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "yq": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "yubico-piv-tool": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "yubikey-manager": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "yubikey-personalization": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "zoxide": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "zsh": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "zsh-completions": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
   "zsh-forgit": {
     "canonicalAppStreamId": "Development",
-    "categories": [
-      "Development"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Development"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": [
-      "Utility"
-    ]
+    "auxiliaryCategories": ["Utility"]
   },
   "zstd": {
     "canonicalAppStreamId": "Utility",
-    "categories": [
-      "Utility"
-    ],
-    "secondaryTags": [
-      "cli"
-    ],
+    "categories": ["Utility"],
+    "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   }
 }

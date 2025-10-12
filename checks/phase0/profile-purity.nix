@@ -11,46 +11,81 @@ let
     else if lib.isFunction module then
       module
     else if builtins.isAttrs module then
-      let
-        cleaned = builtins.removeAttrs module [
-          "_file"
-          "imports"
-          "flake"
-        ];
-        imported = module.imports or [ ];
-        sanitizedImports = lib.filter (m: m != null) (map sanitizeModule imported);
-      in
-      cleaned
-      // lib.optionalAttrs (sanitizedImports != [ ]) {
-        imports = sanitizedImports;
-      }
+      builtins.removeAttrs module [
+        "_file"
+        "imports"
+        "flake"
+      ]
     else
       null;
 
   flattenRoles =
-    module:
-    if module == null then
-      { }
-    else if lib.isFunction module then
-      { }
-    else if builtins.isAttrs module then
-      let
-        direct = lib.filterAttrs (
-          name: _:
-          !(lib.elem name [
-            "_file"
-            "imports"
-          ])
-        ) module;
-        sanitizedDirect = lib.mapAttrs (_: sanitizeModule) direct;
-        imported = module.imports or [ ];
-        merge = acc: value: acc // flattenRoles value;
-        flattenedImports =
-          if builtins.isList imported then lib.foldl' merge { } imported else flattenRoles imported;
-      in
-      lib.foldl' merge sanitizedDirect [ flattenedImports ]
-    else
-      { };
+    let
+      go =
+        module: visited:
+        if module == null then
+          {
+            result = { };
+            inherit visited;
+          }
+        else if lib.isFunction module then
+          {
+            result = { };
+            inherit visited;
+          }
+        else if builtins.isAttrs module then
+          let
+            key = if module ? _file then builtins.hashString "sha256" (toString module._file) else null;
+            seen = if key != null then visited ? key else false;
+            visited' =
+              if key != null then
+                visited
+                // {
+                  "${key}" = true;
+                }
+              else
+                visited;
+            direct = lib.filterAttrs (
+              name: _:
+              !(lib.elem name [
+                "_file"
+                "imports"
+                "flake"
+              ])
+            ) module;
+            sanitizedDirect = lib.mapAttrs (_: sanitizeModule) direct;
+            imported = module.imports or [ ];
+            merge =
+              acc: value:
+              let
+                res = go value acc.visited;
+              in
+              {
+                result = acc.result // res.result;
+                visited = res.visited;
+              };
+            acc0 = {
+              result = sanitizedDirect;
+              visited = visited';
+            };
+            accFinal =
+              if seen then
+                acc0
+              else if imported == null then
+                acc0
+              else if builtins.isList imported then
+                lib.foldl' merge acc0 imported
+              else
+                merge acc0 imported;
+          in
+          accFinal
+        else
+          {
+            result = { };
+            inherit visited;
+          };
+    in
+    module: (go module { }).result;
 
   toModuleList = attrs: lib.attrValues attrs;
 
