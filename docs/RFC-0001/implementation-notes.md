@@ -122,11 +122,11 @@ Host- or vendor-specific packages (e.g., System76 utilities, USBGuard policies) 
 
 Add these tests before refactoring so later phases must satisfy them:
 
-- **Host package guard:** `checks/phase0/host-package-guard.sh`, surfaced via `nix flake check .#checks.phase0-host-package-guard`, confirms `environment.systemPackages` is sourced exclusively from roles (current allowlist derived from `roles.system.prospect`).
-- **Profile purity:** `checks/phase0/profile-purity.nix`, exposed as `.#checks.phase0-profile-purity`, asserts that `profiles.workstation` imports only `roles.*` modules.
-- **Alias resolver:** `checks/phase0/alias-resolver.nix`, exposed as `.#checks.phase0-alias-registry`, iterates every alias in this document and ensures it resolves to the canonical taxonomy path.
-- **Taxonomy version guard:** `checks/phase0/taxonomy-version.nix`, exposed as `.#checks.phase0-taxonomy-version`, recomputes `TAXONOMY_VERSION` from the alias registry hash and fails if the constant is stale.
-- **Metadata lint:** `checks/phase0/metadata-lint.nix`, exposed as `.#checks.phase0-metadata`, verifies that each role exports `canonicalAppStreamId`, `categories`, `secondaryTags`, and optional `auxiliaryCategories` values that the helper library can validate against the Freedesktop registry.
+- **Host package guard:** `checks/phase0/host-package-guard.sh`, surfaced via `nix flake check --checks x86_64-linux.phase0-host-package-guard`, confirms `environment.systemPackages` is sourced exclusively from roles (current allowlist derived from `roles.system.prospect`).
+- **Profile purity:** `checks/phase0/profile-purity.nix`, exposed under `x86_64-linux.phase0-profile-purity`, asserts that `profiles.workstation` imports only `roles.*` modules.
+- **Alias resolver:** `checks/phase0/alias-resolver.nix`, exposed as `x86_64-linux.phase0-alias-registry`, iterates every alias in this document and ensures it resolves to the canonical taxonomy path.
+- **Taxonomy version guard:** `checks/phase0/taxonomy-version.nix`, exposed as `x86_64-linux.phase0-taxonomy-version`, recomputes `TAXONOMY_VERSION` from the alias registry hash and fails if the constant is stale.
+- **Metadata lint:** `checks/phase0/metadata-lint.nix`, exposed as `x86_64-linux.phase0-metadata`, verifies that each role exports `canonicalAppStreamId`, `categories`, `secondaryTags`, and optional `auxiliaryCategories` values that the helper library can validate against the Freedesktop registry.
 
 Wire these into CI (i.e., `nix flake check --accept-flake-config`) so they gate later phases.
 
