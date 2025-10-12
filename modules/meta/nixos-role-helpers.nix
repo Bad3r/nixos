@@ -5,9 +5,36 @@
   ...
 }:
 let
+  sanitizeModule =
+    module:
+    if module == null then
+      null
+    else if lib.isFunction module then
+      module
+    else if builtins.isAttrs module then
+      let
+        cleaned = builtins.removeAttrs module [
+          "_file"
+          "imports"
+          "flake"
+        ];
+        imported = module.imports or [ ];
+        sanitizedImports = lib.filter (m: m != null) (map sanitizeModule imported);
+      in
+      cleaned
+      // lib.optionalAttrs (sanitizedImports != [ ]) {
+        imports = sanitizedImports;
+      }
+    else
+      null;
+
   flattenRoles =
     module:
-    if builtins.isAttrs module then
+    if module == null then
+      { }
+    else if lib.isFunction module then
+      { }
+    else if builtins.isAttrs module then
       let
         direct = lib.filterAttrs (
           name: _:
@@ -16,10 +43,11 @@ let
             "imports"
           ])
         ) module;
+        sanitizedDirect = lib.mapAttrs (_: sanitizeModule) direct;
         imported = module.imports or [ ];
         merge = acc: value: acc // flattenRoles value;
       in
-      lib.foldl' merge direct (if builtins.isList imported then imported else [ imported ])
+      lib.foldl' merge sanitizedDirect (if builtins.isList imported then imported else [ imported ])
     else
       { };
 
