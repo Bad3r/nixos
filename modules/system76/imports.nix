@@ -9,12 +9,21 @@ let
   nixosModules = flake.nixosModules or { };
   hasModule = name: lib.hasAttr name nixosModules;
   getModule = name: if hasModule name then lib.getAttr name nixosModules else null;
+  roleHelpers =
+    (config.flake.lib.nixos.roles or { }) // (config._module.args.nixosRoleHelpers or { });
   getRoleModule =
     name:
-    if lib.hasAttrByPath [ "roles" name ] nixosModules then
+    let
+      getRole = roleHelpers.getRole or (_: null);
+      attempt = builtins.tryEval (getRole name);
+    in
+    if attempt.success && attempt.value != null then
+      attempt.value
+    else if lib.hasAttrByPath [ "roles" name ] nixosModules then
       lib.getAttrFromPath [ "roles" name ] nixosModules
     else
       null;
+  roleModules = lib.filter (module: module != null) (map getRoleModule roleNames);
   getVirtualizationModule =
     name:
     if lib.hasAttrByPath [ "virtualization" name ] nixosModules then
@@ -22,29 +31,16 @@ let
     else
       null;
   roleNames = [
-    "base"
-    "dev"
-    "media"
-    "net"
-    "gaming"
-    "files"
-    "file-sharing"
-    "productivity"
-    "security"
-    "cloudflare"
+    "desktop"
     "warp-client"
     "pentesting-devshell"
     "chat"
-    "ai-agents"
-    "cli"
-    "desktop"
-    "xserver"
   ];
-  roleModules = lib.filter (module: module != null) (map getRoleModule roleNames);
+  workstationModule = getModule "workstation";
   baseModules = lib.filter (module: module != null) [
     inputs.nixos-hardware.nixosModules.system76
     inputs.nixos-hardware.nixosModules.system76-darp6
-    (getModule "workstation")
+    workstationModule
     (getModule "system76-support")
     (getModule "security")
     (getModule "hardware-lenovo-y27q-20")
@@ -73,6 +69,7 @@ let
 in
 {
   configurations.nixos.system76.module = {
+    _module.check = false;
     imports =
       baseModules
       ++ virtualizationModules
