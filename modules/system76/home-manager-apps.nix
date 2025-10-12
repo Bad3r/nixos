@@ -21,7 +21,6 @@ let
     # "inkscape"
     "keepassxc"
     # "krita"
-    "lazydocker"
     # "libreoffice"
     "ncdu"
     "pcmanfm"

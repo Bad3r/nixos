@@ -11,7 +11,6 @@ let
   getApp = rawHelpers.getApp or fallbackGetApp;
   appImports = map getApp [
     "qemu"
-    "virt-manager"
   ];
 in
 {
@@ -23,34 +22,32 @@ in
       ...
     }:
     let
+      cfg = config.virt.libvirt.enable or false;
       owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] null config;
     in
     {
-      imports = appImports;
+      imports = lib.optionals cfg appImports;
 
-      config = lib.mkMerge [
-        {
-          virtualisation.libvirtd = {
-            enable = true;
-            qemu = {
-              package = pkgs.qemu_kvm;
-              ovmf = {
-                enable = true;
-                packages = [ pkgs.OVMFFull.fd ];
+      config = lib.mkIf cfg (
+        lib.mkMerge [
+          {
+            virtualisation.libvirtd = {
+              enable = true;
+              qemu = {
+                package = pkgs.qemu_kvm;
+                runAsRoot = false;
               };
-              runAsRoot = false;
             };
-          };
-
-          programs.virt-manager.enable = true;
-        }
-        (lib.mkIf (owner != null) {
-          users.users.${owner}.extraGroups = lib.mkAfter [
-            "kvm"
-            "libvirtd"
-            "qemu-libvirtd"
-          ];
-        })
-      ];
+            home-manager.extraAppImports = lib.mkAfter [ "virt-manager" ];
+          }
+          (lib.mkIf (owner != null) {
+            users.users.${owner}.extraGroups = lib.mkAfter [
+              "kvm"
+              "libvirtd"
+              "qemu-libvirtd"
+            ];
+          })
+        ]
+      );
     };
 }

@@ -15,21 +15,26 @@ in
   flake.nixosModules.virtualization.docker =
     { config, lib, ... }:
     let
+      cfg = config.virt.docker.enable or false;
       owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] null config;
     in
     {
-      imports = [ dockerApp ];
+      imports = lib.optional cfg dockerApp;
 
-      config = lib.mkMerge [
-        {
-          virtualisation.docker = {
-            enable = true;
-            enableOnBoot = false;
-          };
-        }
-        (lib.mkIf (owner != null) {
-          users.users.${owner}.extraGroups = lib.mkAfter [ "docker" ];
-        })
-      ];
+      config = lib.mkIf cfg (
+        lib.mkMerge [
+          {
+            virtualisation.docker = {
+              enable = true;
+              enableOnBoot = true;
+            };
+
+            home-manager.extraAppImports = lib.mkAfter [ "lazydocker" ];
+          }
+          (lib.mkIf (owner != null) {
+            users.users.${owner}.extraGroups = lib.mkAfter [ "docker" ];
+          })
+        ]
+      );
     };
 }
