@@ -1,0 +1,107 @@
+{
+  "source": "https://specifications.freedesktop.org/menu-spec/latest/category-registry.html",
+  "fetched": "2025-10-12",
+  "roots": [
+    "AudioVideo",
+    "Development",
+    "Education",
+    "Game",
+    "Graphics",
+    "Network",
+    "Office",
+    "Science",
+    "Settings",
+    "System",
+    "Utility"
+  ],
+  "subcategories": {
+    "AudioVideo": [
+      "Audio",
+      "Video",
+      "AudioVideoEditing",
+      "Player",
+      "Mixer",
+      "Sequencer",
+      "TV",
+      "Tuner",
+      "Telephony",
+      "Recording"
+    ],
+    "Development": [
+      "IDE",
+      "GUIDesigner",
+      "Debugger",
+      "Profiling",
+      "RevisionControl",
+      "Translation",
+      "Building"
+    ],
+    "Education": ["Art", "Languages", "Science", "Math", "Chemistry"],
+    "Game": [
+      "ActionGame",
+      "AdventureGame",
+      "ArcadeGame",
+      "Emulator",
+      "RolePlaying",
+      "SportsGame",
+      "StrategyGame",
+      "X-RTS",
+      "X-RealTimeStrategy",
+      "X-RealTimeStrategyGame"
+    ],
+    "Graphics": [
+      "VectorGraphics",
+      "RasterGraphics",
+      "3DGraphics",
+      "Photography",
+      "Scanning",
+      "OCR",
+      "Viewer",
+      "Qt"
+    ],
+    "Network": [
+      "Email",
+      "WebBrowser",
+      "InstantMessaging",
+      "FileTransfer",
+      "IRCClient",
+      "RemoteAccess",
+      "VPN"
+    ],
+    "Office": [
+      "Calendar",
+      "ContactManagement",
+      "Database",
+      "Dictionary",
+      "Presentation",
+      "Spreadsheet",
+      "WordProcessor",
+      "Finance"
+    ],
+    "Science": [
+      "Astronomy",
+      "Biology",
+      "Chemistry",
+      "DataVisualization",
+      "Medical",
+      "Physics",
+      "Geology"
+    ],
+    "Settings": ["HardwareSettings", "Printing", "PackageManager"],
+    "System": [
+      "FileTools",
+      "Security",
+      "Monitor",
+      "TerminalEmulator",
+      "FileManager"
+    ],
+    "Utility": [
+      "Archiving",
+      "Calculator",
+      "Clock",
+      "Compression",
+      "TextEditor",
+      "TerminalEmulator"
+    ]
+  }
+}

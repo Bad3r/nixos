@@ -1,0 +1,21 @@
+{
+  "roles.sys": "roles.system",
+  "roles.base": "roles.system.base",
+  "roles.xserver": "roles.system.display.x11",
+  "roles.security": "roles.system.security",
+  "roles.files": "roles.system.storage",
+  "roles.cli": "roles.utility.cli",
+  "roles.media": "roles.audio-video.media",
+  "roles.net": "roles.network.tools",
+  "roles.cloudflare": "roles.network.vendor.cloudflare",
+  "roles.file-sharing": "roles.network.sharing",
+  "roles.dev": "roles.development.core",
+  "roles.dev.python": "roles.development.python",
+  "roles.dev.py": "roles.development.python",
+  "roles.dev.go": "roles.development.go",
+  "roles.dev.rust": "roles.development.rust",
+  "roles.dev.clj": "roles.development.clojure",
+  "roles.ai-agents": "roles.development.ai",
+  "roles.gaming": "roles.game.launchers",
+  "roles.productivity": "roles.office.productivity"
+}
