@@ -1,0 +1,6 @@
+[
+  {
+    "host": "system76",
+    "manifest": "docs/RFC-0001/workstation-packages.json"
+  }
+]
