@@ -15,6 +15,12 @@ let
       lib.getAttrFromPath [ "roles" name ] nixosModules
     else
       null;
+  getVirtualizationModule =
+    name:
+    if lib.hasAttrByPath [ "virtualization" name ] nixosModules then
+      lib.getAttrFromPath [ "virtualization" name ] nixosModules
+    else
+      null;
   roleNames = [
     "base"
     "dev"
@@ -42,7 +48,16 @@ let
     (getModule "system76-support")
     (getModule "security")
     (getModule "hardware-lenovo-y27q-20")
+    (getModule "virt")
   ];
+  virtualizationModules = lib.filter (module: module != null) (
+    map getVirtualizationModule [
+      "docker"
+      "libvirt"
+      "ovftool"
+      "vmware"
+    ]
+  );
   selfRevision =
     let
       self = inputs.self or null;
@@ -58,7 +73,11 @@ let
 in
 {
   configurations.nixos.system76.module = {
-    imports = baseModules ++ roleModules ++ lib.optional (hasModule "ssh") nixosModules.ssh;
+    imports =
+      baseModules
+      ++ virtualizationModules
+      ++ roleModules
+      ++ lib.optional (hasModule "ssh") nixosModules.ssh;
   };
 
   # Export the System76 configuration so the flake exposes it under nixosConfigurations
