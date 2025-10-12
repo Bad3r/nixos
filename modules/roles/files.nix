@@ -26,7 +26,7 @@ let
     "testdisk"
     "parted"
     "gparted"
-    "ventoy-full-gtk"
+    "ventoy-full"
     "ntfs3g"
     "hdparm"
     "nvme-cli"
