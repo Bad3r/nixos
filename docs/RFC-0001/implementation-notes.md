@@ -28,6 +28,12 @@ The taxonomy helper library lives under `lib/taxonomy`. It bundles a generated `
   - Emits a review queue at `build/taxonomy/metadata-overrides-review.json` for manual inspection of asset-heavy packages after each run.
 - After reviewing flagged entries, commit both the updated overrides and the review artefact (or delete the review file once emptied) so the history captures the triage outcome.
 
+### Role Import Inventory
+
+- Run `scripts/list-role-imports.py` to list every `flake.nixosModules.roles.*` export and the app modules it imports. Use `--format json` for machine-readable output when checking for duplicate payloads or validating bundle coverage.
+- The report lists non-app imports by attribute path (for example `lang.python`, `roles.xserver`). Local helper modules fall back to their defining file so the audit trail stays readable without a full NixOS evaluation context.
+- The reporter accepts `--repo /path/to/root` when invoked from CI or temporary directories; CI uses this flag so the new `phase0-role-imports` check surfaces regressions automatically.
+
 ## Vendor Bundle Template
 
 ```nix
@@ -97,9 +103,9 @@ Extend the mapping for any additional convenience aliases required by future lan
 - `roles.development.ai` (`roles.ai-agents`)
 - `roles.game.launchers` (`roles.gaming`)
 - `roles.system.security` (`roles.security`)
-- `roles.network.vendor.cloudflare` (`roles.cloudflare`)
 
 Host- or vendor-specific packages (e.g., System76 utilities, USBGuard policies) remain in the host configuration or dedicated vendor roles and are intentionally excluded from the profile.
+For example, `configurations.nixos.system76` will attach `roles.network.vendor.cloudflare` (`roles.cloudflare`) directly so Cloudflare Zero Trust tooling stays host-scoped rather than polluting the shared profile.
 
 ## Reference Role: `roles.system.prospect`
 
@@ -115,25 +121,27 @@ Host- or vendor-specific packages (e.g., System76 utilities, USBGuard policies) 
   };
   ```
 
-- **Manifest:** generated via `nix eval .#nixosConfigurations.system76.config.environment.systemPackages --accept-flake-config --json` and stored at `docs/RFC-0001/workstation-packages.json`. Regenerate whenever the host configuration changes and re-run `nix flake check .#checks.phase4.workstation-parity` to confirm parity.
+- **Manifest:** generated via `nix eval .#nixosConfigurations.system76.config.environment.systemPackages --accept-flake-config --json` and stored at `docs/RFC-0001/workstation-packages.json`. Regenerate whenever the host configuration changes and re-run `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config` to confirm parity.
 - **Vendor separation:** `roles.system.prospect` stays generic; vendor-specific payloads continue to live under `roles.system.vendor.<name>` so other hosts do not inherit System76-only software.
 
 ## Test Baseline (Phase 0)
 
 Add these tests before refactoring so later phases must satisfy them:
 
-- **Host package guard:** `checks/phase0/host-package-guard.sh`, surfaced via `nix flake check --checks x86_64-linux.phase0-host-package-guard`, confirms `environment.systemPackages` is sourced exclusively from roles (current allowlist derived from `roles.system.prospect`).
-- **Profile purity:** `checks/phase0/profile-purity.nix`, exposed under `x86_64-linux.phase0-profile-purity`, asserts that `profiles.workstation` imports only `roles.*` modules.
-- **Alias resolver:** `checks/phase0/alias-resolver.nix`, exposed as `x86_64-linux.phase0-alias-registry`, iterates every alias in this document and ensures it resolves to the canonical taxonomy path.
-- **Taxonomy version guard:** `checks/phase0/taxonomy-version.nix`, exposed as `x86_64-linux.phase0-taxonomy-version`, recomputes `TAXONOMY_VERSION` from the alias registry hash and fails if the constant is stale.
-- **Metadata lint:** `checks/phase0/metadata-lint.nix`, exposed as `x86_64-linux.phase0-metadata`, verifies that each role exports `canonicalAppStreamId`, `categories`, `secondaryTags`, and optional `auxiliaryCategories` values that the helper library can validate against the Freedesktop registry.
+- **Host package guard:** `checks/phase0/host-package-guard.sh`, surfaced via `nix build .#checks.x86_64-linux.phase0-host-package-guard --accept-flake-config`, confirms `environment.systemPackages` is sourced exclusively from roles (current allowlist derived from `roles.system.prospect`).
+- **Profile purity:** `checks/phase0/profile-purity.nix`, surfaced via `nix build .#checks.x86_64-linux.phase0-profile-purity --accept-flake-config`, asserts that `profiles.workstation` imports only `roles.*` modules.
+- **Alias resolver:** `checks/phase0/alias-resolver.nix`, surfaced via `nix build .#checks.x86_64-linux.phase0-alias-registry --accept-flake-config`, iterates every alias in this document and ensures it resolves to the canonical taxonomy path.
+- **Taxonomy version guard:** `checks/phase0/taxonomy-version.nix`, surfaced via `nix build .#checks.x86_64-linux.phase0-taxonomy-version --accept-flake-config`, recomputes `TAXONOMY_VERSION` from the alias registry hash and fails if the constant is stale.
+- **Metadata lint:** `checks/phase0/metadata-lint.nix`, surfaced via `nix build .#checks.x86_64-linux.phase0-metadata --accept-flake-config`, verifies that each role exports `canonicalAppStreamId`, `categories`, `secondaryTags`, and optional `auxiliaryCategories` values that the helper library can validate against the Freedesktop registry.
+- **Role import inventory:** `scripts/list-role-imports.py`, surfaced via `nix build .#checks.x86_64-linux.phase0-role-imports --accept-flake-config`, ensures the reporter continues to parse modules correctly (CI uses the `--offline` mode).
 
 Wire these into CI (i.e., `nix flake check --accept-flake-config`) so they gate later phases.
+Ensure `modules/meta/ci.nix` continues to provide the runtime dependencies these derivations expect (e.g., `python3`, an explicit `${pkgs.bash}/bin/bash` invocation for the host guard) so the checks pass inside the Nix sandbox.
 
 ## Implementation Checklist
 
 1. **Create tooling**
-   - [ ] Script to enumerate existing `flake.nixosModules.roles.*` exports and the packages they include.
+   - [x] Script to enumerate existing `flake.nixosModules.roles.*` exports and the packages they include.
    - [x] Lint to enforce `canonicalAppStreamId`, `categories`, `auxiliaryCategories`, and `secondaryTags` metadata, including validation against the upstream registry and controlled vocabularies.
    - [x] Wire `scripts/taxonomy-sweep.py` into local workflows so overrides regenerate from the manifest registry and emit the review queue.
 2. **Define taxonomy scaffolding**
@@ -155,8 +163,17 @@ Wire these into CI (i.e., `nix flake check --accept-flake-config`) so they gate 
    - [ ] Update `docs/configuration-architecture.md`, role tables, and README references to reflect the taxonomy.
    - [ ] Publish migration notes (e.g., `docs/releases/next.md`).
    - [ ] Document the current `TAXONOMY_VERSION`, canonical categories, secondary-tag vocabulary, and available profiles for future contributors.
-   - [ ] Regenerate the `roles.system.prospect` package matrix (via `nix eval .#nixosConfigurations.system76.config.environment.systemPackages --accept-flake-config --json`) whenever the underlying configuration changes and re-run `nix flake check .#checks.phase4.workstation-parity` to ensure parity.
+   - [ ] Regenerate the `roles.system.prospect` package matrix (via `nix eval .#nixosConfigurations.system76.config.environment.systemPackages --accept-flake-config --json`) whenever the underlying configuration changes and re-run `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config` to ensure parity.
    - [x] Record the override review process and capture resolutions (commit or remove `build/taxonomy/metadata-overrides-review.json` once empty).
 6. **Validation**
-   - [ ] Run `nix fmt`, `nix flake check`, `nix flake check .#checks.phase4.workstation-parity`, and targeted `nix eval` assertions to ensure role membership matches expectations.
+   - [ ] Run `nix fmt`, `nix flake check`, `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`, and targeted `nix eval` assertions to ensure role membership matches expectations.
    - [ ] Confirm no insecure allowances are lost during migration (Ventoy, etc.).
+
+## Progress Tracking
+
+- **Tooling foundation (Phase 0):** Complete. Metadata lint, taxonomy sweep automation, and the role import reporter (`scripts/list-role-imports.py`) are in place, documented, and enforced via the `phase0-role-imports` CI check.
+- **Taxonomy scaffolding:** Helper library, alias hash guard, and version surfacing are finished; documentation work on allowed categories remains outstanding.
+- **Phase 0 guardrails:** Host package guard, profile purity, alias registry, taxonomy version, metadata lint, and the role import inventory (`phase0-role-imports`) are all available under `nix build .#checks.x86_64-linux.phase0-*`. They intentionally fail until new roles land.
+- **Role migration:** Not started. Legacy roles still back the workstation profile; new taxonomy directories, vendor bundles, and language splits are pending.
+- **Consumer updates & parity:** Deferred until the new taxonomy roles exist. Override registry and manifest tracking are ready for reuse when migration begins.
+- **Documentation refresh:** Partially complete. Implementation notes are current, but broader references (`docs/configuration-architecture.md`, release notes, taxonomy overview) still need updates alongside the migration.

@@ -12,20 +12,26 @@ let
   storedHash = taxonomy.aliasHash or null;
 
   errors = lib.concatLists [
-    (if storedVersion == null || !(lib.isString storedVersion) || storedVersion == "" then
-      [ "taxonomyVersion must be a non-empty string" ]
-     else
-      [ ])
-    (if storedHash == null || !(lib.isString storedHash) || storedHash == "" then
-      [ "aliasHash must be a non-empty string" ]
-     else
-      [ ])
-    (if storedHash == computedHash then
-      [ ]
-     else
-      [
-        "alias registry hash mismatch (expected ${storedHash}, got ${computedHash})"
-      ])
+    (
+      if storedVersion == null || !(lib.isString storedVersion) || storedVersion == "" then
+        [ "taxonomyVersion must be a non-empty string" ]
+      else
+        [ ]
+    )
+    (
+      if storedHash == null || !(lib.isString storedHash) || storedHash == "" then
+        [ "aliasHash must be a non-empty string" ]
+      else
+        [ ]
+    )
+    (
+      if storedHash == computedHash then
+        [ ]
+      else
+        [
+          "alias registry hash mismatch (expected ${storedHash}, got ${computedHash})"
+        ]
+    )
   ];
 in
 {

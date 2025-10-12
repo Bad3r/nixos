@@ -23,7 +23,7 @@ let
         ;
     };
 in
-{
+rec {
   maxSegments = 3;
   vendorSegment = "vendor";
 

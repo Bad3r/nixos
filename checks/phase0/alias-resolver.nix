@@ -4,6 +4,8 @@ let
   aliases = taxonomy.aliases or { };
   matrix = taxonomy.matrix;
   roots = matrix.canonicalRootsList;
+  aliasHash = taxonomy.aliasHash or "";
+  sentinelPlaceholder = "pending-phase0-baseline";
 
   vendorPrefix = "vendor";
 
@@ -112,7 +114,14 @@ let
     ];
 
   aliasEntries = lib.attrsToList aliases;
-  errors = lib.concatMap validateAlias aliasEntries;
+  sentinelErrors =
+    if aliasHash == sentinelPlaceholder then
+      [
+        "Phase 0 sentinel: alias registry still reports placeholder hash '${sentinelPlaceholder}'. Regenerate the alias registry and update lib/taxonomy/version.nix before enabling this check."
+      ]
+    else
+      [ ];
+  errors = lib.concatMap validateAlias aliasEntries ++ sentinelErrors;
 in
 {
   valid = errors == [ ];

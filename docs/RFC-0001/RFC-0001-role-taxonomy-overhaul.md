@@ -121,11 +121,12 @@ Deeper specialisations stay within the three-segment limit by modelling variants
 ### Phase 0 – Test & Guardrail Baseline
 
 - Add failing-but-actionable checks before refactoring:
-  - `checks/phase0/host-package-guard.sh`, exposed as `nix flake check .#checks.phase0.host-package-guard`, asserts that `environment.systemPackages` on every host (currently only `system76`) matches an allowlisted set generated from `roles.system.prospect`.
-  - `checks/phase0/profile-purity.nix`, exported as `.#checks.phase0.profile-purity`, evaluates `profiles.workstation` and fails if it declares packages or options outside `roles.*` imports.
-  - `checks/phase0/alias-resolver.nix`, exported as `.#checks.phase0.alias-registry`, iterates the alias map and ensures each entry resolves to the canonical module path described in the taxonomy matrix.
-  - `checks/phase0/taxonomy-version.nix`, exported as `.#checks.phase0.taxonomy-version`, recomputes `TAXONOMY_VERSION` from the alias registry hash and fails if the constant is outdated.
-  - `checks/phase0/metadata-lint.nix`, exported as `.#checks.phase0.metadata`, verifies every role provides `canonicalAppStreamId`, `categories`, `secondaryTags`, and optional `auxiliaryCategories` values that pass the helper validation against the Freedesktop registry.
+  - `checks/phase0/host-package-guard.sh`, surfaced via `nix build .#checks.x86_64-linux.phase0-host-package-guard --accept-flake-config`, asserts that `environment.systemPackages` on every host (currently only `system76`) matches an allowlisted set generated from `roles.system.prospect`.
+  - `checks/phase0/profile-purity.nix`, surfaced via `nix build .#checks.x86_64-linux.phase0-profile-purity --accept-flake-config`, evaluates `profiles.workstation` and fails if it declares packages or options outside `roles.*` imports.
+  - `checks/phase0/alias-resolver.nix`, surfaced via `nix build .#checks.x86_64-linux.phase0-alias-registry --accept-flake-config`, iterates the alias map and ensures each entry resolves to the canonical module path described in the taxonomy matrix.
+  - `checks/phase0/taxonomy-version.nix`, surfaced via `nix build .#checks.x86_64-linux.phase0-taxonomy-version --accept-flake-config`, recomputes `TAXONOMY_VERSION` from the alias registry hash and fails if the constant is outdated.
+  - `checks/phase0/metadata-lint.nix`, surfaced via `nix build .#checks.x86_64-linux.phase0-metadata --accept-flake-config`, verifies every role provides `canonicalAppStreamId`, `categories`, `secondaryTags`, and optional `auxiliaryCategories` values that pass the helper validation against the Freedesktop registry.
+  - `scripts/list-role-imports.py`, surfaced via `nix build .#checks.x86_64-linux.phase0-role-imports --accept-flake-config`, ensures the reporter continues to parse modules correctly (CI uses the `--offline` mode).
 - CI and local workflows must call `nix flake check --accept-flake-config` so these checks block merges; failing checks are addressed before starting Phase 1.
 - **Exit criteria:** new checks are committed, wired into CI, and currently highlight the gaps that the subsequent phases will close.
 
@@ -150,7 +151,7 @@ Deeper specialisations stay within the three-segment limit by modelling variants
 
 ### Phase 4 – Parity Validation & Docs
 
-- Capture before/after manifests for `environment.systemPackages` (e.g., `nix eval … --json`) and store the JSON in `docs/RFC-0001/workstation-packages.json`. A companion check (`nix flake check .#checks.phase4.workstation-parity`) compares the JSON to the live evaluation so drift is detected automatically.
+- Capture before/after manifests for `environment.systemPackages` (e.g., `nix eval … --json`) and store the JSON in `docs/RFC-0001/workstation-packages.json`. A companion check (`nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`) compares the JSON to the live evaluation so drift is detected automatically.
 - Run `nix fmt`, the new tests from Phase 0, `nix flake check`, and targeted `nix eval` assertions to prove user-facing tools (`notify-send`, `prettier`, etc.) remain available.
 - Update documentation (`docs/configuration-architecture.md`, release notes, alias listings) to reflect the new taxonomy and profile entry points.
 - **Exit criteria:** parity diffs show no regressions, all formatting/tests (including Phase 0 guards) pass, and documentation changes are committed alongside the code updates.
@@ -165,7 +166,7 @@ Deeper specialisations stay within the three-segment limit by modelling variants
 
 - Should we allow roles to belong to multiple categories (e.g., `Network` + `Utility`)? Initial stance: no; each role keeps a single canonical root, while optional `secondaryTags` and a documented `auxiliaryCategories` list (used only for docs/search) cover genuine cross-domain cases such as backup tools that touch storage and security. We will revisit the stance once two or more roles require duplicate canonical homes or when contributors report discoverability gaps even with `auxiliaryCategories`. Until then, composition guidelines and profile documentation describe how to surface multi-domain bundles in search tooling.
 - Do we want host profiles to import an entire category at once (`roles.system._all`)? Could be added later.
-- How do we version the taxonomy to avoid breakage? `TAXONOMY_VERSION` lives in the taxonomy helper library and is defined as `<major>.<minor>` where `major` increments when canonical role paths change and `minor` increments when aliases or metadata vocabularies change. Phase 0 adds a check (`nix flake check .#checks.taxonomy-version`) that recomputes the version from the alias registry hash so the constant cannot drift.
+- How do we version the taxonomy to avoid breakage? `TAXONOMY_VERSION` lives in the taxonomy helper library and is defined as `<major>.<minor>` where `major` increments when canonical role paths change and `minor` increments when aliases or metadata vocabularies change. Phase 0 adds a check (`nix build .#checks.x86_64-linux.phase0-taxonomy-version --accept-flake-config`) that recomputes the version from the alias registry hash so the constant cannot drift.
 
 ## Implementation Checklist
 
