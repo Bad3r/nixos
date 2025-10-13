@@ -147,7 +147,7 @@ Ensure `modules/meta/ci.nix` continues to provide the runtime dependencies these
 2. **Define taxonomy scaffolding**
    - [x] Introduce helper library for category constants, AppStream registry validation, and secondary-tag vocabularies.
    - [x] Expose `TAXONOMY_VERSION` from the helper library and ensure `checks.phase0-taxonomy-version` depends on it.
-   - [ ] Add documentation page describing allowed categories and naming rules.
+   - [x] Add documentation page describing allowed categories and naming rules (`docs/taxonomy/role-taxonomy.md`).
 3. **Add new roles**
    - [ ] Create top-level directories matching canonical categories (e.g., `modules/roles/system`).
    - [ ] Implement initial subroles (`system.storage`, `utility.archive`, `network.sharing`, etc.) populated with packages migrated from legacy roles.
@@ -160,7 +160,7 @@ Ensure `modules/meta/ci.nix` continues to provide the runtime dependencies these
    - [ ] Capture before/after manifests to prove parity (e.g., `nix eval` diff of `environment.systemPackages` for `system76`). If the diff fails the parity check, revert to the last Phase 2 commit, restore `workstation-packages.json`, and rerun Phase 0 checks before attempting the migration again.
    - [x] Add any new manifests to `docs/RFC-0001/manifest-registry.json` so the sweep script covers them automatically.
 5. **Documentation updates**
-   - [ ] Update `docs/configuration-architecture.md`, role tables, and README references to reflect the taxonomy.
+   - [x] Update `docs/configuration-architecture.md`, role tables, and README references to reflect the taxonomy.
    - [ ] Publish migration notes (e.g., `docs/releases/next.md`).
    - [ ] Document the current `TAXONOMY_VERSION`, canonical categories, secondary-tag vocabulary, and available profiles for future contributors.
    - [ ] Regenerate the `roles.system.prospect` package matrix (via `nix eval .#nixosConfigurations.system76.config.environment.systemPackages --accept-flake-config --json`) whenever the underlying configuration changes and re-run `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config` to ensure parity.

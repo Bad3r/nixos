@@ -53,7 +53,9 @@ in {
 ### 2.2 Role registry
 
 - **Helper:** `modules/meta/nixos-role-helpers.nix` exports `getRole`, `getRoles`, and `getRoleOr`, flattening nested role modules (including ones emitted by this repo and any referenced flakes).
-- **Role modules:** `modules/roles/*.nix` (for example `roles/base.nix`, `roles/dev.nix`, `roles/net.nix`) resolve app bundles through helpers, keeping lists in one place.
+- **Role taxonomy:** the canonical category layout, naming rules, and metadata policy live in [`docs/taxonomy/role-taxonomy.md`](./taxonomy/role-taxonomy.md). Phase 2 of RFC-0001 migrates legacy roles to this structure.
+- **Legacy modules:** existing role bundles still live under `modules/roles/*.nix` (for example `roles/base.nix`, `roles/dev.nix`, `roles/net.nix`) until the taxonomy refactor lands. Use the helper namespace rather than importing files directly so consumers flip over seamlessly.
+- **Metadata tooling:** Phase 0 checks (`checks/phase0/*`) enforce metadata and alias rules defined in the taxonomy doc. Expect them to fail until the migration completes; they document real gaps the new taxonomy must close.
 
 ### 2.3 Workstation bundle
 
