@@ -22,7 +22,7 @@
       };
     };
 
-  flake.nixosModules.roles.system.base.imports = lib.mkAfter [
+  flake.nixosModules.roles.system.base.imports = [
     (
       { config, lib, ... }:
       {

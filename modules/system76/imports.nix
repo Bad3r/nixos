@@ -9,15 +9,19 @@ let
   nixosModules = flake.nixosModules or { };
   hasModule = name: lib.hasAttr name nixosModules;
   getModule = name: if hasModule name then lib.getAttr name nixosModules else null;
+  profiles = config._module.args.nixosProfiles or { };
   getProfile =
     name:
     let
+      fromArgs = if builtins.hasAttr name profiles then builtins.getAttr name profiles else null;
       path = [
         "profiles"
         name
       ];
+      fromModules =
+        if lib.hasAttrByPath path nixosModules then lib.getAttrFromPath path nixosModules else null;
     in
-    if lib.hasAttrByPath path nixosModules then lib.getAttrFromPath path nixosModules else null;
+    if fromArgs != null then fromArgs else fromModules;
   roleHelpers =
     (config.flake.lib.nixos.roles or { }) // (config._module.args.nixosRoleHelpers or { });
   getRoleModule =

@@ -70,9 +70,8 @@ let
       ""
     else
       "profiles.workstation missing roles: " + lib.concatStringsSep ", " missingNames;
-in
-{
-  flake.nixosModules.profiles.workstation = {
+
+  workstationModule = {
     imports = if missingNames == [ ] then importsValue else lib.warn missingWarning importsValue;
 
     config = lib.mkIf (hmGuiModule != null) (
@@ -94,4 +93,8 @@ in
       }
     );
   };
+in
+{
+  flake.nixosModules.profiles.workstation = workstationModule;
+  _module.args.nixosProfiles.workstation = workstationModule;
 }

@@ -1,6 +1,5 @@
-{ lib, ... }:
-{
-  flake.nixosModules.roles.development.core.imports = lib.mkAfter [
+_: {
+  flake.nixosModules.roles.development.core.imports = [
     (_: {
       programs.neovim = {
         enable = true;

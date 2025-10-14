@@ -98,7 +98,7 @@ Extend the mapping for any additional convenience aliases required by future lan
 ### Phase 3 Parity Snapshot (2025-10-14)
 
 - Baseline manifest captured at `docs/RFC-0001/workstation-packages-phase2.json` (380 packages).
-- Current manifest `docs/RFC-0001/workstation-packages.json` (154 packages) reflects the taxonomy-backed profile.
+- Current manifest `docs/RFC-0001/workstation-packages.json` (253 packages as of 2025-10-14) reflects the taxonomy-backed profile.
 - Added packages: `avahi`, `getconf-glibc`, `getent-glibc`, `mpv-with-scripts`, `nano`, `nix-index-with-full-db`, `nvidia-x11`, `openresolv`, `sudo`, `wpa_supplicant`.
 - Removed packages span developer tooling (`neovim`, `git`, `cmake`, `rust-analyzer`, `ShellCheck`), key desktop integrations (`steam`, `wireguard-tools`, `NetworkManager-openvpn`), and cloud/network utilities (for example `cloudflared`, `fail2ban`). Firefox, Discord, and Element remain in the manifest; see the diff for the full removal list and flag intentional drops before closing Phase 3.
 - TODO: wire the future Phase 4 parity derivation (`.#checks.x86_64-linux.phase4-workstation-parity`) once implemented so the manifests stay in lock-step.

@@ -1,6 +1,5 @@
-{ lib, ... }:
-{
-  flake.nixosModules.roles.system.nixos.imports = lib.mkAfter [
+_: {
+  flake.nixosModules.roles.system.nixos.imports = [
     (_: {
       nix.settings.experimental-features = [
         "nix-command"

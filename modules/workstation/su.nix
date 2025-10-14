@@ -1,6 +1,5 @@
-{ lib, ... }:
-{
-  flake.nixosModules.roles.system.security.imports = lib.mkAfter [
+_: {
+  flake.nixosModules.roles.system.security.imports = [
     (_: {
       environment.shellAliases.su = "su -p";
       security.pam.services = {

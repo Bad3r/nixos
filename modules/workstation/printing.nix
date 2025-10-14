@@ -1,6 +1,5 @@
-{ lib, ... }:
-{
-  flake.nixosModules.roles.system.base.imports = lib.mkAfter [
+_: {
+  flake.nixosModules.roles.system.base.imports = [
     (_: { services.printing.enable = false; })
   ];
 }

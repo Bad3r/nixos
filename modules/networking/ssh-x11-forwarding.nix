@@ -1,6 +1,5 @@
-{ lib, ... }:
-{
-  flake.nixosModules.roles.network."remote-access".imports = lib.mkAfter [
+_: {
+  flake.nixosModules.roles.network."remote-access".imports = [
     (
       { pkgs, ... }:
       {

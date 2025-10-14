@@ -1,4 +1,4 @@
-{ lib, ... }:
+_:
 let
   nixLdModule =
     {
@@ -161,5 +161,5 @@ let
     };
 in
 {
-  flake.nixosModules.roles.development.core.imports = lib.mkAfter [ nixLdModule ];
+  flake.nixosModules.roles.development.core.imports = [ nixLdModule ];
 }

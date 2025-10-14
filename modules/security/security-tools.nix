@@ -1,4 +1,4 @@
-{ lib, ... }:
+_:
 let
   nixosModule =
     {
@@ -147,5 +147,5 @@ in
       packages."age-plugin-fido2prf" = pkgs.callPackage ../../packages/age-plugin-fido2prf { };
     };
 
-  flake.nixosModules.roles.system.security.imports = lib.mkAfter [ nixosModule ];
+  flake.nixosModules.roles.system.security.imports = [ nixosModule ];
 }

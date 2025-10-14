@@ -1,4 +1,4 @@
-{ lib, ... }:
+_:
 let
   cloudflaredModule =
     { pkgs, ... }:
@@ -45,5 +45,5 @@ let
     };
 in
 {
-  flake.nixosModules.roles.network.vendor.cloudflare.imports = lib.mkAfter [ cloudflaredModule ];
+  flake.nixosModules.roles.network.vendor.cloudflare.imports = [ cloudflaredModule ];
 }

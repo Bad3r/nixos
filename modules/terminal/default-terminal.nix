@@ -1,6 +1,5 @@
-{ lib, ... }:
-{
-  flake.nixosModules.roles.utility.cli.imports = lib.mkAfter [
+_: {
+  flake.nixosModules.roles.utility.cli.imports = [
     (
       { pkgs, lib, ... }:
       {

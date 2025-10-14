@@ -1,9 +1,22 @@
-{ lib, ... }:
-{
-  flake.nixosModules.roles.system.security.imports = lib.mkAfter [
+_: {
+  flake.nixosModules.roles.system.security.imports = [
     (
-      { config, pkgs, ... }:
       {
+        config,
+        pkgs,
+        lib,
+        ...
+      }:
+      let
+        hasOwner = lib.hasAttrByPath [
+          "flake"
+          "lib"
+          "meta"
+          "owner"
+          "username"
+        ] config;
+      in
+      lib.mkIf hasOwner {
         security.sudo-rs = {
           enable = true;
           wheelNeedsPassword = true;

@@ -1,6 +1,5 @@
-{ lib, ... }:
-{
-  flake.nixosModules.roles."audio-video".media.imports = lib.mkAfter [
+_: {
+  flake.nixosModules.roles."audio-video".media.imports = [
     (
       { pkgs, ... }:
       {
