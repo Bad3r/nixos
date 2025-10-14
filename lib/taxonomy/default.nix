@@ -118,8 +118,7 @@ in
     canonicalRootsList
     ;
 
-  taxonomyVersion = versionInfo.taxonomyVersion;
-  aliasHash = versionInfo.aliasHash;
+  inherit (versionInfo) taxonomyVersion aliasHash;
 
   resolveOverride = pkgName: overrides.${pkgName} or null;
   inherit validateMetadata;

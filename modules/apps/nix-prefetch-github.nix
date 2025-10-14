@@ -25,7 +25,7 @@
   flake.nixosModules.apps."nix-prefetch-github" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.nix-prefetch-github ];
+      environment.systemPackages = [ pkgs."nix-prefetch-github" ];
     };
 
 }

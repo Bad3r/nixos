@@ -27,7 +27,7 @@
   flake.nixosModules.apps."temurin-bin-24" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.temurin-bin-24 ];
+      environment.systemPackages = [ pkgs."temurin-bin-24" ];
     };
 
 }

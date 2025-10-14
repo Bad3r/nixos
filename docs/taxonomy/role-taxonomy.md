@@ -13,18 +13,18 @@ Freedesktop spec and maps to a canonical namespace under `roles.<root-slug>`.
 Subroles are intentionally shallow (maximum of three segments — see
 `lib/taxonomy/matrix.nix:maxSegments`).
 
-| AppStream Root | Namespace Prefix          | Default Subroles          | Vendor? | Notes |
-| -------------- | ------------------------- | ------------------------- | ------- | ----- |
-| AudioVideo     | `roles.audio-video`       | `media`, `production`, `streaming` | ✗ | Multimedia playback & creation bundles. |
-| Development    | `roles.development`       | `core`, language stacks (`python`, `go`, `rust`, `clojure`), `ai` | ✗ | Workstation language tooling and IDE helpers. |
-| Education      | `roles.education`         | `research`, `learning-tools` | ✗ | Reserved for future study/learning suites. |
-| Game           | `roles.game`              | `launchers`, `tools`, `emulation` | ✗ | Gaming launchers aggregate under `roles.game`. |
-| Graphics       | `roles.graphics`          | `illustration`, `cad`, `photography` | ✗ | Creative / design applications. |
-| Network        | `roles.network`           | `sharing`, `tools`, `remote-access`, `services` | ✓ | Vendor integrations live under `roles.network.vendor.<vendor>`. |
-| Office         | `roles.office`            | `productivity`, `planning` | ✗ | Productivity and planning suites. |
-| Science        | `roles.science`           | `data`, `visualisation`    | ✗ | Scientific tooling and visualisation stacks. |
-| System         | `roles.system`            | `base`, `display.x11`, `storage`, `security`, `prospect`* | ✓ | Core OS bundles; `roles.system.vendor.<vendor>` is allowed. |
-| Utility        | `roles.utility`           | `cli`, `archive`, `monitoring` | ✗ | Small CLI helpers and general-purpose utilities. |
+| AppStream Root | Namespace Prefix    | Default Subroles                                                  | Vendor? | Notes                                                           |
+| -------------- | ------------------- | ----------------------------------------------------------------- | ------- | --------------------------------------------------------------- |
+| AudioVideo     | `roles.audio-video` | `media`, `production`, `streaming`                                | ✗       | Multimedia playback & creation bundles.                         |
+| Development    | `roles.development` | `core`, language stacks (`python`, `go`, `rust`, `clojure`), `ai` | ✗       | Workstation language tooling and IDE helpers.                   |
+| Education      | `roles.education`   | `research`, `learning-tools`                                      | ✗       | Reserved for future study/learning suites.                      |
+| Game           | `roles.game`        | `launchers`, `tools`, `emulation`                                 | ✗       | Gaming launchers aggregate under `roles.game`.                  |
+| Graphics       | `roles.graphics`    | `illustration`, `cad`, `photography`                              | ✗       | Creative / design applications.                                 |
+| Network        | `roles.network`     | `sharing`, `tools`, `remote-access`, `services`                   | ✓       | Vendor integrations live under `roles.network.vendor.<vendor>`. |
+| Office         | `roles.office`      | `productivity`, `planning`                                        | ✗       | Productivity and planning suites.                               |
+| Science        | `roles.science`     | `data`, `visualisation`                                           | ✗       | Scientific tooling and visualisation stacks.                    |
+| System         | `roles.system`      | `base`, `display.x11`, `storage`, `security`, `prospect`\*        | ✓       | Core OS bundles; `roles.system.vendor.<vendor>` is allowed.     |
+| Utility        | `roles.utility`     | `cli`, `archive`, `monitoring`                                    | ✗       | Small CLI helpers and general-purpose utilities.                |
 
 `prospect` is a reserved aggregation used to snapshot workstation parity;
 avoid reusing it for general roles.
@@ -35,17 +35,19 @@ Modify that file when introducing new subroles or enabling vendor namespaces.
 ## Naming Rules
 
 - Canonical role identifiers follow `roles.<root-slug>[.<subrole>[.<variant>]]`.
-  * Roots are lowercase, hyphenated versions of the AppStream category name
+  - Roots are lowercase, hyphenated versions of the AppStream category name
     (for example, `AudioVideo` → `roles.audio-video`).
-  * Nested segments must stay within the configured `maxSegments` (currently 3).
+  - Nested segments must stay within the configured `maxSegments` (currently 3).
 - Vendor integrations must live under `roles.<root>.vendor.<vendor-name>` and
   are only allowed for roots where `allowVendor = true` in the matrix
   (`roles.system` and `roles.network` today).
 - Experiments or staging areas should be prefixed with `_` so the import tree
   ignores them by default (`modules/roles/_scratch/...`).
 - Convenience aliases are managed in `lib/taxonomy/alias-registry.json`. Keep
-  aliases stable for end users (`roles.dev`, `roles.dev.py`, …) and update the
-  alias registry rather than renaming canonical modules.
+  aliases stable for end users (`roles.dev`, `roles.media`, `roles.net`, …) and
+  update the registry rather than renaming canonical modules. Modules for
+  legacy aliases have been removed; all consumers resolve the canonical
+  taxonomy directly.
 
 ## Metadata Requirements
 
@@ -100,8 +102,8 @@ The expected workflow:
 - Read the RFC implementation notes (`docs/RFC-0001/implementation-notes.md`)
   before adding new roles.
 - Use the helper scripts:
-  * `scripts/list-role-imports.py --format json` – audit role payloads.
-  * `scripts/taxonomy-sweep.py` – refresh metadata overrides and review queues.
+  - `scripts/list-role-imports.py --format json` – audit role payloads.
+  - `scripts/taxonomy-sweep.py` – refresh metadata overrides and review queues.
 - Keep Phase 0 checks red until the full migration is complete, but ensure the
   failure modes remain the expected sentinel errors (missing metadata, alias
   hash placeholder, etc.).

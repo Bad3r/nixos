@@ -31,6 +31,6 @@
         "vscode"
         "vscode-fhs"
       ];
-      environment.systemPackages = [ pkgs.vscode-fhs ];
+      environment.systemPackages = [ pkgs."vscode-fhs" ];
     };
 }

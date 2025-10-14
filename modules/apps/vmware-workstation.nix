@@ -19,6 +19,6 @@
   flake.nixosModules.apps."vmware-workstation" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.vmware-workstation ];
+      environment.systemPackages = [ pkgs."vmware-workstation" ];
     };
 }

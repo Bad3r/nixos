@@ -24,7 +24,7 @@
   flake.nixosModules.apps."github-mcp-server" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.github-mcp-server ];
+      environment.systemPackages = [ pkgs."github-mcp-server" ];
     };
 
 }

@@ -25,7 +25,7 @@
   flake.nixosModules.apps.mattermost =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.mattermost-desktop ];
+      environment.systemPackages = [ pkgs."mattermost-desktop" ];
     };
 
 }

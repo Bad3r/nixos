@@ -39,5 +39,5 @@ in
   version = storedVersion;
   expectedAliasHash = storedHash;
   actualAliasHash = computedHash;
-  errors = errors;
+  inherit errors;
 }

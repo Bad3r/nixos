@@ -1125,13 +1125,6 @@
     "secondaryTags": ["cli"],
     "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors)."
   },
-  "mangohud": {
-    "canonicalAppStreamId": "Development",
-    "categories": ["Development"],
-    "secondaryTags": ["cli"],
-    "reason": "Auto-generated CLI override (no AppStream metadata detected in local mirrors).",
-    "auxiliaryCategories": ["Utility"]
-  },
   "marktext": {
     "canonicalAppStreamId": "Utility",
     "categories": ["Utility"],

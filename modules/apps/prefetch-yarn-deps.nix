@@ -24,6 +24,6 @@
   flake.nixosModules.apps."prefetch-yarn-deps" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.prefetch-yarn-deps ];
+      environment.systemPackages = [ pkgs."prefetch-yarn-deps" ];
     };
 }
