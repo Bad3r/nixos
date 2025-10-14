@@ -16,13 +16,26 @@ let
 
   desktopApps = [
     "blueberry"
+    "bluetui"
+    "bluez"
     "brave"
     "firefox"
     "kcolorchooser"
+    "kdiskmark"
+    "kiro"
     "kitty"
     "libnotify"
+    "mpv"
+    "mpv-cheatsheet"
+    "mpv-shim-default-shaders"
+    "mpv-thumbfast"
+    "mpv-with-scripts"
+    "network-manager-applet"
+    "networkmanager"
+    "networkmanager_dmenu"
+    "nicotine-plus"
     "nemo"
-    "networkmanagerapplet"
+    "open-in-mpv"
     "pamixer"
     "playerctl"
     "udiskie"
@@ -34,5 +47,13 @@ let
     ++ getApps desktopApps;
 in
 {
-  flake.nixosModules.roles.desktop.imports = roleImports;
+  flake.nixosModules.roles.desktop = {
+    metadata = {
+      canonicalAppStreamId = "System";
+      categories = [ "System" ];
+      auxiliaryCategories = [ ];
+      secondaryTags = [ ];
+    };
+    imports = roleImports;
+  };
 }

@@ -24,7 +24,7 @@
   flake.nixosModules.apps."filen-cli" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.filen-cli ];
+      environment.systemPackages = [ pkgs."filen-cli" ];
     };
 
 }

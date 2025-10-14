@@ -13,8 +13,6 @@ let
       module
     else if builtins.isAttrs module then
       builtins.removeAttrs module [
-        "_file"
-        "imports"
         "flake"
       ]
     else
@@ -62,8 +60,8 @@ let
                 res = go value acc.visited;
               in
               {
-                result = acc.result // res.result;
-                visited = res.visited;
+                result = lib.recursiveUpdate acc.result res.result;
+                inherit (res) visited;
               };
             acc0 = {
               result = sanitizedDirect;
@@ -88,9 +86,48 @@ let
     in
     module: (go module { }).result;
 
+  flattenRoleMap =
+    let
+      go =
+        path: attrs:
+        lib.foldlAttrs (
+          acc: name: value:
+          if value == null || !builtins.isAttrs value then
+            acc
+          else
+            let
+              newPath = path ++ [ name ];
+              dotted = lib.concatStringsSep "." newPath;
+              nestedCandidates = lib.filterAttrs (_: v: builtins.isAttrs v) (
+                builtins.removeAttrs value [
+                  "metadata"
+                  "imports"
+                  "flake"
+                ]
+              );
+              nested = go newPath nestedCandidates;
+              current =
+                let
+                  hasMetadata = value ? metadata;
+                  children = lib.attrNames nestedCandidates;
+                  isLeaf = children == [ ];
+                in
+                if hasMetadata || isLeaf then
+                  {
+                    "${dotted}" = value;
+                  }
+                else
+                  { };
+            in
+            acc // current // nested
+        ) { } attrs;
+    in
+    go [ ];
+
   roleRoot = lib.attrByPath [ "roles" ] null flakeModules;
   flattenedRoles = flattenRoles roleRoot;
-  roleEntries = lib.attrsToList flattenedRoles;
+  normalizedRoles = flattenRoleMap flattenedRoles;
+  roleEntries = lib.attrsToList normalizedRoles;
 
   checkRole =
     entry:

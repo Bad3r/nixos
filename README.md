@@ -40,7 +40,6 @@ Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules 
 - Roles are assembled from per-app modules under `flake.nixosModules.apps`, using `config.flake.lib.nixos.getApps` / `getApp` for lookups.
 - Avoid lexical `with` over `config.flake.nixosModules.apps`; the helper namespace keeps evaluation pure and consistent.
 - Import roles via `flake.nixosModules.roles.<name>` (for example, `.dev`, `.media`, `.net`).
-- The canonical Freedesktop-aligned taxonomy (category roots, naming rules, vendor policy) is documented in [`docs/taxonomy/role-taxonomy.md`](docs/taxonomy/role-taxonomy.md). The active refactor keeps aliases stable so hosts can migrate without changing imports.
 
 Example host composition using the role namespace:
 

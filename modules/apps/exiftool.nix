@@ -23,10 +23,10 @@
 */
 
 {
-  flake.nixosModules.apps.exiftool =
+  flake.nixosModules.apps."Image-ExifTool" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.exiftool ];
+      environment.systemPackages = [ pkgs.perlPackages.ImageExifTool ];
     };
 
 }

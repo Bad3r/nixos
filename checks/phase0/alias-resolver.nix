@@ -2,7 +2,7 @@
 let
   taxonomy = import ../../lib/taxonomy { inherit lib; };
   aliases = taxonomy.aliases or { };
-  matrix = taxonomy.matrix;
+  inherit (taxonomy) matrix;
   roots = matrix.canonicalRootsList;
   aliasHash = taxonomy.aliasHash or "";
   sentinelPlaceholder = "pending-phase0-baseline";

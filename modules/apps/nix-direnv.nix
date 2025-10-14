@@ -22,6 +22,6 @@
   flake.nixosModules.apps."nix-direnv" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.nix-direnv ];
+      environment.systemPackages = [ pkgs."nix-direnv" ];
     };
 }

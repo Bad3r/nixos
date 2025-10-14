@@ -24,7 +24,7 @@
   flake.nixosModules.apps."tor-browser" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.tor-browser ];
+      environment.systemPackages = [ pkgs."tor-browser" ];
     };
 
 }

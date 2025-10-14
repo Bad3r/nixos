@@ -33,7 +33,7 @@
         {
           programs.steam = {
             enable = true;
-            extraCompatPackages = [ pkgs.proton-ge-bin ];
+            extraCompatPackages = [ pkgs."proton-ge-bin" ];
             extraPackages = with pkgs; [
               dwarfs
               fuse-overlayfs

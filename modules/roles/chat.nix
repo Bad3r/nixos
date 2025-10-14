@@ -18,5 +18,13 @@ let
   roleImports = getApps chatApps;
 in
 {
-  flake.nixosModules.roles.chat.imports = roleImports;
+  flake.nixosModules.roles.chat = {
+    metadata = {
+      canonicalAppStreamId = "Network";
+      categories = [ "Network" ];
+      auxiliaryCategories = [ ];
+      secondaryTags = [ ];
+    };
+    imports = roleImports;
+  };
 }

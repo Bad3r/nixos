@@ -1,20 +1,16 @@
 {
   config,
-  withSystem,
   ...
 }:
 let
   helpers = config.flake.lib.nixos or { };
   assertList = v: if builtins.isList v then true else throw "role module imports not a list";
-  hasRoles = builtins.hasAttr "roles" config.flake.nixosModules;
-  roleModuleExists =
-    name: if hasRoles then builtins.hasAttr name config.flake.nixosModules.roles else false;
 in
 {
   perSystem =
     { pkgs, ... }:
     let
-      lib = pkgs.lib;
+      inherit (pkgs) lib;
       mkEvalCheck = name: expr: builtins.seq expr (pkgs.runCommand name { } "touch $out");
       taxonomyForSystem = import ../../lib/taxonomy { inherit lib; };
       modules = config.flake.nixosModules or { };
@@ -24,22 +20,30 @@ in
       manifestHosts = lib.filter (
         entry: (entry ? host) && entry.host != null && entry.host != ""
       ) registryEntries;
+      roleHelpers = (config._module.args.nixosRoleHelpers or { }) // (helpers.roles or { });
+      resolveRole = roleHelpers.getRole or (_: null);
+      roleModuleExists =
+        name:
+        let
+          attempt = builtins.tryEval (resolveRole name);
+        in
+        attempt.success && attempt.value != null;
 
       normalizePkgName =
         pkg:
         let
           rawName =
-            if pkg ? pname then
-              pkg.pname
-            else if pkg ? name then
-              (builtins.parseDrvName pkg.name).name
-            else
-              let
-                drvName = builtins.parseDrvName (
-                  builtins.baseNameOf (builtins.unsafeDiscardStringContext (toString pkg))
-                );
-              in
-              drvName.name;
+            pkg.pname or (
+              if pkg ? name then
+                (builtins.parseDrvName pkg.name).name
+              else
+                let
+                  drvName = builtins.parseDrvName (
+                    builtins.baseNameOf (builtins.unsafeDiscardStringContext (toString pkg))
+                  );
+                in
+                drvName.name
+            );
           withoutHash =
             let
               m = builtins.match "^[0-9a-z]{32}-(.*)$" rawName;
@@ -69,16 +73,10 @@ in
           lib.unique sorted;
 
       actualPackageMap = builtins.listToAttrs (
-        map (
-          entry:
-          let
-            host = entry.host;
-          in
-          {
-            name = host;
-            value = packagesForHost host;
-          }
-        ) manifestHosts
+        map (entry: {
+          name = entry.host;
+          value = packagesForHost entry.host;
+        }) manifestHosts
       );
 
       actualPackagesJson = pkgs.writeText "phase0-host-package-guard-actual.json" (
@@ -88,7 +86,7 @@ in
       inputStorePaths =
         let
           toPathString =
-            name: value:
+            _name: value:
             if value ? outPath then
               toString value.outPath
             else if value ? packages && value.packages ? "x86_64-linux" then
@@ -103,16 +101,20 @@ in
     {
       checks = {
         role-modules-exist = mkEvalCheck "role-modules-exist-ok" (
-          if roleModuleExists "dev" && roleModuleExists "media" && roleModuleExists "net" then
+          if
+            roleModuleExists "development.core"
+            && roleModuleExists "audio-video.media"
+            && roleModuleExists "network.tools"
+          then
             "ok"
           else
             throw "role module missing"
         );
 
         role-modules-structure = mkEvalCheck "role-modules-structure-ok" (
-          builtins.seq (assertList config.flake.nixosModules.roles.dev.imports) (
-            builtins.seq (assertList config.flake.nixosModules.roles.media.imports) (
-              builtins.seq (assertList config.flake.nixosModules.roles.net.imports) "ok"
+          builtins.seq (assertList (resolveRole "development.core").imports) (
+            builtins.seq (assertList (resolveRole "audio-video.media").imports) (
+              builtins.seq (assertList (resolveRole "network.tools").imports) "ok"
             )
           )
         );

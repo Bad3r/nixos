@@ -18,7 +18,7 @@
   flake.nixosModules.apps."golangci-lint" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.golangci-lint ];
+      environment.systemPackages = [ pkgs."golangci-lint" ];
     };
 
 }

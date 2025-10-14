@@ -84,28 +84,23 @@ Extend the mapping for any additional convenience aliases required by future lan
 
 ## Workstation Profile Composition
 
-`profiles.workstation` imports the generic, non-vendor roles below (aliases shown in parentheses where applicable):
+`profiles.workstation` now imports the canonical taxonomy directly:
 
-- `roles.system.base` (`roles.base`)
-- `roles.system.display.x11` (`roles.xserver`)
-- `roles.utility.cli` (`roles.cli`)
-- `roles.system.storage` (`roles.files`)
-- `roles.network.sharing` (`roles.file-sharing`)
-- `roles.development.core` (`roles.dev`)
-- Language bundles:
-  - `roles.development.python` (`roles.dev.python`, `roles.dev.py`)
-  - `roles.development.go` (`roles.dev.go`)
-  - `roles.development.rust` (`roles.dev.rust`)
-  - `roles.development.clojure` (`roles.dev.clj`)
-- `roles.audio-video.media` (`roles.media`)
-- `roles.network.tools` (`roles.net`)
-- `roles.office.productivity` (`roles.productivity`)
-- `roles.development.ai` (`roles.ai-agents`)
-- `roles.game.launchers` (`roles.gaming`)
-- `roles.system.security` (`roles.security`)
+- `roles.system.base`, `roles.system.display.x11`, `roles.system.storage`, `roles.system.security`
+- `roles.utility.cli`
+- `roles.development.core` and the language bundles (`roles.development.python`, `.go`, `.rust`, `.clojure`, `.ai`)
+- `roles.audio-video.media`
+- `roles.network.tools`, `roles.network.remote-access`, `roles.network.sharing`, `roles.network.vendor.cloudflare`
+- `roles.office.productivity`
+- `roles.game.launchers`
 
-Host- or vendor-specific packages (e.g., System76 utilities, USBGuard policies) remain in the host configuration or dedicated vendor roles and are intentionally excluded from the profile.
-For example, `configurations.nixos.system76` will attach `roles.network.vendor.cloudflare` (`roles.cloudflare`) directly so Cloudflare Zero Trust tooling stays host-scoped rather than polluting the shared profile.
+Legacy aliases (for example `roles.media`, `roles.net`, `roles.cloudflare`, `roles.file-sharing`) remain in
+`lib/taxonomy/alias-registry.json` but no longer have dedicated shim modules—the workstation profile resolves the
+canonical roles directly.
+
+Host- or vendor-specific packages (e.g., System76 utilities, USBGuard policies) remain in the host configuration or
+dedicated vendor roles. For example, `configurations.nixos.system76` imports `roles.network.vendor.cloudflare`
+directly so Cloudflare Zero Trust tooling stays host-scoped rather than polluting the shared profile.
 
 ## Reference Role: `roles.system.prospect`
 
@@ -149,14 +144,14 @@ Ensure `modules/meta/ci.nix` continues to provide the runtime dependencies these
    - [x] Expose `TAXONOMY_VERSION` from the helper library and ensure `checks.phase0-taxonomy-version` depends on it.
    - [x] Add documentation page describing allowed categories and naming rules (`docs/taxonomy/role-taxonomy.md`).
 3. **Add new roles**
-   - [ ] Create top-level directories matching canonical categories (e.g., `modules/roles/system`).
-   - [ ] Implement initial subroles (`system.storage`, `utility.archive`, `network.sharing`, etc.) populated with packages migrated from legacy roles.
-   - [ ] Stand up vendor namespaces as needed (`modules/roles/system/vendor/<vendor>/default.nix`) with metadata and imports mirroring the System76 example.
-   - [ ] Spin up `modules/profiles/<name>.nix` and migrate the existing workstation bundle to `profiles.workstation`, importing the new taxonomy roles instead of duplicating package lists.
-   - [ ] Split the legacy `dev` role into `roles.development.core` plus per-language bundles (`roles.development.python`, `roles.development.go`, etc.), ensuring each language bundle includes runtime, package manager, formatter, linter, and debugger/LSP defaults.
-   - [ ] Register stable alias mappings (`roles.dev`, `roles.dev.python`, `roles.dev.py`, etc.) that resolve to the new canonical roles and update `checks.phase0.alias-registry` accordingly.
+   - [x] Create top-level directories matching canonical categories (e.g., `modules/roles/system`).
+   - [x] Implement initial subroles (`system.storage`, `utility.archive`, `network.sharing`, etc.) populated with packages migrated from legacy roles.
+   - [x] Stand up vendor namespaces as needed (`modules/roles/system/vendor/<vendor>/default.nix`) with metadata and imports mirroring the System76 example.
+   - [x] Spin up `modules/profiles/<name>.nix` and migrate the existing workstation bundle to `profiles.workstation`, importing the new taxonomy roles instead of duplicating package lists.
+   - [x] Split the legacy `dev` role into `roles.development.core` plus per-language bundles (`roles.development.python`, `roles.development.go`, etc.), ensuring each language bundle includes runtime, package manager, formatter, linter, and debugger/LSP defaults.
+   - [x] Register stable alias mappings (`roles.dev`, `roles.dev.python`, `roles.dev.py`, etc.) that resolve to the new canonical roles and update `checks.phase0.alias-registry` accordingly.
 4. **Update consumers**
-   - [ ] Point `profiles.workstation`, `configurations.nixos.system76`, and any other in-repo consumers directly at the new taxonomy roles.
+   - [x] Point `profiles.workstation`, `configurations.nixos.system76`, and any other in-repo consumers directly at the new taxonomy roles.
    - [ ] Capture before/after manifests to prove parity (e.g., `nix eval` diff of `environment.systemPackages` for `system76`). If the diff fails the parity check, revert to the last Phase 2 commit, restore `workstation-packages.json`, and rerun Phase 0 checks before attempting the migration again.
    - [x] Add any new manifests to `docs/RFC-0001/manifest-registry.json` so the sweep script covers them automatically.
 5. **Documentation updates**
@@ -168,12 +163,15 @@ Ensure `modules/meta/ci.nix` continues to provide the runtime dependencies these
 6. **Validation**
    - [ ] Run `nix fmt`, `nix flake check`, `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`, and targeted `nix eval` assertions to ensure role membership matches expectations.
    - [ ] Confirm no insecure allowances are lost during migration (Ventoy, etc.).
+   - Phase 0 profile-purity guard now retains `_file` metadata during role flattening so canonical dotted roles and workstation helpers validate; `nix eval` confirms the sentinel passes.
+   - Phase 0 host-package-guard now reports zero untracked packages. All workstation payloads—including the PipeWire/WirePlumber stack, gst/ffmpeg codecs, VPN helpers, nixos-\* tooling, nix-index, VSCode/vt-cli, libvirt/VMware/NVIDIA, and System76 vendor extras—flow through canonical roles or app modules.
+   - `2025-10-14`: `nix develop -c nix flake check --accept-flake-config` passes end-to-end. The run produced `/nix/store/hd0fh8ly3m89689rphmxj9iv5mksi8qg-phase0-host-package-guard.drv`, `/nix/store/6drvxd53cjz5qc6cwbyf1zg6m0q55qjs-phase0-profile-purity-ok.drv`, and `/nix/store/fd4kvb4kz2h17dvm938y8sd8bkd0f6wj-phase0-metadata-ok.drv`, confirming Phase 0 guardrails remain green.
 
 ## Progress Tracking
 
 - **Tooling foundation (Phase 0):** Complete. Metadata lint, taxonomy sweep automation, and the role import reporter (`scripts/list-role-imports.py`) are in place, documented, and enforced via the `phase0-role-imports` CI check.
 - **Taxonomy scaffolding:** Helper library, alias hash guard, and version surfacing are finished; documentation work on allowed categories remains outstanding.
 - **Phase 0 guardrails:** Host package guard, profile purity, alias registry, taxonomy version, metadata lint, and the role import inventory (`phase0-role-imports`) are all available under `nix build .#checks.x86_64-linux.phase0-*`. They intentionally fail until new roles land.
-- **Role migration:** Not started. Legacy roles still back the workstation profile; new taxonomy directories, vendor bundles, and language splits are pending.
-- **Consumer updates & parity:** Deferred until the new taxonomy roles exist. Override registry and manifest tracking are ready for reuse when migration begins.
-- **Documentation refresh:** Partially complete. Implementation notes are current, but broader references (`docs/configuration-architecture.md`, release notes, taxonomy overview) still need updates alongside the migration.
+- **Role migration:** In progress. Canonical development, audio/video, network, office, utility, and science bundles now expose the migrated payloads; legacy shims have been removed. Outstanding work tracks the remaining niche bundles and Stage 3 parity tasks.
+- **Consumer updates & parity:** Workstation now consumes canonical roles directly; host-specific parity snapshots and any remaining consumer flips (e.g., release/manifests) are staged for Stage 3.
+- **Documentation refresh:** In progress. Implementation notes and the taxonomy reference reflect the canonical layout; release notes and parity documentation still need updates alongside the final migration steps.

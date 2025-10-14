@@ -22,6 +22,6 @@
   flake.nixosModules.apps."nix-eval-jobs" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.nix-eval-jobs ];
+      environment.systemPackages = [ pkgs."nix-eval-jobs" ];
     };
 }

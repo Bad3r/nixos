@@ -7,6 +7,14 @@ let
   flakeAttrs = config.flake or { };
   nixosModules = flakeAttrs.nixosModules or { };
   roleHelpers = config._module.args.nixosRoleHelpers or { };
+  sanitizeModule =
+    module:
+    if module == null then
+      null
+    else if builtins.isAttrs module then
+      builtins.removeAttrs module [ "flake" ]
+    else
+      module;
   rawResolveRole = roleHelpers.getRole or (_: null);
   resolveRoleOption =
     name:
@@ -40,103 +48,60 @@ let
     else
       null;
 
-  resolveRole =
-    name:
-    let
-      result = resolveRoleOption name;
-    in
-    if result != null then
-      result
-    else
-      throw ("Unknown role '" + name + "' referenced by flake.nixosModules.workstation");
-  appHelpers = config._module.args.nixosAppHelpers or { };
-  rawAppHelpers = (config.flake.lib.nixos or { }) // appHelpers;
-  fallbackGetApp =
-    name:
-    if lib.hasAttrByPath [ "apps" name ] config.flake.nixosModules then
-      lib.getAttrFromPath [ "apps" name ] config.flake.nixosModules
-    else
-      throw ("Unknown NixOS app '" + name + "' referenced by workstation role");
-  getApp = rawAppHelpers.getApp or fallbackGetApp;
-  getApps = rawAppHelpers.getApps or (names: map getApp names);
-  workstationRoles = [
-    "xserver"
-    "cli"
-    "files"
-    "file-sharing"
-    "dev"
-    "media"
-    "net"
-    "productivity"
-    "ai-agents"
-    "gaming"
-    "security"
-    "cloudflare"
+  baseWorkstationRoles = [
+    "system.base"
+    "system.display.x11"
+    "system.storage"
+    "system.security"
+    "system.nixos"
+    "system.virtualization"
+    "utility.cli"
+    "utility.monitoring"
+    "utility.archive"
+    "development.core"
+    "development.python"
+    "development.go"
+    "development.rust"
+    "development.clojure"
+    "development.ai"
+    "audio-video.media"
+    "network.tools"
+    "network.remote-access"
+    "network.sharing"
+    "network.vendor.cloudflare"
+    "office.productivity"
+    "game.launchers"
   ];
-  pythonRoleModules = getApps [
-    "python"
-    "uv"
-    "ruff"
-    "pyright"
-  ];
-  goRoleModules = getApps [
-    "go"
-    "gopls"
-    "golangci-lint"
-    "delve"
-  ];
-  rustRoleModules = getApps [
-    "rustc"
-    "cargo"
-    "rust-analyzer"
-    "rustfmt"
-    "rust-clippy"
-  ];
-  cljRoleModules = getApps [
-    "clojure-cli"
-    "clojure-lsp"
-    "leiningen"
-    "babashka"
-    "pixman"
-  ];
-  devLanguageModules = pythonRoleModules ++ goRoleModules ++ rustRoleModules ++ cljRoleModules;
 
-  fallbackRoleModules = {
-    "file-sharing" = {
-      imports = getApps [
-        "qbittorrent"
-        "localsend"
-        "rclone"
-        "rsync"
-        "nicotine"
-        "filen-cli"
-        "filen-desktop"
-        "dropbox"
-      ];
-    };
-  };
-  baseImport =
-    if rawResolveRole "base" != null then
-      [ (resolveRole "base") ]
-    else if lib.hasAttrByPath [ "base" ] nixosModules then
-      [ (lib.getAttrFromPath [ "base" ] nixosModules) ]
-    else
-      throw "flake.nixosModules.base missing while constructing workstation bundle";
+  hasRole = roleHelpers.hasRole or (_: false);
+  optionalRoles = lib.optional (hasRole "system.vendor.system76") "system.vendor.system76";
+
+  workstationRoles = baseWorkstationRoles ++ optionalRoles;
+
+  fallbackRoleModules = { };
+  baseImport = [ ];
   hmModules = flakeAttrs.homeManagerModules or { };
   hmGuiModule = lib.attrByPath [ "gui" ] null hmModules;
   hmAppModules = hmModules.apps or { };
   resolvedRoles = map (name: {
     inherit name;
     module = resolveRoleOption name;
+    sanitized =
+      let
+        value = resolveRoleOption name;
+      in
+      if value == null then null else sanitizeModule value;
   }) workstationRoles;
 
-  availableRoleModules = map (role: role.module) (
-    lib.filter (role: role.module != null) resolvedRoles
+  availableRoleModules = map (role: if role.sanitized != null then role.sanitized else role.module) (
+    lib.filter (role: role.sanitized != null || role.module != null) resolvedRoles
   );
 
-  missingRoleNames = map (role: role.name) (lib.filter (role: role.module == null) resolvedRoles);
+  missingRoleNames = map (role: role.name) (
+    lib.filter (role: role.sanitized == null && role.module == null) resolvedRoles
+  );
 
-  importsValue = baseImport ++ availableRoleModules ++ devLanguageModules;
+  importsValue = baseImport ++ availableRoleModules;
 in
 {
   flake.nixosModules.workstation = {
