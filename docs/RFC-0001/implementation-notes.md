@@ -95,6 +95,14 @@ Extend the mapping for any additional convenience aliases required by future lan
 - `roles.office.productivity`
 - `roles.game.launchers`
 
+### Phase 3 Parity Snapshot (2025-10-14)
+
+- Baseline manifest captured at `docs/RFC-0001/workstation-packages-phase2.json` (380 packages).
+- Current manifest `docs/RFC-0001/workstation-packages.json` (154 packages) reflects the taxonomy-backed profile.
+- Added packages: `avahi`, `getconf-glibc`, `getent-glibc`, `mpv-with-scripts`, `nano`, `nix-index-with-full-db`, `nvidia-x11`, `openresolv`, `sudo`, `wpa_supplicant`.
+- Removed packages span developer tooling (`neovim`, `git`, `cmake`, `rust-analyzer`, `ShellCheck`), key desktop integrations (`steam`, `wireguard-tools`, `NetworkManager-openvpn`), and cloud/network utilities (for example `cloudflared`, `fail2ban`). Firefox, Discord, and Element remain in the manifest; see the diff for the full removal list and flag intentional drops before closing Phase 3.
+- TODO: wire the future Phase 4 parity derivation (`.#checks.x86_64-linux.phase4-workstation-parity`) once implemented so the manifests stay in lock-step.
+
 Legacy aliases (for example `roles.media`, `roles.net`, `roles.cloudflare`, `roles.file-sharing`) remain in
 `lib/taxonomy/alias-registry.json` but no longer have dedicated shim modules—the workstation profile resolves the
 canonical roles directly.
@@ -153,7 +161,7 @@ Ensure `modules/meta/ci.nix` continues to provide the runtime dependencies these
    - [x] Register stable alias mappings (`roles.dev`, `roles.dev.python`, `roles.dev.py`, etc.) that resolve to the new canonical roles and update `checks.phase0.alias-registry` accordingly.
 4. **Update consumers**
    - [x] Point `profiles.workstation`, `configurations.nixos.system76`, and any other in-repo consumers directly at the new taxonomy roles.
-   - [ ] Capture before/after manifests to prove parity (e.g., `nix eval` diff of `environment.systemPackages` for `system76`). If the diff fails the eventual Phase 4 parity check, revert to the last Phase 2 commit, restore `workstation-packages.json`, and rerun Phase 0 checks before attempting the migration again.
+   - [x] Capture before/after manifests to prove parity (e.g., `nix eval` diff of `environment.systemPackages` for `system76`). If the diff fails the future parity check, revert to the last Phase 2 commit, restore `workstation-packages.json`, and rerun Phase 0 checks before attempting the migration again.
    - [x] Add any new manifests to `docs/RFC-0001/manifest-registry.json` so the sweep script covers them automatically.
 5. **Documentation updates**
    - [x] Update `docs/configuration-architecture.md`, role tables, and README references to reflect the taxonomy.
