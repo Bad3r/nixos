@@ -57,10 +57,10 @@ in {
 - **Legacy modules:** existing role bundles still live under `modules/roles/*.nix` (for example `roles/base.nix`, `roles/dev.nix`, `roles/net.nix`) until the taxonomy refactor lands. Use the helper namespace rather than importing files directly so consumers flip over seamlessly.
 - **Metadata tooling:** Phase 0 checks (`checks/phase0/*`) enforce metadata and alias rules defined in the taxonomy doc. Expect them to fail until the migration completes; they document real gaps the new taxonomy must close.
 
-### 2.3 Workstation bundle
+### 2.3 Workstation profile
 
-- `modules/workstation.nix` orchestrates base + resolved roles + language stacks (Python, Go, Rust, Clojure via `getApps`) and optionally augments Home Manager shared modules when GUI bundles exist.
-- Missing roles are logged with `lib.warn`, so evaluation continues but the log pinpoints gaps.
+- `modules/profiles/workstation.nix` composes the canonical taxonomy roles (system base/display/storage/security/nix, language stacks, audio/video, office, networking, gaming) into a reusable profile exported at `flake.nixosModules.profiles.workstation`.
+- Hosts import the profile alongside `config.flake.nixosModules.base` and any vendor-specific roles; missing roles emit a warning so evaluation continues while highlighting gaps.
 
 ### 2.4 System-level utilities
 
@@ -212,7 +212,7 @@ nix develop -c gh-actions-run -n
 ### 9.2 Introduce a new role
 
 1. Create `modules/roles/<role>.nix`; use `config.flake.lib.nixos.getApps`.
-2. Update `modules/workstation.nix` (or target hosts) if the role is part of default bundles.
+2. Update `modules/profiles/workstation.nix` (or the target hosts) if the role is part of default bundles.
 3. Re-run `nix flake check` to satisfy helper assertions.
 
 ### 9.3 Define a new host

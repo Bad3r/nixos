@@ -1,15 +1,6 @@
-{
-  # ACME certificate sample using Cloudflare DNS-01
-  #
-  # This prepares a certificate via DNS-01 with Cloudflare.
-  # Supply an API token via a file mounted at runtime (e.g., /run/secrets/cf-api-token)
-  # with permissions restricted to the ACME client.
-  #
-  # Docs:
-  # - NixOS ACME: https://search.nixos.org/options?channel=unstable&show=security.acme
-  # - Cloudflare DNS challenge: https://developers.cloudflare.com/ssl/edge-certificates/challenges/dns-01/
-  # - Example from local docs: nixos_docs_md/222_quick_start.md
-  flake.nixosModules.workstation =
+{ lib, ... }:
+let
+  acmeModule =
     _:
     let
       domain = "doh.unsigned.sh"; # change me (your Cloudflare-managed zone)
@@ -21,8 +12,6 @@
 
         certs.${domain} = {
           dnsProvider = "cloudflare";
-          # Prefer a restricted-scope token for DNS edit on this zone.
-          # The file should contain only the token string (no key=value prefix).
           credentialFiles."CF_DNS_API_TOKEN_FILE" = "/run/secrets/cf-api-token"; # provide at runtime
         };
       };
@@ -37,4 +26,7 @@
         }
       ];
     };
+in
+{
+  flake.nixosModules.roles.network.vendor.cloudflare.imports = lib.mkAfter [ acmeModule ];
 }

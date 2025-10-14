@@ -9,6 +9,15 @@ let
   nixosModules = flake.nixosModules or { };
   hasModule = name: lib.hasAttr name nixosModules;
   getModule = name: if hasModule name then lib.getAttr name nixosModules else null;
+  getProfile =
+    name:
+    let
+      path = [
+        "profiles"
+        name
+      ];
+    in
+    if lib.hasAttrByPath path nixosModules then lib.getAttrFromPath path nixosModules else null;
   roleHelpers =
     (config.flake.lib.nixos.roles or { }) // (config._module.args.nixosRoleHelpers or { });
   getRoleModule =
@@ -37,12 +46,13 @@ let
     "pentesting-devshell"
     "chat"
   ];
-  workstationModule = getModule "workstation";
+  workstationProfile = getProfile "workstation";
   baseModules = lib.filter (module: module != null) [
     inputs.nixos-hardware.nixosModules.system76
     inputs.nixos-hardware.nixosModules.system76-darp6
+    (getModule "base")
     (getModule "packages")
-    workstationModule
+    workstationProfile
     (getModule "system76-support")
     (getModule "security")
     (getModule "hardware-lenovo-y27q-20")

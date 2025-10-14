@@ -26,6 +26,6 @@ let
     };
 in
 {
-  flake.nixosModules.workstation = mkSystemModule;
+  flake.nixosModules.roles.system.security.imports = lib.mkAfter [ mkSystemModule ];
   flake.homeManagerModules.base = mkHomeModule;
 }

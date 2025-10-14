@@ -1,6 +1,9 @@
+{ lib, ... }:
 {
-  flake.nixosModules.workstation = _: {
-    xdg.menus.enable = true;
-    xdg.mime.enable = true;
-  };
+  flake.nixosModules.roles.system.base.imports = lib.mkAfter [
+    (_: {
+      xdg.menus.enable = true;
+      xdg.mime.enable = true;
+    })
+  ];
 }

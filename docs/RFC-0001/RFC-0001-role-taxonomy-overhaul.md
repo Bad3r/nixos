@@ -151,7 +151,7 @@ Deeper specialisations stay within the three-segment limit by modelling variants
 
 ### Phase 4 – Parity Validation & Docs
 
-- Capture before/after manifests for `environment.systemPackages` (e.g., `nix eval … --json`) and store the JSON in `docs/RFC-0001/workstation-packages.json`. A companion check (`nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`) compares the JSON to the live evaluation so drift is detected automatically.
+- Capture before/after manifests for `environment.systemPackages` (e.g., `nix eval … --json`) and store the JSON in `docs/RFC-0001/workstation-packages.json`. A companion check (`nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`) will compare the JSON to the live evaluation once it ships; track this in the Phase 4 TODO list.
 - Run `nix fmt`, the new tests from Phase 0, `nix flake check`, and targeted `nix eval` assertions to prove user-facing tools (`notify-send`, `prettier`, etc.) remain available.
 - Update documentation (`docs/configuration-architecture.md`, release notes, alias listings) to reflect the new taxonomy and profile entry points.
 - **Exit criteria:** parity diffs show no regressions, all formatting/tests (including Phase 0 guards) pass, and documentation changes are committed alongside the code updates.

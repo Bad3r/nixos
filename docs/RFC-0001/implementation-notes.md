@@ -87,7 +87,8 @@ Extend the mapping for any additional convenience aliases required by future lan
 `profiles.workstation` now imports the canonical taxonomy directly:
 
 - `roles.system.base`, `roles.system.display.x11`, `roles.system.storage`, `roles.system.security`
-- `roles.utility.cli`
+- `roles.system.nixos`, `roles.system.virtualization`
+- `roles.utility.cli`, `roles.utility.monitoring`, `roles.utility.archive`
 - `roles.development.core` and the language bundles (`roles.development.python`, `.go`, `.rust`, `.clojure`, `.ai`)
 - `roles.audio-video.media`
 - `roles.network.tools`, `roles.network.remote-access`, `roles.network.sharing`, `roles.network.vendor.cloudflare`
@@ -152,16 +153,16 @@ Ensure `modules/meta/ci.nix` continues to provide the runtime dependencies these
    - [x] Register stable alias mappings (`roles.dev`, `roles.dev.python`, `roles.dev.py`, etc.) that resolve to the new canonical roles and update `checks.phase0.alias-registry` accordingly.
 4. **Update consumers**
    - [x] Point `profiles.workstation`, `configurations.nixos.system76`, and any other in-repo consumers directly at the new taxonomy roles.
-   - [ ] Capture before/after manifests to prove parity (e.g., `nix eval` diff of `environment.systemPackages` for `system76`). If the diff fails the parity check, revert to the last Phase 2 commit, restore `workstation-packages.json`, and rerun Phase 0 checks before attempting the migration again.
+   - [ ] Capture before/after manifests to prove parity (e.g., `nix eval` diff of `environment.systemPackages` for `system76`). If the diff fails the eventual Phase 4 parity check, revert to the last Phase 2 commit, restore `workstation-packages.json`, and rerun Phase 0 checks before attempting the migration again.
    - [x] Add any new manifests to `docs/RFC-0001/manifest-registry.json` so the sweep script covers them automatically.
 5. **Documentation updates**
    - [x] Update `docs/configuration-architecture.md`, role tables, and README references to reflect the taxonomy.
    - [ ] Publish migration notes (e.g., `docs/releases/next.md`).
    - [ ] Document the current `TAXONOMY_VERSION`, canonical categories, secondary-tag vocabulary, and available profiles for future contributors.
-   - [ ] Regenerate the `roles.system.prospect` package matrix (via `nix eval .#nixosConfigurations.system76.config.environment.systemPackages --accept-flake-config --json`) whenever the underlying configuration changes and re-run `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config` to ensure parity.
+   - [ ] Regenerate the `roles.system.prospect` package matrix (via `nix eval .#nixosConfigurations.system76.config.environment.systemPackages --accept-flake-config --json`) whenever the underlying configuration changes and, once implemented, re-run the Phase 4 parity check to ensure parity.
    - [x] Record the override review process and capture resolutions (commit or remove `build/taxonomy/metadata-overrides-review.json` once empty).
 6. **Validation**
-   - [ ] Run `nix fmt`, `nix flake check`, `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`, and targeted `nix eval` assertions to ensure role membership matches expectations.
+   - [ ] Run `nix fmt`, `nix flake check`, (eventually) `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`, and targeted `nix eval` assertions to ensure role membership matches expectations.
    - [ ] Confirm no insecure allowances are lost during migration (Ventoy, etc.).
    - Phase 0 profile-purity guard now retains `_file` metadata during role flattening so canonical dotted roles and workstation helpers validate; `nix eval` confirms the sentinel passes.
    - Phase 0 host-package-guard now reports zero untracked packages. All workstation payloads—including the PipeWire/WirePlumber stack, gst/ffmpeg codecs, VPN helpers, nixos-\* tooling, nix-index, VSCode/vt-cli, libvirt/VMware/NVIDIA, and System76 vendor extras—flow through canonical roles or app modules.

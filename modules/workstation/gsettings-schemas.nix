@@ -1,29 +1,29 @@
-_: {
-  flake.nixosModules.workstation =
-    { pkgs, lib, ... }:
+{ lib, ... }:
+let
+  gsettingsModule =
     {
-      # Add GSettings desktop schemas for GTK/Electron applications
+      pkgs,
+      lib,
+      ...
+    }:
+    {
       environment.systemPackages = with pkgs; [
         gsettings-desktop-schemas
-        glib # for gsettings command
-        gtk3 # GTK3 schemas
-        gtk4 # GTK4 schemas
-        hicolor-icon-theme # Default icon theme
+        glib
+        gtk3
+        gtk4
+        hicolor-icon-theme
       ];
 
-      # Ensure GIO modules are available
       services.udev.packages = with pkgs; [
         gsettings-desktop-schemas
       ];
 
-      # Add schemas to DBus packages for proper registration
       services.dbus.packages = with pkgs; [
         gsettings-desktop-schemas
       ];
 
-      # Essential environment variables for Electron/GTK apps
       environment.variables = {
-        # Merge with existing GIO modules rather than overriding
         GIO_EXTRA_MODULES = lib.mkForce (
           lib.concatStringsSep ":" [
             "${pkgs.glib-networking}/lib/gio/modules"
@@ -34,7 +34,6 @@ _: {
         GSETTINGS_SCHEMA_DIR = "${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}/glib-2.0/schemas";
       };
 
-      # Enable XDG portal for better desktop integration
       xdg.portal = {
         enable = true;
         extraPortals = with pkgs; [
@@ -43,4 +42,7 @@ _: {
         config.common.default = "gtk";
       };
     };
+in
+{
+  flake.nixosModules.roles.system.display.x11.imports = lib.mkAfter [ gsettingsModule ];
 }

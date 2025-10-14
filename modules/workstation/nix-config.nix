@@ -1,17 +1,17 @@
+{ lib, ... }:
 {
-  flake.nixosModules.workstation = _: {
-    # Enable experimental features system-wide
-    nix.settings.experimental-features = [
-      "nix-command"
-      "flakes"
-      "pipe-operators"
-    ];
-
-    # Keep existing optimizations
-    nix.settings = {
-      auto-optimise-store = true;
-      cores = 0; # 0 == ALL
-      max-jobs = "auto";
-    };
-  };
+  flake.nixosModules.roles.system.nixos.imports = lib.mkAfter [
+    (_: {
+      nix.settings.experimental-features = [
+        "nix-command"
+        "flakes"
+        "pipe-operators"
+      ];
+      nix.settings = {
+        auto-optimise-store = true;
+        cores = 0;
+        max-jobs = "auto";
+      };
+    })
+  ];
 }
