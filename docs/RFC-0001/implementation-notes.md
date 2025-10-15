@@ -34,6 +34,12 @@ The taxonomy helper library lives under `lib/taxonomy`. It bundles a generated `
 - The report lists non-app imports by attribute path (for example `lang.python`, `roles.xserver`). Local helper modules fall back to their defining file so the audit trail stays readable without a full NixOS evaluation context.
 - The reporter accepts `--repo /path/to/root` when invoked from CI or temporary directories; CI uses this flag so the new `phase0-role-imports` check surfaces regressions automatically.
 
+### Phase 4 Parity Validation
+
+- `scripts/package_utils.py` centralises package-name normalisation (removing store hashes and version suffixes) for manifests, role inventories, and live host evaluations. Phase 0’s host-package guard now shells out to this helper instead of maintaining ad-hoc regular expressions.
+- `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config` runs `checks/phase4/workstation-parity.py`, which compares `docs/RFC-0001/workstation-packages.json` against `nixosConfigurations.system76.config.environment.systemPackages`. The script prints missing and unexpected package lists when parity fails and exits non-zero so CI blocks the regression.
+- When the System76 manifest changes, regenerate `docs/RFC-0001/workstation-packages.json` via `nix eval` and rerun the parity check before committing. If the check fails, reconcile the manifest or role definitions until both hosts and manifest agree.
+
 ## Vendor Bundle Template
 
 ```nix
@@ -167,10 +173,10 @@ Ensure `modules/meta/ci.nix` continues to provide the runtime dependencies these
    - [x] Update `docs/configuration-architecture.md`, role tables, and README references to reflect the taxonomy.
    - [ ] Publish migration notes (e.g., `docs/releases/next.md`).
    - [ ] Document the current `TAXONOMY_VERSION`, canonical categories, secondary-tag vocabulary, and available profiles for future contributors.
-   - [ ] Regenerate the `roles.system.prospect` package matrix (via `nix eval .#nixosConfigurations.system76.config.environment.systemPackages --accept-flake-config --json`) whenever the underlying configuration changes and, once implemented, re-run the Phase 4 parity check to ensure parity.
+   - [x] Regenerate the `roles.system.prospect` package matrix (via `nix eval .#nixosConfigurations.system76.config.environment.systemPackages --accept-flake-config --json`) whenever the underlying configuration changes and re-run the Phase 4 parity check to ensure parity.
    - [x] Record the override review process and capture resolutions (commit or remove `build/taxonomy/metadata-overrides-review.json` once empty).
 6. **Validation**
-   - [ ] Run `nix fmt`, `nix flake check`, (eventually) `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`, and targeted `nix eval` assertions to ensure role membership matches expectations.
+   - [x] Run `nix fmt`, `nix flake check`, `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`, and targeted `nix eval` assertions to ensure role membership matches expectations.
    - [ ] Confirm no insecure allowances are lost during migration (Ventoy, etc.).
    - Phase 0 profile-purity guard now retains `_file` metadata during role flattening so canonical dotted roles and workstation helpers validate; `nix eval` confirms the sentinel passes.
    - Phase 0 host-package-guard now reports zero untracked packages. All workstation payloads—including the PipeWire/WirePlumber stack, gst/ffmpeg codecs, VPN helpers, nixos-\* tooling, nix-index, VSCode/vt-cli, libvirt/VMware/NVIDIA, and System76 vendor extras—flow through canonical roles or app modules.

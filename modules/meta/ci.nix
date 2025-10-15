@@ -269,6 +269,33 @@ in
           else
             throw ("role metadata issues:\n" + lib.concatStringsSep "\n" result.errors)
         );
+
+        phase4-workstation-parity =
+          pkgs.runCommand "phase4-workstation-parity"
+            {
+              nativeBuildInputs = [
+                pkgs.coreutils
+                pkgs.python3
+              ];
+              WORKSTATION_PARITY_MANIFEST = ../../docs/RFC-0001/workstation-packages.json;
+              WORKSTATION_PARITY_ACTUAL = actualPackagesJson;
+              WORKSTATION_PARITY_HOST = "system76";
+              PACKAGE_UTILS_DIR = ../../scripts;
+            }
+            ''
+              set -euo pipefail
+              export HOME="$TMPDIR"
+              if [[ -n "${"PYTHONPATH:-"}" ]]; then
+                export PYTHONPATH="$PACKAGE_UTILS_DIR:$PYTHONPATH"
+              else
+                export PYTHONPATH="$PACKAGE_UTILS_DIR"
+              fi
+              python3 ${../../checks/phase4/workstation-parity.py} \
+                --manifest "$WORKSTATION_PARITY_MANIFEST" \
+                --actual "$WORKSTATION_PARITY_ACTUAL" \
+                --host "$WORKSTATION_PARITY_HOST"
+              touch "$out"
+            '';
       };
     };
 }

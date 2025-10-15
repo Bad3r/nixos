@@ -39,78 +39,12 @@ if [[ ! -s $role_inventory ]]; then
   echo "host-package-guard: role import inventory is empty; cannot compute allowlist" >&2
   exit 1
 fi
-
-normalize_list() {
-  python3 - "$1" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-def normalize(name: str) -> str:
-    s = str(name)
-    s = re.sub(r"^([0-9a-z]{32})-", "", s)
-    return re.sub(r"-[0-9].*$", "", s)
-
-path = Path(sys.argv[1])
-if path.suffix == ".json":
-    data = json.loads(path.read_text())
-    if isinstance(data, dict):
-        items = set()
-        for value in data.values():
-            if isinstance(value, dict):
-                apps = value.get("apps", [])
-                items.update(normalize(app) for app in apps)
-    elif isinstance(data, list):
-        items = {normalize(entry) for entry in data}
-    else:
-        items = set()
-else:
-    with path.open() as fh:
-        items = {normalize(line.strip()) for line in fh if line.strip()}
-
-for item in sorted(filter(None, items)):
-    print(item)
-PY
-}
+PACKAGE_UTILS="$REPO_ROOT/scripts/package_utils.py"
 
 allowed_sorted="$tmpdir/allowed.txt"
-normalize_list "$role_inventory" >"$allowed_sorted"
+python3 "$PACKAGE_UTILS" normalize --mode role-inventory --input "$role_inventory" --output "$allowed_sorted"
 
 status=0
-
-normalize_manifest() {
-  python3 -c 'import json, re, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-data = json.loads(path.read_text())
-def normalize(name: str) -> str:
-    s = str(name)
-    s = re.sub(r"^([0-9a-z]{32})-", "", s)
-    return re.sub(r"-[0-9].*$", "", s)
-for item in sorted({normalize(entry) for entry in data}):
-    print(item)
-' "$1"
-}
-
-emit_actual_for_host() {
-  python3 - "$ACTUAL_JSON_PATH" "$1" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-actual_path = Path(sys.argv[1])
-host = sys.argv[2]
-data = json.loads(actual_path.read_text())
-
-if host not in data:
-    sys.stderr.write(f"host-package-guard: missing precomputed package list for host '{host}'\n")
-    sys.exit(2)
-
-for entry in data[host]:
-    print(entry)
-PY
-}
 
 while IFS= read -r entry; do
   host=$(jq -r '.host // empty' <<<"$entry")
@@ -135,10 +69,10 @@ while IFS= read -r entry; do
   fi
 
   manifest_sorted="$tmpdir/${host}-expected.txt"
-  normalize_manifest "$manifest" >"$manifest_sorted"
+  python3 "$PACKAGE_UTILS" normalize --mode manifest --input "$manifest" --output "$manifest_sorted"
 
   actual_sorted="$tmpdir/${host}-actual.txt"
-  if ! emit_actual_for_host "$host" >"$actual_sorted"; then
+  if ! python3 "$PACKAGE_UTILS" normalize --mode actual --input "$ACTUAL_JSON_PATH" --host "$host" --output "$actual_sorted"; then
     status=1
     continue
   fi
