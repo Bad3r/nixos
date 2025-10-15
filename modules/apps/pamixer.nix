@@ -26,6 +26,15 @@
   flake.nixosModules.apps.pamixer =
     { pkgs, ... }:
     {
+      nixpkgs.overlays = [
+        (_final: prev: {
+          pamixer = prev.pamixer.overrideAttrs (old: {
+            # pamixer 1.6 uses ICU helpers that depend on std::u16string_view (C++17).
+            mesonFlags = (old.mesonFlags or [ ]) ++ [ "-Dcpp_std=c++17" ];
+          });
+        })
+      ];
+
       environment.systemPackages = [ pkgs.pamixer ];
     };
 }

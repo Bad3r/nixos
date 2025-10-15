@@ -14,7 +14,12 @@
     nixosModules = {
       base = {
         users.users.${config.flake.lib.meta.owner.username} = {
-          isNormalUser = true;
+          isSystemUser = true;
+          uid = 1000;
+          group = "users";
+          createHome = true;
+          home = "/home/${config.flake.lib.meta.owner.username}";
+          useDefaultShell = true;
           initialPassword = "";
 
           extraGroups = [
