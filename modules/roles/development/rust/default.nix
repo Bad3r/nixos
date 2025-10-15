@@ -35,6 +35,11 @@ let
     "rustc"
   ];
   rustImports = [ rustModule ] ++ getApps rustApps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "development.rust" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = rustImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.development.rust = {
@@ -44,6 +49,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = rustImports;
+    imports = finalImports;
   };
 }

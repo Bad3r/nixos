@@ -18,18 +18,179 @@ let
     else
       null;
 
-  flattenRoles =
+  sanitizeImportValue =
+    value:
+    if value == null then
+      null
+    else if lib.isFunction value then
+      value
+    else if builtins.isAttrs value then
+      builtins.removeAttrs value [
+        "flake"
+      ]
+    else
+      value;
+
+  flattenImportList =
+    values:
     let
       go =
-        module: visited:
+        value:
+        if value == null then
+          [ ]
+        else if builtins.isList value then
+          lib.concatMap go value
+        else if lib.isFunction value then
+          [ value ]
+        else if builtins.isAttrs value then
+          let
+            cleaned = builtins.removeAttrs value [
+              "imports"
+              "_file"
+            ];
+            nested = go (value.imports or [ ]);
+            keep = cleaned != { };
+          in
+          (if keep then [ cleaned ] else [ ]) ++ nested
+        else
+          [ ];
+    in
+    lib.concatMap go values;
+
+  getRawRoleModule =
+    path:
+    let
+      fullPath = [ "roles" ] ++ path;
+      fromConfig =
+        if
+          config ? flake
+          && config.flake ? nixosModules
+          && lib.hasAttrByPath fullPath config.flake.nixosModules
+        then
+          lib.getAttrFromPath fullPath config.flake.nixosModules
+        else
+          null;
+      fromSelf =
+        let
+          outputs = inputs.self.outputs or { };
+          modules = outputs.nixosModules or { };
+        in
+        if fromConfig == null && lib.hasAttrByPath fullPath modules then
+          lib.getAttrFromPath fullPath modules
+        else
+          null;
+    in
+    if fromConfig != null then fromConfig else fromSelf;
+
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+
+  extrasForRole =
+    dotted:
+    lib.concatMap (
+      entry: if (entry ? role) && (entry ? modules) && entry.role == dotted then entry.modules else [ ]
+    ) roleExtraEntries;
+
+  rolesDir = ../roles;
+
+  computeImports =
+    moduleLookup: path:
+    let
+      dotted = lib.concatStringsSep "." path;
+      rawFromMap = if dotted == "" then null else moduleLookup."${dotted}" or null;
+      rawModule = if rawFromMap != null then rawFromMap else getRawRoleModule path;
+      filePath = if path == [ ] then null else rolesDir + "/${lib.concatStringsSep "/" path}/default.nix";
+      rawFromFile =
+        if rawModule != null || filePath == null || !builtins.pathExists filePath then
+          null
+        else
+          let
+            appHelpers = config._module.args.nixosAppHelpers or { };
+            moduleFun = import filePath;
+            args = {
+              inherit lib inputs;
+              config = {
+                flake = {
+                  nixosModules = config.flake.nixosModules or { };
+                  lib = {
+                    nixos = appHelpers;
+                    roleExtras = roleExtraEntries;
+                  };
+                };
+                _module = {
+                  args = {
+                    nixosAppHelpers = appHelpers;
+                    inherit inputs;
+                  };
+                };
+              };
+            }
+            // lib.optionalAttrs (config ? _module && config._module ? args && config._module.args ? pkgs) {
+              inherit (config._module.args) pkgs;
+            };
+            evaluated = moduleFun args;
+            rolesAttr =
+              if evaluated ? flake && evaluated.flake ? nixosModules then evaluated.flake.nixosModules else { };
+          in
+          if lib.hasAttrByPath ([ "roles" ] ++ path) rolesAttr then
+            lib.getAttrFromPath ([ "roles" ] ++ path) rolesAttr
+          else
+            null;
+      rawEffective = if rawModule != null then rawModule else rawFromFile;
+      importsValue = if rawEffective != null && rawEffective ? imports then rawEffective.imports else [ ];
+      asList =
+        if importsValue == null then
+          [ ]
+        else if builtins.isList importsValue then
+          importsValue
+        else
+          [ importsValue ];
+      extrasList = if rawEffective != null then [ ] else extrasForRole dotted;
+      sanitizedBase = lib.filter (value: value != null) (map sanitizeImportValue asList);
+      sanitizedExtras = lib.filter (value: value != null) (map sanitizeImportValue extrasList);
+    in
+    flattenImportList (sanitizedBase ++ sanitizedExtras);
+
+  flattenRoles =
+    let
+      mergeAttrsets =
+        left: right:
+        let
+          combineValues =
+            _: values:
+            let
+              present = lib.filter (value: value != null) values;
+              allAttrs =
+                present != [ ] && builtins.all (value: builtins.isAttrs value && !lib.isDerivation value) present;
+              allLists = present != [ ] && builtins.all builtins.isList present;
+            in
+            if present == [ ] then
+              null
+            else if allAttrs then
+              lib.foldl' mergeAttrsets { } present
+            else if allLists then
+              lib.concatLists present
+            else
+              lib.last present;
+        in
+        lib.filterAttrs (_: value: value != null) (
+          builtins.zipAttrsWith combineValues [
+            left
+            right
+          ]
+        );
+
+      go =
+        path: module: visited:
         if module == null then
           {
             result = { };
+            modules = { };
             inherit visited;
           }
         else if lib.isFunction module then
           {
             result = { };
+            modules = { };
             inherit visited;
           }
         else if builtins.isAttrs module then
@@ -57,14 +218,39 @@ let
             merge =
               acc: value:
               let
-                res = go value acc.visited;
+                res = go path value acc.visited;
               in
               {
-                result = lib.recursiveUpdate acc.result res.result;
+                result = mergeAttrsets acc.result res.result;
+                modules = acc.modules // res.modules;
                 inherit (res) visited;
               };
+            dotted = if path == [ ] then null else lib.concatStringsSep "." path;
+            moduleEntry =
+              if dotted == null then
+                { }
+              else
+                {
+                  "${dotted}" = module;
+                };
+            childEntries = lib.foldlAttrs (
+              accModules: childName: _:
+              let
+                childPath = path ++ [ childName ];
+                dottedChild = lib.concatStringsSep "." childPath;
+                childValue = lib.getAttrFromPath [ childName ] module;
+              in
+              if dottedChild == "" || childValue == null then
+                accModules
+              else
+                accModules
+                // {
+                  "${dottedChild}" = childValue;
+                }
+            ) { } direct;
             acc0 = {
               result = sanitizedDirect;
+              modules = moduleEntry // childEntries;
               visited = visited';
             };
             accFinal =
@@ -81,12 +267,21 @@ let
         else
           {
             result = { };
+            modules = { };
             inherit visited;
           };
     in
-    module: (go module { }).result;
+    module:
+    let
+      res = go [ ] module { };
+    in
+    {
+      inherit (res) modules;
+      tree = res.result;
+    };
 
   flattenRoleMap =
+    moduleLookup: attrs:
     let
       go =
         path: attrs:
@@ -111,10 +306,16 @@ let
                   hasMetadata = value ? metadata;
                   children = lib.attrNames nestedCandidates;
                   isLeaf = children == [ ];
+                  sanitizedImports = computeImports moduleLookup newPath;
+                  valueWithImports =
+                    value
+                    // lib.optionalAttrs (sanitizedImports != [ ]) {
+                      imports = sanitizedImports;
+                    };
                 in
                 if hasMetadata || isLeaf then
                   {
-                    "${dotted}" = value;
+                    "${dotted}" = valueWithImports;
                   }
                 else
                   { };
@@ -122,10 +323,14 @@ let
             acc // current // nested
         ) { } attrs;
     in
-    go [ ];
+    go [ ] attrs;
 
   availableRoles =
     let
+      emptyRoles = {
+        tree = { };
+        modules = { };
+      };
       fromConfig =
         if
           config ? flake
@@ -134,7 +339,7 @@ let
         then
           flattenRoles config.flake.nixosModules.roles
         else
-          { };
+          emptyRoles;
       fromSelf =
         let
           selfModules = (inputs.self.outputs or { }).nixosModules or { };
@@ -142,9 +347,11 @@ let
         if lib.hasAttrByPath [ "roles" ] selfModules then
           flattenRoles (lib.getAttrFromPath [ "roles" ] selfModules)
         else
-          { };
+          emptyRoles;
+      combinedModules = fromSelf.modules // fromConfig.modules;
+      combinedTree = fromSelf.tree // fromConfig.tree;
     in
-    flattenRoleMap (fromConfig // fromSelf);
+    flattenRoleMap combinedModules combinedTree;
 
   roleHelpers = rec {
     listRoles = builtins.attrNames availableRoles;

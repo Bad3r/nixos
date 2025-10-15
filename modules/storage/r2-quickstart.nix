@@ -1,4 +1,4 @@
-_:
+{ lib, ... }:
 let
   r2Module = _: {
     environment.etc = {
@@ -40,5 +40,10 @@ let
   };
 in
 {
-  flake.nixosModules.roles.network.vendor.cloudflare.imports = [ r2Module ];
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "network.vendor.cloudflare";
+      modules = [ r2Module ];
+    }
+  ];
 }

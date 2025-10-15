@@ -26,6 +26,11 @@ let
     };
 in
 {
-  flake.nixosModules.roles.system.security.imports = [ mkSystemModule ];
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.security";
+      modules = [ mkSystemModule ];
+    }
+  ];
   flake.homeManagerModules.base = mkHomeModule;
 }

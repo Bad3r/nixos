@@ -1,7 +1,14 @@
-_: {
-  flake.nixosModules.roles.system.storage.imports = [
-    (_: {
-      boot.tmp.cleanOnBoot = true;
-    })
+{ lib, ... }:
+let
+  tmpModule = _: {
+    boot.tmp.cleanOnBoot = true;
+  };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.storage";
+      modules = [ tmpModule ];
+    }
   ];
 }

@@ -27,6 +27,11 @@ let
     "socat"
   ];
   roleImports = getApps toolApps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "network.tools" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = roleImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.network.tools = {
@@ -36,6 +41,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = roleImports;
+    imports = finalImports;
   };
 }

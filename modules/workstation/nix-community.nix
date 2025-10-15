@@ -1,4 +1,4 @@
-_:
+{ lib, ... }:
 let
   nixCommunityModule =
     { lib, ... }:
@@ -24,5 +24,10 @@ let
     };
 in
 {
-  flake.nixosModules.roles.system.nixos.imports = [ nixCommunityModule ];
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.nixos";
+      modules = [ nixCommunityModule ];
+    }
+  ];
 }

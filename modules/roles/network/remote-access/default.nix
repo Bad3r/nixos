@@ -29,6 +29,11 @@ let
 
   vpnDefaults = lib.attrByPath [ "vpn-defaults" ] null config.flake.nixosModules;
   roleImports = getApps remoteApps ++ lib.optional (vpnDefaults != null) vpnDefaults;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "network.remote-access" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = roleImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.network."remote-access" = {
@@ -38,6 +43,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = roleImports;
+    imports = finalImports;
   };
 }

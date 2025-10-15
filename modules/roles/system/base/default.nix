@@ -150,6 +150,11 @@ let
 
   allBaseApps = baseApps ++ baseExtensionApps;
   roleImports = [ baseModule ] ++ getApps allBaseApps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "system.base" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = roleImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.system.base = {
@@ -159,6 +164,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = roleImports;
+    imports = finalImports;
   };
 }

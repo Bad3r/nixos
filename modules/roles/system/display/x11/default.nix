@@ -89,6 +89,11 @@ let
     "xterm"
   ];
   roleImports = [ i3SessionModule ] ++ getApps x11Apps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "system.display.x11" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = roleImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.system.display.x11 = {
@@ -98,6 +103,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = roleImports;
+    imports = finalImports;
   };
 }

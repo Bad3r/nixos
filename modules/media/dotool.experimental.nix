@@ -22,12 +22,27 @@
       };
     };
 
-  flake.nixosModules.roles.system.base.imports = [
-    (
-      { config, lib, ... }:
-      {
-        users.users.${config.flake.lib.meta.owner.username}.extraGroups = lib.mkAfter [ "input" ];
-      }
-    )
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.base";
+      modules = [
+        (
+          { config, lib, ... }:
+          let
+            ownerPath = [
+              "flake"
+              "lib"
+              "meta"
+              "owner"
+              "username"
+            ];
+            hasOwner = lib.hasAttrByPath ownerPath config;
+          in
+          lib.mkIf hasOwner {
+            users.users.${config.flake.lib.meta.owner.username}.extraGroups = lib.mkAfter [ "input" ];
+          }
+        )
+      ];
+    }
   ];
 }

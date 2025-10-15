@@ -34,6 +34,11 @@ let
     "delve"
   ];
   goImports = [ goModule ] ++ getApps goApps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "development.go" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = goImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.development.go = {
@@ -43,6 +48,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = goImports;
+    imports = finalImports;
   };
 }

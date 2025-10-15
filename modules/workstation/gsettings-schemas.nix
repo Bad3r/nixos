@@ -1,4 +1,4 @@
-_:
+{ lib, ... }:
 let
   gsettingsModule =
     {
@@ -44,5 +44,10 @@ let
     };
 in
 {
-  flake.nixosModules.roles.system.display.x11.imports = [ gsettingsModule ];
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.display.x11";
+      modules = [ gsettingsModule ];
+    }
+  ];
 }

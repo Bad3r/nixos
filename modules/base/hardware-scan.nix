@@ -1,3 +1,4 @@
+{ lib, ... }:
 {
   flake.nixosModules.base = {
     # Replicate critical functionality from installer/scan/not-detected.nix
@@ -35,7 +36,7 @@
     nixpkgs.config.allowUnfree = true;
 
     # Permit insecure packages that are required but marked as insecure
-    nixpkgs.config.permittedInsecurePackages = [
+    nixpkgs.config.permittedInsecurePackages = lib.mkBefore [
       "qtwebengine-5.15.19" # Required by some Qt5 applications, marked insecure in NixOS 25.11
     ];
   };

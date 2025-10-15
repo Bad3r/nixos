@@ -1,4 +1,4 @@
-_:
+{ lib, ... }:
 let
   graphicsModule =
     {
@@ -40,5 +40,10 @@ let
     };
 in
 {
-  flake.nixosModules.roles.system.display.x11.imports = [ graphicsModule ];
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.display.x11";
+      modules = [ graphicsModule ];
+    }
+  ];
 }

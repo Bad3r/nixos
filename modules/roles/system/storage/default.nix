@@ -34,6 +34,11 @@ let
     "filezilla"
   ];
   roleImports = getApps storageApps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "system.storage" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = roleImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.system.storage = {
@@ -43,6 +48,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = roleImports;
+    imports = finalImports;
   };
 }

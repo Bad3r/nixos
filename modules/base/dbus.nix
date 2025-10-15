@@ -1,13 +1,19 @@
-_: {
-  flake.nixosModules.roles.system.base.imports = [
-    (
-      { pkgs, ... }:
-      {
-        services.dbus = {
-          enable = true;
-          packages = with pkgs; [ dconf ];
-        };
-      }
-    )
+{ lib, ... }:
+let
+  dbusModule =
+    { pkgs, ... }:
+    {
+      services.dbus = {
+        enable = true;
+        packages = with pkgs; [ dconf ];
+      };
+    };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.base";
+      modules = [ dbusModule ];
+    }
   ];
 }

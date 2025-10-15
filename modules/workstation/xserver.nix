@@ -1,13 +1,20 @@
-_: {
-  flake.nixosModules.roles.system.display.x11.imports = [
-    (_: {
-      services.xserver = {
-        enable = true;
-        xkb = {
-          layout = "us";
-          variant = "";
-        };
+{ lib, ... }:
+let
+  xserverModule = _: {
+    services.xserver = {
+      enable = true;
+      xkb = {
+        layout = "us";
+        variant = "";
       };
-    })
+    };
+  };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.display.x11";
+      modules = [ xserverModule ];
+    }
   ];
 }

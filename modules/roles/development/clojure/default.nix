@@ -36,6 +36,11 @@ let
     "pixman"
   ];
   clojureImports = [ clojureModule ] ++ getApps clojureApps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "development.clojure" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = clojureImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.development.clojure = {
@@ -45,6 +50,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = clojureImports;
+    imports = finalImports;
   };
 }

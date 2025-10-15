@@ -23,6 +23,12 @@ let
     "gst-plugins-bad"
     "gst-plugins-ugly"
   ];
+  mediaImports = getApps mediaApps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "audio-video.media" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = mediaImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles."audio-video".media = {
@@ -32,6 +38,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = getApps mediaApps;
+    imports = finalImports;
   };
 }

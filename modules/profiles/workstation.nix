@@ -96,5 +96,6 @@ let
 in
 {
   flake.nixosModules.profiles.workstation = workstationModule;
+  flake.profiles.workstation = workstationModule;
   _module.args.nixosProfiles.workstation = workstationModule;
 }

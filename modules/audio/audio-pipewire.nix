@@ -1,28 +1,34 @@
-_: {
-  flake.nixosModules.roles."audio-video".media.imports = [
-    (
-      { lib, pkgs, ... }:
-      {
-        environment.systemPackages =
-          with pkgs;
-          lib.mkDefault [
-            # GUI audio tools
-            pavucontrol
-            qpwgraph
-            helvum
+{ lib, ... }:
+let
+  audioToolingModule =
+    { lib, pkgs, ... }:
+    {
+      environment.systemPackages =
+        with pkgs;
+        lib.mkDefault [
+          # GUI audio tools
+          pavucontrol
+          qpwgraph
+          helvum
 
-            # Audio production (optional)
-            ardour
-            audacity
+          # Audio production (optional)
+          ardour
+          audacity
 
-            # Media codecs
-            gst_all_1.gstreamer
-            gst_all_1.gst-plugins-base
-            gst_all_1.gst-plugins-good
-            gst_all_1.gst-plugins-bad
-            gst_all_1.gst-plugins-ugly
-          ];
-      }
-    )
+          # Media codecs
+          gst_all_1.gstreamer
+          gst_all_1.gst-plugins-base
+          gst_all_1.gst-plugins-good
+          gst_all_1.gst-plugins-bad
+          gst_all_1.gst-plugins-ugly
+        ];
+    };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "audio-video.media";
+      modules = [ audioToolingModule ];
+    }
   ];
 }

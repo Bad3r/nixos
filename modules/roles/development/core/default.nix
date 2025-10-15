@@ -59,6 +59,11 @@ let
     "kiroFhs"
   ];
   coreImports = getApps coreApps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "development.core" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = coreImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.development.core = {
@@ -68,6 +73,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = coreImports;
+    imports = finalImports;
   };
 }

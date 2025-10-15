@@ -1,4 +1,4 @@
-_:
+{ lib, ... }:
 let
   acmeModule =
     _:
@@ -28,5 +28,10 @@ let
     };
 in
 {
-  flake.nixosModules.roles.network.vendor.cloudflare.imports = [ acmeModule ];
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "network.vendor.cloudflare";
+      modules = [ acmeModule ];
+    }
+  ];
 }

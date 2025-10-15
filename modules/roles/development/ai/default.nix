@@ -22,6 +22,11 @@ let
     "github-mcp-server"
   ];
   aiImports = getApps aiApps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "development.ai" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = aiImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.development.ai = {
@@ -31,6 +36,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = aiImports;
+    imports = finalImports;
   };
 }

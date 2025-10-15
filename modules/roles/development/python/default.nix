@@ -34,6 +34,11 @@ let
     "pyright"
   ];
   pythonImports = [ pythonModule ] ++ getApps pythonApps;
+  roleExtraEntries = config.flake.lib.roleExtras or [ ];
+  extraModulesForRole = lib.concatMap (
+    entry: if (entry ? role) && entry.role == "development.python" then entry.modules else [ ]
+  ) roleExtraEntries;
+  finalImports = pythonImports ++ extraModulesForRole;
 in
 {
   flake.nixosModules.roles.development.python = {
@@ -43,6 +48,6 @@ in
       auxiliaryCategories = [ ];
       secondaryTags = [ ];
     };
-    imports = pythonImports;
+    imports = finalImports;
   };
 }

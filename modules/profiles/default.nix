@@ -4,4 +4,5 @@
   # modules/profiles/workstation.nix) can merge into it without relying on
   # import-tree ordering.
   flake.nixosModules.profiles = lib.mkDefault { };
+  flake.profiles = lib.mkDefault { };
 }
