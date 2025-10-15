@@ -16,6 +16,7 @@
         playerctl = lib.getExe pkgs.playerctl;
         volume = lib.getExe pkgs.pamixer;
         brightness = lib.getExe pkgs.xorg.xbacklight;
+        ocr = "${lib.getExe pkgs.normcap}";
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
       };
       commandOverrides = lib.attrByPath [ "gui" "i3" "commands" ] { } config;
@@ -163,6 +164,7 @@
       pamixerCommand = commands.volume;
       xbacklightCommand = commands.brightness;
       screenshotCommand = commands.screenshot;
+      ocrCommand = commands.ocr;
       logseqToggleCommand =
         commands.logseqToggle or "${config.xdg.configHome}/i3/scripts/toggle_logseq.sh";
       lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] (lib.getExe pkgs.i3lock-color) config;
@@ -185,6 +187,7 @@
                 "${mod}+Shift+q" = "kill";
                 "${mod}+Shift+e" = "exec systemctl suspend";
                 "${mod}+s" = "exec ${screenshotCommand}";
+                "${mod}+Shift+o" = "exec --no-startup-id ${ocrCommand}";
                 "${mod}+f" = "fullscreen toggle";
                 "${mod}+semicolon" = "split horizontal";
                 "${mod}+v" = "split vertical";
