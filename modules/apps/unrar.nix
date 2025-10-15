@@ -26,7 +26,7 @@
   flake.nixosModules.apps.unrar =
     { pkgs, lib, ... }:
     {
-      environment.systemPackages = lib.mkDefault [ pkgs.unrar ];
+      environment.systemPackages = lib.mkAfter [ pkgs.unrar ];
     };
 
 }

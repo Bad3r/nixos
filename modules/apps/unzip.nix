@@ -21,7 +21,7 @@
   flake.nixosModules.apps.unzip =
     { pkgs, lib, ... }:
     {
-      environment.systemPackages = lib.mkDefault [ pkgs.unzip ];
+      environment.systemPackages = lib.mkAfter [ pkgs.unzip ];
     };
 
 }
