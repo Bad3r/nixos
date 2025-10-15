@@ -46,6 +46,7 @@ let
     (getModule "system76-support")
     (getModule "security")
     (getModule "hardware-lenovo-y27q-20")
+    (getModule "duplicati-r2")
     (getModule "virt")
   ];
   virtualizationModules = lib.filter (module: module != null) (

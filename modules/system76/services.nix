@@ -2,6 +2,8 @@ _: {
   configurations.nixos.system76.module =
     { pkgs, lib, ... }:
     {
+      systemd.sysusers.enable = true;
+
       services = {
         # Disable samples and network clients until configured on this host
         cloudflared.enable = lib.mkForce false;
