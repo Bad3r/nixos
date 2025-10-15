@@ -32,6 +32,7 @@ let
       null;
   roleNames = [
     "desktop"
+    "files"
     "warp-client"
     "pentesting-devshell"
     "chat"
@@ -40,6 +41,7 @@ let
   baseModules = lib.filter (module: module != null) [
     inputs.nixos-hardware.nixosModules.system76
     inputs.nixos-hardware.nixosModules.system76-darp6
+    (getModule "packages")
     workstationModule
     (getModule "system76-support")
     (getModule "security")
@@ -75,6 +77,12 @@ in
       ++ virtualizationModules
       ++ roleModules
       ++ lib.optional (hasModule "ssh") nixosModules.ssh;
+
+    nixpkgs.allowedUnfreePackages = lib.mkAfter [
+      "p7zip-rar"
+      "rar"
+      "unrar"
+    ];
   };
 
   # Export the System76 configuration so the flake exposes it under nixosConfigurations
