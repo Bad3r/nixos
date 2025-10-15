@@ -20,6 +20,7 @@ let
     "pandoc"
     "planify"
     "raindrop"
+    "tesseract"
   ];
 
   logseqRoleSettings =

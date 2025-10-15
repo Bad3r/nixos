@@ -21,6 +21,7 @@ let
     "kcolorchooser"
     "kitty"
     "libnotify"
+    "normcap"
     "nemo"
     "networkmanagerapplet"
     "pamixer"
