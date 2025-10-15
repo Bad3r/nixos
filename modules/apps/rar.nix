@@ -26,7 +26,7 @@
   flake.nixosModules.apps.rar =
     { pkgs, lib, ... }:
     {
-      environment.systemPackages = lib.mkDefault [ pkgs.rar ];
+      environment.systemPackages = lib.mkAfter [ pkgs.rar ];
     };
 
 }
