@@ -36,6 +36,7 @@ let
         "R2_BUCKET"
         "R2_S3_ENDPOINT"
         "R2_S3_ENDPOINT_URL"
+        "R2_REGION"
         "DUPLICATI_PASSPHRASE"
       ];
 
