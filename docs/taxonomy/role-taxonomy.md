@@ -32,6 +32,12 @@ avoid reusing it for general roles.
 The matrix (source of truth for the table) lives in `lib/taxonomy/matrix.nix`.
 Modify that file when introducing new subroles or enabling vendor namespaces.
 
+## Versioning & Profiles
+
+- **Current `TAXONOMY_VERSION`:** `0.1` (defined in `lib/taxonomy/version.nix`). Bump the major component when canonical namespaces change; bump the minor component when aliases or vocabulary expand. Update the `aliasHash` in the same file using the failure output from `nix build .#checks.x86_64-linux.phase0-taxonomy-version --accept-flake-config`.
+- **Profiles consuming the taxonomy:** `flake.nixosModules.profiles.workstation` imports the canonical roles exclusively. Downstream hosts should prefer importing this profile (plus vendor roles) rather than reconstructing the role list manually.
+- **Parity guard:** After modifying roles or manifests, run `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config` to compare `nixosConfigurations.system76` against `docs/RFC-0001/workstation-packages.json`. Regeneration guidance lives in `docs/RFC-0001/implementation-notes.md#phase-4-parity-validation`.
+
 ## Naming Rules
 
 - Canonical role identifiers follow `roles.<root-slug>[.<subrole>[.<variant>]]`.
@@ -111,3 +117,17 @@ The expected workflow:
 
 For questions or divergent proposals, coordinate with the maintainer (`vx`) so
 downstream hosts retain parity during the Phase 2 migration.
+
+## Secondary Tag Vocabulary
+
+Secondary tags describe extra attributes that help tooling distinguish assets,
+CLI utilities, or vendor integrations. Current approved values (enforced by
+`checks/phase0/metadata-lint.nix`) are:
+
+- `asset`
+- `cli`
+- `formatter`
+- `hardware-integration`
+
+Tags are curated in `lib/taxonomy/metadata-overrides.json`. Additions should
+include a short rationale in the overrides file and be reflected here.
