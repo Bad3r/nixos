@@ -23,9 +23,32 @@
         };
         backupFileExtension = "hm.bk";
 
-        users.${config.flake.lib.meta.owner.username}.imports =
+        users.${
           let
-            hmApps = config.flake.homeManagerModules.apps or { };
+            flakeAttrs = config.flake or { };
+            ownerMeta = lib.attrByPath [ "lib" "meta" "owner" ] { } flakeAttrs;
+            fallbackOwnerName =
+              let
+                usersAttrs = config.users.users or { };
+                normalUsers = lib.filterAttrs (_: u: (u.isNormalUser or false)) usersAttrs;
+              in
+              if normalUsers != { } then lib.head (lib.attrNames normalUsers) else null;
+          in
+          ownerMeta.username or (
+            if fallbackOwnerName != null then
+              fallbackOwnerName
+            else
+              throw "Home Manager base module: unable to determine owner username (set config.flake.lib.meta.owner.username or define a normal user)."
+          )
+        }.imports =
+          let
+            moduleArgs = config._module.args or { };
+            inputsArg = moduleArgs.inputs or { };
+            flakeAttrs = config.flake or { };
+            hmModulesFromConfig = lib.attrByPath [ "homeManagerModules" ] { } flakeAttrs;
+            hmModulesFromInputs = lib.attrByPath [ "self" "homeManagerModules" ] { } inputsArg;
+            hmModules = if hmModulesFromConfig != { } then hmModulesFromConfig else hmModulesFromInputs;
+            hmApps = hmModules.apps or { };
             hasApp = name: lib.hasAttr name hmApps;
             getApp =
               name:
@@ -54,11 +77,13 @@
                 home.stateVersion = osConfig.system.stateVersion;
               }
             )
-            config.flake.homeManagerModules.base
+            (lib.attrByPath [ "base" ] hmModules (
+              throw "Home Manager base module: expected flake.homeManagerModules.base to be available."
+            ))
             # Wire R2 sops-managed env by default (guarded on secrets/r2.env presence)
-            config.flake.homeManagerModules.r2Secrets
+            (lib.attrByPath [ "r2Secrets" ] hmModules { })
             # Provide Context7 API key via sops when available
-            config.flake.homeManagerModules.context7Secrets
+            (lib.attrByPath [ "context7Secrets" ] hmModules { })
           ]
           ++ map getApp allAppImports;
       };
