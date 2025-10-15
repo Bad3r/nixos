@@ -26,7 +26,7 @@
   flake.nixosModules.apps.p7zip =
     { pkgs, lib, ... }:
     {
-      environment.systemPackages = lib.mkDefault [ pkgs.p7zip ];
+      environment.systemPackages = lib.mkAfter [ pkgs.p7zip ];
     };
 
 }
