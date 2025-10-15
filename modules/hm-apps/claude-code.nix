@@ -31,12 +31,12 @@
         sequential-thinking = true;
         time = true;
         cfdocs = true;
-        cfbuilds = true;
-        cfobservability = true;
-        cfradar = true;
-        cfcontainers = true;
+        cfbuilds = false;
+        cfobservability = false;
+        cfradar = false;
+        cfcontainers = false;
         cfbrowser = true;
-        cfgraphql = true;
+        cfgraphql = false;
         deepwiki = true;
         context7 = true;
       };
