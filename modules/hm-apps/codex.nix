@@ -56,12 +56,12 @@
         time = true;
         cfdocs = true;
         cfbindings = false;
-        cfbuilds = true;
-        cfobservability = true;
-        cfradar = true;
+        cfbuilds = false;
+        cfobservability = false;
+        cfradar = false;
         cfcontainers = false; # conflicts w/ builtin review command
         cfbrowser = true;
-        cfgraphql = true;
+        cfgraphql = false;
         deepwiki = true;
         context7 = true;
       };
