@@ -52,15 +52,15 @@ in {
 
 ### 2.2 Role registry
 
-- **Helper:** `modules/meta/nixos-role-helpers.nix` exports `getRole`, `getRoles`, and `getRoleOr`, flattening nested role modules (including ones emitted by this repo and any referenced flakes).
-- **Role taxonomy:** the canonical category layout, naming rules, and metadata policy live in [`docs/taxonomy/role-taxonomy.md`](./taxonomy/role-taxonomy.md). Phase 2 of RFC-0001 migrates legacy roles to this structure.
-- **Legacy modules:** existing role bundles still live under `modules/roles/*.nix` (for example `roles/base.nix`, `roles/dev.nix`, `roles/net.nix`) until the taxonomy refactor lands. Use the helper namespace rather than importing files directly so consumers flip over seamlessly.
-- **Metadata tooling:** Phase 0 checks (`checks/phase0/*`) enforce metadata and alias rules defined in the taxonomy doc. Expect them to fail until the migration completes; they document real gaps the new taxonomy must close.
+- **Helper:** `modules/meta/nixos-role-helpers.nix` exports `getRole`, `getRoles`, and `getRoleOr`, flattening the canonical taxonomy roles (including any emitted by inputs). Always resolve roles through this namespace rather than importing files directly.
+- **Role taxonomy:** the Freedesktop-aligned layout, naming rules, and metadata policy live in [`docs/taxonomy/role-taxonomy.md`](./taxonomy/role-taxonomy.md). Canonical modules are surfaced under `flake.nixosModules.roles.<root>[.<subrole>]`, with stable aliases recorded in `lib/taxonomy/alias-registry.json`.
+- **Metadata tooling:** Phase 0 checks (`checks/phase0/*`) enforce metadata, alias integrity, and taxonomy-version guardrails so new roles stay compliant.
 
 ### 2.3 Workstation profile
 
 - `modules/profiles/workstation.nix` composes the canonical taxonomy roles (system base/display/storage/security/nix, language stacks, audio/video, office, networking, gaming) into a reusable profile exported at `flake.nixosModules.profiles.workstation`.
 - Hosts import the profile alongside `config.flake.nixosModules.base` and any vendor-specific roles; missing roles emit a warning so evaluation continues while highlighting gaps.
+- Manifest parity is enforced via the Phase 4 check `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`, which compares the live System76 workstation build to `docs/RFC-0001/workstation-packages.json`. Regeneration workflow lives in `docs/RFC-0001/implementation-notes.md`.
 
 ### 2.4 System-level utilities
 
@@ -146,6 +146,7 @@ nix fmt
 nix develop -c pre-commit run --all-files
 generation-manager score
 nix flake check --accept-flake-config
+nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config
 ```
 
 Additional diagnostics:

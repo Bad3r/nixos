@@ -14,10 +14,10 @@ The Dendritic Pattern treats every file under `modules/` as a flake-parts module
 
 This flake exposes two merge-friendly aggregators:
 
-| Namespace                  | Purpose                    | Typical Exports                                                                    |
-| -------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
-| `flake.nixosModules`       | System-level configuration | `base`, `profiles.workstation`, `apps.<name>`, `roles.<name>`, `roles.dev` aliases |
-| `flake.homeManagerModules` | Home Manager configuration | `base`, `gui`, `apps.<name>`, secrets helpers                                      |
+| Namespace                  | Purpose                    | Typical Exports                                                                              |
+| -------------------------- | -------------------------- | -------------------------------------------------------------------------------------------- |
+| `flake.nixosModules`       | System-level configuration | `base`, `profiles.workstation`, `apps.<name>`, `roles.<root>[.<subrole>]`, canonical aliases |
+| `flake.homeManagerModules` | Home Manager configuration | `base`, `gui`, `apps.<name>`, secrets helpers                                                |
 
 Modules register themselves under these namespaces. Example (`modules/files/fzf.nix`):
 
@@ -45,7 +45,7 @@ configurations.nixos.system76.module = {
 };
 ```
 
-Use `config.flake.nixosModules.roles.dev` (and the other role modules) so host composition stays stable even if role internals change.
+Use canonical taxonomy paths (`config.flake.nixosModules.roles.development.core`, etc.) or the documented aliases so host composition stays stable even if role internals change. The alias registry lives in `lib/taxonomy/alias-registry.json`.
 
 ## Authoring Modules
 
@@ -85,6 +85,7 @@ nix fmt
 nix develop -c pre-commit run --all-files
 generation-manager score  # target 90/90
 nix flake check --accept-flake-config
+nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config
 ```
 
 Additional helpers:
