@@ -1,5 +1,6 @@
-_: {
-  flake.nixosModules.workstation =
+{ lib, ... }:
+let
+  terminalModule =
     { pkgs, lib, ... }:
     {
       # Install kitty early in the list so later roles/users can override
@@ -14,4 +15,12 @@ _: {
         "x-scheme-handler/terminal" = lib.mkDefault "kitty.desktop";
       };
     };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "utility.cli";
+      modules = [ terminalModule ];
+    }
+  ];
 }

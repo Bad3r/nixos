@@ -1,3 +1,14 @@
+{ lib, ... }:
+let
+  tmpModule = _: {
+    boot.tmp.cleanOnBoot = true;
+  };
+in
 {
-  flake.nixosModules.workstation.boot.tmp.cleanOnBoot = true;
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.storage";
+      modules = [ tmpModule ];
+    }
+  ];
 }

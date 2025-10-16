@@ -1,16 +1,24 @@
 { lib, ... }:
-{
-  flake.nixosModules.workstation = _: {
-    services.pipewire = {
-      enable = lib.mkDefault true;
-      alsa = {
+let
+  pipewireModule =
+    { lib, ... }:
+    {
+      services.pipewire = {
         enable = lib.mkDefault true;
-        support32Bit = lib.mkDefault true;
+        alsa = {
+          enable = lib.mkDefault true;
+          support32Bit = lib.mkDefault true;
+        };
+        pulse.enable = lib.mkDefault true;
       };
-      pulse.enable = lib.mkDefault true;
+      security.rtkit.enable = lib.mkDefault true;
     };
-    security.rtkit.enable = lib.mkDefault true;
-
-    # PulseAudio is automatically disabled when PipeWire is enabled
-  };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "audio-video.media";
+      modules = [ pipewireModule ];
+    }
+  ];
 }

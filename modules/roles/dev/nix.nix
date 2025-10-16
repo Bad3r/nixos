@@ -37,5 +37,13 @@ let
   roleImports = getApps nixApps;
 in
 {
-  flake.nixosModules.roles.dev.nix.imports = roleImports;
+  flake.nixosModules.roles.dev.nix = {
+    metadata = {
+      canonicalAppStreamId = "Development";
+      categories = [ "Development" ];
+      auxiliaryCategories = [ ];
+      secondaryTags = [ ];
+    };
+    imports = roleImports;
+  };
 }

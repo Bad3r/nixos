@@ -1,6 +1,7 @@
-{
-  flake.nixosModules.workstation = _: {
-    config.programs.zsh = {
+{ lib, ... }:
+let
+  zshModule = _: {
+    programs.zsh = {
       enable = true;
       interactiveShellInit = ''
         # Disable treating # as comment in interactive shells
@@ -14,4 +15,12 @@
       '';
     };
   };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "utility.cli";
+      modules = [ zshModule ];
+    }
+  ];
 }

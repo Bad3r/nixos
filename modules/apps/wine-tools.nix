@@ -25,8 +25,8 @@
   flake.nixosModules.apps."wine-tools" =
     { pkgs, lib, ... }:
     let
-      protonCompatTool = pkgs.proton-ge-bin.steamcompattool;
-      steamRunExe = lib.getExe pkgs.steam-run;
+      protonCompatTool = pkgs."proton-ge-bin".steamcompattool;
+      steamRunExe = lib.getExe pkgs."steam-run";
       protonRunScript = pkgs.writeShellApplication {
         name = "proton-run";
         runtimeInputs = with pkgs; [

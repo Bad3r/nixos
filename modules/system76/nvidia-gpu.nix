@@ -70,11 +70,6 @@ _: {
             nvidia-container-toolkit.enable = true;
           };
 
-          # Diagnostics: vulkaninfo and glxinfo
-          environment.systemPackages = with pkgs; [
-            vulkan-tools
-            mesa-demos
-          ];
         }
 
         (lib.mkIf (cfg.mode == "nvidia-only") {

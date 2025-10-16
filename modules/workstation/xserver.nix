@@ -1,5 +1,6 @@
-{
-  flake.nixosModules.workstation = _: {
+{ lib, ... }:
+let
+  xserverModule = _: {
     services.xserver = {
       enable = true;
       xkb = {
@@ -8,4 +9,12 @@
       };
     };
   };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.display.x11";
+      modules = [ xserverModule ];
+    }
+  ];
 }

@@ -18,7 +18,7 @@
   flake.nixosModules.apps."rust-analyzer" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.rust-analyzer ];
+      environment.systemPackages = [ pkgs."rust-analyzer" ];
     };
 
 }

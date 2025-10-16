@@ -22,6 +22,6 @@
   flake.nixosModules.apps."nix-index-update" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.nix-index-update ];
+      environment.systemPackages = [ pkgs."nix-index-update" ];
     };
 }

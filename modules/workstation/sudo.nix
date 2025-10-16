@@ -1,12 +1,25 @@
-{ config, ... }:
-{
-  flake.nixosModules.workstation =
-    { pkgs, ... }:
+{ lib, ... }:
+let
+  sudoModule =
     {
+      config,
+      pkgs,
+      lib,
+      ...
+    }:
+    let
+      hasOwner = lib.hasAttrByPath [
+        "flake"
+        "lib"
+        "meta"
+        "owner"
+        "username"
+      ] config;
+    in
+    lib.mkIf hasOwner {
       security.sudo-rs = {
-        enable = true; # replace sudo with memory-safe sudo-rs
+        enable = true;
         wheelNeedsPassword = true;
-        # Make interactive password prompt wait indefinitely and extend cached auth duration
         extraConfig = ''
           Defaults passwd_timeout=0
           Defaults timestamp_timeout=10
@@ -34,4 +47,12 @@
       };
       users.users.${config.flake.lib.meta.owner.username}.extraGroups = [ "wheel" ];
     };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.security";
+      modules = [ sudoModule ];
+    }
+  ];
 }

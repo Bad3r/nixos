@@ -24,6 +24,6 @@
   flake.nixosModules.apps."dragon-drop" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.dragon-drop ];
+      environment.systemPackages = [ pkgs."dragon-drop" ];
     };
 }

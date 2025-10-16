@@ -1,5 +1,6 @@
-_: {
-  flake.nixosModules.workstation =
+{ lib, ... }:
+let
+  graphicsModule =
     {
       pkgs,
       config,
@@ -17,7 +18,6 @@ _: {
         };
 
       config = lib.mkIf cfg.enable {
-        # Enable OpenGL/Graphics support for desktop applications
         hardware.graphics = {
           enable = true;
           enable32Bit = true;
@@ -35,8 +35,15 @@ _: {
           ];
         };
 
-        # Tools for VA-API diagnostics (vainfo)
         environment.systemPackages = lib.mkAfter [ pkgs.libva-utils ];
       };
     };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.display.x11";
+      modules = [ graphicsModule ];
+    }
+  ];
 }

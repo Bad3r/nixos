@@ -52,13 +52,15 @@ in {
 
 ### 2.2 Role registry
 
-- **Helper:** `modules/meta/nixos-role-helpers.nix` exports `getRole`, `getRoles`, and `getRoleOr`, flattening nested role modules (including ones emitted by this repo and any referenced flakes).
-- **Role modules:** `modules/roles/*.nix` (for example `roles/base.nix`, `roles/dev.nix`, `roles/net.nix`) resolve app bundles through helpers, keeping lists in one place.
+- **Helper:** `modules/meta/nixos-role-helpers.nix` exports `getRole`, `getRoles`, and `getRoleOr`, flattening the canonical taxonomy roles (including any emitted by inputs). Always resolve roles through this namespace rather than importing files directly.
+- **Role taxonomy:** the Freedesktop-aligned layout, naming rules, and metadata policy live in [`docs/taxonomy/role-taxonomy.md`](./taxonomy/role-taxonomy.md). Canonical modules are surfaced under `flake.nixosModules.roles.<root>[.<subrole>]`, with stable aliases recorded in `lib/taxonomy/alias-registry.json`.
+- **Metadata tooling:** Phase 0 checks (`checks/phase0/*`) enforce metadata, alias integrity, and taxonomy-version guardrails so new roles stay compliant.
 
-### 2.3 Workstation bundle
+### 2.3 Workstation profile
 
-- `modules/workstation.nix` orchestrates base + resolved roles + language stacks (Python, Go, Rust, Clojure via `getApps`) and optionally augments Home Manager shared modules when GUI bundles exist.
-- Missing roles are logged with `lib.warn`, so evaluation continues but the log pinpoints gaps.
+- `modules/profiles/workstation.nix` composes the canonical taxonomy roles (system base/display/storage/security/nix, language stacks, audio/video, office, networking, gaming) into a reusable profile exported at `flake.nixosModules.profiles.workstation`.
+- Hosts import the profile alongside `config.flake.nixosModules.base` and any vendor-specific roles; missing roles emit a warning so evaluation continues while highlighting gaps.
+- Manifest parity is enforced via the Phase 4 check `nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config`, which compares the live System76 workstation build to `docs/RFC-0001/workstation-packages.json`. Regeneration workflow lives in `docs/RFC-0001/implementation-notes.md`.
 
 ### 2.4 System-level utilities
 
@@ -144,6 +146,7 @@ nix fmt
 nix develop -c pre-commit run --all-files
 generation-manager score
 nix flake check --accept-flake-config
+nix build .#checks.x86_64-linux.phase4-workstation-parity --accept-flake-config
 ```
 
 Additional diagnostics:
@@ -210,7 +213,7 @@ nix develop -c gh-actions-run -n
 ### 9.2 Introduce a new role
 
 1. Create `modules/roles/<role>.nix`; use `config.flake.lib.nixos.getApps`.
-2. Update `modules/workstation.nix` (or target hosts) if the role is part of default bundles.
+2. Update `modules/profiles/workstation.nix` (or the target hosts) if the role is part of default bundles.
 3. Re-run `nix flake check` to satisfy helper assertions.
 
 ### 9.3 Define a new host

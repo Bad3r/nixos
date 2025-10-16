@@ -1,9 +1,7 @@
-_: {
-  flake.nixosModules.workstation = _: {
-    # Preserve environment by default when using `su` (keeps SSH_AUTH_SOCK)
+{ lib, ... }:
+let
+  suModule = _: {
     environment.shellAliases.su = "su -p";
-
-    # Be explicit: keep pam_env for su and allow SSH agent auth via PAM
     security.pam.services = {
       su = {
         setEnvironment = true;
@@ -15,4 +13,12 @@ _: {
       };
     };
   };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.security";
+      modules = [ suModule ];
+    }
+  ];
 }

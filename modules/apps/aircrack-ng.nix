@@ -24,7 +24,7 @@
   flake.nixosModules.apps."aircrack-ng" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.aircrack-ng ];
+      environment.systemPackages = [ pkgs."aircrack-ng" ];
     };
 
 }

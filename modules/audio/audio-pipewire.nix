@@ -1,9 +1,8 @@
 { lib, ... }:
-{
-  flake.nixosModules.workstation =
-    { pkgs, ... }:
+let
+  audioToolingModule =
+    { lib, pkgs, ... }:
     {
-      # PC-specific audio packages
       environment.systemPackages =
         with pkgs;
         lib.mkDefault [
@@ -23,7 +22,13 @@
           gst_all_1.gst-plugins-bad
           gst_all_1.gst-plugins-ugly
         ];
-
-      # Sound configuration is handled by PipeWire/ALSA
     };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "audio-video.media";
+      modules = [ audioToolingModule ];
+    }
+  ];
 }

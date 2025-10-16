@@ -24,7 +24,7 @@
   flake.nixosModules.apps."claude-code" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.claude-code ];
+      environment.systemPackages = [ pkgs."claude-code" ];
     };
 
 }

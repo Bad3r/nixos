@@ -24,7 +24,7 @@
   flake.nixosModules.apps."cosmic-term" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.cosmic-term ];
+      environment.systemPackages = [ pkgs."cosmic-term" ];
     };
 
 }

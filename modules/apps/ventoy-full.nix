@@ -19,7 +19,7 @@
   flake.nixosModules.apps."ventoy-full" =
     { pkgs, lib, ... }:
     let
-      ventoyPkg = pkgs.ventoy-full;
+      ventoyPkg = pkgs."ventoy-full";
     in
     {
       environment.systemPackages = [ ventoyPkg ];

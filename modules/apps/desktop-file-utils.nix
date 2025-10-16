@@ -24,7 +24,7 @@
   flake.nixosModules.apps."desktop-file-utils" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.desktop-file-utils ];
+      environment.systemPackages = [ pkgs."desktop-file-utils" ];
     };
 
 }

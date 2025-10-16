@@ -24,7 +24,7 @@
   flake.nixosModules.apps.nicotine =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.nicotine-plus ];
+      environment.systemPackages = [ pkgs."nicotine-plus" ];
     };
 
 }

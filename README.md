@@ -21,14 +21,17 @@ This flake exposes two mergeable aggregators:
 - `flake.nixosModules`: NixOS modules (freeform, nested namespaces allowed)
 - `flake.homeManagerModules`: Home Manager modules (freeform; with `base`, `gui`, and per-app under `apps`)
 
-Modules register themselves under these namespaces (e.g., `flake.nixosModules.workstation`, `flake.homeManagerModules.base`).
+Modules register themselves under these namespaces (e.g., `flake.nixosModules.profiles.workstation`, `flake.homeManagerModules.base`).
 Composition uses named references, for example:
 
 ```nix
 { config, ... }:
 {
   configurations.nixos.myhost.module = {
-    imports = with config.flake.nixosModules; [ base workstation ];
+    imports = [
+      config.flake.nixosModules.base
+      config.flake.nixosModules.profiles.workstation
+    ];
   };
 }
 ```
@@ -47,13 +50,11 @@ Example host composition using the role namespace:
 { config, ... }:
 {
   configurations.nixos.system76.module = {
-    imports =
-      (with config.flake.nixosModules; [
-        workstation
-      ])
-      ++ [
-        config.flake.nixosModules.roles.dev
-      ];
+    imports = [
+      config.flake.nixosModules.base
+      config.flake.nixosModules.profiles.workstation
+      config.flake.nixosModules.roles.dev
+    ];
   };
 }
 ```

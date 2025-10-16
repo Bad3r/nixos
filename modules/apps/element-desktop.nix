@@ -24,7 +24,7 @@
   flake.nixosModules.apps."element-desktop" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.element-desktop ];
+      environment.systemPackages = [ pkgs."element-desktop" ];
     };
 
 }

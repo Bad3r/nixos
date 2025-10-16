@@ -27,7 +27,7 @@
   flake.nixosModules.apps."telegram-desktop" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.telegram-desktop ];
+      environment.systemPackages = [ pkgs."telegram-desktop" ];
     };
 
 }

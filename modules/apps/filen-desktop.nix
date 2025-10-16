@@ -24,7 +24,7 @@
   flake.nixosModules.apps."filen-desktop" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.filen-desktop ];
+      environment.systemPackages = [ pkgs."filen-desktop" ];
     };
 
 }

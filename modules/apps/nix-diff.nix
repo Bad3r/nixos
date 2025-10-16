@@ -22,6 +22,6 @@
   flake.nixosModules.apps."nix-diff" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.nix-diff ];
+      environment.systemPackages = [ pkgs."nix-diff" ];
     };
 }

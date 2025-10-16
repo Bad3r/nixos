@@ -1,5 +1,6 @@
-{
-  flake.nixosModules.workstation =
+{ lib, ... }:
+let
+  bluetoothModule =
     { pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [
@@ -7,4 +8,12 @@
       ];
       hardware.bluetooth.enable = true;
     };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "audio-video.media";
+      modules = [ bluetoothModule ];
+    }
+  ];
 }

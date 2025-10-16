@@ -1,5 +1,6 @@
-{
-  flake.nixosModules.workstation =
+{ lib, ... }:
+let
+  sshX11Module =
     { pkgs, ... }:
     {
       # X11 forwarding for GUI systems
@@ -15,4 +16,12 @@
         xorg.xhost
       ];
     };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "network.remote-access";
+      modules = [ sshX11Module ];
+    }
+  ];
 }

@@ -2,7 +2,7 @@
 # Example: echo type "hello, Friend" | dotool
 # Must add user to input group to use /dev/uinput
 
-{ lib, config, ... }:
+{ lib, ... }:
 {
   flake.homeManagerModules.base =
     { pkgs, ... }:
@@ -22,7 +22,27 @@
       };
     };
 
-  flake.nixosModules.workstation = _: {
-    users.users.${config.flake.lib.meta.owner.username}.extraGroups = lib.mkAfter [ "input" ];
-  };
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.base";
+      modules = [
+        (
+          { config, lib, ... }:
+          let
+            ownerPath = [
+              "flake"
+              "lib"
+              "meta"
+              "owner"
+              "username"
+            ];
+            hasOwner = lib.hasAttrByPath ownerPath config;
+          in
+          lib.mkIf hasOwner {
+            users.users.${config.flake.lib.meta.owner.username}.extraGroups = lib.mkAfter [ "input" ];
+          }
+        )
+      ];
+    }
+  ];
 }

@@ -13,7 +13,7 @@ This document shows how modules are authored and consumed in this flake-parts + 
 
 ## File Placement Rules
 
-- Store per-app modules in `modules/apps/<name>.nix`. Each file should export `flake.nixosModules.apps.<name>` and, when needed, mirror the package into default bundles such as `flake.nixosModules.workstation`.
+- Store per-app modules in `modules/apps/<name>.nix`. Each file should export `flake.nixosModules.apps.<name>` and, when needed, mirror the package into default bundles such as `flake.nixosModules.profiles.workstation`.
 - Reserve domain directories under `modules/<domain>/` for higher-level features that configure services or compose multiple apps. If a module only installs packages, move it into `modules/apps/` and have roles or bundles import it.
 
 ## Authoring Patterns

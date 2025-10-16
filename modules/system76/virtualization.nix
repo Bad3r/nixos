@@ -60,8 +60,6 @@ _: {
             package = pkgs.vmware-workstation;
           };
 
-          environment.systemPackages = lib.mkAfter [ pkgs.vmware-workstation ];
-
           nixpkgs.allowedUnfreePackages = lib.mkAfter [
             "vmware-workstation"
           ];

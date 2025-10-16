@@ -28,7 +28,7 @@
   flake.nixosModules.apps."electron-mail" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.electron-mail ];
+      environment.systemPackages = [ pkgs."electron-mail" ];
     };
 
 }

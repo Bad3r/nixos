@@ -1,5 +1,6 @@
-{
-  flake.nixosModules.workstation =
+{ lib, ... }:
+let
+  dbusModule =
     { pkgs, ... }:
     {
       services.dbus = {
@@ -7,4 +8,12 @@
         packages = with pkgs; [ dconf ];
       };
     };
+in
+{
+  flake.lib.roleExtras = lib.mkAfter [
+    {
+      role = "system.base";
+      modules = [ dbusModule ];
+    }
+  ];
 }

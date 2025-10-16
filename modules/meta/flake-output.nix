@@ -26,6 +26,25 @@
           default = { };
           description = "Helper functions and small metadata for NixOS modules (pure/idempotent; no heavy evaluation or side effects).";
         };
+        roleExtras = lib.mkOption {
+          type = lib.types.listOf (
+            lib.types.submodule {
+              options = {
+                role = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Canonical dotted role name (e.g., development.core).";
+                };
+                modules = lib.mkOption {
+                  type = lib.types.listOf lib.types.deferredModule;
+                  default = [ ];
+                  description = "Additional modules to append to the role's imports list.";
+                };
+              };
+            }
+          );
+          default = [ ];
+          description = "Augment canonical roles with additional modules to be appended to their imports.";
+        };
         security = lib.mkOption {
           type = lib.types.attrsOf lib.types.anything;
           default = { };
@@ -61,6 +80,12 @@
         };
         default = { };
         description = "Aggregated Home Manager modules with freeform roles";
+      };
+
+      profiles = lib.mkOption {
+        type = lib.types.attrsOf lib.types.deferredModule;
+        default = { };
+        description = "Composable NixOS profile modules exported at flake.profiles.<name>.";
       };
     };
   };

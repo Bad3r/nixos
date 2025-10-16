@@ -24,6 +24,6 @@
     {
       # Allow unfree if required by kiro-fhs packaging
       nixpkgs.allowedUnfreePackages = [ "kiro-fhs" ];
-      environment.systemPackages = [ pkgs.kiro-fhs ];
+      environment.systemPackages = [ pkgs."kiro-fhs" ];
     };
 }
