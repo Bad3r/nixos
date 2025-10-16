@@ -147,7 +147,10 @@ let
   }};
   config = {{
     flake = {{
-      lib.nixos = helper;
+      lib = {{
+        nixos = helper;
+        roleExtras = [ ];
+      }};
       nixosModules = stubModules;
     }};
     _module.args = {{

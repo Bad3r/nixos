@@ -273,13 +273,23 @@ in
         role-extras-present = mkEvalCheck "role-extras-present-ok" (
           let
             role = resolveRole "development.core";
+            stubConfig = {
+              hardware.nvidia = {
+                modesetting.enable = false;
+                package = pkgs.nvidiaPackages.production;
+              };
+            };
+            stubArgs = {
+              inherit pkgs lib;
+              config = stubConfig;
+            }
+            // lib.optionalAttrs (config._module.args ? inputs) {
+              inherit (config._module.args) inputs;
+            };
             hasNixLd = builtins.any (
               module:
               let
-                applied = module {
-                  inherit pkgs lib;
-                  config = { };
-                };
+                applied = if lib.isFunction module then module stubArgs else module;
                 enableFlag =
                   (applied ? programs && applied.programs ? nix-ld && applied.programs.nix-ld.enable or false)
                   || (
