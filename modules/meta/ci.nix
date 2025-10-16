@@ -270,6 +270,35 @@ in
             throw ("role metadata issues:\n" + lib.concatStringsSep "\n" result.errors)
         );
 
+        role-extras-present = mkEvalCheck "role-extras-present-ok" (
+          let
+            role = resolveRole "development.core";
+            hasNixLd = builtins.any (
+              module:
+              let
+                applied = module {
+                  inherit pkgs lib;
+                  config = { };
+                };
+                enableFlag =
+                  (applied ? programs && applied.programs ? nix-ld && applied.programs.nix-ld.enable or false)
+                  || (
+                    applied ? _module
+                    && applied._module ? config
+                    && applied._module.config ? programs
+                    && applied._module.config.programs ? nix-ld
+                    && applied._module.config.programs.nix-ld.enable or false
+                  );
+              in
+              enableFlag
+            ) role.imports;
+          in
+          if hasNixLd then
+            "ok"
+          else
+            throw "role extras missing: development.core no longer enables programs.nix-ld"
+        );
+
         phase4-workstation-parity =
           pkgs.runCommand "phase4-workstation-parity"
             {
