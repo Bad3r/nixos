@@ -144,9 +144,12 @@ let
           importsValue
         else
           [ importsValue ];
-      extrasList = if rawEffective != null then [ ] else extrasForRole dotted;
       sanitizedBase = lib.filter (value: value != null) (map sanitizeImportValue asList);
-      sanitizedExtras = lib.filter (value: value != null) (map sanitizeImportValue extrasList);
+      sanitizedExtras =
+        let
+          sanitizedCandidates = map sanitizeImportValue (extrasForRole dotted);
+        in
+        lib.filter (value: value != null && !(lib.elem value sanitizedBase)) sanitizedCandidates;
     in
     flattenImportList (sanitizedBase ++ sanitizedExtras);
 
