@@ -17,6 +17,7 @@ let
 
   storageApps = [
     "ddrescue"
+    "duplicati"
     "testdisk"
     "parted"
     "gparted"

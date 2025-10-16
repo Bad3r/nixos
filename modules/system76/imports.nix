@@ -54,7 +54,6 @@ let
   baseModules = lib.filter (module: module != null) [
     inputs.nixos-hardware.nixosModules.system76
     inputs.nixos-hardware.nixosModules.system76-darp6
-    (getModule "base")
     (getModule "packages")
     workstationProfile
     (getModule "system76-support")
