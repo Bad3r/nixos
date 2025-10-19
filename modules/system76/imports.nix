@@ -15,15 +15,19 @@ let
     name:
     let
       getRole = roleHelpers.getRole or (_: null);
-      attempt = builtins.tryEval (getRole name);
+      roleValue = getRole name;
     in
-    if attempt.success && attempt.value != null then
-      attempt.value
+    if roleValue != null then
+      roleValue
     else if lib.hasAttrByPath [ "roles" name ] nixosModules then
       lib.getAttrFromPath [ "roles" name ] nixosModules
     else
-      null;
-  roleModules = lib.filter (module: module != null) (map getRoleModule roleNames);
+      throw (
+        "system76 host requires role "
+        + name
+        + " but it was not found in helpers or flake.nixosModules"
+      );
+  roleModules = map getRoleModule roleNames;
   getVirtualizationModule =
     name:
     if lib.hasAttrByPath [ "virtualization" name ] nixosModules then

@@ -23,26 +23,10 @@ let
         throw ("Unknown NixOS app '" + name + "' (role xserver)");
   getApp =
     name:
-    let
-      tryRaw =
-        if rawHelpers ? getApp then
-          builtins.tryEval (rawHelpers.getApp name)
-        else
-          {
-            success = false;
-            value = null;
-          };
-    in
-    if tryRaw.success then tryRaw.value else fallbackGetApp name;
+    if rawHelpers ? getApp then rawHelpers.getApp name else fallbackGetApp name;
   getApps =
     names:
-    if rawHelpers ? getApps then
-      let
-        attempt = builtins.tryEval (rawHelpers.getApps names);
-      in
-      if attempt.success then attempt.value else map getApp names
-    else
-      map getApp names;
+    if rawHelpers ? getApps then rawHelpers.getApps names else map getApp names;
   i3SessionModule =
     { pkgs, lib, ... }:
     {

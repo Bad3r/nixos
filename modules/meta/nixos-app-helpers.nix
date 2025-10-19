@@ -87,7 +87,12 @@ let
             (lib.nameValuePair appName (lib.getAttrFromPath path imported))
           ]
         else
-          acc
+          throw (
+            "nixos-app-helpers: expected "
+            + toString filePath
+            + " to export flake.nixosModules.apps."
+            + appName
+          )
     else
       acc
   ) { } appFiles;
@@ -120,16 +125,21 @@ let
               if lib.hasAttrByPath path imported then
                 lib.getAttrFromPath path imported
               else
-                lib.trace "nixos-app-helpers: app module missing path ${builtins.concatStringsSep "." path}" null
+                throw (
+                  "nixos-app-helpers: app module missing path "
+                  + builtins.concatStringsSep "." path
+                )
             else
-              lib.trace "nixos-app-helpers: missing app file ${toString maybeFile}" null;
+              throw (
+                "nixos-app-helpers: missing app file " + toString maybeFile
+              );
           previewList = lib.take 20 appKeys;
           preview = lib.concatStringsSep ", " previewList;
           ellipsis = if lib.length appKeys > 20 then ", …" else "";
           suggestion = if appKeys == [ ] then "" else " Known keys (partial): ${preview}${ellipsis}";
         in
         if fallbackModule != null then
-          lib.trace "nixos-app-helpers: fallback loaded ${name}" fallbackModule
+          fallbackModule
         else
           throw ("Unknown NixOS app '" + name + "'" + suggestion);
 

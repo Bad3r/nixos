@@ -11,8 +11,18 @@ let
   getApp = rawHelpers.getApp or fallbackGetApp;
   getApps = rawHelpers.getApps or (names: map getApp names);
 
-  xserverRole = lib.attrByPath [ "roles" "xserver" ] config.flake.nixosModules null;
-  i3Module = lib.attrByPath [ "window-manager" "i3" ] config.flake.nixosModules null;
+  xserverRolePath = [ "roles" "xserver" ];
+  xserverRole =
+    if lib.hasAttrByPath xserverRolePath config.flake.nixosModules then
+      lib.getAttrFromPath xserverRolePath config.flake.nixosModules
+    else
+      throw "Desktop role requires flake.nixosModules.roles.xserver";
+  i3ModulePath = [ "window-manager" "i3" ];
+  i3Module =
+    if lib.hasAttrByPath i3ModulePath config.flake.nixosModules then
+      lib.getAttrFromPath i3ModulePath config.flake.nixosModules
+    else
+      throw "Desktop role requires flake.nixosModules.window-manager.i3";
 
   desktopApps = [
     "blueberry"
@@ -29,10 +39,7 @@ let
     "udiskie"
   ];
 
-  roleImports =
-    lib.optionals (xserverRole != null) [ xserverRole ]
-    ++ lib.optionals (i3Module != null) [ i3Module ]
-    ++ getApps desktopApps;
+  roleImports = [ xserverRole i3Module ] ++ getApps desktopApps;
 in
 {
   flake.nixosModules.roles.desktop.imports = roleImports;

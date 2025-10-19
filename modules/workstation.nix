@@ -11,8 +11,7 @@ let
   resolveRoleOption =
     name:
     let
-      candidateEval = builtins.tryEval (rawResolveRole name);
-      candidate = if candidateEval.success then candidateEval.value else null;
+      candidate = rawResolveRole name;
       namePath = lib.splitString "." name;
       rolePath = [ "roles" ] ++ namePath;
 
@@ -20,9 +19,9 @@ let
         attrs:
         if lib.hasAttrByPath rolePath attrs then
           let
-            valueEval = builtins.tryEval (lib.getAttrFromPath rolePath attrs);
+            value = lib.getAttrFromPath rolePath attrs;
           in
-          if valueEval.success then valueEval.value else null
+          value
         else
           null;
 
@@ -144,9 +143,10 @@ in
       if missingRoleNames == [ ] then
         importsValue
       else
-        lib.warn (
-          "Skipping unavailable workstation roles: " + lib.concatStringsSep ", " missingRoleNames
-        ) importsValue;
+        throw (
+          "workstation bundle requires roles that failed to resolve: "
+          + lib.concatStringsSep ", " missingRoleNames
+        );
     config = lib.mkIf (hmGuiModule != null) (
       let
         extraNames = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
