@@ -29,7 +29,7 @@ workstation profile.
 - The rebuild reports success and shows the usual activation lines (“switching the user profile of vx”, “activating
   home-manager configuration for vx”).
 - The espanso YAML remains unchanged; `rg ':test' ~/.config/espanso/match/base.yml` returns no matches.
-- One of the first symptoms is that the base module is not imported in system76's configuration. It is imported into the workstation profile. Its been attempted to add it to system76 imports, which caused duplicate related errors. It has not been attempted yet to remove it from the workstation and add it only to the host system76 to see if that resolves the issue.
+- One of the first symptomps is that the base module is not imported in system76's configuration. It is imported into the workstation profile. Its been attempted to add it to system76 imports, which caused duplicate related errors. It has not been attempted yet to remove it from the workstation and add it only to the host system76 to see if that resolves the issue.
 - The sanitize/flatten logic is completely flawed. It hides issues, over complicate things, and is not optimal
 - The issue is not exclusive to Espanso, its merely used as an example. it affects everything managed by home-manager.
 

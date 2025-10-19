@@ -5,49 +5,6 @@
   ...
 }:
 let
-  sanitizeFlake =
-    flakeAttrs:
-    if flakeAttrs == null || !(builtins.isAttrs flakeAttrs) then
-      null
-    else
-      let
-        sanitizeModules =
-          modules:
-          if modules == null then
-            null
-          else if builtins.isAttrs modules then
-            lib.mapAttrs (_: sanitizeModule) modules
-          else
-            modules;
-
-        sanitizedLib =
-          if flakeAttrs ? lib && builtins.isAttrs flakeAttrs.lib then
-            let
-              allowedLibKeys = [
-                "meta"
-                "nixos"
-                "roleExtras"
-              ];
-            in
-            lib.filterAttrs (name: _: lib.elem name allowedLibKeys) flakeAttrs.lib
-          else
-            null;
-
-        result = {
-          homeManagerModules = sanitizeModules (flakeAttrs.homeManagerModules or null);
-          nixosModules = sanitizeModules (flakeAttrs.nixosModules or null);
-        }
-        // lib.optionalAttrs (sanitizedLib != null && sanitizedLib != { }) {
-          lib = sanitizedLib;
-        };
-
-        cleaned = lib.filterAttrs (_: value: value != null) result;
-        _trace = builtins.trace (
-          "sanitizeFlake: keys -> " + (lib.concatStringsSep "," (builtins.attrNames cleaned))
-        ) null;
-      in
-      lib.seq _trace (if cleaned == { } then null else cleaned);
-
   sanitizeModule =
     module:
     if module == null then
@@ -55,16 +12,9 @@ let
     else if lib.isFunction module then
       module
     else if builtins.isAttrs module then
-      let
-        base = builtins.removeAttrs module [
-          "flake"
-        ];
-        flakeValue = if module ? flake then sanitizeFlake module.flake else null;
-      in
-      base
-      // lib.optionalAttrs (flakeValue != null) {
-        flake = flakeValue;
-      }
+      builtins.removeAttrs module [
+        "flake"
+      ]
     else
       null;
 
@@ -75,16 +25,9 @@ let
     else if lib.isFunction value then
       value
     else if builtins.isAttrs value then
-      let
-        base = builtins.removeAttrs value [
-          "flake"
-        ];
-        flakeValue = if value ? flake then sanitizeFlake value.flake else null;
-      in
-      base
-      // lib.optionalAttrs (flakeValue != null) {
-        flake = flakeValue;
-      }
+      builtins.removeAttrs value [
+        "flake"
+      ]
     else
       value;
 
@@ -101,16 +44,10 @@ let
           [ value ]
         else if builtins.isAttrs value then
           let
-            base = builtins.removeAttrs value [
+            cleaned = builtins.removeAttrs value [
               "imports"
               "_file"
             ];
-            flakeValue = if value ? flake then sanitizeFlake value.flake else null;
-            cleaned =
-              base
-              // lib.optionalAttrs (flakeValue != null) {
-                flake = flakeValue;
-              };
             nested = go (value.imports or [ ]);
             keep = cleaned != { };
           in
@@ -280,11 +217,6 @@ let
               ])
             ) module;
             sanitizedDirect = lib.mapAttrs (_: sanitizeModule) direct;
-            sanitizedWithFlake =
-              sanitizedDirect
-              // lib.optionalAttrs (module ? flake) {
-                flake = sanitizeFlake module.flake;
-              };
             imported = module.imports or [ ];
             merge =
               acc: value:
@@ -320,7 +252,7 @@ let
                 }
             ) { } direct;
             acc0 = {
-              result = sanitizedWithFlake;
+              result = sanitizedDirect;
               modules = moduleEntry // childEntries;
               visited = visited';
             };
@@ -378,30 +310,8 @@ let
                   children = lib.attrNames nestedCandidates;
                   isLeaf = children == [ ];
                   sanitizedImports = computeImports moduleLookup newPath;
-                  originalModule = if dotted == "" then null else moduleLookup."${dotted}" or null;
-                  rawModule = getRawRoleModule newPath;
-                  rawFlake =
-                    if rawModule != null && rawModule ? flake then
-                      rawModule.flake
-                    else if originalModule != null && originalModule ? flake then
-                      originalModule.flake
-                    else
-                      value.flake or null;
-                  sanitizedFlake = if rawFlake == null then null else sanitizeFlake rawFlake;
-                  _traceFlake =
-                    if sanitizedFlake != null then
-                      builtins.trace (
-                        "nixos-role-helpers: role ${dotted} flake keys -> "
-                        + (lib.concatStringsSep "," (builtins.attrNames sanitizedFlake))
-                      ) null
-                    else
-                      null;
-                  sanitizedFlake' = lib.seq _traceFlake sanitizedFlake;
                   valueWithImports =
                     value
-                    // lib.optionalAttrs (sanitizedFlake' != null) {
-                      flake = sanitizedFlake';
-                    }
                     // lib.optionalAttrs (sanitizedImports != [ ]) {
                       imports = sanitizedImports;
                     };
