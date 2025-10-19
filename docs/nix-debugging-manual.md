@@ -36,11 +36,11 @@ The Nix REPL is the cornerstone of interactive language debugging.
 
 - **Loading Code**: Start with `nix repl` and load files with `:l <path>` or flakes with `:lf .`.
 - **Essential Commands**:
-     - `:p <expr>`: Strictly (deeply) evaluate and print an expression.
-     - `:b <expr>`: Build the derivation the expression evaluates to.
-     - `:log <expr>`: After a build, display its logs.
-     - `:e <expr>`: Open the source code for the expression (e.g., a package) in your `$EDITOR`.
-     - `:show-trace`: Toggle stack traces on/off within the REPL session.
+  - `:p <expr>`: Strictly (deeply) evaluate and print an expression.
+  - `:b <expr>`: Build the derivation the expression evaluates to.
+  - `:log <expr>`: After a build, display its logs.
+  - `:e <expr>`: Open the source code for the expression (e.g., a package) in your `$EDITOR`.
+  - `:show-trace`: Toggle stack traces on/off within the REPL session.
 
 ### 2.2 Print-Style Debugging and Breakpoints
 
