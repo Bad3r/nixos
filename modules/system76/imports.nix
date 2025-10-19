@@ -23,9 +23,7 @@ let
       lib.getAttrFromPath [ "roles" name ] nixosModules
     else
       throw (
-        "system76 host requires role "
-        + name
-        + " but it was not found in helpers or flake.nixosModules"
+        "system76 host requires role " + name + " but it was not found in helpers or flake.nixosModules"
       );
   roleModules = map getRoleModule roleNames;
   getVirtualizationModule =

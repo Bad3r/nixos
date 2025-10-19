@@ -11,10 +11,8 @@ let
       flakeLib = libAttrs.flake or { };
       securityLib = (flakeLib.lib or { }).security or { };
     in
-    if securityLib ? usbguard then
-      securityLib.usbguard
-    else
-      throw "system76/usbguard: securityLib.usbguard missing; ensure usbguard-lib exports the helper";
+    securityLib.usbguard
+      or (throw "system76/usbguard: securityLib.usbguard missing; ensure usbguard-lib exports the helper");
   baseRulesRaw = usbguardLib.baseRules or null;
   baseRules =
     if baseRulesRaw == null || lib.strings.trim baseRulesRaw == "" then

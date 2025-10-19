@@ -11,18 +11,44 @@ let
   getApp = rawHelpers.getApp or fallbackGetApp;
   getApps = rawHelpers.getApps or (names: map getApp names);
 
-  xserverRolePath = [ "roles" "xserver" ];
-  xserverRole =
-    if lib.hasAttrByPath xserverRolePath config.flake.nixosModules then
-      lib.getAttrFromPath xserverRolePath config.flake.nixosModules
+  roleHelpers = config._module.args.nixosRoleHelpers or { };
+  rawRoleHelpers = (config.flake.lib.nixos.roles or { }) // roleHelpers;
+  fallbackGetRole =
+    name:
+    let
+      filePath = ../roles + "/${name}.nix";
+      imported = if builtins.pathExists filePath then import filePath else null;
+      modulePath = [
+        "flake"
+        "nixosModules"
+        "roles"
+        name
+      ];
+    in
+    if imported != null && lib.hasAttrByPath modulePath imported then
+      lib.getAttrFromPath modulePath imported
     else
-      throw "Desktop role requires flake.nixosModules.roles.xserver";
-  i3ModulePath = [ "window-manager" "i3" ];
-  i3Module =
-    if lib.hasAttrByPath i3ModulePath config.flake.nixosModules then
-      lib.getAttrFromPath i3ModulePath config.flake.nixosModules
+      throw ("Desktop role requires flake.nixosModules.roles." + name);
+  getRole = rawRoleHelpers.getRole or fallbackGetRole;
+  xserverRole = getRole "xserver";
+
+  getWindowManagerModule =
+    name:
+    let
+      filePath = ../window-manager + "/${name}.nix";
+      imported = if builtins.pathExists filePath then import filePath else null;
+      modulePath = [
+        "flake"
+        "nixosModules"
+        "window-manager"
+        name
+      ];
+    in
+    if imported != null && lib.hasAttrByPath modulePath imported then
+      lib.getAttrFromPath modulePath imported
     else
-      throw "Desktop role requires flake.nixosModules.window-manager.i3";
+      throw ("Desktop role requires flake.nixosModules.window-manager." + name);
+  i3Module = getWindowManagerModule "i3";
 
   desktopApps = [
     "blueberry"
@@ -39,7 +65,11 @@ let
     "udiskie"
   ];
 
-  roleImports = [ xserverRole i3Module ] ++ getApps desktopApps;
+  roleImports = [
+    xserverRole
+    i3Module
+  ]
+  ++ getApps desktopApps;
 in
 {
   flake.nixosModules.roles.desktop.imports = roleImports;

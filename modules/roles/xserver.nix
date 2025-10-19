@@ -21,30 +21,8 @@ let
         lib.getAttrFromPath modulePath imported
       else
         throw ("Unknown NixOS app '" + name + "' (role xserver)");
-  getApp =
-    name:
-    if rawHelpers ? getApp then rawHelpers.getApp name else fallbackGetApp name;
-  getApps =
-    names:
-    if rawHelpers ? getApps then rawHelpers.getApps names else map getApp names;
-  i3SessionModule =
-    { pkgs, lib, ... }:
-    {
-      services = {
-        xserver = {
-          enable = lib.mkDefault true;
-          windowManager.i3 = {
-            enable = true;
-            package = pkgs.i3-gaps;
-          };
-          displayManager.lightdm.enable = true;
-        };
-
-        displayManager.defaultSession = lib.mkDefault "none+i3";
-
-        "systemd-lock-handler".enable = lib.mkDefault true;
-      };
-    };
+  getApp = name: if rawHelpers ? getApp then rawHelpers.getApp name else fallbackGetApp name;
+  getApps = names: if rawHelpers ? getApps then rawHelpers.getApps names else map getApp names;
   xserverApps = [
     "arandr"
     "autotiling-rs"
@@ -64,7 +42,7 @@ let
     "xclip"
     "xkill"
   ];
-  roleImports = [ i3SessionModule ] ++ getApps xserverApps;
+  roleImports = getApps xserverApps;
 in
 {
   flake.nixosModules.roles.xserver.imports = roleImports;

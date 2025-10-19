@@ -88,10 +88,7 @@ let
           ]
         else
           throw (
-            "nixos-app-helpers: expected "
-            + toString filePath
-            + " to export flake.nixosModules.apps."
-            + appName
+            "nixos-app-helpers: expected " + toString filePath + " to export flake.nixosModules.apps." + appName
           )
     else
       acc
@@ -125,14 +122,9 @@ let
               if lib.hasAttrByPath path imported then
                 lib.getAttrFromPath path imported
               else
-                throw (
-                  "nixos-app-helpers: app module missing path "
-                  + builtins.concatStringsSep "." path
-                )
+                throw ("nixos-app-helpers: app module missing path " + builtins.concatStringsSep "." path)
             else
-              throw (
-                "nixos-app-helpers: missing app file " + toString maybeFile
-              );
+              throw ("nixos-app-helpers: missing app file " + toString maybeFile);
           previewList = lib.take 20 appKeys;
           preview = lib.concatStringsSep ", " previewList;
           ellipsis = if lib.length appKeys > 20 then ", …" else "";
