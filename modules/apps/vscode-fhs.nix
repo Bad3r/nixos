@@ -23,7 +23,7 @@
 
 {
   # App module that installs VS Code (FHS) when imported
-  flake.nixosModules.apps.vscodeFhs =
+  flake.nixosModules.apps."vscode-fhs" =
     { pkgs, ... }:
     {
       nixpkgs.allowedUnfreePackages = [

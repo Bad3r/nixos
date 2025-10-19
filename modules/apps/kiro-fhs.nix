@@ -19,7 +19,7 @@
 
 {
   # App module that installs Kiro (FHS) when imported
-  flake.nixosModules.apps.kiroFhs =
+  flake.nixosModules.apps."kiro-fhs" =
     { pkgs, ... }:
     {
       # Allow unfree if required by kiro-fhs packaging

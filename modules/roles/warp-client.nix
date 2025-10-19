@@ -8,7 +8,7 @@
   # Docs:
   # - WARP on Linux: https://developers.cloudflare.com/warp-client/get-started/linux/
   # - Firewall ports: https://developers.cloudflare.com/cloudflare-one/connections/connect-devices/warp/deployment/firewall/
-  flake.nixosModules.warp-client = _: {
+  flake.nixosModules.roles."warp-client" = _: {
     services.cloudflare-warp = {
       enable = true;
       openFirewall = true; # opens UDP 2408

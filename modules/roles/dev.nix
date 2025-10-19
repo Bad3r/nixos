@@ -44,8 +44,8 @@ let
     "yarn"
     "nrm"
     # FHS-based dev tools
-    "vscodeFhs"
-    "kiroFhs"
+    "vscode-fhs"
+    "kiro-fhs"
   ];
   roleImports = getApps devApps;
 in

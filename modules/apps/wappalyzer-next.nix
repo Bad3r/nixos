@@ -12,11 +12,19 @@
 */
 
 _: {
-  flake.homeManagerModules.apps."wappalyzer-next" =
-    { pkgs, config, ... }:
-    {
-      home.packages = [
-        config.flake.packages.${pkgs.system}.wappalyzer-next
-      ];
-    };
+  flake = {
+    nixosModules.apps."wappalyzer-next" =
+      { pkgs, ... }:
+      {
+        environment.systemPackages = [ pkgs.wappalyzer-next ];
+      };
+
+    homeManagerModules.apps."wappalyzer-next" =
+      { pkgs, config, ... }:
+      {
+        home.packages = [
+          config.flake.packages.${pkgs.system}.wappalyzer-next
+        ];
+      };
+  };
 }
