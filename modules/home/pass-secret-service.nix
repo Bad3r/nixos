@@ -24,7 +24,7 @@
             if [ -r "$key_file" ]; then
               if ! gpg --batch --list-secret-keys ${keyFingerprint} >/dev/null 2>&1; then
                 gpg --batch --yes --import "$key_file"
-                echo "5\ny\n" | gpg --batch --yes --command-fd 0 --edit-key ${keyFingerprint} trust quit >/dev/null 2>&1 || true
+                echo "5\ny\n" | gpg --batch --yes --command-fd 0 --edit-key ${keyFingerprint} trust quit >/dev/null 2>&1
               fi
             fi
           ''
@@ -33,7 +33,7 @@
         activation.initPassStore = lib.mkIf haveKeyPath (
           lib.hm.dag.entryAfter [ "importPassGpgKey" ] ''
             if [ ! -d "$HOME/.password-store" ]; then
-              pass init --quiet ${keyFingerprint} || true
+              pass init --quiet ${keyFingerprint}
             fi
           ''
         );

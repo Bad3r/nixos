@@ -465,11 +465,23 @@ let
                           local base
                           base="$(basename "$unit")"
                           if [[ "$base" == *.timer ]]; then
-                            systemctl stop "$base" 2>/dev/null || true
-                            systemctl disable --runtime "$base" 2>/dev/null || true
+                            if ! systemctl stop "$base" 2>/dev/null; then
+                              echo "duplicati-r2 generator: failed to stop $base" >&2
+                              exit 1
+                            fi
+                            if ! systemctl disable --runtime "$base" 2>/dev/null; then
+                              echo "duplicati-r2 generator: failed to disable $base" >&2
+                              exit 1
+                            fi
                           elif [[ "$base" == *.service ]]; then
-                            systemctl stop "$base" 2>/dev/null || true
-                            systemctl disable --runtime "$base" 2>/dev/null || true
+                            if ! systemctl stop "$base" 2>/dev/null; then
+                              echo "duplicati-r2 generator: failed to stop $base" >&2
+                              exit 1
+                            fi
+                            if ! systemctl disable --runtime "$base" 2>/dev/null; then
+                              echo "duplicati-r2 generator: failed to disable $base" >&2
+                              exit 1
+                            fi
                           fi
                           rm -f "$unit"
                         fi
@@ -619,13 +631,25 @@ let
                     systemctl daemon-reload
 
                     for timer in "''${backup_timers[@]}"; do
-                      systemctl enable --runtime "$timer" >/dev/null 2>&1 || true
-                      systemctl start "$timer" >/dev/null 2>&1 || true
+                      if ! systemctl enable --runtime "$timer" >/dev/null 2>&1; then
+                        echo "duplicati-r2 generator: failed to enable $timer" >&2
+                        exit 1
+                      fi
+                      if ! systemctl start "$timer" >/dev/null 2>&1; then
+                        echo "duplicati-r2 generator: failed to start $timer" >&2
+                        exit 1
+                      fi
                     done
 
                     for timer in "''${verify_timers[@]}"; do
-                      systemctl enable --runtime "$timer" >/dev/null 2>&1 || true
-                      systemctl start "$timer" >/dev/null 2>&1 || true
+                      if ! systemctl enable --runtime "$timer" >/dev/null 2>&1; then
+                        echo "duplicati-r2 generator: failed to enable $timer" >&2
+                        exit 1
+                      fi
+                      if ! systemctl start "$timer" >/dev/null 2>&1; then
+                        echo "duplicati-r2 generator: failed to start $timer" >&2
+                        exit 1
+                      fi
                     done
         '';
       };

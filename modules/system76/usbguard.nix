@@ -11,8 +11,16 @@ let
       flakeLib = libAttrs.flake or { };
       securityLib = (flakeLib.lib or { }).security or { };
     in
-    securityLib.usbguard or { };
-  baseRules = lib.strings.trim (usbguardLib.baseRules or "");
+    if securityLib ? usbguard then
+      securityLib.usbguard
+    else
+      throw "system76/usbguard: securityLib.usbguard missing; ensure usbguard-lib exports the helper";
+  baseRulesRaw = usbguardLib.baseRules or null;
+  baseRules =
+    if baseRulesRaw == null || lib.strings.trim baseRulesRaw == "" then
+      throw "system76/usbguard: baseRules is empty; populate usbguardLib.baseRules"
+    else
+      lib.strings.trim baseRulesRaw;
   baseRulesFile = pkgs.writeText "usbguard-base.rules" baseRules;
   defaultsModule = usbguardLib.defaultsModule or null;
   moduleImports = lib.optional (defaultsModule != null) defaultsModule;

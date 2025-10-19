@@ -49,7 +49,10 @@ let
         # Prefer EDID-based match so connectors (HDMI, DP, USB-C) do not matter
         while IFS= read -r dev; do
           [ -z "$dev" ] && continue
-          info="$($COLORMGR get-device "$dev" 2>/dev/null || true)"
+          if ! info="$($COLORMGR get-device "$dev" 2>/dev/null)"; then
+            echo "lenovo-y27q-20: failed to query device $dev" >&2
+            exit 1
+          fi
           vendor=$(trim "$(printf '%s\n' "$info" | sed -n 's/^\s*Vendor:\s*//p' | head -n1)")
           model=$(trim "$(printf '%s\n' "$info" | sed -n 's/^\s*Model:\s*//p' | head -n1)")
           serial=$(trim "$(printf '%s\n' "$info" | sed -n 's/^\s*Serial:\s*//p' | head -n1)")
@@ -70,11 +73,11 @@ let
 
           device_path="$dev"
           break
-        done < <($COLORMGR get-devices-by-kind display 2>/dev/null || true)
+        done < <($COLORMGR get-devices-by-kind display 2>/dev/null)
 
         if [ -z "$device_path" ]; then
           for candidate in ${lib.concatStringsSep " " (map lib.escapeShellArg candidateIds)}; do
-            if path="$($COLORMGR find-device "$candidate" 2>/dev/null)"; then
+            if path="$($COLORMGR find-device $candidate 2>/dev/null)"; then
               device_path="$path"
               break
             fi
@@ -83,13 +86,20 @@ let
 
         if [ -z "$device_path" ]; then
           echo "lenovo-y27q-20: no matching colord display device found" >&2
-          exit 0
+          exit 1
         fi
 
-        profile_id="$($COLORMGR find-profile-by-filename "$PROFILE_PATH" 2>/dev/null || true)"
+        if ! profile_id="$($COLORMGR find-profile-by-filename "$PROFILE_PATH" 2>/dev/null)"; then
+          profile_id=""
+        fi
         if [ -z "$profile_id" ]; then
-          $COLORMGR import-profile "$PROFILE_PATH" >/dev/null 2>&1 || true
-          profile_id="$($COLORMGR find-profile-by-filename "$PROFILE_PATH" 2>/dev/null || true)"
+          if ! $COLORMGR import-profile "$PROFILE_PATH" >/dev/null 2>&1; then
+            echo "lenovo-y27q-20: failed to import profile $PROFILE_PATH" >&2
+            exit 1
+          fi
+          if ! profile_id="$($COLORMGR find-profile-by-filename "$PROFILE_PATH" 2>/dev/null)"; then
+            profile_id=""
+          fi
         fi
 
         if [ -z "$profile_id" ]; then
@@ -98,8 +108,14 @@ let
         fi
 
         if ! $COLORMGR device-get-default-profile "$device_path" | grep -F "$profile_id" >/dev/null 2>&1; then
-          $COLORMGR device-add-profile "$device_path" "$profile_id" >/dev/null 2>&1 || true
-          $COLORMGR device-make-profile-default "$device_path" "$profile_id" >/dev/null 2>&1 || true
+          if ! $COLORMGR device-add-profile "$device_path" "$profile_id" >/dev/null 2>&1; then
+            echo "lenovo-y27q-20: failed to add profile $PROFILE_PATH to $device_path" >&2
+            exit 1
+          fi
+          if ! $COLORMGR device-make-profile-default "$device_path" "$profile_id" >/dev/null 2>&1; then
+            echo "lenovo-y27q-20: failed to set $PROFILE_PATH as default for $device_path" >&2
+            exit 1
+          fi
         fi
       '';
     in
