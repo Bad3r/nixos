@@ -29,7 +29,6 @@
 
         # Only declare secrets if the encrypted file is present in repo
         # (prevents evaluation errors when secrets repo is absent)
-        _module.args = { };
       }
       // lib.mkIf actSecretExists {
         sops.secrets."act/github_token" = {
