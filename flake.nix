@@ -99,16 +99,6 @@
       url = "github:tonymajestro/smart-scrolloff.nvim";
     };
 
-    stylix = {
-      url = "github:nix-community/stylix";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        nur.follows = "dedupe_nur";
-        systems.follows = "dedupe_systems";
-        tinted-schemes.follows = "tinted-schemes";
-      };
-    };
-
     # Official Cloudflare language SDKs as sources (non-flake repos)
     cloudflare-go = {
       flake = false;
@@ -129,11 +119,6 @@
     workers-rs = {
       flake = false;
       url = "github:cloudflare/workers-rs";
-    };
-
-    tinted-schemes = {
-      flake = false;
-      url = "github:tinted-theming/schemes";
     };
 
     treefmt-nix = {

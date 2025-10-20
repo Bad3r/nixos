@@ -30,16 +30,8 @@
       ...
     }:
     let
-      stylixColors = lib.attrByPath [ "lib" "stylix" "colors" ] { } config;
-      stylixColorsWithHash = lib.attrByPath [ "withHashtag" ] { } stylixColors;
-      getColor =
-        name:
-        if lib.hasAttr name stylixColorsWithHash then
-          stylixColorsWithHash.${name}
-        else if lib.hasAttr name stylixColors then
-          stylixColors.${name}
-        else
-          "#740096";
+      uiColorDefault = "#740096";
+      contrastUiColorDefault = "#1B1B1B";
       picturesDirRaw = config.xdg.userDirs.pictures or null;
       picturesDir =
         if picturesDirRaw == null then "${config.home.homeDirectory}/Pictures" else picturesDirRaw;
@@ -63,8 +55,8 @@
             copyPathAfterSave = true;
             savePath = screenshotDir;
             savePathFixed = true;
-            uiColor = getColor "base0D";
-            contrastUiColor = getColor "base01";
+            uiColor = uiColorDefault;
+            contrastUiColor = contrastUiColorDefault;
           };
         };
       };

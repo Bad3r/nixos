@@ -177,27 +177,18 @@
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
         logseqToggle = lib.getExe toggleLogseqScript;
       };
-      # Unconditional Stylix colors (Stylix is always available)
-      stylixColorsStrict = config.lib.stylix.colors;
-      stylixColorsStrictWithHash = stylixColorsStrict.withHashtag or stylixColorsStrict;
-      toLockColor =
-        colorHex:
-        let
-          trimmed = lib.removePrefix "#" colorHex;
-          normalized = if builtins.stringLength trimmed == 8 then trimmed else trimmed + "FF";
-        in
-        lib.strings.toUpper normalized;
-      # Build lock palette directly from Stylix colors (no fallbacks)
+      # Static palette used for the custom lock command
       lockPalette = {
-        background = toLockColor stylixColorsStrictWithHash.base00;
-        ring = toLockColor stylixColorsStrictWithHash.base04;
-        ringWrong = toLockColor stylixColorsStrictWithHash.base08;
-        ringVerify = toLockColor stylixColorsStrictWithHash.base0B;
-        line = toLockColor stylixColorsStrictWithHash.base03;
-        text = toLockColor stylixColorsStrictWithHash.base05;
+        background = "1e1e2eff";
+        ring = "7aa2f7ff";
+        ringWrong = "f7768eff";
+        ringVerify = "9ece6aff";
+        line = "414868ff";
+        text = "d0d5f0ff";
       };
+      defaultBackgroundColor = "#1e1e2e";
       lockScript = pkgs.writeShellApplication {
-        name = "i3lock-stylix";
+        name = "i3lock-custom";
         runtimeInputs = [
           pkgs.i3lock-color
           pkgs.procps
@@ -305,60 +296,50 @@
           format = " $icon $timestamp.datetime(f:'%a %d/%m %R') ";
         }
       ];
-      i3statusBarConfig =
-        let
-          stylixThemeOverrides = lib.attrByPath [ "lib" "stylix" "i3status-rust" "bar" ] { } config;
-        in
-        {
-          blocks = i3statusBlocks;
-          settings = {
-            icons = {
-              icons = "awesome6";
-              overrides = {
-                cpu = "";
-                update = "";
-                temp = [
-                  ""
-                  ""
-                  ""
-                ];
-                volume = [
-                  ""
-                  ""
-                  ""
-                ];
-                volume_muted = "";
-                bat = [
-                  ""
-                  ""
-                  ""
-                  ""
-                  ""
-                ];
-                bat_charging = "";
-                net_wireless = [
-                  "▂"
-                  "▃"
-                  "▅"
-                  "▇"
-                  ""
-                ];
-                net_wired = "";
-                net_down = "";
-                net_up = "";
-                net_vpn = "";
-                net_loopback = "";
-                net_unknown = "";
-              };
-            };
-          }
-          // lib.optionalAttrs (stylixThemeOverrides != { }) {
-            theme = {
-              theme = "plain";
-              overrides = stylixThemeOverrides;
+      i3statusBarConfig = {
+        blocks = i3statusBlocks;
+        settings = {
+          icons = {
+            icons = "awesome6";
+            overrides = {
+              cpu = "";
+              update = "";
+              temp = [
+                ""
+                ""
+                ""
+              ];
+              volume = [
+                ""
+                ""
+                ""
+              ];
+              volume_muted = "";
+              bat = [
+                ""
+                ""
+                ""
+                ""
+                ""
+              ];
+              bat_charging = "";
+              net_wireless = [
+                "▂"
+                "▃"
+                "▅"
+                "▇"
+                ""
+              ];
+              net_wired = "";
+              net_down = "";
+              net_up = "";
+              net_vpn = "";
+              net_loopback = "";
+              net_unknown = "";
             };
           };
         };
+      };
       workspaceOutputAssign = [
         {
           workspace = "1";
@@ -455,13 +436,11 @@
           bars.default = i3statusBarConfig;
         };
 
-        stylix.targets.i3.enable = lib.mkDefault true;
-
         xdg.configFile = {
           "i3status-rust/config.toml".source =
             config.xdg.configFile."i3status-rust/config-default.toml".source;
 
-          "i3/scripts/i3lock-stylix" = {
+          "i3/scripts/i3lock-custom" = {
             executable = true;
             text = ''
               #!/usr/bin/env bash
@@ -494,7 +473,7 @@
 
               startup = lib.mkAfter [
                 {
-                  command = "${lib.getExe' pkgs.hsetroot "hsetroot"} -solid '${stylixColorsStrictWithHash.base00}'";
+                  command = "${lib.getExe' pkgs.hsetroot "hsetroot"} -solid '${defaultBackgroundColor}'";
                   always = true;
                   notification = false;
                 }
@@ -517,31 +496,6 @@
                 titlebar = false;
               };
 
-              # Make split-direction hint use the same color as borders
-              # (indicator equals border per state). Keep scope minimal and
-              # avoid self-referencing config to prevent recursion.
-              colors = {
-                focused.indicator = lib.mkForce stylixColorsStrictWithHash.base0D;
-                urgent.indicator = lib.mkForce stylixColorsStrictWithHash.base08;
-
-                # Grouped per-state overrides to satisfy linters and avoid repetition
-                focusedInactive = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base00;
-                  border = lib.mkForce stylixColorsStrictWithHash.base00;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
-                };
-                unfocused = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
-                  border = lib.mkForce stylixColorsStrictWithHash.base00;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
-                };
-                placeholder = {
-                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
-                  border = lib.mkForce stylixColorsStrictWithHash.base00;
-                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
-                };
-              };
-
               workspaceAutoBackAndForth = true;
               inherit workspaceOutputAssign;
 
@@ -553,18 +507,15 @@
               };
 
               bars = [
-                (
-                  {
-                    mode = "dock";
-                    hiddenState = "hide";
-                    position = "top";
-                    trayOutput = "primary";
-                    workspaceButtons = true;
-                    workspaceNumbers = true;
-                    statusCommand = lib.getExe pkgs.i3status-rust;
-                  }
-                  // config.stylix.targets.i3.exportedBarConfig
-                )
+                {
+                  mode = "dock";
+                  hiddenState = "hide";
+                  position = "top";
+                  trayOutput = "primary";
+                  workspaceButtons = true;
+                  workspaceNumbers = true;
+                  statusCommand = lib.getExe pkgs.i3status-rust;
+                }
               ];
 
               assigns = lib.mkOptionDefault {

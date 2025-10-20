@@ -7,10 +7,10 @@
 
   Summary:
     * Exposes Neovim configuration as Nix options so editor state, plugins, and key maps stay reproducible.
-    * Provides first-class modules for plugin ecosystems (treesitter, LSP, UI helpers) and integrates with Stylix theming targets.
+    * Provides first-class modules for plugin ecosystems (treesitter, LSP, UI helpers) with declarative configuration.
 
   Notes:
-    * Imports the upstream Home Manager nixvim module from `inputs.nixvim` and layers Stylix’ nixvim target when enabled.
+    * Imports the upstream Home Manager nixvim module from `inputs.nixvim` and configures plugins declaratively.
     * Ships the `glow.nvim` preview plugin with Markdown-only lazy loading and convenient preview keymaps.
 */
 
@@ -49,8 +49,6 @@
     in
     {
       imports = [ inputs.nixvim.homeModules.nixvim ];
-
-      stylix.targets.nixvim.enable = mkDefault true;
 
       programs.nixvim = {
         enable = true;
