@@ -7,11 +7,11 @@ System76’s NixOS host does import the workstation bundle and the System76‑sp
 ## Key Observations
 
 - `nix eval --accept-flake-config '.#nixosConfigurations.system76.config.home-manager'` returns an attrset with just `extraAppImports`, confirming the broader Home Manager config never materialises.
-- Querying `config.home-manager.users` via  
-  `nix eval --accept-flake-config --impure --expr 'let flake = builtins.getFlake (toString ./.) ; in flake.nixosConfigurations.system76.config.home-manager.users'`  
+- Querying `config.home-manager.users` via
+  `nix eval --accept-flake-config --impure --expr 'let flake = builtins.getFlake (toString ./.) ; in flake.nixosConfigurations.system76.config.home-manager.users'`
   fails with `attribute 'users' missing`; the owner import from `modules/home-manager/nixos.nix` never ran.
-- The module args visible during host evaluation omit flake inputs:  
-  `nix eval --accept-flake-config '.#nixosConfigurations.system76._module.args' --apply builtins.attrNames`  
+- The module args visible during host evaluation omit flake inputs:
+  `nix eval --accept-flake-config '.#nixosConfigurations.system76._module.args' --apply builtins.attrNames`
   → `[ "baseModules" "extendModules" "extraModules" "moduleType" "modules" "noUserModules" "pkgs" "utils" ]`.
 - `_module.specialArgs` confirms only the default `modulesPath` is passed through (`nix eval … '_module.specialArgs'`), so no `inputs`/`self` reach downstream modules.
 - `modules/system76/imports.nix` builds `nixosConfigurations.system76` by calling `inputs.nixpkgs.lib.nixosSystem { modules = [ … config.configurations.nixos.system76.module ]; }` without any `specialArgs`. Because of that, the module system never seeds `_module.args.inputs`, and the Home Manager glue’s lookup of `flake.homeManagerModules.base` fails.

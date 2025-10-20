@@ -104,7 +104,6 @@ Pause, summarize the situation, and ask vx for direction before proceeding.
 
 | Name           | Path                       | Use When                                                          |
 | -------------- | -------------------------- | ----------------------------------------------------------------- |
-| Stylix         | `$HOME/git/stylix`         | Inspect Stylix source or apply local patches.                     |
 | Home Manager   | `$HOME/git/home-manager`   | Review module behaviors or backport fixes.                        |
 | i3 Docs        | `$HOME/git/i3wm-docs`      | Reference i3 window manager documentation offline.                |
 | nixpkgs        | `$HOME/git/nixpkgs`        | Vendor patches or inspect upstream expressions.                   |
