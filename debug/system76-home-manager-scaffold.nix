@@ -1,15 +1,11 @@
+# statix:ignore-file
 {
   flake ? builtins.getFlake (toString ./.),
   lib ? flake.inputs.nixpkgs.lib,
 }:
 let
-  baseModules = flake.nixosConfigurations.system76._module.args.modules;
-  specialArgsBase = flake.nixosConfigurations.system76._module.specialArgs;
-  specialArgs = specialArgsBase // {
-    inputs = flake.inputs;
-    self = flake;
-  };
-
+  inherit (flake.nixosConfigurations.system76) _module;
+  sourceModules = _module.args.modules;
   freeform = lib.types.attrsOf lib.types.anything;
 
   mkNamespaceOption =
@@ -74,11 +70,11 @@ let
       config.debug.hmTrace.${label} = msg;
     };
 
-  first = builtins.elemAt baseModules 0;
-  top = builtins.elemAt baseModules 1;
-  last = builtins.elemAt baseModules 2;
+  first = builtins.elemAt sourceModules 0;
+  top = builtins.elemAt sourceModules 1;
+  last = builtins.elemAt sourceModules 2;
 
-  imports = top.imports;
+  inherit (top) imports;
 
   pairs = lib.imap (index: module: {
     inherit module;
@@ -89,14 +85,6 @@ let
     pair.module
     (mkTraceModule pair.label)
   ]) pairs;
-
-  modules = [
-    scaffoldModule
-    first
-    (mkTraceModule "pre-system76")
-    (top // { imports = interleaved; })
-    last
-  ];
 
   baseTop = flake.nixosModules.base;
   baseImports = baseTop.imports;
@@ -118,6 +106,17 @@ let
     scaffoldModule
     baseModule
   ];
+  modules = [
+    scaffoldModule
+    first
+    (mkTraceModule "pre-system76")
+    (top // { imports = interleaved; })
+    last
+  ];
+  specialArgs = _module.specialArgs // {
+    inherit (flake) inputs;
+    self = flake;
+  };
 in
 {
   inherit
