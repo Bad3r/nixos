@@ -41,12 +41,12 @@ let
   ];
   workstationModule = getModule "workstation";
   baseModule = getModule "base";
-  flakeOptionModule = import ../meta/flake-output.nix;
+  flakeNixosModulesBootstrap = import ./flake-nixosModules-bootstrap.nix;
   flakeInitModule = _: {
     flake = lib.mkDefault { };
   };
   baseModulesRaw = [
-    flakeOptionModule
+    flakeNixosModulesBootstrap
     flakeInitModule
     baseModule
     inputs.nixos-hardware.nixosModules.system76
@@ -115,6 +115,7 @@ in
       specialArgs = {
         inherit inputs;
         self = inputs.self or null;
+        system76NeedsFlakeBootstrap = true;
       };
     };
   };

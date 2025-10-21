@@ -62,6 +62,7 @@
         default = { };
         description = "Aggregated Home Manager modules with freeform roles";
       };
+
     };
   };
 
