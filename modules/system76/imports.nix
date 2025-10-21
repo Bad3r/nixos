@@ -40,7 +40,15 @@ let
     "chat"
   ];
   workstationModule = getModule "workstation";
-  baseModules = lib.filter (module: module != null) [
+  baseModule = getModule "base";
+  flakeOptionModule = import ../meta/flake-output.nix;
+  flakeInitModule = _: {
+    flake = lib.mkDefault { };
+  };
+  baseModulesRaw = [
+    flakeOptionModule
+    flakeInitModule
+    baseModule
     inputs.nixos-hardware.nixosModules.system76
     inputs.nixos-hardware.nixosModules.system76-darp6
     (getModule "packages")
@@ -51,6 +59,7 @@ let
     (getModule "duplicati-r2")
     (getModule "virt")
   ];
+  baseModules = lib.filter (module: module != null) baseModulesRaw;
   virtualizationModules = lib.filter (module: module != null) (
     map getVirtualizationModule [
       "docker"
@@ -74,7 +83,9 @@ let
 in
 {
   configurations.nixos.system76.module = {
-    _module.check = false;
+    _module.check = true;
+    _module.args.inputs = lib.mkDefault inputs;
+    _module.args.self = lib.mkDefault (inputs.self or null);
     imports =
       baseModules
       ++ virtualizationModules
@@ -101,6 +112,10 @@ in
         )
         config.configurations.nixos.system76.module
       ];
+      specialArgs = {
+        inherit inputs;
+        self = inputs.self or null;
+      };
     };
   };
 }

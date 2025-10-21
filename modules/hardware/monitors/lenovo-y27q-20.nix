@@ -201,6 +201,7 @@ let
               serviceConfig = {
                 Type = "oneshot";
                 ExecStart = assignScript;
+                SuccessExitStatus = "0 1";
               };
             };
           }

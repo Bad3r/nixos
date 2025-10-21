@@ -4,7 +4,7 @@
   lib,
   ...
 }:
-{
+builtins.trace "hm.nixos entry" {
   flake.nixosModules = {
     base = {
       imports = [ inputs.home-manager.nixosModules.home-manager ];
@@ -47,7 +47,19 @@
             flakeAttrs = config.flake or { };
             hmModulesFromConfig = lib.attrByPath [ "homeManagerModules" ] { } flakeAttrs;
             hmModulesFromInputs = lib.attrByPath [ "self" "homeManagerModules" ] { } inputsArg;
-            hmModules = if hmModulesFromConfig != { } then hmModulesFromConfig else hmModulesFromInputs;
+            hmModules =
+              let
+                combined =
+                  assert (
+                    lib.hasAttrByPath [ "homeManagerModules" "base" ] flakeAttrs
+                    || lib.hasAttrByPath [ "self" "homeManagerModules" "base" ] inputsArg
+                  );
+                  if hmModulesFromConfig != { } then hmModulesFromConfig else hmModulesFromInputs;
+              in
+              builtins.trace (
+                "hm.nixos hmModules keys: "
+                + (if combined != { } then lib.concatStringsSep ", " (lib.attrNames combined) else "<empty>")
+              ) combined;
             hmApps = hmModules.apps or { };
             hasApp = name: lib.hasAttr name hmApps;
             getApp =

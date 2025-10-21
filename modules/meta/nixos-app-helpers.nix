@@ -51,11 +51,10 @@ let
 
   appsDir = ../apps;
 
-  baseApps =
-    if lib.hasAttrByPath [ "apps" ] config.flake.nixosModules then
-      flattenApps config.flake.nixosModules.apps
-    else
-      { };
+  nixosModulesAttr =
+    if config ? flake && config.flake ? nixosModules then config.flake.nixosModules else { };
+
+  baseApps = if nixosModulesAttr ? apps then flattenApps nixosModulesAttr.apps else { };
 
   appFiles = builtins.readDir appsDir;
 

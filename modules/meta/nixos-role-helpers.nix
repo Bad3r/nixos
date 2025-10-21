@@ -5,6 +5,8 @@
   ...
 }:
 let
+  enableTrace = builtins.getEnv "DEBUG_ROLES" == "1";
+  traceValue = msg: value: if enableTrace then builtins.trace msg value else value;
   sanitizeModule =
     module:
     if module == null then
@@ -13,15 +15,20 @@ let
       module
     else if builtins.isAttrs module then
       let
-        cleaned = builtins.removeAttrs module [
-          "_file"
-          "imports"
-          "flake"
-        ];
+        cleaned =
+          let
+            stripped = builtins.removeAttrs module [
+              "_file"
+              "imports"
+            ];
+          in
+          traceValue ("sanitizeModule has flake? " + (if module ? flake then "yes" else "no")) stripped;
         imported = module.imports or [ ];
         sanitizedImports = lib.filter (m: m != null) (map sanitizeModule imported);
       in
-      cleaned
+      traceValue (
+        "sanitizeModule direct keys: " + lib.concatStringsSep ", " (lib.attrNames cleaned)
+      ) cleaned
       // lib.optionalAttrs (sanitizedImports != [ ]) {
         imports = sanitizedImports;
       }
@@ -43,11 +50,24 @@ let
             "imports"
           ])
         ) module;
-        sanitizedDirect = lib.mapAttrs (_: sanitizeModule) direct;
+        sanitizedDirect = lib.mapAttrs (
+          name: value: if name == "flake" then value else sanitizeModule value
+        ) direct;
+        tracedSanitizedDirect =
+          if sanitizedDirect ? flake then
+            traceValue (
+              "flattenRoles preserved flake keys: "
+              + lib.concatStringsSep ", " (lib.attrNames sanitizedDirect.flake)
+            ) sanitizedDirect
+          else
+            sanitizedDirect;
         imported = module.imports or [ ];
         merge = acc: value: acc // flattenRoles value;
+        merged = lib.foldl' merge tracedSanitizedDirect (
+          if builtins.isList imported then imported else [ imported ]
+        );
       in
-      lib.foldl' merge sanitizedDirect (if builtins.isList imported then imported else [ imported ])
+      traceValue ("flattenRoles merged keys: " + lib.concatStringsSep ", " (lib.attrNames merged)) merged
     else
       { };
 
@@ -59,7 +79,12 @@ let
           && config.flake ? nixosModules
           && lib.hasAttrByPath [ "roles" ] config.flake.nixosModules
         then
-          flattenRoles config.flake.nixosModules.roles
+          let
+            roles = flattenRoles config.flake.nixosModules.roles;
+          in
+          traceValue (
+            "availableRoles.fromConfig keys: " + lib.concatStringsSep ", " (lib.attrNames roles)
+          ) roles
         else
           { };
       fromSelf =
@@ -67,11 +92,18 @@ let
           selfModules = (inputs.self.outputs or { }).nixosModules or { };
         in
         if lib.hasAttrByPath [ "roles" ] selfModules then
-          flattenRoles (lib.getAttrFromPath [ "roles" ] selfModules)
+          let
+            roles = flattenRoles (lib.getAttrFromPath [ "roles" ] selfModules);
+          in
+          traceValue (
+            "availableRoles.fromSelf keys: " + lib.concatStringsSep ", " (lib.attrNames roles)
+          ) roles
         else
           { };
     in
-    fromConfig // fromSelf;
+    traceValue (
+      "availableRoles keys: " + lib.concatStringsSep ", " (lib.attrNames (fromConfig // fromSelf))
+    ) (fromConfig // fromSelf);
 
   roleHelpers = rec {
     hasRole = name: builtins.hasAttr name availableRoles;
