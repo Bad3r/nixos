@@ -5,8 +5,8 @@
   ...
 }:
 let
-  flake = config.flake or { };
-  nixosModules = flake.nixosModules or { };
+  flake = config.flake; # or { };
+  nixosModules = flake.nixosModules; # or { };
   hasModule = name: lib.hasAttr name nixosModules;
   getModule = name: if hasModule name then lib.getAttr name nixosModules else null;
   roleHelpers =
