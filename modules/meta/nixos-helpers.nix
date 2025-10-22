@@ -1,7 +1,8 @@
-_: {
+{ ... }:
+{
   flake.nixosModules.base.imports = [
     ./flake-output.nix
-    ./nixos-roles-preload.nix
+    ./nixos-home-manager-collect.nix
     ./nixos-role-helpers.nix
     ./nixos-app-helpers.nix
   ];

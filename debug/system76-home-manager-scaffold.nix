@@ -7,12 +7,20 @@ let
   inherit (flake.nixosConfigurations.system76) _module;
   sourceModulesResult = builtins.tryEval _module.args.modules;
   sourceModules = if sourceModulesResult.success then sourceModulesResult.value else [ ];
-  sourceModulesWithBootstrap = [ optionBootstrapModule ] ++ sourceModules;
+  sourceModulesWithBootstrap = [ flakePartsBootstrapModule ] ++ sourceModules;
   freeform = lib.types.attrsOf lib.types.anything;
   roleDir = ./../modules/roles;
   appsDir = ./../modules/apps;
   langDir = ./../modules/languages;
   windowManagerDir = ./../modules/window-manager;
+  rolesDir = ./../modules/roles;
+  flakePartsModulePath = flake.inputs.flake-parts.outPath + "/modules/nixosModules.nix";
+  flakePartsBootstrapModule = (import flakePartsModulePath) {
+    inherit (flake.inputs.nixpkgs) lib;
+    self = flake;
+    flake-parts-lib = flake.inputs.flake-parts.lib;
+    moduleLocation = flakePartsModulePath;
+  };
   roleNames =
     let
       entries = builtins.readDir roleDir;
@@ -98,6 +106,21 @@ let
 
   windowManagerStubs = lib.genAttrs windowManagerNames mkWindowManagerStub;
 
+  roleEntries = builtins.readDir rolesDir;
+  roleNamesFromFiles = builtins.filter (
+    name: roleEntries.${name} == "regular" && lib.hasSuffix ".nix" name
+  ) (builtins.attrNames roleEntries);
+  roleStubs = lib.genAttrs roleNamesFromFiles (
+    filename:
+    let
+      name = lib.removeSuffix ".nix" filename;
+    in
+    {
+      _file = "stub.roles.${name}";
+      imports = [ (rolesDir + "/${filename}") ];
+    }
+  );
+
   mkNamespaceOption =
     name:
     lib.mkOption {
@@ -105,9 +128,6 @@ let
       default = { };
       description = "${name} scaffold (debug only)";
     };
-
-  optionBootstrapModule =
-    (import ./flake-nixosModules-reproducer.nix { inherit flake lib; }).optionStub;
 
   scaffoldModule =
     { config, lib, ... }:
@@ -122,11 +142,6 @@ let
     in
     {
       options = {
-        flake = lib.mkOption {
-          type = lib.types.submodule { freeformType = freeform; };
-          default = { };
-          description = "Debug stub: start with an empty flake namespace; downstream modules populate nixosModules/lib as needed.";
-        };
         nixpkgs = lib.mkOption {
           type = lib.types.submodule { freeformType = freeform; };
           default = flake.inputs.nixpkgs or { };
@@ -203,6 +218,13 @@ let
         else
           [ ];
       roleMsg = if roleModules == [ ] then "<empty>" else builtins.concatStringsSep ", " roleModules;
+      homeFlakeModules =
+        if config ? flake && config.flake ? homeManagerModules then
+          builtins.attrNames config.flake.homeManagerModules
+        else
+          [ ];
+      homeFlakeMsg =
+        if homeFlakeModules == [ ] then "<empty>" else builtins.concatStringsSep ", " homeFlakeModules;
     in
     {
       config = {
@@ -212,8 +234,15 @@ let
           flakeTrace.${label} = {
             nixosModules = flakeMsg;
             roles = roleMsg;
+            homeManagerModules = homeFlakeMsg;
           };
         };
+        assertions = [
+          {
+            assertion = config ? flake && config.flake ? nixosModules;
+            message = "flake.nixosModules missing after " + label;
+          }
+        ];
       };
     };
 
@@ -229,6 +258,7 @@ let
           apps = (selfModules.apps or { }) // appStubs;
           lang = (selfModules.lang or { }) // langStubs;
           "window-manager" = (selfModules."window-manager" or { }) // windowManagerStubs;
+          roles = (selfModules.roles or { }) // roleStubs;
         }
       );
     };
@@ -252,6 +282,9 @@ let
 
   instrumentImports =
     prefix: modules:
+    let
+      normalized = map toModule modules;
+    in
     lib.concatMap (
       pair:
       let
@@ -261,11 +294,36 @@ let
         annotated
         (mkTraceModule pair.label)
       ]
-    ) (mkPairs prefix modules);
+    ) (mkPairs prefix normalized);
 
   first = builtins.elemAt sourceModulesWithBootstrap 0;
   top = builtins.elemAt sourceModulesWithBootstrap 1;
   last = builtins.elemAt sourceModulesWithBootstrap 2;
+  toModule =
+    module:
+    if builtins.isFunction module then
+      module
+    else if builtins.isAttrs module then
+      if module ? _type && module._type == "order" then
+        toModule module.content
+      else
+        module
+        // {
+          config = module.config or { };
+          options = module.options or { };
+          disabledModules = module.disabledModules or [ ];
+        }
+    else
+      {
+        _file = builtins.toString module;
+        imports = [ module ];
+        config = { };
+        options = { };
+        disabledModules = [ ];
+      };
+  topModule = toModule top;
+  firstModule = toModule first;
+  lastModule = toModule last;
 
   roleProbeModule =
     { config, lib, ... }:
@@ -279,6 +337,7 @@ let
                 if modulesAttr ? content && modulesAttr.content ? roles then modulesAttr.content.roles else { }
               );
             toNames = attr: if attr ? content then builtins.attrNames attr.content else builtins.attrNames attr;
+            homeAttr = config.flake.homeManagerModules or { };
           in
           {
             nixosModules =
@@ -287,11 +346,13 @@ let
               else
                 builtins.attrNames modulesAttr;
             roles = toNames rolesAttr;
+            homeManagerModules = builtins.attrNames homeAttr;
           }
         else
           {
             nixosModules = [ ];
             roles = [ ];
+            homeManagerModules = [ ];
           };
       evalRole =
         name:
@@ -360,35 +421,99 @@ let
 
   interleaved = instrumentImports "system76" imports;
 
-  baseTop = flake.nixosModules.base;
-  baseImports = baseTop.imports;
-  baseImportsWithBootstrap = [ optionBootstrapModule ] ++ baseImports;
+  baseImportsNormalized = map toModule (flake.nixosModules.base.imports or [ ]);
 
-  baseInterleaved = instrumentImports "base" baseImportsWithBootstrap;
+  baseInterleaved = instrumentImports "base" baseImportsNormalized;
 
-  baseModule = baseTop // {
+  baseModule = {
+    _file = "scaffold/baseModule";
     imports = baseInterleaved;
+    config = { };
   };
   baseModulesForTrace = [
     scaffoldModule
+    firstModule
     stubModule
-    first
     baseModule
     roleProbeModule
   ];
   modules = [
     scaffoldModule
     stubModule
-    first
+    firstModule
     (mkTraceModule "pre-system76")
-    (top // { imports = [ optionBootstrapModule ] ++ interleaved; })
-    last
+    (topModule // { imports = interleaved; })
+    lastModule
     roleProbeModule
   ];
   specialArgs = _module.specialArgs // {
     inherit (flake) inputs;
     self = flake;
+    system76NeedsFlakeBootstrap = true;
+    "flake-parts-lib" = flake.inputs.flake-parts.lib;
+    moduleLocation = flakePartsModulePath;
   };
+  prefixHomeManagerTraces =
+    let
+      count = lib.length interleaved;
+      limit = if count < 16 then count else 16;
+      basePrefix = [
+        scaffoldModule
+        stubModule
+        firstModule
+      ];
+      moduleLabel =
+        module:
+        if lib.isAttrs module && module ? label then
+          module.label
+        else if lib.isAttrs module && module ? _file then
+          module._file
+        else if builtins.isFunction module then
+          "<lambda>"
+        else
+          toString module;
+      evaluate =
+        n:
+        let
+          takeAttempt = builtins.tryEval (lib.take n interleaved);
+          prefix = if takeAttempt.success then basePrefix ++ takeAttempt.value else basePrefix;
+          evalAttempt =
+            if takeAttempt.success then
+              builtins.tryEval (
+                lib.evalModules {
+                  modules = prefix;
+                  specialArgs = specialArgs;
+                }
+              )
+            else
+              {
+                success = false;
+                value = takeAttempt.value;
+              };
+        in
+        {
+          step = n;
+          importLabel =
+            if takeAttempt.success then
+              moduleLabel (builtins.elemAt takeAttempt.value (n - 1))
+            else
+              "<take failure>";
+          success = takeAttempt.success && evalAttempt.success;
+          hmKeys =
+            if takeAttempt.success && evalAttempt.success then
+              builtins.attrNames (evalAttempt.value.config.flake.homeManagerModules or { })
+            else
+              [ ];
+          error =
+            if !takeAttempt.success then
+              builtins.toString takeAttempt.value
+            else if !evalAttempt.success then
+              builtins.toString evalAttempt.value
+            else
+              null;
+        };
+    in
+    lib.genList (index: evaluate (index + 1)) limit;
 in
 {
   inherit
@@ -397,6 +522,13 @@ in
     baseModule
     baseModulesForTrace
     scaffoldModule
+    stubModule
+    flakePartsBootstrapModule
+    toModule
+    roleProbeModule
+    firstModule
+    topModule
+    lastModule
     sourceModules
     interleaved
     first
@@ -408,8 +540,7 @@ in
     langNames
     windowManagerNames
     ;
-  inherit optionBootstrapModule;
-  inherit baseImportsWithBootstrap sourceModulesWithBootstrap;
+  inherit baseImportsNormalized sourceModulesWithBootstrap prefixHomeManagerTraces;
   sourceModulesError = if sourceModulesResult.success then null else sourceModulesResult.value;
   sourceModulesSuccess = sourceModulesResult.success;
 }

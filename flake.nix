@@ -175,9 +175,50 @@
 
   outputs =
     inputs:
+    let
+      flakeLib = inputs.nixpkgs.lib;
+      importTree = inputs.import-tree.withLib flakeLib;
+      preludeSuffixes = [
+        "/modules/meta/flake-output.nix"
+        "/modules/meta/nixos-roles-preload.nix"
+        "/modules/meta/nixos-helpers.nix"
+        "/modules/meta/nixos-role-helpers.nix"
+        "/modules/meta/nixos-app-helpers.nix"
+        "/modules/meta/nixos-roles-import.nix"
+      ];
+      pathOf =
+        value:
+        if builtins.isAttrs value && value ? _file then
+          value._file
+        else if builtins.isPath value then
+          toString value
+        else if builtins.isString value then
+          value
+        else
+          "";
+      orderedPrelude =
+        paths:
+        builtins.concatLists (
+          map (
+            suffix: builtins.filter (module: flakeLib.hasSuffix suffix (pathOf module)) paths
+          ) preludeSuffixes
+        );
+      reorderPaths =
+        paths:
+        let
+          prelude = orderedPrelude paths;
+          preludeKeys = map pathOf prelude;
+          isPreludeKey = key: flakeLib.elem key preludeKeys;
+          rest = builtins.filter (module: !(isPreludeKey (pathOf module))) paths;
+        in
+        prelude ++ rest;
+      reorderModule = paths: {
+        imports = reorderPaths paths;
+      };
+    in
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
-        (inputs.import-tree ./modules)
+        (importTree.pipeTo reorderModule ./modules)
       ];
 
       systems = [
