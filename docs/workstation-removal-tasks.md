@@ -18,15 +18,15 @@
 - [x] Move nix-ld toolkit from `modules/development/nix-ld.nix`, covering the shared library list, VS Code Remote SSH packages, environment variables, and helper script.
 - [x] Move VS Code unfree allowlist from `modules/development/vscode.nix` (`code`, `vscode`, `vscode-fhs`).
 - [x] Move dotool user wiring from `modules/media/dotool.experimental.nix`, ensuring the `input` group is appended for user `vx`.
-- [ ] Move Cloudflare Tunnel sample module from `modules/networking/cloudflared-tunnel.nix`, deciding whether to keep it as host config or convert it into documentation/examples.
-- [ ] Move SSH X11 forwarding settings from `modules/networking/ssh-x11-forwarding.nix`, including package installs (`xauth`, `xhost`) and SSH options.
-- [ ] Move GNOME Keyring disablement from `modules/password-managers/gnome-keyring.nix`, both the system PAM overrides and Home Manager pass-secret-service enablement.
-- [ ] Move security tooling bundle from `modules/security/security-tools.nix`, retaining package list, PAM ssh-agent auth, fail2ban defaults, ClamAV toggles, AppArmor, and firewall baseline.
-- [ ] Move ACME Cloudflare sample from `modules/security/acme-cloudflare.nix`, determining if it remains host config or reference material.
-- [ ] Move interactive Zsh config from `modules/shell/zsh.nix`, including alias setup and `NO_INTERACTIVE_COMMENTS`.
-- [ ] Move R2 quickstart etc directory from `modules/storage/r2-quickstart.nix` under `/etc/cloudflare-r2`.
-- [ ] Move `/tmp` clean-on-boot flag from `modules/storage/tmp.nix`.
-- [ ] Move default terminal configuration from `modules/terminal/default-terminal.nix`, keeping kitty installation, `TERMINAL` environment variable, and MIME associations.
-- [ ] Recreate dev language bundle currently assembled in `modules/workstation.nix`, importing Python (python, uv, ruff, pyright), Go (go, gopls, golangci-lint, delve), Rust (rustc, cargo, rust-analyzer, rustfmt, rust-clippy), and Clojure (clojure-cli, clojure-lsp, leiningen, babashka, pixman) app modules directly for System76.
-- [ ] Reimplement the Home Manager GUI/shared module wiring from `modules/workstation.nix`, reapplying HM GUI module plus `home-manager.extraAppImports`.
-- [ ] Replace the implicit workstation import in `modules/system76/imports.nix` with explicit host modules covering all functionality listed here.
+- [x] Move Cloudflare Tunnel sample module from `modules/networking/cloudflared-tunnel.nix`, preserving the example under `docs/cloudflared-tunnel-sample.md` instead of enabling it by default.
+- [x] Move SSH X11 forwarding settings from `modules/networking/ssh-x11-forwarding.nix`, including package installs (`xauth`, `xhost`) and SSH options.
+- [x] Move GNOME Keyring disablement from `modules/password-managers/gnome-keyring.nix`, both the system PAM overrides and Home Manager pass-secret-service enablement. (System portion now in `modules/system76/gnome-keyring.nix`; HM module already exports pass-secret-service.)
+- [x] Move security tooling bundle from `modules/security/security-tools.nix`, retaining package list, PAM ssh-agent auth, fail2ban defaults, ClamAV toggles, AppArmor, and firewall baseline.
+- [x] Move ACME Cloudflare sample from `modules/security/acme-cloudflare.nix`, carrying the example into `docs/acme-cloudflare-sample.md`.
+- [x] Move interactive Zsh config from `modules/shell/zsh.nix`, including alias setup and `NO_INTERACTIVE_COMMENTS`.
+- [x] Move R2 quickstart etc directory from `modules/storage/r2-quickstart.nix` under `/etc/cloudflare-r2`.
+- [x] Move `/tmp` clean-on-boot flag from `modules/storage/tmp.nix`.
+- [x] Move default terminal configuration from `modules/terminal/default-terminal.nix`, keeping kitty installation, `TERMINAL` environment variable, and MIME associations.
+- [x] Recreate dev language bundle currently assembled in `modules/workstation.nix`, importing Python (python, uv, ruff, pyright), Go (go, gopls, golangci-lint, delve), Rust (rustc, cargo, rust-analyzer, rustfmt, rust-clippy), and Clojure (clojure-cli, clojure-lsp, leiningen, babashka, pixman) app modules directly for System76.
+- [x] Reimplement the Home Manager GUI/shared module wiring from `modules/workstation.nix`, reapplying HM GUI module plus `home-manager.extraAppImports`.
+- [x] Replace the implicit workstation import in `modules/system76/imports.nix` with explicit host modules covering all functionality listed here.

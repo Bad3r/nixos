@@ -37,10 +37,14 @@ All Nix files are automatically imported as flake-parts modules. Files prefixed 
 ### Module Composition Pattern
 
 ```nix
-{ config, ... }:
+{ config, lib, ... }:
 {
-  configurations.nixos.myhost.module = {
-    imports = with config.flake.nixosModules; [ base workstation ];
+  configurations.nixos.system76.module = {
+    imports = lib.filter (module: module != null) [
+      (config.flake.nixosModules.base or null)
+      (config.flake.nixosModules."system76-support" or null)
+      (config.flake.nixosModules."hardware-lenovo-y27q-20" or null)
+    ];
   };
 }
 ```
@@ -49,14 +53,14 @@ Use `lib.hasAttrByPath` + `lib.getAttrFromPath` for optional modules to avoid or
 
 ### Repository Layout
 
-| Domain              | Location                                | Notes                                                                                                                                  |
-| ------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| NixOS modules       | `modules/`                              | Auto-loaded. Production modules stay unprefixed and are grouped by domain (`modules/apps`, `modules/roles`, `modules/configurations`). |
-| Shared derivations  | `packages/`                             | Common build logic shared between modules.                                                                                             |
-| Helper scripts      | `scripts/`                              | Operational tooling including git-credential-sops.                                                                                     |
-| Documentation       | `docs/`, `nixos_docs_md/`               | Long-form references and local workflows.                                                                                              |
-| Secrets             | `secrets/`                              | Only encrypted payloads managed via `sops.secrets`.                                                                                    |
-| Generated artefacts | `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module; update source definitions instead of editing generated outputs.                                             |
+| Domain              | Location                                | Notes                                                                                                                                                                    |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| NixOS modules       | `modules/`                              | Auto-loaded. Host-specific logic lives under `modules/system76`, while shared bundles remain organized by domain (for example `modules/apps`, `modules/configurations`). |
+| Shared derivations  | `packages/`                             | Common build logic shared between modules.                                                                                                                               |
+| Helper scripts      | `scripts/`                              | Operational tooling including git-credential-sops.                                                                                                                       |
+| Documentation       | `docs/`, `nixos_docs_md/`               | Long-form references and local workflows.                                                                                                                                |
+| Secrets             | `secrets/`                              | Only encrypted payloads managed via `sops.secrets`.                                                                                                                      |
+| Generated artefacts | `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module; update source definitions instead of editing generated outputs.                                                                               |
 
 ## Execution Playbooks
 

@@ -6,45 +6,24 @@
 }:
 let
   flake = config.flake or { };
-  nixosModules = flake.nixosModules or { };
+  nixosModulesFromConfig = flake.nixosModules or { };
+  nixosModulesFromSelf = lib.attrByPath [ "outputs" "nixosModules" ] { } (inputs.self or { });
+  nixosModules = nixosModulesFromConfig // nixosModulesFromSelf;
   hasModule = name: lib.hasAttr name nixosModules;
   getModule = name: if hasModule name then lib.getAttr name nixosModules else null;
-  roleHelpers =
-    (config.flake.lib.nixos.roles or { }) // (config._module.args.nixosRoleHelpers or { });
-  getRoleModule =
-    name:
-    let
-      getRole = roleHelpers.getRole or (_: null);
-      attempt = builtins.tryEval (getRole name);
-    in
-    if attempt.success && attempt.value != null then
-      attempt.value
-    else if lib.hasAttrByPath [ "roles" name ] nixosModules then
-      lib.getAttrFromPath [ "roles" name ] nixosModules
-    else
-      null;
-  roleModules = lib.filter (module: module != null) (map getRoleModule roleNames);
   getVirtualizationModule =
     name:
     if lib.hasAttrByPath [ "virtualization" name ] nixosModules then
       lib.getAttrFromPath [ "virtualization" name ] nixosModules
     else
       null;
-  roleNames = [
-    "desktop"
-    "files"
-    "warp-client"
-    "pentesting-devshell"
-    "chat"
-  ];
-  workstationModule = getModule "workstation";
-  baseModules = lib.filter (module: module != null) [
+  hardwareModules = [
     inputs.nixos-hardware.nixosModules.system76
     inputs.nixos-hardware.nixosModules.system76-darp6
-    (getModule "packages")
-    workstationModule
+  ];
+  baseModules = lib.filter (module: module != null) [
+    (getModule "base")
     (getModule "system76-support")
-    (getModule "security")
     (getModule "hardware-lenovo-y27q-20")
     (getModule "duplicati-r2")
     (getModule "virt")
@@ -73,11 +52,17 @@ in
 {
   configurations.nixos.system76.module = {
     _module.check = false;
-    imports =
-      baseModules
-      ++ virtualizationModules
-      ++ roleModules
-      ++ lib.optional (hasModule "ssh") nixosModules.ssh;
+    flake.homeManagerModules = lib.mkDefault (inputs.self.homeManagerModules or { });
+    imports = [
+      ../home-manager/base.nix
+      ../style/stylix.nix
+      ../home/context7-secrets.nix
+      ../home/r2-secrets.nix
+    ]
+    ++ hardwareModules
+    ++ baseModules
+    ++ virtualizationModules
+    ++ lib.optional (hasModule "ssh") nixosModules.ssh;
 
     nixpkgs.allowedUnfreePackages = lib.mkAfter [
       "p7zip-rar"

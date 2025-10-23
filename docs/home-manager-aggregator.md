@@ -1,17 +1,17 @@
 # Home Manager Aggregator (`flake.homeManagerModules`)
 
-This repository exposes Home Manager modules via a dedicated aggregator so they compose exactly like system modules. For the bigger picture (system aggregators, roles, hosts, tooling), see `docs/configuration-architecture.md`.
+This repository exposes Home Manager modules via a dedicated aggregator that assembles a curated set of modules for the single `vx@system76` environment. Instead of depending on dynamic registry state, the aggregator imports the source files directly and extracts the Home Manager fragments they export. For the bigger picture (system aggregators, host layout, tooling), see `docs/configuration-architecture.md`.
 
 ## Namespace Layout
 
-| Key                                                        | Type                      | Description                                                          |
-| ---------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------- |
-| `flake.homeManagerModules.base`                            | Deferred module (merged)  | Bootstrap for every user: shell defaults, CLI tools, shared options. |
-| `flake.homeManagerModules.gui`                             | Deferred module (merged)  | Desktop integrations pulled into graphical hosts.                    |
-| `flake.homeManagerModules.apps.<name>`                     | Deferred module (per key) | Individual applications (CLI or GUI) addressed by name.              |
-| `flake.homeManagerModules.r2Secrets`, `context7Secrets`, … | Deferred modules          | Optional helpers that wire sops-managed material when present.       |
+| Key                                                        | Type                      | Description                                                                       |
+| ---------------------------------------------------------- | ------------------------- | --------------------------------------------------------------------------------- |
+| `flake.homeManagerModules.base`                            | Deferred module           | Bootstrap module exported by a source file (for example `home-manager/base.nix`). |
+| `flake.homeManagerModules.gui`                             | Deferred module           | GUI-specific helpers (for example Stylix desktop tweaks).                         |
+| `flake.homeManagerModules.apps.<name>`                     | Deferred module (per key) | Individual application modules under `modules/hm-apps/<name>.nix`.                |
+| `flake.homeManagerModules.r2Secrets`, `context7Secrets`, … | Deferred modules          | Optional helpers that wire SOPS-managed material when present.                    |
 
-Modules register into these keys exactly once. Because flake-parts merges by attribute name, multiple files can extend `base`/`gui` safely:
+Each contributor module still exports into these attribute paths, but the aggregator now reads them explicitly with `lib.attrByPath` when constructing the import list. Multiple files can extend `base`/`gui` safely—the loader extracts the value after evaluation.
 
 ```nix
 # modules/files/fzf.nix
@@ -42,14 +42,18 @@ _: {
 
 ## Default App Imports
 
-The glue layer in `modules/home-manager/nixos.nix` imports a shared list of app modules directly from `flake.homeManagerModules.apps`. Each name is resolved via guarded lookups so evaluation fails fast when an expected app is missing:
+The glue layer in `modules/home-manager/nixos.nix` keeps a curated list of default apps, imports each file from `modules/hm-apps/<name>.nix`, and extracts the exported module with a guarded lookup. Evaluation still fails fast when an expected app is missing:
 
 ```nix
-hmApps = config.flake.homeManagerModules.apps or { };
-hasApp = name: lib.hasAttr name hmApps;
-getApp = name:
-  if hasApp name then lib.getAttr name hmApps
-  else throw "Unknown Home Manager app '${name}' referenced by base imports";
+loadAppModule = name:
+  let
+    filePath = ../hm-apps + "/${name}.nix";
+  in
+  if builtins.pathExists filePath then
+    loadHomeModule filePath [ "flake" "homeManagerModules" "apps" name ]
+  else
+    throw ("Home Manager app module file not found: " + toString filePath);
+
 defaultAppImports = [
   "codex"
   "bat"
@@ -60,15 +64,17 @@ defaultAppImports = [
   "alacritty"
   "wezterm"
 ];
+
+appModules = map loadAppModule (lib.unique (defaultAppImports ++ extraAppImports));
 ```
 
-Hosts that need additional Home Manager apps can append to the import list manually or create their own helper modules. The baked-in defaults (including `ghq-mirror` for mirroring upstream repos) are defined in `modules/home-manager/nixos.nix`; update that list and this example together whenever you add or remove a canonical app.
+Hosts can still append to `home-manager.extraAppImports` to load more modules; the loader will resolve the files the same way.
 
 ## Authoring Rules
 
-1. **Always export a module value** – avoid `flake.homeManagerModules.base.home.sessionVariables = …;` style dot assignments.
+1. **Always export a module value** – export under `flake.homeManagerModules.*` so the loader can pick it up.
 2. **Guard optional modules** – if an app depends on a secret or package, check for availability in the module body.
-3. **Keep names stable** – the key under `apps.<name>` is what the glue layer references. Prefer lowercase hyphen-less identifiers (`kitty`, `wezterm`, `codex`).
+3. **Keep names stable** – the key under `apps.<name>` must match the filename (`kitty`, `wezterm`, `codex`) so the loader finds the module.
 4. **Document secrets** – when an app needs credentials, reference `docs/sops/README.md` so readers know how to provide them.
 
 ## Validation

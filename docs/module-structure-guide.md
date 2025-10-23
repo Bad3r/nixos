@@ -14,7 +14,7 @@ This document shows how modules are authored and consumed in this flake-parts + 
 ## File Placement Rules
 
 - Store per-app modules in `modules/apps/<name>.nix`. Each file should export `flake.nixosModules.apps.<name>` and, when needed, mirror the package into default bundles such as `flake.nixosModules.workstation`.
-- Reserve domain directories under `modules/<domain>/` for higher-level features that configure services or compose multiple apps. If a module only installs packages, move it into `modules/apps/` and have roles or bundles import it.
+- Reserve domain directories under `modules/<domain>/` for higher-level features that configure services or compose multiple apps. If a module only installs packages, move it into `modules/apps/` and have host modules import it.
 
 ## Authoring Patterns
 
@@ -88,13 +88,13 @@ Host definitions bundle modules together and live under `configurations.nixos.<h
 
 ```nix
 # modules/system76/imports.nix
-{ config, ... }:
+{ config, lib, ... }:
 {
   configurations.nixos.system76.module = {
-    imports = with config.flake.nixosModules; [
-      base
-      workstation
-      roles.dev
+    imports = lib.filter (module: module != null) [
+      (config.flake.nixosModules.base or null)
+      (config.flake.nixosModules."system76-support" or null)
+      (config.flake.nixosModules."hardware-lenovo-y27q-20" or null)
     ];
   };
 }
@@ -112,12 +112,12 @@ Home Manager modules follow the same rules:
 
 ## Common Pitfalls (and Fixes)
 
-| Mistake                                               | Fix                                                                                                                |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `{ config, lib, pkgs, ... }:` at the top of the file  | Remove `pkgs` from the outer scope and wrap the exported value in a function that receives `{ pkgs, ... }`.        |
-| Referencing modules via `./path/to/module.nix`        | Import via `config.flake.nixosModules.<name>` or `config.flake.homeManagerModules.<name>` instead.                 |
-| Using `with config.flake.nixosModules.apps;` in roles | Replace with `config.flake.lib.nixos.getApps` / `getApp` (enforced by pre-commit hooks).                           |
-| Forgetting to guard optional modules                  | Wrap definitions with `lib.mkIf` or `lib.optionals` so evaluation succeeds even when hardware/services are absent. |
+| Mistake                                              | Fix                                                                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `{ config, lib, pkgs, ... }:` at the top of the file | Remove `pkgs` from the outer scope and wrap the exported value in a function that receives `{ pkgs, ... }`.        |
+| Referencing modules via `./path/to/module.nix`       | Import via `config.flake.nixosModules.<name>` or `config.flake.homeManagerModules.<name>` instead.                 |
+| Using `with config.flake.nixosModules.apps;`         | Replace with `config.flake.lib.nixos.getApps` / `getApp` so lookups stay pure and cached.                          |
+| Forgetting to guard optional modules                 | Wrap definitions with `lib.mkIf` or `lib.optionals` so evaluation succeeds even when hardware/services are absent. |
 
 ## Introspection & Debugging
 

@@ -5,6 +5,9 @@
     "system76-wallpapers-0-unstable-2024-04-26"
     "nvidia-x11"
     "nvidia-settings"
+    "code"
+    "vscode"
+    "vscode-fhs"
     "p7zip-rar"
     "rar"
     "unrar"
@@ -28,6 +31,15 @@
           pavucontrol
           qpwgraph
           helvum
+
+          # Audio production and codecs
+          ardour
+          audacity
+          gst_all_1.gstreamer
+          gst_all_1.gst-plugins-base
+          gst_all_1.gst-plugins-good
+          gst_all_1.gst-plugins-bad
+          gst_all_1.gst-plugins-ugly
         ]
       );
     };

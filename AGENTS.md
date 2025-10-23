@@ -27,14 +27,14 @@
 
 ### Repository Layout
 
-| Domain              | Location                                 | Notes                                                                                                                                  |
-| ------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| NixOS modules       | `modules/`                               | Auto-loaded. Production modules stay unprefixed and are grouped by domain (`modules/apps`, `modules/roles`, `modules/configurations`). |
-| Shared derivations  | `packages/`                              | Common build logic shared between modules.                                                                                             |
-| Helper scripts      | `scripts/`                               | Operational tooling.                                                                                                                   |
-| Documentation       | `docs/`, `nixos_docs_md/`                | Long-form references and local workflows.                                                                                              |
-| Secrets             | `secrets/`                               | Only encrypted payloads managed via `sops.secrets`.                                                                                    |
-| Generated artefacts | `.gitignore`, `.sops.yaml`, CI workflows | Owned by the files module; update source definitions instead of editing generated outputs.                                             |
+| Domain              | Location                                 | Notes                                                                                                                                                                    |
+| ------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| NixOS modules       | `modules/`                               | Auto-loaded. Host-specific logic lives under `modules/system76`, while shared bundles remain organized by domain (for example `modules/apps`, `modules/configurations`). |
+| Shared derivations  | `packages/`                              | Common build logic shared between modules.                                                                                                                               |
+| Helper scripts      | `scripts/`                               | Operational tooling.                                                                                                                                                     |
+| Documentation       | `docs/`, `nixos_docs_md/`                | Long-form references and local workflows.                                                                                                                                |
+| Secrets             | `secrets/`                               | Only encrypted payloads managed via `sops.secrets`.                                                                                                                      |
+| Generated artefacts | `.gitignore`, `.sops.yaml`, CI workflows | Owned by the files module; update source definitions instead of editing generated outputs.                                                                               |
 
 ### Coding Style & Verification
 

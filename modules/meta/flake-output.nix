@@ -12,11 +12,6 @@
         homeManager = lib.mkOption {
           type = lib.types.submodule {
             freeformType = lib.types.attrsOf lib.types.anything;
-            options.roles = lib.mkOption {
-              type = lib.types.attrsOf (lib.types.listOf lib.types.str);
-              default = { };
-              description = "Role specifications for Home Manager (data only)";
-            };
           };
           default = { };
           description = "Helper functions and data for Home Manager (functions + small metadata only)";
@@ -60,7 +55,7 @@
           };
         };
         default = { };
-        description = "Aggregated Home Manager modules with freeform roles";
+        description = "Aggregated Home Manager modules for the single System76 host";
       };
     };
   };
