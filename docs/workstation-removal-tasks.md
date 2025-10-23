@@ -1,0 +1,32 @@
+# Workstation Removal Task List
+
+- [x] Move AppImage support from `modules/workstation/appimage-support.nix` into a System76-specific module, keeping `programs.appimage.enable = true` with binfmt registration.
+- [x] Move default editor settings from `modules/workstation/editor.nix` so System76 enables Neovim (with vim/vi aliases) and disables nano.
+- [x] Move graphics support from `modules/workstation/graphics-support.nix`, enabling `hardware.graphics` with mesa/libva/libvdpau/libglvnd (32-bit variants) and ensuring `libva-utils` remains installed.
+- [x] Move GTK/GSettings environment wiring from `modules/workstation/gsettings-schemas.nix`, preserving added packages, udev/dbus hooks, and `GIO_EXTRA_MODULES` / `GSETTINGS_SCHEMA_DIR` overrides.
+- [x] Move printing defaults from `modules/workstation/printing.nix` so System76 forces `services.printing.enable = false`. (Already handled in `modules/system76/services.nix`.)
+- [x] Move nix feature toggles from `modules/workstation/nix-config.nix`, retaining experimental features (`nix-command`, `flakes`, `pipe-operators`) and optimization settings (`auto-optimise-store`, `cores = 0`, `max-jobs = auto`).
+- [x] Move substituter configuration from `modules/workstation/nix-community.nix`, carrying over custom substituter list and trusted public keys.
+- [x] Move sudo replacement from `modules/workstation/sudo.nix`, ensuring `security.sudo-rs` settings, timestamp tweaks, and wheel group membership for `vx` are preserved.
+- [x] Move `su` hardening from `modules/workstation/su.nix`, keeping the alias and PAM service adjustments.
+- [x] Move baseline X server defaults from `modules/workstation/xserver.nix`, preserving US layout.
+- [x] Move desktop audio packages from `modules/audio/audio-pipewire.nix`, including GUI tools (pavucontrol, qpwgraph, helvum), production apps (ardour, audacity), and codec packages.
+- [x] Move PipeWire configuration from `modules/audio/pipewire.nix`, keeping PipeWire enablement, ALSA 32-bit support, PulseAudio compatibility, and `security.rtkit`.
+- [x] Move system D-Bus enablement and dconf package install from `modules/base/dbus.nix`.
+- [x] Move XDG desktop defaults from `modules/base/xdg-system.nix` (enable menus and MIME database).
+- [x] Move Bluetooth support from `modules/bluetooth.nix`, including hardware enablement and the `bluetui` package.
+- [x] Move nix-ld toolkit from `modules/development/nix-ld.nix`, covering the shared library list, VS Code Remote SSH packages, environment variables, and helper script.
+- [x] Move VS Code unfree allowlist from `modules/development/vscode.nix` (`code`, `vscode`, `vscode-fhs`).
+- [x] Move dotool user wiring from `modules/media/dotool.experimental.nix`, ensuring the `input` group is appended for user `vx`.
+- [ ] Move Cloudflare Tunnel sample module from `modules/networking/cloudflared-tunnel.nix`, deciding whether to keep it as host config or convert it into documentation/examples.
+- [ ] Move SSH X11 forwarding settings from `modules/networking/ssh-x11-forwarding.nix`, including package installs (`xauth`, `xhost`) and SSH options.
+- [ ] Move GNOME Keyring disablement from `modules/password-managers/gnome-keyring.nix`, both the system PAM overrides and Home Manager pass-secret-service enablement.
+- [ ] Move security tooling bundle from `modules/security/security-tools.nix`, retaining package list, PAM ssh-agent auth, fail2ban defaults, ClamAV toggles, AppArmor, and firewall baseline.
+- [ ] Move ACME Cloudflare sample from `modules/security/acme-cloudflare.nix`, determining if it remains host config or reference material.
+- [ ] Move interactive Zsh config from `modules/shell/zsh.nix`, including alias setup and `NO_INTERACTIVE_COMMENTS`.
+- [ ] Move R2 quickstart etc directory from `modules/storage/r2-quickstart.nix` under `/etc/cloudflare-r2`.
+- [ ] Move `/tmp` clean-on-boot flag from `modules/storage/tmp.nix`.
+- [ ] Move default terminal configuration from `modules/terminal/default-terminal.nix`, keeping kitty installation, `TERMINAL` environment variable, and MIME associations.
+- [ ] Recreate dev language bundle currently assembled in `modules/workstation.nix`, importing Python (python, uv, ruff, pyright), Go (go, gopls, golangci-lint, delve), Rust (rustc, cargo, rust-analyzer, rustfmt, rust-clippy), and Clojure (clojure-cli, clojure-lsp, leiningen, babashka, pixman) app modules directly for System76.
+- [ ] Reimplement the Home Manager GUI/shared module wiring from `modules/workstation.nix`, reapplying HM GUI module plus `home-manager.extraAppImports`.
+- [ ] Replace the implicit workstation import in `modules/system76/imports.nix` with explicit host modules covering all functionality listed here.
