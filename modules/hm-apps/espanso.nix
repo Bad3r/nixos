@@ -8,7 +8,7 @@
   Summary:
     * Detects when you type a keyword (trigger) and replaces it with predefined text (expansion) while typing.
     * Supports variables (date, shell, clipboard), forms, regex triggers, and app-specific configurations.
-    * Works on X11 and Wayland (auto-detection based on $WAYLAND_DISPLAY).
+    * Configures the X11-native build to keep the setup lean on System76 desktops.
 
   Configuration:
     * Uses Home Manager's services.espanso module with declarative configs and matches.
@@ -17,12 +17,7 @@
     * Auto-generates YAML files to ~/.config/espanso/.
 
   Display Server Support:
-    * Both X11 and Wayland support enabled by default on Linux.
-    * Module sets x11Support=true, waylandSupport=true, and package-wayland=pkgs.espanso-wayland.
-    * Home Manager creates a wrapper that checks $WAYLAND_DISPLAY and launches the correct binary.
-    * To reduce closure size, disable unused support:
-      services.espanso.x11Support = false;  # Wayland-only
-      services.espanso.waylandSupport = false;  # X11-only
+    * Ships only the X11 build by default; enable Wayland manually if you need it.
 
   Example Usage:
     * Default setup provides common date/time variables and basic expansions.
