@@ -30,3 +30,6 @@
 - [x] Recreate dev language bundle currently assembled in `modules/workstation.nix`, importing Python (python, uv, ruff, pyright), Go (go, gopls, golangci-lint, delve), Rust (rustc, cargo, rust-analyzer, rustfmt, rust-clippy), and Clojure (clojure-cli, clojure-lsp, leiningen, babashka, pixman) app modules directly for System76.
 - [x] Reimplement the Home Manager GUI/shared module wiring from `modules/workstation.nix`, reapplying HM GUI module plus `home-manager.extraAppImports`.
 - [x] Replace the implicit workstation import in `modules/system76/imports.nix` with explicit host modules covering all functionality listed here.
+- [x] Verify System76 CLI bundle imports still surface all expected packages (atuin, direnv, nix-direnv, tealdeer, etc.) after refactor.
+- [x] Validate Home Manager extra app imports ensure user services (espanso, copyq, signal-desktop) render in `home-manager.users.vx`.
+- [x] Run `nix fmt`, `nix flake check --accept-flake-config`, and build `.#nixosConfigurations.system76` to confirm the consolidated host remains healthy.
