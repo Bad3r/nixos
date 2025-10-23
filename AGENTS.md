@@ -1,5 +1,8 @@
 # Agent Operations Guide
 
+- IMPORTANT: THIS REPO MANAGES A SINGLE SYSTEM76 HOST WITH THE SOLE USER VX; DO NOT INTRODUCE ADDITIONAL HOSTS OR USERS AND NONE WILL EVER BE ADDED.
+- IMPORTANT: NEVER CONSIDER BACKWARD COMPATIBILITY; ELIMINATE LEGACY SUPPORT BY DEFAULT.
+
 | Key                | Value                                                                                                                      |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | Purpose            | Provide autonomous and human agents with a single source of truth for operating in this repository safely and efficiently. |
