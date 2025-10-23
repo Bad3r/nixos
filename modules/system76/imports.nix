@@ -5,7 +5,7 @@
   ...
 }:
 let
-  flake = if config ? flake then config.flake else { };
+  flake = config.flake or { };
   selfFlake = config._module.args.self or inputs.self or null;
   moduleNamespace =
     attrs: name:
@@ -15,16 +15,15 @@ let
       nestedBase =
         lib.hasAttrByPath [ "content" "content" name ] attrs
         && lib.hasAttrByPath [ "content" name "imports" ] attrs.content;
-      _ = builtins.trace (
+      message =
         "system76 moduleNamespace "
         + name
         + ": "
         + (if direct then "direct " else "")
         + (if content then "content " else "")
-        + (if nestedBase then "nested " else "")
-      ) null;
+        + (if nestedBase then "nested " else "");
     in
-    direct || content || nestedBase;
+    builtins.trace message (direct || content || nestedBase);
   flakeNixosModulesBootstrap = import ./flake-nixosModules-bootstrap.nix;
   fallbackEval = lib.evalModules {
     modules = [
@@ -35,15 +34,21 @@ let
       (import ./../meta/nixos-app-helpers.nix)
     ];
     specialArgs = {
-      inherit lib inputs;
-      flake = flake;
+      inherit lib inputs flake;
       self = if selfFlake != null then selfFlake else { };
       system76NeedsFlakeBootstrap = true;
     };
   };
   fallbackNixosModules = fallbackEval.config.flake.nixosModules or { };
   fallbackHomeManagerModules = fallbackEval.config.flake.homeManagerModules or { };
-  nixosModulesFromConfig = flake.nixosModules or { };
+  nixosModulesFromConfig =
+    let
+      value = flake.nixosModules or { };
+      message =
+        "system76 nixos modules keys: "
+        + (if value != { } then builtins.concatStringsSep ", " (builtins.attrNames value) else "<empty>");
+    in
+    builtins.trace message value;
   nixosModulesFromSelf = if selfFlake != null then (selfFlake.nixosModules or { }) else { };
   nixosModules =
     if nixosModulesFromConfig != { } && moduleNamespace nixosModulesFromConfig "base" then
@@ -52,61 +57,32 @@ let
       nixosModulesFromSelf
     else
       fallbackNixosModules;
-  _nixosTrace = builtins.trace (
-    "system76 nixos modules keys: "
-    + (
-      if nixosModulesFromConfig != { } then
-        builtins.concatStringsSep ", " (builtins.attrNames nixosModulesFromConfig)
-      else
-        "<empty>"
-    )
-  ) null;
-  homeManagerModulesFromConfig = flake.homeManagerModules or { };
+  homeManagerModulesFromConfig =
+    let
+      value = flake.homeManagerModules or { };
+      keysMessage =
+        "system76 hmModulesFromConfig keys: "
+        + (if value == { } then "<empty>" else builtins.concatStringsSep ", " (builtins.attrNames value));
+      baseMessage =
+        "system76 hm config has base: "
+        + (if value != { } && moduleNamespace value "base" then "yes" else "no");
+    in
+    builtins.trace baseMessage (builtins.trace keysMessage value);
   homeManagerModulesFromSelf =
     if selfFlake != null then (selfFlake.homeManagerModules or { }) else { };
-  _hmConfigTypeTrace = builtins.trace (
-    "system76 hmModulesFromConfig keys: "
-    + (
-      if homeManagerModulesFromConfig == { } then
-        "<empty>"
-      else
-        builtins.concatStringsSep ", " (builtins.attrNames homeManagerModulesFromConfig)
-    )
-  ) null;
-  _hmConfigTrace = builtins.trace (
-    "system76 hm config has base: "
-    + (
-      if homeManagerModulesFromConfig != { } && moduleNamespace homeManagerModulesFromConfig "base" then
-        "yes"
-      else
-        "no"
-    )
-  ) null;
+  mergedHomeManagerModules =
+    fallbackHomeManagerModules // homeManagerModulesFromSelf // homeManagerModulesFromConfig;
   homeManagerModules =
-    if homeManagerModulesFromConfig != { } && moduleNamespace homeManagerModulesFromConfig "base" then
-      homeManagerModulesFromConfig
-    else if homeManagerModulesFromSelf != { } && moduleNamespace homeManagerModulesFromSelf "base" then
-      homeManagerModulesFromSelf
-    else
-      fallbackHomeManagerModules;
-  _hmTrace = builtins.trace (
-    "system76 hm modules keys: "
-    + (
-      if homeManagerModules == { } then
-        "<empty>"
-      else
-        builtins.concatStringsSep ", " (builtins.attrNames homeManagerModules)
-    )
-  ) null;
-  _hmFinalTrace = builtins.trace (
-    "system76 hm keys before returning module: "
-    + (
-      if homeManagerModules == { } then
-        "<empty>"
-      else
-        builtins.concatStringsSep ", " (builtins.attrNames homeManagerModules)
-    )
-  ) null;
+    let
+      keys =
+        if mergedHomeManagerModules == { } then
+          "<empty>"
+        else
+          builtins.concatStringsSep ", " (builtins.attrNames mergedHomeManagerModules);
+      keysMessage = "system76 hm modules keys: " + keys;
+      finalMessage = "system76 hm keys before returning module: " + keys;
+    in
+    builtins.trace finalMessage (builtins.trace keysMessage mergedHomeManagerModules);
   hasModule = name: lib.hasAttr name nixosModules;
   getModule =
     name:
@@ -146,6 +122,13 @@ let
         "system76 host requires role " + name + " but it was not found in helpers or flake.nixosModules"
       );
   roleModules = map getRoleModule roleNames;
+  baseRoleModule = getRoleModule "base";
+  baseRoleAppModules =
+    let
+      imports = baseRoleModule.imports or [ ];
+      tail = if imports == [ ] then [ ] else lib.drop 1 imports;
+    in
+    lib.filter (module: module != null) tail;
   getVirtualizationModule =
     name:
     if lib.hasAttrByPath [ "virtualization" name ] nixosModules then
@@ -160,10 +143,11 @@ let
     "chat"
   ];
   workstationModule = getModule "workstation";
-  baseModule = getModule "base";
-  _baseTrace = builtins.trace (
-    "system76 baseModule present: " + (if baseModule == null then "no" else "yes")
-  ) null;
+  baseModule =
+    let
+      value = getModule "base";
+    in
+    builtins.trace ("system76 baseModule present: " + (if value == null then "no" else "yes")) value;
   flakeInitModule = _: {
     flake = lib.mkDefault { };
   };
@@ -172,22 +156,28 @@ let
     builtins.trace (
       "system76 baseModules includes " + name + ": " + (if module == null then "null" else "set")
     ) module;
+  bundleFlagModule =
+    {
+      lib,
+      ...
+    }:
+    {
+      _module.args.homeManagerBundleInjected = lib.mkDefault true;
+    };
   baseModulesRaw = [
     flakeNixosModulesBootstrap
     flakeInitModule
     (traceModule "base" baseModule)
+    bundleFlagModule
     (traceModule "inputs.hw.system76" inputs.nixos-hardware.nixosModules.system76)
     (traceModule "inputs.hw.system76-darp6" inputs.nixos-hardware.nixosModules.system76-darp6)
-    (traceModule "packages" (getModule "packages"))
     (traceModule "workstation" workstationModule)
     (traceModule "system76-support" (getModule "system76-support"))
-    (traceModule "security" (getModule "security"))
     (traceModule "hardware-lenovo-y27q-20" (getModule "hardware-lenovo-y27q-20"))
     (traceModule "duplicati-r2" (getModule "duplicati-r2"))
     (traceModule "virt" (getModule "virt"))
   ];
-  baseModules = lib.filter (module: module != null) baseModulesRaw;
-  _hmAfterBase = builtins.trace (
+  baseModules = builtins.trace (
     "system76 hm keys after baseModules: "
     + (
       if homeManagerModules == { } then
@@ -195,7 +185,7 @@ let
       else
         builtins.concatStringsSep ", " (builtins.attrNames homeManagerModules)
     )
-  ) null;
+  ) (lib.filter (module: module != null) baseModulesRaw);
   virtualizationModules = lib.filter (module: module != null) (
     map
       (
@@ -229,21 +219,17 @@ let
 in
 {
   configurations.nixos.system76.module = {
-    _module.check = true;
-    _module.args.inputs = lib.mkDefault inputs;
-    _module.args.self = lib.mkDefault (inputs.self or null);
-    flake.homeManagerModules =
-      let
-        configHasBase =
-          homeManagerModulesFromConfig != { } && moduleNamespace homeManagerModulesFromConfig "base";
-      in
-      lib.mkIf (!configHasBase) (
-        lib.mkMerge [
-          fallbackHomeManagerModules
-        ]
-      );
+    _module = {
+      check = true;
+      args = {
+        inputs = lib.mkDefault inputs;
+        self = lib.mkDefault (inputs.self or null);
+      };
+    };
+    flake.homeManagerModules = mergedHomeManagerModules;
     imports =
       baseModules
+      ++ baseRoleAppModules
       ++ virtualizationModules
       ++ roleModules
       ++ lib.optional (hasModule "ssh") nixosModules.ssh;
@@ -272,6 +258,7 @@ in
         inherit inputs;
         self = inputs.self or null;
         system76NeedsFlakeBootstrap = true;
+        homeManagerBundleInjected = false;
       };
     };
   };

@@ -129,6 +129,7 @@
     in
     {
       config = {
+        programs.claude-code.enable = lib.mkDefault true;
         home.file.".claude/settings.json" = {
           text = builtins.toJSON claudeSettings;
           onChange = ''

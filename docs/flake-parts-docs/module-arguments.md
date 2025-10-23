@@ -199,7 +199,7 @@ This is not provided for the top level flake-parts configuration; only `perSyste
 
 ### Rationale
 
-Nix evaluates the attribute set passed to a function like `args@{ foo, ... }` strictly (before returning the function body) in order to efficiently check the function call's argument, to make sure it's an attribute set, and that it has the listed attribtes, like `foo`.
+Nix evaluates the attribute set passed to a function like `args@{ foo, ... }` strictly (before returning the function body) in order to efficiently check the function call's argument, to make sure it's an attribute set, and that it has the listed attributes, like `foo`.
 
 This means it needs to evaluate the argument before returning the function body.
 However, the module system would face a circular dependency when passing the module arguments using a straightforward function call: it can't know all available module argument names until it has evaluated the modules, but it can't evaluate module functions without passing them their arguments.

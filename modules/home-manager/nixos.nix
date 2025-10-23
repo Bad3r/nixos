@@ -46,19 +46,125 @@ builtins.trace "hm.nixos entry" {
               + (if combined != { } then lib.concatStringsSep ", " (lib.attrNames combined) else "<empty>")
             ) combined;
           configBase = lib.attrByPath [ "base" ] hmModules null;
-          baseModuleImports =
-            if configBase == null then
-              throw "Home Manager base module: expected flake.homeManagerModules.base to be available."
-            else if configBase ? imports then
-              configBase.imports
-            else if configBase ? content && configBase.content ? imports then
-              configBase.content.imports
+          flattenImportTree =
+            value:
+            let
+              nestedImports = importsValue: if importsValue == null then [ ] else flattenImportTree importsValue;
+              contentImports = attrs: lib.attrByPath [ "imports" ] [ ] (lib.attrByPath [ "content" ] { } attrs);
+              shouldDescendImports =
+                attrs:
+                attrs ? imports
+                && !(attrs ? config)
+                && !(attrs ? options)
+                && !(attrs ? config')
+                && !(attrs ? _type && attrs._type == "override");
+            in
+            if value == null then
+              [ ]
+            else if lib.isList value then
+              lib.concatMap flattenImportTree value
+            else if lib.isAttrs value then
+              if value ? _type && value._type == "import-tree" then
+                nestedImports (contentImports value)
+              else if value ? _type && value._type == "order" then
+                nestedImports (contentImports value)
+              else if value ? _type && value ? content then
+                flattenImportTree value.content
+              else if shouldDescendImports value then
+                nestedImports value.imports
+              else
+                [ value ]
             else
-              [ configBase ];
-          hmApps = hmModules.apps or { };
-          _hmAppsTrace = builtins.trace (
-            "hm.nixos hmApps: " + (if hmApps == null then "null" else builtins.typeOf hmApps)
-          ) null;
+              [ value ];
+          normalizeFileKey =
+            key:
+            if key == null then
+              null
+            else
+              let
+                parts = lib.splitString ", via option" key;
+              in
+              if parts == [ ] then key else lib.head parts;
+          moduleRawKey =
+            module:
+            if lib.isAttrs module && module ? _file then
+              module._file
+            else if lib.isAttrs module && module ? imports then
+              let
+                imports = module.imports or [ ];
+              in
+              if imports == [ ] then
+                null
+              else
+                let
+                  candidate = lib.head imports;
+                in
+                if lib.isAttrs candidate && candidate ? _file then
+                  candidate._file
+                else if builtins.isPath candidate then
+                  toString candidate
+                else if builtins.isString candidate then
+                  candidate
+                else
+                  null
+            else
+              null;
+          moduleKey = module: normalizeFileKey (moduleRawKey module);
+          baseModulePayload =
+            if lib.isAttrs configBase && lib.hasAttr "base" configBase then configBase.base else configBase;
+          baseModuleImportsRaw =
+            if lib.isAttrs baseModulePayload then lib.attrByPath [ "imports" ] [ ] baseModulePayload else [ ];
+          baseModulesRaw =
+            let
+              flattened = flattenImportTree baseModuleImportsRaw;
+              filtered =
+                let
+                  result = lib.filter (
+                    module:
+                    let
+                      rawKey = moduleRawKey module;
+                    in
+                    !(
+                      rawKey != null
+                      && (
+                        lib.hasInfix ", via option flake.homeManagerModules.apps." rawKey
+                        || lib.hasInfix ", via option flake.homeManagerModules.gui" rawKey
+                        || lib.hasInfix ", via option flake.homeManagerModules.context7Secrets" rawKey
+                        || lib.hasInfix ", via option flake.homeManagerModules.r2Secrets" rawKey
+                      )
+                    )
+                  ) flattened;
+                  message =
+                    "hm.nixos base modules: "
+                    + lib.concatStringsSep ", " (
+                      map (
+                        module:
+                        let
+                          key = moduleKey module;
+                        in
+                        if key != null then key else "<module>"
+                      ) result
+                    );
+                in
+                builtins.trace message result;
+            in
+            if filtered == [ ] then
+              throw "Home Manager base module: expected flake.homeManagerModules.base to be available."
+            else
+              filtered;
+          moduleFromBase =
+            key:
+            if lib.isAttrs configBase && lib.hasAttr key configBase then
+              lib.getAttr key configBase
+            else
+              lib.attrByPath [ key ] hmModules null;
+          hmApps =
+            let
+              rawValue = moduleFromBase "apps";
+              result = if rawValue == null then { } else rawValue;
+              message = "hm.nixos hmApps: " + (if rawValue == null then "null" else builtins.typeOf result);
+            in
+            builtins.trace message result;
           hasApp = name: lib.hasAttr name hmApps;
           getApp =
             name:
@@ -74,15 +180,33 @@ builtins.trace "hm.nixos entry" {
             "ghq-mirror"
             "kitty"
             "alacritty"
+            "starship"
             "wezterm"
           ];
           extraAppImports = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
           allAppImports = defaultAppImports ++ extraAppImports;
-          appModulesRaw = map getApp allAppImports;
-          guiModule = lib.attrByPath [ "gui" ] hmModules null;
-          context7SecretsModule = lib.attrByPath [ "context7Secrets" ] hmModules null;
-          r2SecretsModule = lib.attrByPath [ "r2Secrets" ] hmModules null;
-          importsList = [
+          appModules =
+            let
+              modules = lib.concatMap flattenImportTree (map getApp allAppImports);
+              message =
+                "hm.nixos app modules: "
+                + lib.concatStringsSep ", " (
+                  map (
+                    module:
+                    let
+                      key = moduleKey module;
+                    in
+                    if key != null then key else "<module>"
+                  ) modules
+                );
+            in
+            builtins.trace message modules;
+          guiModule = moduleFromBase "gui";
+          guiModules = flattenImportTree guiModule;
+          context7SecretsModules = flattenImportTree (moduleFromBase "context7Secrets");
+          r2SecretsModules = flattenImportTree (moduleFromBase "r2Secrets");
+          baseModules = baseModulesRaw;
+          baseImports = [
             inputs.sops-nix.homeManagerModules.sops
             (
               { osConfig, ... }:
@@ -90,14 +214,14 @@ builtins.trace "hm.nixos entry" {
                 home.stateVersion = osConfig.system.stateVersion;
               }
             )
-          ]
-          ++ baseModuleImports
-          ++ [
-            (if r2SecretsModule != null then r2SecretsModule else { })
-            (if context7SecretsModule != null then context7SecretsModule else { })
-          ]
-          ++ appModulesRaw;
-          appsForUsers = hmModules.apps or { };
+          ];
+          bundleImports = lib.concatLists [
+            baseModules
+            guiModules
+            appModules
+            context7SecretsModules
+            r2SecretsModules
+          ];
         in
         {
           useGlobalPkgs = true;
@@ -106,7 +230,8 @@ builtins.trace "hm.nixos entry" {
             inherit inputs;
           };
           backupFileExtension = "hm.bk";
-          users.${ownerName}.imports = importsList;
+          sharedModules = lib.mkBefore [ ];
+          users.${ownerName}.imports = baseImports ++ bundleImports;
         };
 
     };

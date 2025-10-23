@@ -40,19 +40,13 @@
 {
   flake.homeManagerModules.apps.espanso =
     { lib, pkgs, ... }:
-    let
-      inherit (pkgs.stdenv.hostPlatform) isLinux;
-    in
     {
+      home.packages = [ pkgs.espanso ];
+
       services.espanso = {
-        enable = true;
-
-        # Enable both X11 and Wayland support on Linux for auto-detection
-        x11Support = lib.mkDefault isLinux;
-        waylandSupport = lib.mkDefault isLinux;
-
-        # Ensure Wayland package is available when waylandSupport is enabled
-        "package-wayland" = lib.mkDefault (if isLinux then pkgs.espanso-wayland else null);
+        enable = lib.mkForce true;
+        x11Support = lib.mkDefault true;
+        waylandSupport = lib.mkDefault false;
 
         # Default configuration
         configs = {

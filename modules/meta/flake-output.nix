@@ -66,7 +66,9 @@
     };
   };
 
-  config.flake.lib = lib.mkDefault { };
-  config.flake.homeManagerModules = lib.mkDefault { };
-  config.flake.nixosModules = lib.mkDefault { };
+  config.flake = {
+    lib = lib.mkDefault { };
+    homeManagerModules = lib.mkDefault { };
+    nixosModules = lib.mkDefault { };
+  };
 }

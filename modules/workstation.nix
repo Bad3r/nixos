@@ -39,15 +39,6 @@ let
     else
       null;
 
-  resolveRole =
-    name:
-    let
-      result = resolveRoleOption name;
-    in
-    if result != null then
-      result
-    else
-      throw ("Unknown role '" + name + "' referenced by flake.nixosModules.workstation");
   appHelpers = config._module.args.nixosAppHelpers or { };
   rawAppHelpers = (config.flake.lib.nixos or { }) // appHelpers;
   fallbackGetApp =
@@ -114,16 +105,6 @@ let
       ];
     };
   };
-  baseImport =
-    if rawResolveRole "base" != null then
-      [ (resolveRole "base") ]
-    else if lib.hasAttrByPath [ "base" ] nixosModules then
-      [ (lib.getAttrFromPath [ "base" ] nixosModules) ]
-    else
-      throw "flake.nixosModules.base missing while constructing workstation bundle";
-  hmModules = flakeAttrs.homeManagerModules or { };
-  hmGuiModule = lib.attrByPath [ "gui" ] null hmModules;
-  hmAppModules = hmModules.apps or { };
   resolvedRoles = map (name: {
     inherit name;
     module = resolveRoleOption name;
@@ -135,7 +116,7 @@ let
 
   missingRoleNames = map (role: role.name) (lib.filter (role: role.module == null) resolvedRoles);
 
-  importsValue = baseImport ++ availableRoleModules ++ devLanguageModules;
+  importsValue = availableRoleModules ++ devLanguageModules;
 in
 {
   flake.nixosModules.workstation = {
@@ -147,26 +128,6 @@ in
           "workstation bundle requires roles that failed to resolve: "
           + lib.concatStringsSep ", " missingRoleNames
         );
-    config = lib.mkIf (hmGuiModule != null) (
-      let
-        extraNames = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
-        getAppModule =
-          name:
-          let
-            module = lib.attrByPath [ name ] null hmAppModules;
-          in
-          if module != null then
-            module
-          else
-            throw ("Unknown Home Manager app '" + name + "' referenced by workstation role");
-        extraAppModules = map getAppModule extraNames;
-      in
-      {
-        # Append the GUI bundle for all Home Manager users while keeping the
-        # imports built by modules/home-manager/nixos.nix (which collect
-        # extraAppImports like flameshot).
-        home-manager.sharedModules = lib.mkAfter ([ hmGuiModule ] ++ extraAppModules);
-      }
-    );
+    config = { };
   };
 }

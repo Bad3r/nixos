@@ -16,6 +16,9 @@
       environment.systemPackages = lib.mkAfter (
         with pkgs;
         [
+          # Shell prompt
+          starship
+
           # System76 hardware utilities
           system76-power
           system76-scheduler

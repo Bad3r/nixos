@@ -462,6 +462,19 @@ let
         stubModule
         firstModule
       ];
+      basePrefixEvaluation = builtins.tryEval (
+        lib.evalModules {
+          modules = basePrefix;
+          inherit specialArgs;
+        }
+      );
+      baseSharedModulesCount =
+        if basePrefixEvaluation.success then
+          lib.length (
+            lib.attrByPath [ "config" "home-manager" "sharedModules" ] [ ] basePrefixEvaluation.value
+          )
+        else
+          0;
       moduleLabel =
         module:
         if lib.isAttrs module && module ? label then
@@ -482,16 +495,16 @@ let
               builtins.tryEval (
                 lib.evalModules {
                   modules = prefix;
-                  specialArgs = specialArgs;
+                  inherit specialArgs;
                 }
               )
             else
               {
                 success = false;
-                value = takeAttempt.value;
+                inherit (takeAttempt) value;
               };
         in
-        {
+        rec {
           step = n;
           importLabel =
             if takeAttempt.success then
@@ -511,6 +524,21 @@ let
               builtins.toString evalAttempt.value
             else
               null;
+          sharedModulesSnapshot =
+            if evalAttempt.success then
+              lib.attrByPath [ "config" "home-manager" "sharedModules" ] [ ] evalAttempt.value
+            else
+              [ ];
+          sharedModulesAsserted =
+            if evalAttempt.success then
+              let
+                sharedModulesCount = lib.length sharedModulesSnapshot;
+              in
+              lib.assertMsg (
+                sharedModulesCount > baseSharedModulesCount
+              ) "scaffold: expected sharedModules to grow beyond base prefix"
+            else
+              false;
         };
     in
     lib.genList (index: evaluate (index + 1)) limit;

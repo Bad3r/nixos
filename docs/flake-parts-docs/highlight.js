@@ -369,7 +369,7 @@ var hljs = (function () {
     const h = { disableAutodetect: !0, name: "Plain text", contains: [] };
     var f = {
       noHighlightRe: /^(no-?highlight)$/i,
-      languageDetectRe: /\blang(?:uage)?-([\w-]+)\b/i,
+      languageDetectRe: /\b(?:lang|language)-([\w-]+)\b/i,
       classPrefix: "hljs-",
       tabReplace: null,
       useBR: !1,
@@ -903,13 +903,13 @@ var hljs = (function () {
         (e.result = {
           language: a.language,
           re: a.relevance,
-          relavance: a.relevance,
+          relevance: a.relevance,
         }),
         a.second_best &&
           (e.second_best = {
             language: a.second_best.language,
             re: a.second_best.relevance,
-            relavance: a.second_best.relevance,
+            relevance: a.second_best.relevance,
           }));
     }
     const N = () => {

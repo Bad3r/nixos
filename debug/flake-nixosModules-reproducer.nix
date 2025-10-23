@@ -17,17 +17,15 @@ let
       config.flake.nixosModules = lib.mkDefault { };
     };
 
-  roleModule =
-    { lib, ... }:
-    {
-      config.flake.nixosModules.roles = {
-        xserver = {
-          imports = [
-            (_: { })
-          ];
-        };
+  roleModule = _: {
+    config.flake.nixosModules.roles = {
+      xserver = {
+        imports = [
+          (_: { })
+        ];
       };
     };
+  };
 
   evalWithoutStub = builtins.tryEval (
     lib.evalModules {
