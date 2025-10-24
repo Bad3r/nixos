@@ -51,7 +51,7 @@ let
 in
 {
   configurations.nixos.system76.module = {
-    _module.check = false;
+    _module.check = true;
     flake.homeManagerModules = lib.mkDefault (inputs.self.homeManagerModules or { });
     imports = [
       ../home-manager/base.nix
