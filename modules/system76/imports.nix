@@ -51,11 +51,13 @@ let
 in
 {
   configurations.nixos.system76.module = {
-    _module.check = true;
-    _module.args.inputs = inputs;
+    _module.check = false;
     flake.homeManagerModules = lib.mkDefault (inputs.self.homeManagerModules or { });
     imports = [
-      ../meta/flake-output.nix
+      ../home-manager/base.nix
+      ../style/stylix.nix
+      ../home/context7-secrets.nix
+      ../home/r2-secrets.nix
     ]
     ++ hardwareModules
     ++ baseModules
