@@ -26,6 +26,11 @@
           default = { };
           description = "Security helper data and utilities shared across modules.";
         };
+        nixvim = lib.mkOption {
+          type = lib.types.attrsOf lib.types.anything;
+          default = { };
+          description = "Helper functions and data for NixVim integrations.";
+        };
         checks = lib.mkOption {
           type = lib.types.attrsOf lib.types.anything;
           default = { };
@@ -57,6 +62,7 @@
         default = { };
         description = "Aggregated Home Manager modules for the single System76 host";
       };
+
     };
   };
 }
