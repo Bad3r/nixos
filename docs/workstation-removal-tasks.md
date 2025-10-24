@@ -33,3 +33,6 @@
 - [x] Verify System76 CLI bundle imports still surface all expected packages (atuin, direnv, nix-direnv, tealdeer, etc.) after refactor.
 - [x] Validate Home Manager extra app imports ensure user services (espanso, copyq, signal-desktop) render in `home-manager.users.vx`.
 - [x] Run `nix fmt`, `nix flake check --accept-flake-config`, and build `.#nixosConfigurations.system76` to confirm the consolidated host remains healthy.
+- [x] Recreate the base CLI and file utility bundles (coreutils, file, bc, disk tools) under `modules/system76/apps-{base,files,file-sharing}.nix`.
+- [x] Restore developer, networking, and Cloudflare tooling (`jq`, `httpie`, `wrangler`, etc.) via `modules/system76/apps-{dev,net,cloudflare}.nix`.
+- [x] Restore productivity, media, and desktop application bundles (logseq, obsidian, mpv, steam) with `modules/system76/apps-{productivity,media,ai-agents,gaming}.nix`.
