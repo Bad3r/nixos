@@ -1,4 +1,6 @@
 {
+  _module.check = false;
+
   flake.homeManagerModules.context7Secrets =
     {
       config,

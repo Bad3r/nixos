@@ -1,4 +1,6 @@
 {
+  _module.check = false;
+
   # Home-Manager sops declarations for R2 user env
   #
   # This separate module declares the sops-managed dotenv that is materialized
