@@ -29,12 +29,40 @@ let
   }
   // moduleArgs;
 
+  flakeAttrs = config.flake or { };
+  moduleInputs = moduleArgs.inputs or { };
+  hmModulesFromConfig = lib.attrByPath [ "homeManagerModules" ] { } flakeAttrs;
+  hmModulesFromModuleInputs = lib.attrByPath [ "self" "homeManagerModules" ] { } moduleInputs;
+  hmModulesFromSelf = lib.attrByPath [ "homeManagerModules" ] { } (inputs.self or { });
+  hmModules = lib.foldl' (acc: src: acc // src) { } [
+    hmModulesFromSelf
+    hmModulesFromModuleInputs
+    hmModulesFromConfig
+  ];
+
+  stripHomeManagerPrefix =
+    attrPath:
+    if
+      (builtins.length attrPath) >= 2
+      && (builtins.head attrPath) == "flake"
+      && (builtins.elemAt attrPath 1) == "homeManagerModules"
+    then
+      lib.drop 2 attrPath
+    else
+      attrPath;
+
   loadHomeModule =
     path: attrPath:
     let
-      exported = import path;
-      evaluated = if lib.isFunction exported then exported baseArgs else exported;
-      module = lib.attrByPath attrPath null evaluated;
+      hmAttrPath = stripHomeManagerPrefix attrPath;
+      moduleFromConfig = if hmAttrPath == [ ] then null else lib.attrByPath hmAttrPath null hmModules;
+      fallbackModule =
+        let
+          exported = import path;
+          evaluated = if lib.isFunction exported then exported baseArgs else exported;
+        in
+        lib.attrByPath attrPath null evaluated;
+      module = if moduleFromConfig != null then moduleFromConfig else fallbackModule;
     in
     if module != null then
       module
@@ -45,8 +73,11 @@ let
     name:
     let
       filePath = ../hm-apps + "/${name}.nix";
+      moduleFromConfig = lib.attrByPath [ "apps" name ] null hmModules;
     in
-    if builtins.pathExists filePath then
+    if moduleFromConfig != null then
+      moduleFromConfig
+    else if builtins.pathExists filePath then
       loadHomeModule filePath [
         "flake"
         "homeManagerModules"
@@ -67,11 +98,6 @@ let
     "homeManagerModules"
     "base"
   ];
-  stylixModules = loadHomeModule ../style/stylix.nix [
-    "flake"
-    "homeManagerModules"
-  ];
-  stylixBaseModule = lib.attrByPath [ "base" ] null stylixModules;
   context7Module = loadHomeModule ../home/context7-secrets.nix [
     "flake"
     "homeManagerModules"
@@ -96,15 +122,13 @@ let
   extraAppImports = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
   allAppImports = lib.unique (defaultAppImports ++ extraAppImports);
   appModules = map loadAppModule allAppImports;
-  stylixExtras = lib.filter (m: m != null) [ stylixBaseModule ];
   coreModules = [
     sopsModule
     stateVersionModule
     baseModule
     context7Module
     r2Module
-  ]
-  ++ stylixExtras;
+  ];
 
 in
 {
