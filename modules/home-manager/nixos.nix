@@ -4,6 +4,133 @@
   lib,
   ...
 }:
+let
+  ownerName =
+    let
+      flakeAttrs = config.flake or { };
+      ownerMeta = lib.attrByPath [ "lib" "meta" "owner" ] { } flakeAttrs;
+      fallbackOwnerName =
+        let
+          usersAttrs = config.users.users or { };
+          normalUsers = lib.filterAttrs (_: u: (u.isNormalUser or false)) usersAttrs;
+        in
+        if normalUsers != { } then lib.head (lib.attrNames normalUsers) else null;
+    in
+    ownerMeta.username or (
+      if fallbackOwnerName != null then
+        fallbackOwnerName
+      else
+        throw "Home Manager base module: unable to determine owner username (set config.flake.lib.meta.owner.username or define a normal user)."
+    );
+
+  moduleArgs = config._module.args or { };
+  baseArgs = {
+    inherit config inputs lib;
+  }
+  // moduleArgs;
+
+  flakeAttrs = config.flake or { };
+  moduleInputs = moduleArgs.inputs or { };
+  hmModulesFromConfig = lib.attrByPath [ "homeManagerModules" ] { } flakeAttrs;
+  hmModulesFromModuleInputs = lib.attrByPath [ "self" "homeManagerModules" ] { } moduleInputs;
+  hmModulesFromSelf = lib.attrByPath [ "homeManagerModules" ] { } (inputs.self or { });
+  hmModules = lib.foldl' (acc: src: acc // src) { } [
+    hmModulesFromSelf
+    hmModulesFromModuleInputs
+    hmModulesFromConfig
+  ];
+
+  stripHomeManagerPrefix =
+    attrPath:
+    if
+      (builtins.length attrPath) >= 2
+      && (builtins.head attrPath) == "flake"
+      && (builtins.elemAt attrPath 1) == "homeManagerModules"
+    then
+      lib.drop 2 attrPath
+    else
+      attrPath;
+
+  loadHomeModule =
+    path: attrPath:
+    let
+      hmAttrPath = stripHomeManagerPrefix attrPath;
+      moduleFromConfig = if hmAttrPath == [ ] then null else lib.attrByPath hmAttrPath null hmModules;
+      fallbackModule =
+        let
+          exported = import path;
+          evaluated = if lib.isFunction exported then exported baseArgs else exported;
+        in
+        lib.attrByPath attrPath null evaluated;
+      module = if moduleFromConfig != null then moduleFromConfig else fallbackModule;
+    in
+    if module != null then
+      module
+    else
+      throw ("Missing Home Manager module at " + builtins.concatStringsSep "." (map toString attrPath));
+
+  loadAppModule =
+    name:
+    let
+      filePath = ../hm-apps + "/${name}.nix";
+      moduleFromConfig = lib.attrByPath [ "apps" name ] null hmModules;
+    in
+    if moduleFromConfig != null then
+      moduleFromConfig
+    else if builtins.pathExists filePath then
+      loadHomeModule filePath [
+        "flake"
+        "homeManagerModules"
+        "apps"
+        name
+      ]
+    else
+      throw ("Home Manager app module file not found: " + toString filePath);
+
+  sopsModule = inputs.sops-nix.homeManagerModules.sops;
+  stateVersionModule =
+    { osConfig, ... }:
+    {
+      home.stateVersion = osConfig.system.stateVersion;
+    };
+  baseModule = loadHomeModule ../home-manager/base.nix [
+    "flake"
+    "homeManagerModules"
+    "base"
+  ];
+  context7Module = loadHomeModule ../home/context7-secrets.nix [
+    "flake"
+    "homeManagerModules"
+    "context7Secrets"
+  ];
+  r2Module = loadHomeModule ../home/r2-secrets.nix [
+    "flake"
+    "homeManagerModules"
+    "r2Secrets"
+  ];
+
+  defaultAppImports = [
+    "codex"
+    "bat"
+    "eza"
+    "fzf"
+    "ghq-mirror"
+    "kitty"
+    "alacritty"
+    "wezterm"
+  ];
+  extraAppImports = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
+  allAppImports = lib.unique (defaultAppImports ++ extraAppImports);
+  appModules = map loadAppModule allAppImports;
+  coreModules = [
+    sopsModule
+    stateVersionModule
+    baseModule
+    context7Module
+    r2Module
+  ];
+
+in
 {
   flake.nixosModules = {
     base = {
@@ -23,69 +150,7 @@
         };
         backupFileExtension = "hm.bk";
 
-        users.${
-          let
-            flakeAttrs = config.flake or { };
-            ownerMeta = lib.attrByPath [ "lib" "meta" "owner" ] { } flakeAttrs;
-            fallbackOwnerName =
-              let
-                usersAttrs = config.users.users or { };
-                normalUsers = lib.filterAttrs (_: u: (u.isNormalUser or false)) usersAttrs;
-              in
-              if normalUsers != { } then lib.head (lib.attrNames normalUsers) else null;
-          in
-          ownerMeta.username or (
-            if fallbackOwnerName != null then
-              fallbackOwnerName
-            else
-              throw "Home Manager base module: unable to determine owner username (set config.flake.lib.meta.owner.username or define a normal user)."
-          )
-        }.imports =
-          let
-            moduleArgs = config._module.args or { };
-            inputsArg = moduleArgs.inputs or { };
-            flakeAttrs = config.flake or { };
-            hmModulesFromConfig = lib.attrByPath [ "homeManagerModules" ] { } flakeAttrs;
-            hmModulesFromInputs = lib.attrByPath [ "self" "homeManagerModules" ] { } inputsArg;
-            hmModules = if hmModulesFromConfig != { } then hmModulesFromConfig else hmModulesFromInputs;
-            hmApps = hmModules.apps or { };
-            hasApp = name: lib.hasAttr name hmApps;
-            getApp =
-              name:
-              if hasApp name then
-                lib.getAttr name hmApps
-              else
-                throw "Unknown Home Manager app '${name}' referenced by base imports";
-            defaultAppImports = [
-              "codex"
-              "bat"
-              "eza"
-              "fzf"
-              "ghq-mirror"
-              "kitty"
-              "alacritty"
-              "wezterm"
-            ];
-            extraAppImports = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
-            allAppImports = defaultAppImports ++ extraAppImports;
-          in
-          [
-            inputs.sops-nix.homeManagerModules.sops
-            (
-              { osConfig, ... }:
-              {
-                home.stateVersion = osConfig.system.stateVersion;
-              }
-            )
-            (lib.attrByPath [ "base" ] hmModules (
-              throw "Home Manager base module: expected flake.homeManagerModules.base to be available."
-            ))
-            # Wire R2 sops-managed env by default (guarded on secrets/r2.env presence)
-            (lib.attrByPath [ "r2Secrets" ] hmModules { })
-            # Provide Context7 API key via sops when available
-            (lib.attrByPath [ "context7Secrets" ] hmModules { })
-          ]
-          ++ map getApp allAppImports;
+        users.${ownerName}.imports = coreModules ++ appModules;
       };
     };
   };

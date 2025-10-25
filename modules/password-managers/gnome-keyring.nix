@@ -1,10 +1,5 @@
-{ lib, ... }:
+_:
 let
-  mkSystemModule = _: {
-    services.gnome.gnome-keyring.enable = lib.mkForce false;
-    security.pam.services.login.enableGnomeKeyring = lib.mkForce false;
-  };
-
   mkHomeModule =
     {
       config,
@@ -26,6 +21,5 @@ let
     };
 in
 {
-  flake.nixosModules.workstation = mkSystemModule;
   flake.homeManagerModules.base = mkHomeModule;
 }

@@ -343,47 +343,6 @@
                 always_run = true;
                 verbose = false;
               };
-            # Enforce: forbid `with config.flake.nixosModules.apps;` usage in roles
-            forbid-with-apps-in-roles =
-              let
-                checker = pkgs.writeShellApplication {
-                  name = "forbid-with-apps-in-roles";
-                  runtimeInputs = [
-                    pkgs.ripgrep
-                    pkgs.gnugrep
-                    pkgs.coreutils
-                  ];
-                  text = ''
-                    set -euo pipefail
-                    cd "$(git rev-parse --show-toplevel)"
-                    PATTERN='(?s)with\s*\(?\s*config\.flake\.nixosModules\.apps\s*\)?\s*;'
-                    if command -v rg >/dev/null 2>&1; then
-                      if rg -nU --pcre2 -S --glob 'modules/roles/**/*.nix' -e "$PATTERN" >/dev/null; then
-                        echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/**/*.nix" >&2
-                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/configuration-architecture.md)." >&2
-                        echo "  Note: PCRE2 guard may flag commented or stringified code; triage manually if needed." >&2
-                        rg -nU --pcre2 -S --glob 'modules/roles/**/*.nix' -e "$PATTERN" || true
-                        exit 1
-                      fi
-                    else
-                      if grep -R -n -E "$PATTERN" --include='*.nix' modules/roles >/dev/null 2>&1; then
-                        echo "✗ Forbidden usage: 'with config.flake.nixosModules.apps;' found in modules/roles/**/*.nix" >&2
-                        echo "  Use helpers: config.flake.lib.nixos.getApp/getApps (see docs/configuration-architecture.md)." >&2
-                        grep -R -n -E "$PATTERN" --include='*.nix' modules/roles || true
-                        exit 1
-                      fi
-                    fi
-                  '';
-                };
-              in
-              {
-                enable = true;
-                name = "forbid-with-apps-in-roles";
-                entry = lib.getExe checker;
-                pass_filenames = false;
-                always_run = true;
-                verbose = false;
-              };
           };
         };
       };

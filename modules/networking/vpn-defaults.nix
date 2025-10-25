@@ -1,6 +1,6 @@
 { lib, ... }:
 {
-  # VPN defaults for systems that opt in via the roles/net aggregator
+  # VPN defaults for systems that opt in via the vpn-defaults aggregator
   flake.nixosModules."vpn-defaults" = _: {
     # Enable necessary services for VPN functionality
     services.resolved.enable = lib.mkDefault true;
