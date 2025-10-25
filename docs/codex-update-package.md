@@ -11,10 +11,14 @@ This guide describes the exact steps for bumping `packages/codex/default.nix` to
 
 Use `nix-prefetch-github` so you get both the source hash and the SRI in one shot:
 
-```sh
-nix shell nixpkgs#nix-prefetch-github -c \
-  nix-prefetch-github openai codex --rev <commit>
-```
+1. Enter the dev shell (`nix develop`) so repo tools and cached credentials are available.
+2. Run the prefetcher:
+
+   ```sh
+   nix develop -c nix-prefetch-github openai codex --rev <commit>
+   ```
+
+   If `nix-prefetch-github` is missing from the dev shell, fall back to `nix shell nixpkgs#nix-prefetch-github -c nix-prefetch-github …`.
 
 Record the reported `hash` value—you will plug it into the derivation.
 
@@ -24,14 +28,15 @@ Record the reported `hash` value—you will plug it into the derivation.
 2. Replace the `hash` inside `fetchFromGitHub { ... }` with the SRI you just obtained.
 3. Leave `version = "0.0.0";` untouched because upstream still reports `codex-cli 0.0.0`.
 4. Temporarily set `cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";` to force Nix to emit the vendor hash on the next build.
-5. If the changelog URL includes the commit, ensure it lines up with the new `rev`.
+5. Capture the existing `cargoHash` value in your notes before you overwrite it; you will paste the new value later.
+6. If the changelog URL includes the commit, ensure it lines up with the new `rev`.
 
 ## 4. Recompute `cargoHash`
 
 Let Nix report the correct vendor hash—this is the authoritative value. After setting `cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";`, trigger a build:
 
 ```sh
-nix build .#packages.x86_64-linux.codex
+nix develop -c nix build .#packages.x86_64-linux.codex
 ```
 
 The build will fail with a fixed-output derivation mismatch and print both the placeholder and the expected SRI. Copy the `got:` value from that error message into `cargoHash` in `packages/codex/default.nix`. **Do not** attempt to recalculate the vendor hash via `cargo vendor`/`nix hash path`; those workflows can drift and waste time.

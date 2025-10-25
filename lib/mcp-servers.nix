@@ -19,7 +19,7 @@
     mcp.select {
       sequential-thinking = true;
       context7 = true;
-      deepwiki = { variant = "http"; startup_timeout_ms = 90000; };
+      deepwiki = { variant = "stdio"; startup_timeout_ms = 90000; };
     };
 */
 {
@@ -159,12 +159,15 @@ let
 
     external = {
       deepwiki = {
-        default = "remote";
+        default = "stdio";
         variants = {
-          remote = mkNpxRemote "https://mcp.deepwiki.com/mcp";
-          http = {
-            type = "http";
-            url = "https://mcp.deepwiki.com/mcp";
+          stdio = {
+            type = "stdio";
+            command = "npx";
+            args = [
+              "-y"
+              "mcp-deepwiki@latest"
+            ];
             startup_timeout_ms = defaultTimeoutMs;
           };
         };
