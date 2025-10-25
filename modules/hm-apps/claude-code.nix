@@ -23,7 +23,7 @@
       mcp = import ../../lib/mcp-servers.nix {
         inherit lib pkgs config;
         defaultVariants = {
-          deepwiki = "http";
+          deepwiki = "stdio";
         };
       };
 

@@ -1,8 +1,8 @@
 { lib, config, ... }:
 let
   # Flatten the import tree under `flake.nixosModules.apps` into a simple
-  # attribute set of name → module. This keeps roles fast and avoids probing the
-  # module system on every lookup.
+  # attribute set of name → module. This keeps host imports fast and avoids
+  # probing the module system on every lookup.
   sanitizeModule =
     module:
     if module == null then

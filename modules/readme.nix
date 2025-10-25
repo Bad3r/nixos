@@ -5,7 +5,7 @@
       "intro"
       "automatic-import"
       "aggregators"
-      "roles"
+      "system76"
 
       "devshell"
       "secrets"
@@ -76,55 +76,45 @@
         ''
           ## Module Aggregators
 
-          This flake exposes two mergeable aggregators:
+          Modules register themselves under two mergeable aggregators:
 
           - `flake.nixosModules`: NixOS modules (freeform, nested namespaces allowed)
           - `flake.homeManagerModules`: Home Manager modules (freeform; with `base`, `gui`, and per-app under `apps`)
 
-          Modules register themselves under these namespaces (e.g., `flake.nixosModules.workstation`, `flake.homeManagerModules.base`).
-          Composition uses named references, for example:
+          Composition now centers on the single System76 host, so imports reference the exact feature modules that machine needs:
 
           ```nix
-          { config, ... }:
+          { config, lib, ... }:
           {
-            configurations.nixos.myhost.module = {
-              imports = with config.flake.nixosModules; [ base workstation ];
+            configurations.nixos.system76.module = {
+              imports = lib.filter (module: module != null) [
+                (config.flake.nixosModules.base or null)
+                (config.flake.nixosModules."system76-support" or null)
+                (config.flake.nixosModules."hardware-lenovo-y27q-20" or null)
+              ];
             };
           }
           ```
 
-          Use `lib.hasAttrByPath` + `lib.getAttrFromPath` when selecting optional modules to avoid ordering issues.
+          Continue to use `lib.hasAttrByPath` and `lib.getAttrFromPath` when selecting optional modules to avoid ordering issues.
 
         '';
 
-      roles =
+      system76 =
         # markdown
         ''
-          ### Roles and App Composition
+          ### System76 Host Layout
 
-          - Roles are assembled from per-app modules under `flake.nixosModules.apps`, using `config.flake.lib.nixos.getApps` / `getApp` for lookups.
-          - Avoid lexical `with` over `config.flake.nixosModules.apps`; the helper namespace keeps evaluation pure and consistent.
-          - Import roles via `flake.nixosModules.roles.<name>` (for example, `.dev`, `.media`, `.net`).
+          All packages and services now live under `modules/system76/`. Each file contributes directly to `configurations.nixos.system76.module`, so the host is assembled from explicit feature modules rather than abstract roles.
 
-          Example host composition using the role namespace:
+          Highlights:
 
-          ```nix
-          { config, ... }:
-          {
-            configurations.nixos.system76.module = {
-              imports =
-                (with config.flake.nixosModules; [
-                  workstation
-                ])
-                ++ [
-                  config.flake.nixosModules.roles.dev
-                ];
-            };
-          }
-          ```
+          - `modules/system76/packages.nix` – core packages and unfree allow-list for the System76 laptop.
+          - `modules/system76/dev-languages.nix` – imports language toolchains via `flake.nixosModules.apps.<name>` for Python, Go, Rust, and Clojure.
+          - `modules/system76/home-manager-gui.nix` – wires the shared GUI Home Manager module and any extra app imports exposed by other modules.
+          - `modules/system76/security-tools.nix`, `modules/system76/sudo.nix`, `modules/system76/zsh.nix`, etc. – replace the old workstation bundle with host-scoped modules.
 
-          For a complete, type-correct composition plan and guidance, see
-          `docs/configuration-architecture.md`.
+          Because there is only one host (`configurations.nixos.system76`), you can follow the code in `modules/system76/` to understand exactly how the system is configured without navigating role indirection.
 
         '';
 
