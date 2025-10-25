@@ -14,10 +14,10 @@ The Dendritic Pattern treats every file under `modules/` as a flake-parts module
 
 This flake exposes two merge-friendly aggregators:
 
-| Namespace                  | Purpose                    | Typical Exports                                                           |
-| -------------------------- | -------------------------- | ------------------------------------------------------------------------- |
-| `flake.nixosModules`       | System-level configuration | `base`, `workstation`, `apps.<name>`, `roles.<name>`, `roles.dev` aliases |
-| `flake.homeManagerModules` | Home Manager configuration | `base`, `gui`, `apps.<name>`, secrets helpers                             |
+| Namespace                  | Purpose                    | Typical Exports                                              |
+| -------------------------- | -------------------------- | ------------------------------------------------------------ |
+| `flake.nixosModules`       | System-level configuration | `base`, `system76-support`, hardware profiles, `apps.<name>` |
+| `flake.homeManagerModules` | Home Manager configuration | `base`, `gui`, `apps.<name>`, secrets helpers                |
 
 Modules register themselves under these namespaces. Example (`modules/files/fzf.nix`):
 
@@ -36,16 +36,17 @@ Home Manager glue lives in `modules/home-manager/nixos.nix`: it imports the base
 Complete hosts live under `configurations.nixos.<name>.module`. The helper in `modules/configurations/nixos.nix` turns those definitions into `nixosConfigurations.<name>` outputs. Example (`modules/system76/imports.nix`):
 
 ```nix
-configurations.nixos.system76.module = {
-  imports = with config.flake.nixosModules; [
-    base
-    workstation
-    roles.dev
-  ];
-};
+{ config, lib, ... }:
+{
+  configurations.nixos.system76.module = {
+    imports = lib.filter (module: module != null) [
+      (config.flake.nixosModules.base or null)
+      (config.flake.nixosModules."system76-support" or null)
+      (config.flake.nixosModules."hardware-lenovo-y27q-20" or null)
+    ];
+  };
+}
 ```
-
-Use `config.flake.nixosModules.roles.dev` (and the other role modules) so host composition stays stable even if role internals change.
 
 ## Authoring Modules
 
@@ -62,16 +63,11 @@ Follow these rules when writing new modules:
 
 For detailed patterns (multi-namespace modules, extending existing namespaces, common pitfalls) reference `docs/module-structure-guide.md`.
 
-## Apps, Roles, and Lookups
+## Apps and Lookups
 
 - Per-app modules live under `flake.nixosModules.apps.<name>` and `flake.homeManagerModules.apps.<name>`.
 - Helper surface: `modules/meta/nixos-app-helpers.nix` exposes `config.flake.lib.nixos.{hasApp,getApp,getApps,getAppOr}`. Consume apps through this namespace instead of re-implementing `lib.hasAttrByPath`/`lib.getAttrFromPath` in each role.
-- Role modules (e.g. `modules/roles/dev.nix`) compose their imports with
-  ```nix
-  let getApps = config.flake.lib.nixos.getApps; in getApps [ "neovim" "httpie" ]
-  ```
-  Optional imports (such as shared VPN defaults) remain explicit with short comments.
-- Core roles under `flake.nixosModules.roles` (`dev`, `media`, `net`) mirror their import lists for host composition; reference them directly instead of duplicating the lists.
+- System76-specific modules import app bundles directly (see `modules/system76/dev-languages.nix`).
 - Home Manager defaults import a guarded app list defined in `modules/home-manager/nixos.nix`; edit that file when the baseline set changes.
 
 ## Tooling and Required Commands

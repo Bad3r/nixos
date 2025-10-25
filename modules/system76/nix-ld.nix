@@ -1,0 +1,124 @@
+{ config, lib, ... }:
+{
+  configurations.nixos.system76.module =
+    { pkgs, ... }:
+    {
+      programs.nix-ld = {
+        enable = true;
+        libraries =
+          with pkgs;
+          [
+            glibc
+            glib
+            openssl
+            nss
+            nspr
+            stdenv.cc.cc
+            stdenv.cc.cc.lib
+            zlib
+            curl
+            dbus
+            icu
+            libxml2
+            libxslt
+            freetype
+            fontconfig
+            gtk3
+            gdk-pixbuf
+            pango
+            cairo
+            atk
+            at-spi2-core
+            at-spi2-atk
+            xorg.libX11
+            xorg.libXrandr
+            xorg.libXext
+            xorg.libXfixes
+            xorg.libXcomposite
+            xorg.libXdamage
+            xorg.libxcb
+            xorg.libxshmfence
+            xorg.libXxf86vm
+            xorg.libXv
+            xorg.libXinerama
+            xorg.libXtst
+            mesa
+            libglvnd
+            libva
+            vulkan-loader
+            libdrm
+            libgbm
+            alsa-lib
+            cups
+            libxkbcommon
+            expat
+            systemd
+          ]
+          ++ lib.optionals (config.hardware.nvidia.modesetting.enable or false) [
+            config.hardware.nvidia.package
+          ];
+      };
+
+      environment = {
+        systemPackages = with pkgs; [
+          bash
+          gnutar
+          curl
+          wget
+          git
+          nodejs_24
+          gcc
+          gnumake
+          binutils
+          coreutils
+          gzip
+          xz
+          python3
+          procps
+          lsof
+        ];
+
+        variables = {
+          VSCODE_SERVER_TAR = "${pkgs.gnutar}/bin/tar";
+          NODE_PATH = "${pkgs.nodejs_24}/lib/node_modules";
+        };
+
+        etc."vscode-server-fix.sh" = {
+          text = ''
+            #!/usr/bin/env bash
+            # VSCode Server fix script for NixOS
+            # This helps VSCode Server find the correct Node.js binary
+
+            VSCODE_SERVER_DIR="$HOME/.vscode-server"
+
+            if [ -d "$VSCODE_SERVER_DIR" ]; then
+              echo "Fixing VSCode Server Node.js links..."
+
+              find "$VSCODE_SERVER_DIR" -name node -type f 2>/dev/null | while read -r node_path; do
+                node_dir=$(dirname "$node_path")
+
+                if [[ "$node_path" == *"/bin/"* ]]; then
+                  mv "$node_path" "$node_path.original" 2>/dev/null || true
+                  cat > "$node_path" << EOF
+            #!/usr/bin/env bash
+            # Wrapper to use system Node.js if the bundled one fails
+            if [ -f "\$(dirname "\$0")/node.original" ]; then
+              "\$(dirname "\$0")/node.original" "\$@" 2>/dev/null || ${pkgs.nodejs_24}/bin/node "\$@"
+            else
+              ${pkgs.nodejs_24}/bin/node "\$@"
+            fi
+            EOF
+                  chmod +x "$node_path"
+                fi
+              done
+
+              echo "VSCode Server fix applied successfully."
+            else
+              echo "VSCode Server directory not found. Run this script after connecting with VSCode Remote SSH."
+            fi
+          '';
+          mode = "0755";
+        };
+      };
+    };
+}

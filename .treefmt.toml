@@ -1,11 +1,11 @@
 [formatter.nixfmt]
-command = "/nix/store/d6vcnkwxzsx8rh19kx0fk95z3lzalpa1-nixfmt-1.1.0/bin/nixfmt"
+command = "/nix/store/w5fdhasggwfnfvwg9a6qc2wfczm4bn4j-nixfmt-1.1.0/bin/nixfmt"
 excludes = []
 includes = ["*.nix"]
 options = []
 
 [formatter.prettier]
-command = "/nix/store/6all2hvcnqjwbgi8nhdrffbydv7np5vx-prettier-3.6.2/bin/prettier"
+command = "/nix/store/y5kkm989vglkkzgjdyr67absz2885d4f-prettier-3.6.2/bin/prettier"
 excludes = ["README.md"]
 includes = [
     "*.cjs",
@@ -28,10 +28,10 @@ includes = [
 options = ["--write"]
 
 [formatter.shfmt]
-command = "/nix/store/5sb3kw3ll26xz84dpfpk78s2fhaw8vpp-shfmt-3.12.0/bin/shfmt"
+command = "/nix/store/n4k1wp0nkcw97xi5vhr007gvf252pcma-shfmt-3.12.0/bin/shfmt"
 excludes = []
 includes = ["*.sh", "*.bash", "*.envrc", "*.envrc.*"]
-options = ["-s", "-w", "-i", "2"]
+options = ["-w", "-i", "2", "-s"]
 
 [global]
 excludes = [

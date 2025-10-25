@@ -2,7 +2,7 @@
 
 This document provides a single source of truth for how the repository’s NixOS and Home Manager configuration fits together. It consolidates material from existing guides (`dendritic-pattern-reference.md`, `module-structure-guide.md`, `home-manager-aggregator.md`, and others) and adds actionable references, commands, and resource links for deeper exploration.
 
-> **Audience.** Engineers who need to extend modules, add roles or hosts, wire secrets, or run validation tooling across this repository.
+> **Audience.** Engineers who need to extend modules, adjust the System76 host, wire secrets, or run validation tooling across this repository.
 
 ---
 
@@ -39,30 +39,35 @@ All modules feed into `flake.nixosModules` and supporting helpers so that hosts 
 - **Per-app module pattern:** `modules/apps/<app>.nix` (see `modules/apps/codex.nix`, `modules/apps/dnsleak.nix`) adds packages to `environment.systemPackages` and optionally registers per-system packages.
 - **Style guidance:** `docs/apps-module-style-guide.md` documents the header comment and module body conventions (two-space indent, documentation block, etc.).
 
-**Example – use the helper inside a role:**
+**Example – pull app modules into the System76 profile:**
 
 ```nix
-{ config, lib, ... }:
-let
-  getApps = config.flake.lib.nixos.getApps;
-in {
-  flake.nixosModules.roles.dev.imports = getApps [ "neovim" "httpie" "git" ];
+{ config, ... }:
+{
+  configurations.nixos.system76.module.imports =
+    config.flake.lib.nixos.getApps [
+      "python"
+      "uv"
+      "ruff"
+      "pyright"
+    ];
 }
 ```
 
-### 2.2 Role registry
+### 2.2 System76 host modules
 
-- **Helper:** `modules/meta/nixos-role-helpers.nix` exports `getRole`, `getRoles`, and `getRoleOr`, flattening nested role modules (including ones emitted by this repo and any referenced flakes).
-- **Role modules:** `modules/roles/*.nix` (for example `roles/base.nix`, `roles/dev.nix`, `roles/net.nix`) resolve app bundles through helpers, keeping lists in one place.
+- Every file under `modules/system76/` contributes directly to `configurations.nixos.system76.module`.
+- Feature modules are organized by concern (`packages.nix`, `security-tools.nix`, `pipewire.nix`, `home-manager-gui.nix`, and others) so the host profile reads like a manifest of explicit features instead of an opaque bundle.
+- Language toolchains import app modules via `modules/system76/dev-languages.nix`, keeping the existing app registry reusable without an intermediate role layer.
 
-### 2.3 Workstation bundle
+### 2.3 Shared system helpers
 
-- `modules/workstation.nix` orchestrates base + resolved roles + language stacks (Python, Go, Rust, Clojure via `getApps`) and optionally augments Home Manager shared modules when GUI bundles exist.
-- Missing roles are logged with `lib.warn`, so evaluation continues but the log pinpoints gaps.
+- Hardware profiles exposed via `flake.nixosModules."system76-support"` and `flake.nixosModules."hardware-lenovo-y27q-20"` remain available for hosts to import directly.
+- Virtualization helpers under `modules/virtualization/*.nix` publish `{virt,docker,libvirt,vmware,ovftool}` entries so the System76 profile can opt into specific stacks.
 
 ### 2.4 System-level utilities
 
-- `modules/meta/ci.nix` adds structural checks ensuring dev/media/net roles exist and helpers (`getApp`, etc.) are available.
+- `modules/meta/ci.nix` validates that the app helper namespace (`config.flake.lib.nixos`) exposes `getApp`, `getApps`, `getAppOr`, and `hasApp`.
 - `modules/files.nix` integrates the mightyiam/files writer to regenerate managed artefacts (for example `README.md`, `.sops.yaml`).
 
 ---
@@ -100,9 +105,9 @@ The dev shell keeps evaluation tools lightweight; if you prefer a `home-manager`
 
 Host definitions live under `configurations.nixos.<host>.module` (typed as `lib.types.deferredModule` in `modules/configurations/nixos.nix`). The System76 stack demonstrates the pattern:
 
-1. `modules/system76/imports.nix` collects base modules (`nixos-hardware` system76 profiles, `workstation`, security helpers, display profiles) and role modules listed in `roleNames`.
-2. Feature-specific files (`modules/system76/hardware-config.nix`, `services.nix`, `packages.nix`, `home-manager-apps.nix`, `hostname.nix`, etc.) extend `configurations.nixos.system76.module`.
-3. The `flake` attribute in `imports.nix` exports `nixosConfigurations.system76`, propagating `system.configurationRevision` when available.
+1. `modules/system76/imports.nix` collects baseline modules (System76 hardware profiles, shared security helpers, the Lenovo monitor profile, virtualization helpers) and exposes the resulting host under `configurations.nixos.system76.module`.
+2. Feature-specific files (`modules/system76/security-tools.nix`, `packages.nix`, `pipewire.nix`, `home-manager-gui.nix`, `hostname.nix`, etc.) extend `configurations.nixos.system76.module` directly.
+3. The `flake` attribute in `imports.nix` exports `nixosConfigurations.system76`, propagating `system.configurationRevision` when the `self` input provides one.
 
 **Add a new host (checklist):**
 
@@ -149,7 +154,7 @@ nix flake check --accept-flake-config
 Additional diagnostics:
 
 - `nix eval .#nixosConfigurations.system76.config.boot.loader` – introspect host options.
-- `nix develop -c nix repl --expr 'import ./.` followed by `:p config.flake.nixosModules.roles.dev` – view resolved role modules.
+- `nix develop -c nix repl --expr 'import ./.` followed by `:p config.configurations.nixos.system76.module.imports` – inspect the assembled host profile.
 - `rg --files` or `rg "flake.nixosModules" -n modules` – explore module exports (ripgrep preferred for speed).
 
 ---
@@ -159,7 +164,7 @@ Additional diagnostics:
 | Scenario                  | Steps                                                                                                                                  |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Missing app reference     | Use `config.flake.lib.nixos.hasApp "app-name"` inside a module, or run `nix eval '.#flake.nixosModules.apps'` and search for your key. |
-| Helper assertion failures | See `flake.checks.role-modules-*` from `modules/meta/ci.nix`; run `nix flake check` to surface errors with context.                    |
+| Helper assertion failures | See `flake.checks.helpers-exist` from `modules/meta/ci.nix`; run `nix flake check` to surface errors with context.                     |
 | Managed file drift        | Run `write-files` (from dev shell) then `git diff` to reconcile generated artefacts.                                                   |
 | Unfree package blocked    | Add the package name to `config.nixpkgs.allowedUnfreePackages` via `modules/meta/nixpkgs-allowed-unfree.nix`.                          |
 
@@ -204,14 +209,8 @@ nix develop -c gh-actions-run -n
 
 1. Scaffold `modules/apps/<name>.nix` using the style guide.
 2. Register optional per-system packages through `perSystem`.
-3. Extend roles (if desired) via `modules/roles/<role>.nix` using `getApps`.
+3. Extend `modules/system76/dev-languages.nix` (or another host module) if the System76 profile should import it by default.
 4. Run `nix fmt` and `pre-commit run --all-files`.
-
-### 9.2 Introduce a new role
-
-1. Create `modules/roles/<role>.nix`; use `config.flake.lib.nixos.getApps`.
-2. Update `modules/workstation.nix` (or target hosts) if the role is part of default bundles.
-3. Re-run `nix flake check` to satisfy helper assertions.
 
 ### 9.3 Define a new host
 
