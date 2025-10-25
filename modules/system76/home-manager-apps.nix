@@ -3,7 +3,7 @@ let
   extraAppNames = [
     "bitwarden"
     "claude-code"
-    "copyq"
+    # "copyq"
     "discord"
     "dive"
     "docker-compose"

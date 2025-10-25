@@ -378,7 +378,7 @@
             ];
           };
 
-          programs.git.extraConfig.ghq.root = lib.mkOverride 10 cfg.root;
+          programs.git.settings.ghq.root = lib.mkOverride 10 cfg.root;
 
           systemd.user.services."ghq-mirror" = {
             Unit = {
