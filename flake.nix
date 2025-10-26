@@ -202,6 +202,11 @@
       _module.args = {
         rootPath = ./.;
         inherit inputs;
+        homeManagerModules =
+          let
+            selfFlake = builtins.getFlake (toString ./.);
+          in
+          selfFlake.outputs.homeManagerModules or { };
         pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
       };
     };

@@ -5,6 +5,45 @@
   ...
 }:
 let
+  sanitizeModulesAttrset =
+    modules:
+    if modules == null then
+      null
+    else if builtins.isAttrs modules then
+      lib.mapAttrs (_: sanitizeModule) modules
+    else
+      modules;
+
+  sanitizeFlake =
+    flakeAttrs:
+    if flakeAttrs == null || !(builtins.isAttrs flakeAttrs) then
+      null
+    else
+      let
+        sanitizedLib =
+          if flakeAttrs ? lib && builtins.isAttrs flakeAttrs.lib then
+            let
+              allowedLibKeys = [
+                "meta"
+                "nixos"
+                "roleExtras"
+              ];
+            in
+            lib.filterAttrs (name: _: lib.elem name allowedLibKeys) flakeAttrs.lib
+          else
+            null;
+        result =
+          {
+            homeManagerModules = sanitizeModulesAttrset (flakeAttrs.homeManagerModules or null);
+            nixosModules = sanitizeModulesAttrset (flakeAttrs.nixosModules or null);
+          }
+          // lib.optionalAttrs (sanitizedLib != null && sanitizedLib != { }) {
+            lib = sanitizedLib;
+          };
+        cleaned = lib.filterAttrs (_: value: value != null) result;
+      in
+      if cleaned == { } then null else cleaned;
+
   sanitizeModule =
     module:
     if module == null then
@@ -12,9 +51,16 @@ let
     else if lib.isFunction module then
       module
     else if builtins.isAttrs module then
-      builtins.removeAttrs module [
-        "flake"
-      ]
+      let
+        base = builtins.removeAttrs module [
+          "flake"
+        ];
+        flakeValue = if module ? flake then sanitizeFlake module.flake else null;
+      in
+      base
+      // lib.optionalAttrs (flakeValue != null) {
+        flake = flakeValue;
+      }
     else
       null;
 
@@ -25,9 +71,16 @@ let
     else if lib.isFunction value then
       value
     else if builtins.isAttrs value then
-      builtins.removeAttrs value [
-        "flake"
-      ]
+      let
+        base = builtins.removeAttrs value [
+          "flake"
+        ];
+        flakeValue = if value ? flake then sanitizeFlake value.flake else null;
+      in
+      base
+      // lib.optionalAttrs (flakeValue != null) {
+        flake = flakeValue;
+      }
     else
       value;
 
@@ -44,11 +97,12 @@ let
           [ value ]
         else if builtins.isAttrs value then
           let
-            cleaned = builtins.removeAttrs value [
+            sanitized = sanitizeModule value;
+            cleaned = builtins.removeAttrs sanitized [
               "imports"
               "_file"
             ];
-            nested = go (value.imports or [ ]);
+            nested = go (sanitized.imports or [ ]);
             keep = cleaned != { };
           in
           (if keep then [ cleaned ] else [ ]) ++ nested
@@ -197,65 +251,64 @@ let
             inherit visited;
           }
         else if builtins.isAttrs module then
-          let
-            key = if module ? _file then builtins.hashString "sha256" (toString module._file) else null;
-            seen = if key != null then visited ? key else false;
-            visited' =
-              if key != null then
-                visited
-                // {
+        let
+          key = if module ? _file then builtins.hashString "sha256" (toString module._file) else null;
+          seen = if key != null then visited ? key else false;
+          visited' =
+            if key != null then
+              visited
+              // {
                   "${key}" = true;
-                }
-              else
-                visited;
-            direct = lib.filterAttrs (
-              name: _:
-              !(lib.elem name [
-                "_file"
-                "imports"
-                "flake"
-              ])
-            ) module;
-            sanitizedDirect = lib.mapAttrs (_: sanitizeModule) direct;
-            imported = module.imports or [ ];
-            merge =
-              acc: value:
-              let
-                res = go path value acc.visited;
-              in
+              }
+            else
+              visited;
+          sanitizedModule = sanitizeModule module;
+          direct = lib.filterAttrs (
+            name: _:
+            !(lib.elem name [
+              "_file"
+              "imports"
+            ])
+          ) sanitizedModule;
+          imported = module.imports or [ ];
+          merge =
+            acc: value:
+            let
+              res = go path value acc.visited;
+            in
               {
                 result = mergeAttrsets acc.result res.result;
                 modules = acc.modules // res.modules;
                 inherit (res) visited;
               };
-            dotted = if path == [ ] then null else lib.concatStringsSep "." path;
-            moduleEntry =
-              if dotted == null then
-                { }
-              else
-                {
-                  "${dotted}" = module;
-                };
-            childEntries = lib.foldlAttrs (
-              accModules: childName: _:
-              let
-                childPath = path ++ [ childName ];
-                dottedChild = lib.concatStringsSep "." childPath;
-                childValue = lib.getAttrFromPath [ childName ] module;
-              in
-              if dottedChild == "" || childValue == null then
-                accModules
-              else
-                accModules
+          dotted = if path == [ ] then null else lib.concatStringsSep "." path;
+          moduleEntry =
+            if dotted == null then
+              { }
+            else
+              {
+                "${dotted}" = sanitizedModule;
+              };
+          childEntries = lib.foldlAttrs (
+            accModules: childName: _:
+            let
+              childPath = path ++ [ childName ];
+              dottedChild = lib.concatStringsSep "." childPath;
+              childValue = lib.getAttrFromPath [ childName ] sanitizedModule;
+            in
+            if dottedChild == "" || childValue == null then
+              accModules
+            else
+              accModules
                 // {
                   "${dottedChild}" = childValue;
                 }
             ) { } direct;
-            acc0 = {
-              result = sanitizedDirect;
-              modules = moduleEntry // childEntries;
-              visited = visited';
-            };
+          acc0 = {
+            result = direct;
+            modules = moduleEntry // childEntries;
+            visited = visited';
+          };
             accFinal =
               if seen then
                 acc0
@@ -296,8 +349,21 @@ let
             let
               newPath = path ++ [ name ];
               dotted = lib.concatStringsSep "." newPath;
+              rawModuleCandidate = moduleLookup."${dotted}" or null;
+              rawModule = if rawModuleCandidate != null then rawModuleCandidate else getRawRoleModule newPath;
+              sanitizedValue = sanitizeModule value;
+              sanitizedRaw =
+                if rawModule != null && builtins.isAttrs rawModule then
+                  sanitizeModule rawModule
+                else
+                  null;
+              baseValue =
+                if sanitizedRaw != null then
+                  lib.recursiveUpdate sanitizedRaw sanitizedValue
+                else
+                  sanitizedValue;
               nestedCandidates = lib.filterAttrs (_: v: builtins.isAttrs v) (
-                builtins.removeAttrs value [
+                builtins.removeAttrs baseValue [
                   "metadata"
                   "imports"
                   "flake"
@@ -306,12 +372,35 @@ let
               nested = go newPath nestedCandidates;
               current =
                 let
-                  hasMetadata = value ? metadata;
+                  hasMetadata = sanitizedValue ? metadata;
                   children = lib.attrNames nestedCandidates;
                   isLeaf = children == [ ];
                   sanitizedImports = computeImports moduleLookup newPath;
+                  importsFlake =
+                    let
+                      flakeModules = lib.filter (
+                        value:
+                        builtins.isAttrs value
+                        && value ? flake
+                        && builtins.isAttrs value.flake
+                      ) sanitizedImports;
+                    in
+                    lib.foldl' lib.recursiveUpdate { } (map (value: value.flake) flakeModules);
+                  baseFlake =
+                    if baseValue ? flake && builtins.isAttrs baseValue.flake then
+                      baseValue.flake
+                    else
+                      { };
+                  combinedFlake =
+                    let
+                      merged = lib.recursiveUpdate baseFlake importsFlake;
+                    in
+                    if merged == { } then null else merged;
                   valueWithImports =
-                    value
+                    baseValue
+                    // lib.optionalAttrs (combinedFlake != null) {
+                      flake = combinedFlake;
+                    }
                     // lib.optionalAttrs (sanitizedImports != [ ]) {
                       imports = sanitizedImports;
                     };

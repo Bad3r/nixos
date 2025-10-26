@@ -52,6 +52,7 @@ let
   ];
   workstationProfile = getProfile "workstation";
   baseModules = lib.filter (module: module != null) [
+    (getModule "base")
     inputs.nixos-hardware.nixosModules.system76
     inputs.nixos-hardware.nixosModules.system76-darp6
     (getModule "packages")
@@ -70,6 +71,9 @@ let
       "vmware"
     ]
   );
+  hmBundleFromRole = flake.homeManagerModules or { };
+  hmBundleFromSelf = (inputs.self.outputs or { }).homeManagerModules or { };
+  hmBundle = lib.recursiveUpdate hmBundleFromSelf hmBundleFromRole;
   selfRevision =
     let
       self = inputs.self or null;
@@ -86,6 +90,8 @@ in
 {
   configurations.nixos.system76.module = {
     _module.check = false;
+    _module.args.homeManagerModules = lib.mkIf (hmBundle != { }) (lib.mkDefault hmBundle);
+    flake.homeManagerModules = lib.mkIf (hmBundle != { }) (lib.mkDefault hmBundle);
     imports =
       baseModules
       ++ virtualizationModules
