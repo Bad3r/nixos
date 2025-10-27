@@ -94,6 +94,15 @@
       };
     };
 
+    "burpsuite-pro-flake" = {
+      url = "gitlab:_VX3r/burpsuite-pro-flake";
+      inputs = {
+        flake-parts.follows = "flake-parts";
+        nixpkgs.follows = "nixpkgs";
+        treefmt-nix.follows = "treefmt-nix";
+      };
+    };
+
     smart-scrolloff-nvim = {
       flake = false;
       url = "github:tonymajestro/smart-scrolloff.nvim";

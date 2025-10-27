@@ -68,6 +68,32 @@
         "type": "github"
       }
     },
+    "burpsuite-pro-flake": {
+      "inputs": {
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "treefmt-nix": [
+          "treefmt-nix"
+        ]
+      },
+      "locked": {
+        "lastModified": 1761562384,
+        "narHash": "sha256-BloznQAweuN1/A81GF0s+DpSy3juidEql52FVUB9jN8=",
+        "owner": "_VX3r",
+        "repo": "burpsuite-pro-flake",
+        "rev": "eb06d771fe811174ed2873e6be6b0071ef96b653",
+        "type": "gitlab"
+      },
+      "original": {
+        "owner": "_VX3r",
+        "repo": "burpsuite-pro-flake",
+        "type": "gitlab"
+      }
+    },
     "cloudflare-go": {
       "flake": false,
       "locked": {
@@ -177,11 +203,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1761479076,
-        "narHash": "sha256-cWcCAi3+2MXUXv2f6Vu6ISwIc2GSmMskC6MjsJ4vUng=",
+        "lastModified": 1761562282,
+        "narHash": "sha256-sEDRZPp2HKj4+8Wc0nMXCKKOvPKaiTUNlA1zeJfz9H8=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "e7f9e5caa2bafe3d6ce4425a60a6005586b692b2",
+        "rev": "ae00f8adb10c16be1120613b95fb9ea727216233",
         "type": "github"
       },
       "original": {
@@ -420,11 +446,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1761468550,
-        "narHash": "sha256-nY4vyN1QdHhC5Gj3545fI2Y7FSr/gs8ID4gPmF8HPww=",
+        "lastModified": 1761530345,
+        "narHash": "sha256-+9+YCK9Lh6GThkXu/8JTxMFUnImIdZpb8ElUh6/F5Y8=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "1830716059bfee7cbcfbfcc38d7be98e482a5762",
+        "rev": "bbaeb9f1c29e79bb1653b32c3d73244cdf4bd888",
         "type": "github"
       },
       "original": {
@@ -597,11 +623,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1761349956,
-        "narHash": "sha256-tH3wHnOJms+U4k/rK2Nn1RfBrhffX92jLP/2VndSn0w=",
+        "lastModified": 1761440988,
+        "narHash": "sha256-2qsow3cQIgZB2g8Cy8cW+L9eXDHP6a1PsvOschk5y+E=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "02f2cb8e0feb4596d20cc52fda73ccee960e3538",
+        "rev": "de69d2ba6c70e747320df9c096523b623d3a4c35",
         "type": "github"
       },
       "original": {
@@ -625,11 +651,11 @@
         "systems": "systems_2"
       },
       "locked": {
-        "lastModified": 1761433380,
-        "narHash": "sha256-fuaDQWenfWv2HmlDUPTbfjaKSSBpwvjiQqoE0XN8tWA=",
+        "lastModified": 1761534198,
+        "narHash": "sha256-yZq2tC5GYqfDBYK97Yx+950ZbMJNI2j0AbPE/wz+FkM=",
         "owner": "nix-community",
         "repo": "nixvim",
-        "rev": "24d2ac2373598c032f37d70c46803feefd169084",
+        "rev": "5da380555961da4f06fd88cccea218db3558def4",
         "type": "github"
       },
       "original": {
@@ -672,6 +698,7 @@
     },
     "root": {
       "inputs": {
+        "burpsuite-pro-flake": "burpsuite-pro-flake",
         "cloudflare-go": "cloudflare-go",
         "cloudflare-python": "cloudflare-python",
         "cloudflare-rs": "cloudflare-rs",
