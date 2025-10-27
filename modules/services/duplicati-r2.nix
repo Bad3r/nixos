@@ -619,13 +619,25 @@ let
                     systemctl daemon-reload
 
                     for timer in "''${backup_timers[@]}"; do
-                      systemctl enable --runtime "$timer" >/dev/null 2>&1 || true
-                      systemctl start "$timer" >/dev/null 2>&1 || true
+                      if ! systemctl enable --runtime "$timer" >/dev/null; then
+                        echo "Failed to enable systemd timer $timer" >&2
+                        exit 1
+                      fi
+                      if ! systemctl start "$timer" >/dev/null; then
+                        echo "Failed to start systemd timer $timer" >&2
+                        exit 1
+                      fi
                     done
 
                     for timer in "''${verify_timers[@]}"; do
-                      systemctl enable --runtime "$timer" >/dev/null 2>&1 || true
-                      systemctl start "$timer" >/dev/null 2>&1 || true
+                      if ! systemctl enable --runtime "$timer" >/dev/null; then
+                        echo "Failed to enable systemd timer $timer" >&2
+                        exit 1
+                      fi
+                      if ! systemctl start "$timer" >/dev/null; then
+                        echo "Failed to start systemd timer $timer" >&2
+                        exit 1
+                      fi
                     done
         '';
       };
