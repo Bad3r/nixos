@@ -91,6 +91,8 @@
 
             VSCODE_SERVER_DIR="$HOME/.vscode-server"
 
+            set -euo pipefail
+
             if [ -d "$VSCODE_SERVER_DIR" ]; then
               echo "Fixing VSCode Server Node.js links..."
 
@@ -98,7 +100,13 @@
                 node_dir=$(dirname "$node_path")
 
                 if [[ "$node_path" == *"/bin/"* ]]; then
-                  mv "$node_path" "$node_path.original" 2>/dev/null || true
+                  backup="$node_path.original"
+                  if [ ! -e "$backup" ]; then
+                    if ! mv "$node_path" "$backup"; then
+                      echo "Failed to back up $node_path" >&2
+                      exit 1
+                    fi
+                  fi
                   cat > "$node_path" << EOF
             #!/usr/bin/env bash
             # Wrapper to use system Node.js if the bundled one fails
