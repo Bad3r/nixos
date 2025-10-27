@@ -12,7 +12,6 @@
         "video" # Video devices
         "dialout" # Serial ports
         "render" # GPU acceleration
-        "wireshark" # Packet capture
       ];
 
       # SSH authorized keys for remote access

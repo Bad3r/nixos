@@ -5,12 +5,21 @@
   ...
 }:
 let
+  metaOwner = import ../../lib/meta-owner-profile.nix;
   nixosConfigs = lib.flip lib.mapAttrs config.configurations.nixos (
     _name:
     { module }:
     inputs.nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
-      modules = [ module ];
+      modules = [
+        {
+          _module.args.metaOwner = metaOwner;
+        }
+        module
+      ];
+      specialArgs = {
+        inherit metaOwner;
+      };
     }
   );
   checksMap = lib.attrValues (
