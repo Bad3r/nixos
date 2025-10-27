@@ -1,4 +1,4 @@
-# modules/video-player.nix (experimental HM config)
+# mpv Home Manager module
 {
   flake.homeManagerModules.gui =
     { pkgs, ... }:
