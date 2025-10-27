@@ -27,6 +27,7 @@ let
     "ripgrep"
     "ripgrep-all"
     "nixvim"
+    "pentesting-devshell"
     "signal-desktop"
     "skim"
     # "slack"

@@ -22,9 +22,23 @@
 
 {
   flake.nixosModules.apps.wireshark =
-    { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.wireshark ];
-    };
+      lib,
+      pkgs,
+      metaOwner,
+      ...
+    }:
+    let
+      owner = metaOwner.username or (throw "Wireshark module: expected metaOwner.username to be defined");
+      baseConfig = {
+        users.groups.wireshark = { };
+
+        environment.systemPackages = [ pkgs.wireshark ];
+      };
+      ownerMembership = {
+        users.users.${owner}.extraGroups = lib.mkAfter [ "wireshark" ];
+      };
+    in
+    lib.recursiveUpdate baseConfig ownerMembership;
 
 }
