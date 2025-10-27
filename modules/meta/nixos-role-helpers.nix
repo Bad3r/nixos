@@ -5,8 +5,6 @@
   ...
 }:
 let
-  enableTrace = builtins.getEnv "DEBUG_ROLES" == "1";
-  traceValue = msg: value: if enableTrace then builtins.trace msg value else value;
   sanitizeModule =
     module:
     if module == null then
@@ -22,13 +20,11 @@ let
               "imports"
             ];
           in
-          traceValue ("sanitizeModule has flake? " + (if module ? flake then "yes" else "no")) stripped;
+          stripped;
         imported = module.imports or [ ];
         sanitizedImports = lib.filter (m: m != null) (map sanitizeModule imported);
       in
-      traceValue (
-        "sanitizeModule direct keys: " + lib.concatStringsSep ", " (lib.attrNames cleaned)
-      ) cleaned
+      cleaned
       // lib.optionalAttrs (sanitizedImports != [ ]) {
         imports = sanitizedImports;
       }
@@ -53,21 +49,13 @@ let
         sanitizedDirect = lib.mapAttrs (
           name: value: if name == "flake" then value else sanitizeModule value
         ) direct;
-        tracedSanitizedDirect =
-          if sanitizedDirect ? flake then
-            traceValue (
-              "flattenRoles preserved flake keys: "
-              + lib.concatStringsSep ", " (lib.attrNames sanitizedDirect.flake)
-            ) sanitizedDirect
-          else
-            sanitizedDirect;
         imported = module.imports or [ ];
         merge = acc: value: acc // flattenRoles value;
-        merged = lib.foldl' merge tracedSanitizedDirect (
+        merged = lib.foldl' merge sanitizedDirect (
           if builtins.isList imported then imported else [ imported ]
         );
       in
-      traceValue ("flattenRoles merged keys: " + lib.concatStringsSep ", " (lib.attrNames merged)) merged
+      merged
     else
       { };
 
@@ -82,9 +70,7 @@ let
           let
             roles = flattenRoles config.flake.nixosModules.roles;
           in
-          traceValue (
-            "availableRoles.fromConfig keys: " + lib.concatStringsSep ", " (lib.attrNames roles)
-          ) roles
+          roles
         else
           { };
       fromSelf =
@@ -95,15 +81,11 @@ let
           let
             roles = flattenRoles (lib.getAttrFromPath [ "roles" ] selfModules);
           in
-          traceValue (
-            "availableRoles.fromSelf keys: " + lib.concatStringsSep ", " (lib.attrNames roles)
-          ) roles
+          roles
         else
           { };
     in
-    traceValue (
-      "availableRoles keys: " + lib.concatStringsSep ", " (lib.attrNames (fromConfig // fromSelf))
-    ) (fromConfig // fromSelf);
+    fromConfig // fromSelf;
 
   roleHelpers = rec {
     hasRole = name: builtins.hasAttr name availableRoles;

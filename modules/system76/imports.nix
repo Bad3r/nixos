@@ -15,15 +15,8 @@ let
       nestedBase =
         lib.hasAttrByPath [ "content" "content" name ] attrs
         && lib.hasAttrByPath [ "content" name "imports" ] attrs.content;
-      message =
-        "system76 moduleNamespace "
-        + name
-        + ": "
-        + (if direct then "direct " else "")
-        + (if content then "content " else "")
-        + (if nestedBase then "nested " else "");
     in
-    builtins.trace message (direct || content || nestedBase);
+    direct || content || nestedBase;
   flakeNixosModulesBootstrap = import ./flake-nixosModules-bootstrap.nix;
   fallbackEval = lib.evalModules {
     modules = [
@@ -44,11 +37,8 @@ let
   nixosModulesFromConfig =
     let
       value = flake.nixosModules or { };
-      message =
-        "system76 nixos modules keys: "
-        + (if value != { } then builtins.concatStringsSep ", " (builtins.attrNames value) else "<empty>");
     in
-    builtins.trace message value;
+    value;
   nixosModulesFromSelf = if selfFlake != null then (selfFlake.nixosModules or { }) else { };
   nixosModules =
     if nixosModulesFromConfig != { } && moduleNamespace nixosModulesFromConfig "base" then
@@ -60,44 +50,14 @@ let
   homeManagerModulesFromConfig =
     let
       value = flake.homeManagerModules or { };
-      keysMessage =
-        "system76 hmModulesFromConfig keys: "
-        + (if value == { } then "<empty>" else builtins.concatStringsSep ", " (builtins.attrNames value));
-      baseMessage =
-        "system76 hm config has base: "
-        + (if value != { } && moduleNamespace value "base" then "yes" else "no");
     in
-    builtins.trace baseMessage (builtins.trace keysMessage value);
+    value;
   homeManagerModulesFromSelf =
     if selfFlake != null then (selfFlake.homeManagerModules or { }) else { };
   mergedHomeManagerModules =
     fallbackHomeManagerModules // homeManagerModulesFromSelf // homeManagerModulesFromConfig;
-  homeManagerModules =
-    let
-      keys =
-        if mergedHomeManagerModules == { } then
-          "<empty>"
-        else
-          builtins.concatStringsSep ", " (builtins.attrNames mergedHomeManagerModules);
-      keysMessage = "system76 hm modules keys: " + keys;
-      finalMessage = "system76 hm keys before returning module: " + keys;
-    in
-    builtins.trace finalMessage (builtins.trace keysMessage mergedHomeManagerModules);
   hasModule = name: lib.hasAttr name nixosModules;
-  getModule =
-    name:
-    let
-      hmKeys =
-        if homeManagerModules == { } then
-          "<empty>"
-        else
-          builtins.concatStringsSep ", " (builtins.attrNames homeManagerModules);
-      messagePrefix = "system76 getModule(" + name + ") hm keys: " + hmKeys + " -> ";
-    in
-    if hasModule name then
-      builtins.trace (messagePrefix + "hit") (lib.getAttr name nixosModules)
-    else
-      builtins.trace (messagePrefix + "miss") null;
+  getModule = name: if hasModule name then lib.getAttr name nixosModules else null;
   roleHelpers =
     (config.flake.lib.nixos.roles or { }) // (config._module.args.nixosRoleHelpers or { });
   getRoleModule =
@@ -105,18 +65,11 @@ let
     let
       getRole = roleHelpers.getRole or (_: null);
       roleValue = getRole name;
-      hmKeys =
-        if homeManagerModules == { } then
-          "<empty>"
-        else
-          builtins.concatStringsSep ", " (builtins.attrNames homeManagerModules);
     in
     if roleValue != null then
-      builtins.trace ("system76 getRoleModule(" + name + ") hm keys: " + hmKeys + " -> helper") roleValue
+      roleValue
     else if lib.hasAttrByPath [ "roles" name ] nixosModules then
-      builtins.trace ("system76 getRoleModule(" + name + ") hm keys: " + hmKeys + " -> flake") (
-        lib.getAttrFromPath [ "roles" name ] nixosModules
-      )
+      lib.getAttrFromPath [ "roles" name ] nixosModules
     else
       throw (
         "system76 host requires role " + name + " but it was not found in helpers or flake.nixosModules"
@@ -147,15 +100,10 @@ let
     let
       value = getModule "base";
     in
-    builtins.trace ("system76 baseModule present: " + (if value == null then "no" else "yes")) value;
+    value;
   flakeInitModule = _: {
     flake = lib.mkDefault { };
   };
-  traceModule =
-    name: module:
-    builtins.trace (
-      "system76 baseModules includes " + name + ": " + (if module == null then "null" else "set")
-    ) module;
   bundleFlagModule =
     {
       lib,
@@ -167,25 +115,17 @@ let
   baseModulesRaw = [
     flakeNixosModulesBootstrap
     flakeInitModule
-    (traceModule "base" baseModule)
+    baseModule
     bundleFlagModule
-    (traceModule "inputs.hw.system76" inputs.nixos-hardware.nixosModules.system76)
-    (traceModule "inputs.hw.system76-darp6" inputs.nixos-hardware.nixosModules.system76-darp6)
-    (traceModule "workstation" workstationModule)
-    (traceModule "system76-support" (getModule "system76-support"))
-    (traceModule "hardware-lenovo-y27q-20" (getModule "hardware-lenovo-y27q-20"))
-    (traceModule "duplicati-r2" (getModule "duplicati-r2"))
-    (traceModule "virt" (getModule "virt"))
+    inputs.nixos-hardware.nixosModules.system76
+    inputs.nixos-hardware.nixosModules.system76-darp6
+    workstationModule
+    (getModule "system76-support")
+    (getModule "hardware-lenovo-y27q-20")
+    (getModule "duplicati-r2")
+    (getModule "virt")
   ];
-  baseModules = builtins.trace (
-    "system76 hm keys after baseModules: "
-    + (
-      if homeManagerModules == { } then
-        "<empty>"
-      else
-        builtins.concatStringsSep ", " (builtins.attrNames homeManagerModules)
-    )
-  ) (lib.filter (module: module != null) baseModulesRaw);
+  baseModules = lib.filter (module: module != null) baseModulesRaw;
   virtualizationModules = lib.filter (module: module != null) (
     map
       (
@@ -193,9 +133,7 @@ let
         let
           module = getVirtualizationModule name;
         in
-        builtins.trace (
-          "system76 getVirtualizationModule(" + name + ") -> " + (if module == null then "null" else "set")
-        ) module
+        module
       )
       [
         "docker"
