@@ -42,6 +42,7 @@ let
     "wireguard-tools"
     "protonvpn-gui"
     "mitmproxy"
+    "wireshark"
     "ktailctl"
     "networkmanager-dmenu"
     "networkmanagerapplet"

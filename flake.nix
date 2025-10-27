@@ -199,6 +199,9 @@
 
   outputs =
     inputs:
+    let
+      ownerProfile = import ./lib/meta-owner-profile.nix;
+    in
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         (inputs.import-tree ./modules)
@@ -212,6 +215,7 @@
         rootPath = ./.;
         inherit inputs;
         pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
+        metaOwner = ownerProfile;
       };
     };
 }

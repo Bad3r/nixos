@@ -19,6 +19,7 @@ let
     inputs.nixos-hardware.nixosModules.system76
     inputs.nixos-hardware.nixosModules.system76-darp6
   ];
+  metaOwner = import ../../lib/meta-owner-profile.nix;
   baseModules = lib.filter (module: module != null) [
     (getModule "base")
     (getModule "system76-support")
@@ -74,6 +75,9 @@ in
     nixosConfigurations.system76 = inputs.nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
+        {
+          _module.args.metaOwner = metaOwner;
+        }
         (
           { lib, ... }:
           lib.mkIf (selfRevision != null) {
@@ -82,6 +86,9 @@ in
         )
         config.configurations.nixos.system76.module
       ];
+      specialArgs = {
+        inherit metaOwner;
+      };
     };
   };
 }
