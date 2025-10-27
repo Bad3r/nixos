@@ -14,6 +14,7 @@
           ytdl-raw-options = "cookies-from-browser=firefox";
           profile = "high-quality"; # gpu-hq is deprecated
           vo = "gpu";
+          gpu-api = "opengl"; # force stable interop; avoids NVDEC freeze with current NVIDIA stack
           hwdec = "auto";
           gpu-context = "auto"; # let mpv pick a supported context (x11/wayland)
           save-position-on-quit = "no";
