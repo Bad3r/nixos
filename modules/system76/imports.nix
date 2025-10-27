@@ -6,9 +6,7 @@
 }:
 let
   flake = config.flake or { };
-  nixosModulesFromConfig = flake.nixosModules or { };
-  nixosModulesFromSelf = lib.attrByPath [ "outputs" "nixosModules" ] { } (inputs.self or { });
-  nixosModules = nixosModulesFromConfig // nixosModulesFromSelf;
+  nixosModules = flake.nixosModules or { };
   hasModule = name: lib.hasAttr name nixosModules;
   getModule = name: if hasModule name then lib.getAttr name nixosModules else null;
   getVirtualizationModule =
@@ -52,7 +50,7 @@ in
 {
   configurations.nixos.system76.module = {
     _module.check = false;
-    flake.homeManagerModules = lib.mkDefault (inputs.self.homeManagerModules or { });
+    flake.homeManagerModules = lib.mkDefault (flake.homeManagerModules or { });
     imports = [
       ../home-manager/base.nix
       ../style/stylix.nix
