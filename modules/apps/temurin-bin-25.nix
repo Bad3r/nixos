@@ -1,13 +1,13 @@
 /*
-  Package: temurin-bin-24
-  Description: Eclipse Temurin binary distribution of OpenJDK 24 (early access/EA) with HotSpot JVM.
+  Package: temurin-bin-25
+  Description: Eclipse Temurin binary distribution of OpenJDK 25 with HotSpot JVM.
   Homepage: https://adoptium.net/
   Documentation: https://adoptium.net/docs/faq/
   Repository: https://github.com/adoptium/temurin-build
 
   Summary:
     * Provides prebuilt OpenJDK binaries from the Eclipse Adoptium project, including `java`, `javac`, `jlink`, and other JDK tools.
-    * Suitable for running and building Java applications that target the upcoming Java 24 release.
+    * Suitable for running and building Java applications that target the current Java 25 release.
 
   Options:
     java --version: Display JVM version and vendor details.
@@ -22,12 +22,12 @@
 */
 
 {
-  nixpkgs.allowedUnfreePackages = [ "temurin-bin-24" ];
+  nixpkgs.allowedUnfreePackages = [ "temurin-bin-25" ];
 
-  flake.nixosModules.apps."temurin-bin-24" =
+  flake.nixosModules.apps."temurin-bin-25" =
     { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.temurin-bin-24 ];
+      environment.systemPackages = [ pkgs.temurin-bin-25 ];
     };
 
 }

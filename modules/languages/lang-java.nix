@@ -5,6 +5,6 @@
       inherit (config.flake.nixosModules) apps;
     in
     [
-      apps.temurin-bin-24
+      apps.temurin-bin-25
     ];
 }
