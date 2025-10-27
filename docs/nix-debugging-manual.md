@@ -1,6 +1,7 @@
 # Nix Ecosystem Debugging Manual
 
 <<<<<<< HEAD
+
 ## 1. Foundational Debugging Principles
 
 Effective debugging in the Nix ecosystem requires a conceptual framework that extends beyond mere command execution. Understanding these foundational principles is the bedrock of all advanced techniques.
@@ -158,7 +159,9 @@ home-manager switch --dry-run # Preview changes
 home-manager switch --show-trace -L -v # Verbose build/activation
 journalctl --user -fu home-manager-$USER.service
 ```
+
 =======
+
 ## 1. Introduction
 
 Debugging in the Nix ecosystem spans expression evaluation, reproducible builds, and declarative user environments. This manual summarizes practical techniques drawn from official manuals, community knowledge, and established tooling so you can triage issues systematically across Nix, NixOS, and Home Manager.citeturn15search0
@@ -280,4 +283,5 @@ journalctl --user -fu "home-manager-$USER.service"
 ## 6. Conclusion
 
 By combining REPL-driven diagnostics, structured logging, and store-level introspection, you can shorten feedback loops across Nix expressions, NixOS hosts, and Home Manager environments. Build a personal toolkit from the commands and utilities above, automate recurring checks (e.g., `nix log`, `nix store diff-closures`), and lean on verbose activation modes to keep declarative configurations reliable.citeturn15search0
->>>>>>> 2f9922765 (chore: update docs)
+
+> > > > > > > 2f9922765 (chore: update docs)
