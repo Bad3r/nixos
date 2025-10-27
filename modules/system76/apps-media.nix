@@ -28,6 +28,7 @@ let
 
   mediaAppNames = [
     "mpv"
+    "nsxiv"
     "media-toolchain"
   ];
 in
