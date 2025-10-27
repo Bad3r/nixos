@@ -35,7 +35,24 @@ let
   ];
 
   getApps = config.flake.lib.nixos.getApps or (names: map getAppModule names);
+
+  langImports =
+    let
+      langModules = lib.attrByPath [ "flake" "nixosModules" "lang" "imports" ] [ ] config;
+      hasLangJava =
+        let
+          matchesJava =
+            module:
+            lib.isAttrs module
+            && (
+              builtins.match ".*lang-java\\.nix.*" (module._file or "") != null
+              || (module ? imports && lib.any matchesJava module.imports)
+            );
+        in
+        lib.any matchesJava langModules;
+    in
+    if hasLangJava then getApps [ "temurin-bin-25" ] else [ ];
 in
 {
-  configurations.nixos.system76.module.imports = getApps appNames;
+  configurations.nixos.system76.module.imports = getApps appNames ++ langImports;
 }
