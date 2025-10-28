@@ -8,7 +8,10 @@ _: {
         useDHCP = lib.mkDefault true; # From old hardware-configuration.nix
         firewall = {
           enable = true;
-          allowedTCPPorts = [ 22 ]; # SSH if needed
+          allowedTCPPorts = [
+            22
+            8082
+          ]; # SSH if needed
         };
       };
     };
