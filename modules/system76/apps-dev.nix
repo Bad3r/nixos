@@ -47,6 +47,7 @@ let
     "forgit"
     "exiftool"
     "httpie"
+    "yaak"
     "mitmproxy"
     # debugging and tracing
     "gdb"
