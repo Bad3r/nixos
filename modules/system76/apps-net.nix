@@ -46,6 +46,7 @@ let
     "ktailctl"
     "networkmanager-dmenu"
     "networkmanagerapplet"
+    "blueberry"
     "networkmanager-openvpn"
     "dnsleak"
   ];

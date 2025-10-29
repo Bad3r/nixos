@@ -11,6 +11,7 @@ _: {
           allowedTCPPorts = [
             22
             8082
+            8888
           ]; # SSH if needed
         };
       };
