@@ -33,6 +33,7 @@
           helvum
 
           # Audio production and codecs
+          alsa-utils
           ardour
           audacity
           gst_all_1.gstreamer
