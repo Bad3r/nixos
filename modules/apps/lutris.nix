@@ -32,9 +32,5 @@
     homeManagerModules.apps.lutris = _: {
       programs.lutris.enable = true;
     };
-
-    homeManagerModules.gui = _: {
-      programs.lutris.enable = true;
-    };
   };
 }

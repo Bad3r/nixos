@@ -39,6 +39,7 @@ let
     "tealdeer"
     "xclip"
     "xsel"
+    "xkill"
     "starship"
     "zoxide"
   ];

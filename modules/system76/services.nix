@@ -4,6 +4,11 @@ _: {
     {
       systemd.sysusers.enable = true;
 
+      # Ignore power button to prevent accidental shutdowns
+      services.logind.settings = {
+        Login.HandlePowerKey = "ignore";
+      };
+
       services = {
         # Disable samples and network clients until configured on this host
         cloudflared.enable = lib.mkForce false;
