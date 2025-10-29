@@ -1,7 +1,7 @@
 { lib, ... }:
 let
   extraAppNames = [
-    "bitwarden"
+    "bitwarden-desktop"
     "claude-code"
     # "copyq"
     "discord"

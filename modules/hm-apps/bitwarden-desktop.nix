@@ -1,5 +1,5 @@
 /*
-  Package: bitwarden
+  Package: bitwarden-desktop
   Description: Secure and free password manager for all of your devices.
   Homepage: https://bitwarden.com
   Documentation: https://bitwarden.com/help/article/getting-started-desktop/
@@ -22,9 +22,9 @@
 */
 
 {
-  flake.homeManagerModules.apps.bitwarden =
+  flake.homeManagerModules.apps.bitwarden-desktop =
     { pkgs, ... }:
     {
-      home.packages = [ pkgs.bitwarden ];
+      home.packages = [ pkgs.bitwarden-desktop ];
     };
 }
