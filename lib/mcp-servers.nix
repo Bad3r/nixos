@@ -26,7 +26,7 @@
   lib,
   pkgs,
   config,
-  defaultTimeoutMs ? 60000,
+  defaultTimeoutMs ? 10000,
   defaultVariants ? { },
   ...
 }:
