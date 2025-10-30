@@ -3,6 +3,7 @@ _: {
     { pkgs, lib, ... }:
     {
       systemd.sysusers.enable = true;
+      systemd.coredump.enable = true;
 
       # Ignore power button to prevent accidental shutdowns
       services.logind.settings = {
@@ -10,6 +11,14 @@ _: {
       };
 
       services = {
+        journald = {
+          storage = "persistent";
+          extraConfig = ''
+            SystemMaxUse=1G
+            SystemKeepFree=10%
+          '';
+        };
+
         # Disable samples and network clients until configured on this host
         cloudflared.enable = lib.mkForce false;
         cloudflare-warp.enable = lib.mkForce false;

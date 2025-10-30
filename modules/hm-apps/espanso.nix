@@ -69,6 +69,10 @@
           base = {
             matches = [
               {
+                trigger = ":test";
+                replace = "test 1.2.3";
+              }
+              {
                 trigger = ":date";
                 replace = "{{currentdate}}";
               }
