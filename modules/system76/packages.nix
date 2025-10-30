@@ -41,6 +41,15 @@
           gst_all_1.gst-plugins-good
           gst_all_1.gst-plugins-bad
           gst_all_1.gst-plugins-ugly
+
+          # Diagnostics and stress testing utilities for crash triage
+          lm_sensors
+          smartmontools
+          nvme-cli
+          stress-ng
+          memtester
+          glmark2
+          hwinfo
         ]
       );
     };

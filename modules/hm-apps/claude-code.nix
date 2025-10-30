@@ -61,7 +61,6 @@
         permissions = {
           allow = [
             "Read(~/.claude/CLAUDE.md)"
-            "Read(../../.config/claude/CLAUDE.md)"
             "Read(../../.claude/CLAUDE.md)"
             "Read(../../../.claude/CLAUDE.md)"
             "WebFetch(domain:docs.anthropic.com)"

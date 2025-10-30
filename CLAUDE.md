@@ -14,6 +14,19 @@ This is a NixOS configuration using the **Dendritic Pattern** - an organic confi
 | Target agents      | Claude Code, OpenAI Codex, Cursor, and human operators acting on their guidance.                                           |
 | Escalation         | Pause and ask vx before performing destructive actions outside the allowed commands listed here.                           |
 
+## Nix Configuration
+
+This flake enforces strict evaluation and build settings:
+
+| Setting                        | Value                  | Purpose                                                           |
+| ------------------------------ | ---------------------- | ----------------------------------------------------------------- |
+| `abort-on-warn`                | `true`                 | Treat warnings as errors to maintain code quality                 |
+| `extra-experimental-features`  | `[ "pipe-operators" ]` | Enable pipe operator syntax in Nix expressions                    |
+| `allow-import-from-derivation` | `false`                | Prevent IFD to ensure evaluation purity and build reproducibility |
+| `experimental-features`        | `nix-command flakes`   | Enable flakes and new Nix CLI                                     |
+
+These settings are mirrored in `build.sh` via `NIX_CONFIGURATION` environment variable.
+
 ## Quick-Start Checklist
 
 | Status | Step                                                                                                |
@@ -51,16 +64,27 @@ All Nix files are automatically imported as flake-parts modules. Files prefixed 
 
 Use `lib.hasAttrByPath` + `lib.getAttrFromPath` for optional modules to avoid ordering issues.
 
+### Flake Input Deduplication
+
+Inputs prefixed with `dedupe_` exist solely for dependency deduplication via `.follows` declarations. These inputs are grouped in a separate `inputs` attribute in `flake.nix` for easy identification. If all `follows` targeting a dedupe input are removed, the dedupe input should also be removed.
+
+Example:
+
+```nix
+dedupe_systems.url = "github:nix-systems/default";
+# Referenced by: stylix.inputs.systems.follows, sink-rotate.inputs.systems.follows
+```
+
 ### Repository Layout
 
-| Domain              | Location                                | Notes                                                                                                                                                                    |
-| ------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| NixOS modules       | `modules/`                              | Auto-loaded. Host-specific logic lives under `modules/system76`, while shared bundles remain organized by domain (for example `modules/apps`, `modules/configurations`). |
-| Shared derivations  | `packages/`                             | Common build logic shared between modules.                                                                                                                               |
-| Helper scripts      | `scripts/`                              | Operational tooling including git-credential-sops.                                                                                                                       |
-| Documentation       | `docs/`, `nixos_docs_md/`               | Long-form references and local workflows.                                                                                                                                |
-| Secrets             | `secrets/`                              | Only encrypted payloads managed via `sops.secrets`.                                                                                                                      |
-| Generated artefacts | `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module; update source definitions instead of editing generated outputs.                                                                               |
+| Domain              | Location                                          | Notes                                                                                                                                                                    |
+| ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| NixOS modules       | `modules/`                                        | Auto-loaded. Host-specific logic lives under `modules/system76`, while shared bundles remain organized by domain (for example `modules/apps`, `modules/configurations`). |
+| Shared derivations  | `packages/`                                       | Common build logic shared between modules.                                                                                                                               |
+| Helper scripts      | `scripts/`                                        | Operational tooling including git-credential-sops.                                                                                                                       |
+| Documentation       | `docs/`, `nixos_docs_md/`                         | Long-form references and local workflows.                                                                                                                                |
+| Secrets             | `secrets/`                                        | Only encrypted payloads managed via `sops.secrets`.                                                                                                                      |
+| Generated artefacts | `.actrc`, `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module; update source definitions instead of editing generated outputs.                                                                               |
 
 ## Execution Playbooks
 
@@ -71,7 +95,7 @@ Use `lib.hasAttrByPath` + `lib.getAttrFromPath` for optional modules to avoid or
 | Starting work      | `nix develop`                               | Clean working tree; network access available for substituters. | Shell prompt shows dev environment; tools like `treefmt` and `pre-commit` are available. |
 | Format sources     | `nix fmt`                                   | Run from repo root inside or outside dev shell.                | No staged formatting diffs remain (`git status`).                                        |
 | Run hooks          | `nix develop -c pre-commit run --all-files` | Dev shell ready; workspace writeable.                          | Command exits 0; review generated reports for TODO fixes.                                |
-| Generate artefacts | `nix develop -c write-files`                | Dev shell ready; updates managed files.                        | Check git diff for changes to `.gitignore`, `.sops.yaml`, `README.md`.                   |
+| Generate artefacts | `nix develop -c write-files`                | Dev shell ready; updates managed files.                        | Check git diff for changes to `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`.         |
 
 ### Validation & Builds
 
@@ -79,8 +103,25 @@ Use `lib.hasAttrByPath` + `lib.getAttrFromPath` for optional modules to avoid or
 | ------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
 | Verify flake health | `nix flake check --accept-flake-config`                               | Dev shell recommended; expect long runtime.                                                | Command exits 0; investigate and resolve any reported failures. |
 | Build a host        | `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` | Replace `<host>` with target. Do **not** use `--allow-dirty` unless explicitly instructed. | Build completes; record store path for auditing.                |
-| Switch via helper   | `./build.sh --host <host> [--boot] [--offline]`                       | Use only when directed to build or deploy.                                                 | Script exits 0; capture logs if issues arise.                   |
+| Validate and deploy | `./build.sh [OPTIONS]`                                                | Clean working tree required unless `--allow-dirty` used.                                   | Script exits 0; capture logs if issues arise.                   |
 | Update flake inputs | `./build.sh --update`                                                 | Clean working tree recommended.                                                            | Review updated lock file changes.                               |
+
+#### build.sh Options
+
+The `build.sh` script performs full validation (format, hooks, flake check) before deployment:
+
+| Flag            | Purpose                                    | Use When                                            |
+| --------------- | ------------------------------------------ | --------------------------------------------------- |
+| `--host <name>` | Target specific hostname                   | Deploying to non-current host                       |
+| `--boot`        | Install for next boot (don't activate now) | Testing changes before activation                   |
+| `--offline`     | Build without network access               | Working offline or testing substituter independence |
+| `--allow-dirty` | Override clean git tree requirement        | Emergency fixes; prefer clean commits               |
+| `--update`      | Run `nix flake update` before building     | Updating all inputs to latest versions              |
+| `--skip-fmt`    | Skip formatting step                       | Debugging when format is known-good                 |
+| `--skip-hooks`  | Skip pre-commit hooks                      | Debugging when hooks are known-passing              |
+| `--skip-check`  | Skip `nix flake check`                     | Debugging when checks are known-passing             |
+| `--skip-all`    | Skip all validation (fmt+hooks+check)      | Emergency deployment (not recommended)              |
+| `--verbose`     | Enable verbose Nix output                  | Debugging build issues                              |
 
 ### GitHub Actions (Local Testing)
 
@@ -228,5 +269,5 @@ Follow-up: <remaining work>
 - **NEVER** create files unless absolutely necessary for achieving your goal
 - **ALWAYS** prefer editing existing files over creating new ones
 - **NEVER** proactively create documentation files (\*.md) or README files unless explicitly requested
-- Generated artefacts (.gitignore, .sops.yaml, README.md) are managed by the files module - update upstream definitions instead
+- Generated artefacts (.actrc, .gitignore, .sops.yaml, README.md) are managed by the files module - update upstream definitions instead
 - The build.sh helper refuses to run if git worktree is dirty - use `--allow-dirty` or `ALLOW_DIRTY=1` only when necessary
