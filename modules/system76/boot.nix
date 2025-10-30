@@ -35,6 +35,17 @@ _: {
 
         # Add NVIDIA driver to extra module packages
         extraModulePackages = [ config.boot.kernelPackages.nvidia_x11 ];
+
+        crashDump = {
+          enable = true;
+          reservedMemory = "512M";
+        };
+
+        # Increase kernel log verbosity and allow magic SysRq for crash triage
+        kernel.sysctl = {
+          "kernel.printk" = "7 4 1 7";
+          "kernel.sysrq" = 1;
+        };
       };
     };
 }
