@@ -17,7 +17,7 @@
 */
 _:
 let
-  KdePackagesModule =
+  KcolorchooserModule =
     {
       config,
       lib,
@@ -28,14 +28,14 @@ let
       cfg = config.programs.kcolorchooser.extended;
     in
     {
-      options.programs.kdePackages.extended = {
+      options.programs.kcolorchooser.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable kdePackages.";
+          description = lib.mdDoc "Whether to enable KColorChooser color picker.";
         };
 
-        package = lib.mkPackageOption pkgs "kdePackages" { };
+        package = lib.mkPackageOption pkgs [ "kdePackages" "kcolorchooser" ] { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -44,5 +44,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.kdePackages = KdePackagesModule;
+  flake.nixosModules.apps.kcolorchooser = KcolorchooserModule;
 }

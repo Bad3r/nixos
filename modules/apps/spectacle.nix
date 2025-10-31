@@ -23,7 +23,7 @@
 */
 _:
 let
-  KdePackagesModule =
+  SpectacleModule =
     {
       config,
       lib,
@@ -34,14 +34,14 @@ let
       cfg = config.programs.spectacle.extended;
     in
     {
-      options.programs.kdePackages.extended = {
+      options.programs.spectacle.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable kdePackages.";
+          description = lib.mdDoc "Whether to enable Spectacle screenshot utility.";
         };
 
-        package = lib.mkPackageOption pkgs "kdePackages" { };
+        package = lib.mkPackageOption pkgs [ "kdePackages" "spectacle" ] { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -50,5 +50,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.kdePackages = KdePackagesModule;
+  flake.nixosModules.apps.spectacle = SpectacleModule;
 }

@@ -22,7 +22,7 @@
 */
 _:
 let
-  KdePackagesModule =
+  GwenviewModule =
     {
       config,
       lib,
@@ -33,14 +33,14 @@ let
       cfg = config.programs.gwenview.extended;
     in
     {
-      options.programs.kdePackages.extended = {
+      options.programs.gwenview.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable kdePackages.";
+          description = lib.mdDoc "Whether to enable Gwenview image viewer.";
         };
 
-        package = lib.mkPackageOption pkgs "kdePackages" { };
+        package = lib.mkPackageOption pkgs [ "kdePackages" "gwenview" ] { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -49,5 +49,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.kdePackages = KdePackagesModule;
+  flake.nixosModules.apps.gwenview = GwenviewModule;
 }

@@ -23,7 +23,7 @@
 */
 _:
 let
-  KdePackagesModule =
+  DolphinModule =
     {
       config,
       lib,
@@ -34,14 +34,14 @@ let
       cfg = config.programs.dolphin.extended;
     in
     {
-      options.programs.kdePackages.extended = {
+      options.programs.dolphin.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable kdePackages.";
+          description = lib.mdDoc "Whether to enable Dolphin file manager.";
         };
 
-        package = lib.mkPackageOption pkgs "kdePackages" { };
+        package = lib.mkPackageOption pkgs [ "kdePackages" "dolphin" ] { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -50,5 +50,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.kdePackages = KdePackagesModule;
+  flake.nixosModules.apps.dolphin = DolphinModule;
 }

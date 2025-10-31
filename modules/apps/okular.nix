@@ -22,7 +22,7 @@
 */
 _:
 let
-  KdePackagesModule =
+  OkularModule =
     {
       config,
       lib,
@@ -33,14 +33,14 @@ let
       cfg = config.programs.okular.extended;
     in
     {
-      options.programs.kdePackages.extended = {
+      options.programs.okular.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable kdePackages.";
+          description = lib.mdDoc "Whether to enable Okular document viewer.";
         };
 
-        package = lib.mkPackageOption pkgs "kdePackages" { };
+        package = lib.mkPackageOption pkgs [ "kdePackages" "okular" ] { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -49,5 +49,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.kdePackages = KdePackagesModule;
+  flake.nixosModules.apps.okular = OkularModule;
 }

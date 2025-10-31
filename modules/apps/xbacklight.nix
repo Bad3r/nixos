@@ -22,7 +22,7 @@
 */
 _:
 let
-  XorgModule =
+  XbacklightModule =
     {
       config,
       lib,
@@ -33,14 +33,14 @@ let
       cfg = config.programs.xbacklight.extended;
     in
     {
-      options.programs.xorg.extended = {
+      options.programs.xbacklight.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable xorg.";
+          description = lib.mdDoc "Whether to enable xbacklight brightness control.";
         };
 
-        package = lib.mkPackageOption pkgs "xorg" { };
+        package = lib.mkPackageOption pkgs [ "xorg" "xbacklight" ] { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -49,5 +49,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.xorg = XorgModule;
+  flake.nixosModules.apps.xbacklight = XbacklightModule;
 }

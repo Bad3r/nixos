@@ -21,7 +21,7 @@
 */
 _:
 let
-  XfceModule =
+  Xfce4PowerManagerModule =
     {
       config,
       lib,
@@ -32,14 +32,14 @@ let
       cfg = config.programs."xfce4-power-manager".extended;
     in
     {
-      options.programs.xfce.extended = {
+      options.programs."xfce4-power-manager".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable xfce.";
+          description = lib.mdDoc "Whether to enable Xfce4 power manager.";
         };
 
-        package = lib.mkPackageOption pkgs "xfce" { };
+        package = lib.mkPackageOption pkgs [ "xfce" "xfce4-power-manager" ] { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -48,5 +48,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.xfce = XfceModule;
+  flake.nixosModules.apps."xfce4-power-manager" = Xfce4PowerManagerModule;
 }

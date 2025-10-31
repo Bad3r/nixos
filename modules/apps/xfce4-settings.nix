@@ -22,7 +22,7 @@
 */
 _:
 let
-  XfceModule =
+  Xfce4SettingsModule =
     {
       config,
       lib,
@@ -33,14 +33,14 @@ let
       cfg = config.programs."xfce4-settings".extended;
     in
     {
-      options.programs.xfce.extended = {
+      options.programs."xfce4-settings".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable xfce.";
+          description = lib.mdDoc "Whether to enable Xfce4 settings manager.";
         };
 
-        package = lib.mkPackageOption pkgs "xfce" { };
+        package = lib.mkPackageOption pkgs [ "xfce" "xfce4-settings" ] { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -49,5 +49,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.xfce = XfceModule;
+  flake.nixosModules.apps."xfce4-settings" = Xfce4SettingsModule;
 }
