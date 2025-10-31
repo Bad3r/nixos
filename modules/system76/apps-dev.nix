@@ -25,7 +25,6 @@ let
     "git-filter-repo"
     "forgit"
     "exiftool"
-    "httpie"
     "yaak"
     # debugging and tracing
     "gdb"
