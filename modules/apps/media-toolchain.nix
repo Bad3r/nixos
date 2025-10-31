@@ -44,12 +44,23 @@ let
           default = false;
           description = lib.mdDoc "Whether to enable media toolchain bundle.";
         };
-
-        package = lib.mkPackageOption pkgs "gst_all_1" { };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = with pkgs; [
+          mpv
+          ffmpeg-full
+          imagemagick
+          ghostscript
+          # GStreamer plugins
+          gst_all_1.gstreamer
+          gst_all_1.gst-plugins-base
+          gst_all_1.gst-plugins-good
+          gst_all_1.gst-plugins-bad
+          gst_all_1.gst-plugins-ugly
+          gst_all_1.gst-libav
+          gst_all_1.gst-vaapi
+        ];
       };
     };
 in
