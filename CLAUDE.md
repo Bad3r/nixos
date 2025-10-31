@@ -135,7 +135,7 @@ in
 - Templates: `scripts/refactor/templates/`
 - Documentation: `scripts/refactor/README.md`
 
-**Status**: 226/245 modules refactored (92.2%). See `scripts/refactor/README.md` for details.
+**Status**: 235/245 modules refactored (95.9%). See `scripts/refactor/README.md` for details.
 
 ## Execution Playbooks
 

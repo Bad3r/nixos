@@ -11,11 +11,29 @@
 */
 
 {
-  flake.nixosModules.apps.tesseract =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = with pkgs; [
-        tesseract
-      ];
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.programs.tesseract.extended;
+  TesseractModule = {
+    options.programs.tesseract.extended = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true; # Backward compatibility - TODO: flip to false in Phase 2
+        description = lib.mdDoc "Whether to enable tesseract OCR engine.";
+      };
+
+      package = lib.mkPackageOption pkgs "tesseract" { };
     };
+
+    config = lib.mkIf cfg.enable {
+      environment.systemPackages = [ cfg.package ];
+    };
+  };
+in
+{
+  flake.nixosModules.apps.tesseract = TesseractModule;
 }

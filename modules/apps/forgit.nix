@@ -28,16 +28,16 @@
   ...
 }:
 let
-  cfg = config.programs.zsh-forgit.extended;
-  ZshForgitModule = {
-    options.programs.zsh-forgit.extended = {
+  cfg = config.programs.forgit.extended;
+  ForgitModule = {
+    options.programs.forgit.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = true; # Backward compatibility - TODO: flip to false in Phase 2
-        description = lib.mdDoc "Whether to enable zsh-forgit.";
+        description = lib.mdDoc "Whether to enable forgit.";
       };
 
-      package = lib.mkPackageOption pkgs "zsh-forgit" { };
+      package = lib.mkPackageOption pkgs "forgit" { };
     };
 
     config = lib.mkIf cfg.enable {
@@ -46,5 +46,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.zsh-forgit = ZshForgitModule;
+  flake.nixosModules.apps.forgit = ForgitModule;
 }

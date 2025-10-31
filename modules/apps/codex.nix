@@ -26,16 +26,16 @@
   ...
 }:
 let
-  cfg = config.programs.callPackage.extended;
-  CallPackageModule = {
-    options.programs.callPackage.extended = {
+  cfg = config.programs.codex.extended;
+  CodexModule = {
+    options.programs.codex.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = true; # Backward compatibility - TODO: flip to false in Phase 2
-        description = lib.mdDoc "Whether to enable callPackage.";
+        description = lib.mdDoc "Whether to enable codex.";
       };
 
-      package = lib.mkPackageOption pkgs "callPackage" { };
+      package = lib.mkPackageOption pkgs "codex" { };
     };
 
     config = lib.mkIf cfg.enable {
@@ -44,5 +44,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.callPackage = CallPackageModule;
+  flake.nixosModules.apps.codex = CodexModule;
 }

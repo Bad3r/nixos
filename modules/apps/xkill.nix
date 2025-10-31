@@ -25,16 +25,16 @@
   ...
 }:
 let
-  cfg = config.programs.xorg.extended;
-  XorgModule = {
-    options.programs.xorg.extended = {
+  cfg = config.programs.xkill.extended;
+  XkillModule = {
+    options.programs.xkill.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = true; # Backward compatibility - TODO: flip to false in Phase 2
-        description = lib.mdDoc "Whether to enable xorg.";
+        description = lib.mdDoc "Whether to enable xkill.";
       };
 
-      package = lib.mkPackageOption pkgs "xorg" { };
+      package = lib.mkPackageOption pkgs "xkill" { };
     };
 
     config = lib.mkIf cfg.enable {
@@ -43,5 +43,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.xorg = XorgModule;
+  flake.nixosModules.apps.xkill = XkillModule;
 }

@@ -23,17 +23,61 @@
 */
 
 {
-  flake.nixosModules.apps.mpv =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = with pkgs; [
-        mpv
-        mpvScripts.thumbfast
-        mpv-shim-default-shaders
-        mpvScripts.mpv-cheatsheet
-        open-in-mpv
-        # jellyfin-mpv-shim
-      ];
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.programs.mpv.extended;
+  MpvModule = {
+    options.programs.mpv.extended = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true; # Backward compatibility
+        description = lib.mdDoc "Whether to enable mpv media player.";
+      };
+
+      package = lib.mkPackageOption pkgs "mpv" { };
+
+      extraScripts = lib.mkOption {
+        type = lib.types.listOf lib.types.package;
+        default = with pkgs; [
+          mpvScripts.thumbfast
+          mpvScripts.mpv-cheatsheet
+        ];
+        description = lib.mdDoc ''
+          mpv scripts to install.
+
+          Included by default:
+          - thumbfast: Fast thumbnail preview
+          - mpv-cheatsheet: Keybinding overlay
+        '';
+        example = lib.literalExpression "with pkgs; [ mpvScripts.thumbfast ]";
+      };
+
+      extraPackages = lib.mkOption {
+        type = lib.types.listOf lib.types.package;
+        default = with pkgs; [
+          mpv-shim-default-shaders
+          open-in-mpv
+        ];
+        description = lib.mdDoc ''
+          Additional mpv-related tools.
+
+          Included by default:
+          - mpv-shim-default-shaders: Shader presets
+          - open-in-mpv: Browser integration
+        '';
+        example = lib.literalExpression "with pkgs; [ jellyfin-mpv-shim ]";
+      };
     };
 
+    config = lib.mkIf cfg.enable {
+      environment.systemPackages = [ cfg.package ] ++ cfg.extraScripts ++ cfg.extraPackages;
+    };
+  };
+in
+{
+  flake.nixosModules.apps.mpv = MpvModule;
 }

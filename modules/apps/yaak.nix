@@ -1,6 +1,6 @@
 /*
-  Package: system
-  Description: TODO: Add description
+  Package: yaak
+  Description: Yet Another API Client - Desktop app for testing APIs
 */
 {
   config,
@@ -9,16 +9,16 @@
   ...
 }:
 let
-  cfg = config.programs.system.extended;
-  SystemModule = {
-    options.programs.system.extended = {
+  cfg = config.programs.yaak.extended;
+  YaakModule = {
+    options.programs.yaak.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = true; # Backward compatibility - TODO: flip to false in Phase 2
-        description = lib.mdDoc "Whether to enable system.";
+        description = lib.mdDoc "Whether to enable yaak.";
       };
 
-      package = lib.mkPackageOption pkgs "system" { };
+      package = lib.mkPackageOption pkgs "yaak" { };
     };
 
     config = lib.mkIf cfg.enable {
@@ -27,5 +27,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.system = SystemModule;
+  flake.nixosModules.apps.yaak = YaakModule;
 }
