@@ -27,13 +27,13 @@
   ...
 }:
 let
-  cfg = config.programs.networkmanager_dmenu.extended;
-  Networkmanager_dmenuModule = {
-    options.programs.networkmanager_dmenu.extended = {
+  cfg = config.programs."networkmanager-dmenu".extended;
+  NetworkmanagerDmenuModule = {
+    options.programs."networkmanager-dmenu".extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable networkmanager_dmenu.";
+        description = lib.mdDoc "Whether to enable networkmanager-dmenu.";
       };
 
       package = lib.mkPackageOption pkgs "networkmanager_dmenu" { };
@@ -45,5 +45,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.networkmanager_dmenu = Networkmanager_dmenuModule;
+  flake.nixosModules.apps."networkmanager-dmenu" = NetworkmanagerDmenuModule;
 }

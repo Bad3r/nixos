@@ -23,16 +23,16 @@
   ...
 }:
 let
-  cfg = config.programs.system.extended;
-  SystemModule = {
-    options.programs.system.extended = {
+  cfg = config.programs.dnsleak.extended;
+  DnsleakModule = {
+    options.programs.dnsleak.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable system.";
+        description = lib.mdDoc "Whether to enable dnsleak.";
       };
 
-      package = lib.mkPackageOption pkgs "system" { };
+      package = lib.mkPackageOption pkgs "dnsleak" { };
     };
 
     config = lib.mkIf cfg.enable {
@@ -41,5 +41,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.system = SystemModule;
+  flake.nixosModules.apps.dnsleak = DnsleakModule;
 }
