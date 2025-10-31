@@ -25,13 +25,13 @@
   ...
 }:
 let
-  cfg = config.programs.mattermost-desktop.extended;
+  cfg = config.programs.mattermost.extended;
   MattermostDesktopModule = {
-    options.programs.mattermost-desktop.extended = {
+    options.programs.mattermost.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable mattermost-desktop.";
+        description = lib.mdDoc "Whether to enable Mattermost desktop.";
       };
 
       package = lib.mkPackageOption pkgs "mattermost-desktop" { };

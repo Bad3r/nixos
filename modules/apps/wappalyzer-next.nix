@@ -17,16 +17,16 @@
   ...
 }:
 let
-  cfg = config.programs.system.extended;
-  SystemModule = {
-    options.programs.system.extended = {
+  cfg = config.programs."wappalyzer-next".extended;
+  WappalyzerNextModule = {
+    options.programs."wappalyzer-next".extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable system.";
+        description = lib.mdDoc "Whether to enable Wappalyzer Next.";
       };
 
-      package = lib.mkPackageOption pkgs "system" { };
+      package = lib.mkPackageOption pkgs "wappalyzer-next" { };
     };
 
     config = lib.mkIf cfg.enable {
@@ -35,5 +35,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.system = SystemModule;
+  flake.nixosModules.apps."wappalyzer-next" = WappalyzerNextModule;
 }

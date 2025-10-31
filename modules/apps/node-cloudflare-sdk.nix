@@ -21,16 +21,16 @@
   ...
 }:
 let
-  cfg = config.programs.system.extended;
-  SystemModule = {
-    options.programs.system.extended = {
+  cfg = config.programs."node-cloudflare-sdk".extended;
+  NodeCloudflareSdkModule = {
+    options.programs."node-cloudflare-sdk".extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable system.";
+        description = lib.mdDoc "Whether to enable Node Cloudflare SDK.";
       };
 
-      package = lib.mkPackageOption pkgs "system" { };
+      package = lib.mkPackageOption pkgs "node-cloudflare-sdk" { };
     };
 
     config = lib.mkIf cfg.enable {
@@ -39,5 +39,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.system = SystemModule;
+  flake.nixosModules.apps."node-cloudflare-sdk" = NodeCloudflareSdkModule;
 }

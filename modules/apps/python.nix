@@ -27,13 +27,13 @@
   ...
 }:
 let
-  cfg = config.programs.python313.extended;
+  cfg = config.programs.python.extended;
   Python313Module = {
-    options.programs.python313.extended = {
+    options.programs.python.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable python313.";
+        description = lib.mdDoc "Whether to enable Python 3.13.";
       };
 
       package = lib.mkPackageOption pkgs "python313" { };
