@@ -27,7 +27,7 @@
   ...
 }:
 let
-   = { config, lib, pkgs, ... }:
+  Nodejs22Module = { config, lib, pkgs, ... }:
   let
     cfg = config.programs.nodejs_22.extended;
   in
@@ -48,5 +48,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.nodejs_22 = Nodejs_22Module;
+  flake.nixosModules.apps.nodejs_22 = Nodejs22Module;
 }
