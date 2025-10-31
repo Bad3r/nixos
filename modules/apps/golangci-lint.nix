@@ -13,12 +13,7 @@
     * `golangci-lint run ./...` — Lint all Go packages in the current module using the default configuration.
     * `golangci-lint run --enable govet --disable errcheck` — Toggle specific linters for targeted analysis.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GolangciLintModule =
     {

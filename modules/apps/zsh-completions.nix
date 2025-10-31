@@ -14,12 +14,7 @@
     -d: Pass to `compinit -d ~/.cache/zcompdump` to control the dumpfile location.
     -D: Use `compinit -D` to defer expensive completion initialization during startup.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ZshCompletionsModule =
     {

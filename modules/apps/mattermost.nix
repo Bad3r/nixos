@@ -18,12 +18,7 @@
     * Configure multiple servers via “Add Server” to switch between environments easily.
     * Use Settings → Notifications to customize notification sounds and behavior.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   MattermostDesktopModule =
     {

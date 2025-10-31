@@ -14,12 +14,7 @@
     -target=resource: Limit operations to specific resources for incremental changes.
     -auto-approve: Skip interactive confirmation when applying or destroying infrastructure.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   TerraformModule =
     {

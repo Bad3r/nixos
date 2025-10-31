@@ -21,12 +21,7 @@
     * `gdb -p $(pidof myservice)` — Attach to a running service for live inspection.
     * `gdb -ex "break main" -ex run ./program` — Set a breakpoint at `main` before starting execution.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GdbModule =
     {

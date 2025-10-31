@@ -19,12 +19,7 @@
     * `nsxiv -a wallpapers/` — Run a fullscreen slideshow cycling forever.
     * `nsxiv -eh` — Print key-handler usage details for integrating automation scripts.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NsxivModule =
     {

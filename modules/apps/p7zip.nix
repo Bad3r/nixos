@@ -21,12 +21,7 @@
     * `7z x project.7z -o./output` — Extract to a specific directory.
     * `7z t backup.7z` — Verify that an archive is not corrupted.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   P7zipModule =
     {

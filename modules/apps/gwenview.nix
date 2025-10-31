@@ -20,12 +20,7 @@
     * `gwenview --fullscreen vacation/` — Start a fullscreen slideshow for a directory.
     * `gwenview --slideshow --interval 5 gallery/` — Run an auto-advancing slideshow with a five-second interval.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   KdePackagesModule =
     {

@@ -20,12 +20,7 @@
     * `nix-prefetch-github owner repo --fetch-submodules --json` — Get hash data for a repo including submodules in JSON form.
     * `nix-prefetch-github madjar nix-prefetch-github --nix` — Generate a ready-to-paste Nix snippet for the tool itself.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NixPrefetchGithubModule =
     {

@@ -19,12 +19,7 @@
     * Use the “Create Disk Image…” menu to back up a removable drive to an image file.
     * Use “SMART Data {PRESERVED_DOCUMENTATION} Self-Tests” to review drive health and initiate a self-test.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GnomeDiskUtilityModule =
     {

@@ -20,12 +20,7 @@
     * `nemo --new-window smb://server/share` — Connect to a remote SMB share.
     * `nemo --no-desktop` — Use Nemo purely as a file manager in non-Cinnamon environments.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NemoModule =
     {

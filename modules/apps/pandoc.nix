@@ -21,12 +21,7 @@
     * `pandoc paper.md --citeproc --bibliography refs.bib -o paper.pdf` — Produce a PDF with citations.
     * `pandoc notes.md -t docx -o notes.docx` — Generate a Word document from Markdown notes.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PandocModule =
     {

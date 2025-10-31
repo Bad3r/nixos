@@ -21,12 +21,7 @@
     * `yq eval '.metadata.labels += {env:"prod"}' -i deployment.yaml` — Append labels in place.
     * `yq eval -o=json '.items[]' config.yaml` — Convert YAML items to JSON.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   YqModule =
     {

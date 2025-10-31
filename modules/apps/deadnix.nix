@@ -19,12 +19,7 @@
     * `deadnix modules --output json` — Generate JSON diagnostics for editor tooling.
     * `deadnix --no-link flake.nix` — Produce plain text output without hyperlinks.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DeadnixModule =
     {

@@ -21,12 +21,7 @@
     * `yarn install --frozen-lockfile` — Install dependencies exactly as specified in the lockfile.
     * `yarn workspaces run test` — Run the `test` script across all monorepo workspaces.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   YarnModule =
     {

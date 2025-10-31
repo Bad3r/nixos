@@ -21,12 +21,7 @@
     * `clojure -M:test` — Run tests using the `:test` alias defined in `deps.edn`.
     * `clojure -X:deps tree` — Print the dependency tree to diagnose version conflicts.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ClojureCliModule =
     {

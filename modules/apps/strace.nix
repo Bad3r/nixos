@@ -21,12 +21,7 @@
     * `sudo strace -p 1234 -f -o trace.log` — Attach to PID 1234, following forks, and log to a file.
     * `strace -e trace=network curl example.com` — Inspect only network-related system calls for a command.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   StraceModule =
     {

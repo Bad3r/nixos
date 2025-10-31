@@ -22,12 +22,7 @@
     * `jellyfin-mpv-shim` — Pair with a Jellyfin server to stream media through mpv.
 */
 
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   MpvModule =
     {

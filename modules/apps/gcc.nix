@@ -21,12 +21,7 @@
     * `g++ src/*.cc --std=c++20 -I include/ -L lib/ -lmylib -o program` — Build a C++20 project linking against local libraries.
     * `gcc -S foo.c` — Generate assembly output for inspection or low-level debugging.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GccModule =
     {

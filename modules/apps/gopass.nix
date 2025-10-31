@@ -21,12 +21,7 @@
     * `gopass insert accounts/github` — Add credentials for GitHub under the specified path.
     * `gopass show -c accounts/github` — Copy the GitHub password to the clipboard without printing it.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GopassModule =
     {

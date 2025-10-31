@@ -19,12 +19,7 @@
     * Configure bridges via “Tor Network Settings” if bypassing censorship is required.
     * Set Security Level to “Safest” via the shield icon for maximal script blocking.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   TorBrowserModule =
     {

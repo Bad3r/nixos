@@ -16,12 +16,7 @@
     -x PATTERN: Exclude files that match the given pattern during extraction.
     -o: Overwrite existing files without prompting.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   UnzipModule =
     {

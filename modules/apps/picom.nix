@@ -21,12 +21,7 @@
     * `picom --experimental-backends --backend glx` — Use GLX backend with blur effects.
     * `pkill picom {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} picom --vsync` — Restart picom with VSYNC enabled to mitigate tearing.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PicomModule =
     {

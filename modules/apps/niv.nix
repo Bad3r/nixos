@@ -21,12 +21,7 @@
     * `niv add nixpkgs -b nixos-24.05` — Pin a specific nixpkgs channel.
     * `niv update nixpkgs` — Fast-forward the nixpkgs input while preserving hashes.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NivModule =
     {

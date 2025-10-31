@@ -21,12 +21,7 @@
     * `PKG_CONFIG_PATH=$PWD/build/lib/pkgconfig pkg-config --modversion mylib` — Query a locally built library.
     * `pkg-config --exists openssl {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} echo "OpenSSL available"` — Check for dependency presence in build scripts.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PkgConfigModule =
     {

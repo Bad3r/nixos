@@ -20,12 +20,7 @@
     * `veracrypt --text --create secret.hc --size 500M --encryption AES` — Create a 500 MB container from the terminal.
     * `veracrypt --text --mount secret.hc /mnt/secure` — Mount an existing container to a directory.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   VeracryptModule =
     {

@@ -19,12 +19,7 @@
     * `btm -b -U 2` — Run in basic mode, updating every two seconds for lightweight monitoring.
     * `btm --config ~/.config/bottom/bottom.toml` — Apply a custom layout and theme.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   BottomModule =
     {

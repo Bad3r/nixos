@@ -21,12 +21,7 @@
     * `duf --only local --sort usage` — Focus on local mounts and sort by utilization.
     * `duf --json | jq '.[] | {mount, usage}'` — Feed JSON output into other tools for scripting.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DufModule =
     {

@@ -14,12 +14,7 @@
     --endpoint-url <url>: Target alternative S3-compatible endpoints (MinIO, R2, etc.).
     --profile <name>: Use AWS credentials from a specific profile for authenticated operations.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   S5cmdModule =
     {

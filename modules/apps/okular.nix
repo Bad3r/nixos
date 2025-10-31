@@ -20,12 +20,7 @@
     * `okular --presentation slides.pdf` — Present a slideshow using a PDF deck.
     * `okular --print invoice.pdf` — Open the print dialog immediately for a file.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   KdePackagesModule =
     {

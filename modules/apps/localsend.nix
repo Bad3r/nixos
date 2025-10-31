@@ -19,12 +19,7 @@
     * Use the GUI “Send” button to drop files onto another detected device.
     * Adjust settings to auto-accept files into a specific downloads directory.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   LocalsendModule =
     {

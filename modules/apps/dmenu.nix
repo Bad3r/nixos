@@ -21,12 +21,7 @@
     * `ls | dmenu -p "Open file:"` — Select a file from the current directory and print the choice to stdout.
     * `printf 'yes\nno' | dmenu -i -l 2` — Present a two-line selection, matching case-insensitively.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DmenuModule =
     {

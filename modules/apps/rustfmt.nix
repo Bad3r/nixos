@@ -13,12 +13,7 @@
     * `rustfmt src/main.rs` — Format a specific Rust file in place.
     * `cargo fmt` — Format every Rust file in the current workspace.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   RustfmtModule =
     {

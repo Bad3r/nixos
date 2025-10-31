@@ -14,12 +14,7 @@
     --profile <path>: Write the generated WireGuard configuration to a custom path with `wgcf generate --profile`.
     --config <file>: Load or update account metadata from a specific configuration file during `wgcf update --config`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   WgcfModule =
     {

@@ -13,12 +13,7 @@
     * `virt-viewer --connect qemu+ssh://host/system <vm>` — Attach to a guest console via SPICE.
 */
 
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   VirtManagerModule =
     {

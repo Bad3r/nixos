@@ -19,12 +19,7 @@
     * `qbittorrent-nox --webui-port=8080` — Run a web-controlled instance for remote management.
     * Use Tools → RSS Downloader to automate TV show downloads based on filters.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   QbittorrentModule =
     {

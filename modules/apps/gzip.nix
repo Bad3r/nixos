@@ -21,12 +21,7 @@
     * `gunzip archive.tar.gz` — Decompress an archive in place.
     * `zcat logs.tar.gz | tar xf -` — Stream a compressed tarball directly into `tar` without creating intermediate files.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GzipModule =
     {

@@ -14,12 +14,7 @@
     -json: Emit machine-readable JSON output.
     -class network: Restrict the report to a particular device class.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   LshwModule =
     {

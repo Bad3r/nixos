@@ -10,12 +10,7 @@
     * Works with companion utilities such as `tesseract-lang` packages to add language models.
 */
 
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   TesseractModule =
     {

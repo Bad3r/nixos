@@ -19,12 +19,7 @@
     * `ruff format .` — Format all Python files in the current directory.
     * `ruff check --select I --fix` — Sort imports and apply fixes automatically.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   RuffModule =
     {

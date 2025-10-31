@@ -20,12 +20,7 @@
     * `sudo photorec /log /d ~/recovered` — Recover files from a damaged disk to a specific directory while logging.
     * Use TestDisk to rebuild an NTFS boot sector when partitions become unbootable.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   TestdiskModule =
     {

@@ -19,12 +19,7 @@
     * `sqlmap -r request.txt --dbs` — Enumerate databases from a saved authenticated request.
     * `sqlmap -u <url> --os-shell` — Attempt to spawn an interactive OS shell where supported.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   SqlmapModule =
     {

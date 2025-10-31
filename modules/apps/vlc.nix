@@ -20,12 +20,7 @@
     * `cvlc http://example.com/stream --intf rc` — Control VLC via remote control interface for automation.
     * `vlc video.mp4 --sout '#transcode{vcodec=h264,acodec=aac}:std{access=file,mux=mp4,dst=output.mp4}'` — Transcode content to MP4.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   VlcModule =
     {

@@ -14,12 +14,7 @@
     -xz 5: Display extended disk I/O statistics every five seconds with `iostat -xz`.
     -P ALL 1: Show per-core CPU stats refreshed each second using `mpstat -P ALL`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   SysstatModule =
     {

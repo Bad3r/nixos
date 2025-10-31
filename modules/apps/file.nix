@@ -14,12 +14,7 @@
     -L <path>: Follow symlinks before identifying the target file.
     -z <path>: Inspect compressed files by decompressing them in memory.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   FileModule =
     {

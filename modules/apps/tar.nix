@@ -16,12 +16,7 @@
     --gzip: Compress or decompress archives using gzip during create or extract operations.
     --listed-incremental=FILE: Maintain snapshot state for incremental backups using the provided metadata file.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   TarModule =
     {

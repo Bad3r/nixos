@@ -18,12 +18,7 @@
     * `xkill` — Activate crosshair cursor and click an unresponsive window to close it.
     * `xkill -id 0x3e00007` — Terminate a window using a known resource ID.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   XkillModule =
     {

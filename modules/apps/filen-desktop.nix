@@ -19,12 +19,7 @@
     * `filen-desktop --start-in-tray` — Keep the client running in the background while syncing files.
     * Configure selective sync via the Preferences dialog to limit bandwidth and watched folders.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   FilenDesktopModule =
     {

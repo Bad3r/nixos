@@ -14,12 +14,7 @@
     -r <dir1> <dir2>: Recursively compare directory trees.
     --color=auto <old> <new>: Highlight differences when writing to a terminal.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DiffutilsModule =
     {

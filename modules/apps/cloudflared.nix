@@ -14,12 +14,7 @@
     --hostname <name>: Override the public hostname to route traffic through a specific tunnel.
     --no-autoupdate: Disable the built-in updater when running cloudflared in managed environments.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CloudflaredModule =
     {

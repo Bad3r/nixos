@@ -21,12 +21,7 @@
     * `rustc lib.rs --crate-type=rlib` — Build a reusable Rust library.
     * `RUSTFLAGS="-C target-cpu=native" cargo build --release` — Example of configuring rustc flags via Cargo.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   RustcModule =
     {

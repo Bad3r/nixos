@@ -14,12 +14,7 @@
     --continue <url>: Resume partially downloaded files.
     --limit-rate=1M <url>: Throttle download bandwidth to a fixed rate.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   WgetModule =
     {

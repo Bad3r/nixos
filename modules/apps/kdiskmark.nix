@@ -19,12 +19,7 @@
     * Choose “All” and click “Start” to benchmark both read and write performance.
     * Export results via “Save Report…” to archive benchmark outcomes.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   KdiskmarkModule =
     {

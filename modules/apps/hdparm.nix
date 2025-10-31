@@ -21,12 +21,7 @@
     * `sudo hdparm -tT /dev/nvme0n1` — Benchmark sequential read performance for an NVMe device.
     * `sudo hdparm -S 120 /dev/sdb` — Spin down a drive after 10 minutes of inactivity (120 × 5 seconds).
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   HdparmModule =
     {

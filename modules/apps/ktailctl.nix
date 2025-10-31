@@ -19,12 +19,7 @@
     * `ktailctl --list` — Inspect detected docks and saved profiles from the terminal.
     * `ktailctl --apply office` — Switch to a predefined “office” docking layout.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   KtailctlModule =
     {

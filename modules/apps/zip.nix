@@ -21,12 +21,7 @@
     * `zip -r build.zip dist/ -x "*.map"` — Exclude source maps while packaging a build output.
     * `zip -e secrets.zip notes.txt` — Protect sensitive files with a password prompt compatible with PKZIP.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ZipModule =
     {

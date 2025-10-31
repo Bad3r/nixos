@@ -13,12 +13,7 @@
     * `rust-analyzer analysis-stats` — Inspect analysis metrics for the current crate graph.
     * Automatically launched by editors like Neovim, VS Code, and Helix when opening Rust files.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   RustAnalyzerModule =
     {

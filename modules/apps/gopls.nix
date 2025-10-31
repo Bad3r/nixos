@@ -13,12 +13,7 @@
     * `gopls serve` — Start the language server (normally launched by the editor).
     * `gopls check ./...` — Run static analysis against all Go packages in the workspace.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GoplsModule =
     {

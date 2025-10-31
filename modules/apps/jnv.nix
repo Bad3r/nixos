@@ -20,12 +20,7 @@
     * `curl https://api.example.com | jnv` — Pipe API output directly into the viewer.
     * `jnv data.json --output filtered.json` — Save the filtered JSON result while experimenting in the TUI.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   JnvModule =
     {

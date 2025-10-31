@@ -19,12 +19,7 @@
     * `autotiling-rs --workspace 1 3 5` — Only adjust layouts on workspaces 1, 3, and 5.
     * `exec_always autotiling-rs` — Add to your sway config so autotiling launches on login.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   AutotilingRsModule =
     {

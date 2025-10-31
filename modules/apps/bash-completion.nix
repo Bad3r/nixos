@@ -14,12 +14,7 @@
     -o bashdefault: Merge custom completions with Bash defaults via `complete -o`.
     -C <command>: Delegate completion generation to an external helper command.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   BashCompletionModule =
     {

@@ -21,12 +21,7 @@
     * `rofi -show ssh` — Quickly SSH into hosts listed in `~/.ssh/config`.
     * `echo -e "Option1\nOption2" | rofi -dmenu -p "Choose:"` — Use rofi as an interactive selection menu in scripts.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   RofiModule =
     {

@@ -11,12 +11,7 @@
   Example Usage:
     * `raindrop` — Open the Raindrop.io desktop experience in its own window.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   RaindropModule =
     {

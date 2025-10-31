@@ -16,12 +16,7 @@
     --session=NAME: Persist cookies and headers between related requests.
     --check-status: Exit with error codes that mirror HTTP status classes.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   HttpieModule =
     {

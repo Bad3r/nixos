@@ -14,12 +14,7 @@
     +D <path>: Recursively enumerate open files beneath a directory tree.
     -p <pid>: Restrict output to descriptors opened by a given process ID.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   LsofModule =
     {

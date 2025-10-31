@@ -21,12 +21,7 @@
     * `sudo nvme smart-log /dev/nvme0` — Check drive temperature, media errors, and wear indicators.
     * `sudo nvme device-self-test /dev/nvme0 --start extended` — Initiate an extended diagnostic self-test.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NvmeCliModule =
     {

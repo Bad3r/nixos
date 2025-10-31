@@ -14,12 +14,7 @@
     --warp: Select the full WARP mode using `warp-cli mode --warp` instead of the default Gateway-only mode.
     --add --ip <cidr>: Extend split tunneling by combining `warp-cli split-tunnel --add --ip <cidr>`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CloudflareWarpModule =
     {

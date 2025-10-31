@@ -20,12 +20,7 @@
     * `xclip -selection primary -o` — Print the PRIMARY selection (usually mouse highlight).
     * `xclip -selection clipboard -t image/png -o > screenshot.png` — Save an image copied to the clipboard.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   XclipModule =
     {

@@ -19,12 +19,7 @@
     * `nmap -p 1-65535 -T4 192.0.2.10` — Sweep all TCP ports quickly on an internal target.
     * `nmap --script vuln 198.51.100.0/24` — Run vulnerability NSE scripts across a subnet.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NmapModule =
     {

@@ -14,12 +14,7 @@
     -t: Display the USB topology as a tree using `lsusb -t`.
     -D <device>: Dump descriptors for a specific device path with `lsusb -D /dev/bus/usb/...`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   UsbutilsModule =
     {

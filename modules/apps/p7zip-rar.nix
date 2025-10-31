@@ -20,12 +20,7 @@
     * `7z a backup.7z Documents` — Compress a directory into a 7z archive.
     * `7z l backup.7z` — Inspect the contents of an archive before extracting.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   P7zipRarModule =
     {

@@ -21,12 +21,7 @@
     * `cat subdomains.txt | httpx -tech-detect -follow-redirects -json` — Enumerate technologies for URL targets streamed from stdin.
     * `httpx -l urls.txt -websocket -cdn` — Identify WebSocket endpoints and CDN usage in bulk.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   HttpxModule =
     {

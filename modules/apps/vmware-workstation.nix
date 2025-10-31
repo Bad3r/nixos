@@ -12,12 +12,7 @@
     * `vmware` — Launch the VMware Workstation UI.
     * `vmrun start <vmx>` — Automate headless VM lifecycle operations.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   VmwareWorkstationModule =
     {

@@ -21,12 +21,7 @@
     * `rar a -m5 -p$(pass show infra/rar-password) secure.rar secrets/` — Compress sensitive data with maximum compression and encryption.
     * `unrar x downloads/fonts.rar` — Extract archive contents preserving directory structure.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   RarModule =
     {

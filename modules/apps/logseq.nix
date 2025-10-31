@@ -15,12 +15,7 @@
   Example Usage:
     * `logseq` — Open the Logseq desktop app.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   LogseqModule =
     {

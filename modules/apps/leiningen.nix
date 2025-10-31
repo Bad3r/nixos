@@ -21,12 +21,7 @@
     * `lein repl` — Launch a REPL with the project's dependencies available.
     * `lein uberjar` — Package the project into a standalone jar for deployment.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   LeiningenModule =
     {

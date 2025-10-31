@@ -15,12 +15,7 @@
     --form: Treat key=value pairs as multipart/form-data fields when composing requests.
     -h CATEGORY: Display curl's grouped help pages (for example `-h all`).
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CurlieModule =
     {

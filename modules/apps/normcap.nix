@@ -10,12 +10,7 @@
     * Provides optional system tray indicator and history view.
 */
 
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NormcapModule =
     {

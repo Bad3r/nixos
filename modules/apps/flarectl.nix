@@ -14,12 +14,7 @@
     --account <id>: Scope requests to a particular Cloudflare account when multiple are available.
     --config <file>: Provide API tokens and defaults via a YAML configuration file.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   FlarectlModule =
     {

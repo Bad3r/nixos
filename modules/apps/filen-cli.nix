@@ -19,12 +19,7 @@
     * `filen-cli upload ./reports /Work/Reports` — Upload files into an encrypted cloud folder.
     * `filen-cli sync ./Archive /Backups/Archive --watch` — Continuously mirror a directory to Filen storage.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   FilenCliModule =
     {

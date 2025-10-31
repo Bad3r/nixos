@@ -19,12 +19,7 @@
     * `tshark -Y "http.request" -r capture.pcapng` — Filter HTTP requests from a saved capture.
     * `dumpcap -i eth0 -b duration:300 -w /tmp/trace` — Rotate captures every five minutes for long-running monitoring.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   WiresharkModule =
     {

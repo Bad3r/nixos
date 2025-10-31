@@ -19,12 +19,7 @@
     * Use “Resize/Move” to adjust partition sizes while preserving data.
     * Use “Create Partition Table…” to initialize new disks with GPT or MSDOS labels.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GpartedModule =
     {

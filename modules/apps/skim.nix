@@ -20,12 +20,7 @@
     * `git branch | sk --ansi --query feature` — Filter git branches with initial query text.
     * `sk --tac --expect=ctrl-y` — Reverse the list order and capture custom key events for scripting.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   SkimModule =
     {

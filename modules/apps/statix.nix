@@ -19,12 +19,7 @@
     * `statix fix modules/` — Autofix eligible issues inside `modules/`.
     * `statix --format json check flake.nix` — Produce JSON diagnostics for tooling.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   StatixModule =
     {

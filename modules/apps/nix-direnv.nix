@@ -17,12 +17,7 @@
     * `.envrc`: `use flake` — Automatically enter the project dev shell using flakes.
     * `.envrc`: `use_nix` — Fallback to classic `shell.nix` evaluation with caching.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NixDirenvModule =
     {

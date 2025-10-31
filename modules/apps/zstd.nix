@@ -21,12 +21,7 @@
     * `zstd -d -c logs.zst | jq '.message'` — Stream-decompress into another command without creating intermediate files.
     * `zstd --adapt -T0 < input.bin > output.zst` — Compress mixed workloads using all available cores with adaptive tuning.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ZstdModule =
     {

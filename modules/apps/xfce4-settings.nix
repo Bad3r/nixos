@@ -20,12 +20,7 @@
     * `xfce4-display-settings --minimal` — Quickly adjust monitors via minimal dialog.
     * `xfce4-keyboard-settings` — Configure keyboard layouts and shortcuts.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   XfceModule =
     {

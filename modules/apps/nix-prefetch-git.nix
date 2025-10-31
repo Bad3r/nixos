@@ -19,12 +19,7 @@
     * `nix-prefetch-git --fetch-submodules https://github.com/example/project` — Include submodules when generating the hash.
     * `nix-prefetch-git --url . --rev refs/heads/main` — Prefetch a local repository.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NixPrefetchGitModule =
     {

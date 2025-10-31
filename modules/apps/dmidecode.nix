@@ -14,12 +14,7 @@
     --dump: Emit the raw SMBIOS table for archival or offline analysis.
     -q: Suppress keywords for compact output when scanning large inventories.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DmidecodeModule =
     {

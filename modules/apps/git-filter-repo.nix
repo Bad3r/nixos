@@ -21,12 +21,7 @@
     * `git filter-repo --invert-paths --path secrets/` — Remove a sensitive directory from all commits.
     * `git filter-repo --replace-text mappings.txt` — Scrub API keys or credentials according to a mapping file.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GitFilterRepoModule =
     {

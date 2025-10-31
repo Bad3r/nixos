@@ -14,12 +14,7 @@
     --dry-run: Preview changes without writing to disk, useful for validating patches.
     -R: Reverse an already-applied patch to restore the previous state.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PatchModule =
     {

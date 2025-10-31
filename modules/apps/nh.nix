@@ -19,12 +19,7 @@
     * `nh hm switch` — Apply Home Manager changes from the flake.
     * `nh clean all` — Remove stale system and user generations safely.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NhModule =
     {

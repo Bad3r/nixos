@@ -19,12 +19,7 @@
     * `direnv exec .. nix shell nixpkgs#hello` — Run a command using another directory’s environment.
     * `direnv reload` — Re-evaluate the environment after editing `.envrc`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DirenvModule =
     {

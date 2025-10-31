@@ -14,12 +14,7 @@
     --cmd <name>: Generate init scripts that bind the `z` command to a custom alias (e.g., `zoxide init --cmd cd zsh`).
     --list: Print the contents of the database with scores via `zoxide query --list`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ZoxideModule =
     {

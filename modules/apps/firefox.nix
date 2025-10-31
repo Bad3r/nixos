@@ -21,12 +21,7 @@
     * `firefox --profile ~/.mozilla/firefox/work --private-window https://intranet.local` — Use a dedicated profile and private window for sensitive browsing.
     * `firefox --headless --screenshot page.png https://example.com` — Capture a screenshot via the headless renderer.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   FirefoxModule =
     {

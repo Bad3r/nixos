@@ -21,12 +21,7 @@
     * `sudo iotop -o -d 2` — Show only active I/O every two seconds.
     * `sudo iotop -b -n 10 > iotop.log` — Collect ten samples in batch mode for later analysis.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   IotopModule =
     {

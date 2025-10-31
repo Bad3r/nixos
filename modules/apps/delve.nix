@@ -13,12 +13,7 @@
     * `dlv debug ./cmd/api` — Build and start debugging the binary produced from `./cmd/api`.
     * `dlv attach $(pgrep myservice)` — Attach to a running Go process for live inspection.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DelveModule =
     {

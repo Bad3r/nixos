@@ -21,12 +21,7 @@
     * `udiskie-mount -a` — Mount all currently available devices.
     * Customize `~/.config/udiskie/config.yml` to specify mount options or blacklist devices.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   UdiskieModule =
     {

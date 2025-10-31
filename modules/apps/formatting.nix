@@ -17,12 +17,7 @@
     * `nix develop` — Enter the development shell with all formatters available on `$PATH`.
 */
 
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   FormattingModule =
     {

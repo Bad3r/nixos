@@ -19,12 +19,7 @@
     * `cosmic-term` (then press `Ctrl+Shift+P`) — Open the command palette to access settings and appearance controls.
     * `View → Color schemes…` — Import an `.itermcolors` or `.json` theme for reuse across sessions.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CosmicTermModule =
     {

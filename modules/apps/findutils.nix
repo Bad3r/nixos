@@ -14,12 +14,7 @@
     -mtime -1: Filter entries modified within the last day.
     -exec <command> {} +: Batch matched files into command invocations for better performance.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   FindutilsModule =
     {

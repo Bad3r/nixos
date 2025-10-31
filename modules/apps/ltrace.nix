@@ -21,12 +21,7 @@
     * `ltrace -f -e malloc+free ./binary` — Follow forks and show only allocation-related calls.
     * `ltrace -S -o trace.log command` — Trace both library and system calls, saving results to a log file.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   LtraceModule =
     {

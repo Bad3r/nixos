@@ -20,12 +20,7 @@
     * `nvim --headless +'lua print(vim.version())' +qa` — Query Neovim version in CI pipelines.
     * `nvim --clean init.vim` — Inspect configuration issues by launching with defaults.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NeovimModule =
     {

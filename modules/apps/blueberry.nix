@@ -18,12 +18,7 @@
     * `blueberry-tray` — Launch the tray icon to monitor adapters and expose quick toggles for discovery and visibility.
     * `mkdir -p ~/.config/autostart {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} cp /etc/xdg/autostart/blueberry-tray.desktop ~/.config/autostart/` — Enable the tray indicator automatically for your user session.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   BlueberryModule =
     {

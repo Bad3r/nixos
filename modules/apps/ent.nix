@@ -22,12 +22,7 @@
     -t: Emit comma-separated output suitable for spreadsheets.
     -u: Show usage information.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   EntModule =
     {

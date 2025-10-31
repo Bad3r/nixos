@@ -16,12 +16,7 @@
     --disable-features=OutdatedBuildDetector: Suppress Brave's self-update prompts when using the wrapped build.
     --ozone-platform-hint=auto: Allow Brave to negotiate Wayland or X11 automatically on Linux systems.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   BraveModule =
     {

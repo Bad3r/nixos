@@ -20,12 +20,7 @@
     * `telegram-desktop --startintray` — Keep Telegram running quietly while still receiving notifications.
     * `telegram-desktop --proxy-server=socks5://127.0.0.1:9050` — Use a SOCKS5 proxy for privacy or corporate compliance.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   TelegramDesktopModule =
     {

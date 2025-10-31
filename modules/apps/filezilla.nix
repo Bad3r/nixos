@@ -20,12 +20,7 @@
     * `filezilla --config-dir ~/.config/filezilla-work` — Separate work profiles, bookmarks, and queue settings.
     * `filezilla --locales=de_DE` — Force a particular locale when the environment locale is unavailable.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   FilezillaModule =
     {

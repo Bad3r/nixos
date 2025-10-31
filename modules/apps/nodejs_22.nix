@@ -20,32 +20,33 @@
     * `npm init -y {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} npm install express` — Initialize a project and add dependencies.
     * `npx tsc` — Execute TypeScript compiler via npx using the Node 22 toolchain.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
-  Nodejs22Module = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.nodejs_22.extended;
-  in
-  {
-    options.programs.nodejs_22.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nodejs_22.";
+  Nodejs22Module =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nodejs_22.extended;
+    in
+    {
+      options.programs.nodejs_22.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nodejs_22.";
+        };
+
+        package = lib.mkPackageOption pkgs "nodejs_22" { };
       };
 
-      package = lib.mkPackageOption pkgs "nodejs_22" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nodejs_22 = Nodejs22Module;

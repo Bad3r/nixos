@@ -20,12 +20,7 @@
     * `i3status-rs --stdout` — Inspect generated JSON output for troubleshooting.
     * `i3status-rs -w ~/.config/i3status-rust/` — Enable live reloading when editing configuration files.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   I3statusRustModule =
     {

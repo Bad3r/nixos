@@ -21,12 +21,7 @@
     * `unrar l archive.rar` — Inspect contents before extracting.
     * `unrar x -ppassword secure.rar` — Extract an encrypted archive with the provided password.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   UnrarModule =
     {

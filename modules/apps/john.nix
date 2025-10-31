@@ -19,12 +19,7 @@
     * `john --wordlist=rockyou.txt --rules hashes.txt` — Apply mangling rules to a wordlist.
     * `john --show hashes.txt` — Display recovered credentials once cracking finishes.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   JohnModule =
     {

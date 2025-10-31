@@ -21,12 +21,7 @@
     * `hyperfine -w 3 -r 10 'make clean {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} make'` — Benchmark a build pipeline with warmup and specific run counts.
     * `hyperfine --export-json results.json 'python script.py'` — Save benchmark metrics for further analysis.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   HyperfineModule =
     {

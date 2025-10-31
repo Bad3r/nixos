@@ -21,12 +21,7 @@
     * `gco` — Pick a branch interactively to check out without memorizing names.
     * `gl` — Navigate the reflog and jump to previous states using fuzzy search.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ForgitModule =
     {

@@ -14,12 +14,7 @@
     -E <pattern> <file>: Enable extended regular expressions.
     --color=auto <pattern> <file>: Highlight matches when writing to a terminal.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GnugrepModule =
     {

@@ -21,12 +21,7 @@
     * `tldr --update` — Download the latest TL;DR pages.
     * `tldr --platform linux find` — Show Linux-specific usage examples.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   TealdeerModule =
     {

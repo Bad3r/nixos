@@ -14,12 +14,7 @@
     --read-alias <shell>: Expand aliases when resolving commands, useful for interactive shells.
     --read-functions: Detect shell functions in addition to binaries when using `which`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   WhichModule =
     {

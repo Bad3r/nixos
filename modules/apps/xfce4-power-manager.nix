@@ -19,12 +19,7 @@
     * `xfce4-power-manager-settings` — Configure battery thresholds, display blanking, and critical actions.
     * Use keyboard brightness keys; the daemon handles adjusting brightness and notifications.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   XfceModule =
     {

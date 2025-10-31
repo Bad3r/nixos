@@ -19,12 +19,7 @@
     * Use the “Quick Add” shortcut (`Ctrl+Space`) to capture tasks rapidly.
     * Configure notifications and synchronization intervals via Preferences.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PlanifyModule =
     {

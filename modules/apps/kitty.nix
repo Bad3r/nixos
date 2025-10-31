@@ -21,12 +21,7 @@
     * `kitty --config ~/.config/kitty/light.conf` — Launch with an alternate theme/config.
     * `kitty @ set-font-size 14` — Adjust font size on the fly via remote control.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   KittyModule =
     {

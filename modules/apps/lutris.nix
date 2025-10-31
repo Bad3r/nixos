@@ -20,12 +20,7 @@
     * `lutris -i ~/Downloads/game.yml` — Install a game using a downloaded community installer script.
     * `lutris -d` — Start Lutris with verbose logs when diagnosing runner issues.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   LutrisModule =
     {

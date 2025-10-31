@@ -19,12 +19,7 @@
     * `dua --summarize ~/Downloads ~/Videos` — Compare storage consumption across multiple directories.
     * `dua i /var/log` — Drill into nested directories and delete files directly from the TUI.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DuaModule =
     {

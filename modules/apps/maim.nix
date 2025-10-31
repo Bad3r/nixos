@@ -21,12 +21,7 @@
     * `maim -s -u -m 3 region.png` — After a 3-second delay, interactively select an area including the cursor.
     * `maim -s | xclip -selection clipboard -t image/png` — Copy a selected region directly to the clipboard.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   MaimModule =
     {

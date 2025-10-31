@@ -14,12 +14,7 @@
     --dry-run: Preview deployments without pushing changes when combined with `wrangler deploy --dry-run`.
     --minify: Enable JavaScript minification during builds via `wrangler deploy --minify`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   WranglerModule =
     {

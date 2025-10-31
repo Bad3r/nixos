@@ -21,12 +21,7 @@
     * `electron-mail --proxy-server="socks5://127.0.0.1:1080"` — Tunnel ProtonMail traffic through a local SOCKS proxy.
     * `electron-mail --disable-gpu --enable-logging` — Diagnose rendering problems on hardware with flaky GPU support.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ElectronMailModule =
     {

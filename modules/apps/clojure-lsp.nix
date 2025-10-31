@@ -21,12 +21,7 @@
     * `clojure-lsp format --filenames src app/core.clj` — Format specific source files.
     * `clojure-lsp listen` — Run the LSP server for editor clients that connect via stdio.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ClojureLspModule =
     {

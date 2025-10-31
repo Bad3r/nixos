@@ -14,12 +14,7 @@
     cloudflare.New(apiKey, email): Instantiate a client with global API key credentials.
     client.Zones(): Retrieve the zones accessible to the authenticated account.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CloudflareGoSdkModule =
     {

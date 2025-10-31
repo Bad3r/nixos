@@ -14,12 +14,7 @@
     Client::new(api_token): Construct an authenticated API client with a scoped token.
     client.zones().list(): List zones accessible to the configured account.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CloudflareRsSdkModule =
     {

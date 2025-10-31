@@ -21,12 +21,7 @@
     * `dolphin --split --new-window /mnt/storage` — Launch a new window with dual panes rooted at `/mnt/storage`.
     * `dolphin --select ~/Documents/report.pdf` — Highlight a specific file inside Dolphin for quick actions.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   KdePackagesModule =
     {

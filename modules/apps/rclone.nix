@@ -14,12 +14,7 @@
     --drive-server-side-across-configs: Enable server-side copies between Google Drive remotes when credentials permit.
     --transfers <n>: Limit the number of concurrent transfers to control bandwidth usage.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   RcloneModule =
     {

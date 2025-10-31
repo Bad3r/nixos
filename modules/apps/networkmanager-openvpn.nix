@@ -14,12 +14,7 @@
     --ask: Prompt interactively for secrets when activating a profile via `nmcli connection up --ask`.
     --show-secrets: Reveal stored credentials for troubleshooting with `nmcli connection show --show-secrets`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NetworkmanagerOpenvpnModule =
     {

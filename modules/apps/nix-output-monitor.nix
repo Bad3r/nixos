@@ -14,12 +14,7 @@
     --keep-going: Continue building remaining derivations after a failure, mirroring `nix build --keep-going`.
     --max-concurrent-jobs <n>: Restrict the number of builds running in parallel for resource control.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NixOutputMonitorModule =
     {

@@ -21,12 +21,7 @@
     * `nrm use npm` — Switch back to the official npm registry.
     * `nrm add internal https://npm.company.com/` — Add a private corporate registry.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NrmModule =
     {

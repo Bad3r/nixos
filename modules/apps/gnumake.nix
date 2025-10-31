@@ -21,12 +21,7 @@
     * `make -j$(nproc)` — Compile targets in parallel according to CPU count.
     * `make clean` — Invoke the `clean` target to remove build artifacts.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GnumakeModule =
     {

@@ -21,12 +21,7 @@
     * `sudo f3read /media/usb` — Validate the data written by `f3write` and identify corrupt sectors.
     * `sudo f3probe --destructive --time-ops /dev/sdc` — Run a destructive scan to estimate genuine size and performance metrics.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   F3Module =
     {

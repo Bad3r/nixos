@@ -21,12 +21,7 @@
     * `bunzip2 -k logs.tar.bz2` — Decompress an archive while keeping the original compressed file.
     * `bzcat logs.tar.bz2 | tar xf -` — Stream a compressed tarball directly into `tar` without creating intermediate files.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   Bzip2Module =
     {

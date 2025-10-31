@@ -14,12 +14,7 @@
     --stat: Show summarized diff statistics when used with `git log --stat` or `git show --stat`.
     --amend: Rewrite the previous commit when passed to `git commit --amend` for quick fixes.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GitModule =
     {

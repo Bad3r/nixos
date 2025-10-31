@@ -2,12 +2,7 @@
   Package: yaak
   Description: Yet Another API Client - Desktop app for testing APIs
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   YaakModule =
     {

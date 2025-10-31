@@ -12,12 +12,7 @@
     * `VirtualBox` — Launch the Qt management UI for creating and managing VMs.
     * `vboxmanage list vms` — Enumerate registered guests from the CLI.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   VirtualboxModule =
     {

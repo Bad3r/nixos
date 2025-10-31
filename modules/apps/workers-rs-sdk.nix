@@ -14,12 +14,7 @@
     --features http: Enable compatibility layers when declaring `worker = { features = ["http"] }` in `Cargo.toml`.
     --release: Produce optimized wasm artifacts during `worker-build --release` builds.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   WorkersRsSdkModule =
     {

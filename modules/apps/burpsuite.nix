@@ -19,12 +19,7 @@
     * `BURP_JVM_ARGS="-Xmx8G" burpsuitepro` — Allocate a larger heap for massive site crawls.
     * Add extensions from the BApp Store (e.g., Autorize, Logger++) to enhance capabilities.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   BurpsuiteModule =
     {

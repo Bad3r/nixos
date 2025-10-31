@@ -14,12 +14,7 @@
     CloudFlare(token=<token>): Authenticate using Cloudflare API tokens within Python code.
     cf.zones.get(): Retrieve metadata for zones accessible to the authenticated account.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CloudflarePythonSdkModule =
     {

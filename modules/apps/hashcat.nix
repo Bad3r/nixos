@@ -19,12 +19,7 @@
     * `hashcat -m 22000 handshake.hc22000 wordlist.txt -r rules/best64.rule` — Crack WPA2 handshakes with rule-based mangling.
     * `hashcat -I` — List detected compute devices before launching an attack.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   HashcatModule =
     {

@@ -19,12 +19,7 @@
     * Within the UI, use `S` to sign a selected key or `E` to export it.
     * Press `?` inside the application to view the shortcut reference.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GpgTuiModule =
     {

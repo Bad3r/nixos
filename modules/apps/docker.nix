@@ -14,12 +14,7 @@
     * `docker buildx bake` — Execute cached multi-platform builds.
 */
 
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DockerModule =
     {

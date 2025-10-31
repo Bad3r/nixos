@@ -21,12 +21,7 @@
     * `playerctl --player=spotify metadata --format '{{title}} by {{artist}}'` — Show the current Spotify track in a custom format.
     * `playerctl --player=mpv position +30` — Skip forward 30 seconds in mpv.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PlayerctlModule =
     {

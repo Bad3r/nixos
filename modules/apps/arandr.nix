@@ -21,12 +21,7 @@
     * `arandr ~/.screenlayout/work.sh` — Open the GUI with a saved layout preloaded for edits.
     * `arandr --randr-display 192.168.0.10:0` — Adjust outputs exposed by a remote X server over SSH forwarding.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ArandrModule =
     {

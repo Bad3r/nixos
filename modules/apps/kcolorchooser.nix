@@ -15,12 +15,7 @@
     * `kcolorchooser --print` — Copy a sampled color to stdout as soon as it is confirmed.
     * `kcolorchooser --color "#AABBCC"` — Preload the dialog with a specific color for adjustments.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   KdePackagesModule =
     {

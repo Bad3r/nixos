@@ -21,12 +21,7 @@
     * `cmake --build build --target tests` — Compile and run the `tests` target using the selected generator.
     * `cmake --install build --prefix /opt/myapp` — Install artifacts into a staging prefix after a successful build.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CmakeModule =
     {

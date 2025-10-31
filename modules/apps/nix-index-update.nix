@@ -17,12 +17,7 @@
     * `nix-index-update` — Pull the newest prebuilt index for your system and channels.
     * `nix-index-update --commit 1d9f84f4` — Force a particular nixpkgs revision for reproducibility.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NixIndexUpdateModule =
     {

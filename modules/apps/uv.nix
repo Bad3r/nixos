@@ -21,12 +21,7 @@
     * `uv lock {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} uv sync` — Produce a lockfile and sync dependencies into `.venv`.
     * `uv run pytest` — Execute a command using the synced environment without manually activating it.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   UvModule =
     {

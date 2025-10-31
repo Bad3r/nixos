@@ -14,12 +14,7 @@
     const cf = new Cloudflare({ token }): Instantiate a client authenticated with an API token.
     cf.dnsRecords.browse(zoneId): List DNS records for a zone via the SDK.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NodeCloudflareSdkModule =
     {

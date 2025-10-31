@@ -14,12 +14,7 @@
     genpkey: Run `openssl genpkey -algorithm RSA -out key.pem` to generate private keys.
     s_client: Connect to TLS services with `openssl s_client -connect host:port` for debugging handshakes.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   OpensslModule =
     {

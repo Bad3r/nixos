@@ -19,12 +19,7 @@
     * `github-mcp-server socket --port 8765` — Expose MCP services over TCP for remote clients.
     * `github-mcp-server stdio --read-only` — Share repository insights without allowing mutations.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GithubMcpServerModule =
     {

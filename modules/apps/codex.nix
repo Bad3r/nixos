@@ -19,12 +19,7 @@
     * `codex review --pr 42` — Produce a natural-language review summary for PR #42.
     * `codex apply --task "add tests for session manager"` — Request patch suggestions for the given task.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CodexModule =
     {

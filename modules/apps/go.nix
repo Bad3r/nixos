@@ -21,12 +21,7 @@
     * `go build ./cmd/api` — Build a service located under `cmd/api`.
     * `go test ./... -race` — Run all project tests with the race detector enabled.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GoModule =
     {

@@ -21,12 +21,7 @@
     * `cargo build --release` — Produce optimized artifacts in `target/release`.
     * `cargo test -- --nocapture` — Run the project's test suite and stream stdout for debugging.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CargoModule =
     {

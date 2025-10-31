@@ -14,12 +14,7 @@
     -d @file: POST data from a file, often paired with `--header 'Content-Type: application/json'`.
     --retry 3 --fail: Retry transient failures while still exiting non-zero on HTTP error codes.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CurlModule =
     {

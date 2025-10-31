@@ -14,12 +14,7 @@
     -H: Display individual threads in `top -H` for fine-grained inspection.
     -n <seconds>: Set the refresh interval when running `watch -n` on frequently polled commands.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ProcpsModule =
     {

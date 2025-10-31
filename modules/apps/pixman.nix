@@ -8,12 +8,7 @@
     * Supplies compositing and raster operations for 2D graphics stacks.
     * Provides the `pixman-1.pc` pkg-config file that native builds like node-canvas require.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PixmanModule =
     {

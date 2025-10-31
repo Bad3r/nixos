@@ -14,12 +14,7 @@
     --help: Display all available server flags and usage information.
     --stdio: Run the language server over stdio for LSP integrations.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NilModule =
     {

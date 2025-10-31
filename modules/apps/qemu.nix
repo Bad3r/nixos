@@ -13,12 +13,7 @@
     * `quickemu --vm ubuntu-24.04.conf` — Start a Quickemu-managed desktop guest with sensible defaults.
 */
 
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   QemuModule =
     {

@@ -21,12 +21,7 @@
     * `curl -s https://api.example.com | jq -r '.results[].url'` — Stream API output and print raw URLs.
     * `jq --arg env "$ENV" '.config[$env]' config.json` — Select configuration for the current environment variable.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   JqModule =
     {

@@ -21,12 +21,7 @@
     * `dunstctl set-paused true` — Temporarily pause displaying notifications.
     * `dunstctl history-pop` — Quickly restore the last dismissed notification.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DunstModule =
     {

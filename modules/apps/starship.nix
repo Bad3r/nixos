@@ -14,12 +14,7 @@
     --help: Display usage details for all starship subcommands and flags.
     --version: Show the currently installed starship release.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   StarshipModule =
     {

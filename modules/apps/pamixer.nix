@@ -21,12 +21,7 @@
     * `pamixer --set-volume 30 --sink 1` — Set sink #1 to 30% volume explicitly.
     * `pamixer --toggle-mute` — Toggle mute state via a keybinding script.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PamixerModule =
     {

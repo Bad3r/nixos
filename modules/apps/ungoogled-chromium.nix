@@ -20,12 +20,7 @@
     * `ungoogled-chromium --incognito --enable-features=VaapiVideoDecoder` — Launch a private session with VA-API decoding.
     * `ungoogled-chromium --user-data-dir ~/.local/share/chromium-alt` — Keep a fully isolated profile tree for testing.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   UngoogledChromiumModule =
     {

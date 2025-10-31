@@ -21,12 +21,7 @@
     * `notify-send -u critical -i dialog-warning "Backup failed"` — Emit a high urgency alert.
     * `notify-send -a deploy -t 0 "Deployment" "Waiting for confirmation"` — Display a persistent notification for manual actions.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   LibnotifyModule =
     {

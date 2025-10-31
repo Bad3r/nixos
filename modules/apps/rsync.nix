@@ -19,12 +19,7 @@
     * `rsync -av --delete --exclude '.cache/' src/ dest/` — Maintain an exact replica while skipping cache files.
     * `rsync -avz --bwlimit=5000 files/ rsync://mirror.example.org/share/` — Upload to an rsync daemon with throttled bandwidth.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   RsyncModule =
     {

@@ -19,12 +19,7 @@
     * `printf '%s\n' screenshot.png | dragon-drop` — Pipe paths from another command and drag the resulting selection.
     * `dragon-drop ~/Downloads/*.png` — Collect multiple assets and drop them into a browser upload dialog.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DragonDropModule =
     {

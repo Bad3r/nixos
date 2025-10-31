@@ -21,12 +21,7 @@
     * `dust -d 2 /var` — Inspect the largest directories within `/var` up to depth 2.
     * `dust -n 10 --ignore-directory node_modules project/` — Show the top ten space consumers while ignoring `node_modules`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DustModule =
     {

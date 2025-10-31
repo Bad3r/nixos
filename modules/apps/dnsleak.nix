@@ -16,12 +16,7 @@
     * `dnsleak` — Display the detected public IP and the DNS servers listed in `/etc/resolv.conf`.
     * `dnsleak | tee /tmp/dnsleak.log` — Capture the output for auditing or support tickets.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DnsleakModule =
     {

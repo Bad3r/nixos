@@ -10,12 +10,7 @@
   Example Usage:
     * `wappalyzer https://example.org` — Enumerate detected technologies for the given URL.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   WappalyzerNextModule =
     {

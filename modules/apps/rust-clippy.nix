@@ -13,12 +13,7 @@
     * `cargo clippy` — Lint the current Rust workspace with default lint groups.
     * `cargo clippy -- -W clippy::pedantic -A clippy::module-name-repetitions` — Customize lint levels per project needs.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   RustClippyModule =
     {

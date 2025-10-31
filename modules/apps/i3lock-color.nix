@@ -21,12 +21,7 @@
     * `i3lock-color -i ~/Pictures/wallpaper.jpg -B 5 --time-color ffffffff` — Use a background image with blur and white time display.
     * `i3lock-color --nofork {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} systemctl suspend` — Lock the screen synchronously before suspending.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   I3lockColorModule =
     {

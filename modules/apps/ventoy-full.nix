@@ -14,12 +14,7 @@
     * `sudo ventoy -I /dev/sdX` - Install Ventoy to `/dev/sdX` in one shot.
     * `sudo ventoy -U /dev/sdX` - Update an existing Ventoy installation.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   VentoyFullModule =
     {

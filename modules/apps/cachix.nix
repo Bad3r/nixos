@@ -19,12 +19,7 @@
     * `cachix push myteam result` — Upload a built derivation to share with teammates.
     * `cachix watch-store myteam` — Continuously push builds while iterating locally.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CachixModule =
     {

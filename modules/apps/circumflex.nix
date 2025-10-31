@@ -21,12 +21,7 @@
     * `clx comments 42133706` — Open the discussion for item 42133706 directly.
     * `clx url https://example.com/post` — Render an article in reader mode inside the terminal.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CircumflexModule =
     {

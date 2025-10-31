@@ -21,12 +21,7 @@
     * `hsetroot -gradient vert '#1d2021' '#282c34'` — Apply a vertical gradient between two colors.
     * `hsetroot -fill ~/Pictures/wallpaper.jpg` — Fill the screen with an image preserving aspect ratio.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   HsetrootModule =
     {

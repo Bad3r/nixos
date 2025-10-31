@@ -18,12 +18,7 @@
     * `protonvpn-cli c --sc` — Connect to the fastest Secure Core server via CLI.
     * Enable “Kill Switch” in settings to block traffic if the VPN disconnects unexpectedly.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ProtonvpnGuiModule =
     {

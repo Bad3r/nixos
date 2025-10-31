@@ -14,12 +14,7 @@
     -v: Print verbose ownership and access details via `fuser -v <path>`.
     -r <pattern>: Enable regular-expression matching when issuing `killall -r`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PsmiscModule =
     {

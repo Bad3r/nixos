@@ -20,12 +20,7 @@
     * `code --disable-gpu --log trace` — Diagnose rendering problems with verbose logging.
     * Configure remote development extensions in the usual manner; the FHS wrapper ensures required binaries resolve correctly.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   VscodeFhsModule =
     {

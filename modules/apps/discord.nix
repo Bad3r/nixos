@@ -19,12 +19,7 @@
     * `discord --disable-gpu` — Work around rendering glitches on unsupported GPUs.
     * `discord --proxy-server="socks5://127.0.0.1:1080"` — Respect network egress policies in restricted environments.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DiscordModule =
     {

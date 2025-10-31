@@ -16,12 +16,7 @@
     --list-fingerprint [TYPE]: Print the relay identity fingerprint (optionally for a given key type) and exit.
     --verify-config: Validate configuration files and exit without starting the daemon.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   TorModule =
     {

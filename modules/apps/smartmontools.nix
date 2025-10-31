@@ -20,12 +20,7 @@
     * `sudo smartctl -t long /dev/sda` — Initiate an extended self-test (run in background).
     * Edit `/etc/smartd.conf` to schedule weekly tests and email alerts via `smartd`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   SmartmontoolsModule =
     {

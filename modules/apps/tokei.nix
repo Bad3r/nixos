@@ -21,12 +21,7 @@
     * `tokei . -e target -e vendor` — Ignore build artifacts and vendor directories.
     * `tokei . -f json | jq '.Totals.code'` — Produce JSON output and extract total code lines with jq.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   TokeiModule =
     {

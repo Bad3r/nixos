@@ -20,12 +20,7 @@
     * `lxsession-default-apps` — Adjust default web browser, terminal, and file manager for the session.
     * Create `~/.config/lxsession/LXDE/autostart` to launch custom applications when the session starts.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   LxsessionModule =
     {

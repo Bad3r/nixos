@@ -16,12 +16,7 @@
     -T NUM: Run compression or decompression with NUM parallel threads when supported.
     --format=FORMAT: Force processing of a specific container format such as xz, lzma, or raw.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   XzModule =
     {

@@ -14,12 +14,7 @@
     -l: Enumerate partition tables across disks when running `fdisk -l`.
     --bind <src> <dest>: Bind-mount a directory using the util-linux `mount` implementation.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   UtilLinuxModule =
     {

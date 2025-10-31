@@ -17,12 +17,7 @@
     * `nix-locate bin/terraform` — Find which derivations ship a `terraform` binary.
     * `nix-index` — Rebuild the index using the current substituter set.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NixIndexModule =
     {

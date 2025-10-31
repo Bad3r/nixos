@@ -19,12 +19,7 @@
     * `pyright src --lib` — Analyze the `src` directory including standard library shims.
     * `pyright --watch` — Continuously type-check while developing.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PyrightModule =
     {

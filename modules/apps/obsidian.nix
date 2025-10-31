@@ -19,12 +19,7 @@
     * Create `~/Notes` and add as a vault to manage Markdown notes locally.
     * Enable Plugins → “Daily Notes” to generate journal entries automatically.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ObsidianModule =
     {

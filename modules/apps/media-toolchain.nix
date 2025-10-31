@@ -20,12 +20,7 @@
     * `ffmpeg -i input.mov -c:v libx264 output.mp4` — Transcode video using ffmpeg-full.
     * `gst-inspect-1.0 | grep vaapi` — Verify GStreamer VAAPI plugins are installed.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   MediaToolchainModule =
     {

@@ -20,12 +20,7 @@
     * `networkmanager_dmenu -l rofi --visible` — Launch with rofi and keep the menu open after selection.
     * `networkmanager_dmenu --qr` — Display the QR code for the currently active Wi-Fi connection.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NetworkmanagerDmenuModule =
     {

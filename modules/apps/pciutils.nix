@@ -14,12 +14,7 @@
     -k: Display kernel driver bindings and modules in use via `lspci -k`.
     -s <device>: Target specific devices when adjusting registers with `setpci -s <device> <cap>=<value>`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   PciutilsModule =
     {

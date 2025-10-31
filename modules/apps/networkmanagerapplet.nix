@@ -19,12 +19,7 @@
     * Click the tray icon to connect/disconnect Wi-Fi and VPN connections.
     * `nm-connection-editor` — Edit advanced connection settings such as IPv6, DNS, and security settings.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NetworkmanagerappletModule =
     {

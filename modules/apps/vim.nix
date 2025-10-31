@@ -20,12 +20,7 @@
     * `vim -u NONE -N` — Start with no configuration in nocompatible mode to debug issues.
     * `vim +'PlugUpdate' +qa` — Update plugins using vim-plug in automation scripts.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   VimModule =
     {

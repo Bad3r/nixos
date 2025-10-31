@@ -21,12 +21,7 @@
     * `bb -x greet --name Alice` — Call a function exported in `bb.edn` with parsed CLI options.
     * `bb tasks` — Inspect available tasks defined in the project `bb.edn` file.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   BabashkaModule =
     {

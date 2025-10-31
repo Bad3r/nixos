@@ -14,12 +14,7 @@
     -R <file>: Display raw control characters for colored output.
     -N <file>: Show line numbers along the left margin.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   LessModule =
     {

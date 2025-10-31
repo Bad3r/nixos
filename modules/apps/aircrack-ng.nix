@@ -19,12 +19,7 @@
     * `aireplay-ng --deauth 10 -a <AP> -c <CLIENT> wlan0mon` — Force a reconnect to capture WPA handshakes.
     * `aircrack-ng -w wordlist.txt handshake.cap` — Crack a WPA2-PSK handshake using a wordlist.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   AircrackNgModule =
     {

@@ -20,12 +20,7 @@
     * `xbacklight -inc 10` — Increase brightness by 10%.
     * `xbacklight -dec 20 -time 200` — Fade brightness down by 20% over 200 ms.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   XorgModule =
     {

@@ -14,12 +14,7 @@
     --form: Encode fields as multipart/form-data when uploading files or mixed payloads.
     --timeout <seconds>: Override the default request timeout for long-running requests.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   XhModule =
     {

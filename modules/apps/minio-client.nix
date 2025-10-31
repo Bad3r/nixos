@@ -14,12 +14,7 @@
     --watch: Keep `mc mirror --watch` running to stream incremental changes.
     --json: Emit machine-readable output for automation scripts.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   MinioClientModule =
     {

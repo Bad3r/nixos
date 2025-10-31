@@ -19,12 +19,7 @@
     * `desktop-file-install --dir=$HOME/.local/share/applications myapp.desktop` — Deploy a tweaked launcher into the per-user application menu.
     * `update-desktop-database ~/.local/share/applications` — Rebuild MIME caches so new launchers appear in desktop menus.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DesktopFileUtilsModule =
     {

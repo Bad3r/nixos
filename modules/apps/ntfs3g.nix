@@ -20,12 +20,7 @@
     * `sudo ntfsfix /dev/sdb1` — Fix simple corruption before mounting.
     * `sudo ntfs-3g -o uid=$(id -u),gid=$(id -g) /dev/sdb2 ~/win-share` — Mount with current user ownership.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   Ntfs3gModule =
     {

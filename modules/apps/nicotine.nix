@@ -19,12 +19,7 @@
     * `nicotine-plus --profile work` — Maintain separate settings for different sharing communities.
     * `nicotine-plus --portable` — Store config alongside the executable for removable media use.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NicotineModule =
     {

@@ -19,12 +19,7 @@
     * `coderabbit review --pr 128 --format markdown` — Request a markdown-formatted review for PR #128.
     * `coderabbit review --staged --output report.md` — Review currently staged changes and save the response to a file.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CoderabbitCliModule =
     {

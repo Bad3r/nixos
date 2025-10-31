@@ -14,12 +14,7 @@
     --region <code>: Override the default AWS Region for a single invocation.
     --query <JMESPath>: Filter and transform JSON responses with a JMESPath expression.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   Awscli2Module =
     {

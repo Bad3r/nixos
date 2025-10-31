@@ -20,12 +20,7 @@
     * `winetricks corefonts vcrun2019` — Install required runtime components.
     * `proton-run game.exe` — Launch a program with Proton-GE’s compatibility enhancements.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ProtonGeBinModule =
     {

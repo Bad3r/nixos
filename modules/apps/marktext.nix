@@ -21,12 +21,7 @@
     * `glow --json doc.md | jq '.body'` — Export Markdown to JSON for further processing.
 */
 
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   MarktextModule =
     {

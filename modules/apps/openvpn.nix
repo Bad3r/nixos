@@ -21,12 +21,7 @@
     * `sudo openvpn --config site.conf --daemon --log /var/log/openvpn.log` — Run OpenVPN in the background with logging.
     * `sudo openvpn --config client.ovpn --auth-user-pass creds.txt` — Supply username/password from a file for authentication.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   OpenvpnModule =
     {

@@ -14,12 +14,7 @@
     --wide: Expand the diff view to include derivation attribute paths.
     --exit-status: Return non-zero exit codes when differences are detected.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NvdModule =
     {

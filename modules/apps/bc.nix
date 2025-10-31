@@ -14,12 +14,7 @@
     -q: Suppress the startup banner when entering interactive mode.
     -f <file>: Execute statements from the specified script file.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   BcModule =
     {

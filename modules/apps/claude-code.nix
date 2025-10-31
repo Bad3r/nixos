@@ -19,12 +19,7 @@
     * `claude-code worktree --task "refactor telemetry collection"` — Ask Claude to propose git changes for a task.
     * `claude-code run ci-audit.yml` — Execute a saved automation recipe against the repo.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ClaudeCodeModule =
     {

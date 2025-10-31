@@ -14,12 +14,7 @@
     --version: Print version and licensing details for the invoked coreutils program.
     --preserve-root: Protect `/` from recursive removal when running `rm --preserve-root -rf /`.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CoreutilsModule =
     {

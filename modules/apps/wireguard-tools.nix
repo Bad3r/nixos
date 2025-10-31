@@ -21,12 +21,7 @@
     * `sudo wg-quick up wg0` — Start the `wg0` tunnel using `/etc/wireguard/wg0.conf`.
     * `sudo wg show wg0` — Inspect handshake times, transfer statistics, and peer endpoints.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   WireguardToolsModule =
     {

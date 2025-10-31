@@ -17,12 +17,7 @@
     * `nix-diff result drv` — Compare a newly built result against a previous drv path.
     * `nix-diff --stats $(nix build .#pkg1 --print-out-paths) $(nix build .#pkg2 --print-out-paths)` — Summarize differences between two builds.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   NixDiffModule =
     {

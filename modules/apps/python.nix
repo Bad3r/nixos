@@ -20,12 +20,7 @@
     * `python3.13 -m venv .venv {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} source .venv/bin/activate` — Create and activate a virtual environment.
     * `python3.13 -m pip install requests` — Install packages using pip within the environment.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   Python313Module =
     {

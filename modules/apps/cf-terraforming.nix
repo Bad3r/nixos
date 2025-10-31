@@ -14,12 +14,7 @@
     --zone-id <id>: Restrict exports to a specific zone instead of enumerating all accessible zones.
     --tf-version <version>: Emit Terraform configuration pinned to the specified language version.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   CfTerraformingModule =
     {

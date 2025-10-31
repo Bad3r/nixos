@@ -14,12 +14,7 @@
     -n '1,10p': Print only selected line ranges without default output.
     -i.bak 's/foo/bar/': Edit files in place while writing backups with the specified suffix.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GnusedModule =
     {

@@ -20,32 +20,33 @@
     * `npm create vite@latest my-app` — Scaffold a web project using the latest npm toolchains.
     * `corepack enable pnpm {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} pnpm install` — Switch to pnpm package management for the project.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
-  Nodejs24Module = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.nodejs_24.extended;
-  in
-  {
-    options.programs.nodejs_24.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nodejs_24.";
+  Nodejs24Module =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nodejs_24.extended;
+    in
+    {
+      options.programs.nodejs_24.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nodejs_24.";
+        };
+
+        package = lib.mkPackageOption pkgs "nodejs_24" { };
       };
 
-      package = lib.mkPackageOption pkgs "nodejs_24" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nodejs_24 = Nodejs24Module;

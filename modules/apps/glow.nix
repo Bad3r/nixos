@@ -15,12 +15,7 @@
     glow --style <dark|light>: Override the automatic theme choice.
     glow list --local: Browse cached documents managed by glow.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GlowModule =
     {

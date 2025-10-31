@@ -21,12 +21,7 @@
     * `mitmdump -s modify_headers.py` — Run a script to modify requests/responses in headless mode.
     * `mitmweb --ssl-insecure` — Use the web dashboard to inspect traffic without verifying upstream certificates.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   MitmproxyModule =
     {

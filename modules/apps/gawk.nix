@@ -14,12 +14,7 @@
     -v NAME=value: Pass external variables into a script.
     --posix: Enable POSIX compatibility mode for portability.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   GawkModule =
     {

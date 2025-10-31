@@ -14,12 +14,7 @@
     --input: Read from stdin (or a redirected file) and store the data in the chosen selection.
     --clear --primary: Clear the primary selection buffer before copying new content.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   XselModule =
     {

@@ -21,12 +21,7 @@
     * `exiftool -r -json ~/Pictures | jq '.[].DateTimeOriginal'` — Recursively extract capture timestamps into JSON.
     * `exiftool -overwrite_original -All= image.jpg` — Strip all metadata from an image in place.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ExiftoolModule =
     {

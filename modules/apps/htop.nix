@@ -14,12 +14,7 @@
     -u <user>: Filter the process list to a specific UID when launching htop.
     --sort-key <field>: Choose the metric used for ordering processes (e.g., `htop --sort-key PERCENT_CPU`).
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   HtopModule =
     {

@@ -16,12 +16,7 @@
     * `kiro` — Start the Kiro configuration interface from the FHS wrapper.
     * `kiro --profile custom.yaml` — Apply a specific keyboard profile using the wrapped executable.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   KiroFhsModule =
     {

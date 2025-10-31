@@ -19,12 +19,7 @@
     * `dropbox status` — Check current synchronization state and recent activity.
     * `dropbox exclude add temp/` — Skip syncing temporary directories to the cloud.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   DropboxModule =
     {

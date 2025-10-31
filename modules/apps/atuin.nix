@@ -14,12 +14,7 @@
     -i: Launch the interactive TUI with `atuin search -i` for fuzzy history filtering.
     -u <name>: Provide the username when running `atuin register -u` or `atuin login -u` on new machines.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   AtuinModule =
     {

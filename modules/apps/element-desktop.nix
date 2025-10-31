@@ -19,12 +19,7 @@
     * `element-desktop --profile work` — Maintain separated home and work profiles.
     * `element-desktop --proxy-server="socks5://127.0.0.1:9150"` — Route Matrix traffic over Tor or corporate proxies.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
   ElementDesktopModule =
     {
