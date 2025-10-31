@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.feh =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.feh ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.feh.extended;
+    in
+    {
+      options.programs.feh.extended = {
+        enable = lib.mkEnableOption "Light-weight image viewer.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.feh ];
+      };
     };
 }

@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.zathura =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.zathura ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.zathura.extended;
+    in
+    {
+      options.programs.zathura.extended = {
+        enable = lib.mkEnableOption "Highly customizable and functional PDF viewer.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.zathura ];
+      };
     };
 }

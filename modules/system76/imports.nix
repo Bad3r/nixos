@@ -68,6 +68,19 @@ in
       "rar"
       "unrar"
     ];
+
+    # Hardware support
+    hardware.system76.extended.enable = true;
+
+    # Security & authentication
+    security.polkit.wheelPowerManagement.enable = true;
+
+    # Gaming & performance
+    programs = {
+      steam.extended.enable = true;
+      mangohud.extended.enable = true;
+      rip2.extended.enable = true;
+    };
   };
 
   # Export the System76 configuration so the flake exposes it under nixosConfigurations

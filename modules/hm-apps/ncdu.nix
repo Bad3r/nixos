@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.ncdu =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.ncdu ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ncdu.extended;
+    in
+    {
+      options.programs.ncdu.extended = {
+        enable = lib.mkEnableOption "Disk usage analyzer with an ncurses interface.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.ncdu ];
+      };
     };
 }

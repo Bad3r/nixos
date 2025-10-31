@@ -22,9 +22,23 @@
 */
 
 {
-  flake.homeManagerModules.apps."file-roller" =
-    { pkgs, ... }:
+  flake.homeManagerModules.apps.file-roller =
     {
-      home.packages = [ pkgs.file-roller ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.file-roller.extended;
+    in
+    {
+      options.programs.file-roller.extended = {
+        enable = lib.mkEnableOption "Archive manager for the GNOME desktop environment.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.file-roller ];
+      };
     };
 }

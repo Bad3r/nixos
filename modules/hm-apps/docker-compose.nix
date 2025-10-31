@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.docker-compose =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.docker-compose ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.docker-compose.extended;
+    in
+    {
+      options.programs.docker-compose.extended = {
+        enable = lib.mkEnableOption "Docker CLI plugin to define and run multi-container applications with Docker.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.docker-compose ];
+      };
     };
 }

@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.element-desktop =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.element-desktop ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.element-desktop.extended;
+    in
+    {
+      options.programs.element-desktop.extended = {
+        enable = lib.mkEnableOption "Feature-rich client for Matrix.org.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.element-desktop ];
+      };
     };
 }

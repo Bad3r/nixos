@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.sqlite =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.sqlite ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.sqlite.extended;
+    in
+    {
+      options.programs.sqlite.extended = {
+        enable = lib.mkEnableOption "Self-contained, serverless, zero-configuration SQL database engine.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.sqlite ];
+      };
     };
 }

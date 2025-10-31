@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.signal-desktop =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.signal-desktop ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.signal-desktop.extended;
+    in
+    {
+      options.programs.signal-desktop.extended = {
+        enable = lib.mkEnableOption "Private, simple, and secure messenger (nixpkgs build).";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.signal-desktop ];
+      };
     };
 }

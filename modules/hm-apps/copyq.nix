@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.copyq =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.copyq ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.copyq.extended;
+    in
+    {
+      options.programs.copyq.extended = {
+        enable = lib.mkEnableOption "Clipboard manager with advanced features.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.copyq ];
+      };
     };
 }

@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.krita =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.krita ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.krita.extended;
+    in
+    {
+      options.programs.krita.extended = {
+        enable = lib.mkEnableOption "Free and open source painting application.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.krita ];
+      };
     };
 }

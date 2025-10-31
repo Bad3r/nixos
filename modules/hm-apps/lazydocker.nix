@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.lazydocker =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.lazydocker ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.lazydocker.extended;
+    in
+    {
+      options.programs.lazydocker.extended = {
+        enable = lib.mkEnableOption "Simple terminal UI for both docker and docker-compose.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.lazydocker ];
+      };
     };
 }

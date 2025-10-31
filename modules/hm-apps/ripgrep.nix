@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.ripgrep =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.ripgrep ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ripgrep.extended;
+    in
+    {
+      options.programs.ripgrep.extended = {
+        enable = lib.mkEnableOption "Utility that combines the usability of The Silver Searcher with the raw speed of grep.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.ripgrep ];
+      };
     };
 }

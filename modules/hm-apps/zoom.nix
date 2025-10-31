@@ -22,11 +22,23 @@
 */
 
 {
-  nixpkgs.allowedUnfreePackages = [ "zoom" ];
-
   flake.homeManagerModules.apps.zoom =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.zoom ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.zoom.extended;
+    in
+    {
+      options.programs.zoom.extended = {
+        enable = lib.mkEnableOption "Video conferencing and collaboration client.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.zoom ];
+      };
     };
 }
