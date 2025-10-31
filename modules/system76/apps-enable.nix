@@ -137,7 +137,7 @@ _: {
       usbutils.extended.enable = true;
       "util-linux".extended.enable = true;
       valgrind.extended.enable = true;
-      "ventoy-full".extended.enable = true;
+      # "ventoy-full".extended.enable = true; # Marked as insecure - enable manually if needed
       veracrypt.extended.enable = true;
       vim.extended.enable = true;
       "vscode-fhs".extended.enable = true;

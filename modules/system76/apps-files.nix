@@ -21,7 +21,7 @@ let
     "testdisk"
     "parted"
     "gparted"
-    "ventoy-full"
+    # "ventoy-full" # Marked as insecure - enable manually if needed
     "ntfs3g"
     "hdparm"
     "nvme-cli"
