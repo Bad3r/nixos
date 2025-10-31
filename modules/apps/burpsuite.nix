@@ -21,6 +21,8 @@
 */
 { inputs, ... }:
 let
+  packageFor = system: inputs."burpsuite-pro-flake".packages.${system}.burpsuitepro;
+
   BurpsuiteModule =
     {
       config,
@@ -32,6 +34,13 @@ let
       cfg = config.programs.burpsuite.extended;
     in
     {
+      # Add overlay to make burpsuitepro available in pkgs
+      nixpkgs.overlays = [
+        (_final: prev: {
+          burpsuitepro = packageFor prev.system;
+        })
+      ];
+
       options.programs.burpsuite.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
@@ -50,14 +59,12 @@ let
     };
 in
 {
-  # Expose burpsuitepro package via overlay
-  configurations.nixos.system76.module = {
-    nixpkgs.overlays = [
-      (_final: _prev: {
-        inherit (inputs."burpsuite-pro-flake".packages.${_prev.system}) burpsuitepro;
-      })
-    ];
-  };
+  # Expose burpsuitepro package globally via perSystem
+  perSystem =
+    { pkgs, ... }:
+    {
+      packages.burpsuitepro = packageFor pkgs.system;
+    };
 
   flake.nixosModules.apps.burpsuite = BurpsuiteModule;
 }
