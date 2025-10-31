@@ -1,0 +1,30 @@
+{PRESERVED_DOCUMENTATION}
+{ config, lib, pkgs, ... }:
+let
+  cfg = config.programs.{PACKAGE_NAME}.extended;
+  {MODULE_NAME}Module = {
+    options.programs.{PACKAGE_NAME}.extended = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;  # Backward compatibility - TODO: flip to false in Phase 2
+        description = lib.mdDoc "Whether to enable {PACKAGE_NAME}.";
+      };
+
+      package = lib.mkPackageOption pkgs "{PACKAGE_NAME}" { };
+
+      extraPackages = lib.mkOption {
+        type = lib.types.listOf lib.types.package;
+        default = {DEFAULT_EXTRA_PACKAGES};
+        description = lib.mdDoc "Additional packages to install alongside {PACKAGE_NAME}.";
+        example = lib.literalExpression "with pkgs; [ plugin1 plugin2 ]";
+      };
+    };
+
+    config = lib.mkIf cfg.enable {
+      environment.systemPackages = [ cfg.package ] ++ cfg.extraPackages;
+    };
+  };
+in
+{
+  flake.nixosModules.apps.{PACKAGE_NAME} = {MODULE_NAME}Module;{ADDITIONAL_EXPORTS}
+}

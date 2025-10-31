@@ -14,11 +14,30 @@
     --keep-going: Continue building remaining derivations after a failure, mirroring `nix build --keep-going`.
     --max-concurrent-jobs <n>: Restrict the number of builds running in parallel for resource control.
 */
-
 {
-  flake.nixosModules.apps."nix-output-monitor" =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs."nix-output-monitor" ];
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.programs.nix-output-monitor.extended;
+  NixOutputMonitorModule = {
+    options.programs.nix-output-monitor.extended = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true; # Backward compatibility - TODO: flip to false in Phase 2
+        description = lib.mdDoc "Whether to enable nix-output-monitor.";
+      };
+
+      package = lib.mkPackageOption pkgs "nix-output-monitor" { };
     };
+
+    config = lib.mkIf cfg.enable {
+      environment.systemPackages = [ cfg.package ];
+    };
+  };
+in
+{
+  flake.nixosModules.apps.nix-output-monitor = NixOutputMonitorModule;
 }

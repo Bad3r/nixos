@@ -21,12 +21,30 @@
     * `curl -s https://api.example.com | jq -r '.results[].url'` — Stream API output and print raw URLs.
     * `jq --arg env "$ENV" '.config[$env]' config.json` — Select configuration for the current environment variable.
 */
-
 {
-  flake.nixosModules.apps.jq =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.jq ];
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.programs.jq.extended;
+  JqModule = {
+    options.programs.jq.extended = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true; # Backward compatibility - TODO: flip to false in Phase 2
+        description = lib.mdDoc "Whether to enable jq.";
+      };
+
+      package = lib.mkPackageOption pkgs "jq" { };
     };
 
+    config = lib.mkIf cfg.enable {
+      environment.systemPackages = [ cfg.package ];
+    };
+  };
+in
+{
+  flake.nixosModules.apps.jq = JqModule;
 }

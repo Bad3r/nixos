@@ -1,0 +1,26 @@
+{PRESERVED_DOCUMENTATION}
+{ config, lib, pkgs, ... }:
+let
+  cfg = config.programs.{PACKAGE_NAME}.extended;
+  {MODULE_NAME}Module = {
+    options.programs.{PACKAGE_NAME}.extended = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;  # Backward compatibility - TODO: flip to false in Phase 2
+        description = lib.mdDoc "Whether to enable {PACKAGE_NAME}.";
+      };
+
+      package = lib.mkPackageOption pkgs "{PACKAGE_NAME}" { };
+    };
+
+    config = lib.mkIf cfg.enable {
+      nixpkgs.config.allowUnfreePredicate = pkg:
+        builtins.elem (lib.getName pkg) {UNFREE_PACKAGE_NAMES};
+
+      environment.systemPackages = [ cfg.package ];
+    };
+  };
+in
+{
+  flake.nixosModules.apps.{PACKAGE_NAME} = {MODULE_NAME}Module;{ADDITIONAL_EXPORTS}
+}

@@ -1,0 +1,9 @@
+docker.nix
+formatting.nix
+marktext.nix
+metasploit.nix
+mpv.nix
+normcap.nix
+qemu.nix
+tesseract.nix
+virt-manager.nix

@@ -20,12 +20,30 @@
     * `vim -u NONE -N` — Start with no configuration in nocompatible mode to debug issues.
     * `vim +'PlugUpdate' +qa` — Update plugins using vim-plug in automation scripts.
 */
-
 {
-  flake.nixosModules.apps.vim =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.vim ];
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.programs.vim.extended;
+  VimModule = {
+    options.programs.vim.extended = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true; # Backward compatibility - TODO: flip to false in Phase 2
+        description = lib.mdDoc "Whether to enable vim.";
+      };
+
+      package = lib.mkPackageOption pkgs "vim" { };
     };
 
+    config = lib.mkIf cfg.enable {
+      environment.systemPackages = [ cfg.package ];
+    };
+  };
+in
+{
+  flake.nixosModules.apps.vim = VimModule;
 }
