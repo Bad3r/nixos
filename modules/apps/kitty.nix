@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.kitty.extended;
-  KittyModule = {
-    options.programs.kitty.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable kitty.";
+  KittyModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.kitty.extended;
+    in
+    {
+      options.programs.kitty.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable kitty.";
+        };
+
+        package = lib.mkPackageOption pkgs "kitty" { };
       };
 
-      package = lib.mkPackageOption pkgs "kitty" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.kitty = KittyModule;

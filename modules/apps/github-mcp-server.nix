@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.github-mcp-server.extended;
-  GithubMcpServerModule = {
-    options.programs.github-mcp-server.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable github-mcp-server.";
+  GithubMcpServerModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."github-mcp-server".extended;
+    in
+    {
+      options.programs.github-mcp-server.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable github-mcp-server.";
+        };
+
+        package = lib.mkPackageOption pkgs "github-mcp-server" { };
       };
 
-      package = lib.mkPackageOption pkgs "github-mcp-server" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.github-mcp-server = GithubMcpServerModule;

@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.duf.extended;
-  DufModule = {
+  DufModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.duf.extended;
+  in
+  {
     options.programs.duf.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.findutils.extended;
-  FindutilsModule = {
+  FindutilsModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.findutils.extended;
+  in
+  {
     options.programs.findutils.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

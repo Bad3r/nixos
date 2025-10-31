@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.autotiling-rs.extended;
-  AutotilingRsModule = {
-    options.programs.autotiling-rs.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable autotiling-rs.";
+  AutotilingRsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."autotiling-rs".extended;
+    in
+    {
+      options.programs.autotiling-rs.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable autotiling-rs.";
+        };
+
+        package = lib.mkPackageOption pkgs "autotiling-rs" { };
       };
 
-      package = lib.mkPackageOption pkgs "autotiling-rs" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.autotiling-rs = AutotilingRsModule;

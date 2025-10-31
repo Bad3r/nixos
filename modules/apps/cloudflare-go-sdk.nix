@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs."cloudflare-go-sdk".extended;
-  CloudflareGoSdkModule = {
-    options.programs."cloudflare-go-sdk".extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable Cloudflare Go SDK.";
+  CloudflareGoSdkModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."cloudflare-go-sdk".extended;
+    in
+    {
+      options.programs."cloudflare-go-sdk".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Cloudflare Go SDK.";
+        };
+
+        package = lib.mkPackageOption pkgs "cloudflare-go-sdk" { };
       };
 
-      package = lib.mkPackageOption pkgs "cloudflare-go-sdk" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps."cloudflare-go-sdk" = CloudflareGoSdkModule;

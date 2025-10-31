@@ -20,8 +20,11 @@
   ...
 }:
 let
-  cfg = config.programs.rustfmt.extended;
-  RustfmtModule = {
+  RustfmtModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.rustfmt.extended;
+  in
+  {
     options.programs.rustfmt.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

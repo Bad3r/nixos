@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.cargo.extended;
-  CargoModule = {
+  CargoModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.cargo.extended;
+  in
+  {
     options.programs.cargo.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

@@ -22,22 +22,31 @@
   ...
 }:
 let
-  cfg = config.programs.glow.extended;
-  GlowModule = {
-    options.programs.glow.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable glow.";
+  GlowModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.glow.extended;
+    in
+    {
+      options.programs.glow.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable glow.";
+        };
+
+        package = lib.mkPackageOption pkgs "glow" { };
       };
 
-      package = lib.mkPackageOption pkgs "glow" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.glow = GlowModule;

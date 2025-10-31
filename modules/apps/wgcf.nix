@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.wgcf.extended;
-  WgcfModule = {
-    options.programs.wgcf.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable wgcf.";
+  WgcfModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.wgcf.extended;
+    in
+    {
+      options.programs.wgcf.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable wgcf.";
+        };
+
+        package = lib.mkPackageOption pkgs "wgcf" { };
       };
 
-      package = lib.mkPackageOption pkgs "wgcf" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.wgcf = WgcfModule;

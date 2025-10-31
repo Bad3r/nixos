@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.pciutils.extended;
-  PciutilsModule = {
+  PciutilsModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.pciutils.extended;
+  in
+  {
     options.programs.pciutils.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

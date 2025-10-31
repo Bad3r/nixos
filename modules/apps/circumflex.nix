@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.circumflex.extended;
-  CircumflexModule = {
-    options.programs.circumflex.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable circumflex.";
+  CircumflexModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.circumflex.extended;
+    in
+    {
+      options.programs.circumflex.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable circumflex.";
+        };
+
+        package = lib.mkPackageOption pkgs "circumflex" { };
       };
 
-      package = lib.mkPackageOption pkgs "circumflex" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.circumflex = CircumflexModule;

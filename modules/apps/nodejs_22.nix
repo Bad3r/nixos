@@ -27,8 +27,11 @@
   ...
 }:
 let
-  cfg = config.programs.nodejs_22.extended;
-  Nodejs_22Module = {
+   = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.nodejs_22.extended;
+  in
+  {
     options.programs.nodejs_22.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

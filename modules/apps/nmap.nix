@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.nmap.extended;
-  NmapModule = {
-    options.programs.nmap.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nmap.";
+  NmapModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nmap.extended;
+    in
+    {
+      options.programs.nmap.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nmap.";
+        };
+
+        package = lib.mkPackageOption pkgs "nmap" { };
       };
 
-      package = lib.mkPackageOption pkgs "nmap" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nmap = NmapModule;

@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.zstd.extended;
-  ZstdModule = {
-    options.programs.zstd.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable zstd.";
+  ZstdModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.zstd.extended;
+    in
+    {
+      options.programs.zstd.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable zstd.";
+        };
+
+        package = lib.mkPackageOption pkgs "zstd" { };
       };
 
-      package = lib.mkPackageOption pkgs "zstd" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.zstd = ZstdModule;

@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs."media-toolchain".extended;
-  MediaToolchainModule = {
-    options.programs."media-toolchain".extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable media toolchain bundle.";
+  MediaToolchainModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."media-toolchain".extended;
+    in
+    {
+      options.programs."media-toolchain".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable media toolchain bundle.";
+        };
+
+        package = lib.mkPackageOption pkgs "gst_all_1" { };
       };
 
-      package = lib.mkPackageOption pkgs "gst_all_1" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps."media-toolchain" = MediaToolchainModule;

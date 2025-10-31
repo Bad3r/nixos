@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.uv.extended;
-  UvModule = {
+  UvModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.uv.extended;
+  in
+  {
     options.programs.uv.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

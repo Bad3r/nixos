@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.hydra.extended;
-  HydraModule = {
-    options.programs.hydra.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable hydra.";
+  HydraModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.hydra.extended;
+    in
+    {
+      options.programs.hydra.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable hydra.";
+        };
+
+        package = lib.mkPackageOption pkgs "hydra" { };
       };
 
-      package = lib.mkPackageOption pkgs "hydra" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.hydra = HydraModule;

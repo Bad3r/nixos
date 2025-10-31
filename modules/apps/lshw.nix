@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.lshw.extended;
-  LshwModule = {
-    options.programs.lshw.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable lshw.";
+  LshwModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.lshw.extended;
+    in
+    {
+      options.programs.lshw.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable lshw.";
+        };
+
+        package = lib.mkPackageOption pkgs "lshw" { };
       };
 
-      package = lib.mkPackageOption pkgs "lshw" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.lshw = LshwModule;

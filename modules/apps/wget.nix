@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.wget.extended;
-  WgetModule = {
-    options.programs.wget.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable wget.";
+  WgetModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.wget.extended;
+    in
+    {
+      options.programs.wget.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable wget.";
+        };
+
+        package = lib.mkPackageOption pkgs "wget" { };
       };
 
-      package = lib.mkPackageOption pkgs "wget" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.wget = WgetModule;

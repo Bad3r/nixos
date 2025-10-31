@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.claude-code.extended;
-  ClaudeCodeModule = {
-    options.programs.claude-code.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable claude-code.";
+  ClaudeCodeModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."claude-code".extended;
+    in
+    {
+      options.programs.claude-code.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable claude-code.";
+        };
+
+        package = lib.mkPackageOption pkgs "claude-code" { };
       };
 
-      package = lib.mkPackageOption pkgs "claude-code" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.claude-code = ClaudeCodeModule;

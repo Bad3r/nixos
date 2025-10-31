@@ -20,8 +20,11 @@
   ...
 }:
 let
-  cfg = config.programs.gopls.extended;
-  GoplsModule = {
+  GoplsModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.gopls.extended;
+  in
+  {
     options.programs.gopls.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

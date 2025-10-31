@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.strace.extended;
-  StraceModule = {
-    options.programs.strace.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable strace.";
+  StraceModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.strace.extended;
+    in
+    {
+      options.programs.strace.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable strace.";
+        };
+
+        package = lib.mkPackageOption pkgs "strace" { };
       };
 
-      package = lib.mkPackageOption pkgs "strace" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.strace = StraceModule;

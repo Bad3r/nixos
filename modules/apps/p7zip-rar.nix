@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.p7zip-rar.extended;
-  P7zipRarModule = {
-    options.programs.p7zip-rar.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable p7zip-rar.";
+  P7zipRarModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."p7zip-rar".extended;
+    in
+    {
+      options.programs.p7zip-rar.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable p7zip-rar.";
+        };
+
+        package = lib.mkPackageOption pkgs "p7zip-rar" { };
       };
 
-      package = lib.mkPackageOption pkgs "p7zip-rar" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.p7zip-rar = P7zipRarModule;

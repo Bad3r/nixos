@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.util-linux.extended;
-  UtilLinuxModule = {
+  UtilLinuxModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs."util-linux".extended;
+  in
+  {
     options.programs.util-linux.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

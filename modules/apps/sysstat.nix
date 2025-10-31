@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.sysstat.extended;
-  SysstatModule = {
-    options.programs.sysstat.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable sysstat.";
+  SysstatModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.sysstat.extended;
+    in
+    {
+      options.programs.sysstat.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable sysstat.";
+        };
+
+        package = lib.mkPackageOption pkgs "sysstat" { };
       };
 
-      package = lib.mkPackageOption pkgs "sysstat" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.sysstat = SysstatModule;

@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.minio-client.extended;
-  MinioClientModule = {
-    options.programs.minio-client.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable minio-client.";
+  MinioClientModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."minio-client".extended;
+    in
+    {
+      options.programs.minio-client.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable minio-client.";
+        };
+
+        package = lib.mkPackageOption pkgs "minio-client" { };
       };
 
-      package = lib.mkPackageOption pkgs "minio-client" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.minio-client = MinioClientModule;

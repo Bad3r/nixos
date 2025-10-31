@@ -26,24 +26,33 @@
   ...
 }:
 let
-  cfg = config.programs.burpsuite.extended;
-  BurpsuiteModule = {
-    options.programs.burpsuite.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable Burp Suite Pro.";
+  BurpsuiteModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.burpsuite.extended;
+    in
+    {
+      options.programs.burpsuite.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Burp Suite Pro.";
+        };
+
+        package = lib.mkPackageOption pkgs "burpsuitepro" { };
       };
 
-      package = lib.mkPackageOption pkgs "burpsuitepro" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "burpsuitepro" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "burpsuitepro" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.burpsuite = BurpsuiteModule;

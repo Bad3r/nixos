@@ -17,8 +17,11 @@
   ...
 }:
 let
-  cfg = config.programs.tesseract.extended;
-  TesseractModule = {
+  TesseractModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.tesseract.extended;
+  in
+  {
     options.programs.tesseract.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

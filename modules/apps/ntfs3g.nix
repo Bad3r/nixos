@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.ntfs3g.extended;
-  Ntfs3gModule = {
-    options.programs.ntfs3g.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable ntfs3g.";
+  Ntfs3gModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ntfs3g.extended;
+    in
+    {
+      options.programs.ntfs3g.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ntfs3g.";
+        };
+
+        package = lib.mkPackageOption pkgs "ntfs3g" { };
       };
 
-      package = lib.mkPackageOption pkgs "ntfs3g" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.ntfs3g = Ntfs3gModule;

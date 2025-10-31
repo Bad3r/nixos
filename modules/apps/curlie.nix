@@ -22,8 +22,11 @@
   ...
 }:
 let
-  cfg = config.programs.curlie.extended;
-  CurlieModule = {
+  CurlieModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.curlie.extended;
+  in
+  {
     options.programs.curlie.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.bc.extended;
-  BcModule = {
-    options.programs.bc.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable bc.";
+  BcModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.bc.extended;
+    in
+    {
+      options.programs.bc.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable bc.";
+        };
+
+        package = lib.mkPackageOption pkgs "bc" { };
       };
 
-      package = lib.mkPackageOption pkgs "bc" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.bc = BcModule;

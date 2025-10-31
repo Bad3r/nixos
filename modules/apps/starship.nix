@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.starship.extended;
-  StarshipModule = {
-    options.programs.starship.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable starship.";
+  StarshipModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.starship.extended;
+    in
+    {
+      options.programs.starship.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable starship.";
+        };
+
+        package = lib.mkPackageOption pkgs "starship" { };
       };
 
-      package = lib.mkPackageOption pkgs "starship" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.starship = StarshipModule;

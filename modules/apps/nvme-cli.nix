@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.nvme-cli.extended;
-  NvmeCliModule = {
-    options.programs.nvme-cli.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nvme-cli.";
+  NvmeCliModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nvme-cli".extended;
+    in
+    {
+      options.programs.nvme-cli.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nvme-cli.";
+        };
+
+        package = lib.mkPackageOption pkgs "nvme-cli" { };
       };
 
-      package = lib.mkPackageOption pkgs "nvme-cli" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nvme-cli = NvmeCliModule;

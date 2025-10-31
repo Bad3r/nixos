@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.zip.extended;
-  ZipModule = {
-    options.programs.zip.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable zip.";
+  ZipModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.zip.extended;
+    in
+    {
+      options.programs.zip.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable zip.";
+        };
+
+        package = lib.mkPackageOption pkgs "zip" { };
       };
 
-      package = lib.mkPackageOption pkgs "zip" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.zip = ZipModule;

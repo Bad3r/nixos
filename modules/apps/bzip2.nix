@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.bzip2.extended;
-  Bzip2Module = {
-    options.programs.bzip2.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable bzip2.";
+  Bzip2Module =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.bzip2.extended;
+    in
+    {
+      options.programs.bzip2.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable bzip2.";
+        };
+
+        package = lib.mkPackageOption pkgs "bzip2" { };
       };
 
-      package = lib.mkPackageOption pkgs "bzip2" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.bzip2 = Bzip2Module;

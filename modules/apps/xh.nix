@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.xh.extended;
-  XhModule = {
+  XhModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.xh.extended;
+  in
+  {
     options.programs.xh.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

@@ -20,22 +20,31 @@
   ...
 }:
 let
-  cfg = config.programs.golangci-lint.extended;
-  GolangciLintModule = {
-    options.programs.golangci-lint.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable golangci-lint.";
+  GolangciLintModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."golangci-lint".extended;
+    in
+    {
+      options.programs.golangci-lint.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable golangci-lint.";
+        };
+
+        package = lib.mkPackageOption pkgs "golangci-lint" { };
       };
 
-      package = lib.mkPackageOption pkgs "golangci-lint" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.golangci-lint = GolangciLintModule;

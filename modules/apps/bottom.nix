@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.bottom.extended;
-  BottomModule = {
-    options.programs.bottom.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable bottom.";
+  BottomModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.bottom.extended;
+    in
+    {
+      options.programs.bottom.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable bottom.";
+        };
+
+        package = lib.mkPackageOption pkgs "bottom" { };
       };
 
-      package = lib.mkPackageOption pkgs "bottom" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.bottom = BottomModule;

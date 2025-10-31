@@ -20,22 +20,31 @@
   ...
 }:
 let
-  cfg = config.programs.rust-analyzer.extended;
-  RustAnalyzerModule = {
-    options.programs.rust-analyzer.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable rust-analyzer.";
+  RustAnalyzerModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."rust-analyzer".extended;
+    in
+    {
+      options.programs.rust-analyzer.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rust-analyzer.";
+        };
+
+        package = lib.mkPackageOption pkgs "rust-analyzer" { };
       };
 
-      package = lib.mkPackageOption pkgs "rust-analyzer" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.rust-analyzer = RustAnalyzerModule;

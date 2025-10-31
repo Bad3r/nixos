@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.dragon-drop.extended;
-  DragonDropModule = {
-    options.programs.dragon-drop.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable dragon-drop.";
+  DragonDropModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."dragon-drop".extended;
+    in
+    {
+      options.programs.dragon-drop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dragon-drop.";
+        };
+
+        package = lib.mkPackageOption pkgs "dragon-drop" { };
       };
 
-      package = lib.mkPackageOption pkgs "dragon-drop" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.dragon-drop = DragonDropModule;

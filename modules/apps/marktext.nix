@@ -28,32 +28,41 @@
   ...
 }:
 let
-  cfg = config.programs.marktext.extended;
-  MarktextModule = {
-    options.programs.marktext.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable MarkText editor.";
+  MarktextModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.marktext.extended;
+    in
+    {
+      options.programs.marktext.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable MarkText editor.";
+        };
+
+        package = lib.mkPackageOption pkgs "marktext" { };
+
+        extraPackages = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = with pkgs; [ glow ]; # Default extras
+          description = lib.mdDoc ''
+            Additional packages to install alongside MarkText.
+            Includes glow for terminal Markdown preview.
+          '';
+          example = lib.literalExpression "with pkgs; [ glow pandoc ]";
+        };
       };
 
-      package = lib.mkPackageOption pkgs "marktext" { };
-
-      extraPackages = lib.mkOption {
-        type = lib.types.listOf lib.types.package;
-        default = with pkgs; [ glow ]; # Default extras
-        description = lib.mdDoc ''
-          Additional packages to install alongside MarkText.
-          Includes glow for terminal Markdown preview.
-        '';
-        example = lib.literalExpression "with pkgs; [ glow pandoc ]";
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ] ++ cfg.extraPackages;
       };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ] ++ cfg.extraPackages;
-    };
-  };
 in
 {
   flake.nixosModules.apps.marktext = MarktextModule;

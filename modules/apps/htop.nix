@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.htop.extended;
-  HtopModule = {
-    options.programs.htop.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable htop.";
+  HtopModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.htop.extended;
+    in
+    {
+      options.programs.htop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable htop.";
+        };
+
+        package = lib.mkPackageOption pkgs "htop" { };
       };
 
-      package = lib.mkPackageOption pkgs "htop" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.htop = HtopModule;

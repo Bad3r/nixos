@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.valgrind.extended;
-  ValgrindModule = {
-    options.programs.valgrind.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable valgrind.";
+  ValgrindModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.valgrind.extended;
+    in
+    {
+      options.programs.valgrind.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable valgrind.";
+        };
+
+        package = lib.mkPackageOption pkgs "valgrind" { };
       };
 
-      package = lib.mkPackageOption pkgs "valgrind" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.valgrind = ValgrindModule;

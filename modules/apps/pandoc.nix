@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.pandoc.extended;
-  PandocModule = {
-    options.programs.pandoc.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable pandoc.";
+  PandocModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.pandoc.extended;
+    in
+    {
+      options.programs.pandoc.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pandoc.";
+        };
+
+        package = lib.mkPackageOption pkgs "pandoc" { };
       };
 
-      package = lib.mkPackageOption pkgs "pandoc" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.pandoc = PandocModule;

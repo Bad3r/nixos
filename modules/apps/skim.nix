@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.skim.extended;
-  SkimModule = {
-    options.programs.skim.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable skim.";
+  SkimModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.skim.extended;
+    in
+    {
+      options.programs.skim.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable skim.";
+        };
+
+        package = lib.mkPackageOption pkgs "skim" { };
       };
 
-      package = lib.mkPackageOption pkgs "skim" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.skim = SkimModule;

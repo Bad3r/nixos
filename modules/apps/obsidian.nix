@@ -26,24 +26,33 @@
   ...
 }:
 let
-  cfg = config.programs.obsidian.extended;
-  ObsidianModule = {
-    options.programs.obsidian.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable obsidian.";
+  ObsidianModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.obsidian.extended;
+    in
+    {
+      options.programs.obsidian.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable obsidian.";
+        };
+
+        package = lib.mkPackageOption pkgs "obsidian" { };
       };
 
-      package = lib.mkPackageOption pkgs "obsidian" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "obsidian" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "obsidian" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.obsidian = ObsidianModule;

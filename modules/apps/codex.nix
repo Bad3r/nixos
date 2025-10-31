@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.codex.extended;
-  CodexModule = {
-    options.programs.codex.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable codex.";
+  CodexModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.codex.extended;
+    in
+    {
+      options.programs.codex.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable codex.";
+        };
+
+        package = lib.mkPackageOption pkgs "codex" { };
       };
 
-      package = lib.mkPackageOption pkgs "codex" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.codex = CodexModule;

@@ -22,22 +22,31 @@
   ...
 }:
 let
-  cfg = config.programs.logseq.extended;
-  LogseqModule = {
-    options.programs.logseq.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable Logseq.";
+  LogseqModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.logseq.extended;
+    in
+    {
+      options.programs.logseq.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Logseq.";
+        };
+
+        package = lib.mkPackageOption pkgs "logseq" { };
       };
 
-      package = lib.mkPackageOption pkgs "logseq" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.logseq = LogseqModule;

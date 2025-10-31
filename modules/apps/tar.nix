@@ -23,8 +23,11 @@
   ...
 }:
 let
-  cfg = config.programs.tar.extended;
-  TarModule = {
+  TarModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.tar.extended;
+  in
+  {
     options.programs.tar.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

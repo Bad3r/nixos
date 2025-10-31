@@ -26,24 +26,33 @@
   ...
 }:
 let
-  cfg = config.programs.dropbox.extended;
-  DropboxModule = {
-    options.programs.dropbox.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable dropbox.";
+  DropboxModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dropbox.extended;
+    in
+    {
+      options.programs.dropbox.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dropbox.";
+        };
+
+        package = lib.mkPackageOption pkgs "dropbox" { };
       };
 
-      package = lib.mkPackageOption pkgs "dropbox" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "dropbox" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "dropbox" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.dropbox = DropboxModule;

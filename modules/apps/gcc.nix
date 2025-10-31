@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.gcc.extended;
-  GccModule = {
-    options.programs.gcc.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gcc.";
+  GccModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gcc.extended;
+    in
+    {
+      options.programs.gcc.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gcc.";
+        };
+
+        package = lib.mkPackageOption pkgs "gcc" { };
       };
 
-      package = lib.mkPackageOption pkgs "gcc" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gcc = GccModule;

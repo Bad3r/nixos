@@ -26,8 +26,11 @@
   ...
 }:
 let
-  cfg = config.programs.cosmic-term.extended;
-  CosmicTermModule = {
+  CosmicTermModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs."cosmic-term".extended;
+  in
+  {
     options.programs.cosmic-term.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

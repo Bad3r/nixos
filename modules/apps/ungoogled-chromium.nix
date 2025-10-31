@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.ungoogled-chromium.extended;
-  UngoogledChromiumModule = {
-    options.programs.ungoogled-chromium.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable ungoogled-chromium.";
+  UngoogledChromiumModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."ungoogled-chromium".extended;
+    in
+    {
+      options.programs.ungoogled-chromium.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ungoogled-chromium.";
+        };
+
+        package = lib.mkPackageOption pkgs "ungoogled-chromium" { };
       };
 
-      package = lib.mkPackageOption pkgs "ungoogled-chromium" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.ungoogled-chromium = UngoogledChromiumModule;

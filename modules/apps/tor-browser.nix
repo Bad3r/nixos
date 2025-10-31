@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.tor-browser.extended;
-  TorBrowserModule = {
-    options.programs.tor-browser.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable tor-browser.";
+  TorBrowserModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."tor-browser".extended;
+    in
+    {
+      options.programs.tor-browser.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tor-browser.";
+        };
+
+        package = lib.mkPackageOption pkgs "tor-browser" { };
       };
 
-      package = lib.mkPackageOption pkgs "tor-browser" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.tor-browser = TorBrowserModule;

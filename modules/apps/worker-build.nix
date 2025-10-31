@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.worker-build.extended;
-  WorkerBuildModule = {
-    options.programs.worker-build.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable worker-build.";
+  WorkerBuildModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."worker-build".extended;
+    in
+    {
+      options.programs.worker-build.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable worker-build.";
+        };
+
+        package = lib.mkPackageOption pkgs "worker-build" { };
       };
 
-      package = lib.mkPackageOption pkgs "worker-build" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.worker-build = WorkerBuildModule;

@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.ktailctl.extended;
-  KtailctlModule = {
-    options.programs.ktailctl.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable ktailctl.";
+  KtailctlModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ktailctl.extended;
+    in
+    {
+      options.programs.ktailctl.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ktailctl.";
+        };
+
+        package = lib.mkPackageOption pkgs "ktailctl" { };
       };
 
-      package = lib.mkPackageOption pkgs "ktailctl" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.ktailctl = KtailctlModule;

@@ -24,22 +24,31 @@
   ...
 }:
 let
-  cfg = config.programs.nix-direnv.extended;
-  NixDirenvModule = {
-    options.programs.nix-direnv.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nix-direnv.";
+  NixDirenvModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-direnv".extended;
+    in
+    {
+      options.programs.nix-direnv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-direnv.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-direnv" { };
       };
 
-      package = lib.mkPackageOption pkgs "nix-direnv" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nix-direnv = NixDirenvModule;

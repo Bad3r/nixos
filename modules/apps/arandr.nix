@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.arandr.extended;
-  ArandrModule = {
-    options.programs.arandr.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable arandr.";
+  ArandrModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.arandr.extended;
+    in
+    {
+      options.programs.arandr.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable arandr.";
+        };
+
+        package = lib.mkPackageOption pkgs "arandr" { };
       };
 
-      package = lib.mkPackageOption pkgs "arandr" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.arandr = ArandrModule;

@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.procps.extended;
-  ProcpsModule = {
+  ProcpsModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.procps.extended;
+  in
+  {
     options.programs.procps.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

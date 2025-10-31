@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.which.extended;
-  WhichModule = {
-    options.programs.which.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable which.";
+  WhichModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.which.extended;
+    in
+    {
+      options.programs.which.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable which.";
+        };
+
+        package = lib.mkPackageOption pkgs "which" { };
       };
 
-      package = lib.mkPackageOption pkgs "which" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.which = WhichModule;

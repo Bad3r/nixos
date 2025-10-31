@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.nh.extended;
-  NhModule = {
-    options.programs.nh.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nh.";
+  NhModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nh.extended;
+    in
+    {
+      options.programs.nh.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nh.";
+        };
+
+        package = lib.mkPackageOption pkgs "nh" { };
       };
 
-      package = lib.mkPackageOption pkgs "nh" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nh = NhModule;

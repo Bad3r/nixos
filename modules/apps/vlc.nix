@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.vlc.extended;
-  VlcModule = {
-    options.programs.vlc.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable vlc.";
+  VlcModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.vlc.extended;
+    in
+    {
+      options.programs.vlc.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable vlc.";
+        };
+
+        package = lib.mkPackageOption pkgs "vlc" { };
       };
 
-      package = lib.mkPackageOption pkgs "vlc" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.vlc = VlcModule;

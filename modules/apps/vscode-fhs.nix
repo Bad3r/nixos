@@ -27,8 +27,11 @@
   ...
 }:
 let
-  cfg = config.programs.vscode-fhs.extended;
-  VscodeFhsModule = {
+  VscodeFhsModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs."vscode-fhs".extended;
+  in
+  {
     options.programs.vscode-fhs.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

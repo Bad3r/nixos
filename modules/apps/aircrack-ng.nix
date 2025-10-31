@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.aircrack-ng.extended;
-  AircrackNgModule = {
-    options.programs.aircrack-ng.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable aircrack-ng.";
+  AircrackNgModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."aircrack-ng".extended;
+    in
+    {
+      options.programs.aircrack-ng.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable aircrack-ng.";
+        };
+
+        package = lib.mkPackageOption pkgs "aircrack-ng" { };
       };
 
-      package = lib.mkPackageOption pkgs "aircrack-ng" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.aircrack-ng = AircrackNgModule;

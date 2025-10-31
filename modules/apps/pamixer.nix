@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.pamixer.extended;
-  PamixerModule = {
-    options.programs.pamixer.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable pamixer.";
+  PamixerModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.pamixer.extended;
+    in
+    {
+      options.programs.pamixer.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pamixer.";
+        };
+
+        package = lib.mkPackageOption pkgs "pamixer" { };
       };
 
-      package = lib.mkPackageOption pkgs "pamixer" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.pamixer = PamixerModule;

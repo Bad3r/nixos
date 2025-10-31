@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.rofi.extended;
-  RofiModule = {
-    options.programs.rofi.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable rofi.";
+  RofiModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rofi.extended;
+    in
+    {
+      options.programs.rofi.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rofi.";
+        };
+
+        package = lib.mkPackageOption pkgs "rofi" { };
       };
 
-      package = lib.mkPackageOption pkgs "rofi" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.rofi = RofiModule;

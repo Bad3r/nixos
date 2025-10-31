@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.nix-prefetch-github.extended;
-  NixPrefetchGithubModule = {
-    options.programs.nix-prefetch-github.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nix-prefetch-github.";
+  NixPrefetchGithubModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-prefetch-github".extended;
+    in
+    {
+      options.programs.nix-prefetch-github.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-prefetch-github.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-prefetch-github" { };
       };
 
-      package = lib.mkPackageOption pkgs "nix-prefetch-github" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nix-prefetch-github = NixPrefetchGithubModule;

@@ -24,22 +24,31 @@
   ...
 }:
 let
-  cfg = config.programs.nix-index-update.extended;
-  NixIndexUpdateModule = {
-    options.programs.nix-index-update.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nix-index-update.";
+  NixIndexUpdateModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-index-update".extended;
+    in
+    {
+      options.programs.nix-index-update.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-index-update.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-index-update" { };
       };
 
-      package = lib.mkPackageOption pkgs "nix-index-update" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nix-index-update = NixIndexUpdateModule;

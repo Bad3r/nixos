@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.dust.extended;
-  DustModule = {
+  DustModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.dust.extended;
+  in
+  {
     options.programs.dust.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

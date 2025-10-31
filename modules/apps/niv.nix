@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.niv.extended;
-  NivModule = {
-    options.programs.niv.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable niv.";
+  NivModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.niv.extended;
+    in
+    {
+      options.programs.niv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable niv.";
+        };
+
+        package = lib.mkPackageOption pkgs "niv" { };
       };
 
-      package = lib.mkPackageOption pkgs "niv" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.niv = NivModule;

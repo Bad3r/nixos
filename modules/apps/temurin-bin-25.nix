@@ -20,34 +20,35 @@
     * `jshell` — Start the interactive Java REPL for prototyping.
     * `JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))` — Export the JDK root for build tools.
 */
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+_:
 let
-  TemurinBin25Module = {
-    options.programs."temurin-bin-25".extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable Temurin JDK 25.";
+  TemurinBin25Module =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."temurin-bin-25".extended;
+    in
+    {
+      options.programs."temurin-bin-25".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Temurin JDK 25.";
+        };
+
+        package = lib.mkPackageOption pkgs "temurin-bin-25" { };
       };
 
-      package = lib.mkPackageOption pkgs "temurin-bin-25" { };
-    };
-
-    config =
-      let
-        cfg = config.programs."temurin-bin-25".extended;
-      in
-      lib.mkIf cfg.enable {
+      config = lib.mkIf cfg.enable {
         nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "temurin-bin-25" ];
 
         environment.systemPackages = [ cfg.package ];
       };
-  };
+    };
 in
 {
   flake.nixosModules.apps."temurin-bin-25" = TemurinBin25Module;

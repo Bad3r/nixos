@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.dmidecode.extended;
-  DmidecodeModule = {
+  DmidecodeModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.dmidecode.extended;
+  in
+  {
     options.programs.dmidecode.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

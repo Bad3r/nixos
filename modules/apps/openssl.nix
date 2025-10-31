@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.openssl.extended;
-  OpensslModule = {
-    options.programs.openssl.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable openssl.";
+  OpensslModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.openssl.extended;
+    in
+    {
+      options.programs.openssl.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable openssl.";
+        };
+
+        package = lib.mkPackageOption pkgs "openssl" { };
       };
 
-      package = lib.mkPackageOption pkgs "openssl" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.openssl = OpensslModule;

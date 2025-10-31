@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.gnumake.extended;
-  GnumakeModule = {
-    options.programs.gnumake.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gnumake.";
+  GnumakeModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gnumake.extended;
+    in
+    {
+      options.programs.gnumake.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gnumake.";
+        };
+
+        package = lib.mkPackageOption pkgs "gnumake" { };
       };
 
-      package = lib.mkPackageOption pkgs "gnumake" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gnumake = GnumakeModule;

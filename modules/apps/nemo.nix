@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.nemo.extended;
-  NemoModule = {
-    options.programs.nemo.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nemo.";
+  NemoModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nemo.extended;
+    in
+    {
+      options.programs.nemo.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nemo.";
+        };
+
+        package = lib.mkPackageOption pkgs "nemo" { };
       };
 
-      package = lib.mkPackageOption pkgs "nemo" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nemo = NemoModule;

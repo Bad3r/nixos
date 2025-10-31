@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.hdparm.extended;
-  HdparmModule = {
-    options.programs.hdparm.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable hdparm.";
+  HdparmModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.hdparm.extended;
+    in
+    {
+      options.programs.hdparm.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable hdparm.";
+        };
+
+        package = lib.mkPackageOption pkgs "hdparm" { };
       };
 
-      package = lib.mkPackageOption pkgs "hdparm" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.hdparm = HdparmModule;

@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.cloudflared.extended;
-  CloudflaredModule = {
-    options.programs.cloudflared.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable cloudflared.";
+  CloudflaredModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.cloudflared.extended;
+    in
+    {
+      options.programs.cloudflared.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cloudflared.";
+        };
+
+        package = lib.mkPackageOption pkgs "cloudflared" { };
       };
 
-      package = lib.mkPackageOption pkgs "cloudflared" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.cloudflared = CloudflaredModule;

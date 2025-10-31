@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.cf-terraforming.extended;
-  CfTerraformingModule = {
-    options.programs.cf-terraforming.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable cf-terraforming.";
+  CfTerraformingModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."cf-terraforming".extended;
+    in
+    {
+      options.programs.cf-terraforming.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cf-terraforming.";
+        };
+
+        package = lib.mkPackageOption pkgs "cf-terraforming" { };
       };
 
-      package = lib.mkPackageOption pkgs "cf-terraforming" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.cf-terraforming = CfTerraformingModule;

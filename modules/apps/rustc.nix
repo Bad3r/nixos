@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.rustc.extended;
-  RustcModule = {
-    options.programs.rustc.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable rustc.";
+  RustcModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rustc.extended;
+    in
+    {
+      options.programs.rustc.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rustc.";
+        };
+
+        package = lib.mkPackageOption pkgs "rustc" { };
       };
 
-      package = lib.mkPackageOption pkgs "rustc" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.rustc = RustcModule;

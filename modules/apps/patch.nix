@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.patch.extended;
-  PatchModule = {
-    options.programs.patch.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable patch.";
+  PatchModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.patch.extended;
+    in
+    {
+      options.programs.patch.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable patch.";
+        };
+
+        package = lib.mkPackageOption pkgs "patch" { };
       };
 
-      package = lib.mkPackageOption pkgs "patch" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.patch = PatchModule;

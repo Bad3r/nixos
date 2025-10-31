@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.wrangler.extended;
-  WranglerModule = {
-    options.programs.wrangler.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable wrangler.";
+  WranglerModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.wrangler.extended;
+    in
+    {
+      options.programs.wrangler.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable wrangler.";
+        };
+
+        package = lib.mkPackageOption pkgs "wrangler" { };
       };
 
-      package = lib.mkPackageOption pkgs "wrangler" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.wrangler = WranglerModule;

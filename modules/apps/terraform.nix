@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.terraform.extended;
-  TerraformModule = {
-    options.programs.terraform.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable terraform.";
+  TerraformModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.terraform.extended;
+    in
+    {
+      options.programs.terraform.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable terraform.";
+        };
+
+        package = lib.mkPackageOption pkgs "terraform" { };
       };
 
-      package = lib.mkPackageOption pkgs "terraform" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.terraform = TerraformModule;

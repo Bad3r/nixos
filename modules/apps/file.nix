@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.file.extended;
-  FileModule = {
-    options.programs.file.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable file.";
+  FileModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.file.extended;
+    in
+    {
+      options.programs.file.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable file.";
+        };
+
+        package = lib.mkPackageOption pkgs "file" { };
       };
 
-      package = lib.mkPackageOption pkgs "file" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.file = FileModule;

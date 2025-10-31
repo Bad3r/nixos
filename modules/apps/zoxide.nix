@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.zoxide.extended;
-  ZoxideModule = {
-    options.programs.zoxide.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable zoxide.";
+  ZoxideModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.zoxide.extended;
+    in
+    {
+      options.programs.zoxide.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable zoxide.";
+        };
+
+        package = lib.mkPackageOption pkgs "zoxide" { };
       };
 
-      package = lib.mkPackageOption pkgs "zoxide" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.zoxide = ZoxideModule;

@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.deadnix.extended;
-  DeadnixModule = {
-    options.programs.deadnix.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable deadnix.";
+  DeadnixModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.deadnix.extended;
+    in
+    {
+      options.programs.deadnix.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable deadnix.";
+        };
+
+        package = lib.mkPackageOption pkgs "deadnix" { };
       };
 
-      package = lib.mkPackageOption pkgs "deadnix" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.deadnix = DeadnixModule;

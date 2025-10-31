@@ -26,8 +26,11 @@
   ...
 }:
 let
-  cfg = config.programs.planify.extended;
-  PlanifyModule = {
+  PlanifyModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.planify.extended;
+  in
+  {
     options.programs.planify.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

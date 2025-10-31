@@ -19,22 +19,31 @@
   ...
 }:
 let
-  cfg = config.programs.virtualbox.extended;
-  VirtualboxModule = {
-    options.programs.virtualbox.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable virtualbox.";
+  VirtualboxModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.virtualbox.extended;
+    in
+    {
+      options.programs.virtualbox.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable virtualbox.";
+        };
+
+        package = lib.mkPackageOption pkgs "virtualbox" { };
       };
 
-      package = lib.mkPackageOption pkgs "virtualbox" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.virtualbox = VirtualboxModule;

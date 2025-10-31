@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.gnome-disk-utility.extended;
-  GnomeDiskUtilityModule = {
-    options.programs.gnome-disk-utility.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gnome-disk-utility.";
+  GnomeDiskUtilityModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."gnome-disk-utility".extended;
+    in
+    {
+      options.programs.gnome-disk-utility.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gnome-disk-utility.";
+        };
+
+        package = lib.mkPackageOption pkgs "gnome-disk-utility" { };
       };
 
-      package = lib.mkPackageOption pkgs "gnome-disk-utility" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gnome-disk-utility = GnomeDiskUtilityModule;

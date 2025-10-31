@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.wireshark.extended;
-  WiresharkModule = {
-    options.programs.wireshark.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable wireshark.";
+  WiresharkModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.wireshark.extended;
+    in
+    {
+      options.programs.wireshark.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable wireshark.";
+        };
+
+        package = lib.mkPackageOption pkgs "wireshark" { };
       };
 
-      package = lib.mkPackageOption pkgs "wireshark" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.wireshark = WiresharkModule;

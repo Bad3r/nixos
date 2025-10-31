@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.leiningen.extended;
-  LeiningenModule = {
-    options.programs.leiningen.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable leiningen.";
+  LeiningenModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.leiningen.extended;
+    in
+    {
+      options.programs.leiningen.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable leiningen.";
+        };
+
+        package = lib.mkPackageOption pkgs "leiningen" { };
       };
 
-      package = lib.mkPackageOption pkgs "leiningen" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.leiningen = LeiningenModule;

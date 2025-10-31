@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.testdisk.extended;
-  TestdiskModule = {
-    options.programs.testdisk.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable testdisk.";
+  TestdiskModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.testdisk.extended;
+    in
+    {
+      options.programs.testdisk.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable testdisk.";
+        };
+
+        package = lib.mkPackageOption pkgs "testdisk" { };
       };
 
-      package = lib.mkPackageOption pkgs "testdisk" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.testdisk = TestdiskModule;

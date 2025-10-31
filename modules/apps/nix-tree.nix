@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.nix-tree.extended;
-  NixTreeModule = {
-    options.programs.nix-tree.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nix-tree.";
+  NixTreeModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-tree".extended;
+    in
+    {
+      options.programs.nix-tree.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-tree.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-tree" { };
       };
 
-      package = lib.mkPackageOption pkgs "nix-tree" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nix-tree = NixTreeModule;

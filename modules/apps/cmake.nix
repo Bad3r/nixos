@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.cmake.extended;
-  CmakeModule = {
-    options.programs.cmake.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable cmake.";
+  CmakeModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.cmake.extended;
+    in
+    {
+      options.programs.cmake.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cmake.";
+        };
+
+        package = lib.mkPackageOption pkgs "cmake" { };
       };
 
-      package = lib.mkPackageOption pkgs "cmake" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.cmake = CmakeModule;

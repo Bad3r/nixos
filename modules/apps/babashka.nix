@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.babashka.extended;
-  BabashkaModule = {
-    options.programs.babashka.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable babashka.";
+  BabashkaModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.babashka.extended;
+    in
+    {
+      options.programs.babashka.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable babashka.";
+        };
+
+        package = lib.mkPackageOption pkgs "babashka" { };
       };
 
-      package = lib.mkPackageOption pkgs "babashka" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.babashka = BabashkaModule;

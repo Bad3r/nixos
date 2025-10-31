@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.localsend.extended;
-  LocalsendModule = {
-    options.programs.localsend.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable localsend.";
+  LocalsendModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.localsend.extended;
+    in
+    {
+      options.programs.localsend.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable localsend.";
+        };
+
+        package = lib.mkPackageOption pkgs "localsend" { };
       };
 
-      package = lib.mkPackageOption pkgs "localsend" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.localsend = LocalsendModule;

@@ -18,24 +18,33 @@
   ...
 }:
 let
-  cfg = config.programs.raindrop.extended;
-  RaindropModule = {
-    options.programs.raindrop.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable Raindrop.";
+  RaindropModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.raindrop.extended;
+    in
+    {
+      options.programs.raindrop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Raindrop.";
+        };
+
+        package = lib.mkPackageOption pkgs "raindrop" { };
       };
 
-      package = lib.mkPackageOption pkgs "raindrop" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "raindrop" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "raindrop" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.raindrop = RaindropModule;

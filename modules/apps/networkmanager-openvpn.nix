@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.networkmanager-openvpn.extended;
-  NetworkmanagerOpenvpnModule = {
-    options.programs.networkmanager-openvpn.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable networkmanager-openvpn.";
+  NetworkmanagerOpenvpnModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."networkmanager-openvpn".extended;
+    in
+    {
+      options.programs.networkmanager-openvpn.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable networkmanager-openvpn.";
+        };
+
+        package = lib.mkPackageOption pkgs "networkmanager-openvpn" { };
       };
 
-      package = lib.mkPackageOption pkgs "networkmanager-openvpn" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.networkmanager-openvpn = NetworkmanagerOpenvpnModule;

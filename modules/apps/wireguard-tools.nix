@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.wireguard-tools.extended;
-  WireguardToolsModule = {
-    options.programs.wireguard-tools.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable wireguard-tools.";
+  WireguardToolsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."wireguard-tools".extended;
+    in
+    {
+      options.programs.wireguard-tools.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable wireguard-tools.";
+        };
+
+        package = lib.mkPackageOption pkgs "wireguard-tools" { };
       };
 
-      package = lib.mkPackageOption pkgs "wireguard-tools" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.wireguard-tools = WireguardToolsModule;

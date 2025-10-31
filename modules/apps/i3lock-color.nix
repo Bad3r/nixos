@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.i3lock-color.extended;
-  I3lockColorModule = {
-    options.programs.i3lock-color.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable i3lock-color.";
+  I3lockColorModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."i3lock-color".extended;
+    in
+    {
+      options.programs.i3lock-color.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable i3lock-color.";
+        };
+
+        package = lib.mkPackageOption pkgs "i3lock-color" { };
       };
 
-      package = lib.mkPackageOption pkgs "i3lock-color" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.i3lock-color = I3lockColorModule;

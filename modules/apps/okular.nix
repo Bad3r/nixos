@@ -27,8 +27,11 @@
   ...
 }:
 let
-  cfg = config.programs.kdePackages.extended;
-  KdePackagesModule = {
+  KdePackagesModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.okular.extended;
+  in
+  {
     options.programs.kdePackages.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

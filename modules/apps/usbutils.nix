@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.usbutils.extended;
-  UsbutilsModule = {
-    options.programs.usbutils.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable usbutils.";
+  UsbutilsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.usbutils.extended;
+    in
+    {
+      options.programs.usbutils.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable usbutils.";
+        };
+
+        package = lib.mkPackageOption pkgs "usbutils" { };
       };
 
-      package = lib.mkPackageOption pkgs "usbutils" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.usbutils = UsbutilsModule;

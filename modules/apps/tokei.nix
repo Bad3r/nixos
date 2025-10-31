@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.tokei.extended;
-  TokeiModule = {
-    options.programs.tokei.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable tokei.";
+  TokeiModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tokei.extended;
+    in
+    {
+      options.programs.tokei.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tokei.";
+        };
+
+        package = lib.mkPackageOption pkgs "tokei" { };
       };
 
-      package = lib.mkPackageOption pkgs "tokei" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.tokei = TokeiModule;

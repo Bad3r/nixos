@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.gnugrep.extended;
-  GnugrepModule = {
-    options.programs.gnugrep.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gnugrep.";
+  GnugrepModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gnugrep.extended;
+    in
+    {
+      options.programs.gnugrep.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gnugrep.";
+        };
+
+        package = lib.mkPackageOption pkgs "gnugrep" { };
       };
 
-      package = lib.mkPackageOption pkgs "gnugrep" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gnugrep = GnugrepModule;

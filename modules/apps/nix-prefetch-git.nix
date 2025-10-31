@@ -26,8 +26,11 @@
   ...
 }:
 let
-  cfg = config.programs.nix-prefetch-git.extended;
-  NixPrefetchGitModule = {
+  NixPrefetchGitModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs."nix-prefetch-git".extended;
+  in
+  {
     options.programs.nix-prefetch-git.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

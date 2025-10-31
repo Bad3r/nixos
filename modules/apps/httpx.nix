@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.httpx.extended;
-  HttpxModule = {
-    options.programs.httpx.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable httpx.";
+  HttpxModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.httpx.extended;
+    in
+    {
+      options.programs.httpx.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable httpx.";
+        };
+
+        package = lib.mkPackageOption pkgs "httpx" { };
       };
 
-      package = lib.mkPackageOption pkgs "httpx" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.httpx = HttpxModule;

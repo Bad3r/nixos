@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.qbittorrent.extended;
-  QbittorrentModule = {
-    options.programs.qbittorrent.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable qbittorrent.";
+  QbittorrentModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.qbittorrent.extended;
+    in
+    {
+      options.programs.qbittorrent.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable qbittorrent.";
+        };
+
+        package = lib.mkPackageOption pkgs "qbittorrent" { };
       };
 
-      package = lib.mkPackageOption pkgs "qbittorrent" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.qbittorrent = QbittorrentModule;

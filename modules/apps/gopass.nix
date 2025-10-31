@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.gopass.extended;
-  GopassModule = {
-    options.programs.gopass.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gopass.";
+  GopassModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gopass.extended;
+    in
+    {
+      options.programs.gopass.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gopass.";
+        };
+
+        package = lib.mkPackageOption pkgs "gopass" { };
       };
 
-      package = lib.mkPackageOption pkgs "gopass" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gopass = GopassModule;

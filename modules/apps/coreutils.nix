@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.coreutils.extended;
-  CoreutilsModule = {
+  CoreutilsModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.coreutils.extended;
+  in
+  {
     options.programs.coreutils.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

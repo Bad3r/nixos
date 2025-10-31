@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.udiskie.extended;
-  UdiskieModule = {
-    options.programs.udiskie.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable udiskie.";
+  UdiskieModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.udiskie.extended;
+    in
+    {
+      options.programs.udiskie.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable udiskie.";
+        };
+
+        package = lib.mkPackageOption pkgs "udiskie" { };
       };
 
-      package = lib.mkPackageOption pkgs "udiskie" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.udiskie = UdiskieModule;

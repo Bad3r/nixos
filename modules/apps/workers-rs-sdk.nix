@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs."workers-rs-sdk".extended;
-  WorkersRsSdkModule = {
-    options.programs."workers-rs-sdk".extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable Workers Rust SDK.";
+  WorkersRsSdkModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."workers-rs-sdk".extended;
+    in
+    {
+      options.programs."workers-rs-sdk".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Workers Rust SDK.";
+        };
+
+        package = lib.mkPackageOption pkgs "workers-rs-sdk" { };
       };
 
-      package = lib.mkPackageOption pkgs "workers-rs-sdk" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps."workers-rs-sdk" = WorkersRsSdkModule;

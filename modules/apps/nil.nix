@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.nil.extended;
-  NilModule = {
-    options.programs.nil.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nil.";
+  NilModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nil.extended;
+    in
+    {
+      options.programs.nil.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nil.";
+        };
+
+        package = lib.mkPackageOption pkgs "nil" { };
       };
 
-      package = lib.mkPackageOption pkgs "nil" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nil = NilModule;

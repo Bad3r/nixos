@@ -23,22 +23,31 @@
   ...
 }:
 let
-  cfg = config.programs.httpie.extended;
-  HttpieModule = {
-    options.programs.httpie.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable httpie.";
+  HttpieModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.httpie.extended;
+    in
+    {
+      options.programs.httpie.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable httpie.";
+        };
+
+        package = lib.mkPackageOption pkgs "httpie" { };
       };
 
-      package = lib.mkPackageOption pkgs "httpie" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.httpie = HttpieModule;

@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.prefetch-yarn-deps.extended;
-  PrefetchYarnDepsModule = {
-    options.programs.prefetch-yarn-deps.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable prefetch-yarn-deps.";
+  PrefetchYarnDepsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."prefetch-yarn-deps".extended;
+    in
+    {
+      options.programs.prefetch-yarn-deps.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable prefetch-yarn-deps.";
+        };
+
+        package = lib.mkPackageOption pkgs "prefetch-yarn-deps" { };
       };
 
-      package = lib.mkPackageOption pkgs "prefetch-yarn-deps" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.prefetch-yarn-deps = PrefetchYarnDepsModule;

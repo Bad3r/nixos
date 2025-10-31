@@ -27,8 +27,11 @@
   ...
 }:
 let
-  cfg = config.programs.veracrypt.extended;
-  VeracryptModule = {
+  VeracryptModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.veracrypt.extended;
+  in
+  {
     options.programs.veracrypt.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

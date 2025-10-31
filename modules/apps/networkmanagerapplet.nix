@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.networkmanagerapplet.extended;
-  NetworkmanagerappletModule = {
-    options.programs.networkmanagerapplet.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable networkmanagerapplet.";
+  NetworkmanagerappletModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.networkmanagerapplet.extended;
+    in
+    {
+      options.programs.networkmanagerapplet.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable networkmanagerapplet.";
+        };
+
+        package = lib.mkPackageOption pkgs "networkmanagerapplet" { };
       };
 
-      package = lib.mkPackageOption pkgs "networkmanagerapplet" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.networkmanagerapplet = NetworkmanagerappletModule;

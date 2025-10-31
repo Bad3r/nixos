@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.mitmproxy.extended;
-  MitmproxyModule = {
-    options.programs.mitmproxy.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable mitmproxy.";
+  MitmproxyModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.mitmproxy.extended;
+    in
+    {
+      options.programs.mitmproxy.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable mitmproxy.";
+        };
+
+        package = lib.mkPackageOption pkgs "mitmproxy" { };
       };
 
-      package = lib.mkPackageOption pkgs "mitmproxy" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.mitmproxy = MitmproxyModule;

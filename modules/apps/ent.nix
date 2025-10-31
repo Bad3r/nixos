@@ -29,22 +29,31 @@
   ...
 }:
 let
-  cfg = config.programs.ent.extended;
-  EntModule = {
-    options.programs.ent.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable ent.";
+  EntModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ent.extended;
+    in
+    {
+      options.programs.ent.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ent.";
+        };
+
+        package = lib.mkPackageOption pkgs "ent" { };
       };
 
-      package = lib.mkPackageOption pkgs "ent" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.ent = EntModule;

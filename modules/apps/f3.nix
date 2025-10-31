@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.f3.extended;
-  F3Module = {
-    options.programs.f3.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable f3.";
+  F3Module =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.f3.extended;
+    in
+    {
+      options.programs.f3.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable f3.";
+        };
+
+        package = lib.mkPackageOption pkgs "f3" { };
       };
 
-      package = lib.mkPackageOption pkgs "f3" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.f3 = F3Module;

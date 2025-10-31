@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.ventoy-full.extended;
-  VentoyFullModule = {
+  VentoyFullModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs."ventoy-full".extended;
+  in
+  {
     options.programs.ventoy-full.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

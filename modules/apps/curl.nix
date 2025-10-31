@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.curl.extended;
-  CurlModule = {
+  CurlModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.curl.extended;
+  in
+  {
     options.programs.curl.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

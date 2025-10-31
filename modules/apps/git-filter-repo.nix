@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.git-filter-repo.extended;
-  GitFilterRepoModule = {
-    options.programs.git-filter-repo.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable git-filter-repo.";
+  GitFilterRepoModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."git-filter-repo".extended;
+    in
+    {
+      options.programs.git-filter-repo.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable git-filter-repo.";
+        };
+
+        package = lib.mkPackageOption pkgs "git-filter-repo" { };
       };
 
-      package = lib.mkPackageOption pkgs "git-filter-repo" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.git-filter-repo = GitFilterRepoModule;

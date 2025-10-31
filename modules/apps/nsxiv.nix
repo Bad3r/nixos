@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.nsxiv.extended;
-  NsxivModule = {
-    options.programs.nsxiv.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nsxiv.";
+  NsxivModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nsxiv.extended;
+    in
+    {
+      options.programs.nsxiv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nsxiv.";
+        };
+
+        package = lib.mkPackageOption pkgs "nsxiv" { };
       };
 
-      package = lib.mkPackageOption pkgs "nsxiv" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nsxiv = NsxivModule;

@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.rsync.extended;
-  RsyncModule = {
-    options.programs.rsync.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable rsync.";
+  RsyncModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rsync.extended;
+    in
+    {
+      options.programs.rsync.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rsync.";
+        };
+
+        package = lib.mkPackageOption pkgs "rsync" { };
       };
 
-      package = lib.mkPackageOption pkgs "rsync" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.rsync = RsyncModule;

@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.jnv.extended;
-  JnvModule = {
-    options.programs.jnv.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable jnv.";
+  JnvModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.jnv.extended;
+    in
+    {
+      options.programs.jnv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable jnv.";
+        };
+
+        package = lib.mkPackageOption pkgs "jnv" { };
       };
 
-      package = lib.mkPackageOption pkgs "jnv" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.jnv = JnvModule;

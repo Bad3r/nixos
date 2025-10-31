@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.rar.extended;
-  RarModule = {
-    options.programs.rar.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable rar.";
+  RarModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rar.extended;
+    in
+    {
+      options.programs.rar.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rar.";
+        };
+
+        package = lib.mkPackageOption pkgs "rar" { };
       };
 
-      package = lib.mkPackageOption pkgs "rar" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.rar = RarModule;

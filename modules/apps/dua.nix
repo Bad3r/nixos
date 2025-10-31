@@ -26,8 +26,11 @@
   ...
 }:
 let
-  cfg = config.programs.dua.extended;
-  DuaModule = {
+  DuaModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.dua.extended;
+  in
+  {
     options.programs.dua.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

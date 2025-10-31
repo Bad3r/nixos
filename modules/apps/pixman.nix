@@ -15,22 +15,31 @@
   ...
 }:
 let
-  cfg = config.programs.pixman.extended;
-  PixmanModule = {
-    options.programs.pixman.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable pixman.";
+  PixmanModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.pixman.extended;
+    in
+    {
+      options.programs.pixman.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pixman.";
+        };
+
+        package = lib.mkPackageOption pkgs "pixman" { };
       };
 
-      package = lib.mkPackageOption pkgs "pixman" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.pixman = PixmanModule;

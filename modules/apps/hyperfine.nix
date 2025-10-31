@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.hyperfine.extended;
-  HyperfineModule = {
-    options.programs.hyperfine.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable hyperfine.";
+  HyperfineModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.hyperfine.extended;
+    in
+    {
+      options.programs.hyperfine.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable hyperfine.";
+        };
+
+        package = lib.mkPackageOption pkgs "hyperfine" { };
       };
 
-      package = lib.mkPackageOption pkgs "hyperfine" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.hyperfine = HyperfineModule;

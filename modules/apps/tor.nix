@@ -23,22 +23,31 @@
   ...
 }:
 let
-  cfg = config.programs.tor.extended;
-  TorModule = {
-    options.programs.tor.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable tor.";
+  TorModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tor.extended;
+    in
+    {
+      options.programs.tor.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tor.";
+        };
+
+        package = lib.mkPackageOption pkgs "tor" { };
       };
 
-      package = lib.mkPackageOption pkgs "tor" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.tor = TorModule;

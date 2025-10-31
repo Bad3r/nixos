@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.libnotify.extended;
-  LibnotifyModule = {
-    options.programs.libnotify.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable libnotify.";
+  LibnotifyModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.libnotify.extended;
+    in
+    {
+      options.programs.libnotify.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable libnotify.";
+        };
+
+        package = lib.mkPackageOption pkgs "libnotify" { };
       };
 
-      package = lib.mkPackageOption pkgs "libnotify" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.libnotify = LibnotifyModule;

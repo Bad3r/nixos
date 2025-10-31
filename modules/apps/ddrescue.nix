@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.ddrescue.extended;
-  DdrescueModule = {
+  DdrescueModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.ddrescue.extended;
+  in
+  {
     options.programs.ddrescue.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

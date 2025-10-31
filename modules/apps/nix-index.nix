@@ -24,22 +24,31 @@
   ...
 }:
 let
-  cfg = config.programs.nix-index.extended;
-  NixIndexModule = {
-    options.programs.nix-index.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nix-index.";
+  NixIndexModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-index".extended;
+    in
+    {
+      options.programs.nix-index.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-index.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-index" { };
       };
 
-      package = lib.mkPackageOption pkgs "nix-index" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nix-index = NixIndexModule;

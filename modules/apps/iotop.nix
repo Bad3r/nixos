@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.iotop.extended;
-  IotopModule = {
-    options.programs.iotop.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable iotop.";
+  IotopModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.iotop.extended;
+    in
+    {
+      options.programs.iotop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable iotop.";
+        };
+
+        package = lib.mkPackageOption pkgs "iotop" { };
       };
 
-      package = lib.mkPackageOption pkgs "iotop" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.iotop = IotopModule;

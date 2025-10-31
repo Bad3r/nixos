@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.gparted.extended;
-  GpartedModule = {
-    options.programs.gparted.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gparted.";
+  GpartedModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gparted.extended;
+    in
+    {
+      options.programs.gparted.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gparted.";
+        };
+
+        package = lib.mkPackageOption pkgs "gparted" { };
       };
 
-      package = lib.mkPackageOption pkgs "gparted" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gparted = GpartedModule;

@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.proton-ge-bin.extended;
-  ProtonGeBinModule = {
-    options.programs.proton-ge-bin.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable proton-ge-bin.";
+  ProtonGeBinModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."wine-tools".extended;
+    in
+    {
+      options.programs.proton-ge-bin.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable proton-ge-bin.";
+        };
+
+        package = lib.mkPackageOption pkgs "proton-ge-bin" { };
       };
 
-      package = lib.mkPackageOption pkgs "proton-ge-bin" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.proton-ge-bin = ProtonGeBinModule;

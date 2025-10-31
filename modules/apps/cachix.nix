@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.cachix.extended;
-  CachixModule = {
-    options.programs.cachix.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable cachix.";
+  CachixModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.cachix.extended;
+    in
+    {
+      options.programs.cachix.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cachix.";
+        };
+
+        package = lib.mkPackageOption pkgs "cachix" { };
       };
 
-      package = lib.mkPackageOption pkgs "cachix" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.cachix = CachixModule;

@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.dunst.extended;
-  DunstModule = {
-    options.programs.dunst.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable dunst.";
+  DunstModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dunst.extended;
+    in
+    {
+      options.programs.dunst.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dunst.";
+        };
+
+        package = lib.mkPackageOption pkgs "dunst" { };
       };
 
-      package = lib.mkPackageOption pkgs "dunst" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.dunst = DunstModule;

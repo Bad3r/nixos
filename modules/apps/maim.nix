@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.maim.extended;
-  MaimModule = {
+  MaimModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.maim.extended;
+  in
+  {
     options.programs.maim.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

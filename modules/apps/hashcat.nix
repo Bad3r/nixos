@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.hashcat.extended;
-  HashcatModule = {
-    options.programs.hashcat.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable hashcat.";
+  HashcatModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.hashcat.extended;
+    in
+    {
+      options.programs.hashcat.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable hashcat.";
+        };
+
+        package = lib.mkPackageOption pkgs "hashcat" { };
       };
 
-      package = lib.mkPackageOption pkgs "hashcat" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.hashcat = HashcatModule;

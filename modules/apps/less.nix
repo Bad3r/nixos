@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.less.extended;
-  LessModule = {
-    options.programs.less.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable less.";
+  LessModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.less.extended;
+    in
+    {
+      options.programs.less.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable less.";
+        };
+
+        package = lib.mkPackageOption pkgs "less" { };
       };
 
-      package = lib.mkPackageOption pkgs "less" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.less = LessModule;

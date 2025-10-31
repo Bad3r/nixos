@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.xsel.extended;
-  XselModule = {
+  XselModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.xsel.extended;
+  in
+  {
     options.programs.xsel.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

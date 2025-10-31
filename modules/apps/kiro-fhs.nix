@@ -23,24 +23,33 @@
   ...
 }:
 let
-  cfg = config.programs.kiro-fhs.extended;
-  KiroFhsModule = {
-    options.programs.kiro-fhs.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable kiro-fhs.";
+  KiroFhsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."kiro-fhs".extended;
+    in
+    {
+      options.programs.kiro-fhs.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable kiro-fhs.";
+        };
+
+        package = lib.mkPackageOption pkgs "kiro-fhs" { };
       };
 
-      package = lib.mkPackageOption pkgs "kiro-fhs" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "kiro-fhs" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "kiro-fhs" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.kiro-fhs = KiroFhsModule;

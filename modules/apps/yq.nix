@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.yq.extended;
-  YqModule = {
-    options.programs.yq.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable yq.";
+  YqModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.yq.extended;
+    in
+    {
+      options.programs.yq.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable yq.";
+        };
+
+        package = lib.mkPackageOption pkgs "yq" { };
       };
 
-      package = lib.mkPackageOption pkgs "yq" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.yq = YqModule;

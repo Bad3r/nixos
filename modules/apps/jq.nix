@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.jq.extended;
-  JqModule = {
+  JqModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.jq.extended;
+  in
+  {
     options.programs.jq.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

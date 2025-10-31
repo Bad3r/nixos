@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.awscli2.extended;
-  Awscli2Module = {
-    options.programs.awscli2.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable awscli2.";
+  Awscli2Module =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.awscli2.extended;
+    in
+    {
+      options.programs.awscli2.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable awscli2.";
+        };
+
+        package = lib.mkPackageOption pkgs "awscli2" { };
       };
 
-      package = lib.mkPackageOption pkgs "awscli2" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.awscli2 = Awscli2Module;

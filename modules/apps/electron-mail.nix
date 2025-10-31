@@ -28,24 +28,33 @@
   ...
 }:
 let
-  cfg = config.programs.electron-mail.extended;
-  ElectronMailModule = {
-    options.programs.electron-mail.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable electron-mail.";
+  ElectronMailModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."electron-mail".extended;
+    in
+    {
+      options.programs.electron-mail.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable electron-mail.";
+        };
+
+        package = lib.mkPackageOption pkgs "electron-mail" { };
       };
 
-      package = lib.mkPackageOption pkgs "electron-mail" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "electron-mail" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "electron-mail" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.electron-mail = ElectronMailModule;

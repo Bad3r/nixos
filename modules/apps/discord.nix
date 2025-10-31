@@ -26,24 +26,33 @@
   ...
 }:
 let
-  cfg = config.programs.discord.extended;
-  DiscordModule = {
-    options.programs.discord.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable discord.";
+  DiscordModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.discord.extended;
+    in
+    {
+      options.programs.discord.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable discord.";
+        };
+
+        package = lib.mkPackageOption pkgs "discord" { };
       };
 
-      package = lib.mkPackageOption pkgs "discord" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "discord" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "discord" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.discord = DiscordModule;

@@ -21,8 +21,11 @@
   ...
 }:
 let
-  cfg = config.programs.diffutils.extended;
-  DiffutilsModule = {
+  DiffutilsModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.diffutils.extended;
+  in
+  {
     options.programs.diffutils.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

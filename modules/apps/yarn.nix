@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.yarn.extended;
-  YarnModule = {
-    options.programs.yarn.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable yarn.";
+  YarnModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.yarn.extended;
+    in
+    {
+      options.programs.yarn.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable yarn.";
+        };
+
+        package = lib.mkPackageOption pkgs "yarn" { };
       };
 
-      package = lib.mkPackageOption pkgs "yarn" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.yarn = YarnModule;

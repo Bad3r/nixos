@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.cloudflare-warp.extended;
-  CloudflareWarpModule = {
-    options.programs.cloudflare-warp.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable cloudflare-warp.";
+  CloudflareWarpModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."cloudflare-warp".extended;
+    in
+    {
+      options.programs.cloudflare-warp.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cloudflare-warp.";
+        };
+
+        package = lib.mkPackageOption pkgs "cloudflare-warp" { };
       };
 
-      package = lib.mkPackageOption pkgs "cloudflare-warp" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.cloudflare-warp = CloudflareWarpModule;

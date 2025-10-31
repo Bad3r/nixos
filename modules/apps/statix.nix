@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.statix.extended;
-  StatixModule = {
-    options.programs.statix.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable statix.";
+  StatixModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.statix.extended;
+    in
+    {
+      options.programs.statix.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable statix.";
+        };
+
+        package = lib.mkPackageOption pkgs "statix" { };
       };
 
-      package = lib.mkPackageOption pkgs "statix" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.statix = StatixModule;

@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.smartmontools.extended;
-  SmartmontoolsModule = {
-    options.programs.smartmontools.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable smartmontools.";
+  SmartmontoolsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.smartmontools.extended;
+    in
+    {
+      options.programs.smartmontools.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable smartmontools.";
+        };
+
+        package = lib.mkPackageOption pkgs "smartmontools" { };
       };
 
-      package = lib.mkPackageOption pkgs "smartmontools" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.smartmontools = SmartmontoolsModule;

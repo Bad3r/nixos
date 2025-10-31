@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.zsh-completions.extended;
-  ZshCompletionsModule = {
-    options.programs.zsh-completions.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable zsh-completions.";
+  ZshCompletionsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."zsh-completions".extended;
+    in
+    {
+      options.programs.zsh-completions.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable zsh-completions.";
+        };
+
+        package = lib.mkPackageOption pkgs "zsh-completions" { };
       };
 
-      package = lib.mkPackageOption pkgs "zsh-completions" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.zsh-completions = ZshCompletionsModule;

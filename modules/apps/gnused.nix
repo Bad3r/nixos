@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.gnused.extended;
-  GnusedModule = {
-    options.programs.gnused.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gnused.";
+  GnusedModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gnused.extended;
+    in
+    {
+      options.programs.gnused.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gnused.";
+        };
+
+        package = lib.mkPackageOption pkgs "gnused" { };
       };
 
-      package = lib.mkPackageOption pkgs "gnused" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gnused = GnusedModule;

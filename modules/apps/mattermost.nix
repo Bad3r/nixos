@@ -25,24 +25,33 @@
   ...
 }:
 let
-  cfg = config.programs.mattermost.extended;
-  MattermostDesktopModule = {
-    options.programs.mattermost.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable Mattermost desktop.";
+  MattermostDesktopModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.mattermost.extended;
+    in
+    {
+      options.programs.mattermost.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Mattermost desktop.";
+        };
+
+        package = lib.mkPackageOption pkgs "mattermost-desktop" { };
       };
 
-      package = lib.mkPackageOption pkgs "mattermost-desktop" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "mattermost-desktop" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "mattermost-desktop" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.mattermost = MattermostDesktopModule;

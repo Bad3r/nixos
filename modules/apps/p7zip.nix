@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.p7zip.extended;
-  P7zipModule = {
-    options.programs.p7zip.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable p7zip.";
+  P7zipModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.p7zip.extended;
+    in
+    {
+      options.programs.p7zip.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable p7zip.";
+        };
+
+        package = lib.mkPackageOption pkgs "p7zip" { };
       };
 
-      package = lib.mkPackageOption pkgs "p7zip" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.p7zip = P7zipModule;

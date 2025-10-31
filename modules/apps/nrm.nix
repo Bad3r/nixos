@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.nrm.extended;
-  NrmModule = {
-    options.programs.nrm.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nrm.";
+  NrmModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nrm.extended;
+    in
+    {
+      options.programs.nrm.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nrm.";
+        };
+
+        package = lib.mkPackageOption pkgs "nrm" { };
       };
 
-      package = lib.mkPackageOption pkgs "nrm" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nrm = NrmModule;

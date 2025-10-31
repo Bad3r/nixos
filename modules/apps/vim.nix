@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.vim.extended;
-  VimModule = {
-    options.programs.vim.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable vim.";
+  VimModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.vim.extended;
+    in
+    {
+      options.programs.vim.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable vim.";
+        };
+
+        package = lib.mkPackageOption pkgs "vim" { };
       };
 
-      package = lib.mkPackageOption pkgs "vim" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.vim = VimModule;

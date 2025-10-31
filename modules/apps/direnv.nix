@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.direnv.extended;
-  DirenvModule = {
-    options.programs.direnv.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable direnv.";
+  DirenvModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.direnv.extended;
+    in
+    {
+      options.programs.direnv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable direnv.";
+        };
+
+        package = lib.mkPackageOption pkgs "direnv" { };
       };
 
-      package = lib.mkPackageOption pkgs "direnv" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.direnv = DirenvModule;

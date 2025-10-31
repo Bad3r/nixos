@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.psmisc.extended;
-  PsmiscModule = {
-    options.programs.psmisc.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable psmisc.";
+  PsmiscModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.psmisc.extended;
+    in
+    {
+      options.programs.psmisc.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable psmisc.";
+        };
+
+        package = lib.mkPackageOption pkgs "psmisc" { };
       };
 
-      package = lib.mkPackageOption pkgs "psmisc" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.psmisc = PsmiscModule;

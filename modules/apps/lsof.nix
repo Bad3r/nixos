@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.lsof.extended;
-  LsofModule = {
-    options.programs.lsof.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable lsof.";
+  LsofModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.lsof.extended;
+    in
+    {
+      options.programs.lsof.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable lsof.";
+        };
+
+        package = lib.mkPackageOption pkgs "lsof" { };
       };
 
-      package = lib.mkPackageOption pkgs "lsof" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.lsof = LsofModule;

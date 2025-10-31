@@ -23,22 +23,31 @@
   ...
 }:
 let
-  cfg = config.programs.unzip.extended;
-  UnzipModule = {
-    options.programs.unzip.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable unzip.";
+  UnzipModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.unzip.extended;
+    in
+    {
+      options.programs.unzip.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable unzip.";
+        };
+
+        package = lib.mkPackageOption pkgs "unzip" { };
       };
 
-      package = lib.mkPackageOption pkgs "unzip" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.unzip = UnzipModule;

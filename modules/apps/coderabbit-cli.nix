@@ -26,8 +26,11 @@
   ...
 }:
 let
-  cfg = config.programs."coderabbit-cli".extended;
-  CoderabbitCliModule = {
+  CoderabbitCliModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs."coderabbit-cli".extended;
+  in
+  {
     options.programs."coderabbit-cli".extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

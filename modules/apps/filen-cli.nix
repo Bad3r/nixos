@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.filen-cli.extended;
-  FilenCliModule = {
-    options.programs.filen-cli.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable filen-cli.";
+  FilenCliModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."filen-cli".extended;
+    in
+    {
+      options.programs.filen-cli.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable filen-cli.";
+        };
+
+        package = lib.mkPackageOption pkgs "filen-cli" { };
       };
 
-      package = lib.mkPackageOption pkgs "filen-cli" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.filen-cli = FilenCliModule;

@@ -23,24 +23,33 @@
   ...
 }:
 let
-  cfg = config.programs.brave.extended;
-  BraveModule = {
-    options.programs.brave.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable brave.";
+  BraveModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.brave.extended;
+    in
+    {
+      options.programs.brave.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable brave.";
+        };
+
+        package = lib.mkPackageOption pkgs "brave" { };
       };
 
-      package = lib.mkPackageOption pkgs "brave" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "brave" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "brave" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.brave = BraveModule;

@@ -27,24 +27,33 @@
   ...
 }:
 let
-  cfg = config.programs.telegram-desktop.extended;
-  TelegramDesktopModule = {
-    options.programs.telegram-desktop.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable telegram-desktop.";
+  TelegramDesktopModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."telegram-desktop".extended;
+    in
+    {
+      options.programs.telegram-desktop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable telegram-desktop.";
+        };
+
+        package = lib.mkPackageOption pkgs "telegram-desktop" { };
       };
 
-      package = lib.mkPackageOption pkgs "telegram-desktop" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "telegram-desktop" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "telegram-desktop" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.telegram-desktop = TelegramDesktopModule;

@@ -17,22 +17,31 @@
   ...
 }:
 let
-  cfg = config.programs.normcap.extended;
-  NormcapModule = {
-    options.programs.normcap.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable normcap screenshot OCR utility.";
+  NormcapModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.normcap.extended;
+    in
+    {
+      options.programs.normcap.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable normcap screenshot OCR utility.";
+        };
+
+        package = lib.mkPackageOption pkgs "normcap" { };
       };
 
-      package = lib.mkPackageOption pkgs "normcap" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.normcap = NormcapModule;

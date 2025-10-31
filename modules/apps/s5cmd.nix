@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.s5cmd.extended;
-  S5cmdModule = {
-    options.programs.s5cmd.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable s5cmd.";
+  S5cmdModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.s5cmd.extended;
+    in
+    {
+      options.programs.s5cmd.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable s5cmd.";
+        };
+
+        package = lib.mkPackageOption pkgs "s5cmd" { };
       };
 
-      package = lib.mkPackageOption pkgs "s5cmd" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.s5cmd = S5cmdModule;

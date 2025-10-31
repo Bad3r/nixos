@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.dmenu.extended;
-  DmenuModule = {
-    options.programs.dmenu.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable dmenu.";
+  DmenuModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dmenu.extended;
+    in
+    {
+      options.programs.dmenu.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dmenu.";
+        };
+
+        package = lib.mkPackageOption pkgs "dmenu" { };
       };
 
-      package = lib.mkPackageOption pkgs "dmenu" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.dmenu = DmenuModule;

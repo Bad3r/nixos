@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.clojure-lsp.extended;
-  ClojureLspModule = {
+  ClojureLspModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs."clojure-lsp".extended;
+  in
+  {
     options.programs.clojure-lsp.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

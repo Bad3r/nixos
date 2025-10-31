@@ -19,24 +19,33 @@
   ...
 }:
 let
-  cfg = config.programs.vmware-workstation.extended;
-  VmwareWorkstationModule = {
-    options.programs.vmware-workstation.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable vmware-workstation.";
+  VmwareWorkstationModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."vmware-workstation".extended;
+    in
+    {
+      options.programs.vmware-workstation.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable vmware-workstation.";
+        };
+
+        package = lib.mkPackageOption pkgs "vmware-workstation" { };
       };
 
-      package = lib.mkPackageOption pkgs "vmware-workstation" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "vmware-workstation" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "vmware-workstation" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.vmware-workstation = VmwareWorkstationModule;

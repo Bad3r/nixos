@@ -24,22 +24,31 @@
   ...
 }:
 let
-  cfg = config.programs.nix-eval-jobs.extended;
-  NixEvalJobsModule = {
-    options.programs.nix-eval-jobs.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nix-eval-jobs.";
+  NixEvalJobsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-eval-jobs".extended;
+    in
+    {
+      options.programs.nix-eval-jobs.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-eval-jobs.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-eval-jobs" { };
       };
 
-      package = lib.mkPackageOption pkgs "nix-eval-jobs" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nix-eval-jobs = NixEvalJobsModule;

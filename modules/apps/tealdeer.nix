@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.tealdeer.extended;
-  TealdeerModule = {
+  TealdeerModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.tealdeer.extended;
+  in
+  {
     options.programs.tealdeer.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

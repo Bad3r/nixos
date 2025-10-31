@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.hsetroot.extended;
-  HsetrootModule = {
-    options.programs.hsetroot.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable hsetroot.";
+  HsetrootModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.hsetroot.extended;
+    in
+    {
+      options.programs.hsetroot.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable hsetroot.";
+        };
+
+        package = lib.mkPackageOption pkgs "hsetroot" { };
       };
 
-      package = lib.mkPackageOption pkgs "hsetroot" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.hsetroot = HsetrootModule;

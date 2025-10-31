@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.gawk.extended;
-  GawkModule = {
-    options.programs.gawk.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gawk.";
+  GawkModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gawk.extended;
+    in
+    {
+      options.programs.gawk.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gawk.";
+        };
+
+        package = lib.mkPackageOption pkgs "gawk" { };
       };
 
-      package = lib.mkPackageOption pkgs "gawk" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gawk = GawkModule;

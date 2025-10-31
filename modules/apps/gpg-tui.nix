@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.gpg-tui.extended;
-  GpgTuiModule = {
-    options.programs.gpg-tui.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gpg-tui.";
+  GpgTuiModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."gpg-tui".extended;
+    in
+    {
+      options.programs.gpg-tui.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gpg-tui.";
+        };
+
+        package = lib.mkPackageOption pkgs "gpg-tui" { };
       };
 
-      package = lib.mkPackageOption pkgs "gpg-tui" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gpg-tui = GpgTuiModule;

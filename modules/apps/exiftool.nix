@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.exiftool.extended;
-  ExiftoolModule = {
+  ExiftoolModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.exiftool.extended;
+  in
+  {
     options.programs.exiftool.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

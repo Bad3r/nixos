@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.gdb.extended;
-  GdbModule = {
-    options.programs.gdb.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gdb.";
+  GdbModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gdb.extended;
+    in
+    {
+      options.programs.gdb.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gdb.";
+        };
+
+        package = lib.mkPackageOption pkgs "gdb" { };
       };
 
-      package = lib.mkPackageOption pkgs "gdb" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gdb = GdbModule;

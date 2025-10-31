@@ -28,8 +28,11 @@
   ...
 }:
 let
-  cfg = config.programs.gzip.extended;
-  GzipModule = {
+  GzipModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.gzip.extended;
+  in
+  {
     options.programs.gzip.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

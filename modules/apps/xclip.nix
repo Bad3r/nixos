@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.xclip.extended;
-  XclipModule = {
-    options.programs.xclip.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable xclip.";
+  XclipModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xclip.extended;
+    in
+    {
+      options.programs.xclip.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xclip.";
+        };
+
+        package = lib.mkPackageOption pkgs "xclip" { };
       };
 
-      package = lib.mkPackageOption pkgs "xclip" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.xclip = XclipModule;

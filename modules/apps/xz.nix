@@ -23,22 +23,31 @@
   ...
 }:
 let
-  cfg = config.programs.xz.extended;
-  XzModule = {
-    options.programs.xz.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable xz.";
+  XzModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xz.extended;
+    in
+    {
+      options.programs.xz.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xz.";
+        };
+
+        package = lib.mkPackageOption pkgs "xz" { };
       };
 
-      package = lib.mkPackageOption pkgs "xz" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.xz = XzModule;

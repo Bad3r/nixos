@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.xfce.extended;
-  XfceModule = {
-    options.programs.xfce.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable xfce.";
+  XfceModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."xfce4-settings".extended;
+    in
+    {
+      options.programs.xfce.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xfce.";
+        };
+
+        package = lib.mkPackageOption pkgs "xfce" { };
       };
 
-      package = lib.mkPackageOption pkgs "xfce" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.xfce = XfceModule;

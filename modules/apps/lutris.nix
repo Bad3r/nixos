@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.lutris.extended;
-  LutrisModule = {
-    options.programs.lutris.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable lutris.";
+  LutrisModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.lutris.extended;
+    in
+    {
+      options.programs.lutris.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable lutris.";
+        };
+
+        package = lib.mkPackageOption pkgs "lutris" { };
       };
 
-      package = lib.mkPackageOption pkgs "lutris" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.lutris = LutrisModule;

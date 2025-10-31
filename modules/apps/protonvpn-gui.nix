@@ -25,8 +25,11 @@
   ...
 }:
 let
-  cfg = config.programs.protonvpn-gui.extended;
-  ProtonvpnGuiModule = {
+  ProtonvpnGuiModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs."protonvpn-gui".extended;
+  in
+  {
     options.programs.protonvpn-gui.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.playerctl.extended;
-  PlayerctlModule = {
-    options.programs.playerctl.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable playerctl.";
+  PlayerctlModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.playerctl.extended;
+    in
+    {
+      options.programs.playerctl.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable playerctl.";
+        };
+
+        package = lib.mkPackageOption pkgs "playerctl" { };
       };
 
-      package = lib.mkPackageOption pkgs "playerctl" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.playerctl = PlayerctlModule;

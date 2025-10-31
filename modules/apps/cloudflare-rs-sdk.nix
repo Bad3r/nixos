@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs."cloudflare-rs-sdk".extended;
-  CloudflareRsSdkModule = {
-    options.programs."cloudflare-rs-sdk".extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable Cloudflare Rust SDK.";
+  CloudflareRsSdkModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."cloudflare-rs-sdk".extended;
+    in
+    {
+      options.programs."cloudflare-rs-sdk".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Cloudflare Rust SDK.";
+        };
+
+        package = lib.mkPackageOption pkgs "cloudflare-rs-sdk" { };
       };
 
-      package = lib.mkPackageOption pkgs "cloudflare-rs-sdk" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps."cloudflare-rs-sdk" = CloudflareRsSdkModule;

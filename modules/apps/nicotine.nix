@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.nicotine.extended;
-  NicotineModule = {
-    options.programs.nicotine.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nicotine-plus.";
+  NicotineModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nicotine.extended;
+    in
+    {
+      options.programs.nicotine.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nicotine-plus.";
+        };
+
+        package = lib.mkPackageOption pkgs "nicotine-plus" { };
       };
 
-      package = lib.mkPackageOption pkgs "nicotine-plus" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nicotine = NicotineModule;

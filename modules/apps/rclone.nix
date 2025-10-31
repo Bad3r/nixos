@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs.rclone.extended;
-  RcloneModule = {
-    options.programs.rclone.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable rclone.";
+  RcloneModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rclone.extended;
+    in
+    {
+      options.programs.rclone.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rclone.";
+        };
+
+        package = lib.mkPackageOption pkgs "rclone" { };
       };
 
-      package = lib.mkPackageOption pkgs "rclone" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.rclone = RcloneModule;

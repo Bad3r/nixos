@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.ruff.extended;
-  RuffModule = {
-    options.programs.ruff.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable ruff.";
+  RuffModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ruff.extended;
+    in
+    {
+      options.programs.ruff.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ruff.";
+        };
+
+        package = lib.mkPackageOption pkgs "ruff" { };
       };
 
-      package = lib.mkPackageOption pkgs "ruff" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.ruff = RuffModule;

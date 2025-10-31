@@ -27,8 +27,11 @@
   ...
 }:
 let
-  cfg = config.programs.nodejs_24.extended;
-  Nodejs_24Module = {
+  Nodejs24Module = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.nodejs_24.extended;
+  in
+  {
     options.programs.nodejs_24.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -45,5 +48,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.nodejs_24 = Nodejs_24Module;
+  flake.nixosModules.apps.nodejs_24 = Nodejs24Module;
 }

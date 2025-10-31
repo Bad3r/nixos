@@ -20,8 +20,11 @@
   ...
 }:
 let
-  cfg = config.programs.qemu.extended;
-  QemuModule = {
+  QemuModule = { config, lib, pkgs, ... }:
+  let
+    cfg = config.programs.qemu.extended;
+  in
+  {
     options.programs.qemu.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;

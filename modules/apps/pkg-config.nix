@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.pkg-config.extended;
-  PkgConfigModule = {
-    options.programs.pkg-config.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable pkg-config.";
+  PkgConfigModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."pkg-config".extended;
+    in
+    {
+      options.programs.pkg-config.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pkg-config.";
+        };
+
+        package = lib.mkPackageOption pkgs "pkg-config" { };
       };
 
-      package = lib.mkPackageOption pkgs "pkg-config" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.pkg-config = PkgConfigModule;

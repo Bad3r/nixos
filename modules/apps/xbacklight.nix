@@ -27,22 +27,31 @@
   ...
 }:
 let
-  cfg = config.programs.xorg.extended;
-  XorgModule = {
-    options.programs.xorg.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable xorg.";
+  XorgModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xbacklight.extended;
+    in
+    {
+      options.programs.xorg.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xorg.";
+        };
+
+        package = lib.mkPackageOption pkgs "xorg" { };
       };
 
-      package = lib.mkPackageOption pkgs "xorg" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.xorg = XorgModule;

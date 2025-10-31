@@ -21,22 +21,31 @@
   ...
 }:
 let
-  cfg = config.programs."cloudflare-python-sdk".extended;
-  CloudflarePythonSdkModule = {
-    options.programs."cloudflare-python-sdk".extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable Cloudflare Python SDK.";
+  CloudflarePythonSdkModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."cloudflare-python-sdk".extended;
+    in
+    {
+      options.programs."cloudflare-python-sdk".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Cloudflare Python SDK.";
+        };
+
+        package = lib.mkPackageOption pkgs "cloudflare-python-sdk" { };
       };
 
-      package = lib.mkPackageOption pkgs "cloudflare-python-sdk" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps."cloudflare-python-sdk" = CloudflarePythonSdkModule;

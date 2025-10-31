@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.firefox.extended;
-  FirefoxModule = {
-    options.programs.firefox.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable firefox.";
+  FirefoxModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.firefox.extended;
+    in
+    {
+      options.programs.firefox.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable firefox.";
+        };
+
+        package = lib.mkPackageOption pkgs "firefox" { };
       };
 
-      package = lib.mkPackageOption pkgs "firefox" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.firefox = FirefoxModule;

@@ -26,22 +26,31 @@
   ...
 }:
 let
-  cfg = config.programs.pyright.extended;
-  PyrightModule = {
-    options.programs.pyright.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable pyright.";
+  PyrightModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.pyright.extended;
+    in
+    {
+      options.programs.pyright.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pyright.";
+        };
+
+        package = lib.mkPackageOption pkgs "pyright" { };
       };
 
-      package = lib.mkPackageOption pkgs "pyright" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.pyright = PyrightModule;

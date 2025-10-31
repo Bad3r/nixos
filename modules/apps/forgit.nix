@@ -28,22 +28,31 @@
   ...
 }:
 let
-  cfg = config.programs.forgit.extended;
-  ForgitModule = {
-    options.programs.forgit.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable forgit.";
+  ForgitModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.forgit.extended;
+    in
+    {
+      options.programs.forgit.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable forgit.";
+        };
+
+        package = lib.mkPackageOption pkgs "forgit" { };
       };
 
-      package = lib.mkPackageOption pkgs "forgit" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.forgit = ForgitModule;

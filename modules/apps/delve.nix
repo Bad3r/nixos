@@ -20,22 +20,31 @@
   ...
 }:
 let
-  cfg = config.programs.delve.extended;
-  DelveModule = {
-    options.programs.delve.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable delve.";
+  DelveModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.delve.extended;
+    in
+    {
+      options.programs.delve.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable delve.";
+        };
+
+        package = lib.mkPackageOption pkgs "delve" { };
       };
 
-      package = lib.mkPackageOption pkgs "delve" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.delve = DelveModule;
