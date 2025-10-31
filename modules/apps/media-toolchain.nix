@@ -27,13 +27,13 @@
   ...
 }:
 let
-  cfg = config.programs.gst_all_1.extended;
-  Gst_all_1Module = {
-    options.programs.gst_all_1.extended = {
+  cfg = config.programs."media-toolchain".extended;
+  MediaToolchainModule = {
+    options.programs."media-toolchain".extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable gst_all_1.";
+        description = lib.mdDoc "Whether to enable media toolchain bundle.";
       };
 
       package = lib.mkPackageOption pkgs "gst_all_1" { };
@@ -45,5 +45,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.gst_all_1 = Gst_all_1Module;
+  flake.nixosModules.apps."media-toolchain" = MediaToolchainModule;
 }

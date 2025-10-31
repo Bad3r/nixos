@@ -26,9 +26,9 @@
   ...
 }:
 let
-  cfg = config.programs.nicotine-plus.extended;
-  NicotinePlusModule = {
-    options.programs.nicotine-plus.extended = {
+  cfg = config.programs.nicotine.extended;
+  NicotineModule = {
+    options.programs.nicotine.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
@@ -44,5 +44,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.nicotine-plus = NicotinePlusModule;
+  flake.nixosModules.apps.nicotine = NicotineModule;
 }

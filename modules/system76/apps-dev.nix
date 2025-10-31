@@ -40,8 +40,8 @@ let
     "yarn"
     "nrm"
     # FHS-based dev environments
-    "vscodeFhs"
-    "kiroFhs"
+    "vscode-fhs"
+    "kiro-fhs"
   ];
 in
 {

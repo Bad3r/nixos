@@ -23,13 +23,13 @@
   ...
 }:
 let
-  cfg = config.programs.gnutar.extended;
-  GnutarModule = {
-    options.programs.gnutar.extended = {
+  cfg = config.programs.tar.extended;
+  TarModule = {
+    options.programs.tar.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable gnutar.";
+        description = lib.mdDoc "Whether to enable tar (GNU tar).";
       };
 
       package = lib.mkPackageOption pkgs "gnutar" { };
@@ -41,5 +41,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.gnutar = GnutarModule;
+  flake.nixosModules.apps.tar = TarModule;
 }

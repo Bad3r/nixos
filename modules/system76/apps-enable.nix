@@ -70,6 +70,7 @@ _: {
       jnv.extended.enable = true;
       jq.extended.enable = true;
       kdiskmark.extended.enable = true;
+      "kiro-fhs".extended.enable = true;
       kitty.extended.enable = true;
       ktailctl.extended.enable = true;
       less.extended.enable = true;
@@ -140,6 +141,7 @@ _: {
       "ventoy-full".extended.enable = true;
       veracrypt.extended.enable = true;
       vim.extended.enable = true;
+      "vscode-fhs".extended.enable = true;
       wgcf.extended.enable = true;
       wget.extended.enable = true;
       which.extended.enable = true;
