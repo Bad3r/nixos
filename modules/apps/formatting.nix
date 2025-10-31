@@ -29,7 +29,7 @@ let
     options.programs.formatting.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
-        default = true; # Backward compatibility
+        default = false;
         description = lib.mdDoc "Whether to enable the formatting tool bundle.";
       };
 

@@ -25,7 +25,7 @@ let
     options.programs.delve.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
-        default = true; # Backward compatibility - TODO: flip to false in Phase 2
+        default = false;
         description = lib.mdDoc "Whether to enable delve.";
       };
 

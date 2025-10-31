@@ -36,7 +36,7 @@ let
       options.programs.mangohud.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
-          default = true; # Backward compatibility
+          default = false;
           description = lib.mdDoc "Whether to enable MangoHud performance overlay for games.";
         };
 
@@ -61,7 +61,7 @@ let
       options.programs.mangohud.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
-          default = true; # Backward compatibility
+          default = false;
           description = lib.mdDoc "Whether to enable MangoHud performance overlay integration.";
         };
       };

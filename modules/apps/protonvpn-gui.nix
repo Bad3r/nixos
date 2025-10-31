@@ -30,7 +30,7 @@ let
     options.programs.protonvpn-gui.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
-        default = true; # Backward compatibility - TODO: flip to false in Phase 2
+        default = false;
         description = lib.mdDoc "Whether to enable protonvpn-gui.";
       };
 

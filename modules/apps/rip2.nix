@@ -36,7 +36,7 @@ let
       options.programs.rip2.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
-          default = true; # Backward compatibility
+          default = false;
           description = lib.mdDoc "Whether to enable rip2 safe rm alternative with trash support.";
         };
 

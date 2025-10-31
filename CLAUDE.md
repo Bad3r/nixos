@@ -98,7 +98,7 @@ let
     options.programs.<package-name>.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
-        default = true;  # Backward compatibility (Phase 1)
+        default = false;  # Explicit opt-in required
         description = lib.mdDoc "Whether to enable <package-name>.";
       };
 
@@ -135,7 +135,7 @@ in
 - Templates: `scripts/refactor/templates/`
 - Documentation: `scripts/refactor/README.md`
 
-**Status**: 245/245 modules refactored (100%). See `scripts/refactor/README.md` for details.
+**Status**: 245/245 modules refactored (100%). Phase 2 complete - all defaults set to `false`, explicit enables configured for system76.
 
 ## Execution Playbooks
 
