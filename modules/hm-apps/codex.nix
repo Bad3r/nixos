@@ -99,7 +99,7 @@
               model_supports_reasoning_summaries = true;
               model_reasoning_effort = "high";
               model_reasoning_summary = "detailed";
-              model_verbosity = "high";
+              model_verbosity = "medium";
             };
           };
         };
