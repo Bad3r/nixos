@@ -22,7 +22,7 @@
   jq,
   wasm-pack,
   lld,
-  wasm-bindgen-cli,
+  wasm-bindgen-cli_0_2_100,
 }:
 
 rustPlatform.buildRustPackage (finalAttrs: {
@@ -91,11 +91,11 @@ rustPlatform.buildRustPackage (finalAttrs: {
     mkdir -p "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin"
     mkdir -p "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393"
 
-    # Use wasm-bindgen-cli from nixpkgs
-    cp ${wasm-bindgen-cli}/bin/wasm-bindgen "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/"
-    cp ${wasm-bindgen-cli}/bin/wasm-bindgen-test-runner "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/" || true
-    cp ${wasm-bindgen-cli}/bin/wasm-bindgen "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/"
-    cp ${wasm-bindgen-cli}/bin/wasm-bindgen-test-runner "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/" || true
+    # Use wasm-bindgen-cli 0.2.100 from nixpkgs (required version)
+    cp ${wasm-bindgen-cli_0_2_100}/bin/wasm-bindgen "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/"
+    cp ${wasm-bindgen-cli_0_2_100}/bin/wasm-bindgen-test-runner "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/" || true
+    cp ${wasm-bindgen-cli_0_2_100}/bin/wasm-bindgen "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/"
+    cp ${wasm-bindgen-cli_0_2_100}/bin/wasm-bindgen-test-runner "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/" || true
     chmod +x "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/"* || true
     chmod +x "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/"* || true
     mkdir -p src-tauri/vendored/node
