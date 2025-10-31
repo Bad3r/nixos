@@ -22,6 +22,11 @@ _: {
                   - age:
                       - *host_primary
 
+              - path_regex: secrets/fonts/.+
+                key_groups:
+                  - age:
+                      - *host_primary
+
               - path_regex: secrets/.+\.(yaml|yml|json|env|ini|asc)$
                 key_groups:
                   - age:
