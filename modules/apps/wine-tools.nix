@@ -22,7 +22,7 @@
 */
 _:
 let
-  ProtonGeBinModule =
+  WineToolsModule =
     {
       config,
       lib,
@@ -33,21 +33,25 @@ let
       cfg = config.programs."wine-tools".extended;
     in
     {
-      options.programs.proton-ge-bin.extended = {
+      options.programs."wine-tools".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable proton-ge-bin.";
+          description = lib.mdDoc "Whether to enable Wine tools bundle (wine-staging, winetricks, proton-ge-bin).";
         };
 
         package = lib.mkPackageOption pkgs "proton-ge-bin" { };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [
+          cfg.package
+          pkgs.wineWowPackages.staging
+          pkgs.winetricks
+        ];
       };
     };
 in
 {
-  flake.nixosModules.apps.proton-ge-bin = ProtonGeBinModule;
+  flake.nixosModules.apps."wine-tools" = WineToolsModule;
 }
