@@ -27,7 +27,6 @@ let
     "exiftool"
     "httpie"
     "yaak"
-    "mitmproxy"
     # debugging and tracing
     "gdb"
     "valgrind"
