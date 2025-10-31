@@ -25,6 +25,10 @@ let
     }:
     let
       cfg = config.programs."node-cloudflare-sdk".extended;
+      packageSet = lib.attrByPath [ pkgs.system ] { } config.flake.packages;
+      defaultPackage = lib.attrByPath [
+        "node-cloudflare-src"
+      ] (throw "node-cloudflare-src package not found for ${pkgs.system}") packageSet;
     in
     {
       options.programs."node-cloudflare-sdk".extended = {
@@ -34,7 +38,11 @@ let
           description = lib.mdDoc "Whether to enable Node Cloudflare SDK.";
         };
 
-        package = lib.mkPackageOption pkgs "node-cloudflare-sdk" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = defaultPackage;
+          description = lib.mdDoc "The Node Cloudflare SDK package to use.";
+        };
       };
 
       config = lib.mkIf cfg.enable {

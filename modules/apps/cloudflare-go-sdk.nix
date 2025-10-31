@@ -25,6 +25,10 @@ let
     }:
     let
       cfg = config.programs."cloudflare-go-sdk".extended;
+      packageSet = lib.attrByPath [ pkgs.system ] { } config.flake.packages;
+      defaultPackage = lib.attrByPath [
+        "cloudflare-go-src"
+      ] (throw "cloudflare-go-src package not found for ${pkgs.system}") packageSet;
     in
     {
       options.programs."cloudflare-go-sdk".extended = {
@@ -34,7 +38,11 @@ let
           description = lib.mdDoc "Whether to enable Cloudflare Go SDK.";
         };
 
-        package = lib.mkPackageOption pkgs "cloudflare-go-sdk" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = defaultPackage;
+          description = lib.mdDoc "The Cloudflare Go SDK package to use.";
+        };
       };
 
       config = lib.mkIf cfg.enable {

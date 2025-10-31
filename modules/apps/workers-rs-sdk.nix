@@ -25,6 +25,10 @@ let
     }:
     let
       cfg = config.programs."workers-rs-sdk".extended;
+      packageSet = lib.attrByPath [ pkgs.system ] { } config.flake.packages;
+      defaultPackage = lib.attrByPath [
+        "workers-rs-src"
+      ] (throw "workers-rs-src package not found for ${pkgs.system}") packageSet;
     in
     {
       options.programs."workers-rs-sdk".extended = {
@@ -34,7 +38,11 @@ let
           description = lib.mdDoc "Whether to enable Workers Rust SDK.";
         };
 
-        package = lib.mkPackageOption pkgs "workers-rs-sdk" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = defaultPackage;
+          description = lib.mdDoc "The Workers Rust SDK package to use.";
+        };
       };
 
       config = lib.mkIf cfg.enable {
