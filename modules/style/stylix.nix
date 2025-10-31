@@ -3,6 +3,18 @@
   lib,
   ...
 }:
+let
+  mkMonolisaPlaceholder =
+    pkgs:
+    pkgs.runCommand "monolisa-placeholder-fonts" { } ''
+      mkdir -p "$out/share/fonts/truetype"
+    '';
+  gtkLineHeightCss = ''
+    * {
+      line-height: 1.6;
+    }
+  '';
+in
 {
   flake = {
     nixosModules = {
@@ -20,6 +32,9 @@
 
       workstation =
         { pkgs, ... }:
+        let
+          monolisaPackage = mkMonolisaPlaceholder pkgs;
+        in
         {
           stylix = {
             # Opacity settings for desktop systems
@@ -28,20 +43,20 @@
             # Font configuration for desktop systems
             fonts = {
               sansSerif = lib.mkDefault {
-                package = pkgs.nerd-fonts.fira-code;
-                name = "Fira Code Nerd Font";
+                package = monolisaPackage;
+                name = "MonoLisa";
               };
               serif = lib.mkDefault {
-                package = pkgs.nerd-fonts.fira-code;
-                name = "Fira Code Nerd Font";
+                package = monolisaPackage;
+                name = "MonoLisa";
               };
               monospace = {
-                package = pkgs.nerd-fonts.fira-code;
-                name = "Fira Code Nerd Font";
+                package = monolisaPackage;
+                name = "MonoLisa";
               };
               emoji = {
-                package = pkgs.fira-code-symbols;
-                name = "Fira Code Symbols";
+                package = pkgs.noto-fonts-color-emoji;
+                name = "Noto Color Emoji";
               };
               sizes = {
                 applications = 12;
@@ -49,6 +64,9 @@
                 popups = 12;
                 terminal = 12;
               };
+            };
+            targets = {
+              gtk.extraCss = gtkLineHeightCss;
             };
           };
           fonts.fontconfig.enable = true;
@@ -71,6 +89,9 @@
 
       gui =
         { pkgs, ... }:
+        let
+          monolisaPackage = mkMonolisaPlaceholder pkgs;
+        in
         {
           stylix = {
             # Opacity settings for GUI applications
@@ -79,20 +100,20 @@
             # Font configuration for GUI applications
             fonts = {
               sansSerif = lib.mkDefault {
-                package = pkgs.fira-code;
-                name = "Fira Code";
+                package = monolisaPackage;
+                name = "MonoLisa";
               };
               serif = lib.mkDefault {
-                package = pkgs.fira-code;
-                name = "Fira Code";
+                package = monolisaPackage;
+                name = "MonoLisa";
               };
               monospace = {
-                package = pkgs.nerd-fonts.fira-code;
-                name = "Fira Code Nerd Font";
+                package = monolisaPackage;
+                name = "MonoLisa";
               };
               emoji = {
-                package = pkgs.fira-code-symbols;
-                name = "Fira Code symbols";
+                package = pkgs.noto-fonts-color-emoji;
+                name = "Noto Color Emoji";
               };
               sizes = {
                 applications = 12;
@@ -103,15 +124,55 @@
             };
 
             # Firefox profile theming
-            targets.firefox.profileNames = [ "primary" ];
-            targets.firefox.firefoxGnomeTheme.enable = true;
+            targets = {
+              firefox = {
+                profileNames = [ "primary" ];
+                firefoxGnomeTheme.enable = true;
+              };
+              gtk.extraCss = gtkLineHeightCss;
+            };
+          };
+
+          programs = {
+            firefox = {
+              profiles = {
+                primary = {
+                  settings = {
+                    "font.name-list.monospace.x-western" =
+                      "MonoLisa, Symbols Nerd Font Mono, Symbols Nerd Font, Font Awesome 6 Free, Font Awesome 6 Brands";
+                    "font.name-list.sans-serif.x-western" =
+                      "MonoLisa, Symbols Nerd Font, Symbols Nerd Font Mono, Font Awesome 6 Free, Font Awesome 6 Brands";
+                    "font.name-list.serif.x-western" =
+                      "MonoLisa, Symbols Nerd Font, Symbols Nerd Font Mono, Font Awesome 6 Free, Font Awesome 6 Brands";
+                    "font.size.variable.x-western" = 12;
+                    "font.size.monospace.x-western" = 12;
+                  };
+                  userContent = ''
+                    @-moz-document url-prefix(http://), url-prefix(https://), url-prefix(file://), url-prefix(chrome://) {
+                      body,
+                      button,
+                      input,
+                      select,
+                      textarea {
+                        line-height: 1.6 !important;
+                      }
+                    }
+                  '';
+                };
+              };
+            };
+            kitty = {
+              settings = {
+                font_size = 12;
+                line_height = 1.6;
+              };
+            };
           };
 
           # Additional font packages
           home.packages = [
             pkgs.google-fonts
             pkgs.gucharmap
-            pkgs.nerd-fonts.jetbrains-mono
           ];
         };
     };
