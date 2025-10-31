@@ -19,7 +19,7 @@
     * `BURP_JVM_ARGS="-Xmx8G" burpsuitepro` — Allocate a larger heap for massive site crawls.
     * Add extensions from the BApp Store (e.g., Autorize, Logger++) to enhance capabilities.
 */
-_:
+{ inputs, ... }:
 let
   BurpsuiteModule =
     {
@@ -50,5 +50,14 @@ let
     };
 in
 {
+  # Expose burpsuitepro package via overlay
+  configurations.nixos.system76.module = {
+    nixpkgs.overlays = [
+      (_final: _prev: {
+        inherit (inputs."burpsuite-pro-flake".packages.${_prev.system}) burpsuitepro;
+      })
+    ];
+  };
+
   flake.nixosModules.apps.burpsuite = BurpsuiteModule;
 }
