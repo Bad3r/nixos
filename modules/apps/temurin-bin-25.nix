@@ -27,25 +27,28 @@
   ...
 }:
 let
-  cfg = config.programs.temurin-bin-25.extended;
-  TemurinBin-25Module = {
-    options.programs.temurin-bin-25.extended = {
+  TemurinBin25Module = {
+    options.programs."temurin-bin-25".extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable temurin-bin-25.";
+        description = lib.mdDoc "Whether to enable Temurin JDK 25.";
       };
 
       package = lib.mkPackageOption pkgs "temurin-bin-25" { };
     };
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "temurin-bin-25" ];
+    config =
+      let
+        cfg = config.programs."temurin-bin-25".extended;
+      in
+      lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "temurin-bin-25" ];
 
-      environment.systemPackages = [ cfg.package ];
-    };
+        environment.systemPackages = [ cfg.package ];
+      };
   };
 in
 {
-  flake.nixosModules.apps.temurin-bin-25 = TemurinBin-25Module;
+  flake.nixosModules.apps."temurin-bin-25" = TemurinBin25Module;
 }
