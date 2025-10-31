@@ -129,13 +129,14 @@ in
 - Unfree application: `modules/apps/brave.nix`
 - Complex with options: `modules/apps/steam.nix`, `modules/apps/mangohud.nix`
 
-**Automated Tooling**:
+**Module Standards**:
 
-- Transformation script: `scripts/refactor/transform-module.sh`
-- Templates: `scripts/refactor/templates/`
-- Documentation: `scripts/refactor/README.md`
+All 245 app modules follow standardized NixOS patterns with:
 
-**Status**: 245/245 modules refactored (100%). Phase 2 complete - all defaults set to `false`, explicit enables configured for system76.
+- Proper `options.programs.<name>.extended` namespace
+- Explicit opt-in via `enable` option (default = false)
+- Package customization via `mkPackageOption`
+- Conditional configuration with `lib.mkIf`
 
 ## Execution Playbooks
 

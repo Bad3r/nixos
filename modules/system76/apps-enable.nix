@@ -2,7 +2,7 @@
   System76 App Enables
 
   This module explicitly enables all applications used by the system76 configuration.
-  Created as part of Phase 2 refactoring where all app defaults were changed to false.
+  All app modules default to disabled, requiring explicit opt-in for better control.
 */
 _: {
   configurations.nixos.system76.module = {
