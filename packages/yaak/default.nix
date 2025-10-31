@@ -20,7 +20,7 @@
   makeWrapper,
   nix-update-script,
   jq,
-  wasmPack,
+  wasm-pack,
   lld,
   wasm-bindgen-cli,
 }:
@@ -54,7 +54,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     protobuf
     perl
     makeWrapper
-    wasmPack
+    wasm-pack
     lld
   ];
 
@@ -70,8 +70,8 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   env = {
     ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
-    WASM_PACK_PATH = "${wasmPack}/bin/wasm-pack";
-    WASM_PACK_BINARY = "${wasmPack}/bin/wasm-pack";
+    WASM_PACK_PATH = "${wasm-pack}/bin/wasm-pack";
+    WASM_PACK_BINARY = "${wasm-pack}/bin/wasm-pack";
     NPM_CONFIG_IGNORE_SCRIPTS = "true";
   };
 
