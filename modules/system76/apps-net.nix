@@ -17,6 +17,7 @@ let
     "wget"
     "tor"
     "tor-browser"
+    "ungoogled-chromium"
     "openvpn"
     "wireguard-tools"
     "protonvpn-gui"
