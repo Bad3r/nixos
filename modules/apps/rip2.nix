@@ -34,7 +34,13 @@ let
     in
     {
       options.programs.rip2.extended = {
-        enable = lib.mkEnableOption "rip2 safe rm alternative with trash support";
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = true; # Backward compatibility
+          description = lib.mdDoc "Whether to enable rip2 safe rm alternative with trash support.";
+        };
+
+        package = lib.mkPackageOption pkgs "rip2" { };
 
         graveyardPath = lib.mkOption {
           type = lib.types.str;
@@ -50,7 +56,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ pkgs.rip2 ];
+        environment.systemPackages = [ cfg.package ];
 
         environment.sessionVariables.RIP_GRAVEYARD = cfg.graveyardPath;
 

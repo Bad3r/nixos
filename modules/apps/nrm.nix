@@ -28,16 +28,16 @@
   ...
 }:
 let
-  cfg = config.programs.nodePackages.extended;
-  NodePackagesModule = {
-    options.programs.nodePackages.extended = {
+  cfg = config.programs.nrm.extended;
+  NrmModule = {
+    options.programs.nrm.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = true; # Backward compatibility - TODO: flip to false in Phase 2
-        description = lib.mdDoc "Whether to enable nodePackages.";
+        description = lib.mdDoc "Whether to enable nrm.";
       };
 
-      package = lib.mkPackageOption pkgs "nodePackages" { };
+      package = lib.mkPackageOption pkgs "nrm" { };
     };
 
     config = lib.mkIf cfg.enable {
@@ -46,5 +46,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.nodePackages = NodePackagesModule;
+  flake.nixosModules.apps.nrm = NrmModule;
 }

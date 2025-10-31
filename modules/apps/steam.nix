@@ -33,7 +33,13 @@ let
     in
     {
       options.programs.steam.extended = {
-        enable = lib.mkEnableOption "Steam with Proton-GE and extended compatibility tools";
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = true; # Backward compatibility
+          description = lib.mdDoc "Whether to enable Steam with Proton-GE and extended compatibility tools.";
+        };
+
+        package = lib.mkPackageOption pkgs "steam" { };
 
         extraTools = lib.mkOption {
           type = lib.types.listOf lib.types.package;
