@@ -12,8 +12,22 @@
 
 {
   flake.homeManagerModules.apps.glow =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.glow ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.glow.extended;
+    in
+    {
+      options.programs.glow.extended = {
+        enable = lib.mkEnableOption "Terminal Markdown renderer with theme-aware previews, pager streaming, and remote fetching support.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.glow ];
+      };
     };
 }

@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.bitwarden-desktop =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.bitwarden-desktop ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.bitwarden-desktop.extended;
+    in
+    {
+      options.programs.bitwarden-desktop.extended = {
+        enable = lib.mkEnableOption "Secure and free password manager for all of your devices.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.bitwarden-desktop ];
+      };
     };
 }

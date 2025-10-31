@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.inkscape =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.inkscape ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.inkscape.extended;
+    in
+    {
+      options.programs.inkscape.extended = {
+        enable = lib.mkEnableOption "Vector graphics editor.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.inkscape ];
+      };
     };
 }

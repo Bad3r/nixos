@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.gimp =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.gimp ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gimp.extended;
+    in
+    {
+      options.programs.gimp.extended = {
+        enable = lib.mkEnableOption "GNU Image Manipulation Program.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.gimp ];
+      };
     };
 }

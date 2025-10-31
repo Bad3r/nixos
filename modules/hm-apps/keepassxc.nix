@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.keepassxc =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.keepassxc ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.keepassxc.extended;
+    in
+    {
+      options.programs.keepassxc.extended = {
+        enable = lib.mkEnableOption "Cross-platform password manager compatible with KeePass.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.keepassxc ];
+      };
     };
 }

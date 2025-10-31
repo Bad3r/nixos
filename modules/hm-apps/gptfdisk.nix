@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.gptfdisk =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.gptfdisk ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gptfdisk.extended;
+    in
+    {
+      options.programs.gptfdisk.extended = {
+        enable = lib.mkEnableOption "Set of text-mode partitioning tools for GUID Partition Table (GPT) disks.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.gptfdisk ];
+      };
     };
 }

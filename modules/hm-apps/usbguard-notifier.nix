@@ -9,38 +9,23 @@
 */
 
 {
-  flake.homeManagerModules.apps."usbguard-notifier" =
-    { pkgs, ... }:
+  flake.homeManagerModules.apps.usbguard-notifier =
     {
-      home.packages = [ pkgs.usbguard-notifier ];
-
-      systemd.user.services."usbguard-notifier" = {
-        Unit = {
-          Description = "USBGuard desktop notifier";
-          After = [
-            "graphical-session.target"
-            "dbus.service"
-          ];
-          Wants = [ "graphical-session.target" ];
-          PartOf = [ "graphical-session.target" ];
-        };
-
-        Service = {
-          ExecStart = "${pkgs.usbguard-notifier}/bin/usbguard-notifier";
-          Restart = "on-failure";
-          RestartSec = 5;
-        };
-
-        Install = {
-          # default.target coverage starts the notifier in sessions that don't
-          # raise graphical-session.target (sway, tty, etc.) while still
-          # stopping with the graphical target when available.
-          WantedBy = [
-            "default.target"
-            "graphical-session.target"
-          ];
-        };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.usbguard-notifier.extended;
+    in
+    {
+      options.programs.usbguard-notifier.extended = {
+        enable = lib.mkEnableOption "Desktop notifications for USBGuard policy changes and device events.";
       };
 
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.usbguard-notifier ];
+      };
     };
 }

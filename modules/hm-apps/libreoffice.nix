@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.libreoffice =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.libreoffice ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.libreoffice.extended;
+    in
+    {
+      options.programs.libreoffice.extended = {
+        enable = lib.mkEnableOption "Comprehensive, professional-quality productivity suite, a variant of openoffice.org.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.libreoffice ];
+      };
     };
 }

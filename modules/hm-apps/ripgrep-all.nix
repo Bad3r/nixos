@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.ripgrep-all =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.ripgrep-all ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ripgrep-all.extended;
+    in
+    {
+      options.programs.ripgrep-all.extended = {
+        enable = lib.mkEnableOption "Ripgrep, but also search in PDFs, E-Books, Office documents, zip, tar.gz, and more.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.ripgrep-all ];
+      };
     };
 }

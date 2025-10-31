@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.tree =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.tree ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tree.extended;
+    in
+    {
+      options.programs.tree.extended = {
+        enable = lib.mkEnableOption "Command to produce a depth indented directory listing.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.tree ];
+      };
     };
 }

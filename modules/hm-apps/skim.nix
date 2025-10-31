@@ -24,8 +24,22 @@
 
 {
   flake.homeManagerModules.apps.skim =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.skim ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.skim.extended;
+    in
+    {
+      options.programs.skim.extended = {
+        enable = lib.mkEnableOption "Command-line fuzzy finder written in Rust.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.skim ];
+      };
     };
 }

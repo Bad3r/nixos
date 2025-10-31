@@ -24,8 +24,22 @@
 
 {
   flake.homeManagerModules.apps.eza =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.eza ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.eza.extended;
+    in
+    {
+      options.programs.eza.extended = {
+        enable = lib.mkEnableOption "Modern, maintained replacement for ls.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.eza ];
+      };
     };
 }
