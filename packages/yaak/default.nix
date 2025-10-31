@@ -22,7 +22,7 @@
   jq,
   wasmPack,
   lld,
-  wasmBindgenPrebuilt,
+  wasm-bindgen-cli,
 }:
 
 rustPlatform.buildRustPackage (finalAttrs: {
@@ -90,16 +90,14 @@ rustPlatform.buildRustPackage (finalAttrs: {
     export WASM_PACK_CACHE="$TMPDIR/wasm-pack-cache"
     mkdir -p "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin"
     mkdir -p "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393"
-    bindgen_tmp=$(mktemp -d)
-    tar -xf ${wasmBindgenPrebuilt} -C "$bindgen_tmp"
-    bindgen_dir=$(find "$bindgen_tmp" -maxdepth 1 -type d -name 'wasm-bindgen-*' -print -quit)
-    cp "$bindgen_dir"/wasm-bindgen "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/"
-    cp "$bindgen_dir"/wasm-bindgen-test-runner "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/"
-    cp "$bindgen_dir"/wasm-bindgen "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/"
-    cp "$bindgen_dir"/wasm-bindgen-test-runner "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/"
-    chmod +x "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/"*
-    chmod +x "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/"*
-    rm -rf "$bindgen_tmp"
+
+    # Use wasm-bindgen-cli from nixpkgs
+    cp ${wasm-bindgen-cli}/bin/wasm-bindgen "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/"
+    cp ${wasm-bindgen-cli}/bin/wasm-bindgen-test-runner "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/" || true
+    cp ${wasm-bindgen-cli}/bin/wasm-bindgen "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/"
+    cp ${wasm-bindgen-cli}/bin/wasm-bindgen-test-runner "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/" || true
+    chmod +x "$WASM_PACK_CACHE/.wasm-bindgen-cargo-install-0.2.100/bin/"* || true
+    chmod +x "$WASM_PACK_CACHE/wasm-bindgen-c59d5019a2b42393/"* || true
     mkdir -p src-tauri/vendored/node
     ln -sfn ${nodejs}/bin/node src-tauri/vendored/node/yaaknode
     ln -sfn ${nodejs}/bin/node src-tauri/vendored/node/yaaknode-x86_64-unknown-linux-gnu
