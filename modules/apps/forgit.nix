@@ -46,7 +46,7 @@ let
           description = lib.mdDoc "Whether to enable forgit.";
         };
 
-        package = lib.mkPackageOption pkgs "forgit" { };
+        package = lib.mkPackageOption pkgs "zsh-forgit" { };
       };
 
       config = lib.mkIf cfg.enable {
