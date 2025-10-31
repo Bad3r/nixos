@@ -44,7 +44,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "telegram-desktop" ];
+        nixpkgs.config.allowedUnfreePackages = [ "telegram-desktop" ];
 
         environment.systemPackages = [ cfg.package ];
       };

@@ -40,7 +40,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "kiro-fhs" ];
+        nixpkgs.config.allowedUnfreePackages = [ "kiro-fhs" ];
 
         environment.systemPackages = [ cfg.package ];
       };

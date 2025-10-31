@@ -44,7 +44,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "temurin-bin-25" ];
+        nixpkgs.config.allowedUnfreePackages = [ "temurin-bin-25" ];
 
         environment.systemPackages = [ cfg.package ];
       };

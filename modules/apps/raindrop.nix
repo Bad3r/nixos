@@ -35,7 +35,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "raindrop" ];
+        nixpkgs.config.allowedUnfreePackages = [ "raindrop" ];
 
         environment.systemPackages = [ cfg.package ];
       };

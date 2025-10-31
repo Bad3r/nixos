@@ -52,7 +52,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "burpsuitepro" ];
+        nixpkgs.config.allowedUnfreePackages = [ "burpsuitepro" ];
 
         environment.systemPackages = [ cfg.package ];
       };

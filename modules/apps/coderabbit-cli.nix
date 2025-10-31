@@ -43,7 +43,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "coderabbit-cli" ];
+        nixpkgs.config.allowedUnfreePackages = [ "coderabbit-cli" ];
 
         environment.systemPackages = [ cfg.package ];
       };

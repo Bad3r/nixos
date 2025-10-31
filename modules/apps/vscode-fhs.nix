@@ -44,7 +44,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "vscode-fhs" ];
+        nixpkgs.config.allowedUnfreePackages = [ "vscode-fhs" ];
 
         environment.systemPackages = [ cfg.package ];
       };

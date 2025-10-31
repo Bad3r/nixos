@@ -45,7 +45,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "electron-mail" ];
+        nixpkgs.config.allowedUnfreePackages = [ "electron-mail" ];
 
         environment.systemPackages = [ cfg.package ];
       };

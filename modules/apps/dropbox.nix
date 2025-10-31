@@ -43,7 +43,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "dropbox" ];
+        nixpkgs.config.allowedUnfreePackages = [ "dropbox" ];
 
         environment.systemPackages = [ cfg.package ];
       };
