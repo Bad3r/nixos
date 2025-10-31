@@ -22,8 +22,22 @@
 
 {
   flake.homeManagerModules.apps.discord =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.discord ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.discord.extended;
+    in
+    {
+      options.programs.discord.extended = {
+        enable = lib.mkEnableOption "All-in-one cross-platform voice and text chat for gamers.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.discord ];
+      };
     };
 }

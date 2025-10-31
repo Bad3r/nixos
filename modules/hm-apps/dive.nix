@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.dive =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.dive ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dive.extended;
+    in
+    {
+      options.programs.dive.extended = {
+        enable = lib.mkEnableOption "Tool for exploring each layer in a docker image.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.dive ];
+      };
     };
 }

@@ -16,34 +16,60 @@
 
   Example Usage:
     * Enable this module and run `steam` to sign into the client and install games.
-    * Switch compatibility tool per game to Proton-GE via Steam’s Properties → Compatibility.
+    * Switch compatibility tool per game to Proton-GE via Steam's Properties → Compatibility.
     * Use `steam-run <program>` for running binaries inside Steam runtime when troubleshooting.
 */
 
-{
-  nixpkgs.allowedUnfreePackages = [
-    "steam"
-    "steam-unwrapped"
-  ];
-
-  flake.nixosModules =
+let
+  steamModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
-      steamModule =
-        { pkgs, ... }:
-        {
-          programs.steam = {
-            enable = true;
-            extraCompatPackages = [ pkgs.proton-ge-bin ];
-            extraPackages = with pkgs; [
-              dwarfs
-              fuse-overlayfs
-              psmisc
-            ];
-          };
-        };
+      cfg = config.programs.steam.extended;
     in
     {
-      apps.steam = steamModule;
-      workstation = steamModule;
+      options.programs.steam.extended = {
+        enable = lib.mkEnableOption "Steam with Proton-GE and extended compatibility tools";
+
+        extraTools = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = with pkgs; [
+            dwarfs
+            fuse-overlayfs
+            psmisc
+          ];
+          description = lib.mdDoc ''
+            Additional tools for game compatibility and modding support.
+
+            - dwarfs: Compressed filesystem for game mods
+            - fuse-overlayfs: Overlay filesystem for sandboxing
+            - psmisc: Process utilities
+          '';
+          example = lib.literalExpression "with pkgs; [ dwarfs fuse-overlayfs ]";
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate =
+          pkg:
+          builtins.elem (lib.getName pkg) [
+            "steam"
+            "steam-unwrapped"
+          ];
+
+        programs.steam = {
+          enable = true;
+          extraCompatPackages = [ pkgs.proton-ge-bin ];
+          extraPackages = cfg.extraTools;
+        };
+      };
     };
+in
+{
+  flake.nixosModules.apps.steam = steamModule;
+  flake.nixosModules.workstation = steamModule;
 }

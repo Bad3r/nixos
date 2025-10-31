@@ -24,8 +24,22 @@
 
 {
   flake.homeManagerModules.apps.alacritty =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.alacritty ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.alacritty.extended;
+    in
+    {
+      options.programs.alacritty.extended = {
+        enable = lib.mkEnableOption "Alacritty GPU-accelerated terminal emulator";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.alacritty ];
+      };
     };
 }

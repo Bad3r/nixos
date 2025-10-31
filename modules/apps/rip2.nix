@@ -23,20 +23,44 @@
 
 let
   ripModule =
-    { pkgs, ... }:
     {
-      environment.systemPackages = [ pkgs.rip2 ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rip2.extended;
+    in
+    {
+      options.programs.rip2.extended = {
+        enable = lib.mkEnableOption "rip2 safe rm alternative with trash support";
 
-      environment.sessionVariables.RIP_GRAVEYARD = "/tmp/rip-graveyard";
+        graveyardPath = lib.mkOption {
+          type = lib.types.str;
+          default = "/tmp/rip-graveyard";
+          description = lib.mdDoc ''
+            Directory where deleted files are moved to.
 
-      systemd.tmpfiles.rules = [
-        # Ensure the rip graveyard exists on every boot with sticky permissions
-        "d /tmp/rip-graveyard 1777 root root -"
-      ];
+            Defaults to `/tmp/rip-graveyard` which is cleared on reboot.
+            For persistent trash, use a path like `/var/cache/rip-graveyard`.
+          '';
+          example = "/var/cache/rip-graveyard";
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ pkgs.rip2 ];
+
+        environment.sessionVariables.RIP_GRAVEYARD = cfg.graveyardPath;
+
+        systemd.tmpfiles.rules = [
+          # Ensure the rip graveyard exists with sticky permissions
+          "d ${cfg.graveyardPath} 1777 root root -"
+        ];
+      };
     };
 in
 {
   flake.nixosModules.apps.rip2 = ripModule;
-
-  flake.nixosModules.base = ripModule;
 }

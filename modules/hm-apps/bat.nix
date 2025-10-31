@@ -24,8 +24,22 @@
 
 {
   flake.homeManagerModules.apps.bat =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.bat ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.bat.extended;
+    in
+    {
+      options.programs.bat.extended = {
+        enable = lib.mkEnableOption "Syntax-highlighted `cat` alternative with Git-aware paging and theming.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.bat ];
+      };
     };
 }

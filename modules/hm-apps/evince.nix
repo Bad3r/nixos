@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.evince =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.evince ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.evince.extended;
+    in
+    {
+      options.programs.evince.extended = {
+        enable = lib.mkEnableOption "GNOME's document viewer.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.evince ];
+      };
     };
 }

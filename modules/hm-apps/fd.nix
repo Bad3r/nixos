@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.fd =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.fd ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.fd.extended;
+    in
+    {
+      options.programs.fd.extended = {
+        enable = lib.mkEnableOption "Simple, fast and user-friendly alternative to find.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.fd ];
+      };
     };
 }

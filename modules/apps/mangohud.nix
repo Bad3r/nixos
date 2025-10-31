@@ -21,22 +21,50 @@
     * `MANGOHUD_CONFIG="fps,frame_timing,temperature" mangohud glxgears` — Show specific metrics while running a test application.
 */
 
+let
+  nixosModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.mangohud.extended;
+    in
+    {
+      options.programs.mangohud.extended = {
+        enable = lib.mkEnableOption "MangoHud performance overlay for games";
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ pkgs.mangohud ];
+      };
+    };
+
+  homeModule =
+    {
+      config,
+      lib,
+      ...
+    }:
+    let
+      cfg = config.programs.mangohud.extended;
+    in
+    {
+      options.programs.mangohud.extended = {
+        enable = lib.mkEnableOption "MangoHud performance overlay integration";
+      };
+
+      config = lib.mkIf cfg.enable {
+        programs.mangohud.enable = true;
+      };
+    };
+in
 {
   flake = {
-    nixosModules.apps.mangohud =
-      { pkgs, ... }:
-      {
-        environment.systemPackages = [ pkgs.mangohud ];
-      };
-
-    nixosModules.workstation =
-      { pkgs, ... }:
-      {
-        environment.systemPackages = [ pkgs.mangohud ];
-      };
-
-    homeManagerModules.gui = _: {
-      programs.mangohud.enable = true;
-    };
+    nixosModules.apps.mangohud = nixosModule;
+    nixosModules.workstation = nixosModule;
+    homeManagerModules.gui = homeModule;
   };
 }

@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.pcmanfm =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.pcmanfm ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.pcmanfm.extended;
+    in
+    {
+      options.programs.pcmanfm.extended = {
+        enable = lib.mkEnableOption "File manager with GTK interface.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.pcmanfm ];
+      };
     };
 }

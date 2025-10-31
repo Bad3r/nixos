@@ -34,7 +34,6 @@ let
     "duf"
     "dua"
     "filezilla"
-    "rip2"
     "veracrypt"
   ];
 in

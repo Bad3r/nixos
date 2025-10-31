@@ -22,8 +22,22 @@
 
 {
   flake.homeManagerModules.apps.dua =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.dua ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dua.extended;
+    in
+    {
+      options.programs.dua.extended = {
+        enable = lib.mkEnableOption "Tool to conveniently learn about the disk usage of directories.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.dua ];
+      };
     };
 }

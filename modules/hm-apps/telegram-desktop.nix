@@ -23,8 +23,22 @@
 
 {
   flake.homeManagerModules.apps.telegram-desktop =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.telegram-desktop ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.telegram-desktop.extended;
+    in
+    {
+      options.programs.telegram-desktop.extended = {
+        enable = lib.mkEnableOption "Telegram Desktop messaging app.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.telegram-desktop ];
+      };
     };
 }

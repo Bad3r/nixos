@@ -22,8 +22,22 @@
 
 {
   flake.homeManagerModules.apps.slack =
-    { pkgs, ... }:
     {
-      home.packages = [ pkgs.slack ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.slack.extended;
+    in
+    {
+      options.programs.slack.extended = {
+        enable = lib.mkEnableOption "Desktop client for Slack.";
+      };
+
+      config = lib.mkIf cfg.enable {
+        home.packages = [ pkgs.slack ];
+      };
     };
 }
