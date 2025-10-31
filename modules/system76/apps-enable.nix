@@ -30,7 +30,6 @@ _: {
       diffutils.extended.enable = true;
       direnv.extended.enable = true;
       dmidecode.extended.enable = true;
-      dnsleak.extended.enable = true;
       "dragon-drop".extended.enable = true;
       dropbox.extended.enable = true;
       dua.extended.enable = true;

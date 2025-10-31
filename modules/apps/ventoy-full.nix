@@ -21,25 +21,31 @@
   ...
 }:
 let
-  VentoyFullModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs."ventoy-full".extended;
-  in
-  {
-    options.programs.ventoy-full.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable ventoy-full.";
+  VentoyFullModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."ventoy-full".extended;
+    in
+    {
+      options.programs.ventoy-full.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ventoy-full.";
+        };
+
+        package = lib.mkPackageOption pkgs "ventoy-full" { };
       };
 
-      package = lib.mkPackageOption pkgs "ventoy-full" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.ventoy-full = VentoyFullModule;

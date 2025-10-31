@@ -20,25 +20,31 @@
   ...
 }:
 let
-  RustfmtModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.rustfmt.extended;
-  in
-  {
-    options.programs.rustfmt.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable rustfmt.";
+  RustfmtModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rustfmt.extended;
+    in
+    {
+      options.programs.rustfmt.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rustfmt.";
+        };
+
+        package = lib.mkPackageOption pkgs "rustfmt" { };
       };
 
-      package = lib.mkPackageOption pkgs "rustfmt" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.rustfmt = RustfmtModule;

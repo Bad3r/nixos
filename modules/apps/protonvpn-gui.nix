@@ -25,27 +25,33 @@
   ...
 }:
 let
-  ProtonvpnGuiModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs."protonvpn-gui".extended;
-  in
-  {
-    options.programs.protonvpn-gui.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable protonvpn-gui.";
+  ProtonvpnGuiModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."protonvpn-gui".extended;
+    in
+    {
+      options.programs.protonvpn-gui.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable protonvpn-gui.";
+        };
+
+        package = lib.mkPackageOption pkgs "protonvpn-gui" { };
       };
 
-      package = lib.mkPackageOption pkgs "protonvpn-gui" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "protonvpn-gui" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "protonvpn-gui" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.protonvpn-gui = ProtonvpnGuiModule;

@@ -21,25 +21,31 @@
   ...
 }:
 let
-  PciutilsModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.pciutils.extended;
-  in
-  {
-    options.programs.pciutils.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable pciutils.";
+  PciutilsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.pciutils.extended;
+    in
+    {
+      options.programs.pciutils.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pciutils.";
+        };
+
+        package = lib.mkPackageOption pkgs "pciutils" { };
       };
 
-      package = lib.mkPackageOption pkgs "pciutils" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.pciutils = PciutilsModule;

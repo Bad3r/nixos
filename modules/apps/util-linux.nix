@@ -21,25 +21,31 @@
   ...
 }:
 let
-  UtilLinuxModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs."util-linux".extended;
-  in
-  {
-    options.programs.util-linux.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable util-linux.";
+  UtilLinuxModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."util-linux".extended;
+    in
+    {
+      options.programs.util-linux.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable util-linux.";
+        };
+
+        package = lib.mkPackageOption pkgs "util-linux" { };
       };
 
-      package = lib.mkPackageOption pkgs "util-linux" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.util-linux = UtilLinuxModule;

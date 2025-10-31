@@ -21,25 +21,31 @@
   ...
 }:
 let
-  XselModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.xsel.extended;
-  in
-  {
-    options.programs.xsel.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable xsel.";
+  XselModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xsel.extended;
+    in
+    {
+      options.programs.xsel.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xsel.";
+        };
+
+        package = lib.mkPackageOption pkgs "xsel" { };
       };
 
-      package = lib.mkPackageOption pkgs "xsel" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.xsel = XselModule;

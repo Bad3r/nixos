@@ -28,25 +28,31 @@
   ...
 }:
 let
-  ClojureLspModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs."clojure-lsp".extended;
-  in
-  {
-    options.programs.clojure-lsp.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable clojure-lsp.";
+  ClojureLspModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."clojure-lsp".extended;
+    in
+    {
+      options.programs.clojure-lsp.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable clojure-lsp.";
+        };
+
+        package = lib.mkPackageOption pkgs "clojure-lsp" { };
       };
 
-      package = lib.mkPackageOption pkgs "clojure-lsp" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.clojure-lsp = ClojureLspModule;

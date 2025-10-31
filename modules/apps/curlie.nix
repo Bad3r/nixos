@@ -22,25 +22,31 @@
   ...
 }:
 let
-  CurlieModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.curlie.extended;
-  in
-  {
-    options.programs.curlie.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable curlie.";
+  CurlieModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.curlie.extended;
+    in
+    {
+      options.programs.curlie.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable curlie.";
+        };
+
+        package = lib.mkPackageOption pkgs "curlie" { };
       };
 
-      package = lib.mkPackageOption pkgs "curlie" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.curlie = CurlieModule;

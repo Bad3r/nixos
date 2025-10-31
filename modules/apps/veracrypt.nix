@@ -27,27 +27,33 @@
   ...
 }:
 let
-  VeracryptModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.veracrypt.extended;
-  in
-  {
-    options.programs.veracrypt.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable veracrypt.";
+  VeracryptModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.veracrypt.extended;
+    in
+    {
+      options.programs.veracrypt.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable veracrypt.";
+        };
+
+        package = lib.mkPackageOption pkgs "veracrypt" { };
       };
 
-      package = lib.mkPackageOption pkgs "veracrypt" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "veracrypt" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "veracrypt" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.veracrypt = VeracryptModule;

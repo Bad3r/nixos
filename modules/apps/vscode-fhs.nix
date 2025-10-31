@@ -27,27 +27,33 @@
   ...
 }:
 let
-  VscodeFhsModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs."vscode-fhs".extended;
-  in
-  {
-    options.programs.vscode-fhs.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable vscode-fhs.";
+  VscodeFhsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."vscode-fhs".extended;
+    in
+    {
+      options.programs.vscode-fhs.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable vscode-fhs.";
+        };
+
+        package = lib.mkPackageOption pkgs "vscode-fhs" { };
       };
 
-      package = lib.mkPackageOption pkgs "vscode-fhs" { };
-    };
+      config = lib.mkIf cfg.enable {
+        nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "vscode-fhs" ];
 
-    config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "vscode-fhs" ];
-
-      environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
 in
 {
   flake.nixosModules.apps.vscode-fhs = VscodeFhsModule;

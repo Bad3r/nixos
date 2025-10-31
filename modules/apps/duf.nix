@@ -28,25 +28,31 @@
   ...
 }:
 let
-  DufModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.duf.extended;
-  in
-  {
-    options.programs.duf.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable duf.";
+  DufModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.duf.extended;
+    in
+    {
+      options.programs.duf.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable duf.";
+        };
+
+        package = lib.mkPackageOption pkgs "duf" { };
       };
 
-      package = lib.mkPackageOption pkgs "duf" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.duf = DufModule;

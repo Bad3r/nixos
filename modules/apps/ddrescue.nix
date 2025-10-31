@@ -28,25 +28,31 @@
   ...
 }:
 let
-  DdrescueModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.ddrescue.extended;
-  in
-  {
-    options.programs.ddrescue.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable ddrescue.";
+  DdrescueModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ddrescue.extended;
+    in
+    {
+      options.programs.ddrescue.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ddrescue.";
+        };
+
+        package = lib.mkPackageOption pkgs "ddrescue" { };
       };
 
-      package = lib.mkPackageOption pkgs "ddrescue" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.ddrescue = DdrescueModule;

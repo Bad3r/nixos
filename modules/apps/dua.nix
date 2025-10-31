@@ -26,25 +26,31 @@
   ...
 }:
 let
-  DuaModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.dua.extended;
-  in
-  {
-    options.programs.dua.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable dua.";
+  DuaModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dua.extended;
+    in
+    {
+      options.programs.dua.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dua.";
+        };
+
+        package = lib.mkPackageOption pkgs "dua" { };
       };
 
-      package = lib.mkPackageOption pkgs "dua" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.dua = DuaModule;

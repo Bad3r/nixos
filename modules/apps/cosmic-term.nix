@@ -26,25 +26,31 @@
   ...
 }:
 let
-  CosmicTermModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs."cosmic-term".extended;
-  in
-  {
-    options.programs.cosmic-term.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable cosmic-term.";
+  CosmicTermModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."cosmic-term".extended;
+    in
+    {
+      options.programs.cosmic-term.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cosmic-term.";
+        };
+
+        package = lib.mkPackageOption pkgs "cosmic-term" { };
       };
 
-      package = lib.mkPackageOption pkgs "cosmic-term" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.cosmic-term = CosmicTermModule;

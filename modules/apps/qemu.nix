@@ -20,41 +20,47 @@
   ...
 }:
 let
-  QemuModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.qemu.extended;
-  in
-  {
-    options.programs.qemu.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable QEMU virtualization tools.";
+  QemuModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.qemu.extended;
+    in
+    {
+      options.programs.qemu.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable QEMU virtualization tools.";
+        };
+
+        package = lib.mkPackageOption pkgs "qemu" { };
+
+        extraTools = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = with pkgs; [
+            qemu_kvm
+            quickemu
+          ];
+          description = lib.mdDoc ''
+            Additional QEMU tools and helpers.
+
+            Included by default:
+            - qemu_kvm: QEMU with KVM acceleration support
+            - quickemu: Quickly create and run optimized VMs
+          '';
+          example = lib.literalExpression "with pkgs; [ qemu_kvm quickemu ]";
+        };
       };
 
-      package = lib.mkPackageOption pkgs "qemu" { };
-
-      extraTools = lib.mkOption {
-        type = lib.types.listOf lib.types.package;
-        default = with pkgs; [
-          qemu_kvm
-          quickemu
-        ];
-        description = lib.mdDoc ''
-          Additional QEMU tools and helpers.
-
-          Included by default:
-          - qemu_kvm: QEMU with KVM acceleration support
-          - quickemu: Quickly create and run optimized VMs
-        '';
-        example = lib.literalExpression "with pkgs; [ qemu_kvm quickemu ]";
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ] ++ cfg.extraTools;
       };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ] ++ cfg.extraTools;
-    };
-  };
 in
 {
   flake.nixosModules.apps.qemu = QemuModule;

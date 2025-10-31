@@ -28,25 +28,31 @@
   ...
 }:
 let
-  UvModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.uv.extended;
-  in
-  {
-    options.programs.uv.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable uv.";
+  UvModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.uv.extended;
+    in
+    {
+      options.programs.uv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable uv.";
+        };
+
+        package = lib.mkPackageOption pkgs "uv" { };
       };
 
-      package = lib.mkPackageOption pkgs "uv" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.uv = UvModule;

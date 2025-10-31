@@ -21,25 +21,31 @@
   ...
 }:
 let
-  CurlModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.curl.extended;
-  in
-  {
-    options.programs.curl.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable curl.";
+  CurlModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.curl.extended;
+    in
+    {
+      options.programs.curl.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable curl.";
+        };
+
+        package = lib.mkPackageOption pkgs "curl" { };
       };
 
-      package = lib.mkPackageOption pkgs "curl" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.curl = CurlModule;

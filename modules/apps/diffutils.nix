@@ -21,25 +21,31 @@
   ...
 }:
 let
-  DiffutilsModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.diffutils.extended;
-  in
-  {
-    options.programs.diffutils.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable diffutils.";
+  DiffutilsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.diffutils.extended;
+    in
+    {
+      options.programs.diffutils.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable diffutils.";
+        };
+
+        package = lib.mkPackageOption pkgs "diffutils" { };
       };
 
-      package = lib.mkPackageOption pkgs "diffutils" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.diffutils = DiffutilsModule;

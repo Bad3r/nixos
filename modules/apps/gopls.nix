@@ -20,25 +20,31 @@
   ...
 }:
 let
-  GoplsModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.gopls.extended;
-  in
-  {
-    options.programs.gopls.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gopls.";
+  GoplsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gopls.extended;
+    in
+    {
+      options.programs.gopls.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gopls.";
+        };
+
+        package = lib.mkPackageOption pkgs "gopls" { };
       };
 
-      package = lib.mkPackageOption pkgs "gopls" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gopls = GoplsModule;

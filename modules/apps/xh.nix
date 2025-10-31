@@ -21,25 +21,31 @@
   ...
 }:
 let
-  XhModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.xh.extended;
-  in
-  {
-    options.programs.xh.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable xh.";
+  XhModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xh.extended;
+    in
+    {
+      options.programs.xh.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xh.";
+        };
+
+        package = lib.mkPackageOption pkgs "xh" { };
       };
 
-      package = lib.mkPackageOption pkgs "xh" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.xh = XhModule;

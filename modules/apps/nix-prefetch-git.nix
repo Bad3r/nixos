@@ -26,25 +26,31 @@
   ...
 }:
 let
-  NixPrefetchGitModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs."nix-prefetch-git".extended;
-  in
-  {
-    options.programs.nix-prefetch-git.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable nix-prefetch-git.";
+  NixPrefetchGitModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-prefetch-git".extended;
+    in
+    {
+      options.programs.nix-prefetch-git.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-prefetch-git.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-prefetch-git" { };
       };
 
-      package = lib.mkPackageOption pkgs "nix-prefetch-git" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.nix-prefetch-git = NixPrefetchGitModule;

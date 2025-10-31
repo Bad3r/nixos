@@ -28,25 +28,31 @@
   ...
 }:
 let
-  CargoModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.cargo.extended;
-  in
-  {
-    options.programs.cargo.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable cargo.";
+  CargoModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.cargo.extended;
+    in
+    {
+      options.programs.cargo.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cargo.";
+        };
+
+        package = lib.mkPackageOption pkgs "cargo" { };
       };
 
-      package = lib.mkPackageOption pkgs "cargo" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.cargo = CargoModule;

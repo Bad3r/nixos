@@ -21,25 +21,31 @@
   ...
 }:
 let
-  CoreutilsModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.coreutils.extended;
-  in
-  {
-    options.programs.coreutils.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable coreutils.";
+  CoreutilsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.coreutils.extended;
+    in
+    {
+      options.programs.coreutils.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable coreutils.";
+        };
+
+        package = lib.mkPackageOption pkgs "coreutils" { };
       };
 
-      package = lib.mkPackageOption pkgs "coreutils" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.coreutils = CoreutilsModule;

@@ -21,25 +21,31 @@
   ...
 }:
 let
-  FindutilsModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.findutils.extended;
-  in
-  {
-    options.programs.findutils.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable findutils.";
+  FindutilsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.findutils.extended;
+    in
+    {
+      options.programs.findutils.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable findutils.";
+        };
+
+        package = lib.mkPackageOption pkgs "findutils" { };
       };
 
-      package = lib.mkPackageOption pkgs "findutils" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.findutils = FindutilsModule;

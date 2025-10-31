@@ -28,7 +28,6 @@ let
     "networkmanagerapplet"
     "blueberry"
     "networkmanager-openvpn"
-    "dnsleak"
   ];
 
   vpnDefaultsModule = lib.attrByPath [ "vpn-defaults" ] null nixosModulesFromSelf;

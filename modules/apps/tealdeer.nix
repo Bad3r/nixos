@@ -28,25 +28,31 @@
   ...
 }:
 let
-  TealdeerModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.tealdeer.extended;
-  in
-  {
-    options.programs.tealdeer.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable tealdeer.";
+  TealdeerModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tealdeer.extended;
+    in
+    {
+      options.programs.tealdeer.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tealdeer.";
+        };
+
+        package = lib.mkPackageOption pkgs "tealdeer" { };
       };
 
-      package = lib.mkPackageOption pkgs "tealdeer" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.tealdeer = TealdeerModule;

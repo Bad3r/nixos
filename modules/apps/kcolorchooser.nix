@@ -22,25 +22,31 @@
   ...
 }:
 let
-  KdePackagesModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.kcolorchooser.extended;
-  in
-  {
-    options.programs.kdePackages.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable kdePackages.";
+  KdePackagesModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.kcolorchooser.extended;
+    in
+    {
+      options.programs.kdePackages.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable kdePackages.";
+        };
+
+        package = lib.mkPackageOption pkgs "kdePackages" { };
       };
 
-      package = lib.mkPackageOption pkgs "kdePackages" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.kdePackages = KdePackagesModule;

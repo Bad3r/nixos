@@ -21,25 +21,31 @@
   ...
 }:
 let
-  DmidecodeModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.dmidecode.extended;
-  in
-  {
-    options.programs.dmidecode.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable dmidecode.";
+  DmidecodeModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dmidecode.extended;
+    in
+    {
+      options.programs.dmidecode.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dmidecode.";
+        };
+
+        package = lib.mkPackageOption pkgs "dmidecode" { };
       };
 
-      package = lib.mkPackageOption pkgs "dmidecode" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.dmidecode = DmidecodeModule;

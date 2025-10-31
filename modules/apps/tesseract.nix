@@ -17,25 +17,31 @@
   ...
 }:
 let
-  TesseractModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.tesseract.extended;
-  in
-  {
-    options.programs.tesseract.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable tesseract OCR engine.";
+  TesseractModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tesseract.extended;
+    in
+    {
+      options.programs.tesseract.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tesseract OCR engine.";
+        };
+
+        package = lib.mkPackageOption pkgs "tesseract" { };
       };
 
-      package = lib.mkPackageOption pkgs "tesseract" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.tesseract = TesseractModule;

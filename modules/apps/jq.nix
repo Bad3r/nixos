@@ -28,25 +28,31 @@
   ...
 }:
 let
-  JqModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.jq.extended;
-  in
-  {
-    options.programs.jq.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable jq.";
+  JqModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.jq.extended;
+    in
+    {
+      options.programs.jq.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable jq.";
+        };
+
+        package = lib.mkPackageOption pkgs "jq" { };
       };
 
-      package = lib.mkPackageOption pkgs "jq" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.jq = JqModule;

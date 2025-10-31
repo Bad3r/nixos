@@ -26,25 +26,31 @@
   ...
 }:
 let
-  PlanifyModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.planify.extended;
-  in
-  {
-    options.programs.planify.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable planify.";
+  PlanifyModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.planify.extended;
+    in
+    {
+      options.programs.planify.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable planify.";
+        };
+
+        package = lib.mkPackageOption pkgs "planify" { };
       };
 
-      package = lib.mkPackageOption pkgs "planify" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.planify = PlanifyModule;

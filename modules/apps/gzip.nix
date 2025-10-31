@@ -28,25 +28,31 @@
   ...
 }:
 let
-  GzipModule = { config, lib, pkgs, ... }:
-  let
-    cfg = config.programs.gzip.extended;
-  in
-  {
-    options.programs.gzip.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = lib.mdDoc "Whether to enable gzip.";
+  GzipModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gzip.extended;
+    in
+    {
+      options.programs.gzip.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gzip.";
+        };
+
+        package = lib.mkPackageOption pkgs "gzip" { };
       };
 
-      package = lib.mkPackageOption pkgs "gzip" { };
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
 in
 {
   flake.nixosModules.apps.gzip = GzipModule;
