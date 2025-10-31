@@ -26,10 +26,12 @@ let
       config,
       lib,
       pkgs,
+      metaOwner,
       ...
     }:
     let
       cfg = config.programs.wireshark.extended;
+      owner = metaOwner.username or (throw "Wireshark module: expected metaOwner.username to be defined");
     in
     {
       options.programs.wireshark.extended = {
@@ -44,6 +46,12 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        # Create wireshark group for packet capture permissions
+        users.groups.wireshark = { };
+
+        # Add owner to wireshark group
+        users.users.${owner}.extraGroups = lib.mkAfter [ "wireshark" ];
       };
     };
 in
