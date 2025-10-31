@@ -45,5 +45,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.python313 = Python313Module;
+  flake.nixosModules.apps.python = Python313Module;
 }

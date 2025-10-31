@@ -45,5 +45,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.mattermost-desktop = MattermostDesktopModule;
+  flake.nixosModules.apps.mattermost = MattermostDesktopModule;
 }

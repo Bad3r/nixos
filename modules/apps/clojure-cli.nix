@@ -28,13 +28,13 @@
   ...
 }:
 let
-  cfg = config.programs.clojure.extended;
-  ClojureModule = {
-    options.programs.clojure.extended = {
+  cfg = config.programs."clojure-cli".extended;
+  ClojureCliModule = {
+    options.programs."clojure-cli".extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable clojure.";
+        description = lib.mdDoc "Whether to enable Clojure CLI.";
       };
 
       package = lib.mkPackageOption pkgs "clojure" { };
@@ -46,5 +46,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.clojure = ClojureModule;
+  flake.nixosModules.apps."clojure-cli" = ClojureCliModule;
 }

@@ -20,16 +20,16 @@
   ...
 }:
 let
-  cfg = config.programs.rustPackages.extended;
-  RustPackagesModule = {
-    options.programs.rustPackages.extended = {
+  cfg = config.programs."rust-clippy".extended;
+  RustClippyModule = {
+    options.programs."rust-clippy".extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable rustPackages.";
+        description = lib.mdDoc "Whether to enable Rust Clippy.";
       };
 
-      package = lib.mkPackageOption pkgs "rustPackages" { };
+      package = lib.mkPackageOption pkgs "clippy" { };
     };
 
     config = lib.mkIf cfg.enable {
@@ -38,5 +38,5 @@ let
   };
 in
 {
-  flake.nixosModules.apps.rustPackages = RustPackagesModule;
+  flake.nixosModules.apps."rust-clippy" = RustClippyModule;
 }

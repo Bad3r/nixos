@@ -18,25 +18,25 @@
   ...
 }:
 let
-  cfg = config.programs.system.extended;
-  SystemModule = {
-    options.programs.system.extended = {
+  cfg = config.programs.raindrop.extended;
+  RaindropModule = {
+    options.programs.raindrop.extended = {
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = lib.mdDoc "Whether to enable system.";
+        description = lib.mdDoc "Whether to enable Raindrop.";
       };
 
-      package = lib.mkPackageOption pkgs "system" { };
+      package = lib.mkPackageOption pkgs "raindrop" { };
     };
 
     config = lib.mkIf cfg.enable {
-      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "system" ];
+      nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "raindrop" ];
 
       environment.systemPackages = [ cfg.package ];
     };
   };
 in
 {
-  flake.nixosModules.apps.system = SystemModule;
+  flake.nixosModules.apps.raindrop = RaindropModule;
 }
