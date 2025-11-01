@@ -20,33 +20,27 @@ let
     {
       config,
       lib,
-      pkgs,
       ...
     }:
     let
       cfg = config.programs."cloudflare-go-sdk".extended;
-      packageSet = lib.attrByPath [ pkgs.system ] { } config.flake.packages;
-      defaultPackage = lib.attrByPath [
-        "cloudflare-go-src"
-      ] (throw "cloudflare-go-src package not found for ${pkgs.system}") packageSet;
     in
     {
       options.programs."cloudflare-go-sdk".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Cloudflare Go SDK.";
-        };
-
-        package = lib.mkOption {
-          type = lib.types.package;
-          default = defaultPackage;
-          description = lib.mdDoc "The Cloudflare Go SDK package to use.";
+          description = lib.mdDoc ''
+            This module is a placeholder for the Cloudflare Go SDK.
+            The SDK is a Go library installed via `go get github.com/cloudflare/cloudflare-go`,
+            not a system package. Enabling this option has no effect.
+          '';
         };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        # Cloudflare Go SDK is a Go library, not a system package
+        # Install it in your project with: go get github.com/cloudflare/cloudflare-go
       };
     };
 in

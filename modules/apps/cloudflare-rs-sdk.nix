@@ -20,33 +20,27 @@ let
     {
       config,
       lib,
-      pkgs,
       ...
     }:
     let
       cfg = config.programs."cloudflare-rs-sdk".extended;
-      packageSet = lib.attrByPath [ pkgs.system ] { } config.flake.packages;
-      defaultPackage = lib.attrByPath [
-        "cloudflare-rs-src"
-      ] (throw "cloudflare-rs-src package not found for ${pkgs.system}") packageSet;
     in
     {
       options.programs."cloudflare-rs-sdk".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Cloudflare Rust SDK.";
-        };
-
-        package = lib.mkOption {
-          type = lib.types.package;
-          default = defaultPackage;
-          description = lib.mdDoc "The Cloudflare Rust SDK package to use.";
+          description = lib.mdDoc ''
+            This module is a placeholder for the Cloudflare Rust SDK.
+            The SDK is a Rust crate installed via `cargo add cloudflare`,
+            not a system package. Enabling this option has no effect.
+          '';
         };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        # Cloudflare Rust SDK is a Rust crate, not a system package
+        # Install it in your project with: cargo add cloudflare
       };
     };
 in

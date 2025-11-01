@@ -20,33 +20,27 @@ let
     {
       config,
       lib,
-      pkgs,
       ...
     }:
     let
       cfg = config.programs."node-cloudflare-sdk".extended;
-      packageSet = lib.attrByPath [ pkgs.system ] { } config.flake.packages;
-      defaultPackage = lib.attrByPath [
-        "node-cloudflare-src"
-      ] (throw "node-cloudflare-src package not found for ${pkgs.system}") packageSet;
     in
     {
       options.programs."node-cloudflare-sdk".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Node Cloudflare SDK.";
-        };
-
-        package = lib.mkOption {
-          type = lib.types.package;
-          default = defaultPackage;
-          description = lib.mdDoc "The Node Cloudflare SDK package to use.";
+          description = lib.mdDoc ''
+            This module is a placeholder for the Cloudflare Node.js SDK.
+            The SDK is an npm package installed via `npm install cloudflare`,
+            not a system package. Enabling this option has no effect.
+          '';
         };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        # Cloudflare Node SDK is an npm package, not a system package
+        # Install it in your project with: npm install cloudflare
       };
     };
 in
