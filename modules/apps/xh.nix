@@ -14,11 +14,34 @@
     --form: Encode fields as multipart/form-data when uploading files or mixed payloads.
     --timeout <seconds>: Override the default request timeout for long-running requests.
 */
-
-{
-  flake.nixosModules.apps.xh =
-    { pkgs, ... }:
+_:
+let
+  XhModule =
     {
-      environment.systemPackages = [ pkgs.xh ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xh.extended;
+    in
+    {
+      options.programs.xh.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xh.";
+        };
+
+        package = lib.mkPackageOption pkgs "xh" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.xh = XhModule;
 }

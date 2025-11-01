@@ -16,14 +16,36 @@
     --disable-features=OutdatedBuildDetector: Suppress Brave's self-update prompts when using the wrapped build.
     --ozone-platform-hint=auto: Allow Brave to negotiate Wayland or X11 automatically on Linux systems.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "brave" ];
-
-  flake.nixosModules.apps.brave =
-    { pkgs, ... }:
+_:
+let
+  BraveModule =
     {
-      environment.systemPackages = [ pkgs.brave ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.brave.extended;
+    in
+    {
+      options.programs.brave.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable brave.";
+        };
 
+        package = lib.mkPackageOption pkgs "brave" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "brave" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.brave = BraveModule;
 }

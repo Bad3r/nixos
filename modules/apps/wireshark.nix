@@ -19,26 +19,42 @@
     * `tshark -Y "http.request" -r capture.pcapng` — Filter HTTP requests from a saved capture.
     * `dumpcap -i eth0 -b duration:300 -w /tmp/trace` — Rotate captures every five minutes for long-running monitoring.
 */
-
-{
-  flake.nixosModules.apps.wireshark =
+_:
+let
+  WiresharkModule =
     {
+      config,
       lib,
       pkgs,
       metaOwner,
       ...
     }:
     let
+      cfg = config.programs.wireshark.extended;
       owner = metaOwner.username or (throw "Wireshark module: expected metaOwner.username to be defined");
-      baseConfig = {
+    in
+    {
+      options.programs.wireshark.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable wireshark.";
+        };
+
+        package = lib.mkPackageOption pkgs "wireshark" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+
+        # Create wireshark group for packet capture permissions
         users.groups.wireshark = { };
 
-        environment.systemPackages = [ pkgs.wireshark ];
-      };
-      ownerMembership = {
+        # Add owner to wireshark group
         users.users.${owner}.extraGroups = lib.mkAfter [ "wireshark" ];
       };
-    in
-    lib.recursiveUpdate baseConfig ownerMembership;
-
+    };
+in
+{
+  flake.nixosModules.apps.wireshark = WiresharkModule;
 }

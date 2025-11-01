@@ -14,11 +14,34 @@
     -n '1,10p': Print only selected line ranges without default output.
     -i.bak 's/foo/bar/': Edit files in place while writing backups with the specified suffix.
 */
-
-{
-  flake.nixosModules.apps.gnused =
-    { pkgs, ... }:
+_:
+let
+  GnusedModule =
     {
-      environment.systemPackages = [ pkgs.gnused ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gnused.extended;
+    in
+    {
+      options.programs.gnused.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gnused.";
+        };
+
+        package = lib.mkPackageOption pkgs "gnused" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.gnused = GnusedModule;
 }

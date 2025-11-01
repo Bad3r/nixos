@@ -19,11 +19,34 @@
     * `statix fix modules/` — Autofix eligible issues inside `modules/`.
     * `statix --format json check flake.nix` — Produce JSON diagnostics for tooling.
 */
-
-{
-  flake.nixosModules.apps.statix =
-    { pkgs, ... }:
+_:
+let
+  StatixModule =
     {
-      environment.systemPackages = [ pkgs.statix ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.statix.extended;
+    in
+    {
+      options.programs.statix.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable statix.";
+        };
+
+        package = lib.mkPackageOption pkgs "statix" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.statix = StatixModule;
 }

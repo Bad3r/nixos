@@ -20,11 +20,34 @@
     * `gwenview --fullscreen vacation/` — Start a fullscreen slideshow for a directory.
     * `gwenview --slideshow --interval 5 gallery/` — Run an auto-advancing slideshow with a five-second interval.
 */
-
-{
-  flake.nixosModules.apps.gwenview =
-    { pkgs, ... }:
+_:
+let
+  GwenviewModule =
     {
-      environment.systemPackages = [ pkgs.kdePackages.gwenview ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gwenview.extended;
+    in
+    {
+      options.programs.gwenview.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Gwenview image viewer.";
+        };
+
+        package = lib.mkPackageOption pkgs [ "kdePackages" "gwenview" ] { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.gwenview = GwenviewModule;
 }

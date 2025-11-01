@@ -14,11 +14,34 @@
     -v NAME=value: Pass external variables into a script.
     --posix: Enable POSIX compatibility mode for portability.
 */
-
-{
-  flake.nixosModules.apps.gawk =
-    { pkgs, ... }:
+_:
+let
+  GawkModule =
     {
-      environment.systemPackages = [ pkgs.gawk ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gawk.extended;
+    in
+    {
+      options.programs.gawk.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gawk.";
+        };
+
+        package = lib.mkPackageOption pkgs "gawk" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.gawk = GawkModule;
 }

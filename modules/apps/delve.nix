@@ -13,12 +13,34 @@
     * `dlv debug ./cmd/api` — Build and start debugging the binary produced from `./cmd/api`.
     * `dlv attach $(pgrep myservice)` — Attach to a running Go process for live inspection.
 */
-
-{
-  flake.nixosModules.apps.delve =
-    { pkgs, ... }:
+_:
+let
+  DelveModule =
     {
-      environment.systemPackages = [ pkgs.delve ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.delve.extended;
+    in
+    {
+      options.programs.delve.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable delve.";
+        };
 
+        package = lib.mkPackageOption pkgs "delve" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.delve = DelveModule;
 }

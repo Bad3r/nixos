@@ -18,14 +18,36 @@
     * Configure multiple servers via “Add Server” to switch between environments easily.
     * Use Settings → Notifications to customize notification sounds and behavior.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "mattermost-desktop" ];
-
-  flake.nixosModules.apps.mattermost =
-    { pkgs, ... }:
+_:
+let
+  MattermostDesktopModule =
     {
-      environment.systemPackages = [ pkgs.mattermost-desktop ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.mattermost.extended;
+    in
+    {
+      options.programs.mattermost.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Mattermost desktop.";
+        };
 
+        package = lib.mkPackageOption pkgs "mattermost-desktop" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "mattermost-desktop" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.mattermost = MattermostDesktopModule;
 }

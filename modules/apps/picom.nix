@@ -19,13 +19,36 @@
   Example Usage:
     * `picom --config ~/.config/picom/picom.conf --daemon` — Start compositing with a custom config.
     * `picom --experimental-backends --backend glx` — Use GLX backend with blur effects.
-    * `pkill picom && picom --vsync` — Restart picom with VSYNC enabled to mitigate tearing.
+    * `pkill picom {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} picom --vsync` — Restart picom with VSYNC enabled to mitigate tearing.
 */
-
-{
-  flake.nixosModules.apps.picom =
-    { pkgs, ... }:
+_:
+let
+  PicomModule =
     {
-      environment.systemPackages = [ pkgs.picom ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.picom.extended;
+    in
+    {
+      options.programs.picom.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable picom.";
+        };
+
+        package = lib.mkPackageOption pkgs "picom" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.picom = PicomModule;
 }

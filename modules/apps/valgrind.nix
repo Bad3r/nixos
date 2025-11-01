@@ -18,15 +18,37 @@
 
   Example Usage:
     * `valgrind ./app` — Run a binary under Memcheck to catch memory issues.
-    * `valgrind --tool=callgrind ./app && kcachegrind callgrind.out.*` — Profile CPU hotspots and inspect results.
+    * `valgrind --tool=callgrind ./app {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} kcachegrind callgrind.out.*` — Profile CPU hotspots and inspect results.
     * `valgrind --tool=massif --massif-out-file=massif.out ./server` — Monitor heap growth for long-running services.
 */
-
-{
-  flake.nixosModules.apps.valgrind =
-    { pkgs, ... }:
+_:
+let
+  ValgrindModule =
     {
-      environment.systemPackages = [ pkgs.valgrind ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.valgrind.extended;
+    in
+    {
+      options.programs.valgrind.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable valgrind.";
+        };
 
+        package = lib.mkPackageOption pkgs "valgrind" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.valgrind = ValgrindModule;
 }

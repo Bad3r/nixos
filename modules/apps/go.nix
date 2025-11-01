@@ -21,12 +21,34 @@
     * `go build ./cmd/api` — Build a service located under `cmd/api`.
     * `go test ./... -race` — Run all project tests with the race detector enabled.
 */
-
-{
-  flake.nixosModules.apps.go =
-    { pkgs, ... }:
+_:
+let
+  GoModule =
     {
-      environment.systemPackages = [ pkgs.go ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.go.extended;
+    in
+    {
+      options.programs.go.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable go.";
+        };
 
+        package = lib.mkPackageOption pkgs "go" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.go = GoModule;
 }

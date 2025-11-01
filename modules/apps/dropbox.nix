@@ -19,14 +19,36 @@
     * `dropbox status` — Check current synchronization state and recent activity.
     * `dropbox exclude add temp/` — Skip syncing temporary directories to the cloud.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "dropbox" ];
-
-  flake.nixosModules.apps.dropbox =
-    { pkgs, ... }:
+_:
+let
+  DropboxModule =
     {
-      environment.systemPackages = [ pkgs.dropbox ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dropbox.extended;
+    in
+    {
+      options.programs.dropbox.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dropbox.";
+        };
 
+        package = lib.mkPackageOption pkgs "dropbox" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "dropbox" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.dropbox = DropboxModule;
 }

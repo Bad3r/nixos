@@ -18,13 +18,19 @@
   Example Usage:
     * `WINEPREFIX=~/prefixes/app wine setup.exe` — Install a Windows application into a custom prefix.
     * `winetricks corefonts vcrun2019` — Install required runtime components.
-    * `proton-run game.exe` — Launch a program with Proton-GE’s compatibility enhancements.
+    * `proton-run game.exe` — Launch a program with Proton-GE's compatibility enhancements.
 */
-
-{
-  flake.nixosModules.apps."wine-tools" =
-    { pkgs, lib, ... }:
+_:
+let
+  WineToolsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
+      cfg = config.programs."wine-tools".extended;
       protonCompatTool = pkgs.proton-ge-bin.steamcompattool;
       steamRunExe = lib.getExe pkgs.steam-run;
       protonRunScript = pkgs.writeShellApplication {
@@ -49,15 +55,32 @@
           exec ${steamRunExe} ${protonCompatTool}/proton run "$@"
         '';
       };
-      packages = with pkgs; [
-        wine-staging
-        winetricks
-        wineWowPackages.stagingFull
-        protonCompatTool
-        protonRunScript
-      ];
     in
     {
-      environment.systemPackages = packages;
+      options.programs."wine-tools".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Wine tools bundle (wine-staging, winetricks, proton-ge-bin).";
+        };
+
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = pkgs.wineWowPackages.stagingFull;
+          description = lib.mdDoc "The Wine package to use.";
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [
+          cfg.package
+          pkgs.winetricks
+          protonCompatTool
+          protonRunScript
+        ];
+      };
     };
+in
+{
+  flake.nixosModules.apps."wine-tools" = WineToolsModule;
 }

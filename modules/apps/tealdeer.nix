@@ -21,12 +21,34 @@
     * `tldr --update` — Download the latest TL;DR pages.
     * `tldr --platform linux find` — Show Linux-specific usage examples.
 */
-
-{
-  flake.nixosModules.apps.tealdeer =
-    { pkgs, ... }:
+_:
+let
+  TealdeerModule =
     {
-      environment.systemPackages = [ pkgs.tealdeer ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tealdeer.extended;
+    in
+    {
+      options.programs.tealdeer.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tealdeer.";
+        };
 
+        package = lib.mkPackageOption pkgs "tealdeer" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.tealdeer = TealdeerModule;
 }

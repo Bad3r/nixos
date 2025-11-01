@@ -21,12 +21,34 @@
     * `clojure -M:test` — Run tests using the `:test` alias defined in `deps.edn`.
     * `clojure -X:deps tree` — Print the dependency tree to diagnose version conflicts.
 */
-
-{
-  flake.nixosModules.apps."clojure-cli" =
-    { pkgs, ... }:
+_:
+let
+  ClojureCliModule =
     {
-      environment.systemPackages = [ pkgs.clojure ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."clojure-cli".extended;
+    in
+    {
+      options.programs."clojure-cli".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Clojure CLI.";
+        };
 
+        package = lib.mkPackageOption pkgs "clojure" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps."clojure-cli" = ClojureCliModule;
 }

@@ -19,17 +19,34 @@
     * Use “Resize/Move” to adjust partition sizes while preserving data.
     * Use “Create Partition Table…” to initialize new disks with GPT or MSDOS labels.
 */
+_:
+let
+  GpartedModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gparted.extended;
+    in
+    {
+      options.programs.gparted.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gparted.";
+        };
 
+        package = lib.mkPackageOption pkgs "gparted" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.gparted =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.gparted ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.gparted ];
-    };
+  flake.nixosModules.apps.gparted = GpartedModule;
 }

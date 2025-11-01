@@ -21,17 +21,34 @@
     * `sudo f3read /media/usb` — Validate the data written by `f3write` and identify corrupt sectors.
     * `sudo f3probe --destructive --time-ops /dev/sdc` — Run a destructive scan to estimate genuine size and performance metrics.
 */
+_:
+let
+  F3Module =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.f3.extended;
+    in
+    {
+      options.programs.f3.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable f3.";
+        };
 
+        package = lib.mkPackageOption pkgs "f3" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.f3 =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.f3 ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.f3 ];
-    };
+  flake.nixosModules.apps.f3 = F3Module;
 }

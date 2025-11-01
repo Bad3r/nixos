@@ -20,12 +20,34 @@
     * `curl https://api.example.com | jnv` — Pipe API output directly into the viewer.
     * `jnv data.json --output filtered.json` — Save the filtered JSON result while experimenting in the TUI.
 */
-
-{
-  flake.nixosModules.apps.jnv =
-    { pkgs, ... }:
+_:
+let
+  JnvModule =
     {
-      environment.systemPackages = [ pkgs.jnv ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.jnv.extended;
+    in
+    {
+      options.programs.jnv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable jnv.";
+        };
 
+        package = lib.mkPackageOption pkgs "jnv" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.jnv = JnvModule;
 }

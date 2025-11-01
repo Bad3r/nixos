@@ -21,12 +21,34 @@
     * `rar a -m5 -p$(pass show infra/rar-password) secure.rar secrets/` — Compress sensitive data with maximum compression and encryption.
     * `unrar x downloads/fonts.rar` — Extract archive contents preserving directory structure.
 */
-
-{
-  flake.nixosModules.apps.rar =
-    { pkgs, lib, ... }:
+_:
+let
+  RarModule =
     {
-      environment.systemPackages = lib.mkAfter [ pkgs.rar ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rar.extended;
+    in
+    {
+      options.programs.rar.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rar.";
+        };
 
+        package = lib.mkPackageOption pkgs "rar" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.rar = RarModule;
 }

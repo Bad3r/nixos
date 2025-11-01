@@ -14,11 +14,34 @@
     --dump: Emit the raw SMBIOS table for archival or offline analysis.
     -q: Suppress keywords for compact output when scanning large inventories.
 */
-
-{
-  flake.nixosModules.apps.dmidecode =
-    { pkgs, ... }:
+_:
+let
+  DmidecodeModule =
     {
-      environment.systemPackages = [ pkgs.dmidecode ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dmidecode.extended;
+    in
+    {
+      options.programs.dmidecode.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dmidecode.";
+        };
+
+        package = lib.mkPackageOption pkgs "dmidecode" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.dmidecode = DmidecodeModule;
 }

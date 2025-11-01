@@ -21,12 +21,34 @@
     * `zstd -d -c logs.zst | jq '.message'` — Stream-decompress into another command without creating intermediate files.
     * `zstd --adapt -T0 < input.bin > output.zst` — Compress mixed workloads using all available cores with adaptive tuning.
 */
-
-{
-  flake.nixosModules.apps.zstd =
-    { pkgs, lib, ... }:
+_:
+let
+  ZstdModule =
     {
-      environment.systemPackages = lib.mkDefault [ pkgs.zstd ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.zstd.extended;
+    in
+    {
+      options.programs.zstd.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable zstd.";
+        };
 
+        package = lib.mkPackageOption pkgs "zstd" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.zstd = ZstdModule;
 }

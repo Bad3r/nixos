@@ -18,15 +18,37 @@
 
   Example Usage:
     * `hyperfine 'rg foo' 'ack foo'` — Compare ripgrep and ack for a search task.
-    * `hyperfine -w 3 -r 10 'make clean && make'` — Benchmark a build pipeline with warmup and specific run counts.
+    * `hyperfine -w 3 -r 10 'make clean {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} make'` — Benchmark a build pipeline with warmup and specific run counts.
     * `hyperfine --export-json results.json 'python script.py'` — Save benchmark metrics for further analysis.
 */
-
-{
-  flake.nixosModules.apps.hyperfine =
-    { pkgs, ... }:
+_:
+let
+  HyperfineModule =
     {
-      environment.systemPackages = [ pkgs.hyperfine ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.hyperfine.extended;
+    in
+    {
+      options.programs.hyperfine.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable hyperfine.";
+        };
 
+        package = lib.mkPackageOption pkgs "hyperfine" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.hyperfine = HyperfineModule;
 }

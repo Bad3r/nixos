@@ -21,17 +21,34 @@
     * `gopass insert accounts/github` — Add credentials for GitHub under the specified path.
     * `gopass show -c accounts/github` — Copy the GitHub password to the clipboard without printing it.
 */
+_:
+let
+  GopassModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gopass.extended;
+    in
+    {
+      options.programs.gopass.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gopass.";
+        };
 
+        package = lib.mkPackageOption pkgs "gopass" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.gopass =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.gopass ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.gopass ];
-    };
+  flake.nixosModules.apps.gopass = GopassModule;
 }

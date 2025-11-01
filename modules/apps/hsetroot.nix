@@ -21,12 +21,34 @@
     * `hsetroot -gradient vert '#1d2021' '#282c34'` — Apply a vertical gradient between two colors.
     * `hsetroot -fill ~/Pictures/wallpaper.jpg` — Fill the screen with an image preserving aspect ratio.
 */
-
-{
-  flake.nixosModules.apps.hsetroot =
-    { pkgs, ... }:
+_:
+let
+  HsetrootModule =
     {
-      environment.systemPackages = [ pkgs.hsetroot ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.hsetroot.extended;
+    in
+    {
+      options.programs.hsetroot.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable hsetroot.";
+        };
 
+        package = lib.mkPackageOption pkgs "hsetroot" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.hsetroot = HsetrootModule;
 }

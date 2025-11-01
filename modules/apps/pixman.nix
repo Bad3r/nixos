@@ -8,12 +8,34 @@
     * Supplies compositing and raster operations for 2D graphics stacks.
     * Provides the `pixman-1.pc` pkg-config file that native builds like node-canvas require.
 */
-
-{
-  flake.nixosModules.apps.pixman =
-    { pkgs, ... }:
+_:
+let
+  PixmanModule =
     {
-      environment.systemPackages = [ pkgs.pixman ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.pixman.extended;
+    in
+    {
+      options.programs.pixman.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pixman.";
+        };
 
+        package = lib.mkPackageOption pkgs "pixman" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.pixman = PixmanModule;
 }

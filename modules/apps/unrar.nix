@@ -21,12 +21,34 @@
     * `unrar l archive.rar` — Inspect contents before extracting.
     * `unrar x -ppassword secure.rar` — Extract an encrypted archive with the provided password.
 */
-
-{
-  flake.nixosModules.apps.unrar =
-    { pkgs, lib, ... }:
+_:
+let
+  UnrarModule =
     {
-      environment.systemPackages = lib.mkAfter [ pkgs.unrar ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.unrar.extended;
+    in
+    {
+      options.programs.unrar.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable unrar.";
+        };
 
+        package = lib.mkPackageOption pkgs "unrar" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.unrar = UnrarModule;
 }

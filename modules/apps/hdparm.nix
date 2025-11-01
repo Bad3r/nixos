@@ -21,17 +21,34 @@
     * `sudo hdparm -tT /dev/nvme0n1` — Benchmark sequential read performance for an NVMe device.
     * `sudo hdparm -S 120 /dev/sdb` — Spin down a drive after 10 minutes of inactivity (120 × 5 seconds).
 */
+_:
+let
+  HdparmModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.hdparm.extended;
+    in
+    {
+      options.programs.hdparm.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable hdparm.";
+        };
 
+        package = lib.mkPackageOption pkgs "hdparm" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.hdparm =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.hdparm ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.hdparm ];
-    };
+  flake.nixosModules.apps.hdparm = HdparmModule;
 }

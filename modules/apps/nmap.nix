@@ -19,12 +19,34 @@
     * `nmap -p 1-65535 -T4 192.0.2.10` — Sweep all TCP ports quickly on an internal target.
     * `nmap --script vuln 198.51.100.0/24` — Run vulnerability NSE scripts across a subnet.
 */
-
-{
-  flake.nixosModules.apps.nmap =
-    { pkgs, ... }:
+_:
+let
+  NmapModule =
     {
-      environment.systemPackages = [ pkgs.nmap ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nmap.extended;
+    in
+    {
+      options.programs.nmap.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nmap.";
+        };
 
+        package = lib.mkPackageOption pkgs "nmap" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.nmap = NmapModule;
 }

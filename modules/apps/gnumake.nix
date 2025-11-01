@@ -21,12 +21,34 @@
     * `make -j$(nproc)` — Compile targets in parallel according to CPU count.
     * `make clean` — Invoke the `clean` target to remove build artifacts.
 */
-
-{
-  flake.nixosModules.apps.gnumake =
-    { pkgs, ... }:
+_:
+let
+  GnumakeModule =
     {
-      environment.systemPackages = [ pkgs.gnumake ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gnumake.extended;
+    in
+    {
+      options.programs.gnumake.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gnumake.";
+        };
 
+        package = lib.mkPackageOption pkgs "gnumake" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.gnumake = GnumakeModule;
 }

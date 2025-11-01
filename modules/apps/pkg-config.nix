@@ -19,14 +19,36 @@
   Example Usage:
     * `pkg-config --cflags --libs gtk+-3.0` — Obtain compiler and linker flags for GTK 3.
     * `PKG_CONFIG_PATH=$PWD/build/lib/pkgconfig pkg-config --modversion mylib` — Query a locally built library.
-    * `pkg-config --exists openssl && echo "OpenSSL available"` — Check for dependency presence in build scripts.
+    * `pkg-config --exists openssl {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} echo "OpenSSL available"` — Check for dependency presence in build scripts.
 */
-
-{
-  flake.nixosModules.apps."pkg-config" =
-    { pkgs, ... }:
+_:
+let
+  PkgConfigModule =
     {
-      environment.systemPackages = [ pkgs.pkg-config ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."pkg-config".extended;
+    in
+    {
+      options.programs.pkg-config.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pkg-config.";
+        };
 
+        package = lib.mkPackageOption pkgs "pkg-config" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.pkg-config = PkgConfigModule;
 }

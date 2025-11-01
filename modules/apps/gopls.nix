@@ -13,12 +13,34 @@
     * `gopls serve` — Start the language server (normally launched by the editor).
     * `gopls check ./...` — Run static analysis against all Go packages in the workspace.
 */
-
-{
-  flake.nixosModules.apps.gopls =
-    { pkgs, ... }:
+_:
+let
+  GoplsModule =
     {
-      environment.systemPackages = [ pkgs.gopls ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gopls.extended;
+    in
+    {
+      options.programs.gopls.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gopls.";
+        };
 
+        package = lib.mkPackageOption pkgs "gopls" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.gopls = GoplsModule;
 }

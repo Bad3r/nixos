@@ -19,11 +19,34 @@
     * `xfce4-power-manager-settings` — Configure battery thresholds, display blanking, and critical actions.
     * Use keyboard brightness keys; the daemon handles adjusting brightness and notifications.
 */
-
-{
-  flake.nixosModules.apps."xfce4-power-manager" =
-    { pkgs, ... }:
+_:
+let
+  Xfce4PowerManagerModule =
     {
-      environment.systemPackages = [ pkgs.xfce.xfce4-power-manager ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."xfce4-power-manager".extended;
+    in
+    {
+      options.programs."xfce4-power-manager".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Xfce4 power manager.";
+        };
+
+        package = lib.mkPackageOption pkgs [ "xfce" "xfce4-power-manager" ] { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps."xfce4-power-manager" = Xfce4PowerManagerModule;
 }

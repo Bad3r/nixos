@@ -20,12 +20,34 @@
     * `nemo --new-window smb://server/share` — Connect to a remote SMB share.
     * `nemo --no-desktop` — Use Nemo purely as a file manager in non-Cinnamon environments.
 */
-
-{
-  flake.nixosModules.apps.nemo =
-    { pkgs, ... }:
+_:
+let
+  NemoModule =
     {
-      environment.systemPackages = [ pkgs.nemo ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nemo.extended;
+    in
+    {
+      options.programs.nemo.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nemo.";
+        };
 
+        package = lib.mkPackageOption pkgs "nemo" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.nemo = NemoModule;
 }

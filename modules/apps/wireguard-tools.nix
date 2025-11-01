@@ -21,12 +21,34 @@
     * `sudo wg-quick up wg0` — Start the `wg0` tunnel using `/etc/wireguard/wg0.conf`.
     * `sudo wg show wg0` — Inspect handshake times, transfer statistics, and peer endpoints.
 */
-
-{
-  flake.nixosModules.apps."wireguard-tools" =
-    { pkgs, ... }:
+_:
+let
+  WireguardToolsModule =
     {
-      environment.systemPackages = [ pkgs.wireguard-tools ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."wireguard-tools".extended;
+    in
+    {
+      options.programs.wireguard-tools.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable wireguard-tools.";
+        };
 
+        package = lib.mkPackageOption pkgs "wireguard-tools" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.wireguard-tools = WireguardToolsModule;
 }

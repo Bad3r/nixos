@@ -21,12 +21,34 @@
     * `maim -s -u -m 3 region.png` — After a 3-second delay, interactively select an area including the cursor.
     * `maim -s | xclip -selection clipboard -t image/png` — Copy a selected region directly to the clipboard.
 */
-
-{
-  flake.nixosModules.apps.maim =
-    { pkgs, ... }:
+_:
+let
+  MaimModule =
     {
-      environment.systemPackages = [ pkgs.maim ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.maim.extended;
+    in
+    {
+      options.programs.maim.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable maim.";
+        };
 
+        package = lib.mkPackageOption pkgs "maim" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.maim = MaimModule;
 }

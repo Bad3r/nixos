@@ -19,12 +19,34 @@
     * `ktailctl --list` — Inspect detected docks and saved profiles from the terminal.
     * `ktailctl --apply office` — Switch to a predefined “office” docking layout.
 */
-
-{
-  flake.nixosModules.apps.ktailctl =
-    { pkgs, ... }:
+_:
+let
+  KtailctlModule =
     {
-      environment.systemPackages = [ pkgs.ktailctl ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ktailctl.extended;
+    in
+    {
+      options.programs.ktailctl.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ktailctl.";
+        };
 
+        package = lib.mkPackageOption pkgs "ktailctl" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.ktailctl = KtailctlModule;
 }

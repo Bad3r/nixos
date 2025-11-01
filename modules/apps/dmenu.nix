@@ -21,12 +21,34 @@
     * `ls | dmenu -p "Open file:"` — Select a file from the current directory and print the choice to stdout.
     * `printf 'yes\nno' | dmenu -i -l 2` — Present a two-line selection, matching case-insensitively.
 */
-
-{
-  flake.nixosModules.apps.dmenu =
-    { pkgs, ... }:
+_:
+let
+  DmenuModule =
     {
-      environment.systemPackages = [ pkgs.dmenu ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dmenu.extended;
+    in
+    {
+      options.programs.dmenu.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dmenu.";
+        };
 
+        package = lib.mkPackageOption pkgs "dmenu" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.dmenu = DmenuModule;
 }

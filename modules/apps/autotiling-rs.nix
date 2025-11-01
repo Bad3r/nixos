@@ -19,11 +19,34 @@
     * `autotiling-rs --workspace 1 3 5` — Only adjust layouts on workspaces 1, 3, and 5.
     * `exec_always autotiling-rs` — Add to your sway config so autotiling launches on login.
 */
-
-{
-  flake.nixosModules.apps."autotiling-rs" =
-    { pkgs, ... }:
+_:
+let
+  AutotilingRsModule =
     {
-      environment.systemPackages = [ pkgs.autotiling-rs ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."autotiling-rs".extended;
+    in
+    {
+      options.programs.autotiling-rs.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable autotiling-rs.";
+        };
+
+        package = lib.mkPackageOption pkgs "autotiling-rs" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.autotiling-rs = AutotilingRsModule;
 }

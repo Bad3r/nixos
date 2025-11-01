@@ -19,12 +19,34 @@
     * `desktop-file-install --dir=$HOME/.local/share/applications myapp.desktop` — Deploy a tweaked launcher into the per-user application menu.
     * `update-desktop-database ~/.local/share/applications` — Rebuild MIME caches so new launchers appear in desktop menus.
 */
-
-{
-  flake.nixosModules.apps."desktop-file-utils" =
-    { pkgs, ... }:
+_:
+let
+  DesktopFileUtilsModule =
     {
-      environment.systemPackages = [ pkgs.desktop-file-utils ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."desktop-file-utils".extended;
+    in
+    {
+      options.programs.desktop-file-utils.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable desktop-file-utils.";
+        };
 
+        package = lib.mkPackageOption pkgs "desktop-file-utils" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.desktop-file-utils = DesktopFileUtilsModule;
 }

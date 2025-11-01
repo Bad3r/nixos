@@ -17,11 +17,34 @@
     * `nix-index-update` — Pull the newest prebuilt index for your system and channels.
     * `nix-index-update --commit 1d9f84f4` — Force a particular nixpkgs revision for reproducibility.
 */
-
-{
-  flake.nixosModules.apps."nix-index-update" =
-    { pkgs, ... }:
+_:
+let
+  NixIndexUpdateModule =
     {
-      environment.systemPackages = [ pkgs.nix-index-update ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-index-update".extended;
+    in
+    {
+      options.programs.nix-index-update.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-index-update.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-index-update" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.nix-index-update = NixIndexUpdateModule;
 }

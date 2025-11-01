@@ -14,17 +14,34 @@
     * `sudo ventoy -I /dev/sdX` - Install Ventoy to `/dev/sdX` in one shot.
     * `sudo ventoy -U /dev/sdX` - Update an existing Ventoy installation.
 */
-
-{
-  flake.nixosModules.apps."ventoy-full" =
-    { pkgs, lib, ... }:
+_:
+let
+  VentoyFullModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
-      ventoyPkg = pkgs.ventoy-full;
+      cfg = config.programs."ventoy-full".extended;
     in
     {
-      environment.systemPackages = [ ventoyPkg ];
+      options.programs.ventoy-full.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ventoy-full.";
+        };
 
-      # Ventoy ships upstream binary blobs that nixpkgs flags insecure; allow it explicitly.
-      nixpkgs.config.permittedInsecurePackages = lib.mkAfter [ ventoyPkg.name ];
+        package = lib.mkPackageOption pkgs "ventoy-full" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.ventoy-full = VentoyFullModule;
 }

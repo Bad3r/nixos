@@ -14,11 +14,34 @@
     --dry-run: Preview deployments without pushing changes when combined with `wrangler deploy --dry-run`.
     --minify: Enable JavaScript minification during builds via `wrangler deploy --minify`.
 */
-
-{
-  flake.nixosModules.apps.wrangler =
-    { pkgs, ... }:
+_:
+let
+  WranglerModule =
     {
-      environment.systemPackages = [ pkgs.wrangler ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.wrangler.extended;
+    in
+    {
+      options.programs.wrangler.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable wrangler.";
+        };
+
+        package = lib.mkPackageOption pkgs "wrangler" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.wrangler = WranglerModule;
 }

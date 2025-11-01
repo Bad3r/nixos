@@ -20,29 +20,45 @@
     * `ffmpeg -i input.mov -c:v libx264 output.mp4` — Transcode video using ffmpeg-full.
     * `gst-inspect-1.0 | grep vaapi` — Verify GStreamer VAAPI plugins are installed.
 */
-
-{
-  flake.nixosModules.apps."media-toolchain" =
-    { pkgs, lib, ... }:
+_:
+let
+  MediaToolchainModule =
     {
-      environment.systemPackages = lib.mkAfter (
-        with pkgs;
-        [
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."media-toolchain".extended;
+    in
+    {
+      options.programs."media-toolchain".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable media toolchain bundle.";
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = with pkgs; [
           mpv
-          stash
           ffmpeg-full
-          ffmpegthumbnailer
           imagemagick
           ghostscript
-        ]
-        ++ (with pkgs.gst_all_1; [
-          gst-libav
-          gst-plugins-bad
-          gst-plugins-good
-          gst-plugins-ugly
-          gst-vaapi
-        ])
-      );
+          # GStreamer plugins
+          gst_all_1.gstreamer
+          gst_all_1.gst-plugins-base
+          gst_all_1.gst-plugins-good
+          gst_all_1.gst-plugins-bad
+          gst_all_1.gst-plugins-ugly
+          gst_all_1.gst-libav
+          gst_all_1.gst-vaapi
+        ];
+      };
     };
-
+in
+{
+  flake.nixosModules.apps."media-toolchain" = MediaToolchainModule;
 }

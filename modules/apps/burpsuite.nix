@@ -19,27 +19,52 @@
     * `BURP_JVM_ARGS="-Xmx8G" burpsuitepro` — Allocate a larger heap for massive site crawls.
     * Add extensions from the BApp Store (e.g., Autorize, Logger++) to enhance capabilities.
 */
-
 { inputs, ... }:
 let
   packageFor = system: inputs."burpsuite-pro-flake".packages.${system}.burpsuitepro;
+
+  BurpsuiteModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.burpsuite.extended;
+    in
+    {
+      # Add overlay to make burpsuitepro available in pkgs
+      nixpkgs.overlays = [
+        (_final: prev: {
+          burpsuitepro = packageFor prev.system;
+        })
+      ];
+
+      options.programs.burpsuite.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Burp Suite Pro.";
+        };
+
+        package = lib.mkPackageOption pkgs "burpsuitepro" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "burpsuitepro" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
 in
 {
+  # Expose burpsuitepro package globally via perSystem
   perSystem =
     { pkgs, ... }:
     {
       packages.burpsuitepro = packageFor pkgs.system;
     };
 
-  nixpkgs.allowedUnfreePackages = [ "burpsuitepro" ];
-
-  flake.nixosModules.apps.burpsuite =
-    { lib, pkgs, ... }:
-    let
-      burpsuitepro = packageFor pkgs.system;
-    in
-    {
-      environment.systemPackages = lib.mkAfter [ burpsuitepro ];
-    };
-
+  flake.nixosModules.apps.burpsuite = BurpsuiteModule;
 }

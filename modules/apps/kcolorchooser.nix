@@ -15,11 +15,34 @@
     * `kcolorchooser --print` — Copy a sampled color to stdout as soon as it is confirmed.
     * `kcolorchooser --color "#AABBCC"` — Preload the dialog with a specific color for adjustments.
 */
-
-{
-  flake.nixosModules.apps.kcolorchooser =
-    { pkgs, ... }:
+_:
+let
+  KcolorchooserModule =
     {
-      environment.systemPackages = [ pkgs.kdePackages.kcolorchooser ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.kcolorchooser.extended;
+    in
+    {
+      options.programs.kcolorchooser.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable KColorChooser color picker.";
+        };
+
+        package = lib.mkPackageOption pkgs [ "kdePackages" "kcolorchooser" ] { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.kcolorchooser = KcolorchooserModule;
 }

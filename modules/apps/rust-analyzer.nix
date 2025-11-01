@@ -13,12 +13,34 @@
     * `rust-analyzer analysis-stats` — Inspect analysis metrics for the current crate graph.
     * Automatically launched by editors like Neovim, VS Code, and Helix when opening Rust files.
 */
-
-{
-  flake.nixosModules.apps."rust-analyzer" =
-    { pkgs, ... }:
+_:
+let
+  RustAnalyzerModule =
     {
-      environment.systemPackages = [ pkgs.rust-analyzer ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."rust-analyzer".extended;
+    in
+    {
+      options.programs.rust-analyzer.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rust-analyzer.";
+        };
 
+        package = lib.mkPackageOption pkgs "rust-analyzer" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.rust-analyzer = RustAnalyzerModule;
 }

@@ -21,12 +21,34 @@
     * `tokei . -e target -e vendor` — Ignore build artifacts and vendor directories.
     * `tokei . -f json | jq '.Totals.code'` — Produce JSON output and extract total code lines with jq.
 */
-
-{
-  flake.nixosModules.apps.tokei =
-    { pkgs, ... }:
+_:
+let
+  TokeiModule =
     {
-      environment.systemPackages = [ pkgs.tokei ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tokei.extended;
+    in
+    {
+      options.programs.tokei.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tokei.";
+        };
 
+        package = lib.mkPackageOption pkgs "tokei" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.tokei = TokeiModule;
 }

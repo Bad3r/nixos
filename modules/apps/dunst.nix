@@ -17,15 +17,38 @@
     dunstctl history-pop: Re-display the most recent notification from history.
 
   Example Usage:
-    * `dunst -config ~/.config/dunst/dunstrc &` — Start dunst with a custom configuration file.
+    * `dunst -config ~/.config/dunst/dunstrc {PRESERVED_DOCUMENTATION}` — Start dunst with a custom configuration file.
     * `dunstctl set-paused true` — Temporarily pause displaying notifications.
     * `dunstctl history-pop` — Quickly restore the last dismissed notification.
 */
-
-{
-  flake.nixosModules.apps.dunst =
-    { pkgs, ... }:
+_:
+let
+  DunstModule =
     {
-      environment.systemPackages = [ pkgs.dunst ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dunst.extended;
+    in
+    {
+      options.programs.dunst.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dunst.";
+        };
+
+        package = lib.mkPackageOption pkgs "dunst" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.dunst = DunstModule;
 }

@@ -14,11 +14,34 @@
     --drive-server-side-across-configs: Enable server-side copies between Google Drive remotes when credentials permit.
     --transfers <n>: Limit the number of concurrent transfers to control bandwidth usage.
 */
-
-{
-  flake.nixosModules.apps.rclone =
-    { pkgs, ... }:
+_:
+let
+  RcloneModule =
     {
-      environment.systemPackages = [ pkgs.rclone ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rclone.extended;
+    in
+    {
+      options.programs.rclone.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rclone.";
+        };
+
+        package = lib.mkPackageOption pkgs "rclone" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.rclone = RcloneModule;
 }

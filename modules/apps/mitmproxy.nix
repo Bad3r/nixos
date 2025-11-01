@@ -21,12 +21,34 @@
     * `mitmdump -s modify_headers.py` — Run a script to modify requests/responses in headless mode.
     * `mitmweb --ssl-insecure` — Use the web dashboard to inspect traffic without verifying upstream certificates.
 */
-
-{
-  flake.nixosModules.apps.mitmproxy =
-    { pkgs, ... }:
+_:
+let
+  MitmproxyModule =
     {
-      environment.systemPackages = [ pkgs.mitmproxy ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.mitmproxy.extended;
+    in
+    {
+      options.programs.mitmproxy.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable mitmproxy.";
+        };
 
+        package = lib.mkPackageOption pkgs "mitmproxy" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.mitmproxy = MitmproxyModule;
 }

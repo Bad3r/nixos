@@ -14,11 +14,34 @@
     -xz 5: Display extended disk I/O statistics every five seconds with `iostat -xz`.
     -P ALL 1: Show per-core CPU stats refreshed each second using `mpstat -P ALL`.
 */
-
-{
-  flake.nixosModules.apps.sysstat =
-    { pkgs, ... }:
+_:
+let
+  SysstatModule =
     {
-      environment.systemPackages = [ pkgs.sysstat ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.sysstat.extended;
+    in
+    {
+      options.programs.sysstat.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable sysstat.";
+        };
+
+        package = lib.mkPackageOption pkgs "sysstat" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.sysstat = SysstatModule;
 }

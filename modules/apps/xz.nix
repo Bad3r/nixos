@@ -16,12 +16,34 @@
     -T NUM: Run compression or decompression with NUM parallel threads when supported.
     --format=FORMAT: Force processing of a specific container format such as xz, lzma, or raw.
 */
-
-{
-  flake.nixosModules.apps.xz =
-    { pkgs, lib, ... }:
+_:
+let
+  XzModule =
     {
-      environment.systemPackages = lib.mkDefault [ pkgs.xz ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xz.extended;
+    in
+    {
+      options.programs.xz.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xz.";
+        };
 
+        package = lib.mkPackageOption pkgs "xz" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.xz = XzModule;
 }

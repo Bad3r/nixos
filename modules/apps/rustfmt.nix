@@ -13,12 +13,34 @@
     * `rustfmt src/main.rs` — Format a specific Rust file in place.
     * `cargo fmt` — Format every Rust file in the current workspace.
 */
-
-{
-  flake.nixosModules.apps.rustfmt =
-    { pkgs, ... }:
+_:
+let
+  RustfmtModule =
     {
-      environment.systemPackages = [ pkgs.rustfmt ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rustfmt.extended;
+    in
+    {
+      options.programs.rustfmt.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rustfmt.";
+        };
 
+        package = lib.mkPackageOption pkgs "rustfmt" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.rustfmt = RustfmtModule;
 }

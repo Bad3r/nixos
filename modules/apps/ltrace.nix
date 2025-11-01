@@ -21,19 +21,34 @@
     * `ltrace -f -e malloc+free ./binary` — Follow forks and show only allocation-related calls.
     * `ltrace -S -o trace.log command` — Trace both library and system calls, saving results to a log file.
 */
-
-{
-  flake.nixosModules.apps.ltrace =
-    { pkgs, ... }:
+_:
+let
+  LtraceModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
-      ltraceNoChecks = pkgs.ltrace.overrideAttrs (_: {
-        dontCheck = true;
-        doCheck = false;
-        checkPhase = "true"; # tests are flaky across kernels
-      });
+      cfg = config.programs.ltrace.extended;
     in
     {
-      environment.systemPackages = [ ltraceNoChecks ];
-    };
+      options.programs.ltrace.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ltrace.";
+        };
 
+        package = lib.mkPackageOption pkgs "ltrace" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.ltrace = LtraceModule;
 }

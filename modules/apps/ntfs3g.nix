@@ -20,12 +20,34 @@
     * `sudo ntfsfix /dev/sdb1` — Fix simple corruption before mounting.
     * `sudo ntfs-3g -o uid=$(id -u),gid=$(id -g) /dev/sdb2 ~/win-share` — Mount with current user ownership.
 */
-
-{
-  flake.nixosModules.apps.ntfs3g =
-    { pkgs, ... }:
+_:
+let
+  Ntfs3gModule =
     {
-      environment.systemPackages = [ pkgs.ntfs3g ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ntfs3g.extended;
+    in
+    {
+      options.programs.ntfs3g.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ntfs3g.";
+        };
 
+        package = lib.mkPackageOption pkgs "ntfs3g" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.ntfs3g = Ntfs3gModule;
 }

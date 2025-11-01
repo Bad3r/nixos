@@ -19,12 +19,34 @@
     * Use the “Quick Add” shortcut (`Ctrl+Space`) to capture tasks rapidly.
     * Configure notifications and synchronization intervals via Preferences.
 */
-
-{
-  flake.nixosModules.apps.planify =
-    { pkgs, ... }:
+_:
+let
+  PlanifyModule =
     {
-      environment.systemPackages = [ pkgs.planify ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.planify.extended;
+    in
+    {
+      options.programs.planify.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable planify.";
+        };
 
+        package = lib.mkPackageOption pkgs "planify" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.planify = PlanifyModule;
 }

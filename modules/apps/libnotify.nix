@@ -21,12 +21,34 @@
     * `notify-send -u critical -i dialog-warning "Backup failed"` — Emit a high urgency alert.
     * `notify-send -a deploy -t 0 "Deployment" "Waiting for confirmation"` — Display a persistent notification for manual actions.
 */
-
-{
-  flake.nixosModules.apps.libnotify =
-    { pkgs, ... }:
+_:
+let
+  LibnotifyModule =
     {
-      environment.systemPackages = [ pkgs.libnotify ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.libnotify.extended;
+    in
+    {
+      options.programs.libnotify.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable libnotify.";
+        };
 
+        package = lib.mkPackageOption pkgs "libnotify" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.libnotify = LibnotifyModule;
 }

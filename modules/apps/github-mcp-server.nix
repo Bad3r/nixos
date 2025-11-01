@@ -19,12 +19,34 @@
     * `github-mcp-server socket --port 8765` — Expose MCP services over TCP for remote clients.
     * `github-mcp-server stdio --read-only` — Share repository insights without allowing mutations.
 */
-
-{
-  flake.nixosModules.apps."github-mcp-server" =
-    { pkgs, ... }:
+_:
+let
+  GithubMcpServerModule =
     {
-      environment.systemPackages = [ pkgs.github-mcp-server ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."github-mcp-server".extended;
+    in
+    {
+      options.programs.github-mcp-server.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable github-mcp-server.";
+        };
 
+        package = lib.mkPackageOption pkgs "github-mcp-server" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.github-mcp-server = GithubMcpServerModule;
 }

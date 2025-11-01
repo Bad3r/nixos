@@ -20,11 +20,34 @@
     * `xclip -selection primary -o` — Print the PRIMARY selection (usually mouse highlight).
     * `xclip -selection clipboard -t image/png -o > screenshot.png` — Save an image copied to the clipboard.
 */
-
-{
-  flake.nixosModules.apps.xclip =
-    { pkgs, ... }:
+_:
+let
+  XclipModule =
     {
-      environment.systemPackages = [ pkgs.xclip ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xclip.extended;
+    in
+    {
+      options.programs.xclip.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xclip.";
+        };
+
+        package = lib.mkPackageOption pkgs "xclip" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.xclip = XclipModule;
 }

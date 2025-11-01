@@ -33,7 +33,13 @@ let
     in
     {
       options.programs.steam.extended = {
-        enable = lib.mkEnableOption "Steam with Proton-GE and extended compatibility tools";
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Steam with Proton-GE and extended compatibility tools.";
+        };
+
+        package = lib.mkPackageOption pkgs "steam" { };
 
         extraTools = lib.mkOption {
           type = lib.types.listOf lib.types.package;
@@ -54,12 +60,10 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowUnfreePredicate =
-          pkg:
-          builtins.elem (lib.getName pkg) [
-            "steam"
-            "steam-unwrapped"
-          ];
+        nixpkgs.allowedUnfreePackages = [
+          "steam"
+          "steam-unwrapped"
+        ];
 
         programs.steam = {
           enable = true;

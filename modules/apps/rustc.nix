@@ -21,12 +21,34 @@
     * `rustc lib.rs --crate-type=rlib` — Build a reusable Rust library.
     * `RUSTFLAGS="-C target-cpu=native" cargo build --release` — Example of configuring rustc flags via Cargo.
 */
-
-{
-  flake.nixosModules.apps.rustc =
-    { pkgs, ... }:
+_:
+let
+  RustcModule =
     {
-      environment.systemPackages = [ pkgs.rustc ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rustc.extended;
+    in
+    {
+      options.programs.rustc.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rustc.";
+        };
 
+        package = lib.mkPackageOption pkgs "rustc" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.rustc = RustcModule;
 }

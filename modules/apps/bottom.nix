@@ -19,11 +19,34 @@
     * `btm -b -U 2` — Run in basic mode, updating every two seconds for lightweight monitoring.
     * `btm --config ~/.config/bottom/bottom.toml` — Apply a custom layout and theme.
 */
-
-{
-  flake.nixosModules.apps.bottom =
-    { pkgs, ... }:
+_:
+let
+  BottomModule =
     {
-      environment.systemPackages = [ pkgs.bottom ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.bottom.extended;
+    in
+    {
+      options.programs.bottom.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable bottom.";
+        };
+
+        package = lib.mkPackageOption pkgs "bottom" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.bottom = BottomModule;
 }

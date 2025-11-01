@@ -19,12 +19,34 @@
     * `sqlmap -r request.txt --dbs` — Enumerate databases from a saved authenticated request.
     * `sqlmap -u <url> --os-shell` — Attempt to spawn an interactive OS shell where supported.
 */
-
-{
-  flake.nixosModules.apps.sqlmap =
-    { pkgs, ... }:
+_:
+let
+  SqlmapModule =
     {
-      environment.systemPackages = [ pkgs.sqlmap ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.sqlmap.extended;
+    in
+    {
+      options.programs.sqlmap.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable sqlmap.";
+        };
 
+        package = lib.mkPackageOption pkgs "sqlmap" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.sqlmap = SqlmapModule;
 }

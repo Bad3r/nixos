@@ -19,17 +19,34 @@
     * Within the UI, use `S` to sign a selected key or `E` to export it.
     * Press `?` inside the application to view the shortcut reference.
 */
+_:
+let
+  GpgTuiModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."gpg-tui".extended;
+    in
+    {
+      options.programs.gpg-tui.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gpg-tui.";
+        };
 
+        package = lib.mkPackageOption pkgs "gpg-tui" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps."gpg-tui" =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.gpg-tui ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.gpg-tui ];
-    };
+  flake.nixosModules.apps.gpg-tui = GpgTuiModule;
 }

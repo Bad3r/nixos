@@ -18,11 +18,34 @@
     * `xkill` — Activate crosshair cursor and click an unresponsive window to close it.
     * `xkill -id 0x3e00007` — Terminate a window using a known resource ID.
 */
-
-{
-  flake.nixosModules.apps.xkill =
-    { pkgs, ... }:
+_:
+let
+  XkillModule =
     {
-      environment.systemPackages = [ pkgs.xorg.xkill ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xkill.extended;
+    in
+    {
+      options.programs.xkill.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xkill.";
+        };
+
+        package = lib.mkPackageOption pkgs "xkill" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.xkill = XkillModule;
 }

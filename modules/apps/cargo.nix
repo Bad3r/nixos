@@ -21,12 +21,34 @@
     * `cargo build --release` — Produce optimized artifacts in `target/release`.
     * `cargo test -- --nocapture` — Run the project's test suite and stream stdout for debugging.
 */
-
-{
-  flake.nixosModules.apps.cargo =
-    { pkgs, ... }:
+_:
+let
+  CargoModule =
     {
-      environment.systemPackages = [ pkgs.cargo ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.cargo.extended;
+    in
+    {
+      options.programs.cargo.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cargo.";
+        };
 
+        package = lib.mkPackageOption pkgs "cargo" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.cargo = CargoModule;
 }

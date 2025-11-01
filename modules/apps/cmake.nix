@@ -21,12 +21,34 @@
     * `cmake --build build --target tests` — Compile and run the `tests` target using the selected generator.
     * `cmake --install build --prefix /opt/myapp` — Install artifacts into a staging prefix after a successful build.
 */
-
-{
-  flake.nixosModules.apps.cmake =
-    { pkgs, ... }:
+_:
+let
+  CmakeModule =
     {
-      environment.systemPackages = [ pkgs.cmake ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.cmake.extended;
+    in
+    {
+      options.programs.cmake.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cmake.";
+        };
 
+        package = lib.mkPackageOption pkgs "cmake" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.cmake = CmakeModule;
 }

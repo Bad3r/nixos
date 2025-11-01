@@ -86,6 +86,58 @@ dedupe_systems.url = "github:nix-systems/default";
 | Secrets             | `secrets/`                                        | Only encrypted payloads managed via `sops.secrets`.                                                                                                                      |
 | Generated artefacts | `.actrc`, `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module; update source definitions instead of editing generated outputs.                                                                               |
 
+### Module Authoring Guidelines
+
+All application modules in `modules/apps/` **MUST** follow the NixOS module best practices pattern:
+
+```nix
+{ config, lib, pkgs, ... }:
+let
+  cfg = config.programs.<package-name>.extended;
+  <PackageName>Module = {
+    options.programs.<package-name>.extended = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;  # Explicit opt-in required
+        description = lib.mdDoc "Whether to enable <package-name>.";
+      };
+
+      package = lib.mkPackageOption pkgs "<package-name>" { };
+    };
+
+    config = lib.mkIf cfg.enable {
+      environment.systemPackages = [ cfg.package ];
+    };
+  };
+in
+{
+  flake.nixosModules.apps.<package-name> = <PackageName>Module;
+}
+```
+
+**Key Requirements**:
+
+- ✅ Use `options.programs.<name>.extended` namespace
+- ✅ Include `enable` option with `mkOption` (not `mkEnableOption` to preserve `default = true`)
+- ✅ Include `package` option using `mkPackageOption` for customization
+- ✅ Wrap config in `lib.mkIf cfg.enable` block
+- ✅ Export via `flake.nixosModules.apps.<name>`
+
+**Reference Implementations**:
+
+- Simple application: `modules/apps/firefox.nix`, `modules/apps/wget.nix`
+- Unfree application: `modules/apps/brave.nix`
+- Complex with options: `modules/apps/steam.nix`, `modules/apps/mangohud.nix`
+
+**Module Standards**:
+
+All 245 app modules follow standardized NixOS patterns with:
+
+- Proper `options.programs.<name>.extended` namespace
+- Explicit opt-in via `enable` option (default = false)
+- Package customization via `mkPackageOption`
+- Conditional configuration with `lib.mkIf`
+
 ## Execution Playbooks
 
 ### Development Environment

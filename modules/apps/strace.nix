@@ -21,12 +21,34 @@
     * `sudo strace -p 1234 -f -o trace.log` — Attach to PID 1234, following forks, and log to a file.
     * `strace -e trace=network curl example.com` — Inspect only network-related system calls for a command.
 */
-
-{
-  flake.nixosModules.apps.strace =
-    { pkgs, ... }:
+_:
+let
+  StraceModule =
     {
-      environment.systemPackages = [ pkgs.strace ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.strace.extended;
+    in
+    {
+      options.programs.strace.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable strace.";
+        };
 
+        package = lib.mkPackageOption pkgs "strace" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.strace = StraceModule;
 }

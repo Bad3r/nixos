@@ -17,11 +17,34 @@
     * `.envrc`: `use flake` — Automatically enter the project dev shell using flakes.
     * `.envrc`: `use_nix` — Fallback to classic `shell.nix` evaluation with caching.
 */
-
-{
-  flake.nixosModules.apps."nix-direnv" =
-    { pkgs, ... }:
+_:
+let
+  NixDirenvModule =
     {
-      environment.systemPackages = [ pkgs.nix-direnv ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-direnv".extended;
+    in
+    {
+      options.programs.nix-direnv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-direnv.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-direnv" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.nix-direnv = NixDirenvModule;
 }

@@ -19,12 +19,34 @@
     * Configure bridges via “Tor Network Settings” if bypassing censorship is required.
     * Set Security Level to “Safest” via the shield icon for maximal script blocking.
 */
-
-{
-  flake.nixosModules.apps."tor-browser" =
-    { pkgs, ... }:
+_:
+let
+  TorBrowserModule =
     {
-      environment.systemPackages = [ pkgs.tor-browser ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."tor-browser".extended;
+    in
+    {
+      options.programs.tor-browser.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tor-browser.";
+        };
 
+        package = lib.mkPackageOption pkgs "tor-browser" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.tor-browser = TorBrowserModule;
 }
