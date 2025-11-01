@@ -40,7 +40,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "kiro-fhs" ];
+        nixpkgs.allowedUnfreePackages = [ "kiro-fhs" ];
 
         environment.systemPackages = [ cfg.package ];
       };

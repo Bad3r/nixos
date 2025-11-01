@@ -36,7 +36,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "vmware-workstation" ];
+        nixpkgs.allowedUnfreePackages = [ "vmware-workstation" ];
 
         environment.systemPackages = [ cfg.package ];
       };

@@ -43,7 +43,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "dropbox" ];
+        nixpkgs.allowedUnfreePackages = [ "dropbox" ];
 
         environment.systemPackages = [ cfg.package ];
       };

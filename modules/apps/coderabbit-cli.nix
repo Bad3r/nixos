@@ -43,7 +43,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "coderabbit-cli" ];
+        nixpkgs.allowedUnfreePackages = [ "coderabbit-cli" ];
 
         environment.systemPackages = [ cfg.package ];
       };

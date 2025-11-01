@@ -42,7 +42,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "mattermost-desktop" ];
+        nixpkgs.allowedUnfreePackages = [ "mattermost-desktop" ];
 
         environment.systemPackages = [ cfg.package ];
       };

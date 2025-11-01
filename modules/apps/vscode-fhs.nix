@@ -44,7 +44,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "vscode-fhs" ];
+        nixpkgs.allowedUnfreePackages = [ "vscode-fhs" ];
 
         environment.systemPackages = [ cfg.package ];
       };

@@ -43,7 +43,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "obsidian" ];
+        nixpkgs.allowedUnfreePackages = [ "obsidian" ];
 
         environment.systemPackages = [ cfg.package ];
       };

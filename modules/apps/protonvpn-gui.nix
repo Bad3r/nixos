@@ -42,7 +42,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "protonvpn-gui" ];
+        nixpkgs.allowedUnfreePackages = [ "protonvpn-gui" ];
 
         environment.systemPackages = [ cfg.package ];
       };

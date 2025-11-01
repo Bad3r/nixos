@@ -44,7 +44,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "veracrypt" ];
+        nixpkgs.allowedUnfreePackages = [ "veracrypt" ];
 
         environment.systemPackages = [ cfg.package ];
       };

@@ -40,7 +40,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "brave" ];
+        nixpkgs.allowedUnfreePackages = [ "brave" ];
 
         environment.systemPackages = [ cfg.package ];
       };

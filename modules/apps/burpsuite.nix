@@ -52,7 +52,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "burpsuitepro" ];
+        nixpkgs.allowedUnfreePackages = [ "burpsuitepro" ];
 
         environment.systemPackages = [ cfg.package ];
       };

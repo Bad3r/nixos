@@ -43,7 +43,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "discord" ];
+        nixpkgs.allowedUnfreePackages = [ "discord" ];
 
         environment.systemPackages = [ cfg.package ];
       };

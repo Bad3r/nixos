@@ -60,7 +60,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [
+        nixpkgs.allowedUnfreePackages = [
           "steam"
           "steam-unwrapped"
         ];

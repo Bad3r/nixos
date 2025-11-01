@@ -44,7 +44,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "temurin-bin-25" ];
+        nixpkgs.allowedUnfreePackages = [ "temurin-bin-25" ];
 
         environment.systemPackages = [ cfg.package ];
       };

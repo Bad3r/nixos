@@ -45,7 +45,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "electron-mail" ];
+        nixpkgs.allowedUnfreePackages = [ "electron-mail" ];
 
         environment.systemPackages = [ cfg.package ];
       };

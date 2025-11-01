@@ -35,7 +35,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "raindrop" ];
+        nixpkgs.allowedUnfreePackages = [ "raindrop" ];
 
         environment.systemPackages = [ cfg.package ];
       };

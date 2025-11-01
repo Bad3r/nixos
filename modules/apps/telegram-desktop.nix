@@ -44,7 +44,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.config.allowedUnfreePackages = [ "telegram-desktop" ];
+        nixpkgs.allowedUnfreePackages = [ "telegram-desktop" ];
 
         environment.systemPackages = [ cfg.package ];
       };
