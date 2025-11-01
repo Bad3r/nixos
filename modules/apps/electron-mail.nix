@@ -21,14 +21,36 @@
     * `electron-mail --proxy-server="socks5://127.0.0.1:1080"` — Tunnel ProtonMail traffic through a local SOCKS proxy.
     * `electron-mail --disable-gpu --enable-logging` — Diagnose rendering problems on hardware with flaky GPU support.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "electron-mail" ];
-
-  flake.nixosModules.apps."electron-mail" =
-    { pkgs, ... }:
+_:
+let
+  ElectronMailModule =
     {
-      environment.systemPackages = [ pkgs.electron-mail ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."electron-mail".extended;
+    in
+    {
+      options.programs.electron-mail.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable electron-mail.";
+        };
 
+        package = lib.mkPackageOption pkgs "electron-mail" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "electron-mail" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.electron-mail = ElectronMailModule;
 }

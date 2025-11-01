@@ -20,12 +20,34 @@
     * `nvim --headless +'lua print(vim.version())' +qa` — Query Neovim version in CI pipelines.
     * `nvim --clean init.vim` — Inspect configuration issues by launching with defaults.
 */
-
-{
-  flake.nixosModules.apps.neovim =
-    { pkgs, ... }:
+_:
+let
+  NeovimModule =
     {
-      environment.systemPackages = [ pkgs.neovim ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.neovim.extended;
+    in
+    {
+      options.programs.neovim.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable neovim.";
+        };
 
+        package = lib.mkPackageOption pkgs "neovim" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.neovim = NeovimModule;
 }

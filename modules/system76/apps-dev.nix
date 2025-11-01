@@ -25,9 +25,7 @@ let
     "git-filter-repo"
     "forgit"
     "exiftool"
-    "httpie"
     "yaak"
-    "mitmproxy"
     # debugging and tracing
     "gdb"
     "valgrind"
@@ -40,8 +38,8 @@ let
     "yarn"
     "nrm"
     # FHS-based dev environments
-    "vscodeFhs"
-    "kiroFhs"
+    "vscode-fhs"
+    "kiro-fhs"
   ];
 in
 {

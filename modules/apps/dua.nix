@@ -19,11 +19,34 @@
     * `dua --summarize ~/Downloads ~/Videos` — Compare storage consumption across multiple directories.
     * `dua i /var/log` — Drill into nested directories and delete files directly from the TUI.
 */
-
-{
-  flake.nixosModules.apps.dua =
-    { pkgs, ... }:
+_:
+let
+  DuaModule =
     {
-      environment.systemPackages = [ pkgs.dua ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dua.extended;
+    in
+    {
+      options.programs.dua.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dua.";
+        };
+
+        package = lib.mkPackageOption pkgs "dua" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.dua = DuaModule;
 }

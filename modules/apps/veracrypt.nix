@@ -20,14 +20,36 @@
     * `veracrypt --text --create secret.hc --size 500M --encryption AES` — Create a 500 MB container from the terminal.
     * `veracrypt --text --mount secret.hc /mnt/secure` — Mount an existing container to a directory.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "veracrypt" ];
-
-  flake.nixosModules.apps.veracrypt =
-    { pkgs, ... }:
+_:
+let
+  VeracryptModule =
     {
-      environment.systemPackages = [ pkgs.veracrypt ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.veracrypt.extended;
+    in
+    {
+      options.programs.veracrypt.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable veracrypt.";
+        };
 
+        package = lib.mkPackageOption pkgs "veracrypt" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "veracrypt" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.veracrypt = VeracryptModule;
 }

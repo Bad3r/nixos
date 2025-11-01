@@ -14,11 +14,34 @@
     -d @file: POST data from a file, often paired with `--header 'Content-Type: application/json'`.
     --retry 3 --fail: Retry transient failures while still exiting non-zero on HTTP error codes.
 */
-
-{
-  flake.nixosModules.apps.curl =
-    { pkgs, ... }:
+_:
+let
+  CurlModule =
     {
-      environment.systemPackages = [ pkgs.curl ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.curl.extended;
+    in
+    {
+      options.programs.curl.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable curl.";
+        };
+
+        package = lib.mkPackageOption pkgs "curl" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.curl = CurlModule;
 }

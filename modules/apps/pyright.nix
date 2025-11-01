@@ -19,12 +19,34 @@
     * `pyright src --lib` — Analyze the `src` directory including standard library shims.
     * `pyright --watch` — Continuously type-check while developing.
 */
-
-{
-  flake.nixosModules.apps.pyright =
-    { pkgs, ... }:
+_:
+let
+  PyrightModule =
     {
-      environment.systemPackages = [ pkgs.pyright ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.pyright.extended;
+    in
+    {
+      options.programs.pyright.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pyright.";
+        };
 
+        package = lib.mkPackageOption pkgs "pyright" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.pyright = PyrightModule;
 }

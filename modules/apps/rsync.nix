@@ -19,12 +19,34 @@
     * `rsync -av --delete --exclude '.cache/' src/ dest/` — Maintain an exact replica while skipping cache files.
     * `rsync -avz --bwlimit=5000 files/ rsync://mirror.example.org/share/` — Upload to an rsync daemon with throttled bandwidth.
 */
-
-{
-  flake.nixosModules.apps.rsync =
-    { pkgs, ... }:
+_:
+let
+  RsyncModule =
     {
-      environment.systemPackages = [ pkgs.rsync ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rsync.extended;
+    in
+    {
+      options.programs.rsync.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rsync.";
+        };
 
+        package = lib.mkPackageOption pkgs "rsync" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.rsync = RsyncModule;
 }

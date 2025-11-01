@@ -17,15 +17,38 @@
     --notify: Enable desktop notifications (default).
 
   Example Usage:
-    * `udiskie --tray &` — Run udiskie in the background to automount USB drives with a tray icon.
+    * `udiskie --tray {PRESERVED_DOCUMENTATION}` — Run udiskie in the background to automount USB drives with a tray icon.
     * `udiskie-mount -a` — Mount all currently available devices.
     * Customize `~/.config/udiskie/config.yml` to specify mount options or blacklist devices.
 */
-
-{
-  flake.nixosModules.apps.udiskie =
-    { pkgs, ... }:
+_:
+let
+  UdiskieModule =
     {
-      environment.systemPackages = [ pkgs.udiskie ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.udiskie.extended;
+    in
+    {
+      options.programs.udiskie.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable udiskie.";
+        };
+
+        package = lib.mkPackageOption pkgs "udiskie" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.udiskie = UdiskieModule;
 }

@@ -17,11 +17,34 @@
     * `nix-diff result drv` — Compare a newly built result against a previous drv path.
     * `nix-diff --stats $(nix build .#pkg1 --print-out-paths) $(nix build .#pkg2 --print-out-paths)` — Summarize differences between two builds.
 */
-
-{
-  flake.nixosModules.apps."nix-diff" =
-    { pkgs, ... }:
+_:
+let
+  NixDiffModule =
     {
-      environment.systemPackages = [ pkgs.nix-diff ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-diff".extended;
+    in
+    {
+      options.programs.nix-diff.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-diff.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-diff" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.nix-diff = NixDiffModule;
 }

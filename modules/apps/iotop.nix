@@ -21,17 +21,34 @@
     * `sudo iotop -o -d 2` — Show only active I/O every two seconds.
     * `sudo iotop -b -n 10 > iotop.log` — Collect ten samples in batch mode for later analysis.
 */
+_:
+let
+  IotopModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.iotop.extended;
+    in
+    {
+      options.programs.iotop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable iotop.";
+        };
 
+        package = lib.mkPackageOption pkgs "iotop" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.iotop =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.iotop ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.iotop ];
-    };
+  flake.nixosModules.apps.iotop = IotopModule;
 }

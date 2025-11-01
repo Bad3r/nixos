@@ -19,12 +19,34 @@
     * `nicotine-plus --profile work` — Maintain separate settings for different sharing communities.
     * `nicotine-plus --portable` — Store config alongside the executable for removable media use.
 */
-
-{
-  flake.nixosModules.apps.nicotine =
-    { pkgs, ... }:
+_:
+let
+  NicotineModule =
     {
-      environment.systemPackages = [ pkgs.nicotine-plus ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nicotine.extended;
+    in
+    {
+      options.programs.nicotine.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nicotine-plus.";
+        };
 
+        package = lib.mkPackageOption pkgs "nicotine-plus" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.nicotine = NicotineModule;
 }

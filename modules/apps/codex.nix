@@ -19,30 +19,34 @@
     * `codex review --pr 42` — Produce a natural-language review summary for PR #42.
     * `codex apply --task "add tests for session manager"` — Request patch suggestions for the given task.
 */
-
-{
-  perSystem =
-    { pkgs, ... }:
+_:
+let
+  CodexModule =
     {
-      packages.codex = pkgs.callPackage ../../packages/codex { };
-    };
-
-  flake.nixosModules.apps.codex =
-    {
-      pkgs,
-      lib,
       config,
+      lib,
+      pkgs,
       ...
     }:
     let
-      codexPkg = lib.attrByPath [ "flake" "packages" pkgs.system "codex" ] (pkgs.callPackage
-        ../../packages/codex
-        { }
-      ) config;
+      cfg = config.programs.codex.extended;
     in
     {
-      environment.systemPackages = [ codexPkg ];
-      environment.sessionVariables.CODEX_DISABLE_UPDATE_CHECK = "1";
-    };
+      options.programs.codex.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable codex.";
+        };
 
+        package = lib.mkPackageOption pkgs "codex" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.codex = CodexModule;
 }

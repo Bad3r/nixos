@@ -14,11 +14,34 @@
     --profile <path>: Write the generated WireGuard configuration to a custom path with `wgcf generate --profile`.
     --config <file>: Load or update account metadata from a specific configuration file during `wgcf update --config`.
 */
-
-{
-  flake.nixosModules.apps.wgcf =
-    { pkgs, ... }:
+_:
+let
+  WgcfModule =
     {
-      environment.systemPackages = [ pkgs.wgcf ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.wgcf.extended;
+    in
+    {
+      options.programs.wgcf.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable wgcf.";
+        };
+
+        package = lib.mkPackageOption pkgs "wgcf" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.wgcf = WgcfModule;
 }

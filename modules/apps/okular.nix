@@ -20,11 +20,34 @@
     * `okular --presentation slides.pdf` — Present a slideshow using a PDF deck.
     * `okular --print invoice.pdf` — Open the print dialog immediately for a file.
 */
-
-{
-  flake.nixosModules.apps.okular =
-    { pkgs, ... }:
+_:
+let
+  OkularModule =
     {
-      environment.systemPackages = [ pkgs.kdePackages.okular ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.okular.extended;
+    in
+    {
+      options.programs.okular.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Okular document viewer.";
+        };
+
+        package = lib.mkPackageOption pkgs [ "kdePackages" "okular" ] { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.okular = OkularModule;
 }

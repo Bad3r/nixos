@@ -14,11 +14,34 @@
     COREDUMP=1 worker-build: Embed wasm coredump support during the build process.
     CUSTOM_SHIM=path/to/shim.js worker-build: Replace the default JavaScript shim with a custom template.
 */
-
-{
-  flake.nixosModules.apps."worker-build" =
-    { pkgs, ... }:
+_:
+let
+  WorkerBuildModule =
     {
-      environment.systemPackages = [ pkgs."worker-build" ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."worker-build".extended;
+    in
+    {
+      options.programs.worker-build.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable worker-build.";
+        };
+
+        package = lib.mkPackageOption pkgs "worker-build" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.worker-build = WorkerBuildModule;
 }

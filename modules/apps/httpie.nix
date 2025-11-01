@@ -16,12 +16,34 @@
     --session=NAME: Persist cookies and headers between related requests.
     --check-status: Exit with error codes that mirror HTTP status classes.
 */
-
-{
-  flake.nixosModules.apps.httpie =
-    { pkgs, ... }:
+_:
+let
+  HttpieModule =
     {
-      environment.systemPackages = [ pkgs.httpie ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.httpie.extended;
+    in
+    {
+      options.programs.httpie.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable httpie.";
+        };
 
+        package = lib.mkPackageOption pkgs "httpie" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.httpie = HttpieModule;
 }

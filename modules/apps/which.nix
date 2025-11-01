@@ -14,11 +14,34 @@
     --read-alias <shell>: Expand aliases when resolving commands, useful for interactive shells.
     --read-functions: Detect shell functions in addition to binaries when using `which`.
 */
-
-{
-  flake.nixosModules.apps.which =
-    { pkgs, ... }:
+_:
+let
+  WhichModule =
     {
-      environment.systemPackages = [ pkgs.which ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.which.extended;
+    in
+    {
+      options.programs.which.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable which.";
+        };
+
+        package = lib.mkPackageOption pkgs "which" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.which = WhichModule;
 }

@@ -14,11 +14,34 @@
     -l: Enumerate partition tables across disks when running `fdisk -l`.
     --bind <src> <dest>: Bind-mount a directory using the util-linux `mount` implementation.
 */
-
-{
-  flake.nixosModules.apps."util-linux" =
-    { pkgs, ... }:
+_:
+let
+  UtilLinuxModule =
     {
-      environment.systemPackages = [ pkgs."util-linux" ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."util-linux".extended;
+    in
+    {
+      options.programs.util-linux.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable util-linux.";
+        };
+
+        package = lib.mkPackageOption pkgs "util-linux" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.util-linux = UtilLinuxModule;
 }

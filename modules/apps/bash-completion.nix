@@ -14,11 +14,34 @@
     -o bashdefault: Merge custom completions with Bash defaults via `complete -o`.
     -C <command>: Delegate completion generation to an external helper command.
 */
-
-{
-  flake.nixosModules.apps."bash-completion" =
-    { pkgs, ... }:
+_:
+let
+  BashCompletionModule =
     {
-      environment.systemPackages = [ pkgs."bash-completion" ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."bash-completion".extended;
+    in
+    {
+      options.programs.bash-completion.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable bash-completion.";
+        };
+
+        package = lib.mkPackageOption pkgs "bash-completion" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.bash-completion = BashCompletionModule;
 }

@@ -14,11 +14,34 @@
     -E <pattern> <file>: Enable extended regular expressions.
     --color=auto <pattern> <file>: Highlight matches when writing to a terminal.
 */
-
-{
-  flake.nixosModules.apps.gnugrep =
-    { pkgs, ... }:
+_:
+let
+  GnugrepModule =
     {
-      environment.systemPackages = [ pkgs.gnugrep ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gnugrep.extended;
+    in
+    {
+      options.programs.gnugrep.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gnugrep.";
+        };
+
+        package = lib.mkPackageOption pkgs "gnugrep" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.gnugrep = GnugrepModule;
 }

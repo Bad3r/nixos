@@ -17,18 +17,56 @@
     * `nix develop` — Enter the development shell with all formatters available on `$PATH`.
 */
 
-{
-  flake.nixosModules.apps.formatting =
-    { pkgs, ... }:
+_:
+let
+  FormattingModule =
     {
-      environment.systemPackages = with pkgs; [
-        biome
-        nixfmt-rfc-style
-        shellcheck
-        prettier
-        shfmt
-        treefmt
-      ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.formatting.extended;
+    in
+    {
+      options.programs.formatting.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable the formatting tool bundle.";
+        };
 
+        packages = lib.mkOption {
+          type = lib.types.listOf lib.types.package;
+          default = with pkgs; [
+            biome
+            nixfmt-rfc-style
+            shellcheck
+            prettier
+            shfmt
+            treefmt
+          ];
+          description = lib.mdDoc ''
+            Code formatters and linters for the development environment.
+
+            Included formatters:
+            - biome: JavaScript/TypeScript/JSON
+            - nixfmt-rfc-style: Nix (RFC 166)
+            - shellcheck: Shell script linter
+            - prettier: Multi-language formatter
+            - shfmt: Shell script formatter
+            - treefmt: Format orchestrator
+          '';
+          example = lib.literalExpression "with pkgs; [ nixfmt-rfc-style shfmt ]";
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = cfg.packages;
+      };
+    };
+in
+{
+  flake.nixosModules.apps.formatting = FormattingModule;
 }

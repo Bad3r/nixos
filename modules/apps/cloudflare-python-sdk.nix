@@ -14,22 +14,34 @@
     CloudFlare(token=<token>): Authenticate using Cloudflare API tokens within Python code.
     cf.zones.get(): Retrieve metadata for zones accessible to the authenticated account.
 */
-
-{
-  flake.nixosModules.apps."cloudflare-python-sdk" =
+_:
+let
+  CloudflarePythonSdkModule =
     {
-      pkgs,
-      lib,
       config,
+      lib,
+      pkgs,
       ...
     }:
     let
-      packageSet = lib.attrByPath [ pkgs.system ] { } config.flake.packages;
-      sdkPackage = lib.attrByPath [
-        "cloudflare-python-src"
-      ] (throw "cloudflare-python-src package not found for ${pkgs.system}") packageSet;
+      cfg = config.programs."cloudflare-python-sdk".extended;
     in
     {
-      environment.systemPackages = [ sdkPackage ];
+      options.programs."cloudflare-python-sdk".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Cloudflare Python SDK.";
+        };
+
+        package = lib.mkPackageOption pkgs [ "python3Packages" "cloudflare" ] { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps."cloudflare-python-sdk" = CloudflarePythonSdkModule;
 }

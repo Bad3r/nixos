@@ -16,12 +16,34 @@
     -x PATTERN: Exclude files that match the given pattern during extraction.
     -o: Overwrite existing files without prompting.
 */
-
-{
-  flake.nixosModules.apps.unzip =
-    { pkgs, lib, ... }:
+_:
+let
+  UnzipModule =
     {
-      environment.systemPackages = lib.mkAfter [ pkgs.unzip ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.unzip.extended;
+    in
+    {
+      options.programs.unzip.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable unzip.";
+        };
 
+        package = lib.mkPackageOption pkgs "unzip" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.unzip = UnzipModule;
 }

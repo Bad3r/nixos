@@ -21,12 +21,34 @@
     * `yq eval '.metadata.labels += {env:"prod"}' -i deployment.yaml` — Append labels in place.
     * `yq eval -o=json '.items[]' config.yaml` — Convert YAML items to JSON.
 */
-
-{
-  flake.nixosModules.apps.yq =
-    { pkgs, ... }:
+_:
+let
+  YqModule =
     {
-      environment.systemPackages = [ pkgs.yq ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.yq.extended;
+    in
+    {
+      options.programs.yq.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable yq.";
+        };
 
+        package = lib.mkPackageOption pkgs "yq" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.yq = YqModule;
 }

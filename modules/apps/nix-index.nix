@@ -17,11 +17,34 @@
     * `nix-locate bin/terraform` — Find which derivations ship a `terraform` binary.
     * `nix-index` — Rebuild the index using the current substituter set.
 */
-
-{
-  flake.nixosModules.apps."nix-index" =
-    { pkgs, ... }:
+_:
+let
+  NixIndexModule =
     {
-      environment.systemPackages = [ pkgs.nix-index ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-index".extended;
+    in
+    {
+      options.programs.nix-index.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-index.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-index" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.nix-index = NixIndexModule;
 }

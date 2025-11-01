@@ -14,11 +14,34 @@
     -t: Display the USB topology as a tree using `lsusb -t`.
     -D <device>: Dump descriptors for a specific device path with `lsusb -D /dev/bus/usb/...`.
 */
-
-{
-  flake.nixosModules.apps.usbutils =
-    { pkgs, ... }:
+_:
+let
+  UsbutilsModule =
     {
-      environment.systemPackages = [ pkgs.usbutils ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.usbutils.extended;
+    in
+    {
+      options.programs.usbutils.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable usbutils.";
+        };
+
+        package = lib.mkPackageOption pkgs "usbutils" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.usbutils = UsbutilsModule;
 }

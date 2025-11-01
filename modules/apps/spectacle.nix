@@ -21,11 +21,34 @@
     * `spectacle --fullscreen --delay 5 -o ~/Pictures/screenshot.png` — Capture the full screen after a 5-second delay and save it.
     * Use the built-in annotation tools to highlight portions of a capture before saving.
 */
-
-{
-  flake.nixosModules.apps.spectacle =
-    { pkgs, ... }:
+_:
+let
+  SpectacleModule =
     {
-      environment.systemPackages = [ pkgs.kdePackages.spectacle ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.spectacle.extended;
+    in
+    {
+      options.programs.spectacle.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Spectacle screenshot utility.";
+        };
+
+        package = lib.mkPackageOption pkgs [ "kdePackages" "spectacle" ] { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.spectacle = SpectacleModule;
 }

@@ -21,12 +21,34 @@
     * `gdb -p $(pidof myservice)` — Attach to a running service for live inspection.
     * `gdb -ex "break main" -ex run ./program` — Set a breakpoint at `main` before starting execution.
 */
-
-{
-  flake.nixosModules.apps.gdb =
-    { pkgs, ... }:
+_:
+let
+  GdbModule =
     {
-      environment.systemPackages = [ pkgs.gdb ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gdb.extended;
+    in
+    {
+      options.programs.gdb.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gdb.";
+        };
 
+        package = lib.mkPackageOption pkgs "gdb" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.gdb = GdbModule;
 }

@@ -18,14 +18,36 @@
     * `protonvpn-cli c --sc` — Connect to the fastest Secure Core server via CLI.
     * Enable “Kill Switch” in settings to block traffic if the VPN disconnects unexpectedly.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "protonvpn-gui" ];
-
-  flake.nixosModules.apps."protonvpn-gui" =
-    { pkgs, ... }:
+_:
+let
+  ProtonvpnGuiModule =
     {
-      environment.systemPackages = [ pkgs.protonvpn-gui ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."protonvpn-gui".extended;
+    in
+    {
+      options.programs.protonvpn-gui.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable protonvpn-gui.";
+        };
 
+        package = lib.mkPackageOption pkgs "protonvpn-gui" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "protonvpn-gui" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.protonvpn-gui = ProtonvpnGuiModule;
 }

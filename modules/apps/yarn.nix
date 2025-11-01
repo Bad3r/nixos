@@ -17,16 +17,38 @@
     yarn workspaces run <script>: Run commands across all workspaces.
 
   Example Usage:
-    * `yarn init -y && yarn add react` — Bootstrap a project and add React dependency.
+    * `yarn init -y {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} yarn add react` — Bootstrap a project and add React dependency.
     * `yarn install --frozen-lockfile` — Install dependencies exactly as specified in the lockfile.
     * `yarn workspaces run test` — Run the `test` script across all monorepo workspaces.
 */
-
-{
-  flake.nixosModules.apps.yarn =
-    { pkgs, ... }:
+_:
+let
+  YarnModule =
     {
-      environment.systemPackages = [ pkgs.yarn ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.yarn.extended;
+    in
+    {
+      options.programs.yarn.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable yarn.";
+        };
 
+        package = lib.mkPackageOption pkgs "yarn" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.yarn = YarnModule;
 }

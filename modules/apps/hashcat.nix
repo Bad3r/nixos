@@ -19,12 +19,34 @@
     * `hashcat -m 22000 handshake.hc22000 wordlist.txt -r rules/best64.rule` — Crack WPA2 handshakes with rule-based mangling.
     * `hashcat -I` — List detected compute devices before launching an attack.
 */
-
-{
-  flake.nixosModules.apps.hashcat =
-    { pkgs, ... }:
+_:
+let
+  HashcatModule =
     {
-      environment.systemPackages = [ pkgs.hashcat ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.hashcat.extended;
+    in
+    {
+      options.programs.hashcat.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable hashcat.";
+        };
 
+        package = lib.mkPackageOption pkgs "hashcat" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.hashcat = HashcatModule;
 }

@@ -14,11 +14,34 @@
     -mtime -1: Filter entries modified within the last day.
     -exec <command> {} +: Batch matched files into command invocations for better performance.
 */
-
-{
-  flake.nixosModules.apps.findutils =
-    { pkgs, ... }:
+_:
+let
+  FindutilsModule =
     {
-      environment.systemPackages = [ pkgs.findutils ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.findutils.extended;
+    in
+    {
+      options.programs.findutils.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable findutils.";
+        };
+
+        package = lib.mkPackageOption pkgs "findutils" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.findutils = FindutilsModule;
 }

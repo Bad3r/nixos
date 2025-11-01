@@ -20,11 +20,34 @@
     * `i3status-rs --stdout` — Inspect generated JSON output for troubleshooting.
     * `i3status-rs -w ~/.config/i3status-rust/` — Enable live reloading when editing configuration files.
 */
-
-{
-  flake.nixosModules.apps."i3status-rust" =
-    { pkgs, ... }:
+_:
+let
+  I3statusRustModule =
     {
-      environment.systemPackages = [ pkgs.i3status-rust ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."i3status-rust".extended;
+    in
+    {
+      options.programs.i3status-rust.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable i3status-rust.";
+        };
+
+        package = lib.mkPackageOption pkgs "i3status-rust" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.i3status-rust = I3statusRustModule;
 }

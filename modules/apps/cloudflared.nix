@@ -14,11 +14,34 @@
     --hostname <name>: Override the public hostname to route traffic through a specific tunnel.
     --no-autoupdate: Disable the built-in updater when running cloudflared in managed environments.
 */
-
-{
-  flake.nixosModules.apps.cloudflared =
-    { pkgs, ... }:
+_:
+let
+  CloudflaredModule =
     {
-      environment.systemPackages = [ pkgs.cloudflared ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.cloudflared.extended;
+    in
+    {
+      options.programs.cloudflared.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cloudflared.";
+        };
+
+        package = lib.mkPackageOption pkgs "cloudflared" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.cloudflared = CloudflaredModule;
 }

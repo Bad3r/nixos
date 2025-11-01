@@ -21,12 +21,34 @@
     * `nrm use npm` — Switch back to the official npm registry.
     * `nrm add internal https://npm.company.com/` — Add a private corporate registry.
 */
-
-{
-  flake.nixosModules.apps.nrm =
-    { pkgs, ... }:
+_:
+let
+  NrmModule =
     {
-      environment.systemPackages = [ pkgs.nodePackages.nrm ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nrm.extended;
+    in
+    {
+      options.programs.nrm.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nrm.";
+        };
 
+        package = lib.mkPackageOption pkgs.nodePackages "nrm" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.nrm = NrmModule;
 }

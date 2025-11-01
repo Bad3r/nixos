@@ -14,11 +14,34 @@
     genpkey: Run `openssl genpkey -algorithm RSA -out key.pem` to generate private keys.
     s_client: Connect to TLS services with `openssl s_client -connect host:port` for debugging handshakes.
 */
-
-{
-  flake.nixosModules.apps.openssl =
-    { pkgs, ... }:
+_:
+let
+  OpensslModule =
     {
-      environment.systemPackages = [ pkgs.openssl ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.openssl.extended;
+    in
+    {
+      options.programs.openssl.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable openssl.";
+        };
+
+        package = lib.mkPackageOption pkgs "openssl" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.openssl = OpensslModule;
 }

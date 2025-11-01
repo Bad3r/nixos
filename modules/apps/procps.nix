@@ -14,28 +14,34 @@
     -H: Display individual threads in `top -H` for fine-grained inspection.
     -n <seconds>: Set the refresh interval when running `watch -n` on frequently polled commands.
 */
-
-/*
-  Package: procps
-  Description: procps-ng suite of process monitoring and system utilities.
-  Homepage: https://gitlab.com/procps-ng/procps
-  Documentation: https://gitlab.com/procps-ng/procps/-/wikis/home
-  Repository: https://gitlab.com/procps-ng/procps
-
-  Summary:
-    * Provides commands such as `ps`, `top`, `vmstat`, `free`, and `watch` for inspecting system state.
-    * Aggregates kernel metrics for capacity planning, troubleshooting, and automation scripts.
-
-  Options:
-    ps aux: List all processes with CPU and memory usage statistics.
-    top -H: Show individual threads in the interactive top view.
-    watch -n <seconds> <command>: Periodically execute a command and refresh the display.
-*/
-
-{
-  flake.nixosModules.apps.procps =
-    { pkgs, ... }:
+_:
+let
+  ProcpsModule =
     {
-      environment.systemPackages = [ pkgs.procps ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.procps.extended;
+    in
+    {
+      options.programs.procps.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable procps.";
+        };
+
+        package = lib.mkPackageOption pkgs "procps" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.procps = ProcpsModule;
 }

@@ -14,11 +14,34 @@
     --gc-roots <path>: Highlight whether nodes are protected by garbage-collector roots.
     --include-outputs: Include runtime outputs alongside build-time dependencies.
 */
-
-{
-  flake.nixosModules.apps."nix-tree" =
-    { pkgs, ... }:
+_:
+let
+  NixTreeModule =
     {
-      environment.systemPackages = [ pkgs."nix-tree" ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-tree".extended;
+    in
+    {
+      options.programs.nix-tree.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-tree.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-tree" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.nix-tree = NixTreeModule;
 }

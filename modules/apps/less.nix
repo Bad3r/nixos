@@ -14,11 +14,34 @@
     -R <file>: Display raw control characters for colored output.
     -N <file>: Show line numbers along the left margin.
 */
-
-{
-  flake.nixosModules.apps.less =
-    { pkgs, ... }:
+_:
+let
+  LessModule =
     {
-      environment.systemPackages = [ pkgs.less ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.less.extended;
+    in
+    {
+      options.programs.less.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable less.";
+        };
+
+        package = lib.mkPackageOption pkgs "less" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.less = LessModule;
 }

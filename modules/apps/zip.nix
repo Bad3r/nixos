@@ -21,12 +21,34 @@
     * `zip -r build.zip dist/ -x "*.map"` — Exclude source maps while packaging a build output.
     * `zip -e secrets.zip notes.txt` — Protect sensitive files with a password prompt compatible with PKZIP.
 */
-
-{
-  flake.nixosModules.apps.zip =
-    { pkgs, lib, ... }:
+_:
+let
+  ZipModule =
     {
-      environment.systemPackages = lib.mkAfter [ pkgs.zip ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.zip.extended;
+    in
+    {
+      options.programs.zip.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable zip.";
+        };
 
+        package = lib.mkPackageOption pkgs "zip" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.zip = ZipModule;
 }

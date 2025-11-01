@@ -19,25 +19,36 @@
     * `coderabbit review --pr 128 --format markdown` — Request a markdown-formatted review for PR #128.
     * `coderabbit review --staged --output report.md` — Review currently staged changes and save the response to a file.
 */
-
-{
-  config,
-  ...
-}:
-{
-  nixpkgs.allowedUnfreePackages = [ "coderabbit-cli" ];
-
-  perSystem =
-    { pkgs, ... }:
+_:
+let
+  CoderabbitCliModule =
     {
-      packages.coderabbit-cli = pkgs.callPackage ../../packages/coderabbit-cli { };
-    };
-
-  flake.nixosModules.apps.coderabbit-cli =
-    { pkgs, ... }:
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."coderabbit-cli".extended;
+    in
     {
-      environment.systemPackages = [
-        config.flake.packages.${pkgs.system}.coderabbit-cli
-      ];
+      options.programs."coderabbit-cli".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable coderabbit-cli.";
+        };
+
+        package = lib.mkPackageOption pkgs "coderabbit-cli" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "coderabbit-cli" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps."coderabbit-cli" = CoderabbitCliModule;
 }

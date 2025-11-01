@@ -14,11 +14,34 @@
     -target=resource: Limit operations to specific resources for incremental changes.
     -auto-approve: Skip interactive confirmation when applying or destroying infrastructure.
 */
-
-{
-  flake.nixosModules.apps.terraform =
-    { pkgs, ... }:
+_:
+let
+  TerraformModule =
     {
-      environment.systemPackages = [ pkgs.terraform ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.terraform.extended;
+    in
+    {
+      options.programs.terraform.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable terraform.";
+        };
+
+        package = lib.mkPackageOption pkgs "terraform" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.terraform = TerraformModule;
 }

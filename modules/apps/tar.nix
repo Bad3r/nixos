@@ -16,12 +16,34 @@
     --gzip: Compress or decompress archives using gzip during create or extract operations.
     --listed-incremental=FILE: Maintain snapshot state for incremental backups using the provided metadata file.
 */
-
-{
-  flake.nixosModules.apps.tar =
-    { pkgs, lib, ... }:
+_:
+let
+  TarModule =
     {
-      environment.systemPackages = lib.mkDefault [ pkgs.gnutar ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tar.extended;
+    in
+    {
+      options.programs.tar.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tar (GNU tar).";
+        };
 
+        package = lib.mkPackageOption pkgs "gnutar" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.tar = TarModule;
 }

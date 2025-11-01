@@ -21,12 +21,34 @@
     * `bunzip2 -k logs.tar.bz2` — Decompress an archive while keeping the original compressed file.
     * `bzcat logs.tar.bz2 | tar xf -` — Stream a compressed tarball directly into `tar` without creating intermediate files.
 */
-
-{
-  flake.nixosModules.apps.bzip2 =
-    { pkgs, lib, ... }:
+_:
+let
+  Bzip2Module =
     {
-      environment.systemPackages = lib.mkDefault [ pkgs.bzip2 ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.bzip2.extended;
+    in
+    {
+      options.programs.bzip2.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable bzip2.";
+        };
 
+        package = lib.mkPackageOption pkgs "bzip2" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.bzip2 = Bzip2Module;
 }

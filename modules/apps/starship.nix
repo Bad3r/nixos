@@ -14,11 +14,34 @@
     --help: Display usage details for all starship subcommands and flags.
     --version: Show the currently installed starship release.
 */
-
-{
-  flake.nixosModules.apps.starship =
-    { pkgs, ... }:
+_:
+let
+  StarshipModule =
     {
-      environment.systemPackages = [ pkgs.starship ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.starship.extended;
+    in
+    {
+      options.programs.starship.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable starship.";
+        };
+
+        package = lib.mkPackageOption pkgs "starship" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.starship = StarshipModule;
 }

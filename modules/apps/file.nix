@@ -14,11 +14,34 @@
     -L <path>: Follow symlinks before identifying the target file.
     -z <path>: Inspect compressed files by decompressing them in memory.
 */
-
-{
-  flake.nixosModules.apps.file =
-    { pkgs, ... }:
+_:
+let
+  FileModule =
     {
-      environment.systemPackages = [ pkgs.file ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.file.extended;
+    in
+    {
+      options.programs.file.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable file.";
+        };
+
+        package = lib.mkPackageOption pkgs "file" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.file = FileModule;
 }

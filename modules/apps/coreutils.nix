@@ -14,11 +14,34 @@
     --version: Print version and licensing details for the invoked coreutils program.
     --preserve-root: Protect `/` from recursive removal when running `rm --preserve-root -rf /`.
 */
-
-{
-  flake.nixosModules.apps.coreutils =
-    { pkgs, ... }:
+_:
+let
+  CoreutilsModule =
     {
-      environment.systemPackages = [ pkgs.coreutils ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.coreutils.extended;
+    in
+    {
+      options.programs.coreutils.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable coreutils.";
+        };
+
+        package = lib.mkPackageOption pkgs "coreutils" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.coreutils = CoreutilsModule;
 }

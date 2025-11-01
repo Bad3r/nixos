@@ -16,7 +16,6 @@ let
     "s5cmd"
     "minio-client"
     "worker-build"
-    "jq"
     "xh"
   ];
 in

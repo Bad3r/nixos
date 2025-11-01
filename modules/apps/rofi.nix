@@ -21,12 +21,34 @@
     * `rofi -show ssh` — Quickly SSH into hosts listed in `~/.ssh/config`.
     * `echo -e "Option1\nOption2" | rofi -dmenu -p "Choose:"` — Use rofi as an interactive selection menu in scripts.
 */
-
-{
-  flake.nixosModules.apps.rofi =
-    { pkgs, ... }:
+_:
+let
+  RofiModule =
     {
-      environment.systemPackages = [ pkgs.rofi ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.rofi.extended;
+    in
+    {
+      options.programs.rofi.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable rofi.";
+        };
 
+        package = lib.mkPackageOption pkgs "rofi" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.rofi = RofiModule;
 }

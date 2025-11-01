@@ -15,15 +15,38 @@
     direnv exec <dir> <command>: Execute a command within another directory’s environment.
 
   Example Usage:
-    * `echo 'use flake' > .envrc && direnv allow` — Activate the current flake automatically when entering the directory.
+    * `echo 'use flake' > .envrc {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} direnv allow` — Activate the current flake automatically when entering the directory.
     * `direnv exec .. nix shell nixpkgs#hello` — Run a command using another directory’s environment.
     * `direnv reload` — Re-evaluate the environment after editing `.envrc`.
 */
-
-{
-  flake.nixosModules.apps.direnv =
-    { pkgs, ... }:
+_:
+let
+  DirenvModule =
     {
-      environment.systemPackages = [ pkgs.direnv ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.direnv.extended;
+    in
+    {
+      options.programs.direnv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable direnv.";
+        };
+
+        package = lib.mkPackageOption pkgs "direnv" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.direnv = DirenvModule;
 }

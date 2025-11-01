@@ -21,12 +21,34 @@
     * `git filter-repo --invert-paths --path secrets/` — Remove a sensitive directory from all commits.
     * `git filter-repo --replace-text mappings.txt` — Scrub API keys or credentials according to a mapping file.
 */
-
-{
-  flake.nixosModules.apps.git-filter-repo =
-    { pkgs, ... }:
+_:
+let
+  GitFilterRepoModule =
     {
-      environment.systemPackages = [ pkgs.git-filter-repo ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."git-filter-repo".extended;
+    in
+    {
+      options.programs.git-filter-repo.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable git-filter-repo.";
+        };
 
+        package = lib.mkPackageOption pkgs "git-filter-repo" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.git-filter-repo = GitFilterRepoModule;
 }

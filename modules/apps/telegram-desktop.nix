@@ -20,14 +20,36 @@
     * `telegram-desktop --startintray` — Keep Telegram running quietly while still receiving notifications.
     * `telegram-desktop --proxy-server=socks5://127.0.0.1:9050` — Use a SOCKS5 proxy for privacy or corporate compliance.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "telegram-desktop" ];
-
-  flake.nixosModules.apps."telegram-desktop" =
-    { pkgs, ... }:
+_:
+let
+  TelegramDesktopModule =
     {
-      environment.systemPackages = [ pkgs.telegram-desktop ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."telegram-desktop".extended;
+    in
+    {
+      options.programs.telegram-desktop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable telegram-desktop.";
+        };
 
+        package = lib.mkPackageOption pkgs "telegram-desktop" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "telegram-desktop" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.telegram-desktop = TelegramDesktopModule;
 }

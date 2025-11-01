@@ -21,12 +21,34 @@
     * `7z x project.7z -o./output` — Extract to a specific directory.
     * `7z t backup.7z` — Verify that an archive is not corrupted.
 */
-
-{
-  flake.nixosModules.apps.p7zip =
-    { pkgs, lib, ... }:
+_:
+let
+  P7zipModule =
     {
-      environment.systemPackages = lib.mkAfter [ pkgs.p7zip ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.p7zip.extended;
+    in
+    {
+      options.programs.p7zip.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable p7zip.";
+        };
 
+        package = lib.mkPackageOption pkgs "p7zip" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.p7zip = P7zipModule;
 }
