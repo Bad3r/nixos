@@ -10,12 +10,34 @@
     * Provides optional system tray indicator and history view.
 */
 
-{
-  flake.nixosModules.apps.normcap =
-    { pkgs, ... }:
+_:
+let
+  NormcapModule =
     {
-      environment.systemPackages = with pkgs; [
-        normcap
-      ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.normcap.extended;
+    in
+    {
+      options.programs.normcap.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable normcap screenshot OCR utility.";
+        };
+
+        package = lib.mkPackageOption pkgs "normcap" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.normcap = NormcapModule;
 }

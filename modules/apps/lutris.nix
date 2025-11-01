@@ -20,17 +20,34 @@
     * `lutris -i ~/Downloads/game.yml` — Install a game using a downloaded community installer script.
     * `lutris -d` — Start Lutris with verbose logs when diagnosing runner issues.
 */
+_:
+let
+  LutrisModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.lutris.extended;
+    in
+    {
+      options.programs.lutris.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable lutris.";
+        };
 
-{
-  flake = {
-    nixosModules.apps.lutris =
-      { pkgs, ... }:
-      {
-        environment.systemPackages = [ pkgs.lutris ];
+        package = lib.mkPackageOption pkgs "lutris" { };
       };
 
-    homeManagerModules.apps.lutris = _: {
-      programs.lutris.enable = true;
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
+in
+{
+  flake.nixosModules.apps.lutris = LutrisModule;
 }

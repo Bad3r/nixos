@@ -21,12 +21,34 @@
     * `clx comments 42133706` — Open the discussion for item 42133706 directly.
     * `clx url https://example.com/post` — Render an article in reader mode inside the terminal.
 */
-
-{
-  flake.nixosModules.apps.circumflex =
-    { pkgs, ... }:
+_:
+let
+  CircumflexModule =
     {
-      environment.systemPackages = [ pkgs.circumflex ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.circumflex.extended;
+    in
+    {
+      options.programs.circumflex.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable circumflex.";
+        };
 
+        package = lib.mkPackageOption pkgs "circumflex" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.circumflex = CircumflexModule;
 }

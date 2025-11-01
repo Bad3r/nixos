@@ -57,6 +57,8 @@ in
       ../style/stylix.nix
       ../home/context7-secrets.nix
       ../home/r2-secrets.nix
+      ./custom-packages-overlay.nix
+      ./apps-enable.nix
     ]
     ++ hardwareModules
     ++ baseModules

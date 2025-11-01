@@ -19,11 +19,34 @@
     * `nsxiv -a wallpapers/` — Run a fullscreen slideshow cycling forever.
     * `nsxiv -eh` — Print key-handler usage details for integrating automation scripts.
 */
-
-{
-  flake.nixosModules.apps.nsxiv =
-    { pkgs, ... }:
+_:
+let
+  NsxivModule =
     {
-      environment.systemPackages = [ pkgs.nsxiv ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.nsxiv.extended;
+    in
+    {
+      options.programs.nsxiv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nsxiv.";
+        };
+
+        package = lib.mkPackageOption pkgs "nsxiv" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.nsxiv = NsxivModule;
 }

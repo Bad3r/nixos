@@ -10,12 +10,34 @@
     * Works with companion utilities such as `tesseract-lang` packages to add language models.
 */
 
-{
-  flake.nixosModules.apps.tesseract =
-    { pkgs, ... }:
+_:
+let
+  TesseractModule =
     {
-      environment.systemPackages = with pkgs; [
-        tesseract
-      ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tesseract.extended;
+    in
+    {
+      options.programs.tesseract.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tesseract OCR engine.";
+        };
+
+        package = lib.mkPackageOption pkgs "tesseract" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.tesseract = TesseractModule;
 }

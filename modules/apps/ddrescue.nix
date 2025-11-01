@@ -21,17 +21,34 @@
     * `ddrescue -d -n /dev/sdc failing.img stage1.map` — Perform the initial fast pass using direct I/O without scraping.
     * `ddrescue -R -r1 /dev/sdc failing.img stage2.map` — Resume the rescue in reverse to recover remaining blocks after the first pass.
 */
+_:
+let
+  DdrescueModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ddrescue.extended;
+    in
+    {
+      options.programs.ddrescue.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ddrescue.";
+        };
 
+        package = lib.mkPackageOption pkgs "ddrescue" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.ddrescue =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.ddrescue ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.ddrescue ];
-    };
+  flake.nixosModules.apps.ddrescue = DdrescueModule;
 }

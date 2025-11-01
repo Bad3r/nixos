@@ -21,23 +21,34 @@
     * `kitty --config ~/.config/kitty/light.conf` — Launch with an alternate theme/config.
     * `kitty @ set-font-size 14` — Adjust font size on the fly via remote control.
 */
-
-{
-  flake.nixosModules.apps.kitty =
-    { pkgs, ... }:
+_:
+let
+  KittyModule =
     {
-      nixpkgs.overlays = [
-        (_final: prev: {
-          kitty = prev.kitty.overrideAttrs (old: {
-            doCheck = false;
-            doInstallCheck = false;
-            checkPhase = "echo skipping kitty checkPhase";
-            installCheckPhase = "true";
-            nativeCheckInputs = old.nativeCheckInputs or [ ];
-          });
-        })
-      ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.kitty.extended;
+    in
+    {
+      options.programs.kitty.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable kitty.";
+        };
 
-      environment.systemPackages = [ pkgs.kitty ];
+        package = lib.mkPackageOption pkgs "kitty" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.kitty = KittyModule;
 }

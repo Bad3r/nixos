@@ -20,17 +20,34 @@
     * `sudo photorec /log /d ~/recovered` — Recover files from a damaged disk to a specific directory while logging.
     * Use TestDisk to rebuild an NTFS boot sector when partitions become unbootable.
 */
+_:
+let
+  TestdiskModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.testdisk.extended;
+    in
+    {
+      options.programs.testdisk.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable testdisk.";
+        };
 
+        package = lib.mkPackageOption pkgs "testdisk" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.testdisk =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.testdisk ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.testdisk ];
-    };
+  flake.nixosModules.apps.testdisk = TestdiskModule;
 }

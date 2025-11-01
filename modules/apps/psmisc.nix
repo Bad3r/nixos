@@ -14,28 +14,34 @@
     -v: Print verbose ownership and access details via `fuser -v <path>`.
     -r <pattern>: Enable regular-expression matching when issuing `killall -r`.
 */
-
-/*
-  Package: psmisc
-  Description: Utilities that use the /proc filesystem for process management tasks.
-  Homepage: https://gitlab.com/psmisc/psmisc
-  Documentation: https://gitlab.com/psmisc/psmisc/-/wikis/home
-  Repository: https://gitlab.com/psmisc/psmisc
-
-  Summary:
-    * Supplies tools like `pstree`, `fuser`, and `killall` for diagnosing and controlling running processes.
-    * Assists administrators with identifying resource conflicts, open descriptors, and process hierarchies.
-
-  Options:
-    pstree -p: Display the process tree including PIDs.
-    fuser -v <path>: Show processes using a file, socket, or mount point.
-    killall -r <pattern>: Terminate processes whose names match a regular expression.
-*/
-
-{
-  flake.nixosModules.apps.psmisc =
-    { pkgs, ... }:
+_:
+let
+  PsmiscModule =
     {
-      environment.systemPackages = [ pkgs.psmisc ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.psmisc.extended;
+    in
+    {
+      options.programs.psmisc.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable psmisc.";
+        };
+
+        package = lib.mkPackageOption pkgs "psmisc" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.psmisc = PsmiscModule;
 }

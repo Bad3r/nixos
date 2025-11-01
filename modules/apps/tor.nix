@@ -16,17 +16,34 @@
     --list-fingerprint [TYPE]: Print the relay identity fingerprint (optionally for a given key type) and exit.
     --verify-config: Validate configuration files and exit without starting the daemon.
 */
+_:
+let
+  TorModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tor.extended;
+    in
+    {
+      options.programs.tor.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable tor.";
+        };
 
+        package = lib.mkPackageOption pkgs "tor" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.tor =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.tor ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.tor ];
-    };
+  flake.nixosModules.apps.tor = TorModule;
 }

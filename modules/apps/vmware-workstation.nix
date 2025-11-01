@@ -12,13 +12,36 @@
     * `vmware` — Launch the VMware Workstation UI.
     * `vmrun start <vmx>` — Automate headless VM lifecycle operations.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "vmware-workstation" ];
-
-  flake.nixosModules.apps."vmware-workstation" =
-    { pkgs, ... }:
+_:
+let
+  VmwareWorkstationModule =
     {
-      environment.systemPackages = [ pkgs.vmware-workstation ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."vmware-workstation".extended;
+    in
+    {
+      options.programs.vmware-workstation.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable vmware-workstation.";
+        };
+
+        package = lib.mkPackageOption pkgs "vmware-workstation" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "vmware-workstation" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.vmware-workstation = VmwareWorkstationModule;
 }

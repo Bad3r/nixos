@@ -19,12 +19,34 @@
     * `aireplay-ng --deauth 10 -a <AP> -c <CLIENT> wlan0mon` — Force a reconnect to capture WPA handshakes.
     * `aircrack-ng -w wordlist.txt handshake.cap` — Crack a WPA2-PSK handshake using a wordlist.
 */
-
-{
-  flake.nixosModules.apps."aircrack-ng" =
-    { pkgs, ... }:
+_:
+let
+  AircrackNgModule =
     {
-      environment.systemPackages = [ pkgs.aircrack-ng ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."aircrack-ng".extended;
+    in
+    {
+      options.programs.aircrack-ng.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable aircrack-ng.";
+        };
 
+        package = lib.mkPackageOption pkgs "aircrack-ng" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.aircrack-ng = AircrackNgModule;
 }

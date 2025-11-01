@@ -13,12 +13,34 @@
     * `cargo clippy` — Lint the current Rust workspace with default lint groups.
     * `cargo clippy -- -W clippy::pedantic -A clippy::module-name-repetitions` — Customize lint levels per project needs.
 */
-
-{
-  flake.nixosModules.apps."rust-clippy" =
-    { pkgs, ... }:
+_:
+let
+  RustClippyModule =
     {
-      environment.systemPackages = [ pkgs.rustPackages.clippy ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."rust-clippy".extended;
+    in
+    {
+      options.programs."rust-clippy".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Rust Clippy.";
+        };
 
+        package = lib.mkPackageOption pkgs "clippy" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps."rust-clippy" = RustClippyModule;
 }

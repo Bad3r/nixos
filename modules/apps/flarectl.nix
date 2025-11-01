@@ -14,11 +14,34 @@
     --account <id>: Scope requests to a particular Cloudflare account when multiple are available.
     --config <file>: Provide API tokens and defaults via a YAML configuration file.
 */
-
-{
-  flake.nixosModules.apps.flarectl =
-    { pkgs, ... }:
+_:
+let
+  FlarectlModule =
     {
-      environment.systemPackages = [ pkgs.flarectl ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.flarectl.extended;
+    in
+    {
+      options.programs.flarectl.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable flarectl.";
+        };
+
+        package = lib.mkPackageOption pkgs "flarectl" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.flarectl = FlarectlModule;
 }

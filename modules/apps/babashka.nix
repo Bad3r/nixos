@@ -21,12 +21,34 @@
     * `bb -x greet --name Alice` — Call a function exported in `bb.edn` with parsed CLI options.
     * `bb tasks` — Inspect available tasks defined in the project `bb.edn` file.
 */
-
-{
-  flake.nixosModules.apps.babashka =
-    { pkgs, ... }:
+_:
+let
+  BabashkaModule =
     {
-      environment.systemPackages = [ pkgs.babashka ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.babashka.extended;
+    in
+    {
+      options.programs.babashka.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable babashka.";
+        };
 
+        package = lib.mkPackageOption pkgs "babashka" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.babashka = BabashkaModule;
 }

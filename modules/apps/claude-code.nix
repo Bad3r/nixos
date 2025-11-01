@@ -19,12 +19,34 @@
     * `claude-code worktree --task "refactor telemetry collection"` — Ask Claude to propose git changes for a task.
     * `claude-code run ci-audit.yml` — Execute a saved automation recipe against the repo.
 */
-
-{
-  flake.nixosModules.apps."claude-code" =
-    { pkgs, ... }:
+_:
+let
+  ClaudeCodeModule =
     {
-      environment.systemPackages = [ pkgs.claude-code ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."claude-code".extended;
+    in
+    {
+      options.programs.claude-code.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable claude-code.";
+        };
 
+        package = lib.mkPackageOption pkgs "claude-code" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.claude-code = ClaudeCodeModule;
 }

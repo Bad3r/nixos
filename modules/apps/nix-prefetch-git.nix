@@ -19,11 +19,34 @@
     * `nix-prefetch-git --fetch-submodules https://github.com/example/project` — Include submodules when generating the hash.
     * `nix-prefetch-git --url . --rev refs/heads/main` — Prefetch a local repository.
 */
-
-{
-  flake.nixosModules.apps."nix-prefetch-git" =
-    { pkgs, ... }:
+_:
+let
+  NixPrefetchGitModule =
     {
-      environment.systemPackages = [ pkgs.nix-prefetch-git ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nix-prefetch-git".extended;
+    in
+    {
+      options.programs.nix-prefetch-git.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nix-prefetch-git.";
+        };
+
+        package = lib.mkPackageOption pkgs "nix-prefetch-git" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.nix-prefetch-git = NixPrefetchGitModule;
 }

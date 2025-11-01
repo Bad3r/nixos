@@ -19,12 +19,34 @@
     * Use the GUI “Send” button to drop files onto another detected device.
     * Adjust settings to auto-accept files into a specific downloads directory.
 */
-
-{
-  flake.nixosModules.apps.localsend =
-    { pkgs, ... }:
+_:
+let
+  LocalsendModule =
     {
-      environment.systemPackages = [ pkgs.localsend ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.localsend.extended;
+    in
+    {
+      options.programs.localsend.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable localsend.";
+        };
 
+        package = lib.mkPackageOption pkgs "localsend" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.localsend = LocalsendModule;
 }

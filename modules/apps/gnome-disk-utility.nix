@@ -17,19 +17,36 @@
   Example Usage:
     * `gnome-disks` — Open the GNOME Disks application to inspect devices, run benchmarks, or configure mounts.
     * Use the “Create Disk Image…” menu to back up a removable drive to an image file.
-    * Use “SMART Data & Self-Tests” to review drive health and initiate a self-test.
+    * Use “SMART Data {PRESERVED_DOCUMENTATION} Self-Tests” to review drive health and initiate a self-test.
 */
+_:
+let
+  GnomeDiskUtilityModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."gnome-disk-utility".extended;
+    in
+    {
+      options.programs.gnome-disk-utility.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gnome-disk-utility.";
+        };
 
+        package = lib.mkPackageOption pkgs "gnome-disk-utility" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps."gnome-disk-utility" =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.gnome-disk-utility ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.gnome-disk-utility ];
-    };
+  flake.nixosModules.apps.gnome-disk-utility = GnomeDiskUtilityModule;
 }

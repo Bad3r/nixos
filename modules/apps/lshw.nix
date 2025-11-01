@@ -14,11 +14,34 @@
     -json: Emit machine-readable JSON output.
     -class network: Restrict the report to a particular device class.
 */
-
-{
-  flake.nixosModules.apps.lshw =
-    { pkgs, ... }:
+_:
+let
+  LshwModule =
     {
-      environment.systemPackages = [ pkgs.lshw ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.lshw.extended;
+    in
+    {
+      options.programs.lshw.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable lshw.";
+        };
+
+        package = lib.mkPackageOption pkgs "lshw" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.lshw = LshwModule;
 }

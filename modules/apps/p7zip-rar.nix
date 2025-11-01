@@ -20,12 +20,34 @@
     * `7z a backup.7z Documents` — Compress a directory into a 7z archive.
     * `7z l backup.7z` — Inspect the contents of an archive before extracting.
 */
-
-{
-  flake.nixosModules.apps."p7zip-rar" =
-    { pkgs, lib, ... }:
+_:
+let
+  P7zipRarModule =
     {
-      environment.systemPackages = lib.mkAfter [ pkgs.p7zip-rar ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."p7zip-rar".extended;
+    in
+    {
+      options.programs.p7zip-rar.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable p7zip-rar.";
+        };
 
+        package = lib.mkPackageOption pkgs "p7zip-rar" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.p7zip-rar = P7zipRarModule;
 }

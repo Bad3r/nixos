@@ -21,12 +21,34 @@
     * `lein repl` — Launch a REPL with the project's dependencies available.
     * `lein uberjar` — Package the project into a standalone jar for deployment.
 */
-
-{
-  flake.nixosModules.apps.leiningen =
-    { pkgs, ... }:
+_:
+let
+  LeiningenModule =
     {
-      environment.systemPackages = [ pkgs.leiningen ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.leiningen.extended;
+    in
+    {
+      options.programs.leiningen.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable leiningen.";
+        };
 
+        package = lib.mkPackageOption pkgs "leiningen" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.leiningen = LeiningenModule;
 }

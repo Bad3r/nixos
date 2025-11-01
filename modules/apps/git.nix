@@ -14,11 +14,34 @@
     --stat: Show summarized diff statistics when used with `git log --stat` or `git show --stat`.
     --amend: Rewrite the previous commit when passed to `git commit --amend` for quick fixes.
 */
-
-{
-  flake.nixosModules.apps.git =
-    { pkgs, ... }:
+_:
+let
+  GitModule =
     {
-      environment.systemPackages = [ pkgs.git ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.git.extended;
+    in
+    {
+      options.programs.git.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable git.";
+        };
+
+        package = lib.mkPackageOption pkgs "git" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.git = GitModule;
 }

@@ -19,12 +19,34 @@
     * `cosmic-term` (then press `Ctrl+Shift+P`) — Open the command palette to access settings and appearance controls.
     * `View → Color schemes…` — Import an `.itermcolors` or `.json` theme for reuse across sessions.
 */
-
-{
-  flake.nixosModules.apps."cosmic-term" =
-    { pkgs, ... }:
+_:
+let
+  CosmicTermModule =
     {
-      environment.systemPackages = [ pkgs.cosmic-term ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."cosmic-term".extended;
+    in
+    {
+      options.programs.cosmic-term.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable cosmic-term.";
+        };
 
+        package = lib.mkPackageOption pkgs "cosmic-term" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.cosmic-term = CosmicTermModule;
 }

@@ -20,11 +20,34 @@
     * `xbacklight -inc 10` — Increase brightness by 10%.
     * `xbacklight -dec 20 -time 200` — Fade brightness down by 20% over 200 ms.
 */
-
-{
-  flake.nixosModules.apps.xbacklight =
-    { pkgs, ... }:
+_:
+let
+  XbacklightModule =
     {
-      environment.systemPackages = [ pkgs.xorg.xbacklight ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xbacklight.extended;
+    in
+    {
+      options.programs.xbacklight.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xbacklight brightness control.";
+        };
+
+        package = lib.mkPackageOption pkgs [ "xorg" "xbacklight" ] { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.xbacklight = XbacklightModule;
 }

@@ -20,17 +20,36 @@
     * `code --disable-gpu --log trace` — Diagnose rendering problems with verbose logging.
     * Configure remote development extensions in the usual manner; the FHS wrapper ensures required binaries resolve correctly.
 */
-
-{
-  # App module that installs VS Code (FHS) when imported
-  flake.nixosModules.apps.vscodeFhs =
-    { pkgs, ... }:
+_:
+let
+  VscodeFhsModule =
     {
-      nixpkgs.allowedUnfreePackages = [
-        "code"
-        "vscode"
-        "vscode-fhs"
-      ];
-      environment.systemPackages = [ pkgs.vscode-fhs ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."vscode-fhs".extended;
+    in
+    {
+      options.programs.vscode-fhs.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable vscode-fhs.";
+        };
+
+        package = lib.mkPackageOption pkgs "vscode-fhs" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "vscode-fhs" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.vscode-fhs = VscodeFhsModule;
 }

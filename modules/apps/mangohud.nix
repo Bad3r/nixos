@@ -34,11 +34,17 @@ let
     in
     {
       options.programs.mangohud.extended = {
-        enable = lib.mkEnableOption "MangoHud performance overlay for games";
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable MangoHud performance overlay for games.";
+        };
+
+        package = lib.mkPackageOption pkgs "mangohud" { };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ pkgs.mangohud ];
+        environment.systemPackages = [ cfg.package ];
       };
     };
 
@@ -53,7 +59,11 @@ let
     in
     {
       options.programs.mangohud.extended = {
-        enable = lib.mkEnableOption "MangoHud performance overlay integration";
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable MangoHud performance overlay integration.";
+        };
       };
 
       config = lib.mkIf cfg.enable {

@@ -19,17 +19,34 @@
     * Choose “All” and click “Start” to benchmark both read and write performance.
     * Export results via “Save Report…” to archive benchmark outcomes.
 */
+_:
+let
+  KdiskmarkModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.kdiskmark.extended;
+    in
+    {
+      options.programs.kdiskmark.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable kdiskmark.";
+        };
 
+        package = lib.mkPackageOption pkgs "kdiskmark" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.kdiskmark =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.kdiskmark ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.kdiskmark ];
-    };
+  flake.nixosModules.apps.kdiskmark = KdiskmarkModule;
 }

@@ -20,12 +20,34 @@
     * `networkmanager_dmenu -l rofi --visible` — Launch with rofi and keep the menu open after selection.
     * `networkmanager_dmenu --qr` — Display the QR code for the currently active Wi-Fi connection.
 */
-
-{
-  flake.nixosModules.apps."networkmanager-dmenu" =
-    { pkgs, ... }:
+_:
+let
+  NetworkmanagerDmenuModule =
     {
-      environment.systemPackages = [ pkgs.networkmanager_dmenu ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."networkmanager-dmenu".extended;
+    in
+    {
+      options.programs."networkmanager-dmenu".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable networkmanager-dmenu.";
+        };
 
+        package = lib.mkPackageOption pkgs "networkmanager_dmenu" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps."networkmanager-dmenu" = NetworkmanagerDmenuModule;
 }

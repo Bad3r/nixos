@@ -19,14 +19,36 @@
     * `discord --disable-gpu` — Work around rendering glitches on unsupported GPUs.
     * `discord --proxy-server="socks5://127.0.0.1:1080"` — Respect network egress policies in restricted environments.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "discord" ];
-
-  flake.nixosModules.apps.discord =
-    { pkgs, ... }:
+_:
+let
+  DiscordModule =
     {
-      environment.systemPackages = [ pkgs.discord ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.discord.extended;
+    in
+    {
+      options.programs.discord.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable discord.";
+        };
 
+        package = lib.mkPackageOption pkgs "discord" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "discord" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.discord = DiscordModule;
 }

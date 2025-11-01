@@ -20,33 +20,34 @@
     * `sudo smartctl -t long /dev/sda` — Initiate an extended self-test (run in background).
     * Edit `/etc/smartd.conf` to schedule weekly tests and email alerts via `smartd`.
 */
+_:
+let
+  SmartmontoolsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.smartmontools.extended;
+    in
+    {
+      options.programs.smartmontools.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable smartmontools.";
+        };
 
+        package = lib.mkPackageOption pkgs "smartmontools" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.smartmontools =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.smartmontools ];
-
-      services.smartd = {
-        enable = true;
-        notifications = {
-          x11.enable = true;
-          wall.enable = true;
-        };
-      };
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.smartmontools ];
-
-      services.smartd = {
-        enable = true;
-        notifications = {
-          x11.enable = true;
-          wall.enable = true;
-        };
-      };
-    };
+  flake.nixosModules.apps.smartmontools = SmartmontoolsModule;
 }

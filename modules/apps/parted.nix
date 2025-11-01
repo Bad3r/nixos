@@ -21,17 +21,34 @@
     * `sudo parted --script /dev/sdb mklabel gpt mkpart primary ext4 1MiB 100GiB` — Create a GPT disk and an ext4 partition via a script.
     * `sudo parted /dev/nvme0n1 resizepart 3 200GiB` — Grow partition 3 to a new size.
 */
+_:
+let
+  PartedModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.parted.extended;
+    in
+    {
+      options.programs.parted.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable parted.";
+        };
 
+        package = lib.mkPackageOption pkgs "parted" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.parted =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.parted ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.parted ];
-    };
+  flake.nixosModules.apps.parted = PartedModule;
 }

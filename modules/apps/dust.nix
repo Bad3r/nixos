@@ -21,17 +21,34 @@
     * `dust -d 2 /var` — Inspect the largest directories within `/var` up to depth 2.
     * `dust -n 10 --ignore-directory node_modules project/` — Show the top ten space consumers while ignoring `node_modules`.
 */
+_:
+let
+  DustModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dust.extended;
+    in
+    {
+      options.programs.dust.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dust.";
+        };
 
+        package = lib.mkPackageOption pkgs "dust" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.dust =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.dust ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.dust ];
-    };
+  flake.nixosModules.apps.dust = DustModule;
 }

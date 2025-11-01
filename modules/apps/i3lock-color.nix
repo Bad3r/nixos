@@ -19,13 +19,36 @@
   Example Usage:
     * `i3lock-color -c 1d2021 --indicator` — Lock the screen with a solid color and indicator.
     * `i3lock-color -i ~/Pictures/wallpaper.jpg -B 5 --time-color ffffffff` — Use a background image with blur and white time display.
-    * `i3lock-color --nofork && systemctl suspend` — Lock the screen synchronously before suspending.
+    * `i3lock-color --nofork {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} systemctl suspend` — Lock the screen synchronously before suspending.
 */
-
-{
-  flake.nixosModules.apps."i3lock-color" =
-    { pkgs, ... }:
+_:
+let
+  I3lockColorModule =
     {
-      environment.systemPackages = [ pkgs.i3lock-color ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."i3lock-color".extended;
+    in
+    {
+      options.programs.i3lock-color.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable i3lock-color.";
+        };
+
+        package = lib.mkPackageOption pkgs "i3lock-color" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.i3lock-color = I3lockColorModule;
 }

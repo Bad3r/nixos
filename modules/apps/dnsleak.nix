@@ -16,40 +16,34 @@
     * `dnsleak` — Display the detected public IP and the DNS servers listed in `/etc/resolv.conf`.
     * `dnsleak | tee /tmp/dnsleak.log` — Capture the output for auditing or support tickets.
 */
-
-{ config, ... }:
-{
-  perSystem =
-    { pkgs, ... }:
+_:
+let
+  DnsleakModule =
     {
-      packages = {
-
-        dnsleak = pkgs.writeShellApplication {
-          name = "dnsleak";
-          runtimeInputs = with pkgs; [
-            curl
-            jq
-            dnsutils
-          ];
-          text = ''
-            set -euo pipefail
-
-            echo "Testing DNS leak..."
-            dig +short myip.opendns.com @resolver1.opendns.com
-
-            echo "DNS servers in use:"
-            grep nameserver /etc/resolv.conf
-          '';
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dnsleak.extended;
+    in
+    {
+      options.programs.dnsleak.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dnsleak.";
         };
+
+        package = lib.mkPackageOption pkgs "dnsleak" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
       };
     };
-
-  flake.nixosModules.apps.dnsleak =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [
-        config.flake.packages.${pkgs.system}.dnsleak
-      ];
-    };
-
+in
+{
+  flake.nixosModules.apps.dnsleak = DnsleakModule;
 }

@@ -21,17 +21,34 @@
     * `sudo nvme smart-log /dev/nvme0` — Check drive temperature, media errors, and wear indicators.
     * `sudo nvme device-self-test /dev/nvme0 --start extended` — Initiate an extended diagnostic self-test.
 */
+_:
+let
+  NvmeCliModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."nvme-cli".extended;
+    in
+    {
+      options.programs.nvme-cli.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable nvme-cli.";
+        };
 
+        package = lib.mkPackageOption pkgs "nvme-cli" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps."nvme-cli" =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.nvme-cli ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.nvme-cli ];
-    };
+  flake.nixosModules.apps.nvme-cli = NvmeCliModule;
 }

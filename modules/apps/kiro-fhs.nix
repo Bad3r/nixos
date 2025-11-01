@@ -16,14 +16,36 @@
     * `kiro` — Start the Kiro configuration interface from the FHS wrapper.
     * `kiro --profile custom.yaml` — Apply a specific keyboard profile using the wrapped executable.
 */
-
-{
-  # App module that installs Kiro (FHS) when imported
-  flake.nixosModules.apps.kiroFhs =
-    { pkgs, ... }:
+_:
+let
+  KiroFhsModule =
     {
-      # Allow unfree if required by kiro-fhs packaging
-      nixpkgs.allowedUnfreePackages = [ "kiro-fhs" ];
-      environment.systemPackages = [ pkgs.kiro-fhs ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."kiro-fhs".extended;
+    in
+    {
+      options.programs.kiro-fhs.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable kiro-fhs.";
+        };
+
+        package = lib.mkPackageOption pkgs "kiro-fhs" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "kiro-fhs" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.kiro-fhs = KiroFhsModule;
 }

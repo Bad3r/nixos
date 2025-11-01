@@ -14,11 +14,34 @@
     --input: Read from stdin (or a redirected file) and store the data in the chosen selection.
     --clear --primary: Clear the primary selection buffer before copying new content.
 */
-
-{
-  flake.nixosModules.apps.xsel =
-    { pkgs, ... }:
+_:
+let
+  XselModule =
     {
-      environment.systemPackages = [ pkgs.xsel ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.xsel.extended;
+    in
+    {
+      options.programs.xsel.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable xsel.";
+        };
+
+        package = lib.mkPackageOption pkgs "xsel" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.xsel = XselModule;
 }

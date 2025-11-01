@@ -19,11 +19,34 @@
     * `printf '%s\n' screenshot.png | dragon-drop` — Pipe paths from another command and drag the resulting selection.
     * `dragon-drop ~/Downloads/*.png` — Collect multiple assets and drop them into a browser upload dialog.
 */
-
-{
-  flake.nixosModules.apps."dragon-drop" =
-    { pkgs, ... }:
+_:
+let
+  DragonDropModule =
     {
-      environment.systemPackages = [ pkgs.dragon-drop ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."dragon-drop".extended;
+    in
+    {
+      options.programs.dragon-drop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable dragon-drop.";
+        };
+
+        package = lib.mkPackageOption pkgs "dragon-drop" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.dragon-drop = DragonDropModule;
 }

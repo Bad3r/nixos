@@ -21,11 +21,34 @@
     * `dolphin --split --new-window /mnt/storage` — Launch a new window with dual panes rooted at `/mnt/storage`.
     * `dolphin --select ~/Documents/report.pdf` — Highlight a specific file inside Dolphin for quick actions.
 */
-
-{
-  flake.nixosModules.apps.dolphin =
-    { pkgs, ... }:
+_:
+let
+  DolphinModule =
     {
-      environment.systemPackages = [ pkgs.kdePackages.dolphin ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.dolphin.extended;
+    in
+    {
+      options.programs.dolphin.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Dolphin file manager.";
+        };
+
+        package = lib.mkPackageOption pkgs [ "kdePackages" "dolphin" ] { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.dolphin = DolphinModule;
 }

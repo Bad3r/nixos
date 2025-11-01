@@ -21,11 +21,34 @@
     * `playerctl --player=spotify metadata --format '{{title}} by {{artist}}'` — Show the current Spotify track in a custom format.
     * `playerctl --player=mpv position +30` — Skip forward 30 seconds in mpv.
 */
-
-{
-  flake.nixosModules.apps.playerctl =
-    { pkgs, ... }:
+_:
+let
+  PlayerctlModule =
     {
-      environment.systemPackages = [ pkgs.playerctl ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.playerctl.extended;
+    in
+    {
+      options.programs.playerctl.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable playerctl.";
+        };
+
+        package = lib.mkPackageOption pkgs "playerctl" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.playerctl = PlayerctlModule;
 }

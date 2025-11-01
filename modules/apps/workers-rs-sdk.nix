@@ -14,22 +14,36 @@
     --features http: Enable compatibility layers when declaring `worker = { features = ["http"] }` in `Cargo.toml`.
     --release: Produce optimized wasm artifacts during `worker-build --release` builds.
 */
-
-{
-  flake.nixosModules.apps."workers-rs-sdk" =
+_:
+let
+  WorkersRsSdkModule =
     {
-      pkgs,
-      lib,
       config,
+      lib,
       ...
     }:
     let
-      packageSet = lib.attrByPath [ pkgs.system ] { } config.flake.packages;
-      sdkPackage = lib.attrByPath [
-        "workers-rs-src"
-      ] (throw "workers-rs-src package not found for ${pkgs.system}") packageSet;
+      cfg = config.programs."workers-rs-sdk".extended;
     in
     {
-      environment.systemPackages = [ sdkPackage ];
+      options.programs."workers-rs-sdk".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc ''
+            This module is a placeholder for the Cloudflare Workers Rust SDK.
+            The SDK is a Rust crate installed via `cargo add worker`,
+            not a system package. Enabling this option has no effect.
+          '';
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        # Workers Rust SDK is a Rust crate, not a system package
+        # Install it in your project with: cargo add worker
+      };
     };
+in
+{
+  flake.nixosModules.apps."workers-rs-sdk" = WorkersRsSdkModule;
 }

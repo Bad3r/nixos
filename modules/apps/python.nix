@@ -17,15 +17,37 @@
 
   Example Usage:
     * `python3.13` — Launch the interactive REPL.
-    * `python3.13 -m venv .venv && source .venv/bin/activate` — Create and activate a virtual environment.
+    * `python3.13 -m venv .venv {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} source .venv/bin/activate` — Create and activate a virtual environment.
     * `python3.13 -m pip install requests` — Install packages using pip within the environment.
 */
-
-{
-  flake.nixosModules.apps.python =
-    { pkgs, ... }:
+_:
+let
+  Python313Module =
     {
-      environment.systemPackages = [ pkgs.python313 ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.python.extended;
+    in
+    {
+      options.programs.python.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Python 3.13.";
+        };
 
+        package = lib.mkPackageOption pkgs "python313" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.python = Python313Module;
 }

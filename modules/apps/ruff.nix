@@ -19,12 +19,34 @@
     * `ruff format .` — Format all Python files in the current directory.
     * `ruff check --select I --fix` — Sort imports and apply fixes automatically.
 */
-
-{
-  flake.nixosModules.apps.ruff =
-    { pkgs, ... }:
+_:
+let
+  RuffModule =
     {
-      environment.systemPackages = [ pkgs.ruff ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.ruff.extended;
+    in
+    {
+      options.programs.ruff.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ruff.";
+        };
 
+        package = lib.mkPackageOption pkgs "ruff" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.ruff = RuffModule;
 }

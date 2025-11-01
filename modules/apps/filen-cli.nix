@@ -19,12 +19,34 @@
     * `filen-cli upload ./reports /Work/Reports` — Upload files into an encrypted cloud folder.
     * `filen-cli sync ./Archive /Backups/Archive --watch` — Continuously mirror a directory to Filen storage.
 */
-
-{
-  flake.nixosModules.apps."filen-cli" =
-    { pkgs, ... }:
+_:
+let
+  FilenCliModule =
     {
-      environment.systemPackages = [ pkgs.filen-cli ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."filen-cli".extended;
+    in
+    {
+      options.programs.filen-cli.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable filen-cli.";
+        };
 
+        package = lib.mkPackageOption pkgs "filen-cli" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.filen-cli = FilenCliModule;
 }

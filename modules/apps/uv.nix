@@ -18,15 +18,37 @@
 
   Example Usage:
     * `uv pip install requests` — Install a Python package using uv instead of pip.
-    * `uv lock && uv sync` — Produce a lockfile and sync dependencies into `.venv`.
+    * `uv lock {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} uv sync` — Produce a lockfile and sync dependencies into `.venv`.
     * `uv run pytest` — Execute a command using the synced environment without manually activating it.
 */
-
-{
-  flake.nixosModules.apps.uv =
-    { pkgs, ... }:
+_:
+let
+  UvModule =
     {
-      environment.systemPackages = [ pkgs.uv ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.uv.extended;
+    in
+    {
+      options.programs.uv.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable uv.";
+        };
 
+        package = lib.mkPackageOption pkgs "uv" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.uv = UvModule;
 }

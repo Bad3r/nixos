@@ -21,12 +21,34 @@
     * `pandoc paper.md --citeproc --bibliography refs.bib -o paper.pdf` — Produce a PDF with citations.
     * `pandoc notes.md -t docx -o notes.docx` — Generate a Word document from Markdown notes.
 */
-
-{
-  flake.nixosModules.apps.pandoc =
-    { pkgs, ... }:
+_:
+let
+  PandocModule =
     {
-      environment.systemPackages = [ pkgs.pandoc ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.pandoc.extended;
+    in
+    {
+      options.programs.pandoc.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pandoc.";
+        };
 
+        package = lib.mkPackageOption pkgs "pandoc" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.pandoc = PandocModule;
 }

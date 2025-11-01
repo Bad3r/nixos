@@ -14,11 +14,34 @@
     --region <code>: Override the default AWS Region for a single invocation.
     --query <JMESPath>: Filter and transform JSON responses with a JMESPath expression.
 */
-
-{
-  flake.nixosModules.apps.awscli2 =
-    { pkgs, ... }:
+_:
+let
+  Awscli2Module =
     {
-      environment.systemPackages = [ pkgs.awscli2 ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.awscli2.extended;
+    in
+    {
+      options.programs.awscli2.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable awscli2.";
+        };
+
+        package = lib.mkPackageOption pkgs "awscli2" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.awscli2 = Awscli2Module;
 }

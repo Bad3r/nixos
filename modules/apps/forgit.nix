@@ -21,16 +21,34 @@
     * `gco` — Pick a branch interactively to check out without memorizing names.
     * `gl` — Navigate the reflog and jump to previous states using fuzzy search.
 */
-
-{
-  flake.nixosModules.apps.forgit =
-    { pkgs, lib, ... }:
+_:
+let
+  ForgitModule =
     {
-      environment.systemPackages = [ pkgs.zsh-forgit ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.forgit.extended;
+    in
+    {
+      options.programs.forgit.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable forgit.";
+        };
 
-      programs.zsh.interactiveShellInit = lib.mkAfter ''
-        fpath+=(${pkgs.zsh-forgit}/share/zsh/site-functions)
-        source ${pkgs.zsh-forgit}/share/zsh/zsh-forgit/forgit.plugin.zsh
-      '';
+        package = lib.mkPackageOption pkgs "zsh-forgit" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.forgit = ForgitModule;
 }

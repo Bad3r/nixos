@@ -19,11 +19,34 @@
     * `prefetch-yarn-deps --builder ./ui/yarn.lock` — Output just the hash for embedding in a derivation.
     * `nix run nixpkgs#prefetch-yarn-deps -- --verbose ./yarn.lock` — Execute via `nix run` with verbose logging.
 */
-
-{
-  flake.nixosModules.apps."prefetch-yarn-deps" =
-    { pkgs, ... }:
+_:
+let
+  PrefetchYarnDepsModule =
     {
-      environment.systemPackages = [ pkgs.prefetch-yarn-deps ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."prefetch-yarn-deps".extended;
+    in
+    {
+      options.programs.prefetch-yarn-deps.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable prefetch-yarn-deps.";
+        };
+
+        package = lib.mkPackageOption pkgs "prefetch-yarn-deps" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.prefetch-yarn-deps = PrefetchYarnDepsModule;
 }

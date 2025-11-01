@@ -11,33 +11,36 @@
   Example Usage:
     * `raindrop` — Open the Raindrop.io desktop experience in its own window.
 */
+_:
+let
+  RaindropModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.raindrop.extended;
+    in
+    {
+      options.programs.raindrop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Raindrop.";
+        };
 
+        package = lib.mkPackageOption pkgs "raindrop" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "raindrop" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  config,
-  ...
-}:
-{
-  nixpkgs.allowedUnfreePackages = [ "electron" ];
-
-  perSystem =
-    { pkgs, ... }:
-    {
-      packages.raindrop = pkgs.callPackage ../../packages/raindrop { };
-    };
-
-  flake.nixosModules.apps.raindrop =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [
-        config.flake.packages.${pkgs.system}.raindrop
-      ];
-    };
-
-  flake.homeManagerModules.apps.raindrop =
-    { pkgs, ... }:
-    {
-      home.packages = [
-        config.flake.packages.${pkgs.system}.raindrop
-      ];
-    };
+  flake.nixosModules.apps.raindrop = RaindropModule;
 }

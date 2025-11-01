@@ -21,12 +21,34 @@
     * `clojure-lsp format --filenames src app/core.clj` — Format specific source files.
     * `clojure-lsp listen` — Run the LSP server for editor clients that connect via stdio.
 */
-
-{
-  flake.nixosModules.apps."clojure-lsp" =
-    { pkgs, ... }:
+_:
+let
+  ClojureLspModule =
     {
-      environment.systemPackages = [ pkgs.clojure-lsp ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."clojure-lsp".extended;
+    in
+    {
+      options.programs.clojure-lsp.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable clojure-lsp.";
+        };
 
+        package = lib.mkPackageOption pkgs "clojure-lsp" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.clojure-lsp = ClojureLspModule;
 }

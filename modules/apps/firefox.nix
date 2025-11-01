@@ -21,11 +21,34 @@
     * `firefox --profile ~/.mozilla/firefox/work --private-window https://intranet.local` — Use a dedicated profile and private window for sensitive browsing.
     * `firefox --headless --screenshot page.png https://example.com` — Capture a screenshot via the headless renderer.
 */
-
-{
-  flake.nixosModules.apps.firefox =
-    { pkgs, ... }:
+_:
+let
+  FirefoxModule =
     {
-      environment.systemPackages = [ pkgs.firefox ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.firefox.extended;
+    in
+    {
+      options.programs.firefox.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable firefox.";
+        };
+
+        package = lib.mkPackageOption pkgs "firefox" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.firefox = FirefoxModule;
 }

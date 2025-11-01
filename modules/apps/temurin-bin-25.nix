@@ -16,18 +16,40 @@
     jlink --module-path <path> --add-modules <modules> --output <dir>: Create custom runtime images.
 
   Example Usage:
-    * `javac Main.java && java Main` — Compile and run a Java application.
+    * `javac Main.java {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} java Main` — Compile and run a Java application.
     * `jshell` — Start the interactive Java REPL for prototyping.
     * `JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))` — Export the JDK root for build tools.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "temurin-bin-25" ];
-
-  flake.nixosModules.apps."temurin-bin-25" =
-    { pkgs, ... }:
+_:
+let
+  TemurinBin25Module =
     {
-      environment.systemPackages = [ pkgs.temurin-bin-25 ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."temurin-bin-25".extended;
+    in
+    {
+      options.programs."temurin-bin-25".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Temurin JDK 25.";
+        };
 
+        package = lib.mkPackageOption pkgs "temurin-bin-25" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "temurin-bin-25" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps."temurin-bin-25" = TemurinBin25Module;
 }

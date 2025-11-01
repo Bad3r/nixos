@@ -21,12 +21,34 @@
     * `sudo openvpn --config site.conf --daemon --log /var/log/openvpn.log` — Run OpenVPN in the background with logging.
     * `sudo openvpn --config client.ovpn --auth-user-pass creds.txt` — Supply username/password from a file for authentication.
 */
-
-{
-  flake.nixosModules.apps.openvpn =
-    { pkgs, ... }:
+_:
+let
+  OpenvpnModule =
     {
-      environment.systemPackages = [ pkgs.openvpn ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.openvpn.extended;
+    in
+    {
+      options.programs.openvpn.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable openvpn.";
+        };
 
+        package = lib.mkPackageOption pkgs "openvpn" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.openvpn = OpenvpnModule;
 }

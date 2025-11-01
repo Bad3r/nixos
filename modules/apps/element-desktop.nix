@@ -19,12 +19,34 @@
     * `element-desktop --profile work` — Maintain separated home and work profiles.
     * `element-desktop --proxy-server="socks5://127.0.0.1:9150"` — Route Matrix traffic over Tor or corporate proxies.
 */
-
-{
-  flake.nixosModules.apps."element-desktop" =
-    { pkgs, ... }:
+_:
+let
+  ElementDesktopModule =
     {
-      environment.systemPackages = [ pkgs.element-desktop ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."element-desktop".extended;
+    in
+    {
+      options.programs.element-desktop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable element-desktop.";
+        };
 
+        package = lib.mkPackageOption pkgs "element-desktop" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.element-desktop = ElementDesktopModule;
 }

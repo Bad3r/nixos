@@ -19,12 +19,34 @@
     * `john --wordlist=rockyou.txt --rules hashes.txt` — Apply mangling rules to a wordlist.
     * `john --show hashes.txt` — Display recovered credentials once cracking finishes.
 */
-
-{
-  flake.nixosModules.apps.john =
-    { pkgs, ... }:
+_:
+let
+  JohnModule =
     {
-      environment.systemPackages = [ pkgs.john ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.john.extended;
+    in
+    {
+      options.programs.john.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable john.";
+        };
 
+        package = lib.mkPackageOption pkgs "john" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.john = JohnModule;
 }

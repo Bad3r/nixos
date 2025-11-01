@@ -15,15 +15,38 @@
     nm-connection-editor: Launch the advanced connection configuration dialog.
 
   Example Usage:
-    * `nm-applet --indicator &` — Run the applet in the background on minimal desktops.
+    * `nm-applet --indicator {PRESERVED_DOCUMENTATION}` — Run the applet in the background on minimal desktops.
     * Click the tray icon to connect/disconnect Wi-Fi and VPN connections.
     * `nm-connection-editor` — Edit advanced connection settings such as IPv6, DNS, and security settings.
 */
-
-{
-  flake.nixosModules.apps.networkmanagerapplet =
-    { pkgs, ... }:
+_:
+let
+  NetworkmanagerappletModule =
     {
-      environment.systemPackages = [ pkgs.networkmanagerapplet ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.networkmanagerapplet.extended;
+    in
+    {
+      options.programs.networkmanagerapplet.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable networkmanagerapplet.";
+        };
+
+        package = lib.mkPackageOption pkgs "networkmanagerapplet" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.networkmanagerapplet = NetworkmanagerappletModule;
 }

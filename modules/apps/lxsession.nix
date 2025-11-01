@@ -20,11 +20,34 @@
     * `lxsession-default-apps` — Adjust default web browser, terminal, and file manager for the session.
     * Create `~/.config/lxsession/LXDE/autostart` to launch custom applications when the session starts.
 */
-
-{
-  flake.nixosModules.apps.lxsession =
-    { pkgs, ... }:
+_:
+let
+  LxsessionModule =
     {
-      environment.systemPackages = [ pkgs.lxsession ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.lxsession.extended;
+    in
+    {
+      options.programs.lxsession.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable lxsession.";
+        };
+
+        package = lib.mkPackageOption pkgs "lxsession" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.lxsession = LxsessionModule;
 }

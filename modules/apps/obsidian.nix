@@ -19,14 +19,36 @@
     * Create `~/Notes` and add as a vault to manage Markdown notes locally.
     * Enable Plugins → “Daily Notes” to generate journal entries automatically.
 */
-
-{
-  nixpkgs.allowedUnfreePackages = [ "obsidian" ];
-
-  flake.nixosModules.apps.obsidian =
-    { pkgs, ... }:
+_:
+let
+  ObsidianModule =
     {
-      environment.systemPackages = [ pkgs.obsidian ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.obsidian.extended;
+    in
+    {
+      options.programs.obsidian.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable obsidian.";
+        };
 
+        package = lib.mkPackageOption pkgs "obsidian" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        nixpkgs.allowedUnfreePackages = [ "obsidian" ];
+
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.obsidian = ObsidianModule;
 }

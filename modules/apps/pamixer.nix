@@ -21,20 +21,34 @@
     * `pamixer --set-volume 30 --sink 1` — Set sink #1 to 30% volume explicitly.
     * `pamixer --toggle-mute` — Toggle mute state via a keybinding script.
 */
-
-{
-  flake.nixosModules.apps.pamixer =
-    { pkgs, ... }:
+_:
+let
+  PamixerModule =
     {
-      nixpkgs.overlays = [
-        (_final: prev: {
-          pamixer = prev.pamixer.overrideAttrs (old: {
-            # pamixer 1.6 uses ICU helpers that depend on std::u16string_view (C++17).
-            mesonFlags = (old.mesonFlags or [ ]) ++ [ "-Dcpp_std=c++17" ];
-          });
-        })
-      ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.pamixer.extended;
+    in
+    {
+      options.programs.pamixer.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable pamixer.";
+        };
 
-      environment.systemPackages = [ pkgs.pamixer ];
+        package = lib.mkPackageOption pkgs "pamixer" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.pamixer = PamixerModule;
 }

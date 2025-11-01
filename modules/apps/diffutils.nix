@@ -14,11 +14,34 @@
     -r <dir1> <dir2>: Recursively compare directory trees.
     --color=auto <old> <new>: Highlight differences when writing to a terminal.
 */
-
-{
-  flake.nixosModules.apps.diffutils =
-    { pkgs, ... }:
+_:
+let
+  DiffutilsModule =
     {
-      environment.systemPackages = [ pkgs.diffutils ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.diffutils.extended;
+    in
+    {
+      options.programs.diffutils.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable diffutils.";
+        };
+
+        package = lib.mkPackageOption pkgs "diffutils" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.diffutils = DiffutilsModule;
 }

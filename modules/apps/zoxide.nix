@@ -14,11 +14,34 @@
     --cmd <name>: Generate init scripts that bind the `z` command to a custom alias (e.g., `zoxide init --cmd cd zsh`).
     --list: Print the contents of the database with scores via `zoxide query --list`.
 */
-
-{
-  flake.nixosModules.apps.zoxide =
-    { pkgs, ... }:
+_:
+let
+  ZoxideModule =
     {
-      environment.systemPackages = [ pkgs.zoxide ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.zoxide.extended;
+    in
+    {
+      options.programs.zoxide.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable zoxide.";
+        };
+
+        package = lib.mkPackageOption pkgs "zoxide" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.zoxide = ZoxideModule;
 }

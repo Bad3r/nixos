@@ -20,12 +20,34 @@
     * `filezilla --config-dir ~/.config/filezilla-work` — Separate work profiles, bookmarks, and queue settings.
     * `filezilla --locales=de_DE` — Force a particular locale when the environment locale is unavailable.
 */
-
-{
-  flake.nixosModules.apps.filezilla =
-    { pkgs, ... }:
+_:
+let
+  FilezillaModule =
     {
-      environment.systemPackages = [ pkgs.filezilla ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.filezilla.extended;
+    in
+    {
+      options.programs.filezilla.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable filezilla.";
+        };
 
+        package = lib.mkPackageOption pkgs "filezilla" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.filezilla = FilezillaModule;
 }

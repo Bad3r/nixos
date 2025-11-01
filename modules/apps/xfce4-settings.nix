@@ -20,11 +20,34 @@
     * `xfce4-display-settings --minimal` — Quickly adjust monitors via minimal dialog.
     * `xfce4-keyboard-settings` — Configure keyboard layouts and shortcuts.
 */
-
-{
-  flake.nixosModules.apps."xfce4-settings" =
-    { pkgs, ... }:
+_:
+let
+  Xfce4SettingsModule =
     {
-      environment.systemPackages = [ pkgs.xfce.xfce4-settings ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."xfce4-settings".extended;
+    in
+    {
+      options.programs."xfce4-settings".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable Xfce4 settings manager.";
+        };
+
+        package = lib.mkPackageOption pkgs [ "xfce" "xfce4-settings" ] { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps."xfce4-settings" = Xfce4SettingsModule;
 }

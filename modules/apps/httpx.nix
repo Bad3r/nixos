@@ -21,17 +21,34 @@
     * `cat subdomains.txt | httpx -tech-detect -follow-redirects -json` — Enumerate technologies for URL targets streamed from stdin.
     * `httpx -l urls.txt -websocket -cdn` — Identify WebSocket endpoints and CDN usage in bulk.
 */
+_:
+let
+  HttpxModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.httpx.extended;
+    in
+    {
+      options.programs.httpx.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable httpx.";
+        };
 
+        package = lib.mkPackageOption pkgs "httpx" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
 {
-  flake.nixosModules.apps.httpx =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.httpx ];
-    };
-
-  flake.nixosModules.base =
-    { pkgs, ... }:
-    {
-      environment.systemPackages = [ pkgs.httpx ];
-    };
+  flake.nixosModules.apps.httpx = HttpxModule;
 }

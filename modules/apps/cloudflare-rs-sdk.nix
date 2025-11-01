@@ -14,22 +14,36 @@
     Client::new(api_token): Construct an authenticated API client with a scoped token.
     client.zones().list(): List zones accessible to the configured account.
 */
-
-{
-  flake.nixosModules.apps."cloudflare-rs-sdk" =
+_:
+let
+  CloudflareRsSdkModule =
     {
-      pkgs,
-      lib,
       config,
+      lib,
       ...
     }:
     let
-      packageSet = lib.attrByPath [ pkgs.system ] { } config.flake.packages;
-      sdkPackage = lib.attrByPath [
-        "cloudflare-rs-src"
-      ] (throw "cloudflare-rs-src package not found for ${pkgs.system}") packageSet;
+      cfg = config.programs."cloudflare-rs-sdk".extended;
     in
     {
-      environment.systemPackages = [ sdkPackage ];
+      options.programs."cloudflare-rs-sdk".extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc ''
+            This module is a placeholder for the Cloudflare Rust SDK.
+            The SDK is a Rust crate installed via `cargo add cloudflare`,
+            not a system package. Enabling this option has no effect.
+          '';
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        # Cloudflare Rust SDK is a Rust crate, not a system package
+        # Install it in your project with: cargo add cloudflare
+      };
     };
+in
+{
+  flake.nixosModules.apps."cloudflare-rs-sdk" = CloudflareRsSdkModule;
 }

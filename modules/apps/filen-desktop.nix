@@ -19,12 +19,34 @@
     * `filen-desktop --start-in-tray` — Keep the client running in the background while syncing files.
     * Configure selective sync via the Preferences dialog to limit bandwidth and watched folders.
 */
-
-{
-  flake.nixosModules.apps."filen-desktop" =
-    { pkgs, ... }:
+_:
+let
+  FilenDesktopModule =
     {
-      environment.systemPackages = [ pkgs.filen-desktop ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."filen-desktop".extended;
+    in
+    {
+      options.programs.filen-desktop.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable filen-desktop.";
+        };
 
+        package = lib.mkPackageOption pkgs "filen-desktop" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.filen-desktop = FilenDesktopModule;
 }

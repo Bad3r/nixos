@@ -21,12 +21,34 @@
     * `gunzip archive.tar.gz` — Decompress an archive in place.
     * `zcat logs.tar.gz | tar xf -` — Stream a compressed tarball directly into `tar` without creating intermediate files.
 */
-
-{
-  flake.nixosModules.apps.gzip =
-    { pkgs, lib, ... }:
+_:
+let
+  GzipModule =
     {
-      environment.systemPackages = lib.mkDefault [ pkgs.gzip ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.gzip.extended;
+    in
+    {
+      options.programs.gzip.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable gzip.";
+        };
 
+        package = lib.mkPackageOption pkgs "gzip" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.gzip = GzipModule;
 }

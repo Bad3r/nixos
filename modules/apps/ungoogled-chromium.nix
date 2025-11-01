@@ -20,11 +20,34 @@
     * `ungoogled-chromium --incognito --enable-features=VaapiVideoDecoder` — Launch a private session with VA-API decoding.
     * `ungoogled-chromium --user-data-dir ~/.local/share/chromium-alt` — Keep a fully isolated profile tree for testing.
 */
-
-{
-  flake.nixosModules.apps."ungoogled-chromium" =
-    { pkgs, ... }:
+_:
+let
+  UngoogledChromiumModule =
     {
-      environment.systemPackages = [ pkgs.ungoogled-chromium ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs."ungoogled-chromium".extended;
+    in
+    {
+      options.programs.ungoogled-chromium.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable ungoogled-chromium.";
+        };
+
+        package = lib.mkPackageOption pkgs "ungoogled-chromium" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.ungoogled-chromium = UngoogledChromiumModule;
 }

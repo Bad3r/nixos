@@ -19,12 +19,34 @@
     * `qbittorrent-nox --webui-port=8080` — Run a web-controlled instance for remote management.
     * Use Tools → RSS Downloader to automate TV show downloads based on filters.
 */
-
-{
-  flake.nixosModules.apps.qbittorrent =
-    { pkgs, ... }:
+_:
+let
+  QbittorrentModule =
     {
-      environment.systemPackages = [ pkgs.qbittorrent ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.qbittorrent.extended;
+    in
+    {
+      options.programs.qbittorrent.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable qbittorrent.";
+        };
 
+        package = lib.mkPackageOption pkgs "qbittorrent" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.qbittorrent = QbittorrentModule;
 }

@@ -20,12 +20,34 @@
     * `cvlc http://example.com/stream --intf rc` — Control VLC via remote control interface for automation.
     * `vlc video.mp4 --sout '#transcode{vcodec=h264,acodec=aac}:std{access=file,mux=mp4,dst=output.mp4}'` — Transcode content to MP4.
 */
-
-{
-  flake.nixosModules.apps.vlc =
-    { pkgs, ... }:
+_:
+let
+  VlcModule =
     {
-      environment.systemPackages = [ pkgs.vlc ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.vlc.extended;
+    in
+    {
+      options.programs.vlc.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable vlc.";
+        };
 
+        package = lib.mkPackageOption pkgs "vlc" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.vlc = VlcModule;
 }

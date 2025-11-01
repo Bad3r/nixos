@@ -20,12 +20,34 @@
     * `git branch | sk --ansi --query feature` — Filter git branches with initial query text.
     * `sk --tac --expect=ctrl-y` — Reverse the list order and capture custom key events for scripting.
 */
-
-{
-  flake.nixosModules.apps.skim =
-    { pkgs, ... }:
+_:
+let
+  SkimModule =
     {
-      environment.systemPackages = [ pkgs.skim ];
-    };
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.skim.extended;
+    in
+    {
+      options.programs.skim.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable skim.";
+        };
 
+        package = lib.mkPackageOption pkgs "skim" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.skim = SkimModule;
 }

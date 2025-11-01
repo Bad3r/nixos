@@ -14,11 +14,34 @@
     --continue <url>: Resume partially downloaded files.
     --limit-rate=1M <url>: Throttle download bandwidth to a fixed rate.
 */
-
-{
-  flake.nixosModules.apps.wget =
-    { pkgs, ... }:
+_:
+let
+  WgetModule =
     {
-      environment.systemPackages = [ pkgs.wget ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.wget.extended;
+    in
+    {
+      options.programs.wget.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable wget.";
+        };
+
+        package = lib.mkPackageOption pkgs "wget" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.wget = WgetModule;
 }
