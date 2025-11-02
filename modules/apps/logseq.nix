@@ -15,7 +15,7 @@
   Example Usage:
     * `logseq` — Open the Logseq desktop app.
 */
-_:
+{ inputs, ... }:
 let
   LogseqModule =
     {
@@ -35,7 +35,11 @@ let
           description = lib.mdDoc "Whether to enable Logseq.";
         };
 
-        package = lib.mkPackageOption pkgs "logseq" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = inputs.nix-logseq-git-flake.packages.${pkgs.system}.logseq;
+          description = lib.mdDoc "The Logseq package to use.";
+        };
       };
 
       config = lib.mkIf cfg.enable {
