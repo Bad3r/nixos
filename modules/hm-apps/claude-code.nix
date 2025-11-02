@@ -122,40 +122,71 @@
         #model = defaultModel;
         alwaysThinkingEnabled = true;
         enableAllProjectMcpServers = true;
-        mcpServers = defaultServers;
       };
+
+      # MCP servers configuration as JSON for the activation script
+      mcpServersJson = pkgs.writeText "claude-mcp-servers.json" (
+        builtins.toJSON { mcpServers = defaultServers; }
+      );
 
     in
     {
       config = {
-        home.file.".claude/settings.json" = {
-          text = builtins.toJSON claudeSettings;
-          onChange = ''
-            # Ensure Claude Code picks up the new settings
-            echo "✢ Claude Code: settings updated"
+        home = {
+          file.".claude/settings.json" = {
+            text = builtins.toJSON claudeSettings;
+            onChange = ''
+              # Ensure Claude Code picks up the new settings
+              echo "✢ Claude Code: settings updated"
+            '';
+          };
+
+          # Merge MCP servers into ~/.claude.json
+          activation.claudeCodeMcpServers = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            CLAUDE_CONFIG="$HOME/.claude.json"
+            TMP_FILE="$(mktemp)"
+
+            # Ensure the file exists
+            if [ ! -f "$CLAUDE_CONFIG" ]; then
+              echo "{}" > "$CLAUDE_CONFIG"
+            fi
+
+            # Merge MCP servers from nix config, preserving existing servers
+            ${pkgs.jq}/bin/jq --slurpfile nixServers ${mcpServersJson} '
+              .mcpServers = (
+                (.mcpServers // {}) as $existing
+                | ($nixServers[0].mcpServers // {}) as $nixMcp
+                | $existing * $nixMcp
+              )
+            ' "$CLAUDE_CONFIG" > "$TMP_FILE"
+
+            # Atomic update
+            mv "$TMP_FILE" "$CLAUDE_CONFIG"
+            chmod 600 "$CLAUDE_CONFIG"
+
+            echo "✢ Claude Code: MCP servers merged into ~/.claude.json"
           '';
-        };
 
-        home.sessionVariables = {
-          # ANTHROPIC_MODEL = defaultModel;
-          DISABLE_AUTOUPDATER = "1";
-          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
-          DISABLE_TELEMETRY = "1";
-          CLAUDE_CODE_ENABLE_TELEMETRY = "0";
-          DISABLE_ERROR_REPORTING = "1";
-          DISABLE_NON_ESSENTIAL_MODEL_CALLS = "1";
-          CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "1";
-          CLAUDE_BASH_DEFAULT_TIMEOUT_MS = "240000";
-          CLAUDE_BASH_MAX_TIMEOUT_MS = "4800000";
-          BASH_MAX_OUTPUT_LENGTH = "1024";
-          MAX_THINKING_TOKENS = "32768";
-          CLAUDE_CODE_MAX_OUTPUT_TOKENS = "1";
-          MAX_MCP_OUTPUT_TOKENS = "32000";
-          CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";
-          CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL = "1";
-          DISABLE_BUG_COMMAND = "1";
-          USE_BUILTIN_RIPGREP = "0";
-
+          sessionVariables = {
+            # ANTHROPIC_MODEL = defaultModel;
+            DISABLE_AUTOUPDATER = "1";
+            CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
+            DISABLE_TELEMETRY = "1";
+            CLAUDE_CODE_ENABLE_TELEMETRY = "0";
+            DISABLE_ERROR_REPORTING = "1";
+            DISABLE_NON_ESSENTIAL_MODEL_CALLS = "1";
+            CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "1";
+            CLAUDE_BASH_DEFAULT_TIMEOUT_MS = "240000";
+            CLAUDE_BASH_MAX_TIMEOUT_MS = "4800000";
+            BASH_MAX_OUTPUT_LENGTH = "1024";
+            MAX_THINKING_TOKENS = "32768";
+            CLAUDE_CODE_MAX_OUTPUT_TOKENS = "1";
+            MAX_MCP_OUTPUT_TOKENS = "32000";
+            CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";
+            CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL = "1";
+            DISABLE_BUG_COMMAND = "1";
+            USE_BUILTIN_RIPGREP = "0";
+          };
         };
       };
     };
