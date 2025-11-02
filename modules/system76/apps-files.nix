@@ -34,6 +34,7 @@ let
     "duf"
     "dua"
     "filezilla"
+    "opendirectorydownloader"
     "veracrypt"
   ];
 in
