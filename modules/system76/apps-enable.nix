@@ -26,6 +26,7 @@ _: {
       "cosmic-term".extended.enable = true;
       curl.extended.enable = true;
       curlie.extended.enable = true;
+      cutter.extended.enable = true;
       ddrescue.extended.enable = true;
       diffutils.extended.enable = true;
       direnv.extended.enable = true;
@@ -53,6 +54,7 @@ _: {
       gdb.extended.enable = true;
       git.extended.enable = true;
       "git-filter-repo".extended.enable = true;
+      ghidra.extended.enable = true;
       "github-mcp-server".extended.enable = true;
       glow.extended.enable = true;
       "gnome-disk-utility".extended.enable = true;
@@ -63,9 +65,11 @@ _: {
       gzip.extended.enable = true;
       hdparm.extended.enable = true;
       htop.extended.enable = true;
+      hopper.extended.enable = true;
       httpie.extended.enable = true;
       httpx.extended.enable = true;
       hyperfine.extended.enable = true;
+      iaito.extended.enable = true;
       iotop.extended.enable = true;
       jnv.extended.enable = true;
       jq.extended.enable = true;
@@ -74,6 +78,7 @@ _: {
       kitty.extended.enable = true;
       ktailctl.extended.enable = true;
       less.extended.enable = true;
+      libnotify.extended.enable = true;
       localsend.extended.enable = true;
       logseq.extended.enable = true;
       lshw.extended.enable = true;
@@ -99,6 +104,7 @@ _: {
       ntfs3g.extended.enable = true;
       "nvme-cli".extended.enable = true;
       obsidian.extended.enable = true;
+      opendirectorydownloader.extended.enable = true;
       openssl.extended.enable = true;
       openvpn.extended.enable = true;
       p7zip.extended.enable = true;
@@ -114,9 +120,11 @@ _: {
       psmisc.extended.enable = true;
       qbittorrent.extended.enable = true;
       raindrop.extended.enable = true;
+      radare2.extended.enable = true;
       rar.extended.enable = true;
       rclone.extended.enable = true;
       rip2.extended.enable = true;
+      rizin.extended.enable = true;
       rsync.extended.enable = true;
       s5cmd.extended.enable = true;
       smartmontools.extended.enable = true;
@@ -126,12 +134,14 @@ _: {
       sysstat.extended.enable = true;
       tar.extended.enable = true;
       tealdeer.extended.enable = true;
+      telegram-desktop.extended.enable = true;
       terraform.extended.enable = true;
       tesseract.extended.enable = true;
       testdisk.extended.enable = true;
       tokei.extended.enable = true;
       tor.extended.enable = true;
       "tor-browser".extended.enable = true;
+      torsocks.extended.enable = true;
       "ungoogled-chromium".extended.enable = true;
       unrar.extended.enable = true;
       unzip.extended.enable = true;

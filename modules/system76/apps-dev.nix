@@ -32,6 +32,12 @@ let
     "strace"
     "ltrace"
     "ent"
+    # reverse engineering
+    "ghidra"
+    "radare2"
+    "rizin"
+    "cutter"
+    "iaito"
     # Node toolchains and managers
     "nodejs_24"
     "nodejs_22"

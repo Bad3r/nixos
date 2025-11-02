@@ -12,6 +12,7 @@ let
     "cosmic-term"
     "bottom"
     "htop"
+    "libnotify"
     "sysstat"
     "direnv"
     "nix-direnv"
