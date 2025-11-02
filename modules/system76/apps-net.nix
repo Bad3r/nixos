@@ -17,6 +17,7 @@ let
     "wget"
     "tor"
     "tor-browser"
+    "torsocks"
     "ungoogled-chromium"
     "openvpn"
     "wireguard-tools"
