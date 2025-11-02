@@ -11,6 +11,7 @@ _: {
         age-plugin-fido2prf = final.callPackage ../../packages/age-plugin-fido2prf { };
         charles = final.callPackage ../../packages/charles { };
         dnsleak = final.callPackage ../../packages/dnsleak { };
+        opendirectorydownloader = final.callPackage ../../packages/opendirectorydownloader { };
       })
     ];
   };
