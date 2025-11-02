@@ -10,9 +10,13 @@ _: {
           enable = true;
           allowedTCPPorts = [
             22
-            8082
-            8888
           ]; # SSH if needed
+          allowedTCPPortRanges = [
+            {
+              from = 8000;
+              to = 8999;
+            }
+          ];
         };
       };
     };
