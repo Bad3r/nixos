@@ -11,6 +11,7 @@ iterm2 = "iterm2"
 iterm2_with_bell = "iterm2_with_bell"
 iterm = "iterm"
 Autorize = "Autorize"
+Laf = "Laf"
 
 [files]
 # Skip encrypted secrets entirely; they are high-entropy ciphertext.
