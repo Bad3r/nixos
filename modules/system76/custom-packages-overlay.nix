@@ -12,6 +12,7 @@ _: {
         charles = final.callPackage ../../packages/charles { };
         dnsleak = final.callPackage ../../packages/dnsleak { };
         opendirectorydownloader = final.callPackage ../../packages/opendirectorydownloader { };
+        malimite = final.callPackage ../../packages/malimite { };
       })
     ];
   };

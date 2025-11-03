@@ -84,6 +84,7 @@ _: {
       lshw.extended.enable = true;
       lsof.extended.enable = true;
       ltrace.extended.enable = true;
+      malimite.extended.enable = true;
       mangohud.extended.enable = true;
       marktext.extended.enable = true;
       mattermost.extended.enable = true;

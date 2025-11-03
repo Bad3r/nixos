@@ -34,6 +34,7 @@ let
     "ent"
     # reverse engineering
     "ghidra"
+    "malimite"
     "radare2"
     "rizin"
     "cutter"
