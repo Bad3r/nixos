@@ -37,7 +37,7 @@ let
       # Add overlay to make burpsuitepro available in pkgs
       nixpkgs.overlays = [
         (_final: prev: {
-          burpsuitepro = packageFor prev.system;
+          burpsuitepro = packageFor prev.stdenv.hostPlatform.system;
         })
       ];
 
@@ -59,12 +59,5 @@ let
     };
 in
 {
-  # Expose burpsuitepro package globally via perSystem
-  perSystem =
-    { pkgs, ... }:
-    {
-      packages.burpsuitepro = packageFor pkgs.system;
-    };
-
   flake.nixosModules.apps.burpsuite = BurpsuiteModule;
 }

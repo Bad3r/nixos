@@ -30,7 +30,8 @@
       ...
     }:
     let
-      baseCodexPkg = lib.attrByPath [ "flake" "packages" pkgs.system "codex" ] (pkgs.callPackage
+      baseCodexPkg = lib.attrByPath [ "flake" "packages" pkgs.stdenv.hostPlatform.system "codex" ] (
+        pkgs.callPackage
         ../../packages/codex
         { }
       ) config;
