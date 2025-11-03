@@ -6,7 +6,7 @@
       agePluginPkg = lib.attrByPath [
         "flake"
         "packages"
-        pkgs.system
+        pkgs.stdenv.hostPlatform.system
         "age-plugin-fido2prf"
       ] (pkgs.callPackage ../../packages/age-plugin-fido2prf { }) config;
     in

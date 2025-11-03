@@ -37,7 +37,7 @@ let
 
         package = lib.mkOption {
           type = lib.types.package;
-          default = inputs.nix-logseq-git-flake.packages.${pkgs.system}.logseq;
+          default = inputs.nix-logseq-git-flake.packages.${pkgs.stdenv.hostPlatform.system}.logseq;
           description = lib.mdDoc "The Logseq package to use.";
         };
       };
