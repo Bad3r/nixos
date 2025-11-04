@@ -8,6 +8,14 @@
   Summary:
     * Prints files with syntax highlighting, line numbers, Git integration, and automatic paging via `less`.
     * Supports multiple themes, custom highlighting assets, and convenient diff/line filtering switches.
+    * Enhanced with Stylix theming, git integration, and optimized paging behavior.
+
+  Features:
+    * Theme automatically synced with Stylix configuration
+    * Git diff integration showing file modifications
+    * Line numbers and grid for better readability
+    * Smart paging (auto-detect when to page)
+    * File header showing file name and size
 
   Options:
     --style=plain,numbers: Control decorations such as line numbers, grid, and header.
@@ -22,24 +30,78 @@
     * `git diff | bat --diff` — Colorize Git diff output with syntax-aware highlighting.
 */
 
+{ lib, ... }:
 {
-  flake.homeManagerModules.apps.bat =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
-    let
-      cfg = config.programs.bat.extended;
-    in
-    {
-      options.programs.bat.extended = {
-        enable = lib.mkEnableOption "Syntax-highlighted `cat` alternative with Git-aware paging and theming.";
+  flake.homeManagerModules.apps.bat = {
+    # Enable Stylix theming for bat
+    stylix.targets.bat.enable = lib.mkDefault true;
+
+    programs.bat = {
+      enable = true;
+
+      config = {
+        # Theme managed by Stylix via stylix.targets.bat
+
+        # Style components to display
+        # Options: auto, full, plain, changes, header, header-filename, header-filesize,
+        #          grid, rule, numbers, snip
+        style = "numbers,changes,header,grid";
+
+        # Paging behavior
+        # auto: page if output doesn't fit on screen
+        # never: always print to stdout
+        # always: always use pager
+        paging = "auto";
+
+        # Wrap long lines
+        # auto: wrap if terminal is narrow
+        # never: don't wrap, scroll horizontally
+        # character: wrap at character boundaries
+        wrap = "auto";
+
+        # Show non-printable characters
+        show-all = false;
+
+        # Tab width
+        tabs = "2";
+
+        # Italic text support (requires terminal support)
+        italic-text = "always";
       };
 
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.bat ];
-      };
+      # Custom themes can be added here
+      # themes = {
+      #   custom-nord = {
+      #     src = pkgs.fetchFromGitHub {
+      #       owner = "nordtheme";
+      #       repo = "sublime-text";
+      #       rev = "...";
+      #       sha256 = "...";
+      #     };
+      #     file = "Nord.tmTheme";
+      #   };
+      # };
+
+      # Custom syntax definitions
+      # syntaxes = {
+      #   gleam = {
+      #     src = pkgs.fetchFromGitHub {
+      #       owner = "molnarmark";
+      #       repo = "sublime-gleam";
+      #       rev = "...";
+      #       sha256 = "...";
+      #     };
+      #     file = "gleam.sublime-syntax";
+      #   };
+      # };
+
+      # Extra packages that provide syntax highlighting
+      # extraPackages = with pkgs.bat-extras; [
+      #   batdiff  # diff with bat
+      #   batman   # man pages with bat
+      #   batgrep  # grep with bat
+      #   batwatch # watch with bat
+      # ];
     };
+  };
 }
