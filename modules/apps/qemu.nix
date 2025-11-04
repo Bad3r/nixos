@@ -7,6 +7,7 @@
   Summary:
     * Installs qemu binaries with KVM acceleration, virtio tools, and quickemu helpers.
     * Enables workflows for creating, running, and debugging libvirt-based guests.
+    * Optionally configures libvirtd daemon and user groups.
 
   Example Usage:
     * `qemu-system-x86_64` — Launch a QEMU virtual machine directly.
@@ -24,6 +25,7 @@ let
     }:
     let
       cfg = config.programs.qemu.extended;
+      owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] null config;
     in
     {
       options.programs.qemu.extended = {
@@ -31,6 +33,12 @@ let
           type = lib.types.bool;
           default = false;
           description = lib.mdDoc "Whether to enable QEMU virtualization tools.";
+        };
+
+        enableLibvirt = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable libvirtd daemon with QEMU/KVM.";
         };
 
         package = lib.mkPackageOption pkgs "qemu" { };
@@ -52,9 +60,32 @@ let
         };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ] ++ cfg.extraTools;
-      };
+      config = lib.mkMerge [
+        (lib.mkIf cfg.enable {
+          environment.systemPackages = [ cfg.package ] ++ cfg.extraTools;
+        })
+        (lib.mkIf cfg.enableLibvirt (
+          lib.mkMerge [
+            {
+              virtualisation.libvirtd = {
+                enable = true;
+                qemu = {
+                  package = pkgs.qemu_kvm;
+                  runAsRoot = false;
+                };
+              };
+              home-manager.extraAppImports = lib.mkAfter [ "virt-manager" ];
+            }
+            (lib.mkIf (owner != null) {
+              users.users.${owner}.extraGroups = lib.mkAfter [
+                "kvm"
+                "libvirtd"
+                "qemu-libvirtd"
+              ];
+            })
+          ]
+        ))
+      ];
     };
 in
 {

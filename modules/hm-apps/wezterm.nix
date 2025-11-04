@@ -22,9 +22,12 @@
 */
 
 {
-  flake.homeManagerModules.apps.wezterm = _: {
-    programs.wezterm = {
-      enable = true;
+  flake.homeManagerModules.apps.wezterm =
+    { lib, ... }:
+    {
+      # Enable Stylix theming for wezterm
+      stylix.targets.wezterm.enable = lib.mkDefault true;
+
+      programs.wezterm.enable = true;
     };
-  };
 }
