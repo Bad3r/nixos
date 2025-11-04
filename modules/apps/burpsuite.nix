@@ -34,13 +34,6 @@ let
       cfg = config.programs.burpsuite.extended;
     in
     {
-      # Add overlay to make burpsuitepro available in pkgs
-      nixpkgs.overlays = [
-        (_final: prev: {
-          burpsuitepro = packageFor prev.stdenv.hostPlatform.system;
-        })
-      ];
-
       options.programs.burpsuite.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
@@ -51,10 +44,18 @@ let
         package = lib.mkPackageOption pkgs "burpsuitepro" { };
       };
 
-      config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "burpsuitepro" ];
+      config = {
+        # Add overlay to make burpsuitepro available in pkgs
+        # Must be unconditional so the package option can resolve
+        nixpkgs.overlays = [
+          (_final: prev: {
+            burpsuitepro = packageFor prev.stdenv.hostPlatform.system;
+          })
+        ];
 
-        environment.systemPackages = [ cfg.package ];
+        nixpkgs.allowedUnfreePackages = lib.mkIf cfg.enable [ "burpsuitepro" ];
+
+        environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
       };
     };
 in
