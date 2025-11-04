@@ -8,6 +8,7 @@
   Summary:
     * Installs the full Ventoy command-line toolchain with filesystem helpers (ext4, NTFS, XFS, LUKS).
     * Lets you initialise or update Ventoy on removable media without needing the upstream GTK/Qt frontends.
+    * Marked as insecure due to binary blobs - automatically allowed when enabled.
 
   Example Usage:
     * `sudo ventoy` - Launch the interactive CLI menu to select a target disk and install Ventoy.
@@ -39,6 +40,12 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        # Ventoy is marked as insecure due to binary blobs
+        # Automatically permit the current version from nixpkgs
+        nixpkgs.config.permittedInsecurePackages = [
+          cfg.package.name
+        ];
       };
     };
 in

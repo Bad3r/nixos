@@ -343,6 +343,154 @@
                 always_run = true;
                 verbose = false;
               };
+
+            # Verify apps-enable.nix is synchronized with modules/apps/
+            apps-catalog-sync =
+              let
+                syncChecker = pkgs.writeShellApplication {
+                  name = "check-apps-catalog-sync";
+                  runtimeInputs = [
+                    pkgs.git
+                    pkgs.coreutils
+                    pkgs.gnugrep
+                    pkgs.gnused
+                    pkgs.gawk
+                    pkgs.findutils
+                  ];
+                  text = ''
+                    set -euo pipefail
+
+                    root=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+                    cd "$root"
+
+                    apps_dir="modules/apps"
+                    catalog_file="modules/system76/apps-enable.nix"
+
+                    # Check if this hook should run by examining staged changes
+                    # Only run if modules/apps/ or apps-enable.nix are affected
+                    should_run=0
+
+                    # Check for added/deleted files in modules/apps/
+                    if git diff --cached --name-status --diff-filter=AD | grep -q "^[AD].*$apps_dir/.*\.nix$"; then
+                      should_run=1
+                    fi
+
+                    # Check if apps-enable.nix was modified
+                    if git diff --cached --name-only | grep -q "^$catalog_file$"; then
+                      should_run=1
+                    fi
+
+                    # Exit early if not triggered
+                    if [ "$should_run" -eq 0 ]; then
+                      exit 0
+                    fi
+
+                    # Extract app names from modules/apps/ (exclude _*.nix files)
+                    mapfile -t filesystem_apps < <(
+                      find "$apps_dir" -maxdepth 1 -type f -name "*.nix" ! -name "_*.nix" -printf "%f\n" \
+                        | sed 's/\.nix$//' \
+                        | sort
+                    )
+
+                    # Extract app names from apps-enable.nix
+                    # Parse lines like: "app-name".extended.enable or app.extended.enable
+                    mapfile -t catalog_apps < <(
+                      grep -E '\.extended\.enable' "$catalog_file" \
+                        | sed -E 's/^\s+//' \
+                        | sed -E 's/^(["\047]?)([a-zA-Z0-9_-]+)\1\.extended\.enable.*/\2/' \
+                        | sort
+                    )
+
+                    # Convert arrays to associative arrays for efficient lookups
+                    declare -A fs_map catalog_map
+
+                    for app in "''${filesystem_apps[@]}"; do
+                      fs_map["$app"]=1
+                    done
+
+                    for app in "''${catalog_apps[@]}"; do
+                      catalog_map["$app"]=1
+                    done
+
+                    # Find missing entries (in filesystem but not in catalog)
+                    declare -a missing=()
+                    for app in "''${filesystem_apps[@]}"; do
+                      if [ -z "''${catalog_map[$app]:-}" ]; then
+                        missing+=("$app")
+                      fi
+                    done
+
+                    # Find stale entries (in catalog but not in filesystem)
+                    declare -a stale=()
+                    for app in "''${catalog_apps[@]}"; do
+                      if [ -z "''${fs_map[$app]:-}" ]; then
+                        stale+=("$app")
+                      fi
+                    done
+
+                    # Report errors if any discrepancies found
+                    if [ "''${#missing[@]}" -gt 0 ] || [ "''${#stale[@]}" -gt 0 ]; then
+                      echo "" >&2
+                      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+                      echo "❌ Error: apps-enable.nix is out of sync with modules/apps/" >&2
+                      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+                      echo "" >&2
+
+                      if [ "''${#missing[@]}" -gt 0 ]; then
+                        echo "📝 Missing entries (add these to $catalog_file):" >&2
+                        echo "" >&2
+                        for app in "''${missing[@]}"; do
+                          # Determine if quoting is needed (contains hyphens)
+                          if [[ "$app" =~ - ]]; then
+                            echo "  \"$app\".extended.enable = lib.mkOverride 1100 false;" >&2
+                          else
+                            echo "  $app.extended.enable = lib.mkOverride 1100 false;" >&2
+                          fi
+                        done
+                        echo "" >&2
+                      fi
+
+                      if [ "''${#stale[@]}" -gt 0 ]; then
+                        echo "🗑️  Stale entries (remove these from $catalog_file):" >&2
+                        echo "" >&2
+                        for app in "''${stale[@]}"; do
+                          # Find line number for helpful context
+                          if [[ "$app" =~ - ]]; then
+                            line_num=$(grep -n "\"$app\"\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                          else
+                            line_num=$(grep -n "$app\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                          fi
+                          echo "  $app (line $line_num)" >&2
+                        done
+                        echo "" >&2
+                      fi
+
+                      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+                      echo "ℹ️  Summary:" >&2
+                      echo "   Filesystem: ''${#filesystem_apps[@]} apps" >&2
+                      echo "   Catalog:    ''${#catalog_apps[@]} apps" >&2
+                      echo "   Missing:    ''${#missing[@]} entries" >&2
+                      echo "   Stale:      ''${#stale[@]} entries" >&2
+                      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+                      echo "" >&2
+                      exit 1
+                    fi
+
+                    # Success - everything is synchronized
+                    exit 0
+                  '';
+                };
+              in
+              {
+                enable = true;
+                name = "apps-catalog-sync";
+                entry = lib.getExe syncChecker;
+                pass_filenames = false;
+                stages = [
+                  "pre-commit"
+                  "manual"
+                ];
+              };
           };
         };
       };

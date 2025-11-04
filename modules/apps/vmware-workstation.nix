@@ -7,6 +7,7 @@
   Summary:
     * Installs VMware Workstation binaries for building and running local VMs.
     * Provides utilities like `vmware`, `vmrun`, and networking helpers required by the NixOS vmware host module.
+    * Optionally enables VMware Workstation host services.
 
   Example Usage:
     * `vmware` — Launch the VMware Workstation UI.
@@ -32,14 +33,28 @@ let
           description = lib.mdDoc "Whether to enable vmware-workstation.";
         };
 
+        enableHost = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable VMware Workstation host services.";
+        };
+
         package = lib.mkPackageOption pkgs "vmware-workstation" { };
       };
 
-      config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "vmware-workstation" ];
+      config = lib.mkMerge [
+        (lib.mkIf cfg.enable {
+          nixpkgs.allowedUnfreePackages = [ "vmware-workstation" ];
 
-        environment.systemPackages = [ cfg.package ];
-      };
+          environment.systemPackages = [ cfg.package ];
+        })
+        (lib.mkIf cfg.enableHost {
+          virtualisation.vmware.host = {
+            enable = true;
+            package = pkgs.vmware-workstation;
+          };
+        })
+      ];
     };
 in
 {

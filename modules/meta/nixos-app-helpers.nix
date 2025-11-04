@@ -94,7 +94,7 @@ let
 
   availableApps = baseApps // generatedApps;
 
-  appKeys = lib.attrNames availableApps;
+  appKeys = lib.filter (name: name != "_file" && name != "imports") (lib.attrNames availableApps);
 
   helpers = rec {
     hasApp = name: builtins.hasAttr name availableApps;
@@ -134,6 +134,8 @@ let
           throw ("Unknown NixOS app '" + name + "'" + suggestion);
 
     getApps = names: map getApp names;
+
+    getAllApps = getApps appKeys;
 
     getAppOr = name: default: if hasApp name then getApp name else default;
   };

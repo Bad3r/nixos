@@ -38,6 +38,9 @@
       };
 
       config = lib.mkIf cfg.enable {
+        # Enable Stylix theming for zathura
+        stylix.targets.zathura.enable = lib.mkDefault true;
+
         home.packages = [ pkgs.zathura ];
       };
     };
