@@ -151,12 +151,12 @@ All 245 app modules follow standardized NixOS patterns with:
 
 ### Validation & Builds
 
-| Trigger             | Command                                                               | Preconditions                                                                              | Post-check                                                      |
-| ------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| Verify flake health | `nix flake check --accept-flake-config`                               | Dev shell recommended; expect long runtime.                                                | Command exits 0; investigate and resolve any reported failures. |
-| Build a host        | `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` | Replace `<host>` with target. Do **not** use `--allow-dirty` unless explicitly instructed. | Build completes; record store path for auditing.                |
-| Validate and deploy | `./build.sh [OPTIONS]`                                                | Clean working tree required unless `--allow-dirty` used.                                   | Script exits 0; capture logs if issues arise.                   |
-| Update flake inputs | `./build.sh --update`                                                 | Clean working tree recommended.                                                            | Review updated lock file changes.                               |
+| Trigger             | Command                                                               | Preconditions                                                                              | Post-check                                       |
+| ------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------ | --------------------------------------------------------------- |
+| Verify flake health | `nix flake check --accept-flake-config --no-build --offline 2>&1      | head -100`                                                                                 | Dev shell recommended; expect long runtime.      | Command exits 0; investigate and resolve any reported failures. |
+| Build a host        | `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` | Replace `<host>` with target. Do **not** use `--allow-dirty` unless explicitly instructed. | Build completes; record store path for auditing. |
+| Validate and deploy | `./build.sh [OPTIONS]`                                                | Clean working tree required unless `--allow-dirty` used.                                   | Script exits 0; capture logs if issues arise.    |
+| Update flake inputs | `./build.sh --update`                                                 | Clean working tree recommended.                                                            | Review updated lock file changes.                |
 
 #### build.sh Options
 
