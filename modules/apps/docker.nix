@@ -7,6 +7,7 @@
   Summary:
     * Installs the core Docker CLI alongside compose v2 and buildx helpers.
     * Provides credential helper binaries for registries that require external auth stores.
+    * Optionally enables the Docker daemon and configures user groups.
 
   Example Usage:
     * `docker ps` — List running containers on the local daemon.
@@ -25,6 +26,7 @@ let
     }:
     let
       cfg = config.programs.docker.extended;
+      owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] null config;
     in
     {
       options.programs.docker.extended = {
@@ -32,6 +34,12 @@ let
           type = lib.types.bool;
           default = false;
           description = lib.mdDoc "Whether to enable Docker CLI tools.";
+        };
+
+        enableDaemon = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = lib.mdDoc "Whether to enable the Docker daemon (virtualisation.docker).";
         };
 
         package = lib.mkPackageOption pkgs "docker" { };
@@ -55,9 +63,26 @@ let
         };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ] ++ cfg.extraTools;
-      };
+      config = lib.mkMerge [
+        (lib.mkIf cfg.enable {
+          environment.systemPackages = [ cfg.package ] ++ cfg.extraTools;
+        })
+        (lib.mkIf cfg.enableDaemon (
+          lib.mkMerge [
+            {
+              virtualisation.docker = {
+                enable = true;
+                enableOnBoot = true;
+              };
+
+              home-manager.extraAppImports = lib.mkAfter [ "lazydocker" ];
+            }
+            (lib.mkIf (owner != null) {
+              users.users.${owner}.extraGroups = lib.mkAfter [ "docker" ];
+            })
+          ]
+        ))
+      ];
     };
 in
 {
