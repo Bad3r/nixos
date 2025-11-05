@@ -81,13 +81,13 @@
         git_status = {
           format = "([$all_status$ahead_behind]($style) )";
           style = "bold red";
-          conflicted = "🏳";
+          conflicted = "󰞇\${count}";
           ahead = "⇡\${count}";
           behind = "⇣\${count}";
           diverged = "⇕⇡\${ahead_count}⇣\${behind_count}";
           up_to_date = "✓";
           untracked = "?\${count}";
-          stashed = "📦\${count}";
+          stashed = "󰏗\${count}";
           modified = "!\${count}";
           staged = "+\${count}";
           renamed = "»\${count}";
@@ -101,7 +101,7 @@
           pure_msg = "[pure](bold green)";
           unknown_msg = "[unknown](bold yellow)";
           format = "via [$symbol$state( \\($name\\))]($style) ";
-          symbol = "❄️  ";
+          symbol = " ";
           style = "bold blue";
         };
 
@@ -153,7 +153,7 @@
         # Kubernetes context
         kubernetes = {
           disabled = false;
-          format = "on [⛵ $context \\($namespace\\)](bold purple) ";
+          format = "on [󱃾 $context \\($namespace\\)](bold purple) ";
         };
 
         # Package version (disabled by default - can be slow)
