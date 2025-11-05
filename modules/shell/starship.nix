@@ -72,7 +72,7 @@
 
         # Git branch
         git_branch = {
-          symbol = " ";
+          symbol = " ";
           format = "on [$symbol$branch(:$remote_branch)]($style) ";
           style = "bold purple";
         };
@@ -101,7 +101,7 @@
           pure_msg = "[pure](bold green)";
           unknown_msg = "[unknown](bold yellow)";
           format = "via [$symbol$state( \\($name\\))]($style) ";
-          symbol = " ";
+          symbol = " ";
           style = "bold blue";
         };
 
@@ -114,38 +114,38 @@
 
         # Language modules
         rust = {
-          symbol = " ";
+          symbol = " ";
           format = "via [$symbol($version )]($style)";
           style = "bold red";
         };
 
         python = {
-          symbol = " ";
+          symbol = " ";
           format = "via [$symbol$pyenv_prefix($version )(\\($virtualenv\\) )]($style)";
           style = "bold yellow";
         };
 
         nodejs = {
-          symbol = " ";
+          symbol = " ";
           format = "via [$symbol($version )]($style)";
           style = "bold green";
         };
 
         golang = {
-          symbol = " ";
+          symbol = " ";
           format = "via [$symbol($version )]($style)";
           style = "bold cyan";
         };
 
         c = {
-          symbol = " ";
+          symbol = " ";
           format = "via [$symbol($version(-$name) )]($style)";
           style = "bold blue";
         };
 
         # Docker context
         docker_context = {
-          symbol = " ";
+          symbol = " ";
           format = "via [$symbol$context]($style) ";
           style = "bold blue";
         };
