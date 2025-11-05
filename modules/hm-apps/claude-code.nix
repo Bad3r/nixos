@@ -167,8 +167,30 @@
             echo "✢ Claude Code: MCP servers merged into ~/.claude.json"
           '';
 
+          # First-time Claude Code setup
+          activation.claudeCodeFirstTimeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            CLAUDE_CONFIG="$HOME/.claude.json"
+
+            if [ ! -f "$CLAUDE_CONFIG" ]; then
+              # Initialize with first-time configuration
+              if command -v claude &> /dev/null; then
+                claude config set -g verbose true
+                claude config set -g preferredNotifChannel iterm2_with_bell
+                claude config set -g editorMode vim
+                claude config set -g supervisorMode true
+                claude config set -g autocheckpointingEnabled true
+                claude config set -g autoUpdates false
+                claude config set -g autoCompactEnabled true
+                claude config set -g diffTool kdiff
+
+                echo "✢ Claude Code: First-time setup completed"
+              fi
+            fi
+          '';
+
           sessionVariables = {
             ANTHROPIC_MODEL = defaultModel;
+            ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION = "me-south-1";
             DISABLE_AUTOUPDATER = "1";
             CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
             DISABLE_TELEMETRY = "1";
