@@ -98,6 +98,13 @@ in
       steam.extended.enable = true;
       mangohud.extended.enable = true;
       rip2.extended.enable = true;
+
+      # Language support
+      clojure-lang.extended.enable = true;
+      rust-lang.extended.enable = true;
+      java-lang.extended.enable = true;
+      python-lang.extended.enable = true;
+      go-lang.extended.enable = true;
     };
   };
 
