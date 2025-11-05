@@ -1,13 +1,11 @@
-{ config, ... }:
+{ lib, ... }:
 {
-  flake.nixosModules.lang.clojure.imports =
-    let
-      inherit (config.flake.nixosModules) apps;
-    in
-    [
-      apps.clojure-cli
-      apps.clojure-lsp
-      apps.leiningen
-      apps.babashka
-    ];
+  flake.nixosModules.lang.clojure = {
+    programs = {
+      "clojure-cli".extended.enable = lib.mkOverride 1050 true;
+      "clojure-lsp".extended.enable = lib.mkOverride 1050 true;
+      leiningen.extended.enable = lib.mkOverride 1050 true;
+      babashka.extended.enable = lib.mkOverride 1050 true;
+    };
+  };
 }

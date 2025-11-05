@@ -1,10 +1,8 @@
-{ config, ... }:
+{ lib, ... }:
 {
-  flake.nixosModules.lang.java.imports =
-    let
-      inherit (config.flake.nixosModules) apps;
-    in
-    [
-      apps.temurin-bin-25
-    ];
+  flake.nixosModules.lang.java = {
+    programs = {
+      "temurin-bin-25".extended.enable = lib.mkOverride 1050 true;
+    };
+  };
 }

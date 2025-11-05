@@ -47,6 +47,21 @@ let
       if dirty != null then dirty else rev
     else
       null;
+  getLangModule =
+    name:
+    if lib.hasAttrByPath [ "lang" name ] nixosModules then
+      lib.getAttrFromPath [ "lang" name ] nixosModules
+    else
+      null;
+  languageModules = lib.filter (module: module != null) (
+    map getLangModule [
+      "clojure"
+      "rust"
+      "java"
+      "python"
+      "go"
+    ]
+  );
 in
 {
   configurations.nixos.system76.module = {
@@ -63,6 +78,7 @@ in
     ++ hardwareModules
     ++ baseModules
     ++ virtualizationModules
+    ++ languageModules
     ++ lib.optional (hasModule "ssh") nixosModules.ssh;
 
     nixpkgs.allowedUnfreePackages = lib.mkAfter [
