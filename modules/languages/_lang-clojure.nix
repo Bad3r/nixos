@@ -53,10 +53,10 @@ in
     };
 
     packages = {
-      "clojure-cli" = lib.mkPackageOption pkgs "clojure" {
+      clojure-cli = lib.mkPackageOption pkgs "clojure" {
         example = lib.literalExpression "pkgs.clojure";
       };
-      "clojure-lsp" = lib.mkPackageOption pkgs "clojure-lsp" {
+      clojure-lsp = lib.mkPackageOption pkgs "clojure-lsp" {
         example = lib.literalExpression "pkgs.clojure-lsp";
       };
       leiningen = lib.mkPackageOption pkgs "leiningen" {
@@ -72,11 +72,11 @@ in
     programs = {
       "clojure-cli".extended = {
         enable = lib.mkOverride 1000 true;
-        package = cfg.packages."clojure-cli";
+        package = cfg.packages.clojure-cli;
       };
       "clojure-lsp".extended = {
         enable = lib.mkOverride 1000 true;
-        package = cfg.packages."clojure-lsp";
+        package = cfg.packages.clojure-lsp;
       };
       leiningen.extended = {
         enable = lib.mkOverride 1000 true;

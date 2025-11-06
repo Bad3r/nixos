@@ -59,7 +59,7 @@ in
       gopls = lib.mkPackageOption pkgs "gopls" {
         example = lib.literalExpression "pkgs.gopls";
       };
-      "golangci-lint" = lib.mkPackageOption pkgs "golangci-lint" {
+      golangci-lint = lib.mkPackageOption pkgs "golangci-lint" {
         example = lib.literalExpression "pkgs.golangci-lint";
       };
       delve = lib.mkPackageOption pkgs "delve" {
@@ -80,7 +80,7 @@ in
       };
       "golangci-lint".extended = {
         enable = lib.mkOverride 1000 true;
-        package = cfg.packages."golangci-lint";
+        package = cfg.packages.golangci-lint;
       };
       delve.extended = {
         enable = lib.mkOverride 1000 true;

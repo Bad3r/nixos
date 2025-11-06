@@ -60,7 +60,7 @@ in
       cargo = lib.mkPackageOption pkgs "cargo" {
         example = lib.literalExpression "pkgs.cargo-nightly";
       };
-      "rust-analyzer" = lib.mkPackageOption pkgs "rust-analyzer" {
+      rust-analyzer = lib.mkPackageOption pkgs "rust-analyzer" {
         example = lib.literalExpression "pkgs.rust-analyzer-nightly";
       };
       clippy = lib.mkPackageOption pkgs "clippy" {
@@ -84,7 +84,7 @@ in
       };
       "rust-analyzer".extended = {
         enable = lib.mkOverride 1000 true;
-        package = cfg.packages."rust-analyzer";
+        package = cfg.packages.rust-analyzer;
       };
       "rust-clippy".extended = {
         enable = lib.mkOverride 1000 true;
