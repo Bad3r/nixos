@@ -73,7 +73,7 @@
         # Git branch
         git_branch = {
           symbol = " ";
-          format = "on [$symbol$branch(:$remote_branch)]($style) ";
+          format = "[$symbol$branch(:$remote_branch)]($style) ";
           style = "bold purple";
         };
 
@@ -81,17 +81,17 @@
         git_status = {
           format = "([$all_status$ahead_behind]($style) )";
           style = "bold red";
-          conflicted = "󰞇\${count}";
-          ahead = "⇡\${count}";
-          behind = "⇣\${count}";
-          diverged = "⇕⇡\${ahead_count}⇣\${behind_count}";
-          up_to_date = "✓";
-          untracked = "?\${count}";
-          stashed = "󰏗\${count}";
-          modified = "!\${count}";
-          staged = "+\${count}";
-          renamed = "»\${count}";
-          deleted = "✘\${count}";
+          conflicted = "󰞇\${count} ";
+          ahead = "⇡\${count} ";
+          behind = "⇣\${count} ";
+          diverged = "⇕⇡\${ahead_count}⇣\${behind_count} ";
+          up_to_date = "✓ ";
+          untracked = "?\${count} ";
+          stashed = "󰏗\${count} ";
+          modified = "!\${count} ";
+          staged = "+\${count} ";
+          renamed = "»\${count} ";
+          deleted = "✘\${count} ";
         };
 
         # Nix shell indicator
