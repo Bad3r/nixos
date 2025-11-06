@@ -204,7 +204,7 @@
       rizin.extended.enable = lib.mkOverride 1100 true;
       rofi.extended.enable = lib.mkOverride 1100 false;
       rsync.extended.enable = lib.mkOverride 1100 true;
-      ruff.extended.enable = lib.mkOverride 1100 false;
+      ruff.extended.enable = lib.mkOverride 1100 true;
       "rust-analyzer".extended.enable = lib.mkOverride 1100 false;
       rustc.extended.enable = lib.mkOverride 1100 false;
       "rust-clippy".extended.enable = lib.mkOverride 1100 false;
@@ -236,7 +236,7 @@
       unzip.extended.enable = lib.mkOverride 1100 true;
       usbutils.extended.enable = lib.mkOverride 1100 true;
       "util-linux".extended.enable = lib.mkOverride 1100 true;
-      uv.extended.enable = lib.mkOverride 1100 false;
+      uv.extended.enable = lib.mkOverride 1100 true;
       valgrind.extended.enable = lib.mkOverride 1100 true;
       "ventoy-full".extended.enable = lib.mkOverride 1100 true;
       veracrypt.extended.enable = lib.mkOverride 1100 true;
