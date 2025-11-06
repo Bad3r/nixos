@@ -85,12 +85,15 @@ in
       mangohud.extended.enable = true;
       rip2.extended.enable = true;
 
-      # Language support
-      "clojure-lang".extended.enable = true;
-      "rust-lang".extended.enable = true;
-      "java-lang".extended.enable = true;
-      "python-lang".extended.enable = true;
-      "go-lang".extended.enable = true;
+    };
+
+    # Language support
+    languages = {
+      clojure.extended.enable = true;
+      rust.extended.enable = true;
+      java.extended.enable = true;
+      python.extended.enable = true;
+      go.extended.enable = true;
     };
   };
 
