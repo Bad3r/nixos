@@ -19,19 +19,24 @@
           font_features = "none";
           box_drawing_scale = "0.001, 1, 1.5, 2";
           # Nerd Font symbol mappings for icon glyphs
-          symbol_map = lib.concatStringsSep "," [
-            "U+E0A0-U+E0A3 Symbols Nerd Font Mono"
-            "U+E0B0-U+E0BF Symbols Nerd Font Mono"
-            "U+E0C0-U+E0CF Symbols Nerd Font Mono"
-            "U+E200-U+E2A9 Symbols Nerd Font Mono"
-            "U+E300-U+E3EB Symbols Nerd Font Mono"
-            "U+E5FA-U+E62F Symbols Nerd Font Mono"
-            "U+E700-U+E7C5 Symbols Nerd Font Mono"
-            "U+F000-U+F2E0 Symbols Nerd Font Mono"
-            "U+F300-U+F313 Symbols Nerd Font Mono"
-            "U+F400-U+F4A8 Symbols Nerd Font Mono"
-            "U+F500-U+FD46 Symbols Nerd Font Mono"
-          ];
+          # Format: comma-separated Unicode ranges followed by font name
+          symbol_map =
+            let
+              nerdFontRanges = [
+                "U+E0A0-U+E0A3"
+                "U+E0B0-U+E0BF"
+                "U+E0C0-U+E0CF"
+                "U+E200-U+E2A9"
+                "U+E300-U+E3EB"
+                "U+E5FA-U+E62F"
+                "U+E700-U+E7C5"
+                "U+F000-U+F2E0"
+                "U+F300-U+F313"
+                "U+F400-U+F4A8"
+                "U+F500-U+FD46"
+              ];
+            in
+            "${lib.concatStringsSep "," nerdFontRanges} Symbols Nerd Font Mono";
           # Cursor behaviour
           cursor_beam_thickness = "1.5";
           cursor_underline_thickness = "2.0";
