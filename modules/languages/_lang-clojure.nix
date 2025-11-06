@@ -36,14 +36,35 @@ in
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = lib.mdDoc "Whether to enable Clojure language support.";
+      description = lib.mdDoc ''
+        Whether to enable Clojure language support.
+
+        Enables the complete Clojure ecosystem including CLI tools, language server,
+        build tool (leiningen), and scripting runtime (babashka).
+
+        Example configuration:
+        ```nix
+        languages.clojure.extended = {
+          enable = true;
+          packages.babashka = pkgs.babashka-bin;  # Use binary distribution
+        };
+        ```
+      '';
     };
 
     packages = {
-      "clojure-cli" = lib.mkPackageOption pkgs "clojure" { };
-      "clojure-lsp" = lib.mkPackageOption pkgs "clojure-lsp" { };
-      leiningen = lib.mkPackageOption pkgs "leiningen" { };
-      babashka = lib.mkPackageOption pkgs "babashka" { };
+      "clojure-cli" = lib.mkPackageOption pkgs "clojure" {
+        example = lib.literalExpression "pkgs.clojure";
+      };
+      "clojure-lsp" = lib.mkPackageOption pkgs "clojure-lsp" {
+        example = lib.literalExpression "pkgs.clojure-lsp";
+      };
+      leiningen = lib.mkPackageOption pkgs "leiningen" {
+        example = lib.literalExpression "pkgs.leiningen";
+      };
+      babashka = lib.mkPackageOption pkgs "babashka" {
+        example = lib.literalExpression "pkgs.babashka-bin";
+      };
     };
   };
 

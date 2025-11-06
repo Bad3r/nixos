@@ -33,11 +33,26 @@ in
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = lib.mdDoc "Whether to enable Java language support.";
+      description = lib.mdDoc ''
+        Whether to enable Java language support.
+
+        Enables Eclipse Temurin JDK 25, the recommended open-source Java
+        Development Kit distribution.
+
+        Example configuration:
+        ```nix
+        languages.java.extended = {
+          enable = true;
+          packages.jdk = pkgs.temurin-bin-21;  # Use JDK 21 LTS
+        };
+        ```
+      '';
     };
 
     packages = {
-      jdk = lib.mkPackageOption pkgs "temurin-bin-25" { };
+      jdk = lib.mkPackageOption pkgs "temurin-bin-25" {
+        example = lib.literalExpression "pkgs.temurin-bin-21";
+      };
     };
   };
 
