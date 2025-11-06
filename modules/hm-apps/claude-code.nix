@@ -18,7 +18,7 @@
       ...
     }:
     let
-      defaultModel = "Default";
+      defaultModel = "sonnet";
 
       mcp = import ../../lib/mcp-servers.nix {
         inherit lib pkgs config;
