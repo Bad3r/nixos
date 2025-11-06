@@ -82,9 +82,9 @@
           format = "([$all_status$ahead_behind]($style) )";
           style = "bold red";
           conflicted = "󰞇\${count} ";
-          ahead = "⇡\${count} ";
-          behind = "⇣\${count} ";
-          diverged = "⇕⇡\${ahead_count}⇣\${behind_count} ";
+          ahead = "↑\${count} ";
+          behind = "↓\${count} ";
+          diverged = "↕\${ahead_count}↓\${behind_count} ";
           up_to_date = "✓ ";
           untracked = "?\${count} ";
           stashed = "󰏗\${count} ";
