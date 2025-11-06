@@ -36,33 +36,54 @@ in
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = lib.mdDoc "Whether to enable Python language support.";
+      description = lib.mdDoc ''
+        Whether to enable Python language support.
+
+        Enables Python 3 with modern tooling including uv (fast package installer),
+        pyright (type checker), and ruff (linter/formatter).
+
+        Example configuration:
+        ```nix
+        languages.python.extended = {
+          enable = true;
+          packages.python = pkgs.python312;  # Use Python 3.12
+        };
+        ```
+      '';
     };
 
     packages = {
-      python = lib.mkPackageOption pkgs "python3" { };
-      uv = lib.mkPackageOption pkgs "uv" { };
-      pyright = lib.mkPackageOption pkgs "pyright" { };
-      ruff = lib.mkPackageOption pkgs "ruff" { };
+      python = lib.mkPackageOption pkgs "python3" {
+        example = lib.literalExpression "pkgs.python312";
+      };
+      uv = lib.mkPackageOption pkgs "uv" {
+        example = lib.literalExpression "pkgs.uv";
+      };
+      pyright = lib.mkPackageOption pkgs "pyright" {
+        example = lib.literalExpression "pkgs.pyright";
+      };
+      ruff = lib.mkPackageOption pkgs "ruff" {
+        example = lib.literalExpression "pkgs.ruff";
+      };
     };
   };
 
   config = lib.mkIf cfg.enable {
     programs = {
       python.extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.python;
       };
       uv.extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.uv;
       };
       pyright.extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.pyright;
       };
       ruff.extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.ruff;
       };
     };

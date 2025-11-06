@@ -40,8 +40,8 @@ in
     };
 
     packages = {
-      clojure-cli = lib.mkPackageOption pkgs "clojure" { };
-      clojure-lsp = lib.mkPackageOption pkgs "clojure-lsp" { };
+      "clojure-cli" = lib.mkPackageOption pkgs "clojure" { };
+      "clojure-lsp" = lib.mkPackageOption pkgs "clojure-lsp" { };
       leiningen = lib.mkPackageOption pkgs "leiningen" { };
       babashka = lib.mkPackageOption pkgs "babashka" { };
     };
@@ -50,19 +50,19 @@ in
   config = lib.mkIf cfg.enable {
     programs = {
       "clojure-cli".extended = {
-        enable = lib.mkOverride 1050 true;
-        package = cfg.packages.clojure-cli;
+        enable = lib.mkOverride 1000 true;
+        package = cfg.packages."clojure-cli";
       };
       "clojure-lsp".extended = {
-        enable = lib.mkOverride 1050 true;
-        package = cfg.packages.clojure-lsp;
+        enable = lib.mkOverride 1000 true;
+        package = cfg.packages."clojure-lsp";
       };
       leiningen.extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.leiningen;
       };
       babashka.extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.babashka;
       };
     };

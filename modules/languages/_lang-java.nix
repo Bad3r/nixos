@@ -44,7 +44,7 @@ in
   config = lib.mkIf cfg.enable {
     programs = {
       "temurin-bin-25".extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.jdk;
       };
     };

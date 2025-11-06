@@ -37,38 +37,61 @@ in
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = lib.mdDoc "Whether to enable Rust language support.";
+      description = lib.mdDoc ''
+        Whether to enable Rust language support.
+
+        Enables the complete Rust toolchain including compiler, package manager,
+        language server, linter, and formatter.
+
+        Example configuration:
+        ```nix
+        languages.rust.extended = {
+          enable = true;
+          packages.rustc = pkgs.rustc-nightly;  # Use nightly compiler
+        };
+        ```
+      '';
     };
 
     packages = {
-      rustc = lib.mkPackageOption pkgs "rustc" { };
-      cargo = lib.mkPackageOption pkgs "cargo" { };
-      rust-analyzer = lib.mkPackageOption pkgs "rust-analyzer" { };
-      clippy = lib.mkPackageOption pkgs "clippy" { };
-      rustfmt = lib.mkPackageOption pkgs "rustfmt" { };
+      rustc = lib.mkPackageOption pkgs "rustc" {
+        example = lib.literalExpression "pkgs.rustc-nightly";
+      };
+      cargo = lib.mkPackageOption pkgs "cargo" {
+        example = lib.literalExpression "pkgs.cargo-nightly";
+      };
+      "rust-analyzer" = lib.mkPackageOption pkgs "rust-analyzer" {
+        example = lib.literalExpression "pkgs.rust-analyzer-nightly";
+      };
+      clippy = lib.mkPackageOption pkgs "clippy" {
+        example = lib.literalExpression "pkgs.clippy-nightly";
+      };
+      rustfmt = lib.mkPackageOption pkgs "rustfmt" {
+        example = lib.literalExpression "pkgs.rustfmt-nightly";
+      };
     };
   };
 
   config = lib.mkIf cfg.enable {
     programs = {
       rustc.extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.rustc;
       };
       cargo.extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.cargo;
       };
       "rust-analyzer".extended = {
-        enable = lib.mkOverride 1050 true;
-        package = cfg.packages.rust-analyzer;
+        enable = lib.mkOverride 1000 true;
+        package = cfg.packages."rust-analyzer";
       };
       "rust-clippy".extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.clippy;
       };
       rustfmt.extended = {
-        enable = lib.mkOverride 1050 true;
+        enable = lib.mkOverride 1000 true;
         package = cfg.packages.rustfmt;
       };
     };
