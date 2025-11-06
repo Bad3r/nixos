@@ -1,0 +1,87 @@
+name: Update Flake Inputs
+on:
+  schedule:
+    - cron: "0 2 * * *" # Daily at 2 AM UTC
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-flake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            experimental-features = nix-command flakes pipe-operators
+            abort-on-warn = true
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prefer HTTPS for GitHub
+        run: |
+          git config --global url."https://github.com/".insteadOf git@github.com:
+          git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+
+      - name: Update flake inputs
+        id: update
+        run: |
+          nix flake update
+
+          # Check if flake.lock changed
+          if git diff --quiet flake.lock; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No updates available"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Flake inputs updated"
+          fi
+
+      - name: Run flake check
+        if: steps.update.outputs.changed == 'true'
+        run: nix flake check --accept-flake-config
+
+      - name: Show updated inputs
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          echo "## Updated Inputs" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          nix flake metadata --json | jq -r '.locks.nodes | to_entries[] | select(.value.locked) | "\(.key): \(.value.locked.rev // .value.locked.narHash)"' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Create Pull Request
+        if: steps.update.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(flake.lock): automated daily update"
+          title: "chore(flake.lock): automated daily update"
+          body: |
+            ## Automated Flake Input Update
+
+            This PR updates all flake inputs to their latest versions.
+
+            ### Validation
+            - ✅ `nix flake update` completed successfully
+            - ✅ `nix flake check --accept-flake-config` passed
+
+            ### Changed Inputs
+            See the commit diff for detailed changes to `flake.lock`.
+
+            ### Next Steps
+            Review the changes and merge if everything looks good.
+
+            ---
+            *Automated by [update-flake.yml](https://github.com/${{ github.repository }}/blob/main/.github/workflows/update-flake.yml)*
+          branch: automated/flake-update
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
