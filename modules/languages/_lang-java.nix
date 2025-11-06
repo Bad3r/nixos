@@ -5,10 +5,10 @@ _:
   ...
 }:
 let
-  cfg = config.programs.java-lang.extended;
+  cfg = config.programs."java-lang".extended;
 in
 {
-  options.programs.java-lang.extended = {
+  options.programs."java-lang".extended = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;

@@ -5,10 +5,10 @@ _:
   ...
 }:
 let
-  cfg = config.programs.rust-lang.extended;
+  cfg = config.programs."rust-lang".extended;
 in
 {
-  options.programs.rust-lang.extended = {
+  options.programs."rust-lang".extended = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;

@@ -5,10 +5,10 @@ _:
   ...
 }:
 let
-  cfg = config.programs.clojure-lang.extended;
+  cfg = config.programs."clojure-lang".extended;
 in
 {
-  options.programs.clojure-lang.extended = {
+  options.programs."clojure-lang".extended = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
