@@ -84,7 +84,7 @@
           conflicted = "󰞇\${count} ";
           ahead = "↑\${count} ";
           behind = "↓\${count} ";
-          diverged = "↕\${ahead_count} ↓\${behind_count} ";
+          diverged = "↑\${ahead_count} ↓\${behind_count} ";
           up_to_date = "✓ ";
           untracked = "?\${count} ";
           stashed = "󰏗\${count} ";
