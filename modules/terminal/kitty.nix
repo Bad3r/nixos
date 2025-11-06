@@ -1,15 +1,9 @@
 {
   flake.homeManagerModules.gui =
-    { lib, pkgs, ... }:
+    { lib, ... }:
     {
       # Enable Stylix theming for kitty
       stylix.targets.kitty.enable = lib.mkDefault true;
-
-      # Ensure Nerd Fonts are available for symbol rendering
-      fonts.fontconfig.enable = true;
-      home.packages = with pkgs; [
-        nerd-fonts.symbols-only
-      ];
 
       programs.kitty = {
         enable = true;
