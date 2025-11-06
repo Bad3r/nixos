@@ -47,6 +47,7 @@ let
       if dirty != null then dirty else rev
     else
       null;
+  languageModules = lib.optional (hasModule "lang") nixosModules.lang;
 in
 {
   configurations.nixos.system76.module = {
@@ -63,6 +64,7 @@ in
     ++ hardwareModules
     ++ baseModules
     ++ virtualizationModules
+    ++ languageModules
     ++ lib.optional (hasModule "ssh") nixosModules.ssh;
 
     nixpkgs.allowedUnfreePackages = lib.mkAfter [
@@ -82,6 +84,16 @@ in
       steam.extended.enable = true;
       mangohud.extended.enable = true;
       rip2.extended.enable = true;
+
+    };
+
+    # Language support
+    languages = {
+      clojure.extended.enable = true;
+      rust.extended.enable = true;
+      java.extended.enable = true;
+      python.extended.enable = true;
+      go.extended.enable = true;
     };
   };
 
