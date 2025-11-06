@@ -18,7 +18,7 @@
       ...
     }:
     let
-      defaultModel = "default";
+      defaultModel = "Default";
 
       mcp = import ../../lib/mcp-servers.nix {
         inherit lib pkgs config;
