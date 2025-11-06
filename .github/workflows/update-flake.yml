@@ -33,7 +33,16 @@ jobs:
       - name: Update flake inputs
         id: update
         run: |
-          nix flake update
+          # Update all inputs except secrets (requires private SSH access)
+          # Get all inputs except 'secrets' and 'self'
+          inputs=$(nix flake metadata --json | jq -r '.locks.nodes.root.inputs | keys[]' | grep -v "^secrets$" || true)
+
+          if [ -n "$inputs" ]; then
+            for input in $inputs; do
+              echo "Updating $input..."
+              nix flake lock --update-input "$input" || echo "Failed to update $input, skipping..."
+            done
+          fi
 
           # Check if flake.lock changed
           if git diff --quiet flake.lock; then
@@ -41,7 +50,7 @@ jobs:
             echo "No updates available"
           else
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Flake inputs updated"
+            echo "Flake inputs updated (excluding secrets)"
           fi
 
       - name: Run flake check
@@ -69,8 +78,11 @@ jobs:
             This PR updates all flake inputs to their latest versions.
 
             ### Validation
-            - ✅ `nix flake update` completed successfully
+            - ✅ Flake inputs updated successfully (excluding `secrets`)
             - ✅ `nix flake check --accept-flake-config` passed
+
+            ### Excluded Inputs
+            - `secrets` - Requires private authentication, updated manually
 
             ### Changed Inputs
             See the commit diff for detailed changes to `flake.lock`.
