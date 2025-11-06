@@ -5,10 +5,10 @@ _:
   ...
 }:
 let
-  cfg = config.programs.go-lang.extended;
+  cfg = config.programs."go-lang".extended;
 in
 {
-  options.programs.go-lang.extended = {
+  options.programs."go-lang".extended = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;

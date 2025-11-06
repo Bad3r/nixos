@@ -5,10 +5,10 @@ _:
   ...
 }:
 let
-  cfg = config.programs.python-lang.extended;
+  cfg = config.programs."python-lang".extended;
 in
 {
-  options.programs.python-lang.extended = {
+  options.programs."python-lang".extended = {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
