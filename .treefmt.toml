@@ -40,12 +40,10 @@ excludes = [
     "package-lock.json",
     "go.mod",
     "go.sum",
-    ".gitattributes",
     ".gitignore",
     ".gitmodules",
     ".hgignore",
     ".svnignore",
-    "LICENSE",
     "inputs/*",
     "inputs/*",
 ]
