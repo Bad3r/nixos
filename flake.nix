@@ -69,7 +69,6 @@
       inputs = {
         flake-parts.follows = "flake-parts";
         nixpkgs.follows = "nixpkgs";
-        nuschtosSearch.follows = "dedupe_nuschtos-search";
       };
     };
 
