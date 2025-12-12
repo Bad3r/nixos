@@ -55,7 +55,7 @@
       "desktop-file-utils".extended.enable = lib.mkOverride 1100 false;
       diffutils.extended.enable = lib.mkOverride 1100 true;
       direnv.extended.enable = lib.mkOverride 1100 true;
-      discord.extended.enable = lib.mkOverride 1100 false;
+      discord.extended.enable = lib.mkOverride 1100 true;
       dmenu.extended.enable = lib.mkOverride 1100 false;
       dmidecode.extended.enable = lib.mkOverride 1100 true;
       dnsleak.extended.enable = lib.mkOverride 1100 true;
