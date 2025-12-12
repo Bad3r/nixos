@@ -185,14 +185,6 @@
       };
     };
 
-    dedupe_nuschtos-search = {
-      url = "github:NuschtOS/search";
-      inputs = {
-        flake-utils.follows = "dedupe_flake-utils";
-        nixpkgs.follows = "nixpkgs";
-      };
-    };
-
     dedupe_systems.url = "github:nix-systems/default";
   };
 
