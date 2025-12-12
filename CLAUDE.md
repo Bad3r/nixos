@@ -2,6 +2,52 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🚨 CRITICAL SAFETY RULES - READ FIRST
+
+These rules override ALL other instructions. Violating these rules is **UNACCEPTABLE**.
+
+### Rule #1: NEVER Make Changes Irrecoverable
+
+**ABSOLUTELY FORBIDDEN:**
+
+- `git stash drop` or `git stash clear` - NEVER delete stashes
+- `git reset --hard` without explicit user approval
+- `git clean -fd` or similar destructive operations
+- `rm -rf` on user files or directories
+- Any command that permanently deletes user work
+
+**REQUIRED PRACTICES:**
+
+- Use `rip <path>` instead of `rm` for file deletions (recoverable from graveyard)
+- Use `git stash` to save work, but **NEVER** drop stashes
+- If you need to temporarily move files aside, use `git stash` and **LEAVE THEM STASHED**
+- Always preserve user changes - if uncertain, ask first
+- Before any potentially destructive operation, **STOP AND ASK THE USER**
+
+**IF YOU ACCIDENTALLY DELETE SOMETHING:**
+
+1. **IMMEDIATELY** attempt recovery (e.g., from stash hash, reflog, rip graveyard)
+2. **INFORM THE USER** of what happened and what you recovered
+3. **NEVER** hide or minimize deletion mistakes
+
+### Rule #2: Git Stash Operations
+
+**ALLOWED:**
+
+- `git stash` - Save uncommitted changes
+- `git stash list` - List stashes
+- `git stash show` - View stash contents
+- `git stash pop` - Apply and remove stash (only with user approval)
+- `git stash apply` - Apply stash without removing it
+
+**FORBIDDEN:**
+
+- `git stash drop` - NEVER delete stashes
+- `git stash clear` - NEVER delete all stashes
+
+**PREFERRED ALTERNATIVE:**
+Use `rip` command for temporary file removal instead of stashing when possible.
+
 ## Repository Overview
 
 This is a NixOS configuration using the **Dendritic Pattern** - an organic configuration growth pattern with automatic module discovery. Files can be moved and nested freely without breaking imports.
@@ -228,15 +274,19 @@ sops.secrets."context7/api-key" = {
 
 ## Safety & Escalation
 
+**⚠️ FIRST: Review "CRITICAL SAFETY RULES" at the top of this document. Those rules override everything below.**
+
 ### Guardrails
 
-| Risky Action                                               | Status                     | Alternative                                                                               |
-| ---------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------- |
-| `nixos-rebuild`, direct builds against live hosts          | FORBIDDEN                  | Use `nix build .#nixosConfigurations.<host>...` or `./build.sh` per playbooks.            |
-| `generation-manager switch`                                | FORBIDDEN                  | Consult maintainer for approved deployment path.                                          |
-| `nix-collect-garbage` or `sudo nix-collect-garbage`        | FORBIDDEN                  | Request maintainer decision; prefer `nix-store --delete` on specific paths if instructed. |
-| `rm` for tracked files                                     | DISCOURAGED                | Use `rip` to keep deletions recoverable.                                                  |
-| Destructive git ops (`git reset`, `git checkout <commit>`) | FORBIDDEN WITHOUT APPROVAL | Use `git switch` for branches; coordinate before history edits.                           |
+| Risky Action                                        | Status                     | Alternative                                                                               |
+| --------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------- |
+| `git stash drop` or `git stash clear`               | **ABSOLUTELY FORBIDDEN**   | **NEVER delete stashes.** Leave them or use `git stash apply` to keep them.               |
+| `git reset --hard`, `git clean -fd`                 | **ABSOLUTELY FORBIDDEN**   | **Ask user first.** All destructive git operations require explicit approval.             |
+| `rm` or `rm -rf` on user files                      | **ABSOLUTELY FORBIDDEN**   | **Use `rip` command instead.** Files can be recovered from graveyard.                     |
+| `nixos-rebuild`, direct builds against live hosts   | FORBIDDEN                  | Use `nix build .#nixosConfigurations.<host>...` or `./build.sh` per playbooks.            |
+| `generation-manager switch`                         | FORBIDDEN                  | Consult maintainer for approved deployment path.                                          |
+| `nix-collect-garbage` or `sudo nix-collect-garbage` | FORBIDDEN                  | Request maintainer decision; prefer `nix-store --delete` on specific paths if instructed. |
+| Destructive git ops (`git checkout <commit>`)       | FORBIDDEN WITHOUT APPROVAL | Use `git switch` for branches; coordinate before history edits.                           |
 
 ### When to Escalate
 
@@ -316,6 +366,15 @@ Follow-up: <remaining work>
 ```
 
 ## Important Reminders
+
+### 🚨 PRIORITY #1: Data Safety
+
+- **NEVER** delete or make user changes irrecoverable - see "CRITICAL SAFETY RULES" at top of document
+- **NEVER** use `git stash drop`, `git stash clear`, `git reset --hard`, or `rm -rf` on user files
+- **ALWAYS** use `rip` instead of `rm` for file deletions (recoverable from graveyard)
+- **NEVER** perform destructive operations without explicit user approval
+
+### General Practices
 
 - **DO** what has been asked; nothing more, nothing less
 - **NEVER** create files unless absolutely necessary for achieving your goal
