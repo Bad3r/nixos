@@ -47,6 +47,9 @@ let
             dwarfs
             fuse-overlayfs
             psmisc
+            protonup-rs
+            freetype
+            fontconfig
           ];
           description = lib.mdDoc ''
             Additional tools for game compatibility and modding support.
@@ -54,8 +57,11 @@ let
             - dwarfs: Compressed filesystem for game mods
             - fuse-overlayfs: Overlay filesystem for sandboxing
             - psmisc: Process utilities
+            - protonup-rs: Manage Proton versions (including Experimental)
+            - freetype: Font rendering library for Wine/Proton
+            - fontconfig: Font configuration library
           '';
-          example = lib.literalExpression "with pkgs; [ dwarfs fuse-overlayfs ]";
+          example = lib.literalExpression "with pkgs; [ dwarfs fuse-overlayfs protonup-rs freetype ]";
         };
       };
 
