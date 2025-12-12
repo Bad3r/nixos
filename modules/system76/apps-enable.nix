@@ -210,6 +210,7 @@
       "rust-clippy".extended.enable = lib.mkOverride 1100 false;
       rustfmt.extended.enable = lib.mkOverride 1100 false;
       s5cmd.extended.enable = lib.mkOverride 1100 true;
+      "signal-desktop".extended.enable = lib.mkOverride 1100 false;
       skim.extended.enable = lib.mkOverride 1100 false;
       smartmontools.extended.enable = lib.mkOverride 1100 true;
       spectacle.extended.enable = lib.mkOverride 1100 false;
@@ -222,6 +223,7 @@
       tar.extended.enable = lib.mkOverride 1100 true;
       tealdeer.extended.enable = lib.mkOverride 1100 true;
       "telegram-desktop".extended.enable = lib.mkOverride 1100 true;
+      "teams-for-linux".extended.enable = lib.mkOverride 1100 false;
       "temurin-bin-25".extended.enable = lib.mkOverride 1100 false;
       terraform.extended.enable = lib.mkOverride 1100 true;
       tesseract.extended.enable = lib.mkOverride 1100 true;
@@ -268,6 +270,7 @@
       yarn.extended.enable = lib.mkOverride 1100 true;
       yq.extended.enable = lib.mkOverride 1100 true;
       zip.extended.enable = lib.mkOverride 1100 true;
+      "zoom-us".extended.enable = lib.mkOverride 1100 false;
       zoxide.extended.enable = lib.mkOverride 1100 true;
       "zsh-completions".extended.enable = lib.mkOverride 1100 true;
       zstd.extended.enable = lib.mkOverride 1100 true;
