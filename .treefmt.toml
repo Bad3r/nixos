@@ -1,11 +1,11 @@
 [formatter.nixfmt]
-command = "/nix/store/szjqgwcv0c593fvrjgdw4zszd5fx4p0m-nixfmt-1.1.0/bin/nixfmt"
+command = "/nix/store/w5fdhasggwfnfvwg9a6qc2wfczm4bn4j-nixfmt-1.1.0/bin/nixfmt"
 excludes = []
 includes = ["*.nix"]
 options = []
 
 [formatter.prettier]
-command = "/nix/store/6fcbrdsms2icrx5n840sslqd6nl7zfb7-prettier-3.6.2/bin/prettier"
+command = "/nix/store/iiajkwfwpf7n4vbfx8fqk5kylqr4iblz-prettier-3.6.2/bin/prettier"
 excludes = ["README.md"]
 includes = [
     "*.cjs",
@@ -28,7 +28,7 @@ includes = [
 options = ["--write"]
 
 [formatter.shfmt]
-command = "/nix/store/dvkyrls3macivb3yc227gfxdaywsm2vl-shfmt-3.12.0/bin/shfmt"
+command = "/nix/store/n4k1wp0nkcw97xi5vhr007gvf252pcma-shfmt-3.12.0/bin/shfmt"
 excludes = []
 includes = ["*.sh", "*.bash", "*.envrc", "*.envrc.*"]
 options = ["-w", "-i", "2", "-s"]
@@ -40,12 +40,10 @@ excludes = [
     "package-lock.json",
     "go.mod",
     "go.sum",
-    ".gitattributes",
     ".gitignore",
     ".gitmodules",
     ".hgignore",
     ".svnignore",
-    "LICENSE",
     "inputs/*",
     "inputs/*",
 ]
