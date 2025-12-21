@@ -1,11 +1,16 @@
-{ config, ... }:
-let
-  fpConfig = config;
-in
-{
+_: {
   flake = {
     nixosModules.ssh =
-      { lib, config, ... }:
+      {
+        lib,
+        config,
+        metaOwner,
+        ...
+      }:
+      let
+        # Use metaOwner from module args
+        ownerUsername = metaOwner.username;
+      in
       {
         options.services.openssh.publicKey = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
@@ -58,28 +63,29 @@ in
             }
           );
 
-          users.users.${fpConfig.flake.lib.meta.owner.username}.openssh.authorizedKeys.keys = [
+          users.users.${ownerUsername}.openssh.authorizedKeys.keys = [
             "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGPoHVrToSwWfz+DaUX68A9v70V7k3/REqGxiDqjLOS+"
           ];
         };
       };
 
     homeManagerModules.base =
-      { config, ... }:
+      { metaOwner, ... }:
       let
-        home = config.home.homeDirectory;
+        homeDirectory = "/home/${metaOwner.username}";
       in
       {
         programs.ssh = {
           enable = true;
           enableDefaultConfig = false;
-          includes = [ "${home}/.ssh/hosts/*" ];
+          # Use metaOwner instead of config.home.homeDirectory
+          includes = [ "${homeDirectory}/.ssh/hosts/*" ];
           matchBlocks = {
             "*" = {
               identitiesOnly = true;
-              identityAgent = "${home}/.gnupg/S.gpg-agent.ssh";
+              identityAgent = "${homeDirectory}/.gnupg/S.gpg-agent.ssh";
               addKeysToAgent = "yes";
-              identityFile = [ "${home}/.ssh/id_ed25519" ];
+              identityFile = [ "${homeDirectory}/.ssh/id_ed25519" ];
               setEnv.TERM = "xterm-256color";
               compression = false;
               hashKnownHosts = false;

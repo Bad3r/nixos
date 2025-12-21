@@ -16,9 +16,9 @@ let
   baseRulesFile = pkgs.writeText "usbguard-base.rules" baseRules;
   defaultsModule = usbguardLib.defaultsModule or null;
   moduleImports = lib.optional (defaultsModule != null) defaultsModule;
-  ownerUsername = builtins.toString (
-    lib.attrByPath [ "lib" "meta" "owner" "username" ] inputs.self "vx"
-  );
+  # Direct import bypasses config evaluation order issues
+  metaOwner = import ../../lib/meta-owner-profile.nix;
+  ownerUsername = metaOwner.username;
 
   hostSlug = "system76";
   secretDir = inputs.secrets + "/usbguard";
@@ -39,7 +39,7 @@ in
         {
           services.usbguard = {
             enable = lib.mkForce true;
-            rules = lib.mkForce null;
+            rules = lib.mkForce "";  # Empty string instead of null - rules come from ruleFile
             ruleFile = lib.mkForce runtimeRuleFile;
             IPCAllowedUsers = lib.mkForce (
               lib.unique [
