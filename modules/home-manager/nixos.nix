@@ -5,27 +5,18 @@
   ...
 }:
 let
-  ownerName =
-    let
-      flakeAttrs = config.flake or { };
-      ownerMeta = lib.attrByPath [ "lib" "meta" "owner" ] { } flakeAttrs;
-      fallbackOwnerName =
-        let
-          usersAttrs = config.users.users or { };
-          normalUsers = lib.filterAttrs (_: u: (u.isNormalUser or false)) usersAttrs;
-        in
-        if normalUsers != { } then lib.head (lib.attrNames normalUsers) else null;
-    in
-    ownerMeta.username or (
-      if fallbackOwnerName != null then
-        fallbackOwnerName
-      else
-        throw "Home Manager base module: unable to determine owner username (set config.flake.lib.meta.owner.username or define a normal user)."
-    );
+  # Direct import bypasses flake-parts argument passing evaluation order issues
+  metaOwner = import ../../lib/meta-owner-profile.nix;
+  ownerName = metaOwner.username;
 
   moduleArgs = config._module.args or { };
   baseArgs = {
-    inherit config inputs lib;
+    inherit
+      config
+      inputs
+      lib
+      metaOwner
+      ;
   }
   // moduleArgs;
 
@@ -146,11 +137,17 @@ in
         useGlobalPkgs = true;
         extraSpecialArgs = {
           hasGlobalPkgs = true;
-          inherit inputs;
+          inherit inputs metaOwner;
         };
         backupFileExtension = "hm.bk";
 
-        users.${ownerName}.imports = coreModules ++ appModules;
+        users.${ownerName} = {
+          # Explicitly set these - don't rely on home-manager auto-detection
+          home.username = ownerName;
+          home.homeDirectory = "/home/${ownerName}";
+
+          imports = coreModules ++ appModules;
+        };
       };
     };
   };

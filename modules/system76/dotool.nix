@@ -1,9 +1,10 @@
-{ config, lib, ... }:
+{ lib, ... }:
 let
-  owner = config.flake.lib.meta.owner.username;
+  # Direct import bypasses config evaluation order issues
+  owner = import ../../lib/meta-owner-profile.nix;
 in
 {
   configurations.nixos.system76.module = {
-    users.users.${owner}.extraGroups = lib.mkAfter [ "input" ];
+    users.users.${owner.username}.extraGroups = lib.mkAfter [ "input" ];
   };
 }

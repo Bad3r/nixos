@@ -5,36 +5,7 @@
   ...
 }:
 let
-  flake = config.flake or { };
-  nixosModules = flake.nixosModules or { };
-  hasModule = name: lib.hasAttr name nixosModules;
-  getModule = name: if hasModule name then lib.getAttr name nixosModules else null;
-  getVirtualizationModule =
-    name:
-    if lib.hasAttrByPath [ "virtualization" name ] nixosModules then
-      lib.getAttrFromPath [ "virtualization" name ] nixosModules
-    else
-      null;
-  hardwareModules = [
-    inputs.nixos-hardware.nixosModules.system76
-    inputs.nixos-hardware.nixosModules.system76-darp6
-  ];
   metaOwner = import ../../lib/meta-owner-profile.nix;
-  baseModules = lib.filter (module: module != null) [
-    (getModule "base")
-    (getModule "system76-support")
-    (getModule "hardware-lenovo-y27q-20")
-    (getModule "duplicati-r2")
-    (getModule "virt")
-  ];
-  virtualizationModules = lib.filter (module: module != null) (
-    map getVirtualizationModule [
-      "docker"
-      "libvirt"
-      "ovftool"
-      "vmware"
-    ]
-  );
   selfRevision =
     let
       self = inputs.self or null;
@@ -47,25 +18,14 @@ let
       if dirty != null then dirty else rev
     else
       null;
-  languageModules = lib.optional (hasModule "lang") nixosModules.lang;
 in
 {
   configurations.nixos.system76.module = {
     _module.check = false;
     flake.homeManagerModules = lib.mkDefault (flake.homeManagerModules or { });
     imports = [
-      ../home-manager/base.nix
-      ../style/stylix.nix
-      ../home/context7-secrets.nix
-      ../home/r2-secrets.nix
-      ./custom-packages-overlay.nix
-      ./apps-enable.nix
-    ]
-    ++ hardwareModules
-    ++ baseModules
-    ++ virtualizationModules
-    ++ languageModules
-    ++ lib.optional (hasModule "ssh") nixosModules.ssh;
+      # ABSOLUTE MINIMUM: ZERO imports
+    ];
 
     nixpkgs.allowedUnfreePackages = lib.mkAfter [
       "p7zip-rar"
@@ -104,6 +64,7 @@ in
       modules = [
         {
           _module.args.metaOwner = metaOwner;
+          _module.args.inputs = inputs;
         }
         (
           { lib, ... }:
@@ -114,7 +75,7 @@ in
         config.configurations.nixos.system76.module
       ];
       specialArgs = {
-        inherit metaOwner;
+        inherit inputs metaOwner;
       };
     };
   };

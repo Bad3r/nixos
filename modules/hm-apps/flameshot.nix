@@ -27,6 +27,7 @@
       config,
       lib,
       pkgs,
+      metaOwner,
       ...
     }:
     let
@@ -40,17 +41,21 @@
           stylixColors.${name}
         else
           "#740096";
-      picturesDirRaw = config.xdg.userDirs.pictures or null;
-      picturesDir =
-        if picturesDirRaw == null then "${config.home.homeDirectory}/Pictures" else picturesDirRaw;
-      screenshotDir = "${picturesDir}/screenshots";
+      # Use metaOwner instead of config.home.homeDirectory
+      homeDirectory = "/home/${metaOwner.username}";
+      mkPicturesDir =
+        let
+          picturesDirRaw = config.xdg.userDirs.pictures or null;
+        in
+        if picturesDirRaw == null then "${homeDirectory}/Pictures" else picturesDirRaw;
+      mkScreenshotDir = "${mkPicturesDir}/screenshots";
     in
     {
       xdg.userDirs.enable = lib.mkDefault true;
       xdg.userDirs.createDirectories = lib.mkDefault true;
 
       home.activation.ensureFlameshotScreenshotDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        mkdir -p '${screenshotDir}'
+        mkdir -p '${mkScreenshotDir}'
       '';
 
       services.flameshot = {
@@ -61,7 +66,7 @@
             copyOnDoubleClick = true;
             saveLastRegion = true;
             copyPathAfterSave = true;
-            savePath = screenshotDir;
+            savePath = mkScreenshotDir;
             savePathFixed = true;
             uiColor = getColor "base0D";
             contrastUiColor = getColor "base01";
