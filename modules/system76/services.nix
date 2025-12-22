@@ -2,7 +2,8 @@ _: {
   configurations.nixos.system76.module =
     { pkgs, lib, ... }:
     {
-      systemd.sysusers.enable = true;
+      # Cannot use systemd.sysusers with normal users (only supports system users)
+      # systemd.sysusers.enable = true;
       systemd.coredump.enable = true;
 
       # Ignore power button to prevent accidental shutdowns

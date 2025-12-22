@@ -22,9 +22,8 @@ in
 {
   configurations.nixos.system76.module = {
     _module.check = false;
-    flake.homeManagerModules = lib.mkDefault (flake.homeManagerModules or { });
-    imports = [
-      # ABSOLUTE MINIMUM: ZERO imports
+    imports = lib.optionals (lib.hasAttrByPath [ "flake" "nixosModules" "base" ] config) [
+      config.flake.nixosModules.base
     ];
 
     nixpkgs.allowedUnfreePackages = lib.mkAfter [
