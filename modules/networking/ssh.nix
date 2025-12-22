@@ -63,9 +63,7 @@ _: {
             }
           );
 
-          users.users.${ownerUsername}.openssh.authorizedKeys.keys = [
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGPoHVrToSwWfz+DaUX68A9v70V7k3/REqGxiDqjLOS+"
-          ];
+          # SSH keys are set in modules/meta/owner.nix using metaOwner.sshKeys
         };
       };
 
