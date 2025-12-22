@@ -38,7 +38,7 @@ in
         {
           services.usbguard = {
             enable = lib.mkForce true;
-            rules = lib.mkForce ""; # Empty string instead of null - rules come from ruleFile
+            rules = lib.mkForce null;
             ruleFile = lib.mkForce runtimeRuleFile;
             IPCAllowedUsers = lib.mkForce (
               lib.unique [
