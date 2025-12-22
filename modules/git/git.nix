@@ -67,7 +67,7 @@ in
             # Core settings
             core = {
               editor = "nvim";
-              pager = "less -FRX";
+              # pager is set by programs.delta when enabled
               whitespace = "trailing-space,space-before-tab";
             };
 
@@ -101,17 +101,6 @@ in
           lfs = {
             enable = true;
             skipSmudge = false;
-          };
-
-          # Delta diff viewer
-          delta = {
-            enable = true;
-            options = {
-              navigate = true;
-              light = false;
-              side-by-side = false;
-              line-numbers = true;
-            };
           };
 
           # Global gitignore
@@ -153,6 +142,17 @@ in
           };
         }
       ];
+
+      # Delta diff viewer (moved from programs.git.delta to programs.delta)
+      delta = {
+        enable = true;
+        options = {
+          navigate = true;
+          light = false;
+          side-by-side = false;
+          line-numbers = true;
+        };
+      };
     };
   };
 }

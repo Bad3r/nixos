@@ -42,24 +42,32 @@ let
 
   mkUv = args: mkStdIo "uvx" args;
 
-  context7ApiKeyPath = config.sops.secrets."context7/api-key".path;
+  # Conditionally define context7 API key path and wrapper only if secret exists
+  hasContext7Secret = config.sops.secrets ? "context7/api-key";
 
-  context7Wrapper = pkgs.writeShellApplication {
-    name = "context7-mcp";
-    runtimeInputs = [
-      pkgs.coreutils
-      pkgs.nodejs
-    ];
-    text = ''
-      set -euo pipefail
-      if [ ! -r "${context7ApiKeyPath}" ]; then
-        echo "context7-mcp: missing API key at ${context7ApiKeyPath}" >&2
-        exit 1
-      fi
-      api_key=$(tr -d '\n' < "${context7ApiKeyPath}")
-      exec npx -y @upstash/context7-mcp --api-key "$api_key" "$@"
-    '';
-  };
+  context7ApiKeyPath =
+    if hasContext7Secret then config.sops.secrets."context7/api-key".path else null;
+
+  context7Wrapper =
+    if hasContext7Secret then
+      pkgs.writeShellApplication {
+        name = "context7-mcp";
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.nodejs
+        ];
+        text = ''
+          set -euo pipefail
+          if [ ! -r "${context7ApiKeyPath}" ]; then
+            echo "context7-mcp: missing API key at ${context7ApiKeyPath}" >&2
+            exit 1
+          fi
+          api_key=$(tr -d '\n' < "${context7ApiKeyPath}")
+          exec npx -y @upstash/context7-mcp --api-key "$api_key" "$@"
+        '';
+      }
+    else
+      null;
 
   mkNpxPackage =
     name:
@@ -172,7 +180,8 @@ let
           };
         };
       };
-
+    }
+    // lib.optionalAttrs hasContext7Secret {
       context7 = {
         default = "stdio";
         variants = {
