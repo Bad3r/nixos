@@ -4,7 +4,6 @@ _: {
       {
         lib,
         config,
-        metaOwner,
         ...
       }:
       {
