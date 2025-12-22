@@ -516,14 +516,17 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1760276024,
-        "narHash": "sha256-BWuaU4ssYjcc4X2tm1q8oo4sKZ4HRF3ame2wuxMY2bc=",
-        "path": "/home/vx/git/nix-logseq-git-flake",
-        "type": "path"
+        "lastModified": 1766370716,
+        "narHash": "sha256-6B8h0a1Ab2mKfboJ/blyDcmAMR1XJkfqCy+nDMAj1Us=",
+        "owner": "Bad3r",
+        "repo": "nix-logseq-git-flake",
+        "rev": "1205c52382bd760d17d0abb4870d5b60f303c48e",
+        "type": "github"
       },
       "original": {
-        "path": "/home/vx/git/nix-logseq-git-flake",
-        "type": "path"
+        "owner": "Bad3r",
+        "repo": "nix-logseq-git-flake",
+        "type": "github"
       }
     },
     "nixos-facter-modules": {
