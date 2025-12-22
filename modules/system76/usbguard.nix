@@ -60,10 +60,14 @@ in
                 cat "${secretRuntimePath}" >> ${runtimeRuleFile}
               fi
             '';
-            serviceConfig.LogExtraFields = lib.mkForce [
-              "POLICY=usbguard"
-              "SUBSYSTEM=usb"
-            ];
+            serviceConfig = {
+              LogExtraFields = lib.mkForce [
+                "POLICY=usbguard"
+                "SUBSYSTEM=usb"
+              ];
+              # Allow reading secrets during preStart
+              ReadWritePaths = lib.mkAfter [ "/run/secrets/usbguard" ];
+            };
           };
 
           security.audit = {
