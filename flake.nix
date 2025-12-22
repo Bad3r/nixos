@@ -45,7 +45,7 @@
     };
 
     nix-logseq-git-flake = {
-      url = "path:/home/vx/git/nix-logseq-git-flake";
+      url = "github:Bad3r/nix-logseq-git-flake";
     };
 
     # nix-on-droid = {
