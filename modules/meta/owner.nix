@@ -8,6 +8,12 @@ in
 
     nixosModules = {
       base = {
+        # Define groups that may not exist by default
+        users.groups = {
+          plugdev = { }; # For removable devices and USB access
+          bluetooth = { }; # For Bluetooth device access
+        };
+
         users.users.${owner.username} = {
           isNormalUser = true; # Changed from isSystemUser - this is an interactive user
           uid = 1000;
