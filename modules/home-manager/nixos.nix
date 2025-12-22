@@ -54,17 +54,32 @@ let
         in
         lib.attrByPath attrPath null evaluated;
       module = if moduleFromConfig != null then moduleFromConfig else fallbackModule;
+
+      # Helper for better error messages
+      availableModules = builtins.attrNames hmModules;
+      availableApps = if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
     in
     if module != null then
       module
     else
-      throw ("Missing Home Manager module at " + builtins.concatStringsSep "." (map toString attrPath));
+      throw ''
+        Missing Home Manager module at: ${builtins.concatStringsSep "." (map toString attrPath)}
+
+        Available top-level modules: ${builtins.toString availableModules}
+        Available app modules: ${builtins.toString availableApps}
+
+        Searched in:
+          - config.flake.homeManagerModules
+          - inputs.self.homeManagerModules
+          - File: ${toString path}
+      '';
 
   loadAppModule =
     name:
     let
       filePath = ../hm-apps + "/${name}.nix";
       moduleFromConfig = lib.attrByPath [ "apps" name ] null hmModules;
+      availableApps = if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
     in
     if moduleFromConfig != null then
       moduleFromConfig
@@ -76,7 +91,14 @@ let
         name
       ]
     else
-      throw ("Home Manager app module file not found: " + toString filePath);
+      throw ''
+        Home Manager app module not found: ${name}
+
+        Expected file: ${toString filePath}
+        Available apps: ${builtins.toString availableApps}
+
+        Hint: Check that the file exists or the module is exported in homeManagerModules.apps
+      '';
 
   sopsModule = inputs.sops-nix.homeManagerModules.sops;
   stateVersionModule =
