@@ -6,7 +6,7 @@ in
   configurations.nixos.system76.module = _: {
     config = {
       services.duplicati-r2 = {
-        enable = false; # Disabled by default - enable when secrets are available
+        enable = true; # Secrets available
         configFile = manifestFile;
       };
 
