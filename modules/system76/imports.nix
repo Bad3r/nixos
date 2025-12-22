@@ -261,6 +261,9 @@ in
         ./usbguard.nix
       ];
 
+    # Pass metaOwner to all imported modules
+    _module.args.metaOwner = metaOwner;
+
     nixpkgs.allowedUnfreePackages = lib.mkAfter [
       "p7zip-rar"
       "rar"

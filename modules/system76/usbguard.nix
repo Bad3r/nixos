@@ -2,6 +2,7 @@
   lib,
   pkgs,
   inputs,
+  metaOwner,
   ...
 }:
 let
@@ -16,8 +17,6 @@ let
   baseRulesFile = pkgs.writeText "usbguard-base.rules" baseRules;
   defaultsModule = usbguardLib.defaultsModule or null;
   moduleImports = lib.optional (defaultsModule != null) defaultsModule;
-  # Direct import bypasses config evaluation order issues
-  metaOwner = import ../../lib/meta-owner-profile.nix;
   ownerUsername = metaOwner.username;
 
   hostSlug = "system76";
