@@ -57,7 +57,8 @@ let
 
       # Helper for better error messages
       availableModules = builtins.attrNames hmModules;
-      availableApps = if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
+      availableApps =
+        if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
     in
     if module != null then
       module
@@ -79,7 +80,8 @@ let
     let
       filePath = ../hm-apps + "/${name}.nix";
       moduleFromConfig = lib.attrByPath [ "apps" name ] null hmModules;
-      availableApps = if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
+      availableApps =
+        if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
     in
     if moduleFromConfig != null then
       moduleFromConfig
