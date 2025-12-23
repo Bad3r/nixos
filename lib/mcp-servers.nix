@@ -42,21 +42,34 @@ let
 
   mkUv = args: mkStdIo "uvx" args;
 
-  # Conditionally define context7 API key path and wrapper only if secret exists
+  # Check for context7 secret and emit warning if missing
   hasContext7Secret = config.sops.secrets ? "context7/api-key";
 
-  context7ApiKeyPath =
-    if hasContext7Secret then config.sops.secrets."context7/api-key".path else null;
+  context7Warning =
+    if !hasContext7Secret then
+      lib.warn ''
+        context7 MCP server is available but not configured with a secret.
+        The server will fail at runtime with instructions on how to configure it.
+        To silence this warning, add: sops.secrets."context7/api-key" = { ... };
+      '' null
+    else
+      null;
 
-  context7Wrapper =
+  context7ApiKeyPath =
     if hasContext7Secret then
-      pkgs.writeShellApplication {
-        name = "context7-mcp";
-        runtimeInputs = [
-          pkgs.coreutils
-          pkgs.nodejs
-        ];
-        text = ''
+      config.sops.secrets."context7/api-key".path
+    else
+      "/run/secrets/context7/api-key"; # Placeholder path for error messages
+
+  context7Wrapper = builtins.seq context7Warning (pkgs.writeShellApplication {
+    name = "context7-mcp";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.nodejs
+    ];
+    text =
+      if hasContext7Secret then
+        ''
           set -euo pipefail
           if [ ! -r "${context7ApiKeyPath}" ]; then
             echo "context7-mcp: missing API key at ${context7ApiKeyPath}" >&2
@@ -64,10 +77,25 @@ let
           fi
           api_key=$(tr -d '\n' < "${context7ApiKeyPath}")
           exec npx -y @upstash/context7-mcp --api-key "$api_key" "$@"
+        ''
+      else
+        ''
+                  cat >&2 <<'EOF'
+          ERROR: context7 MCP server requires a secret that is not configured.
+
+          To fix this, add the following to your configuration:
+
+            sops.secrets."context7/api-key" = {
+              sopsFile = /path/to/secrets/context7.yaml;
+              # ... other secret options ...
+            };
+
+          The context7 secret should contain your Context7 API key.
+          See https://context7.com for more information.
+          EOF
+                  exit 1
         '';
-      }
-    else
-      null;
+  });
 
   mkNpxPackage =
     name:
@@ -180,8 +208,7 @@ let
           };
         };
       };
-    }
-    // lib.optionalAttrs hasContext7Secret {
+
       context7 = {
         default = "stdio";
         variants = {
