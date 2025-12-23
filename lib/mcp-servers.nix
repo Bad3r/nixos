@@ -61,41 +61,43 @@ let
     else
       "/run/secrets/context7/api-key"; # Placeholder path for error messages
 
-  context7Wrapper = builtins.seq context7Warning (pkgs.writeShellApplication {
-    name = "context7-mcp";
-    runtimeInputs = [
-      pkgs.coreutils
-      pkgs.nodejs
-    ];
-    text =
-      if hasContext7Secret then
-        ''
-          set -euo pipefail
-          if [ ! -r "${context7ApiKeyPath}" ]; then
-            echo "context7-mcp: missing API key at ${context7ApiKeyPath}" >&2
-            exit 1
-          fi
-          api_key=$(tr -d '\n' < "${context7ApiKeyPath}")
-          exec npx -y @upstash/context7-mcp --api-key "$api_key" "$@"
-        ''
-      else
-        ''
-                  cat >&2 <<'EOF'
-          ERROR: context7 MCP server requires a secret that is not configured.
+  context7Wrapper = builtins.seq context7Warning (
+    pkgs.writeShellApplication {
+      name = "context7-mcp";
+      runtimeInputs = [
+        pkgs.coreutils
+        pkgs.nodejs
+      ];
+      text =
+        if hasContext7Secret then
+          ''
+            set -euo pipefail
+            if [ ! -r "${context7ApiKeyPath}" ]; then
+              echo "context7-mcp: missing API key at ${context7ApiKeyPath}" >&2
+              exit 1
+            fi
+            api_key=$(tr -d '\n' < "${context7ApiKeyPath}")
+            exec npx -y @upstash/context7-mcp --api-key "$api_key" "$@"
+          ''
+        else
+          ''
+                    cat >&2 <<'EOF'
+            ERROR: context7 MCP server requires a secret that is not configured.
 
-          To fix this, add the following to your configuration:
+            To fix this, add the following to your configuration:
 
-            sops.secrets."context7/api-key" = {
-              sopsFile = /path/to/secrets/context7.yaml;
-              # ... other secret options ...
-            };
+              sops.secrets."context7/api-key" = {
+                sopsFile = /path/to/secrets/context7.yaml;
+                # ... other secret options ...
+              };
 
-          The context7 secret should contain your Context7 API key.
-          See https://context7.com for more information.
-          EOF
-                  exit 1
-        '';
-  });
+            The context7 secret should contain your Context7 API key.
+            See https://context7.com for more information.
+            EOF
+                    exit 1
+          '';
+    }
+  );
 
   mkNpxPackage =
     name:
