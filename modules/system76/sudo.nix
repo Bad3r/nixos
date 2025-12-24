@@ -1,8 +1,4 @@
-_:
-let
-  # Direct import bypasses config evaluation order issues
-  owner = import ../../lib/meta-owner-profile.nix;
-in
+{ metaOwner, ... }:
 {
   configurations.nixos.system76.module =
     { pkgs, ... }:
@@ -36,6 +32,6 @@ in
         ];
       };
 
-      users.users.${owner.username}.extraGroups = [ "wheel" ];
+      users.users.${metaOwner.username}.extraGroups = [ "wheel" ];
     };
 }

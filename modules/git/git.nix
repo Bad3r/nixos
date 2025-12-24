@@ -1,8 +1,4 @@
-{ lib, ... }:
-let
-  # Direct import bypasses config evaluation order issues
-  owner = import ../../lib/meta-owner-profile.nix;
-in
+{ lib, metaOwner, ... }:
 {
   flake.homeManagerModules.base = {
     programs = {
@@ -138,7 +134,7 @@ in
         # User identity from owner profile
         {
           settings.user = {
-            inherit (owner.git) name email;
+            inherit (metaOwner.git) name email;
           };
         }
       ];

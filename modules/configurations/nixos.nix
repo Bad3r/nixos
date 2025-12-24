@@ -2,10 +2,10 @@
   lib,
   config,
   inputs,
+  metaOwner,
   ...
 }:
 let
-  metaOwner = import ../../lib/meta-owner-profile.nix;
   nixosConfigs = lib.flip lib.mapAttrs config.configurations.nixos (
     _name:
     { module }:
