@@ -2,11 +2,10 @@
   config,
   inputs,
   lib,
+  metaOwner,
   ...
 }:
 let
-  # Direct import bypasses flake-parts argument passing evaluation order issues
-  metaOwner = import ../../lib/meta-owner-profile.nix;
   ownerName = metaOwner.username;
 
   moduleArgs = config._module.args or { };
@@ -59,6 +58,10 @@ let
       availableModules = builtins.attrNames hmModules;
       availableApps =
         if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
+      formatModuleList =
+        modules: lib.concatMapStringsSep "\n          - " (m: "homeManagerModules.${m}") modules;
+      formatAppList =
+        apps: lib.concatMapStringsSep "\n          - " (a: "homeManagerModules.apps.${a}") apps;
     in
     if module != null then
       module
@@ -66,12 +69,15 @@ let
       throw ''
         Missing Home Manager module at: ${builtins.concatStringsSep "." (map toString attrPath)}
 
-        Available top-level modules: ${builtins.toString availableModules}
-        Available app modules: ${builtins.toString availableApps}
+        Available top-level modules:
+          - ${formatModuleList availableModules}
+
+        Available app modules:
+          - ${formatAppList availableApps}
 
         Searched in:
-          - config.flake.homeManagerModules
-          - inputs.self.homeManagerModules
+          - config.flake.homeManagerModules.${builtins.concatStringsSep "." (map toString hmAttrPath)}
+          - inputs.self.homeManagerModules.${builtins.concatStringsSep "." (map toString hmAttrPath)}
           - File: ${toString path}
       '';
 
@@ -82,6 +88,8 @@ let
       moduleFromConfig = lib.attrByPath [ "apps" name ] null hmModules;
       availableApps =
         if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
+      formatAppList =
+        apps: lib.concatMapStringsSep "\n          - " (a: "homeManagerModules.apps.${a}") apps;
     in
     if moduleFromConfig != null then
       moduleFromConfig
@@ -96,10 +104,15 @@ let
       throw ''
         Home Manager app module not found: ${name}
 
-        Expected file: ${toString filePath}
-        Available apps: ${builtins.toString availableApps}
+        Expected locations:
+          - config.flake.homeManagerModules.apps.${name}
+          - File: ${toString filePath}
 
-        Hint: Check that the file exists or the module is exported in homeManagerModules.apps
+        Available app modules:
+          - ${formatAppList availableApps}
+
+        Hint: Ensure the module file exists at modules/hm-apps/${name}.nix
+              or is exported via flake.homeManagerModules.apps.${name}
       '';
 
   sopsModule = inputs.sops-nix.homeManagerModules.sops;

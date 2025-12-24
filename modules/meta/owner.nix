@@ -1,10 +1,7 @@
-{ lib, ... }:
-let
-  owner = import ../../lib/meta-owner-profile.nix;
-in
+{ lib, metaOwner, ... }:
 {
   flake = {
-    lib.meta.owner = owner;
+    lib.meta.owner = metaOwner;
 
     nixosModules = {
       base = {
@@ -14,7 +11,7 @@ in
           bluetooth = { }; # For Bluetooth device access
         };
 
-        users.users.${owner.username} = {
+        users.users.${metaOwner.username} = {
           isNormalUser = true; # Changed from isSystemUser - this is an interactive user
           uid = 1000;
           initialPassword = "";
@@ -35,10 +32,10 @@ in
           ];
 
           # SSH authorized keys for remote access
-          openssh.authorizedKeys.keys = owner.sshKeys;
+          openssh.authorizedKeys.keys = metaOwner.sshKeys;
         };
 
-        nix.settings.trusted-users = [ owner.username ];
+        nix.settings.trusted-users = [ metaOwner.username ];
       };
     };
   };

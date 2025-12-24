@@ -2,10 +2,10 @@
   config,
   lib,
   inputs,
+  metaOwner,
   ...
 }:
 let
-  metaOwner = import ../../lib/meta-owner-profile.nix;
   selfRevision =
     let
       self = inputs.self or null;

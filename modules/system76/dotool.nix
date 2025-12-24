@@ -1,10 +1,6 @@
-{ lib, ... }:
-let
-  # Direct import bypasses config evaluation order issues
-  owner = import ../../lib/meta-owner-profile.nix;
-in
+{ lib, metaOwner, ... }:
 {
   configurations.nixos.system76.module = {
-    users.users.${owner.username}.extraGroups = lib.mkAfter [ "input" ];
+    users.users.${metaOwner.username}.extraGroups = lib.mkAfter [ "input" ];
   };
 }
