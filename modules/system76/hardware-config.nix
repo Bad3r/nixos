@@ -1,23 +1,14 @@
-{ config, lib, ... }:
-let
-  # Owner username for this host; sourced from flake meta
-  owner = lib.attrByPath [
-    "flake"
-    "lib"
-    "meta"
-    "owner"
-    "username"
-  ] (throw "system76 hardware configuration requires meta.owner.username") config;
-in
-{
+_: {
   configurations.nixos.system76.module =
     {
       config,
       lib,
       pkgs,
+      metaOwner,
       ...
     }:
     let
+      owner = metaOwner.username;
       ownerCfg = lib.attrByPath [ "users" "users" owner ] { } config;
       ownerGroup = ownerCfg.group or owner;
     in

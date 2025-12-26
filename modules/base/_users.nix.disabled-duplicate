@@ -2,6 +2,7 @@
 {
   flake.nixosModules.base = _: {
     # Extend the owner's user account with additional groups
+    # NO fallback - owner MUST be defined in flake-parts config
     users.users.${config.flake.lib.meta.owner.username} = {
 
       # Additional base groups that the user should be in
@@ -15,6 +16,7 @@
       ];
 
       # SSH authorized keys for remote access
+      # NO fallback - owner.sshKeys MUST be defined
       openssh.authorizedKeys.keys = config.flake.lib.meta.owner.sshKeys;
     };
   };

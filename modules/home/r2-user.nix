@@ -28,12 +28,14 @@
   flake.homeManagerModules.base =
     {
       pkgs,
-      config,
       lib,
+      metaOwner,
       ...
     }:
     let
-      envFile = "${config.home.homeDirectory}/.config/cloudflare/r2/env";
+      # Use metaOwner instead of config.home.homeDirectory
+      homeDirectory = "/home/${metaOwner.username}";
+      mkEnvFile = "${homeDirectory}/.config/cloudflare/r2/env";
 
       r2 = pkgs.writeShellApplication {
         name = "r2";
@@ -44,9 +46,9 @@
         text = ''
           set -euo pipefail
           # Load per-user R2 env if present
-          if [ -f ${lib.escapeShellArg envFile} ]; then
+          if [ -f ${lib.escapeShellArg mkEnvFile} ]; then
             # shellcheck disable=SC1091
-            . ${lib.escapeShellArg envFile}
+            . ${lib.escapeShellArg mkEnvFile}
           fi
 
           set +u
@@ -76,9 +78,9 @@
         ];
         text = ''
           set -euo pipefail
-          if [ -f ${lib.escapeShellArg envFile} ]; then
+          if [ -f ${lib.escapeShellArg mkEnvFile} ]; then
             # shellcheck disable=SC1091
-            . ${lib.escapeShellArg envFile}
+            . ${lib.escapeShellArg mkEnvFile}
           fi
 
           set +u
@@ -119,7 +121,7 @@
         xdg.configFile."cloudflare/r2/README".text = ''
           Cloudflare R2 per-user configuration
 
-          Place credentials in: ${envFile}
+          Place credentials in: ${mkEnvFile}
 
           Example env file (chmod 0400):
             AWS_ACCESS_KEY_ID=...

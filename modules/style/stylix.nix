@@ -144,8 +144,8 @@ in
                       "MonoLisa, Symbols Nerd Font, Symbols Nerd Font Mono, Font Awesome 6 Free, Font Awesome 6 Brands";
                     "font.name-list.serif.x-western" =
                       "MonoLisa, Symbols Nerd Font, Symbols Nerd Font Mono, Font Awesome 6 Free, Font Awesome 6 Brands";
-                    "font.size.variable.x-western" = 12;
-                    "font.size.monospace.x-western" = 12;
+                    "font.size.variable.x-western" = lib.mkForce 12;
+                    "font.size.monospace.x-western" = lib.mkForce 12;
                   };
                   userContent = ''
                     @-moz-document url-prefix(http://), url-prefix(https://), url-prefix(file://), url-prefix(chrome://) {
