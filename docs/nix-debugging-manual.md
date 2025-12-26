@@ -42,6 +42,87 @@ in traced
 - Missing attributes and type mismatches surface clearer diagnostics when rerun with `--show-trace`, which expands stack frames to the originating file and option definition.citeturn16search2
 - Avoid accessing `pkgs.lib` inside module arguments—import `lib` explicitly to prevent recursion through package set initialization.citeturn1search0
 
+#### Debugging "Cannot Coerce Null to String" Errors
+
+This error occurs during module evaluation when a configuration option receives `null` but its type requires a string or other coercible value.
+
+**Error Characteristics:**
+
+```
+error: cannot coerce null to a string: null
+
+… while checking flake output 'nixosConfigurations'
+… while checking the NixOS configuration 'nixosConfigurations.system76'
+… while calling the 'seq' builtin
+  at «github:NixOS/nixpkgs/.../lib/modules.nix:361:18
+```
+
+**What This Means:**
+
+- The error occurs during final validation of the merged configuration (not initial evaluation)
+- A configuration option is set to `null` when it expects a non-null value
+- The null value is being coerced to string during the module system's validation phase
+
+**Common Causes:**
+
+1. Accessing `config` values in top-level `let` bindings before the module system initializes them
+2. Module evaluation order issues where one module depends on another's not-yet-set values
+3. Missing required options or incorrect default values
+4. Flake-parts context confusion (accessing `config.flake.*` in wrong context)
+
+**Debugging Strategy:**
+
+1. **Use `--show-trace`** to get the full evaluation stack:
+
+   ```bash
+   nix flake check --show-trace
+   ```
+
+2. **Binary Search for Problematic Modules**:
+   When the error occurs in a complex configuration with many modules, use systematic bisection:
+
+   ```bash
+   # Disable half the modules and test
+   # If error disappears, the problem is in the disabled half
+   # If error persists, the problem is in the enabled half
+   # Repeat until you isolate the specific module(s)
+   ```
+
+   Example process:
+
+   ```
+   Step 1: Disable modules 1-25 → PASS    (error in first half)
+   Step 2: Disable modules 1-13 → FAIL    (error persists)
+   Step 3: Disable modules 14-25 → PASS   (error in range 14-25)
+   Step 4: Disable modules 14-19 → FAIL   (error persists)
+   Step 5: Disable modules 20-25 → PASS   (isolated to range 20-25)
+   ```
+
+3. **Use Trace vs Or-Fallbacks**:
+   - **Use `builtins.trace`** to debug evaluation order and see what values exist at different points
+   - **Avoid `or` fallbacks** during initial debugging - they mask the actual problem
+   - Once you've identified the issue, `or` fallbacks can provide graceful degradation:
+
+     ```nix
+     # During debugging: Let it fail clearly
+     username = config.flake.lib.meta.owner.username;
+
+     # After fix: Add fallback if truly optional
+     username = config.flake.lib.meta.owner.username or "default";
+     ```
+
+4. **Check Module Context**:
+   - Verify you're accessing `config.flake.*` in flake-parts context (outer scope)
+   - Verify you're accessing `config.home.*` or `config.services.*` in module context (inner scope)
+   - See `docs/module-structure-guide.md` for the two-context pattern
+
+**Resolution Patterns:**
+
+- Move config access from top-level `let` to inside `config` blocks
+- Use `lib.mkIf` or `lib.mkMerge` to defer evaluation
+- Pass values via module arguments (`specialArgs` or `_module.args`) instead of accessing `config` early
+- Ensure proper evaluation order with `imports` or explicit dependencies
+
 ### 2.4 Language-Level Debugging Tools (e.g., `nix-debug`, `nix-tree`)
 
 - Use `nix eval --show-trace --expr '<expr>'` or `nix-instantiate --eval --strict` to surface evaluation errors without building derivations.citeturn6search2

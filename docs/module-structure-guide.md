@@ -119,6 +119,79 @@ Home Manager modules follow the same rules:
 | Using `with config.flake.nixosModules.apps;`         | Replace with `config.flake.lib.nixos.getApps` / `getApp` so lookups stay pure and cached.                          |
 | Forgetting to guard optional modules                 | Wrap definitions with `lib.mkIf` or `lib.optionals` so evaluation succeeds even when hardware/services are absent. |
 
+## Config Access Patterns and Evaluation Order
+
+### The Two-Context Problem
+
+Modules that export `flake.homeManagerModules.*` or `flake.nixosModules.*` are evaluated in **two distinct contexts**:
+
+1. **Flake-parts context** - where `config.flake.*` exists (outer module scope)
+2. **Module context** - where `config` refers to the NixOS/Home Manager configuration (inner module definition)
+
+Accessing `config.flake.*` inside the exported module definition will fail because that context doesn't have access to flake-level config.
+
+### Anti-Patterns (Will Cause "cannot coerce null to a string")
+
+```nix
+# ❌ WRONG: Eager evaluation in top-level let binding
+let
+  path = "${config.home.homeDirectory}/.config/app";
+in
+{ config = { ... }; }
+
+# ❌ WRONG: Accessing config.flake in inner context
+{ config, lib, ... }:
+{
+  flake.homeManagerModules.base = args: {
+    home.packages = [ config.flake.lib.customPackage ];  # config.flake doesn't exist here!
+  };
+}
+```
+
+### Safe Patterns
+
+```nix
+# ✅ CORRECT: Access config.flake in outer (flake-parts) context
+{ config, lib, ... }:
+let
+  owner = config.flake.lib.meta.owner;  # ← Access in flake-parts context
+in
+{
+  flake.homeManagerModules.base = args: {
+    # Use 'owner' from outer scope, not config access
+    home.username = owner.username;
+  };
+}
+
+# ✅ CORRECT: Lazy evaluation inside config block
+{
+  config = {
+    some.option = "${config.home.homeDirectory}/.config/app";  # Evaluated after merge
+  };
+}
+
+# ✅ CORRECT: Using lib.mkMerge for conditional evaluation
+{
+  config = lib.mkMerge [
+    {
+      # Always evaluated
+    }
+    (lib.mkIf condition {
+      # Conditionally evaluated - config access safe here
+      path = "${config.something}";
+    })
+  ];
+}
+```
+
+### Rule of Thumb
+
+- **Top-level let bindings**: Only constants, inputs, and `config.flake.*` access
+- **Inner module config**: All other `config.*` access (NixOS/HM options)
+- **String interpolations**: Defer to option definitions or use `lib.mkMerge`/`lib.mkIf`
+
+For historical context on the home-manager evaluation order changes that necessitated these patterns, see git history around commit d1fc28275 (Dec 2025).
+
 ## Introspection & Debugging
 
 ```bash

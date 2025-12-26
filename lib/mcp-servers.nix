@@ -81,20 +81,20 @@ let
           ''
         else
           ''
-                    cat >&2 <<'EOF'
+            cat >&2 <<'EOF'
             ERROR: context7 MCP server requires a secret that is not configured.
 
             To fix this, add the following to your configuration:
 
               sops.secrets."context7/api-key" = {
-                sopsFile = /path/to/secrets/context7.yaml;
-                # ... other secret options ...
+                sopsFile = <secrets-repo>/context7.yaml;
+                key = "context7_api_key";
               };
 
             The context7 secret should contain your Context7 API key.
             See https://context7.com for more information.
             EOF
-                    exit 1
+            exit 1
           '';
     }
   );
