@@ -190,6 +190,27 @@ in
           Investigation: File was removed from imports during metaOwner fix.
           This is a configuration fragment, not a flake module.
         '';
+      assert
+        langModuleExists
+        || throw ''
+          CRITICAL ERROR: nixosModules.lang missing!
+
+          This module is REQUIRED for language toolchain support:
+          - Python (python.extended.enable = true)
+          - Rust (rust.extended.enable = true)
+          - Go (go.extended.enable = true)
+          - Java (java.extended.enable = true)
+          - Clojure (clojure.extended.enable = true)
+
+          Expected location: modules/languages/lang.nix
+          Exports: flake.nixosModules.lang
+
+          This system76 configuration explicitly enables all language toolchains
+          at lines 287-293, so this module must be present.
+
+          Investigation: Why is this module not being exported?
+          See: modules/languages/lang.nix
+        '';
 
       # Required modules (fail-fast)
       [ config.flake.nixosModules.base ]
@@ -198,6 +219,7 @@ in
         inputs.nixos-hardware.nixosModules.system76
         inputs.nixos-hardware.nixosModules.system76-darp6
       ]
+      ++ [ config.flake.nixosModules.lang ]
       # Stage 3: Required infrastructure files
       ++ [
         ../style/stylix.nix
@@ -210,7 +232,6 @@ in
       # Stage 3: Optional flake modules (graceful)
       ++ lib.optionals system76SupportExists [ config.flake.nixosModules.system76-support ]
       ++ lib.optionals lenovyMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ]
-      ++ lib.optionals langModuleExists [ config.flake.nixosModules.lang ]
       # Stage 4: Virtualization configuration fragment (required)
       ++ [ ./virtualization.nix ]
       # Stage 4.5: duplicati-r2 configuration fragment (required)
