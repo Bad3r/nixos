@@ -34,6 +34,10 @@
             "video" # Video devices
             "dialout" # Serial ports
             "render" # GPU acceleration
+            "bluetooth" # Bluetooth devices
+            "input" # Input devices
+            "plugdev" # Removable devices
+            "lp" # Printers and USB devices
           ];
 
           # SSH authorized keys for remote access
