@@ -22,12 +22,9 @@
     * `code --install-extension ms-python.python` — Install extensions
 */
 
-{ lib, pkgs, ... }:
+{ pkgs, ... }:
 {
   flake.homeManagerModules.apps.vscode = {
-    # Enable Stylix theming for VSCode
-    stylix.targets.vscode.enable = lib.mkDefault true;
-
     programs.vscode = {
       enable = true;
 

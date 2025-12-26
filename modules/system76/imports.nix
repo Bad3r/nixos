@@ -25,12 +25,6 @@ let
 in
 {
   configurations.nixos.system76.module = {
-    # Defer option checking to allow Stylix options to be defined after
-    # app modules try to use them. The imports list is processed in order,
-    # but contributions from other files (via the aggregator) are merged
-    # before imports are resolved.
-    _module.check = false;
-
     # NOTE: All modules/system76/*.nix files are auto-imported by import-tree
     # and contribute to this aggregator via flake-parts. Only actual NixOS
     # modules (exported via flake.nixosModules.* or from external inputs)

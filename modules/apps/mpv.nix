@@ -78,9 +78,6 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        # Enable Stylix theming for mpv
-        stylix.targets.mpv.enable = lib.mkDefault true;
-
         environment.systemPackages = [ cfg.package ] ++ cfg.extraScripts ++ cfg.extraPackages;
       };
     };

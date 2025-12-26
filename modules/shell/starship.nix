@@ -22,9 +22,6 @@
 { lib, ... }:
 {
   flake.homeManagerModules.base = {
-    # Enable Stylix theming for Starship
-    stylix.targets.starship.enable = lib.mkDefault true;
-
     programs.starship = {
       enable = true;
 
