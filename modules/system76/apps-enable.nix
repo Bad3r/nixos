@@ -1,35 +1,36 @@
 /*
-  System76 App Enables
+  System76 App Catalog
 
-  This module explicitly configures all applications for the system76 configuration.
+  This module configures application defaults for the system76 configuration.
   All app modules default to disabled, requiring explicit opt-in for better control.
 
-  Uses lib.mkOverride 1100 to create a "weak catalog" that allows:
-  - Priority 100: User direct overrides (highest priority)
-  - Priority 1000: Specialized modules like virtualization.nix (lib.mkDefault)
-  - Priority 1100: This catalog's defaults (lowest priority)
+  Uses lib.mkOverride 1100 (low priority) to allow user overrides and specialized
+  modules to take precedence when needed.
 
-  This ensures virtualization.nix can control qemu/vmware/ovftool while maintaining
-  a single source of truth for all available apps.
+  NOTE: Some apps are managed by specialized modules and excluded from this catalog:
+  - qemu, vmware-workstation, ovftool → modules/system76/virtualization.nix
+    (Virtualization tools are controlled via system76.virtualization.* options)
+
+  This separation eliminates priority conflicts and provides clear domain boundaries.
 */
 { lib, ... }:
 {
   configurations.nixos.system76.module = {
     programs = {
       "aircrack-ng".extended.enable = lib.mkOverride 1100 false;
-      arandr.extended.enable = lib.mkOverride 1100 false;
+      arandr.extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
-      "autotiling-rs".extended.enable = lib.mkOverride 1100 false;
+      "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
       awscli2.extended.enable = lib.mkOverride 1100 false;
       babashka.extended.enable = lib.mkOverride 1100 false;
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
       blueberry.extended.enable = lib.mkOverride 1100 true;
       bottom.extended.enable = lib.mkOverride 1100 true;
-      brave.extended.enable = lib.mkOverride 1100 false;
+      brave.extended.enable = lib.mkOverride 1100 true;
       burpsuite.extended.enable = lib.mkOverride 1100 false;
       bzip2.extended.enable = lib.mkOverride 1100 true;
-      cachix.extended.enable = lib.mkOverride 1100 false;
+      cachix.extended.enable = lib.mkOverride 1100 true;
       cargo.extended.enable = lib.mkOverride 1100 false;
       "cf-terraforming".extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
@@ -50,22 +51,22 @@
       curlie.extended.enable = lib.mkOverride 1100 true;
       cutter.extended.enable = lib.mkOverride 1100 true;
       ddrescue.extended.enable = lib.mkOverride 1100 true;
-      deadnix.extended.enable = lib.mkOverride 1100 false;
+      deadnix.extended.enable = lib.mkOverride 1100 true;
       delve.extended.enable = lib.mkOverride 1100 false;
-      "desktop-file-utils".extended.enable = lib.mkOverride 1100 false;
+      "desktop-file-utils".extended.enable = lib.mkOverride 1100 true;
       diffutils.extended.enable = lib.mkOverride 1100 true;
       direnv.extended.enable = lib.mkOverride 1100 true;
       discord.extended.enable = lib.mkOverride 1100 true;
-      dmenu.extended.enable = lib.mkOverride 1100 false;
+      dmenu.extended.enable = lib.mkOverride 1100 true;
       dmidecode.extended.enable = lib.mkOverride 1100 true;
       dnsleak.extended.enable = lib.mkOverride 1100 true;
-      docker.extended.enable = lib.mkOverride 1100 false;
+      docker.extended.enable = lib.mkOverride 1100 true;
       dolphin.extended.enable = lib.mkOverride 1100 false;
       "dragon-drop".extended.enable = lib.mkOverride 1100 true;
       dropbox.extended.enable = lib.mkOverride 1100 true;
       dua.extended.enable = lib.mkOverride 1100 true;
       duf.extended.enable = lib.mkOverride 1100 true;
-      dunst.extended.enable = lib.mkOverride 1100 false;
+      dunst.extended.enable = lib.mkOverride 1100 true;
       dust.extended.enable = lib.mkOverride 1100 true;
       "electron-mail".extended.enable = lib.mkOverride 1100 true;
       "element-desktop".extended.enable = lib.mkOverride 1100 false;
@@ -77,7 +78,7 @@
       "filen-desktop".extended.enable = lib.mkOverride 1100 true;
       filezilla.extended.enable = lib.mkOverride 1100 true;
       findutils.extended.enable = lib.mkOverride 1100 true;
-      firefox.extended.enable = lib.mkOverride 1100 false;
+      firefox.extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;
       formatting.extended.enable = lib.mkOverride 1100 true;
@@ -95,23 +96,23 @@
       gnused.extended.enable = lib.mkOverride 1100 true;
       go.extended.enable = lib.mkOverride 1100 false;
       "golangci-lint".extended.enable = lib.mkOverride 1100 false;
-      gopass.extended.enable = lib.mkOverride 1100 false;
+      gopass.extended.enable = lib.mkOverride 1100 true;
       gopls.extended.enable = lib.mkOverride 1100 false;
       gparted.extended.enable = lib.mkOverride 1100 true;
-      "gpg-tui".extended.enable = lib.mkOverride 1100 false;
+      "gpg-tui".extended.enable = lib.mkOverride 1100 true;
       gwenview.extended.enable = lib.mkOverride 1100 false;
       gzip.extended.enable = lib.mkOverride 1100 true;
       hashcat.extended.enable = lib.mkOverride 1100 false;
       hdparm.extended.enable = lib.mkOverride 1100 true;
       hopper.extended.enable = lib.mkOverride 1100 true;
-      hsetroot.extended.enable = lib.mkOverride 1100 false;
+      hsetroot.extended.enable = lib.mkOverride 1100 true;
       htop.extended.enable = lib.mkOverride 1100 true;
       httpie.extended.enable = lib.mkOverride 1100 true;
       httpx.extended.enable = lib.mkOverride 1100 true;
       hydra.extended.enable = lib.mkOverride 1100 false;
       hyperfine.extended.enable = lib.mkOverride 1100 true;
-      "i3lock-color".extended.enable = lib.mkOverride 1100 false;
-      "i3status-rust".extended.enable = lib.mkOverride 1100 false;
+      "i3lock-color".extended.enable = lib.mkOverride 1100 true;
+      "i3status-rust".extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 true;
       iotop.extended.enable = lib.mkOverride 1100 true;
       jnv.extended.enable = lib.mkOverride 1100 true;
@@ -131,8 +132,8 @@
       lsof.extended.enable = lib.mkOverride 1100 true;
       ltrace.extended.enable = lib.mkOverride 1100 true;
       lutris.extended.enable = lib.mkOverride 1100 false;
-      lxsession.extended.enable = lib.mkOverride 1100 false;
-      maim.extended.enable = lib.mkOverride 1100 false;
+      lxsession.extended.enable = lib.mkOverride 1100 true;
+      maim.extended.enable = lib.mkOverride 1100 true;
       malimite.extended.enable = lib.mkOverride 1100 true;
       mangohud.extended.enable = lib.mkOverride 1100 true;
       marktext.extended.enable = lib.mkOverride 1100 true;
@@ -142,67 +143,65 @@
       "minio-client".extended.enable = lib.mkOverride 1100 true;
       mitmproxy.extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 true;
-      nemo.extended.enable = lib.mkOverride 1100 false;
+      nemo.extended.enable = lib.mkOverride 1100 true;
       neovim.extended.enable = lib.mkOverride 1100 true;
       networkmanagerapplet.extended.enable = lib.mkOverride 1100 true;
       "networkmanager-dmenu".extended.enable = lib.mkOverride 1100 true;
       "networkmanager-openvpn".extended.enable = lib.mkOverride 1100 true;
-      nh.extended.enable = lib.mkOverride 1100 false;
+      nh.extended.enable = lib.mkOverride 1100 true;
       nicotine.extended.enable = lib.mkOverride 1100 true;
-      nil.extended.enable = lib.mkOverride 1100 false;
-      niv.extended.enable = lib.mkOverride 1100 false;
-      "nix-diff".extended.enable = lib.mkOverride 1100 false;
+      nil.extended.enable = lib.mkOverride 1100 true;
+      niv.extended.enable = lib.mkOverride 1100 true;
+      "nix-diff".extended.enable = lib.mkOverride 1100 true;
       "nix-direnv".extended.enable = lib.mkOverride 1100 true;
-      "nix-eval-jobs".extended.enable = lib.mkOverride 1100 false;
-      "nix-index".extended.enable = lib.mkOverride 1100 false;
+      "nix-eval-jobs".extended.enable = lib.mkOverride 1100 true;
+      "nix-index".extended.enable = lib.mkOverride 1100 true;
       "nix-index-update".extended.enable = lib.mkOverride 1100 false;
-      "nix-output-monitor".extended.enable = lib.mkOverride 1100 false;
-      "nix-prefetch-git".extended.enable = lib.mkOverride 1100 false;
-      "nix-prefetch-github".extended.enable = lib.mkOverride 1100 false;
-      "nix-tree".extended.enable = lib.mkOverride 1100 false;
+      "nix-output-monitor".extended.enable = lib.mkOverride 1100 true;
+      "nix-prefetch-git".extended.enable = lib.mkOverride 1100 true;
+      "nix-prefetch-github".extended.enable = lib.mkOverride 1100 true;
+      "nix-tree".extended.enable = lib.mkOverride 1100 true;
       nmap.extended.enable = lib.mkOverride 1100 false;
       "node-cloudflare-sdk".extended.enable = lib.mkOverride 1100 false;
       nodejs_22.extended.enable = lib.mkOverride 1100 true;
       nodejs_24.extended.enable = lib.mkOverride 1100 true;
-      normcap.extended.enable = lib.mkOverride 1100 false;
+      normcap.extended.enable = lib.mkOverride 1100 true;
       nrm.extended.enable = lib.mkOverride 1100 true;
       nsxiv.extended.enable = lib.mkOverride 1100 true;
       ntfs3g.extended.enable = lib.mkOverride 1100 true;
-      nvd.extended.enable = lib.mkOverride 1100 false;
+      nvd.extended.enable = lib.mkOverride 1100 true;
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 true;
       okular.extended.enable = lib.mkOverride 1100 false;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 true;
       openssl.extended.enable = lib.mkOverride 1100 true;
       openvpn.extended.enable = lib.mkOverride 1100 true;
-      ovftool.extended.enable = lib.mkOverride 1100 false;
       p7zip.extended.enable = lib.mkOverride 1100 true;
       "p7zip-rar".extended.enable = lib.mkOverride 1100 true;
-      pamixer.extended.enable = lib.mkOverride 1100 false;
+      pamixer.extended.enable = lib.mkOverride 1100 true;
       pandoc.extended.enable = lib.mkOverride 1100 true;
       parted.extended.enable = lib.mkOverride 1100 true;
       patch.extended.enable = lib.mkOverride 1100 true;
       pciutils.extended.enable = lib.mkOverride 1100 true;
-      picom.extended.enable = lib.mkOverride 1100 false;
-      pixman.extended.enable = lib.mkOverride 1100 false;
+      picom.extended.enable = lib.mkOverride 1100 true;
+      pixman.extended.enable = lib.mkOverride 1100 true;
       "pkg-config".extended.enable = lib.mkOverride 1100 true;
       planify.extended.enable = lib.mkOverride 1100 true;
-      playerctl.extended.enable = lib.mkOverride 1100 false;
-      "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 false;
+      playerctl.extended.enable = lib.mkOverride 1100 true;
+      "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 true;
       procps.extended.enable = lib.mkOverride 1100 true;
       "protonvpn-gui".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 true;
       pyright.extended.enable = lib.mkOverride 1100 false;
-      python.extended.enable = lib.mkOverride 1100 false;
+      python.extended.enable = lib.mkOverride 1100 true;
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
-      qemu.extended.enable = lib.mkOverride 1100 false;
       radare2.extended.enable = lib.mkOverride 1100 true;
       raindrop.extended.enable = lib.mkOverride 1100 true;
       rar.extended.enable = lib.mkOverride 1100 true;
       rclone.extended.enable = lib.mkOverride 1100 true;
       rip2.extended.enable = lib.mkOverride 1100 true;
       rizin.extended.enable = lib.mkOverride 1100 true;
-      rofi.extended.enable = lib.mkOverride 1100 false;
+      rofi.extended.enable = lib.mkOverride 1100 true;
       rsync.extended.enable = lib.mkOverride 1100 true;
       ruff.extended.enable = lib.mkOverride 1100 true;
       "rust-analyzer".extended.enable = lib.mkOverride 1100 false;
@@ -210,13 +209,13 @@
       "rust-clippy".extended.enable = lib.mkOverride 1100 false;
       rustfmt.extended.enable = lib.mkOverride 1100 false;
       s5cmd.extended.enable = lib.mkOverride 1100 true;
-      "signal-desktop".extended.enable = lib.mkOverride 1100 false;
+      "signal-desktop".extended.enable = lib.mkOverride 1100 true;
       skim.extended.enable = lib.mkOverride 1100 false;
       smartmontools.extended.enable = lib.mkOverride 1100 true;
       spectacle.extended.enable = lib.mkOverride 1100 false;
       sqlmap.extended.enable = lib.mkOverride 1100 false;
       starship.extended.enable = lib.mkOverride 1100 true;
-      statix.extended.enable = lib.mkOverride 1100 false;
+      statix.extended.enable = lib.mkOverride 1100 true;
       steam.extended.enable = lib.mkOverride 1100 true;
       strace.extended.enable = lib.mkOverride 1100 true;
       sysstat.extended.enable = lib.mkOverride 1100 true;
@@ -232,7 +231,7 @@
       tor.extended.enable = lib.mkOverride 1100 true;
       "tor-browser".extended.enable = lib.mkOverride 1100 true;
       torsocks.extended.enable = lib.mkOverride 1100 true;
-      udiskie.extended.enable = lib.mkOverride 1100 false;
+      udiskie.extended.enable = lib.mkOverride 1100 true;
       "ungoogled-chromium".extended.enable = lib.mkOverride 1100 true;
       unrar.extended.enable = lib.mkOverride 1100 true;
       unzip.extended.enable = lib.mkOverride 1100 true;
@@ -246,9 +245,8 @@
       "virt-manager".extended.enable = lib.mkOverride 1100 false;
       virtualbox.extended.enable = lib.mkOverride 1100 false;
       vlc.extended.enable = lib.mkOverride 1100 false;
-      "vmware-workstation".extended.enable = lib.mkOverride 1100 false;
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
-      "wappalyzer-next".extended.enable = lib.mkOverride 1100 false;
+      "wappalyzer-next".extended.enable = lib.mkOverride 1100 true;
       wgcf.extended.enable = lib.mkOverride 1100 true;
       wget.extended.enable = lib.mkOverride 1100 true;
       which.extended.enable = lib.mkOverride 1100 true;
@@ -258,10 +256,10 @@
       "worker-build".extended.enable = lib.mkOverride 1100 true;
       "workers-rs-sdk".extended.enable = lib.mkOverride 1100 false;
       wrangler.extended.enable = lib.mkOverride 1100 true;
-      xbacklight.extended.enable = lib.mkOverride 1100 false;
+      xbacklight.extended.enable = lib.mkOverride 1100 true;
       xclip.extended.enable = lib.mkOverride 1100 true;
       "xfce4-power-manager".extended.enable = lib.mkOverride 1100 false;
-      "xfce4-settings".extended.enable = lib.mkOverride 1100 false;
+      "xfce4-settings".extended.enable = lib.mkOverride 1100 true;
       xh.extended.enable = lib.mkOverride 1100 true;
       xkill.extended.enable = lib.mkOverride 1100 true;
       xsel.extended.enable = lib.mkOverride 1100 true;
