@@ -366,6 +366,14 @@
                     apps_dir="modules/apps"
                     catalog_file="modules/system76/apps-enable.nix"
 
+                    # Apps intentionally excluded from catalog (managed by specialized modules)
+                    # These apps are controlled by domain-specific modules, not apps-enable.nix
+                    excluded_apps=(
+                      "qemu"                # Controlled by virtualization.nix
+                      "vmware-workstation"  # Controlled by virtualization.nix
+                      "ovftool"             # Controlled by virtualization.nix
+                    )
+
                     # Check if this hook should run by examining staged changes
                     # Only run if modules/apps/ or apps-enable.nix are affected
                     should_run=0
@@ -391,6 +399,20 @@
                         | sed 's/\.nix$//' \
                         | sort
                     )
+
+                    # Filter out excluded apps from filesystem list
+                    declare -A excluded_map
+                    for excluded in "''${excluded_apps[@]}"; do
+                      excluded_map["$excluded"]=1
+                    done
+
+                    declare -a filtered_fs_apps=()
+                    for app in "''${filesystem_apps[@]}"; do
+                      if [ -z "''${excluded_map[$app]:-}" ]; then
+                        filtered_fs_apps+=("$app")
+                      fi
+                    done
+                    filesystem_apps=("''${filtered_fs_apps[@]}")
 
                     # Extract app names from apps-enable.nix
                     # Parse lines like: "app-name".extended.enable or app.extended.enable
@@ -471,6 +493,9 @@
                       echo "   Catalog:    ''${#catalog_apps[@]} apps" >&2
                       echo "   Missing:    ''${#missing[@]} entries" >&2
                       echo "   Stale:      ''${#stale[@]} entries" >&2
+                      if [ "''${#excluded_apps[@]}" -gt 0 ]; then
+                        echo "   Excluded:   ''${#excluded_apps[@]} apps (managed by specialized modules)" >&2
+                      fi
                       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
                       echo "" >&2
                       exit 1

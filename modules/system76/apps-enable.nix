@@ -1,16 +1,17 @@
 /*
-  System76 App Enables
+  System76 App Catalog
 
-  This module explicitly configures all applications for the system76 configuration.
+  This module configures application defaults for the system76 configuration.
   All app modules default to disabled, requiring explicit opt-in for better control.
 
-  Uses lib.mkOverride 1100 to create a "weak catalog" that allows:
-  - Priority 100: User direct overrides (highest priority)
-  - Priority 1000: Specialized modules like virtualization.nix (lib.mkDefault)
-  - Priority 1100: This catalog's defaults (lowest priority)
+  Uses lib.mkOverride 1100 (low priority) to allow user overrides and specialized
+  modules to take precedence when needed.
 
-  This ensures virtualization.nix can control qemu/vmware/ovftool while maintaining
-  a single source of truth for all available apps.
+  NOTE: Some apps are managed by specialized modules and excluded from this catalog:
+  - qemu, vmware-workstation, ovftool → modules/system76/virtualization.nix
+    (Virtualization tools are controlled via system76.virtualization.* options)
+
+  This separation eliminates priority conflicts and provides clear domain boundaries.
 */
 { lib, ... }:
 {
@@ -175,7 +176,6 @@
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 true;
       openssl.extended.enable = lib.mkOverride 1100 true;
       openvpn.extended.enable = lib.mkOverride 1100 true;
-      ovftool.extended.enable = lib.mkOverride 1100 false;
       p7zip.extended.enable = lib.mkOverride 1100 true;
       "p7zip-rar".extended.enable = lib.mkOverride 1100 true;
       pamixer.extended.enable = lib.mkOverride 1100 true;
@@ -195,7 +195,6 @@
       pyright.extended.enable = lib.mkOverride 1100 false;
       python.extended.enable = lib.mkOverride 1100 true;
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
-      qemu.extended.enable = lib.mkOverride 1100 false;
       radare2.extended.enable = lib.mkOverride 1100 true;
       raindrop.extended.enable = lib.mkOverride 1100 true;
       rar.extended.enable = lib.mkOverride 1100 true;
@@ -246,7 +245,6 @@
       "virt-manager".extended.enable = lib.mkOverride 1100 false;
       virtualbox.extended.enable = lib.mkOverride 1100 false;
       vlc.extended.enable = lib.mkOverride 1100 false;
-      "vmware-workstation".extended.enable = lib.mkOverride 1100 true;
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
       "wappalyzer-next".extended.enable = lib.mkOverride 1100 true;
       wgcf.extended.enable = lib.mkOverride 1100 true;
