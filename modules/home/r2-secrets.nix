@@ -7,21 +7,22 @@
   # when sops is not present in the synthetic check environment.
   flake.homeManagerModules.r2Secrets =
     {
-      config,
       inputs,
       lib,
+      metaOwner,
       ...
     }:
     let
-      envFile = "${config.home.homeDirectory}/.config/cloudflare/r2/env";
       r2Env = inputs.secrets + "/r2.env";
+      homeDirectory = "/home/${metaOwner.username}";
     in
     {
       config = lib.mkIf (builtins.pathExists r2Env) {
         sops.secrets."cloudflare/r2/env" = {
           sopsFile = r2Env;
           format = "dotenv";
-          path = envFile;
+          # Use metaOwner instead of config.home.homeDirectory
+          path = "${homeDirectory}/.config/cloudflare/r2/env";
           mode = "0400";
         };
       };

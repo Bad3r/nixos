@@ -1,21 +1,22 @@
 {
   flake.homeManagerModules.context7Secrets =
     {
-      config,
       inputs,
       lib,
+      metaOwner,
       ...
     }:
     let
       ctxFile = inputs.secrets + "/context7.yaml";
-      keyPath = "${config.home.homeDirectory}/.local/share/context7/api-key";
+      homeDirectory = "/home/${metaOwner.username}";
     in
     {
       config = lib.mkIf (builtins.pathExists ctxFile) {
         sops.secrets."context7/api-key" = {
           sopsFile = ctxFile;
           key = "context7_api_key";
-          path = keyPath;
+          # Use metaOwner instead of config.home.homeDirectory
+          path = "${homeDirectory}/.local/share/context7/api-key";
           mode = "0400";
         };
       };

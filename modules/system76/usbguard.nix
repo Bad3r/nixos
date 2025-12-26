@@ -2,6 +2,7 @@
   lib,
   pkgs,
   inputs,
+  metaOwner,
   ...
 }:
 let
@@ -16,9 +17,7 @@ let
   baseRulesFile = pkgs.writeText "usbguard-base.rules" baseRules;
   defaultsModule = usbguardLib.defaultsModule or null;
   moduleImports = lib.optional (defaultsModule != null) defaultsModule;
-  ownerUsername = builtins.toString (
-    lib.attrByPath [ "lib" "meta" "owner" "username" ] inputs.self "vx"
-  );
+  ownerUsername = metaOwner.username;
 
   hostSlug = "system76";
   secretDir = inputs.secrets + "/usbguard";

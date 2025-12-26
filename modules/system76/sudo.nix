@@ -1,7 +1,4 @@
-{ config, ... }:
-let
-  owner = config.flake.lib.meta.owner.username;
-in
+{ metaOwner, ... }:
 {
   configurations.nixos.system76.module =
     { pkgs, ... }:
@@ -35,6 +32,6 @@ in
         ];
       };
 
-      users.users.${owner}.extraGroups = [ "wheel" ];
+      users.users.${metaOwner.username}.extraGroups = [ "wheel" ];
     };
 }

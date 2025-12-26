@@ -1,27 +1,26 @@
-{ config, lib, ... }:
-{
+_: {
   flake.homeManagerModules.base =
-    args:
+    {
+      lib,
+      metaOwner,
+      ...
+    }:
     let
-      hmConfig = args.config;
-      hmLib = args.lib or lib;
-      defaultHome = "/home/${config.flake.lib.meta.owner.username}";
-      homeDir = hmConfig.home.homeDirectory or defaultHome;
-      sopsServiceHome = "${homeDir}/.local/share/sops-nix";
+      # Construct homeDirectory from metaOwner directly, don't rely on config.home.homeDirectory
+      homeDirectory = "/home/${metaOwner.username}";
+      sopsServiceHome = "${homeDirectory}/.local/share/sops-nix";
     in
     {
-      home = {
-        inherit (config.flake.lib.meta.owner) username;
-        homeDirectory = lib.mkDefault defaultHome;
-        preferXdgDirectories = true;
-      };
+      # Don't set home.username/homeDirectory - they're set explicitly in nixos.nix
+      home.preferXdgDirectories = true;
 
       programs.home-manager.enable = true;
       systemd.user.startServices = "sd-switch";
 
-      sops.age.keyFile = lib.mkDefault "${homeDir}/.config/sops/age/keys.txt";
+      # Use homeDirectory from metaOwner, not config.home.homeDirectory
+      sops.age.keyFile = lib.mkDefault "${homeDirectory}/.config/sops/age/keys.txt";
 
-      home.activation.ensureSopsServiceHome = hmLib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      home.activation.ensureSopsServiceHome = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         mkdir -p '${sopsServiceHome}'
         chmod 700 '${sopsServiceHome}'
       '';
