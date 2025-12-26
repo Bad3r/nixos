@@ -94,6 +94,11 @@
       };
     };
 
+    browser-previews = {
+      url = "github:nix-community/browser-previews";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     "burpsuite-pro-flake" = {
       url = "gitlab:_VX3r/burpsuite-pro-flake";
       inputs = {
