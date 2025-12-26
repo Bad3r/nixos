@@ -4,13 +4,8 @@ _: {
       {
         lib,
         config,
-        metaOwner,
         ...
       }:
-      let
-        # Use metaOwner from module args
-        ownerUsername = metaOwner.username;
-      in
       {
         options.services.openssh.publicKey = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
@@ -63,9 +58,7 @@ _: {
             }
           );
 
-          users.users.${ownerUsername}.openssh.authorizedKeys.keys = [
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGPoHVrToSwWfz+DaUX68A9v70V7k3/REqGxiDqjLOS+"
-          ];
+          # SSH keys are set in modules/meta/owner.nix using metaOwner.sshKeys
         };
       };
 
