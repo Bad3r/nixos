@@ -60,18 +60,42 @@ in
                 cat "${secretRuntimePath}" >> ${runtimeRuleFile}
               fi
             '';
-            serviceConfig.LogExtraFields = lib.mkForce [
-              "POLICY=usbguard"
-              "SUBSYSTEM=usb"
-            ];
+            serviceConfig = {
+              LogExtraFields = lib.mkForce [
+                "POLICY=usbguard"
+                "SUBSYSTEM=usb"
+              ];
+              # Allow reading secrets during preStart
+              ReadWritePaths = lib.mkAfter [ "/run/secrets/usbguard" ];
+            };
           };
 
-          security.audit = {
-            enable = lib.mkForce true;
-            rules = usbguardLib.defaultAuditRules;
-          };
-
-          security.auditd.enable = lib.mkForce true;
+          # Audit subsystem disabled due to incomplete LSM stacking support
+          #
+          # ROOT CAUSE: Kernel 6.18.2 lacks full multi-LSM audit support
+          #
+          # This system uses LSM stacking: lsm=landlock,yama,bpf,apparmor
+          # The kernel audit subsystem's security_lsmprop_to_secctx() function
+          # fails when multiple LSMs are active, causing:
+          #   - audit: error in audit_log_subj_ctx (repeated hundreds of times)
+          #   - audit_panic: callbacks suppressed
+          #   - All auditctl operations fail with status 255
+          #
+          # TESTED: Enabling security.auditd does NOT fix this - errors persist
+          #
+          # This is a known kernel limitation being actively addressed in mainline:
+          # Kernel patches v2-v6 (Dec 2024 - Aug 2025) add "multiple task security
+          # contexts" support to the audit subsystem for LSM stacking scenarios.
+          #
+          # SOLUTION: Disable audit until kernel with full LSM stacking audit support
+          # is available. USBGuard enforcement still works, only audit logging is lost.
+          #
+          # References:
+          # - Linux kernel audit mailing list: "Audit: Add record for multiple task
+          #   security contexts" patch series
+          # - security_lsmprop_to_secctx fails with LSM=landlock,yama,bpf,apparmor
+          security.audit.enable = lib.mkForce false;
+          security.auditd.enable = lib.mkForce false;
 
         }
         (lib.optionalAttrs secretExists {
