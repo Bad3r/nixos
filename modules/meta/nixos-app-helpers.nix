@@ -135,7 +135,7 @@ let
 
     getApps = names: map getApp names;
 
-    getAllApps = getApps appKeys;
+    getAllApps = lib.filter (m: m != null) (getApps appKeys);
 
     getAppOr = name: default: if hasApp name then getApp name else default;
   };

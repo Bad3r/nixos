@@ -1,9 +1,6 @@
-{ config, lib, ... }:
-let
-  owner = config.flake.lib.meta.owner.username;
-in
+{ lib, metaOwner, ... }:
 {
   configurations.nixos.system76.module = {
-    users.users.${owner}.extraGroups = lib.mkAfter [ "input" ];
+    users.users.${metaOwner.username}.extraGroups = lib.mkAfter [ "input" ];
   };
 }

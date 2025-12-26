@@ -20,6 +20,9 @@
     let
       defaultModel = "sonnet";
 
+      # Check if context7 secret is available
+      hasContext7Secret = config.sops.secrets ? "context7/api-key";
+
       mcp = import ../../lib/mcp-servers.nix {
         inherit lib pkgs config;
         defaultVariants = {
@@ -38,7 +41,7 @@
         cfbrowser = true;
         cfgraphql = false;
         deepwiki = true;
-        context7 = true;
+        context7 = hasContext7Secret; # Only enable if secret exists
       };
 
       defaultServers = claudeMcpServers;

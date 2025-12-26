@@ -2,30 +2,20 @@
   config,
   inputs,
   lib,
+  metaOwner,
   ...
 }:
 let
-  ownerName =
-    let
-      flakeAttrs = config.flake or { };
-      ownerMeta = lib.attrByPath [ "lib" "meta" "owner" ] { } flakeAttrs;
-      fallbackOwnerName =
-        let
-          usersAttrs = config.users.users or { };
-          normalUsers = lib.filterAttrs (_: u: (u.isNormalUser or false)) usersAttrs;
-        in
-        if normalUsers != { } then lib.head (lib.attrNames normalUsers) else null;
-    in
-    ownerMeta.username or (
-      if fallbackOwnerName != null then
-        fallbackOwnerName
-      else
-        throw "Home Manager base module: unable to determine owner username (set config.flake.lib.meta.owner.username or define a normal user)."
-    );
+  ownerName = metaOwner.username;
 
   moduleArgs = config._module.args or { };
   baseArgs = {
-    inherit config inputs lib;
+    inherit
+      config
+      inputs
+      lib
+      metaOwner
+      ;
   }
   // moduleArgs;
 
@@ -63,17 +53,43 @@ let
         in
         lib.attrByPath attrPath null evaluated;
       module = if moduleFromConfig != null then moduleFromConfig else fallbackModule;
+
+      # Helper for better error messages
+      availableModules = builtins.attrNames hmModules;
+      availableApps =
+        if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
+      formatModuleList =
+        modules: lib.concatMapStringsSep "\n          - " (m: "homeManagerModules.${m}") modules;
+      formatAppList =
+        apps: lib.concatMapStringsSep "\n          - " (a: "homeManagerModules.apps.${a}") apps;
     in
     if module != null then
       module
     else
-      throw ("Missing Home Manager module at " + builtins.concatStringsSep "." (map toString attrPath));
+      throw ''
+        Missing Home Manager module at: ${builtins.concatStringsSep "." (map toString attrPath)}
+
+        Available top-level modules:
+          - ${formatModuleList availableModules}
+
+        Available app modules:
+          - ${formatAppList availableApps}
+
+        Searched in:
+          - config.flake.homeManagerModules.${builtins.concatStringsSep "." (map toString hmAttrPath)}
+          - inputs.self.homeManagerModules.${builtins.concatStringsSep "." (map toString hmAttrPath)}
+          - File: ${toString path}
+      '';
 
   loadAppModule =
     name:
     let
       filePath = ../hm-apps + "/${name}.nix";
       moduleFromConfig = lib.attrByPath [ "apps" name ] null hmModules;
+      availableApps =
+        if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
+      formatAppList =
+        apps: lib.concatMapStringsSep "\n          - " (a: "homeManagerModules.apps.${a}") apps;
     in
     if moduleFromConfig != null then
       moduleFromConfig
@@ -85,7 +101,19 @@ let
         name
       ]
     else
-      throw ("Home Manager app module file not found: " + toString filePath);
+      throw ''
+        Home Manager app module not found: ${name}
+
+        Expected locations:
+          - config.flake.homeManagerModules.apps.${name}
+          - File: ${toString filePath}
+
+        Available app modules:
+          - ${formatAppList availableApps}
+
+        Hint: Ensure the module file exists at modules/hm-apps/${name}.nix
+              or is exported via flake.homeManagerModules.apps.${name}
+      '';
 
   sopsModule = inputs.sops-nix.homeManagerModules.sops;
   stateVersionModule =
@@ -146,11 +174,17 @@ in
         useGlobalPkgs = true;
         extraSpecialArgs = {
           hasGlobalPkgs = true;
-          inherit inputs;
+          inherit inputs metaOwner;
         };
         backupFileExtension = "hm.bk";
 
-        users.${ownerName}.imports = coreModules ++ appModules;
+        users.${ownerName} = {
+          # Explicitly set these - don't rely on home-manager auto-detection
+          home.username = ownerName;
+          home.homeDirectory = "/home/${ownerName}";
+
+          imports = coreModules ++ appModules;
+        };
       };
     };
   };
