@@ -1,3 +1,12 @@
+# Dependency Injection Pattern - Receiving Side
+#
+# This module receives metaOwner via the function parameter pattern: { metaOwner, ... }
+# instead of importing it directly from a file path.
+#
+# The metaOwner parameter is injected by the system configuration via:
+#   _module.args.metaOwner = metaOwner;
+#
+# See: modules/system76/imports.nix:315 for the injection point
 { lib, metaOwner, ... }:
 {
   flake = {

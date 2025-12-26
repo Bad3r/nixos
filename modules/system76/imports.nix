@@ -42,6 +42,7 @@ in
         # Stage 3: Optional flake modules (conditional)
         system76SupportExists = lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config;
         lenovyMonitorExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-lenovo-y27q-20" ] config;
+        langModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "lang" ] config;
 
         # Stage 4: Virtualization configuration fragment (required)
         virtualizationExists = builtins.pathExists ./virtualization.nix;
@@ -209,6 +210,7 @@ in
       # Stage 3: Optional flake modules (graceful)
       ++ lib.optionals system76SupportExists [ config.flake.nixosModules.system76-support ]
       ++ lib.optionals lenovyMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ]
+      ++ lib.optionals langModuleExists [ config.flake.nixosModules.lang ]
       # Stage 4: Virtualization configuration fragment (required)
       ++ [ ./virtualization.nix ]
       # Stage 4.5: duplicati-r2 configuration fragment (required)
@@ -297,6 +299,19 @@ in
       system = "x86_64-linux";
       modules = [
         {
+          # Dependency Injection via _module.args
+          #
+          # This propagates metaOwner and inputs to all modules in the configuration tree
+          # using flake-parts' _module.args mechanism. Modules receive these as function
+          # parameters: { metaOwner, inputs, ... }:
+          #
+          # Benefits:
+          # - Eliminates hardcoded path imports (e.g., import ../../lib/meta-owner-profile.nix)
+          # - Enables proper testing and composition
+          # - Makes dependencies explicit in function signatures
+          # - Provides consistent parameter passing across the module hierarchy
+          #
+          # See also: modules/meta/owner.nix for the receiving side pattern
           _module.args.metaOwner = metaOwner;
           _module.args.inputs = inputs;
         }
