@@ -455,8 +455,6 @@
           bars.default = i3statusBarConfig;
         };
 
-        stylix.targets.i3.enable = lib.mkDefault true;
-
         xdg.configFile = {
           "i3status-rust/config.toml".source =
             config.xdg.configFile."i3status-rust/config-default.toml".source;

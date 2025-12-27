@@ -27,9 +27,6 @@
   flake.homeManagerModules.apps.fzf =
     { pkgs, lib, ... }:
     {
-      # Enable Stylix theming for fzf
-      stylix.targets.fzf.enable = lib.mkDefault true;
-
       programs.fzf = {
         enable = true;
 

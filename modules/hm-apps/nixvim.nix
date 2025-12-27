@@ -30,8 +30,6 @@
     {
       imports = [ inputs.nixvim.homeModules.nixvim ];
 
-      stylix.targets.nixvim.enable = mkDefault true;
-
       programs.nixvim = {
         enable = true;
 
