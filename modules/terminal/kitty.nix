@@ -2,9 +2,6 @@
   flake.homeManagerModules.gui =
     { lib, ... }:
     {
-      # Enable Stylix theming for kitty
-      stylix.targets.kitty.enable = lib.mkDefault true;
-
       programs.kitty = {
         enable = true;
         # Ensure kitty is set as default terminal in user session

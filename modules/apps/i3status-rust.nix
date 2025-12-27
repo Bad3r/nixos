@@ -44,9 +44,6 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        # Enable Stylix theming for i3status-rust
-        stylix.targets.i3status-rust.enable = lib.mkDefault true;
-
         environment.systemPackages = [ cfg.package ];
       };
     };

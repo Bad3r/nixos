@@ -30,12 +30,8 @@
     * `git diff | bat --diff` — Colorize Git diff output with syntax-aware highlighting.
 */
 
-{ lib, ... }:
-{
+_: {
   flake.homeManagerModules.apps.bat = {
-    # Enable Stylix theming for bat
-    stylix.targets.bat.enable = lib.mkDefault true;
-
     programs.bat = {
       enable = true;
 

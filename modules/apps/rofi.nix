@@ -45,9 +45,6 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        # Enable Stylix theming for rofi
-        stylix.targets.rofi.enable = lib.mkDefault true;
-
         environment.systemPackages = [ cfg.package ];
       };
     };
