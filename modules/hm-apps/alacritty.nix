@@ -39,9 +39,6 @@
       };
 
       config = lib.mkIf cfg.enable {
-        # Enable Stylix theming for alacritty
-        stylix.targets.alacritty.enable = lib.mkDefault true;
-
         home.packages = [ pkgs.alacritty ];
       };
     };

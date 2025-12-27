@@ -20,9 +20,6 @@ _: {
       };
 
       config = {
-        # Enable Stylix theming for Firefox
-        stylix.targets.firefox.enable = lib.mkDefault true;
-
         programs.firefox = {
           enable = true;
           package = pkgs.firefox;

@@ -32,31 +32,26 @@
 */
 
 {
-  flake.homeManagerModules.apps.lazygit =
-    { lib, ... }:
-    {
-      # Enable Stylix theming for lazygit
-      stylix.targets.lazygit.enable = lib.mkDefault true;
+  flake.homeManagerModules.apps.lazygit = {
+    programs.lazygit = {
+      enable = true;
 
-      programs.lazygit = {
-        enable = true;
-
-        # Custom settings can be added here
-        # settings = {
-        #   gui = {
-        #     theme = {
-        #       activeBorderColor = ["#88c0d0" "bold"];
-        #       inactiveBorderColor = ["#4c566a"];
-        #       selectedLineBgColor = ["#3b4252"];
-        #     };
-        #   };
-        #   git = {
-        #     paging = {
-        #       colorArg = "always";
-        #       pager = "delta --dark --paging=never";
-        #     };
-        #   };
-        # };
-      };
+      # Custom settings can be added here
+      # settings = {
+      #   gui = {
+      #     theme = {
+      #       activeBorderColor = ["#88c0d0" "bold"];
+      #       inactiveBorderColor = ["#4c566a"];
+      #       selectedLineBgColor = ["#3b4252"];
+      #     };
+      #   };
+      #   git = {
+      #     paging = {
+      #       colorArg = "always";
+      #       pager = "delta --dark --paging=never";
+      #     };
+      #   };
+      # };
     };
+  };
 }

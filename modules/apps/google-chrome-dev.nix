@@ -20,6 +20,9 @@
     * `google-chrome-unstable` - Launch Chrome Dev (the binary is named google-chrome-unstable).
     * `google-chrome-unstable --enable-features=WebGPU` - Test WebGPU support.
     * `google-chrome-unstable --user-data-dir=/tmp/chrome-test` - Isolated testing profile.
+
+  Local Workarounds:
+    * Removes duplicate desktop file with broken /usr/bin path (upstream: browser-previews#44).
 */
 { inputs, ... }:
 let
@@ -51,7 +54,13 @@ let
         # Must be unconditional so the package option can resolve
         nixpkgs.overlays = [
           (_final: prev: {
-            google-chrome-dev = packageFor prev.stdenv.hostPlatform.system;
+            google-chrome-dev = (packageFor prev.stdenv.hostPlatform.system).overrideAttrs (oldAttrs: {
+              postInstall = (oldAttrs.postInstall or "") + ''
+                # Workaround for upstream browser-previews#44:
+                # Remove unpatched duplicate desktop file with broken /usr/bin path
+                rm -f $out/share/applications/com.google.Chrome.unstable.desktop
+              '';
+            });
           })
         ];
 

@@ -44,9 +44,6 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        # Enable Stylix theming for mangohud
-        stylix.targets.mangohud.enable = lib.mkDefault true;
-
         environment.systemPackages = [ cfg.package ];
       };
     };
@@ -70,9 +67,6 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        # Enable Stylix theming for mangohud (HM)
-        stylix.targets.mangohud.enable = lib.mkDefault true;
-
         programs.mangohud.enable = true;
       };
     };
