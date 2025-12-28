@@ -186,6 +186,23 @@ All 245 app modules follow standardized NixOS patterns with:
 
 ## Execution Playbooks
 
+### Branch Workflow
+
+**Rule:** All changes require a dedicated worktree and PR. Never commit directly to main unless the user explicitly approves.
+
+| Step   | Command                                                             |
+| ------ | ------------------------------------------------------------------- |
+| Create | `git worktree add $HOME/trees/nixos/<type>/<name> -b <type>/<name>` |
+| Work   | `cd $HOME/trees/nixos/<type>/<name>` then commit changes            |
+| PR     | `gh pr create --title "<type>(scope): summary" --body "..."`        |
+
+Branch `<type>` uses Conventional Commits prefixes (see _Commit & PR Expectations_).
+
+**PR body:**
+
+- `## Summary` — what changed and why
+- `## Test plan` — validation commands run (per existing "Record validation commands" guideline)
+
 ### Development Environment
 
 | Trigger            | Command                                     | Preconditions                                                  | Post-check                                                                               |
