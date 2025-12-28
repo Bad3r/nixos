@@ -172,7 +172,7 @@ in
 
 **Module Standards**:
 
-All 245 app modules follow standardized NixOS patterns with:
+All app modules follow standardized NixOS patterns with:
 
 - Proper `options.programs.<name>.extended` namespace
 - Explicit opt-in via `enable` option (default = false)
@@ -209,12 +209,12 @@ Branch `<type>` uses Conventional Commits prefixes (see _Commit & PR Expectation
 
 ### Validation & Builds
 
-| Trigger             | Command                                                               | Preconditions                                                                              | Post-check                                       |
-| ------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------ | --------------------------------------------------------------- |
-| Verify flake health | `nix flake check --accept-flake-config --no-build --offline 2>&1      | head -100`                                                                                 | Dev shell recommended; expect long runtime.      | Command exits 0; investigate and resolve any reported failures. |
-| Build a host        | `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` | Replace `<host>` with target. Do **not** use `--allow-dirty` unless explicitly instructed. | Build completes; record store path for auditing. |
-| Validate and deploy | `./build.sh [OPTIONS]`                                                | Clean working tree required unless `--allow-dirty` used.                                   | Script exits 0; capture logs if issues arise.    |
-| Update flake inputs | `./build.sh --update`                                                 | Clean working tree recommended.                                                            | Review updated lock file changes.                |
+| Trigger             | Command                                                               | Preconditions                                                                              | Post-check                                                      |
+| ------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| Verify flake health | `nix flake check --accept-flake-config --no-build --offline`          | Dev shell recommended; expect long runtime.                                                | Command exits 0; investigate and resolve any reported failures. |
+| Build a host        | `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` | Replace `<host>` with target. Do **not** use `--allow-dirty` unless explicitly instructed. | Build completes; record store path for auditing.                |
+| Validate and deploy | `./build.sh [OPTIONS]`                                                | Clean working tree required unless `--allow-dirty` used.                                   | Script exits 0; capture logs if issues arise.                   |
+| Update flake inputs | `./build.sh --update`                                                 | Clean working tree recommended.                                                            | Review updated lock file changes.                               |
 
 #### build.sh Options
 
@@ -247,6 +247,15 @@ The `build.sh` script performs full validation (format, hooks, flake check) befo
 | -------------------- | ----------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------- |
 | Remove files safely  | `rip <path>`                                    | Ensure file is tracked or intended for deletion.   | Confirm `git status` shows deletion; revert if mistaken. |
 | Mirror updates (ghq) | `nix develop -c ghq get <repo>` or `ghq update` | Shared GHQ root configured; ensure network access. | Mirror updated under `$HOME/git/<repo>`.                 |
+
+### Troubleshooting
+
+| Scenario                | Resolution                                                                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Unfree package blocked  | Add the package name to `config.nixpkgs.allowedUnfreePackages` via `modules/meta/nixpkgs-allowed-unfree.nix`.                          |
+| Missing app reference   | Use `config.flake.lib.nixos.hasApp "app-name"` in a module, or run `nix eval '.#flake.nixosModules.apps'` and search for your key.     |
+| Managed file drift      | Run `nix develop -c write-files` then `git diff` to reconcile generated artefacts.                                                     |
+| Explore config via repl | `nix develop --accept-flake-config -c nix repl --expr 'import ./.'` then inspect `config.configurations.nixos.system76.module.imports` |
 
 ## Coding Style & Verification
 
@@ -331,20 +340,14 @@ Pause, summarize the situation, and ask vx for direction before proceeding.
 
 The following MCP (Model Context Protocol) tools may be available when configured. Use `/mcp` to check current configuration status.
 
-| Tool                  | Primary Use                                             | Access Notes                                                 | Example Invocation                                              |
-| --------------------- | ------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------- |
-| `context7`            | Look up library IDs and documentation for coding tasks. | Requires network; resolves ID before fetching docs.          | `context7 resolve-library-id --name <library>`                  |
-| `cfbuilds`            | Inspect Cloudflare Workers builds and logs.             | Select tenant via `accounts_list` → `set_active_account`.    | `cfbuilds workers_list`                                         |
-| `memory`              | Persist or query shared context across sessions.        | Store structured observations for long-lived tasks.          | `memory add_observation --entity <name>`                        |
-| `cfgraphql`           | Query Cloudflare analytics via GraphQL.                 | Include limits; set active account first.                    | `cfgraphql graphql_query --file query.graphql`                  |
-| `cfbrowser`           | Render and capture live webpages.                       | Requires selected tenant; useful for verifying UI changes.   | `cfbrowser get-url-html --url <page>`                           |
-| `cfobservability`     | Analyze Workers logs and metrics.                       | Use `observability_keys` to discover fields before querying. | `cfobservability query_worker_observability --query file.json`  |
-| `cfradar`             | Retrieve network traffic and anomaly data.              | Set correct account; helpful for incident response.          | `cfradar get_http_data --dimension timeseries`                  |
-| `deepwiki`            | Browse repository knowledge bases.                      | Supply `owner/repo` to fetch docs.                           | `deepwiki read_wiki_structure --repo owner/repo`                |
-| `time`                | Convert or fetch timestamps.                            | No prerequisites.                                            | `time convert --from UTC --to America/Los_Angeles --time 12:00` |
-| `cfcontainers`        | Launch container sandboxes for command execution.       | Initialize container before running commands.                | `cfcontainers container_initialize`                             |
-| `sequential-thinking` | Record structured reasoning steps.                      | Use for complex tasks; keeps plan visible.                   | `sequentialthinking start`                                      |
-| `cfdocs`              | Search Cloudflare documentation.                        | Use when documentation server is enabled.                    | `cfdocs search --query "Workers KV"`                            |
+| Tool                  | Primary Use                                             | Access Notes                                        | Example Invocation                                              |
+| --------------------- | ------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
+| `context7`            | Look up library IDs and documentation for coding tasks. | Requires network; resolves ID before fetching docs. | `context7 resolve-library-id --name <library>`                  |
+| `cfdocs`              | Search Cloudflare documentation.                        | Use for Workers, R2, and other CF services.         | `cfdocs search --query "Workers KV"`                            |
+| `cfbrowser`           | Render and capture live webpages.                       | Useful for verifying UI changes.                    | `cfbrowser get-url-html --url <page>`                           |
+| `deepwiki`            | Browse repository knowledge bases.                      | Supply `owner/repo` to fetch docs.                  | `deepwiki read_wiki_structure --repo owner/repo`                |
+| `time`                | Convert or fetch timestamps.                            | No prerequisites.                                   | `time convert --from UTC --to America/Los_Angeles --time 12:00` |
+| `sequential-thinking` | Record structured reasoning steps.                      | Use for complex tasks; keeps plan visible.          | `sequentialthinking start`                                      |
 
 **Note**: MCP tools availability depends on configuration. If tools are not available, run `/doctor` to diagnose or visit https://docs.claude.com/en/docs/claude-code/mcp for setup instructions.
 
