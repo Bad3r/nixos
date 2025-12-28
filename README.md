@@ -4,15 +4,7 @@ A NixOS configuration using the **Dendritic Pattern** - an organic configuration
 
 Based on the golden standard from [mightyiam/infra](https://github.com/mightyiam/infra).
 
-## Automatic import
-
-Nix files (they're all flake-parts modules) are automatically imported.
-Nix files prefixed with an underscore are ignored.
-No literal path imports are used.
-This means files can be moved around and nested in directories freely.
-
-> [!NOTE]
-> This pattern has been the inspiration of [an auto-imports library, import-tree](https://github.com/vic/import-tree).
+> **Documentation:** For pattern details, module authoring rules, and migration checklists, see [`docs/dendritic-pattern-reference.md`](docs/dendritic-pattern-reference.md). For the full architecture map, see [`docs/configuration-architecture.md`](docs/configuration-architecture.md).
 
 ## Module Aggregators
 
@@ -21,24 +13,7 @@ Modules register themselves under two mergeable aggregators:
 - `flake.nixosModules`: NixOS modules (freeform, nested namespaces allowed)
 - `flake.homeManagerModules`: Home Manager modules (freeform; with `base`, `gui`, and per-app under `apps`)
 
-Composition now centers on the single System76 host, so imports reference the exact feature modules that machine needs:
-
-```nix
-{ config, lib, ... }:
-{
-  configurations.nixos.system76.module = {
-    imports = lib.filter (module: module != null) [
-      (config.flake.nixosModules.base or null)
-      (config.flake.nixosModules."system76-support" or null)
-      (config.flake.nixosModules."hardware-lenovo-y27q-20" or null)
-    ];
-  };
-}
-```
-
-Continue to use `lib.hasAttrByPath` and `lib.getAttrFromPath` when selecting optional modules to avoid ordering issues.
-
-### System76 Host Layout
+## System76 Host Layout
 
 All packages and services now live under `modules/system76/`. Each file contributes directly to `configurations.nixos.system76.module`, so the host is assembled from explicit feature modules rather than abstract roles.
 

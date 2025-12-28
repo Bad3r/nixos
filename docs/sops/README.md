@@ -47,7 +47,7 @@ hardware-backed SSH keys can coexist without breaking SOPS.
    };
    ```
 4. Reference the runtime material via `.path` or a template. Never read secrets at evaluation time.
-5. Run the validation suite (`nix fmt`, `nix develop -c pre-commit run --all-files`, `generation-manager score`, `nix flake check --accept-flake-config`).
+5. Run the validation suite (see [`docs/dendritic-pattern-reference.md`](../dendritic-pattern-reference.md#validation)).
 
 ## Example: GitHub Token for `act`
 
@@ -79,11 +79,4 @@ The Home Manager module `modules/home/r2-user.nix` reads `sops.templates."r2"` (
 
 ## Validation Commands
 
-```bash
-nix fmt
-nix develop -c pre-commit run --all-files
-generation-manager score
-nix flake check --accept-flake-config
-```
-
-These checks ensure sops policy is regenerated, secrets stay encrypted, and managed files stay in sync.
+See [`docs/dendritic-pattern-reference.md`](../dendritic-pattern-reference.md#validation) for the canonical validation suite. These checks ensure sops policy is regenerated, secrets stay encrypted, and managed files stay in sync.
