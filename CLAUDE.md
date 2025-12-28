@@ -192,8 +192,8 @@ All 245 app modules follow standardized NixOS patterns with:
 
 | Step   | Command                                                             |
 | ------ | ------------------------------------------------------------------- |
-| Create | `git worktree add $HOME/trees/nixos/<type>/<name> -b <type>/<name>` |
-| Work   | `cd $HOME/trees/nixos/<type>/<name>` then commit changes            |
+| Create | `git worktree add $HOME/trees/nixos/<type>-<name> -b <type>/<name>` |
+| Work   | `cd $HOME/trees/nixos/<type>-<name>` then commit changes            |
 | PR     | `gh pr create --title "<type>(scope): summary" --body "..."`        |
 
 Branch `<type>` uses Conventional Commits prefixes (see _Commit & PR Expectations_).
