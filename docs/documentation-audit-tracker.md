@@ -12,11 +12,11 @@
 | ----------------------------- | ----- |
 | Total Files Audited           | 40    |
 | Issues Identified             | 12    |
-| Issues Resolved               | 8     |
-| Issues Pending                | 4     |
+| Issues Resolved               | 9     |
+| Issues Pending                | 3     |
 | Lines Removed (deduplication) | 34    |
 | Files Modified                | 4     |
-| Files Deleted                 | 3     |
+| Files Deleted                 | 17    |
 
 ---
 
@@ -89,21 +89,11 @@
 
 ### 1.9 External Reference Documentation
 
-| File                                                       | Lines | Health      | Issues | Status     | Notes                           |
-| ---------------------------------------------------------- | ----- | ----------- | ------ | ---------- | ------------------------------- |
-| docs/flake-parts-docs/SUMMARY.md                           | 26    | 🟡 External | 1      | ⏳ Pending | Upstream copy - version unknown |
-| docs/flake-parts-docs/getting-started.md                   | 48    | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/cheat-sheet.md                       | 60    | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/module-arguments.md                  | 211   | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/best-practices-for-module-writing.md | 40    | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/overlays.md                          | 109   | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/debug.md                             | 77    | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/define-module-in-separate-file.md    | 93    | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/define-custom-flake-attribute.md     | 30    | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/generate-documentation.md            | 83    | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/dogfood-a-reusable-module.md         | 99    | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/system.md                            | 19    | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
-| docs/flake-parts-docs/intro-continued.md                   | 7     | 🟡 External | 0      | ⏳ Pending | Upstream copy                   |
+| File                     | Lines | Health  | Issues | Status      | Notes                                                |
+| ------------------------ | ----- | ------- | ------ | ----------- | ---------------------------------------------------- |
+| docs/flake-parts-docs.md | 6     | 🟢 Good | 0      | ✅ Resolved | Pointer to upstream (replaced 14 stale local copies) |
+
+> **Note:** 14 files previously in `docs/flake-parts-docs/` were deleted and replaced with a pointer to the official source at [github.com/hercules-ci/flake.parts-website](https://github.com/hercules-ci/flake.parts-website).
 
 ### 1.10 Manual Documentation
 
@@ -124,7 +114,7 @@
 | I-005 | MEDIUM   | Incomplete    | 4 unchecked CI items                    | duplicati-r2-implementation-plan.md                  | ✅ Resolved | **DELETED** - Module complete (853 lines), checklist stale, test file never created       |
 | I-006 | LOW      | Archive       | All tasks complete, no active use       | workstation-removal-tasks.md                         | ✅ Resolved | **DELETED** - All 38 tasks complete since 2025-10-25, git history preserves at ac77622e5  |
 | I-007 | LOW      | Stale         | Has unimplemented "Next Actions"        | android-emulator-network-plan.md                     | ✅ Resolved | Cleaned 21 AI artifacts, added DRAFT status header noting unimplemented actions           |
-| I-008 | LOW      | External      | Upstream copy, version unknown          | docs/flake-parts-docs/ (13 files)                    | ⏳ Pending  | Add version/date, or link to upstream                                                     |
+| I-008 | LOW      | External      | Upstream copy, version unknown          | docs/flake-parts-docs/ (14 files)                    | ✅ Resolved | **DELETED** - Replaced with pointer to github.com/hercules-ci/flake.parts-website         |
 | I-009 | LOW      | Misclassified | YAML file counted as documentation      | sops-dotfile.example.yaml                            | ⏳ Pending  | Consider moving or excluding from doc count                                               |
 | I-010 | LOW      | Orphan        | No incoming references                  | README.md                                            | ✅ Resolved | Now links to canonical docs                                                               |
 | I-011 | LOW      | Inconsistency | Validation commands vary across files   | 6 files                                              | ⏳ Pending  | Some include `generation-manager score`, others don't                                     |
@@ -146,16 +136,16 @@
 
 ## 4. Action Items Matrix
 
-| Priority | Action                               | Files Affected                          | Status     | Owner | Notes                                            |
-| -------- | ------------------------------------ | --------------------------------------- | ---------- | ----- | ------------------------------------------------ |
-| P1       | ~~Clean AI artifacts~~               | nix-debugging-manual.md                 | ✅ Done    | -     | Removed 27 citations                             |
-| P1       | ~~Consolidate Dendritic Pattern~~    | README.md, CLAUDE.md                    | ✅ Done    | -     | Linked to canonical                              |
-| P2       | ~~Review stale investigation~~       | ~~home-manager-bridge-debug-log.md~~    | ✅ Done    | -     | Deleted - obsolete after role system removal     |
-| P2       | ~~Review incomplete checklist~~      | ~~duplicati-r2-implementation-plan.md~~ | ✅ Done    | -     | Deleted - module complete, checklist obsolete    |
-| P3       | ~~Archive completed task list~~      | ~~workstation-removal-tasks.md~~        | ✅ Done    | -     | Deleted - all 38 tasks complete, git preserves   |
-| P3       | Add version info to external docs    | docs/flake-parts-docs/\*.md             | ⏳ Pending | User  | Add upstream version/commit                      |
-| P3       | Standardize validation commands      | 6 files                                 | ⏳ Pending | User  | Decide if `generation-manager score` is required |
-| P4       | Add findings section to audit report | documentation-audit-report.md           | ⏳ Pending | User  | Transform observations into recommendations      |
+| Priority | Action                                | Files Affected                          | Status     | Owner | Notes                                            |
+| -------- | ------------------------------------- | --------------------------------------- | ---------- | ----- | ------------------------------------------------ |
+| P1       | ~~Clean AI artifacts~~                | nix-debugging-manual.md                 | ✅ Done    | -     | Removed 27 citations                             |
+| P1       | ~~Consolidate Dendritic Pattern~~     | README.md, CLAUDE.md                    | ✅ Done    | -     | Linked to canonical                              |
+| P2       | ~~Review stale investigation~~        | ~~home-manager-bridge-debug-log.md~~    | ✅ Done    | -     | Deleted - obsolete after role system removal     |
+| P2       | ~~Review incomplete checklist~~       | ~~duplicati-r2-implementation-plan.md~~ | ✅ Done    | -     | Deleted - module complete, checklist obsolete    |
+| P3       | ~~Archive completed task list~~       | ~~workstation-removal-tasks.md~~        | ✅ Done    | -     | Deleted - all 38 tasks complete, git preserves   |
+| P3       | ~~Add version info to external docs~~ | ~~docs/flake-parts-docs/\*.md~~         | ✅ Done    | -     | Deleted 14 files, replaced with upstream pointer |
+| P3       | Standardize validation commands       | 6 files                                 | ⏳ Pending | User  | Decide if `generation-manager score` is required |
+| P4       | Add findings section to audit report  | documentation-audit-report.md           | ⏳ Pending | User  | Transform observations into recommendations      |
 
 ---
 
@@ -223,6 +213,7 @@ docs/stylix-integration.md
 | 2025-12-28 | **I-005 RESOLVED**: Deleted duplicati-r2-implementation-plan.md (module complete, checklist stale)       |
 | 2025-12-28 | **I-006 RESOLVED**: Deleted workstation-removal-tasks.md (all 38 tasks complete since 2025-10-25)        |
 | 2025-12-28 | **I-007 RESOLVED**: Cleaned android-emulator-network-plan.md (21 AI artifacts), added DRAFT status       |
+| 2025-12-28 | **I-008 RESOLVED**: Deleted docs/flake-parts-docs/ (14 files), replaced with pointer to official source  |
 
 ---
 
