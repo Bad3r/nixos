@@ -56,6 +56,8 @@ Use `rip` command for temporary file removal instead of stashing when possible.
 
 This is a NixOS configuration using the **Dendritic Pattern** - an organic configuration growth pattern with automatic module discovery. Files can be moved and nested freely without breaking imports.
 
+> **Canonical Documentation:** For pattern details, module authoring rules, and migration checklists, see [`docs/dendritic-pattern-reference.md`](docs/dendritic-pattern-reference.md). For the full architecture map including host composition, secrets, and tooling, see [`docs/configuration-architecture.md`](docs/configuration-architecture.md).
+
 | Key                | Value                                                                                                                      |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | Purpose            | Provide autonomous and human agents with a single source of truth for operating in this repository safely and efficiently. |
@@ -99,18 +101,7 @@ All Nix files are automatically imported as flake-parts modules. Files prefixed 
 
 ### Module Composition Pattern
 
-```nix
-{ config, lib, ... }:
-{
-  configurations.nixos.system76.module = {
-    imports = lib.filter (module: module != null) [
-      (config.flake.nixosModules.base or null)
-      (config.flake.nixosModules."system76-support" or null)
-      (config.flake.nixosModules."hardware-lenovo-y27q-20" or null)
-    ];
-  };
-}
-```
+Hosts compose modules by importing from aggregator namespaces rather than literal paths. See [`docs/dendritic-pattern-reference.md`](docs/dendritic-pattern-reference.md) for the canonical pattern with code examples.
 
 Use `lib.hasAttrByPath` + `lib.getAttrFromPath` for optional modules to avoid ordering issues.
 
