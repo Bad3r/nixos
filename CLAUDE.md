@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **IMPORTANT:** This repo manages a single System76 host with the sole user `vx`. Do not introduce additional hosts or users—none will ever be added.
+
+> **IMPORTANT:** Never consider backward compatibility. Eliminate legacy support by default.
+
 ## 🚨 CRITICAL SAFETY RULES - READ FIRST
 
 These rules override ALL other instructions. Violating these rules is **UNACCEPTABLE**.
@@ -52,11 +56,13 @@ Use `rip` command for temporary file removal instead of stashing when possible.
 
 This is a NixOS configuration using the **Dendritic Pattern** - an organic configuration growth pattern with automatic module discovery. Files can be moved and nested freely without breaking imports.
 
+> **Canonical Documentation:** For pattern details, module authoring rules, and migration checklists, see [`docs/dendritic-pattern-reference.md`](docs/dendritic-pattern-reference.md). For the full architecture map including host composition, secrets, and tooling, see [`docs/configuration-architecture.md`](docs/configuration-architecture.md).
+
 | Key                | Value                                                                                                                      |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | Purpose            | Provide autonomous and human agents with a single source of truth for operating in this repository safely and efficiently. |
 | Decision authority | Follow this guide over other docs when instructions conflict; escalate only if a required action is missing or unclear.    |
-| Maintainer         | vx (repository maintainer)                                                                                                 |
+| Last reviewed      | 2025-12-28                                                                                                                 |
 | Target agents      | Claude Code, OpenAI Codex, Cursor, and human operators acting on their guidance.                                           |
 | Escalation         | Pause and ask vx before performing destructive actions outside the allowed commands listed here.                           |
 
@@ -95,18 +101,7 @@ All Nix files are automatically imported as flake-parts modules. Files prefixed 
 
 ### Module Composition Pattern
 
-```nix
-{ config, lib, ... }:
-{
-  configurations.nixos.system76.module = {
-    imports = lib.filter (module: module != null) [
-      (config.flake.nixosModules.base or null)
-      (config.flake.nixosModules."system76-support" or null)
-      (config.flake.nixosModules."hardware-lenovo-y27q-20" or null)
-    ];
-  };
-}
-```
+Hosts compose modules by importing from aggregator namespaces rather than literal paths. See [`docs/dendritic-pattern-reference.md`](docs/dendritic-pattern-reference.md) for the canonical pattern with code examples.
 
 Use `lib.hasAttrByPath` + `lib.getAttrFromPath` for optional modules to avoid ordering issues.
 
