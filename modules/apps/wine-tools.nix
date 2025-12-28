@@ -14,13 +14,18 @@
     winetricks <verb>: Install common DLLs or runtime components into a Wine prefix.
     proton-run <program> [args]: Execute Windows programs using Proton with automatic prefix management.
     WINEPREFIX=<dir>: Target a specific Wine prefix directory.
-    PROTON_VERSION=<version>: Select which Proton version to use (e.g., 'Proton-Experimental', 'GE-Proton9-20').
+    PROTON_VERSION=<version>: Select which Proton version to use. Supports:
+      - Third-party builds in compatibilitytools.d (e.g., 'GE-Proton9-20')
+      - Official Steam versions in steamapps/common (e.g., 'Proton-Experimental', 'Proton-9.0')
+      - Absolute paths to Proton installations
+      Note: 'Proton-X' is automatically translated to 'Proton - X' for Steam's naming convention.
 
   Example Usage:
     * `WINEPREFIX=~/prefixes/app wine setup.exe` — Install a Windows application into a custom prefix.
     * `winetricks corefonts vcrun2019` — Install required runtime components.
     * `proton-run game.exe` — Launch a program with Proton-GE's compatibility enhancements.
-    * `PROTON_VERSION=Proton-Experimental proton-run game.exe` — Use Proton Experimental instead of GE.
+    * `PROTON_VERSION=Proton-Experimental proton-run game.exe` — Use Steam's Proton Experimental.
+    * `PROTON_VERSION=GE-Proton9-20 proton-run game.exe` — Use a specific GE-Proton version.
 */
 _:
 let
@@ -49,13 +54,18 @@ let
             echo "Usage: proton-run <program> [args...]" >&2
             echo "" >&2
             echo "Environment variables:" >&2
-            echo "  PROTON_VERSION - Name of Proton version to use (e.g., 'GE-Proton9-20', 'Proton-Experimental')" >&2
+            echo "  PROTON_VERSION - Proton version to use. Searches:" >&2
+            echo "                   - compatibilitytools.d (GE-Proton, etc.)" >&2
+            echo "                   - steamapps/common (Proton-Experimental, etc.)" >&2
+            echo "                   - Absolute paths (/path/to/proton)" >&2
+            echo "                   Note: 'Proton-X' auto-translates to 'Proton - X'" >&2
             echo "  PROTON_RUN_PREFIX - Custom prefix directory (default: ~/.local/share/proton-ge)" >&2
             echo "  STEAM_COMPAT_DATA_PATH - Override compat data path" >&2
             echo "" >&2
             echo "Examples:" >&2
             echo "  proton-run game.exe" >&2
             echo "  PROTON_VERSION=Proton-Experimental proton-run game.exe" >&2
+            echo "  PROTON_VERSION=GE-Proton9-20 proton-run game.exe" >&2
             exit 1
           fi
 
@@ -64,24 +74,70 @@ let
 
           # Allow overriding Proton version
           if [ -n "''${PROTON_VERSION:-}" ]; then
-            # Check Steam's compatibilitytools.d
-            compat_dirs=(
-              "$HOME/.steam/root/compatibilitytools.d"
-              "$HOME/.local/share/Steam/compatibilitytools.d"
-            )
-
             found=0
-            for compat_dir in "''${compat_dirs[@]}"; do
-              if [ -d "$compat_dir/$PROTON_VERSION" ]; then
-                default_proton="$compat_dir/$PROTON_VERSION"
+
+            # If it's an absolute path, use it directly
+            if [[ "$PROTON_VERSION" == /* ]]; then
+              if [ -d "$PROTON_VERSION" ]; then
+                default_proton="$PROTON_VERSION"
                 found=1
                 echo "Using Proton from: $default_proton" >&2
-                break
+              else
+                echo "Warning: PROTON_VERSION path '$PROTON_VERSION' not found, using default Proton-GE" >&2
               fi
-            done
+            else
+              # Third-party builds (compatibilitytools.d)
+              compat_dirs=(
+                "$HOME/.steam/root/compatibilitytools.d"
+                "$HOME/.local/share/Steam/compatibilitytools.d"
+              )
+              # Official Steam Proton versions (steamapps/common)
+              steam_common_dirs=(
+                "$HOME/.steam/root/steamapps/common"
+                "$HOME/.local/share/Steam/steamapps/common"
+              )
 
-            if [ "$found" -eq 0 ]; then
-              echo "Warning: PROTON_VERSION '$PROTON_VERSION' not found in compatibilitytools.d, using default Proton-GE" >&2
+              # First, try exact match in compatibilitytools.d (for GE-Proton, etc.)
+              for compat_dir in "''${compat_dirs[@]}"; do
+                if [ -d "$compat_dir/$PROTON_VERSION" ]; then
+                  default_proton="$compat_dir/$PROTON_VERSION"
+                  found=1
+                  echo "Using Proton from: $default_proton" >&2
+                  break
+                fi
+              done
+
+              # If not found, try Steam's common directory (exact match)
+              if [ "$found" -eq 0 ]; then
+                for common_dir in "''${steam_common_dirs[@]}"; do
+                  if [ -d "$common_dir/$PROTON_VERSION" ]; then
+                    default_proton="$common_dir/$PROTON_VERSION"
+                    found=1
+                    echo "Using Proton from: $default_proton" >&2
+                    break
+                  fi
+                done
+              fi
+
+              # If still not found, try Steam's naming convention (Proton-X -> Proton - X)
+              if [ "$found" -eq 0 ]; then
+                steam_name="''${PROTON_VERSION/Proton-/Proton - }"
+                if [ "$steam_name" != "$PROTON_VERSION" ]; then
+                  for common_dir in "''${steam_common_dirs[@]}"; do
+                    if [ -d "$common_dir/$steam_name" ]; then
+                      default_proton="$common_dir/$steam_name"
+                      found=1
+                      echo "Using Proton from: $default_proton" >&2
+                      break
+                    fi
+                  done
+                fi
+              fi
+
+              if [ "$found" -eq 0 ]; then
+                echo "Warning: PROTON_VERSION '$PROTON_VERSION' not found, using default Proton-GE" >&2
+                echo "Searched: compatibilitytools.d, steamapps/common" >&2
+              fi
             fi
           fi
 
