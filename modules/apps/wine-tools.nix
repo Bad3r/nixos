@@ -13,7 +13,6 @@
     wine, wine64: Run Windows executables natively via Wine.
     winetricks <verb>: Install common DLLs or runtime components into a Wine prefix.
     proton-run <program> [args]: Execute Windows programs using Proton with automatic prefix management.
-    run-topheroes: Launch TopHeroes game with dedicated Proton prefix at ~/.local/share/proton-prefixes/topheroes.
     WINEPREFIX=<dir>: Target a specific Wine prefix directory.
     PROTON_VERSION=<version>: Select which Proton version to use (e.g., 'Proton-Experimental', 'GE-Proton9-20').
 
@@ -22,7 +21,6 @@
     * `winetricks corefonts vcrun2019` — Install required runtime components.
     * `proton-run game.exe` — Launch a program with Proton-GE's compatibility enhancements.
     * `PROTON_VERSION=Proton-Experimental proton-run game.exe` — Use Proton Experimental instead of GE.
-    * `run-topheroes` — Launch TopHeroes game with dedicated Proton prefix.
 */
 _:
 let
@@ -107,40 +105,6 @@ let
           exec ${steamRunExe} "$default_proton/proton" run "$@"
         '';
       };
-      runTopHeroesScript = pkgs.writeShellApplication {
-        name = "run-topheroes";
-        runtimeInputs = with pkgs; [
-          steam-run
-          coreutils
-        ];
-        text = ''
-          set -euo pipefail
-
-          # TopHeroes game executable path
-          GAME_EXE="/home/vx/.local/share/Steam/steamapps/compatdata/3543224783/pfx/drive_c/users/steamuser/AppData/Local/TopHeroes/app-1.83.19/TopHeroes.exe"
-
-          if [ ! -f "$GAME_EXE" ]; then
-            echo "Error: TopHeroes executable not found at: $GAME_EXE" >&2
-            exit 1
-          fi
-
-          # Use dedicated prefix for standalone runs
-          export STEAM_COMPAT_DATA_PATH="''${HOME}/.local/share/proton-prefixes/topheroes"
-          mkdir -p "$STEAM_COMPAT_DATA_PATH"
-
-          # Set Steam client install path
-          if [ -d "$HOME/.steam/root" ]; then
-            export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.steam/root"
-          elif [ -d "$HOME/.local/share/Steam" ]; then
-            export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.local/share/Steam"
-          fi
-
-          echo "Running TopHeroes with Proton-GE..." >&2
-          echo "Prefix: $STEAM_COMPAT_DATA_PATH" >&2
-
-          exec ${steamRunExe} ${protonCompatTool}/proton run "$GAME_EXE" "$@"
-        '';
-      };
     in
     {
       options.programs."wine-tools".extended = {
@@ -163,7 +127,6 @@ let
           pkgs.winetricks
           protonCompatTool
           protonRunScript
-          runTopHeroesScript
         ];
       };
     };
