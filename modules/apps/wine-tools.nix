@@ -141,8 +141,9 @@ let
           fi
         fi
 
-        # Set up prefix path
-        default_prefix="''${XDG_DATA_HOME:-$HOME/.local/share}/proton-ge"
+        # Set up prefix path (derive from Proton directory name if not overridden)
+        proton_name="$(basename "$proton_dir" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
+        default_prefix="''${XDG_DATA_HOME:-$HOME/.local/share}/proton-prefixes/$proton_name"
         compat_path="''${STEAM_COMPAT_DATA_PATH:-''${PROTON_RUN_PREFIX:-$default_prefix}}"
         mkdir -p "$compat_path"
         export STEAM_COMPAT_DATA_PATH="$compat_path"
@@ -179,7 +180,7 @@ let
             echo "" >&2
             echo "Environment variables:" >&2
             echo "  PROTON_VERSION - Proton version to use (same as proton-run)" >&2
-            echo "  PROTON_RUN_PREFIX - Custom prefix directory (default: ~/.local/share/proton-ge)" >&2
+            echo "  PROTON_RUN_PREFIX - Custom prefix directory (default: ~/.local/share/proton-prefixes/<proton-name>)" >&2
             echo "" >&2
             echo "Examples:" >&2
             echo "  proton-tricks vcrun2022                    # Install VC++ 2022 runtime" >&2
@@ -227,7 +228,7 @@ let
             echo "                   - steamapps/common (Proton-Experimental, etc.)" >&2
             echo "                   - Absolute paths (/path/to/proton)" >&2
             echo "                   Note: 'Proton-X' auto-translates to 'Proton - X'" >&2
-            echo "  PROTON_RUN_PREFIX - Custom prefix directory (default: ~/.local/share/proton-ge)" >&2
+            echo "  PROTON_RUN_PREFIX - Custom prefix directory (default: ~/.local/share/proton-prefixes/<proton-name>)" >&2
             echo "  STEAM_COMPAT_DATA_PATH - Override compat data path" >&2
             echo "" >&2
             echo "Examples:" >&2
