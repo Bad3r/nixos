@@ -18,7 +18,7 @@
       ...
     }:
     let
-      defaultModel = "sonnet";
+      # defaultModel = "sonnet";
 
       # Check if context7 secret is available
       hasContext7Secret = config.sops.secrets ? "context7/api-key";
@@ -122,7 +122,7 @@
           type = "command";
           command = "input=$(cat); dir=$(echo \"$input\" | jq -r '.workspace.current_dir'); dir_display=\${dir/#$HOME/\\~}; git_branch=$(cd \"$dir\" 2>/dev/null && git -c core.fileMode=false branch --show-current 2>/dev/null); git_status=\"\"; if [ -n \"$git_branch\" ]; then cd \"$dir\" && git_modified=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^.[MD]'); git_untracked=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^??'); git_staged=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^[MADRC]'); [ \"$git_modified\" -gt 0 ] && git_status=\"\${git_status}!\"; [ \"$git_untracked\" -gt 0 ] && git_status=\"\${git_status}?\"; [ \"$git_staged\" -gt 0 ] && git_status=\"\${git_status}+\"; git_info=$(printf '\\033[35m on \\033[0m\\033[1;35m%s%s\\033[0m' \"$git_branch\" \"$git_status\"); else git_info=\"\"; fi; printf '\\033[36m%s\\033[0m%s' \"$dir_display\" \"$git_info\"";
         };
-        model = defaultModel;
+        # model = defaultModel;
         alwaysThinkingEnabled = true;
         enableAllProjectMcpServers = true;
       };
@@ -192,7 +192,7 @@
           '';
 
           sessionVariables = {
-            ANTHROPIC_MODEL = defaultModel;
+            # ANTHROPIC_MODEL = defaultModel;
             ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION = "me-south-1";
             DISABLE_AUTOUPDATER = "1";
             CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
