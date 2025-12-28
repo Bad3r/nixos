@@ -12,6 +12,7 @@
   Options:
     wine, wine64: Run Windows executables natively via Wine.
     winetricks <verb>: Install common DLLs or runtime components into a Wine prefix.
+    protontricks <prefix> <verb>: Install components into a Proton prefix (e.g., vcrun2022, dotnet48).
     proton-run <program> [args]: Execute Windows programs using Proton with automatic prefix management.
     WINEPREFIX=<dir>: Target a specific Wine prefix directory.
     PROTON_VERSION=<version>: Select which Proton version to use. Supports:
@@ -26,6 +27,7 @@
     * `proton-run game.exe` — Launch a program with Proton-GE's compatibility enhancements.
     * `PROTON_VERSION=Proton-Experimental proton-run game.exe` — Use Steam's Proton Experimental.
     * `PROTON_VERSION=GE-Proton9-20 proton-run game.exe` — Use a specific GE-Proton version.
+    * `WINEPREFIX=~/.local/share/proton-ge/pfx protontricks -q vcrun2022` — Install VC++ 2022 runtime into proton-run's default prefix.
 */
 _:
 let
@@ -204,6 +206,7 @@ let
         environment.systemPackages = [
           cfg.package
           pkgs.winetricks
+          pkgs.protontricks
           protonCompatTool
           protonRunScript
         ];
