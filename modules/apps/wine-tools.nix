@@ -39,13 +39,36 @@ let
     let
       cfg = config.programs."wine-tools".extended;
       protonCompatTool = pkgs.proton-ge-bin.steamcompattool;
-      steamRunExe = lib.getExe pkgs.steam-run;
+      # Custom steam-run with additional libraries for better compatibility
+      customSteamRun =
+        (pkgs.steam.override {
+          extraPkgs =
+            p: with p; [
+              # Font rendering
+              freetype
+              fontconfig
+              # Common runtime dependencies
+              libgcc
+              xorg.libX11
+              xorg.libXcursor
+              xorg.libXrandr
+              xorg.libXi
+              # Audio
+              libpulseaudio
+              alsa-lib
+              # Graphics
+              vulkan-loader
+              # .NET/Mono support
+              mono
+            ];
+        }).run;
+      steamRunExe = lib.getExe customSteamRun;
       protonRunScript = pkgs.writeShellApplication {
         name = "proton-run";
-        runtimeInputs = with pkgs; [
-          steam-run
-          coreutils
-          findutils
+        runtimeInputs = [
+          customSteamRun
+          pkgs.coreutils
+          pkgs.findutils
         ];
         text = ''
           set -euo pipefail
