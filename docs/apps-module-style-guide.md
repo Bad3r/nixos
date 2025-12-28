@@ -81,3 +81,4 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
 - Note the primary source used for each header field (nixpkgs, upstream docs, release notes).
 - Run `nix fmt` after edits to preserve formatting.
 - Review the header comment whenever options change or new capabilities ship to keep the documentation truthful.
+- Before pushing, run the full validation suite per [`docs/dendritic-pattern-reference.md`](dendritic-pattern-reference.md#validation).

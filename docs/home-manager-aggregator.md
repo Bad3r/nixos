@@ -79,8 +79,6 @@ Hosts can still append to `home-manager.extraAppImports` to load more modules; t
 
 ## Validation
 
-- `nix fmt`
-- `nix develop -c pre-commit run --all-files`
-- `nix flake check --accept-flake-config`
+Run the standard validation suite before pushing changes. See [`docs/dendritic-pattern-reference.md`](dendritic-pattern-reference.md#validation) for the canonical command sequence.
 
-When you change the default app list in `modules/home-manager/nixos.nix`, rerun the checks above. Any missing app reference still throws during evaluation because of the guarded lookup.
+When you change the default app list in `modules/home-manager/nixos.nix`, rerun the validation suite. Any missing app reference still throws during evaluation because of the guarded lookup.

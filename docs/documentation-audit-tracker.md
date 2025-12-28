@@ -12,10 +12,10 @@
 | ----------------------------- | ----- |
 | Total Files Audited           | 40    |
 | Issues Identified             | 12    |
-| Issues Resolved               | 10    |
-| Issues Pending                | 2     |
+| Issues Resolved               | 11    |
+| Issues Pending                | 1     |
 | Lines Removed (deduplication) | 34    |
-| Files Modified                | 4     |
+| Files Modified                | 7     |
 | Files Deleted                 | 17    |
 
 ---
@@ -117,7 +117,7 @@
 | I-008 | LOW      | External      | Upstream copy, version unknown          | docs/flake-parts-docs/ (14 files)                    | ✅ Resolved | **DELETED** - Replaced with pointer to github.com/hercules-ci/flake.parts-website         |
 | I-009 | LOW      | Misclassified | YAML file counted as documentation      | sops-dotfile.example.yaml                            | ✅ Resolved | Closed as non-issue - file IS valid documentation (annotated example config)              |
 | I-010 | LOW      | Orphan        | No incoming references                  | README.md                                            | ✅ Resolved | Now links to canonical docs                                                               |
-| I-011 | LOW      | Inconsistency | Validation commands vary across files   | 6 files                                              | ⏳ Pending  | Some include `generation-manager score`, others don't                                     |
+| I-011 | LOW      | Inconsistency | Validation commands vary across files   | 6 files                                              | ✅ Resolved | Replaced inline commands with links to canonical source (dendritic-pattern-reference.md)  |
 | I-012 | INFO     | Missing       | No executive summary in audit report    | documentation-audit-report.md                        | ⏳ Pending  | Audit report needs conclusions section                                                    |
 
 ---
@@ -129,7 +129,7 @@
 | Dendritic Pattern       | docs/dendritic-pattern-reference.md                             | README.md (9 lines), CLAUDE.md (implicit)  | 9             | ✅ Done                                |
 | Module Composition Code | docs/dendritic-pattern-reference.md                             | README.md (12 lines), CLAUDE.md (12 lines) | 24            | ✅ Done                                |
 | Module Aggregator List  | README.md (summary), docs/dendritic-pattern-reference.md (full) | -                                          | 0             | ✅ OK                                  |
-| Validation Commands     | docs/configuration-architecture.md                              | 5 other files                              | 0             | ⏳ Pending                             |
+| Validation Commands     | docs/dendritic-pattern-reference.md                             | 3 files now link to canonical              | 12            | ✅ Done                                |
 | Secret Management       | docs/sops/README.md                                             | README.md, CLAUDE.md                       | 0             | ✅ OK (not duplicate, different depth) |
 
 ---
@@ -144,7 +144,7 @@
 | P2       | ~~Review incomplete checklist~~       | ~~duplicati-r2-implementation-plan.md~~ | ✅ Done    | -     | Deleted - module complete, checklist obsolete    |
 | P3       | ~~Archive completed task list~~       | ~~workstation-removal-tasks.md~~        | ✅ Done    | -     | Deleted - all 38 tasks complete, git preserves   |
 | P3       | ~~Add version info to external docs~~ | ~~docs/flake-parts-docs/\*.md~~         | ✅ Done    | -     | Deleted 14 files, replaced with upstream pointer |
-| P3       | Standardize validation commands       | 6 files                                 | ⏳ Pending | User  | Decide if `generation-manager score` is required |
+| P3       | ~~Standardize validation commands~~   | ~~6 files~~                             | ✅ Done    | -     | Linked to canonical dendritic-pattern-reference  |
 | P4       | Add findings section to audit report  | documentation-audit-report.md           | ⏳ Pending | User  | Transform observations into recommendations      |
 
 ---
@@ -215,6 +215,7 @@ docs/stylix-integration.md
 | 2025-12-28 | **I-007 RESOLVED**: Cleaned android-emulator-network-plan.md (21 AI artifacts), added DRAFT status       |
 | 2025-12-28 | **I-008 RESOLVED**: Deleted docs/flake-parts-docs/ (14 files), replaced with pointer to official source  |
 | 2025-12-28 | **I-009 RESOLVED**: Closed as non-issue - sops-dotfile.example.yaml IS valid documentation               |
+| 2025-12-28 | **I-011 RESOLVED**: Replaced inline validation commands with links to canonical (3 files updated)        |
 
 ---
 
