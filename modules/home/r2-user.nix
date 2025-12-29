@@ -13,6 +13,7 @@
   #   AWS_ACCESS_KEY_ID=...           # R2 access key
   #   AWS_SECRET_ACCESS_KEY=...       # R2 secret key
   #   R2_ACCOUNT_ID=...               # e.g., abcdef1234567890abcdef1234567890
+  #   R2_BUCKET=r2b                   # Default bucket for r2c command
   #   # Optional: if not using R2_ACCOUNT_ID
   #   # AWS_ENDPOINT_URL=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
   #
@@ -20,6 +21,10 @@
   #   # rclone with env automatically set
   #   r2 ls r2:my-bucket
   #   r2 copy ./file.txt r2:my-bucket/path/
+  #
+  #   # Quick upload to default bucket (R2_BUCKET or "r2b")
+  #   r2c file.pdf                    # Upload single file
+  #   r2c *.pdf doc.txt               # Upload multiple files
   #
   #   # s5cmd with endpoint set
   #   r2s5 ls s3://my-bucket/
@@ -62,6 +67,10 @@
             exit 1
           fi
 
+          # Export credentials for rclone using RCLONE_CONFIG_<REMOTE>_<OPTION> pattern
+          export RCLONE_CONFIG_R2_ACCESS_KEY_ID="''${ak}"
+          export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="''${sk}"
+
           if [ -n "''${acc}" ] && [ -z "''${rce}" ]; then
             export RCLONE_CONFIG_R2_ENDPOINT="https://''${acc}.r2.cloudflarestorage.com"
           fi
@@ -103,6 +112,61 @@
           fi
         '';
       };
+
+      # Quick copy to R2 bucket: r2c file1.pdf file2.txt ...
+      r2c = pkgs.writeShellApplication {
+        name = "r2c";
+        runtimeInputs = with pkgs; [
+          rclone
+          coreutils
+        ];
+        text = ''
+          set -euo pipefail
+          if [ -f ${lib.escapeShellArg mkEnvFile} ]; then
+            # shellcheck disable=SC1091
+            . ${lib.escapeShellArg mkEnvFile}
+          fi
+
+          set +u
+          ak="''${AWS_ACCESS_KEY_ID:-}"
+          sk="''${AWS_SECRET_ACCESS_KEY:-}"
+          acc="''${R2_ACCOUNT_ID:-}"
+          rce="''${RCLONE_CONFIG_R2_ENDPOINT:-}"
+          bucket="''${R2_BUCKET:-r2b}"
+          set -u
+
+          if [ -z "''${ak}" ] || [ -z "''${sk}" ]; then
+            echo "[r2c] Missing AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY." >&2
+            exit 1
+          fi
+
+          if [ $# -eq 0 ]; then
+            echo "Usage: r2c <file> [file...]" >&2
+            echo "Copies files to r2:''${bucket}/" >&2
+            exit 1
+          fi
+
+          export RCLONE_CONFIG_R2_ACCESS_KEY_ID="''${ak}"
+          export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="''${sk}"
+
+          if [ -n "''${acc}" ] && [ -z "''${rce}" ]; then
+            export RCLONE_CONFIG_R2_ENDPOINT="https://''${acc}.r2.cloudflarestorage.com"
+          fi
+
+          for file in "$@"; do
+            if [ ! -e "''${file}" ]; then
+              echo "[r2c] Not found: ''${file}" >&2
+              continue
+            fi
+            basename=$(basename "''${file}")
+            if rclone copy "''${file}" "r2:''${bucket}/" 2>&1; then
+              echo "r2:''${bucket}/''${basename}"
+            else
+              echo "[r2c] Failed: ''${basename}" >&2
+            fi
+          done
+        '';
+      };
     in
     {
       # sops-nix HM module is imported centrally in modules/home-manager/nixos.nix
@@ -136,6 +200,7 @@
 
         home.packages = [
           r2
+          r2c
           r2s5
         ];
       };
