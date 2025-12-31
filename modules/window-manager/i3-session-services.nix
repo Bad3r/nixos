@@ -14,7 +14,7 @@
         let
           kittyCommand = lib.getExe pkgs.kitty;
           nemoCommand = lib.getExe' pkgs.nemo "nemo";
-          xfsettingsdCommand = "${pkgs.xfce.xfce4-settings}/bin/xfsettingsd";
+          xfsettingsdCommand = "${pkgs.xfce4-settings}/bin/xfsettingsd";
           lxsessionCommand = lib.getExe' pkgs.lxsession "lxsession";
           lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] null config;
           xssLockPackage = pkgs.xss-lock.overrideAttrs (old: {
