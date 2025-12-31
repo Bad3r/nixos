@@ -88,6 +88,7 @@
       ghidra.extended.enable = lib.mkOverride 1100 true;
       git.extended.enable = lib.mkOverride 1100 true;
       "git-filter-repo".extended.enable = lib.mkOverride 1100 true;
+      gimp.extended.enable = lib.mkOverride 1100 true;
       "github-mcp-server".extended.enable = lib.mkOverride 1100 true;
       glow.extended.enable = lib.mkOverride 1100 true;
       "gnome-disk-utility".extended.enable = lib.mkOverride 1100 true;
@@ -122,6 +123,7 @@
       kcolorchooser.extended.enable = lib.mkOverride 1100 true;
       kdiskmark.extended.enable = lib.mkOverride 1100 true;
       "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
+      krita.extended.enable = lib.mkOverride 1100 true;
       kitty.extended.enable = lib.mkOverride 1100 true;
       ktailctl.extended.enable = lib.mkOverride 1100 true;
       leiningen.extended.enable = lib.mkOverride 1100 false;
