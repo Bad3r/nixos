@@ -30,8 +30,8 @@ let
         maim
         picom
         rofi
-        xfce.xfce4-settings
-        xfce.xfce4-power-manager
+        xfce4-settings
+        xfce4-power-manager
         xclip
         xorg.xbacklight
       ];
