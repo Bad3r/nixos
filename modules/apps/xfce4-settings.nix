@@ -40,7 +40,7 @@ let
           description = lib.mdDoc "Whether to enable Xfce4 settings manager.";
         };
 
-        package = lib.mkPackageOption pkgs [ "xfce" "xfce4-settings" ] { };
+        package = lib.mkPackageOption pkgs "xfce4-settings" { };
       };
 
       config = lib.mkIf cfg.enable {
