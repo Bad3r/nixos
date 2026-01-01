@@ -241,6 +241,7 @@
       "ungoogled-chromium".extended.enable = lib.mkOverride 1100 true;
       unrar.extended.enable = lib.mkOverride 1100 true;
       unzip.extended.enable = lib.mkOverride 1100 true;
+      upscayl.extended.enable = lib.mkOverride 1100 true;
       usbutils.extended.enable = lib.mkOverride 1100 true;
       "util-linux".extended.enable = lib.mkOverride 1100 true;
       uv.extended.enable = lib.mkOverride 1100 true;
