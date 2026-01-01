@@ -44,6 +44,12 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        # LocalSend uses port 53317 for both TCP (file transfer) and UDP (discovery)
+        networking.firewall = {
+          allowedTCPPorts = [ 53317 ];
+          allowedUDPPorts = [ 53317 ];
+        };
       };
     };
 in
