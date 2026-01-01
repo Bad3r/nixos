@@ -166,6 +166,69 @@
           i3-msg "[class=\"Logseq\"] scratchpad show, move position ''${TARGET_X}px ''${TARGET_Y}px, resize set ''${TARGET_WIDTH}px ''${TARGET_HEIGHT}px" >/dev/null
         '';
       };
+
+      # Power profile switcher using rofi and system76-power
+      powerProfileScript = pkgs.writeShellApplication {
+        name = "power-profile-rofi";
+        runtimeInputs = [
+          pkgs.rofi
+          pkgs.system76-power
+          pkgs.libnotify
+          pkgs.gnugrep
+          pkgs.gawk
+        ];
+        text = ''
+          set -euo pipefail
+
+          # Get current profile
+          current=$(system76-power profile 2>/dev/null | grep -oP '(?<=Power Profile: ).*' || echo "unknown")
+
+          # Define profiles with icons
+          battery="  Battery (power saving)"
+          balanced="  Balanced (default)"
+          performance="  Performance (max power)"
+
+          # Mark current profile
+          mark_current() {
+            local profile="$1"
+            local label="$2"
+            if [ "$current" = "$profile" ]; then
+              echo "$label ✓"
+            else
+              echo "$label"
+            fi
+          }
+
+          # Build menu
+          menu=$(printf "%s\n%s\n%s" \
+            "$(mark_current "Battery" "$battery")" \
+            "$(mark_current "Balanced" "$balanced")" \
+            "$(mark_current "Performance" "$performance")")
+
+          # Show rofi menu
+          chosen=$(echo "$menu" | rofi -dmenu -i -p "Power Profile" -theme-str 'window {width: 300px;}' || true)
+
+          # Exit if nothing selected
+          [ -z "$chosen" ] && exit 0
+
+          # Extract profile name and apply
+          case "$chosen" in
+            *Battery*)
+              system76-power profile battery
+              notify-send -i battery "Power Profile" "Switched to Battery mode"
+              ;;
+            *Balanced*)
+              system76-power profile balanced
+              notify-send -i battery "Power Profile" "Switched to Balanced mode"
+              ;;
+            *Performance*)
+              system76-power profile performance
+              notify-send -i battery "Power Profile" "Switched to Performance mode"
+              ;;
+          esac
+        '';
+      };
+
       commandsDefault = {
         launcher = "${lib.getExe pkgs.rofi} -modi drun -show drun";
         terminal = lib.getExe pkgs.kitty;
@@ -176,6 +239,7 @@
         brightness = lib.getExe pkgs.xorg.xbacklight;
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
         logseqToggle = lib.getExe toggleLogseqScript;
+        powerProfile = lib.getExe powerProfileScript;
       };
       # Unconditional Stylix colors (Stylix is always available)
       stylixColorsStrict = config.lib.stylix.colors;

@@ -167,6 +167,8 @@
       ocrCommand = commands.ocr;
       logseqToggleCommand =
         commands.logseqToggle or "${config.xdg.configHome}/i3/scripts/toggle_logseq.sh";
+      powerProfileCommand =
+        commands.powerProfile or "${config.xdg.configHome}/i3/scripts/power-profile-rofi.sh";
       lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] (lib.getExe pkgs.i3lock-color) config;
     in
     {
@@ -227,6 +229,7 @@
                 "XF86MonBrightnessDown" = "exec ${xbacklightCommand} -dec 10";
                 "${mod}+Shift+g" = "mode \"${gapsModeName}\"";
                 "${mod}+Control+l" = "exec ${lockCommand}";
+                "${mod}+Shift+p" = "exec --no-startup-id ${powerProfileCommand}";
               }
             );
 
