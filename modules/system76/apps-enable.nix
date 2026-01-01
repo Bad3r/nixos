@@ -113,6 +113,7 @@
       httpx.extended.enable = lib.mkOverride 1100 true;
       hydra.extended.enable = lib.mkOverride 1100 false;
       hyperfine.extended.enable = lib.mkOverride 1100 true;
+      inkscape.extended.enable = lib.mkOverride 1100 true;
       "i3lock-color".extended.enable = lib.mkOverride 1100 true;
       "i3status-rust".extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 true;
