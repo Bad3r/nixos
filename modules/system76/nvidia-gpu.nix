@@ -61,6 +61,9 @@ _: {
             nvidia = {
               modesetting.enable = true;
               powerManagement.enable = true;
+              # Fine-grained power management (D3 power gating) is incompatible with PRIME sync.
+              # Sync mode keeps the dGPU always on to drive display output through the iGPU.
+              # To enable finegrained, switch system76.gpu.mode to use offload instead.
               powerManagement.finegrained = false;
               open = false;
               nvidiaSettings = true;
