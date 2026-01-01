@@ -167,6 +167,9 @@
         '';
       };
 
+      # Stylix colors (defined early for use in scripts)
+      stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
+
       # Power profile switcher using rofi and system76-power
       powerProfileScript = pkgs.writeShellApplication {
         name = "power-profile-rofi";
@@ -205,8 +208,14 @@
             "$(mark_current "Balanced" "$balanced")" \
             "$(mark_current "Performance" "$performance")")
 
-          # Show rofi menu
-          chosen=$(echo "$menu" | rofi -dmenu -i -p "Power Profile" -theme-str 'window {width: 300px;}' || true)
+          # Show rofi menu (Stylix-themed)
+          chosen=$(echo "$menu" | rofi -dmenu -i -p "Power Profile" -theme-str '
+            window { width: 320px; }
+            listview { lines: 3; }
+            element selected.normal { background-color: ${stylixColors.base02}; text-color: ${stylixColors.base05}; }
+            element normal.active { text-color: ${stylixColors.base0B}; }
+            element selected.active { background-color: ${stylixColors.base02}; text-color: ${stylixColors.base0B}; }
+          ' || true)
 
           # Exit if nothing selected
           [ -z "$chosen" ] && exit 0
@@ -241,9 +250,8 @@
         logseqToggle = lib.getExe toggleLogseqScript;
         powerProfile = lib.getExe powerProfileScript;
       };
-      # Unconditional Stylix colors (Stylix is always available)
-      stylixColorsStrict = config.lib.stylix.colors;
-      stylixColorsStrictWithHash = stylixColorsStrict.withHashtag or stylixColorsStrict;
+      # Use the already-defined stylixColors for consistency
+      stylixColorsStrictWithHash = stylixColors;
       toLockColor =
         colorHex:
         let
