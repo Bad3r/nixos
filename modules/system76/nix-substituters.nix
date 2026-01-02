@@ -15,7 +15,7 @@ in
     nix.settings = {
       substituters = lib.mkForce substitutersList;
       trusted-public-keys = trustedKeys;
-      narinfo-cache-negative-ttl = 0;
+      narinfo-cache-negative-ttl = 10800; # 3 hours
       http-connections = 25;
       http2 = true;
     };
