@@ -36,6 +36,7 @@ AUTO_UPDATE=false
 SKIP_FMT=false
 SKIP_HOOKS=false
 SKIP_CHECK=false
+KEEP_GOING=false
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
 # Colors for output
@@ -62,6 +63,7 @@ Options:
       --skip-hooks       Skip the pre-commit hooks validation
       --skip-check       Skip the 'nix flake check' validation step
       --skip-all         Skip all validation steps (fmt, hooks, check)
+      --keep-going       Continue building despite failures (nix --keep-going)
   -h, --help             Show this help message
 
   Usage Example:
@@ -138,6 +140,10 @@ while [[ $# -gt 0 ]]; do
     SKIP_CHECK=true
     shift
     ;;
+  --keep-going)
+    KEEP_GOING=true
+    shift
+    ;;
   --help)
     show_help
     exit 0
@@ -186,6 +192,11 @@ configure_nix_flags() {
   if $VERBOSE; then
     flags+=("--verbose")
     set -x
+  fi
+
+  # Keep going despite failures
+  if $KEEP_GOING; then
+    flags+=("--keep-going")
   fi
 
   NIX_FLAGS=("${flags[@]}")

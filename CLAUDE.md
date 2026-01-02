@@ -231,6 +231,7 @@ The `build.sh` script performs full validation (format, hooks, flake check) befo
 | `--skip-hooks`  | Skip pre-commit hooks                      | Debugging when hooks are known-passing              |
 | `--skip-check`  | Skip `nix flake check`                     | Debugging when checks are known-passing             |
 | `--skip-all`    | Skip all validation (fmt+hooks+check)      | Emergency deployment (not recommended)              |
+| `--keep-going`  | Continue building despite failures         | Building with known-broken packages                 |
 | `--verbose`     | Enable verbose Nix output                  | Debugging build issues                              |
 
 ### GitHub Actions (Local Testing)
