@@ -59,6 +59,7 @@ in
 
     # Security & authentication
     security.polkit.wheelPowerManagement.enable = true;
+    security.polkit.wheelSystemdManagement.enable = true;
 
     # Gaming & performance
     programs = {
