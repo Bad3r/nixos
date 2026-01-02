@@ -13,6 +13,7 @@ _: {
         dnsleak = final.callPackage ../../packages/dnsleak { };
         opendirectorydownloader = final.callPackage ../../packages/opendirectorydownloader { };
         malimite = final.callPackage ../../packages/malimite { };
+        system76-ectool = final.callPackage ../../packages/system76-ectool { };
       })
     ];
   };
