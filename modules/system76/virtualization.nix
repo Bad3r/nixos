@@ -20,7 +20,9 @@ _: {
       };
 
       config = {
-        system76.virtualization.vmware.enable = lib.mkDefault true;
+        # TODO(#41): Re-enable when readline70 builds with GCC 15
+        # See: https://bugzilla.redhat.com/show_bug.cgi?id=2347347
+        system76.virtualization.vmware.enable = lib.mkDefault false;
         system76.virtualization.ovftool.enable = lib.mkDefault true;
 
         # Configure virtualization via app modules
