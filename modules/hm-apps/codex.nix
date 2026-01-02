@@ -30,11 +30,8 @@
       ...
     }:
     let
-      baseCodexPkg = lib.attrByPath [ "flake" "packages" pkgs.stdenv.hostPlatform.system "codex" ] (
-        pkgs.callPackage
-        ../../packages/codex
-        { }
-      ) config;
+      # Use upstream nixpkgs codex package
+      baseCodexPkg = pkgs.codex;
       codexPkg =
         if lib.versionAtLeast (lib.getVersion baseCodexPkg) "0.2.0" then
           baseCodexPkg
