@@ -62,7 +62,8 @@ let
 
         systemd.tmpfiles.rules = [
           # Ensure the rip graveyard exists with sticky permissions
-          "d ${cfg.graveyardPath} 1777 root root -"
+          # Files older than 10 days are automatically cleaned
+          "d ${cfg.graveyardPath} 1777 root root 10d"
         ];
       };
     };
