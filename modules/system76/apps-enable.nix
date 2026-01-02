@@ -136,7 +136,9 @@
       logseq.extended.enable = lib.mkOverride 1100 true;
       lshw.extended.enable = lib.mkOverride 1100 true;
       lsof.extended.enable = lib.mkOverride 1100 true;
-      ltrace.extended.enable = lib.mkOverride 1100 true;
+      # TODO(#42): Re-enable when ltrace PIE test fix lands in nixpkgs-unstable
+      # See: https://github.com/NixOS/nixpkgs/pull/449551
+      ltrace.extended.enable = lib.mkOverride 1100 false;
       lutris.extended.enable = lib.mkOverride 1100 false;
       lxsession.extended.enable = lib.mkOverride 1100 true;
       maim.extended.enable = lib.mkOverride 1100 true;
