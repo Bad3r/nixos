@@ -107,7 +107,7 @@
       gzip.extended.enable = lib.mkOverride 1100 true;
       hashcat.extended.enable = lib.mkOverride 1100 false;
       hdparm.extended.enable = lib.mkOverride 1100 true;
-      hopper.extended.enable = lib.mkOverride 1100 true;
+      hopper.extended.enable = lib.mkOverride 1100 false;
       hsetroot.extended.enable = lib.mkOverride 1100 true;
       htop.extended.enable = lib.mkOverride 1100 true;
       httpie.extended.enable = lib.mkOverride 1100 true;
