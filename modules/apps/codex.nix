@@ -1,23 +1,22 @@
 /*
   Package: codex
-  Description: OpenAI Codex CLI for GPT-powered coding assistance, reviews, and automations.
-  Homepage: https://github.com/openai/openai-codex-cli
-  Documentation: https://github.com/openai/openai-codex-cli
-  Repository: https://github.com/openai/openai-codex-cli
+  Description: Lightweight coding agent that runs in your terminal.
+  Homepage: https://github.com/openai/codex
+  Documentation: https://github.com/openai/codex#readme
+  Repository: https://github.com/openai/codex
 
   Summary:
-    * Supplies a command-line interface to run Codex prompts against local repositories or ad-hoc code snippets.
-    * Features structured commands for reviewing diffs, summarising issues, and generating patches via API calls.
+    * Provides an interactive TUI that orchestrates code edits, tests, and tooling via OpenAI models with sandboxed execution and approvals.
+    * Supports non-interactive automation, session resume, Model Context Protocol servers, and configurable instructions through config.toml and AGENTS.md.
 
   Options:
-    codex login: Store OpenAI API credentials for subsequent invocations.
-    codex review --pr <number>: Generate narrative feedback for a pull request.
-    codex run --prompt <file>: Execute a custom prompt file with embedded instructions.
+    --model <model>: Select the OpenAI model to use (default: o4-mini).
+    --approval-policy <mode>: Override the approval policy (suggest, auto-edit, full-auto).
+    --sandbox-mode <mode>: Adjust the sandbox level for commands (docker, seatbelt, none).
 
   Example Usage:
-    * `codex login` — Configure authentication for the CLI.
-    * `codex review --pr 42` — Produce a natural-language review summary for PR #42.
-    * `codex apply --task "add tests for session manager"` — Request patch suggestions for the given task.
+    * `codex "Write unit tests for src/date.ts"` — Ask Codex to draft and run new tests in the current repo.
+    * `codex --model o3 "refactor auth module"` — Use a specific model for the task.
 */
 _:
 let
