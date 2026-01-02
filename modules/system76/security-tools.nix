@@ -55,7 +55,9 @@
           pwgen
           xkcdpass
           hashcat
-          john
+          # TODO(#43): Re-enable when john builds with GCC 15
+          # See: https://github.com/openwall/john/issues/2180
+          # john
           foremost
           testdisk
           tor
