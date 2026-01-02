@@ -45,6 +45,7 @@ _: {
         kernel.sysctl = {
           "kernel.printk" = "7 4 1 7";
           "kernel.sysrq" = 1;
+          "kernel.dmesg_restrict" = 0; # Allow dmesg without sudo
         };
       };
     };
