@@ -38,6 +38,8 @@
             "input" # Input devices
             "plugdev" # Removable devices
             "lp" # Printers and USB devices
+            "systemd-journal" # Read journalctl without sudo
+            "adm" # Read /var/log files without sudo
           ];
 
           # SSH authorized keys for remote access
