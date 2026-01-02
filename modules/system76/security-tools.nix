@@ -1,15 +1,7 @@
-{ config, lib, ... }:
+{ lib, ... }:
 {
   configurations.nixos.system76.module =
     { pkgs, ... }:
-    let
-      agePluginPkg = lib.attrByPath [
-        "flake"
-        "packages"
-        pkgs.stdenv.hostPlatform.system
-        "age-plugin-fido2prf"
-      ] (pkgs.callPackage ../../packages/age-plugin-fido2prf { }) config;
-    in
     {
       security = {
         pam.sshAgentAuth.enable = true;
@@ -64,7 +56,7 @@
           certbot
           mkcert
         ])
-        ++ [ agePluginPkg ];
+        ++ [ pkgs.age-plugin-fido2prf ];
 
       programs.gnupg.agent = {
         enable = true;
