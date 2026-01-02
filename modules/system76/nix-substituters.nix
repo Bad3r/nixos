@@ -16,7 +16,7 @@ in
       substituters = lib.mkForce substitutersList;
       trusted-public-keys = trustedKeys;
       narinfo-cache-negative-ttl = 10800; # 3 hours
-      http-connections = 25;
+      http-connections = lib.mkForce 0; # unlimited
       http2 = true;
     };
   };
