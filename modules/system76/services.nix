@@ -83,8 +83,28 @@ _: {
       programs.coolercontrol.enable = true;
 
       # Set system76-power to performance profile by default on boot
-      systemd.services.system76-power.serviceConfig.ExecStartPost =
-        "${pkgs.system76-power}/bin/system76-power profile performance";
+      # Uses a separate oneshot service to avoid race condition with D-Bus registration
+      systemd.services.system76-power-profile = {
+        description = "Set System76 Power Profile";
+        after = [ "system76-power.service" ];
+        requires = [ "system76-power.service" ];
+        wantedBy = [ "multi-user.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart = pkgs.writeShellScript "set-system76-power-profile" ''
+            # Wait for D-Bus service to be available (up to 10 seconds)
+            for i in $(seq 1 20); do
+              if ${pkgs.system76-power}/bin/system76-power profile performance 2>/dev/null; then
+                exit 0
+              fi
+              sleep 0.5
+            done
+            echo "Failed to set power profile after 10 seconds" >&2
+            exit 1
+          '';
+        };
+      };
 
       xdg.mime.defaultApplications = {
         "inode/directory" = lib.mkForce "nemo.desktop";
