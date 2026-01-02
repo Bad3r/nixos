@@ -47,6 +47,7 @@
     nix-logseq-git-flake = {
       # GitHub URL for portability; use --override-input for local dev
       url = "github:Bad3r/nix-logseq-git-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     # nix-on-droid = {
