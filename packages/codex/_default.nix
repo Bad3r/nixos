@@ -1,3 +1,7 @@
+# DEPRECATED: This custom package is no longer used.
+# Codex is now installed from upstream nixpkgs.
+# This file is prefixed with '_' to prevent auto-import.
+# Kept for reference in case upstream regresses.
 {
   lib,
   stdenv,
