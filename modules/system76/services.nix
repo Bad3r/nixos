@@ -82,6 +82,10 @@ _: {
       # Uses hwmon sensors and liquidctl for comprehensive cooling control
       programs.coolercontrol.enable = true;
 
+      # Set system76-power to performance profile by default on boot
+      systemd.services.system76-power.serviceConfig.ExecStartPost =
+        "${pkgs.system76-power}/bin/system76-power profile performance";
+
       xdg.mime.defaultApplications = {
         "inode/directory" = lib.mkForce "nemo.desktop";
         "application/x-directory" = lib.mkForce "nemo.desktop";
