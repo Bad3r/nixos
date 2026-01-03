@@ -5,6 +5,12 @@
   };
   config = {
     nix.settings = {
+      # Auto-trust flake nixConfig settings (safe for own repositories)
+      accept-flake-config = true;
+      # Treat Nix warnings as errors to maintain code quality
+      abort-on-warn = true;
+      # Prevent IFD to ensure evaluation purity and build reproducibility
+      allow-import-from-derivation = false;
       keep-outputs = true;
       experimental-features = [
         "nix-command"
