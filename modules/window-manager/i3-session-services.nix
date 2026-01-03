@@ -215,9 +215,9 @@
                   RestartSec = 0;
                 };
               };
-              "xss-lock" = {
-                Install.WantedBy = lib.mkForce [ ];
-              };
+              # Note: xss-lock remains enabled (default) to handle idle locking.
+              # i3lock-handler handles sleep.target for suspend events.
+              # Both can coexist - the lock script exits early if already locked.
             })
           ];
         }
