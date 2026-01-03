@@ -568,6 +568,18 @@
                   always = true;
                   notification = false;
                 }
+                # DPMS: Keep screens on for 1 hour (3600s) before standby/suspend/off
+                {
+                  command = "${pkgs.xorg.xset}/bin/xset dpms 3600 3600 3600";
+                  always = true;
+                  notification = false;
+                }
+                # Screen saver: Blank after 1 hour (3600s)
+                {
+                  command = "${pkgs.xorg.xset}/bin/xset s 3600 3600";
+                  always = true;
+                  notification = false;
+                }
               ];
 
               floating = {
