@@ -23,6 +23,7 @@
 
   Local Workarounds:
     * Removes duplicate desktop file with broken /usr/bin path (upstream: browser-previews#44).
+    * Creates /opt/google/chrome/chrome symlink for Playwright MCP compatibility (hardcoded path detection).
 */
 { inputs, ... }:
 let
@@ -67,6 +68,15 @@ let
         nixpkgs.allowedUnfreePackages = lib.mkIf cfg.enable [ "google-chrome-dev" ];
 
         environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
+
+        # Playwright compatibility: create symlink at expected FHS path
+        # Playwright MCP hardcodes /opt/google/chrome/chrome for Chrome detection
+        system.activationScripts.playwrightChromeCompat = lib.mkIf cfg.enable {
+          text = ''
+            mkdir -p /opt/google/chrome
+            ln -sfn /run/current-system/sw/bin/google-chrome-unstable /opt/google/chrome/chrome
+          '';
+        };
       };
     };
 in
