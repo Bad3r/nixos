@@ -14,7 +14,15 @@
       };
 
       config = lib.mkIf cfg.enable {
-        hardware.system76.enableAll = true;
+        # Selective System76 hardware support:
+        # - kernel-modules: Fan monitoring via hwmon, EC communication
+        # - firmware-daemon: Firmware updates via fwupd/LVFS
+        # - power-daemon: DISABLED - using thermald for thermal management instead
+        hardware.system76 = {
+          kernel-modules.enable = true;
+          firmware-daemon.enable = true;
+          power-daemon.enable = false;
+        };
 
         # System76-specific kernel parameters
         boot.kernelParams = [ "system76_acpi.brightness_hwmon=1" ];

@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+<!--
+  Custom thermald configuration for System76 Oryx Pro 3 (Clevo P650RS-G)
+  Intel Core i7-8750H Coffee Lake
+
+  This config provides proactive thermal management using:
+  - x86_pkg_temp as primary temperature sensor
+  - Intel RAPL for power limiting
+  - intel_powerclamp for CPU idle injection
+  - Processor P-state throttling as fallback
+-->
+<ThermalConfiguration>
+  <Platform>
+    <Name>System76 Oryx Pro 3</Name>
+    <ProductName>*</ProductName>
+    <Preference>PERFORMANCE</Preference>
+
+    <ThermalSensors>
+      <ThermalSensor>
+        <Type>x86_pkg_temp</Type>
+        <AsyncCapable>1</AsyncCapable>
+      </ThermalSensor>
+    </ThermalSensors>
+
+    <ThermalZones>
+      <ThermalZone>
+        <Type>x86_pkg_temp</Type>
+        <TripPoints>
+          <!-- Start throttling at 85C to prevent hitting TCC limit (95C) -->
+          <TripPoint>
+            <SensorType>x86_pkg_temp</SensorType>
+            <Temperature>85000</Temperature>
+            <type>passive</type>
+            <ControlType>SEQUENTIAL</ControlType>
+
+            <!-- First: Reduce power via Intel RAPL -->
+            <CoolingDevice>
+              <index>1</index>
+              <type>rapl_controller</type>
+              <influence>100</influence>
+              <SamplingPeriod>8</SamplingPeriod>
+            </CoolingDevice>
+
+            <!-- Second: CPU idle injection -->
+            <CoolingDevice>
+              <index>2</index>
+              <type>intel_powerclamp</type>
+              <influence>50</influence>
+              <SamplingPeriod>10</SamplingPeriod>
+            </CoolingDevice>
+
+            <!-- Third: P-state throttling -->
+            <CoolingDevice>
+              <index>3</index>
+              <type>cpufreq</type>
+              <influence>25</influence>
+              <SamplingPeriod>8</SamplingPeriod>
+            </CoolingDevice>
+          </TripPoint>
+
+          <!-- Aggressive throttling at 92C -->
+          <TripPoint>
+            <SensorType>x86_pkg_temp</SensorType>
+            <Temperature>92000</Temperature>
+            <type>passive</type>
+            <ControlType>PARALLEL</ControlType>
+
+            <CoolingDevice>
+              <index>1</index>
+              <type>rapl_controller</type>
+              <influence>100</influence>
+              <SamplingPeriod>4</SamplingPeriod>
+            </CoolingDevice>
+
+            <CoolingDevice>
+              <index>2</index>
+              <type>intel_powerclamp</type>
+              <influence>100</influence>
+              <SamplingPeriod>4</SamplingPeriod>
+            </CoolingDevice>
+
+            <CoolingDevice>
+              <index>3</index>
+              <type>cpufreq</type>
+              <influence>100</influence>
+              <SamplingPeriod>4</SamplingPeriod>
+            </CoolingDevice>
+          </TripPoint>
+        </TripPoints>
+      </ThermalZone>
+    </ThermalZones>
+  </Platform>
+</ThermalConfiguration>

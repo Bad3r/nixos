@@ -47,8 +47,7 @@ _: {
 
         # Power management
         upower.enable = true;
-        # Prefer system76-power (enabled via nixos-hardware + hardware.system76.enableAll)
-        # Avoid conflicting governors/services on laptops
+        # power-profiles-daemon conflicts with thermald; keep disabled
         power-profiles-daemon.enable = lib.mkForce false;
 
         # Enable GVFS for trash support, mounting, etc.
@@ -67,7 +66,14 @@ _: {
         fstrim.enable = true;
 
         # Thermal management (CPU/platform)
-        thermald.enable = true;
+        # Uses Intel thermald instead of system76-power for thermal throttling
+        # NOTE: System76 EC over-reports temps by ~5°C causing premature shutdowns
+        # Config and TCC offset (below) compensate for inflated readings
+        thermald = {
+          enable = true;
+          debug = true;
+          configFile = ./thermald.conf.xml;
+        };
 
         # System76 process scheduler for improved desktop responsiveness
         # Adjusts CFS latency on AC/battery and boosts foreground processes
@@ -78,33 +84,21 @@ _: {
         lact.enable = true;
       };
 
-      # CoolerControl: System-wide fan curve management
-      # Uses hwmon sensors and liquidctl for comprehensive cooling control
-      programs.coolercontrol.enable = true;
+      # CPU governor: performance mode by default
+      powerManagement.cpuFreqGovernor = "performance";
 
-      # Set system76-power to performance profile by default on boot
-      # Uses a separate oneshot service to avoid race condition with D-Bus registration
-      systemd.services.system76-power-profile = {
-        description = "Set System76 Power Profile";
-        after = [ "system76-power.service" ];
-        requires = [ "system76-power.service" ];
-        wantedBy = [ "multi-user.target" ];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = pkgs.writeShellScript "set-system76-power-profile" ''
-            # Wait for D-Bus service to be available (up to 10 seconds)
-            for i in $(seq 1 20); do
-              if ${pkgs.system76-power}/bin/system76-power profile performance 2>/dev/null; then
-                exit 0
-              fi
-              sleep 0.5
-            done
-            echo "Failed to set power profile after 10 seconds" >&2
-            exit 1
-          '';
-        };
-      };
+      # Set TCC (Thermal Control Circuit) offset to 0
+      # Allows CPU to run up to Tjmax (100°C) before hardware throttling
+      # Required because System76 EC over-reports temperatures by ~5°C
+      systemd.tmpfiles.rules = [
+        "w /sys/class/thermal/cooling_device13/cur_state - - - - 0"
+      ];
+
+      # CoolerControl: DISABLED - conflicts with System76 EC fan control
+      # When both CoolerControl and EC control fans simultaneously (e.g., Fn+1),
+      # the EC hangs causing system crash. See: github.com/pop-os/system76-dkms/issues/11
+      # Let EC handle fans natively; thermald handles CPU thermal throttling.
+      programs.coolercontrol.enable = false;
 
       xdg.mime.defaultApplications = {
         "inode/directory" = lib.mkForce "nemo.desktop";
