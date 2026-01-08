@@ -37,6 +37,7 @@ SKIP_FMT=false
 SKIP_HOOKS=false
 SKIP_CHECK=false
 KEEP_GOING=false
+REPAIR=false
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
 # Colors for output
@@ -64,6 +65,7 @@ Options:
       --skip-check       Skip the 'nix flake check' validation step
       --skip-all         Skip all validation steps (fmt, hooks, check)
       --keep-going       Continue building despite failures (nix --keep-going)
+      --repair           Repair corrupted store paths during build
   -h, --help             Show this help message
 
   Usage Example:
@@ -144,6 +146,10 @@ while [[ $# -gt 0 ]]; do
     KEEP_GOING=true
     shift
     ;;
+  --repair)
+    REPAIR=true
+    shift
+    ;;
   --help)
     show_help
     exit 0
@@ -197,6 +203,11 @@ configure_nix_flags() {
   # Keep going despite failures
   if $KEEP_GOING; then
     flags+=("--keep-going")
+  fi
+
+  # Repair corrupted store paths
+  if $REPAIR; then
+    flags+=("--repair")
   fi
 
   NIX_FLAGS=("${flags[@]}")
