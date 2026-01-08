@@ -4,7 +4,7 @@ _: {
       (final: _prev: {
         # Add custom packages to nixpkgs
         raindrop = final.callPackage ../../packages/raindrop { };
-        yaak = final.callPackage ../../packages/yaak { };
+        # yaak = final.callPackage ../../packages/yaak { }; # DEPRECATED: using upstream nixpkgs
         # codex = final.callPackage ../../packages/codex { }; # DEPRECATED: using upstream nixpkgs
         coderabbit-cli = final.callPackage ../../packages/coderabbit-cli { };
         wappalyzer-next = final.callPackage ../../packages/wappalyzer-next { };
