@@ -11,7 +11,7 @@
       abort-on-warn = true;
       # Prevent IFD to ensure evaluation purity and build reproducibility
       allow-import-from-derivation = false;
-      keep-outputs = true;
+      keep-outputs = false;
       experimental-features = [
         "nix-command"
         "flakes"
@@ -25,7 +25,7 @@
       max-substitution-jobs = 16; # default = 16 (number of parallel NAR downloads)
       # Use HTTP/2 for downloads
       http2 = true;
-      download-buffer-size = 268435456; # 256MB (default is 64MB)
+      download-buffer-size = 1073741824; # 1GB
     };
     flake.nixosModules.base.nix = {
       inherit (config.nix) settings;
