@@ -7,6 +7,8 @@ extend-ignore-re = [
 
 [default.extend-words]
 example = "example"
+fpt = "fpt"  # Intel Flash Programming Tool
+PN = "PN"   # Part Number
 iterm2 = "iterm2"
 iterm2_with_bell = "iterm2_with_bell"
 iterm = "iterm"
