@@ -26,11 +26,9 @@ Use lowercase, hyphenated names matching the package's `pname`. Keep the directo
 packages/
 ├── age-plugin-fido2prf/
 │   └── default.nix
-├── codex/
-│   ├── _default.nix              # Deprecated (prefixed with _)
-│   └── disable-update-check.patch
-└── system76-ectool/
-    └── default.nix
+└── codex/
+    ├── _default.nix              # Deprecated (prefixed with _)
+    └── disable-update-check.patch
 ```
 
 ## Package Template
@@ -337,7 +335,7 @@ Create a corresponding app module in `modules/apps/<name>.nix` when:
 
 Skip the app module when:
 
-- The package is host-specific tooling (e.g., `system76-ectool`)
+- The package is host-specific tooling
 - The package is only used in devshells
 - The package is a library or build tool
 
@@ -382,7 +380,6 @@ Before committing a new package:
 
 | Package Type     | Reference                                  |
 | ---------------- | ------------------------------------------ |
-| Rust             | `packages/system76-ectool/default.nix`     |
 | Go               | `packages/age-plugin-fido2prf/default.nix` |
 | Python           | `packages/wappalyzer-next/default.nix`     |
 | Binary download  | `packages/coderabbit-cli/default.nix`      |
