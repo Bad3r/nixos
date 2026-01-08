@@ -29,7 +29,7 @@
       blueberry.extended.enable = lib.mkOverride 1100 true;
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 true;
-      burpsuite.extended.enable = lib.mkOverride 1100 false;
+      burpsuite.extended.enable = lib.mkOverride 1100 true;
       bzip2.extended.enable = lib.mkOverride 1100 true;
       cachix.extended.enable = lib.mkOverride 1100 true;
       cargo.extended.enable = lib.mkOverride 1100 false;
@@ -47,7 +47,7 @@
       "coderabbit-cli".extended.enable = lib.mkOverride 1100 true;
       codex.extended.enable = lib.mkOverride 1100 true;
       coreutils.extended.enable = lib.mkOverride 1100 true;
-      "cosmic-term".extended.enable = lib.mkOverride 1100 true;
+      "cosmic-term".extended.enable = lib.mkOverride 1100 false;
       curl.extended.enable = lib.mkOverride 1100 true;
       curlie.extended.enable = lib.mkOverride 1100 true;
       cutter.extended.enable = lib.mkOverride 1100 true;
@@ -89,7 +89,7 @@
       ghidra.extended.enable = lib.mkOverride 1100 true;
       git.extended.enable = lib.mkOverride 1100 true;
       "git-filter-repo".extended.enable = lib.mkOverride 1100 true;
-      gimp.extended.enable = lib.mkOverride 1100 true;
+      gimp.extended.enable = lib.mkOverride 1100 false;
       "github-mcp-server".extended.enable = lib.mkOverride 1100 true;
       glow.extended.enable = lib.mkOverride 1100 true;
       "gnome-disk-utility".extended.enable = lib.mkOverride 1100 true;
@@ -143,9 +143,9 @@
       lxsession.extended.enable = lib.mkOverride 1100 true;
       maim.extended.enable = lib.mkOverride 1100 true;
       malimite.extended.enable = lib.mkOverride 1100 true;
-      mangohud.extended.enable = lib.mkOverride 1100 true;
+      mangohud.extended.enable = lib.mkOverride 1100 false;
       marktext.extended.enable = lib.mkOverride 1100 true;
-      mattermost.extended.enable = lib.mkOverride 1100 true;
+      mattermost.extended.enable = lib.mkOverride 1100 false;
       "media-toolchain".extended.enable = lib.mkOverride 1100 true;
       metasploit.extended.enable = lib.mkOverride 1100 false;
       "minio-client".extended.enable = lib.mkOverride 1100 true;
@@ -234,7 +234,7 @@
       "telegram-desktop".extended.enable = lib.mkOverride 1100 true;
       "teams-for-linux".extended.enable = lib.mkOverride 1100 false;
       "temurin-bin-25".extended.enable = lib.mkOverride 1100 false;
-      terraform.extended.enable = lib.mkOverride 1100 true;
+      terraform.extended.enable = lib.mkOverride 1100 false;
       tesseract.extended.enable = lib.mkOverride 1100 true;
       testdisk.extended.enable = lib.mkOverride 1100 true;
       tokei.extended.enable = lib.mkOverride 1100 true;
