@@ -144,8 +144,6 @@ let
     "fzf"
     "ghq-mirror"
     "kitty"
-    "alacritty"
-    "wezterm"
   ];
   extraAppImports = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
   allAppImports = lib.unique (defaultAppImports ++ extraAppImports);
