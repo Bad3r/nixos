@@ -1,3 +1,7 @@
+# DEPRECATED: This custom package is no longer used.
+# Yaak is now installed from upstream nixpkgs (version 2025.6.1+).
+# This file is prefixed with '_' to prevent auto-import.
+# Kept for reference in case upstream regresses.
 {
   lib,
   rustPlatform,
