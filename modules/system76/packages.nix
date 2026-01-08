@@ -26,7 +26,6 @@
           system76-wallpapers
           firmware-manager
           system76-keyboard-configurator
-          system76-ectool # EC tool for fan control
 
           # PipeWire controls for selecting outputs and adjusting volume
           pavucontrol
@@ -35,8 +34,6 @@
 
           # Audio production and codecs
           alsa-utils
-          ardour
-          audacity
           gst_all_1.gstreamer
           gst_all_1.gst-plugins-base
           gst_all_1.gst-plugins-good
