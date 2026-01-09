@@ -4,7 +4,14 @@ _: {
     {
       # Cannot use systemd.sysusers with normal users (only supports system users)
       # systemd.sysusers.enable = true;
-      systemd.coredump.enable = true;
+      systemd.coredump = {
+        enable = true;
+        extraConfig = ''
+          MaxUse=1G
+          KeepFree=2G
+          MaxRetentionSec=3d
+        '';
+      };
 
       # NOTE: Battery charge thresholds (system76-power charge-thresholds) are NOT supported
       # on Darter Pro 6 firmware. This requires newer System76 firmware with EC threshold support.
