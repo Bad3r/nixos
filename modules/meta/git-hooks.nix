@@ -88,7 +88,7 @@
                 enable = true;
                 excludes = [
                   "^inputs/"
-                  "^nixos_docs_md/"
+                  "^nixos-manual/"
                 ];
                 pass_filenames = false;
                 entry = lib.getExe treefmtAutostage;
@@ -98,7 +98,7 @@
               enable = true;
               excludes = [
                 "^inputs/"
-                "^nixos_docs_md/"
+                "^nixos-manual/"
               ];
             };
             statix =
@@ -131,7 +131,7 @@
                 enable = true;
                 excludes = [
                   "^inputs/"
-                  "^nixos_docs_md/"
+                  "^nixos-manual/"
                 ];
                 entry = "${statixWrapper}/bin/statix-precommit-wrapper";
                 pass_filenames = true;
@@ -157,10 +157,26 @@
                   browseable = "browseable"
                   resolveable = "resolveable"
                   "80CA80DA06B77EE708D57D9B5B92AB136C03BA48" = "80CA80DA06B77EE708D57D9B5B92AB136C03BA48"
+                  # NixOS documentation terms
+                  BaGet = "BaGet"
+                  WORLDofPEACE = "WORLDofPEACE"
+                  WORL = "WORL"
+                  Sur = "Sur"
+                  aks = "aks"
+                  HashiCorp = "HashiCorp"
+                  Hashi = "Hashi"
+                  merecat = "merecat"
+                  wdth = "wdth"
+                  pash = "pash"
+                  oceSupport = "oceSupport"
+                  oce = "oce"
+                  OCE = "OCE"
+                  withOCE = "withOCE"
+                  withOCCT = "withOCCT"
 
                   [files]
                   extend-exclude = [
-                      "nixos_docs_md/*.md",
+                      "nixos-manual/**/*.md",
                       "flake.lock",
                       ".clj-kondo/**",
                       "**/.clj-kondo/**",
@@ -174,7 +190,7 @@
                 # Keep hook-level excludes lightweight; config handles deep ignores
                 excludes = [
                   "^inputs/"
-                  "^nixos_docs_md/"
+                  "^nixos-manual/"
                 ];
                 entry = "${pkgs.typos}/bin/typos --config ${typosConfig}";
                 pass_filenames = true;
@@ -183,7 +199,7 @@
               enable = true;
               excludes = [
                 "^inputs/"
-                "^nixos_docs_md/"
+                "^nixos-manual/"
               ];
               # Restrict to pre-commit only; avoid pre-push stage
               stages = [
@@ -197,13 +213,14 @@
               enable = true;
               excludes = [
                 "^inputs/"
-                "^nixos_docs_md/"
+                "^nixos-manual/"
               ];
             };
             ripsecrets = {
               enable = true;
               excludes = [
-                "nixos_docs_md/.*\\.md$" # Documentation files with examples
+                "nixos_docs_md/.*\\.md$" # Documentation files with examples (legacy)
+                "^nixos-manual/" # Documentation files with public keys
                 "modules/networking/networking.nix" # Contains public minisign key
                 "^inputs/"
               ];
@@ -214,14 +231,14 @@
               enable = true;
               excludes = [
                 "^inputs/"
-                "^nixos_docs_md/"
+                "^nixos-manual/"
               ];
             };
             check-json = {
               enable = true;
               excludes = [
                 "^inputs/"
-                "^nixos_docs_md/"
+                "^nixos-manual/"
               ];
             };
 

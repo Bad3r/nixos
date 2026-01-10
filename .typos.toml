@@ -14,6 +14,22 @@ iterm2_with_bell = "iterm2_with_bell"
 iterm = "iterm"
 Autorize = "Autorize"
 Laf = "Laf"
+# NixOS documentation terms
+BaGet = "BaGet"  # Package manager
+WORLDofPEACE = "WORLDofPEACE"  # GitHub username
+WORL = "WORL"  # Part of WORLDofPEACE
+Sur = "Sur"  # macOS Big Sur
+aks = "aks"  # Azure Kubernetes Service
+HashiCorp = "HashiCorp"  # Company name
+Hashi = "Hashi"  # HashiCorp prefix
+merecat = "merecat"  # Package name
+wdth = "wdth"  # CSS font width property
+pash = "pash"  # Package name
+oceSupport = "oceSupport"  # kicad option
+oce = "oce"  # kicad option
+OCE = "OCE"  # kicad option
+withOCE = "withOCE"  # kicad option
+withOCCT = "withOCCT"  # kicad option
 
 [files]
 # Skip encrypted secrets entirely; they are high-entropy ciphertext.
