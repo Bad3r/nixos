@@ -29,7 +29,7 @@ _: {
           storage = "persistent";
           extraConfig = ''
             SystemMaxUse=1G
-            SystemKeepFree=10%
+            SystemKeepFree=10G
           '';
         };
 
