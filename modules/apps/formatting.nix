@@ -41,7 +41,7 @@ let
           type = lib.types.listOf lib.types.package;
           default = with pkgs; [
             biome
-            nixfmt-rfc-style
+            nixfmt
             shellcheck
             prettier
             shfmt
@@ -52,13 +52,13 @@ let
 
             Included formatters:
             - biome: JavaScript/TypeScript/JSON
-            - nixfmt-rfc-style: Nix (RFC 166)
+            - nixfmt: Nix (RFC 166)
             - shellcheck: Shell script linter
             - prettier: Multi-language formatter
             - shfmt: Shell script formatter
             - treefmt: Format orchestrator
           '';
-          example = lib.literalExpression "with pkgs; [ nixfmt-rfc-style shfmt ]";
+          example = lib.literalExpression "with pkgs; [ nixfmt shfmt ]";
         };
       };
 

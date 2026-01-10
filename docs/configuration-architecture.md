@@ -125,7 +125,7 @@ Host definitions live under `configurations.nixos.<host>.module` (typed as `lib.
 | Custom derivations     | `packages/<name>/default.nix`                             | Packages such as `codex`, `raindrop`, and `wappalyzer-next` are exposed via `perSystem.packages`.                  |
 | App wiring             | `modules/apps/<name>.nix`                                 | Mirrors per-system packages into system / HM environments when needed.                                             |
 | Dev shells             | `modules/devshell.nix`, `modules/devshell/pentesting.nix` | Uses `inputs.make-shell` and `treefmt-nix` to define `nix develop` shells and specialized pentesting environments. |
-| Git hooks / formatting | `modules/meta/git-hooks.nix`                              | Enables `nixfmt-rfc-style`, `deadnix`, `statix`, `typos`, managed file drift detection, etc.                       |
+| Git hooks / formatting | `modules/meta/git-hooks.nix`                              | Enables `nixfmt`, `deadnix`, `statix`, `typos`, managed file drift detection, etc.                                 |
 | Generation manager     | `modules/meta/generation-manager.nix`                     | Provides the `generation-manager` CLI (packaged under `config.flake.packages.<system>.generation-manager`).        |
 
 **Dev shell onboarding:**
