@@ -185,8 +185,8 @@ configure_nix_flags() {
   local flags=()
 
   flags+=(
-    "--option" "cores" "0"
-    "--option" "max-jobs" "auto"
+    "--option" "cores" "3"
+    "--option" "max-jobs" "2"
   )
 
   # Offline mode
