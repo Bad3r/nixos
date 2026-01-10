@@ -20,11 +20,6 @@ _: {
       };
 
       config = {
-        # TODO(#41): Re-enable when readline70 builds with GCC 15
-        # See: https://bugzilla.redhat.com/show_bug.cgi?id=2347347
-        system76.virtualization.vmware.enable = lib.mkDefault false;
-        system76.virtualization.ovftool.enable = lib.mkDefault false;
-
         # Configure virtualization via app modules
         programs = {
           qemu.extended = {
