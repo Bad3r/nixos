@@ -14,42 +14,6 @@
         settings = {
           hooks = {
             # Nix-specific hooks
-            nixfmt-rfc-style =
-              let
-                nixfmtAutostage = pkgs.writeShellApplication {
-                  name = "nixfmt-precommit-autostage";
-                  runtimeInputs = [
-                    pkgs.nixfmt-rfc-style
-                    pkgs.git
-                    pkgs.coreutils
-                  ];
-                  text = ''
-                    set -euo pipefail
-                    if [ "$#" -eq 0 ]; then
-                      exit 0
-                    fi
-
-                    for f in "$@"; do
-                      if [ -f "$f" ]; then
-                        nixfmt -- "$f"
-                        if ! git diff --quiet -- "$f"; then
-                          git add -- "$f"
-                          printf "nixfmt: auto-formatted %s\\n" "$f" >&2
-                        fi
-                      fi
-                    done
-                  '';
-                };
-              in
-              {
-                enable = true;
-                excludes = [
-                  "^inputs/"
-                  "^nixos_docs_md/"
-                ];
-                entry = lib.getExe nixfmtAutostage;
-                pass_filenames = true;
-              };
             treefmt =
               let
                 treefmtAutostage = pkgs.writeShellApplication {
