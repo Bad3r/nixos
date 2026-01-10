@@ -110,7 +110,7 @@
           Highlights:
 
           - `modules/system76/packages.nix` – core packages and unfree allow-list for the System76 laptop.
-          - `modules/system76/dev-languages.nix` – imports language toolchains via `flake.nixosModules.apps.<name>` for Python, Go, Rust, and Clojure.
+          - `modules/system76/imports.nix` – enables language toolchains (Python, Go, Rust, Java, Clojure) via `languages.<name>.extended.enable`.
           - `modules/system76/home-manager-gui.nix` – wires the shared GUI Home Manager module and any extra app imports exposed by other modules.
           - `modules/system76/security-tools.nix`, `modules/system76/sudo.nix`, `modules/system76/zsh.nix`, etc. – replace the old workstation bundle with host-scoped modules.
 
