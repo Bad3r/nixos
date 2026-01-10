@@ -48,5 +48,6 @@ excludes = [
     "LICENSE",
     "inputs/*",
     ".pre-commit-config.yaml",
+    "nixos-manual/*",
 ]
 on-unmatched = "warn"
