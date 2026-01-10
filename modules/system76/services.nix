@@ -18,6 +18,8 @@ _: {
       # Laptops that support it: Pangolin, some newer Darter/Galago models with updated firmware.
 
       # Ignore power button to prevent accidental shutdowns
+      # Lid switch uses default "suspend" - xss-lock with --transfer-sleep-lock
+      # ensures screen locks before suspend completes
       services.logind.settings = {
         Login.HandlePowerKey = "ignore";
       };
