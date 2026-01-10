@@ -21,7 +21,7 @@ let
 
   platform =
     downloads.${stdenvNoCC.hostPlatform.system}
-      or (throw ''coderabbit-cli: unsupported system ${stdenvNoCC.hostPlatform.system}'');
+      or (throw "coderabbit-cli: unsupported system ${stdenvNoCC.hostPlatform.system}");
 
 in
 stdenvNoCC.mkDerivation {

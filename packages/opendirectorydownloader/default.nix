@@ -22,7 +22,7 @@ let
 
   platform =
     downloads.${stdenvNoCC.hostPlatform.system}
-      or (throw ''opendirectorydownloader: unsupported system ${stdenvNoCC.hostPlatform.system}'');
+      or (throw "opendirectorydownloader: unsupported system ${stdenvNoCC.hostPlatform.system}");
 
 in
 stdenvNoCC.mkDerivation {
