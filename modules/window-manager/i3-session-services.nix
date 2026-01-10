@@ -127,9 +127,10 @@
               screen-locker = {
                 enable = true;
                 lockCmd = lockCommand;
-                inactiveInterval = 39;
+                inactiveInterval = 15;
                 xss-lock = {
                   package = xssLockPackage; # CMake 3.5+ compatibility flag
+                  extraOptions = [ "-l" ]; # --transfer-sleep-lock: lock before suspend
                 };
                 xautolock = {
                   enable = true;
@@ -186,39 +187,6 @@
                 };
               };
             }
-            (lib.optionalAttrs (lockCommand != null) {
-              "i3lock-handler" = {
-                Unit = {
-                  Description = "Lock screen for suspend events";
-                  Documentation = [ "man:i3lock(1)" ];
-                  After = [ "graphical-session.target" ];
-                  Before = [
-                    "lock.target"
-                    "sleep.target"
-                  ];
-                  PartOf = [
-                    "lock.target"
-                    "sleep.target"
-                  ];
-                  OnSuccess = [ "unlock.target" ];
-                };
-                Install = {
-                  WantedBy = [
-                    "lock.target"
-                    "sleep.target"
-                  ];
-                };
-                Service = {
-                  Type = "simple";
-                  ExecStart = "${lockCommand} --nofork";
-                  Restart = "on-failure";
-                  RestartSec = 0;
-                };
-              };
-              # Note: xss-lock remains enabled (default) to handle idle locking.
-              # i3lock-handler handles sleep.target for suspend events.
-              # Both can coexist - the lock script exits early if already locked.
-            })
           ];
         }
       );
