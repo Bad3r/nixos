@@ -47,5 +47,6 @@ excludes = [
     ".svnignore",
     "LICENSE",
     "inputs/*",
+    ".pre-commit-config.yaml",
 ]
 on-unmatched = "warn"

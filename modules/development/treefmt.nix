@@ -4,8 +4,11 @@ _: {
     { config, ... }:
     {
       treefmt.settings = {
-        # Do not format vendored inputs
-        global.excludes = [ "inputs/*" ];
+        # Do not format vendored inputs or generated hook config
+        global.excludes = [
+          "inputs/*"
+          ".pre-commit-config.yaml"
+        ];
         # Generated README must match write-files output exactly; exclude from prettier
         formatter.prettier.excludes = [ "README.md" ];
       };
