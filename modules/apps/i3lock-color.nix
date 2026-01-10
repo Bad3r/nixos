@@ -46,6 +46,11 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        # Enable PAM service for i3lock-color authentication.
+        # NixOS 25.05+ disables PAM services for i3lock by default.
+        # See: https://github.com/NixOS/nixpkgs/blob/master/nixos/doc/manual/release-notes/rl-2505.section.md
+        programs.i3lock.enable = true;
       };
     };
 in
