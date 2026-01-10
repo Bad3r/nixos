@@ -67,7 +67,7 @@ For detailed patterns (multi-namespace modules, extending existing namespaces, c
 
 - Per-app modules live under `flake.nixosModules.apps.<name>` and `flake.homeManagerModules.apps.<name>`.
 - Helper surface: `modules/meta/nixos-app-helpers.nix` exposes `config.flake.lib.nixos.{hasApp,getApp,getApps,getAppOr}`. Consume apps through this namespace instead of re-implementing `lib.hasAttrByPath`/`lib.getAttrFromPath` in each role.
-- System76-specific modules import app bundles directly (see `modules/system76/dev-languages.nix`).
+- System76-specific modules enable language toolchains directly (see `modules/system76/imports.nix`).
 - Home Manager defaults import a guarded app list defined in `modules/home-manager/nixos.nix`; edit that file when the baseline set changes.
 
 ## Tooling and Required Commands

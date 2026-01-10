@@ -58,7 +58,7 @@ All modules feed into `flake.nixosModules` and supporting helpers so that hosts 
 
 - Every file under `modules/system76/` contributes directly to `configurations.nixos.system76.module`.
 - Feature modules are organized by concern (`packages.nix`, `security-tools.nix`, `pipewire.nix`, `home-manager-gui.nix`, and others) so the host profile reads like a manifest of explicit features instead of an opaque bundle.
-- Language toolchains import app modules via `modules/system76/dev-languages.nix`, keeping the existing app registry reusable without an intermediate role layer.
+- Language toolchains are enabled in `modules/system76/imports.nix` via `languages.<name>.extended.enable`, keeping the existing app registry reusable without an intermediate role layer.
 
 ### 2.3 Shared system helpers
 
@@ -209,7 +209,7 @@ nix develop -c gh-actions-run -n
 
 1. Scaffold `modules/apps/<name>.nix` using the style guide.
 2. Register optional per-system packages through `perSystem`.
-3. Extend `modules/system76/dev-languages.nix` (or another host module) if the System76 profile should import it by default.
+3. Enable the app in `modules/system76/apps-enable.nix` if the System76 profile should include it by default.
 4. Run `nix fmt` and `pre-commit run --all-files`.
 
 ### 9.3 Define a new host
