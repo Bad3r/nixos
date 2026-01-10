@@ -140,61 +140,16 @@
             # `nix flake check` and pre-push submodule checks
 
             # Documentation and text quality
-            typos =
-              let
-                typosConfig = pkgs.writeText "typos.toml" ''
-                  [default.extend-words]
-                  facter = "facter"
-                  hda = "hda"
-                  importas = "importas"
-                  Hime = "Hime"
-                  hime = "hime"
-                  Mosquitto = "Mosquitto"
-                  mosquitto = "mosquitto"
-                  MUC = "MUC"
-                  muc = "muc"
-                  crypted = "crypted"
-                  browseable = "browseable"
-                  resolveable = "resolveable"
-                  "80CA80DA06B77EE708D57D9B5B92AB136C03BA48" = "80CA80DA06B77EE708D57D9B5B92AB136C03BA48"
-                  # NixOS documentation terms
-                  BaGet = "BaGet"
-                  WORLDofPEACE = "WORLDofPEACE"
-                  WORL = "WORL"
-                  Sur = "Sur"
-                  aks = "aks"
-                  HashiCorp = "HashiCorp"
-                  Hashi = "Hashi"
-                  merecat = "merecat"
-                  wdth = "wdth"
-                  pash = "pash"
-                  oceSupport = "oceSupport"
-                  oce = "oce"
-                  OCE = "OCE"
-                  withOCE = "withOCE"
-                  withOCCT = "withOCCT"
-
-                  [files]
-                  extend-exclude = [
-                      "nixos-manual/**/*.md",
-                      "flake.lock",
-                      ".clj-kondo/**",
-                      "**/.clj-kondo/**",
-                      ".lsp/**",
-                      "**/.lsp/**",
-                  ]
-                '';
-              in
-              {
-                enable = true;
-                # Keep hook-level excludes lightweight; config handles deep ignores
-                excludes = [
-                  "^inputs/"
-                  "^nixos-manual/"
-                ];
-                entry = "${pkgs.typos}/bin/typos --config ${typosConfig}";
-                pass_filenames = true;
-              };
+            typos = {
+              enable = true;
+              # Keep hook-level excludes lightweight; .typos.toml handles deep ignores
+              excludes = [
+                "^inputs/"
+                "^nixos-manual/"
+              ];
+              entry = "${pkgs.typos}/bin/typos --config .typos.toml";
+              pass_filenames = true;
+            };
             trim-trailing-whitespace = {
               enable = true;
               excludes = [

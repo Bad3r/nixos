@@ -6,31 +6,30 @@ extend-ignore-re = [
 ]
 
 [default.extend-words]
+# General terms
 example = "example"
 fpt = "fpt"  # Intel Flash Programming Tool
 PN = "PN"   # Part Number
-iterm2 = "iterm2"
+
+# App/tool names
 iterm2_with_bell = "iterm2_with_bell"
-iterm = "iterm"
-Autorize = "Autorize"
-Laf = "Laf"
-# NixOS documentation terms
-BaGet = "BaGet"  # Package manager
-WORLDofPEACE = "WORLDofPEACE"  # GitHub username
-WORL = "WORL"  # Part of WORLDofPEACE
-Sur = "Sur"  # macOS Big Sur
-aks = "aks"  # Azure Kubernetes Service
-HashiCorp = "HashiCorp"  # Company name
-Hashi = "Hashi"  # HashiCorp prefix
-merecat = "merecat"  # Package name
-wdth = "wdth"  # CSS font width property
-pash = "pash"  # Package name
-oceSupport = "oceSupport"  # kicad option
-oce = "oce"  # kicad option
-OCE = "OCE"  # kicad option
-withOCE = "withOCE"  # kicad option
-withOCCT = "withOCCT"  # kicad option
+Autorize = "Autorize"  # Burp Suite extension
+
+# NixOS/nixpkgs terms
+facter = "facter"  # nixos-facter-modules
+crypted = "crypted"  # LUKS device mapper name
+wdth = "wdth"  # CSS font-variation-settings property
+
+# Hashes/keys (extend-ignore-re should catch most, but explicit for safety)
+"80CA80DA06B77EE708D57D9B5B92AB136C03BA48" = "80CA80DA06B77EE708D57D9B5B92AB136C03BA48"
 
 [files]
-# Skip encrypted secrets entirely; they are high-entropy ciphertext.
-extend-exclude = ["secrets/**"]
+extend-exclude = [
+  "secrets/**",
+  "nixos-manual/**/*.md",
+  "flake.lock",
+  ".clj-kondo/**",
+  "**/.clj-kondo/**",
+  ".lsp/**",
+  "**/.lsp/**",
+]
