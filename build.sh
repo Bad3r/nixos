@@ -3,7 +3,7 @@
 # Common Usage:
 #   ./build.sh [--offline] [--verbose]
 ##
-## This script performs validation (format, hooks, pattern score, flake checks),
+## This script performs validation (git hooks and flake checks),
 ## then builds the system closure as the current user and switches using the
 ## system sudo wrapper. It never disables the sandbox or performs GC/optimise,
 ## and it does not mutate repo file ownership. Keep permission and state
@@ -33,9 +33,9 @@ OFFLINE=false
 VERBOSE=false
 ALLOW_DIRTY=${ALLOW_DIRTY:-false}
 AUTO_UPDATE=false
-SKIP_FMT=false
 SKIP_HOOKS=false
 SKIP_CHECK=false
+SKIP_SCORE=false
 KEEP_GOING=false
 REPAIR=false
 ACTION="switch" # default action after build: switch | boot
@@ -60,10 +60,9 @@ Options:
       --boot             Install as next-boot generation (do not activate now)
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
       --update           Run 'nix flake update' and auto-commit before building
-      --skip-fmt         Skip the 'nix fmt' formatting step
       --skip-hooks       Skip the pre-commit hooks validation
       --skip-check       Skip the 'nix flake check' validation step
-      --skip-all         Skip all validation steps (fmt, hooks, check)
+      --skip-all         Skip all validation steps (git hooks, flake check)
       --keep-going       Continue building despite failures (nix --keep-going)
       --repair           Repair corrupted store paths during build
   -h, --help             Show this help message
@@ -124,10 +123,6 @@ while [[ $# -gt 0 ]]; do
     AUTO_UPDATE=true
     shift
     ;;
-  --skip-fmt)
-    SKIP_FMT=true
-    shift
-    ;;
   --skip-hooks)
     SKIP_HOOKS=true
     shift
@@ -137,9 +132,9 @@ while [[ $# -gt 0 ]]; do
     shift
     ;;
   --skip-all)
-    SKIP_FMT=true
     SKIP_HOOKS=true
     SKIP_CHECK=true
+    SKIP_SCORE=true
     shift
     ;;
   --keep-going)
@@ -267,13 +262,6 @@ main() {
 
   configure_nix_flags
 
-  if [[ ${SKIP_FMT} == "false" ]]; then
-    status_msg "${YELLOW}" "Formatting Nix files..."
-    nix fmt --accept-flake-config "${FLAKE_DIR}"
-  else
-    status_msg "${YELLOW}" "Skipping nix fmt (--skip-fmt flag used)..."
-  fi
-
   if [[ ${SKIP_HOOKS} == "false" ]]; then
     status_msg "${YELLOW}" "Running pre-commit hooks..."
     nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c pre-commit run --all-files
@@ -281,8 +269,12 @@ main() {
     status_msg "${YELLOW}" "Skipping pre-commit hooks (--skip-hooks flag used)..."
   fi
 
-  status_msg "${YELLOW}" "Scoring Dendritic Pattern compliance..."
-  #generation-manager score
+  if [[ ${SKIP_SCORE} == "false" ]]; then
+    status_msg "${YELLOW}" "Scoring Dendritic Pattern compliance..."
+    generation-manager score
+  else
+    status_msg "${YELLOW}" "Skipping Dendritic Pattern scoring (--skip-all flag used)..."
+  fi
 
   if [[ ${SKIP_CHECK} == "false" ]]; then
     status_msg "${YELLOW}" "Validating flake (evaluation + invariants)..."
