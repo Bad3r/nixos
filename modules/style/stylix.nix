@@ -9,11 +9,6 @@ let
     pkgs.runCommand "monolisa-placeholder-fonts" { } ''
       mkdir -p "$out/share/fonts/truetype"
     '';
-  gtkLineHeightCss = ''
-    * {
-      line-height: 1.6;
-    }
-  '';
 in
 {
   flake = {
@@ -64,9 +59,6 @@ in
                 popups = 12;
                 terminal = 12;
               };
-            };
-            targets = {
-              gtk.extraCss = gtkLineHeightCss;
             };
           };
           fonts.fontconfig.enable = true;
@@ -124,12 +116,9 @@ in
             };
 
             # Firefox profile theming
-            targets = {
-              firefox = {
-                profileNames = [ "primary" ];
-                firefoxGnomeTheme.enable = true;
-              };
-              gtk.extraCss = gtkLineHeightCss;
+            targets.firefox = {
+              profileNames = [ "primary" ];
+              firefoxGnomeTheme.enable = true;
             };
           };
 

@@ -18,6 +18,8 @@
         users.groups = {
           plugdev = { }; # For removable devices and USB access
           bluetooth = { }; # For Bluetooth device access
+          netdev = { }; # For network device management (avahi SetHostName)
+          power = { }; # For power management (thermald control)
         };
 
         users.users.${metaOwner.username} = {
@@ -40,6 +42,8 @@
             "lp" # Printers and USB devices
             "systemd-journal" # Read journalctl without sudo
             "adm" # Read /var/log files without sudo
+            "netdev" # Network device management (avahi)
+            "power" # Power management (thermald)
           ];
 
           # SSH authorized keys for remote access
