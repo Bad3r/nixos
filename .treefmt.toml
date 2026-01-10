@@ -1,5 +1,5 @@
 [formatter.nixfmt]
-command = "/nix/store/r1zmm1hvjkz6n6p2prkb3lfx5lbc785l-nixfmt-1.1.0/bin/nixfmt"
+command = "/nix/store/yx338k689yp9hpnl6h5y22f7vbmi5pky-nixfmt-1.2.0/bin/nixfmt"
 excludes = []
 includes = ["*.nix"]
 options = []
@@ -46,7 +46,6 @@ excludes = [
     ".hgignore",
     ".svnignore",
     "LICENSE",
-    "inputs/*",
     "inputs/*",
 ]
 on-unmatched = "warn"
