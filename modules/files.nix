@@ -57,8 +57,41 @@
       in
       joined + "\n";
 
-    perSystem = psArgs: {
-      make-shells.default.packages = [ psArgs.config.files.writer.drv ];
-    };
+    perSystem =
+      { pkgs, config, ... }:
+      let
+        # Get the list of managed files for reporting
+        managedFiles = map (f: f.path_) config.files.files;
+        managedFilesList = builtins.concatStringsSep "\n" (map (f: "  - ${f}") managedFiles);
+
+        # Wrap the original writer with verbose output
+        verboseWriter = pkgs.writeShellApplication {
+          name = "write-files";
+          runtimeInputs = [ config.files.writer.drv ];
+          text = ''
+            echo "📝 Writing managed files..."
+            echo ""
+
+            # Run the actual writer
+            ${config.files.writer.drv}/bin/write-files "$@"
+            exit_code=$?
+
+            if [ $exit_code -eq 0 ]; then
+              echo ""
+              echo "✅ Successfully wrote ${toString (builtins.length managedFiles)} file(s):"
+              echo "${managedFilesList}"
+            else
+              echo ""
+              echo "❌ write-files failed with exit code $exit_code"
+            fi
+
+            exit $exit_code
+          '';
+        };
+      in
+      {
+        # Expose the verbose wrapper instead of the raw writer
+        make-shells.default.packages = [ verboseWriter ];
+      };
   };
 }
