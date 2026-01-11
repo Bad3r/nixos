@@ -1,6 +1,6 @@
 # Apps Module Style Guide
 
-This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it alongside `modules/apps/ent.nix`, which serves as the canonical template, and refer to `docs/configuration-architecture.md` for the bigger-picture aggregator and helper context.
+This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it alongside `modules/apps/ent.nix`, which serves as the canonical template, and refer to [`docs/architecture/`](../architecture/) for the bigger-picture aggregator and helper context.
 
 ## Source Gathering
 
@@ -13,7 +13,7 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
 ## Scope
 
 - Applies to every NixOS app module exported under `flake.nixosModules.apps`.
-- Complements the repository-wide conventions noted in `docs/module-structure-guide.md`.
+- Complements the repository-wide conventions noted in [`docs/architecture/02-module-authoring.md`](../architecture/02-module-authoring.md).
 
 ## File Layout
 
@@ -81,4 +81,4 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
 - Note the primary source used for each header field (nixpkgs, upstream docs, release notes).
 - Run `nix fmt` after edits to preserve formatting.
 - Review the header comment whenever options change or new capabilities ship to keep the documentation truthful.
-- Before pushing, run the full validation suite per [`docs/dendritic-pattern-reference.md`](dendritic-pattern-reference.md#validation).
+- Before pushing, run the full validation suite per [`docs/architecture/06-reference.md`](../architecture/06-reference.md#validation).

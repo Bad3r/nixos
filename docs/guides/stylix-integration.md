@@ -181,7 +181,7 @@ If theming isn't applying, verify:
 
 ## Related Documentation
 
-- `docs/dendritic-pattern-reference.md` — module discovery and aggregator patterns
-- `docs/home-manager-aggregator.md` — how Home Manager modules are composed
-- `docs/apps-module-style-guide.md` — per-app module authoring conventions
+- [`docs/architecture/01-pattern-overview.md`](../architecture/01-pattern-overview.md) — module discovery and aggregator patterns
+- [`docs/architecture/04-home-manager.md`](../architecture/04-home-manager.md) — how Home Manager modules are composed
+- [Apps Module Style Guide](apps-module-style-guide.md) — per-app module authoring conventions
 - [Stylix Documentation](https://danth.github.io/stylix/) — upstream reference

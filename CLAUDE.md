@@ -56,15 +56,7 @@ Use `rip` command for temporary file removal instead of stashing when possible.
 
 This is a NixOS configuration using the **Dendritic Pattern** - an organic configuration growth pattern with automatic module discovery. Files can be moved and nested freely without breaking imports.
 
-> **Canonical Documentation:** For pattern details, module authoring rules, and migration checklists, see [`docs/dendritic-pattern-reference.md`](docs/dendritic-pattern-reference.md). For the full architecture map including host composition, secrets, and tooling, see [`docs/configuration-architecture.md`](docs/configuration-architecture.md).
-
-| Key                | Value                                                                                                                      |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Purpose            | Provide autonomous and human agents with a single source of truth for operating in this repository safely and efficiently. |
-| Decision authority | Follow this guide over other docs when instructions conflict; escalate only if a required action is missing or unclear.    |
-| Last reviewed      | 2025-12-28                                                                                                                 |
-| Target agents      | Claude Code, OpenAI Codex, Cursor, and human operators acting on their guidance.                                           |
-| Escalation         | Pause and ask vx before performing destructive actions outside the allowed commands listed here.                           |
+> **Canonical Documentation:** See [`docs/architecture/`](docs/architecture/) for the complete architecture reference, including pattern overview, module authoring, aggregators, and host composition.
 
 ## Nix Configuration
 
@@ -101,7 +93,7 @@ All Nix files are automatically imported as flake-parts modules. Files prefixed 
 
 ### Module Composition Pattern
 
-Hosts compose modules by importing from aggregator namespaces rather than literal paths. See [`docs/dendritic-pattern-reference.md`](docs/dendritic-pattern-reference.md) for the canonical pattern with code examples.
+Hosts compose modules by importing from aggregator namespaces rather than literal paths. See [`docs/architecture/02-module-authoring.md`](docs/architecture/02-module-authoring.md) for patterns and [`docs/architecture/05-host-composition.md`](docs/architecture/05-host-composition.md) for host definitions.
 
 Use `lib.hasAttrByPath` + `lib.getAttrFromPath` for optional modules to avoid ordering issues.
 
@@ -123,7 +115,7 @@ dedupe_systems.url = "github:nix-systems/default";
 | NixOS modules       | `modules/`                                        | Auto-loaded. Host-specific logic lives under `modules/system76`, while shared bundles remain organized by domain (for example `modules/apps`, `modules/configurations`). |
 | Shared derivations  | `packages/`                                       | Common build logic shared between modules.                                                                                                                               |
 | Helper scripts      | `scripts/`                                        | Operational tooling including git-credential-sops.                                                                                                                       |
-| Documentation       | `docs/`, `nixos_docs_md/`                         | Long-form references and local workflows.                                                                                                                                |
+| Documentation       | `docs/`, `nixos-manual/`                          | Long-form references and local workflows.                                                                                                                                |
 | Secrets             | `secrets/`                                        | Only encrypted payloads managed via `sops.secrets`.                                                                                                                      |
 | Generated artefacts | `.actrc`, `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module; update source definitions instead of editing generated outputs.                                                                               |
 
@@ -342,16 +334,13 @@ Pause, summarize the situation, and ask vx for direction before proceeding.
 
 The following MCP (Model Context Protocol) tools may be available when configured. Use `/mcp` to check current configuration status.
 
-| Tool                  | Primary Use                                             | Access Notes                                        | Example Invocation                                              |
-| --------------------- | ------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
-| `context7`            | Look up library IDs and documentation for coding tasks. | Requires network; resolves ID before fetching docs. | `context7 resolve-library-id --name <library>`                  |
-| `cfdocs`              | Search Cloudflare documentation.                        | Use for Workers, R2, and other CF services.         | `cfdocs search --query "Workers KV"`                            |
-| `cfbrowser`           | Render and capture live webpages.                       | Useful for verifying UI changes.                    | `cfbrowser get-url-html --url <page>`                           |
-| `deepwiki`            | Browse repository knowledge bases.                      | Supply `owner/repo` to fetch docs.                  | `deepwiki read_wiki_structure --repo owner/repo`                |
-| `time`                | Convert or fetch timestamps.                            | No prerequisites.                                   | `time convert --from UTC --to America/Los_Angeles --time 12:00` |
-| `sequential-thinking` | Record structured reasoning steps.                      | Use for complex tasks; keeps plan visible.          | `sequentialthinking start`                                      |
-
-**Note**: MCP tools availability depends on configuration. If tools are not available, run `/doctor` to diagnose or visit https://docs.claude.com/en/docs/claude-code/mcp for setup instructions.
+| Tool                  | Primary Use                                             | Access Notes                                        | Example Invocation                               |
+| --------------------- | ------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------ |
+| `context7`            | Look up library IDs and documentation for coding tasks. | Requires network; resolves ID before fetching docs. | `context7 resolve-library-id --name <library>`   |
+| `cfdocs`              | Search Cloudflare documentation.                        | Use for Workers, R2, and other CF services.         | `cfdocs search --query "Workers KV"`             |
+| `cfbrowser`           | Render and capture live webpages.                       | Useful for verifying UI changes.                    | `cfbrowser get-url-html --url <page>`            |
+| `deepwiki`            | Browse repository knowledge bases.                      | Supply `owner/repo` to fetch docs.                  | `deepwiki read_wiki_structure --repo owner/repo` |
+| `sequential-thinking` | Record structured reasoning steps.                      | Use for complex tasks; keeps plan visible.          | `sequentialthinking start`                       |
 
 ## Prompt Snippets & Templates
 
