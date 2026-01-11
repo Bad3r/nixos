@@ -114,7 +114,7 @@ error: cannot coerce null to a string: null
 4. **Check Module Context**:
    - Verify you're accessing `config.flake.*` in flake-parts context (outer scope)
    - Verify you're accessing `config.home.*` or `config.services.*` in module context (inner scope)
-   - See `docs/module-structure-guide.md` for the two-context pattern
+   - See [`docs/architecture/02-module-authoring.md`](../architecture/02-module-authoring.md) for the two-context pattern
 
 **Resolution Patterns:**
 
