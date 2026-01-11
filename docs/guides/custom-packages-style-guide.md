@@ -1,6 +1,6 @@
 # Custom Packages Style Guide
 
-This guide defines the conventions for adding custom packages under `packages/<name>/default.nix`. Use it alongside the existing packages as references, and see `docs/apps-module-style-guide.md` for the corresponding app module pattern.
+This guide defines the conventions for adding custom packages under `packages/<name>/default.nix`. Use it alongside the existing packages as references, and see [Apps Module Style Guide](apps-module-style-guide.md) for the corresponding app module pattern.
 
 ## When to Create a Custom Package
 
@@ -314,6 +314,24 @@ nix-prefetch-github owner repo --rev v1.0.0
 
 Same workflow as cargoHash—use placeholder, build, copy the correct hash.
 
+### Troubleshooting Hash Mismatches
+
+If you see `No such file or directory` for a vendor staging path (e.g., `<name>-vendor-staging`), the hash in your file doesn't match what Nix computed. The correct vendor tree still exists in the store:
+
+```bash
+# Find and hash the vendor staging directory
+nix hash path --type sha256 --sri /nix/store/<hash>-<name>-vendor-staging
+```
+
+Copy the output into `cargoHash` or `vendorHash` in your derivation.
+
+### Tips for Efficient Hash Updates
+
+- **Capture the mismatch once:** When Nix prints the `got:` hash, save it immediately. Never re-run the placeholder build unnecessarily.
+- **Keep caches warm:** Preserve `~/.cache/cargo/registry` and `~/.cache/cargo/git` between updates so dependency fetches are faster.
+- **Use binary caches:** Extra Nix cache endpoints reduce time spent downloading toolchains.
+- **Archive previous hashes:** Tracking past `got:` values helps identify when the dependency graph genuinely changed versus just the source revision.
+
 ## Relationship to App Modules
 
 Custom packages and app modules serve different purposes:
@@ -339,7 +357,7 @@ Skip the app module when:
 - The package is only used in devshells
 - The package is a library or build tool
 
-See `docs/apps-module-style-guide.md` for the app module format.
+See [Apps Module Style Guide](apps-module-style-guide.md) for the app module format.
 
 ## Deprecating a Package
 
@@ -374,7 +392,7 @@ Before committing a new package:
 - [ ] Package is registered in `custom-packages-overlay.nix`
 - [ ] `nix build .#<name>` succeeds (or via overlay: test in config)
 - [ ] `nix flake check --accept-flake-config` passes
-- [ ] App module created if user-facing (see `docs/apps-module-style-guide.md`)
+- [ ] App module created if user-facing (see [Apps Module Style Guide](apps-module-style-guide.md))
 
 ## Reference Implementations
 
