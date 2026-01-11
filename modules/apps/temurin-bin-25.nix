@@ -37,19 +37,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Temurin JDK 25.";
+          description = "Whether to enable Temurin JDK 25.";
         };
 
         package = lib.mkPackageOption pkgs "temurin-bin-25" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "temurin-bin-25" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "temurin-bin-25" ];
   flake.nixosModules.apps."temurin-bin-25" = TemurinBin25Module;
 }

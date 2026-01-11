@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable testdisk.";
+          description = "Whether to enable testdisk.";
         };
 
         package = lib.mkPackageOption pkgs "testdisk" { };

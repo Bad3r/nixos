@@ -39,7 +39,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable mpv media player.";
+          description = "Whether to enable mpv media player.";
         };
 
         package = lib.mkPackageOption pkgs "mpv" { };
@@ -50,7 +50,7 @@ let
             mpvScripts.thumbfast
             mpvScripts.mpv-cheatsheet
           ];
-          description = lib.mdDoc ''
+          description = ''
             mpv scripts to install.
 
             Included by default:
@@ -66,7 +66,7 @@ let
             mpv-shim-default-shaders
             open-in-mpv
           ];
-          description = lib.mdDoc ''
+          description = ''
             Additional mpv-related tools.
 
             Included by default:

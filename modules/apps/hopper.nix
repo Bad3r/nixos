@@ -34,19 +34,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable hopper.";
+          description = "Whether to enable hopper.";
         };
 
         package = lib.mkPackageOption pkgs "hopper" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "hopper" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "hopper" ];
   flake.nixosModules.apps.hopper = HopperModule;
 }

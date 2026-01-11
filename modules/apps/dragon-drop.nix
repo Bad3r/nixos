@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable dragon-drop.";
+          description = "Whether to enable dragon-drop.";
         };
 
         package = lib.mkPackageOption pkgs "dragon-drop" { };

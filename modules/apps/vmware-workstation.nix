@@ -30,13 +30,13 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable vmware-workstation.";
+          description = "Whether to enable vmware-workstation.";
         };
 
         enableHost = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable VMware Workstation host services.";
+          description = "Whether to enable VMware Workstation host services.";
         };
 
         package = lib.mkPackageOption pkgs "vmware-workstation" { };
@@ -44,8 +44,6 @@ let
 
       config = lib.mkMerge [
         (lib.mkIf cfg.enable {
-          nixpkgs.allowedUnfreePackages = [ "vmware-workstation" ];
-
           environment.systemPackages = [ cfg.package ];
         })
         (lib.mkIf cfg.enableHost {
@@ -58,5 +56,6 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "vmware-workstation" ];
   flake.nixosModules.apps.vmware-workstation = VmwareWorkstationModule;
 }

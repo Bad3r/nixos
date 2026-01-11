@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable MarkText editor.";
+          description = "Whether to enable MarkText editor.";
         };
 
         package = lib.mkPackageOption pkgs "marktext" { };
@@ -46,7 +46,7 @@ let
         extraPackages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
           default = with pkgs; [ glow ]; # Default extras
-          description = lib.mdDoc ''
+          description = ''
             Additional packages to install alongside MarkText.
             Includes glow for terminal Markdown preview.
           '';

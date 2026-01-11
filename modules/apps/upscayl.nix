@@ -26,7 +26,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable upscayl.";
+          description = "Whether to enable upscayl.";
         };
 
         package = lib.mkPackageOption pkgs "upscayl" { };

@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable i3status-rust.";
+          description = "Whether to enable i3status-rust.";
         };
 
         package = lib.mkPackageOption pkgs "i3status-rust" { };

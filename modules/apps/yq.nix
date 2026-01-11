@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable yq.";
+          description = "Whether to enable yq.";
         };
 
         package = lib.mkPackageOption pkgs "yq" { };

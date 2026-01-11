@@ -30,7 +30,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Virtual Machine Manager.";
+          description = "Whether to enable Virtual Machine Manager.";
         };
 
         package = lib.mkPackageOption pkgs "virt-manager" { };
@@ -38,7 +38,7 @@ let
         extraPackages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
           default = with pkgs; [ virt-viewer ]; # Default extras
-          description = lib.mdDoc ''
+          description = ''
             Additional packages to install alongside virt-manager.
             Includes virt-viewer for SPICE/RDP console access.
           '';

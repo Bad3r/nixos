@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable rar.";
+          description = "Whether to enable rar.";
         };
 
         package = lib.mkPackageOption pkgs "rar" { };

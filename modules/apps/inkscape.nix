@@ -33,7 +33,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable inkscape.";
+          description = "Whether to enable inkscape.";
         };
 
         package = lib.mkPackageOption pkgs "inkscape" { };

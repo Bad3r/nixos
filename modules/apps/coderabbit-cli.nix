@@ -36,19 +36,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable coderabbit-cli.";
+          description = "Whether to enable coderabbit-cli.";
         };
 
         package = lib.mkPackageOption pkgs "coderabbit-cli" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "coderabbit-cli" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "coderabbit-cli" ];
   flake.nixosModules.apps."coderabbit-cli" = CoderabbitCliModule;
 }

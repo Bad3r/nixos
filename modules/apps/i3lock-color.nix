@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable i3lock-color.";
+          description = "Whether to enable i3lock-color.";
         };
 
         package = lib.mkPackageOption pkgs "i3lock-color" { };

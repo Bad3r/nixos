@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nvd.";
+          description = "Whether to enable nvd.";
         };
 
         package = lib.mkPackageOption pkgs "nvd" { };

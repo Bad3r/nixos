@@ -32,7 +32,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable glow.";
+          description = "Whether to enable glow.";
         };
 
         package = lib.mkPackageOption pkgs "glow" { };

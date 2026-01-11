@@ -35,19 +35,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable protonvpn-gui.";
+          description = "Whether to enable protonvpn-gui.";
         };
 
         package = lib.mkPackageOption pkgs "protonvpn-gui" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "protonvpn-gui" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "protonvpn-gui" ];
   flake.nixosModules.apps.protonvpn-gui = ProtonvpnGuiModule;
 }

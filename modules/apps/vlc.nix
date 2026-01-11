@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable vlc.";
+          description = "Whether to enable vlc.";
         };
 
         package = lib.mkPackageOption pkgs "vlc" { };

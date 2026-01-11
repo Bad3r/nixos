@@ -58,7 +58,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Rizin reverse engineering framework.";
+          description = "Whether to enable Rizin reverse engineering framework.";
         };
 
         package = lib.mkPackageOption pkgs "rizin" { };

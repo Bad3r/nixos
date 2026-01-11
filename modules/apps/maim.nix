@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable maim.";
+          description = "Whether to enable maim.";
         };
 
         package = lib.mkPackageOption pkgs "maim" { };

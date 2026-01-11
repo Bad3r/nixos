@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable picom.";
+          description = "Whether to enable picom.";
         };
 
         package = lib.mkPackageOption pkgs "picom" { };

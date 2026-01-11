@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nvme-cli.";
+          description = "Whether to enable nvme-cli.";
         };
 
         package = lib.mkPackageOption pkgs "nvme-cli" { };

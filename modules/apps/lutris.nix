@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable lutris.";
+          description = "Whether to enable lutris.";
         };
 
         package = lib.mkPackageOption pkgs "lutris" { };

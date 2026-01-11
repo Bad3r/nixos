@@ -32,7 +32,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable curlie.";
+          description = "Whether to enable curlie.";
         };
 
         package = lib.mkPackageOption pkgs "curlie" { };

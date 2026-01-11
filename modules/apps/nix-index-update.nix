@@ -34,7 +34,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nix-index-update.";
+          description = "Whether to enable nix-index-update.";
         };
 
         package = lib.mkPackageOption pkgs "nix-index-update" { };

@@ -26,7 +26,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable gimp.";
+          description = "Whether to enable gimp.";
         };
 
         package = lib.mkPackageOption pkgs "gimp" { };

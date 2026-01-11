@@ -27,7 +27,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Wappalyzer Next.";
+          description = "Whether to enable Wappalyzer Next.";
         };
 
         package = lib.mkPackageOption pkgs "wappalyzer-next" { };

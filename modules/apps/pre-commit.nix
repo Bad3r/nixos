@@ -32,7 +32,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable pre-commit.";
+          description = "Whether to enable pre-commit.";
         };
 
         package = lib.mkPackageOption pkgs "pre-commit" { };

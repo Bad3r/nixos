@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable hyperfine.";
+          description = "Whether to enable hyperfine.";
         };
 
         package = lib.mkPackageOption pkgs "hyperfine" { };

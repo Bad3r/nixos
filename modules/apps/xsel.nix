@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable xsel.";
+          description = "Whether to enable xsel.";
         };
 
         package = lib.mkPackageOption pkgs "xsel" { };

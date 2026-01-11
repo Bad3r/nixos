@@ -33,7 +33,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable tar (GNU tar).";
+          description = "Whether to enable tar (GNU tar).";
         };
 
         package = lib.mkPackageOption pkgs "gnutar" { };

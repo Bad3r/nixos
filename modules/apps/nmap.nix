@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nmap.";
+          description = "Whether to enable nmap.";
         };
 
         package = lib.mkPackageOption pkgs "nmap" { };

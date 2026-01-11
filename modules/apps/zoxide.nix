@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable zoxide.";
+          description = "Whether to enable zoxide.";
         };
 
         package = lib.mkPackageOption pkgs "zoxide" { };

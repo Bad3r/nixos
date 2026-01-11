@@ -30,7 +30,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Rust Clippy.";
+          description = "Whether to enable Rust Clippy.";
         };
 
         package = lib.mkPackageOption pkgs "clippy" { };

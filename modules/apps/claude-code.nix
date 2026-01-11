@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable claude-code.";
+          description = "Whether to enable claude-code.";
         };
 
         package = lib.mkPackageOption pkgs "claude-code" { };
@@ -48,5 +48,7 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "claude-code" ];
+
   flake.nixosModules.apps.claude-code = ClaudeCodeModule;
 }

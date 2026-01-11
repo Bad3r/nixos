@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable tealdeer.";
+          description = "Whether to enable tealdeer.";
         };
 
         package = lib.mkPackageOption pkgs "tealdeer" { };

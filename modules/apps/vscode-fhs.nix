@@ -37,19 +37,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable vscode-fhs.";
+          description = "Whether to enable vscode-fhs.";
         };
 
         package = lib.mkPackageOption pkgs "vscode-fhs" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "vscode-fhs" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "vscode-fhs" ];
   flake.nixosModules.apps.vscode-fhs = VscodeFhsModule;
 }

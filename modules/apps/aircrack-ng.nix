@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable aircrack-ng.";
+          description = "Whether to enable aircrack-ng.";
         };
 
         package = lib.mkPackageOption pkgs "aircrack-ng" { };

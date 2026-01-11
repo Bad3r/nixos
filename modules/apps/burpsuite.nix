@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Burp Suite Pro.";
+          description = "Whether to enable Burp Suite Pro.";
         };
 
         package = lib.mkPackageOption pkgs "burpsuitepro" { };
@@ -53,12 +53,11 @@ let
           })
         ];
 
-        nixpkgs.allowedUnfreePackages = lib.mkIf cfg.enable [ "burpsuitepro" ];
-
         environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "burpsuitepro" ];
   flake.nixosModules.apps.burpsuite = BurpsuiteModule;
 }

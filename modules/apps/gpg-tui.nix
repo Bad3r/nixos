@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable gpg-tui.";
+          description = "Whether to enable gpg-tui.";
         };
 
         package = lib.mkPackageOption pkgs "gpg-tui" { };

@@ -26,7 +26,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable yaak.";
+          description = "Whether to enable yaak.";
         };
 
         package = lib.mkPackageOption pkgs "yaak" { };

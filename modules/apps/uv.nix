@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable uv.";
+          description = "Whether to enable uv.";
         };
 
         package = lib.mkPackageOption pkgs "uv" { };

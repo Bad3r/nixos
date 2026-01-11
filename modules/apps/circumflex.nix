@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable circumflex.";
+          description = "Whether to enable circumflex.";
         };
 
         package = lib.mkPackageOption pkgs "circumflex" { };

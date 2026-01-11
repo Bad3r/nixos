@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false; # Explicitly disabled
-          description = lib.mdDoc ''
+          description = ''
             Whether to enable Metasploit Framework.
 
             NOTE: This option exists for consistency but does nothing.

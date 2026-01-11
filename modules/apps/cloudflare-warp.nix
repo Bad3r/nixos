@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable cloudflare-warp.";
+          description = "Whether to enable cloudflare-warp.";
         };
 
         package = lib.mkPackageOption pkgs "cloudflare-warp" { };
@@ -43,5 +43,7 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "cloudflare-warp" ];
+
   flake.nixosModules.apps.cloudflare-warp = CloudflareWarpModule;
 }

@@ -30,7 +30,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc ''
+          description = ''
             This module is a placeholder for the Cloudflare Workers Rust SDK.
             The SDK is a Rust crate installed via `cargo add worker`,
             not a system package. Enabling this option has no effect.

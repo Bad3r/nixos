@@ -28,19 +28,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Raindrop.";
+          description = "Whether to enable Raindrop.";
         };
 
         package = lib.mkPackageOption pkgs "raindrop" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "raindrop" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "raindrop" ];
   flake.nixosModules.apps.raindrop = RaindropModule;
 }

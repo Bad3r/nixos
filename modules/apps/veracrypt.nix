@@ -37,19 +37,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable veracrypt.";
+          description = "Whether to enable veracrypt.";
         };
 
         package = lib.mkPackageOption pkgs "veracrypt" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "veracrypt" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "veracrypt" ];
   flake.nixosModules.apps.veracrypt = VeracryptModule;
 }

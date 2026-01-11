@@ -36,7 +36,7 @@ in
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = lib.mdDoc ''
+      description = ''
         Whether to enable Go language support.
 
         Enables the Go toolchain with language server (gopls), linter (golangci-lint),

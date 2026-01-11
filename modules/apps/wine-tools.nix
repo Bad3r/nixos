@@ -249,13 +249,13 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Wine tools bundle (wine-staging, winetricks, proton-ge-bin).";
+          description = "Whether to enable Wine tools bundle (wine-staging, winetricks, proton-ge-bin).";
         };
 
         package = lib.mkOption {
           type = lib.types.package;
           default = pkgs.wineWowPackages.stagingFull;
-          description = lib.mdDoc "The Wine package to use.";
+          description = "The Wine package to use.";
         };
       };
 

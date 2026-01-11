@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable lshw.";
+          description = "Whether to enable lshw.";
         };
 
         package = lib.mkPackageOption pkgs "lshw" { };
