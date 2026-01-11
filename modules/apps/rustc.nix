@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable rustc.";
+          description = "Whether to enable rustc.";
         };
 
         package = lib.mkPackageOption pkgs "rustc" { };

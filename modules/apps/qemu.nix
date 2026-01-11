@@ -32,13 +32,13 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable QEMU virtualization tools.";
+          description = "Whether to enable QEMU virtualization tools.";
         };
 
         enableLibvirt = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable libvirtd daemon with QEMU/KVM.";
+          description = "Whether to enable libvirtd daemon with QEMU/KVM.";
         };
 
         package = lib.mkPackageOption pkgs "qemu" { };
@@ -49,7 +49,7 @@ let
             qemu_kvm
             quickemu
           ];
-          description = lib.mdDoc ''
+          description = ''
             Additional QEMU tools and helpers.
 
             Included by default:

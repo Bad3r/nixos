@@ -33,19 +33,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable brave.";
+          description = "Whether to enable brave.";
         };
 
         package = lib.mkPackageOption pkgs "brave" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "brave" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "brave" ];
   flake.nixosModules.apps.brave = BraveModule;
 }

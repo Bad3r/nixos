@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable clojure-lsp.";
+          description = "Whether to enable clojure-lsp.";
         };
 
         package = lib.mkPackageOption pkgs "clojure-lsp" { };

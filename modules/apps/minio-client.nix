@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable minio-client.";
+          description = "Whether to enable minio-client.";
         };
 
         package = lib.mkPackageOption pkgs "minio-client" { };

@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Xfce4 power manager.";
+          description = "Whether to enable Xfce4 power manager.";
         };
 
         package = lib.mkPackageOption pkgs [ "xfce" "xfce4-power-manager" ] { };

@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Okular document viewer.";
+          description = "Whether to enable Okular document viewer.";
         };
 
         package = lib.mkPackageOption pkgs [ "kdePackages" "okular" ] { };

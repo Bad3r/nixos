@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable sqlmap.";
+          description = "Whether to enable sqlmap.";
         };
 
         package = lib.mkPackageOption pkgs "sqlmap" { };

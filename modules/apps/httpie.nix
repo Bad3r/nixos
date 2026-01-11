@@ -33,7 +33,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable httpie.";
+          description = "Whether to enable httpie.";
         };
 
         package = lib.mkPackageOption pkgs "httpie" { };

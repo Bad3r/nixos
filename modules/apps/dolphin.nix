@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Dolphin file manager.";
+          description = "Whether to enable Dolphin file manager.";
         };
 
         package = lib.mkPackageOption pkgs [ "kdePackages" "dolphin" ] { };

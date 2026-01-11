@@ -33,19 +33,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable kiro-fhs.";
+          description = "Whether to enable kiro-fhs.";
         };
 
         package = lib.mkPackageOption pkgs "kiro-fhs" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "kiro-fhs" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "kiro" ];
   flake.nixosModules.apps.kiro-fhs = KiroFhsModule;
 }

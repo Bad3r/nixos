@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable dmidecode.";
+          description = "Whether to enable dmidecode.";
         };
 
         package = lib.mkPackageOption pkgs "dmidecode" { };

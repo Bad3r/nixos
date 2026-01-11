@@ -31,13 +31,13 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable virtualbox.";
+          description = "Whether to enable virtualbox.";
         };
 
         enableHost = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable VirtualBox host services.";
+          description = "Whether to enable VirtualBox host services.";
         };
 
         package = lib.mkPackageOption pkgs "virtualbox" { };
@@ -54,11 +54,6 @@ let
                 enable = true;
                 package = pkgs.virtualbox;
               };
-
-              nixpkgs.allowedUnfreePackages = lib.mkAfter [
-                "virtualbox"
-                "virtualbox-extpack"
-              ];
             }
             (lib.mkIf (owner != null) {
               users.users.${owner}.extraGroups = lib.mkAfter [ "vboxusers" ];
@@ -69,5 +64,9 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [
+    "virtualbox"
+    "virtualbox-extpack"
+  ];
   flake.nixosModules.apps.virtualbox = VirtualboxModule;
 }

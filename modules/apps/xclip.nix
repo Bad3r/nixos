@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable xclip.";
+          description = "Whether to enable xclip.";
         };
 
         package = lib.mkPackageOption pkgs "xclip" { };

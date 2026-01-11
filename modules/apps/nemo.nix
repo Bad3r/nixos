@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nemo.";
+          description = "Whether to enable nemo.";
         };
 
         package = lib.mkPackageOption pkgs "nemo" { };

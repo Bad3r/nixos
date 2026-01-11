@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable parted.";
+          description = "Whether to enable parted.";
         };
 
         package = lib.mkPackageOption pkgs "parted" { };

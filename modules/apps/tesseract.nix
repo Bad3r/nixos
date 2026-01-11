@@ -27,7 +27,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable tesseract OCR engine.";
+          description = "Whether to enable tesseract OCR engine.";
         };
 
         package = lib.mkPackageOption pkgs "tesseract" { };

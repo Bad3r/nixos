@@ -37,19 +37,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable telegram-desktop.";
+          description = "Whether to enable telegram-desktop.";
         };
 
         package = lib.mkPackageOption pkgs "telegram-desktop" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "telegram-desktop" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "telegram-desktop" ];
   flake.nixosModules.apps.telegram-desktop = TelegramDesktopModule;
 }

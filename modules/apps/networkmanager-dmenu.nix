@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable networkmanager-dmenu.";
+          description = "Whether to enable networkmanager-dmenu.";
         };
 
         package = lib.mkPackageOption pkgs "networkmanager_dmenu" { };

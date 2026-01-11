@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable forgit.";
+          description = "Whether to enable forgit.";
         };
 
         package = lib.mkPackageOption pkgs "zsh-forgit" { };

@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable prefetch-yarn-deps.";
+          description = "Whether to enable prefetch-yarn-deps.";
         };
 
         package = lib.mkPackageOption pkgs "prefetch-yarn-deps" { };

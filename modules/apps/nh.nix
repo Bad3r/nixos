@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nh.";
+          description = "Whether to enable nh.";
         };
 
         package = lib.mkPackageOption pkgs "nh" { };

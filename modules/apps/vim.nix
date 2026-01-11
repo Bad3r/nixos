@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable vim.";
+          description = "Whether to enable vim.";
         };
 
         package = lib.mkPackageOption pkgs "vim" { };

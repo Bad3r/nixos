@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable p7zip.";
+          description = "Whether to enable p7zip.";
         };
 
         package = lib.mkPackageOption pkgs "p7zip" { };

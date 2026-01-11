@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable autotiling-rs.";
+          description = "Whether to enable autotiling-rs.";
         };
 
         package = lib.mkPackageOption pkgs "autotiling-rs" { };

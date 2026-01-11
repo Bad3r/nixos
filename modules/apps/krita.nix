@@ -26,7 +26,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable krita.";
+          description = "Whether to enable krita.";
         };
 
         package = lib.mkPackageOption pkgs "krita" { };

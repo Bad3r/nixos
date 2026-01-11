@@ -30,7 +30,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable gopls.";
+          description = "Whether to enable gopls.";
         };
 
         package = lib.mkPackageOption pkgs "gopls" { };

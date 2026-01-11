@@ -36,19 +36,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable obsidian.";
+          description = "Whether to enable obsidian.";
         };
 
         package = lib.mkPackageOption pkgs "obsidian" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "obsidian" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "obsidian" ];
   flake.nixosModules.apps.obsidian = ObsidianModule;
 }

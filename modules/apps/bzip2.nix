@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable bzip2.";
+          description = "Whether to enable bzip2.";
         };
 
         package = lib.mkPackageOption pkgs "bzip2" { };

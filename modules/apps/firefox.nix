@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable firefox.";
+          description = "Whether to enable firefox.";
         };
 
         package = lib.mkPackageOption pkgs "firefox" { };
@@ -50,5 +50,10 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [
+    "firefox-bin"
+    "firefox-bin-unwrapped"
+  ];
+
   flake.nixosModules.apps.firefox = FirefoxModule;
 }

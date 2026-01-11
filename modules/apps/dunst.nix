@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable dunst.";
+          description = "Whether to enable dunst.";
         };
 
         package = lib.mkPackageOption pkgs "dunst" { };

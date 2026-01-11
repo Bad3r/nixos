@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable pandoc.";
+          description = "Whether to enable pandoc.";
         };
 
         package = lib.mkPackageOption pkgs "pandoc" { };

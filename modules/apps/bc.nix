@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable bc.";
+          description = "Whether to enable bc.";
         };
 
         package = lib.mkPackageOption pkgs "bc" { };

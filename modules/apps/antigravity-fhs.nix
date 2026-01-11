@@ -26,7 +26,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable antigravity-fhs.";
+          description = "Whether to enable antigravity-fhs.";
         };
 
         package = lib.mkPackageOption pkgs "antigravity-fhs" { };
@@ -38,5 +38,7 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "antigravity" ];
+
   flake.nixosModules.apps."antigravity-fhs" = AntigravityFhsModule;
 }

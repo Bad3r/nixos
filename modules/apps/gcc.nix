@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable gcc.";
+          description = "Whether to enable gcc.";
         };
 
         package = lib.mkPackageOption pkgs "gcc" { };

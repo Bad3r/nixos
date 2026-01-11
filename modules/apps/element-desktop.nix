@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable element-desktop.";
+          description = "Whether to enable element-desktop.";
         };
 
         package = lib.mkPackageOption pkgs "element-desktop" { };

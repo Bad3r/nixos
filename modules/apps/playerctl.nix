@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable playerctl.";
+          description = "Whether to enable playerctl.";
         };
 
         package = lib.mkPackageOption pkgs "playerctl" { };

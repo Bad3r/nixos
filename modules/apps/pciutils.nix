@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable pciutils.";
+          description = "Whether to enable pciutils.";
         };
 
         package = lib.mkPackageOption pkgs "pciutils" { };

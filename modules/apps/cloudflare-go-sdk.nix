@@ -30,7 +30,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc ''
+          description = ''
             This module is a placeholder for the Cloudflare Go SDK.
             The SDK is a Go library installed via `go get github.com/cloudflare/cloudflare-go`,
             not a system package. Enabling this option has no effect.

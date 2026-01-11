@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nix-output-monitor.";
+          description = "Whether to enable nix-output-monitor.";
         };
 
         package = lib.mkPackageOption pkgs "nix-output-monitor" { };

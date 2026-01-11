@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable git-filter-repo.";
+          description = "Whether to enable git-filter-repo.";
         };
 
         package = lib.mkPackageOption pkgs "git-filter-repo" { };

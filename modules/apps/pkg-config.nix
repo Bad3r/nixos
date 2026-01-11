@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable pkg-config.";
+          description = "Whether to enable pkg-config.";
         };
 
         package = lib.mkPackageOption pkgs "pkg-config" { };

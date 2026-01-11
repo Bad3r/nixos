@@ -36,7 +36,7 @@ in
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = lib.mdDoc ''
+      description = ''
         Whether to enable Clojure language support.
 
         Enables the complete Clojure ecosystem including CLI tools, language server,

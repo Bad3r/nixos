@@ -33,7 +33,7 @@ in
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = lib.mdDoc ''
+      description = ''
         Whether to enable Java language support.
 
         Enables Eclipse Temurin JDK 25, the recommended open-source Java

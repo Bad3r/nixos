@@ -36,7 +36,7 @@ in
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = lib.mdDoc ''
+      description = ''
         Whether to enable Python language support.
 
         Enables Python 3 with modern tooling including uv (fast package installer),

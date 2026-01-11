@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable gnumake.";
+          description = "Whether to enable gnumake.";
         };
 
         package = lib.mkPackageOption pkgs "gnumake" { };

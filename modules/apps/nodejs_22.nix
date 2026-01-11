@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nodejs_22.";
+          description = "Whether to enable nodejs_22.";
         };
 
         package = lib.mkPackageOption pkgs "nodejs_22" { };

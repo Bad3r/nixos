@@ -30,19 +30,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable zoom-us.";
+          description = "Whether to enable zoom-us.";
         };
 
         package = lib.mkPackageOption pkgs "zoom-us" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "zoom" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "zoom" ];
   flake.nixosModules.apps.zoom-us = ZoomModule;
 }

@@ -39,7 +39,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable torsocks.";
+          description = "Whether to enable torsocks.";
         };
 
         package = lib.mkPackageOption pkgs "torsocks" { };

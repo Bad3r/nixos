@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable rip2 safe rm alternative with trash support.";
+          description = "Whether to enable rip2 safe rm alternative with trash support.";
         };
 
         package = lib.mkPackageOption pkgs "rip2" { };
@@ -45,7 +45,7 @@ let
         graveyardPath = lib.mkOption {
           type = lib.types.str;
           default = "/tmp/rip-graveyard";
-          description = lib.mdDoc ''
+          description = ''
             Directory where deleted files are moved to.
 
             Defaults to `/tmp/rip-graveyard` which is cleared on reboot.

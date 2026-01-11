@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable skim.";
+          description = "Whether to enable skim.";
         };
 
         package = lib.mkPackageOption pkgs "skim" { };

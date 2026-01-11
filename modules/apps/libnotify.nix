@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable libnotify.";
+          description = "Whether to enable libnotify.";
         };
 
         package = lib.mkPackageOption pkgs "libnotify" { };
