@@ -21,12 +21,11 @@
     };
 
     # Hardware firmware configuration
+    # Fully selective approach: firmware is declared explicitly per-host
+    # This avoids pulling unnecessary firmware packages
     hardware = {
-      # Ensure hardware detection happens properly
-      enableRedistributableFirmware = true;
-
-      # Enable ALL firmware including non-free for maximum hardware compatibility
-      enableAllFirmware = true;
+      enableRedistributableFirmware = false;
+      enableAllFirmware = false;
     };
 
     # CPU microcode is set per-host in hardware-config.nix
