@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable patch.";
+          description = "Whether to enable patch.";
         };
 
         package = lib.mkPackageOption pkgs "patch" { };

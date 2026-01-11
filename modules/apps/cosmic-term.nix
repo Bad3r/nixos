@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable cosmic-term.";
+          description = "Whether to enable cosmic-term.";
         };
 
         package = lib.mkPackageOption pkgs "cosmic-term" { };

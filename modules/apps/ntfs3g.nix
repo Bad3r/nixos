@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable ntfs3g.";
+          description = "Whether to enable ntfs3g.";
         };
 
         package = lib.mkPackageOption pkgs "ntfs3g" { };

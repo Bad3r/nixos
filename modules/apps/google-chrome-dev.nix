@@ -44,7 +44,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Google Chrome Dev (developer preview).";
+          description = "Whether to enable Google Chrome Dev (developer preview).";
         };
 
         package = lib.mkPackageOption pkgs "google-chrome-dev" { };
@@ -65,8 +65,6 @@ let
           })
         ];
 
-        nixpkgs.allowedUnfreePackages = lib.mkIf cfg.enable [ "google-chrome-dev" ];
-
         environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
 
         # Playwright compatibility: create symlink at expected FHS path
@@ -81,5 +79,6 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "google-chrome-dev" ];
   flake.nixosModules.apps.google-chrome-dev = GoogleChromeDevModule;
 }

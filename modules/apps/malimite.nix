@@ -15,7 +15,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Malimite iOS and macOS decompiler.";
+          description = "Whether to enable Malimite iOS and macOS decompiler.";
         };
 
         package = lib.mkPackageOption pkgs "malimite" { };

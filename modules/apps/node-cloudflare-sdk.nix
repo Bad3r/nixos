@@ -30,7 +30,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc ''
+          description = ''
             This module is a placeholder for the Cloudflare Node.js SDK.
             The SDK is an npm package installed via `npm install cloudflare`,
             not a system package. Enabling this option has no effect.

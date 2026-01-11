@@ -33,7 +33,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable dnsleak.";
+          description = "Whether to enable dnsleak.";
         };
 
         package = lib.mkPackageOption pkgs "dnsleak" { };

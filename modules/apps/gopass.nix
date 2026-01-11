@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable gopass.";
+          description = "Whether to enable gopass.";
         };
 
         package = lib.mkPackageOption pkgs "gopass" { };

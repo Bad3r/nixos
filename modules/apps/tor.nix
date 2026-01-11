@@ -33,7 +33,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable tor.";
+          description = "Whether to enable tor.";
         };
 
         package = lib.mkPackageOption pkgs "tor" { };

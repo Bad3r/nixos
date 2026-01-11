@@ -30,7 +30,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable teams-for-linux.";
+          description = "Whether to enable teams-for-linux.";
         };
 
         package = lib.mkPackageOption pkgs "teams-for-linux" { };

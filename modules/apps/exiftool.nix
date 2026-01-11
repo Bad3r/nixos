@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable exiftool.";
+          description = "Whether to enable exiftool.";
         };
 
         package = lib.mkPackageOption pkgs "exiftool" { };

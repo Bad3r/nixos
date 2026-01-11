@@ -32,7 +32,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable ventoy-full.";
+          description = "Whether to enable ventoy-full.";
         };
 
         package = lib.mkPackageOption pkgs "ventoy-full" { };
@@ -50,5 +50,7 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "ventoy" ];
+
   flake.nixosModules.apps.ventoy-full = VentoyFullModule;
 }

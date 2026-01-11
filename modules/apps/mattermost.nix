@@ -35,19 +35,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Mattermost desktop.";
+          description = "Whether to enable Mattermost desktop.";
         };
 
         package = lib.mkPackageOption pkgs "mattermost-desktop" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "mattermost-desktop" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "mattermost-desktop" ];
   flake.nixosModules.apps.mattermost = MattermostDesktopModule;
 }

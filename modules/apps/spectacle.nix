@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Spectacle screenshot utility.";
+          description = "Whether to enable Spectacle screenshot utility.";
         };
 
         package = lib.mkPackageOption pkgs [ "kdePackages" "spectacle" ] { };

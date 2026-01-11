@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable file.";
+          description = "Whether to enable file.";
         };
 
         package = lib.mkPackageOption pkgs "file" { };

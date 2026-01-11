@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable p7zip-rar.";
+          description = "Whether to enable p7zip-rar.";
         };
 
         package = lib.mkPackageOption pkgs "p7zip-rar" { };
@@ -49,5 +49,7 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "p7zip" ];
+
   flake.nixosModules.apps.p7zip-rar = P7zipRarModule;
 }

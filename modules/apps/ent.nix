@@ -39,7 +39,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable ent.";
+          description = "Whether to enable ent.";
         };
 
         package = lib.mkPackageOption pkgs "ent" { };

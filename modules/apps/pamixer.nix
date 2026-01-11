@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable pamixer.";
+          description = "Whether to enable pamixer.";
         };
 
         package = lib.mkPackageOption pkgs "pamixer" { };

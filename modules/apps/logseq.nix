@@ -32,13 +32,13 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Logseq.";
+          description = "Whether to enable Logseq.";
         };
 
         package = lib.mkOption {
           type = lib.types.package;
           default = inputs.nix-logseq-git-flake.packages.${pkgs.stdenv.hostPlatform.system}.logseq;
-          description = lib.mdDoc "The Logseq package to use.";
+          description = "The Logseq package to use.";
         };
       };
 

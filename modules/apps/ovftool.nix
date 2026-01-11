@@ -31,23 +31,23 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable VMware OVF Tool.";
+          description = "Whether to enable VMware OVF Tool.";
         };
 
         package = lib.mkOption {
           type = lib.types.package;
           default = ovftoolPkg;
-          description = lib.mdDoc "The ovftool package to use.";
+          description = "The ovftool package to use.";
         };
       };
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
 
-        nixpkgs.allowedUnfreePackages = [ "ovftool" ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "ovftool" ];
   flake.nixosModules.apps.ovftool = OvftoolModule;
 }

@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable desktop-file-utils.";
+          description = "Whether to enable desktop-file-utils.";
         };
 
         package = lib.mkPackageOption pkgs "desktop-file-utils" { };

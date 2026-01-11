@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable worker-build.";
+          description = "Whether to enable worker-build.";
         };
 
         package = lib.mkPackageOption pkgs "worker-build" { };

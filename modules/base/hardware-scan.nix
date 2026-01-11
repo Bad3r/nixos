@@ -31,9 +31,6 @@
 
     # CPU microcode is set per-host in hardware-config.nix
 
-    # Allow unfree firmware packages (required for hardware.enableAllFirmware)
-    nixpkgs.config.allowUnfree = true;
-
     # Permit insecure packages that are required but marked as insecure
     nixpkgs.config.permittedInsecurePackages = [
       "qtwebengine-5.15.19" # Required by some Qt5 applications, marked insecure in NixOS 25.11

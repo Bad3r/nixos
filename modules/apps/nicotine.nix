@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nicotine-plus.";
+          description = "Whether to enable nicotine-plus.";
         };
 
         package = lib.mkPackageOption pkgs "nicotine-plus" { };

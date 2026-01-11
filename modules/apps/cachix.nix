@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable cachix.";
+          description = "Whether to enable cachix.";
         };
 
         package = lib.mkPackageOption pkgs "cachix" { };

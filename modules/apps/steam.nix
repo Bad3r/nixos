@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Steam with Proton-GE and extended compatibility tools.";
+          description = "Whether to enable Steam with Proton-GE and extended compatibility tools.";
         };
 
         package = lib.mkPackageOption pkgs "steam" { };
@@ -51,7 +51,7 @@ let
             freetype
             fontconfig
           ];
-          description = lib.mdDoc ''
+          description = ''
             Additional tools for game compatibility and modding support.
 
             - dwarfs: Compressed filesystem for game mods
@@ -66,11 +66,6 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [
-          "steam"
-          "steam-unwrapped"
-        ];
-
         programs.steam = {
           enable = true;
           extraCompatPackages = [ pkgs.proton-ge-bin ];
@@ -80,6 +75,10 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [
+    "steam"
+    "steam-unwrapped"
+  ];
   flake.nixosModules.apps.steam = steamModule;
   flake.nixosModules.workstation = steamModule;
 }

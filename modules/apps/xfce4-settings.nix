@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Xfce4 settings manager.";
+          description = "Whether to enable Xfce4 settings manager.";
         };
 
         package = lib.mkPackageOption pkgs "xfce4-settings" { };

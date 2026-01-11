@@ -34,7 +34,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable the formatting tool bundle.";
+          description = "Whether to enable the formatting tool bundle.";
         };
 
         packages = lib.mkOption {
@@ -47,7 +47,7 @@ let
             shfmt
             treefmt
           ];
-          description = lib.mdDoc ''
+          description = ''
             Code formatters and linters for the development environment.
 
             Included formatters:

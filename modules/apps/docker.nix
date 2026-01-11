@@ -33,13 +33,13 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable Docker CLI tools.";
+          description = "Whether to enable Docker CLI tools.";
         };
 
         enableDaemon = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable the Docker daemon (virtualisation.docker).";
+          description = "Whether to enable the Docker daemon (virtualisation.docker).";
         };
 
         package = lib.mkPackageOption pkgs "docker" { };
@@ -51,7 +51,7 @@ let
             docker-buildx
             docker-credential-helpers
           ];
-          description = lib.mdDoc ''
+          description = ''
             Additional Docker tools and helpers.
 
             Included by default:

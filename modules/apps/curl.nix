@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable curl.";
+          description = "Whether to enable curl.";
         };
 
         package = lib.mkPackageOption pkgs "curl" { };

@@ -37,7 +37,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable MangoHud performance overlay for games.";
+          description = "Whether to enable MangoHud performance overlay for games.";
         };
 
         package = lib.mkPackageOption pkgs "mangohud" { };
@@ -62,7 +62,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable MangoHud performance overlay integration.";
+          description = "Whether to enable MangoHud performance overlay integration.";
         };
       };
 

@@ -36,7 +36,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable planify.";
+          description = "Whether to enable planify.";
         };
 
         package = lib.mkPackageOption pkgs "planify" { };

@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable util-linux.";
+          description = "Whether to enable util-linux.";
         };
 
         package = lib.mkPackageOption pkgs "util-linux" { };

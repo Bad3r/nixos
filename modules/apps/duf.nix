@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable duf.";
+          description = "Whether to enable duf.";
         };
 
         package = lib.mkPackageOption pkgs "duf" { };

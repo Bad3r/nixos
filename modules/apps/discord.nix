@@ -36,19 +36,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable discord.";
+          description = "Whether to enable discord.";
         };
 
         package = lib.mkPackageOption pkgs "discord" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "discord" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "discord" ];
   flake.nixosModules.apps.discord = DiscordModule;
 }

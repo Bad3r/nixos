@@ -63,7 +63,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable iaito (radare2 GUI frontend).";
+          description = "Whether to enable iaito (radare2 GUI frontend).";
         };
 
         package = lib.mkPackageOption pkgs "iaito" { };

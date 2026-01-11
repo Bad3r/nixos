@@ -31,7 +31,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nix-tree.";
+          description = "Whether to enable nix-tree.";
         };
 
         package = lib.mkPackageOption pkgs "nix-tree" { };

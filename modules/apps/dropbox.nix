@@ -36,19 +36,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable dropbox.";
+          description = "Whether to enable dropbox.";
         };
 
         package = lib.mkPackageOption pkgs "dropbox" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "dropbox" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "dropbox" ];
   flake.nixosModules.apps.dropbox = DropboxModule;
 }

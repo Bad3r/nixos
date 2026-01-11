@@ -140,7 +140,7 @@ let
       enable = lib.mkOption {
         type = lib.types.bool;
         default = false;  # Explicit opt-in required
-        description = lib.mdDoc "Whether to enable <package-name>.";
+        description = "Whether to enable <package-name>.";
       };
 
       package = lib.mkPackageOption pkgs "<package-name>" { };

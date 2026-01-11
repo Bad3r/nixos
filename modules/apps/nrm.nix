@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable nrm.";
+          description = "Whether to enable nrm.";
         };
 
         package = lib.mkPackageOption pkgs.nodePackages "nrm" { };

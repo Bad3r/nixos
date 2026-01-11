@@ -40,7 +40,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable OpenDirectoryDownloader.";
+          description = "Whether to enable OpenDirectoryDownloader.";
         };
 
         package = lib.mkPackageOption pkgs "opendirectorydownloader" { };

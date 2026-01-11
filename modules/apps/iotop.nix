@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable iotop.";
+          description = "Whether to enable iotop.";
         };
 
         package = lib.mkPackageOption pkgs "iotop" { };

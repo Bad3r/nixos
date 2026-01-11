@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable mitmproxy.";
+          description = "Whether to enable mitmproxy.";
         };
 
         package = lib.mkPackageOption pkgs "mitmproxy" { };

@@ -38,7 +38,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable zip.";
+          description = "Whether to enable zip.";
         };
 
         package = lib.mkPackageOption pkgs "zip" { };

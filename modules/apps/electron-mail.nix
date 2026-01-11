@@ -38,19 +38,19 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = lib.mdDoc "Whether to enable electron-mail.";
+          description = "Whether to enable electron-mail.";
         };
 
         package = lib.mkPackageOption pkgs "electron-mail" { };
       };
 
       config = lib.mkIf cfg.enable {
-        nixpkgs.allowedUnfreePackages = [ "electron-mail" ];
 
         environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "electron-mail" ];
   flake.nixosModules.apps.electron-mail = ElectronMailModule;
 }
