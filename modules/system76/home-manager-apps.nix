@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ config, lib, ... }:
 let
   extraAppNames = [
     "bitwarden-desktop"
@@ -38,37 +38,27 @@ let
     "zathura"
     "zoom"
   ];
+
+  # Access Home Manager app modules from the flake's registered modules
+  # This allows modules to be defined anywhere in the codebase
+  flakeHmApps = config.flake.homeManagerModules.apps;
+
+  getAppModule =
+    name:
+    flakeHmApps.${name}
+      or (throw "Home Manager app module '${name}' not found in flake.homeManagerModules.apps");
+
+  enableModuleFor =
+    name: if name == "claude-code" then { programs.claude-code.enable = lib.mkDefault true; } else null;
+
+  extraAppModules = map getAppModule extraAppNames;
+  extraEnableModules = lib.filter (m: m != null) (map enableModuleFor extraAppNames);
 in
 {
-  configurations.nixos.system76.module =
-    _:
-    let
-      appsDir = ../hm-apps;
-      getAppModule =
-        name:
-        let
-          filePath = appsDir + "/${name}.nix";
-        in
-        if builtins.pathExists filePath then
-          let
-            imported = import filePath;
-            module = lib.attrByPath [ "flake" "homeManagerModules" "apps" name ] null imported;
-          in
-          if module != null then
-            module
-          else
-            throw ("Home Manager app module '" + name + "' missing expected attrpath in " + toString filePath)
-        else
-          throw ("Home Manager app module file not found: " + toString filePath);
-      enableModuleFor =
-        name: if name == "claude-code" then { programs.claude-code.enable = lib.mkDefault true; } else null;
-      extraAppModules = map getAppModule extraAppNames;
-      extraEnableModules = lib.filter (m: m != null) (map enableModuleFor extraAppNames);
-    in
-    {
-      config = {
-        home-manager.extraAppImports = lib.mkAfter extraAppNames;
-        home-manager.sharedModules = lib.mkAfter (extraAppModules ++ extraEnableModules);
-      };
+  configurations.nixos.system76.module = _: {
+    config = {
+      home-manager.extraAppImports = lib.mkAfter extraAppNames;
+      home-manager.sharedModules = lib.mkAfter (extraAppModules ++ extraEnableModules);
     };
+  };
 }
