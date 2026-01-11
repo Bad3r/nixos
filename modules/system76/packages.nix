@@ -1,13 +1,20 @@
 { lib, ... }:
 {
   nixpkgs.allowedUnfreePackages = [
+    # System76 hardware
     "system76-wallpapers"
     "system76-wallpapers-0-unstable-2024-04-26"
+
+    # NVIDIA drivers
     "nvidia-x11"
     "nvidia-settings"
+
+    # Development tools
     "code"
     "vscode"
     "vscode-fhs"
+
+    # Archive utilities
     "p7zip-rar"
     "rar"
     "unrar"
