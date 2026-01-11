@@ -46,7 +46,7 @@ _: {
         # Verified via: dmesg | grep -i firmware
         firmware = lib.mkAfter [
           pkgs.linux-firmware # Intel 8265 WiFi (8265-36.ucode), Bluetooth (ibt-12-16.sfi), i915 GPU (kbl_dmc)
-          pkgs.sof-firmware   # Intel audio DSP (fallback for internal audio)
+          pkgs.sof-firmware # Intel audio DSP (fallback for internal audio)
           pkgs.wireless-regdb # WiFi regulatory database
         ];
       };

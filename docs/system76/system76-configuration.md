@@ -4,14 +4,14 @@
 
 All System76-specific configuration lives in `modules/system76/`:
 
-| File | Purpose |
-|------|---------|
-| `hardware-config.nix` | Filesystems, LUKS, firmware, bluetooth |
-| `nvidia-gpu.nix` | NVIDIA PRIME sync/offload |
-| `boot.nix` | Kernel, crash dump, NVIDIA params |
-| `services.nix` | thermald, scheduler, logging |
-| `support.nix` | System76 kernel modules, firmware daemon |
-| `packages.nix` | System76 utilities, unfree allowlist |
+| File                  | Purpose                                  |
+| --------------------- | ---------------------------------------- |
+| `hardware-config.nix` | Filesystems, LUKS, firmware, bluetooth   |
+| `nvidia-gpu.nix`      | NVIDIA PRIME sync/offload                |
+| `boot.nix`            | Kernel, crash dump, NVIDIA params        |
+| `services.nix`        | thermald, scheduler, logging             |
+| `support.nix`         | System76 kernel modules, firmware daemon |
+| `packages.nix`        | System76 utilities, unfree allowlist     |
 
 ## Hardware Support
 
@@ -93,10 +93,10 @@ hardware.nvidia.prime = {
 };
 ```
 
-| Mode | Description |
-|------|-------------|
+| Mode          | Description                                               |
+| ------------- | --------------------------------------------------------- |
 | `hybrid-sync` | iGPU drives display, dGPU renders (battery + performance) |
-| `nvidia-only` | Only dGPU active (maximum GPU performance) |
+| `nvidia-only` | Only dGPU active (maximum GPU performance)                |
 
 ## Boot Configuration
 
@@ -142,12 +142,12 @@ boot.initrd.luks = {
 };
 ```
 
-| Mount | Device | Filesystem |
-|-------|--------|------------|
-| `/` | NVMe | ext4 (encrypted) |
-| `/boot` | NVMe | vfat |
-| `/data` | SATA SSD | XFS (encrypted) |
-| swap | NVMe | swap (encrypted) |
+| Mount   | Device   | Filesystem       |
+| ------- | -------- | ---------------- |
+| `/`     | NVMe     | ext4 (encrypted) |
+| `/boot` | NVMe     | vfat             |
+| `/data` | SATA SSD | XFS (encrypted)  |
+| swap    | NVMe     | swap (encrypted) |
 
 ## Audio & Bluetooth
 
@@ -182,11 +182,11 @@ nixpkgs.allowedUnfreePackages = [
 
 ## System76 Tools
 
-| Tool | Command | Purpose |
-|------|---------|---------|
-| Power | `system76-power profile [performance|balanced|battery]` | Power profile |
+| Tool     | Command                               | Purpose                  |
+| -------- | ------------------------------------- | ------------------------ | --------- | ------------- |
+| Power    | `system76-power profile [performance  | balanced                 | battery]` | Power profile |
 | Firmware | `sudo system76-firmware-cli schedule` | Schedule firmware update |
-| Keyboard | `system76-keyboard-configurator` | Keyboard customization |
+| Keyboard | `system76-keyboard-configurator`      | Keyboard customization   |
 
 ## Quick Reference
 
