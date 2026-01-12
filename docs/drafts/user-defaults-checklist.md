@@ -61,10 +61,8 @@
 
 **File:** `lib/user-defaults.nix`
 
-- [ ] Create `lib/` directory if it doesn't exist:
-  ```bash
-  mkdir -p lib
-  ```
+> **Note:** `lib/` directory already exists (contains `meta-owner-profile.nix`)
+
 - [ ] Create `lib/user-defaults.nix` with content from plan Step 1.1
 - [ ] Include workflow documentation header comment
 - [ ] Define `apps.browser` with all fields (package, windowClass, appId, desktopEntry, windowClassAliases)
@@ -147,9 +145,13 @@
 - [ ] Include `checkModuleAlignment` function
 - [ ] Enable `warnings = alignmentWarnings;` (not commented out)
 - [ ] Export assertions and warnings
-- [ ] **Verify:** Module is auto-discovered:
+- [ ] **Verify:** Module parses correctly:
   ```bash
-  nix eval '.#nixosModules' --apply 'x: builtins.hasAttr "user-defaults-validation" x or "check meta namespace"'
+  nix-instantiate --parse modules/meta/user-defaults-validation.nix
+  ```
+- [ ] **Verify:** Validation module assertions run (no warnings for default config):
+  ```bash
+  nix build .#nixosConfigurations.system76.config.system.build.toplevel 2>&1 | grep -i "userDefaults" || echo "No warnings (good)"
   ```
 
 ### Phase 1 Verification Gate
