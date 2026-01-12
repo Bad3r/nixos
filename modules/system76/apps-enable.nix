@@ -50,7 +50,7 @@
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
       curl.extended.enable = lib.mkOverride 1100 true;
       curlie.extended.enable = lib.mkOverride 1100 true;
-      cutter.extended.enable = lib.mkOverride 1100 true;
+      cutter.extended.enable = lib.mkOverride 1100 false;
       ddrescue.extended.enable = lib.mkOverride 1100 true;
       deadnix.extended.enable = lib.mkOverride 1100 true;
       delve.extended.enable = lib.mkOverride 1100 false;
@@ -86,7 +86,7 @@
       gawk.extended.enable = lib.mkOverride 1100 true;
       gcc.extended.enable = lib.mkOverride 1100 true;
       gdb.extended.enable = lib.mkOverride 1100 true;
-      ghidra.extended.enable = lib.mkOverride 1100 true;
+      ghidra.extended.enable = lib.mkOverride 1100 false;
       git.extended.enable = lib.mkOverride 1100 true;
       "git-filter-repo".extended.enable = lib.mkOverride 1100 true;
       gimp.extended.enable = lib.mkOverride 1100 false;
@@ -118,7 +118,7 @@
       inkscape.extended.enable = lib.mkOverride 1100 true;
       "i3lock-color".extended.enable = lib.mkOverride 1100 true;
       "i3status-rust".extended.enable = lib.mkOverride 1100 true;
-      iaito.extended.enable = lib.mkOverride 1100 true;
+      iaito.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 true;
       jnv.extended.enable = lib.mkOverride 1100 true;
       john.extended.enable = lib.mkOverride 1100 false;
@@ -143,14 +143,14 @@
       lutris.extended.enable = lib.mkOverride 1100 false;
       lxsession.extended.enable = lib.mkOverride 1100 true;
       maim.extended.enable = lib.mkOverride 1100 true;
-      malimite.extended.enable = lib.mkOverride 1100 true;
+      malimite.extended.enable = lib.mkOverride 1100 false;
       mangohud.extended.enable = lib.mkOverride 1100 false;
       marktext.extended.enable = lib.mkOverride 1100 true;
       mattermost.extended.enable = lib.mkOverride 1100 false;
       "media-toolchain".extended.enable = lib.mkOverride 1100 true;
       metasploit.extended.enable = lib.mkOverride 1100 false;
       "minio-client".extended.enable = lib.mkOverride 1100 true;
-      mitmproxy.extended.enable = lib.mkOverride 1100 true;
+      mitmproxy.extended.enable = lib.mkOverride 1100 false;
       mpv.extended.enable = lib.mkOverride 1100 true;
       nemo.extended.enable = lib.mkOverride 1100 true;
       neovim.extended.enable = lib.mkOverride 1100 true;
@@ -206,12 +206,12 @@
       pyright.extended.enable = lib.mkOverride 1100 false;
       python.extended.enable = lib.mkOverride 1100 true;
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
-      radare2.extended.enable = lib.mkOverride 1100 true;
+      radare2.extended.enable = lib.mkOverride 1100 false;
       raindrop.extended.enable = lib.mkOverride 1100 true;
       rar.extended.enable = lib.mkOverride 1100 true;
       rclone.extended.enable = lib.mkOverride 1100 true;
       rip2.extended.enable = lib.mkOverride 1100 true;
-      rizin.extended.enable = lib.mkOverride 1100 true;
+      rizin.extended.enable = lib.mkOverride 1100 false;
       rofi.extended.enable = lib.mkOverride 1100 true;
       rsync.extended.enable = lib.mkOverride 1100 true;
       ruff.extended.enable = lib.mkOverride 1100 true;
@@ -264,7 +264,7 @@
       which.extended.enable = lib.mkOverride 1100 true;
       "wine-tools".extended.enable = lib.mkOverride 1100 true;
       "wireguard-tools".extended.enable = lib.mkOverride 1100 true;
-      wireshark.extended.enable = lib.mkOverride 1100 true;
+      wireshark.extended.enable = lib.mkOverride 1100 false;
       "worker-build".extended.enable = lib.mkOverride 1100 true;
       "workers-rs-sdk".extended.enable = lib.mkOverride 1100 false;
       wrangler.extended.enable = lib.mkOverride 1100 true;
