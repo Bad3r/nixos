@@ -218,7 +218,10 @@
 - [ ] Add `getWindowClass` helper function
 - [ ] Add `getAppId` helper function
 - [ ] Add `getAllWindowClasses` helper function
-- [ ] Add `mkAssign` helper function
+- [ ] Add `mkAssign` helper function (uses `lib.strings.escapeRegex` for safety)
+
+> **Note:** Use `lib.strings.escapeRegex` from nixpkgs for regex escaping—do not implement a custom version. This is the idiomatic approach.
+
 - [ ] **Verify:** Helpers are syntactically correct (full build test later)
 
 #### 2.1.3: Refactor commandsDefault
