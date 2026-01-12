@@ -83,6 +83,7 @@ Implementation is complete when:
 | --------------------------- | ----------------------------------------------------------------------- |
 | Data file exists            | `nix eval --file lib/user-defaults.nix` succeeds                        |
 | Injection works             | `userDefaults` parameter available in i3-config.nix                     |
+| Validation assertions pass  | Build succeeds without assertion failures from validation module        |
 | Workspace assigns use roles | `nix eval` shows `class` patterns derived from `userDefaults`           |
 | Build succeeds              | `nix build .#nixosConfigurations.system76.config.system.build.toplevel` |
 | Runtime correct             | Firefox→ws2, Geany→ws1, Thunar→ws3 after deployment                     |
@@ -141,13 +142,24 @@ Therefore, `lib/user-defaults.nix` can only contain strings, numbers, and attrib
 
 > **Canonical definition:** See [Step 1.1](#step-11-create-data-file) for the complete `lib/user-defaults.nix` file.
 
-Each app role is a structured attribute set with three fields:
+Each app role is a structured attribute set with required and optional fields:
+
+**Required fields:**
 
 | Field          | Type   | Purpose                                      | Example                       |
 | -------------- | ------ | -------------------------------------------- | ----------------------------- |
 | `package`      | String | `pkgs` attribute path for package resolution | `"firefox"`, `"xfce.thunar"`  |
-| `windowClass`  | String | WM_CLASS for window matching                 | `"Geany"` (often capitalized) |
+| `windowClass`  | String | X11 WM_CLASS for window matching             | `"Geany"` (often capitalized) |
 | `desktopEntry` | String | .desktop file name for MIME associations     | `"firefox.desktop"`           |
+
+**Optional fields (for advanced use cases):**
+
+| Field                | Type         | Purpose                                    | Example                             |
+| -------------------- | ------------ | ------------------------------------------ | ----------------------------------- |
+| `appId`              | String       | Wayland app_id (defaults to `windowClass`) | `"firefox"`, `"org.gnome.Nautilus"` |
+| `windowClassAliases` | List[String] | Additional WM_CLASS values for matching    | `[ "Navigator" "firefox-default" ]` |
+
+> **Note:** `appId` is needed for Wayland compositors (Hyprland, Sway) where app identifiers may differ from X11 WM_CLASS. For most apps they're identical, but Electron apps and some GTK apps differ. Helper functions fall back to `windowClass` if `appId` is not specified.
 
 ### Why Structured Data (Decoupling)
 
@@ -156,6 +168,39 @@ This explicit structure (vs. flat strings with fallbacks) is necessary because:
 - WM_CLASS often differs from package name (capitalization, entirely different names)
 - Desktop entry names don't always match package names
 - Explicit is better than implicit fallbacks that silently fail
+
+### Relationship to Module Package Options
+
+`userDefaults` is intentionally **separate from and orthogonal to** the `programs.<name>.extended.package` module options. This separation is by design:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ userDefaults (this system)                                              │
+│ • Purpose: Role→app mapping for WM integration                          │
+│ • Contains: String package paths ("firefox", "xfce.thunar")             │
+│ • Used by: Keybindings, workspace assigns, MIME associations            │
+│ • Answers: "What app fulfills the browser role?"                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ programs.<name>.extended.package (existing module system)               │
+│ • Purpose: Package variant selection for installation                   │
+│ • Contains: Actual package derivation (pkgs.firefox-esr)                │
+│ • Used by: environment.systemPackages                                   │
+│ • Answers: "What variant of Firefox should be installed?"               │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Why no automatic integration:**
+
+1. **Evaluation timing:** `userDefaults` is imported in `flake.nix` before `config` exists
+2. **Different concerns:** "Firefox fills browser role" ≠ "install Firefox ESR"
+3. **Multiple apps:** User may have Firefox (role) + Brave + Chrome all installed
+4. **Explicitness:** Changing a module's package shouldn't silently change keybindings
+
+**Coherence is enforced via assertions** (Step 1.6), not implicit integration.
+
+See [Open Question #2 (Resolved)](#open-questions) for the full decision rationale.
 
 ## Implementation Steps
 
@@ -166,31 +211,62 @@ This explicit structure (vs. flat strings with fallbacks) is necessary because:
 Create `lib/user-defaults.nix`:
 
 ```nix
-# Pure data file - mirrors lib/meta-owner-profile.nix pattern
-# No pkgs or lib dependencies allowed (imported before they exist)
+# ════════════════════════════════════════════════════════════════════════════
+# User Defaults - Application Role Mappings
+# ════════════════════════════════════════════════════════════════════════════
+#
+# This file defines which applications fulfill abstract roles (browser, editor,
+# terminal, etc.) for window manager integration.
+#
+# IMPORTANT: This is a pure data file. No pkgs or lib dependencies allowed
+# (imported in flake.nix before they exist).
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ WORKFLOW: To change a default application (e.g., browser)              │
+# ├─────────────────────────────────────────────────────────────────────────┤
+# │ 1. Update `package` to the new package path (e.g., "brave")            │
+# │ 2. Update `windowClass` to match the new app's WM_CLASS                │
+# │    → Run `xprop WM_CLASS` and click the app window to find this        │
+# │ 3. Update `desktopEntry` to the new app's .desktop filename            │
+# │ 4. Optionally update `appId` if using Wayland (often same as class)    │
+# │ 5. Ensure the app module is enabled (e.g., programs.brave.extended)    │
+# └─────────────────────────────────────────────────────────────────────────┘
+#
+# Field reference:
+#   package           - pkgs attribute path (required)
+#   windowClass       - X11 WM_CLASS for i3/bspwm matching (required)
+#   desktopEntry      - .desktop file for MIME associations (required)
+#   appId             - Wayland app_id, defaults to windowClass (optional)
+#   windowClassAliases - Additional classes for multi-window apps (optional)
+#
+# ════════════════════════════════════════════════════════════════════════════
 {
   apps = {
     browser = {
       package = "firefox";
       windowClass = "firefox";
+      appId = "firefox";  # Same as windowClass for Firefox
       desktopEntry = "firefox.desktop";
+      # Firefox can appear as multiple classes depending on profile/mode
+      windowClassAliases = [ "Navigator" ];
     };
 
     editor = {
       package = "geany";
-      windowClass = "Geany";
+      windowClass = "Geany";  # Note: capitalized
       desktopEntry = "geany.desktop";
     };
 
     fileManager = {
       package = "xfce.thunar";
-      windowClass = "Thunar";
+      windowClass = "Thunar";  # Note: capitalized
       desktopEntry = "thunar.desktop";
     };
 
     terminal = {
       package = "kitty";
       windowClass = "kitty";
+      appId = "kitty";  # Same for Wayland
       desktopEntry = "kitty.desktop";
     };
   };
@@ -290,6 +366,83 @@ config.home-manager = {
 
 **This step is critical** - without it, Home Manager modules like `i3-config.nix` won't receive `userDefaults`.
 
+#### Step 1.6: Add validation module
+
+Create `modules/meta/user-defaults-validation.nix` to ensure coherence between userDefaults and installed packages:
+
+```nix
+# Validation assertions for userDefaults
+# Ensures package paths exist and warns about module mismatches
+{ config, lib, pkgs, userDefaults, ... }:
+let
+  # Validate that a package path exists in pkgs
+  validatePackagePath = role: appDef:
+    let
+      pathParts = lib.splitString "." appDef.package;
+      pkg = lib.attrByPath pathParts null pkgs;
+    in
+    {
+      assertion = pkg != null;
+      message = ''
+        userDefaults.apps.${role}.package references non-existent package path: "${appDef.package}"
+
+        This can happen when:
+        - The package name is misspelled
+        - The package was removed from nixpkgs
+        - The package path structure changed
+
+        Fix: Update lib/user-defaults.nix with the correct package path.
+      '';
+    };
+
+  # Generate assertions for all app roles
+  packagePathAssertions = lib.mapAttrsToList validatePackagePath userDefaults.apps;
+
+  # Check if role package matches enabled module package
+  # Enabled by default to catch potential misconfigurations
+  checkModuleAlignment = role: appDef:
+    let
+      pathParts = lib.splitString "." appDef.package;
+      pkgName = lib.last pathParts;
+      moduleEnabled = config.programs.${pkgName}.extended.enable or false;
+      modulePkg = config.programs.${pkgName}.extended.package or null;
+      rolePackage = lib.attrByPath pathParts null pkgs;
+    in
+    lib.optional (moduleEnabled && modulePkg != null && modulePkg != rolePackage) ''
+      userDefaults alignment notice: userDefaults.apps.${role} uses "${appDef.package}"
+      but programs.${pkgName}.extended.package is set to a different derivation.
+
+      This is valid if intentional (e.g., module installs firefox-esr but role uses firefox).
+      See the "Relationship to Module Package Options" section in the implementation plan.
+
+      To silence this warning, ensure package paths match or acknowledge the divergence.
+    '';
+
+  # Collect alignment warnings
+  alignmentWarnings = lib.flatten (lib.mapAttrsToList checkModuleAlignment userDefaults.apps);
+in
+{
+  assertions = packagePathAssertions;
+
+  # Alignment warnings enabled by default to catch misconfigurations
+  # These are informational and don't fail the build
+  warnings = alignmentWarnings;
+}
+```
+
+**What this validates:**
+
+| Check                    | Type                         | Failure Mode                           |
+| ------------------------ | ---------------------------- | -------------------------------------- |
+| Package path exists      | Assertion (hard fail)        | Build fails with clear error message   |
+| Module package alignment | Warning (enabled by default) | Build succeeds with informational note |
+
+> **Note:** Alignment warnings are enabled by default per reviewer recommendation. They help catch "ghost package" scenarios where userDefaults references a package that's defined in nixpkgs but not actually installed via a module. This is informational only—the build will succeed, but the warning prompts the user to verify their configuration.
+
+**Why this matters:**
+
+Without validation, a typo in `lib/user-defaults.nix` (e.g., `"fireofx"` instead of `"firefox"`) would cause a confusing runtime error when i3-config.nix tries to resolve the package path.
+
 ### Phase 2: Consumer Migration
 
 #### Step 2.1: Refactor i3-config.nix
@@ -330,11 +483,27 @@ let
   # Get executable for a role
   getRoleExe = role: lib.getExe (getPackage role);
 
-  # Get window class for a role
+  # Get X11 window class for a role
   getWindowClass = role: userDefaults.apps.${role}.windowClass;
 
-  # Generate WM assign pattern
-  mkAssign = role: { class = "(?i)(?:${getWindowClass role})"; };
+  # Get Wayland app_id for a role (falls back to windowClass)
+  getAppId = role:
+    userDefaults.apps.${role}.appId or userDefaults.apps.${role}.windowClass;
+
+  # Get all window classes for a role (base + aliases)
+  getAllWindowClasses = role:
+    let
+      base = userDefaults.apps.${role}.windowClass;
+      aliases = userDefaults.apps.${role}.windowClassAliases or [];
+    in
+    [ base ] ++ aliases;
+
+  # Generate WM assign pattern (supports aliases for multi-class apps)
+  mkAssign = role:
+    let
+      allClasses = getAllWindowClasses role;
+    in
+    { class = "(?i)(?:${lib.concatStringsSep "|" allClasses})"; };
 
   # ══════════════════════════════════════════════════════════════════════
   # Commands: derived from userDefaults + WM-specific (see Non-Goals)
@@ -432,14 +601,15 @@ in
 
 ## File Changes Summary
 
-| File                                   | Action | Description                                            |
-| -------------------------------------- | ------ | ------------------------------------------------------ |
-| `lib/user-defaults.nix`                | Create | Pure data file with structured app role mappings       |
-| `flake.nix`                            | Modify | Import and inject userDefaults via `_module.args`      |
-| `modules/configurations/nixos.nix`     | Modify | Pass userDefaults to NixOS modules                     |
-| `modules/system76/imports.nix`         | Modify | Pass userDefaults to host modules                      |
-| `modules/home-manager/nixos.nix`       | Modify | Pass userDefaults via `extraSpecialArgs` (CRITICAL)    |
-| `modules/window-manager/i3-config.nix` | Modify | Derive `commandsDefault` and assigns from userDefaults |
+| File                                        | Action | Description                                            |
+| ------------------------------------------- | ------ | ------------------------------------------------------ |
+| `lib/user-defaults.nix`                     | Create | Pure data file with structured app role mappings       |
+| `flake.nix`                                 | Modify | Import and inject userDefaults via `_module.args`      |
+| `modules/configurations/nixos.nix`          | Modify | Pass userDefaults to NixOS modules                     |
+| `modules/system76/imports.nix`              | Modify | Pass userDefaults to host modules                      |
+| `modules/home-manager/nixos.nix`            | Modify | Pass userDefaults via `extraSpecialArgs` (CRITICAL)    |
+| `modules/meta/user-defaults-validation.nix` | Create | Assertions for package path validity and coherence     |
+| `modules/window-manager/i3-config.nix`      | Modify | Derive `commandsDefault` and assigns from userDefaults |
 
 ## Testing Strategy
 
@@ -569,6 +739,60 @@ Workspace-to-role mappings (e.g., "browser goes to workspace 2") remain in i3-co
 
 1. ~~Should `windowClass` be auto-derived from package metadata?~~ **Resolved: No.** WM_CLASS is set by the application at runtime, not stored in nixpkgs metadata. Manual specification is required.
 
-2. Should this integrate with `programs.<name>.extended.package` options for packages that have module options? (e.g., if `programs.firefox.extended.package` is set, should `userDefaults.apps.browser.package` reference it?)
+2. ~~Should this integrate with `programs.<name>.extended.package` options?~~ **Resolved: No integration. Explicit separation by design.**
 
-3. How should applications with multiple window classes be handled? (e.g., Firefox can show as `firefox`, `Navigator`, or profile-specific classes like `firefox-default`)
+   **Decision:** `userDefaults` and `programs.<name>.extended.package` serve different purposes and remain orthogonal:
+
+   | Aspect    | userDefaults                               | Module package option     |
+   | --------- | ------------------------------------------ | ------------------------- |
+   | Purpose   | Role→app mapping for WM integration        | Package variant selection |
+   | Scope     | Keybindings, workspace assigns, MIME types | Package installation      |
+   | Type      | String (resolved at consumption time)      | Actual package            |
+   | Evaluated | Before config exists                       | During NixOS evaluation   |
+
+   **Rationale:**
+   - **Different concerns:** Choosing "Firefox fills the browser role" is separate from "install Firefox ESR variant"
+   - **Evaluation timing:** userDefaults is parsed before `config` exists; cannot reference module options
+   - **Multiple apps:** User may have Firefox (browser role) + Brave (also installed) + Chrome (also installed)
+   - **Explicitness:** No magic "changing Firefox version changes my keybindings"
+
+   **Use cases:**
+
+   | Scenario                                 | userDefaults change               | Module option change                                   |
+   | ---------------------------------------- | --------------------------------- | ------------------------------------------------------ |
+   | Change browser from Firefox to Brave     | `browser.package = "brave"`       | Enable brave module                                    |
+   | Use Firefox ESR as browser               | `browser.package = "firefox-esr"` | `programs.firefox.extended.package = pkgs.firefox-esr` |
+   | Keep Firefox as default, also have Brave | No change                         | Enable both modules                                    |
+
+   **Coherence guarantee:** Validation assertions (Step 1.6) verify that userDefaults references installed packages.
+
+3. ~~How should applications with multiple window classes be handled?~~ **Resolved: Use `windowClassAliases` optional field.**
+
+   Applications like Firefox can appear with different WM_CLASS values depending on profile, mode, or window type:
+   - `firefox` (main window)
+   - `Navigator` (legacy class)
+   - `firefox-default` (profile-specific)
+
+   **Solution:** The optional `windowClassAliases` field captures additional classes:
+
+   ```nix
+   browser = {
+     package = "firefox";
+     windowClass = "firefox";           # Primary class
+     windowClassAliases = [ "Navigator" ];  # Additional classes to match
+     desktopEntry = "firefox.desktop";
+   };
+   ```
+
+   The `mkAssign` helper generates a regex that matches all classes:
+
+   ```nix
+   mkAssign = role:
+     let
+       allClasses = getAllWindowClasses role;  # [ "firefox" "Navigator" ]
+     in
+     { class = "(?i)(?:${lib.concatStringsSep "|" allClasses})"; };
+   # Result: { class = "(?i)(?:firefox|Navigator)"; }
+   ```
+
+   **Finding WM_CLASS values:** Run `xprop WM_CLASS` and click each application window to discover all classes an app uses.
