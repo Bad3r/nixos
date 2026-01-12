@@ -650,8 +650,8 @@
               ];
 
               assigns = lib.mkOptionDefault {
-                "1" = [ { class = "(?i)(?:firefox)"; } ];
-                "2" = [ { class = "(?i)(?:geany)"; } ];
+                "1" = [ { class = "(?i)(?:geany)"; } ];
+                "2" = [ { class = "(?i)(?:firefox)"; } ];
                 "3" = [ { class = "(?i)(?:thunar)"; } ];
               };
 
