@@ -1,8 +1,8 @@
 # User Defaults Implementation Plan
 
-> **Status:** Draft (Reviewed - fixes applied per nixos-manual verification)
+> **Status:** Draft (Reviewed - additional fixes applied 2026-01-12)
 > **Scope:** System-wide default application configuration with WM-agnostic design
-> **Last Review:** Validated against `nixos-manual/development/` documentation
+> **Last Review:** Validated against `nixos-manual/development/` documentation; helper design refined for purity
 
 ## Problem Statement
 
@@ -14,7 +14,7 @@ Application defaults are currently hardcoded in individual modules (e.g., i3-con
 
 ### Existing Partial Solution
 
-The current `i3-config.nix:241-252` already has a form of centralized defaults:
+The current `i3-config.nix` already has a form of centralized defaults (search for `commandsDefault =`):
 
 ```nix
 commandsDefault = {
@@ -364,8 +364,10 @@ let
       # Option Declarations
       # ════════════════════════════════════════════════════════════════════════
       options.userDefaults = {
-        enable = lib.mkEnableOption "user defaults for application roles" // {
+        enable = lib.mkOption {
+          type = lib.types.bool;
           default = true;
+          description = "Whether to enable user defaults for application roles.";
         };
 
         strictValidation = lib.mkOption {
@@ -385,6 +387,21 @@ let
             Application role mappings. Each attribute defines an abstract role
             (browser, editor, terminal, etc.) with its associated package and
             window matching metadata.
+
+            Built-in roles (browser, editor, fileManager, terminal) have defaults
+            and work without explicit configuration. Custom roles (e.g., music,
+            video, pdf) require specifying all required fields: `package`,
+            `windowClass`, and `desktopEntry`. Optional fields (`appId`,
+            `windowClassAliases`, `moduleName`) have sensible defaults.
+
+            Example custom role:
+            ```nix
+            userDefaults.apps.music = {
+              package = pkgs.spotify;
+              windowClass = "Spotify";
+              desktopEntry = "spotify.desktop";
+            };
+            ```
           '';
           example = lib.literalExpression ''
             {
@@ -470,43 +487,39 @@ nix eval '.#nixosConfigurations.system76.config.userDefaults.apps.browser.packag
 
 Create `lib/user-defaults-helpers.nix` to centralize helper functions for all consumers:
 
-> **Why a separate file?** Helpers like `mkAssign` generate WM-specific patterns from config data. Extracting them avoids duplication when adding sway-config.nix, hyprland-config.nix, or other WM consumers.
+> **Why a separate file?** Helpers like `mkAssignFromApp` generate WM-specific patterns from app data. Extracting them avoids duplication when adding sway-config.nix, hyprland-config.nix, or other WM consumers.
 
 > **Simplified from original:** Since `package` is now `types.package` (not a string path), the old `getPackage` helper that resolved string paths is no longer needed. Consumers access packages directly via `config.userDefaults.apps.browser.package`.
 
+> **Design choice: Pure functions over config-dependent helpers.** The helpers accept app data directly rather than role names + config lookup. This design improves testability (functions can be tested without full NixOS config), reduces coupling errors (no risk of passing wrong config), and makes the data flow explicit at call sites.
+
 ```nix
 # lib/user-defaults-helpers.nix
-# Helper functions for userDefaults consumers
-# Usage: helpers = import ../../lib/user-defaults-helpers.nix { inherit lib config; };
-{ lib, config }:
-let
-  cfg = config.userDefaults;
+# Pure helper functions for userDefaults consumers
+# Usage: helpers = import ../../lib/user-defaults-helpers.nix { inherit lib; };
+{ lib }:
 
-  # Get Wayland app_id for a role (falls back to windowClass if null)
-  getAppId = role:
-    let app = cfg.apps.${role};
-    in if app.appId != null then app.appId else app.windowClass;
+{
+  # Get Wayland app_id for an app (falls back to windowClass if null)
+  # Usage: getAppId userDefaults.apps.browser
+  getAppId = app:
+    if app.appId != null then app.appId else app.windowClass;
 
-  # Get all window classes for a role (base + aliases)
-  getAllWindowClasses = role:
-    let app = cfg.apps.${role};
-    in [ app.windowClass ] ++ app.windowClassAliases;
+  # Get all window classes for an app (base + aliases)
+  # Usage: getAllWindowClasses userDefaults.apps.browser
+  getAllWindowClasses = app:
+    [ app.windowClass ] ++ app.windowClassAliases;
 
-  # Generate WM assign pattern (supports aliases for multi-class apps)
+  # Generate WM assign pattern from an app definition
+  # Supports aliases for multi-class apps (e.g., Firefox with "Navigator" alias)
   # Uses lib.strings.escapeRegex to handle special characters in class names
-  mkAssign = role:
+  # Usage: mkAssignFromApp userDefaults.apps.browser
+  mkAssignFromApp = app:
     let
-      allClasses = getAllWindowClasses role;
+      allClasses = [ app.windowClass ] ++ app.windowClassAliases;
       escapedClasses = map lib.strings.escapeRegex allClasses;
     in
     { class = "(?i)(?:${lib.concatStringsSep "|" escapedClasses})"; };
-in
-{
-  inherit
-    getAppId
-    getAllWindowClasses
-    mkAssign
-    ;
 }
 ```
 
@@ -517,9 +530,9 @@ in
 | `getPackage`         | Removed  | Direct access: `cfg.apps.browser.package`        |
 | `getRoleExe`         | Removed  | Direct access: `lib.getExe cfg.apps.browser.package` |
 | `getWindowClass`     | Removed  | Direct access: `cfg.apps.browser.windowClass`    |
-| `getAppId`           | Kept     | Null-fallback logic still useful                 |
-| `getAllWindowClasses`| Kept     | Combines base class + aliases                    |
-| `mkAssign`           | Kept     | Generates regex pattern for WM matching          |
+| `getAppId`           | Kept (pure) | Null-fallback logic; now accepts app directly |
+| `getAllWindowClasses`| Kept (pure) | Combines base class + aliases; accepts app directly |
+| `mkAssign`           | Renamed  | Now `mkAssignFromApp`; accepts app directly for purity |
 
 **Verify:**
 ```bash
@@ -841,9 +854,10 @@ let
   # ══════════════════════════════════════════════════════════════════════
   userDefaults = osConfig.userDefaults;
 
-  # Import shared helpers for WM-specific pattern generation
-  helpers = import ../../lib/user-defaults-helpers.nix { inherit lib; config = osConfig; };
-  inherit (helpers) mkAssign;
+  # Import pure helpers for WM-specific pattern generation
+  # Note: helpers only need lib, not config (pure function design)
+  helpers = import ../../lib/user-defaults-helpers.nix { inherit lib; };
+  inherit (helpers) mkAssignFromApp;
 
   # ══════════════════════════════════════════════════════════════════════
   # Commands: derived from userDefaults + WM-specific (see Non-Goals)
@@ -900,9 +914,9 @@ in
     # can easily customize without special override mechanisms.
     # ════════════════════════════════════════════════════════════════════
     assigns = lib.mkOptionDefault {
-      "1" = [ (mkAssign "editor") ];
-      "2" = [ (mkAssign "browser") ];
-      "3" = [ (mkAssign "fileManager") ];
+      "1" = [ (mkAssignFromApp userDefaults.apps.editor) ];
+      "2" = [ (mkAssignFromApp userDefaults.apps.browser) ];
+      "3" = [ (mkAssignFromApp userDefaults.apps.fileManager) ];
     };
   };
 }
@@ -914,7 +928,8 @@ in
 | ----------------------- | ------------------------------------- | ------------------------------------------- |
 | Config access           | `userDefaults` function parameter     | `osConfig.userDefaults` (standard pattern)  |
 | Package access          | `getRoleExe "browser"` helper         | `lib.getExe userDefaults.apps.browser.package` |
-| Helpers needed          | `getPackage`, `getRoleExe`, etc.      | Only `mkAssign` (for regex generation)      |
+| Helpers needed          | `getPackage`, `getRoleExe`, etc.      | Only `mkAssignFromApp` (pure, accepts app)  |
+| Helper design           | Config-dependent (`{ lib, config }`)  | Pure functions (`{ lib }` only)             |
 | Type safety             | Runtime errors on bad paths           | Compile-time via `types.package`            |
 | mkOptionDefault         | Undocumented                          | Documented with priority explanation        |
 
@@ -1208,15 +1223,16 @@ Workspace-to-role mappings (e.g., "browser goes to workspace 2") remain in i3-co
    };
    ```
 
-   The `mkAssign` helper generates a regex that matches all classes (with proper escaping):
+   The `mkAssignFromApp` helper generates a regex that matches all classes (with proper escaping):
 
    ```nix
-   mkAssign = role:
+   mkAssignFromApp = app:
      let
-       allClasses = getAllWindowClasses role;  # [ "firefox" "Navigator" ]
+       allClasses = [ app.windowClass ] ++ app.windowClassAliases;  # [ "firefox" "Navigator" ]
        escapedClasses = map lib.strings.escapeRegex allClasses;
      in
      { class = "(?i)(?:${lib.concatStringsSep "|" escapedClasses})"; };
+   # Usage: mkAssignFromApp userDefaults.apps.browser
    # Result: { class = "(?i)(?:firefox|Navigator)"; }
    ```
 

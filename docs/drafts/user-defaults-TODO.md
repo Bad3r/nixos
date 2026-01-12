@@ -1,8 +1,8 @@
 # User Defaults Implementation Checklist
 
-> **Status:** In Progress
+> **Status:** In Progress (Checklist updated with review findings)
 > **Plan Reference:** [`user-defaults-implementation-plan.md`](./user-defaults-implementation-plan.md)
-> **Last Updated:** 2026-01-12
+> **Last Updated:** 2026-01-12 (review fixes applied)
 
 ---
 
@@ -10,7 +10,9 @@
 
 ### 0.1 Codebase Analysis
 
-- [ ] Review current `i3-config.nix` structure (lines 241-252 for `commandsDefault`, lines 652-656 for `assigns`)
+- [ ] Review current `i3-config.nix` structure:
+  - [ ] Locate `commandsDefault` block (search for `commandsDefault =`)
+  - [ ] Locate `assigns` block (search for `assigns =` within i3 config)
 - [ ] Document all hardcoded package references to migrate:
   - [ ] `pkgs.kitty` (terminal)
   - [ ] `pkgs.firefox` (browser)
@@ -105,6 +107,29 @@ nix eval '.#nixosConfigurations.system76.config.userDefaults.apps.browser.packag
 # Expected: "firefox-<version>"
 ```
 
+### 1.6 Dendritic Discovery Verification
+
+- [ ] Confirm module was auto-discovered (no manual imports added):
+  ```bash
+  # Verify flake.nix was NOT modified to add manual import
+  git diff flake.nix | grep -q "user-defaults" && echo "ERROR: Manual import detected" || echo "OK: No manual import"
+
+  # Verify no imports.nix files were modified
+  git diff --name-only | grep -q "imports.nix" && echo "WARNING: Check if import was manually added" || echo "OK"
+  ```
+- [ ] Confirm module contributes to base aggregator correctly:
+  ```bash
+  # The module should be discoverable through the base aggregator
+  nix eval '.#nixosModules.base' --apply 'x: builtins.typeOf x'
+  # Expected: "lambda" (it's a module function)
+  ```
+- [ ] Verify the dendritic pattern found the file:
+  ```bash
+  # List all .nix files in modules/meta/ to confirm file exists
+  ls modules/meta/*.nix | grep user-defaults
+  # Expected: modules/meta/user-defaults.nix
+  ```
+
 ---
 
 ## Phase 2: Helper Functions Library
@@ -114,28 +139,27 @@ nix eval '.#nixosConfigurations.system76.config.userDefaults.apps.browser.packag
 Create `lib/user-defaults-helpers.nix`:
 
 - [ ] Add file header with usage documentation
-- [ ] Define function signature: `{ lib, config }:`
-- [ ] Bind `cfg = config.userDefaults;`
+- [ ] Define pure function signature: `{ lib }:`
+  - Note: Pure functions accept app data directly, not config + role name
+  - This improves testability and reduces coupling
 
 ### 2.2 Implement Helper Functions
 
-- [ ] Implement `getAppId`:
+- [ ] Implement `getAppId` (pure, accepts app directly):
   ```nix
-  getAppId = role:
-    let app = cfg.apps.${role};
-    in if app.appId != null then app.appId else app.windowClass;
+  getAppId = app:
+    if app.appId != null then app.appId else app.windowClass;
   ```
-- [ ] Implement `getAllWindowClasses`:
+- [ ] Implement `getAllWindowClasses` (pure, accepts app directly):
   ```nix
-  getAllWindowClasses = role:
-    let app = cfg.apps.${role};
-    in [ app.windowClass ] ++ app.windowClassAliases;
+  getAllWindowClasses = app:
+    [ app.windowClass ] ++ app.windowClassAliases;
   ```
-- [ ] Implement `mkAssign` (with `lib.strings.escapeRegex`):
+- [ ] Implement `mkAssignFromApp` (with `lib.strings.escapeRegex`):
   ```nix
-  mkAssign = role:
+  mkAssignFromApp = app:
     let
-      allClasses = getAllWindowClasses role;
+      allClasses = [ app.windowClass ] ++ app.windowClassAliases;
       escapedClasses = map lib.strings.escapeRegex allClasses;
     in
     { class = "(?i)(?:${lib.concatStringsSep "|" escapedClasses})"; };
@@ -143,10 +167,10 @@ Create `lib/user-defaults-helpers.nix`:
 
 ### 2.3 Export Helpers
 
-- [ ] Export via `inherit` block:
+- [ ] Export all helpers:
   ```nix
   {
-    inherit getAppId getAllWindowClasses mkAssign;
+    inherit getAppId getAllWindowClasses mkAssignFromApp;
   }
   ```
 
@@ -181,6 +205,12 @@ nix-instantiate --parse lib/user-defaults-helpers.nix
 ---
 
 ## Phase 4: Validation Logic
+
+> **Note:** This phase extends `modules/meta/user-defaults.nix` created in Phase 1.
+> The validation helpers and assertions are added to the same module file, not a
+> separate file. This is split into a separate phase to allow incremental
+> verification—you can build and test after Phase 1 to confirm basic functionality
+> before adding the more complex validation logic.
 
 ### 4.1 Package Name Helper
 
@@ -230,10 +260,23 @@ In `modules/meta/user-defaults.nix`, add to `let` block:
   # Expected: false
   ```
 - [ ] Test `strictValidation = true` behavior (manual):
-  - [ ] Temporarily add `userDefaults.strictValidation = true;` to config
-  - [ ] Build with intentional package mismatch
-  - [ ] **Verify:** Build fails with assertion error containing role name and fix guidance
-  - [ ] Revert temporary change
+  - [ ] Temporarily add test configuration to create an intentional mismatch:
+    ```nix
+    # Example: Create mismatch between userDefaults and module package
+    # In your test config:
+    userDefaults.strictValidation = true;
+    userDefaults.apps.browser.package = pkgs.firefox;
+    programs.firefox.extended.package = pkgs.firefox-esr;  # Different package!
+    ```
+  - [ ] Build the configuration:
+    ```bash
+    nix build .#nixosConfigurations.system76.config.system.build.toplevel
+    ```
+  - [ ] **Verify:** Build fails with assertion error containing:
+    - Role name (`browser`)
+    - Both package names (`firefox-*` vs `firefox-esr-*`)
+    - Guidance on how to resolve
+  - [ ] Revert temporary test configuration changes
 
 ---
 
@@ -257,10 +300,10 @@ In `modules/meta/user-defaults.nix`, add to `let` block:
 
 #### 5.1.3 Import Helper Functions
 
-- [ ] Import helpers with correct config reference:
+- [ ] Import pure helpers (only need lib, not config):
   ```nix
-  helpers = import ../../lib/user-defaults-helpers.nix { inherit lib; config = osConfig; };
-  inherit (helpers) mkAssign;
+  helpers = import ../../lib/user-defaults-helpers.nix { inherit lib; };
+  inherit (helpers) mkAssignFromApp;
   ```
 
 #### 5.1.4 Refactor commandsDefault
@@ -280,12 +323,12 @@ Split into two parts:
 
 #### 5.1.5 Refactor Workspace Assigns
 
-- [ ] Replace hardcoded class patterns with `mkAssign`:
+- [ ] Replace hardcoded class patterns with `mkAssignFromApp`:
   ```nix
   assigns = lib.mkOptionDefault {
-    "1" = [ (mkAssign "editor") ];
-    "2" = [ (mkAssign "browser") ];
-    "3" = [ (mkAssign "fileManager") ];
+    "1" = [ (mkAssignFromApp userDefaults.apps.editor) ];
+    "2" = [ (mkAssignFromApp userDefaults.apps.browser) ];
+    "3" = [ (mkAssignFromApp userDefaults.apps.fileManager) ];
   };
   ```
 
@@ -347,14 +390,42 @@ nix build .#nixosConfigurations.system76.config.system.build.toplevel
   # Should preserve: windowClass = "firefox" (needs manual update)
   ```
 
-### 6.4 Runtime Verification (Post-Deploy)
+### 6.4 Custom Role Test
+
+- [ ] Test adding a user-defined role with all required fields:
+  ```nix
+  # Add to test configuration:
+  userDefaults.apps.music = {
+    package = pkgs.spotify;
+    windowClass = "Spotify";
+    desktopEntry = "spotify.desktop";
+  };
+  ```
+- [ ] Verify custom role is accessible:
+  ```bash
+  nix eval '.#nixosConfigurations.system76.config.userDefaults.apps.music.windowClass'
+  # Expected: "Spotify"
+  ```
+- [ ] Verify custom role can be used in assigns (if applicable):
+  ```nix
+  assigns = {
+    "4" = [ (mkAssignFromApp userDefaults.apps.music) ];
+  };
+  ```
+- [ ] Test that incomplete custom role (missing required field) produces clear error:
+  ```nix
+  # This SHOULD fail with clear error about missing 'package' option:
+  # userDefaults.apps.badRole = { windowClass = "Test"; };
+  ```
+
+### 6.5 Runtime Verification (Post-Deploy)
 
 - [ ] Open Firefox → should appear on workspace 2
 - [ ] Open Geany → should appear on workspace 1
 - [ ] Open Thunar → should appear on workspace 3
 - [ ] Test `gui.i3.commands` override mechanism still works
 
-### 6.5 WM_CLASS Verification Reference
+### 6.6 WM_CLASS Verification Reference
 
 Reference for verifying correct WM_CLASS values when adding new app roles:
 
