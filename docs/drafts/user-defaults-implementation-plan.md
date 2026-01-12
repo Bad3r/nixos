@@ -498,20 +498,12 @@ let
     in
     [ base ] ++ aliases;
 
-  # Escape special regex characters in window class names
-  # Handles: . + * ? ^ $ { } [ ] ( ) | \
-  escapeRegex = str:
-    builtins.replaceStrings
-      [ "\\" "." "+" "*" "?" "^" "$" "{" "}" "[" "]" "(" ")" "|" ]
-      [ "\\\\" "\\." "\\+" "\\*" "\\?" "\\^" "\\$" "\\{" "\\}" "\\[" "\\]" "\\(" "\\)" "\\|" ]
-      str;
-
   # Generate WM assign pattern (supports aliases for multi-class apps)
-  # Note: escapes special regex characters in class names for safety
+  # Uses lib.strings.escapeRegex to handle special characters in class names
   mkAssign = role:
     let
       allClasses = getAllWindowClasses role;
-      escapedClasses = map escapeRegex allClasses;
+      escapedClasses = map lib.strings.escapeRegex allClasses;
     in
     { class = "(?i)(?:${lib.concatStringsSep "|" escapedClasses})"; };
 
