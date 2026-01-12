@@ -136,6 +136,21 @@
   # Expected: "vx"
   ```
 
+#### Step 1.5.1: Intermediate Home Manager Verification (CRITICAL)
+
+> **Do not proceed until these pass.** HM injection is the most failure-prone step.
+
+- [ ] **Verify:** userDefaults is accessible in HM context:
+  ```bash
+  # This will fail with "userDefaults not found" if injection failed
+  nix eval '.#nixosConfigurations.system76.config.home-manager.users.vx.xsession.enable' 2>&1
+  ```
+- [ ] **Verify:** Build still succeeds after HM injection:
+  ```bash
+  nix build .#nixosConfigurations.system76.config.system.build.toplevel
+  ```
+- [ ] **Verify:** No infinite recursion errors (common with specialArgs issues)
+
 ### Step 1.6: Add Validation Module
 
 **File:** `modules/meta/user-defaults-validation.nix`
@@ -152,6 +167,14 @@
 - [ ] **Verify:** Validation module assertions run (no warnings for default config):
   ```bash
   nix build .#nixosConfigurations.system76.config.system.build.toplevel 2>&1 | grep -i "userDefaults" || echo "No warnings (good)"
+  ```
+- [ ] **Negative test:** Verify assertion catches invalid package path:
+  ```bash
+  # Temporarily break the data file to test assertion
+  sed -i 's/package = "firefox"/package = "nonexistent-pkg"/' lib/user-defaults.nix
+  nix build .#nixosConfigurations.system76.config.system.build.toplevel 2>&1 | grep -q "non-existent package path" && echo "Assertion works!"
+  # Restore the file
+  git checkout lib/user-defaults.nix
   ```
 
 ### Phase 1 Verification Gate
@@ -244,6 +267,18 @@
   ```bash
   nix eval '.#nixosConfigurations.system76.config.home-manager.users.vx.xsession.windowManager.i3.config.assigns."2"' --json
   # Expected: [{"class":"(?i)(?:firefox|Navigator)"}]
+  ```
+- [ ] **Verify windowClassAliases included in regex:**
+  ```bash
+  # Browser assign should include both "firefox" and "Navigator" (from aliases)
+  nix eval '.#nixosConfigurations.system76.config.home-manager.users.vx.xsession.windowManager.i3.config.assigns."2"' --json | grep -q "Navigator" && echo "Aliases included!"
+  ```
+- [ ] **Verify regex escaping works** (if any class has special chars):
+  ```bash
+  # The regex should have escaped special characters
+  # For standard classes like "firefox", this just confirms no breakage
+  nix eval '.#nixosConfigurations.system76.config.home-manager.users.vx.xsession.windowManager.i3.config.assigns."1"' --json | jq -r '.[0].class'
+  # Should output a valid regex pattern like: (?i)(?:Geany)
   ```
 - [ ] **Terminal command correct:**
   ```bash

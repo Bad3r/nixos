@@ -498,12 +498,22 @@ let
     in
     [ base ] ++ aliases;
 
+  # Escape special regex characters in window class names
+  # Handles: . + * ? ^ $ { } [ ] ( ) | \
+  escapeRegex = str:
+    builtins.replaceStrings
+      [ "\\" "." "+" "*" "?" "^" "$" "{" "}" "[" "]" "(" ")" "|" ]
+      [ "\\\\" "\\." "\\+" "\\*" "\\?" "\\^" "\\$" "\\{" "\\}" "\\[" "\\]" "\\(" "\\)" "\\|" ]
+      str;
+
   # Generate WM assign pattern (supports aliases for multi-class apps)
+  # Note: escapes special regex characters in class names for safety
   mkAssign = role:
     let
       allClasses = getAllWindowClasses role;
+      escapedClasses = map escapeRegex allClasses;
     in
-    { class = "(?i)(?:${lib.concatStringsSep "|" allClasses})"; };
+    { class = "(?i)(?:${lib.concatStringsSep "|" escapedClasses})"; };
 
   # ══════════════════════════════════════════════════════════════════════
   # Commands: derived from userDefaults + WM-specific (see Non-Goals)
