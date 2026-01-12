@@ -103,7 +103,7 @@ Implementation is complete when:
 │ • options.userDefaults.apps.<role>.windowClass (types.str)              │
 │ • Defaults set via config.userDefaults.apps with mkDefault              │
 └──────────────────────────────┬──────────────────────────────────────────┘
-                               │ Auto-imported via dendritic pattern
+                               │ Contributed to flake.nixosModules.base
                                ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ NixOS Module Evaluation                                                 │
@@ -279,13 +279,14 @@ Create `modules/meta/user-defaults.nix`:
 #
 # ════════════════════════════════════════════════════════════════════════════
 
-# NOTE: This module follows the dendritic pattern - it exports via
-# flake.nixosModules.meta.userDefaults for automatic discovery and import.
+# NOTE: This module contributes to flake.nixosModules.base (the aggregator).
+# Multiple files export to `base` and flake-parts merges them. The host config
+# imports `config.flake.nixosModules.base` once, receiving all contributions.
 
 { config, lib, pkgs, ... }:
 let
   # ══════════════════════════════════════════════════════════════════════════
-  # NixOS Module Definition (exported via flake.nixosModules.meta.userDefaults)
+  # NixOS Module Definition (contributed to flake.nixosModules.base aggregator)
   # ══════════════════════════════════════════════════════════════════════════
   userDefaultsModule = { config, lib, pkgs, ... }:
     let
@@ -436,9 +437,9 @@ let
 in
 {
   # ══════════════════════════════════════════════════════════════════════════
-  # Export via dendritic pattern
+  # Contribute to base aggregator (flake-parts merges multiple contributions)
   # ══════════════════════════════════════════════════════════════════════════
-  flake.nixosModules.meta.userDefaults = userDefaultsModule;
+  flake.nixosModules.base = userDefaultsModule;
 }
 ```
 
@@ -523,16 +524,18 @@ in
 nix-instantiate --parse lib/user-defaults-helpers.nix
 ```
 
-#### Step 1.3: Module auto-import (no flake.nix changes needed)
+#### Step 1.3: Module integration via base aggregator (no manual imports needed)
 
-> **Simplified from original:** Since `modules/meta/user-defaults.nix` is a proper NixOS module in the `modules/` directory, it is **automatically imported** via the dendritic pattern. No manual injection in `flake.nix` is required.
+> **How it works:** The module contributes to `flake.nixosModules.base`, which is an aggregator that flake-parts **merges** from multiple file contributions. The host config (`modules/system76/imports.nix`) already imports `config.flake.nixosModules.base`, so this module's options become available automatically.
+
+This follows the established pattern used by 13+ other modules (e.g., `modules/base/console.nix`, `modules/security/gnupg.nix`, `modules/boot/compression.nix`).
 
 The module defines `options.userDefaults` which becomes available to all NixOS modules via the standard `config` parameter.
 
 **No changes required to:**
-- `flake.nix` - No import or `_module.args` injection needed
+- `flake.nix` - Dendritic pattern auto-discovers files; no manual import needed
 - `modules/configurations/nixos.nix` - No `specialArgs` changes needed
-- `modules/system76/imports.nix` - No `specialArgs` changes needed
+- `modules/system76/imports.nix` - Already imports `config.flake.nixosModules.base`
 
 #### Step 1.4: Home Manager access via osConfig
 
@@ -964,9 +967,9 @@ in
 | `modules/meta/user-defaults.nix`       | Create | NixOS options module with types.submodule for app roles        |
 | `lib/user-defaults-helpers.nix`        | Create | Simplified helpers (mkAssign only, no package resolution)      |
 | `modules/window-manager/i3-config.nix` | Modify | Use osConfig.userDefaults, direct package access               |
-| `flake.nix`                            | None   | No changes needed (module auto-imported via dendritic pattern) |
+| `flake.nix`                            | None   | Dendritic pattern auto-discovers files                         |
 | `modules/configurations/nixos.nix`     | None   | No changes needed (options available via config)               |
-| `modules/system76/imports.nix`         | None   | No changes needed (options available via config)               |
+| `modules/system76/imports.nix`         | None   | Already imports base aggregator; receives new options          |
 | `modules/home-manager/nixos.nix`       | None   | No changes needed (options available via osConfig)             |
 
 **Comparison with original plan:**
@@ -1112,7 +1115,8 @@ If issues arise:
 ## Dependencies
 
 - NixOS module system (`lib.mkOption`, `types.submodule`, `types.package`)
-- Dendritic pattern for auto-import of modules
+- Dendritic pattern for file discovery (import-tree auto-imports all `.nix` files)
+- Base aggregator pattern (`flake.nixosModules.base` merges contributions from multiple files)
 - Home Manager `osConfig` for NixOS config access
 - No flake-parts `_module.args` or `specialArgs` injection required
 - No external dependencies

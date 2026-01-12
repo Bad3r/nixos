@@ -85,9 +85,12 @@ In `config = lib.mkIf cfg.enable { ... }`:
   - [ ] `desktopEntry = lib.mkDefault "kitty.desktop"`
   - [ ] `appId = lib.mkDefault "kitty"`
 
-### 1.5 Dendritic Export
+### 1.5 Base Aggregator Export
 
-- [ ] Export module via `flake.nixosModules.meta.userDefaults = userDefaultsModule;`
+- [ ] Contribute module to base aggregator: `flake.nixosModules.base = userDefaultsModule;`
+  - This follows the established pattern (13+ modules contribute to `base`)
+  - Host config already imports `config.flake.nixosModules.base`
+  - Flake-parts merges all contributions automatically
 
 **Verification:**
 ```bash
