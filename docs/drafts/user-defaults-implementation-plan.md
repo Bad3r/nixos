@@ -273,7 +273,70 @@ Create `lib/user-defaults.nix`:
 }
 ```
 
-#### Step 1.2: Wire up in flake.nix
+#### Step 1.2: Create helper functions library
+
+Create `lib/user-defaults-helpers.nix` to centralize helper functions for all consumers:
+
+> **Why a separate file?** Helpers like `getPackage`, `mkAssign` require `lib`, `pkgs`, and `userDefaults` at runtime. Extracting them avoids duplication when adding sway-config.nix, hyprland-config.nix, or other WM consumers.
+
+```nix
+# lib/user-defaults-helpers.nix
+# Helper functions for userDefaults consumers
+# Usage: helpers = import ./lib/user-defaults-helpers.nix { inherit lib pkgs userDefaults; };
+{ lib, pkgs, userDefaults }:
+let
+  # Resolve nested package path like "xfce.thunar"
+  getPackage = role:
+    lib.getAttrFromPath
+      (lib.splitString "." userDefaults.apps.${role}.package)
+      pkgs;
+
+  # Get executable for a role
+  getRoleExe = role: lib.getExe (getPackage role);
+
+  # Get X11 window class for a role
+  getWindowClass = role: userDefaults.apps.${role}.windowClass;
+
+  # Get Wayland app_id for a role (falls back to windowClass)
+  getAppId = role:
+    userDefaults.apps.${role}.appId or userDefaults.apps.${role}.windowClass;
+
+  # Get all window classes for a role (base + aliases)
+  getAllWindowClasses = role:
+    let
+      base = userDefaults.apps.${role}.windowClass;
+      aliases = userDefaults.apps.${role}.windowClassAliases or [];
+    in
+    [ base ] ++ aliases;
+
+  # Generate WM assign pattern (supports aliases for multi-class apps)
+  # Uses lib.strings.escapeRegex to handle special characters in class names
+  mkAssign = role:
+    let
+      allClasses = getAllWindowClasses role;
+      escapedClasses = map lib.strings.escapeRegex allClasses;
+    in
+    { class = "(?i)(?:${lib.concatStringsSep "|" escapedClasses})"; };
+in
+{
+  inherit
+    getPackage
+    getRoleExe
+    getWindowClass
+    getAppId
+    getAllWindowClasses
+    mkAssign
+    ;
+}
+```
+
+**Verify:**
+```bash
+# Check syntax
+nix-instantiate --parse lib/user-defaults-helpers.nix
+```
+
+#### Step 1.3: Wire up in flake.nix
 
 Update `flake.nix` (around line 200):
 
@@ -294,11 +357,11 @@ inputs.flake-parts.lib.mkFlake { inherit inputs; } {
 }
 ```
 
-#### Step 1.3: Inject into NixOS modules (generic handler)
+#### Step 1.4: Inject into NixOS modules (generic handler)
 
 Update `modules/configurations/nixos.nix`.
 
-> **Note:** This module handles generic `configurations.nixos.*` definitions. Step 1.4 handles system76 specifically, which creates its own `flake.nixosConfigurations.system76` directly. Both must be updated for consistency and to support future hosts using either pattern.
+> **Note:** This module handles generic `configurations.nixos.*` definitions. Step 1.5 handles system76 specifically, which creates its own `flake.nixosConfigurations.system76` directly. Both must be updated for consistency and to support future hosts using either pattern.
 
 ```nix
 { lib, config, inputs, metaOwner, userDefaults, ... }:
@@ -324,11 +387,11 @@ in
 # ...
 ```
 
-#### Step 1.4: Inject into host modules (system76-specific)
+#### Step 1.5: Inject into host modules (system76-specific)
 
 Update `modules/system76/imports.nix` in the `flake.nixosConfigurations.system76` block.
 
-> **Note:** This is the actual injection point used for the system76 host. The module creates `flake.nixosConfigurations.system76` directly, bypassing the generic handler in Step 1.3.
+> **Note:** This is the actual injection point used for the system76 host. The module creates `flake.nixosConfigurations.system76` directly, bypassing the generic handler in Step 1.4.
 
 ```nix
 { config, lib, inputs, metaOwner, userDefaults, ... }:
@@ -349,7 +412,7 @@ flake.nixosConfigurations.system76 = inputs.nixpkgs.lib.nixosSystem {
 };
 ```
 
-#### Step 1.5: Inject into Home Manager modules (CRITICAL)
+#### Step 1.6: Inject into Home Manager modules (CRITICAL)
 
 Update `modules/home-manager/nixos.nix` in the `config.home-manager` block, specifically the `extraSpecialArgs` attribute:
 
@@ -366,7 +429,7 @@ config.home-manager = {
 
 **This step is critical** - without it, Home Manager modules like `i3-config.nix` won't receive `userDefaults`.
 
-#### Step 1.6: Add validation module
+#### Step 1.7: Add validation module
 
 Create `modules/meta/user-defaults-validation.nix` to ensure coherence between userDefaults and installed packages:
 
@@ -471,41 +534,10 @@ assigns = lib.mkOptionDefault {
 { config, lib, pkgs, userDefaults, ... }:
 let
   # ══════════════════════════════════════════════════════════════════════
-  # Helpers for userDefaults access
+  # Import shared helpers from lib/user-defaults-helpers.nix
   # ══════════════════════════════════════════════════════════════════════
-
-  # Resolve nested package path like "xfce.thunar"
-  getPackage = role:
-    lib.getAttrFromPath
-      (lib.splitString "." userDefaults.apps.${role}.package)
-      pkgs;
-
-  # Get executable for a role
-  getRoleExe = role: lib.getExe (getPackage role);
-
-  # Get X11 window class for a role
-  getWindowClass = role: userDefaults.apps.${role}.windowClass;
-
-  # Get Wayland app_id for a role (falls back to windowClass)
-  getAppId = role:
-    userDefaults.apps.${role}.appId or userDefaults.apps.${role}.windowClass;
-
-  # Get all window classes for a role (base + aliases)
-  getAllWindowClasses = role:
-    let
-      base = userDefaults.apps.${role}.windowClass;
-      aliases = userDefaults.apps.${role}.windowClassAliases or [];
-    in
-    [ base ] ++ aliases;
-
-  # Generate WM assign pattern (supports aliases for multi-class apps)
-  # Uses lib.strings.escapeRegex to handle special characters in class names
-  mkAssign = role:
-    let
-      allClasses = getAllWindowClasses role;
-      escapedClasses = map lib.strings.escapeRegex allClasses;
-    in
-    { class = "(?i)(?:${lib.concatStringsSep "|" escapedClasses})"; };
+  helpers = import ../../lib/user-defaults-helpers.nix { inherit lib pkgs userDefaults; };
+  inherit (helpers) getRoleExe mkAssign;
 
   # ══════════════════════════════════════════════════════════════════════
   # Commands: derived from userDefaults + WM-specific (see Non-Goals)
@@ -603,15 +635,16 @@ in
 
 ## File Changes Summary
 
-| File                                        | Action | Description                                            |
-| ------------------------------------------- | ------ | ------------------------------------------------------ |
-| `lib/user-defaults.nix`                     | Create | Pure data file with structured app role mappings       |
-| `flake.nix`                                 | Modify | Import and inject userDefaults via `_module.args`      |
-| `modules/configurations/nixos.nix`          | Modify | Pass userDefaults to NixOS modules                     |
-| `modules/system76/imports.nix`              | Modify | Pass userDefaults to host modules                      |
-| `modules/home-manager/nixos.nix`            | Modify | Pass userDefaults via `extraSpecialArgs` (CRITICAL)    |
-| `modules/meta/user-defaults-validation.nix` | Create | Assertions for package path validity and coherence     |
-| `modules/window-manager/i3-config.nix`      | Modify | Derive `commandsDefault` and assigns from userDefaults |
+| File                                        | Action | Description                                              |
+| ------------------------------------------- | ------ | -------------------------------------------------------- |
+| `lib/user-defaults.nix`                     | Create | Pure data file with structured app role mappings         |
+| `lib/user-defaults-helpers.nix`             | Create | Shared helper functions for all WM consumers             |
+| `flake.nix`                                 | Modify | Import and inject userDefaults via `_module.args`        |
+| `modules/configurations/nixos.nix`          | Modify | Pass userDefaults to NixOS modules                       |
+| `modules/system76/imports.nix`              | Modify | Pass userDefaults to host modules                        |
+| `modules/home-manager/nixos.nix`            | Modify | Pass userDefaults via `extraSpecialArgs` (CRITICAL)      |
+| `modules/meta/user-defaults-validation.nix` | Create | Assertions for package path validity and coherence       |
+| `modules/window-manager/i3-config.nix`      | Modify | Import helpers, derive commands and assigns from roles   |
 
 ## Testing Strategy
 

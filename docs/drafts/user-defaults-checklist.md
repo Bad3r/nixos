@@ -79,7 +79,26 @@
   # Expected: "firefox"
   ```
 
-### Step 1.2: Wire Up in flake.nix
+### Step 1.2: Create Helper Functions Library
+
+**File:** `lib/user-defaults-helpers.nix`
+
+> **Why separate?** Centralizes helpers for all WM consumers (i3, sway, hyprland). Avoids duplication.
+
+- [ ] Create `lib/user-defaults-helpers.nix` with content from plan Step 1.2
+- [ ] Include `getPackage` function
+- [ ] Include `getRoleExe` function
+- [ ] Include `getWindowClass` function
+- [ ] Include `getAppId` function
+- [ ] Include `getAllWindowClasses` function
+- [ ] Include `mkAssign` function (uses `lib.strings.escapeRegex`)
+- [ ] Export all helpers via `inherit`
+- [ ] **Verify:** Helpers file parses correctly:
+  ```bash
+  nix-instantiate --parse lib/user-defaults-helpers.nix
+  ```
+
+### Step 1.3: Wire Up in flake.nix
 
 **File:** `flake.nix`
 
@@ -92,7 +111,7 @@
   nix flake show --accept-flake-config 2>&1 | head -20
   ```
 
-### Step 1.3: Inject into NixOS Modules (Generic Handler)
+### Step 1.4: Inject into NixOS Modules (Generic Handler)
 
 **File:** `modules/configurations/nixos.nix`
 
@@ -104,7 +123,7 @@
   nix eval '.#nixosModules' --apply 'x: builtins.attrNames x' 2>&1 | head -5
   ```
 
-### Step 1.4: Inject into Host Modules (system76)
+### Step 1.5: Inject into Host Modules (system76)
 
 **File:** `modules/system76/imports.nix`
 
@@ -117,7 +136,7 @@
   nix eval '.#nixosConfigurations.system76.config.system.build.toplevel' 2>&1 | tail -3
   ```
 
-### Step 1.5: Inject into Home Manager Modules (CRITICAL)
+### Step 1.6: Inject into Home Manager Modules (CRITICAL)
 
 **File:** `modules/home-manager/nixos.nix`
 
@@ -136,7 +155,7 @@
   # Expected: "vx"
   ```
 
-#### Step 1.5.1: Intermediate Home Manager Verification (CRITICAL)
+#### Step 1.6.1: Intermediate Home Manager Verification (CRITICAL)
 
 > **Do not proceed until these pass.** HM injection is the most failure-prone step.
 
@@ -151,7 +170,7 @@
   ```
 - [ ] **Verify:** No infinite recursion errors (common with specialArgs issues)
 
-### Step 1.6: Add Validation Module
+### Step 1.7: Add Validation Module
 
 **File:** `modules/meta/user-defaults-validation.nix`
 
@@ -211,18 +230,15 @@
   ```
 - [ ] **Verify:** Module still loads (may have undefined references temporarily)
 
-#### 2.1.2: Add Helper Functions
+#### 2.1.2: Import Helper Functions
 
-- [ ] Add `getPackage` helper function
-- [ ] Add `getRoleExe` helper function
-- [ ] Add `getWindowClass` helper function
-- [ ] Add `getAppId` helper function
-- [ ] Add `getAllWindowClasses` helper function
-- [ ] Add `mkAssign` helper function (uses `lib.strings.escapeRegex` for safety)
-
-> **Note:** Use `lib.strings.escapeRegex` from nixpkgs for regex escaping—do not implement a custom version. This is the idiomatic approach.
-
-- [ ] **Verify:** Helpers are syntactically correct (full build test later)
+- [ ] Import helpers from `lib/user-defaults-helpers.nix`:
+  ```nix
+  helpers = import ../../lib/user-defaults-helpers.nix { inherit lib pkgs userDefaults; };
+  inherit (helpers) getRoleExe mkAssign;
+  ```
+- [ ] **Verify:** Import path is correct relative to `modules/window-manager/i3-config.nix`
+- [ ] **Verify:** Module loads without "helpers not found" errors
 
 #### 2.1.3: Refactor commandsDefault
 
