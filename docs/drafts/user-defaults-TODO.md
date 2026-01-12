@@ -169,11 +169,13 @@ nix-instantiate --parse lib/user-defaults-helpers.nix
 
 ### 3.2 Home Manager osConfig Access
 
-- [ ] Verify Home Manager is configured as NixOS module (provides osConfig)
-  ```bash
-  nix eval '.#nixosConfigurations.system76.config.home-manager' --apply 'builtins.hasAttr "useGlobalPkgs"'
-  # Expected: true
-  ```
+- [ ] Confirm osConfig is available (no pre-verification command exists)
+  - `osConfig` is auto-provided when HM is used as NixOS module
+  - If missing, evaluation will fail with:
+    ```
+    error: function 'anonymous lambda' called without required argument 'osConfig'
+    ```
+  - This error IS the indicator—proceed to fix if seen
 - [ ] If osConfig missing, add to `extraSpecialArgs` in `modules/home-manager/nixos.nix` (should not be needed)
 
 ---

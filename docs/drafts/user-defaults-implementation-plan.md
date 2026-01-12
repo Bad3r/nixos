@@ -160,7 +160,7 @@ Options declared with `lib.mkOption` automatically appear in the NixOS manual wi
 
 **Standard NixOS Patterns:**
 
-Per `nixos-manual/development/settings-options.section.md`, structured configuration should use `types.submodule` with proper option declarations. This follows the same pattern as `services.*.settings` options throughout NixOS.
+Per `nixos-manual/development/option-types.section.md` (section "Submodule types"), structured configuration should use `types.submodule` with proper option declarations. This follows the same pattern as `services.*.settings` options throughout NixOS.
 
 ### Data Structure
 
@@ -293,7 +293,10 @@ let
       cfg = config.userDefaults;
 
       # App Role Submodule Definition
-      appRoleModule = { name, ... }: {
+      # Note: Submodules in `attrsOf` receive `name` (the attr key) automatically,
+      # but we don't use it here since validation uses mapAttrsToList which
+      # provides the role name separately.
+      appRoleModule = { ... }: {
         options = {
           package = lib.mkOption {
             type = lib.types.package;
@@ -547,14 +550,14 @@ Home Manager modules access `userDefaults` through `osConfig`, which provides th
 
 `osConfig` is automatically available when Home Manager is used as a NixOS module (via `home-manager.nixosModules.home-manager`). It is an evaluation-time special argument, NOT a config attribute—you cannot verify it with `nix eval` on the config output.
 
-```bash
-# Verify Home Manager is configured as a NixOS module (which provides osConfig)
-nix eval '.#nixosConfigurations.system76.config.home-manager' --apply 'builtins.hasAttr "useGlobalPkgs"'
-# If this returns `true`, Home Manager is properly configured and osConfig is available
+**There is no reliable pre-verification command.** If `osConfig` is unavailable, you'll see this error during evaluation:
 
-# If osConfig is missing at runtime, you'll see a clear error like:
-# "error: function 'anonymous lambda' called without required argument 'osConfig'"
 ```
+error: function 'anonymous lambda' called without required argument 'osConfig'
+  at /path/to/modules/window-manager/i3-config.nix:1:1
+```
+
+This error IS the indicator—if you see it, Home Manager is not configured as a NixOS module or `osConfig` needs to be added to `extraSpecialArgs`.
 
 If `osConfig` is somehow not available, add it explicitly to `extraSpecialArgs`:
 
@@ -1129,7 +1132,7 @@ The original plan used a pure data file (`lib/user-defaults.nix`) imported befor
 
 1. **Type safety**: `types.package` catches errors at evaluation time, not runtime
 2. **Direct package references**: No need for string path resolution helpers
-3. **Standard patterns**: Follows `nixos-manual/development/settings-options.section.md` recommendations
+3. **Standard patterns**: Follows `nixos-manual/development/option-types.section.md` submodule recommendations
 4. **Auto-generated documentation**: Options appear in NixOS manual automatically
 5. **Proper merge semantics**: Multiple modules can contribute to configuration
 
