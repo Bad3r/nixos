@@ -5,15 +5,31 @@
     {
       imports = [ inputs.nix-index-database.nixosModules.nix-index ];
 
-      environment.binsh = "${pkgs.dash}/bin/dash";
-      environment.shellAliases.rm = "rip";
+      environment = {
+        binsh = "${pkgs.dash}/bin/dash";
+        shellAliases.rm = "rip";
+        # Shell utility: nrun <pkg> [args...] → nix run nixpkgs#<pkg> -- [args...]
+        systemPackages = [
+          (pkgs.writeShellApplication {
+            name = "nrun";
+            runtimeInputs = [ pkgs.nix ];
+            text = ''
+              pkg="$1"
+              shift
+              nix run "nixpkgs#$pkg" -- "$@"
+            '';
+          })
+        ];
+      };
+
       programs = {
         zsh.enable = true;
-        command-not-found.enable = true;
+        # nix-index-database module disables command-not-found and provides
+        # nix-index with pre-built database; shell integration replaces command-not-found
         nix-index = {
           enable = true;
-          enableBashIntegration = false; # mutually exclusive w/ command-not-found
-          enableZshIntegration = false; # mutually exclusive w/ command-not-found
+          enableBashIntegration = true;
+          enableZshIntegration = true;
         };
       };
       users.mutableUsers = true;
