@@ -13,15 +13,12 @@ _: {
         '';
       };
 
-      # NOTE: Battery charge thresholds (system76-power charge-thresholds) are NOT supported
-      # on Darter Pro 6 firmware. This requires newer System76 firmware with EC threshold support.
-      # Laptops that support it: Pangolin, some newer Darter/Galago models with updated firmware.
-
-      # Ignore power button to prevent accidental shutdowns
-      # Lid switch uses default "suspend" - xss-lock with --transfer-sleep-lock
-      # ensures screen locks before suspend completes
-      services.logind.settings = {
-        Login.HandlePowerKey = "ignore";
+      # lock = logind signal -> xss-lock --transfer-sleep-lock (i3lock-stylix)
+      services.logind.settings.Login = {
+        HandlePowerKey = "lock";
+        HandleLidSwitch = "lock"; # ignore, lock, suspend, poweroff, hibernate
+        HandleLidSwitchExternalPower = "lock"; # On AC power
+        HandleLidSwitchDocked = "lock"; # External display connected
       };
 
       services = {
@@ -56,7 +53,7 @@ _: {
 
         # Power management
         upower.enable = true;
-        # power-profiles-daemon conflicts with thermald; keep disabled
+        # power-profiles-daemon conflicts with system76-power; keep disabled
         power-profiles-daemon.enable = lib.mkForce false;
 
         # Enable GVFS for trash support, mounting, etc.
@@ -74,15 +71,10 @@ _: {
         # Enable weekly fstrim for SSDs
         fstrim.enable = true;
 
-        # Thermal management (CPU/platform)
-        # Uses Intel thermald instead of system76-power for thermal throttling
-        # NOTE: System76 EC over-reports temps by ~5°C causing premature shutdowns
-        # Config and TCC offset (below) compensate for inflated readings
-        thermald = {
-          enable = true;
-          debug = true;
-          configFile = ./thermald.conf.xml;
-        };
+        # Thermal management handled by system76-power (hardware.system76.power-daemon)
+        # thermald disabled - system76-power provides thermal management, power profiles,
+        # and battery charge thresholds via EC
+        thermald.enable = false;
 
         # System76 process scheduler for improved desktop responsiveness
         # Adjusts CFS latency on AC/battery and boosts foreground processes
@@ -93,20 +85,39 @@ _: {
         lact.enable = true;
       };
 
-      # CPU governor: performance mode by default
-      powerManagement.cpuFreqGovernor = "performance";
+      # Power management configuration
+      # - powerManagement: kernel-level CPU governor and suspend/resume hooks
+      # - system76-power: System76 daemon for fans, backlight, turbo policies
+      powerManagement = {
+        enable = true;
+        cpuFreqGovernor = "performance"; # ondemand, powersave, performance
+        powertop.enable = false; # Aggressive USB autosuspend causes device issues
+        resumeCommands = ''
+          # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
+          ${pkgs.systemd}/bin/loginctl lock-sessions
+        '';
+      };
 
-      # Set TCC (Thermal Control Circuit) offset to 0
-      # Allows CPU to run up to Tjmax (100°C) before hardware throttling
-      # Required because System76 EC over-reports temperatures by ~5°C
-      systemd.tmpfiles.rules = [
-        "w /sys/class/thermal/cooling_device13/cur_state - - - - 0"
-      ];
+      # Set system76-power profile to performance on boot
+      # Note: system76-power may report non-critical errors (e.g., SATA link PM not supported)
+      # but still successfully set the profile
+      systemd.services.system76-power-profile = {
+        description = "Set System76 power profile to performance";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "com.system76.PowerDaemon.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${pkgs.system76-power}/bin/system76-power profile performance";
+          RemainAfterExit = true;
+          # Allow exit code 1 (non-critical errors like unsupported SATA link PM)
+          SuccessExitStatus = [ 1 ];
+        };
+      };
 
       # CoolerControl: DISABLED - conflicts with System76 EC fan control
       # When both CoolerControl and EC control fans simultaneously (e.g., Fn+1),
       # the EC hangs causing system crash. See: github.com/pop-os/system76-dkms/issues/11
-      # Let EC handle fans natively; thermald handles CPU thermal throttling.
+      # Let EC and system76-power handle fans natively.
       programs.coolercontrol.enable = false;
 
       xdg.mime.defaultApplications = {

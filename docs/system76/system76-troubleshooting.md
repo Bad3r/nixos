@@ -2,12 +2,6 @@
 
 ## Known Issues
 
-### EC Temperature Over-Reporting
-
-The System76 EC reports temperatures ~5C higher than actual, causing premature throttling.
-
-**Solution:** Use thermald with `x86_pkg_temp` instead of system76-power.
-
 ### Fan Control Limitations
 
 - EC has hard-coded fan curves (not adjustable)
@@ -19,39 +13,29 @@ The System76 EC reports temperatures ~5C higher than actual, causing premature t
 
 ## Thermal Management
 
-### Why thermald Instead of system76-power
-
-| Aspect      | system76-power        | thermald                   |
-| ----------- | --------------------- | -------------------------- |
-| Temp Source | EC (over-reports ~5C) | x86_pkg_temp (accurate)    |
-| Throttling  | EC-controlled         | RAPL, powerclamp, P-states |
-| Config      | Hard-coded            | Customizable XML           |
-
-### thermald Configuration
+Thermal management is handled by `system76-power` (the System76 Power Daemon).
 
 ```nix
-# modules/system76/services.nix
-services.thermald = {
-  enable = true;
-  configFile = ./thermald.conf.xml;
-};
+# modules/system76/support.nix
+hardware.system76.power-daemon.enable = true;
 ```
 
-Trip points in `thermald.conf.xml`:
+### Power Profiles
 
-| Temperature | Mode       | Action                                   |
-| ----------- | ---------- | ---------------------------------------- |
-| 85C         | Sequential | Apply cooling methods one at a time      |
-| 92C         | Parallel   | Apply all cooling methods simultaneously |
+```bash
+system76-power profile              # Show current profile
+system76-power profile performance  # Maximum performance
+system76-power profile balanced     # Balanced (default)
+system76-power profile battery      # Battery saving
+```
 
-### TCC Offset
+### Battery Charge Thresholds
 
-Set to 0 to allow CPU full thermal headroom (thermald manages actual throttling):
-
-```nix
-systemd.tmpfiles.rules = [
-  "w /sys/class/thermal/cooling_device13/cur_state - - - - 0"
-];
+```bash
+system76-power charge-thresholds                          # View current
+sudo system76-power charge-thresholds --profile max_lifespan   # 40-80%
+sudo system76-power charge-thresholds --profile balanced       # 50-90%
+sudo system76-power charge-thresholds --profile full_charge    # 96-100%
 ```
 
 ### Monitoring
@@ -60,11 +44,12 @@ systemd.tmpfiles.rules = [
 # Real-time temperatures
 watch -n 1 sensors
 
-# CPU package (accurate)
+# CPU package
 watch -n 1 'sensors coretemp-isa-0000 | grep Package'
 
-# thermald logs
-journalctl -u thermald -f
+# system76-power status
+systemctl status com.system76.PowerDaemon
+journalctl -u com.system76.PowerDaemon -f
 
 # Fan status
 sensors system76-isa-0000 | grep fan
@@ -95,7 +80,7 @@ sensors system76-isa-0000 | grep fan
 
 **Solution:** Replace dual-fan assembly. See [Fan Replacement](#fan-replacement) below.
 
-**Workaround:** Avoid Fn+1, let thermald manage temps.
+**Workaround:** Avoid Fn+1, let system76-power manage temps.
 
 #### 2. CoolerControl Conflict
 
@@ -107,11 +92,11 @@ sensors system76-isa-0000 | grep fan
 
 #### 3. Thermal Shutdown (EC)
 
-**Symptoms:** Shutdown during heavy load, EC shows higher temp than x86_pkg_temp.
+**Symptoms:** Shutdown during heavy load.
 
-**Cause:** EC over-reports temps, triggers premature shutdown.
+**Cause:** EC thermal protection triggered.
 
-**Solution:** Use thermald. See [Thermal Management](#thermal-management) above.
+**Solution:** Ensure `system76-power` is running. See [Thermal Management](#thermal-management) above.
 
 ### Diagnostic Configuration
 
@@ -268,9 +253,9 @@ stress-ng --cpu 12 --vm 4 --vm-bytes 2G --timeout 10m
 
 ## Quick Reference
 
-| Issue          | Check                    | Solution                            |
-| -------------- | ------------------------ | ----------------------------------- |
-| High temps     | `sensors`, thermald logs | Verify thermald running, check fans |
-| Crash on Fn+1  | Fan RPM before crash     | Replace fan assembly                |
-| Random crash   | `journalctl -b -1`       | Check logs for errors               |
-| No fan control | Expected                 | EC controls fans, not software      |
+| Issue          | Check                         | Solution                                |
+| -------------- | ----------------------------- | --------------------------------------- |
+| High temps     | `sensors`, system76-power log | Verify power daemon running, check fans |
+| Crash on Fn+1  | Fan RPM before crash          | Replace fan assembly                    |
+| Random crash   | `journalctl -b -1`            | Check logs for errors                   |
+| No fan control | Expected                      | EC controls fans, not software          |

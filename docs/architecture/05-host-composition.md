@@ -36,7 +36,7 @@ The System76 host demonstrates the pattern:
 | `modules/system76/boot.nix`             | Kernel, crash dump, NVIDIA params       |
 | `modules/system76/hardware-config.nix`  | Filesystems, LUKS, firmware             |
 | `modules/system76/nvidia-gpu.nix`       | NVIDIA PRIME configuration              |
-| `modules/system76/services.nix`         | thermald, scheduler                     |
+| `modules/system76/services.nix`         | power management, scheduler             |
 | `modules/system76/packages.nix`         | System76 utilities                      |
 | `modules/system76/home-manager-gui.nix` | HM GUI integration                      |
 
@@ -46,7 +46,7 @@ Each file extends `configurations.nixos.system76.module` directly:
 # modules/system76/services.nix
 _: {
   configurations.nixos.system76.module = {
-    services.thermald.enable = true;
+    services.system76-scheduler.enable = true;
     # ...
   };
 }
