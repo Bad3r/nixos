@@ -434,27 +434,27 @@
       workspaceOutputAssign = [
         {
           workspace = "1";
-          output = [ "DP-1" ];
+          output = [ "HDMI-0" ];
         }
         {
           workspace = "2";
-          output = [ "DP-1" ];
+          output = [ "HDMI-0" ];
         }
         {
           workspace = "3";
-          output = [ "DP-1" ];
+          output = [ "HDMI-0" ];
         }
         {
           workspace = "4";
-          output = [ "DP-1" ];
+          output = [ "HDMI-0" ];
         }
         {
           workspace = "5";
-          output = [ "DP-1" ];
+          output = [ "HDMI-0" ];
         }
         {
           workspace = "6";
-          output = [ "DP-1" ];
+          output = [ "HDMI-0" ];
         }
         {
           workspace = "7";
@@ -462,15 +462,15 @@
         }
         {
           workspace = "8";
-          output = [ "HDMI-0" ];
+          output = [ "DP-1" ];
         }
         {
           workspace = "9";
-          output = [ "HDMI-0" ];
+          output = [ "DP-1" ];
         }
         {
           workspace = "10";
-          output = [ "HDMI-0" ];
+          output = [ "DP-1" ];
         }
       ];
       baseExtraConfig = lib.concatStringsSep "\n" [
