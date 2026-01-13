@@ -165,7 +165,6 @@
       "nix-direnv".extended.enable = lib.mkOverride 1100 true;
       "nix-eval-jobs".extended.enable = lib.mkOverride 1100 true;
       "nix-index".extended.enable = lib.mkOverride 1100 true;
-      "nix-index-update".extended.enable = lib.mkOverride 1100 false;
       "nix-output-monitor".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-git".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-github".extended.enable = lib.mkOverride 1100 true;
@@ -284,6 +283,11 @@
       zoxide.extended.enable = lib.mkOverride 1100 true;
       "zsh-completions".extended.enable = lib.mkOverride 1100 true;
       zstd.extended.enable = lib.mkOverride 1100 true;
+    };
+
+    # Services-based apps (use services.<name>.extended namespace)
+    services = {
+      autorandr.extended.enable = lib.mkOverride 1100 true;
     };
   };
 }
