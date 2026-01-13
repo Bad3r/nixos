@@ -75,6 +75,17 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
 }
 ```
 
+## Namespace Selection
+
+Most apps use `programs.<name>.extended`. However, apps requiring NixOS services (udev, systemd) use `services.<name>.extended` instead.
+
+| Namespace                  | When to Use                                          | Enable in apps-enable.nix |
+| -------------------------- | ---------------------------------------------------- | ------------------------- |
+| `programs.<name>.extended` | Package-only apps                                    | `programs` block          |
+| `services.<name>.extended` | Apps with NixOS service (e.g., `services.autorandr`) | `services` block          |
+
+The module pattern is identical—just substitute `programs` with `services` in option paths.
+
 ## Maintenance Checklist
 
 - When adding a new app module, copy the skeleton, update the comment sections, and adjust bundles as required.
