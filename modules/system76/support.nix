@@ -14,14 +14,14 @@
       };
 
       config = lib.mkIf cfg.enable {
-        # Selective System76 hardware support:
+        # System76 hardware support:
         # - kernel-modules: Fan monitoring via hwmon, EC communication
         # - firmware-daemon: Firmware updates via fwupd/LVFS
-        # - power-daemon: DISABLED - using thermald for thermal management instead
+        # - power-daemon: Thermal management, power profiles, battery charge thresholds
         hardware.system76 = {
           kernel-modules.enable = true;
           firmware-daemon.enable = true;
-          power-daemon.enable = false;
+          power-daemon.enable = true;
         };
 
         # System76-specific kernel parameters

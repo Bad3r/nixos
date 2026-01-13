@@ -9,7 +9,7 @@ All System76-specific configuration lives in `modules/system76/`:
 | `hardware-config.nix` | Filesystems, LUKS, firmware, bluetooth   |
 | `nvidia-gpu.nix`      | NVIDIA PRIME sync/offload                |
 | `boot.nix`            | Kernel, crash dump, NVIDIA params        |
-| `services.nix`        | thermald, scheduler, logging             |
+| `services.nix`        | power management, scheduler, logging     |
 | `support.nix`         | System76 kernel modules, firmware daemon |
 | `packages.nix`        | System76 utilities, unfree allowlist     |
 
@@ -20,7 +20,7 @@ All System76-specific configuration lives in `modules/system76/`:
 hardware.system76 = {
   kernel-modules.enable = true;   # Fan monitoring, EC communication
   firmware-daemon.enable = true;  # Firmware updates via fwupd
-  power-daemon.enable = false;    # Disabled - using thermald instead
+  power-daemon.enable = true;     # Thermal management, power profiles, battery thresholds
 };
 
 boot.kernelParams = [ "system76_acpi.brightness_hwmon=1" ];
@@ -57,17 +57,30 @@ All firmware is redistributable (no unfree). See [system76-hardware.md](system76
 ```nix
 # modules/system76/services.nix
 services = {
-  thermald = {
-    enable = true;
-    configFile = ./thermald.conf.xml;  # Custom 85C/92C trip points
-  };
+  # Thermal management via system76-power (hardware.system76.power-daemon)
+  thermald.enable = false;
 
   system76-scheduler.enable = true;  # Desktop responsiveness
-  power-profiles-daemon.enable = false;  # Conflicts with thermald
+  power-profiles-daemon.enable = false;  # Conflicts with system76-power
 };
 
 powerManagement.cpuFreqGovernor = "performance";
 programs.coolercontrol.enable = false;  # Conflicts with EC
+```
+
+### Power Profiles & Battery Thresholds
+
+```bash
+# Power profiles
+system76-power profile performance  # Maximum performance
+system76-power profile balanced     # Balanced (default)
+system76-power profile battery      # Battery saving
+
+# Battery charge thresholds (requires EC support)
+system76-power charge-thresholds    # View current thresholds
+sudo system76-power charge-thresholds --profile max_lifespan  # 40-80%
+sudo system76-power charge-thresholds --profile balanced      # 50-90%
+sudo system76-power charge-thresholds --profile full_charge   # 96-100%
 ```
 
 ## NVIDIA GPU
@@ -183,8 +196,9 @@ nixpkgs.allowedUnfreePackages = [
 ## System76 Tools
 
 | Tool     | Command                               | Purpose                  |
-| -------- | ------------------------------------- | ------------------------ | --------- | ------------- |
-| Power    | `system76-power profile [performance  | balanced                 | battery]` | Power profile |
+| -------- | ------------------------------------- | ------------------------ |
+| Power    | `system76-power profile <profile>`    | Power profile            |
+| Battery  | `system76-power charge-thresholds`    | Battery charge limits    |
 | Firmware | `sudo system76-firmware-cli schedule` | Schedule firmware update |
 | Keyboard | `system76-keyboard-configurator`      | Keyboard customization   |
 
@@ -192,8 +206,12 @@ nixpkgs.allowedUnfreePackages = [
 
 ```bash
 # Services
-systemctl status thermald
+systemctl status com.system76.PowerDaemon
 systemctl status system76-scheduler
+
+# Power management
+system76-power profile                   # Show current profile
+system76-power charge-thresholds         # Show charge limits
 
 # GPU
 nvidia-smi
