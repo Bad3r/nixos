@@ -318,9 +318,11 @@
         '';
       };
       lockCommandDefault = lib.getExe lockScript;
-      lockCommandValue = lib.attrByPath [ "gui" "i3" "lockCommand" ] lockCommandDefault config;
-      i3Commands = lib.attrByPath [ "gui" "i3" "commands" ] commandsDefault config;
-      netInterface = lib.attrByPath [ "gui" "i3" "netInterface" ] null config;
+      # Handle null defaults from options - use our defaults if option is null
+      lockCommandValue =
+        if config.gui.i3.lockCommand != null then config.gui.i3.lockCommand else lockCommandDefault;
+      i3Commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
+      inherit (config.gui.i3) netInterface;
       netBlockBase = {
         block = "net";
         interval = 2;
@@ -476,13 +478,45 @@
       baseExtraConfig = lib.concatStringsSep "\n" [
         "default_orientation horizontal"
         "popup_during_fullscreen smart"
-        "new_window normal"
-        "new_float normal"
+        "title_align center"
         ""
       ];
     in
     {
-      # Options declared in i3-keybindings.nix
+      options.gui.i3 = {
+        netInterface = lib.mkOption {
+          description = "Primary network interface for the i3status net block.";
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "enp4s0";
+        };
+
+        lockCommand = lib.mkOption {
+          description = "Command used to lock the screen within the i3 session.";
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          defaultText = lib.literalExpression "lib.getExe lockScript";
+          example = "i3lock";
+        };
+
+        commands = lib.mkOption {
+          description = "Commonly used command strings that other i3 modules can reuse.";
+          type = lib.types.nullOr (lib.types.attrsOf lib.types.str);
+          default = null;
+          defaultText = lib.literalExpression "commandsDefault";
+          example = {
+            launcher = "rofi -show drun";
+            terminal = "kitty";
+          };
+        };
+
+        browserClass = lib.mkOption {
+          description = "Window class of the default browser for focus-or-launch and assigns.";
+          type = lib.types.str;
+          default = "firefox";
+          example = "google-chrome";
+        };
+      };
 
       config = {
         home.packages = [
@@ -627,7 +661,7 @@
 
               assigns = lib.mkOptionDefault {
                 "1" = [ { class = "(?i)(?:geany)"; } ];
-                "2" = [ { class = "(?i)(?:firefox)"; } ];
+                "2" = [ { class = "(?i)(?:${config.gui.i3.browserClass})"; } ];
                 "3" = [ { class = "(?i)(?:thunar)"; } ];
               };
 
@@ -653,9 +687,15 @@
                 }
                 {
                   criteria = {
-                    class = "^.*";
+                    class = "claude-wpa";
                   };
-                  command = "border pixel 5";
+                  command = "floating enable, resize set 1270 695, move position center";
+                }
+                {
+                  criteria = {
+                    all = true;
+                  };
+                  command = ''border pixel 5, title_format "<b>%title</b>", title_window_icon padding 3px'';
                 }
               ];
             };
