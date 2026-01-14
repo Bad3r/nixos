@@ -221,7 +221,9 @@ writeShellApplication {
     jq
   ];
 
-  text = ''
+  # NOTE: The /* bash */ annotation enables treesitter language injection
+  # for proper syntax highlighting and LSP support (via otter.nvim/hmts.nvim)
+  text = /* bash */ ''
     echo "Example script"
     curl -s https://api.example.com | jq .
   '';
