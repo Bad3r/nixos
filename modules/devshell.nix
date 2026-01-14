@@ -16,7 +16,6 @@
             ghActionsRun = pkgs.writeShellApplication {
               name = "gh-actions-run";
               text = /* bash */ ''
-                set -euo pipefail
                 DRY=""
                 JOB=""
                 EXTRA=()
