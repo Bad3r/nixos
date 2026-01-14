@@ -164,7 +164,7 @@
                   nixpkgs.expr = "import <nixpkgs> {}";
                   options = {
                     # NixOS options - works in any flake with nixosConfigurations
-                    nixos.expr = ''
+                    nixos.expr = /* nix */ ''
                       let
                         flake = builtins.getFlake (toString ./.);
                         hosts = flake.nixosConfigurations or {};
@@ -175,7 +175,7 @@
                     '';
 
                     # Home-manager options - standalone homeConfigurations
-                    home-manager.expr = ''
+                    home-manager.expr = /* nix */ ''
                       let
                         flake = builtins.getFlake (toString ./.);
                         configs = flake.homeConfigurations or {};
@@ -185,7 +185,7 @@
                     '';
 
                     # Flake-parts options - requires debug = true in the flake
-                    flake-parts.expr = ''
+                    flake-parts.expr = /* nix */ ''
                       let
                         flake = builtins.getFlake (toString ./.);
                       in
