@@ -83,7 +83,7 @@ let
       SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
     };
 
-    text = ''
+    text = /* bash */ ''
       # XDG Base Directory compliant profile path
       # Using := handles both unset AND empty cases (unlike :- which only handles unset)
       : "''${XDG_DATA_HOME:=$HOME/.local/share}"

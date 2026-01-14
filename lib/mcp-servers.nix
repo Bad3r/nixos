@@ -69,6 +69,7 @@ let
         pkgs.nodejs
       ];
       text =
+        # bash
         if hasContext7Secret then
           ''
             set -euo pipefail

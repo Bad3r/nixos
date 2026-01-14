@@ -175,7 +175,7 @@ let
           pkgs.hostname
           pkgs.jq
         ];
-        text = ''
+        text = /* bash */ ''
           set -euo pipefail
 
           config_path="''${DUPLICATI_R2_CONFIG:?DUPLICATI_R2_CONFIG not set}"
@@ -327,7 +327,7 @@ let
           pkgs.hostname
           pkgs.jq
         ];
-        text = ''
+        text = /* bash */ ''
           set -euo pipefail
 
           config_path="''${DUPLICATI_R2_CONFIG:?DUPLICATI_R2_CONFIG not set}"
@@ -432,7 +432,7 @@ let
           pkgs.jq
           pkgs.systemd
         ];
-        text = ''
+        text = /* bash */ ''
                     set -euo pipefail
 
                     config_source="''${DUPLICATI_R2_CONFIG_SOURCE:?}"

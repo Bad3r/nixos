@@ -38,7 +38,7 @@
       ghqMirrorScript = pkgs.writeShellApplication {
         name = "ghq-mirror";
         runtimeInputs = [ ];
-        text = ''
+        text = /* bash */ ''
                     set -euo pipefail
 
                     umask 002
