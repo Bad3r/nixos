@@ -48,8 +48,8 @@
 
                     export TREEFMT_CACHE_DB="''${cache_home}/eval-cache"
 
-                    # Get staged files to format, excluding symlinks to nix store
-                    mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACM | while read -r f; do
+                    # Get all modified files (staged + unstaged), excluding symlinks to nix store
+                    mapfile -t modified < <(git diff HEAD --name-only --diff-filter=ACM | while read -r f; do
                       # Skip symlinks pointing outside the repo (e.g., .pre-commit-config.yaml)
                       if [ -L "$f" ]; then
                         target=$(readlink -f "$f" 2>/dev/null || true)
@@ -57,7 +57,7 @@
                       fi
                       printf '%s\n' "$f"
                     done)
-                    if [ "''${#staged[@]}" -eq 0 ]; then
+                    if [ "''${#modified[@]}" -eq 0 ]; then
                       exit 0
                     fi
 
@@ -67,18 +67,11 @@
 
                     # treefmt exits 0 on success (including when it formats files)
                     # Non-zero exit means a real error (syntax error, formatter crash, etc.)
-                    if ! treefmt -- "''${staged[@]}" >/dev/null 2>"$err_file"; then
+                    if ! treefmt -- "''${modified[@]}" >/dev/null 2>"$err_file"; then
                       echo "treefmt: formatting failed - manual fix required:" >&2
                       cat "$err_file" >&2
                       exit 1
                     fi
-
-                    # Silently re-stage any files that were formatted
-                    for file in "''${staged[@]}"; do
-                      if [ -e "$file" ] && ! git diff --quiet -- "$file" 2>/dev/null; then
-                        git add -- "$file"
-                      fi
-                    done
 
                     exit 0
                   '';

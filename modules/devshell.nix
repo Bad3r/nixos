@@ -116,6 +116,12 @@
           echo "  gh-actions-run [-n]    - Run all GitHub Actions locally (use -n for dry run)"
           echo "  gh-actions-list        - List discovered GitHub Actions jobs"
           echo ""
+
+          # Use repo-local treefmt cache (matches pre-commit hook location)
+          treefmt_cache="$PWD/.git/treefmt-cache/cache"
+          mkdir -p "$treefmt_cache" 2>/dev/null || true
+          export TREEFMT_CACHE_DB="$treefmt_cache/eval-cache"
+
           ${config.pre-commit.installationScript}
 
           # Prefer zsh for interactive sessions
