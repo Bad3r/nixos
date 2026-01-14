@@ -25,6 +25,7 @@ let
     "ncdu"
     "pcmanfm"
     "ripgrep"
+    "rofi"
     "ripgrep-all"
     "nixvim"
     "pentesting-devshell"
