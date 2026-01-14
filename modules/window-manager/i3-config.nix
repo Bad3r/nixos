@@ -482,31 +482,7 @@
       ];
     in
     {
-      options.gui.i3 = {
-        netInterface = lib.mkOption {
-          description = "Primary network interface for the i3status net block.";
-          type = lib.types.nullOr lib.types.str;
-          default = null;
-          example = "enp4s0";
-        };
-
-        lockCommand = lib.mkOption {
-          description = "Command used to lock the screen within the i3 session.";
-          type = lib.types.nullOr lib.types.str;
-          default = lockCommandDefault;
-          example = "i3lock";
-        };
-
-        commands = lib.mkOption {
-          description = "Commonly used command strings that other i3 modules can reuse.";
-          type = lib.types.attrsOf lib.types.str;
-          default = commandsDefault;
-          example = {
-            launcher = "rofi -show drun";
-            terminal = "kitty";
-          };
-        };
-      };
+      # Options declared in i3-keybindings.nix
 
       config = {
         home.packages = [
