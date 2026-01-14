@@ -219,6 +219,8 @@
                 "${mod}+Shift+e" = "exec systemctl suspend";
                 "${mod}+s" = "exec ${screenshotCommand}";
                 "${mod}+Shift+o" = "exec --no-startup-id ${ocrCommand}";
+                "${mod}+e" =
+                  "exec --no-startup-id i3-scratchpad-show-or-create scratch-nvim '${kittyCommand} nvim'";
                 "${mod}+f" = "fullscreen toggle";
                 "${mod}+semicolon" = "split horizontal";
                 "${mod}+v" = "split vertical";
