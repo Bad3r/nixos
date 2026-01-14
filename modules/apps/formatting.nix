@@ -42,9 +42,11 @@ let
           default = with pkgs; [
             biome
             nixfmt
-            shellcheck
             prettier
+            shellcheck
             shfmt
+            stylua
+            taplo
             treefmt
           ];
           description = ''
@@ -53,9 +55,11 @@ let
             Included formatters:
             - biome: JavaScript/TypeScript/JSON
             - nixfmt: Nix (RFC 166)
+            - prettier: Multi-language formatter (JS/TS/JSON/YAML/MD/HTML/CSS)
             - shellcheck: Shell script linter
-            - prettier: Multi-language formatter
             - shfmt: Shell script formatter
+            - stylua: Lua formatter
+            - taplo: TOML formatter
             - treefmt: Format orchestrator
           '';
           example = lib.literalExpression "with pkgs; [ nixfmt shfmt ]";
