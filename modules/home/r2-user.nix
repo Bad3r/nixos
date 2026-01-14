@@ -48,7 +48,7 @@
           rclone
           coreutils
         ];
-        text = ''
+        text = /* bash */ ''
           set -euo pipefail
           # Load per-user R2 env if present
           if [ -f ${lib.escapeShellArg mkEnvFile} ]; then
@@ -85,7 +85,7 @@
           s5cmd
           coreutils
         ];
-        text = ''
+        text = /* bash */ ''
           set -euo pipefail
           if [ -f ${lib.escapeShellArg mkEnvFile} ]; then
             # shellcheck disable=SC1091
@@ -120,7 +120,7 @@
           rclone
           coreutils
         ];
-        text = ''
+        text = /* bash */ ''
           set -euo pipefail
           if [ -f ${lib.escapeShellArg mkEnvFile} ]; then
             # shellcheck disable=SC1091

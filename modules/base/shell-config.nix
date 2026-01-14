@@ -13,7 +13,7 @@
           (pkgs.writeShellApplication {
             name = "nrun";
             runtimeInputs = [ pkgs.nix ];
-            text = ''
+            text = /* bash */ ''
               pkg="$1"
               shift
               nix run "nixpkgs#$pkg" -- "$@"
