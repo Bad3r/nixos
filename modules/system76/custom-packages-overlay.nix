@@ -13,6 +13,7 @@ _: {
         dnsleak = final.callPackage ../../packages/dnsleak { };
         opendirectorydownloader = final.callPackage ../../packages/opendirectorydownloader { };
         malimite = final.callPackage ../../packages/malimite { };
+        claude-wpa = final.callPackage ../../packages/claude-wpa { };
       })
     ];
   };
