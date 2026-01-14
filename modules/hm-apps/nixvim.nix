@@ -22,10 +22,12 @@
       inputs,
       lib,
       pkgs,
+      osConfig,
       ...
     }:
     let
       inherit (lib) mkDefault;
+      hostname = osConfig.networking.hostName;
     in
     {
       imports = [ inputs.nixvim.homeModules.nixvim ];
@@ -68,7 +70,7 @@
           splitbelow = true;
 
           # Other
-          swapfile = false;
+          swapfile = true;
           backup = false;
           undofile = true;
           updatetime = 250;
@@ -78,11 +80,58 @@
 
         # Clipboard integration
         clipboard = {
-          providers.wl-copy.enable = true;
-          register = "unnamedplus";
+          providers = {
+            xsel.enable = true;
+            wl-copy.enable = true;
+          };
+          register = "unnamedplus,unnamed";
+        };
+
+        # Diagnostic display configuration
+        diagnostic.settings = {
+          virtual_text = {
+            prefix = "●";
+            spacing = 2;
+          };
+          signs = {
+            text = {
+              "__rawKey__vim.diagnostic.severity.ERROR" = "";
+              "__rawKey__vim.diagnostic.severity.WARN" = "";
+              "__rawKey__vim.diagnostic.severity.INFO" = "";
+              "__rawKey__vim.diagnostic.severity.HINT" = "";
+            };
+          };
+          underline = true;
+          update_in_insert = false;
+          severity_sort = true;
+          float = {
+            border = "rounded";
+            source = true;
+          };
         };
 
         dependencies.glow.enable = true;
+
+        # Suppress otter diagnostics for embedded languages in .nix files only
+        # Other filetypes (markdown, etc.) still get diagnostics
+        extraConfigLua = ''
+          vim.api.nvim_create_autocmd("VimEnter", {
+            once = true,
+            callback = function()
+              local orig_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
+              vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+                if result and result.uri and result.uri:match("%.nix%.otter%.") then
+                  return
+                end
+                return orig_handler(err, result, ctx, config)
+              end
+            end,
+          })
+        '';
+
+        # hmts.nvim - enhanced treesitter injections for Home Manager/Nix files
+        # Detects embedded languages via /* lang */ comments, shebangs, and filename inference
+        extraPlugins = [ pkgs.vimPlugins.hmts-nvim ];
 
         # Plugins configuration
         plugins = {
@@ -91,18 +140,62 @@
             enable = true;
 
             servers = {
-              # Nix
-              nil_ls.enable = true;
+              nixd = {
+                enable = true;
+                settings = {
+                  nixpkgs.expr = "import <nixpkgs> {}";
+                  options = {
+                    # NixOS options - works in any flake with nixosConfigurations
+                    nixos.expr = ''
+                      let
+                        flake = builtins.getFlake (toString ./.);
+                        hosts = flake.nixosConfigurations or {};
+                        # Try current hostname first, then first available, then empty
+                        host = hosts.${hostname} or (builtins.head (builtins.attrValues hosts)) or null;
+                      in
+                        if host != null then host.options else {}
+                    '';
+
+                    # Home-manager options - standalone homeConfigurations
+                    home-manager.expr = ''
+                      let
+                        flake = builtins.getFlake (toString ./.);
+                        configs = flake.homeConfigurations or {};
+                        first = if configs != {} then builtins.head (builtins.attrValues configs) else null;
+                      in
+                        if first != null then first.options else {}
+                    '';
+
+                    # Flake-parts options - requires debug = true in the flake
+                    flake-parts.expr = ''
+                      let
+                        flake = builtins.getFlake (toString ./.);
+                      in
+                        flake.debug.options or flake.currentSystem.options or {}
+                    '';
+                  };
+                };
+              };
 
               # Rust
               rust_analyzer = {
                 enable = true;
                 installCargo = false;
                 installRustc = false;
+                settings.check.command = "clippy";
               };
 
               # Python
-              pyright.enable = true;
+              pyright = {
+                enable = true;
+                settings.python.analysis = {
+                  typeCheckingMode = "basic";
+                  autoImportCompletions = true;
+                };
+              };
+
+              # Python linting + formatting (replaces flake8, black, isort)
+              ruff.enable = true;
 
               # JavaScript/TypeScript
               ts_ls.enable = true;
@@ -121,11 +214,23 @@
 
               # JSON
               jsonls.enable = true;
+
+              # Lua
+              lua_ls.enable = true;
+
+              # TOML
+              taplo.enable = true;
+
+              # HTML
+              html.enable = true;
+
+              # CSS
+              cssls.enable = true;
             };
 
             keymaps = {
               diagnostic = {
-                "<leader>e" = "open_float";
+                "<leader>dl" = "open_float";
                 "[d" = "goto_prev";
                 "]d" = "goto_next";
               };
@@ -180,7 +285,10 @@
             grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
               bash
               c
+              css
               go
+              html
+              javascript
               json
               lua
               markdown
@@ -199,6 +307,98 @@
           telescope = {
             enable = true;
 
+            settings = {
+              defaults = {
+                # Layout for better preview
+                layout_strategy = "horizontal";
+                layout_config = {
+                  horizontal = {
+                    preview_width = 0.6;
+                    prompt_position = "top";
+                  };
+                };
+                sorting_strategy = "ascending";
+
+                # Enhanced ripgrep arguments for live_grep
+                vimgrep_arguments = [
+                  "rg"
+                  "--color=never"
+                  "--no-heading"
+                  "--with-filename"
+                  "--line-number"
+                  "--column"
+                  "--smart-case"
+                  "--trim" # Strip leading whitespace
+                ];
+
+                initial_mode = "normal";
+
+                # Keymaps inside telescope picker
+                mappings = {
+                  # Insert mode (typing search query)
+                  i = {
+                    "<Esc>".__raw = "function() vim.cmd('stopinsert') end";
+                    "<C-j>".__raw = "require('telescope.actions').move_selection_next";
+                    "<C-k>".__raw = "require('telescope.actions').move_selection_previous";
+                    "<C-u>".__raw = "require('telescope.actions').preview_scrolling_up";
+                    "<C-d>".__raw = "require('telescope.actions').preview_scrolling_down";
+                    "<C-q>".__raw =
+                      "require('telescope.actions').send_to_qflist + require('telescope.actions').open_qflist";
+                  };
+                  # Normal mode (vim-like navigation)
+                  n = {
+                    # Navigation
+                    j.__raw = "require('telescope.actions').move_selection_next";
+                    k.__raw = "require('telescope.actions').move_selection_previous";
+                    H.__raw = "require('telescope.actions').move_to_top";
+                    M.__raw = "require('telescope.actions').move_to_middle";
+                    L.__raw = "require('telescope.actions').move_to_bottom";
+                    gg.__raw = "require('telescope.actions').move_to_top";
+                    G.__raw = "require('telescope.actions').move_to_bottom";
+
+                    # Preview scrolling
+                    "<C-u>".__raw = "require('telescope.actions').preview_scrolling_up";
+                    "<C-d>".__raw = "require('telescope.actions').preview_scrolling_down";
+
+                    # Actions
+                    "<CR>".__raw = "require('telescope.actions').select_default";
+                    l.__raw = "require('telescope.actions').select_default";
+                    o.__raw = "require('telescope.actions').select_default";
+                    "<C-x>".__raw = "require('telescope.actions').select_horizontal";
+                    "<C-v>".__raw = "require('telescope.actions').select_vertical";
+                    "<C-t>".__raw = "require('telescope.actions').select_tab";
+
+                    # Quickfix
+                    "<C-q>".__raw =
+                      "require('telescope.actions').send_to_qflist + require('telescope.actions').open_qflist";
+
+                    # Close
+                    q.__raw = "require('telescope.actions').close";
+                    "<Esc>".__raw = "require('telescope.actions').close";
+
+                    # Back to insert mode to refine search
+                    i.__raw = "function() vim.cmd('startinsert') end";
+                    "/".__raw = "function() vim.cmd('startinsert') end";
+                  };
+                };
+              };
+
+              pickers = {
+                live_grep = {
+                  # Show hidden files but respect .gitignore
+                  additional_args = [
+                    "--hidden"
+                    "--glob"
+                    "!.git/"
+                  ];
+                };
+                find_files = {
+                  hidden = true;
+                  follow = true;
+                };
+              };
+            };
+
             keymaps = {
               "<leader>ff" = {
                 action = "find_files";
@@ -207,6 +407,10 @@
               "<leader>fg" = {
                 action = "live_grep";
                 options.desc = "Live grep";
+              };
+              "<leader>fw" = {
+                action = "grep_string";
+                options.desc = "Grep word under cursor";
               };
               "<leader>fb" = {
                 action = "buffers";
@@ -220,6 +424,22 @@
                 action = "oldfiles";
                 options.desc = "Recent files";
               };
+              "<leader>f/" = {
+                action = "current_buffer_fuzzy_find";
+                options.desc = "Fuzzy find in buffer";
+              };
+              "<leader>f." = {
+                action = "resume";
+                options.desc = "Resume last search";
+              };
+              "<leader>fd" = {
+                action = "diagnostics";
+                options.desc = "Find diagnostics";
+              };
+              "<leader>fk" = {
+                action = "keymaps";
+                options.desc = "Find keymaps";
+              };
             };
           };
 
@@ -229,6 +449,18 @@
 
             settings = {
               disable_netrw = true;
+              hijack_netrw = true;
+              hijack_directories = {
+                enable = false; # Don't auto-open when opening directories
+              };
+              actions = {
+                open_file = {
+                  quit_on_open = false; # Keep tree open when opening file from tree
+                  window_picker = {
+                    enable = true;
+                  };
+                };
+              };
             };
           };
 
@@ -273,6 +505,68 @@
             };
           };
 
+          # Otter - LSP features for embedded languages (e.g., bash in writeShellApplication)
+          # Works with hmts.nvim for enhanced treesitter injection detection
+          # Diagnostics filtered via extraConfigLua for .nix files only (''${ causes false positives)
+          otter = {
+            enable = true;
+            autoActivate = true;
+
+            settings = {
+              handle_leading_whitespace = true;
+
+              buffers = {
+                set_filetype = true;
+                write_to_disk = false;
+                # Ignore lines with Nix escape syntax ''${ which confuses shellcheck
+                # WARN: Does not work due to treesitter string fragmentation
+                # ignore_pattern = {
+                #   bash = "''%\${";
+                # };
+              };
+
+              lsp = {
+                diagnostic_update_events = [
+                  "BufWritePost"
+                  "InsertLeave"
+                ];
+              };
+            };
+          };
+
+          # Format on save
+          conform-nvim = {
+            enable = true;
+            settings = {
+              format_on_save = {
+                timeout_ms = 500;
+                lsp_format = "fallback";
+              };
+              formatters_by_ft = {
+                python = [ "ruff_format" ];
+                bash = [ "shfmt" ];
+                sh = [ "shfmt" ];
+                nix = [ "nixfmt" ];
+                lua = [ "stylua" ];
+                toml = [ "taplo" ];
+                # Biome: JS/TS/JSON/CSS (faster than prettier)
+                javascript = [ "biome" ];
+                typescript = [ "biome" ];
+                javascriptreact = [ "biome" ];
+                typescriptreact = [ "biome" ];
+                json = [ "biome" ];
+                jsonc = [ "biome" ];
+                css = [ "biome" ];
+                # Prettier: languages biome doesn't support
+                yaml = [ "prettier" ];
+                markdown = [ "prettier" ];
+                html = [ "prettier" ];
+                # Rust uses rustfmt via rust-analyzer (lsp_format fallback)
+                # Go uses gofmt via gopls (lsp_format fallback)
+              };
+            };
+          };
+
           # Lazy loading
           lz-n.enable = true;
 
@@ -284,6 +578,14 @@
           # Buffer line
           bufferline = {
             enable = true;
+            settings.options.offsets = [
+              {
+                filetype = "NvimTree";
+                text = "File Explorer";
+                highlight = "Directory";
+                separator = true;
+              }
+            ];
           };
 
           # Web devicons (required by nvim-tree, telescope, bufferline, lualine)
@@ -306,6 +608,20 @@
             key = "<leader>h";
             action = "<cmd>nohlsearch<CR>";
             options.desc = "Clear search highlight";
+          }
+
+          # Show keymaps
+          {
+            mode = "n";
+            key = "<leader>k";
+            action = "<cmd>Telescope keymaps<CR>";
+            options.desc = "Search keymaps";
+          }
+          {
+            mode = "n";
+            key = "<leader>K";
+            action = "<cmd>WhichKey<CR>";
+            options.desc = "WhichKey menu";
           }
 
           # Buffer navigation
@@ -431,6 +747,15 @@
             options.desc = "Move line up";
           }
         ];
+
+      };
+
+      # Stylix nixvim target - keep main background opaque for consistency
+      # Transparent elements inherit from Normal, so they show the correct color
+      stylix.targets.nixvim.transparentBackground = {
+        main = true;
+        signColumn = true; # Inherit from Normal
+        numberLine = true; # Inherit from Normal (but not CursorLineNr)
       };
     };
 }
