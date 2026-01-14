@@ -112,19 +112,37 @@
 
         dependencies.glow.enable = true;
 
-        # Suppress otter diagnostics for embedded languages in .nix files only
-        # Other filetypes (markdown, etc.) still get diagnostics
+        # Otter configuration:
+        # 1. Deferred activation - prevents blocking UI while otter creates buffers/attaches LSPs
+        # 2. Diagnostic filter - suppresses otter diagnostics for .nix files (''${ causes false positives)
         extraConfigLua = ''
-          vim.api.nvim_create_autocmd("VimEnter", {
-            once = true,
-            callback = function()
-              local orig_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
-              vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
-                if result and result.uri and result.uri:match("%.nix%.otter%.") then
-                  return
+          -- Filter otter diagnostics for nix files only
+          -- Intercepts vim.diagnostic.set() which is how otter forwards diagnostics
+          local orig_diagnostic_set = vim.diagnostic.set
+          vim.diagnostic.set = function(namespace, bufnr, diagnostics, opts)
+            local ns_info = vim.diagnostic.get_namespace(namespace)
+            local ns_name = ns_info and ns_info.name or ""
+            local buf_name = vim.api.nvim_buf_get_name(bufnr)
+
+            if ns_name:match("^otter%-lang%-") and buf_name:match("%.nix$") then
+              return
+            end
+
+            return orig_diagnostic_set(namespace, bufnr, diagnostics, opts)
+          end
+
+          -- Deferred otter activation to prevent blocking UI on file open
+          -- Highlighting loads immediately, LSP features follow after delay
+          vim.api.nvim_create_autocmd("FileType", {
+            pattern = { "nix", "markdown", "quarto", "rmd" },
+            callback = function(args)
+              vim.defer_fn(function()
+                if not vim.api.nvim_buf_is_valid(args.buf) then return end
+                local ok, otter = pcall(require, "otter")
+                if ok then
+                  otter.activate()
                 end
-                return orig_handler(err, result, ctx, config)
-              end
+              end, 150)
             end,
           })
         '';
@@ -506,11 +524,12 @@
           };
 
           # Otter - LSP features for embedded languages (e.g., bash in writeShellApplication)
-          # Works with hmts.nvim for enhanced treesitter injection detection
-          # Diagnostics filtered via extraConfigLua for .nix files only (''${ causes false positives)
+          # Works with hmts.nvim: hmts detects languages via injection queries, otter provides LSP
+          # Activation deferred in extraConfigLua to prevent blocking UI on file open
+          # Diagnostics filtered in extraConfigLua to suppress shellcheck ''${ false positives for nix
           otter = {
             enable = true;
-            autoActivate = true;
+            autoActivate = false; # Manual deferred activation in extraConfigLua
 
             settings = {
               handle_leading_whitespace = true;
@@ -518,11 +537,6 @@
               buffers = {
                 set_filetype = true;
                 write_to_disk = false;
-                # Ignore lines with Nix escape syntax ''${ which confuses shellcheck
-                # WARN: Does not work due to treesitter string fragmentation
-                # ignore_pattern = {
-                #   bash = "''%\${";
-                # };
               };
 
               lsp = {
