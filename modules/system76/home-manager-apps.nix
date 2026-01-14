@@ -48,17 +48,13 @@ let
     flakeHmApps.${name}
       or (throw "Home Manager app module '${name}' not found in flake.homeManagerModules.apps");
 
-  enableModuleFor =
-    name: if name == "claude-code" then { programs.claude-code.enable = lib.mkDefault true; } else null;
-
   extraAppModules = map getAppModule extraAppNames;
-  extraEnableModules = lib.filter (m: m != null) (map enableModuleFor extraAppNames);
 in
 {
   configurations.nixos.system76.module = _: {
     config = {
       home-manager.extraAppImports = lib.mkAfter extraAppNames;
-      home-manager.sharedModules = lib.mkAfter (extraAppModules ++ extraEnableModules);
+      home-manager.sharedModules = lib.mkAfter extraAppModules;
     };
   };
 }
