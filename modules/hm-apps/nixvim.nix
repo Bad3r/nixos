@@ -764,12 +764,5 @@
 
       };
 
-      # Stylix nixvim target - keep main background opaque for consistency
-      # Transparent elements inherit from Normal, so they show the correct color
-      stylix.targets.nixvim.transparentBackground = {
-        main = true;
-        signColumn = true; # Inherit from Normal
-        numberLine = true; # Inherit from Normal (but not CursorLineNr)
-      };
     };
 }
