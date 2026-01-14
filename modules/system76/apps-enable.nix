@@ -210,6 +210,7 @@
       raindrop.extended.enable = lib.mkOverride 1100 true;
       rar.extended.enable = lib.mkOverride 1100 true;
       rclone.extended.enable = lib.mkOverride 1100 true;
+      rg-fzf.extended.enable = lib.mkOverride 1100 true;
       rip2.extended.enable = lib.mkOverride 1100 true;
       rizin.extended.enable = lib.mkOverride 1100 false;
       rofi.extended.enable = lib.mkOverride 1100 true;
