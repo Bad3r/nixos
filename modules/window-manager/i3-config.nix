@@ -657,6 +657,7 @@
 
               floating.criteria = [
                 { class = "(?i)(?:qt5ct|pinentry)"; }
+                { class = "claude-wpa"; }
                 { title = "(?i)(?:copying|deleting|moving)"; }
                 { window_role = "(?i)(?:pop-up|setup)"; }
               ];
@@ -673,6 +674,12 @@
                     class = "(?i)(?:qt5ct|pinentry)";
                   };
                   command = "floating enable, focus";
+                }
+                {
+                  criteria = {
+                    class = "claude-wpa";
+                  };
+                  command = "floating enable, resize set 1270 695, move position center";
                 }
                 {
                   criteria = {
