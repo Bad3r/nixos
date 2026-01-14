@@ -24,7 +24,7 @@
                     pkgs.coreutils
                     pkgs.util-linux
                   ];
-                  text = ''
+                  text = /* bash */ ''
                     set -euo pipefail
 
                     cache_root="''${TREEFMT_CACHE_ROOT:-$PWD/.git/treefmt-cache}"
@@ -102,7 +102,7 @@
                     pkgs.statix
                     pkgs.coreutils
                   ];
-                  text = ''
+                  text = /* bash */ ''
                     set -euo pipefail
                     status=0
                     if [ "$#" -eq 0 ]; then
@@ -212,7 +212,7 @@
                     pkgs.gnugrep
                     pkgs.gawk
                   ];
-                  text = ''
+                  text = /* bash */ ''
                     set -euo pipefail
                     root=$(git rev-parse --show-toplevel)
                     cd "$root"
@@ -303,7 +303,7 @@
                     pkgs.gawk
                     pkgs.findutils
                   ];
-                  text = ''
+                  text = /* bash */ ''
                     set -euo pipefail
 
                     root=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")

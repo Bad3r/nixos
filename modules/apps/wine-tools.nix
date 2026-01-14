@@ -169,7 +169,7 @@ let
           pkgs.coreutils
           pkgs.winetricks
         ];
-        text = ''
+        text = /* bash */ ''
           set -euo pipefail
 
           if [ "$#" -lt 1 ]; then
@@ -216,7 +216,7 @@ let
           pkgs.coreutils
           pkgs.findutils
         ];
-        text = ''
+        text = /* bash */ ''
           set -euo pipefail
 
           if [ "$#" -lt 1 ]; then

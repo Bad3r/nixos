@@ -15,7 +15,7 @@
           let
             ghActionsRun = pkgs.writeShellApplication {
               name = "gh-actions-run";
-              text = ''
+              text = /* bash */ ''
                 set -euo pipefail
                 DRY=""
                 JOB=""

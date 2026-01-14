@@ -68,7 +68,7 @@
         verboseWriter = pkgs.writeShellApplication {
           name = "write-files";
           runtimeInputs = [ config.files.writer.drv ];
-          text = ''
+          text = /* bash */ ''
             echo "📝 Writing managed files..."
             echo ""
 

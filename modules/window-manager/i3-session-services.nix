@@ -28,7 +28,7 @@
               pkgs.gawk
               pkgs.xorg.xbacklight
             ];
-            text = ''
+            text = /* bash */ ''
               set -eu
 
               target=80
@@ -80,7 +80,7 @@
               pkgs.i3
               pkgs.autotiling-rs
             ];
-            text = ''
+            text = /* bash */ ''
               set -euo pipefail
 
               socket=""

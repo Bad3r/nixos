@@ -15,7 +15,7 @@ writeShellApplication {
     gawk
   ];
 
-  text = ''
+  text = /* bash */ ''
     echo "=== DNS Leak Test ==="
     echo ""
 

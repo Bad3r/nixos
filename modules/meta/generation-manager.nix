@@ -13,7 +13,7 @@
           gnugrep
           gawk
         ];
-        text = ''
+        text = /* bash */ ''
                   set -euo pipefail
 
                   # Dry run support
