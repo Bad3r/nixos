@@ -11,7 +11,7 @@
       commandDefaults = {
         launcher = "${lib.getExe pkgs.rofi} -modi drun -show drun";
         terminal = lib.getExe pkgs.kitty;
-        browser = lib.getExe pkgs.firefox;
+        browser = lib.getExe config.programs.firefox.package;
         emoji = "${lib.getExe pkgs.rofimoji} --selector rofi";
         playerctl = lib.getExe pkgs.playerctl;
         volume = lib.getExe pkgs.pamixer;
@@ -158,13 +158,41 @@
       '';
       rofiCommand = commands.launcher;
       kittyCommand = commands.terminal;
-      firefoxCommand = commands.browser;
+      browserCommand = commands.browser;
+      inherit (config.gui.i3) browserClass;
       rofimojiCommand = commands.emoji;
       playerctlCommand = commands.playerctl;
       pamixerCommand = commands.volume;
       xbacklightCommand = commands.brightness;
       screenshotCommand = commands.screenshot;
       ocrCommand = commands.ocr;
+
+      # Generic focus-or-launch script: focuses existing window or launches new instance
+      focusOrLaunch = pkgs.writeShellApplication {
+        name = "i3-focus-or-launch";
+        runtimeInputs = [
+          pkgs.i3
+          pkgs.jq
+        ];
+        text = ''
+          if [ "$#" -ne 2 ]; then
+            echo "Usage: i3-focus-or-launch <class-pattern> <launch-command>" >&2
+            exit 1
+          fi
+
+          CLASS_PATTERN="$1"
+          LAUNCH_CMD="$2"
+
+          # Check if any window with the class exists in i3 tree
+          if i3-msg -t get_tree | jq -e --arg pattern "$CLASS_PATTERN" \
+            '[.. | objects | select(.window_properties?.class? // "" | test($pattern; "i"))] | length > 0' \
+            > /dev/null 2>&1; then
+            i3-msg "[class=\"(?i)$CLASS_PATTERN\"] focus" > /dev/null
+          else
+            exec sh -c "$LAUNCH_CMD"
+          fi
+        '';
+      };
       logseqToggleCommand =
         commands.logseqToggle or "${config.xdg.configHome}/i3/scripts/toggle_logseq.sh";
       powerProfileCommand =
@@ -181,7 +209,8 @@
               // {
                 "Control+Shift+q" = "kill";
                 "${mod}+Return" = "exec ${kittyCommand}";
-                "${mod}+w" = "exec ${firefoxCommand}";
+                "${mod}+w" =
+                  "exec --no-startup-id ${lib.getExe focusOrLaunch} '${browserClass}' '${browserCommand}'";
                 "${mod}+d" = "exec ${rofiCommand}";
                 "${mod}+b" = "exec ${rofimojiCommand}";
                 "${mod}+Shift+c" = "reload";
