@@ -476,8 +476,7 @@
       baseExtraConfig = lib.concatStringsSep "\n" [
         "default_orientation horizontal"
         "popup_during_fullscreen smart"
-        "new_window normal"
-        "new_float normal"
+        "title_align center"
         ""
       ];
     in
@@ -690,9 +689,9 @@
                 }
                 {
                   criteria = {
-                    class = "^.*";
+                    all = true;
                   };
-                  command = "border pixel 5";
+                  command = ''border pixel 5, title_format "<b>%title</b>", title_window_icon padding 3px'';
                 }
               ];
             };
