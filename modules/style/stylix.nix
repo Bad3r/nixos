@@ -118,7 +118,8 @@ in
             # Firefox profile theming
             targets.firefox = {
               profileNames = [ "primary" ];
-              firefoxGnomeTheme.enable = true;
+              colorTheme.enable = true; # uses Firefox Color extension from NUR
+              firefoxGnomeTheme.enable = false; # disabled for testing
             };
           };
 
