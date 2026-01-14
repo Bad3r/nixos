@@ -7,272 +7,697 @@
       ...
     }:
     let
-      i3Enabled = lib.attrByPath [ "xsession" "windowManager" "i3" "enable" ] false config;
-      commandDefaults = {
+      windowUtilsLib = pkgs.writeText "window_utils" ''
+        #!/bin/sh
+
+        # window_utils.sh: Calculate window position and size for i3 scratchpads
+
+        SCREEN_SCALE=1.0
+        TOPBAR_HEIGHT=29
+        TOP_GAP=6
+        BOTTOM_GAP=6
+        OUTER_GAP=4
+
+        get_primary_monitor_info() {
+          xrandr --query | awk '/ connected primary/ {print $4}'
+        }
+
+        calculate() {
+          echo "$1" | bc
+        }
+
+        calculate_int() {
+          echo "$1" | bc | awk '{printf "%.0f\n", $1}'
+        }
+
+        calculate_window_geometry() {
+          primary_monitor=$(get_primary_monitor_info)
+
+          if [ -z "$primary_monitor" ]; then
+            echo "Error: No primary monitor detected!" >&2
+            exit 1
+          fi
+
+          screen_width=$(echo "$primary_monitor" | cut -d'x' -f1)
+          screen_height=$(echo "$primary_monitor" | cut -d'x' -f2 | cut -d'+' -f1)
+          screen_offset_x=$(echo "$primary_monitor" | awk -F '+' '{print $2}')
+          screen_offset_y=$(echo "$primary_monitor" | awk -F '+' '{print $3}')
+
+          if [ "$screen_width" -eq 3440 ] && [ "$screen_height" -eq 1440 ] && [ "$screen_offset_x" -eq 1440 ] && [ "$screen_offset_y" -eq 651 ]; then
+            export TARGET_WIDTH=1134
+            export TARGET_HEIGHT=1389
+            export TARGET_X=2593
+            export TARGET_Y=691
+            return
+          fi
+
+          aspect_ratio=$(calculate "$screen_width / $screen_height")
+
+          scaled_width=$(calculate_int "$screen_width * $SCREEN_SCALE")
+          scaled_height=$(calculate_int "$screen_height * $SCREEN_SCALE")
+
+          if [ "$(echo "$aspect_ratio >= 2.0" | bc)" -eq 1 ]; then
+            target_width=$(calculate_int "$scaled_width / 3 - $OUTER_GAP")
+          else
+            target_width=$(calculate_int "$scaled_width / 2 - $OUTER_GAP")
+          fi
+
+          target_height=$(calculate_int "$scaled_height - $TOPBAR_HEIGHT - $TOP_GAP - $BOTTOM_GAP")
+          target_x=$(calculate_int "$screen_offset_x + $scaled_width - $target_width")
+          target_y=$(calculate_int "$screen_offset_y + $TOPBAR_HEIGHT + $TOP_GAP")
+
+          export TARGET_WIDTH="$target_width"
+          export TARGET_HEIGHT="$target_height"
+          export TARGET_X="$target_x"
+          export TARGET_Y="$target_y"
+        }
+      '';
+      i3ScratchpadShowOrCreate = pkgs.writeShellApplication {
+        name = "i3-scratchpad-show-or-create";
+        runtimeInputs = [
+          pkgs.i3
+          pkgs.coreutils
+          pkgs.jq
+        ];
+        text = /* bash */ ''
+          set -euo pipefail
+
+          if [ "$#" -ne 2 ]; then
+            echo "Usage: $0 <i3_mark> <launch_cmd>" >&2
+            echo "Example: $0 'scratch-emacs' 'emacsclient -c -a emacs'" >&2
+            exit 1
+          fi
+
+          I3_MARK="$1"
+          LAUNCH_CMD="$2"
+
+          scratchpad_exists() {
+            i3-msg -t get_marks \
+              | jq -e --arg mark "''${I3_MARK}" 'index($mark) != null' \
+              >/dev/null
+          }
+
+          scratchpad_show() {
+            if scratchpad_exists; then
+              i3-msg "[con_mark=\"''${I3_MARK}\"] scratchpad show" >/dev/null
+              return 0
+            fi
+            return 1
+          }
+
+          if scratchpad_show; then
+            exit 0
+          fi
+
+          eval "''${LAUNCH_CMD}" &
+
+          set +e
+          WINDOW_ID="$(
+            timeout 30 i3-msg -t subscribe '[ "window" ]' \
+              | jq --unbuffered -r 'select(.change == "new") | .container.id' \
+              | head -n1
+          )"
+          status=$?
+          set -e
+
+          if [ "''${status}" -ne 0 ] || [ -z "''${WINDOW_ID}" ]; then
+            echo "Failed to detect new window for mark ''${I3_MARK}" >&2
+            exit 1
+          fi
+
+          i3-msg "[con_id=''${WINDOW_ID}] mark \"''${I3_MARK}\", move scratchpad" >/dev/null
+          scratchpad_show >/dev/null
+        '';
+      };
+
+      toggleLogseqScript = pkgs.writeShellApplication {
+        name = "toggle-logseq";
+        runtimeInputs = [
+          pkgs.bc
+          pkgs.xorg.xrandr
+          pkgs.procps
+          pkgs.libnotify
+          pkgs.i3
+          pkgs.coreutils
+          i3ScratchpadShowOrCreate
+        ];
+        text = /* bash */ ''
+          set -euo pipefail
+
+          : "''${USR_LIB_DIR:="''${HOME}/.local/lib"}"
+          window_utils_lib="${windowUtilsLib}"
+
+          if [ -f "''${USR_LIB_DIR}/window_utils" ]; then
+            window_utils_lib="''${USR_LIB_DIR}/window_utils"
+          fi
+
+          # shellcheck source=/dev/null
+          . "$window_utils_lib"
+
+          calculate_window_geometry
+
+          if ! pgrep -f logseq >/dev/null; then
+            notify-send "Logseq" "Starting Logseq..."
+            i3-scratchpad-show-or-create "Logseq" "logseq"
+            sleep 5
+          fi
+
+          # shellcheck disable=SC2140
+          i3-msg "[class=\"Logseq\"] scratchpad show, move position ''${TARGET_X}px ''${TARGET_Y}px, resize set ''${TARGET_WIDTH}px ''${TARGET_HEIGHT}px" >/dev/null
+        '';
+      };
+
+      # Stylix colors (defined early for use in scripts)
+      stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
+
+      # Power profile switcher using rofi and system76-power
+      powerProfileScript = pkgs.writeShellApplication {
+        name = "power-profile-rofi";
+        runtimeInputs = [
+          pkgs.rofi
+          pkgs.system76-power
+          pkgs.libnotify
+          pkgs.gnugrep
+          pkgs.gawk
+        ];
+        text = /* bash */ ''
+          set -euo pipefail
+
+          # Get current profile
+          current=$(system76-power profile 2>/dev/null | grep -oP '(?<=Power Profile: ).*' || echo "unknown")
+
+          # Define profiles with icons
+          battery="  Battery (power saving)"
+          balanced="  Balanced (default)"
+          performance="  Performance (max power)"
+
+          # Mark current profile
+          mark_current() {
+            local profile="$1"
+            local label="$2"
+            if [ "$current" = "$profile" ]; then
+              echo "$label ✓"
+            else
+              echo "$label"
+            fi
+          }
+
+          # Build menu
+          menu=$(printf "%s\n%s\n%s" \
+            "$(mark_current "Battery" "$battery")" \
+            "$(mark_current "Balanced" "$balanced")" \
+            "$(mark_current "Performance" "$performance")")
+
+          # Show rofi menu (Stylix-themed)
+          chosen=$(echo "$menu" | rofi -dmenu -i -p "Power Profile" -theme-str '
+            window { width: 320px; }
+            listview { lines: 3; }
+            element selected.normal { background-color: ${stylixColors.base02}; text-color: ${stylixColors.base05}; }
+            element normal.active { text-color: ${stylixColors.base0B}; }
+            element selected.active { background-color: ${stylixColors.base02}; text-color: ${stylixColors.base0B}; }
+          ' || true)
+
+          # Exit if nothing selected
+          [ -z "$chosen" ] && exit 0
+
+          # Extract profile name and apply
+          case "$chosen" in
+            *Battery*)
+              system76-power profile battery
+              notify-send -i battery "Power Profile" "Switched to Battery mode"
+              ;;
+            *Balanced*)
+              system76-power profile balanced
+              notify-send -i battery "Power Profile" "Switched to Balanced mode"
+              ;;
+            *Performance*)
+              system76-power profile performance
+              notify-send -i battery "Power Profile" "Switched to Performance mode"
+              ;;
+          esac
+        '';
+      };
+
+      commandsDefault = {
         launcher = "${lib.getExe pkgs.rofi} -modi drun -show drun";
         terminal = lib.getExe pkgs.kitty;
-        browser = lib.getExe config.programs.firefox.package;
+        browser = lib.getExe pkgs.firefox;
         emoji = "${lib.getExe pkgs.rofimoji} --selector rofi";
         playerctl = lib.getExe pkgs.playerctl;
         volume = lib.getExe pkgs.pamixer;
         brightness = lib.getExe pkgs.xorg.xbacklight;
-        ocr = "${lib.getExe pkgs.normcap}";
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
+        logseqToggle = lib.getExe toggleLogseqScript;
+        powerProfile = lib.getExe powerProfileScript;
       };
-      commandOverrides = lib.attrByPath [ "gui" "i3" "commands" ] { } config;
-      commands = commandDefaults // commandOverrides;
-      mod = lib.attrByPath [ "xsession" "windowManager" "i3" "config" "modifier" ] "Mod4" config;
-      workspaceNumbers = map toString (lib.range 1 10);
-      toWorkspaceKey = ws: if ws == "10" then "0" else ws;
-      workspaceBindings = lib.listToAttrs (
-        map (ws: lib.nameValuePair "${mod}+${toWorkspaceKey ws}" "workspace number ${ws}") workspaceNumbers
-      );
-      moveContainerBindings = lib.listToAttrs (
-        map (
-          ws: lib.nameValuePair "${mod}+Shift+${toWorkspaceKey ws}" "move container to workspace number ${ws}"
-        ) workspaceNumbers
-      );
-      resizeModeBindings = {
-        h = "resize shrink width 10 px or 10 ppt";
-        j = "resize grow height 10 px or 10 ppt";
-        k = "resize shrink height 10 px or 10 ppt";
-        l = "resize grow width 10 px or 10 ppt";
-        Left = "resize shrink width 10 px or 10 ppt";
-        Down = "resize grow height 10 px or 10 ppt";
-        Up = "resize shrink height 10 px or 10 ppt";
-        Right = "resize grow width 10 px or 10 ppt";
-        Return = "mode default";
-        Escape = "mode default";
-        "${mod}+r" = "mode default";
+      # Use the already-defined stylixColors for consistency
+      stylixColorsStrictWithHash = stylixColors;
+      toLockColor =
+        colorHex:
+        let
+          trimmed = lib.removePrefix "#" colorHex;
+          normalized = if builtins.stringLength trimmed == 8 then trimmed else trimmed + "FF";
+        in
+        lib.strings.toUpper normalized;
+      # Build lock palette directly from Stylix colors (no fallbacks)
+      lockPalette = {
+        background = toLockColor stylixColorsStrictWithHash.base00;
+        ring = toLockColor stylixColorsStrictWithHash.base04;
+        ringWrong = toLockColor stylixColorsStrictWithHash.base08;
+        ringVerify = toLockColor stylixColorsStrictWithHash.base0B;
+        line = toLockColor stylixColorsStrictWithHash.base03;
+        text = toLockColor stylixColorsStrictWithHash.base05;
       };
-      gapsModeName = "Gaps: (o) outer, (i) inner, (h) horizontal, (v) vertical, (t) top, (r) right, (b) bottom, (l) left";
-      gapsModeOuter = "Outer Gaps: +|-|0 (local), Shift + +|-|0 (global)";
-      gapsModeInner = "Inner Gaps: +|-|0 (local), Shift + +|-|0 (global)";
-      gapsModeHoriz = "Horizontal Gaps: +|-|0 (local), Shift + +|-|0 (global)";
-      gapsModeVert = "Vertical Gaps: +|-|0 (local), Shift + +|-|0 (global)";
-      gapsModeTop = "Top Gaps: +|-|0 (local), Shift + +|-|0 (global)";
-      gapsModeRight = "Right Gaps: +|-|0 (local), Shift + +|-|0 (global)";
-      gapsModeBottom = "Bottom Gaps: +|-|0 (local), Shift + +|-|0 (global)";
-      gapsModeLeft = "Left Gaps: +|-|0 (local), Shift + +|-|0 (global)";
-      gapsModesExtraConfig = ''
-        mode "${gapsModeName}" {
-          bindsym o mode "${gapsModeOuter}"
-          bindsym i mode "${gapsModeInner}"
-          bindsym h mode "${gapsModeHoriz}"
-          bindsym v mode "${gapsModeVert}"
-          bindsym t mode "${gapsModeTop}"
-          bindsym r mode "${gapsModeRight}"
-          bindsym b mode "${gapsModeBottom}"
-          bindsym l mode "${gapsModeLeft}"
-          bindsym Return mode "${gapsModeName}"
-          bindsym Escape mode "default"
-        }
-
-        mode "${gapsModeOuter}" {
-          bindsym plus gaps outer current plus 5
-          bindsym minus gaps outer current minus 5
-          bindsym 0 gaps outer current set 0
-          bindsym Shift+plus gaps outer all plus 5
-          bindsym Shift+minus gaps outer all minus 5
-          bindsym Shift+0 gaps outer all set 0
-          bindsym Return mode "${gapsModeName}"
-          bindsym Escape mode "default"
-        }
-
-        mode "${gapsModeInner}" {
-          bindsym plus gaps inner current plus 5
-          bindsym minus gaps inner current minus 5
-          bindsym 0 gaps inner current set 0
-          bindsym Shift+plus gaps inner all plus 5
-          bindsym Shift+minus gaps inner all minus 5
-          bindsym Shift+0 gaps inner all set 0
-          bindsym Return mode "${gapsModeName}"
-          bindsym Escape mode "default"
-        }
-
-        mode "${gapsModeHoriz}" {
-          bindsym plus gaps horizontal current plus 5
-          bindsym minus gaps horizontal current minus 5
-          bindsym 0 gaps horizontal current set 0
-          bindsym Shift+plus gaps horizontal all plus 5
-          bindsym Shift+minus gaps horizontal all minus 5
-          bindsym Shift+0 gaps horizontal all set 0
-          bindsym Return mode "${gapsModeName}"
-          bindsym Escape mode "default"
-        }
-
-        mode "${gapsModeVert}" {
-          bindsym plus gaps vertical current plus 5
-          bindsym minus gaps vertical current minus 5
-          bindsym 0 gaps vertical current set 0
-          bindsym Shift+plus gaps vertical all plus 5
-          bindsym Shift+minus gaps vertical all minus 5
-          bindsym Shift+0 gaps vertical all set 0
-          bindsym Return mode "${gapsModeName}"
-          bindsym Escape mode "default"
-        }
-
-        mode "${gapsModeTop}" {
-          bindsym plus gaps top current plus 5
-          bindsym minus gaps top current minus 5
-          bindsym 0 gaps top current set 0
-          bindsym Shift+plus gaps top all plus 5
-          bindsym Shift+minus gaps top all minus 5
-          bindsym Shift+0 gaps top all set 0
-          bindsym Return mode "${gapsModeName}"
-          bindsym Escape mode "default"
-        }
-
-        mode "${gapsModeRight}" {
-          bindsym plus gaps right current plus 5
-          bindsym minus gaps right current minus 5
-          bindsym 0 gaps right current set 0
-          bindsym Shift+plus gaps right all plus 5
-          bindsym Shift+minus gaps right all minus 5
-          bindsym Shift+0 gaps right all set 0
-          bindsym Return mode "${gapsModeName}"
-          bindsym Escape mode "default"
-        }
-
-        mode "${gapsModeBottom}" {
-          bindsym plus gaps bottom current plus 5
-          bindsym minus gaps bottom current minus 5
-          bindsym 0 gaps bottom current set 0
-          bindsym Shift+plus gaps bottom all plus 5
-          bindsym Shift+minus gaps bottom all minus 5
-          bindsym Shift+0 gaps bottom all set 0
-          bindsym Return mode "${gapsModeName}"
-          bindsym Escape mode "default"
-        }
-
-        mode "${gapsModeLeft}" {
-          bindsym plus gaps left current plus 5
-          bindsym minus gaps left current minus 5
-          bindsym 0 gaps left current set 0
-          bindsym Shift+plus gaps left all plus 5
-          bindsym Shift+minus gaps left all minus 5
-          bindsym Shift+0 gaps left all set 0
-          bindsym Return mode "${gapsModeName}"
-          bindsym Escape mode "default"
-        }
-      '';
-      rofiCommand = commands.launcher;
-      kittyCommand = commands.terminal;
-      browserCommand = commands.browser;
-      inherit (config.gui.i3) browserClass;
-      rofimojiCommand = commands.emoji;
-      playerctlCommand = commands.playerctl;
-      pamixerCommand = commands.volume;
-      xbacklightCommand = commands.brightness;
-      screenshotCommand = commands.screenshot;
-      ocrCommand = commands.ocr;
-
-      # Generic focus-or-launch script: focuses existing window or launches new instance
-      focusOrLaunch = pkgs.writeShellApplication {
-        name = "i3-focus-or-launch";
+      lockScript = pkgs.writeShellApplication {
+        name = "i3lock-stylix";
         runtimeInputs = [
-          pkgs.i3
-          pkgs.jq
+          pkgs.i3lock-color
+          pkgs.procps
+          pkgs.xorg.xbacklight
         ];
-        text = ''
-          if [ "$#" -ne 2 ]; then
-            echo "Usage: i3-focus-or-launch <class-pattern> <launch-command>" >&2
-            exit 1
+        text = /* bash */ ''
+          set -eu
+
+          cache_dir="''${XDG_CACHE_HOME:-$HOME/.cache}/i3lock"
+          brightness_file="$cache_dir/brightness"
+
+          restore_brightness() {
+            if [ -f "$brightness_file" ]; then
+              target=$(cat "$brightness_file")
+              xbacklight -set "$target" >/dev/null 2>&1 || true
+              rm -f "$brightness_file"
+            fi
+          }
+
+          if pgrep -x i3lock-color > /dev/null; then
+            exit 0
           fi
 
-          CLASS_PATTERN="$1"
-          LAUNCH_CMD="$2"
+          mkdir -p "$cache_dir"
+          restore_brightness
 
-          # Check if any window with the class exists in i3 tree
-          if i3-msg -t get_tree | jq -e --arg pattern "$CLASS_PATTERN" \
-            '[.. | objects | select(.window_properties?.class? // "" | test($pattern; "i"))] | length > 0' \
-            > /dev/null 2>&1; then
-            i3-msg "[class=\"(?i)$CLASS_PATTERN\"] focus" > /dev/null
-          else
-            exec sh -c "$LAUNCH_CMD"
-          fi
+          exec i3lock-color \
+            --color=${lockPalette.background} \
+            --inside-color=${lockPalette.background} \
+            --ring-color=${lockPalette.ring} \
+            --insidewrong-color=${lockPalette.background} \
+            --ringwrong-color=${lockPalette.ringWrong} \
+            --insidever-color=${lockPalette.background} \
+            --ringver-color=${lockPalette.ringVerify} \
+            --line-color=${lockPalette.line} \
+            --keyhl-color=${lockPalette.ringVerify} \
+            --bshl-color=${lockPalette.ringWrong} \
+            --time-color=${lockPalette.text} \
+            --date-color=${lockPalette.text} \
+            --layout-color=${lockPalette.text} \
+            --time-str="%H:%M:%S" \
+            --date-str="%A, %d %B %Y" \
+            --radius=120 \
+            --ring-width=10 \
+            --clock "$@"
         '';
       };
-      logseqToggleCommand =
-        commands.logseqToggle or "${config.xdg.configHome}/i3/scripts/toggle_logseq.sh";
-      powerProfileCommand =
-        commands.powerProfile or "${config.xdg.configHome}/i3/scripts/power-profile-rofi.sh";
-      lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] (lib.getExe pkgs.i3lock-color) config;
+      lockCommandDefault = lib.getExe lockScript;
+      lockCommandValue = lib.attrByPath [ "gui" "i3" "lockCommand" ] lockCommandDefault config;
+      i3Commands = lib.attrByPath [ "gui" "i3" "commands" ] commandsDefault config;
+      netInterface = lib.attrByPath [ "gui" "i3" "netInterface" ] null config;
+      netBlockBase = {
+        block = "net";
+        interval = 2;
+        format = " $icon  $speed_down.eng(prefix:K)/s  $speed_up.eng(prefix:K)/s ";
+        format_alt = " $icon {$ssid|$device} $ip ";
+      };
+      netBlock = netBlockBase // lib.optionalAttrs (netInterface != null) { device = netInterface; };
+      i3statusBlocks = [
+        netBlock
+        {
+          block = "disk_space";
+          path = "/";
+          info_type = "available";
+          alert_unit = "GB";
+          interval = 20;
+          warning = 15.0;
+          alert = 10.0;
+          format = " $icon $available.eng(w:2) ";
+          format_alt = " $icon $used.eng(w:2) / $total.eng(w:2) ";
+        }
+        {
+          block = "memory";
+          format = " $icon $mem_total_used_percents.eng(w:2) ";
+          format_alt = " $icon_swap $swap_used_percents.eng(w:2) ";
+        }
+        {
+          block = "cpu";
+          interval = 1;
+          format = " $icon $utilization ";
+        }
+        {
+          block = "load";
+          interval = 1;
+          format = " $icon $1m ";
+        }
+        {
+          block = "temperature";
+          interval = 10;
+          format = " $icon $max ";
+        }
+        {
+          block = "sound";
+          format = " $icon {$volume|muted} ";
+          show_volume_when_muted = false;
+        }
+        {
+          block = "battery";
+          interval = 30;
+          format = " $icon $percentage ";
+        }
+        {
+          block = "time";
+          interval = 60;
+          format = " $icon $timestamp.datetime(f:'%a %d/%m %R') ";
+        }
+      ];
+      i3statusBarConfig =
+        let
+          stylixThemeOverrides = lib.attrByPath [ "lib" "stylix" "i3status-rust" "bar" ] { } config;
+        in
+        {
+          blocks = i3statusBlocks;
+          settings = {
+            icons = {
+              icons = "awesome6";
+              overrides = {
+                cpu = "";
+                update = "";
+                temp = [
+                  ""
+                  ""
+                  ""
+                ];
+                volume = [
+                  ""
+                  ""
+                  ""
+                ];
+                volume_muted = "";
+                bat = [
+                  ""
+                  ""
+                  ""
+                  ""
+                  ""
+                ];
+                bat_charging = "";
+                net_wireless = [
+                  "▂"
+                  "▃"
+                  "▅"
+                  "▇"
+                  ""
+                ];
+                net_wired = "";
+                net_down = "";
+                net_up = "";
+                net_vpn = "";
+                net_loopback = "";
+                net_unknown = "";
+              };
+            };
+          }
+          // lib.optionalAttrs (stylixThemeOverrides != { }) {
+            theme = {
+              theme = "plain";
+              overrides = stylixThemeOverrides;
+            };
+          };
+        };
+      workspaceOutputAssign = [
+        {
+          workspace = "1";
+          output = [ "HDMI-0" ];
+        }
+        {
+          workspace = "2";
+          output = [ "HDMI-0" ];
+        }
+        {
+          workspace = "3";
+          output = [ "HDMI-0" ];
+        }
+        {
+          workspace = "4";
+          output = [ "HDMI-0" ];
+        }
+        {
+          workspace = "5";
+          output = [ "HDMI-0" ];
+        }
+        {
+          workspace = "6";
+          output = [ "HDMI-0" ];
+        }
+        {
+          workspace = "7";
+          output = [ "eDP-1-1" ];
+        }
+        {
+          workspace = "8";
+          output = [ "DP-1" ];
+        }
+        {
+          workspace = "9";
+          output = [ "DP-1" ];
+        }
+        {
+          workspace = "10";
+          output = [ "DP-1" ];
+        }
+      ];
+      baseExtraConfig = lib.concatStringsSep "\n" [
+        "default_orientation horizontal"
+        "popup_during_fullscreen smart"
+        "title_align center"
+        ""
+      ];
     in
     {
-      config = lib.mkIf i3Enabled {
-        xsession.windowManager.i3 = {
-          config = {
-            keybindings = lib.mkOptionDefault (
-              workspaceBindings
-              // moveContainerBindings
-              // {
-                "Control+Shift+q" = "kill";
-                "${mod}+Return" = "exec ${kittyCommand}";
-                "${mod}+w" =
-                  "exec --no-startup-id ${lib.getExe focusOrLaunch} '${browserClass}' '${browserCommand}'";
-                "${mod}+d" = "exec ${rofiCommand}";
-                "${mod}+b" = "exec ${rofimojiCommand}";
-                "${mod}+Shift+c" = "reload";
-                "${mod}+Shift+r" = "restart";
-                "${mod}+Shift+q" = "kill";
-                "${mod}+Shift+e" = "exec systemctl suspend";
-                "${mod}+s" = "exec ${screenshotCommand}";
-                "${mod}+Shift+o" = "exec --no-startup-id ${ocrCommand}";
-                "${mod}+e" =
-                  "exec --no-startup-id i3-scratchpad-show-or-create scratch-nvim '${kittyCommand} nvim'";
-                "${mod}+f" = "fullscreen toggle";
-                "${mod}+semicolon" = "split horizontal";
-                "${mod}+v" = "split vertical";
-                "${mod}+t" = "split toggle";
-                "${mod}+Shift+s" = "layout stacking";
-                "${mod}+Shift+t" = "layout tabbed";
-                "${mod}+Shift+x" = "layout toggle split";
-                "${mod}+space" = "floating toggle";
-                "${mod}+Shift+space" = "focus mode_toggle";
-                "${mod}+p" = "focus parent";
-                "${mod}+c" = "focus child";
-                "${mod}+Shift+z" = "move scratchpad";
-                "${mod}+z" = "scratchpad show";
-                "${mod}+Shift+b" = "border toggle";
-                "${mod}+n" = "border normal";
-                "${mod}+y" = "border pixel 3";
-                "${mod}+u" = "border none";
-                "Mod1+1" = "workspace prev";
-                "Mod1+2" = "workspace next";
-                "Mod1+3" = "exec --no-startup-id ${logseqToggleCommand}";
-                "${mod}+h" = "focus left";
-                "${mod}+j" = "focus down";
-                "${mod}+k" = "focus up";
-                "${mod}+l" = "focus right";
-                "${mod}+Shift+h" = "move left";
-                "${mod}+Shift+j" = "move down";
-                "${mod}+Shift+k" = "move up";
-                "${mod}+Shift+l" = "move right";
-                "XF86AudioPlay" = "exec ${playerctlCommand} play-pause";
-                "XF86AudioNext" = "exec ${playerctlCommand} next";
-                "XF86AudioPrev" = "exec ${playerctlCommand} previous";
-                "XF86AudioStop" = "exec ${playerctlCommand} stop";
-                "XF86AudioMute" = "exec ${pamixerCommand} -t";
-                "XF86AudioRaiseVolume" = "exec ${pamixerCommand} -i 2";
-                "XF86AudioLowerVolume" = "exec ${pamixerCommand} -d 2";
-                "XF86MonBrightnessUp" = "exec ${xbacklightCommand} -inc 10";
-                "XF86MonBrightnessDown" = "exec ${xbacklightCommand} -dec 10";
-                "${mod}+Shift+g" = "mode \"${gapsModeName}\"";
-                "${mod}+Control+l" = "exec ${lockCommand}";
-                "${mod}+Shift+p" = "exec --no-startup-id ${powerProfileCommand}";
-              }
-            );
+      options.gui.i3 = {
+        netInterface = lib.mkOption {
+          description = "Primary network interface for the i3status net block.";
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "enp4s0";
+        };
 
-            keycodebindings = {
-              "Mod1+23" = "layout toggle tabbed split";
-              "${mod}+23" = "layout toggle splitv splith";
-            };
+        lockCommand = lib.mkOption {
+          description = "Command used to lock the screen within the i3 session.";
+          type = lib.types.nullOr lib.types.str;
+          default = lockCommandDefault;
+          example = "i3lock";
+        };
 
-            modes = lib.mkOptionDefault { resize = resizeModeBindings; };
+        commands = lib.mkOption {
+          description = "Commonly used command strings that other i3 modules can reuse.";
+          type = lib.types.attrsOf lib.types.str;
+          default = commandsDefault;
+          example = {
+            launcher = "rofi -show drun";
+            terminal = "kitty";
+          };
+        };
+
+        browserClass = lib.mkOption {
+          description = "Window class of the default browser for focus-or-launch and assigns.";
+          type = lib.types.str;
+          default = "firefox";
+          example = "google-chrome";
+        };
+      };
+
+      config = {
+        home.packages = [
+          pkgs.rofimoji
+          lockScript
+          i3ScratchpadShowOrCreate
+          toggleLogseqScript
+        ];
+
+        home.file = {
+          ".local/lib/window_utils" = {
+            source = windowUtilsLib;
+          };
+        };
+
+        programs.i3status-rust = {
+          enable = true;
+          bars.default = i3statusBarConfig;
+        };
+
+        xdg.configFile = {
+          "i3status-rust/config.toml".source =
+            config.xdg.configFile."i3status-rust/config-default.toml".source;
+
+          "i3/scripts/i3lock-stylix" = {
+            executable = true;
+            text = ''
+              #!/usr/bin/env bash
+              exec ${lockCommandValue} "$@"
+            '';
           };
 
-          extraConfig = lib.mkAfter gapsModesExtraConfig;
+          "i3/scripts/blur-lock" = {
+            executable = true;
+            text = ''
+              #!/usr/bin/env bash
+              exec ${lockCommandValue} "$@"
+            '';
+          };
+
+          "i3/scripts/toggle_logseq.sh" = {
+            executable = true;
+            source = "${toggleLogseqScript}/bin/toggle-logseq";
+          };
+        };
+
+        xsession = {
+          enable = true;
+          windowManager.i3 = {
+            enable = true;
+            config = {
+              modifier = lib.mkDefault "Mod4";
+              inherit (i3Commands) terminal;
+              menu = i3Commands.launcher;
+
+              startup = lib.mkAfter [
+                {
+                  command = "${lib.getExe' pkgs.hsetroot "hsetroot"} -solid '${stylixColorsStrictWithHash.base00}'";
+                  always = true;
+                  notification = false;
+                }
+                # DPMS: Keep screens on for 1 hour (3600s) before standby/suspend/off
+                {
+                  command = "${pkgs.xorg.xset}/bin/xset dpms 3600 3600 3600";
+                  always = true;
+                  notification = false;
+                }
+                # Screen saver: Blank after 1 hour (3600s)
+                {
+                  command = "${pkgs.xorg.xset}/bin/xset s 3600 3600";
+                  always = true;
+                  notification = false;
+                }
+              ];
+
+              floating = {
+                modifier = "Mod1";
+                border = 5;
+                titlebar = false;
+              };
+
+              focus = {
+                followMouse = true;
+                newWindow = "focus";
+              };
+
+              window = {
+                border = 5;
+                hideEdgeBorders = "none";
+                titlebar = false;
+              };
+
+              # Make split-direction hint use the same color as borders
+              # (indicator equals border per state). Keep scope minimal and
+              # avoid self-referencing config to prevent recursion.
+              colors = {
+                focused.indicator = lib.mkForce stylixColorsStrictWithHash.base0D;
+                urgent.indicator = lib.mkForce stylixColorsStrictWithHash.base08;
+
+                # Grouped per-state overrides to satisfy linters and avoid repetition
+                focusedInactive = {
+                  indicator = lib.mkForce stylixColorsStrictWithHash.base00;
+                  border = lib.mkForce stylixColorsStrictWithHash.base00;
+                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                };
+                unfocused = {
+                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
+                  border = lib.mkForce stylixColorsStrictWithHash.base00;
+                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                };
+                placeholder = {
+                  indicator = lib.mkForce stylixColorsStrictWithHash.base03;
+                  border = lib.mkForce stylixColorsStrictWithHash.base00;
+                  childBorder = lib.mkForce stylixColorsStrictWithHash.base00;
+                };
+              };
+
+              workspaceAutoBackAndForth = true;
+              inherit workspaceOutputAssign;
+
+              gaps = {
+                inner = 0;
+                outer = 0;
+                top = 0;
+                bottom = 0;
+              };
+
+              bars = [
+                (
+                  {
+                    mode = "dock";
+                    hiddenState = "hide";
+                    position = "top";
+                    trayOutput = "primary";
+                    workspaceButtons = true;
+                    workspaceNumbers = true;
+                    statusCommand = lib.getExe pkgs.i3status-rust;
+                  }
+                  // config.stylix.targets.i3.exportedBarConfig
+                )
+              ];
+
+              assigns = lib.mkOptionDefault {
+                "1" = [ { class = "(?i)(?:geany)"; } ];
+                "2" = [ { class = "(?i)(?:${config.gui.i3.browserClass})"; } ];
+                "3" = [ { class = "(?i)(?:thunar)"; } ];
+              };
+
+              floating.criteria = [
+                { class = "(?i)(?:qt5ct|pinentry)"; }
+                { class = "claude-wpa"; }
+                { title = "(?i)(?:copying|deleting|moving)"; }
+                { window_role = "(?i)(?:pop-up|setup)"; }
+              ];
+
+              window.commands = [
+                {
+                  criteria = {
+                    urgent = "latest";
+                  };
+                  command = "focus";
+                }
+                {
+                  criteria = {
+                    class = "(?i)(?:qt5ct|pinentry)";
+                  };
+                  command = "floating enable, focus";
+                }
+                {
+                  criteria = {
+                    class = "claude-wpa";
+                  };
+                  command = "floating enable, resize set 1270 695, move position center";
+                }
+                {
+                  criteria = {
+                    all = true;
+                  };
+                  command = ''border pixel 5, title_format "<b>%title</b>", title_window_icon padding 3px'';
+                }
+              ];
+            };
+
+            extraConfig = lib.mkAfter baseExtraConfig;
+          };
         };
       };
     };
