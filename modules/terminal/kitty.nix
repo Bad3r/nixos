@@ -27,6 +27,7 @@
                 "U+E300-U+E3EB"
                 "U+E5FA-U+E62F"
                 "U+E700-U+E7C5"
+                "U+EA60-U+EC1E" # Codicons
                 "U+F000-U+F2E0"
                 "U+F300-U+F313"
                 "U+F400-U+F4A8"
