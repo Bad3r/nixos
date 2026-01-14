@@ -506,6 +506,13 @@
             terminal = "kitty";
           };
         };
+
+        browserClass = lib.mkOption {
+          description = "Window class of the default browser for focus-or-launch and assigns.";
+          type = lib.types.str;
+          default = "firefox";
+          example = "google-chrome";
+        };
       };
 
       config = {
@@ -651,7 +658,7 @@
 
               assigns = lib.mkOptionDefault {
                 "1" = [ { class = "(?i)(?:geany)"; } ];
-                "2" = [ { class = "(?i)(?:firefox)"; } ];
+                "2" = [ { class = "(?i)(?:${config.gui.i3.browserClass})"; } ];
                 "3" = [ { class = "(?i)(?:thunar)"; } ];
               };
 
