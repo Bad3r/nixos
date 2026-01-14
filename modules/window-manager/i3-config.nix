@@ -476,7 +476,8 @@
       baseExtraConfig = lib.concatStringsSep "\n" [
         "default_orientation horizontal"
         "popup_during_fullscreen smart"
-        "title_align center"
+        "new_window normal"
+        "new_float normal"
         ""
       ];
     in
@@ -504,13 +505,6 @@
             launcher = "rofi -show drun";
             terminal = "kitty";
           };
-        };
-
-        browserClass = lib.mkOption {
-          description = "Window class of the default browser for focus-or-launch and assigns.";
-          type = lib.types.str;
-          default = "firefox";
-          example = "google-chrome";
         };
       };
 
@@ -657,7 +651,7 @@
 
               assigns = lib.mkOptionDefault {
                 "1" = [ { class = "(?i)(?:geany)"; } ];
-                "2" = [ { class = "(?i)(?:${config.gui.i3.browserClass})"; } ];
+                "2" = [ { class = "(?i)(?:firefox)"; } ];
                 "3" = [ { class = "(?i)(?:thunar)"; } ];
               };
 
@@ -683,15 +677,9 @@
                 }
                 {
                   criteria = {
-                    class = "claude-wpa";
+                    class = "^.*";
                   };
-                  command = "floating enable, resize set 1270 695, move position center";
-                }
-                {
-                  criteria = {
-                    all = true;
-                  };
-                  command = ''border pixel 5, title_format "<b>%title</b>", title_window_icon padding 3px'';
+                  command = "border pixel 5";
                 }
               ];
             };
