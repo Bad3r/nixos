@@ -176,16 +176,19 @@
 
               # Launchers
               "${mod}+Return" = "exec ${commands.terminal}";
-              "${mod}+w" = "exec ${commands.browser}";
+              "${mod}+w" =
+                "exec --no-startup-id ${commands.focusOrLaunch} '${config.gui.i3.browserClass}' '${commands.browser}'";
               "${mod}+d" = "exec ${commands.launcher}";
               "${mod}+b" = "exec ${commands.emoji}";
               "${mod}+s" = "exec ${commands.screenshot}";
+              "${mod}+Shift+o" = "exec --no-startup-id ${commands.ocr}";
 
               # i3 control
               "${mod}+Shift+c" = "reload";
               "${mod}+Shift+r" = "restart";
               "${mod}+Shift+e" = "exec systemctl suspend";
               "${mod}+Control+l" = "exec ${lockCommand}";
+              "${mod}+Shift+p" = "exec --no-startup-id ${commands.powerProfile}";
 
               # Layout
               "${mod}+semicolon" = "split horizontal";
@@ -226,6 +229,11 @@
               # Workspace navigation (Alt+1/2 for prev/next)
               "Mod1+1" = "workspace prev";
               "Mod1+2" = "workspace next";
+
+              # Scratchpad apps
+              "Mod1+3" = "exec --no-startup-id ${commands.logseqToggle}";
+              "${mod}+e" =
+                "exec --no-startup-id i3-scratchpad-show-or-create scratch-nvim '${commands.terminal} nvim'";
 
               # Media keys
               "XF86AudioPlay" = "exec ${commands.playerctl} play-pause";

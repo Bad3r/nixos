@@ -7,69 +7,49 @@
       ...
     }:
     let
-      windowUtilsLib = pkgs.writeText "window_utils" ''
-        #!/bin/sh
-
+      # Shell library for window geometry calculations (meant to be sourced, not executed)
+      # Dependencies: xrandr (provided by sourcing script's runtimeInputs)
+      windowUtilsLib = pkgs.writeText "window-utils-lib" /* bash */ ''
         # window_utils.sh: Calculate window position and size for i3 scratchpads
+        # Exports: TARGET_WIDTH, TARGET_HEIGHT, TARGET_X, TARGET_Y
 
-        SCREEN_SCALE=1.0
+        # Layout constants
         TOPBAR_HEIGHT=29
         TOP_GAP=6
         BOTTOM_GAP=6
         OUTER_GAP=4
 
-        get_primary_monitor_info() {
-          xrandr --query | awk '/ connected primary/ {print $4}'
-        }
-
-        calculate() {
-          echo "$1" | bc
-        }
-
-        calculate_int() {
-          echo "$1" | bc | awk '{printf "%.0f\n", $1}'
-        }
-
         calculate_window_geometry() {
-          primary_monitor=$(get_primary_monitor_info)
+          # Parse monitor info in single xrandr call using bash parameter expansion
+          # Format: WIDTHxHEIGHT+OFFSET_X+OFFSET_Y (e.g., 2560x1440+0+0)
+          local monitor_info
+          monitor_info=$(xrandr --query | while read -r line; do
+            [[ $line =~ \ connected\ primary\ ([0-9]+)x([0-9]+)\+([0-9]+)\+([0-9]+) ]] && \
+              echo "''${BASH_REMATCH[1]} ''${BASH_REMATCH[2]} ''${BASH_REMATCH[3]} ''${BASH_REMATCH[4]}" && break
+          done)
 
-          if [ -z "$primary_monitor" ]; then
+          if [[ -z $monitor_info ]]; then
             echo "Error: No primary monitor detected!" >&2
-            exit 1
+            return 1
           fi
 
-          screen_width=$(echo "$primary_monitor" | cut -d'x' -f1)
-          screen_height=$(echo "$primary_monitor" | cut -d'x' -f2 | cut -d'+' -f1)
-          screen_offset_x=$(echo "$primary_monitor" | awk -F '+' '{print $2}')
-          screen_offset_y=$(echo "$primary_monitor" | awk -F '+' '{print $3}')
+          local screen_width screen_height screen_offset_x screen_offset_y
+          read -r screen_width screen_height screen_offset_x screen_offset_y <<< "$monitor_info"
 
-          if [ "$screen_width" -eq 3440 ] && [ "$screen_height" -eq 1440 ] && [ "$screen_offset_x" -eq 1440 ] && [ "$screen_offset_y" -eq 651 ]; then
-            export TARGET_WIDTH=1134
-            export TARGET_HEIGHT=1389
-            export TARGET_X=2593
-            export TARGET_Y=691
-            return
-          fi
-
-          aspect_ratio=$(calculate "$screen_width / $screen_height")
-
-          scaled_width=$(calculate_int "$screen_width * $SCREEN_SCALE")
-          scaled_height=$(calculate_int "$screen_height * $SCREEN_SCALE")
-
-          if [ "$(echo "$aspect_ratio >= 2.0" | bc)" -eq 1 ]; then
-            target_width=$(calculate_int "$scaled_width / 3 - $OUTER_GAP")
+          # Determine width divisor: ultrawide (>=2:1) uses 1/3, standard uses 1/2
+          # Integer comparison: width >= height*2 means aspect ratio >= 2.0
+          local target_width
+          if (( screen_width >= screen_height * 2 )); then
+            target_width=$(( screen_width / 3 - OUTER_GAP ))
           else
-            target_width=$(calculate_int "$scaled_width / 2 - $OUTER_GAP")
+            target_width=$(( screen_width / 2 - OUTER_GAP ))
           fi
 
-          target_height=$(calculate_int "$scaled_height - $TOPBAR_HEIGHT - $TOP_GAP - $BOTTOM_GAP")
-          target_x=$(calculate_int "$screen_offset_x + $scaled_width - $target_width")
-          target_y=$(calculate_int "$screen_offset_y + $TOPBAR_HEIGHT + $TOP_GAP")
-
-          export TARGET_WIDTH="$target_width"
-          export TARGET_HEIGHT="$target_height"
-          export TARGET_X="$target_x"
-          export TARGET_Y="$target_y"
+          # All arithmetic done with bash builtins - no external processes
+          export TARGET_WIDTH=$target_width
+          export TARGET_HEIGHT=$(( screen_height - TOPBAR_HEIGHT - TOP_GAP - BOTTOM_GAP ))
+          export TARGET_X=$(( screen_offset_x + screen_width - target_width ))
+          export TARGET_Y=$(( screen_offset_y + TOPBAR_HEIGHT + TOP_GAP ))
         }
       '';
       i3ScratchpadShowOrCreate = pkgs.writeShellApplication {
@@ -79,7 +59,7 @@
           pkgs.coreutils
           pkgs.jq
         ];
-        text = ''
+        text = /* bash */ ''
           set -euo pipefail
 
           if [ "$#" -ne 2 ]; then
@@ -130,15 +110,41 @@
         '';
       };
 
+      # Generic focus-or-launch script: focuses existing window or launches new instance
+      focusOrLaunch = pkgs.writeShellApplication {
+        name = "i3-focus-or-launch";
+        runtimeInputs = [
+          pkgs.i3
+          pkgs.jq
+        ];
+        text = ''
+          if [ "$#" -ne 2 ]; then
+            echo "Usage: i3-focus-or-launch <class-pattern> <launch-command>" >&2
+            exit 1
+          fi
+
+          CLASS_PATTERN="$1"
+          LAUNCH_CMD="$2"
+
+          # Check if any window with the class exists in i3 tree
+          if i3-msg -t get_tree | jq -e --arg pattern "$CLASS_PATTERN" \
+            '[.. | objects | select(.window_properties?.class? // "" | test($pattern; "i"))] | length > 0' \
+            > /dev/null 2>&1; then
+            i3-msg "[class=\"(?i)$CLASS_PATTERN\"] focus" > /dev/null
+          else
+            exec sh -c "$LAUNCH_CMD"
+          fi
+        '';
+      };
+
       toggleLogseqScript = pkgs.writeShellApplication {
         name = "toggle-logseq";
         runtimeInputs = [
-          pkgs.bc
           pkgs.xorg.xrandr
           pkgs.procps
           pkgs.libnotify
           pkgs.i3
-          pkgs.coreutils
+          pkgs.coreutils # for sleep
           i3ScratchpadShowOrCreate
         ];
         text = ''
@@ -247,8 +253,10 @@
         volume = lib.getExe pkgs.pamixer;
         brightness = lib.getExe pkgs.xorg.xbacklight;
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
+        ocr = lib.getExe pkgs.normcap;
         logseqToggle = lib.getExe toggleLogseqScript;
         powerProfile = lib.getExe powerProfileScript;
+        focusOrLaunch = lib.getExe focusOrLaunch;
       };
       # Use the already-defined stylixColors for consistency
       stylixColorsStrictWithHash = stylixColors;
@@ -490,6 +498,7 @@
           pkgs.rofimoji
           lockScript
           i3ScratchpadShowOrCreate
+          focusOrLaunch
           toggleLogseqScript
         ];
 
