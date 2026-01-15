@@ -115,7 +115,7 @@
       commandsDefault = {
         launcher = "${lib.getExe pkgs.rofi} -config ~/.config/rofi/rofidmenu.rasi -modi drun -show drun";
         terminal = lib.getExe pkgs.kitty;
-        browser = lib.getExe pkgs.firefox;
+        browser = lib.getExe config.programs.firefox.finalPackage;
         emoji = "${lib.getExe pkgs.rofimoji} --selector rofi";
         playerctl = lib.getExe pkgs.playerctl;
         volume = lib.getExe pkgs.pamixer;
