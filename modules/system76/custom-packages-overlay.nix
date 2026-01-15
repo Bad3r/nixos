@@ -19,7 +19,7 @@ _: {
         # i3 window manager utilities
         i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };
         i3-scratchpad-show-or-create = final.callPackage ../../packages/i3-scratchpad-show-or-create { };
-        window-utils-lib = final.callPackage ../../packages/window-utils-lib { };
+        window-utils-lib = import ../../lib/shell/window-utils.nix { inherit (final) writeText; };
         toggle-logseq = final.callPackage ../../packages/toggle-logseq { };
       })
     ];
