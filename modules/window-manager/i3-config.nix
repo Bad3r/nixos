@@ -239,7 +239,7 @@
       };
 
       commandsDefault = {
-        launcher = "${lib.getExe pkgs.rofi} -modi drun -show drun";
+        launcher = "${lib.getExe pkgs.rofi} -config ~/.config/rofi/rofidmenu.rasi -modi drun -show drun";
         terminal = lib.getExe pkgs.kitty;
         browser = lib.getExe pkgs.firefox;
         emoji = "${lib.getExe pkgs.rofimoji} --selector rofi";
@@ -519,6 +519,9 @@
       };
 
       config = {
+        # Expose resolved commands for other modules (e.g., i3-keybindings.nix)
+        gui.i3.commands = lib.mkDefault commandsDefault;
+
         home.packages = [
           pkgs.rofimoji
           lockScript

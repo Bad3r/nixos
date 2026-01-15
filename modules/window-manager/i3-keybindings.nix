@@ -11,18 +11,8 @@
       # Get modifier from i3 config
       mod = lib.attrByPath [ "xsession" "windowManager" "i3" "config" "modifier" ] "Mod4" config;
 
-      # Get commands from gui.i3.commands or use defaults
-      commandsDefault = {
-        launcher = "${lib.getExe pkgs.rofi} -modi drun -show drun";
-        terminal = lib.getExe pkgs.kitty;
-        browser = lib.getExe pkgs.firefox;
-        emoji = "${lib.getExe pkgs.rofimoji} --selector rofi";
-        playerctl = lib.getExe pkgs.playerctl;
-        volume = lib.getExe pkgs.pamixer;
-        brightness = lib.getExe pkgs.xorg.xbacklight;
-        screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
-      };
-      commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
+      # Get commands from gui.i3.commands (defaults set in i3-config.nix)
+      inherit (config.gui.i3) commands;
 
       # Lock command
       lockCommand =
