@@ -41,11 +41,50 @@ let
           description = "Whether to enable firefox.";
         };
 
-        package = lib.mkPackageOption pkgs "firefox" { };
+        package = lib.mkPackageOption pkgs "firefoxWithTorFonts" { };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+      config = {
+        # Overlay unconditional: required for package option default resolution.
+        # tor-browser is a build-time dependency only (fonts.conf path).
+        nixpkgs.overlays = [
+          (final: prev: {
+            # Firefox with Tor Browser's uniform font set (Arimo, Tinos, Cousine, Noto)
+            firefoxWithTorFonts =
+              let
+                torBrowserFontsConf = "${final.tor-browser}/share/tor-browser/fonts/fonts.conf";
+                mkWrapped =
+                  firefox:
+                  let
+                    drv =
+                      final.runCommand "firefox-tor-fonts-${firefox.version}"
+                        {
+                          nativeBuildInputs = [ final.makeWrapper ];
+                          inherit (firefox) meta;
+                        }
+                        ''
+                          mkdir -p $out/bin
+                          ln -s ${firefox}/share $out/share
+                          ln -s ${firefox}/lib $out/lib
+                          makeWrapper ${firefox}/bin/firefox $out/bin/firefox \
+                            --set FONTCONFIG_FILE "${torBrowserFontsConf}"
+                        '';
+                  in
+                  drv
+                  // {
+                    # Preserve Firefox-specific attributes for Home Manager compatibility
+                    inherit (firefox) version;
+                    passthru = firefox.passthru // {
+                      unwrapped = firefox.passthru.unwrapped or firefox;
+                    };
+                    override = args: mkWrapped (firefox.override args);
+                  };
+              in
+              mkWrapped prev.firefox;
+          })
+        ];
+
+        environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
       };
     };
 in
