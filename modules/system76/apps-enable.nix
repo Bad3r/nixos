@@ -134,6 +134,7 @@
       lefthook.extended.enable = lib.mkOverride 1100 false;
       less.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
+      librewolf.extended.enable = lib.mkOverride 1100 true;
       localsend.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.enable = lib.mkOverride 1100 true;
       lshw.extended.enable = lib.mkOverride 1100 true;
@@ -153,6 +154,7 @@
       "minio-client".extended.enable = lib.mkOverride 1100 true;
       mitmproxy.extended.enable = lib.mkOverride 1100 false;
       mpv.extended.enable = lib.mkOverride 1100 true;
+      "mullvad-browser".extended.enable = lib.mkOverride 1100 true;
       nemo.extended.enable = lib.mkOverride 1100 true;
       neovim.extended.enable = lib.mkOverride 1100 true;
       networkmanagerapplet.extended.enable = lib.mkOverride 1100 true;
