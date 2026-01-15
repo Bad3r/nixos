@@ -115,6 +115,14 @@ in
               };
             };
 
+            # Icon theme configuration
+            icons = {
+              enable = true;
+              package = pkgs.qogir-icon-theme;
+              dark = "Qogir-Dark";
+              light = "Qogir-Light";
+            };
+
             # Firefox profile theming
             targets.firefox = {
               profileNames = [ "primary" ];
