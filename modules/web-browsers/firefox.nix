@@ -22,7 +22,8 @@ _: {
       config = {
         programs.firefox = {
           enable = true;
-          package = pkgs.firefox;
+          # Uses pkgs.firefoxWithTorFonts from overlay in modules/apps/firefox.nix
+          package = pkgs.firefoxWithTorFonts;
 
           # Core enterprise policies via the wrapped Firefox
           policies = {
@@ -89,10 +90,14 @@ _: {
                 # Ensure stripping of known tracking parameters
                 "privacy.query_stripping.enabled" = true;
 
-                # HTTPS-Only Mode and stronger isolation/fingerprinting defenses
+                # HTTPS-Only Mode and fingerprinting defenses
                 "dom.security.https_only_mode" = true;
                 "dom.security.https_only_mode_pbm" = true;
-                "privacy.firstparty.isolate" = true;
+                # FPI (privacy.firstparty.isolate) is deprecated, replaced by dFPI/TCP.
+                # Network partitioning (Firefox 85+) + dFPI provide modern isolation.
+                # Explicitly enabled for clarity. See: github.com/arkenfox/user.js/issues/1051
+                "privacy.partition.network_state" = true;
+                "network.cookie.cookieBehavior" = 5; # dFPI/TCP (Total Cookie Protection)
                 "privacy.resistFingerprinting" = true;
                 # Disable timer jitter to fix Claude AI infinite loop freeze
                 # https://codeberg.org/librewolf/issues/issues/1934
