@@ -326,8 +326,8 @@
       netBlockBase = {
         block = "net";
         interval = 2;
-        format = " $icon  $speed_down.eng(prefix:K)/s  $speed_up.eng(prefix:K)/s ";
-        format_alt = " $icon {$ssid|$device} $ip ";
+        format = " $icon {$ssid|$device} $ip ";
+        format_alt = "  $speed_down.eng(prefix:K)/s  $speed_up.eng(prefix:K)/s ";
       };
       netBlock = netBlockBase // lib.optionalAttrs (netInterface != null) { device = netInterface; };
       i3statusBlocks = [
@@ -388,42 +388,6 @@
           settings = {
             icons = {
               icons = "awesome6";
-              overrides = {
-                cpu = "";
-                update = "";
-                temp = [
-                  ""
-                  ""
-                  ""
-                ];
-                volume = [
-                  ""
-                  ""
-                  ""
-                ];
-                volume_muted = "";
-                bat = [
-                  ""
-                  ""
-                  ""
-                  ""
-                  ""
-                ];
-                bat_charging = "";
-                net_wireless = [
-                  "▂"
-                  "▃"
-                  "▅"
-                  "▇"
-                  ""
-                ];
-                net_wired = "";
-                net_down = "";
-                net_up = "";
-                net_vpn = "";
-                net_loopback = "";
-                net_unknown = "";
-              };
             };
           }
           // lib.optionalAttrs (stylixThemeOverrides != { }) {
