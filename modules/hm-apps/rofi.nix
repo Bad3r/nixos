@@ -13,18 +13,20 @@
   Features:
     * Colors automatically managed by stylix.targets.rofi (base16 scheme)
     * Multiple specialized themes: dmenu (apps), powermenu, power-profiles, keyhint
-    * Modes: window, drun, run, ssh, combi, file-browser, calc
+    * Modes: window, drun, run, ssh, combi, filebrowser, calc
+    * Calculator mode via rofi-calc plugin (uses libqalculate for natural language math)
     * Terminal integration for running console applications
 
   Config files installed:
-    * ~/.config/rofi/rofidmenu.rasi      - Apps menu layout (3 columns, 10 lines)
+    * ~/.config/rofi/rofidmenu.rasi      - Apps menu layout (single column, 6 lines)
     * ~/.config/rofi/powermenu.rasi      - Power menu layout (east sidebar, 7 lines)
     * ~/.config/rofi/power-profiles.rasi - Power profile selector (east, 4 lines)
     * ~/.config/rofi/rofikeyhint.rasi    - Keybinding hints (1 column, 10 lines)
 
   Example Usage:
     * `rofi -show drun` — Default app launcher with stylix colors.
-    * `rofi -config ~/.config/rofi/rofidmenu.rasi -show drun` — Apps in 3-column grid.
+    * `rofi -config ~/.config/rofi/rofidmenu.rasi -show drun` — Apps in compact single-column list.
+    * `rofi -show calc -modi calc -no-show-match -no-sort` — Calculator with natural language.
     * `echo -e "Shutdown\nRestart" | rofi -dmenu -config ~/.config/rofi/powermenu.rasi` — Power menu.
     * `rofi -config ~/.config/rofi/rofikeyhint.rasi -show keys` — Show keybindings.
 */
@@ -45,118 +47,65 @@
         in
         i3Commands.terminal or "${lib.getExe pkgs.kitty}";
 
-      # Common element styles that reference stylix color variables
-      # These use @variable references that stylix defines in the base theme
-      commonElementStyles = ''
+      # Layout-only styles (colors handled by stylix via programs.rofi.theme)
+      commonLayoutStyles = ''
         element {
             border:  0;
             padding: 1px;
         }
-        element-text {
-            background-color: inherit;
-            text-color:       inherit;
-        }
-        element.normal.normal {
-            background-color: @normal-background;
-            text-color:       @normal-foreground;
-        }
-        element.normal.urgent {
-            background-color: @urgent-background;
-            text-color:       @urgent-foreground;
-        }
-        element.normal.active {
-            background-color: @active-background;
-            text-color:       @active-foreground;
-        }
-        element.selected.normal {
-            background-color: @selected-normal-background;
-            text-color:       @selected-normal-foreground;
-        }
-        element.selected.urgent {
-            background-color: @selected-urgent-background;
-            text-color:       @selected-urgent-foreground;
-        }
-        element.selected.active {
-            background-color: @selected-active-background;
-            text-color:       @selected-active-foreground;
-        }
-        element.alternate.normal {
-            background-color: @alternate-normal-background;
-            text-color:       @alternate-normal-foreground;
-        }
-        element.alternate.urgent {
-            background-color: @alternate-urgent-background;
-            text-color:       @alternate-urgent-foreground;
-        }
-        element.alternate.active {
-            background-color: @alternate-active-background;
-            text-color:       @alternate-active-foreground;
-        }
         scrollbar {
             width:        4px;
             border:       0;
-            handle-color: @normal-foreground;
             handle-width: 8px;
             padding:      0;
         }
         mode-switcher {
-            border:       2px 0px 0px;
-            border-color: @separatorcolor;
+            border: 2px 0px 0px;
         }
         button {
-            spacing:    0;
-            text-color: @normal-foreground;
-        }
-        button.selected {
-            background-color: @selected-normal-background;
-            text-color:       @selected-normal-foreground;
+            spacing: 0;
         }
         inputbar {
-            spacing:    0;
-            text-color: @normal-foreground;
-            padding:    1px;
-            children:   [ prompt,textbox-prompt-colon,entry,case-indicator ];
+            spacing:  0;
+            padding:  1px;
+            children: [ prompt,textbox-prompt-colon,entry,case-indicator ];
         }
         case-indicator {
-            spacing:    0;
-            text-color: @normal-foreground;
+            spacing: 0;
         }
         entry {
-            spacing:    0;
-            text-color: @normal-foreground;
+            spacing: 0;
         }
         prompt {
-            spacing:    0;
-            text-color: @normal-foreground;
+            spacing: 0;
         }
         textbox-prompt-colon {
-            expand:     false;
-            str:        ":";
-            margin:     0px 0.3em 0em 0em;
-            text-color: @normal-foreground;
+            expand: false;
+            str:    ":";
+            margin: 0px 0.3em 0em 0em;
         }
       '';
 
       # Apps menu config (rofidmenu.rasi)
       # Imports main config.rasi for stylix colors, then overrides layout
       rofidmenuConfig = ''
-        /* Apps menu - 3 columns, 10 lines */
+        /* Apps menu - compact single column, 6 lines */
         @import "config"
 
         window {
             background-color: @background;
             border:           5;
             border-color:     @border-color;
-            padding:          30;
+            padding:          5;
+            transparency:     "none";
         }
         listview {
-            lines:        10;
-            columns:      3;
+            lines:        6;
             fixed-height: 0;
-            border:       8px 0px 0px;
+            border:       2px 0px 0px;
             border-color: @separatorcolor;
-            spacing:      8px;
-            scrollbar:    false;
+            spacing:      10px;
+            scrollbar:    true;
             padding:      2px 0px 0px;
         }
         mainbox {
@@ -168,10 +117,7 @@
             border-color: @separatorcolor;
             padding:      1px;
         }
-        textbox {
-            text-color: @foreground;
-        }
-        ${commonElementStyles}
+        ${commonLayoutStyles}
       '';
 
       # Power menu config (powermenu.rasi)
@@ -195,7 +141,7 @@
         mainbox {
             children: [listview];
         }
-        ${commonElementStyles}
+        ${commonLayoutStyles}
       '';
 
       # Power profiles config (power-profiles.rasi)
@@ -215,12 +161,9 @@
             lines:   4;
             columns: 1;
         }
-        ${commonElementStyles}
+        ${commonLayoutStyles}
         textbox-prompt-colon {
-            expand:     false;
-            str:        "Set Power Profile:";
-            margin:     0px 0.3em 0em 0em;
-            text-color: @normal-foreground;
+            str: "Set Power Profile:";
         }
       '';
 
@@ -253,10 +196,7 @@
             border-color: @separatorcolor;
             padding:      1px;
         }
-        textbox {
-            text-color: @foreground;
-        }
-        ${commonElementStyles}
+        ${commonLayoutStyles}
       '';
     in
     {
@@ -266,6 +206,9 @@
         # Terminal for running console applications
         inherit terminal;
 
+        # Calculator plugin (uses libqalculate)
+        plugins = [ pkgs.rofi-calc ];
+
         # Enable modes
         modes = [
           "window"
@@ -274,13 +217,14 @@
           "ssh"
           "combi"
           "filebrowser"
+          "calc"
         ];
 
         # Additional configuration matching old config.rasi
         extraConfig = {
           # Display settings
           show-icons = true;
-          icon-theme = "Qogir-dark";
+          icon-theme = config.gtk.iconTheme.name or "hicolor";
 
           # Display format with icons
           display-ssh = " ";
@@ -299,7 +243,7 @@
           disable-history = false;
           scroll-method = 0;
           sidebar-mode = false;
-          hide-scrollbar = true;
+          hide-scrollbar = false;
 
           # Cache directory
           cache-dir = "~/.cache/rofi";
