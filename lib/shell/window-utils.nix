@@ -1,6 +1,18 @@
 # Shell library for window geometry calculations
-# This is meant to be SOURCED, not executed directly
+# This is meant to be SOURCED by bash scripts, not executed directly
 # Dependencies: xrandr (must be in PATH when sourced)
+#
+# Usage in a package:
+#   let
+#     windowUtils = import ../../lib/shell/window-utils.nix { inherit (pkgs) writeText; };
+#   in
+#   writeShellApplication {
+#     text = ''
+#       . "${windowUtils}"
+#       calculate_window_geometry
+#       echo "Width: $TARGET_WIDTH"
+#     '';
+#   }
 { writeText }:
 
 writeText "window-utils-lib" /* bash */ ''
