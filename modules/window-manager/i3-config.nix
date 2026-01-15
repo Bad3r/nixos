@@ -10,6 +10,40 @@
       # Stylix colors (defined early for use in scripts)
       stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
 
+      # Toggle Logseq scratchpad - uses config.gui.scratchpad.geometryPackage
+      toggleLogseqScript = pkgs.writeShellApplication {
+        name = "toggle-logseq";
+        meta = {
+          description = "Toggle Logseq as an i3 scratchpad with smart positioning";
+          license = lib.licenses.mit;
+          platforms = lib.platforms.linux;
+          mainProgram = "toggle-logseq";
+        };
+        runtimeInputs = [
+          pkgs.procps
+          pkgs.libnotify
+          pkgs.i3
+          pkgs.coreutils
+          config.gui.scratchpad.geometryPackage
+          pkgs.i3-scratchpad-show-or-create
+        ];
+        text = /* bash */ ''
+          set -euo pipefail
+
+          # Get window geometry from scratchpad-geometry calculator
+          eval "$(scratchpad-geometry)"
+
+          if ! pgrep -f logseq >/dev/null; then
+            notify-send "Logseq" "Starting Logseq..."
+            i3-scratchpad-show-or-create "Logseq" "logseq"
+            sleep 5
+          fi
+
+          # shellcheck disable=SC2140
+          i3-msg "[class=\"Logseq\"] scratchpad show, move position ''${TARGET_X}px ''${TARGET_Y}px, resize set ''${TARGET_WIDTH}px ''${TARGET_HEIGHT}px" >/dev/null
+        '';
+      };
+
       # Power profile switcher using rofi and system76-power
       powerProfileScript = pkgs.writeShellApplication {
         name = "power-profile-rofi";
@@ -88,7 +122,7 @@
         brightness = lib.getExe pkgs.xorg.xbacklight;
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
         ocr = lib.getExe pkgs.normcap;
-        logseqToggle = lib.getExe pkgs.toggle-logseq;
+        logseqToggle = lib.getExe toggleLogseqScript;
         powerProfile = lib.getExe powerProfileScript;
         focusOrLaunch = lib.getExe pkgs.i3-focus-or-launch;
       };
@@ -258,14 +292,8 @@
           lockScript
           pkgs.i3-scratchpad-show-or-create
           pkgs.i3-focus-or-launch
-          pkgs.toggle-logseq
+          toggleLogseqScript
         ];
-
-        home.file = {
-          ".local/lib/window_utils" = {
-            source = pkgs.window-utils-lib;
-          };
-        };
 
         xdg.configFile = {
           "i3/scripts/i3lock-stylix" = {
@@ -286,7 +314,7 @@
 
           "i3/scripts/toggle_logseq.sh" = {
             executable = true;
-            source = "${pkgs.toggle-logseq}/bin/toggle-logseq";
+            source = "${toggleLogseqScript}/bin/toggle-logseq";
           };
         };
 
