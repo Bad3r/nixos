@@ -3,13 +3,6 @@
   lib,
   ...
 }:
-let
-  mkMonolisaPlaceholder =
-    pkgs:
-    pkgs.runCommand "monolisa-placeholder-fonts" { } ''
-      mkdir -p "$out/share/fonts/truetype"
-    '';
-in
 {
   flake = {
     nixosModules = {
@@ -27,9 +20,6 @@ in
 
       workstation =
         { pkgs, ... }:
-        let
-          monolisaPackage = mkMonolisaPlaceholder pkgs;
-        in
         {
           stylix = {
             # Opacity settings for desktop systems
@@ -38,15 +28,15 @@ in
             # Font configuration for desktop systems
             fonts = {
               sansSerif = lib.mkDefault {
-                package = monolisaPackage;
+                package = pkgs.emptyDirectory;
                 name = "MonoLisa";
               };
               serif = lib.mkDefault {
-                package = monolisaPackage;
+                package = pkgs.emptyDirectory;
                 name = "MonoLisa";
               };
               monospace = {
-                package = monolisaPackage;
+                package = pkgs.emptyDirectory;
                 name = "MonoLisa";
               };
               emoji = {
@@ -81,9 +71,6 @@ in
 
       gui =
         { pkgs, ... }:
-        let
-          monolisaPackage = mkMonolisaPlaceholder pkgs;
-        in
         {
           stylix = {
             # Opacity settings for GUI applications
@@ -92,15 +79,15 @@ in
             # Font configuration for GUI applications
             fonts = {
               sansSerif = lib.mkDefault {
-                package = monolisaPackage;
+                package = pkgs.emptyDirectory;
                 name = "MonoLisa";
               };
               serif = lib.mkDefault {
-                package = monolisaPackage;
+                package = pkgs.emptyDirectory;
                 name = "MonoLisa";
               };
               monospace = {
-                package = monolisaPackage;
+                package = pkgs.emptyDirectory;
                 name = "MonoLisa";
               };
               emoji = {
@@ -132,33 +119,6 @@ in
           };
 
           programs = {
-            firefox = {
-              profiles = {
-                primary = {
-                  settings = {
-                    "font.name-list.monospace.x-western" =
-                      "MonoLisa, Symbols Nerd Font Mono, Symbols Nerd Font, Font Awesome 6 Free, Font Awesome 6 Brands";
-                    "font.name-list.sans-serif.x-western" =
-                      "MonoLisa, Symbols Nerd Font, Symbols Nerd Font Mono, Font Awesome 6 Free, Font Awesome 6 Brands";
-                    "font.name-list.serif.x-western" =
-                      "MonoLisa, Symbols Nerd Font, Symbols Nerd Font Mono, Font Awesome 6 Free, Font Awesome 6 Brands";
-                    "font.size.variable.x-western" = lib.mkForce 12;
-                    "font.size.monospace.x-western" = lib.mkForce 12;
-                  };
-                  userContent = ''
-                    @-moz-document url-prefix(http://), url-prefix(https://), url-prefix(file://), url-prefix(chrome://) {
-                      body,
-                      button,
-                      input,
-                      select,
-                      textarea {
-                        line-height: 1.6 !important;
-                      }
-                    }
-                  '';
-                };
-              };
-            };
             kitty = {
               settings = {
                 font_size = 12;
