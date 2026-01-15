@@ -23,7 +23,8 @@ in
               noto-fonts-cjk-sans
               noto-fonts-color-emoji
               liberation_ttf
-              font-awesome
+              font-awesome_6
+              material-icons
               nerd-fonts.symbols-only
             ];
 
