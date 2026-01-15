@@ -15,6 +15,12 @@ _: {
         malimite = final.callPackage ../../packages/malimite { };
         claude-wpa = final.callPackage ../../packages/claude-wpa { };
         rg-fzf = final.callPackage ../../packages/rg-fzf { };
+
+        # i3 window manager utilities
+        i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };
+        i3-scratchpad-show-or-create = final.callPackage ../../packages/i3-scratchpad-show-or-create { };
+        window-utils-lib = final.callPackage ../../packages/window-utils-lib { };
+        toggle-logseq = final.callPackage ../../packages/toggle-logseq { };
       })
     ];
   };
