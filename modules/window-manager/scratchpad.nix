@@ -70,7 +70,7 @@
 
           # Calculate dimensions with scale applied to content area, not offsets
           # Scale is applied to the window size, offsets remain screen-relative
-          scaled_content_width=$(( screen_width * WIDTH_PERCENT / 100 * SCALE_PERCENT / 100 ))
+          scaled_content_width=$(( screen_width * WIDTH_PERCENT * SCALE_PERCENT / 100 / 100 ))
           scaled_content_height=$(( (screen_height - TOP_OFFSET - BOTTOM_OFFSET) * SCALE_PERCENT / 100 ))
 
           # Subtract offsets AFTER scaling (offsets are screen-relative, not scaled)
