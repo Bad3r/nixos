@@ -114,7 +114,8 @@
             targets.firefox = {
               profileNames = [ "primary" ];
               colorTheme.enable = true; # uses Firefox Color extension from NUR
-              firefoxGnomeTheme.enable = false; # disabled for testing
+              firefoxGnomeTheme.enable = false;
+              fonts.enable = false;
             };
           };
 
