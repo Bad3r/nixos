@@ -1,5 +1,24 @@
-_: {
-  flake.homeManagerModules.gui =
+/*
+  Package: floorp
+  Description: Fork of Firefox that seeks balance between versatility, privacy and web openness.
+  Homepage: https://floorp.app/
+  Documentation: https://docs.floorp.app/
+  Repository: https://github.com/Floorp-Projects/Floorp
+
+  Summary:
+    * Provides a privacy-focused Firefox fork with workspaces, vertical tabs, and customizable interface features.
+    * Supports enterprise policies, profile management, and headless automation inherited from Firefox.
+
+  Options:
+    --private-window <url>: Open a URL directly in a new private browsing window.
+    --ProfileManager: Launch the profile manager to create or select profiles.
+    --new-window <url>: Open a new window with the provided URL.
+    --headless: Run Floorp without a visible UI for automated testing or printing.
+    --safe-mode: Start Floorp with extensions disabled for troubleshooting.
+*/
+
+{
+  flake.homeManagerModules.apps.floorp =
     {
       lib,
       pkgs,
@@ -8,12 +27,12 @@ _: {
       ...
     }:
     let
-      cfg = config.home.firefoxPrivacy;
+      cfg = config.home.floorpPrivacy;
       inherit (pkgs.stdenv.hostPlatform) system;
       inherit (inputs.dedupe_nur.legacyPackages.${system}.repos.rycee) firefox-addons;
     in
     {
-      options.home.firefoxPrivacy = {
+      options.home.floorpPrivacy = {
         enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
           default = false;
         };
@@ -23,10 +42,10 @@ _: {
       };
 
       config = {
-        programs.firefox = {
+        programs.floorp = {
           enable = true;
 
-          # Core enterprise policies via the wrapped Firefox
+          # Core enterprise policies via the wrapped Floorp
           policies = {
             DisableTelemetry = true;
             DisableFirefoxStudies = true;
@@ -50,7 +69,7 @@ _: {
             primary = {
               id = 0;
               settings = {
-                # Default fonts
+                # Default fonts (Stylix will override these via targets.floorp)
                 "font.name.serif.x-western" = "MonoLisa";
                 "font.name.sans-serif.x-western" = "MonoLisa";
                 "font.name.monospace.x-western" = "MonoLisa";
@@ -61,7 +80,8 @@ _: {
                 "browser.tabs.closeWindowWithLastTab" = false;
                 # Ensure extensions are enabled from Nix/HM sources
                 "extensions.autoDisableScopes" = 0;
-                # Enable Firefox vertical tabs sidebar (when supported)
+                # Enable Firefox vertical tabs sidebar (Floorp 12+ uses Firefox's implementation)
+                # See: https://docs.floorp.app/docs/features/about-vertical-tab-bar/
                 "sidebar.verticalTabs" = true;
                 # Open Tabs sidebar by default on the left
                 "sidebar.open" = true;
@@ -121,7 +141,7 @@ _: {
                 "cookiebanners.ui.desktop.enabled" = true;
               };
 
-              # Declarative search configuration
+              # Declarative search configuration (same as Firefox)
               search = {
                 force = true;
                 default = "Google Custom";
