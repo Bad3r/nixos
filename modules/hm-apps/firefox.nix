@@ -1,7 +1,6 @@
 _: {
   flake.homeManagerModules.gui =
     {
-      pkgs,
       lib,
       config,
       ...
@@ -12,7 +11,7 @@ _: {
     {
       options.home.firefoxPrivacy = {
         enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
-          default = true;
+          default = false;
         };
         enableDRM = lib.mkEnableOption "Allow DRM/Widevine (EME) playback" // {
           default = true;
@@ -22,8 +21,6 @@ _: {
       config = {
         programs.firefox = {
           enable = true;
-          # Uses pkgs.firefoxPrivacyFonts from overlay in modules/apps/firefox.nix
-          package = pkgs.firefoxPrivacyFonts;
 
           # Core enterprise policies via the wrapped Firefox
           policies = {
@@ -49,17 +46,12 @@ _: {
             primary = {
               id = 0;
               settings = {
-                # Default fonts: Croscore (Arimo, Tinos, Cousine)
-                "font.default.x-western" = "serif";
-                "font.name.serif.x-western" = "Tinos";
-                "font.name.sans-serif.x-western" = "Arimo";
-                "font.name.monospace.x-western" = "Cousine";
+                # Default fonts
+                "font.name.serif.x-western" = "MonoLisa";
+                "font.name.sans-serif.x-western" = "MonoLisa";
+                "font.name.monospace.x-western" = "MonoLisa";
 
-                # UI chrome fonts (override Stylix/GTK)
-                "font.name.serif.x-unicode" = lib.mkForce "Tinos";
-                "font.name.sans-serif.x-unicode" = lib.mkForce "Arimo";
-                "font.name.monospace.x-unicode" = lib.mkForce "Cousine";
-
+                "browser.aboutConfig.showWarning" = false;
                 "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
                 "browser.ctrlTab.sortByRecentlyUsed" = true;
                 "browser.tabs.closeWindowWithLastTab" = false;
@@ -128,10 +120,10 @@ _: {
               # Declarative search configuration
               search = {
                 force = true;
-                default = "google";
+                default = "Google Custom";
                 engines = {
-                  google = {
-                    name = "Google";
+                  "Google Custom" = {
+                    name = "Google Custom";
                     urls = [
                       {
                         template = "https://www.google.com/search";
