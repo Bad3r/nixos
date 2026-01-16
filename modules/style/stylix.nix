@@ -117,6 +117,14 @@
               firefoxGnomeTheme.enable = false;
               fonts.enable = false;
             };
+
+            # Floorp profile theming (same as Firefox)
+            targets.floorp = {
+              profileNames = [ "primary" ];
+              colorTheme.enable = true; # uses Firefox Color extension from NUR
+              firefoxGnomeTheme.enable = false;
+              fonts.enable = false;
+            };
           };
 
           programs = {
