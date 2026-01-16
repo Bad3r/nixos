@@ -93,3 +93,163 @@ The module pattern is identical—just substitute `programs` with `services` in 
 - Run `nix fmt` after edits to preserve formatting.
 - Review the header comment whenever options change or new capabilities ship to keep the documentation truthful.
 - Before pushing, run the full validation suite per [`docs/architecture/06-reference.md`](../architecture/06-reference.md#validation).
+
+## Complete Workflow Checklist
+
+When adding a new app, complete each step in order:
+
+### 1. Verify Package in nixpkgs
+
+```bash
+# Check package exists and isn't deprecated/aliased
+nix eval nixpkgs#<name>.meta.description --raw
+
+# If you get an error about aliases, check the actual package name
+nix eval nixpkgs#<name> --raw 2>&1
+```
+
+Some packages have different names (e.g., `floorp` is deprecated → use `floorp-bin`).
+
+### 2. Create NixOS Module
+
+- Create `modules/apps/<tool>.nix` following the skeleton above.
+- Use `lib.mkPackageOption pkgs "<actual-pkg-name>" { }` with the correct package name.
+
+### 3. Stage New Files (Critical)
+
+```bash
+git add modules/apps/<tool>.nix
+```
+
+> **Pitfall:** `nix flake check` copies only git-tracked files to the Nix store. Untracked files are invisible to the flake and will cause "option does not exist" errors.
+
+### 4. Enable in apps-enable.nix
+
+Add to `modules/system76/apps-enable.nix` in alphabetical order:
+
+```nix
+programs = {
+  # ...
+  <tool>.extended.enable = lib.mkOverride 1100 true;
+  # ...
+};
+```
+
+### 5. Check for Home Manager Integration
+
+```bash
+# Check local mirror
+ls "~/git/home-manager/modules/programs/<tool>.nix"
+
+# Or search for the program
+grep -r "programs\.<tool>" ~/git/home-manager/modules/programs/
+```
+
+If HM support exists, continue to step 6. Otherwise, skip to step 8.
+
+### 6. Create Home Manager Module
+
+Create `modules/hm-apps/<tool>.nix`:
+
+```nix
+/*
+  Package: <tool>
+  Description: ...
+  Homepage: ...
+  ...
+*/
+
+{
+  flake.homeManagerModules.apps.<tool> =
+    {
+      lib,
+      pkgs,
+      config,
+      inputs,
+      ...
+    }:
+    {
+      # Module configuration
+      programs.<tool>.enable = true;
+    };
+}
+```
+
+### 7. Add to Home Manager Imports
+
+Add to `modules/system76/home-manager-apps.nix` in the `extraAppNames` list:
+
+```nix
+extraAppNames = [
+  # ...
+  "<tool>"
+  # ...
+];
+```
+
+> **Pitfall:** HM modules exported to `flake.homeManagerModules.apps.<name>` are **not** auto-imported. They must be explicitly listed in `home-manager-apps.nix`. This is different from `flake.homeManagerModules.gui` which is auto-loaded.
+
+### 8. Check for Stylix Integration
+
+```bash
+# Check if stylix supports the app
+grep -r "<tool>" ~/git/stylix/modules/
+```
+
+### 9. Add Stylix Configuration (if supported)
+
+Add to `modules/style/stylix.nix` under `flake.homeManagerModules.gui`:
+
+```nix
+stylix.targets.<tool> = {
+  colorTheme.enable = true;
+  # ... other options
+};
+```
+
+### 10. Stage All Files and Validate
+
+```bash
+git add modules/apps/<tool>.nix modules/hm-apps/<tool>.nix
+git add modules/system76/apps-enable.nix
+git add modules/system76/home-manager-apps.nix
+git add modules/style/stylix.nix
+
+nix fmt
+nix flake check --accept-flake-config --no-build
+```
+
+## Common Pitfalls
+
+### Git Tracking Requirement
+
+**Problem:** `nix flake check` fails with "option does not exist" for a module you just created.
+
+**Cause:** Flakes copy the git tree to `/nix/store`, including only tracked (staged or committed) files. Untracked files are ignored.
+
+**Solution:** Always `git add` new files before running `nix flake check`.
+
+## Integration Discovery Reference
+
+### Home Manager
+
+| Check               | Command                                                                 |
+| ------------------- | ----------------------------------------------------------------------- |
+| Module exists       | `ls ~/git/home-manager/modules/programs/<tool>.nix`                     |
+| Search by name      | `grep -r "programs\.<tool>" ~/git/home-manager/modules/`                |
+| Firefox derivatives | Check `~/git/home-manager/modules/programs/firefox/mkFirefoxModule.nix` |
+
+### Stylix
+
+| Check                    | Command                                   |
+| ------------------------ | ----------------------------------------- |
+| General support          | `grep -r "<tool>" ~/git/stylix/modules/`  |
+| Firefox/Floorp/LibreWolf | `cat ~/git/stylix/modules/firefox/hm.nix` |
+| Available options        | `cat ~/git/stylix/modules/<tool>/`        |
+
+### NUR Firefox Addons
+
+| Check        | Command                                                                      |
+| ------------ | ---------------------------------------------------------------------------- |
+| List addons  | `nix eval nixpkgs#nur.repos.rycee.firefox-addons --apply builtins.attrNames` |
+| Search addon | `nix search nixpkgs#nur.repos.rycee.firefox-addons.<name>`                   |

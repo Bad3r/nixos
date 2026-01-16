@@ -16,6 +16,7 @@ let
     "feh"
     "file-roller"
     "flameshot"
+    "floorp"
     # "gimp"
     "gptfdisk"
     # "inkscape"
