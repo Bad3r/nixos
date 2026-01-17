@@ -105,12 +105,7 @@
           services = lib.mkMerge [
             {
               dunst.enable = lib.mkDefault true;
-              picom = {
-                enable = lib.mkDefault true;
-                settings = lib.mkDefault {
-                  backend = "glx";
-                };
-              };
+              picom.enable = false;
               udiskie = {
                 enable = lib.mkDefault true;
                 tray = lib.mkDefault "always";
