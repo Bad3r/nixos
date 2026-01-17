@@ -115,7 +115,7 @@
       commandsDefault = {
         launcher = "${lib.getExe pkgs.rofi} -config ~/.config/rofi/rofidmenu.rasi -modi drun -show drun";
         terminal = lib.getExe pkgs.kitty;
-        browser = lib.getExe config.programs.firefox.finalPackage;
+        browser = lib.getExe config.programs.floorp.finalPackage;
         emoji = "${lib.getExe pkgs.rofimoji} --selector rofi";
         playerctl = lib.getExe pkgs.playerctl;
         volume = lib.getExe pkgs.pamixer;
@@ -278,8 +278,8 @@
         browserClass = lib.mkOption {
           description = "Window class of the default browser for focus-or-launch and assigns.";
           type = lib.types.str;
-          default = "firefox";
-          example = "google-chrome";
+          default = "floorp";
+          example = "firefox";
         };
       };
 
@@ -424,6 +424,7 @@
                 { class = "(?i)(?:qt5ct|pinentry)"; }
                 { class = "claude-wpa"; }
                 { title = "(?i)(?:copying|deleting|moving)"; }
+                { title = "(?i).*bitwarden.*"; }
                 { window_role = "(?i)(?:pop-up|setup)"; }
               ];
 
@@ -445,6 +446,12 @@
                     class = "claude-wpa";
                   };
                   command = "floating enable, resize set 1270 695, move position center";
+                }
+                {
+                  criteria = {
+                    title = "(?i).*bitwarden.*";
+                  };
+                  command = "floating enable, resize set 1270 694, move position 1285 px 36 px";
                 }
                 {
                   criteria = {
