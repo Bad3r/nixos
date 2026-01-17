@@ -137,6 +137,15 @@
             inherit (metaOwner.git) name email;
           };
         }
+
+        # GPG commit signing
+        {
+          signing = {
+            key = "981DE78A201C2B735FF0B545A3967CCA47D5275F"; # pragma: allowlist secret
+            signByDefault = true;
+            format = "openpgp";
+          };
+        }
       ];
 
       # Delta diff viewer (moved from programs.git.delta to programs.delta)
