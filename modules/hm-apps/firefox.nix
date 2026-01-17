@@ -119,6 +119,9 @@ _: {
                 "cookiebanners.service.mode" = 1;
                 "cookiebanners.service.mode.privateBrowsing" = 1;
                 "cookiebanners.ui.desktop.enabled" = true;
+
+                # Open external links (xdg-open, etc.) in new tab instead of current tab
+                "browser.link.open_newwindow.override.external" = 3;
               };
 
               # Declarative search configuration
