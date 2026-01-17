@@ -9,7 +9,7 @@
     let
       keyFingerprint =
         # Public key fingerprint; safe to surface, ignored by ripsecrets
-        "80CA80DA06B77EE708D57D9B5B92AB136C03BA48";
+        "981DE78A201C2B735FF0B545A3967CCA47D5275F";
       keySecret = lib.attrByPath [ "sops" "secrets" "gpg/vx-secret-key" ] null config;
       keyPath = if keySecret == null then null else keySecret.path;
       haveKeyPath = keyPath != null;

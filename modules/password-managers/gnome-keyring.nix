@@ -15,9 +15,20 @@ let
         gnome-keyring.enable = lib.mkForce false;
       };
 
-      systemd.user.services.pass-secret-service.Install.Alias = lib.mkIf cfg.enable [
-        "dbus-org.freedesktop.secrets.service"
-      ];
+      systemd.user.services.pass-secret-service = lib.mkIf cfg.enable {
+        Unit = {
+          After = [ "graphical-session.target" ];
+          PartOf = lib.mkForce [ "graphical-session.target" ];
+        };
+        Service.Environment = [
+          "DISPLAY=:0"
+          "XAUTHORITY=%h/.Xauthority"
+        ];
+        Install = {
+          Alias = [ "dbus-org.freedesktop.secrets.service" ];
+          WantedBy = lib.mkForce [ "graphical-session.target" ];
+        };
+      };
     };
 in
 {
