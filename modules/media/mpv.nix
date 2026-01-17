@@ -11,7 +11,7 @@
           pause = "no"; # Start the player in paused state
           ytdl = "yes"; # Enable youtube-dl
           ytdl-format = "best"; # Use the best format available
-          ytdl-raw-options = "cookies-from-browser=firefox";
+          ytdl-raw-options = "cookies-from-browser=floorp";
           profile = "high-quality"; # gpu-hq is deprecated
           vo = "gpu";
           gpu-api = "opengl"; # force stable interop; avoids NVDEC freeze with current NVIDIA stack
