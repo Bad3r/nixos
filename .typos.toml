@@ -22,7 +22,7 @@ crypted = "crypted"  # LUKS device mapper name
 wdth = "wdth"  # CSS font-variation-settings property
 
 # Hashes/keys (extend-ignore-re should catch most, but explicit for safety)
-"80CA80DA06B77EE708D57D9B5B92AB136C03BA48" = "80CA80DA06B77EE708D57D9B5B92AB136C03BA48"
+"981DE78A201C2B735FF0B545A3967CCA47D5275F" = "981DE78A201C2B735FF0B545A3967CCA47D5275F"
 
 [files]
 extend-exclude = [
