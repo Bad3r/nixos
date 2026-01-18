@@ -424,7 +424,6 @@
                 { class = "(?i)(?:qt5ct|pinentry)"; }
                 { class = "claude-wpa"; }
                 { class = "(?i)protonvpn-app"; }
-                { class = "pavucontrol"; }
                 { title = "(?i)(?:copying|deleting|moving)"; }
                 { title = "(?i).*bitwarden.*"; }
                 { window_role = "(?i)(?:pop-up|setup)"; }
@@ -454,6 +453,12 @@
                     title = "(?i).*bitwarden.*";
                   };
                   command = "floating enable, resize set 1270 694, move position 1285 px 36 px";
+                }
+                {
+                  criteria = {
+                    class = "pwvucontrol";
+                  };
+                  command = "floating enable, resize set 1270 695, move position 1285 px 34 px";
                 }
                 {
                   criteria = {
