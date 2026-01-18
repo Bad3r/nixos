@@ -21,11 +21,34 @@
     --mode: Start in a non-default mode.
     --fork: Fork into background.
 */
+_:
+let
+  ZathuraModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.zathura.extended;
+    in
+    {
+      options.programs.zathura.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to enable zathura.";
+        };
 
-_: {
-  flake.homeManagerModules.apps.zathura = {
-    programs.zathura = {
-      enable = true;
+        package = lib.mkPackageOption pkgs "zathura" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
-  };
+in
+{
+  flake.nixosModules.apps.zathura = ZathuraModule;
 }
