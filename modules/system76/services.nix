@@ -120,11 +120,6 @@ _: {
       # Let EC and system76-power handle fans natively.
       programs.coolercontrol.enable = false;
 
-      xdg.mime.defaultApplications = {
-        "inode/directory" = lib.mkForce "nemo.desktop";
-        "application/x-directory" = lib.mkForce "nemo.desktop";
-      };
-
       # Disable ACME sample certs until configured with real domain/token
       security.acme = {
         acceptTerms = lib.mkDefault false;
