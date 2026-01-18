@@ -16,8 +16,14 @@
 #   in
 #   { ... xdg.mime.mkBrowserDefaults "floorp.desktop" ... }
 #
+# Desktop file mappings are also exported for CI validation:
+#   xdg.desktopFiles.browser.floorp = { desktop = "floorp.desktop"; module = "floorp"; };
+#
 { lib, ... }:
 let
+  # Generic helper to generate defaultApplications attrset
+  mkDefaults = mimeTypes: desktopFile: lib.genAttrs mimeTypes (_: desktopFile);
+
   # Canonical MIME types for web browsers per freedesktop.org shared-mime-info
   browserMimeTypes = [
     "text/html"
@@ -41,9 +47,13 @@ let
 
   # MIME types for image viewers
   imageViewerMimeTypes = [
+    "image/avif"
     "image/bmp"
     "image/gif"
+    "image/heic"
+    "image/heif"
     "image/jpeg"
+    "image/jxl"
     "image/png"
     "image/svg+xml"
     "image/tiff"
@@ -74,6 +84,23 @@ let
     "image/vnd.djvu+multipage"
   ];
 
+  # MIME types for audio players
+  audioPlayerMimeTypes = [
+    "audio/aac"
+    "audio/flac"
+    "audio/mp4"
+    "audio/mpeg"
+    "audio/ogg"
+    "audio/opus"
+    "audio/vorbis"
+    "audio/x-flac"
+    "audio/x-m4a"
+    "audio/x-mp3"
+    "audio/x-opus+ogg"
+    "audio/x-vorbis+ogg"
+    "audio/x-wav"
+  ];
+
   # MIME types for video players
   videoPlayerMimeTypes = [
     "video/3gpp"
@@ -89,34 +116,163 @@ let
     "video/x-msvideo"
     "video/x-ogm+ogg"
   ];
+
+  # Desktop file mappings: app key → { desktop file name, app module name }
+  # Used by default-apps.nix for MIME configuration and ci.nix for validation
+  desktopFiles = {
+    browser = {
+      brave = {
+        desktop = "brave-browser.desktop";
+        module = "brave";
+      };
+      chrome = {
+        desktop = "google-chrome.desktop";
+        module = "google-chrome-dev";
+      };
+      chromium = {
+        desktop = "chromium-browser.desktop";
+        module = "chromium";
+      };
+      firefox = {
+        desktop = "firefox.desktop";
+        module = "firefox";
+      };
+      floorp = {
+        desktop = "floorp.desktop";
+        module = "floorp";
+      };
+      librewolf = {
+        desktop = "librewolf.desktop";
+        module = "librewolf";
+      };
+      mullvad = {
+        desktop = "mullvad-browser.desktop";
+        module = "mullvad-browser";
+      };
+      tor = {
+        desktop = "torbrowser.desktop";
+        module = "tor-browser";
+      };
+      ungoogled-chromium = {
+        desktop = "chromium-browser.desktop";
+        module = "ungoogled-chromium";
+      };
+    };
+
+    terminal = {
+      alacritty = {
+        desktop = "Alacritty.desktop";
+        module = "alacritty";
+      };
+      kitty = {
+        desktop = "kitty.desktop";
+        module = "kitty";
+      };
+      wezterm = {
+        desktop = "org.wezfurlong.wezterm.desktop";
+        module = "wezterm";
+      };
+    };
+
+    fileManager = {
+      dolphin = {
+        desktop = "org.kde.dolphin.desktop";
+        module = "dolphin";
+      };
+      nemo = {
+        desktop = "nemo.desktop";
+        module = "nemo";
+      };
+      nautilus = {
+        desktop = "org.gnome.Nautilus.desktop";
+        module = "nautilus";
+      };
+      thunar = {
+        desktop = "thunar.desktop";
+        module = "thunar";
+      };
+    };
+
+    imageViewer = {
+      feh = {
+        desktop = "feh.desktop";
+        module = "feh";
+      };
+      gwenview = {
+        desktop = "org.kde.gwenview.desktop";
+        module = "gwenview";
+      };
+      nsxiv = {
+        desktop = "nsxiv.desktop";
+        module = "nsxiv";
+      };
+      sxiv = {
+        desktop = "sxiv.desktop";
+        module = "sxiv";
+      };
+    };
+
+    documentViewer = {
+      evince = {
+        desktop = "org.gnome.Evince.desktop";
+        module = "evince";
+      };
+      okular = {
+        desktop = "org.kde.okular.desktop";
+        module = "okular";
+      };
+      zathura = {
+        desktop = "org.pwmt.zathura.desktop";
+        module = "zathura";
+      };
+    };
+
+    # Audio and video players share the same apps (mpv, vlc handle both)
+    audioPlayer = {
+      mpv = {
+        desktop = "mpv.desktop";
+        module = "mpv";
+      };
+      vlc = {
+        desktop = "vlc.desktop";
+        module = "vlc";
+      };
+    };
+
+    videoPlayer = {
+      mpv = {
+        desktop = "mpv.desktop";
+        module = "mpv";
+      };
+      vlc = {
+        desktop = "vlc.desktop";
+        module = "vlc";
+      };
+    };
+  };
 in
 {
+  flake.lib.xdg.desktopFiles = desktopFiles;
+
   flake.lib.xdg.mime = {
     inherit
+      mkDefaults
       browserMimeTypes
       terminalMimeTypes
       fileManagerMimeTypes
       imageViewerMimeTypes
       documentViewerMimeTypes
+      audioPlayerMimeTypes
       videoPlayerMimeTypes
       ;
 
-    # Generate defaultApplications attrset for a browser desktop entry
-    mkBrowserDefaults = desktopFile: lib.genAttrs browserMimeTypes (_: desktopFile);
-
-    # Generate defaultApplications attrset for a terminal desktop entry
-    mkTerminalDefaults = desktopFile: lib.genAttrs terminalMimeTypes (_: desktopFile);
-
-    # Generate defaultApplications attrset for a file manager desktop entry
-    mkFileManagerDefaults = desktopFile: lib.genAttrs fileManagerMimeTypes (_: desktopFile);
-
-    # Generate defaultApplications attrset for an image viewer desktop entry
-    mkImageViewerDefaults = desktopFile: lib.genAttrs imageViewerMimeTypes (_: desktopFile);
-
-    # Generate defaultApplications attrset for a document viewer desktop entry
-    mkDocumentViewerDefaults = desktopFile: lib.genAttrs documentViewerMimeTypes (_: desktopFile);
-
-    # Generate defaultApplications attrset for a video player desktop entry
-    mkVideoPlayerDefaults = desktopFile: lib.genAttrs videoPlayerMimeTypes (_: desktopFile);
+    # Category-specific helpers (convenience wrappers around mkDefaults)
+    mkBrowserDefaults = mkDefaults browserMimeTypes;
+    mkTerminalDefaults = mkDefaults terminalMimeTypes;
+    mkFileManagerDefaults = mkDefaults fileManagerMimeTypes;
+    mkImageViewerDefaults = mkDefaults imageViewerMimeTypes;
+    mkDocumentViewerDefaults = mkDefaults documentViewerMimeTypes;
+    mkAudioPlayerDefaults = mkDefaults audioPlayerMimeTypes;
+    mkVideoPlayerDefaults = mkDefaults videoPlayerMimeTypes;
   };
 }
