@@ -423,6 +423,8 @@
               floating.criteria = [
                 { class = "(?i)(?:qt5ct|pinentry)"; }
                 { class = "claude-wpa"; }
+                { class = "(?i)protonvpn-app"; }
+                { class = "pavucontrol"; }
                 { title = "(?i)(?:copying|deleting|moving)"; }
                 { title = "(?i).*bitwarden.*"; }
                 { window_role = "(?i)(?:pop-up|setup)"; }
