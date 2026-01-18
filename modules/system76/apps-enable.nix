@@ -135,7 +135,7 @@
       lefthook.extended.enable = lib.mkOverride 1100 false;
       less.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
-      librewolf.extended.enable = lib.mkOverride 1100 true;
+      librewolf.extended.enable = lib.mkOverride 1100 false;
       localsend.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.enable = lib.mkOverride 1100 true;
       lshw.extended.enable = lib.mkOverride 1100 true;

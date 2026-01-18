@@ -36,7 +36,7 @@ let
           description = "Whether to enable librewolf.";
         };
 
-        package = lib.mkPackageOption pkgs "librewolf" { };
+        package = lib.mkPackageOption pkgs "librewolf-bin-unwrapped" { };
       };
 
       config = lib.mkIf cfg.enable {

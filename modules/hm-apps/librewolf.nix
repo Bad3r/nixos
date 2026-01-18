@@ -18,7 +18,12 @@
 */
 
 {
-  flake.homeManagerModules.apps.librewolf = _: {
-    programs.librewolf.enable = true;
-  };
+  flake.homeManagerModules.apps.librewolf =
+    { pkgs, ... }:
+    {
+      programs.librewolf = {
+        enable = false;
+        package = pkgs.librewolf-bin-unwrapped;
+      };
+    };
 }
