@@ -156,6 +156,9 @@
 
           # Set dark mode preference for GTK apps (not handled by Stylix GTK target)
           dconf.settings."org/gnome/desktop/interface".color-scheme = "prefer-dark";
+
+          # GTK3 apps need this setting to use dark theme variant
+          gtk.gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
         };
     };
 
