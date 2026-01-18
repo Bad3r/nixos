@@ -55,6 +55,12 @@
           block = "sound";
           format = " $icon {$volume|muted} ";
           show_volume_when_muted = false;
+          click = [
+            {
+              button = "left";
+              cmd = "pwvucontrol";
+            }
+          ];
         }
         {
           block = "battery";
