@@ -36,10 +36,6 @@ let
         xorg.xbacklight
       ];
 
-      xdg.mime.defaultApplications = {
-        "inode/directory" = lib.mkDefault "nemo.desktop";
-        "application/x-directory" = lib.mkDefault "nemo.desktop";
-      };
     };
 in
 {
