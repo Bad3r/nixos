@@ -141,10 +141,8 @@
 
           programs = {
             kitty = {
-              settings = {
-                font_size = 12;
-                line_height = 1.6;
-              };
+              settings.font_size = 12;
+              extraConfig = "modify_font cell_height 100%";
             };
           };
 
