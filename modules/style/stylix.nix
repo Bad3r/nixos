@@ -110,20 +110,26 @@
               light = "Qogir-Light";
             };
 
-            # Firefox profile theming
-            targets.firefox = {
-              profileNames = [ "primary" ];
-              colorTheme.enable = true; # uses Firefox Color extension from NUR
-              firefoxGnomeTheme.enable = false;
-              fonts.enable = false;
-            };
+            # Application theming targets
+            targets = {
+              # Firefox profile theming
+              firefox = {
+                profileNames = [ "primary" ];
+                colorTheme.enable = true; # uses Firefox Color extension from NUR
+                firefoxGnomeTheme.enable = false;
+                fonts.enable = false;
+              };
 
-            # Floorp profile theming (same as Firefox)
-            targets.floorp = {
-              profileNames = [ "primary" ];
-              colorTheme.enable = true; # uses Firefox Color extension from NUR
-              firefoxGnomeTheme.enable = false;
-              fonts.enable = false;
+              # Floorp profile theming (same as Firefox)
+              floorp = {
+                profileNames = [ "primary" ];
+                colorTheme.enable = true; # uses Firefox Color extension from NUR
+                firefoxGnomeTheme.enable = false;
+                fonts.enable = false;
+              };
+
+              # Zathura PDF viewer theming
+              zathura.enable = true;
             };
           };
 
