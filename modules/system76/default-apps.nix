@@ -111,9 +111,15 @@ let
 in
 {
   configurations.nixos.system76.module =
-    { config, lib, ... }:
+    {
+      config,
+      lib,
+      options,
+      ...
+    }:
     let
       cfg = config.system76.defaults;
+      hasHomeManager = options ? home-manager;
 
       # Generate a NixOS option for a category
       mkCategoryOption =
@@ -129,8 +135,9 @@ in
         name: cat:
         lib.mkIf (cfg.${name} != null) (
           lib.mkMerge [
-            {
-              xdg.mime.defaultApplications = cat.mkMimeDefaults cat.desktopFiles.${cfg.${name}}.desktop;
+            { xdg.mime.defaultApplications = cat.mkMimeDefaults cat.desktopFiles.${cfg.${name}}.desktop; }
+            # Set user-level XDG mimeapps if home-manager is available
+            (lib.optionalAttrs hasHomeManager {
               home-manager.sharedModules = [
                 {
                   xdg.mimeApps = {
@@ -139,8 +146,8 @@ in
                   };
                 }
               ];
-            }
-            (if cat ? extraConfig then cat.extraConfig cfg.${name} else { })
+            })
+            (lib.optionalAttrs (cat ? extraConfig) (cat.extraConfig cfg.${name}))
           ]
         );
 
