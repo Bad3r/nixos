@@ -27,12 +27,12 @@
       ...
     }:
     let
-      cfg = config.home.floorpPrivacy;
+      cfg = config.home.floorp;
       inherit (pkgs.stdenv.hostPlatform) system;
       inherit (inputs.dedupe_nur.legacyPackages.${system}.repos.rycee) firefox-addons;
     in
     {
-      options.home.floorpPrivacy = {
+      options.home.floorp = {
         enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
           default = false;
         };
@@ -139,6 +139,35 @@
                 "cookiebanners.service.mode" = 1;
                 "cookiebanners.service.mode.privateBrowsing" = 1;
                 "cookiebanners.ui.desktop.enabled" = true;
+
+                # Declarative workspaces (experimental)
+                # Data format: Map serialized as array of [id, workspace] tuples
+                "floorp.workspaces.enabled" = true;
+                "floorp.workspaces.v4.store" = builtins.toJSON {
+                  data = [
+                    [
+                      "00000000-0000-0000-0000-000000000001"
+                      {
+                        name = "Default";
+                        icon = "fingerprint";
+                        userContextId = 0;
+                      }
+                    ]
+                    [
+                      "00000000-0000-0000-0000-000000000002"
+                      {
+                        name = "Work";
+                        icon = "briefcase";
+                        userContextId = 1; # Links to "work" container
+                      }
+                    ]
+                  ];
+                  order = [
+                    "00000000-0000-0000-0000-000000000001"
+                    "00000000-0000-0000-0000-000000000002"
+                  ];
+                  defaultID = "00000000-0000-0000-0000-000000000001";
+                };
               };
 
               # Declarative search configuration (same as Firefox)
@@ -213,10 +242,6 @@
                       {
                         name = "Bitwarden";
                         url = "https://vault.bitwarden.com/";
-                      }
-                      {
-                        name = "uBlock Origin";
-                        url = "https://ublockorigin.com/";
                       }
                     ];
                   }
