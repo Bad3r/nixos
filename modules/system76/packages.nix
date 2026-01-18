@@ -35,7 +35,7 @@
           system76-keyboard-configurator
 
           # PipeWire controls for selecting outputs and adjusting volume
-          pavucontrol
+          pwvucontrol
           qpwgraph
           helvum
 
