@@ -10,8 +10,6 @@
           bold_font = "auto";
           italic_font = "auto";
           bold_italic_font = "auto";
-          adjust_line_height = "0";
-          adjust_column_width = "0";
           disable_ligatures = "never";
           font_features = "none";
           box_drawing_scale = "0.001, 1, 1.5, 2";
@@ -48,13 +46,10 @@
           wheel_scroll_multiplier = "5.0";
           mouse_hide_wait = "3.0";
           url_style = "curly";
-          open_url_modifiers = "kitty_mod";
           open_url_with = "default";
           url_prefixes = "http https file ftp";
           copy_on_select = true;
           strip_trailing_spaces = "never";
-          rectangle_select_modifiers = "ctrl+alt";
-          terminal_select_modifiers = "shift";
           select_by_word_characters = "@-./_~?&=%+#";
           click_interval = "-1.0";
           focus_follows_mouse = false;
@@ -80,7 +75,6 @@
           inactive_text_alpha = "1.0";
           hide_window_decorations = true;
           resize_debounce_time = "0.1";
-          resize_draw_strategy = "static";
           resize_in_steps = false;
           # Tab bar configuration (colors handled by Stylix)
           tab_bar_edge = "bottom";
