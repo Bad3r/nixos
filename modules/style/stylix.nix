@@ -112,6 +112,12 @@
 
             # Application theming targets
             targets = {
+              # GTK theming (adw-gtk3 theme + CSS)
+              gtk.enable = true;
+
+              # Qt theming (Kvantum + qtct)
+              qt.enable = true;
+
               # Firefox profile theming
               firefox = {
                 profileNames = [ "primary" ];
@@ -147,6 +153,9 @@
             pkgs.google-fonts
             pkgs.gucharmap
           ];
+
+          # Set dark mode preference for GTK apps (not handled by Stylix GTK target)
+          dconf.settings."org/gnome/desktop/interface".color-scheme = "prefer-dark";
         };
     };
 
