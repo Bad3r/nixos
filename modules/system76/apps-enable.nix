@@ -138,7 +138,10 @@
       libnotify.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 false;
       localsend.extended.enable = lib.mkOverride 1100 true;
+      # TODO: Test with disableGpuCompositing = false after future NVIDIA driver updates
+      # Workaround for blank window with NVIDIA 580.x + PRIME sync (2026-01)
       logseq.extended.enable = lib.mkOverride 1100 true;
+      logseq.extended.disableGpuCompositing = lib.mkOverride 1100 true;
       lshw.extended.enable = lib.mkOverride 1100 true;
       lsof.extended.enable = lib.mkOverride 1100 true;
       # TODO(#42): Re-enable when ltrace PIE test fix lands in nixpkgs-unstable
