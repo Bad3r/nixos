@@ -253,6 +253,7 @@
               };
 
               # Multi-Account Container(s)
+              containersForce = true; # Floorp modifies this file at runtime; force overwrite
               containers = {
                 work = {
                   id = 1;
