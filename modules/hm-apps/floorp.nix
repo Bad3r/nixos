@@ -94,6 +94,10 @@
                 "widget.use-xdg-desktop-portal.file-picker" = 1;
                 "widget.use-xdg-desktop-portal" = 1;
 
+                # Force dark theme detection (Firefox doesn't auto-detect on non-GNOME)
+                "ui.systemUsesDarkTheme" = 1;
+                "layout.css.prefers-color-scheme.content-override" = 0; # 0=dark, 1=light, 2=system
+
                 # Reduce sponsored/newtab noise
                 "browser.newtabpage.activity-stream.showSponsored" = false;
                 "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
