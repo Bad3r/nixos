@@ -18,6 +18,7 @@
 
   Example Usage:
     * `google-chrome-unstable` - Launch Chrome Dev (the binary is named google-chrome-unstable).
+    * `google-chrome` or `chrome` - Aliases that invoke google-chrome-unstable.
     * `google-chrome-unstable --enable-features=WebGPU` - Test WebGPU support.
     * `google-chrome-unstable --user-data-dir=/tmp/chrome-test` - Isolated testing profile.
 
@@ -50,32 +51,48 @@ let
         package = lib.mkPackageOption pkgs "google-chrome-dev" { };
       };
 
-      config = {
-        # Add overlay to make google-chrome-dev available in pkgs
-        # Must be unconditional so the package option can resolve
-        nixpkgs.overlays = [
-          (_final: prev: {
-            google-chrome-dev = (packageFor prev.stdenv.hostPlatform.system).overrideAttrs (oldAttrs: {
-              postInstall = (oldAttrs.postInstall or "") + ''
-                # Workaround for upstream browser-previews#44:
-                # Remove unpatched duplicate desktop file with broken /usr/bin path
-                rm -f $out/share/applications/com.google.Chrome.unstable.desktop
-              '';
-            });
-          })
-        ];
+      config =
+        let
+          # Binary aliases for google-chrome-unstable
+          googleChromeAlias = pkgs.writeShellApplication {
+            name = "google-chrome";
+            text = ''exec google-chrome-unstable "$@"'';
+          };
+          chromeAlias = pkgs.writeShellApplication {
+            name = "chrome";
+            text = ''exec google-chrome-unstable "$@"'';
+          };
+        in
+        {
+          # Add overlay to make google-chrome-dev available in pkgs
+          # Must be unconditional so the package option can resolve
+          nixpkgs.overlays = [
+            (_final: prev: {
+              google-chrome-dev = (packageFor prev.stdenv.hostPlatform.system).overrideAttrs (oldAttrs: {
+                postInstall = (oldAttrs.postInstall or "") + ''
+                  # Workaround for upstream browser-previews#44:
+                  # Remove unpatched duplicate desktop file with broken /usr/bin path
+                  rm -f $out/share/applications/com.google.Chrome.unstable.desktop
+                '';
+              });
+            })
+          ];
 
-        environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
+          environment.systemPackages = lib.mkIf cfg.enable [
+            cfg.package
+            googleChromeAlias
+            chromeAlias
+          ];
 
-        # Playwright compatibility: create symlink at expected FHS path
-        # Playwright MCP hardcodes /opt/google/chrome/chrome for Chrome detection
-        system.activationScripts.playwrightChromeCompat = lib.mkIf cfg.enable {
-          text = ''
-            mkdir -p /opt/google/chrome
-            ln -sfn /run/current-system/sw/bin/google-chrome-unstable /opt/google/chrome/chrome
-          '';
+          # Playwright compatibility: create symlink at expected FHS path
+          # Playwright MCP hardcodes /opt/google/chrome/chrome for Chrome detection
+          system.activationScripts.playwrightChromeCompat = lib.mkIf cfg.enable {
+            text = ''
+              mkdir -p /opt/google/chrome
+              ln -sfn /run/current-system/sw/bin/google-chrome-unstable /opt/google/chrome/chrome
+            '';
+          };
         };
-      };
     };
 in
 {

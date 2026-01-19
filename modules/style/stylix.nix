@@ -15,6 +15,8 @@
           base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/onedark.yaml";
           polarity = lib.mkDefault "dark";
           targets.grub.enable = false;
+          # Enable Chromium theming (applies to Google Chrome via browser policies)
+          targets.chromium.enable = true;
         };
       };
 
