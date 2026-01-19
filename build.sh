@@ -238,6 +238,51 @@ ensure_clean_git_tree() {
   fi
 }
 
+check_reboot_needed() {
+  local needs_reboot=false
+  local reasons=()
+
+  # Check kernel version
+  local running_kernel current_kernel
+  running_kernel="$(uname -r)"
+  current_kernel="$(readlink /run/current-system/kernel | sed 's|.*-linux-||;s|/.*||')"
+  if [[ ${running_kernel} != "${current_kernel}" ]]; then
+    needs_reboot=true
+    reasons+=("Kernel: ${running_kernel} -> ${current_kernel}")
+  fi
+
+  # Check nvidia driver (if present)
+  if [[ -d /run/current-system/sw/lib/nvidia ]]; then
+    local running_nvidia current_nvidia
+    running_nvidia="$(cat /sys/module/nvidia/version 2>/dev/null || echo "not loaded")"
+    current_nvidia="$(readlink /run/current-system/sw/lib/nvidia | sed 's/.*nvidia-//;s/-.*$//' || echo "unknown")"
+    if [[ ${running_nvidia} != "${current_nvidia}" && ${running_nvidia} != "not loaded" ]]; then
+      needs_reboot=true
+      reasons+=("NVIDIA: ${running_nvidia} -> ${current_nvidia}")
+    fi
+  fi
+
+  if $needs_reboot; then
+    printf "\n"
+    status_msg "${YELLOW}" "Reboot recommended to apply changes:"
+    local body=""
+    for reason in "${reasons[@]}"; do
+      printf "    - %s\n" "${reason}"
+      body+="${reason}\n"
+    done
+    # Desktop notification (non-blocking, don't fail if unavailable)
+    if command -v notify-send >/dev/null 2>&1; then
+      notify-send \
+        --urgency=normal \
+        --app-name="NixOS Build" \
+        --icon="${HOME}/.local/share/icons/Ant-Dark/apps/scalable/system-reboot.svg" \
+        --category=system \
+        "Reboot Recommended" \
+        "$(printf "%b" "${body}")" 2>/dev/null || true
+    fi
+  fi
+}
+
 run_flake_update() {
   status_msg "${YELLOW}" "Updating flake inputs..."
   nix flake update "${FLAKE_DIR}"
@@ -292,6 +337,7 @@ main() {
     /run/wrappers/bin/sudo --preserve-env=NIX_CONFIG,NIX_CONFIGURATION,SSH_AUTH_SOCK nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${HOSTNAME}" --accept-flake-config "${NIX_FLAGS[@]}"
     if [[ ${ACTION} == "switch" ]]; then
       status_msg "${GREEN}" "System switched successfully!"
+      check_reboot_needed
     else
       status_msg "${GREEN}" "Generation installed. It will become active on next reboot."
     fi
