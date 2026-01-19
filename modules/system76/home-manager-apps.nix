@@ -13,6 +13,7 @@ let
     # "evince"
     "fd"
     "glow"
+    "google-chrome"
     "feh"
     "file-roller"
     "flameshot"

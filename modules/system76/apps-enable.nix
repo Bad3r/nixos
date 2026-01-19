@@ -101,7 +101,8 @@
       gnused.extended.enable = lib.mkOverride 1100 true;
       go.extended.enable = lib.mkOverride 1100 false;
       "golangci-lint".extended.enable = lib.mkOverride 1100 false;
-      "google-chrome-dev".extended.enable = lib.mkOverride 1100 true;
+      "google-chrome".extended.enable = lib.mkOverride 1100 true;
+      "google-chrome-dev".extended.enable = lib.mkOverride 1100 false;
       gopass.extended.enable = lib.mkOverride 1100 true;
       gopls.extended.enable = lib.mkOverride 1100 false;
       gparted.extended.enable = lib.mkOverride 1100 true;
