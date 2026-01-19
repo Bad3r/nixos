@@ -20,7 +20,7 @@ _: {
         i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };
         i3-scratchpad-show-or-create = final.callPackage ../../packages/i3-scratchpad-show-or-create { };
         monitor-query = import ../../lib/shell/monitor-query.nix { inherit (final) writeText; };
-        # toggle-logseq is created in modules/window-manager/i3-config.nix (needs config.gui.scratchpad)
+        # toggle-logseq is created in modules/apps/i3wm/config.nix (needs config.gui.scratchpad)
       })
     ];
   };

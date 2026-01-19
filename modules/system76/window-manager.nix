@@ -1,6 +1,6 @@
 { lib, ... }:
 let
-  exported = import ../window-manager/i3.nix;
+  exported = import ../apps/i3wm/nixos.nix;
   i3Module = lib.getAttrFromPath [
     "flake"
     "nixosModules"
