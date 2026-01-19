@@ -1,3 +1,6 @@
+# i3 core configuration
+# Defines options, scripts, startup commands, colors, and bar settings
+# Window rules are in window-rules.nix
 {
   flake.homeManagerModules.gui =
     {
@@ -126,8 +129,10 @@
         powerProfile = lib.getExe powerProfileScript;
         focusOrLaunch = lib.getExe pkgs.i3-focus-or-launch;
       };
+
       # Use the already-defined stylixColors for consistency
       stylixColorsStrictWithHash = stylixColors;
+
       toLockColor =
         colorHex:
         let
@@ -135,6 +140,7 @@
           normalized = if builtins.stringLength trimmed == 8 then trimmed else trimmed + "FF";
         in
         lib.strings.toUpper normalized;
+
       # Build lock palette directly from Stylix colors (no fallbacks)
       lockPalette = {
         background = toLockColor stylixColorsStrictWithHash.base00;
@@ -144,6 +150,7 @@
         line = toLockColor stylixColorsStrictWithHash.base03;
         text = toLockColor stylixColorsStrictWithHash.base05;
       };
+
       lockScript = pkgs.writeShellApplication {
         name = "i3lock-stylix";
         runtimeInputs = [
@@ -193,11 +200,15 @@
             --clock "$@"
         '';
       };
+
       lockCommandDefault = lib.getExe lockScript;
+
       # Handle null defaults from options - use our defaults if option is null
       lockCommandValue =
         if config.gui.i3.lockCommand != null then config.gui.i3.lockCommand else lockCommandDefault;
+
       i3Commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
+
       workspaceOutputAssign = [
         {
           workspace = "1";
@@ -240,6 +251,7 @@
           output = [ "DP-1" ];
         }
       ];
+
       baseExtraConfig = lib.concatStringsSep "\n" [
         "default_orientation horizontal"
         "popup_during_fullscreen smart"
@@ -284,7 +296,7 @@
       };
 
       config = {
-        # Expose resolved commands for other modules (e.g., i3-keybindings.nix)
+        # Expose resolved commands for other modules (e.g., keybindings.nix)
         gui.i3.commands = lib.mkDefault commandsDefault;
 
         home.packages = [
@@ -412,60 +424,6 @@
                   }
                   // config.stylix.targets.i3.exportedBarConfig
                 )
-              ];
-
-              assigns = lib.mkOptionDefault {
-                "1" = [ { class = "(?i)(?:geany)"; } ];
-                "2" = [ { class = "(?i)(?:${config.gui.i3.browserClass})"; } ];
-                "3" = [ { class = "(?i)(?:thunar)"; } ];
-              };
-
-              floating.criteria = [
-                { class = "(?i)(?:qt5ct|pinentry)"; }
-                { class = "claude-wpa"; }
-                { class = "(?i)protonvpn-app"; }
-                { title = "(?i)(?:copying|deleting|moving)"; }
-                { title = "(?i).*bitwarden.*"; }
-                { window_role = "(?i)(?:pop-up|setup)"; }
-              ];
-
-              window.commands = [
-                {
-                  criteria = {
-                    urgent = "latest";
-                  };
-                  command = "focus";
-                }
-                {
-                  criteria = {
-                    class = "(?i)(?:qt5ct|pinentry)";
-                  };
-                  command = "floating enable, focus";
-                }
-                {
-                  criteria = {
-                    class = "claude-wpa";
-                  };
-                  command = "floating enable, resize set 1270 695, move position center";
-                }
-                {
-                  criteria = {
-                    title = "(?i).*bitwarden.*";
-                  };
-                  command = "floating enable, resize set 1270 694, move position 1285 px 36 px";
-                }
-                {
-                  criteria = {
-                    class = "pwvucontrol";
-                  };
-                  command = "floating enable, resize set 1270 695, move position 1285 px 34 px";
-                }
-                {
-                  criteria = {
-                    all = true;
-                  };
-                  command = ''border pixel 5, title_format "<b>%title</b>", title_window_icon padding 3px'';
-                }
               ];
             };
 

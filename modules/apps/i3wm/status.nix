@@ -1,4 +1,5 @@
 # i3status-rust configuration
+# Configures the status bar with system metrics, media controls, and theming
 {
   flake.homeManagerModules.gui =
     {

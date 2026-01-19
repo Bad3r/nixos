@@ -1,4 +1,5 @@
 # i3 keybindings configuration
+# Defines all keyboard shortcuts, workspace bindings, and mode configurations
 {
   flake.homeManagerModules.gui =
     {
@@ -11,7 +12,7 @@
       # Get modifier from i3 config
       mod = lib.attrByPath [ "xsession" "windowManager" "i3" "config" "modifier" ] "Mod4" config;
 
-      # Get commands from gui.i3.commands (defaults set in i3-config.nix)
+      # Get commands from gui.i3.commands (defaults set in config.nix)
       inherit (config.gui.i3) commands;
 
       # Lock command
