@@ -1,3 +1,5 @@
+# i3 NixOS module
+# Enables X11 with i3 window manager and provides core system packages
 let
   i3SessionModule =
     { pkgs, lib, ... }:
