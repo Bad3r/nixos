@@ -32,7 +32,6 @@ let
     "less"
     # "libreoffice"
     "lutris"
-    "mangohud"
     "mpv"
     "ncdu"
     "neovim"
