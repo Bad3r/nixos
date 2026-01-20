@@ -18,17 +18,23 @@
     --hot: Enable hot module replacement.
     --smol: Use less memory with more frequent garbage collection.
 */
-{
+_: {
   flake.homeManagerModules.apps.bun =
+    { osConfig, lib, ... }:
+    let
+      nixosEnabled = lib.attrByPath [ "programs" "bun" "extended" "enable" ] false osConfig;
+    in
     {
-      pkgs,
-      ...
-    }:
-    {
-      programs.bun = {
-        enable = true;
-        package = pkgs.bun;
-        enableGitIntegration = true;
+      config = lib.mkIf nixosEnabled {
+        programs.bun = {
+          enable = true;
+          # NOTE: Cannot use `package = null` here because enableGitIntegration
+          # requires the package reference to configure git diff for bun.lockb.
+          # HM uses `lib.getExe cfg.package` to set up the textconv filter.
+          # This means bun is installed via both NixOS (environment.systemPackages)
+          # and HM (home.packages), but both point to the same store path.
+          enableGitIntegration = true;
+        };
       };
     };
 }

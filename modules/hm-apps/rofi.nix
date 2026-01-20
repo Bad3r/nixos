@@ -31,15 +31,18 @@
     * `rofi -config ~/.config/rofi/rofikeyhint.rasi -show keys` — Show keybindings.
 */
 
-{ lib, ... }:
-{
+_: {
   flake.homeManagerModules.apps.rofi =
     {
+      osConfig,
       config,
+      lib,
       pkgs,
       ...
     }:
     let
+      nixosEnabled = lib.attrByPath [ "programs" "rofi" "extended" "enable" ] false osConfig;
+
       # Get terminal from i3 commands if available, fallback to kitty
       terminal =
         let
@@ -200,69 +203,71 @@
       '';
     in
     {
-      programs.rofi = {
-        enable = true;
+      config = lib.mkIf nixosEnabled {
+        programs.rofi = {
+          enable = true;
 
-        # Terminal for running console applications
-        inherit terminal;
+          # Terminal for running console applications
+          inherit terminal;
 
-        # Calculator plugin (uses libqalculate)
-        plugins = [ pkgs.rofi-calc ];
+          # Calculator plugin (uses libqalculate)
+          plugins = [ pkgs.rofi-calc ];
 
-        # Enable modes
-        modes = [
-          "window"
-          "drun"
-          "run"
-          "ssh"
-          "combi"
-          "filebrowser"
-          "calc"
-        ];
+          # Enable modes
+          modes = [
+            "window"
+            "drun"
+            "run"
+            "ssh"
+            "combi"
+            "filebrowser"
+            "calc"
+          ];
 
-        # Additional configuration matching old config.rasi
-        extraConfig = {
-          # Display settings
-          show-icons = true;
-          icon-theme = config.gtk.iconTheme.name or "hicolor";
+          # Additional configuration matching old config.rasi
+          extraConfig = {
+            # Display settings
+            show-icons = true;
+            icon-theme = config.gtk.iconTheme.name or "hicolor";
 
-          # Display format with icons
-          display-ssh = " ";
-          display-run = " ";
-          display-drun = "⚙ ";
-          display-window = " ";
-          display-combi = " ";
+            # Display format with icons
+            display-ssh = " ";
+            display-run = " ";
+            display-drun = "⚙ ";
+            display-window = " ";
+            display-combi = " ";
 
-          # Combi mode settings
-          combi-modes = "window,drun,ssh";
-          combi-display-format = "{mode} {text}";
-          combi-hide-mode-prefix = false;
+            # Combi mode settings
+            combi-modes = "window,drun,ssh";
+            combi-display-format = "{mode} {text}";
+            combi-hide-mode-prefix = false;
 
-          # General settings
-          drun-display-format = "{name}";
-          disable-history = false;
-          scroll-method = 0;
-          sidebar-mode = false;
-          hide-scrollbar = false;
+            # General settings
+            drun-display-format = "{name}";
+            disable-history = false;
+            scroll-method = 0;
+            sidebar-mode = false;
+            hide-scrollbar = false;
 
-          # Cache directory
-          cache-dir = "~/.cache/rofi";
+            # Cache directory
+            cache-dir = "~/.cache/rofi";
 
-          # Filebrowser settings
-          filebrowser-directories-first = true;
-          filebrowser-sorting-method = "name";
+            # Filebrowser settings
+            filebrowser-directories-first = true;
+            filebrowser-sorting-method = "name";
+          };
+
+          # Theme is set by stylix - it creates ~/.local/share/rofi/themes/custom.rasi
+          # with all the base16 color definitions
         };
 
-        # Theme is set by stylix - it creates ~/.local/share/rofi/themes/custom.rasi
-        # with all the base16 color definitions
-      };
-
-      # Install config files that import the main config (which has stylix theme)
-      xdg.configFile = {
-        "rofi/rofidmenu.rasi".text = rofidmenuConfig;
-        "rofi/powermenu.rasi".text = powermenuConfig;
-        "rofi/power-profiles.rasi".text = powerProfilesConfig;
-        "rofi/rofikeyhint.rasi".text = rofikeyhintConfig;
+        # Install config files that import the main config (which has stylix theme)
+        xdg.configFile = {
+          "rofi/rofidmenu.rasi".text = rofidmenuConfig;
+          "rofi/powermenu.rasi".text = powermenuConfig;
+          "rofi/power-profiles.rasi".text = powerProfilesConfig;
+          "rofi/rofikeyhint.rasi".text = rofikeyhintConfig;
+        };
       };
     };
 }

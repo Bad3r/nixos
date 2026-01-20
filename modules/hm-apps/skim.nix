@@ -22,24 +22,19 @@
     * `find . -type f | sk --bind 'ctrl-o:execute(nvim {})'` — Open selected files in Neovim directly from the picker.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.skim =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.skim.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "skim" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.skim.extended = {
-        enable = lib.mkEnableOption "Command-line fuzzy finder written in Rust.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.skim ];
+      config = lib.mkIf nixosEnabled {
+        programs.skim = {
+          enable = true;
+          enableZshIntegration = true;
+          enableBashIntegration = true;
+        };
       };
     };
 }

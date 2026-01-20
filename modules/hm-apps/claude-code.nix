@@ -9,16 +9,17 @@
     * Assumes Context7 API key is provisioned via SOPS at `sops.secrets."context7/api-key"`.
 */
 
-{
+_: {
   flake.homeManagerModules.apps."claude-code" =
     {
+      osConfig,
       config,
       lib,
       pkgs,
       ...
     }:
     let
-      # defaultModel = "sonnet";
+      nixosEnabled = lib.attrByPath [ "programs" "claude-code" "extended" "enable" ] false osConfig;
 
       # Check if context7 secret is available
       hasContext7Secret = config.sops.secrets ? "context7/api-key";
@@ -134,7 +135,7 @@
 
     in
     {
-      config = {
+      config = lib.mkIf nixosEnabled {
         home = {
           file.".claude/settings.json" = {
             text = builtins.toJSON claudeSettings;

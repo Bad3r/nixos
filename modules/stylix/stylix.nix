@@ -71,8 +71,14 @@
         };
       };
 
-      gui =
-        { pkgs, ... }:
+      apps.stylix-gui =
+        { osConfig, pkgs, ... }:
+        let
+          # Check which apps are enabled at NixOS level
+          firefoxEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
+          floorpEnabled = lib.attrByPath [ "programs" "floorp" "extended" "enable" ] false osConfig;
+          zathuraEnabled = lib.attrByPath [ "programs" "zathura" "extended" "enable" ] false osConfig;
+        in
         {
           stylix = {
             # Opacity settings for GUI applications
@@ -120,24 +126,24 @@
               # Qt theming (Kvantum + qtct)
               qt.enable = true;
 
-              # Firefox profile theming
-              firefox = {
+              # Firefox profile theming (only if enabled)
+              firefox = lib.mkIf firefoxEnabled {
                 profileNames = [ "primary" ];
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;
                 fonts.enable = false;
               };
 
-              # Floorp profile theming (same as Firefox)
-              floorp = {
+              # Floorp profile theming (only if enabled)
+              floorp = lib.mkIf floorpEnabled {
                 profileNames = [ "primary" ];
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;
                 fonts.enable = false;
               };
 
-              # Zathura PDF viewer theming
-              zathura.enable = true;
+              # Zathura PDF viewer theming (only if enabled)
+              zathura.enable = zathuraEnabled;
             };
           };
 
