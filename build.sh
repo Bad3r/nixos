@@ -284,8 +284,10 @@ check_reboot_needed() {
 }
 
 run_flake_update() {
+  status_msg "${YELLOW}" "Refreshing flake metadata..."
+  nix flake metadata "${FLAKE_DIR}" --refresh "${NIX_FLAGS[@]}" >/dev/null
   status_msg "${YELLOW}" "Updating flake inputs..."
-  nix flake update "${FLAKE_DIR}"
+  nix flake update "${FLAKE_DIR}" "${NIX_FLAGS[@]}"
   if command -v git >/dev/null 2>&1; then
     if git -C "${FLAKE_DIR}" diff --quiet -- flake.lock; then
       status_msg "${GREEN}" "flake.lock already up to date."
