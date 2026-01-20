@@ -1,7 +1,7 @@
 # i3 window rules configuration
 # Defines workspace assignments, floating criteria, and per-window commands
 {
-  flake.homeManagerModules.gui =
+  flake.homeManagerModules.apps.i3-config =
     { config, lib, ... }:
     {
       config.xsession.windowManager.i3.config = {

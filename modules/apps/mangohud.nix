@@ -50,23 +50,15 @@ let
 
   homeModule =
     {
-      config,
+      osConfig,
       lib,
       ...
     }:
     let
-      cfg = config.programs.mangohud.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "mangohud" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.mangohud.extended = {
-        enable = lib.mkOption {
-          type = lib.types.bool;
-          default = false;
-          description = "Whether to enable MangoHud performance overlay integration.";
-        };
-      };
-
-      config = lib.mkIf cfg.enable {
+      config = lib.mkIf nixosEnabled {
         programs.mangohud.enable = true;
       };
     };
@@ -75,6 +67,6 @@ in
   flake = {
     nixosModules.apps.mangohud = nixosModule;
     nixosModules.workstation = nixosModule;
-    homeManagerModules.gui = homeModule;
+    homeManagerModules.apps.mangohud = homeModule;
   };
 }

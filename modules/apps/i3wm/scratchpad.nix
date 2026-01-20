@@ -2,7 +2,7 @@
 # Provides options for scratchpad window positioning and a geometry calculator
 # Uses pure bash arithmetic (no bc/awk) for performance
 {
-  flake.homeManagerModules.gui =
+  flake.homeManagerModules.apps.i3-config =
     {
       config,
       pkgs,
