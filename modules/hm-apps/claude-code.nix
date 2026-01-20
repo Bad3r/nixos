@@ -121,7 +121,42 @@ _: {
         };
         statusLine = {
           type = "command";
-          command = "input=$(cat); dir=$(echo \"$input\" | jq -r '.workspace.current_dir'); dir_display=\${dir/#$HOME/\\~}; git_branch=$(cd \"$dir\" 2>/dev/null && git -c core.fileMode=false branch --show-current 2>/dev/null); git_status=\"\"; if [ -n \"$git_branch\" ]; then cd \"$dir\" && git_modified=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^.[MD]'); git_untracked=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^??'); git_staged=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^[MADRC]'); [ \"$git_modified\" -gt 0 ] && git_status=\"\${git_status}!\"; [ \"$git_untracked\" -gt 0 ] && git_status=\"\${git_status}?\"; [ \"$git_staged\" -gt 0 ] && git_status=\"\${git_status}+\"; git_info=$(printf '\\033[35m on \\033[0m\\033[1;35m%s%s\\033[0m' \"$git_branch\" \"$git_status\"); else git_info=\"\"; fi; printf '\\033[36m%s\\033[0m%s' \"$dir_display\" \"$git_info\"";
+          command = lib.concatStrings [
+            # Read JSON input from Claude Code
+            "input=$(cat); "
+            # Extract fields from JSON
+            "dir=$(echo \"$input\" | jq -r '.cwd // .workspace.current_dir // empty'); "
+            "model=$(echo \"$input\" | jq -r '.model // empty'); "
+            "context_used=$(echo \"$input\" | jq -r '.contextTokens.used // empty'); "
+            "context_max=$(echo \"$input\" | jq -r '.contextTokens.max // empty'); "
+            # Format directory with ~ for home
+            "dir_display=\${dir/#$HOME/\\~}; "
+            # Git branch and status
+            "git_branch=$(cd \"$dir\" 2>/dev/null && git -c core.fileMode=false branch --show-current 2>/dev/null); "
+            "git_status=\"\"; "
+            "if [ -n \"$git_branch\" ]; then "
+            "cd \"$dir\" && "
+            "git_modified=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^.[MD]'); "
+            "git_untracked=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^??'); "
+            "git_staged=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^[MADRC]'); "
+            "[ \"$git_modified\" -gt 0 ] && git_status=\"\${git_status}!\"; "
+            "[ \"$git_untracked\" -gt 0 ] && git_status=\"\${git_status}?\"; "
+            "[ \"$git_staged\" -gt 0 ] && git_status=\"\${git_status}+\"; "
+            "git_info=$(printf ' \\033[35m \\033[1;35m%s%s\\033[0m' \"$git_branch\" \"$git_status\"); "
+            "else git_info=\"\"; fi; "
+            # Model name (shortened)
+            "model_short=$(echo \"$model\" | sed 's/claude-//;s/-[0-9]*$//'); "
+            "model_info=\"\"; "
+            "[ -n \"$model_short\" ] && model_info=$(printf ' \\033[33m󰧑 %s\\033[0m' \"$model_short\"); "
+            # Context usage percentage
+            "context_info=\"\"; "
+            "if [ -n \"$context_used\" ] && [ -n \"$context_max\" ] && [ \"$context_max\" -gt 0 ]; then "
+            "pct=$((context_used * 100 / context_max)); "
+            "context_info=$(printf ' \\033[32m󰊪 %d%%\\033[0m' \"$pct\"); "
+            "fi; "
+            # Output: dir + git + model + context
+            "printf '\\033[36m%s\\033[0m%s%s%s' \"$dir_display\" \"$git_info\" \"$model_info\" \"$context_info\""
+          ];
         };
         # model = defaultModel;
         alwaysThinkingEnabled = true;
