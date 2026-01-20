@@ -23,9 +23,14 @@
 */
 
 _: {
-  flake.homeManagerModules.apps.zathura = {
-    programs.zathura = {
-      enable = true;
+  flake.homeManagerModules.apps.zathura =
+    { osConfig, lib, ... }:
+    let
+      nixosEnabled = lib.attrByPath [ "programs" "zathura" "extended" "enable" ] false osConfig;
+    in
+    {
+      config = lib.mkIf nixosEnabled {
+        programs.zathura.enable = true;
+      };
     };
-  };
 }

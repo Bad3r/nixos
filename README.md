@@ -51,6 +51,24 @@ Highlights:
 
 Because there is only one host (`configurations.nixos.system76`), you can follow the code in `modules/system76/` to understand exactly how the system is configured without navigating role indirection.
 
+## Home Manager Package Pattern
+
+HM modules in `modules/hm-apps/` use `package = null` when the corresponding HM module has a nullable package option. This tells Home Manager to manage configuration without installing the package (since the NixOS module already installs it via `environment.systemPackages`).
+
+**Check nullability:**
+```bash
+grep -A3 "package.*=" ~/git/home-manager/modules/programs/<tool>.nix
+# Look for: nullable = true;
+```
+
+| HM package option | Action |
+|-------------------|--------|
+| `nullable = true` | Use `package = null;` |
+| Not nullable | Omit `package` (dual install, same store path) |
+| No package option | Omit `package` (HM only manages config) |
+
+**Exception:** Some HM modules require the package reference for features (e.g., `bun` needs it for git lockfile diffing). Add a comment explaining the exception.
+
 ## Development Shell
 
 Enter the development shell:

@@ -1,7 +1,7 @@
 # i3 keybindings configuration
 # Defines all keyboard shortcuts, workspace bindings, and mode configurations
 {
-  flake.homeManagerModules.gui =
+  flake.homeManagerModules.apps.i3-config =
     {
       config,
       pkgs,

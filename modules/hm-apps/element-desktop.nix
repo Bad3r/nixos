@@ -21,24 +21,18 @@
     * `element-desktop --disable-gpu` — Resolve rendering glitches inside remote desktop sessions.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.element-desktop =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.element-desktop.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "element-desktop" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.element-desktop.extended = {
-        enable = lib.mkEnableOption "Feature-rich client for Matrix.org.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.element-desktop ];
+      config = lib.mkIf nixosEnabled {
+        programs.element-desktop = {
+          enable = true;
+          package = null; # Package installed by NixOS module
+        };
       };
     };
 }

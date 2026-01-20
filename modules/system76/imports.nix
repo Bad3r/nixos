@@ -64,7 +64,6 @@ in
     # Gaming & performance
     programs = {
       steam.extended.enable = true;
-      mangohud.extended.enable = true;
       rip2.extended.enable = true;
     };
 

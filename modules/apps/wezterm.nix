@@ -14,22 +14,35 @@
     --cwd <path>: Specify the working directory for new tabs via `wezterm start --cwd`.
     --ssh-domain <name>: Target a configured SSH domain when spawning remote tabs.
     --log-level <trace|debug|info>: Adjust diagnostic verbosity for troubleshooting.
-
-  Example Usage:
-    * `wezterm` — Start the GPU-accelerated terminal and multiplexer.
-    * `wezterm start --cwd ~/projects` — Open a new tab ready to work in a project directory.
-    * `wezterm ssh prod` — Launch an SSH session that inherits wezterm's key handling and multiplexing.
 */
-
-_: {
-  flake.homeManagerModules.apps.wezterm =
-    { osConfig, lib, ... }:
+_:
+let
+  WeztermModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
-      nixosEnabled = lib.attrByPath [ "programs" "wezterm" "extended" "enable" ] false osConfig;
+      cfg = config.programs.wezterm.extended;
     in
     {
-      config = lib.mkIf nixosEnabled {
-        programs.wezterm.enable = true;
+      options.programs.wezterm.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to enable wezterm.";
+        };
+
+        package = lib.mkPackageOption pkgs "wezterm" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
       };
     };
+in
+{
+  flake.nixosModules.apps.wezterm = WeztermModule;
 }
