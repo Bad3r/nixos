@@ -6,6 +6,7 @@
       "automatic-import"
       "aggregators"
       "system76"
+      "hm-package-pattern"
 
       "devshell"
       "secrets"
@@ -23,6 +24,29 @@
           A NixOS configuration using the **Dendritic Pattern** - an organic configuration growth pattern with automatic module discovery.
 
           Based on the golden standard from [mightyiam/infra](https://github.com/mightyiam/infra).
+
+        '';
+
+      hm-package-pattern =
+        # markdown
+        ''
+          ## Home Manager Package Pattern
+
+          HM modules in `modules/hm-apps/` use `package = null` when the corresponding HM module has a nullable package option. This tells Home Manager to manage configuration without installing the package (since the NixOS module already installs it via `environment.systemPackages`).
+
+          **Check nullability:**
+          ```bash
+          grep -A3 "package.*=" ~/git/home-manager/modules/programs/<tool>.nix
+          # Look for: nullable = true;
+          ```
+
+          | HM package option | Action |
+          |-------------------|--------|
+          | `nullable = true` | Use `package = null;` |
+          | Not nullable | Omit `package` (dual install, same store path) |
+          | No package option | Omit `package` (HM only manages config) |
+
+          **Exception:** Some HM modules require the package reference for features (e.g., `bun` needs it for git lockfile diffing). Add a comment explaining the exception.
 
         '';
 

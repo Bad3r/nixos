@@ -17,9 +17,10 @@
     --safe-mode: Start Floorp with extensions disabled for troubleshooting.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.floorp =
     {
+      osConfig,
       lib,
       pkgs,
       config,
@@ -27,6 +28,7 @@
       ...
     }:
     let
+      nixosEnabled = lib.attrByPath [ "programs" "floorp" "extended" "enable" ] false osConfig;
       cfg = config.home.floorp;
       inherit (pkgs.stdenv.hostPlatform) system;
       inherit (inputs.dedupe_nur.legacyPackages.${system}.repos.rycee) firefox-addons;
@@ -41,7 +43,7 @@
         };
       };
 
-      config = {
+      config = lib.mkIf nixosEnabled {
         programs.floorp = {
           enable = true;
 

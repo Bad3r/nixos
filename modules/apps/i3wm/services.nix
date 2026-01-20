@@ -1,7 +1,7 @@
 # i3 session services configuration
 # Defines systemd user services and Home Manager services for the i3 session
 {
-  flake.homeManagerModules.gui =
+  flake.homeManagerModules.apps.i3-config =
     {
       config,
       pkgs,

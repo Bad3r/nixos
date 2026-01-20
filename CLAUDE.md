@@ -160,7 +160,7 @@ in
 
 - Simple application: `modules/apps/firefox.nix`, `modules/apps/wget.nix`
 - Unfree application: `modules/apps/brave.nix`
-- Complex with options: `modules/apps/steam.nix`, `modules/apps/mangohud.nix`
+- Complex with options: `modules/apps/steam.nix`, `modules/apps/virt-manager.nix`
 
 **Module Standards**:
 

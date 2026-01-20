@@ -2,7 +2,7 @@
 # Defines options, scripts, startup commands, colors, and bar settings
 # Window rules are in window-rules.nix
 {
-  flake.homeManagerModules.gui =
+  flake.homeManagerModules.apps.i3-config =
     {
       config,
       pkgs,
