@@ -23,8 +23,13 @@
 */
 _: {
   flake.homeManagerModules.apps.google-chrome =
-    { osConfig, ... }:
+    { osConfig, lib, ... }:
+    let
+      nixosEnabled = lib.attrByPath [ "programs" "google-chrome" "extended" "enable" ] false osConfig;
+    in
     {
-      programs.google-chrome.enable = osConfig.programs.google-chrome.extended.enable or false;
+      config = lib.mkIf nixosEnabled {
+        programs.google-chrome.enable = true;
+      };
     };
 }

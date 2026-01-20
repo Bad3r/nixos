@@ -21,24 +21,16 @@
     * `telegram-desktop --proxy-server=socks5://127.0.0.1:9050` — Use a SOCKS5 proxy for privacy or corporate compliance.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.telegram-desktop =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.telegram-desktop.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "telegram-desktop" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.telegram-desktop.extended = {
-        enable = lib.mkEnableOption "Telegram Desktop messaging app.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.telegram-desktop ];
+      # Package installed by NixOS module; HM provides user-level config if needed
+      config = lib.mkIf nixosEnabled {
+        # telegram-desktop doesn't have HM programs module - config managed by app itself
       };
     };
 }

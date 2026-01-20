@@ -21,24 +21,16 @@
     * `gimp --no-interface --batch "(python-fu-fog RUN-NONINTERACTIVE \"input.xcf\" \"output.png\" 5 0.5 0.8)" --batch "(gimp-quit 0)"` — Apply filters headlessly in CI.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.gimp =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.gimp.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "gimp" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.gimp.extended = {
-        enable = lib.mkEnableOption "GNU Image Manipulation Program.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.gimp ];
+      # Package installed by NixOS module; HM provides user-level config if needed
+      config = lib.mkIf nixosEnabled {
+        # gimp doesn't have HM programs module - config managed by app itself
       };
     };
 }

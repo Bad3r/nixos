@@ -21,24 +21,16 @@
     * `inkscape --batch-process --actions="file-open:icons.svg;export-filename:icons.png;export-do;file-close"` — Automate asset exports in CI.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.inkscape =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.inkscape.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "inkscape" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.inkscape.extended = {
-        enable = lib.mkEnableOption "Vector graphics editor.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.inkscape ];
+      # Package installed by NixOS module; HM provides user-level config if needed
+      config = lib.mkIf nixosEnabled {
+        # inkscape doesn't have HM programs module - config managed by app itself
       };
     };
 }

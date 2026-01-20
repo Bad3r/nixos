@@ -21,24 +21,16 @@
     * `signal-desktop --proxy-server=socks5://127.0.0.1:9050` — Route traffic through Tor or corporate proxies.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.signal-desktop =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.signal-desktop.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "signal-desktop" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.signal-desktop.extended = {
-        enable = lib.mkEnableOption "Private, simple, and secure messenger (nixpkgs build).";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.signal-desktop ];
+      # Package installed by NixOS module; HM provides user-level config if needed
+      config = lib.mkIf nixosEnabled {
+        # signal-desktop doesn't have HM programs module - config managed by app itself
       };
     };
 }

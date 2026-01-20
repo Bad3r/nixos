@@ -1,6 +1,7 @@
 _: {
-  flake.homeManagerModules.gui =
+  flake.homeManagerModules.apps.firefox =
     {
+      osConfig,
       lib,
       pkgs,
       config,
@@ -8,6 +9,7 @@ _: {
       ...
     }:
     let
+      nixosEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
       cfg = config.home.firefoxPrivacy;
       inherit (pkgs.stdenv.hostPlatform) system;
       inherit (inputs.dedupe_nur.legacyPackages.${system}.repos.rycee) firefox-addons;
@@ -22,7 +24,7 @@ _: {
         };
       };
 
-      config = {
+      config = lib.mkIf nixosEnabled {
         programs.firefox = {
           enable = true;
 

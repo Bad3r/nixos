@@ -20,24 +20,16 @@
     * `dua i /var/log` — Drill into nested directories and delete files directly from the TUI.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.dua =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.dua.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "dua" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.dua.extended = {
-        enable = lib.mkEnableOption "Tool to conveniently learn about the disk usage of directories.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.dua ];
+      # Package installed by NixOS module; HM provides user-level config if needed
+      config = lib.mkIf nixosEnabled {
+        # dua doesn't have HM programs.dua module - config managed by app itself
       };
     };
 }

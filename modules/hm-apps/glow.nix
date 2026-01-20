@@ -10,24 +10,16 @@
     * Ships a JSON export mode and directory browser so you can pipe rendered Markdown into other tooling.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.glow =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.glow.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "glow" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.glow.extended = {
-        enable = lib.mkEnableOption "Terminal Markdown renderer with theme-aware previews, pager streaming, and remote fetching support.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.glow ];
+      # Package installed by NixOS module; HM provides user-level config if needed
+      config = lib.mkIf nixosEnabled {
+        # glow doesn't have HM programs module - config managed by app itself
       };
     };
 }

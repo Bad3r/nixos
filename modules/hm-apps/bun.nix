@@ -18,17 +18,18 @@
     --hot: Enable hot module replacement.
     --smol: Use less memory with more frequent garbage collection.
 */
-{
+_: {
   flake.homeManagerModules.apps.bun =
+    { osConfig, lib, ... }:
+    let
+      nixosEnabled = lib.attrByPath [ "programs" "bun" "extended" "enable" ] false osConfig;
+    in
     {
-      pkgs,
-      ...
-    }:
-    {
-      programs.bun = {
-        enable = true;
-        package = pkgs.bun;
-        enableGitIntegration = true;
+      config = lib.mkIf nixosEnabled {
+        programs.bun = {
+          enable = true;
+          enableGitIntegration = true;
+        };
       };
     };
 }

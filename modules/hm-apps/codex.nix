@@ -21,15 +21,18 @@
     * `codex resume --last` — Continue collaborating in the most recent workspace without starting from scratch.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.codex =
     {
+      osConfig,
       pkgs,
       config,
       lib,
       ...
     }:
     let
+      nixosEnabled = lib.attrByPath [ "programs" "codex" "extended" "enable" ] false osConfig;
+
       # Use upstream nixpkgs codex package
       baseCodexPkg = pkgs.codex;
       codexPkg =
@@ -65,49 +68,51 @@
       };
     in
     {
-      programs.codex = {
-        enable = true;
-        package = codexPkg;
-        settings = {
-          show_raw_agent_reasoning = true;
-          experimental_use_exec_command_tool = false;
-          sandbox_mode = "danger-full-access";
-          model = "gpt-5-codex";
-          approval_policy = "never";
-          profile = "gpt-5-codex";
-          shell_environment_policy = {
-            "inherit" = "all";
-            ignore_default_excludes = true;
-            exclude = [
-              "AWS_*"
-              "AZURE_*"
-            ];
-          };
-          tui = {
-            notifications = true;
-          };
-          tools = {
-            web_search = true;
-          };
-          mcp_servers = codexMcpServers;
-          profiles = {
-            gpt-5-codex = {
-              model = "gpt-5-codex";
-              approval_policy = "never";
-              model_supports_reasoning_summaries = true;
-              model_reasoning_effort = "high";
-              model_reasoning_summary = "detailed";
-              model_verbosity = "medium";
+      config = lib.mkIf nixosEnabled {
+        programs.codex = {
+          enable = true;
+          package = codexPkg;
+          settings = {
+            show_raw_agent_reasoning = true;
+            experimental_use_exec_command_tool = false;
+            sandbox_mode = "danger-full-access";
+            model = "gpt-5-codex";
+            approval_policy = "never";
+            profile = "gpt-5-codex";
+            shell_environment_policy = {
+              "inherit" = "all";
+              ignore_default_excludes = true;
+              exclude = [
+                "AWS_*"
+                "AZURE_*"
+              ];
+            };
+            tui = {
+              notifications = true;
+            };
+            tools = {
+              web_search = true;
+            };
+            mcp_servers = codexMcpServers;
+            profiles = {
+              gpt-5-codex = {
+                model = "gpt-5-codex";
+                approval_policy = "never";
+                model_supports_reasoning_summaries = true;
+                model_reasoning_effort = "high";
+                model_reasoning_summary = "detailed";
+                model_verbosity = "medium";
+              };
             };
           };
+          custom-instructions = "";
         };
-        custom-instructions = "";
-      };
 
-      home.packages = [ codexPkg ];
-      home.sessionVariables = {
-        CODEX_HOME = lib.mkDefault "${config.xdg.configHome}/codex";
-        CODEX_DISABLE_UPDATE_CHECK = "1";
+        home.packages = [ codexPkg ];
+        home.sessionVariables = {
+          CODEX_HOME = lib.mkDefault "${config.xdg.configHome}/codex";
+          CODEX_DISABLE_UPDATE_CHECK = "1";
+        };
       };
     };
 }

@@ -8,13 +8,16 @@
     * Aligns Home Manager package installation with the system-level libvirt tooling.
 */
 
-{
+_: {
   flake.homeManagerModules.apps."virt-manager" =
-    { pkgs, ... }:
+    { osConfig, lib, ... }:
+    let
+      nixosEnabled = lib.attrByPath [ "programs" "virt-manager" "extended" "enable" ] false osConfig;
+    in
     {
-      home.packages = with pkgs; [
-        virt-manager
-        virt-viewer
-      ];
+      # Package installed by NixOS module; HM provides user-level config if needed
+      config = lib.mkIf nixosEnabled {
+        # virt-manager doesn't have HM programs module - config managed by app itself
+      };
     };
 }

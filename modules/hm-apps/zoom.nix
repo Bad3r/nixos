@@ -21,24 +21,17 @@
     * `zoom --disable-gpu` — Resolve rendering problems on thin clients or remote desktops.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.zoom =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.zoom.extended;
+      # NixOS module is named zoom-us, not zoom
+      nixosEnabled = lib.attrByPath [ "programs" "zoom-us" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.zoom.extended = {
-        enable = lib.mkEnableOption "Video conferencing and collaboration client.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.zoom ];
+      # Package installed by NixOS module; HM provides user-level config if needed
+      config = lib.mkIf nixosEnabled {
+        # zoom doesn't have HM programs module - config managed by app itself
       };
     };
 }

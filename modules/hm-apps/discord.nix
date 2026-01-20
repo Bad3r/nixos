@@ -20,24 +20,16 @@
     * `discord --proxy-server=127.0.0.1:8080` — Force the client to respect a corporate proxy requirement.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.discord =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.discord.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "discord" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.discord.extended = {
-        enable = lib.mkEnableOption "All-in-one cross-platform voice and text chat for gamers.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.discord ];
+      # Package installed by NixOS module; HM provides user-level config if needed
+      config = lib.mkIf nixosEnabled {
+        # Discord doesn't have HM programs.discord module - config managed by app itself
       };
     };
 }

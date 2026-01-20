@@ -21,24 +21,16 @@
     * `krita --export animation.kra --export-filename animation.mp4` — Render an animation sequence from the CLI.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.krita =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.krita.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "krita" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.krita.extended = {
-        enable = lib.mkEnableOption "Free and open source painting application.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.krita ];
+      # Package installed by NixOS module; HM provides user-level config if needed
+      config = lib.mkIf nixosEnabled {
+        # krita doesn't have HM programs module - config managed by app itself
       };
     };
 }

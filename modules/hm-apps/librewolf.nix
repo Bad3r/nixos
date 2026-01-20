@@ -17,13 +17,23 @@
     --safe-mode: Start LibreWolf with extensions disabled for troubleshooting.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.librewolf =
-    { pkgs, ... }:
     {
-      programs.librewolf = {
-        enable = false;
-        package = pkgs.librewolf-bin-unwrapped;
+      osConfig,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
+    in
+    {
+      config = lib.mkIf nixosEnabled {
+        programs.librewolf = {
+          enable = true;
+          package = pkgs.librewolf-bin-unwrapped;
+        };
       };
     };
 }
