@@ -8,7 +8,7 @@ _: {
   flake.homeManagerModules.apps.go =
     { osConfig, lib, ... }:
     let
-      nixosEnabled = lib.attrByPath [ "services" "go" "extended" "enable" ] false osConfig;
+      nixosEnabled = lib.attrByPath [ "programs" "go" "extended" "enable" ] false osConfig;
     in
     {
       config = lib.mkIf nixosEnabled {

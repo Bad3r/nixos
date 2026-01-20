@@ -151,6 +151,13 @@ If HM support exists, continue to step 6. Otherwise, skip to step 8.
 
 Create `modules/hm-apps/<tool>.nix`. HM modules **must** guard against enabling when the corresponding NixOS module is disabled.
 
+**Before writing the module**, check if the HM module's package option is nullable:
+
+```bash
+grep -A3 "package.*=" ~/git/home-manager/modules/programs/<tool>.nix
+# Look for: nullable = true;
+```
+
 ```nix
 /*
   Package: <tool>
@@ -172,11 +179,29 @@ _: {
     {
       # Guard config with mkIf to delay evaluation
       config = lib.mkIf nixosEnabled {
-        programs.<tool>.enable = true;
+        programs.<tool> = {
+          enable = true;
+          package = null;
+        };
       };
     };
 }
 ```
+
+**Package Installation Pattern:**
+
+| HM package option | Action                                                                      |
+| ----------------- | --------------------------------------------------------------------------- |
+| `nullable = true` | Use `package = null;` — NixOS module installs the package                   |
+| Not nullable      | Omit `package` — HM will use default, NixOS also installs (same store path) |
+| No package option | Omit `package` — HM only manages config                                     |
+
+> **Exceptions:** Some HM modules require the package reference for additional features (e.g., `bun` needs it for `enableGitIntegration` to configure git diff). In such cases, omit `package = null` and add a comment explaining why:
+>
+> ```nix
+> # NOTE: Cannot use `package = null` here because <feature>
+> # requires the package reference to <reason>.
+> ```
 
 > **Required:** All HM modules that depend on NixOS module enablement **must** use `lib.attrByPath` for safe nested attribute access and `lib.mkIf` to guard the config block. See [NixOS-HM Dependency Guard Pattern](#nixos-hm-dependency-guard-pattern) for details.
 
