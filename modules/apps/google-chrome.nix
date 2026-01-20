@@ -3,7 +3,9 @@
   Description: Freeware web browser developed by Google.
   Homepage: https://www.google.com/chrome/
   Documentation: https://support.google.com/chrome/
-  Repository: https://github.com/nicotine-plus/nicotine-plus
+
+  Local Workarounds:
+    * Removes duplicate desktop file with broken /usr/bin path.
 
   Summary:
     * Full-featured web browser with Google account sync, built-in PDF viewer, and automatic updates.
@@ -44,8 +46,21 @@ let
         package = lib.mkPackageOption pkgs "google-chrome" { };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+      config = {
+        # Add overlay to apply workaround
+        # Must be unconditional so the package option can resolve
+        nixpkgs.overlays = [
+          (_final: prev: {
+            google-chrome = prev.google-chrome.overrideAttrs (oldAttrs: {
+              postInstall = (oldAttrs.postInstall or "") + ''
+                # Remove unpatched duplicate desktop file with broken /usr/bin path
+                rm -f $out/share/applications/com.google.Chrome.desktop
+              '';
+            });
+          })
+        ];
+
+        environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
       };
     };
 in
