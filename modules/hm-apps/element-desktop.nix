@@ -28,9 +28,11 @@ _: {
       nixosEnabled = lib.attrByPath [ "programs" "element-desktop" "extended" "enable" ] false osConfig;
     in
     {
-      # Package installed by NixOS module; HM provides user-level config if needed
       config = lib.mkIf nixosEnabled {
-        # element-desktop doesn't have HM programs module - config managed by app itself
+        programs.element-desktop = {
+          enable = true;
+          package = null; # Package installed by NixOS module
+        };
       };
     };
 }
