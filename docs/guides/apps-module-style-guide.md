@@ -149,7 +149,7 @@ If HM support exists, continue to step 6. Otherwise, skip to step 8.
 
 ### 6. Create Home Manager Module
 
-Create `modules/hm-apps/<tool>.nix`:
+Create `modules/hm-apps/<tool>.nix`. HM modules **must** guard against enabling when the corresponding NixOS module is disabled.
 
 ```nix
 /*
@@ -159,21 +159,26 @@ Create `modules/hm-apps/<tool>.nix`:
   ...
 */
 
-{
+_: {
   flake.homeManagerModules.apps.<tool> =
+    { osConfig, lib, ... }:
+    let
+      # Safe nested attribute access - required pattern
+      nixosEnabled = lib.attrByPath
+        [ "programs" "<tool>" "extended" "enable" ]
+        false
+        osConfig;
+    in
     {
-      lib,
-      pkgs,
-      config,
-      inputs,
-      ...
-    }:
-    {
-      # Module configuration
-      programs.<tool>.enable = true;
+      # Guard config with mkIf to delay evaluation
+      config = lib.mkIf nixosEnabled {
+        programs.<tool>.enable = true;
+      };
     };
 }
 ```
+
+> **Required:** All HM modules that depend on NixOS module enablement **must** use `lib.attrByPath` for safe nested attribute access and `lib.mkIf` to guard the config block. See [NixOS-HM Dependency Guard Pattern](#nixos-hm-dependency-guard-pattern) for details.
 
 ### 7. Add to Home Manager Imports
 
@@ -187,7 +192,7 @@ extraAppNames = [
 ];
 ```
 
-> **Pitfall:** HM modules exported to `flake.homeManagerModules.apps.<name>` are **not** auto-imported. They must be explicitly listed in `home-manager-apps.nix`. This is different from `flake.homeManagerModules.gui` which is auto-loaded.
+> **Pitfall:** HM modules exported to `flake.homeManagerModules.apps.<name>` are **not** auto-imported. They must be explicitly listed in `home-manager-apps.nix`. The `flake.homeManagerModules.gui` namespace (used by i3wm, terminal configs, etc.) is auto-loaded separately.
 
 ### 8. Check for Stylix Integration
 
@@ -228,6 +233,48 @@ nix flake check --accept-flake-config --no-build
 **Cause:** Flakes copy the git tree to `/nix/store`, including only tracked (staged or committed) files. Untracked files are ignored.
 
 **Solution:** Always `git add` new files before running `nix flake check`.
+
+### NixOS-HM Dependency Guard Pattern
+
+**Problem:** HM module uses `osConfig.programs.<tool>.extended.enable or false` but fails with "attribute 'extended' missing".
+
+**Cause:** Nix's `or` operator only catches missing attributes at the **final** level. If any intermediate path segment is missing, evaluation fails before `or` is reached.
+
+```nix
+# WRONG - fragile pattern
+osConfig.programs.<tool>.extended.enable or false
+# Fails if .extended doesn't exist (only catches missing .enable)
+
+# CORRECT - robust pattern
+lib.attrByPath [ "programs" "<tool>" "extended" "enable" ] false osConfig
+# Safely traverses any depth with fallback
+```
+
+**Required pattern for HM modules:**
+
+```nix
+{ osConfig, lib, ... }:
+let
+  nixosEnabled = lib.attrByPath
+    [ "programs" "<tool>" "extended" "enable" ]
+    false
+    osConfig;
+in
+{
+  config = lib.mkIf nixosEnabled {
+    programs.<tool>.enable = true;
+  };
+}
+```
+
+**Why both `lib.attrByPath` AND `lib.mkIf` are required:**
+
+| Component        | Purpose                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| `lib.attrByPath` | Safely access nested attributes without evaluation errors                             |
+| `lib.mkIf`       | Delay config evaluation to avoid infinite recursion (per NixOS module best practices) |
+
+This pattern aligns with CLAUDE.md guidance: "Use `lib.hasAttrByPath` + `lib.getAttrFromPath` for optional modules to avoid ordering issues."
 
 ## Integration Discovery Reference
 
