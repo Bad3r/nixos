@@ -18,11 +18,18 @@
   Example Usage:
     * `wezterm` — Start the GPU-accelerated terminal and multiplexer.
     * `wezterm start --cwd ~/projects` — Open a new tab ready to work in a project directory.
-    * `wezterm ssh prod` — Launch an SSH session that inherits wezterm’s key handling and multiplexing.
+    * `wezterm ssh prod` — Launch an SSH session that inherits wezterm's key handling and multiplexing.
 */
 
-{
-  flake.homeManagerModules.apps.wezterm = {
-    programs.wezterm.enable = true;
-  };
+_: {
+  flake.homeManagerModules.apps.wezterm =
+    { osConfig, lib, ... }:
+    let
+      nixosEnabled = lib.attrByPath [ "programs" "wezterm" "extended" "enable" ] false osConfig;
+    in
+    {
+      config = lib.mkIf nixosEnabled {
+        programs.wezterm.enable = true;
+      };
+    };
 }
