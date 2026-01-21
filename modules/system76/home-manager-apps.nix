@@ -3,6 +3,7 @@ let
   extraAppNames = [
     "atuin"
     "autorandr"
+    "bat"
     "bitwarden-desktop"
     "bottom"
     "bun"
@@ -18,6 +19,7 @@ let
     "file-roller"
     "firefox"
     "flameshot"
+    "fzf"
     "floorp"
     "gcc"
     "git"
@@ -29,6 +31,7 @@ let
     "jq"
     "keepassxc"
     "kitty"
+    "lazygit"
     "less"
     # "libreoffice"
     "lutris"
@@ -56,6 +59,7 @@ let
     "usbguard-notifier"
     "uv"
     # "vim" # Provided by nixvim (vimAlias = true)
+    "vscode"
     "wezterm"
     "yarn"
     "zathura"

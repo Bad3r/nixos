@@ -25,6 +25,7 @@
       awscli2.extended.enable = lib.mkOverride 1100 false;
       babashka.extended.enable = lib.mkOverride 1100 false;
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
+      bat.extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
       blueberry.extended.enable = lib.mkOverride 1100 true;
       bottom.extended.enable = lib.mkOverride 1100 true;
@@ -86,6 +87,7 @@
       flarectl.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;
       formatting.extended.enable = lib.mkOverride 1100 true;
+      fzf.extended.enable = lib.mkOverride 1100 true;
       gawk.extended.enable = lib.mkOverride 1100 true;
       gcc.extended.enable = lib.mkOverride 1100 true;
       gdb.extended.enable = lib.mkOverride 1100 true;
@@ -134,6 +136,7 @@
       kitty.extended.enable = lib.mkOverride 1100 true;
       ktailctl.extended.enable = lib.mkOverride 1100 true;
       leiningen.extended.enable = lib.mkOverride 1100 false;
+      lazygit.extended.enable = lib.mkOverride 1100 true;
       lefthook.extended.enable = lib.mkOverride 1100 true;
       less.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
@@ -299,6 +302,8 @@
     # Services-based apps (use services.<name>.extended namespace)
     services = {
       autorandr.extended.enable = lib.mkOverride 1100 true;
+      espanso.extended.enable = lib.mkOverride 1100 true;
+      flameshot.extended.enable = lib.mkOverride 1100 true;
     };
   };
 }

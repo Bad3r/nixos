@@ -31,73 +31,80 @@
 */
 
 _: {
-  flake.homeManagerModules.apps.bat = {
-    programs.bat = {
-      enable = true;
+  flake.homeManagerModules.apps.bat =
+    { osConfig, lib, ... }:
+    let
+      enabled = lib.attrByPath [ "programs" "bat" "extended" "enable" ] false osConfig;
+    in
+    {
+      config = lib.mkIf enabled {
+        programs.bat = {
+          enable = true;
 
-      config = {
-        # Theme managed by Stylix via stylix.targets.bat
+          config = {
+            # Theme managed by Stylix via stylix.targets.bat
 
-        # Style components to display
-        # Options: auto, full, plain, changes, header, header-filename, header-filesize,
-        #          grid, rule, numbers, snip
-        style = "numbers,changes,header,grid";
+            # Style components to display
+            # Options: auto, full, plain, changes, header, header-filename, header-filesize,
+            #          grid, rule, numbers, snip
+            style = "numbers,changes,header,grid";
 
-        # Paging behavior
-        # auto: page if output doesn't fit on screen
-        # never: always print to stdout
-        # always: always use pager
-        paging = "auto";
+            # Paging behavior
+            # auto: page if output doesn't fit on screen
+            # never: always print to stdout
+            # always: always use pager
+            paging = "auto";
 
-        # Wrap long lines
-        # auto: wrap if terminal is narrow
-        # never: don't wrap, scroll horizontally
-        # character: wrap at character boundaries
-        wrap = "auto";
+            # Wrap long lines
+            # auto: wrap if terminal is narrow
+            # never: don't wrap, scroll horizontally
+            # character: wrap at character boundaries
+            wrap = "auto";
 
-        # Show non-printable characters
-        show-all = false;
+            # Show non-printable characters
+            show-all = false;
 
-        # Tab width
-        tabs = "2";
+            # Tab width
+            tabs = "2";
 
-        # Italic text support (requires terminal support)
-        italic-text = "always";
+            # Italic text support (requires terminal support)
+            italic-text = "always";
+          };
+
+          # Custom themes can be added here
+          # themes = {
+          #   custom-nord = {
+          #     src = pkgs.fetchFromGitHub {
+          #       owner = "nordtheme";
+          #       repo = "sublime-text";
+          #       rev = "...";
+          #       sha256 = "...";
+          #     };
+          #     file = "Nord.tmTheme";
+          #   };
+          # };
+
+          # Custom syntax definitions
+          # syntaxes = {
+          #   gleam = {
+          #     src = pkgs.fetchFromGitHub {
+          #       owner = "molnarmark";
+          #       repo = "sublime-gleam";
+          #       rev = "...";
+          #       sha256 = "...";
+          #     };
+          #     file = "gleam.sublime-syntax";
+          #   };
+          # };
+
+          # Extra packages that provide syntax highlighting
+          # extraPackages = with pkgs.bat-extras; [
+          #   batdiff  # diff with bat
+          #   batman   # man pages with bat
+          #   batgrep  # grep with bat
+          #   batwatch # watch with bat
+          # ];
+        };
       };
-
-      # Custom themes can be added here
-      # themes = {
-      #   custom-nord = {
-      #     src = pkgs.fetchFromGitHub {
-      #       owner = "nordtheme";
-      #       repo = "sublime-text";
-      #       rev = "...";
-      #       sha256 = "...";
-      #     };
-      #     file = "Nord.tmTheme";
-      #   };
-      # };
-
-      # Custom syntax definitions
-      # syntaxes = {
-      #   gleam = {
-      #     src = pkgs.fetchFromGitHub {
-      #       owner = "molnarmark";
-      #       repo = "sublime-gleam";
-      #       rev = "...";
-      #       sha256 = "...";
-      #     };
-      #     file = "gleam.sublime-syntax";
-      #   };
-      # };
-
-      # Extra packages that provide syntax highlighting
-      # extraPackages = with pkgs.bat-extras; [
-      #   batdiff  # diff with bat
-      #   batman   # man pages with bat
-      #   batgrep  # grep with bat
-      #   batwatch # watch with bat
-      # ];
     };
-  };
 }
