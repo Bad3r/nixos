@@ -20,9 +20,8 @@ _: {
             ########################################
             # Dev shells & tooling
             ########################################
-            # pre-commit config is generated/symlinked via Nix in this repo
-            /.pre-commit-config.yaml
-            .pre-commit/
+            # lefthook local overrides (user-specific, not committed)
+            /lefthook-local.yml
 
             # direnv state
             .direnv/

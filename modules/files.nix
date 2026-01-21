@@ -47,10 +47,9 @@
         withHeader = lib.concat [
           # markdown
           ''
-            ## Generated files
+            ## Generated Files
 
-            The following files in this repository are generated and checked
-            using [the _files_ flake-parts module](https://github.com/mightyiam/files):
+            The following files are defined in Nix and generated via [mightyiam/files](https://github.com/mightyiam/files) using `nix develop -c write-files`:
           ''
         ] sortedList;
         joined = lib.concatLines withHeader;

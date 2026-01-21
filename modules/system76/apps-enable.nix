@@ -134,7 +134,7 @@
       kitty.extended.enable = lib.mkOverride 1100 true;
       ktailctl.extended.enable = lib.mkOverride 1100 true;
       leiningen.extended.enable = lib.mkOverride 1100 false;
-      lefthook.extended.enable = lib.mkOverride 1100 false;
+      lefthook.extended.enable = lib.mkOverride 1100 true;
       less.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 false;
@@ -206,7 +206,7 @@
       playerctl.extended.enable = lib.mkOverride 1100 true;
       potrace.extended.enable = lib.mkOverride 1100 true;
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 true;
-      "pre-commit".extended.enable = lib.mkOverride 1100 true;
+      "pre-commit".extended.enable = lib.mkOverride 1100 false;
       procps.extended.enable = lib.mkOverride 1100 true;
       "protonvpn-gui".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 true;

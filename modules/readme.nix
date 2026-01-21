@@ -8,7 +8,7 @@
       "hm-package-pattern"
       "secrets"
       "flake-inputs-dedupe-prefix"
-      "generated-files"
+      "files"
     ];
 
     parts = {
@@ -52,7 +52,7 @@
           |---------|-------------|
           | `nix develop` | Enter dev shell |
           | `nix fmt` | Format files |
-          | `pre-commit run --all-files` | Run all hooks |
+          | `lefthook run pre-commit` | Run all hooks |
 
         '';
 
@@ -94,18 +94,6 @@
 
         '';
 
-      generated-files =
-        # markdown
-        ''
-          ## Generated Files
-
-          The following files are defined in Nix and generated via [mightyiam/files](https://github.com/mightyiam/files) using `nix develop -c write-files`:
-
-          - `.actrc`
-          - `.gitignore`
-          - `.sops.yaml`
-          - `README.md`
-        '';
     };
   };
 
