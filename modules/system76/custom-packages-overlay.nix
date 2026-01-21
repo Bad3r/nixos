@@ -15,6 +15,7 @@ _: {
         malimite = final.callPackage ../../packages/malimite { };
         claude-wpa = final.callPackage ../../packages/claude-wpa { };
         rg-fzf = final.callPackage ../../packages/rg-fzf { };
+        spec-kit = final.callPackage ../../packages/spec-kit { };
 
         # i3 window manager utilities
         i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };
