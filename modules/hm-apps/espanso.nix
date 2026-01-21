@@ -37,104 +37,112 @@
     * Regex: pattern-based replacements with capture groups
 */
 
-{
+_: {
   flake.homeManagerModules.apps.espanso =
-    { lib, pkgs, ... }:
+    {
+      osConfig,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       inherit (pkgs.stdenv.hostPlatform) isLinux;
+      enabled = lib.attrByPath [ "services" "espanso" "extended" "enable" ] false osConfig;
     in
     {
-      services.espanso = {
-        enable = true;
+      config = lib.mkIf enabled {
+        services.espanso = {
+          enable = true;
 
-        # Enable both X11 and Wayland support on Linux for auto-detection
-        x11Support = lib.mkDefault isLinux;
-        waylandSupport = lib.mkDefault isLinux;
+          # Enable both X11 and Wayland support on Linux for auto-detection
+          x11Support = lib.mkDefault isLinux;
+          waylandSupport = lib.mkDefault isLinux;
 
-        # Ensure Wayland package is available when waylandSupport is enabled
-        "package-wayland" = lib.mkDefault (if isLinux then pkgs.espanso-wayland else null);
+          # Ensure Wayland package is available when waylandSupport is enabled
+          "package-wayland" = lib.mkDefault (if isLinux then pkgs.espanso-wayland else null);
 
-        # Default configuration
-        configs = {
-          default = {
-            show_notifications = false;
-            # Uncomment for clipboard backend (better compatibility with some apps)
-            # backend = "Clipboard";
-          };
-        };
-
-        # Default matches with common patterns
-        matches = {
-          # Base expansions with date/time variables
-          base = {
-            matches = [
-              {
-                trigger = ":test";
-                replace = "test 1.2.3";
-              }
-              {
-                trigger = ":date";
-                replace = "{{currentdate}}";
-              }
-              {
-                trigger = ":time";
-                replace = "{{currenttime}}";
-              }
-              {
-                trigger = ":now";
-                replace = "{{currentdate}} {{currenttime}}";
-              }
-              {
-                trigger = ":isodate";
-                replace = "{{isodate}}";
-              }
-            ];
-
-            global_vars = [
-              {
-                name = "currentdate";
-                type = "date";
-                params = {
-                  format = "%Y-%m-%d";
-                };
-              }
-              {
-                name = "currenttime";
-                type = "date";
-                params = {
-                  format = "%H:%M";
-                };
-              }
-              {
-                name = "isodate";
-                type = "date";
-                params = {
-                  format = "%Y-%m-%dT%H:%M:%S%z";
-                };
-              }
-            ];
+          # Default configuration
+          configs = {
+            default = {
+              show_notifications = false;
+              # Uncomment for clipboard backend (better compatibility with some apps)
+              # backend = "Clipboard";
+            };
           };
 
-          # Development/coding snippets
-          dev = {
-            matches = [
-              {
-                trigger = ":shebang";
-                replace = "#!/usr/bin/env bash";
-              }
-              {
-                trigger = ":shebangnix";
-                replace = "#!/usr/bin/env nix-shell\n#!nix-shell -i bash";
-              }
-              {
-                trigger = ":todo";
-                replace = "# TODO: ";
-              }
-              {
-                trigger = ":fixme";
-                replace = "# FIXME: ";
-              }
-            ];
+          # Default matches with common patterns
+          matches = {
+            # Base expansions with date/time variables
+            base = {
+              matches = [
+                {
+                  trigger = ":test";
+                  replace = "test 1.2.3";
+                }
+                {
+                  trigger = ":date";
+                  replace = "{{currentdate}}";
+                }
+                {
+                  trigger = ":time";
+                  replace = "{{currenttime}}";
+                }
+                {
+                  trigger = ":now";
+                  replace = "{{currentdate}} {{currenttime}}";
+                }
+                {
+                  trigger = ":isodate";
+                  replace = "{{isodate}}";
+                }
+              ];
+
+              global_vars = [
+                {
+                  name = "currentdate";
+                  type = "date";
+                  params = {
+                    format = "%Y-%m-%d";
+                  };
+                }
+                {
+                  name = "currenttime";
+                  type = "date";
+                  params = {
+                    format = "%H:%M";
+                  };
+                }
+                {
+                  name = "isodate";
+                  type = "date";
+                  params = {
+                    format = "%Y-%m-%dT%H:%M:%S%z";
+                  };
+                }
+              ];
+            };
+
+            # Development/coding snippets
+            dev = {
+              matches = [
+                {
+                  trigger = ":shebang";
+                  replace = "#!/usr/bin/env bash";
+                }
+                {
+                  trigger = ":shebangnix";
+                  replace = "#!/usr/bin/env nix-shell\n#!nix-shell -i bash";
+                }
+                {
+                  trigger = ":todo";
+                  replace = "# TODO: ";
+                }
+                {
+                  trigger = ":fixme";
+                  replace = "# FIXME: ";
+                }
+              ];
+            };
           };
         };
       };

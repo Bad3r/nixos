@@ -31,27 +31,34 @@
     * `lazygit -p /path/to/repo` — Open lazygit in a specific repository
 */
 
-{
-  flake.homeManagerModules.apps.lazygit = {
-    programs.lazygit = {
-      enable = true;
+_: {
+  flake.homeManagerModules.apps.lazygit =
+    { osConfig, lib, ... }:
+    let
+      enabled = lib.attrByPath [ "programs" "lazygit" "extended" "enable" ] false osConfig;
+    in
+    {
+      config = lib.mkIf enabled {
+        programs.lazygit = {
+          enable = true;
 
-      # Custom settings can be added here
-      # settings = {
-      #   gui = {
-      #     theme = {
-      #       activeBorderColor = ["#88c0d0" "bold"];
-      #       inactiveBorderColor = ["#4c566a"];
-      #       selectedLineBgColor = ["#3b4252"];
-      #     };
-      #   };
-      #   git = {
-      #     paging = {
-      #       colorArg = "always";
-      #       pager = "delta --dark --paging=never";
-      #     };
-      #   };
-      # };
+          # Custom settings can be added here
+          # settings = {
+          #   gui = {
+          #     theme = {
+          #       activeBorderColor = ["#88c0d0" "bold"];
+          #       inactiveBorderColor = ["#4c566a"];
+          #       selectedLineBgColor = ["#3b4252"];
+          #     };
+          #   };
+          #   git = {
+          #     paging = {
+          #       colorArg = "always";
+          #       pager = "delta --dark --paging=never";
+          #     };
+          #   };
+          # };
+        };
+      };
     };
-  };
 }

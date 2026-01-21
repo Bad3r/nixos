@@ -21,9 +21,10 @@
     * `flameshot gui --delay 3000` — Start a capture after a 3-second delay to stage windows.
 */
 
-{
+_: {
   flake.homeManagerModules.apps.flameshot =
     {
+      osConfig,
       config,
       lib,
       pkgs,
@@ -31,6 +32,7 @@
       ...
     }:
     let
+      enabled = lib.attrByPath [ "services" "flameshot" "extended" "enable" ] false osConfig;
       stylixColors = lib.attrByPath [ "lib" "stylix" "colors" ] { } config;
       stylixColorsWithHash = lib.attrByPath [ "withHashtag" ] { } stylixColors;
       getColor =
@@ -51,25 +53,27 @@
       mkScreenshotDir = "${mkPicturesDir}/screenshots";
     in
     {
-      xdg.userDirs.enable = lib.mkDefault true;
-      xdg.userDirs.createDirectories = lib.mkDefault true;
+      config = lib.mkIf enabled {
+        xdg.userDirs.enable = lib.mkDefault true;
+        xdg.userDirs.createDirectories = lib.mkDefault true;
 
-      home.activation.ensureFlameshotScreenshotDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        mkdir -p '${mkScreenshotDir}'
-      '';
+        home.activation.ensureFlameshotScreenshotDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          mkdir -p '${mkScreenshotDir}'
+        '';
 
-      services.flameshot = {
-        enable = true;
-        package = pkgs.flameshot;
-        settings = {
-          General = {
-            copyOnDoubleClick = true;
-            saveLastRegion = true;
-            copyPathAfterSave = true;
-            savePath = mkScreenshotDir;
-            savePathFixed = true;
-            uiColor = getColor "base0D";
-            contrastUiColor = getColor "base01";
+        services.flameshot = {
+          enable = true;
+          package = pkgs.flameshot;
+          settings = {
+            General = {
+              copyOnDoubleClick = true;
+              saveLastRegion = true;
+              copyPathAfterSave = true;
+              savePath = mkScreenshotDir;
+              savePathFixed = true;
+              uiColor = getColor "base0D";
+              contrastUiColor = getColor "base01";
+            };
           };
         };
       };
