@@ -11,7 +11,7 @@ Repositories mirrored locally via `ghq` for offline access and patching.
 | nixos-hardware | `$HOME/git/nixos-hardware` | Pull hardware profiles or troubleshoot hardware-specific options. |
 | nixvim         | `$HOME/git/nixvim`         | Examine NixVim modules and options.                               |
 | treefmt-nix    | `$HOME/git/treefmt-nix`    | Adjust formatting behavior or version pins.                       |
-| git-hooks.nix  | `$HOME/git/git-hooks.nix`  | Update hook definitions or debug pre-commit failures.             |
+| lefthook       | `$HOME/git/lefthook`       | Reference lefthook documentation or debug hook failures.          |
 | sops-nix       | `$HOME/git/sops-nix`       | Manage encrypted secrets integrations.                            |
 | import-tree    | `$HOME/git/import-tree`    | Review import-tree functionality or extend module auto-loading.   |
 | files module   | `$HOME/git/files`          | Modify sources that generate repo artefacts (e.g., `.gitignore`). |
