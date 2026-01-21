@@ -352,7 +352,7 @@ main() {
 
   if [[ ${SKIP_HOOKS} == "false" ]]; then
     status_msg "${YELLOW}" "Running lefthook pre-commit hooks..."
-    nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c lefthook run pre-commit --all-files
+    LEFTHOOK_ENV=1 nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c lefthook run pre-commit --all-files
   else
     status_msg "${YELLOW}" "Skipping lefthook hooks (--skip-hooks flag used)..."
   fi
