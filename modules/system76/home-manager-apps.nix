@@ -34,7 +34,6 @@ let
     "lutris"
     "mpv"
     "ncdu"
-    "neovim"
     "nh"
     "nix-index"
     "nixvim"
@@ -56,7 +55,7 @@ let
     "tree"
     "usbguard-notifier"
     "uv"
-    "vim"
+    # "vim" # Provided by nixvim (vimAlias = true)
     "wezterm"
     "yarn"
     "zathura"
