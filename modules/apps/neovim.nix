@@ -9,43 +9,27 @@
     * Enhances Vim with embedded Lua scripting, Tree-sitter integration, LSP client, terminal emulator, and RPC APIs for external UIs.
     * Maintains compatibility with Vimscript while enabling performant plugin ecosystems like Lazy.nvim, Telescope, and nvim-cmp.
 
-  Options:
-    nvim <files>: Edit files and directories interactively.
-    nvim --headless -c <cmd>: Run commands or scripts without a UI (use for automation).
-    nvim --clean: Start without user configuration for troubleshooting.
-    nvim +'PlugUpdate' +qa: Example of running plugin updates in batch.
-
-  Example Usage:
-    * `nvim main.rs` — Edit a Rust source file with LSP/autocomplete support when configured.
-    * `nvim --headless +'lua print(vim.version())' +qa` — Query Neovim version in CI pipelines.
-    * `nvim --clean init.vim` — Inspect configuration issues by launching with defaults.
+  Notes:
+    * This module provides the base neovim-unwrapped package for nixvim to wrap.
+    * Package installation is handled by the nixvim home-manager module, not this NixOS module.
+    * Enable this module to activate nixvim configuration in home-manager.
 */
 _:
 let
   NeovimModule =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
-    let
-      cfg = config.programs.neovim.extended;
-    in
+    { lib, pkgs, ... }:
     {
       options.programs.neovim.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable neovim.";
+          description = "Whether to enable neovim (via nixvim).";
         };
 
-        package = lib.mkPackageOption pkgs "neovim" { };
+        package = lib.mkPackageOption pkgs "neovim-unwrapped" { };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
-      };
+      # No config block - nixvim handles package installation via home-manager
     };
 in
 {
