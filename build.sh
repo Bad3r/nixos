@@ -8,7 +8,7 @@
 ## system sudo wrapper. It never disables the sandbox or performs GC/optimise,
 ## and it does not mutate repo file ownership. Keep permission and state
 ## management declarative in NixOS modules.
-set -Ee -o pipefail
+set -Eeu -o pipefail
 
 # Nix CLI config via env: enable nix-command, flakes, pipe-operators, etc.
 # Keep aligned with flake.nix nixConfig; do not relax security settings.
@@ -28,7 +28,7 @@ export NIX_CONFIG="${NIX_CONFIGURATION}"
 
 # Initialize variables with defaults
 FLAKE_DIR="${PWD}"
-HOSTNAME="$(hostname)"
+TARGET_HOST="$(hostname)"
 OFFLINE=false
 VERBOSE=false
 ALLOW_DIRTY=${ALLOW_DIRTY:-false}
@@ -40,11 +40,11 @@ KEEP_GOING=false
 REPAIR=false
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-NC='\033[0m'
+# Colors for output (readonly constants)
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[0;33m'
+readonly NC='\033[0m'
 
 # Function to display help
 show_help() {
@@ -68,7 +68,7 @@ Options:
   -h, --help             Show this help message
 
   Usage Example:
-  $0 --offline
+  ${0} --offline
 " "${0##*/}" "${PWD}" "$(hostname)"
 }
 
@@ -86,21 +86,39 @@ error_msg() {
 trap_error() {
   local exit_code=$?
   local failed_command=${BASH_COMMAND}
+  local line_number=${BASH_LINENO[0]}
+  local func_name=${FUNCNAME[1]:-main}
   error_msg "Command '${failed_command}' failed with exit code ${exit_code}."
+  printf "  at %s() line %s\n" "${func_name}" "${line_number}" >&2
+  if [[ ${#FUNCNAME[@]} -gt 2 ]]; then
+    printf "  Call stack:\n" >&2
+    for ((i = 1; i < ${#FUNCNAME[@]}; i++)); do
+      printf "    %s() at line %s\n" "${FUNCNAME[i]}" "${BASH_LINENO[i - 1]}" >&2
+    done
+  fi
   exit "${exit_code}"
 }
 
 trap trap_error ERR
+trap 'true' EXIT # Cleanup hook (no-op; extend as needed)
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
-  case $1 in
+  case "$1" in
   -p | --flake-dir)
+    if [[ -z ${2:-} ]]; then
+      error_msg "Option $1 requires an argument"
+      exit 1
+    fi
     FLAKE_DIR="$2"
     shift 2
     ;;
   -t | --host)
-    HOSTNAME="$2"
+    if [[ -z ${2:-} ]]; then
+      error_msg "Option $1 requires an argument"
+      exit 1
+    fi
+    TARGET_HOST="$2"
     shift 2
     ;;
   -o | --offline)
@@ -145,17 +163,30 @@ while [[ $# -gt 0 ]]; do
     REPAIR=true
     shift
     ;;
-  --help)
+  -h | --help)
     show_help
     exit 0
     ;;
+  --)
+    shift
+    break
+    ;;
   *)
-    error_msg "Unknown option: $1"
+    error_msg "Unknown option: ${1}"
     show_help
     exit 1
     ;;
   esac
 done
+
+# Validate ACTION is a known value
+case "${ACTION}" in
+switch | boot) ;;
+*)
+  error_msg "Invalid ACTION: ${ACTION} (must be 'switch' or 'boot')"
+  exit 1
+  ;;
+esac
 
 # When explicitly allowing dirty trees, suppress Nix's dirty tree warning.
 if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
@@ -185,23 +216,23 @@ configure_nix_flags() {
   )
 
   # Offline mode
-  if $OFFLINE; then
+  if [[ ${OFFLINE} == "true" ]]; then
     flags+=("--offline")
   fi
 
   # Verbose mode
-  if $VERBOSE; then
+  if [[ ${VERBOSE} == "true" ]]; then
     flags+=("--verbose")
     set -x
   fi
 
   # Keep going despite failures
-  if $KEEP_GOING; then
+  if [[ ${KEEP_GOING} == "true" ]]; then
     flags+=("--keep-going")
   fi
 
   # Repair corrupted store paths
-  if $REPAIR; then
+  if [[ ${REPAIR} == "true" ]]; then
     flags+=("--repair")
   fi
 
@@ -229,7 +260,7 @@ ensure_clean_git_tree() {
       exit 2
     fi
     # Consider untracked files as dirty to ensure reproducibility
-    if git ls-files --others --exclude-standard | grep -q .; then
+    if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
       error_msg "Untracked files present in the worktree. Commit, .gitignore, or remove them before building."
       git ls-files --others --exclude-standard | sed -n '1,50p' >&2 || true
       printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
@@ -262,13 +293,13 @@ check_reboot_needed() {
     fi
   fi
 
-  if $needs_reboot; then
+  if [[ ${needs_reboot} == "true" ]]; then
     printf "\n"
     status_msg "${YELLOW}" "Reboot recommended to apply changes:"
     local body=""
     for reason in "${reasons[@]}"; do
       printf "    - %s\n" "${reason}"
-      body+="${reason}\n"
+      body+="${reason}"$'\n'
     done
     # Desktop notification (non-blocking, don't fail if unavailable)
     if command -v notify-send >/dev/null 2>&1; then
@@ -285,9 +316,9 @@ check_reboot_needed() {
 
 run_flake_update() {
   status_msg "${YELLOW}" "Refreshing flake metadata..."
-  nix flake metadata "${FLAKE_DIR}" --refresh "${NIX_FLAGS[@]}" >/dev/null
+  nix flake metadata "${FLAKE_DIR}" --refresh "${NIX_FLAGS[@]}"
   status_msg "${YELLOW}" "Updating flake inputs..."
-  nix flake update "${FLAKE_DIR}" "${NIX_FLAGS[@]}"
+  nix flake update --flake "${FLAKE_DIR}" "${NIX_FLAGS[@]}"
   if command -v git >/dev/null 2>&1; then
     if git -C "${FLAKE_DIR}" diff --quiet -- flake.lock; then
       status_msg "${GREEN}" "flake.lock already up to date."
@@ -295,6 +326,16 @@ run_flake_update() {
       status_msg "${YELLOW}" "Committing flake.lock changes..."
       git -C "${FLAKE_DIR}" add flake.lock
       git -C "${FLAKE_DIR}" commit -m "chore(flake): update inputs"
+    fi
+  fi
+}
+
+check_sudo_access() {
+  if ! /run/wrappers/bin/sudo -n true 2>/dev/null; then
+    status_msg "${YELLOW}" "Sudo access required for deployment. You may be prompted for your password."
+    if ! /run/wrappers/bin/sudo -v; then
+      error_msg "Failed to obtain sudo access. Cannot proceed with deployment."
+      exit 1
     fi
   fi
 }
@@ -317,8 +358,12 @@ main() {
   fi
 
   if [[ ${SKIP_SCORE} == "false" ]]; then
-    status_msg "${YELLOW}" "Scoring Dendritic Pattern compliance..."
-    generation-manager score
+    if command -v generation-manager >/dev/null 2>&1; then
+      status_msg "${YELLOW}" "Scoring Dendritic Pattern compliance..."
+      generation-manager score
+    else
+      status_msg "${YELLOW}" "Skipping Dendritic Pattern scoring (generation-manager not found)..."
+    fi
   else
     status_msg "${YELLOW}" "Skipping Dendritic Pattern scoring (--skip-all flag used)..."
   fi
@@ -332,11 +377,14 @@ main() {
 
   status_msg "${GREEN}" "Validation completed successfully!"
 
+  # Verify sudo access before deployment
+  check_sudo_access
+
   # Deploy using nixos-rebuild which handles profile + bootloader updates
-  status_msg "${YELLOW}" "Deploying '${HOSTNAME}' via nixos-rebuild (${ACTION})..."
+  status_msg "${YELLOW}" "Deploying '${TARGET_HOST}' via nixos-rebuild (${ACTION})..."
   case "${ACTION}" in
   switch | boot)
-    /run/wrappers/bin/sudo --preserve-env=NIX_CONFIG,NIX_CONFIGURATION,SSH_AUTH_SOCK nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${HOSTNAME}" --accept-flake-config "${NIX_FLAGS[@]}"
+    /run/wrappers/bin/sudo --preserve-env=NIX_CONFIG,NIX_CONFIGURATION,SSH_AUTH_SOCK nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${TARGET_HOST}" --accept-flake-config "${NIX_FLAGS[@]}"
     if [[ ${ACTION} == "switch" ]]; then
       status_msg "${GREEN}" "System switched successfully!"
       check_reboot_needed
