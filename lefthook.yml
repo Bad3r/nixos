@@ -3,6 +3,9 @@
 min_version: 1.10.0
 glob_matcher: doublestar
 
+# Source the nix develop environment (cached for speed)
+rc: ./.lefthook-rc.sh
+
 output:
   - meta
   - summary
