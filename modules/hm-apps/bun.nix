@@ -17,12 +17,25 @@
     --watch: Automatically restart on file changes.
     --hot: Enable hot module replacement.
     --smol: Use less memory with more frequent garbage collection.
+
+  Notes:
+    * Sets BUN_INSTALL to $XDG_DATA_HOME/bun for XDG-compliant global package storage.
+    * Adds $BUN_INSTALL/bin to PATH for globally installed packages.
+    * Creates the bun data directory on activation.
+    * Config file managed at $XDG_CONFIG_HOME/.bunfig.toml via HM programs.bun.settings.
+    * Telemetry disabled by default.
 */
 _: {
   flake.homeManagerModules.apps.bun =
-    { osConfig, lib, ... }:
+    {
+      osConfig,
+      lib,
+      config,
+      ...
+    }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "bun" "extended" "enable" ] false osConfig;
+      bunInstallDir = "${config.xdg.dataHome}/bun";
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -34,6 +47,17 @@ _: {
           # This means bun is installed via both NixOS (environment.systemPackages)
           # and HM (home.packages), but both point to the same store path.
           enableGitIntegration = true;
+          settings.telemetry = false;
+        };
+
+        home = {
+          sessionVariables.BUN_INSTALL = bunInstallDir;
+          sessionPath = [ "${bunInstallDir}/bin" ];
+
+          # Ensure the bun data directory exists
+          activation.createBunDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            run mkdir -p "${bunInstallDir}/bin"
+          '';
         };
       };
     };
