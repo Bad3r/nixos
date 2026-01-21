@@ -294,7 +294,7 @@ run_flake_update() {
     else
       status_msg "${YELLOW}" "Committing flake.lock changes..."
       git -C "${FLAKE_DIR}" add flake.lock
-      git -C "${FLAKE_DIR}" commit -m "chore: update flake inputs"
+      git -C "${FLAKE_DIR}" commit -m "chore(flake): update inputs"
     fi
   fi
 }
