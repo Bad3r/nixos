@@ -4,10 +4,10 @@ _: {
     { config, ... }:
     {
       treefmt.settings = {
-        # Do not format vendored inputs or generated hook config
+        # Do not format vendored inputs or generated config files
         global.excludes = [
           "inputs/*"
-          ".pre-commit-config.yaml"
+          "lefthook.yml"
           "nixos-manual/*"
         ];
         # Generated README must match write-files output exactly; exclude from prettier
