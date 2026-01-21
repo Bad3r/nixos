@@ -60,7 +60,7 @@ Options:
       --boot             Install as next-boot generation (do not activate now)
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
       --update           Run 'nix flake update' and auto-commit before building
-      --skip-hooks       Skip the pre-commit hooks validation
+      --skip-hooks       Skip the lefthook validation
       --skip-check       Skip the 'nix flake check' validation step
       --skip-all         Skip all validation steps (git hooks, flake check)
       --keep-going       Continue building despite failures (nix --keep-going)
@@ -351,10 +351,10 @@ main() {
   configure_nix_flags
 
   if [[ ${SKIP_HOOKS} == "false" ]]; then
-    status_msg "${YELLOW}" "Running pre-commit hooks..."
-    nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c pre-commit run --all-files
+    status_msg "${YELLOW}" "Running lefthook pre-commit hooks..."
+    nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c lefthook run pre-commit --all-files
   else
-    status_msg "${YELLOW}" "Skipping pre-commit hooks (--skip-hooks flag used)..."
+    status_msg "${YELLOW}" "Skipping lefthook hooks (--skip-hooks flag used)..."
   fi
 
   if [[ ${SKIP_SCORE} == "false" ]]; then
