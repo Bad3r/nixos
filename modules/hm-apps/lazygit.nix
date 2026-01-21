@@ -42,6 +42,9 @@ _: {
         programs.lazygit = {
           enable = true;
 
+          # Package installed by NixOS module (HM supports nullable)
+          package = null;
+
           # Custom settings can be added here
           # settings = {
           #   gui = {

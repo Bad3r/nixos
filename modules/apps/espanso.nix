@@ -10,14 +10,13 @@
     * Supports variables (date, shell, clipboard), forms, regex triggers, and app-specific configurations.
 
   Notes:
-    * This module provides the enable flag for the Home Manager espanso service.
-    * Package installation is handled by the Home Manager module, not this NixOS module.
     * Uses services namespace since espanso runs as a background service.
+    * HM services.espanso does not support nullable package - HM handles installation.
 */
 _:
 let
   EspansoModule =
-    { lib, pkgs, ... }:
+    { lib, ... }:
     {
       options.services.espanso.extended = {
         enable = lib.mkOption {
@@ -25,8 +24,6 @@ let
           default = false;
           description = "Whether to enable espanso.";
         };
-
-        package = lib.mkPackageOption pkgs "espanso" { };
       };
     };
 in
