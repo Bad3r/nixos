@@ -38,7 +38,7 @@
       "cf-terraforming".extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
       "claude-wpa".extended.enable = lib.mkOverride 1100 true;
-      "claude-code".extended.enable = lib.mkOverride 1100 true;
+      "claude-code".extended.enable = lib.mkOverride 1100 false;
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
       "clojure-lsp".extended.enable = lib.mkOverride 1100 false;
       cloudflared.extended.enable = lib.mkOverride 1100 true;
