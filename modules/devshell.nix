@@ -119,32 +119,14 @@
           ];
 
         shellHook = ''
-          # Skip welcome message and interactive setup when generating lefthook cache
-          if [ -z "''${LEFTHOOK_ENV:-}" ]; then
-            echo "🚀 NixOS Configuration Development Shell"
-            echo ""
-            echo "Available commands:"
-            echo "  nix flake check        - Validate the flake"
-            echo "  nix fmt                - Format Nix files"
-            echo "  lefthook install       - Install git hooks"
-            echo "  lefthook run pre-commit - Run all pre-commit hooks"
-            echo "  write-files            - Generate managed files (README.md, .actrc, .gitignore)"
-            echo "  gh-actions-run [-n]    - Run all GitHub Actions locally (use -n for dry run)"
-            echo "  gh-actions-list        - List discovered GitHub Actions jobs"
-            echo ""
+          # Use repo-local treefmt cache (matches lefthook hook location)
+          treefmt_cache="$PWD/.git/treefmt-cache/cache"
+          mkdir -p "$treefmt_cache" 2>/dev/null || true
+          export TREEFMT_CACHE_DB="$treefmt_cache/eval-cache"
 
-            # Use repo-local treefmt cache (matches lefthook hook location)
-            treefmt_cache="$PWD/.git/treefmt-cache/cache"
-            mkdir -p "$treefmt_cache" 2>/dev/null || true
-            export TREEFMT_CACHE_DB="$treefmt_cache/eval-cache"
-
+          # Install lefthook hooks only if not already installed
+          if [ ! -f .git/hooks/pre-commit ] || ! grep -q "lefthook" .git/hooks/pre-commit 2>/dev/null; then
             lefthook install
-
-            # Prefer zsh for interactive sessions
-            if [ -n "''${PS1-}" ] && [ -z "''${ZSH_VERSION-}" ] && [ -t 1 ]; then
-              export SHELL="${pkgs.zsh}/bin/zsh"
-              exec "${pkgs.zsh}/bin/zsh" -l
-            fi
           fi
         '';
       };

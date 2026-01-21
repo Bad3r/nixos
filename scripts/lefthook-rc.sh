@@ -31,8 +31,7 @@ fi
 if [ "$needs_update" = "1" ]; then
   echo "Generating lefthook environment cache..." >&2
   # Extract only PATH from nix develop (POSIX-compatible)
-  # LEFTHOOK_ENV suppresses devshell welcome message
-  nix_path=$(LEFTHOOK_ENV=1 nix develop --accept-flake-config -c sh -c 'echo "$PATH"' 2>/dev/null)
+  nix_path=$(nix develop --accept-flake-config -c sh -c 'echo "$PATH"' 2>/dev/null)
   if [ -n "$nix_path" ]; then
     echo "export PATH=\"$nix_path\"" > "$CACHE_FILE"
     echo "$current_hash" > "$HASH_FILE"
