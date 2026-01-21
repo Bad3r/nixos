@@ -8,15 +8,19 @@
   Summary:
     * Provides a simple terminal UI for common git operations with keyboard-driven navigation.
     * Supports staging, committing, branching, merging, rebasing, and viewing diffs visually.
-
-  Notes:
-    * This module provides the enable flag for the Home Manager lazygit module.
-    * Package installation is handled by the Home Manager module, not this NixOS module.
 */
 _:
 let
   LazygitModule =
-    { lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.lazygit.extended;
+    in
     {
       options.programs.lazygit.extended = {
         enable = lib.mkOption {
@@ -26,6 +30,10 @@ let
         };
 
         package = lib.mkPackageOption pkgs "lazygit" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
       };
     };
 in

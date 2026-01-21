@@ -10,13 +10,12 @@
     * Provides shell widgets so Ctrl-T, Ctrl-R, and custom bindings open interactive pickers.
 
   Notes:
-    * This module provides the enable flag for the Home Manager fzf module.
-    * Package installation is handled by the Home Manager module, not this NixOS module.
+    * HM programs.fzf does not support nullable package - HM handles installation.
 */
 _:
 let
   FzfModule =
-    { lib, pkgs, ... }:
+    { lib, ... }:
     {
       options.programs.fzf.extended = {
         enable = lib.mkOption {
@@ -24,8 +23,6 @@ let
           default = false;
           description = "Whether to enable fzf.";
         };
-
-        package = lib.mkPackageOption pkgs "fzf" { };
       };
     };
 in

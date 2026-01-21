@@ -10,14 +10,13 @@
     * Supports system tray controls, DBus shortcuts, Wayland/X11 backends, and custom keyboard shortcuts.
 
   Notes:
-    * This module provides the enable flag for the Home Manager flameshot service.
-    * Package installation is handled by the Home Manager module, not this NixOS module.
     * Uses services namespace since flameshot runs as a background service.
+    * HM services.flameshot does not support nullable package - HM handles installation.
 */
 _:
 let
   FlameshotModule =
-    { lib, pkgs, ... }:
+    { lib, ... }:
     {
       options.services.flameshot.extended = {
         enable = lib.mkOption {
@@ -25,8 +24,6 @@ let
           default = false;
           description = "Whether to enable flameshot.";
         };
-
-        package = lib.mkPackageOption pkgs "flameshot" { };
       };
     };
 in

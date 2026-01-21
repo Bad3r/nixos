@@ -10,13 +10,12 @@
     * Supports multiple themes, custom highlighting assets, and convenient diff/line filtering switches.
 
   Notes:
-    * This module provides the enable flag for the Home Manager bat module.
-    * Package installation is handled by the Home Manager module, not this NixOS module.
+    * HM programs.bat does not support nullable package - HM handles installation.
 */
 _:
 let
   BatModule =
-    { lib, pkgs, ... }:
+    { lib, ... }:
     {
       options.programs.bat.extended = {
         enable = lib.mkOption {
@@ -24,8 +23,6 @@ let
           default = false;
           description = "Whether to enable bat.";
         };
-
-        package = lib.mkPackageOption pkgs "bat" { };
       };
     };
 in

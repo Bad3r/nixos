@@ -34,8 +34,9 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
   - `Summary:` — two bullet points describing primary functionality.
   - `Tests:` — only include when upstream documents deterministic CLI outputs (for example `ent.nix`). If no canonical tests exist, omit the section completely rather than inventing ad-hoc commands.
   - `Options:` — bullet list covering notable flags, switches, or usage notes. Use `-flag` entries to mirror CLI flags and keep bullets to one line each. Reference official command documentation when paraphrasing behaviour.
+  - `Notes:` — optional section for module-specific implementation details. Use when the module delegates responsibilities (e.g., package installation handled by Home Manager) or has namespace considerations (e.g., uses `services` instead of `programs`). Omit for straightforward modules.
 - Bullet style inside the comment:
-  - Use `*` for generic bullet points (`Summary`, `Tests`).
+  - Use `*` for generic bullet points (`Summary`, `Tests`, `Notes`).
   - Use the literal option token (for example `-b`) as the bullet for `Options`, as shown in `ent.nix`.
 - Unicode characters are acceptable; retain the form used by upstream documentation (for example `π` in statistical descriptions).
 - When a project offers multiple front-ends (for example CLI and GUI), scope the comment to the component delivered by the package.
