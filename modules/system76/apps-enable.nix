@@ -236,6 +236,7 @@
       "signal-desktop".extended.enable = lib.mkOverride 1100 true;
       skim.extended.enable = lib.mkOverride 1100 false;
       smartmontools.extended.enable = lib.mkOverride 1100 true;
+      sqlite.extended.enable = lib.mkOverride 1100 true;
       spectacle.extended.enable = lib.mkOverride 1100 false;
       "spec-kit".extended.enable = lib.mkOverride 1100 true;
       sqlmap.extended.enable = lib.mkOverride 1100 false;

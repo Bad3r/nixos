@@ -51,7 +51,6 @@ let
     "ruff"
     "skim"
     # "slack"
-    "sqlite"
     "starship"
     "stylix-gui"
     "tealdeer"
