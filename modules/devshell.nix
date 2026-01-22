@@ -89,7 +89,6 @@
             zsh
             act
             jq
-            yq
             ripgrep
             lefthook # Replaces pre-commit
 
