@@ -15,22 +15,40 @@
     -g, --glob <pattern>: Include or exclude files matching the glob pattern.
     --hidden: Search hidden files and directories.
     --json: Emit machine-readable JSON results for tooling.
+    -i, --ignore-case: Case insensitive search.
+    -w, --word-regexp: Only match whole words.
 
   Notes:
-    * Package installation handled by NixOS module at modules/apps/ripgrep.nix.
+    * Home Manager module at modules/hm-apps/ripgrep.nix provides user-level configuration.
 */
-_: {
-  flake.homeManagerModules.apps.ripgrep =
-    { osConfig, lib, ... }:
+_:
+let
+  RipgrepModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
-      nixosEnabled = lib.attrByPath [ "programs" "ripgrep" "extended" "enable" ] false osConfig;
+      cfg = config.programs.ripgrep.extended;
     in
     {
-      config = lib.mkIf nixosEnabled {
-        programs.ripgrep = {
-          enable = true;
-          package = null;
+      options.programs.ripgrep.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to enable ripgrep.";
         };
+
+        package = lib.mkPackageOption pkgs "ripgrep" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
       };
     };
+in
+{
+  flake.nixosModules.apps.ripgrep = RipgrepModule;
 }
