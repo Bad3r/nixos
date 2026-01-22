@@ -117,6 +117,7 @@
       hopper.extended.enable = lib.mkOverride 1100 false;
       hsetroot.extended.enable = lib.mkOverride 1100 true;
       htop.extended.enable = lib.mkOverride 1100 true;
+      htmlq.extended.enable = lib.mkOverride 1100 true;
       httpie.extended.enable = lib.mkOverride 1100 true;
       httpx.extended.enable = lib.mkOverride 1100 true;
       hydra.extended.enable = lib.mkOverride 1100 false;
@@ -291,7 +292,6 @@
       xz.extended.enable = lib.mkOverride 1100 true;
       yaak.extended.enable = lib.mkOverride 1100 true;
       yarn.extended.enable = lib.mkOverride 1100 true;
-      yq.extended.enable = lib.mkOverride 1100 true;
       zip.extended.enable = lib.mkOverride 1100 true;
       "zoom-us".extended.enable = lib.mkOverride 1100 false;
       zathura.extended.enable = lib.mkOverride 1100 true;

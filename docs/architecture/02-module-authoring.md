@@ -22,7 +22,7 @@ This document covers how to write modules correctly in this flake-parts + import
 { config, ... }:
 {
   flake.homeManagerModules.base = { pkgs, ... }: {
-    home.packages = with pkgs; [ jq yq jnv ];
+    home.packages = with pkgs; [ jq jnv ];
   };
 }
 ```
