@@ -294,6 +294,7 @@
       xz.extended.enable = lib.mkOverride 1100 true;
       yaak.extended.enable = lib.mkOverride 1100 true;
       yarn.extended.enable = lib.mkOverride 1100 true;
+      "yq-go".extended.enable = lib.mkOverride 1100 true;
       zip.extended.enable = lib.mkOverride 1100 true;
       "zoom-us".extended.enable = lib.mkOverride 1100 false;
       zathura.extended.enable = lib.mkOverride 1100 true;
