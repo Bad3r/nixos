@@ -1,4 +1,4 @@
-# Shell library for X11 primary monitor detection
+# Shell library for X11 primary monitor detection (RUNTIME)
 # This is meant to be SOURCED by bash scripts, not executed directly
 #
 # Provides: query_primary_monitor function
