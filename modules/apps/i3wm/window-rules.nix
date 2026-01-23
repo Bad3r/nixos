@@ -6,29 +6,23 @@
     let
       cfg = config.gui.i3;
 
-      # Quarter-screen corner commands (resize + position)
-      topRight = "resize set ${cfg.quarterSize}, move position ${cfg.quarterPosition}";
+      # Quarter-screen geometry calculations (all derived from config options)
+      # Width:  screenWidth/2 - borderWidth*2  (gap on both sides of center split)
+      # Height: screenHeight/2 - fontSize*2 - 1  (account for bar area)
+      # X:      screenWidth/2 + borderWidth  (start just past center)
+      # Y:      barHeight  (start below status bar)
+      qWidth = toString ((cfg.screenWidth / 2) - (cfg.borderWidth * 2));
+      qHeight = toString ((cfg.screenHeight / 2) - (cfg.fontSize * 2) - 1);
+      xPos = toString ((cfg.screenWidth / 2) + cfg.borderWidth);
+      yPos = toString cfg.barHeight;
+
+      # Quarter-screen top-right corner with exact pixel positioning
+      topRight = "resize set ${qWidth} px ${qHeight} px, move position ${xPos} px ${yPos} px";
+
+      # ProtonVPN window positioning (known size: 408x600)
+      protonvpnX = toString (cfg.screenWidth - 408 - (cfg.borderWidth * 2) - 1);
     in
     {
-      options.gui.i3 = {
-        quarterSize = lib.mkOption {
-          type = lib.types.str;
-          default = "1270 695";
-          description = ''
-            Quarter-screen window dimensions as "width height" in pixels.
-            Default is calculated for 2560x1440: (2560/2 - 10) x (1440/2 - 25).
-          '';
-        };
-
-        quarterPosition = lib.mkOption {
-          type = lib.types.str;
-          default = "1285 px 34 px";
-          description = ''
-            Top-right quarter position as "x px y px".
-            Default is calculated for 2560x1440: x = 2560/2 + 5, y = 34 (bar offset).
-          '';
-        };
-      };
 
       config.xsession.windowManager.i3.config = {
         # Workspace assignments by window class
@@ -67,12 +61,11 @@
             command = "floating enable, ${topRight}";
           }
           {
-            # bitwarden desktop app: NORMAL type, needs floating
             criteria.class = "(?i)^bitwarden$";
             command = "floating enable, ${topRight}";
           }
           {
-            # bitwarden browser extension: dialog + title for positioning
+            # Bitwarden browser extension popup window
             criteria = {
               window_type = "dialog";
               title = "(?i)Extension:.*Bitwarden";
@@ -80,17 +73,18 @@
             command = topRight;
           }
           {
-            # pwvucontrol: NORMAL type, needs floating
+            # Pipewire Volume Control
             criteria.class = "(?i)^pwvucontrol$";
             command = "floating enable, ${topRight}";
           }
           {
+            # Browser DevTools
             criteria.class = "(?i)^devtools$";
             command = "floating enable, ${topRight}";
           }
           {
             criteria.class = "(?i)^protonvpn-app$";
-            command = "floating enable";
+            command = "floating enable, move position ${protonvpnX} px ${yPos} px";
           }
           # Float Thunar progress dialogs (title is substring match)
           {

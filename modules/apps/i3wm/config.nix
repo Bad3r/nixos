@@ -293,6 +293,43 @@
           default = "floorp";
           example = "firefox";
         };
+
+        borderWidth = lib.mkOption {
+          description = "Window border width in pixels for positioning calculations.";
+          type = lib.types.int;
+          default = 5;
+          example = 3;
+        };
+
+        screenWidth = lib.mkOption {
+          description = "Primary screen width in pixels for window positioning calculations.";
+          type = lib.types.int;
+          default = 2560;
+          example = 1920;
+        };
+
+        screenHeight = lib.mkOption {
+          description = "Primary screen height in pixels for window positioning calculations.";
+          type = lib.types.int;
+          default = 1440;
+          example = 1080;
+        };
+
+        fontSize = lib.mkOption {
+          description = "Desktop font size in pixels. Defaults to Stylix desktop font size.";
+          type = lib.types.int;
+          default = config.stylix.fonts.sizes.desktop;
+          defaultText = lib.literalExpression "config.stylix.fonts.sizes.desktop";
+          example = 12;
+        };
+
+        barHeight = lib.mkOption {
+          description = "Status bar height in pixels. Derived from fontSize plus border padding.";
+          type = lib.types.int;
+          default = (config.gui.i3.fontSize * 2) + (config.gui.i3.borderWidth * 2);
+          defaultText = lib.literalExpression "(fontSize * 2) + (borderWidth * 2)";
+          example = 34;
+        };
       };
 
       config = {
