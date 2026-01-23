@@ -15,10 +15,8 @@
     --approval-policy <mode>: Override the approval policy (for example `never`, `always`, `manual`).
     --sandbox-mode <mode>: Adjust the sandbox level for commands launched by Codex.
 
-  Example Usage:
-    * `codex "Write unit tests for src/date.ts"` — Ask Codex to draft and run new tests in the current repo.
-    * `codex exec "explain utils.py"` — Produce a non-interactive explanation suitable for piping to other tools.
-    * `codex resume --last` — Continue collaborating in the most recent workspace without starting from scratch.
+  Notes:
+    * Package installation handled by NixOS module (modules/apps/codex.nix) via llm-agents.nix.
 */
 
 _: {
@@ -32,21 +30,8 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "codex" "extended" "enable" ] false osConfig;
+      codexPkg = lib.attrByPath [ "programs" "codex" "extended" "package" ] pkgs.codex osConfig;
 
-      # Use upstream nixpkgs codex package
-      baseCodexPkg = pkgs.codex;
-      codexPkg =
-        if lib.versionAtLeast (lib.getVersion baseCodexPkg) "0.2.0" then
-          baseCodexPkg
-        else
-          # Upstream reports version 0.0.0 even on modern builds; wrap with a
-          # synthetic name so Home Manager writes TOML config instead of the
-          # legacy YAML path.
-          pkgs.symlinkJoin {
-            name = "codex-0.2.0-toml";
-            paths = [ baseCodexPkg ];
-            meta = baseCodexPkg.meta or { };
-          };
       mcp = import ../../lib/mcp-servers.nix {
         inherit lib pkgs config;
       };
@@ -108,7 +93,6 @@ _: {
           custom-instructions = "";
         };
 
-        home.packages = [ codexPkg ];
         home.sessionVariables = {
           CODEX_HOME = lib.mkDefault "${config.xdg.configHome}/codex";
           CODEX_DISABLE_UPDATE_CHECK = "1";

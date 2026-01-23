@@ -1,6 +1,6 @@
 /*
   Package: claude-code
-  Description: Anthropics' Claude Code CLI for repository-aware conversations and code generation.
+  Description: Anthropic's Claude Code CLI for agentic coding in the terminal.
   Homepage: https://docs.anthropic.com/en/docs/claude-code/overview
   Documentation: https://docs.anthropic.com/en/docs/claude-code/overview
   Repository: https://github.com/anthropics/claude-code
@@ -10,18 +10,20 @@
     * Supports worktree context ingestion so Claude can read, diff, and suggest updates within git repositories.
 
   Options:
-    claude-code login: Authenticate the CLI with an API key or OAuth flow.
-    claude-code run <task>: Execute a scripted task definition against the current repository.
-    claude-code worktree --task <prompt>: Start an interactive session using local git state.
+    -p, --print: Non-interactive output mode for scripting.
+    --add-dir: Additional directories to allow tool access to.
+    --allowedTools: Comma-separated list of tool names to allow.
+    --model: Override the default model for the session.
 
-  Example Usage:
-    * `claude-code login` — Initiate authentication and store encrypted credentials locally.
-    * `claude-code worktree --task "refactor telemetry collection"` — Ask Claude to propose git changes for a task.
-    * `claude-code run ci-audit.yml` — Execute a saved automation recipe against the repo.
+  Notes:
+    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
+    * Configuration managed by Home Manager module (modules/hm-apps/claude-code.nix).
 */
-_:
-let
-  ClaudeCodeModule =
+{ inputs, ... }:
+{
+  nixpkgs.allowedUnfreePackages = [ "claude-code" ];
+
+  flake.nixosModules.apps.claude-code =
     {
       config,
       lib,
@@ -29,7 +31,7 @@ let
       ...
     }:
     let
-      cfg = config.programs."claude-code".extended;
+      cfg = config.programs.claude-code.extended;
     in
     {
       options.programs.claude-code.extended = {
@@ -39,16 +41,16 @@ let
           description = "Whether to enable claude-code.";
         };
 
-        package = lib.mkPackageOption pkgs "claude-code" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
+          defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.claude-code";
+          description = "The claude-code package to use.";
+        };
       };
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
       };
     };
-in
-{
-  nixpkgs.allowedUnfreePackages = [ "claude-code" ];
-
-  flake.nixosModules.apps.claude-code = ClaudeCodeModule;
 }

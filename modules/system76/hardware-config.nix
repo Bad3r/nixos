@@ -88,8 +88,6 @@ _: {
           };
         };
 
-        kernelModules = [ "kvm-intel" ];
-
         # Enable filesystem support
         supportedFilesystems = [
           "ntfs"

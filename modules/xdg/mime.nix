@@ -127,7 +127,7 @@ let
       };
       chrome = {
         desktop = "google-chrome.desktop";
-        module = "google-chrome-dev";
+        module = "google-chrome";
       };
       chromium = {
         desktop = "chromium-browser.desktop";

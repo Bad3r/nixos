@@ -21,8 +21,12 @@ _: {
         # Initrd modules (none required explicitly here)
         initrd.kernelModules = [ ];
 
-        # CPU virtualization
-        kernelModules = [ "kvm-intel" ];
+        # CPU virtualization and monitoring
+        kernelModules = [
+          "kvm-intel" # Intel VT-x virtualization
+          "coretemp" # CPU temperature monitoring
+          "intel_pt" # Intel Processor Trace for perf profiling
+        ];
 
         # Blacklist nouveau to avoid conflicts with proprietary NVIDIA driver
         blacklistedKernelModules = [ "nouveau" ];

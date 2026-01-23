@@ -4,9 +4,6 @@ _: {
       (final: _prev: {
         # Add custom packages to nixpkgs
         raindrop = final.callPackage ../../packages/raindrop { };
-        # yaak = final.callPackage ../../packages/yaak { }; # DEPRECATED: using upstream nixpkgs
-        # codex = final.callPackage ../../packages/codex { }; # DEPRECATED: using upstream nixpkgs
-        coderabbit-cli = final.callPackage ../../packages/coderabbit-cli { };
         wappalyzer-next = final.callPackage ../../packages/wappalyzer-next { };
         age-plugin-fido2prf = final.callPackage ../../packages/age-plugin-fido2prf { };
         charles = final.callPackage ../../packages/charles { };
@@ -15,7 +12,6 @@ _: {
         malimite = final.callPackage ../../packages/malimite { };
         claude-wpa = final.callPackage ../../packages/claude-wpa { };
         rg-fzf = final.callPackage ../../packages/rg-fzf { };
-        spec-kit = final.callPackage ../../packages/spec-kit { };
 
         # i3 window manager utilities
         i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };
