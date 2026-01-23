@@ -3,15 +3,12 @@
     abort-on-warn = true;
     extra-experimental-features = [ "pipe-operators" ];
     allow-import-from-derivation = false;
+    extra-substituters = [ "https://cache.numtide.com" ];
+    extra-trusted-public-keys = [ "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=" ];
   };
 
   inputs = {
     self.submodules = true;
-    cpu-microcodes = {
-      flake = false;
-      url = "github:platomav/CPUMicrocodes";
-    };
-
     files.url = "github:mightyiam/files";
 
     flake-parts = {
@@ -25,6 +22,14 @@
     };
 
     import-tree.url = "github:vic/import-tree";
+
+    llm-agents = {
+      url = "github:numtide/llm-agents.nix";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        treefmt-nix.follows = "treefmt-nix";
+      };
+    };
 
     make-shell = {
       url = "github:nicknovitski/make-shell";
@@ -51,8 +56,6 @@
     #     nixpkgs.follows = "nixpkgs";
     #   };
     # };
-
-    nixos-facter-modules.url = "github:numtide/nixos-facter-modules";
 
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
@@ -87,12 +90,7 @@
       };
     };
 
-    browser-previews = {
-      url = "github:nix-community/browser-previews";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    "burpsuite-pro-flake" = {
+    burpsuite-pro-flake = {
       url = "gitlab:_VX3r/burpsuite-pro-flake";
       inputs = {
         nixpkgs.follows = "nixpkgs";
@@ -150,11 +148,6 @@
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    ucodenix = {
-      url = "github:e-tho/ucodenix";
-      inputs.cpu-microcodes.follows = "cpu-microcodes";
     };
 
     vim-autoread = {

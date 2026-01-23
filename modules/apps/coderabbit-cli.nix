@@ -14,14 +14,14 @@
     coderabbit review --repo <path>: Generate an AI review for changes in the specified repository or diff.
     coderabbit update: Upgrade the CLI to the latest released version.
 
-  Example Usage:
-    * `coderabbit auth login` — Launch the browser flow to connect your CodeRabbit account.
-    * `coderabbit review --pr 128 --format markdown` — Request a markdown-formatted review for PR #128.
-    * `coderabbit review --staged --output report.md` — Review currently staged changes and save the response to a file.
+  Notes:
+    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
 */
-_:
-let
-  CoderabbitCliModule =
+{ inputs, ... }:
+{
+  nixpkgs.allowedUnfreePackages = [ "coderabbit-cli" ];
+
+  flake.nixosModules.apps."coderabbit-cli" =
     {
       config,
       lib,
@@ -39,16 +39,16 @@ let
           description = "Whether to enable coderabbit-cli.";
         };
 
-        package = lib.mkPackageOption pkgs "coderabbit-cli" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.coderabbit-cli;
+          defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.coderabbit-cli";
+          description = "The coderabbit-cli package to use.";
+        };
       };
 
       config = lib.mkIf cfg.enable {
-
         environment.systemPackages = [ cfg.package ];
       };
     };
-in
-{
-  nixpkgs.allowedUnfreePackages = [ "coderabbit-cli" ];
-  flake.nixosModules.apps."coderabbit-cli" = CoderabbitCliModule;
 }

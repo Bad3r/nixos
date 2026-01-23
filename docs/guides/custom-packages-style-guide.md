@@ -6,7 +6,7 @@ This guide defines the conventions for adding custom packages under `packages/<n
 
 Create a custom package when:
 
-- The software is not available in nixpkgs
+- The software is not available in nixpkgs or one of the other inputs
 - The nixpkgs version is outdated or broken and upstream hasn't merged a fix
 - You need custom build flags, patches, or configuration not suitable for upstream
 
@@ -26,9 +26,9 @@ Use lowercase, hyphenated names matching the package's `pname`. Keep the directo
 packages/
 ├── age-plugin-fido2prf/
 │   └── default.nix
-└── codex/
-    ├── _default.nix              # Deprecated (prefixed with _)
-    └── disable-update-check.patch
+└── malimite/
+    ├── default.nix
+    └── fix-classpath.patch
 ```
 
 ## Package Template
@@ -361,30 +361,6 @@ Skip the app module when:
 
 See [Apps Module Style Guide](apps-module-style-guide.md) for the app module format.
 
-## Deprecating a Package
-
-When a package becomes available in nixpkgs:
-
-1. Prefix the file with `_` to prevent auto-import:
-
-   ```
-   packages/codex/default.nix → packages/codex/_default.nix
-   ```
-
-2. Add a deprecation comment at the top:
-
-   ```nix
-   # DEPRECATED: This custom package is no longer used.
-   # Codex is now installed from upstream nixpkgs.
-   # This file is prefixed with '_' to prevent auto-import.
-   # Kept for reference in case upstream regresses.
-   ```
-
-3. Comment out the overlay registration:
-   ```nix
-   # codex = final.callPackage ../../packages/codex { };  # DEPRECATED
-   ```
-
 ## Validation Checklist
 
 Before committing a new package:
@@ -402,7 +378,7 @@ Before committing a new package:
 | ---------------- | ------------------------------------------ |
 | Go               | `packages/age-plugin-fido2prf/default.nix` |
 | Python           | `packages/wappalyzer-next/default.nix`     |
-| Binary download  | `packages/coderabbit-cli/default.nix`      |
+| Binary download  | `packages/charles/default.nix`             |
 | Shell wrapper    | `packages/dnsleak/default.nix`             |
 | Complex Java     | `packages/malimite/default.nix`            |
 | Electron wrapper | `packages/raindrop/default.nix`            |

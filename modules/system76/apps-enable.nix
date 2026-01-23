@@ -38,7 +38,7 @@
       "cf-terraforming".extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
       "claude-wpa".extended.enable = lib.mkOverride 1100 true;
-      "claude-code".extended.enable = lib.mkOverride 1100 false;
+      "claude-code".extended.enable = lib.mkOverride 1100 true;
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
       "clojure-lsp".extended.enable = lib.mkOverride 1100 false;
       cloudflared.extended.enable = lib.mkOverride 1100 true;
@@ -48,7 +48,7 @@
       "cloudflare-warp".extended.enable = lib.mkOverride 1100 true;
       cmake.extended.enable = lib.mkOverride 1100 true;
       "coderabbit-cli".extended.enable = lib.mkOverride 1100 true;
-      codex.extended.enable = lib.mkOverride 1100 true;
+      codex.extended.enable = lib.mkOverride 1100 false;
       coreutils.extended.enable = lib.mkOverride 1100 true;
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
       curl.extended.enable = lib.mkOverride 1100 true;
@@ -105,7 +105,6 @@
       go.extended.enable = lib.mkOverride 1100 false;
       "golangci-lint".extended.enable = lib.mkOverride 1100 false;
       "google-chrome".extended.enable = lib.mkOverride 1100 true;
-      "google-chrome-dev".extended.enable = lib.mkOverride 1100 false;
       gopass.extended.enable = lib.mkOverride 1100 true;
       gopls.extended.enable = lib.mkOverride 1100 false;
       gparted.extended.enable = lib.mkOverride 1100 true;

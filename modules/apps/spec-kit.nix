@@ -1,27 +1,25 @@
 /*
   Package: spec-kit
-  Description: GitHub's Spec-Kit for Spec-Driven Development with Claude Code.
+  Description: Specify CLI for Spec-Driven Development with AI coding assistants.
   Homepage: https://github.com/github/spec-kit
   Documentation: https://github.github.io/spec-kit/
   Repository: https://github.com/github/spec-kit
 
   Summary:
-    * Provides templates and slash commands for structured AI-assisted development workflows.
-    * Includes specification, planning, task breakdown, and implementation phases.
+    * Bootstrap projects for Spec-Driven Development (SDD) workflows.
+    * Integrates with Claude Code and other AI coding assistants.
 
   Options:
-    spec-kit-init [TARGET_DIR]: Initialize a project with Spec-Kit templates.
-    -f, --force: Overwrite existing template files.
+    specify init: Initialize a new spec-kit project.
+    specify generate: Generate specifications from templates.
     -h, --help: Show usage information.
 
-  Example Usage:
-    * `spec-kit-init` — Initialize current directory with Spec-Kit templates.
-    * `spec-kit-init my-project` — Initialize a new project directory.
-    * `spec-kit-init --force .` — Reinitialize, overwriting existing files.
+  Notes:
+    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
 */
-_:
-let
-  SpecKitModule =
+{ inputs, ... }:
+{
+  flake.nixosModules.apps."spec-kit" =
     {
       config,
       lib,
@@ -39,14 +37,16 @@ let
           description = "Whether to enable spec-kit.";
         };
 
-        package = lib.mkPackageOption pkgs "spec-kit" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.spec-kit;
+          defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.spec-kit";
+          description = "The spec-kit package to use.";
+        };
       };
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
       };
     };
-in
-{
-  flake.nixosModules.apps."spec-kit" = SpecKitModule;
 }

@@ -14,13 +14,13 @@
     --approval-policy <mode>: Override the approval policy (suggest, auto-edit, full-auto).
     --sandbox-mode <mode>: Adjust the sandbox level for commands (docker, seatbelt, none).
 
-  Example Usage:
-    * `codex "Write unit tests for src/date.ts"` — Ask Codex to draft and run new tests in the current repo.
-    * `codex --model o3 "refactor auth module"` — Use a specific model for the task.
+  Notes:
+    * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
+    * Configuration managed by Home Manager module (modules/hm-apps/codex.nix).
 */
-_:
-let
-  CodexModule =
+{ inputs, ... }:
+{
+  flake.nixosModules.apps.codex =
     {
       config,
       lib,
@@ -38,14 +38,16 @@ let
           description = "Whether to enable codex.";
         };
 
-        package = lib.mkPackageOption pkgs "codex" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex;
+          defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.codex";
+          description = "The codex package to use.";
+        };
       };
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
       };
     };
-in
-{
-  flake.nixosModules.apps.codex = CodexModule;
 }

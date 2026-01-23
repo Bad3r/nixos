@@ -74,23 +74,23 @@ Custom packages under `packages/<name>/default.nix` are exposed via the flake-pa
 
 ```nix
 # Accessing packages
-perSystem.packages.codex
 perSystem.packages.raindrop
+perSystem.packages.dnsleak
 
 # From command line
-nix build .#codex
-nix build .#packages.x86_64-linux.codex
+nix build .#raindrop
+nix build .#packages.x86_64-linux.raindrop
 ```
 
 App modules can wire these into system packages:
 
 ```nix
-# modules/apps/codex.nix
+# modules/apps/raindrop.nix
 { config, ... }:
 {
-  flake.nixosModules.apps.codex = { pkgs, ... }: {
+  flake.nixosModules.apps.raindrop = { pkgs, ... }: {
     environment.systemPackages = [
-      config.flake.packages.${pkgs.system}.codex
+      config.flake.packages.${pkgs.system}.raindrop
     ];
   };
 }
