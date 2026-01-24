@@ -1,0 +1,318 @@
+# Packaging JavaScript/Node.js Applications
+
+This guide covers packaging npm, pnpm, and bun-based JavaScript applications in NixOS.
+
+## Reference Implementations
+
+These nixpkgs packages demonstrate various patterns for packaging JavaScript applications:
+
+| Package              | Path                                                             | Pattern                                       | When to Use                                                     |
+| -------------------- | ---------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------- |
+| **Misskey**          | `$HOME/git/nixpkgs/pkgs/by-name/mi/misskey/package.nix`          | Copy entire workspace, wrap `pnpm run`        | pnpm monorepos with native modules; preserves symlink structure |
+| **cspell**           | `$HOME/git/nixpkgs/pkgs/by-name/cs/cspell/package.nix`           | `pnpmWorkspaces` filter + hoisted reinstall   | Monorepos without native modules; minimal closure               |
+| **synchrony**        | `$HOME/git/nixpkgs/pkgs/by-name/sy/synchrony/package.nix`        | Simple `cp -r node_modules`                   | Single-package pnpm projects (non-monorepo)                     |
+| **siyuan**           | `$HOME/git/nixpkgs/pkgs/by-name/si/siyuan/package.nix`           | `sourceRoot` + `postPatch` to `fetchPnpmDeps` | Monorepo subpackage with lockfile at root                       |
+| **heroic-unwrapped** | `$HOME/git/nixpkgs/pkgs/by-name/he/heroic-unwrapped/package.nix` | `npm_config_nodedir` for native modules       | Electron/native addons needing Node headers                     |
+
+## pnpm Packages
+
+### Basic Structure
+
+```nix
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  nodejs,
+  pnpm_9,
+  fetchPnpmDeps,
+  pnpmConfigHook,
+  makeWrapper,
+}:
+
+stdenv.mkDerivation (finalAttrs: {
+  pname = "my-package";
+  version = "1.0.0";
+
+  src = fetchFromGitHub {
+    owner = "example";
+    repo = "my-package";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  };
+
+  nativeBuildInputs = [
+    nodejs
+    pnpm_9
+    pnpmConfigHook
+    makeWrapper
+  ];
+
+  pnpmDeps = fetchPnpmDeps {
+    inherit (finalAttrs) pname version src;
+    pnpm = pnpm_9;
+    fetcherVersion = 2;
+    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  };
+
+  buildPhase = ''
+    runHook preBuild
+    pnpm build
+    runHook postBuild
+  '';
+
+  installPhase = ''
+    runHook preInstall
+    mkdir -p $out/lib/my-package $out/bin
+    cp -r dist node_modules package.json $out/lib/my-package/
+    makeWrapper ${nodejs}/bin/node $out/bin/my-package \
+      --add-flags "$out/lib/my-package/dist/cli.js"
+    runHook postInstall
+  '';
+
+  meta = {
+    description = "My package description";
+    homepage = "https://example.com";
+    license = lib.licenses.mit;
+    mainProgram = "my-package";
+  };
+})
+```
+
+### Getting Hashes
+
+Build with placeholder hashes and Nix will report the correct ones:
+
+```bash
+nix-build --expr 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./packages/my-package {}'
+```
+
+## pnpm Monorepo Patterns
+
+### Pattern 1: Copy Entire Workspace (Misskey Pattern)
+
+Best for monorepos with native modules that need network access during rebuild.
+
+```nix
+installPhase = ''
+  mkdir -p $out/lib/my-app $out/bin
+  cp -r . $out/lib/my-app/
+  makeWrapper ${nodejs}/bin/node $out/bin/my-app \
+    --chdir "$out/lib/my-app" \
+    --add-flags "$out/lib/my-app/packages/cli/dist/index.js"
+'';
+```
+
+**Trade-off:** Larger closure (includes dev dependencies) but preserves pnpm symlink structure.
+
+### Pattern 2: Hoisted Reinstall (cspell Pattern)
+
+Best for monorepos without native modules. Produces minimal closure.
+
+```nix
+pnpmWorkspaces = [ "my-package..." ];
+
+pnpmDeps = fetchPnpmDeps {
+  inherit (finalAttrs) pname version src pnpmWorkspaces;
+  # ...
+};
+
+installPhase = ''
+  rm -rf node_modules packages/*/node_modules
+  pnpm config set nodeLinker hoisted
+  pnpm config set preferSymlinkedExecutables false
+  pnpm --filter="my-package" --offline --prod install
+
+  mkdir -p $out/lib/node_modules/my-package $out/bin
+  cp -r packages/my-package/dist $out/lib/node_modules/my-package/
+  cp packages/my-package/package.json $out/lib/node_modules/my-package/
+  cp -rL packages/my-package/node_modules $out/lib/node_modules/my-package/
+'';
+```
+
+**Limitation:** Fails if native modules need to rebuild (can't fetch Node headers in sandbox).
+
+### Pattern 3: sourceRoot for Subpackages (siyuan Pattern)
+
+When lockfile is at repo root but you only need one subpackage:
+
+```nix
+sourceRoot = "${finalAttrs.src.name}/packages/my-package";
+
+postPatch = ''
+  rm -f pnpm-workspace.yaml
+'';
+
+pnpmDeps = fetchPnpmDeps {
+  inherit (finalAttrs) pname version src sourceRoot;
+  postPatch = finalAttrs.postPatch;
+  # ...
+};
+```
+
+## Handling Native Modules
+
+### Node Headers for node-gyp
+
+Prevent node-gyp from downloading headers by pointing to local Node:
+
+```nix
+env.npm_config_nodedir = nodejs;
+```
+
+### Python for node-gyp
+
+Many native modules need Python:
+
+```nix
+nativeBuildInputs = [
+  nodejs
+  pnpm_9
+  pnpmConfigHook
+  python3  # for node-gyp
+];
+```
+
+### Preserving Pre-built Native Modules
+
+If native modules are built during build phase but you need to reinstall during install:
+
+```nix
+installPhase = ''
+  # Save pre-built native module
+  cp -r node_modules/.pnpm/native-pkg@*/node_modules/native-pkg/build /tmp/native-build
+
+  # Reinstall with --ignore-scripts
+  rm -rf node_modules
+  pnpm --offline --prod --ignore-scripts install
+
+  # Restore pre-built native module
+  cp -r /tmp/native-build node_modules/native-pkg/
+'';
+```
+
+## Common Issues and Solutions
+
+### patchedDependencies Lockfile Mismatch
+
+If the project uses `pnpm.patchedDependencies` in package.json:
+
+```nix
+let
+  patchedSrc = stdenv.mkDerivation {
+    name = "source-patched";
+    inherit src;
+    nativeBuildInputs = [ jq yq-go ];
+    dontBuild = true;
+    installPhase = ''
+      cp -r . $out
+      ${lib.getExe jq} 'del(.pnpm.patchedDependencies)' $out/package.json > $out/package.json.tmp
+      mv $out/package.json.tmp $out/package.json
+      ${lib.getExe yq-go} -i 'del(.patchedDependencies)' $out/pnpm-lock.yaml
+    '';
+  };
+in
+stdenv.mkDerivation {
+  src = patchedSrc;
+  # ...
+}
+```
+
+### Broken Symlinks After Copy
+
+pnpm uses symlinks to `.pnpm` store. When copying, either:
+
+1. Dereference symlinks: `cp -rL node_modules $out/`
+2. Copy entire workspace to preserve structure
+
+### ESM Module Resolution
+
+ESM ignores `NODE_PATH`. Modules must be in proper node_modules hierarchy. Use `--chdir` in wrapper if needed:
+
+```nix
+makeWrapper ${nodejs}/bin/node $out/bin/my-app \
+  --chdir "$out/lib/my-app" \
+  --add-flags "$out/lib/my-app/dist/cli.js"
+```
+
+### Missing Transitive Dependencies
+
+If hoisted install doesn't include transitive deps, fall back to copying entire workspace (Pattern 1).
+
+## Searching for Examples
+
+Find pnpm packages in nixpkgs:
+
+```bash
+rg -l 'pnpmConfigHook' $HOME/git/nixpkgs/pkgs/by-name
+```
+
+Find packages with specific patterns:
+
+```bash
+# Monorepo with workspaces
+rg 'pnpmWorkspaces' $HOME/git/nixpkgs/pkgs/by-name
+
+# Native module handling
+rg 'npm_config_nodedir' $HOME/git/nixpkgs/pkgs/by-name
+
+# Hoisted node_modules
+rg 'nodeLinker hoisted' $HOME/git/nixpkgs/pkgs/by-name
+```
+
+## npm Packages
+
+For npm-based packages, use `buildNpmPackage`:
+
+```nix
+{ buildNpmPackage, fetchFromGitHub }:
+
+buildNpmPackage {
+  pname = "my-npm-package";
+  version = "1.0.0";
+
+  src = fetchFromGitHub { /* ... */ };
+
+  npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+  # Optional: for native modules
+  makeCacheWritable = true;
+}
+```
+
+## Bun Packages
+
+For bun-based packages (experimental support in nixpkgs):
+
+```nix
+{ stdenv, bun, fetchFromGitHub }:
+
+stdenv.mkDerivation {
+  pname = "my-bun-package";
+  version = "1.0.0";
+
+  src = fetchFromGitHub { /* ... */ };
+
+  nativeBuildInputs = [ bun ];
+
+  buildPhase = ''
+    bun install --frozen-lockfile
+    bun run build
+  '';
+
+  # Note: Bun packaging in Nix is less mature than npm/pnpm
+}
+```
+
+## Quick Reference
+
+| Task                      | Command/Pattern                       |
+| ------------------------- | ------------------------------------- |
+| Get pnpm deps hash        | Build with placeholder, check error   |
+| Filter workspace packages | `pnpmWorkspaces = [ "pkg-name..." ];` |
+| Flatten node_modules      | `pnpm config set nodeLinker hoisted`  |
+| Skip native rebuild       | `pnpm --ignore-scripts install`       |
+| Provide Node headers      | `env.npm_config_nodedir = nodejs;`    |
+| Dereference symlinks      | `cp -rL node_modules $out/`           |
+| Production only           | `pnpm --prod install`                 |
+| Offline install           | `pnpm --offline install`              |
