@@ -33,7 +33,7 @@ _: {
 
       claudeMcpServers = mcp.select {
         sequential-thinking = true;
-        time = true;
+        time = false;
         cfdocs = true;
         cfbuilds = false;
         cfobservability = false;
@@ -51,15 +51,17 @@ _: {
       claudeSettings = {
         cleanupPeriodDays = 30;
         env = {
+          # Duplicates of postFixup in modules/apps/claude-code.nix (belt-and-suspenders)
           DISABLE_AUTOUPDATER = "1";
           CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
+          DISABLE_NON_ESSENTIAL_MODEL_CALLS = "1";
           DISABLE_TELEMETRY = "1";
-          CLAUDE_CODE_ENABLE_TELEMETRY = "0";
-          DISABLE_ERROR_REPORTING = "1";
+          DISABLE_INSTALLATION_CHECKS = "1";
+          # Runtime settings (not in postFixup)
           CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "1";
           BASH_DEFAULT_TIMEOUT_MS = "240000";
           BASH_MAX_TIMEOUT_MS = "4800000";
-          MAX_THINKING_TOKENS = "32768";
+          # MAX_THINKING_TOKENS = "32768";
         };
         includeCoAuthoredBy = false;
         permissions = {
@@ -119,54 +121,37 @@ _: {
           deny = [ ];
           defaultMode = "plan";
         };
-        statusLine = {
-          type = "command";
-          command = lib.concatStrings [
-            # Read JSON input from Claude Code
-            "input=$(cat); "
-            # Extract fields from JSON
-            "dir=$(echo \"$input\" | jq -r '.cwd // .workspace.current_dir // empty'); "
-            "model=$(echo \"$input\" | jq -r '.model // empty'); "
-            "context_used=$(echo \"$input\" | jq -r '.contextTokens.used // empty'); "
-            "context_max=$(echo \"$input\" | jq -r '.contextTokens.max // empty'); "
-            # Format directory with ~ for home
-            "dir_display=\${dir/#$HOME/\\~}; "
-            # Git branch and status
-            "git_branch=$(cd \"$dir\" 2>/dev/null && git -c core.fileMode=false branch --show-current 2>/dev/null); "
-            "git_status=\"\"; "
-            "if [ -n \"$git_branch\" ]; then "
-            "cd \"$dir\" && "
-            "git_modified=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^.[MD]'); "
-            "git_untracked=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^??'); "
-            "git_staged=$(git -c core.fileMode=false status --porcelain 2>/dev/null | grep -c '^[MADRC]'); "
-            "[ \"$git_modified\" -gt 0 ] && git_status=\"\${git_status}!\"; "
-            "[ \"$git_untracked\" -gt 0 ] && git_status=\"\${git_status}?\"; "
-            "[ \"$git_staged\" -gt 0 ] && git_status=\"\${git_status}+\"; "
-            "git_info=$(printf ' \\033[35m \\033[1;35m%s%s\\033[0m' \"$git_branch\" \"$git_status\"); "
-            "else git_info=\"\"; fi; "
-            # Model name (shortened)
-            "model_short=$(echo \"$model\" | sed 's/claude-//;s/-[0-9]*$//'); "
-            "model_info=\"\"; "
-            "[ -n \"$model_short\" ] && model_info=$(printf ' \\033[33m󰧑 %s\\033[0m' \"$model_short\"); "
-            # Context usage percentage
-            "context_info=\"\"; "
-            "if [ -n \"$context_used\" ] && [ -n \"$context_max\" ] && [ \"$context_max\" -gt 0 ]; then "
-            "pct=$((context_used * 100 / context_max)); "
-            "context_info=$(printf ' \\033[32m󰊪 %d%%\\033[0m' \"$pct\"); "
-            "fi; "
-            # Output: dir + git + model + context
-            "printf '\\033[36m%s\\033[0m%s%s%s' \"$dir_display\" \"$git_info\" \"$model_info\" \"$context_info\""
-          ];
-        };
-        # model = defaultModel;
+        # model = defaultModel; # Model (leave unset for default)
         alwaysThinkingEnabled = true;
         enableAllProjectMcpServers = true;
+        language = "en"; # Language
+        outputStyle = "default"; # Output style
+        respectGitignore = true; # Respect .gitignore in file picker
+        spinnerTipsEnabled = true; # Show tips
+        terminalProgressBarEnabled = true; # Terminal progress bar
       };
 
-      # MCP servers configuration as JSON for the activation script
-      mcpServersJson = pkgs.writeText "claude-mcp-servers.json" (
-        builtins.toJSON { mcpServers = defaultServers; }
-      );
+      # UI preferences for ~/.claude.json (merged with existing config)
+      claudeJsonConfig = {
+        hasTrustDialogAccepted = true;
+        hasCompletedProjectOnboarding = true;
+        bypassPermissionsModeAccepted = true;
+        autoCompactEnabled = true; # Auto-compact
+        autocheckpointingEnabled = true; # Rewind code (checkpoints)
+        autoConnectIde = false; # Auto-connect to IDE
+        autoUpdates = false; # Auto-updates
+        claudeInChromeDefaultEnabled = false; # Chrome enabled by default
+        diffTool = "diff"; # Diff tool
+        editorMode = "vim"; # Editor mode
+        preferredNotifChannel = "iterm2_with_bell"; # Notifications
+        theme = "dark"; # Theme
+        thinkingEnabled = true; # Thinking mode
+        verbose = true; # Verbose output
+        mcpServers = defaultServers;
+      };
+
+      # Combined config as JSON for the activation script
+      claudeJsonConfigFile = pkgs.writeText "claude-json-config.json" (builtins.toJSON claudeJsonConfig);
 
     in
     {
@@ -180,70 +165,55 @@ _: {
             '';
           };
 
-          # Merge MCP servers into ~/.claude.json
-          activation.claudeCodeMcpServers = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          # Configure Claude Code UI preferences and MCP servers in ~/.claude.json
+          activation.claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
             CLAUDE_CONFIG="$HOME/.claude.json"
             TMP_FILE="$(mktemp)"
+            trap 'rm -f "$TMP_FILE"' EXIT
 
             # Ensure the file exists
             if [ ! -f "$CLAUDE_CONFIG" ]; then
               echo "{}" > "$CLAUDE_CONFIG"
             fi
 
-            # Merge MCP servers from nix config, preserving existing servers
-            ${pkgs.jq}/bin/jq --slurpfile nixServers ${mcpServersJson} '
-              .mcpServers = (
-                (.mcpServers // {}) as $existing
-                | ($nixServers[0].mcpServers // {}) as $nixMcp
-                | $existing * $nixMcp
-              )
-            ' "$CLAUDE_CONFIG" > "$TMP_FILE"
+            # Merge Nix-managed settings into existing config (preserves runtime state)
+            if ! ${pkgs.jq}/bin/jq --slurpfile nixConfig ${claudeJsonConfigFile} \
+              '. * $nixConfig[0]' "$CLAUDE_CONFIG" > "$TMP_FILE"; then
+              echo "ERROR: jq failed to merge config" >&2
+              exit 1
+            fi
 
-            # Atomic update
+            # Validate result is valid JSON
+            if ! ${pkgs.jq}/bin/jq empty "$TMP_FILE" 2>/dev/null; then
+              echo "ERROR: resulting config is not valid JSON" >&2
+              exit 1
+            fi
+
             mv "$TMP_FILE" "$CLAUDE_CONFIG"
             chmod 600 "$CLAUDE_CONFIG"
 
-            echo "✢ Claude Code: MCP servers merged into ~/.claude.json"
-          '';
-
-          # First-time Claude Code setup
-          activation.claudeCodeFirstTimeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-            CLAUDE_CONFIG="$HOME/.claude.json"
-
-            if [ ! -f "$CLAUDE_CONFIG" ]; then
-              # Initialize with first-time configuration
-              if command -v claude &> /dev/null; then
-                claude config set -g verbose true
-                claude config set -g preferredNotifChannel iterm2_with_bell
-                claude config set -g editorMode vim
-                claude config set -g supervisorMode true
-                claude config set -g autocheckpointingEnabled true
-                claude config set -g autoUpdates false
-                claude config set -g autoCompactEnabled true
-                claude config set -g diffTool kdiff
-
-                echo "✢ Claude Code: First-time setup completed"
-              fi
-            fi
+            echo "✢ Claude Code: config applied"
           '';
 
           sessionVariables = {
-            # ANTHROPIC_MODEL = defaultModel;
-            ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION = "me-south-1";
+            # Duplicates of postFixup in modules/apps/claude-code.nix (belt-and-suspenders)
             DISABLE_AUTOUPDATER = "1";
             CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
+            DISABLE_NON_ESSENTIAL_MODEL_CALLS = "1";
             DISABLE_TELEMETRY = "1";
+            DISABLE_INSTALLATION_CHECKS = "1";
+            # Runtime settings (not in postFixup)
+            # ANTHROPIC_MODEL = defaultModel;
             CLAUDE_CODE_ENABLE_TELEMETRY = "0";
             DISABLE_ERROR_REPORTING = "1";
-            DISABLE_NON_ESSENTIAL_MODEL_CALLS = "1";
             CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "1";
-            CLAUDE_BASH_DEFAULT_TIMEOUT_MS = "240000";
-            CLAUDE_BASH_MAX_TIMEOUT_MS = "4800000";
-            BASH_MAX_OUTPUT_LENGTH = "1024";
-            MAX_THINKING_TOKENS = "32768";
-            CLAUDE_CODE_MAX_OUTPUT_TOKENS = "1";
-            MAX_MCP_OUTPUT_TOKENS = "32000";
-            CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";
+            BASH_DEFAULT_TIMEOUT_MS = "240000";
+            BASH_MAX_TIMEOUT_MS = "4800000";
+            BASH_MAX_OUTPUT_LENGTH = "2048";
+            # MAX_THINKING_TOKENS = "32768";
+            # CLAUDE_CODE_MAX_OUTPUT_TOKENS = "UNKNOWN";
+            # MAX_MCP_OUTPUT_TOKENS = "32000";
+            CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
             CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL = "1";
             DISABLE_BUG_COMMAND = "1";
             USE_BUILTIN_RIPGREP = "0";

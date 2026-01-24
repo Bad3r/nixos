@@ -39,6 +39,7 @@
       circumflex.extended.enable = lib.mkOverride 1100 true;
       "claude-wpa".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.enable = lib.mkOverride 1100 true;
+      "claude-code".extended.installPackage = lib.mkOverride 1100 false; # Managed via bun
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
       "clojure-lsp".extended.enable = lib.mkOverride 1100 false;
       cloudflared.extended.enable = lib.mkOverride 1100 true;
