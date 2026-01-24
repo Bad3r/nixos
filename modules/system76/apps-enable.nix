@@ -274,6 +274,7 @@
       vlc.extended.enable = lib.mkOverride 1100 false;
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
       "wappalyzer-next".extended.enable = lib.mkOverride 1100 true;
+      webcrack.extended.enable = lib.mkOverride 1100 true;
       wgcf.extended.enable = lib.mkOverride 1100 true;
       wezterm.extended.enable = lib.mkOverride 1100 false;
       wget.extended.enable = lib.mkOverride 1100 true;
