@@ -8,6 +8,7 @@ extend-ignore-re = [
 [default.extend-words]
 # General terms
 example = "example"
+UE = "UE"           # minified JS variable name in docs
 fpt = "fpt"         # Intel Flash Programming Tool
 PN = "PN"           # Part Number
 
