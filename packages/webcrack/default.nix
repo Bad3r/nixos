@@ -10,6 +10,7 @@
   autoPatchelfHook,
   jq,
   yq-go,
+  python3,
 }:
 
 let
@@ -39,6 +40,21 @@ let
       ${lib.getExe jq} 'del(.pnpm.patchedDependencies)' $out/package.json > $out/package.json.tmp
       mv $out/package.json.tmp $out/package.json
       ${lib.getExe yq-go} -i 'del(.patchedDependencies)' $out/pnpm-lock.yaml
+
+      # Upgrade isolated-vm 5.0.1 -> 6.0.2 (5.0.1 fails to compile with current GCC)
+      # Update packages/webcrack/package.json dependency
+      ${lib.getExe jq} '.dependencies["isolated-vm"] = "^6.0.2"' \
+        $out/packages/webcrack/package.json > $out/packages/webcrack/package.json.tmp
+      mv $out/packages/webcrack/package.json.tmp $out/packages/webcrack/package.json
+
+      # Update pnpm-lock.yaml for isolated-vm 5.0.1 -> 6.0.2
+      ${lib.getExe yq-go} -i '
+        .importers."packages/webcrack".dependencies."isolated-vm".specifier = "^6.0.2" |
+        .importers."packages/webcrack".dependencies."isolated-vm".version = "6.0.2" |
+        .packages."isolated-vm@6.0.2".resolution.integrity = "sha512-Qw6AJuagG/VJuh2AIcSWmQPsAArti/L+lKhjXU+lyhYkbt3J57XZr+ZjgfTnOr4NJcY1r3f8f0eePS7MRGp+pg==" |
+        .packages."isolated-vm@6.0.2".engines.node = ">=22.0.0" |
+        .snapshots."isolated-vm@6.0.2".dependencies."prebuild-install" = "7.1.2"
+      ' $out/pnpm-lock.yaml
     '';
   };
 in
@@ -53,20 +69,33 @@ stdenv.mkDerivation (finalAttrs: {
     pnpmConfigHook
     makeWrapper
     autoPatchelfHook
+    python3 # for node-gyp (isolated-vm)
   ];
 
-  # libstdc++ for rollup native addon
-  buildInputs = [ stdenv.cc.cc.lib ];
+  # Libraries for native addons (isolated-vm links against Node internals)
+  buildInputs = [
+    stdenv.cc.cc.lib
+    nodejs_22 # provides libuv, openssl, icu, etc.
+  ];
+
+  # Point node-gyp to Node headers (prevents download in sandbox)
+  env.npm_config_nodedir = nodejs_22;
 
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
     pnpm = pnpm_9;
     fetcherVersion = 3;
-    hash = "sha256-YGReNSMFWQXb/xHJPVuSczu37gNRq/o2nVsqNTJnF7U=";
+    hash = "sha256-WuLdIcbN9MI3baerKZtHcY5KbG/AFImhafufiX8mHHI=";
   };
 
   buildPhase = ''
     runHook preBuild
+
+    # Build isolated-vm native module (pnpmConfigHook skips install scripts)
+    cd node_modules/.pnpm/isolated-vm@6.0.2/node_modules/isolated-vm
+    npm run rebuild
+    cd -
+
     pnpm --filter=webcrack build
     runHook postBuild
   '';
@@ -77,10 +106,35 @@ stdenv.mkDerivation (finalAttrs: {
     find $out -path "*linux-x64-musl*" -delete
   '';
 
+  # isolated-vm links against Node.js internal libraries (libuv, openssl, icu, sqlite, etc.)
+  # These are provided by Node.js at runtime, so we can safely ignore them
+  autoPatchelfIgnoreMissingDeps = [
+    "libuv.so.1"
+    "libssl.so.3"
+    "libcrypto.so.3"
+    "libicuuc.so.76"
+    "libicui18n.so.76"
+    "libsqlite3.so"
+    "libuvwasi.so"
+    "libz.so.1"
+    "libnghttp2.so.14"
+    "libnghttp3.so.9"
+    "libngtcp2.so.16"
+    "libngtcp2.so.17"
+    "libngtcp2_crypto_quictls.so.8"
+    "libcares.so.2"
+    "libbrotlidec.so.1"
+    "libbrotlienc.so.1"
+    "libsimdjson.so.22"
+    "libsimdjson.so.29"
+    "libllhttp.so.9.3"
+    "libada.so.3"
+    "libnbytes.so.0"
+    "libncrypto.so.0"
+  ];
+
   # NOTE: Copies pnpm workspace to preserve symlink structure for runtime.
-  # VM-based deobfuscation (isolated-vm) unavailable: isolated-vm 5.0.1
-  # doesn't compile with Node.js 22, and prebuild-install can't download
-  # prebuilts in sandbox. Basic deobfuscation works without it.
+  # Uses isolated-vm 6.0.2 (patched from 5.0.1) for VM-based deobfuscation.
   installPhase = ''
     runHook preInstall
 
