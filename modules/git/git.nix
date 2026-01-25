@@ -62,10 +62,15 @@
 
             # Core settings
             core = {
-              editor = "nvim";
+              # editor uses $EDITOR env var (set via default-apps.nix)
               # pager is set by programs.delta when enabled
               whitespace = "trailing-space,space-before-tab";
             };
+
+            # Diff tool uses $DIFFPROG env var (set via default-apps.nix)
+            diff.tool = "diffprog";
+            difftool.diffprog.cmd = "\${DIFFPROG:-nvim -d} \"$LOCAL\" \"$REMOTE\"";
+            difftool.prompt = false;
 
             # Pull settings
             pull.rebase = false;
