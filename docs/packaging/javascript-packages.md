@@ -14,7 +14,16 @@ These nixpkgs packages demonstrate various patterns for packaging JavaScript app
 | **siyuan**           | `$HOME/git/nixpkgs/pkgs/by-name/si/siyuan/package.nix`           | `sourceRoot` + `postPatch` to `fetchPnpmDeps` | Monorepo subpackage with lockfile at root                       |
 | **heroic-unwrapped** | `$HOME/git/nixpkgs/pkgs/by-name/he/heroic-unwrapped/package.nix` | `npm_config_nodedir` for native modules       | Electron/native addons needing Node headers                     |
 
+> **Note:** Paths reference a local nixpkgs clone at `$HOME/git/nixpkgs`. Clone via `ghq get NixOS/nixpkgs` or adjust paths to your setup.
+
 ## pnpm Packages
+
+### pnpm Version Selection
+
+Use pinned versions (`pnpm_8`, `pnpm_9`, `pnpm_10`) matching the lockfile version:
+
+- Check `lockfileVersion` in `pnpm-lock.yaml`
+- Pass the same version to both `nativeBuildInputs` and `fetchPnpmDeps`
 
 ### Basic Structure
 
@@ -51,7 +60,7 @@ stdenv.mkDerivation (finalAttrs: {
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
     pnpm = pnpm_9;
-    fetcherVersion = 2;
+    fetcherVersion = 3;  # Use latest; see fetcherVersion section below
     hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
@@ -86,6 +95,16 @@ Build with placeholder hashes and Nix will report the correct ones:
 ```bash
 nix-build --expr 'let pkgs = import <nixpkgs> {}; in pkgs.callPackage ./packages/my-package {}'
 ```
+
+### fetcherVersion
+
+Controls output format of `fetchPnpmDeps`. Use `3` for new packages:
+
+- **1**: Legacy format (backwards compatibility only)
+- **2**: Consistent file permissions ([PR #422975](https://github.com/NixOS/nixpkgs/pull/422975))
+- **3**: Reproducible tarball, smaller closure ([PR #469950](https://github.com/NixOS/nixpkgs/pull/469950))
+
+Changing version requires regenerating the hash.
 
 ## pnpm Monorepo Patterns
 
@@ -154,15 +173,22 @@ pnpmDeps = fetchPnpmDeps {
 
 ### Node Headers for node-gyp
 
-Prevent node-gyp from downloading headers by pointing to local Node:
+Prevent node-gyp from downloading headers:
 
-```nix
-env.npm_config_nodedir = nodejs;
-```
+- **Pure Node.js apps**: Point to Node headers
+
+  ```nix
+  env.npm_config_nodedir = nodejs;
+  ```
+
+- **Electron apps**: Point to Electron headers (ABI differs from Node)
+  ```nix
+  export npm_config_nodedir=${electron.headers}
+  ```
 
 ### Python for node-gyp
 
-Many native modules need Python:
+Many native modules require Python:
 
 ```nix
 nativeBuildInputs = [
@@ -172,6 +198,47 @@ nativeBuildInputs = [
   python3  # for node-gyp
 ];
 ```
+
+## Electron Apps
+
+Electron packaging requires additional configuration:
+
+### Skip Binary Downloads
+
+Prevent Electron from downloading binaries during build:
+
+```nix
+env.ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
+```
+
+### Native Modules with electron-builder
+
+Use `electron.headers`, `electron.dist`, and `electron.version`:
+
+```nix
+buildPhase = ''
+  runHook preBuild
+  export npm_config_nodedir=${electron.headers}
+  pnpm build
+  npm exec electron-builder -- \
+    --dir \
+    -c.electronDist=${electron.dist} \
+    -c.electronVersion=${electron.version}
+  runHook postBuild
+'';
+```
+
+### Wrapper Pattern
+
+Wrap the Electron binary, not Node:
+
+```nix
+makeWrapper ${lib.getExe electron} $out/bin/my-app \
+  --add-flags $out/share/my-app/resources/app.asar \
+  --set ELECTRON_FORCE_IS_PACKAGED 1
+```
+
+See `heroic-unwrapped` and `siyuan` for complete examples.
 
 ### Preserving Pre-built Native Modules
 
@@ -306,13 +373,13 @@ stdenv.mkDerivation {
 
 ## Quick Reference
 
-| Task                      | Command/Pattern                       |
-| ------------------------- | ------------------------------------- |
-| Get pnpm deps hash        | Build with placeholder, check error   |
-| Filter workspace packages | `pnpmWorkspaces = [ "pkg-name..." ];` |
-| Flatten node_modules      | `pnpm config set nodeLinker hoisted`  |
-| Skip native rebuild       | `pnpm --ignore-scripts install`       |
-| Provide Node headers      | `env.npm_config_nodedir = nodejs;`    |
-| Dereference symlinks      | `cp -rL node_modules $out/`           |
-| Production only           | `pnpm --prod install`                 |
-| Offline install           | `pnpm --offline install`              |
+- **Get pnpm deps hash**: Build with placeholder, check error
+- **Filter workspaces**: `pnpmWorkspaces = [ "pkg-name..." ];`
+- **Flatten node_modules**: `pnpm config set nodeLinker hoisted`
+- **Skip native rebuild**: `pnpm --ignore-scripts install`
+- **Node headers (Node apps)**: `env.npm_config_nodedir = nodejs;`
+- **Node headers (Electron)**: `export npm_config_nodedir=${electron.headers}`
+- **Skip Electron download**: `env.ELECTRON_SKIP_BINARY_DOWNLOAD = "1";`
+- **Dereference symlinks**: `cp -rL node_modules $out/`
+- **Production only**: `pnpm --prod install`
+- **Offline install**: `pnpm --offline install`
