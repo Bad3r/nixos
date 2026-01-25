@@ -7,44 +7,21 @@
   fetchPnpmDeps,
   pnpmConfigHook,
   makeWrapper,
-  jq,
-  yq-go,
 }:
 
 let
   version = "0.0.10";
-
-  # Patch source to remove patchedDependencies which causes lockfile mismatch
-  patchedSrc = stdenv.mkDerivation {
-    name = "wakaru-source-patched";
-
-    src = fetchFromGitHub {
-      owner = "pionxzh";
-      repo = "wakaru";
-      rev = "cli-v${version}";
-      hash = "sha256-bWApVN11HZy88xHbB2fQdk4quiyKsn6oyHa91Unxjds=";
-    };
-
-    nativeBuildInputs = [
-      jq
-      yq-go
-    ];
-    dontBuild = true;
-
-    installPhase = ''
-      cp -r . $out
-
-      # Remove patchedDependencies from package.json and pnpm-lock.yaml
-      ${lib.getExe jq} 'del(.pnpm.patchedDependencies)' $out/package.json > $out/package.json.tmp
-      mv $out/package.json.tmp $out/package.json
-      ${lib.getExe yq-go} -i 'del(.patchedDependencies)' $out/pnpm-lock.yaml
-    '';
-  };
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "wakaru";
   inherit version;
-  src = patchedSrc;
+
+  src = fetchFromGitHub {
+    owner = "pionxzh";
+    repo = "wakaru";
+    rev = "cli-v${version}";
+    hash = "sha256-bWApVN11HZy88xHbB2fQdk4quiyKsn6oyHa91Unxjds=";
+  };
 
   nativeBuildInputs = [
     nodejs_22
