@@ -259,6 +259,7 @@
       tor.extended.enable = lib.mkOverride 1100 true;
       "tor-browser".extended.enable = lib.mkOverride 1100 true;
       torsocks.extended.enable = lib.mkOverride 1100 true;
+      tweakcc.extended.enable = lib.mkOverride 1100 true;
       udiskie.extended.enable = lib.mkOverride 1100 true;
       "ungoogled-chromium".extended.enable = lib.mkOverride 1100 true;
       unrar.extended.enable = lib.mkOverride 1100 true;
