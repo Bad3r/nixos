@@ -15,9 +15,9 @@
     nh clean all: Garbage-collect dormant generations and store paths.
 
   Example Usage:
-    * `nh os switch` — Equivalent to `sudo nixos-rebuild switch --flake .`, but shorter.
-    * `nh hm switch` — Apply Home Manager changes from the flake.
-    * `nh clean all` — Remove stale system and user generations safely.
+    * `nh os switch` -- Equivalent to `sudo nixos-rebuild switch --flake .`, but shorter.
+    * `nh hm switch` -- Apply Home Manager changes from the flake.
+    * `nh clean all` -- Remove stale system and user generations safely.
 */
 _:
 let

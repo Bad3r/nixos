@@ -16,9 +16,9 @@
     jlink --module-path <path> --add-modules <modules> --output <dir>: Create custom runtime images.
 
   Example Usage:
-    * `javac Main.java {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} java Main` — Compile and run a Java application.
-    * `jshell` — Start the interactive Java REPL for prototyping.
-    * `JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))` — Export the JDK root for build tools.
+    * `javac Main.java {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} java Main` -- Compile and run a Java application.
+    * `jshell` -- Start the interactive Java REPL for prototyping.
+    * `JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))` -- Export the JDK root for build tools.
 */
 _:
 let

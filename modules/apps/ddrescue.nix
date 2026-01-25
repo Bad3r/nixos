@@ -17,9 +17,9 @@
     -m <mapfile>: Restrict the rescue domain to blocks marked as finished in another map.
 
   Example Usage:
-    * `ddrescue -f -r3 /dev/sdb disk.img rescue.map` — Clone a failing disk image with three retry passes, overwriting `disk.img` if needed.
-    * `ddrescue -d -n /dev/sdc failing.img stage1.map` — Perform the initial fast pass using direct I/O without scraping.
-    * `ddrescue -R -r1 /dev/sdc failing.img stage2.map` — Resume the rescue in reverse to recover remaining blocks after the first pass.
+    * `ddrescue -f -r3 /dev/sdb disk.img rescue.map` -- Clone a failing disk image with three retry passes, overwriting `disk.img` if needed.
+    * `ddrescue -d -n /dev/sdc failing.img stage1.map` -- Perform the initial fast pass using direct I/O without scraping.
+    * `ddrescue -R -r1 /dev/sdc failing.img stage2.map` -- Resume the rescue in reverse to recover remaining blocks after the first pass.
 */
 _:
 let

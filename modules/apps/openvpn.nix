@@ -17,9 +17,9 @@
     --log <file>: Write logs to a specific file for diagnostics.
 
   Example Usage:
-    * `sudo openvpn --config client.ovpn` — Connect to a VPN using the provided configuration.
-    * `sudo openvpn --config site.conf --daemon --log /var/log/openvpn.log` — Run OpenVPN in the background with logging.
-    * `sudo openvpn --config client.ovpn --auth-user-pass creds.txt` — Supply username/password from a file for authentication.
+    * `sudo openvpn --config client.ovpn` -- Connect to a VPN using the provided configuration.
+    * `sudo openvpn --config site.conf --daemon --log /var/log/openvpn.log` -- Run OpenVPN in the background with logging.
+    * `sudo openvpn --config client.ovpn --auth-user-pass creds.txt` -- Supply username/password from a file for authentication.
 */
 _:
 let

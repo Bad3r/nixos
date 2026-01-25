@@ -17,9 +17,9 @@
     -P <script.cmake>: Run CMake in scripting mode to execute automation tasks.
 
   Example Usage:
-    * `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release` — Configure a release build in a separate directory.
-    * `cmake --build build --target tests` — Compile and run the `tests` target using the selected generator.
-    * `cmake --install build --prefix /opt/myapp` — Install artifacts into a staging prefix after a successful build.
+    * `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release` -- Configure a release build in a separate directory.
+    * `cmake --build build --target tests` -- Compile and run the `tests` target using the selected generator.
+    * `cmake --install build --prefix /opt/myapp` -- Install artifacts into a staging prefix after a successful build.
 */
 _:
 let

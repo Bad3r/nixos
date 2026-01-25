@@ -17,9 +17,9 @@
     --enable-logging: Emit Chromium logs for troubleshooting connection or UI issues.
 
   Example Usage:
-    * `electron-mail --user-data-dir=$HOME/.local/share/electron-mail` — Keep account data under an explicit directory.
-    * `electron-mail --proxy-server="socks5://127.0.0.1:1080"` — Tunnel ProtonMail traffic through a local SOCKS proxy.
-    * `electron-mail --disable-gpu --enable-logging` — Diagnose rendering problems on hardware with flaky GPU support.
+    * `electron-mail --user-data-dir=$HOME/.local/share/electron-mail` -- Keep account data under an explicit directory.
+    * `electron-mail --proxy-server="socks5://127.0.0.1:1080"` -- Tunnel ProtonMail traffic through a local SOCKS proxy.
+    * `electron-mail --disable-gpu --enable-logging` -- Diagnose rendering problems on hardware with flaky GPU support.
 */
 _:
 let

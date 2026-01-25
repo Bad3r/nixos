@@ -16,9 +16,9 @@
     xfce4-mime-settings: Adjust default applications for MIME types.
 
   Example Usage:
-    * `xfce4-settings-manager` — Launch the unified settings interface for Xfce.
-    * `xfce4-display-settings --minimal` — Quickly adjust monitors via minimal dialog.
-    * `xfce4-keyboard-settings` — Configure keyboard layouts and shortcuts.
+    * `xfce4-settings-manager` -- Launch the unified settings interface for Xfce.
+    * `xfce4-display-settings --minimal` -- Quickly adjust monitors via minimal dialog.
+    * `xfce4-keyboard-settings` -- Configure keyboard layouts and shortcuts.
 */
 _:
 let

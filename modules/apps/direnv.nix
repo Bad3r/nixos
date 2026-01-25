@@ -15,9 +15,9 @@
     direnv exec <dir> <command>: Execute a command within another directory’s environment.
 
   Example Usage:
-    * `echo 'use flake' > .envrc {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} direnv allow` — Activate the current flake automatically when entering the directory.
-    * `direnv exec .. nix shell nixpkgs#hello` — Run a command using another directory’s environment.
-    * `direnv reload` — Re-evaluate the environment after editing `.envrc`.
+    * `echo 'use flake' > .envrc {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} direnv allow` -- Activate the current flake automatically when entering the directory.
+    * `direnv exec .. nix shell nixpkgs#hello` -- Run a command using another directory’s environment.
+    * `direnv reload` -- Re-evaluate the environment after editing `.envrc`.
 */
 _:
 let

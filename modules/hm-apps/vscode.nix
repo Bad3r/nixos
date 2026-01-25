@@ -17,9 +17,9 @@
     * Extensible via Home Manager configuration
 
   Example Usage:
-    * `code .` — Open current directory in VS Code
-    * `code file.ts` — Open a specific file
-    * `code --install-extension ms-python.python` — Install extensions
+    * `code .` -- Open current directory in VS Code
+    * `code file.ts` -- Open a specific file
+    * `code --install-extension ms-python.python` -- Install extensions
 */
 
 _: {

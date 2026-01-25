@@ -17,9 +17,9 @@
     --auto-expand: Automatically expand all replies when entering a comment section.
 
   Example Usage:
-    * `clx` — Launch the interactive TUI and browse top and best stories.
-    * `clx comments 42133706` — Open the discussion for item 42133706 directly.
-    * `clx url https://example.com/post` — Render an article in reader mode inside the terminal.
+    * `clx` -- Launch the interactive TUI and browse top and best stories.
+    * `clx comments 42133706` -- Open the discussion for item 42133706 directly.
+    * `clx url https://example.com/post` -- Render an article in reader mode inside the terminal.
 */
 _:
 let

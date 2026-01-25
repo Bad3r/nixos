@@ -17,9 +17,9 @@
     --output <columns>: Choose which columns to display (e.g. `--output mount,size,usage`).
 
   Example Usage:
-    * `duf` — Display disk usage for local filesystems with a colored summary.
-    * `duf --only local --sort usage` — Focus on local mounts and sort by utilization.
-    * `duf --json | jq '.[] | {mount, usage}'` — Feed JSON output into other tools for scripting.
+    * `duf` -- Display disk usage for local filesystems with a colored summary.
+    * `duf --only local --sort usage` -- Focus on local mounts and sort by utilization.
+    * `duf --json | jq '.[] | {mount, usage}'` -- Feed JSON output into other tools for scripting.
 */
 _:
 let

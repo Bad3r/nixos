@@ -17,9 +17,9 @@
     -p PID, --pid=PID: Monitor specific process IDs only.
 
   Example Usage:
-    * `sudo iotop` — Display interactive per-process I/O statistics.
-    * `sudo iotop -o -d 2` — Show only active I/O every two seconds.
-    * `sudo iotop -b -n 10 > iotop.log` — Collect ten samples in batch mode for later analysis.
+    * `sudo iotop` -- Display interactive per-process I/O statistics.
+    * `sudo iotop -o -d 2` -- Show only active I/O every two seconds.
+    * `sudo iotop -b -n 10 > iotop.log` -- Collect ten samples in batch mode for later analysis.
 */
 _:
 let

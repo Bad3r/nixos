@@ -23,7 +23,7 @@ Implementation notes:
 1. Replace `domain` and `defaults.email` with production values.
 2. Mount a restricted Cloudflare API token (DNS edit scope) at
    `/run/secrets/cf-api-token` or similar using sops-nix.
-3. Ensure the token file contains only the token string—no `KEY=value` prefix.
+3. Ensure the token file contains only the token string--no `KEY=value` prefix.
 4. Optionally add `security.acme.certs.<name>.reloadServices` to restart
    dependent daemons after renewals.
 

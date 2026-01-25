@@ -15,7 +15,7 @@
     Settings → Community Plugins: Install or enable third-party plugins.
 
   Example Usage:
-    * `obsidian` — Open the vault selector or launch the most recent vault.
+    * `obsidian` -- Open the vault selector or launch the most recent vault.
     * Create `~/Notes` and add as a vault to manage Markdown notes locally.
     * Enable Plugins → “Daily Notes” to generate journal entries automatically.
 */

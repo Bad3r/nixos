@@ -13,8 +13,8 @@
     formatting bundle: Provides formatter binaries; individual tools expose their own flags (see respective man pages).
 
   Example Usage:
-    * `nix fmt` — Run the configured formatter suite on the working tree.
-    * `nix develop` — Enter the development shell with all formatters available on `$PATH`.
+    * `nix fmt` -- Run the configured formatter suite on the working tree.
+    * `nix develop` -- Enter the development shell with all formatters available on `$PATH`.
 */
 
 _:

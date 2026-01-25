@@ -17,9 +17,9 @@
     -TagsFromFile <src>: Copy tags from another file or directory, optionally filtered by tag list.
 
   Example Usage:
-    * `exiftool photo.jpg` — Print all available tags for a single image.
-    * `exiftool -r -json ~/Pictures | jq '.[].DateTimeOriginal'` — Recursively extract capture timestamps into JSON.
-    * `exiftool -overwrite_original -All= image.jpg` — Strip all metadata from an image in place.
+    * `exiftool photo.jpg` -- Print all available tags for a single image.
+    * `exiftool -r -json ~/Pictures | jq '.[].DateTimeOriginal'` -- Recursively extract capture timestamps into JSON.
+    * `exiftool -overwrite_original -All= image.jpg` -- Strip all metadata from an image in place.
 */
 _:
 let

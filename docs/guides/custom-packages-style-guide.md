@@ -314,7 +314,7 @@ nix-prefetch-github owner repo --rev v1.0.0
 
 ### Vendor Hash (Go packages)
 
-Same workflow as cargoHash—use placeholder, build, copy the correct hash.
+Same workflow as cargoHash--use placeholder, build, copy the correct hash.
 
 ### Troubleshooting Hash Mismatches
 

@@ -10,8 +10,8 @@
     * Optionally enables VMware Workstation host services.
 
   Example Usage:
-    * `vmware` — Launch the VMware Workstation UI.
-    * `vmrun start <vmx>` — Automate headless VM lifecycle operations.
+    * `vmware` -- Launch the VMware Workstation UI.
+    * `vmrun start <vmx>` -- Automate headless VM lifecycle operations.
 */
 _:
 let

@@ -8,7 +8,7 @@
     * Useful when auditing targets during security assessments or automating reconnaissance workflows.
 
   Example Usage:
-    * `wappalyzer https://example.org` — Enumerate detected technologies for the given URL.
+    * `wappalyzer https://example.org` -- Enumerate detected technologies for the given URL.
 */
 _:
 let

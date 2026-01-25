@@ -13,8 +13,8 @@
     kiro-fhs: Provides the wrapped binary; launch via `kiro` inside an FHS container managed by the package.
 
   Example Usage:
-    * `kiro` — Start the Kiro configuration interface from the FHS wrapper.
-    * `kiro --profile custom.yaml` — Apply a specific keyboard profile using the wrapped executable.
+    * `kiro` -- Start the Kiro configuration interface from the FHS wrapper.
+    * `kiro --profile custom.yaml` -- Apply a specific keyboard profile using the wrapped executable.
 */
 _:
 let

@@ -17,9 +17,9 @@
     --incognito: Launch directly in incognito mode.
 
   Example Usage:
-    * `google-chrome-stable` — Launch Google Chrome (the binary is named google-chrome-stable).
-    * `google-chrome-stable --enable-features=WebGPU` — Test WebGPU support.
-    * `google-chrome-stable --user-data-dir=/tmp/chrome-test` — Isolated testing profile.
+    * `google-chrome-stable` -- Launch Google Chrome (the binary is named google-chrome-stable).
+    * `google-chrome-stable --enable-features=WebGPU` -- Test WebGPU support.
+    * `google-chrome-stable --user-data-dir=/tmp/chrome-test` -- Isolated testing profile.
 */
 _: {
   flake.homeManagerModules.apps.google-chrome =

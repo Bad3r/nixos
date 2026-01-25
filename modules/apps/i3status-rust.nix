@@ -16,9 +16,9 @@
     --version: Display the program version.
 
   Example Usage:
-    * `i3status-rs -c ~/.config/i3status-rust/config.toml` — Run with a custom configuration.
-    * `i3status-rs --stdout` — Inspect generated JSON output for troubleshooting.
-    * `i3status-rs -w ~/.config/i3status-rust/` — Enable live reloading when editing configuration files.
+    * `i3status-rs -c ~/.config/i3status-rust/config.toml` -- Run with a custom configuration.
+    * `i3status-rs --stdout` -- Inspect generated JSON output for troubleshooting.
+    * `i3status-rs -w ~/.config/i3status-rust/` -- Enable live reloading when editing configuration files.
 */
 _:
 let

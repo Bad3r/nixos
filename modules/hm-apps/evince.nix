@@ -16,9 +16,9 @@
     --presentation: Begin a slide-friendly presentation view.
 
   Example Usage:
-    * `evince design-review.pdf` — View PDF documentation within GNOME or other Wayland/X11 sessions.
-    * `evince --presentation roadmap.pdf` — Present slides using Evince’s full-screen controls.
-    * `evince --page-label=Appendix design-spec.pdf` — Jump straight to tagged sections for quick reviews.
+    * `evince design-review.pdf` -- View PDF documentation within GNOME or other Wayland/X11 sessions.
+    * `evince --presentation roadmap.pdf` -- Present slides using Evince’s full-screen controls.
+    * `evince --page-label=Appendix design-spec.pdf` -- Jump straight to tagged sections for quick reviews.
 */
 
 {

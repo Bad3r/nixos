@@ -17,9 +17,9 @@
     --help, --version: Show usage help or the installed version respectively.
 
   Example Usage:
-    * `dolphin ~/Downloads` — Open the file manager focused on the Downloads directory.
-    * `dolphin --split --new-window /mnt/storage` — Launch a new window with dual panes rooted at `/mnt/storage`.
-    * `dolphin --select ~/Documents/report.pdf` — Highlight a specific file inside Dolphin for quick actions.
+    * `dolphin ~/Downloads` -- Open the file manager focused on the Downloads directory.
+    * `dolphin --split --new-window /mnt/storage` -- Launch a new window with dual panes rooted at `/mnt/storage`.
+    * `dolphin --select ~/Documents/report.pdf` -- Highlight a specific file inside Dolphin for quick actions.
 */
 _:
 let

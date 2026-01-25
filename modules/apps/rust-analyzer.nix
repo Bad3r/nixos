@@ -7,10 +7,10 @@
 
   Summary:
     * Powers editor features such as completions, inline type hints, go-to-definition, and refactorings for Rust projects.
-    * Leverages `cargo metadata` and incremental analysis to keep responses fast even in larger workspaces.
+    * Uses `cargo metadata` and incremental analysis to keep responses fast even in larger workspaces.
 
   Example Usage:
-    * `rust-analyzer analysis-stats` — Inspect analysis metrics for the current crate graph.
+    * `rust-analyzer analysis-stats` -- Inspect analysis metrics for the current crate graph.
     * Automatically launched by editors like Neovim, VS Code, and Helix when opening Rust files.
 */
 _:

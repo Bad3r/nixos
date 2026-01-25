@@ -15,9 +15,9 @@
     discord --enable-features=UseOzonePlatform: Improve Wayland support in recent Chromium builds.
 
   Example Usage:
-    * `discord` — Launch the desktop client and connect to servers or direct messages.
-    * `discord --disable-gpu` — Work around rendering glitches on unsupported GPUs.
-    * `discord --proxy-server="socks5://127.0.0.1:1080"` — Respect network egress policies in restricted environments.
+    * `discord` -- Launch the desktop client and connect to servers or direct messages.
+    * `discord --disable-gpu` -- Work around rendering glitches on unsupported GPUs.
+    * `discord --proxy-server="socks5://127.0.0.1:1080"` -- Respect network egress policies in restricted environments.
 */
 _:
 let

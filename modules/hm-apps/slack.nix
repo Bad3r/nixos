@@ -15,9 +15,9 @@
     --version: Display the current Slack client version.
 
   Example Usage:
-    * `slack` — Open the desktop client to collaborate in channels and direct messages.
-    * `slack --disable-gpu` — Bypass hardware acceleration in remote or virtualized environments.
-    * `slack --proxy-server=http://proxy.internal:8080` — Comply with corporate network policies requiring a proxy.
+    * `slack` -- Open the desktop client to collaborate in channels and direct messages.
+    * `slack --disable-gpu` -- Bypass hardware acceleration in remote or virtualized environments.
+    * `slack --proxy-server=http://proxy.internal:8080` -- Comply with corporate network policies requiring a proxy.
 */
 
 {

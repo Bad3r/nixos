@@ -16,9 +16,9 @@
     --nix: Output a Nix expression snippet referencing the fetched source.
 
   Example Usage:
-    * `nix-prefetch-github NixOS nixpkgs --rev nixos-24.05` — Prefetch the nixpkgs channel and print sha256.
-    * `nix-prefetch-github owner repo --fetch-submodules --json` — Get hash data for a repo including submodules in JSON form.
-    * `nix-prefetch-github madjar nix-prefetch-github --nix` — Generate a ready-to-paste Nix snippet for the tool itself.
+    * `nix-prefetch-github NixOS nixpkgs --rev nixos-24.05` -- Prefetch the nixpkgs channel and print sha256.
+    * `nix-prefetch-github owner repo --fetch-submodules --json` -- Get hash data for a repo including submodules in JSON form.
+    * `nix-prefetch-github madjar nix-prefetch-github --nix` -- Generate a ready-to-paste Nix snippet for the tool itself.
 */
 _:
 let

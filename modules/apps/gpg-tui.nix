@@ -15,7 +15,7 @@
     --lang <locale>: Choose UI language if translations are available.
 
   Example Usage:
-    * `gpg-tui` — Open the TUI to manage local and imported keys interactively.
+    * `gpg-tui` -- Open the TUI to manage local and imported keys interactively.
     * Within the UI, use `S` to sign a selected key or `E` to export it.
     * Press `?` inside the application to view the shortcut reference.
 */

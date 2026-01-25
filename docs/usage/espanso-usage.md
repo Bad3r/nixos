@@ -2,7 +2,7 @@
 
 ## Overview
 
-The espanso module provides declarative configuration for the cross-platform text expander. It leverages Home Manager's `services.espanso` module with sensible defaults and common match patterns.
+The espanso module provides declarative configuration for the cross-platform text expander. It uses Home Manager's `services.espanso` module with sensible defaults and common match patterns.
 
 ## Quick Start
 

@@ -16,9 +16,9 @@
     --progress plain: Switch build output to plain text for CI environments.
 
   Example Usage:
-    * `docker-compose up -d` — Launch the defined services in detached mode.
-    * `docker-compose exec db psql -U postgres` — Open a database shell inside the `db` container.
-    * `docker-compose down --volumes --remove-orphans` — Tear down the stack and associated ephemeral resources.
+    * `docker-compose up -d` -- Launch the defined services in detached mode.
+    * `docker-compose exec db psql -U postgres` -- Open a database shell inside the `db` container.
+    * `docker-compose down --volumes --remove-orphans` -- Tear down the stack and associated ephemeral resources.
 */
 
 {

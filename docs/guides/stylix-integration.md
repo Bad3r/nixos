@@ -8,8 +8,8 @@ This document covers how Stylix theming integrates with the Dendritic Pattern an
 
 The integration is configured in:
 
-- `modules/theming/stylix.nix` — NixOS-level Stylix configuration
-- Individual app modules — may interact with Stylix targets
+- `modules/theming/stylix.nix` -- NixOS-level Stylix configuration
+- Individual app modules -- may interact with Stylix targets
 
 ## Key Concept: NixOS vs Home Manager Targets
 
@@ -57,7 +57,7 @@ stylix.targets.fzf.enable = lib.mkDefault true;
 
 ### NixOS App Modules (`modules/apps/`)
 
-1. **Do NOT set `stylix.targets.*` options** — these are typically Home Manager targets
+1. **Do NOT set `stylix.targets.*` options** -- these are typically Home Manager targets
 2. Focus on `environment.systemPackages` and system-level configuration
 3. Let Home Manager modules handle user-level theming
 
@@ -80,7 +80,7 @@ stylix.targets.fzf.enable = lib.mkDefault true;
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ pkgs.dunst ];
-        # NO stylix.targets.dunst.enable here — it's HM-only
+        # NO stylix.targets.dunst.enable here -- it's HM-only
       };
     };
 }
@@ -88,12 +88,12 @@ stylix.targets.fzf.enable = lib.mkDefault true;
 
 ### Home Manager Modules (`modules/hm-apps/`)
 
-1. **Do NOT manually set `stylix.targets.*`** — let `autoEnable` handle it
+1. **Do NOT manually set `stylix.targets.*`** -- let `autoEnable` handle it
 2. Only set targets if you need to **disable** theming for a specific app
 3. If you must set a target, use appropriate priority
 
 ```nix
-# Correct HM app module — let autoEnable work
+# Correct HM app module -- let autoEnable work
 {
   flake.homeManagerModules.apps.fzf =
     { lib, ... }:
@@ -120,7 +120,7 @@ stylix.targets.fzf.enable = lib.mkDefault true;
 ### Pitfall 1: Setting HM Targets in NixOS Modules
 
 ```nix
-# WRONG — dunst target only exists in Home Manager
+# WRONG -- dunst target only exists in Home Manager
 flake.nixosModules.apps.dunst = { ... }: {
   stylix.targets.dunst.enable = lib.mkDefault true;  # ERROR: undefined option
 };
@@ -131,7 +131,7 @@ This causes evaluation errors unless `_module.check = false` is set, which masks
 ### Pitfall 2: Redundant Target Enables
 
 ```nix
-# WRONG — redundant and potentially buggy
+# WRONG -- redundant and potentially buggy
 flake.homeManagerModules.apps.fzf = { lib, ... }: {
   programs.fzf.enable = true;
   stylix.targets.fzf.enable = lib.mkDefault true;  # Redundant!
@@ -145,7 +145,7 @@ Stylix already enables this automatically. The `lib.mkDefault` can override user
 Never use `_module.check = false` to silence option errors. This masks real problems:
 
 ```nix
-# WRONG — hides undefined option errors
+# WRONG -- hides undefined option errors
 configurations.nixos.myhost.module = {
   _module.check = false;  # Don't do this
   imports = [ ... ];
@@ -181,7 +181,7 @@ If theming isn't applying, verify:
 
 ## Related Documentation
 
-- [`docs/architecture/01-pattern-overview.md`](../architecture/01-pattern-overview.md) — module discovery and aggregator patterns
-- [`docs/architecture/04-home-manager.md`](../architecture/04-home-manager.md) — how Home Manager modules are composed
-- [Apps Module Style Guide](apps-module-style-guide.md) — per-app module authoring conventions
-- [Stylix Documentation](https://danth.github.io/stylix/) — upstream reference
+- [`docs/architecture/01-pattern-overview.md`](../architecture/01-pattern-overview.md) -- module discovery and aggregator patterns
+- [`docs/architecture/04-home-manager.md`](../architecture/04-home-manager.md) -- how Home Manager modules are composed
+- [Apps Module Style Guide](apps-module-style-guide.md) -- per-app module authoring conventions
+- [Stylix Documentation](https://danth.github.io/stylix/) -- upstream reference

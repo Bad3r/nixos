@@ -1,6 +1,6 @@
 # Android Emulator Network Interception Plan
 
-> **Status: DRAFT** — This plan was created 2025-10-28 but has not been implemented. The "Next Actions" section lists outstanding work required to operationalize this workflow.
+> **Status: DRAFT** -- This plan was created 2025-10-28 but has not been implemented. The "Next Actions" section lists outstanding work required to operationalize this workflow.
 
 ## Objectives
 
@@ -97,8 +97,8 @@ exec emulator @"$AVD_NAME" \
 - For apps that ship certificate pinning, plan on:
   1. `adb root && adb remount` (AOSP images only) to mount `/system` read/write.
   2. Push the team CA into `/system/etc/security/cacerts/` and run `update-ca-certificates`.
-  3. Leverage Frida/Magisk tools from the pentesting dev shell for dynamic bypasses (documented separately).
-- Maintain clean routing: emulator sees host loopback as 10.0.2.2—proxy tooling must listen on 127.0.0.1.
+  3. Use Frida/Magisk tools from the pentesting dev shell for dynamic bypasses (documented separately).
+- Maintain clean routing: emulator sees host loopback as 10.0.2.2--proxy tooling must listen on 127.0.0.1.
 
 ## Phase 4 – Validation & Observability
 
@@ -111,7 +111,7 @@ exec emulator @"$AVD_NAME" \
 ## Maintenance & Update Strategy
 
 - Schedule a weekly `nix flake update` to pull new SDK builds from android-nixpkgs; reviewers can diff emulator, system images, and platform-tools updates before merging.
-- androidenv automation in nixpkgs-unstable already runs the upstream test suite—track failure reports in Hydra before bumping production hosts.
+- androidenv automation in nixpkgs-unstable already runs the upstream test suite--track failure reports in Hydra before bumping production hosts.
 - Pin mitmproxy major versions in the dev shell; monitor release notes for protocol regressions affecting QUIC interception.
 
 ## Risk Log & Mitigations

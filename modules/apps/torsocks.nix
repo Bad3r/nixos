@@ -17,10 +17,10 @@
     torsocks -p PORT: Use Tor SOCKS proxy on custom port (default: 9050).
 
   Example Usage:
-    * `torsocks curl ifconfig.me` — Check your Tor exit IP address.
-    * `torsocks wget https://check.torproject.org` — Download through Tor.
-    * `torsocks --shell` — Launch a shell with all network traffic routed through Tor.
-    * `torsocks ssh user@host` — SSH through Tor network.
+    * `torsocks curl ifconfig.me` -- Check your Tor exit IP address.
+    * `torsocks wget https://check.torproject.org` -- Download through Tor.
+    * `torsocks --shell` -- Launch a shell with all network traffic routed through Tor.
+    * `torsocks ssh user@host` -- SSH through Tor network.
 */
 _:
 let

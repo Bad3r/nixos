@@ -15,9 +15,9 @@
     hydra -R: Resume a previous session from the `hydra.restore` file.
 
   Example Usage:
-    * `hydra -L users.txt -P rockyou.txt ftp://192.0.2.5` — Audit FTP credentials using a wordlist.
-    * `hydra -V -t 4 -l admin -P passwords.txt rdp://target` — Try RDP logins with tuned thread count.
-    * `hydra -L api_keys.txt -p secret http-post-form "/api/login:key=^USER^{PRESERVED_DOCUMENTATION}secret=^PASS^:S=200"` — Test custom HTTP POST flow.
+    * `hydra -L users.txt -P rockyou.txt ftp://192.0.2.5` -- Audit FTP credentials using a wordlist.
+    * `hydra -V -t 4 -l admin -P passwords.txt rdp://target` -- Try RDP logins with tuned thread count.
+    * `hydra -L api_keys.txt -p secret http-post-form "/api/login:key=^USER^{PRESERVED_DOCUMENTATION}secret=^PASS^:S=200"` -- Test custom HTTP POST flow.
 */
 _:
 let

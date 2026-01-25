@@ -72,7 +72,7 @@ The Home Manager module `modules/home/r2-user.nix` reads `sops.templates."r2"` (
 
 | Symptom                               | Fix                                                                                                                                      |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `no secret material for …`            | Check that the encrypted file exists. Declarations are guarded with `pathExists`.                                                        |
+| `no secret material for ...`          | Check that the encrypted file exists. Declarations are guarded with `pathExists`.                                                        |
 | `Unknown recipient` while editing     | Regenerate `.sops.yaml` (`nix develop -c write-files`) or add the key to `modules/security/sops-policy.nix`.                             |
 | `Permission denied` reading secret    | Adjust the `owner`/`group` fields in the module; sops-nix enforces them strictly.                                                        |
 | `act` complaining about missing token | Ensure `/etc/act/secrets.env` exists (rerun `./build.sh --host <host> --boot` or the approved deployment helper after updating secrets). |

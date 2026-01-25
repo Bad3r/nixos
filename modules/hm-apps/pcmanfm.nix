@@ -16,9 +16,9 @@
     --profile <name>: Use an alternate profile directory for settings and bookmarks.
 
   Example Usage:
-    * `pcmanfm` — Browse local and remote files using a lightweight GTK interface.
-    * `pcmanfm --desktop` — Allow PCManFM to draw desktop icons when running LXDE or Openbox.
-    * `pcmanfm --set-wallpaper ~/Pictures/wall.jpg` — Change wallpaper without opening additional tools.
+    * `pcmanfm` -- Browse local and remote files using a lightweight GTK interface.
+    * `pcmanfm --desktop` -- Allow PCManFM to draw desktop icons when running LXDE or Openbox.
+    * `pcmanfm --set-wallpaper ~/Pictures/wall.jpg` -- Change wallpaper without opening additional tools.
 */
 
 {

@@ -17,9 +17,9 @@
     kitty --session <file>: Restore a predefined layout with tabs/splits.
 
   Example Usage:
-    * `kitty` — Start the terminal emulator with default configuration.
-    * `kitty --config ~/.config/kitty/light.conf` — Launch with an alternate theme/config.
-    * `kitty @ set-font-size 14` — Adjust font size on the fly via remote control.
+    * `kitty` -- Start the terminal emulator with default configuration.
+    * `kitty --config ~/.config/kitty/light.conf` -- Launch with an alternate theme/config.
+    * `kitty @ set-font-size 14` -- Adjust font size on the fly via remote control.
 */
 _:
 let

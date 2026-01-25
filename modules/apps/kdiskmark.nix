@@ -15,9 +15,9 @@
     Settings: Adjust block sizes, passes, and data sets for benchmarking.
 
   Example Usage:
-    * `kdiskmark` — Start the GUI and run default sequential/random tests.
+    * `kdiskmark` -- Start the GUI and run default sequential/random tests.
     * Choose “All” and click “Start” to benchmark both read and write performance.
-    * Export results via “Save Report…” to archive benchmark outcomes.
+    * Export results via “Save Report...” to archive benchmark outcomes.
 */
 _:
 let

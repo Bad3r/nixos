@@ -10,8 +10,8 @@
     * Supports breakpoints, goroutine inspection, expression evaluation, and recording of execution traces.
 
   Example Usage:
-    * `dlv debug ./cmd/api` — Build and start debugging the binary produced from `./cmd/api`.
-    * `dlv attach $(pgrep myservice)` — Attach to a running Go process for live inspection.
+    * `dlv debug ./cmd/api` -- Build and start debugging the binary produced from `./cmd/api`.
+    * `dlv attach $(pgrep myservice)` -- Attach to a running Go process for live inspection.
 */
 _:
 let

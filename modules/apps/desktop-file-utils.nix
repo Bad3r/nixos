@@ -15,9 +15,9 @@
     update-desktop-database <dir>: Refresh the MIME-type cache for applications installed under a shared directory.
 
   Example Usage:
-    * `desktop-file-validate share/applications/myapp.desktop` — Confirm that a launcher meets the freedesktop specification.
-    * `desktop-file-install --dir=$HOME/.local/share/applications myapp.desktop` — Deploy a tweaked launcher into the per-user application menu.
-    * `update-desktop-database ~/.local/share/applications` — Rebuild MIME caches so new launchers appear in desktop menus.
+    * `desktop-file-validate share/applications/myapp.desktop` -- Confirm that a launcher meets the freedesktop specification.
+    * `desktop-file-install --dir=$HOME/.local/share/applications myapp.desktop` -- Deploy a tweaked launcher into the per-user application menu.
+    * `update-desktop-database ~/.local/share/applications` -- Rebuild MIME caches so new launchers appear in desktop menus.
 */
 _:
 let

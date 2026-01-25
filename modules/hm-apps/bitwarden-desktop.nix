@@ -16,9 +16,9 @@
     --disable-gpu: Fallback to software rendering for systems with GPU issues.
 
   Example Usage:
-    * `bitwarden` — Open the desktop vault for interactive logins and vault management.
-    * `bitwarden --disable-gpu` — Work around GPU driver bugs in headless or virtual machines.
-    * `bitwarden --args="--proxy-server=127.0.0.1:8080"` — Point the client at a corporate proxy when required.
+    * `bitwarden` -- Open the desktop vault for interactive logins and vault management.
+    * `bitwarden --disable-gpu` -- Work around GPU driver bugs in headless or virtual machines.
+    * `bitwarden --args="--proxy-server=127.0.0.1:8080"` -- Point the client at a corporate proxy when required.
 */
 
 {

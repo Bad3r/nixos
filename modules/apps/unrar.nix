@@ -17,9 +17,9 @@
     -p<password>: Supply password for encrypted archives.
 
   Example Usage:
-    * `unrar x files.part1.rar` — Extract a multi-part RAR archive.
-    * `unrar l archive.rar` — Inspect contents before extracting.
-    * `unrar x -ppassword secure.rar` — Extract an encrypted archive with the provided password.
+    * `unrar x files.part1.rar` -- Extract a multi-part RAR archive.
+    * `unrar l archive.rar` -- Inspect contents before extracting.
+    * `unrar x -ppassword secure.rar` -- Extract an encrypted archive with the provided password.
 */
 _:
 let

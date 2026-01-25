@@ -17,9 +17,9 @@
     tasks: List tasks defined in the active `bb.edn` configuration.
 
   Example Usage:
-    * `bb -e '(+ 1 2 3)'` — Evaluate an inline expression and print the result.
-    * `bb -x greet --name Alice` — Call a function exported in `bb.edn` with parsed CLI options.
-    * `bb tasks` — Inspect available tasks defined in the project `bb.edn` file.
+    * `bb -e '(+ 1 2 3)'` -- Evaluate an inline expression and print the result.
+    * `bb -x greet --name Alice` -- Call a function exported in `bb.edn` with parsed CLI options.
+    * `bb tasks` -- Inspect available tasks defined in the project `bb.edn` file.
 */
 _:
 let

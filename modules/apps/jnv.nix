@@ -16,9 +16,9 @@
     --wrap: Toggle line wrapping for the preview pane.
 
   Example Usage:
-    * `jnv response.json` — Explore a JSON response interactively and experiment with jq filters.
-    * `curl https://api.example.com | jnv` — Pipe API output directly into the viewer.
-    * `jnv data.json --output filtered.json` — Save the filtered JSON result while experimenting in the TUI.
+    * `jnv response.json` -- Explore a JSON response interactively and experiment with jq filters.
+    * `curl https://api.example.com | jnv` -- Pipe API output directly into the viewer.
+    * `jnv data.json --output filtered.json` -- Save the filtered JSON result while experimenting in the TUI.
 */
 _:
 let

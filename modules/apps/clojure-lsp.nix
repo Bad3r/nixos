@@ -17,9 +17,9 @@
     listen: Start the language server, communicating over stdio for editor integrations.
 
   Example Usage:
-    * `clojure-lsp clean-ns --dry` — Preview namespace cleanups without modifying files.
-    * `clojure-lsp format --filenames src app/core.clj` — Format specific source files.
-    * `clojure-lsp listen` — Run the LSP server for editor clients that connect via stdio.
+    * `clojure-lsp clean-ns --dry` -- Preview namespace cleanups without modifying files.
+    * `clojure-lsp format --filenames src app/core.clj` -- Format specific source files.
+    * `clojure-lsp listen` -- Run the LSP server for editor clients that connect via stdio.
 */
 _:
 let

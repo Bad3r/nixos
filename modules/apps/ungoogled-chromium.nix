@@ -16,9 +16,9 @@
     --profile-directory=<name>: Use a specific profile directory under `~/.config/chromium`.
 
   Example Usage:
-    * `ungoogled-chromium https://example.com` — Open a URL with the de-Googled Chromium fork.
-    * `ungoogled-chromium --incognito --enable-features=VaapiVideoDecoder` — Launch a private session with VA-API decoding.
-    * `ungoogled-chromium --user-data-dir ~/.local/share/chromium-alt` — Keep a fully isolated profile tree for testing.
+    * `ungoogled-chromium https://example.com` -- Open a URL with the de-Googled Chromium fork.
+    * `ungoogled-chromium --incognito --enable-features=VaapiVideoDecoder` -- Launch a private session with VA-API decoding.
+    * `ungoogled-chromium --user-data-dir ~/.local/share/chromium-alt` -- Keep a fully isolated profile tree for testing.
 */
 _:
 let

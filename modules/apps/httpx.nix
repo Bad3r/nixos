@@ -17,9 +17,9 @@
     -follow-redirects: Follow HTTP redirects during probing.
 
   Example Usage:
-    * `httpx -l hosts.txt -status-code -title` — Probe hosts and report status codes plus page titles.
-    * `cat subdomains.txt | httpx -tech-detect -follow-redirects -json` — Enumerate technologies for URL targets streamed from stdin.
-    * `httpx -l urls.txt -websocket -cdn` — Identify WebSocket endpoints and CDN usage in bulk.
+    * `httpx -l hosts.txt -status-code -title` -- Probe hosts and report status codes plus page titles.
+    * `cat subdomains.txt | httpx -tech-detect -follow-redirects -json` -- Enumerate technologies for URL targets streamed from stdin.
+    * `httpx -l urls.txt -websocket -cdn` -- Identify WebSocket endpoints and CDN usage in bulk.
 */
 _:
 let

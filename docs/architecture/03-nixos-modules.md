@@ -116,6 +116,6 @@ See [Custom Packages Style Guide](../guides/custom-packages-style-guide.md) for 
 
 ## Next Steps
 
-- [Home Manager](04-home-manager.md) — user-level aggregators
-- [Host Composition](05-host-composition.md) — assembling hosts from modules
-- [Apps Module Style Guide](../guides/apps-module-style-guide.md) — per-app conventions
+- [Home Manager](04-home-manager.md) -- user-level aggregators
+- [Host Composition](05-host-composition.md) -- assembling hosts from modules
+- [Apps Module Style Guide](../guides/apps-module-style-guide.md) -- per-app conventions

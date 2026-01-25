@@ -16,9 +16,9 @@
     --convert-to <format> <file>: Convert documents via CLI in batch scripts.
 
   Example Usage:
-    * `libreoffice --writer report.odt` — Jump straight into editing a Writer document.
-    * `libreoffice --calc data.xlsx` — Analyze spreadsheets with Calc’s pivot tables and functions.
-    * `libreoffice --convert-to pdf *.odt` — Convert multiple documents to PDF on the command line.
+    * `libreoffice --writer report.odt` -- Jump straight into editing a Writer document.
+    * `libreoffice --calc data.xlsx` -- Analyze spreadsheets with Calc’s pivot tables and functions.
+    * `libreoffice --convert-to pdf *.odt` -- Convert multiple documents to PDF on the command line.
 */
 
 {

@@ -17,9 +17,9 @@
     --sort <category>: Sort results by lines, code, comments, etc.
 
   Example Usage:
-    * `tokei src/` — View LOC statistics for a source directory.
-    * `tokei . -e target -e vendor` — Ignore build artifacts and vendor directories.
-    * `tokei . -f json | jq '.Totals.code'` — Produce JSON output and extract total code lines with jq.
+    * `tokei src/` -- View LOC statistics for a source directory.
+    * `tokei . -e target -e vendor` -- Ignore build artifacts and vendor directories.
+    * `tokei . -f json | jq '.Totals.code'` -- Produce JSON output and extract total code lines with jq.
 */
 _:
 let

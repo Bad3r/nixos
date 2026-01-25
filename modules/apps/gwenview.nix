@@ -16,9 +16,9 @@
     --hide-menubar: Run without the menubar visible.
 
   Example Usage:
-    * `gwenview photos/*.jpg` — Browse a folder of images with thumbnails and metadata.
-    * `gwenview --fullscreen vacation/` — Start a fullscreen slideshow for a directory.
-    * `gwenview --slideshow --interval 5 gallery/` — Run an auto-advancing slideshow with a five-second interval.
+    * `gwenview photos/*.jpg` -- Browse a folder of images with thumbnails and metadata.
+    * `gwenview --fullscreen vacation/` -- Start a fullscreen slideshow for a directory.
+    * `gwenview --slideshow --interval 5 gallery/` -- Run an auto-advancing slideshow with a five-second interval.
 */
 _:
 let

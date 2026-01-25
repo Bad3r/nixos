@@ -16,9 +16,9 @@
     glow --pager/--style: Customize terminal presentation when viewing documents.
 
   Example Usage:
-    * `marktext notes.md` — Edit a Markdown document with live preview and formatting tools.
-    * `glow README.md` — View a project README in the terminal using the bundled CLI.
-    * `glow --json doc.md | jq '.body'` — Export Markdown to JSON for further processing.
+    * `marktext notes.md` -- Edit a Markdown document with live preview and formatting tools.
+    * `glow README.md` -- View a project README in the terminal using the bundled CLI.
+    * `glow --json doc.md | jq '.body'` -- Export Markdown to JSON for further processing.
 */
 
 _:

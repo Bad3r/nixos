@@ -7,7 +7,7 @@
 
   Summary:
     * Renders terminal sessions through OpenGL for low-latency text, ligatures, and emoji on Linux, macOS, Windows, and BSD.
-    * Integrates tightly with external tools—IPC via `alacritty msg`, live config reloads, and shell key bindings—while avoiding built-in tabs or splits.
+    * Integrates tightly with external tools--IPC via `alacritty msg`, live config reloads, and shell key bindings--while avoiding built-in tabs or splits.
 
   Options:
     --config-file <path>: Launch with an alternate TOML configuration file.
@@ -17,9 +17,9 @@
     --class <general>[,<instance>]: Set the window class for integration with tiling window managers.
 
   Example Usage:
-    * `alacritty` — Start a fresh terminal using the default configuration file.
-    * `alacritty --config-file ~/.config/alacritty/presentation.toml` — Open a profile tailored for presentations.
-    * `alacritty msg create-window -o 'window.opacity=0.9'` — Ask the running instance to open a translucent window.
+    * `alacritty` -- Start a fresh terminal using the default configuration file.
+    * `alacritty --config-file ~/.config/alacritty/presentation.toml` -- Open a profile tailored for presentations.
+    * `alacritty msg create-window -o 'window.opacity=0.9'` -- Ask the running instance to open a translucent window.
 */
 
 {

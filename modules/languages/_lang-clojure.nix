@@ -16,10 +16,10 @@
     babashka: Fast native Clojure interpreter for scripting and command-line tools, enabling instant startup times.
 
   Example Usage:
-    * `clj -M -m myapp.core` — Run Clojure application using deps.edn configuration.
-    * `lein repl` — Start REPL with project dependencies loaded for interactive development.
-    * `bb script.clj` — Execute Clojure script with near-instant startup via babashka interpreter.
-    * `clojure-lsp format` — Format source files according to community style guidelines.
+    * `clj -M -m myapp.core` -- Run Clojure application using deps.edn configuration.
+    * `lein repl` -- Start REPL with project dependencies loaded for interactive development.
+    * `bb script.clj` -- Execute Clojure script with near-instant startup via babashka interpreter.
+    * `clojure-lsp format` -- Format source files according to community style guidelines.
 */
 _:
 {

@@ -16,9 +16,9 @@
     --ytdl-format <format>: Specify youtube-dl format preference.
 
   Example Usage:
-    * `mpv video.mp4` — Play a local video file.
-    * `mpv https://youtube.com/watch?v=...` — Stream video via youtube-dl integration.
-    * `mpv --profile=high-quality movie.mkv` — Apply high-quality profile for playback.
+    * `mpv video.mp4` -- Play a local video file.
+    * `mpv https://youtube.com/watch?v=...` -- Stream video via youtube-dl integration.
+    * `mpv --profile=high-quality movie.mkv` -- Apply high-quality profile for playback.
 */
 
 _: {

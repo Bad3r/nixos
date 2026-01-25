@@ -11,9 +11,9 @@
     * Can print the selected color to stdout with `--print`, making script integration straightforward.
 
   Example Usage:
-    * `kcolorchooser` — Launch the GUI picker with the default palette.
-    * `kcolorchooser --print` — Copy a sampled color to stdout as soon as it is confirmed.
-    * `kcolorchooser --color "#AABBCC"` — Preload the dialog with a specific color for adjustments.
+    * `kcolorchooser` -- Launch the GUI picker with the default palette.
+    * `kcolorchooser --print` -- Copy a sampled color to stdout as soon as it is confirmed.
+    * `kcolorchooser --color "#AABBCC"` -- Preload the dialog with a specific color for adjustments.
 */
 _:
 let

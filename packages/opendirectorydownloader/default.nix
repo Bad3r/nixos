@@ -64,7 +64,7 @@ stdenvNoCC.mkDerivation {
     longDescription = ''
       OpenDirectoryDownloader indexes open directories listings in 130+ supported formats
       including FTP(S), Google Drive, Bhadoo, GoIndex, Dropbox, Mediafire, GoFile, GitHub,
-      and many more. It's a .NET-based tool that provides comprehensive directory indexing
+      and many more. It's a .NET-based tool that provides full directory indexing
       and downloading capabilities.
     '';
     homepage = "https://github.com/KoalaBear84/OpenDirectoryDownloader";

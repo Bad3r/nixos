@@ -17,9 +17,9 @@
     --inside-color/--ring-color/--line-color <rrggbbff>: Customize UI colors using RGBA hex.
 
   Example Usage:
-    * `i3lock-color -c 1d2021 --indicator` — Lock the screen with a solid color and indicator.
-    * `i3lock-color -i ~/Pictures/wallpaper.jpg -B 5 --time-color ffffffff` — Use a background image with blur and white time display.
-    * `i3lock-color --nofork {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} systemctl suspend` — Lock the screen synchronously before suspending.
+    * `i3lock-color -c 1d2021 --indicator` -- Lock the screen with a solid color and indicator.
+    * `i3lock-color -i ~/Pictures/wallpaper.jpg -B 5 --time-color ffffffff` -- Use a background image with blur and white time display.
+    * `i3lock-color --nofork {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} systemctl suspend` -- Lock the screen synchronously before suspending.
 */
 _:
 let

@@ -17,9 +17,9 @@
     --mode <mode>: Configure upstream, reverse, or SOCKS modes (e.g. `--mode upstream:http://proxy:3128`).
 
   Example Usage:
-    * `mitmproxy -p 8080 --set block_global=false` — Start the console UI and allow remote clients to connect.
-    * `mitmdump -s modify_headers.py` — Run a script to modify requests/responses in headless mode.
-    * `mitmweb --ssl-insecure` — Use the web dashboard to inspect traffic without verifying upstream certificates.
+    * `mitmproxy -p 8080 --set block_global=false` -- Start the console UI and allow remote clients to connect.
+    * `mitmdump -s modify_headers.py` -- Run a script to modify requests/responses in headless mode.
+    * `mitmweb --ssl-insecure` -- Use the web dashboard to inspect traffic without verifying upstream certificates.
 */
 _:
 let

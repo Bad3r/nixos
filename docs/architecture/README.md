@@ -27,7 +27,7 @@ This directory explains how the Dendritic Pattern organizes this NixOS configura
 
 ## Related Guides
 
-- [Apps Module Style Guide](../guides/apps-module-style-guide.md) — header comments and per-app conventions
-- [Custom Packages Style Guide](../guides/custom-packages-style-guide.md) — building packages under `packages/`
-- [Stylix Integration](../guides/stylix-integration.md) — theming constraints
-- [SOPS Usage](../sops/README.md) — secrets management
+- [Apps Module Style Guide](../guides/apps-module-style-guide.md) -- header comments and per-app conventions
+- [Custom Packages Style Guide](../guides/custom-packages-style-guide.md) -- building packages under `packages/`
+- [Stylix Integration](../guides/stylix-integration.md) -- theming constraints
+- [SOPS Usage](../sops/README.md) -- secrets management

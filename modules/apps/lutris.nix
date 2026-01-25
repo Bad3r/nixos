@@ -16,9 +16,9 @@
     lutris -l: List installed games in the library from the command line.
 
   Example Usage:
-    * `lutris` — Open the Lutris client to browse and launch games.
-    * `lutris -i ~/Downloads/game.yml` — Install a game using a downloaded community installer script.
-    * `lutris -d` — Start Lutris with verbose logs when diagnosing runner issues.
+    * `lutris` -- Open the Lutris client to browse and launch games.
+    * `lutris -i ~/Downloads/game.yml` -- Install a game using a downloaded community installer script.
+    * `lutris -d` -- Start Lutris with verbose logs when diagnosing runner issues.
 */
 _:
 let

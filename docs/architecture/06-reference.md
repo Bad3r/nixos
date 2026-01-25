@@ -36,7 +36,7 @@ nix flake check --accept-flake-config
 | Scenario                       | Resolution                                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------------------ |
 | Missing app reference          | Use `config.flake.lib.nixos.hasApp "name"` or `nix eval '.#flake.nixosModules.apps'`       |
-| Helper assertion failures      | Run `nix flake check` — see `flake.checks.helpers-exist`                                   |
+| Helper assertion failures      | Run `nix flake check` -- see `flake.checks.helpers-exist`                                  |
 | Managed file drift             | Run `nix develop -c write-files` then `git diff`                                           |
 | Unfree package blocked         | Add to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix` |
 | "Cannot coerce null to string" | See [Two-Context Problem](02-module-authoring.md#the-two-context-problem)                  |
@@ -102,6 +102,6 @@ Available after `nix develop`:
 
 ## Next Steps
 
-- [Pattern Overview](01-pattern-overview.md) — Dendritic fundamentals
-- [Module Authoring](02-module-authoring.md) — writing modules correctly
-- [CLAUDE.md](/home/vx/nixos/CLAUDE.md) — full repository guide
+- [Pattern Overview](01-pattern-overview.md) -- Dendritic fundamentals
+- [Module Authoring](02-module-authoring.md) -- writing modules correctly
+- [CLAUDE.md](/home/vx/nixos/CLAUDE.md) -- full repository guide

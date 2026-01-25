@@ -15,9 +15,9 @@
     btm --config <file>: Load a specific configuration file overriding defaults.
 
   Example Usage:
-    * `btm` — Open the full TUI system monitor with charts and process controls.
-    * `btm -b -U 2` — Run in basic mode, updating every two seconds for lightweight monitoring.
-    * `btm --config ~/.config/bottom/bottom.toml` — Apply a custom layout and theme.
+    * `btm` -- Open the full TUI system monitor with charts and process controls.
+    * `btm -b -U 2` -- Run in basic mode, updating every two seconds for lightweight monitoring.
+    * `btm --config ~/.config/bottom/bottom.toml` -- Apply a custom layout and theme.
 */
 _:
 let

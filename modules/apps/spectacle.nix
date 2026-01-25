@@ -17,8 +17,8 @@
     spectacle --clipboard: Copy the capture directly to the clipboard.
 
   Example Usage:
-    * `spectacle --region --clipboard` — Select an area and copy it to the clipboard for pasting.
-    * `spectacle --fullscreen --delay 5 -o ~/Pictures/screenshot.png` — Capture the full screen after a 5-second delay and save it.
+    * `spectacle --region --clipboard` -- Select an area and copy it to the clipboard for pasting.
+    * `spectacle --fullscreen --delay 5 -o ~/Pictures/screenshot.png` -- Capture the full screen after a 5-second delay and save it.
     * Use the built-in annotation tools to highlight portions of a capture before saving.
 */
 _:

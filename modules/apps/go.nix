@@ -17,9 +17,9 @@
     go env: Inspect and configure Go environment variables (e.g. `GOPATH`, `GOMODCACHE`).
 
   Example Usage:
-    * `go mod init example.com/project` — Initialize a new Go module.
-    * `go build ./cmd/api` — Build a service located under `cmd/api`.
-    * `go test ./... -race` — Run all project tests with the race detector enabled.
+    * `go mod init example.com/project` -- Initialize a new Go module.
+    * `go build ./cmd/api` -- Build a service located under `cmd/api`.
+    * `go test ./... -race` -- Run all project tests with the race detector enabled.
 */
 _:
 let

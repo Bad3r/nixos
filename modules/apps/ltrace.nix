@@ -17,9 +17,9 @@
     -e <expr>: Limit tracing to specific functions, libraries, or system calls.
 
   Example Usage:
-    * `sudo ltrace ./app` — Inspect shared-library calls made by `app`.
-    * `ltrace -f -e malloc+free ./binary` — Follow forks and show only allocation-related calls.
-    * `ltrace -S -o trace.log command` — Trace both library and system calls, saving results to a log file.
+    * `sudo ltrace ./app` -- Inspect shared-library calls made by `app`.
+    * `ltrace -f -e malloc+free ./binary` -- Follow forks and show only allocation-related calls.
+    * `ltrace -S -o trace.log command` -- Trace both library and system calls, saving results to a log file.
 */
 _:
 let

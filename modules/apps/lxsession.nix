@@ -16,8 +16,8 @@
     lxsession-default-apps: Configure preferred applications via a GUI.
 
   Example Usage:
-    * `lxsession -s LXDE` — Start an LXDE session manually from a display manager or console.
-    * `lxsession-default-apps` — Adjust default web browser, terminal, and file manager for the session.
+    * `lxsession -s LXDE` -- Start an LXDE session manually from a display manager or console.
+    * `lxsession-default-apps` -- Adjust default web browser, terminal, and file manager for the session.
     * Create `~/.config/lxsession/LXDE/autostart` to launch custom applications when the session starts.
 */
 _:

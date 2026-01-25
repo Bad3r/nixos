@@ -25,16 +25,16 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
 
 - Start every file with a C-style block comment: `/* ... */`.
 - Populate the header in this order:
-  - `Package:` — the app name matching the filename.
-  - `Description:` — one-sentence summary.
-  - `Homepage:` — primary product landing page.
-  - `Documentation:` — canonical manual, user guide, or reference docs. Prefer first-party sources; if none exist, use the section of the homepage that acts as official documentation.
-  - `Repository:` — upstream GitHub project URL when available. Omit only if no public GitHub repository exists.
+  - `Package:` -- the app name matching the filename.
+  - `Description:` -- one-sentence summary.
+  - `Homepage:` -- primary product landing page.
+  - `Documentation:` -- canonical manual, user guide, or reference docs. Prefer first-party sources; if none exist, use the section of the homepage that acts as official documentation.
+  - `Repository:` -- upstream GitHub project URL when available. Omit only if no public GitHub repository exists.
 - Provide the following subsections, each separated by a blank line:
-  - `Summary:` — two bullet points describing primary functionality.
-  - `Tests:` — only include when upstream documents deterministic CLI outputs (for example `ent.nix`). If no canonical tests exist, omit the section completely rather than inventing ad-hoc commands.
-  - `Options:` — bullet list covering notable flags, switches, or usage notes. Use `-flag` entries to mirror CLI flags and keep bullets to one line each. Reference official command documentation when paraphrasing behaviour.
-  - `Notes:` — optional section for module-specific implementation details. Use when the module delegates responsibilities (e.g., package installation handled by Home Manager) or has namespace considerations (e.g., uses `services` instead of `programs`). Omit for straightforward modules.
+  - `Summary:` -- two bullet points describing primary functionality.
+  - `Tests:` -- only include when upstream documents deterministic CLI outputs (for example `ent.nix`). If no canonical tests exist, omit the section completely rather than inventing ad-hoc commands.
+  - `Options:` -- bullet list covering notable flags, switches, or usage notes. Use `-flag` entries to mirror CLI flags and keep bullets to one line each. Reference official command documentation when paraphrasing behaviour.
+  - `Notes:` -- optional section for module-specific implementation details. Use when the module delegates responsibilities (e.g., package installation handled by Home Manager) or has namespace considerations (e.g., uses `services` instead of `programs`). Omit for straightforward modules.
 - Bullet style inside the comment:
   - Use `*` for generic bullet points (`Summary`, `Tests`, `Notes`).
   - Use the literal option token (for example `-b`) as the bullet for `Options`, as shown in `ent.nix`.
@@ -110,7 +110,7 @@ Most apps use `programs.<name>.extended`. However, apps requiring NixOS services
 | `programs.<name>.extended` | Package-only apps                                    | `programs` block          |
 | `services.<name>.extended` | Apps with NixOS service (e.g., `services.autorandr`) | `services` block          |
 
-The module pattern is identical—just substitute `programs` with `services` in option paths.
+The module pattern is identical--just substitute `programs` with `services` in option paths.
 
 ## Maintenance Checklist
 
@@ -216,11 +216,11 @@ _: {
 
 **Package Installation Pattern:**
 
-| HM package option | Action                                                                      |
-| ----------------- | --------------------------------------------------------------------------- |
-| `nullable = true` | Use `package = null;` — NixOS module installs the package                   |
-| Not nullable      | Omit `package` — HM will use default, NixOS also installs (same store path) |
-| No package option | Omit `package` — HM only manages config                                     |
+| HM package option | Action                                                                       |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `nullable = true` | Use `package = null;` -- NixOS module installs the package                   |
+| Not nullable      | Omit `package` -- HM will use default, NixOS also installs (same store path) |
+| No package option | Omit `package` -- HM only manages config                                     |
 
 > **Exceptions:** Some HM modules require the package reference for additional features (e.g., `bun` needs it for `enableGitIntegration` to configure git diff). In such cases, omit `package = null` and add a comment explaining why:
 >
@@ -340,7 +340,7 @@ in
 osConfig.programs.<tool>.extended.enable or false
 # Fails if .extended doesn't exist (only catches missing .enable)
 
-# CORRECT - robust pattern
+# CORRECT - safe pattern
 lib.attrByPath [ "programs" "<tool>" "extended" "enable" ] false osConfig
 # Safely traverses any depth with fallback
 ```

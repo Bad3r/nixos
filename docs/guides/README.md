@@ -12,6 +12,6 @@ Style guides, coding standards, and how-to documentation.
 
 ## Related
 
-- [Architecture Documentation](../architecture/) — how the Dendritic Pattern works
-- [Usage Documentation](../usage/) — feature-specific user guides
-- [SOPS Usage](../sops/README.md) — secrets management
+- [Architecture Documentation](../architecture/) -- how the Dendritic Pattern works
+- [Usage Documentation](../usage/) -- feature-specific user guides
+- [SOPS Usage](../sops/README.md) -- secrets management

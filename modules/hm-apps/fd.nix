@@ -16,9 +16,9 @@
     --hidden --no-ignore: Include hidden files and disable ignore rules.
 
   Example Usage:
-    * `fd config ~/.config` — Quickly locate configuration files under a directory tree.
-    * `fd --extension rs --exec rustfmt {}` — Format all Rust files discovered by fd.
-    * `fd '^Dockerfile$' --hidden --strip-cwd-prefix` — Find Dockerfiles anywhere in the repo while producing clean paths.
+    * `fd config ~/.config` -- Quickly locate configuration files under a directory tree.
+    * `fd --extension rs --exec rustfmt {}` -- Format all Rust files discovered by fd.
+    * `fd '^Dockerfile$' --hidden --strip-cwd-prefix` -- Find Dockerfiles anywhere in the repo while producing clean paths.
 */
 
 {

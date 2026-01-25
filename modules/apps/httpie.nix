@@ -7,7 +7,7 @@
 
   Summary:
     * Provides expressive request syntax with colorized, formatted output for API responses.
-    * Supports sessions, plugins, and downloads to streamline repetitive HTTP workflows.
+    * Supports sessions, plugins, and downloads for repetitive HTTP workflows.
 
   Options:
     -v: Show both the request and response for detailed debugging.

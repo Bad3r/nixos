@@ -15,9 +15,9 @@
     nicotine-plus --safe-mode: Start without plugins to troubleshoot crashes.
 
   Example Usage:
-    * `nicotine-plus` — Launch the Soulseek client with the default profile.
-    * `nicotine-plus --profile work` — Maintain separate settings for different sharing communities.
-    * `nicotine-plus --portable` — Store config alongside the executable for removable media use.
+    * `nicotine-plus` -- Launch the Soulseek client with the default profile.
+    * `nicotine-plus --profile work` -- Maintain separate settings for different sharing communities.
+    * `nicotine-plus --portable` -- Store config alongside the executable for removable media use.
 */
 _:
 let

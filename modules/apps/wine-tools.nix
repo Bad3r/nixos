@@ -22,13 +22,13 @@
       Note: 'Proton-X' is automatically translated to 'Proton - X' for Steam's naming convention.
 
   Example Usage:
-    * `WINEPREFIX=~/prefixes/app wine setup.exe` — Install a Windows application into a custom prefix.
-    * `winetricks corefonts vcrun2019` — Install required runtime components.
-    * `proton-run game.exe` — Launch a program with Proton-GE's compatibility enhancements.
-    * `PROTON_VERSION=Proton-Experimental proton-run game.exe` — Use Steam's Proton Experimental.
-    * `PROTON_VERSION=GE-Proton9-20 proton-run game.exe` — Use a specific GE-Proton version.
-    * `proton-tricks vcrun2022` — Install VC++ 2022 runtime into proton-run's prefix.
-    * `PROTON_VERSION=Proton-Experimental proton-tricks vcrun2022 dotnet48` — Install runtimes using Proton Experimental's Wine.
+    * `WINEPREFIX=~/prefixes/app wine setup.exe` -- Install a Windows application into a custom prefix.
+    * `winetricks corefonts vcrun2019` -- Install required runtime components.
+    * `proton-run game.exe` -- Launch a program with Proton-GE's compatibility enhancements.
+    * `PROTON_VERSION=Proton-Experimental proton-run game.exe` -- Use Steam's Proton Experimental.
+    * `PROTON_VERSION=GE-Proton9-20 proton-run game.exe` -- Use a specific GE-Proton version.
+    * `proton-tricks vcrun2022` -- Install VC++ 2022 runtime into proton-run's prefix.
+    * `PROTON_VERSION=Proton-Experimental proton-tricks vcrun2022 dotnet48` -- Install runtimes using Proton Experimental's Wine.
 */
 _:
 let

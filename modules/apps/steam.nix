@@ -7,10 +7,10 @@
 
   Summary:
     * Configures the Steam client with proton-ge-bin, dwarfs, fuse-overlayfs, and psmisc to improve Proton compatibility, game modding, and filesystem overlays.
-    * Leverages the NixOS `programs.steam` module to manage runtime dependencies, 32-bit libraries, and sandbox options.
+    * Uses the NixOS `programs.steam` module to manage runtime dependencies, 32-bit libraries, and sandbox options.
 
   Options:
-    programs.steam.enable = true; — Turns on Steam support system-wide.
+    programs.steam.enable = true; -- Turns on Steam support system-wide.
     programs.steam.extraCompatPackages: Additional Proton builds (e.g., Proton-GE) for better game support.
     programs.steam.extraPackages: Supplementary tools available within Steam runtime (overlayfs, dwarfs, etc.).
 

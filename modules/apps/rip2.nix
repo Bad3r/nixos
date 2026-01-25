@@ -16,9 +16,9 @@
     rip purge [--days N]: Permanently remove trashed items, optionally older than N days.
 
   Example Usage:
-    * `rip src/old_module` — Safely remove a directory while keeping the ability to restore it.
-    * `rip ls` — Inspect recently removed files stored in the trash.
-    * `rip undo` — Restore the most recently removed item to its original location.
+    * `rip src/old_module` -- Safely remove a directory while keeping the ability to restore it.
+    * `rip ls` -- Inspect recently removed files stored in the trash.
+    * `rip undo` -- Restore the most recently removed item to its original location.
 */
 
 let

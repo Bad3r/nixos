@@ -10,8 +10,8 @@
     * Optionally configures libvirtd daemon and user groups.
 
   Example Usage:
-    * `qemu-system-x86_64` — Launch a QEMU virtual machine directly.
-    * `quickemu --vm ubuntu-24.04.conf` — Start a Quickemu-managed desktop guest with sensible defaults.
+    * `qemu-system-x86_64` -- Launch a QEMU virtual machine directly.
+    * `quickemu --vm ubuntu-24.04.conf` -- Start a Quickemu-managed desktop guest with sensible defaults.
 */
 
 _:

@@ -17,9 +17,9 @@
     --layout=reverse: Flip the result list to appear above the query prompt.
 
   Example Usage:
-    * `sk --ansi < <(git status --short)` — Fuzzily select files from Git status with color-preserving output.
-    * `sk --preview 'bat --style=numbers --color=always {}'` — Display syntax-highlighted previews while filtering.
-    * `find . -type f | sk --bind 'ctrl-o:execute(nvim {})'` — Open selected files in Neovim directly from the picker.
+    * `sk --ansi < <(git status --short)` -- Fuzzily select files from Git status with color-preserving output.
+    * `sk --preview 'bat --style=numbers --color=always {}'` -- Display syntax-highlighted previews while filtering.
+    * `find . -type f | sk --bind 'ctrl-o:execute(nvim {})'` -- Open selected files in Neovim directly from the picker.
 */
 
 _: {

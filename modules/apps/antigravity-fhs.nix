@@ -7,7 +7,7 @@
 
   Summary:
     * AI-powered IDE built on VS Code with autonomous agent capabilities for code generation, execution, and verification.
-    * FHS-wrapped variant enabling seamless extension compatibility without Nix-specific modifications.
+    * FHS-wrapped variant for extension compatibility without Nix-specific modifications.
 */
 _:
 let

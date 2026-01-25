@@ -17,9 +17,9 @@
     --log-file <path>: Write logs for debugging.
 
   Example Usage:
-    * `picom --config ~/.config/picom/picom.conf --daemon` — Start compositing with a custom config.
-    * `picom --experimental-backends --backend glx` — Use GLX backend with blur effects.
-    * `pkill picom {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} picom --vsync` — Restart picom with VSYNC enabled to mitigate tearing.
+    * `picom --config ~/.config/picom/picom.conf --daemon` -- Start compositing with a custom config.
+    * `picom --experimental-backends --backend glx` -- Use GLX backend with blur effects.
+    * `pkill picom {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} picom --vsync` -- Restart picom with VSYNC enabled to mitigate tearing.
 */
 _:
 let

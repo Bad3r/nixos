@@ -15,9 +15,9 @@
     element-desktop --enable-features=UseOzonePlatform: Enable Wayland-friendly rendering.
 
   Example Usage:
-    * `element-desktop` — Sign into a Matrix account for personal or team collaboration.
-    * `element-desktop --profile work` — Maintain separated home and work profiles.
-    * `element-desktop --proxy-server="socks5://127.0.0.1:9150"` — Route Matrix traffic over Tor or corporate proxies.
+    * `element-desktop` -- Sign into a Matrix account for personal or team collaboration.
+    * `element-desktop --profile work` -- Maintain separated home and work profiles.
+    * `element-desktop --proxy-server="socks5://127.0.0.1:9150"` -- Route Matrix traffic over Tor or corporate proxies.
 */
 _:
 let

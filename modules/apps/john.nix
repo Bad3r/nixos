@@ -15,9 +15,9 @@
     john --restore=<session>: Resume a paused cracking session.
 
   Example Usage:
-    * `john --format=sha512crypt hashes.txt` — Crack Linux shadow hashes.
-    * `john --wordlist=rockyou.txt --rules hashes.txt` — Apply mangling rules to a wordlist.
-    * `john --show hashes.txt` — Display recovered credentials once cracking finishes.
+    * `john --format=sha512crypt hashes.txt` -- Crack Linux shadow hashes.
+    * `john --wordlist=rockyou.txt --rules hashes.txt` -- Apply mangling rules to a wordlist.
+    * `john --show hashes.txt` -- Display recovered credentials once cracking finishes.
 */
 _:
 let

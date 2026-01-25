@@ -16,9 +16,9 @@
     --paste <index>: Paste a stored item directly into the focused window.
 
   Example Usage:
-    * `copyq` — Start the clipboard manager and expose the tray icon to manage history entries.
-    * `copyq add "ssh prod.example.com"` — Store frequently used snippets without copying them manually.
-    * `copyq paste 0` — Paste the most recent clipboard item through a script or key binding.
+    * `copyq` -- Start the clipboard manager and expose the tray icon to manage history entries.
+    * `copyq add "ssh prod.example.com"` -- Store frequently used snippets without copying them manually.
+    * `copyq paste 0` -- Paste the most recent clipboard item through a script or key binding.
 */
 
 {

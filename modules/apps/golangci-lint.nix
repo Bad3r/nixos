@@ -10,8 +10,8 @@
     * Supports editor integrations and CI workflows to enforce coding standards consistently.
 
   Example Usage:
-    * `golangci-lint run ./...` — Lint all Go packages in the current module using the default configuration.
-    * `golangci-lint run --enable govet --disable errcheck` — Toggle specific linters for targeted analysis.
+    * `golangci-lint run ./...` -- Lint all Go packages in the current module using the default configuration.
+    * `golangci-lint run --enable govet --disable errcheck` -- Toggle specific linters for targeted analysis.
 */
 _:
 let

@@ -36,7 +36,7 @@
     cutter --help: Show all command-line options.
 
   Example Usage:
-    * `cutter` — Launch GUI and open IPA binary interactively.
+    * `cutter` -- Launch GUI and open IPA binary interactively.
     * Use Graph view (Ctrl+G) to visualize function control flow.
     * Decompiler pane shows pseudo-C for selected functions.
     * Search strings (Shift+F12) to find hardcoded URLs, keys, etc.

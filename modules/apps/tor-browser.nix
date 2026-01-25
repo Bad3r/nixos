@@ -15,7 +15,7 @@
     TOR_CONTROL_PORT: Configure Tor control port for advanced setups (e.g., bridges, custom proxies).
 
   Example Usage:
-    * `tor-browser` — Start Tor Browser and connect to the Tor network using the default launcher.
+    * `tor-browser` -- Start Tor Browser and connect to the Tor network using the default launcher.
     * Configure bridges via “Tor Network Settings” if bypassing censorship is required.
     * Set Security Level to “Safest” via the shield icon for maximal script blocking.
 */

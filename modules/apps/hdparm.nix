@@ -17,9 +17,9 @@
     -y/-Y/-Z <device>: Put the drive into standby, sleep, or sleep mode (requires caution).
 
   Example Usage:
-    * `sudo hdparm -I /dev/sda` — Inspect drive capabilities and feature set.
-    * `sudo hdparm -tT /dev/nvme0n1` — Benchmark sequential read performance for an NVMe device.
-    * `sudo hdparm -S 120 /dev/sdb` — Spin down a drive after 10 minutes of inactivity (120 × 5 seconds).
+    * `sudo hdparm -I /dev/sda` -- Inspect drive capabilities and feature set.
+    * `sudo hdparm -tT /dev/nvme0n1` -- Benchmark sequential read performance for an NVMe device.
+    * `sudo hdparm -S 120 /dev/sdb` -- Spin down a drive after 10 minutes of inactivity (120 × 5 seconds).
 */
 _:
 let

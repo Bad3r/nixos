@@ -15,9 +15,9 @@
     nix-prefetch-git --nopull <path>: Reuse an existing clone without pulling.
 
   Example Usage:
-    * `nix-prefetch-git https://github.com/nixos/nixpkgs --rev nixos-24.05` — Fetch the nixos-24.05 branch and print its hash.
-    * `nix-prefetch-git --fetch-submodules https://github.com/example/project` — Include submodules when generating the hash.
-    * `nix-prefetch-git --url . --rev refs/heads/main` — Prefetch a local repository.
+    * `nix-prefetch-git https://github.com/nixos/nixpkgs --rev nixos-24.05` -- Fetch the nixos-24.05 branch and print its hash.
+    * `nix-prefetch-git --fetch-submodules https://github.com/example/project` -- Include submodules when generating the hash.
+    * `nix-prefetch-git --url . --rev refs/heads/main` -- Prefetch a local repository.
 */
 _:
 let

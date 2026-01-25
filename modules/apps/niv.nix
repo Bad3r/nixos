@@ -17,9 +17,9 @@
     niv show [package]: Display current pin metadata.
 
   Example Usage:
-    * `niv init` — Create the sources manifest for a new project.
-    * `niv add nixpkgs -b nixos-24.05` — Pin a specific nixpkgs channel.
-    * `niv update nixpkgs` — Fast-forward the nixpkgs input while preserving hashes.
+    * `niv init` -- Create the sources manifest for a new project.
+    * `niv add nixpkgs -b nixos-24.05` -- Pin a specific nixpkgs channel.
+    * `niv update nixpkgs` -- Fast-forward the nixpkgs input while preserving hashes.
 */
 _:
 let

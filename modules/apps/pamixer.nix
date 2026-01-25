@@ -17,9 +17,9 @@
     pamixer --list-sinks/--list-sources: Enumerate available audio devices.
 
   Example Usage:
-    * `pamixer --increase 5` — Raise the default sink volume by 5%.
-    * `pamixer --set-volume 30 --sink 1` — Set sink #1 to 30% volume explicitly.
-    * `pamixer --toggle-mute` — Toggle mute state via a keybinding script.
+    * `pamixer --increase 5` -- Raise the default sink volume by 5%.
+    * `pamixer --set-volume 30 --sink 1` -- Set sink #1 to 30% volume explicitly.
+    * `pamixer --toggle-mute` -- Toggle mute state via a keybinding script.
 */
 _:
 let

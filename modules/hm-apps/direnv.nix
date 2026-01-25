@@ -17,9 +17,9 @@
     * Custom stdlib additions for enhanced functionality
 
   Usage:
-    * `echo 'use flake' > .envrc && direnv allow` — Activate Nix flake in current directory
-    * `direnv allow` — Authorize the current `.envrc` file
-    * `direnv reload` — Re-evaluate environment after editing `.envrc`
+    * `echo 'use flake' > .envrc && direnv allow` -- Activate Nix flake in current directory
+    * `direnv allow` -- Authorize the current `.envrc` file
+    * `direnv reload` -- Re-evaluate environment after editing `.envrc`
 */
 
 _: {

@@ -17,9 +17,9 @@
     nrm test: Benchmark the speed of all registries.
 
   Example Usage:
-    * `nrm ls` — View all configured registries and the currently active registry.
-    * `nrm use npm` — Switch back to the official npm registry.
-    * `nrm add internal https://npm.company.com/` — Add a private corporate registry.
+    * `nrm ls` -- View all configured registries and the currently active registry.
+    * `nrm use npm` -- Switch back to the official npm registry.
+    * `nrm add internal https://npm.company.com/` -- Add a private corporate registry.
 */
 _:
 let

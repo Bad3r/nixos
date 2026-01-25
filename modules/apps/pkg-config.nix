@@ -17,9 +17,9 @@
     pkg-config --exists <package>: Return success if the package is available.
 
   Example Usage:
-    * `pkg-config --cflags --libs gtk+-3.0` — Obtain compiler and linker flags for GTK 3.
-    * `PKG_CONFIG_PATH=$PWD/build/lib/pkgconfig pkg-config --modversion mylib` — Query a locally built library.
-    * `pkg-config --exists openssl {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} echo "OpenSSL available"` — Check for dependency presence in build scripts.
+    * `pkg-config --cflags --libs gtk+-3.0` -- Obtain compiler and linker flags for GTK 3.
+    * `PKG_CONFIG_PATH=$PWD/build/lib/pkgconfig pkg-config --modversion mylib` -- Query a locally built library.
+    * `pkg-config --exists openssl {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} echo "OpenSSL available"` -- Check for dependency presence in build scripts.
 */
 _:
 let

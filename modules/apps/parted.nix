@@ -17,9 +17,9 @@
     resizepart <num> <end>: Resize a partition to a new end sector.
 
   Example Usage:
-    * `sudo parted /dev/sda print` — Inspect current partitions on a disk.
-    * `sudo parted --script /dev/sdb mklabel gpt mkpart primary ext4 1MiB 100GiB` — Create a GPT disk and an ext4 partition via a script.
-    * `sudo parted /dev/nvme0n1 resizepart 3 200GiB` — Grow partition 3 to a new size.
+    * `sudo parted /dev/sda print` -- Inspect current partitions on a disk.
+    * `sudo parted --script /dev/sdb mklabel gpt mkpart primary ext4 1MiB 100GiB` -- Create a GPT disk and an ext4 partition via a script.
+    * `sudo parted /dev/nvme0n1 resizepart 3 200GiB` -- Grow partition 3 to a new size.
 */
 _:
 let

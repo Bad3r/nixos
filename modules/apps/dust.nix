@@ -17,9 +17,9 @@
     --ignore-directory <pattern>: Skip directories matching the given pattern.
 
   Example Usage:
-    * `dust` — Render an interactive overview of disk usage under the current directory.
-    * `dust -d 2 /var` — Inspect the largest directories within `/var` up to depth 2.
-    * `dust -n 10 --ignore-directory node_modules project/` — Show the top ten space consumers while ignoring `node_modules`.
+    * `dust` -- Render an interactive overview of disk usage under the current directory.
+    * `dust -d 2 /var` -- Inspect the largest directories within `/var` up to depth 2.
+    * `dust -n 10 --ignore-directory node_modules project/` -- Show the top ten space consumers while ignoring `node_modules`.
 */
 _:
 let

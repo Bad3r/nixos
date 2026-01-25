@@ -14,7 +14,7 @@
     CLI flags (Electron): `--disable-gpu`, `--safe-mode`, etc., for troubleshooting; most features configured via GUI preferences.
 
   Example Usage:
-    * `mattermost-desktop` — Open the client and log into a Mattermost workspace.
+    * `mattermost-desktop` -- Open the client and log into a Mattermost workspace.
     * Configure multiple servers via “Add Server” to switch between environments easily.
     * Use Settings → Notifications to customize notification sounds and behavior.
 */

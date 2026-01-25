@@ -15,9 +15,9 @@
     nsxiv -a <dir>: Start an automatic slideshow cycling through the directory.
 
   Example Usage:
-    * `nsxiv photos/` — Browse a directory of photos with thumbnail previews.
-    * `nsxiv -a wallpapers/` — Run a fullscreen slideshow cycling forever.
-    * `nsxiv -eh` — Print key-handler usage details for integrating automation scripts.
+    * `nsxiv photos/` -- Browse a directory of photos with thumbnail previews.
+    * `nsxiv -a wallpapers/` -- Run a fullscreen slideshow cycling forever.
+    * `nsxiv -eh` -- Print key-handler usage details for integrating automation scripts.
 */
 _:
 let

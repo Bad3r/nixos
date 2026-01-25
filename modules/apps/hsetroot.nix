@@ -17,9 +17,9 @@
     -brightness <value>: Adjust brightness of the resulting background.
 
   Example Usage:
-    * `hsetroot -solid '#1d2021'` — Set a solid background color.
-    * `hsetroot -gradient vert '#1d2021' '#282c34'` — Apply a vertical gradient between two colors.
-    * `hsetroot -fill ~/Pictures/wallpaper.jpg` — Fill the screen with an image preserving aspect ratio.
+    * `hsetroot -solid '#1d2021'` -- Set a solid background color.
+    * `hsetroot -gradient vert '#1d2021' '#282c34'` -- Apply a vertical gradient between two colors.
+    * `hsetroot -fill ~/Pictures/wallpaper.jpg` -- Fill the screen with an image preserving aspect ratio.
 */
 _:
 let

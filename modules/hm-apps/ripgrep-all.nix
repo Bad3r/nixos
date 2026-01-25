@@ -16,9 +16,9 @@
     --type-list: Show the available extractors and whether required tools are installed (`rga-preproc --type-list`).
 
   Example Usage:
-    * `rga "encryption" docs/` — Find references across PDFs, Markdown, Office documents, and archives.
-    * `rga --type epub --context 2 "machine learning" ~/ebooks` — Search eBooks with contextual lines.
-    * `rga-preproc --type-list` — Verify extractor dependencies such as `pdftotext`, `pandoc`, and `ffmpeg`.
+    * `rga "encryption" docs/` -- Find references across PDFs, Markdown, Office documents, and archives.
+    * `rga --type epub --context 2 "machine learning" ~/ebooks` -- Search eBooks with contextual lines.
+    * `rga-preproc --type-list` -- Verify extractor dependencies such as `pdftotext`, `pandoc`, and `ffmpeg`.
 */
 
 {

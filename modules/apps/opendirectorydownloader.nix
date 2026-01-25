@@ -7,7 +7,7 @@
 
   Summary:
     * Indexes open directories in 130+ formats including FTP, HTTP, Google Drive, Dropbox, and more.
-    * Downloads directory listings with comprehensive metadata and folder structure preservation.
+    * Downloads directory listings with full metadata and folder structure preservation.
 
   Options:
     opendirectorydownloader [URL]: Scan and index the specified open directory URL.
@@ -19,9 +19,9 @@
     --upload-urls: Upload URLs file to file hosts.
 
   Example Usage:
-    * `opendirectorydownloader -u https://example.com/files/` — Scan an open directory.
-    * `opendirectorydownloader -u ftp://ftp.example.com/ -t 10` — Scan FTP with 10 threads.
-    * `opendirectorydownloader -u https://example.com/files/ -j -o results.json` — Save results as JSON.
+    * `opendirectorydownloader -u https://example.com/files/` -- Scan an open directory.
+    * `opendirectorydownloader -u ftp://ftp.example.com/ -t 10` -- Scan FTP with 10 threads.
+    * `opendirectorydownloader -u https://example.com/files/ -j -o results.json` -- Save results as JSON.
 */
 _:
 let

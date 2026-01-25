@@ -15,9 +15,9 @@
     prefetch-yarn-deps --verbose <yarn.lock>: Print progress and cache hits while computing hashes.
 
   Example Usage:
-    * `prefetch-yarn-deps yarn.lock` — Print the sha256 hash for a project lockfile.
-    * `prefetch-yarn-deps --builder ./ui/yarn.lock` — Output just the hash for embedding in a derivation.
-    * `nix run nixpkgs#prefetch-yarn-deps -- --verbose ./yarn.lock` — Execute via `nix run` with verbose logging.
+    * `prefetch-yarn-deps yarn.lock` -- Print the sha256 hash for a project lockfile.
+    * `prefetch-yarn-deps --builder ./ui/yarn.lock` -- Output just the hash for embedding in a derivation.
+    * `nix run nixpkgs#prefetch-yarn-deps -- --verbose ./yarn.lock` -- Execute via `nix run` with verbose logging.
 */
 _:
 let

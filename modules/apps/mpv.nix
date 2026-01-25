@@ -17,9 +17,9 @@
     jellyfin-mpv-shim: Launch the Jellyfin controller for direct playback through mpv.
 
   Example Usage:
-    * `mpv --hwdec=auto movie.mkv` — Play a video with automatic hardware decoding.
-    * `mpv https://www.youtube.com/watch?v=dQw4w9WgXcQ` — Stream content directly using youtube-dl integration.
-    * `jellyfin-mpv-shim` — Pair with a Jellyfin server to stream media through mpv.
+    * `mpv --hwdec=auto movie.mkv` -- Play a video with automatic hardware decoding.
+    * `mpv https://www.youtube.com/watch?v=dQw4w9WgXcQ` -- Stream content directly using youtube-dl integration.
+    * `jellyfin-mpv-shim` -- Pair with a Jellyfin server to stream media through mpv.
 */
 
 _:

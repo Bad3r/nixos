@@ -27,7 +27,7 @@ This document covers how to write modules correctly in this flake-parts + import
 }
 ```
 
-The outer function does **not** receive `pkgs` — flake-parts doesn't provide it at that level. The exported value must be a function that receives `{ pkgs, ... }`.
+The outer function does **not** receive `pkgs` -- flake-parts doesn't provide it at that level. The exported value must be a function that receives `{ pkgs, ... }`.
 
 ### Pattern 2: Module Without `pkgs`
 
@@ -190,6 +190,6 @@ nix eval .#nixosConfigurations.system76.config.boot.loader
 
 ## Next Steps
 
-- [NixOS Modules](03-nixos-modules.md) — system aggregator details
-- [Home Manager](04-home-manager.md) — HM aggregator details
-- [Reference](06-reference.md) — validation commands
+- [NixOS Modules](03-nixos-modules.md) -- system aggregator details
+- [Home Manager](04-home-manager.md) -- HM aggregator details
+- [Reference](06-reference.md) -- validation commands

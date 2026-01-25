@@ -15,9 +15,9 @@
     hashcat --restore: Resume an interrupted cracking session.
 
   Example Usage:
-    * `hashcat -m 0 -a 0 hashes.txt rockyou.txt` — Attempt MD5 hashes using a wordlist.
-    * `hashcat -m 22000 handshake.hc22000 wordlist.txt -r rules/best64.rule` — Crack WPA2 handshakes with rule-based mangling.
-    * `hashcat -I` — List detected compute devices before launching an attack.
+    * `hashcat -m 0 -a 0 hashes.txt rockyou.txt` -- Attempt MD5 hashes using a wordlist.
+    * `hashcat -m 22000 handshake.hc22000 wordlist.txt -r rules/best64.rule` -- Crack WPA2 handshakes with rule-based mangling.
+    * `hashcat -I` -- List detected compute devices before launching an attack.
 */
 _:
 let

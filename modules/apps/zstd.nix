@@ -17,9 +17,9 @@
     --adapt: Dynamically adjust compression parameters for mixed workloads.
 
   Example Usage:
-    * `zstd -19 dataset.csv` — Compress large datasets with maximum ratio.
-    * `zstd -d -c logs.zst | jq '.message'` — Stream-decompress into another command without creating intermediate files.
-    * `zstd --adapt -T0 < input.bin > output.zst` — Compress mixed workloads using all available cores with adaptive tuning.
+    * `zstd -19 dataset.csv` -- Compress large datasets with maximum ratio.
+    * `zstd -d -c logs.zst | jq '.message'` -- Stream-decompress into another command without creating intermediate files.
+    * `zstd --adapt -T0 < input.bin > output.zst` -- Compress mixed workloads using all available cores with adaptive tuning.
 */
 _:
 let

@@ -15,8 +15,8 @@
     (Most operations are performed interactively through the GUI menus.)
 
   Example Usage:
-    * `gnome-disks` — Open the GNOME Disks application to inspect devices, run benchmarks, or configure mounts.
-    * Use the “Create Disk Image…” menu to back up a removable drive to an image file.
+    * `gnome-disks` -- Open the GNOME Disks application to inspect devices, run benchmarks, or configure mounts.
+    * Use the “Create Disk Image...” menu to back up a removable drive to an image file.
     * Use “SMART Data {PRESERVED_DOCUMENTATION} Self-Tests” to review drive health and initiate a self-test.
 */
 _:

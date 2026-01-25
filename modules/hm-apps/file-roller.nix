@@ -16,9 +16,9 @@
     --version: Show the installed release number and exit.
 
   Example Usage:
-    * `file-roller` — Open the GUI to browse and manipulate archives.
-    * `file-roller --extract-to ~/Downloads logs.tar.xz` — Quickly unpack logs into the Downloads folder.
-    * `file-roller --add-to backup.7z Documents/Reports` — Bundle reports into an encrypted-capable 7z archive.
+    * `file-roller` -- Open the GUI to browse and manipulate archives.
+    * `file-roller --extract-to ~/Downloads logs.tar.xz` -- Quickly unpack logs into the Downloads folder.
+    * `file-roller --add-to backup.7z Documents/Reports` -- Bundle reports into an encrypted-capable 7z archive.
 */
 
 {

@@ -16,9 +16,9 @@
     --log-level <trace|debug|info>: Adjust diagnostic verbosity for troubleshooting.
 
   Example Usage:
-    * `wezterm` — Start the GPU-accelerated terminal and multiplexer.
-    * `wezterm start --cwd ~/projects` — Open a new tab ready to work in a project directory.
-    * `wezterm ssh prod` — Launch an SSH session that inherits wezterm's key handling and multiplexing.
+    * `wezterm` -- Start the GPU-accelerated terminal and multiplexer.
+    * `wezterm start --cwd ~/projects` -- Open a new tab ready to work in a project directory.
+    * `wezterm ssh prod` -- Launch an SSH session that inherits wezterm's key handling and multiplexing.
 */
 
 _: {

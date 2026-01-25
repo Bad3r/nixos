@@ -16,9 +16,9 @@
     corepack enable: Activate package managers like pnpm/yarn shipped with Node 22.
 
   Example Usage:
-    * `node app.js` — Run a Node.js server or script entrypoint.
-    * `npm init -y {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} npm install express` — Initialize a project and add dependencies.
-    * `npx tsc` — Execute TypeScript compiler via npx using the Node 22 toolchain.
+    * `node app.js` -- Run a Node.js server or script entrypoint.
+    * `npm init -y {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} npm install express` -- Initialize a project and add dependencies.
+    * `npx tsc` -- Execute TypeScript compiler via npx using the Node 22 toolchain.
 */
 _:
 let

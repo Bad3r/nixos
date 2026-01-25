@@ -15,9 +15,9 @@
     statix --format json check [path]: Emit machine-readable diagnostics for editor integration.
 
   Example Usage:
-    * `statix check .` — Lint all Nix files in the current directory.
-    * `statix fix modules/` — Autofix eligible issues inside `modules/`.
-    * `statix --format json check flake.nix` — Produce JSON diagnostics for tooling.
+    * `statix check .` -- Lint all Nix files in the current directory.
+    * `statix fix modules/` -- Autofix eligible issues inside `modules/`.
+    * `statix --format json check flake.nix` -- Produce JSON diagnostics for tooling.
 */
 _:
 let

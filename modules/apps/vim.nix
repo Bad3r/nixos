@@ -16,9 +16,9 @@
     vim +'command' <file>: Execute ex commands on startup (e.g., `+"set nu"`).
 
   Example Usage:
-    * `vim ~/.config/nixos/configuration.nix` — Edit a configuration file with syntax highlighting.
-    * `vim -u NONE -N` — Start with no configuration in nocompatible mode to debug issues.
-    * `vim +'PlugUpdate' +qa` — Update plugins using vim-plug in automation scripts.
+    * `vim ~/.config/nixos/configuration.nix` -- Edit a configuration file with syntax highlighting.
+    * `vim -u NONE -N` -- Start with no configuration in nocompatible mode to debug issues.
+    * `vim +'PlugUpdate' +qa` -- Update plugins using vim-plug in automation scripts.
 */
 _:
 let

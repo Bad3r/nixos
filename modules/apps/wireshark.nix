@@ -15,9 +15,9 @@
     dumpcap -i <iface> -w file.pcapng: Capture packets with minimal overhead.
 
   Example Usage:
-    * `wireshark` — Inspect live traffic; ensure membership in the `wireshark` group for capture rights.
-    * `tshark -Y "http.request" -r capture.pcapng` — Filter HTTP requests from a saved capture.
-    * `dumpcap -i eth0 -b duration:300 -w /tmp/trace` — Rotate captures every five minutes for long-running monitoring.
+    * `wireshark` -- Inspect live traffic; ensure membership in the `wireshark` group for capture rights.
+    * `tshark -Y "http.request" -r capture.pcapng` -- Filter HTTP requests from a saved capture.
+    * `dumpcap -i eth0 -b duration:300 -w /tmp/trace` -- Rotate captures every five minutes for long-running monitoring.
 */
 _:
 let
