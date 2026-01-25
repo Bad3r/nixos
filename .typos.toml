@@ -2,25 +2,25 @@
 extend-ignore-re = [
   "[A-Za-z0-9+/=]{32,}", # base64/age blobs
   "-[A-Za-z0-9]{1,4}",   # short CLI flags (e.g. -Pn)
-  "\\.[A-Za-z0-9]{1,4}"  # short file ext. (e.g. .edn)
+  "\\.[A-Za-z0-9]{1,4}", # short file ext. (e.g. .edn)
 ]
 
 [default.extend-words]
 # General terms
 example = "example"
-fpt = "fpt"  # Intel Flash Programming Tool
-PN = "PN"   # Part Number
+fpt = "fpt"         # Intel Flash Programming Tool
+PN = "PN"           # Part Number
 
 # App/tool names
 iterm2_with_bell = "iterm2_with_bell"
-Autorize = "Autorize"  # Burp Suite extension
-Laf = "Laf"  # FlatLaf Java look-and-feel suffix
+Autorize = "Autorize"                 # Burp Suite extension
+Laf = "Laf"                           # FlatLaf Java look-and-feel suffix
 
 # NixOS/nixpkgs terms
-facter = "facter"  # nixos-facter-modules
-crypted = "crypted"  # LUKS device mapper name
-wdth = "wdth"  # CSS font-variation-settings property
-
+facter = "facter"             # nixos-facter-modules
+crypted = "crypted"           # LUKS device mapper name
+wdth = "wdth"                 # CSS font-variation-settings property
+substituters = "substituters" # nix substituters
 # Hashes/keys (extend-ignore-re should catch most, but explicit for safety)
 "981DE78A201C2B735FF0B545A3967CCA47D5275F" = "981DE78A201C2B735FF0B545A3967CCA47D5275F"
 
