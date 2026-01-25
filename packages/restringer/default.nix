@@ -1,3 +1,5 @@
+# NOTE: restringer produces incorrect deobfuscation results in testing.
+# For obfuscated JS, prefer webcrack instead.
 {
   lib,
   buildNpmPackage,
