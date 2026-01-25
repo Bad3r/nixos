@@ -109,9 +109,7 @@ webcrack's browserify matcher is loose enough to partially match esbuild's outpu
 1. **Cleanroom reverse engineering** - Document behavior, rewrite from scratch
    - Example: https://github.com/ghuntley/claude-code-source-code-deobfuscation
 
-2. **Manual analysis** - Use the beautified output + pattern extraction scripts
-   - `analyze_cli.py` - Extract error messages, API endpoints, env vars
-   - `extract_prompts.py` - Extract system prompts
+2. **Manual analysis** - Use custom tailor-made pattern extraction scripts
 
 3. **AST-based extraction** - Write custom babel transforms to:
    - Identify esbuild's lazy module wrappers (`var X = C(() => {...})`)
