@@ -17,9 +17,9 @@
     --safe-mode: Start Firefox with extensions disabled for troubleshooting.
 
   Example Usage:
-    * `firefox https://example.com` — Launch Firefox and navigate to a website.
-    * `firefox --profile ~/.mozilla/firefox/work --private-window https://intranet.local` — Use a dedicated profile and private window for sensitive browsing.
-    * `firefox --headless --screenshot page.png https://example.com` — Capture a screenshot via the headless renderer.
+    * `firefox https://example.com` -- Launch Firefox and navigate to a website.
+    * `firefox --profile ~/.mozilla/firefox/work --private-window https://intranet.local` -- Use a dedicated profile and private window for sensitive browsing.
+    * `firefox --headless --screenshot page.png https://example.com` -- Capture a screenshot via the headless renderer.
 */
 _:
 let

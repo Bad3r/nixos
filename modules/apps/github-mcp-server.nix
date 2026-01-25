@@ -15,9 +15,9 @@
     github-mcp-server --read-only: Restrict available operations to non-mutating actions.
 
   Example Usage:
-    * `github-mcp-server stdio --toolsets code,issues` — Launch the server with code and issue management tools.
-    * `github-mcp-server socket --port 8765` — Expose MCP services over TCP for remote clients.
-    * `github-mcp-server stdio --read-only` — Share repository insights without allowing mutations.
+    * `github-mcp-server stdio --toolsets code,issues` -- Launch the server with code and issue management tools.
+    * `github-mcp-server socket --port 8765` -- Expose MCP services over TCP for remote clients.
+    * `github-mcp-server stdio --read-only` -- Share repository insights without allowing mutations.
 */
 _:
 let

@@ -15,9 +15,9 @@
     deadnix --output json: Emit machine-readable reports.
 
   Example Usage:
-    * `deadnix .` — Report unused definitions across the current project.
-    * `deadnix modules --output json` — Generate JSON diagnostics for editor tooling.
-    * `deadnix --no-link flake.nix` — Produce plain text output without hyperlinks.
+    * `deadnix .` -- Report unused definitions across the current project.
+    * `deadnix modules --output json` -- Generate JSON diagnostics for editor tooling.
+    * `deadnix --no-link flake.nix` -- Produce plain text output without hyperlinks.
 */
 _:
 let

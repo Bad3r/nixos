@@ -16,9 +16,9 @@
     --export <path>: Write layer analysis results to a JSON file.
 
   Example Usage:
-    * `dive nginx:latest` — Explore filesystem changes per layer in an interactive TUI.
-    * `dive --ci myapp:sha-92af` — Enforce size budgets within a continuous integration pipeline.
-    * `dive --export report.json alpine:3.20` — Save analysis data for sharing or automation.
+    * `dive nginx:latest` -- Explore filesystem changes per layer in an interactive TUI.
+    * `dive --ci myapp:sha-92af` -- Enforce size budgets within a continuous integration pipeline.
+    * `dive --export report.json alpine:3.20` -- Save analysis data for sharing or automation.
 */
 
 {

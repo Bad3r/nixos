@@ -16,9 +16,9 @@
     --disable-gpu: Run without GPU acceleration if drivers misbehave.
 
   Example Usage:
-    * `element-desktop` — Start the Matrix client and sign into personal or enterprise homeservers.
-    * `element-desktop --profile work` — Maintain an isolated profile for workplace accounts.
-    * `element-desktop --disable-gpu` — Resolve rendering glitches inside remote desktop sessions.
+    * `element-desktop` -- Start the Matrix client and sign into personal or enterprise homeservers.
+    * `element-desktop --profile work` -- Maintain an isolated profile for workplace accounts.
+    * `element-desktop --disable-gpu` -- Resolve rendering glitches inside remote desktop sessions.
 */
 
 _: {

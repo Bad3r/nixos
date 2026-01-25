@@ -17,9 +17,9 @@
     -fn <font>: Override the font used to render menu entries.
 
   Example Usage:
-    * `dmenu_run` — Launch dmenu to execute commands found on your `$PATH`.
-    * `ls | dmenu -p "Open file:"` — Select a file from the current directory and print the choice to stdout.
-    * `printf 'yes\nno' | dmenu -i -l 2` — Present a two-line selection, matching case-insensitively.
+    * `dmenu_run` -- Launch dmenu to execute commands found on your `$PATH`.
+    * `ls | dmenu -p "Open file:"` -- Select a file from the current directory and print the choice to stdout.
+    * `printf 'yes\nno' | dmenu -i -l 2` -- Present a two-line selection, matching case-insensitively.
 */
 _:
 let

@@ -17,9 +17,9 @@
     -i <window-id>: Capture a specific window by XID.
 
   Example Usage:
-    * `maim screenshot.png` — Capture the entire screen to `screenshot.png`.
-    * `maim -s -u -m 3 region.png` — After a 3-second delay, interactively select an area including the cursor.
-    * `maim -s | xclip -selection clipboard -t image/png` — Copy a selected region directly to the clipboard.
+    * `maim screenshot.png` -- Capture the entire screen to `screenshot.png`.
+    * `maim -s -u -m 3 region.png` -- After a 3-second delay, interactively select an area including the cursor.
+    * `maim -s | xclip -selection clipboard -t image/png` -- Copy a selected region directly to the clipboard.
 */
 _:
 let

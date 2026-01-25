@@ -10,8 +10,8 @@
     * Runs via `cargo clippy` integrating into existing project workflows and CI pipelines.
 
   Example Usage:
-    * `cargo clippy` — Lint the current Rust workspace with default lint groups.
-    * `cargo clippy -- -W clippy::pedantic -A clippy::module-name-repetitions` — Customize lint levels per project needs.
+    * `cargo clippy` -- Lint the current Rust workspace with default lint groups.
+    * `cargo clippy -- -W clippy::pedantic -A clippy::module-name-repetitions` -- Customize lint levels per project needs.
 */
 _:
 let

@@ -15,7 +15,7 @@
     (CLI options are minimal; functionality is primarily through the GUI.)
 
   Example Usage:
-    * `localsend` — Start the app and accept incoming transfers from mobile devices running LocalSend.
+    * `localsend` -- Start the app and accept incoming transfers from mobile devices running LocalSend.
     * Use the GUI “Send” button to drop files onto another detected device.
     * Adjust settings to auto-accept files into a specific downloads directory.
 */

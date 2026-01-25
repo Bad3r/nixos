@@ -17,10 +17,10 @@
     rustfmt: Code formatter ensuring consistent style across Rust projects.
 
   Example Usage:
-    * `cargo new myproject` — Create a new Rust project with standard structure.
-    * `cargo build --release` — Build optimized binary for production.
-    * `cargo clippy -- -W clippy::pedantic` — Run linter with extra strict checks.
-    * `rustc --edition=2021 main.rs` — Compile single file with specific edition.
+    * `cargo new myproject` -- Create a new Rust project with standard structure.
+    * `cargo build --release` -- Build optimized binary for production.
+    * `cargo clippy -- -W clippy::pedantic` -- Run linter with extra strict checks.
+    * `rustc --edition=2021 main.rs` -- Compile single file with specific edition.
 */
 _:
 {

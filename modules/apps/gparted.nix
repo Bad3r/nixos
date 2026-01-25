@@ -15,9 +15,9 @@
     (Most functionality is accessed through the GUI menubar and context menus.)
 
   Example Usage:
-    * `sudo gparted` — Open GParted with administrative privileges to manage partitions.
+    * `sudo gparted` -- Open GParted with administrative privileges to manage partitions.
     * Use “Resize/Move” to adjust partition sizes while preserving data.
-    * Use “Create Partition Table…” to initialize new disks with GPT or MSDOS labels.
+    * Use “Create Partition Table...” to initialize new disks with GPT or MSDOS labels.
 */
 _:
 let

@@ -16,9 +16,9 @@
     pip install <pkg>: Install packages into the active environment.
 
   Example Usage:
-    * `python3.13` — Launch the interactive REPL.
-    * `python3.13 -m venv .venv {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} source .venv/bin/activate` — Create and activate a virtual environment.
-    * `python3.13 -m pip install requests` — Install packages using pip within the environment.
+    * `python3.13` -- Launch the interactive REPL.
+    * `python3.13 -m venv .venv {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} source .venv/bin/activate` -- Create and activate a virtual environment.
+    * `python3.13 -m pip install requests` -- Install packages using pip within the environment.
 */
 _:
 let

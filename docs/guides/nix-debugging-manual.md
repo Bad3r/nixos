@@ -40,7 +40,7 @@ in traced
 
 - Infinite recursion typically arises when option definitions depend on themselves; convert conditionals into `lib.mkIf` or restructure module arguments to break cycles.
 - Missing attributes and type mismatches surface clearer diagnostics when rerun with `--show-trace`, which expands stack frames to the originating file and option definition.
-- Avoid accessing `pkgs.lib` inside module arguments—import `lib` explicitly to prevent recursion through package set initialization.
+- Avoid accessing `pkgs.lib` inside module arguments--import `lib` explicitly to prevent recursion through package set initialization.
 
 #### Debugging "Cannot Coerce Null to String" Errors
 
@@ -51,9 +51,9 @@ This error occurs during module evaluation when a configuration option receives 
 ```
 error: cannot coerce null to a string: null
 
-… while checking flake output 'nixosConfigurations'
-… while checking the NixOS configuration 'nixosConfigurations.system76'
-… while calling the 'seq' builtin
+... while checking flake output 'nixosConfigurations'
+... while checking the NixOS configuration 'nixosConfigurations.system76'
+... while calling the 'seq' builtin
   at «github:NixOS/nixpkgs/.../lib/modules.nix:361:18
 ```
 

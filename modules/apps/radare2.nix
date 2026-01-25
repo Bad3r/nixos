@@ -32,10 +32,10 @@
     rasm2 -d '<hex>': Disassemble hex opcodes.
 
   Example Usage:
-    * `r2 -A MyApp` — Analyze iOS app binary and list functions.
-    * `rabin2 -I MyApp` — Display Mach-O header info, architecture, entry points.
-    * `r2 -c 'aa; afl; pdf @ main' MyApp` — Auto-analyze and decompile main function.
-    * `r2 -c 'iS' MyApp` — List all sections in the binary.
+    * `r2 -A MyApp` -- Analyze iOS app binary and list functions.
+    * `rabin2 -I MyApp` -- Display Mach-O header info, architecture, entry points.
+    * `r2 -c 'aa; afl; pdf @ main' MyApp` -- Auto-analyze and decompile main function.
+    * `r2 -c 'iS' MyApp` -- List all sections in the binary.
 
   Integration:
     * Use with iaito (GUI frontend) for visual analysis.

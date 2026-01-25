@@ -15,9 +15,9 @@
     rsync --bwlimit=<kbps>: Limit transfer bandwidth when sharing constrained links.
 
   Example Usage:
-    * `rsync -avP /data/ user@host:/backup/` — Mirror a directory to a remote host via SSH.
-    * `rsync -av --delete --exclude '.cache/' src/ dest/` — Maintain an exact replica while skipping cache files.
-    * `rsync -avz --bwlimit=5000 files/ rsync://mirror.example.org/share/` — Upload to an rsync daemon with throttled bandwidth.
+    * `rsync -avP /data/ user@host:/backup/` -- Mirror a directory to a remote host via SSH.
+    * `rsync -av --delete --exclude '.cache/' src/ dest/` -- Maintain an exact replica while skipping cache files.
+    * `rsync -avz --bwlimit=5000 files/ rsync://mirror.example.org/share/` -- Upload to an rsync daemon with throttled bandwidth.
 */
 _:
 let

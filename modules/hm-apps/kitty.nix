@@ -17,9 +17,9 @@
     +kitten ssh <host>: Initiate SSH sessions that inherit kitty's graphics protocol extensions.
 
   Example Usage:
-    * `kitty` — Start the terminal emulator with the default configuration.
-    * `kitty --config ~/.config/kitty/presentation.conf` — Apply an alternate profile on launch.
-    * `kitty @ set-font-size 14` — Adjust the font size of a running instance via remote control.
+    * `kitty` -- Start the terminal emulator with the default configuration.
+    * `kitty --config ~/.config/kitty/presentation.conf` -- Apply an alternate profile on launch.
+    * `kitty @ set-font-size 14` -- Adjust the font size of a running instance via remote control.
 */
 
 _: {

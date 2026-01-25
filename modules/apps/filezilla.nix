@@ -16,9 +16,9 @@
     --help: Display CLI flags and exit.
 
   Example Usage:
-    * `filezilla` — Open the client to manage multiple FTP, FTPS, or SFTP sessions with drag-and-drop transfers.
-    * `filezilla --config-dir ~/.config/filezilla-work` — Separate work profiles, bookmarks, and queue settings.
-    * `filezilla --locales=de_DE` — Force a particular locale when the environment locale is unavailable.
+    * `filezilla` -- Open the client to manage multiple FTP, FTPS, or SFTP sessions with drag-and-drop transfers.
+    * `filezilla --config-dir ~/.config/filezilla-work` -- Separate work profiles, bookmarks, and queue settings.
+    * `filezilla --locales=de_DE` -- Force a particular locale when the environment locale is unavailable.
 */
 _:
 let

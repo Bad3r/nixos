@@ -15,9 +15,9 @@
     filen-cli share create <path>: Generate share links for collaborators with configurable permissions.
 
   Example Usage:
-    * `filen-cli login` — Sign in and save credentials for subsequent commands.
-    * `filen-cli upload ./reports /Work/Reports` — Upload files into an encrypted cloud folder.
-    * `filen-cli sync ./Archive /Backups/Archive --watch` — Continuously mirror a directory to Filen storage.
+    * `filen-cli login` -- Sign in and save credentials for subsequent commands.
+    * `filen-cli upload ./reports /Work/Reports` -- Upload files into an encrypted cloud folder.
+    * `filen-cli sync ./Archive /Backups/Archive --watch` -- Continuously mirror a directory to Filen storage.
 */
 _:
 let

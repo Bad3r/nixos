@@ -17,9 +17,9 @@
     --sort=size: Sort entries by size; other keys include time, name, extension.
 
   Example Usage:
-    * `eza --long --git` — Inspect working tree state with detailed metadata and Git indicators.
-    * `eza --tree --level=2 ~/projects` — Browse nested folders with a limited depth tree view.
-    * `eza --icons --sort=size Downloads` — List downloads with icons sorted by file size.
+    * `eza --long --git` -- Inspect working tree state with detailed metadata and Git indicators.
+    * `eza --tree --level=2 ~/projects` -- Browse nested folders with a limited depth tree view.
+    * `eza --icons --sort=size Downloads` -- List downloads with icons sorted by file size.
 */
 
 {

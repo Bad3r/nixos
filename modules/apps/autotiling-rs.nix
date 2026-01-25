@@ -15,9 +15,9 @@
     -V, --version: Show the installed autotiling-rs version.
 
   Example Usage:
-    * `autotiling-rs` — Start the daemon to alternate horizontal and vertical splits globally.
-    * `autotiling-rs --workspace 1 3 5` — Only adjust layouts on workspaces 1, 3, and 5.
-    * `exec_always autotiling-rs` — Add to your sway config so autotiling launches on login.
+    * `autotiling-rs` -- Start the daemon to alternate horizontal and vertical splits globally.
+    * `autotiling-rs --workspace 1 3 5` -- Only adjust layouts on workspaces 1, 3, and 5.
+    * `exec_always autotiling-rs` -- Add to your sway config so autotiling launches on login.
 */
 _:
 let

@@ -31,13 +31,13 @@
     rz-ax <expr>: Evaluate mathematical/hex expressions.
 
   Example Usage:
-    * `rizin -A MyApp` — Analyze iOS binary with auto-analysis.
-    * `rz-bin -I MyApp` — Show Mach-O metadata (architecture, imports, entry point).
-    * `rizin -c 'aaa; afl' MyApp` — Deep analysis and list all functions.
+    * `rizin -A MyApp` -- Analyze iOS binary with auto-analysis.
+    * `rz-bin -I MyApp` -- Show Mach-O metadata (architecture, imports, entry point).
+    * `rizin -c 'aaa; afl' MyApp` -- Deep analysis and list all functions.
     * Use with Cutter GUI for visual reverse engineering experience.
 
   Integration:
-    * Works seamlessly with Cutter (official GUI frontend).
+    * Compatible with Cutter (official GUI frontend).
     * Compatible with r2 scripts and plugins (with minor adjustments).
     * Better suited for scripting due to cleaner API design.
 */

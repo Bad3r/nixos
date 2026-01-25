@@ -25,9 +25,9 @@
     --diff: Highlight diff hunks passed on stdin with inline change markers.
 
   Example Usage:
-    * `bat README.md` — Preview a Markdown file with syntax highlighting and pager integration.
-    * `bat --style=plain --paging=never script.sh` — Emit raw highlighted output directly to stdout.
-    * `git diff | bat --diff` — Colorize Git diff output with syntax-aware highlighting.
+    * `bat README.md` -- Preview a Markdown file with syntax highlighting and pager integration.
+    * `bat --style=plain --paging=never script.sh` -- Emit raw highlighted output directly to stdout.
+    * `git diff | bat --diff` -- Colorize Git diff output with syntax-aware highlighting.
 */
 
 _: {

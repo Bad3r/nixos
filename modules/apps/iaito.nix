@@ -36,13 +36,13 @@
     iaito -A <binary>: Open with auto-analysis enabled.
 
   Example Usage:
-    * `iaito MyApp` — Open iOS binary in GUI.
+    * `iaito MyApp` -- Open iOS binary in GUI.
     * Use Graph view to visualize function control flow.
     * Search panel (Ctrl+F) to find strings, symbols, or byte patterns.
     * Console tab provides full radare2 command-line access.
 
   Integration:
-    * Direct radare2 backend - all r2 commands work seamlessly.
+    * Direct radare2 backend - all r2 commands work.
     * Can export analysis to Ghidra format via r2 plugins.
     * Lighter resource usage compared to Cutter (better for large binaries).
 */

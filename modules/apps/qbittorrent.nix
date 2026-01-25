@@ -15,8 +15,8 @@
     Preferences: Configure ports, encryption, queue management, and automation scripts.
 
   Example Usage:
-    * `qbittorrent` — Start the GUI to add torrents via magnet links or files.
-    * `qbittorrent-nox --webui-port=8080` — Run a web-controlled instance for remote management.
+    * `qbittorrent` -- Start the GUI to add torrents via magnet links or files.
+    * `qbittorrent-nox --webui-port=8080` -- Run a web-controlled instance for remote management.
     * Use Tools → RSS Downloader to automate TV show downloads based on filters.
 */
 _:

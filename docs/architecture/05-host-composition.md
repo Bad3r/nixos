@@ -82,8 +82,8 @@ _: {
    ```
 
 3. **Add host-specific files:**
-   - `hardware-config.nix` — filesystems, boot devices
-   - `boot.nix` — kernel, bootloader
+   - `hardware-config.nix` -- filesystems, boot devices
+   - `boot.nix` -- kernel, bootloader
    - etc.
 
 4. **Verify the graph builds:**
@@ -137,6 +137,6 @@ When adopting an existing NixOS configuration:
 
 ## Next Steps
 
-- [NixOS Modules](03-nixos-modules.md) — available system modules
-- [Home Manager](04-home-manager.md) — wiring HM into hosts
-- [Reference](06-reference.md) — validation commands
+- [NixOS Modules](03-nixos-modules.md) -- available system modules
+- [Home Manager](04-home-manager.md) -- wiring HM into hosts
+- [Reference](06-reference.md) -- validation commands

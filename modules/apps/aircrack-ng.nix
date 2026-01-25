@@ -15,9 +15,9 @@
     aircrack-ng <capture.cap>: Attempt to recover keys from captured handshakes.
 
   Example Usage:
-    * `airodump-ng wlan0mon` — Collect handshakes and network details once interface is in monitor mode.
-    * `aireplay-ng --deauth 10 -a <AP> -c <CLIENT> wlan0mon` — Force a reconnect to capture WPA handshakes.
-    * `aircrack-ng -w wordlist.txt handshake.cap` — Crack a WPA2-PSK handshake using a wordlist.
+    * `airodump-ng wlan0mon` -- Collect handshakes and network details once interface is in monitor mode.
+    * `aireplay-ng --deauth 10 -a <AP> -c <CLIENT> wlan0mon` -- Force a reconnect to capture WPA handshakes.
+    * `aircrack-ng -w wordlist.txt handshake.cap` -- Crack a WPA2-PSK handshake using a wordlist.
 */
 _:
 let

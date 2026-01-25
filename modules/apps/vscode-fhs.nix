@@ -16,8 +16,8 @@
     code --disable-gpu: Troubleshoot rendering issues on unsupported GPUs.
 
   Example Usage:
-    * `code .` — Open the current directory in VS Code.
-    * `code --disable-gpu --log trace` — Diagnose rendering problems with verbose logging.
+    * `code .` -- Open the current directory in VS Code.
+    * `code --disable-gpu --log trace` -- Diagnose rendering problems with verbose logging.
     * Configure remote development extensions in the usual manner; the FHS wrapper ensures required binaries resolve correctly.
 */
 _:

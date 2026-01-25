@@ -15,8 +15,8 @@
     Command-line flags: `--no-daemon`, `--restart` for controlling the daemon directly.
 
   Example Usage:
-    * `xfce4-power-manager` — Start the power management daemon (usually auto-started in Xfce sessions).
-    * `xfce4-power-manager-settings` — Configure battery thresholds, display blanking, and critical actions.
+    * `xfce4-power-manager` -- Start the power management daemon (usually auto-started in Xfce sessions).
+    * `xfce4-power-manager-settings` -- Configure battery thresholds, display blanking, and critical actions.
     * Use keyboard brightness keys; the daemon handles adjusting brightness and notifications.
 */
 _:

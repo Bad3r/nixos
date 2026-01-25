@@ -16,9 +16,9 @@
     -t <target>: Specify MIME type (e.g., text/plain, image/png).
 
   Example Usage:
-    * `echo "Hello" | xclip -selection clipboard` — Copy text into the clipboard.
-    * `xclip -selection primary -o` — Print the PRIMARY selection (usually mouse highlight).
-    * `xclip -selection clipboard -t image/png -o > screenshot.png` — Save an image copied to the clipboard.
+    * `echo "Hello" | xclip -selection clipboard` -- Copy text into the clipboard.
+    * `xclip -selection primary -o` -- Print the PRIMARY selection (usually mouse highlight).
+    * `xclip -selection clipboard -t image/png -o > screenshot.png` -- Save an image copied to the clipboard.
 */
 _:
 let

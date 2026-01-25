@@ -24,7 +24,7 @@ modules/
 
 - Prefix experimental or parked files with `_` to exclude them without deleting history
 - Put unfinished work under `_scratch/` or `_archive/` directories
-- Never use literal `./path/to/module.nix` imports — move files freely since consumers import by name
+- Never use literal `./path/to/module.nix` imports -- move files freely since consumers import by name
 
 ## How Files Become Modules
 
@@ -68,6 +68,6 @@ The pattern resembles dendritic (tree-like) growth:
 
 ## Next Steps
 
-- [Module Authoring](02-module-authoring.md) — how to write modules correctly
-- [NixOS Modules](03-nixos-modules.md) — system-level aggregator details
-- [Home Manager](04-home-manager.md) — user-level aggregator details
+- [Module Authoring](02-module-authoring.md) -- how to write modules correctly
+- [NixOS Modules](03-nixos-modules.md) -- system-level aggregator details
+- [Home Manager](04-home-manager.md) -- user-level aggregator details

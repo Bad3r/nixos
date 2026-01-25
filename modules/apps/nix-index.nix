@@ -14,8 +14,8 @@
     nix-locate <pattern>: Query the index for packages containing a file.
 
   Example Usage:
-    * `nix-locate bin/terraform` — Find which derivations ship a `terraform` binary.
-    * `nix-index` — Rebuild the index using the current substituter set.
+    * `nix-locate bin/terraform` -- Find which derivations ship a `terraform` binary.
+    * `nix-index` -- Rebuild the index using the current substituter set.
 */
 _:
 let

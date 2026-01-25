@@ -13,7 +13,7 @@
     logseq: Launch the desktop application.
 
   Example Usage:
-    * `logseq` — Open the Logseq desktop app.
+    * `logseq` -- Open the Logseq desktop app.
 */
 { inputs, ... }:
 let

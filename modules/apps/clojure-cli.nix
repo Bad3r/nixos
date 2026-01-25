@@ -17,9 +17,9 @@
     -Sdeps '{...}': Merge inline dependency data into the current invocation.
 
   Example Usage:
-    * `clj` — Start an interactive REPL with the current project's dependencies.
-    * `clojure -M:test` — Run tests using the `:test` alias defined in `deps.edn`.
-    * `clojure -X:deps tree` — Print the dependency tree to diagnose version conflicts.
+    * `clj` -- Start an interactive REPL with the current project's dependencies.
+    * `clojure -M:test` -- Run tests using the `:test` alias defined in `deps.edn`.
+    * `clojure -X:deps tree` -- Print the dependency tree to diagnose version conflicts.
 */
 _:
 let

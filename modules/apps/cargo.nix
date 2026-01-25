@@ -17,9 +17,9 @@
     publish: Package and upload the crate to a registry when ready for release.
 
   Example Usage:
-    * `cargo new my-app` — Scaffold a new binary crate with default layout.
-    * `cargo build --release` — Produce optimized artifacts in `target/release`.
-    * `cargo test -- --nocapture` — Run the project's test suite and stream stdout for debugging.
+    * `cargo new my-app` -- Scaffold a new binary crate with default layout.
+    * `cargo build --release` -- Produce optimized artifacts in `target/release`.
+    * `cargo test -- --nocapture` -- Run the project's test suite and stream stdout for debugging.
 */
 _:
 let

@@ -11,11 +11,11 @@
 
   Options:
     nix-diff <drv-or-path-A> <drv-or-path-B>: Compare two derivations or store paths.
-    nix-diff --stats …: Print a condensed summary of attribute-level changes.
+    nix-diff --stats ...: Print a condensed summary of attribute-level changes.
 
   Example Usage:
-    * `nix-diff result drv` — Compare a newly built result against a previous drv path.
-    * `nix-diff --stats $(nix build .#pkg1 --print-out-paths) $(nix build .#pkg2 --print-out-paths)` — Summarize differences between two builds.
+    * `nix-diff result drv` -- Compare a newly built result against a previous drv path.
+    * `nix-diff --stats $(nix build .#pkg1 --print-out-paths) $(nix build .#pkg2 --print-out-paths)` -- Summarize differences between two builds.
 */
 _:
 let

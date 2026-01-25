@@ -16,9 +16,9 @@
     --unique: Ensure a single Okular instance handles all documents.
 
   Example Usage:
-    * `okular report.pdf` — View and annotate a PDF document.
-    * `okular --presentation slides.pdf` — Present a slideshow using a PDF deck.
-    * `okular --print invoice.pdf` — Open the print dialog immediately for a file.
+    * `okular report.pdf` -- View and annotate a PDF document.
+    * `okular --presentation slides.pdf` -- Present a slideshow using a PDF deck.
+    * `okular --print invoice.pdf` -- Open the print dialog immediately for a file.
 */
 _:
 let

@@ -30,7 +30,7 @@
     GHIDRA_INSTALL_DIR: Set custom installation directory for extensions.
 
   Example Usage:
-    * `ghidra` — Launch GUI and import IPA binary for analysis.
+    * `ghidra` -- Launch GUI and import IPA binary for analysis.
     * Configure loader options: enable libobjc.dylib linking for Objective-C runtime support.
     * Use DyldCacheExtractLoader for analyzing extracted dyld_shared_cache files.
     * Install Swift demangler extension for better symbol names in Swift binaries.

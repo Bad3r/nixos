@@ -17,9 +17,9 @@
     wg-quick down <config>: Tear down a tunnel.
 
   Example Usage:
-    * `wg genkey | tee privatekey | wg pubkey > publickey` — Generate keys for a peer.
-    * `sudo wg-quick up wg0` — Start the `wg0` tunnel using `/etc/wireguard/wg0.conf`.
-    * `sudo wg show wg0` — Inspect handshake times, transfer statistics, and peer endpoints.
+    * `wg genkey | tee privatekey | wg pubkey > publickey` -- Generate keys for a peer.
+    * `sudo wg-quick up wg0` -- Start the `wg0` tunnel using `/etc/wireguard/wg0.conf`.
+    * `sudo wg show wg0` -- Inspect handshake times, transfer statistics, and peer endpoints.
 */
 _:
 let

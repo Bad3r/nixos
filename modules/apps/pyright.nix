@@ -15,9 +15,9 @@
     pyright --outputjson: Emit machine-readable diagnostics for tooling integrations.
 
   Example Usage:
-    * `pyright` — Type-check the current project root.
-    * `pyright src --lib` — Analyze the `src` directory including standard library shims.
-    * `pyright --watch` — Continuously type-check while developing.
+    * `pyright` -- Type-check the current project root.
+    * `pyright src --lib` -- Analyze the `src` directory including standard library shims.
+    * `pyright --watch` -- Continuously type-check while developing.
 */
 _:
 let

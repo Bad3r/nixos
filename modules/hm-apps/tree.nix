@@ -16,9 +16,9 @@
     -H <url>: Generate HTML output with links relative to a base URL.
 
   Example Usage:
-    * `tree -L 2` — Summarize the current directory up to two levels deep.
-    * `tree -a -I '.git|node_modules'` — Show hidden files but exclude Git metadata and dependencies.
-    * `tree -H '.' -o tree.html` — Produce a browsable HTML directory listing for publishing.
+    * `tree -L 2` -- Summarize the current directory up to two levels deep.
+    * `tree -a -I '.git|node_modules'` -- Show hidden files but exclude Git metadata and dependencies.
+    * `tree -H '.' -o tree.html` -- Produce a browsable HTML directory listing for publishing.
 */
 
 {

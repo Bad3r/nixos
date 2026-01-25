@@ -16,9 +16,9 @@
     nemo --no-desktop: Launch without managing desktop icons (useful outside Cinnamon).
 
   Example Usage:
-    * `nemo ~/Projects` — Browse the Projects directory in a new Nemo window.
-    * `nemo --new-window smb://server/share` — Connect to a remote SMB share.
-    * `nemo --no-desktop` — Use Nemo purely as a file manager in non-Cinnamon environments.
+    * `nemo ~/Projects` -- Browse the Projects directory in a new Nemo window.
+    * `nemo --new-window smb://server/share` -- Connect to a remote SMB share.
+    * `nemo --no-desktop` -- Use Nemo purely as a file manager in non-Cinnamon environments.
 */
 _:
 let

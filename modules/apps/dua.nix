@@ -15,9 +15,9 @@
     dua i <path>: Open the inspector focused on a specific directory tree.
 
   Example Usage:
-    * `dua` — Inspect disk usage interactively starting at the current working directory.
-    * `dua --summarize ~/Downloads ~/Videos` — Compare storage consumption across multiple directories.
-    * `dua i /var/log` — Drill into nested directories and delete files directly from the TUI.
+    * `dua` -- Inspect disk usage interactively starting at the current working directory.
+    * `dua --summarize ~/Downloads ~/Videos` -- Compare storage consumption across multiple directories.
+    * `dua i /var/log` -- Drill into nested directories and delete files directly from the TUI.
 */
 _:
 let

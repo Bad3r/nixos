@@ -9,8 +9,8 @@
     * Supports conversion between different virtual machine formats.
 
   Example Usage:
-    * `ovftool --help` — Show available commands and options.
-    * `ovftool vm.vmx vm.ova` — Convert a VMX file to OVA format.
+    * `ovftool --help` -- Show available commands and options.
+    * `ovftool vm.vmx vm.ova` -- Convert a VMX file to OVA format.
 */
 
 _:

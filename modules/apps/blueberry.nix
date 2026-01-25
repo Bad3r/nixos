@@ -14,9 +14,9 @@
     blueberry-tray: Start the background tray indicator that exposes quick toggles and notifications.
 
   Example Usage:
-    * `blueberry` — Open the Bluetooth settings panel for pairing and device management.
-    * `blueberry-tray` — Launch the tray icon to monitor adapters and expose quick toggles for discovery and visibility.
-    * `mkdir -p ~/.config/autostart {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} cp /etc/xdg/autostart/blueberry-tray.desktop ~/.config/autostart/` — Enable the tray indicator automatically for your user session.
+    * `blueberry` -- Open the Bluetooth settings panel for pairing and device management.
+    * `blueberry-tray` -- Launch the tray icon to monitor adapters and expose quick toggles for discovery and visibility.
+    * `mkdir -p ~/.config/autostart {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} cp /etc/xdg/autostart/blueberry-tray.desktop ~/.config/autostart/` -- Enable the tray indicator automatically for your user session.
 */
 _:
 let

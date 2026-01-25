@@ -17,9 +17,9 @@
     nvme device-self-test /dev/nvme0 --start short: Run a short self-test.
 
   Example Usage:
-    * `sudo nvme list` — Discover NVMe devices attached to the system.
-    * `sudo nvme smart-log /dev/nvme0` — Check drive temperature, media errors, and wear indicators.
-    * `sudo nvme device-self-test /dev/nvme0 --start extended` — Initiate an extended diagnostic self-test.
+    * `sudo nvme list` -- Discover NVMe devices attached to the system.
+    * `sudo nvme smart-log /dev/nvme0` -- Check drive temperature, media errors, and wear indicators.
+    * `sudo nvme device-self-test /dev/nvme0 --start extended` -- Initiate an extended diagnostic self-test.
 */
 _:
 let

@@ -17,9 +17,9 @@
     -e: Encrypt entries using legacy ZipCrypto password prompts compatible with PKZIP 2.x.
 
   Example Usage:
-    * `zip -r site-backup.zip public/` — Archive a project directory recursively.
-    * `zip -r build.zip dist/ -x "*.map"` — Exclude source maps while packaging a build output.
-    * `zip -e secrets.zip notes.txt` — Protect sensitive files with a password prompt compatible with PKZIP.
+    * `zip -r site-backup.zip public/` -- Archive a project directory recursively.
+    * `zip -r build.zip dist/ -x "*.map"` -- Exclude source maps while packaging a build output.
+    * `zip -e secrets.zip notes.txt` -- Protect sensitive files with a password prompt compatible with PKZIP.
 */
 _:
 let

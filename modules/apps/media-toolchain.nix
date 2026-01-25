@@ -16,9 +16,9 @@
     imagemagick/ghostscript: Image and PDF manipulation tools.
 
   Example Usage:
-    * `mpv video.mkv` — Playback media with Vulkan/VAAPI acceleration from the toolchain.
-    * `ffmpeg -i input.mov -c:v libx264 output.mp4` — Transcode video using ffmpeg-full.
-    * `gst-inspect-1.0 | grep vaapi` — Verify GStreamer VAAPI plugins are installed.
+    * `mpv video.mkv` -- Playback media with Vulkan/VAAPI acceleration from the toolchain.
+    * `ffmpeg -i input.mov -c:v libx264 output.mp4` -- Transcode video using ffmpeg-full.
+    * `gst-inspect-1.0 | grep vaapi` -- Verify GStreamer VAAPI plugins are installed.
 */
 _:
 let

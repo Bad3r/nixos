@@ -12,12 +12,12 @@
   Options:
     dragon-drop <file> [<file>...]: Offer the provided files for drag-and-drop into another application.
     dragon-drop -t <target>: Restrict the allowed MIME target (defaults to text/uri-list for file drops).
-    xdragon …: Symlinked entry point identical to dragon-drop for compatibility with older workflows.
+    xdragon ...: Symlinked entry point identical to dragon-drop for compatibility with older workflows.
 
   Example Usage:
-    * `dragon-drop report.pdf` — Present a draggable handle for report.pdf.
-    * `printf '%s\n' screenshot.png | dragon-drop` — Pipe paths from another command and drag the resulting selection.
-    * `dragon-drop ~/Downloads/*.png` — Collect multiple assets and drop them into a browser upload dialog.
+    * `dragon-drop report.pdf` -- Present a draggable handle for report.pdf.
+    * `printf '%s\n' screenshot.png | dragon-drop` -- Pipe paths from another command and drag the resulting selection.
+    * `dragon-drop ~/Downloads/*.png` -- Collect multiple assets and drop them into a browser upload dialog.
 */
 _:
 let

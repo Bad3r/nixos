@@ -10,5 +10,5 @@ User-facing documentation for specific modules and features.
 
 ## Related
 
-- [Architecture Documentation](../architecture/) — how the Dendritic Pattern works
-- [Guides](../guides/) — style guides and how-to documentation
+- [Architecture Documentation](../architecture/) -- how the Dendritic Pattern works
+- [Guides](../guides/) -- style guides and how-to documentation

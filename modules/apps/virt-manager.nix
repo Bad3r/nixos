@@ -9,8 +9,8 @@
     * Bundles virt-viewer for SPICE/RDP console access to VMs.
 
   Example Usage:
-    * `virt-manager` — Launch the graphical manager and connect to qemu:///system.
-    * `virt-viewer --connect qemu+ssh://host/system <vm>` — Attach to a guest console via SPICE.
+    * `virt-manager` -- Launch the graphical manager and connect to qemu:///system.
+    * `virt-viewer --connect qemu+ssh://host/system <vm>` -- Attach to a guest console via SPICE.
 */
 
 _:

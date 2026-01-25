@@ -17,9 +17,9 @@
     -Z <flag>: Enable nightly-only experimental options (if using nightly compiler).
 
   Example Usage:
-    * `rustc main.rs -O` — Compile with optimizations, producing `main`.
-    * `rustc lib.rs --crate-type=rlib` — Build a reusable Rust library.
-    * `RUSTFLAGS="-C target-cpu=native" cargo build --release` — Example of configuring rustc flags via Cargo.
+    * `rustc main.rs -O` -- Compile with optimizations, producing `main`.
+    * `rustc lib.rs --crate-type=rlib` -- Build a reusable Rust library.
+    * `RUSTFLAGS="-C target-cpu=native" cargo build --release` -- Example of configuring rustc flags via Cargo.
 */
 _:
 let

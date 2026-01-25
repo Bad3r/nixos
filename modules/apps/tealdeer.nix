@@ -17,9 +17,9 @@
     tldr --language <lang>: Show localized pages.
 
   Example Usage:
-    * `tldr tar` — View quick reference examples for the `tar` command.
-    * `tldr --update` — Download the latest TL;DR pages.
-    * `tldr --platform linux find` — Show Linux-specific usage examples.
+    * `tldr tar` -- View quick reference examples for the `tar` command.
+    * `tldr --update` -- Download the latest TL;DR pages.
+    * `tldr --platform linux find` -- Show Linux-specific usage examples.
 */
 _:
 let

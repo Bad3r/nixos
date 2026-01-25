@@ -17,9 +17,9 @@
     -a <appname>: Set the application name.
 
   Example Usage:
-    * `notify-send "Build complete" "Artifacts are available in dist/"` — Send a simple desktop notification.
-    * `notify-send -u critical -i dialog-warning "Backup failed"` — Emit a high urgency alert.
-    * `notify-send -a deploy -t 0 "Deployment" "Waiting for confirmation"` — Display a persistent notification for manual actions.
+    * `notify-send "Build complete" "Artifacts are available in dist/"` -- Send a simple desktop notification.
+    * `notify-send -u critical -i dialog-warning "Backup failed"` -- Emit a high urgency alert.
+    * `notify-send -a deploy -t 0 "Deployment" "Waiting for confirmation"` -- Display a persistent notification for manual actions.
 */
 _:
 let

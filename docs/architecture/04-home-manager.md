@@ -15,7 +15,7 @@ Home Manager modules feed into `flake.homeManagerModules` for user-level configu
 
 ## Contributing to Namespaces
 
-Multiple files can extend `base` or `gui` — the loader merges them after evaluation:
+Multiple files can extend `base` or `gui` -- the loader merges them after evaluation:
 
 ```nix
 # modules/files/fzf.nix
@@ -96,10 +96,10 @@ Hosts can append to `home-manager.extraAppImports`:
 
 ## Authoring Rules
 
-1. **Always export a module value** — export under `flake.homeManagerModules.*`
-2. **Guard optional modules** — check for secret/package availability in the module body
-3. **Keep names stable** — the key under `apps.<name>` must match the filename
-4. **Document secrets** — reference `docs/sops/README.md` when credentials are needed
+1. **Always export a module value** -- export under `flake.homeManagerModules.*`
+2. **Guard optional modules** -- check for secret/package availability in the module body
+3. **Keep names stable** -- the key under `apps.<name>` must match the filename
+4. **Document secrets** -- reference `docs/sops/README.md` when credentials are needed
 
 ## Secrets Integration
 
@@ -133,6 +133,6 @@ Or add `home-manager` to `modules/devshell.nix` for a persistent binary.
 
 ## Next Steps
 
-- [Host Composition](05-host-composition.md) — how hosts assemble these modules
-- [Module Authoring](02-module-authoring.md) — general authoring patterns
-- [SOPS Usage](../sops/README.md) — secrets management
+- [Host Composition](05-host-composition.md) -- how hosts assemble these modules
+- [Module Authoring](02-module-authoring.md) -- general authoring patterns
+- [SOPS Usage](../sops/README.md) -- secrets management

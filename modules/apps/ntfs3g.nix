@@ -16,9 +16,9 @@
     ntfsfix <device>: Perform basic consistency checks and fix common NTFS errors.
 
   Example Usage:
-    * `sudo ntfs-3g /dev/sdb1 /mnt/windows` — Mount a Windows partition with read/write access.
-    * `sudo ntfsfix /dev/sdb1` — Fix simple corruption before mounting.
-    * `sudo ntfs-3g -o uid=$(id -u),gid=$(id -g) /dev/sdb2 ~/win-share` — Mount with current user ownership.
+    * `sudo ntfs-3g /dev/sdb1 /mnt/windows` -- Mount a Windows partition with read/write access.
+    * `sudo ntfsfix /dev/sdb1` -- Fix simple corruption before mounting.
+    * `sudo ntfs-3g -o uid=$(id -u),gid=$(id -g) /dev/sdb2 ~/win-share` -- Mount with current user ownership.
 */
 _:
 let

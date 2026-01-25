@@ -9,7 +9,7 @@
     * Stores profile data under `~/.config/raindrop` to keep bookmarks and sessions isolated from other Electron apps.
 
   Example Usage:
-    * `raindrop` — Open the Raindrop.io desktop experience in its own window.
+    * `raindrop` -- Open the Raindrop.io desktop experience in its own window.
 */
 _:
 let

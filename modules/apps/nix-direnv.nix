@@ -14,8 +14,8 @@
     use flake [flake-uri]: Activate a flake-based devShell (defaults to `.`).
 
   Example Usage:
-    * `.envrc`: `use flake` — Automatically enter the project dev shell using flakes.
-    * `.envrc`: `use_nix` — Fallback to classic `shell.nix` evaluation with caching.
+    * `.envrc`: `use flake` -- Automatically enter the project dev shell using flakes.
+    * `.envrc`: `use_nix` -- Fallback to classic `shell.nix` evaluation with caching.
 */
 _:
 let

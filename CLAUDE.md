@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **IMPORTANT:** This repo manages a single System76 host with the sole user `vx`. Do not introduce additional hosts or users—none will ever be added.
+> **IMPORTANT:** This repo manages a single System76 host with the sole user `vx`. Do not introduce additional hosts or users--none will ever be added.
 
 > **IMPORTANT:** Never consider backward compatibility. Eliminate legacy support by default.
 
@@ -79,7 +79,7 @@ These settings are mirrored in `build.sh` via `NIX_CONFIGURATION` environment va
 | OK     | Enter the dev shell when running commands (`nix develop`).                                          |
 | OK     | Use the Execution Playbooks tables below to choose commands; confirm prerequisites and post-checks. |
 | OK     | Document validation commands in commit messages and PR descriptions.                                |
-| WARN   | Never run forbidden commands or modify generated artefacts—see _Safety & Escalation_.               |
+| WARN   | Never run forbidden commands or modify generated artefacts--see _Safety & Escalation_.              |
 | WARN   | If a workflow is missing or ambiguous, stop and escalate to the maintainer.                         |
 
 ## Architecture & Module System
@@ -187,8 +187,8 @@ Branch `<type>` uses Conventional Commits prefixes (see _Commit & PR Expectation
 
 **PR body:**
 
-- `## Summary` — what changed and why
-- `## Test plan` — validation commands run (per existing "Record validation commands" guideline)
+- `## Summary` -- what changed and why
+- `## Test plan` -- validation commands run (per existing "Record validation commands" guideline)
 
 ### Development Environment
 

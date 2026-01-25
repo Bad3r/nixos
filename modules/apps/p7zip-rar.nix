@@ -16,9 +16,9 @@
     7z t archive.7z: Test archive integrity.
 
   Example Usage:
-    * `7z x downloads/file.rar` — Extract a RAR archive using the p7zip-rar plugin.
-    * `7z a backup.7z Documents` — Compress a directory into a 7z archive.
-    * `7z l backup.7z` — Inspect the contents of an archive before extracting.
+    * `7z x downloads/file.rar` -- Extract a RAR archive using the p7zip-rar plugin.
+    * `7z a backup.7z Documents` -- Compress a directory into a 7z archive.
+    * `7z l backup.7z` -- Inspect the contents of an archive before extracting.
 */
 _:
 let

@@ -16,9 +16,9 @@
     vlc --sout <stream>: Configure streaming/transcoding outputs.
 
   Example Usage:
-    * `vlc movie.mkv` — Play a local video with hardware acceleration depending on platform.
-    * `cvlc http://example.com/stream --intf rc` — Control VLC via remote control interface for automation.
-    * `vlc video.mp4 --sout '#transcode{vcodec=h264,acodec=aac}:std{access=file,mux=mp4,dst=output.mp4}'` — Transcode content to MP4.
+    * `vlc movie.mkv` -- Play a local video with hardware acceleration depending on platform.
+    * `cvlc http://example.com/stream --intf rc` -- Control VLC via remote control interface for automation.
+    * `vlc video.mp4 --sout '#transcode{vcodec=h264,acodec=aac}:std{access=file,mux=mp4,dst=output.mp4}'` -- Transcode content to MP4.
 */
 _:
 let

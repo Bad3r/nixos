@@ -17,9 +17,9 @@
     gopass sync: Synchronize remote Git repositories for mounted stores.
 
   Example Usage:
-    * `gopass init --store personal` — Initialize a new password store using your GPG key.
-    * `gopass insert accounts/github` — Add credentials for GitHub under the specified path.
-    * `gopass show -c accounts/github` — Copy the GitHub password to the clipboard without printing it.
+    * `gopass init --store personal` -- Initialize a new password store using your GPG key.
+    * `gopass insert accounts/github` -- Add credentials for GitHub under the specified path.
+    * `gopass show -c accounts/github` -- Copy the GitHub password to the clipboard without printing it.
 */
 _:
 let

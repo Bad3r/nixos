@@ -10,8 +10,8 @@
     * Integrates with editors via the Language Server Protocol to reuse the standard Go build cache and module metadata.
 
   Example Usage:
-    * `gopls serve` — Start the language server (normally launched by the editor).
-    * `gopls check ./...` — Run static analysis against all Go packages in the workspace.
+    * `gopls serve` -- Start the language server (normally launched by the editor).
+    * `gopls check ./...` -- Run static analysis against all Go packages in the workspace.
 */
 _:
 let

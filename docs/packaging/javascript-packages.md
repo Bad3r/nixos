@@ -225,6 +225,31 @@ preFixup = ''
 
 The `preFixup` runs before `autoPatchelfHook`, removing incompatible musl variants that would cause patching errors.
 
+### Native Modules Linking Against Node.js Internals
+
+Some native modules (like `isolated-vm`) link against Node.js internal libraries (libuv, openssl, icu, etc.) that are provided by Node.js at runtime, not as system libraries. Use `autoPatchelfIgnoreMissingDeps` to suppress errors:
+
+```nix
+# isolated-vm links against Node.js internal libraries
+# These are provided by Node.js at runtime, so we can safely ignore them
+autoPatchelfIgnoreMissingDeps = [
+  "libuv.so.1"
+  "libssl.so.3"
+  "libcrypto.so.3"
+  "libicuuc.so.76"
+  "libicui18n.so.76"
+  "libsqlite3.so"
+  "libuvwasi.so"
+  "libz.so.1"
+  "libnghttp2.so.14"
+  "libcares.so.2"
+  "libbrotlidec.so.1"
+  "libbrotlienc.so.1"
+];
+```
+
+The specific libraries depend on the Node.js version. Check build errors to identify which libraries to ignore. See `packages/webcrack/default.nix` for a complete example with isolated-vm.
+
 ## Electron Apps
 
 Electron packaging requires additional configuration:
@@ -286,9 +311,15 @@ installPhase = ''
 
 ## Common Issues and Solutions
 
-### patchedDependencies Lockfile Mismatch
+### patchedDependencies Handling
 
-If the project uses `pnpm.patchedDependencies` in package.json:
+Projects using `pnpm.patchedDependencies` in package.json apply patches to npm packages. Before removing them, understand their purpose:
+
+**Try building first** - Modern `fetchPnpmDeps` (fetcherVersion 2+) often handles patched dependencies correctly. Only remove if you get lockfile mismatch errors.
+
+**Check if patches are required** - Some patches add critical functionality. For example, wakaru's ast-types patch adds `markAsStale()` method essential for scope manipulation. Removing such patches causes runtime errors.
+
+**When removal is necessary** (lockfile mismatch errors):
 
 ```nix
 let
@@ -310,6 +341,8 @@ stdenv.mkDerivation {
   # ...
 }
 ```
+
+**Caution:** If removing patchedDependencies causes runtime errors (missing methods, undefined functions), the patch is required and you need a different approach--either keep the patches or manually apply the patch logic.
 
 ### Broken Symlinks After Copy
 
@@ -429,7 +462,9 @@ stdenv.mkDerivation {
 - **Node headers (Electron)**: `export npm_config_nodedir=${electron.headers}`
 - **Skip Electron download**: `env.ELECTRON_SKIP_BINARY_DOWNLOAD = "1";`
 - **Prebuilt native addons**: `autoPatchelfHook` + `buildInputs = [ stdenv.cc.cc.lib ]`
+- **Node.js internal libs**: `autoPatchelfIgnoreMissingDeps = [ "libuv.so.1" ... ]` for native modules linking Node internals
 - **Remove musl binaries**: `preFixup = ''find $out -name "*.musl.node" -delete'';`
+- **patchedDependencies**: Try building first; only remove if lockfile mismatch errors occur
 - **Dereference symlinks**: `cp -rL node_modules $out/`
 - **Production only**: `pnpm --prod install`
 - **Offline install**: `pnpm --offline install`

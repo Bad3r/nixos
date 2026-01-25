@@ -15,7 +15,7 @@
     (CLI options are minimal; interactions occur within the GUI.)
 
   Example Usage:
-    * `planify` — Open the desktop client to review tasks and projects.
+    * `planify` -- Open the desktop client to review tasks and projects.
     * Use the “Quick Add” shortcut (`Ctrl+Space`) to capture tasks rapidly.
     * Configure notifications and synchronization intervals via Preferences.
 */

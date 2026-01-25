@@ -17,9 +17,9 @@
     7z l <archive>: List contents.
 
   Example Usage:
-    * `7z a project.7z src/` — Compress a source directory into a 7z archive.
-    * `7z x project.7z -o./output` — Extract to a specific directory.
-    * `7z t backup.7z` — Verify that an archive is not corrupted.
+    * `7z a project.7z src/` -- Compress a source directory into a 7z archive.
+    * `7z x project.7z -o./output` -- Extract to a specific directory.
+    * `7z t backup.7z` -- Verify that an archive is not corrupted.
 */
 _:
 let

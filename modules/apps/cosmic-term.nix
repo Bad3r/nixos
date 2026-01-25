@@ -11,13 +11,13 @@
 
   Options:
     cosmic-term: Launch the terminal emulator window using the default COSMIC profile.
-    View → Color schemes…: Import or switch themes directly from the UI.
+    View → Color schemes...: Import or switch themes directly from the UI.
     Settings → Profiles: Configure fonts, padding, and keybindings for new windows.
 
   Example Usage:
-    * `cosmic-term` — Start the COSMIC terminal with GPU rendering when available.
-    * `cosmic-term` (then press `Ctrl+Shift+P`) — Open the command palette to access settings and appearance controls.
-    * `View → Color schemes…` — Import an `.itermcolors` or `.json` theme for reuse across sessions.
+    * `cosmic-term` -- Start the COSMIC terminal with GPU rendering when available.
+    * `cosmic-term` (then press `Ctrl+Shift+P`) -- Open the command palette to access settings and appearance controls.
+    * `View → Color schemes...` -- Import an `.itermcolors` or `.json` theme for reuse across sessions.
 */
 _:
 let

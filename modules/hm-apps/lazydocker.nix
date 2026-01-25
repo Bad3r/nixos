@@ -16,9 +16,9 @@
     -H <host>: Connect to a remote Docker host via DOCKER_HOST syntax.
 
   Example Usage:
-    * `lazydocker` — Explore running containers, view logs, and manage compose stacks from the terminal.
-    * `lazydocker --config ~/.config/lazydocker/team.yml` — Apply shared team settings and shortcuts.
-    * `DOCKER_HOST=ssh://ops@prod.example.com lazydocker` — Inspect containers on a remote host over SSH.
+    * `lazydocker` -- Explore running containers, view logs, and manage compose stacks from the terminal.
+    * `lazydocker --config ~/.config/lazydocker/team.yml` -- Apply shared team settings and shortcuts.
+    * `DOCKER_HOST=ssh://ops@prod.example.com lazydocker` -- Inspect containers on a remote host over SSH.
 */
 
 {

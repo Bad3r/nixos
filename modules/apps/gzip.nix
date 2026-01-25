@@ -17,9 +17,9 @@
     -l, --list: Display compression ratios and statistics for .gz files.
 
   Example Usage:
-    * `gzip -9 report.txt` — Compress a file with maximum compression, producing `report.txt.gz`.
-    * `gunzip archive.tar.gz` — Decompress an archive in place.
-    * `zcat logs.tar.gz | tar xf -` — Stream a compressed tarball directly into `tar` without creating intermediate files.
+    * `gzip -9 report.txt` -- Compress a file with maximum compression, producing `report.txt.gz`.
+    * `gunzip archive.tar.gz` -- Decompress an archive in place.
+    * `zcat logs.tar.gz | tar xf -` -- Stream a compressed tarball directly into `tar` without creating intermediate files.
 */
 _:
 let

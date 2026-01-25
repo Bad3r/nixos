@@ -15,9 +15,9 @@
     ktailctl --apply <profile>: Apply a saved docking profile programmatically.
 
   Example Usage:
-    * `ktailctl` — Open the KDE interface to manage USB-C dock displays and audio routing.
-    * `ktailctl --list` — Inspect detected docks and saved profiles from the terminal.
-    * `ktailctl --apply office` — Switch to a predefined “office” docking layout.
+    * `ktailctl` -- Open the KDE interface to manage USB-C dock displays and audio routing.
+    * `ktailctl --list` -- Inspect detected docks and saved profiles from the terminal.
+    * `ktailctl --apply office` -- Switch to a predefined “office” docking layout.
 */
 _:
 let

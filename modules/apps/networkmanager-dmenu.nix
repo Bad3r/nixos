@@ -16,9 +16,9 @@
     Config files in `~/.config/networkmanager-dmenu/`: Customize prompts, fonts, and commands.
 
   Example Usage:
-    * `networkmanager_dmenu` — Select a Wi-Fi network using dmenu.
-    * `networkmanager_dmenu -l rofi --visible` — Launch with rofi and keep the menu open after selection.
-    * `networkmanager_dmenu --qr` — Display the QR code for the currently active Wi-Fi connection.
+    * `networkmanager_dmenu` -- Select a Wi-Fi network using dmenu.
+    * `networkmanager_dmenu -l rofi --visible` -- Launch with rofi and keep the menu open after selection.
+    * `networkmanager_dmenu --qr` -- Display the QR code for the currently active Wi-Fi connection.
 */
 _:
 let

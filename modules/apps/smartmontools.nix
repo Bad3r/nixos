@@ -16,8 +16,8 @@
     smartd.conf: Configure daemon monitoring intervals and notification methods.
 
   Example Usage:
-    * `sudo smartctl -a /dev/sda` — Review detailed health metrics and error logs.
-    * `sudo smartctl -t long /dev/sda` — Initiate an extended self-test (run in background).
+    * `sudo smartctl -a /dev/sda` -- Review detailed health metrics and error logs.
+    * `sudo smartctl -t long /dev/sda` -- Initiate an extended self-test (run in background).
     * Edit `/etc/smartd.conf` to schedule weekly tests and email alerts via `smartd`.
 */
 _:

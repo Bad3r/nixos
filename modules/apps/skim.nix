@@ -16,9 +16,9 @@
     sk --bind 'ctrl-s:toggle-sort': Customize keybindings during interactive sessions.
 
   Example Usage:
-    * `find . -type f | sk` — Fuzzy-select files within the current directory.
-    * `git branch | sk --ansi --query feature` — Filter git branches with initial query text.
-    * `sk --tac --expect=ctrl-y` — Reverse the list order and capture custom key events for scripting.
+    * `find . -type f | sk` -- Fuzzy-select files within the current directory.
+    * `git branch | sk --ansi --query feature` -- Filter git branches with initial query text.
+    * `sk --tac --expect=ctrl-y` -- Reverse the list order and capture custom key events for scripting.
 */
 _:
 let

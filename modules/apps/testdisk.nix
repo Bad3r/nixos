@@ -16,8 +16,8 @@
     photorec /d <dir>: Set output directory for recovered files.
 
   Example Usage:
-    * `sudo testdisk` — Launch interactive partition recovery with guided steps.
-    * `sudo photorec /log /d ~/recovered` — Recover files from a damaged disk to a specific directory while logging.
+    * `sudo testdisk` -- Launch interactive partition recovery with guided steps.
+    * `sudo photorec /log /d ~/recovered` -- Recover files from a damaged disk to a specific directory while logging.
     * Use TestDisk to rebuild an NTFS boot sector when partitions become unbootable.
 */
 _:

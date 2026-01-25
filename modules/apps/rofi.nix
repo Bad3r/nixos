@@ -17,9 +17,9 @@
     rofi -dmenu: Emulate dmenu for use with existing scripts.
 
   Example Usage:
-    * `rofi -show drun` — Display the application launcher.
-    * `rofi -show ssh` — Quickly SSH into hosts listed in `~/.ssh/config`.
-    * `echo -e "Option1\nOption2" | rofi -dmenu -p "Choose:"` — Use rofi as an interactive selection menu in scripts.
+    * `rofi -show drun` -- Display the application launcher.
+    * `rofi -show ssh` -- Quickly SSH into hosts listed in `~/.ssh/config`.
+    * `echo -e "Option1\nOption2" | rofi -dmenu -p "Choose:"` -- Use rofi as an interactive selection menu in scripts.
 */
 _:
 let

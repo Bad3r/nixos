@@ -16,9 +16,9 @@
     -time <ms>: Set transition time for fades.
 
   Example Usage:
-    * `xbacklight -set 50` — Set brightness to 50%.
-    * `xbacklight -inc 10` — Increase brightness by 10%.
-    * `xbacklight -dec 20 -time 200` — Fade brightness down by 20% over 200 ms.
+    * `xbacklight -set 50` -- Set brightness to 50%.
+    * `xbacklight -inc 10` -- Increase brightness by 10%.
+    * `xbacklight -dec 20 -time 200` -- Fade brightness down by 20% over 200 ms.
 */
 _:
 let

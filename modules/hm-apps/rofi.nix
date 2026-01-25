@@ -24,11 +24,11 @@
     * ~/.config/rofi/rofikeyhint.rasi    - Keybinding hints (1 column, 10 lines)
 
   Example Usage:
-    * `rofi -show drun` — Default app launcher with stylix colors.
-    * `rofi -config ~/.config/rofi/rofidmenu.rasi -show drun` — Apps in compact single-column list.
-    * `rofi -show calc -modi calc -no-show-match -no-sort` — Calculator with natural language.
-    * `echo -e "Shutdown\nRestart" | rofi -dmenu -config ~/.config/rofi/powermenu.rasi` — Power menu.
-    * `rofi -config ~/.config/rofi/rofikeyhint.rasi -show keys` — Show keybindings.
+    * `rofi -show drun` -- Default app launcher with stylix colors.
+    * `rofi -config ~/.config/rofi/rofidmenu.rasi -show drun` -- Apps in compact single-column list.
+    * `rofi -show calc -modi calc -no-show-match -no-sort` -- Calculator with natural language.
+    * `echo -e "Shutdown\nRestart" | rofi -dmenu -config ~/.config/rofi/powermenu.rasi` -- Power menu.
+    * `rofi -config ~/.config/rofi/rofikeyhint.rasi -show keys` -- Show keybindings.
 */
 
 _: {

@@ -27,8 +27,8 @@
     * ?: Show keybindings help
 
   Example Usage:
-    * `lazygit` — Open lazygit in the current git repository
-    * `lazygit -p /path/to/repo` — Open lazygit in a specific repository
+    * `lazygit` -- Open lazygit in the current git repository
+    * `lazygit -p /path/to/repo` -- Open lazygit in a specific repository
 */
 
 _: {

@@ -17,9 +17,9 @@
     [savedfile]: Load and apply a previously exported layout script on startup.
 
   Example Usage:
-    * `arandr` — Launch the visual display layout editor and manage monitors interactively.
-    * `arandr ~/.screenlayout/work.sh` — Open the GUI with a saved layout preloaded for edits.
-    * `arandr --randr-display 192.168.0.10:0` — Adjust outputs exposed by a remote X server over SSH forwarding.
+    * `arandr` -- Launch the visual display layout editor and manage monitors interactively.
+    * `arandr ~/.screenlayout/work.sh` -- Open the GUI with a saved layout preloaded for edits.
+    * `arandr --randr-display 192.168.0.10:0` -- Adjust outputs exposed by a remote X server over SSH forwarding.
 */
 _:
 let

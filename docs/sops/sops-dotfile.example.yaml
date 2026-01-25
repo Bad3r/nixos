@@ -1,4 +1,4 @@
-# .sops.yaml — SOPS recipient policy for this repository
+# .sops.yaml -- SOPS recipient policy for this repository
 #
 # Purpose
 # - Define who (recipients) can encrypt/decrypt new secrets
@@ -41,7 +41,7 @@ creation_rules:
           - *admin_user
           - *host_dev1
 
-  # 3) GitHub Actions token file — encrypt only the github_token field
+  # 3) GitHub Actions token file -- encrypt only the github_token field
   - path_regex: secrets/act.yaml
     encrypted_regex: "^(github_token)$"
     key_groups:

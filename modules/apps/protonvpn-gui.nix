@@ -14,8 +14,8 @@
     CLI: ProtonVPN GUI also installs `protonvpn-cli` for headless control (`protonvpn-cli c`, `protonvpn-cli status`, etc.).
 
   Example Usage:
-    * `protonvpn-gui` — Open the GUI, select a profile, and connect to a VPN server.
-    * `protonvpn-cli c --sc` — Connect to the fastest Secure Core server via CLI.
+    * `protonvpn-gui` -- Open the GUI, select a profile, and connect to a VPN server.
+    * `protonvpn-cli c --sc` -- Connect to the fastest Secure Core server via CLI.
     * Enable “Kill Switch” in settings to block traffic if the VPN disconnects unexpectedly.
 */
 _:

@@ -17,9 +17,9 @@
     dunstctl history-pop: Re-display the most recent notification from history.
 
   Example Usage:
-    * `dunst -config ~/.config/dunst/dunstrc {PRESERVED_DOCUMENTATION}` — Start dunst with a custom configuration file.
-    * `dunstctl set-paused true` — Temporarily pause displaying notifications.
-    * `dunstctl history-pop` — Quickly restore the last dismissed notification.
+    * `dunst -config ~/.config/dunst/dunstrc {PRESERVED_DOCUMENTATION}` -- Start dunst with a custom configuration file.
+    * `dunstctl set-paused true` -- Temporarily pause displaying notifications.
+    * `dunstctl history-pop` -- Quickly restore the last dismissed notification.
 */
 _:
 let

@@ -10,9 +10,9 @@
     * Optionally enables the Docker daemon and configures user groups.
 
   Example Usage:
-    * `docker ps` — List running containers on the local daemon.
-    * `docker compose up` — Launch a Compose project using the v2 plugin.
-    * `docker buildx bake` — Execute cached multi-platform builds.
+    * `docker ps` -- List running containers on the local daemon.
+    * `docker compose up` -- Launch a Compose project using the v2 plugin.
+    * `docker buildx bake` -- Execute cached multi-platform builds.
 */
 
 _:

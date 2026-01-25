@@ -14,8 +14,8 @@
     nix-eval-jobs <flake> --jobsets <file>: Evaluate jobsets defined in a JSON description.
 
   Example Usage:
-    * `nix-eval-jobs .# --checks` — Run all flake checks concurrently.
-    * `nix-eval-jobs github:myorg/myflake --workers 8` — Evaluate with eight parallel workers.
+    * `nix-eval-jobs .# --checks` -- Run all flake checks concurrently.
+    * `nix-eval-jobs github:myorg/myflake --workers 8` -- Evaluate with eight parallel workers.
 */
 _:
 let

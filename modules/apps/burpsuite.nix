@@ -6,7 +6,7 @@
   Repository: https://gitlab.com/_VX3r/burpsuite-pro-flake
 
   Summary:
-    * Provides an intercepting proxy, repeater, intruder, and extensible plugins for comprehensive web pentesting.
+    * Provides an intercepting proxy, repeater, intruder, and extensible plugins for web pentesting.
     * Automates vulnerability scanning while offering manual tooling for exploitation and request manipulation.
 
   Options:
@@ -15,8 +15,8 @@
     JAVA_TOOL_OPTIONS="-Djava.awt.headless=true" burpsuitepro: Run with headless-compatible settings for automation pipelines.
 
   Example Usage:
-    * `burpsuitepro` — Start Burp Suite and configure browser proxy settings to intercept traffic.
-    * `BURP_JVM_ARGS="-Xmx8G" burpsuitepro` — Allocate a larger heap for massive site crawls.
+    * `burpsuitepro` -- Start Burp Suite and configure browser proxy settings to intercept traffic.
+    * `BURP_JVM_ARGS="-Xmx8G" burpsuitepro` -- Allocate a larger heap for massive site crawls.
     * Add extensions from the BApp Store (e.g., Autorize, Logger++) to enhance capabilities.
 */
 { inputs, ... }:

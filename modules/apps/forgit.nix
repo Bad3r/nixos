@@ -17,9 +17,9 @@
     gd: Select files to view diffs with syntax highlighting.
 
   Example Usage:
-    * `ga` — Stage files or individual hunks after selecting them through fzf.
-    * `gco` — Pick a branch interactively to check out without memorizing names.
-    * `gl` — Navigate the reflog and jump to previous states using fuzzy search.
+    * `ga` -- Stage files or individual hunks after selecting them through fzf.
+    * `gco` -- Pick a branch interactively to check out without memorizing names.
+    * `gl` -- Navigate the reflog and jump to previous states using fuzzy search.
 */
 _:
 let

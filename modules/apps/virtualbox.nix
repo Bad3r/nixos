@@ -10,8 +10,8 @@
     * Optionally enables VirtualBox host services and user groups.
 
   Example Usage:
-    * `VirtualBox` — Launch the Qt management UI for creating and managing VMs.
-    * `vboxmanage list vms` — Enumerate registered guests from the CLI.
+    * `VirtualBox` -- Launch the Qt management UI for creating and managing VMs.
+    * `vboxmanage list vms` -- Enumerate registered guests from the CLI.
 */
 _:
 let

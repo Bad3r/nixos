@@ -17,9 +17,9 @@
     playerctl status: Report current playback status.
 
   Example Usage:
-    * `playerctl play-pause` — Toggle playback for the first active player.
-    * `playerctl --player=spotify metadata --format '{{title}} by {{artist}}'` — Show the current Spotify track in a custom format.
-    * `playerctl --player=mpv position +30` — Skip forward 30 seconds in mpv.
+    * `playerctl play-pause` -- Toggle playback for the first active player.
+    * `playerctl --player=spotify metadata --format '{{title}} by {{artist}}'` -- Show the current Spotify track in a custom format.
+    * `playerctl --player=mpv position +30` -- Skip forward 30 seconds in mpv.
 */
 _:
 let

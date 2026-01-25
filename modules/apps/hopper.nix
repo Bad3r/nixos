@@ -14,8 +14,8 @@
     --python-home <path>: Set Python home directory for scripting
 
   Example Usage:
-    * `hopper` — Launch Hopper GUI for interactive binary analysis
-    * `hopper --executable /path/to/binary` — Open a specific binary in Hopper
+    * `hopper` -- Launch Hopper GUI for interactive binary analysis
+    * `hopper --executable /path/to/binary` -- Open a specific binary in Hopper
 */
 _:
 let

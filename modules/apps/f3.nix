@@ -17,9 +17,9 @@
     f3brew: Display a summary report combining probe and fix recommendations.
 
   Example Usage:
-    * `sudo f3write /media/usb` — Write test files across a USB drive to check its real capacity.
-    * `sudo f3read /media/usb` — Validate the data written by `f3write` and identify corrupt sectors.
-    * `sudo f3probe --destructive --time-ops /dev/sdc` — Run a destructive scan to estimate genuine size and performance metrics.
+    * `sudo f3write /media/usb` -- Write test files across a USB drive to check its real capacity.
+    * `sudo f3read /media/usb` -- Validate the data written by `f3write` and identify corrupt sectors.
+    * `sudo f3probe --destructive --time-ops /dev/sdc` -- Run a destructive scan to estimate genuine size and performance metrics.
 */
 _:
 let

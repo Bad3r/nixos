@@ -15,9 +15,9 @@
     sqlmap -u <url> --dump-all: Dump entire database contents when possible.
 
   Example Usage:
-    * `sqlmap -u "https://example.com/item.php?id=1" --risk=3 --level=5` — Perform thorough testing on a GET parameter.
-    * `sqlmap -r request.txt --dbs` — Enumerate databases from a saved authenticated request.
-    * `sqlmap -u <url> --os-shell` — Attempt to spawn an interactive OS shell where supported.
+    * `sqlmap -u "https://example.com/item.php?id=1" --risk=3 --level=5` -- Perform thorough testing on a GET parameter.
+    * `sqlmap -r request.txt --dbs` -- Enumerate databases from a saved authenticated request.
+    * `sqlmap -u <url> --os-shell` -- Attempt to spawn an interactive OS shell where supported.
 */
 _:
 let

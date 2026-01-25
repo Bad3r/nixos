@@ -16,9 +16,9 @@
     --path <dir>: Save screenshots to a particular directory instead of prompting (`flameshot full --path`).
 
   Example Usage:
-    * `flameshot gui` — Draw annotations, blur sensitive data, and copy to clipboard before sharing.
-    * `flameshot full --path ~/Pictures/screenshots` — Save a full display capture directly to a folder.
-    * `flameshot gui --delay 3000` — Start a capture after a 3-second delay to stage windows.
+    * `flameshot gui` -- Draw annotations, blur sensitive data, and copy to clipboard before sharing.
+    * `flameshot full --path ~/Pictures/screenshots` -- Save a full display capture directly to a folder.
+    * `flameshot gui --delay 3000` -- Start a capture after a 3-second delay to stage windows.
 */
 
 _: {

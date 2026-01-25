@@ -16,9 +16,9 @@
     --zap-all: Erase both GPT and MBR data structures from a disk before repartitioning.
 
   Example Usage:
-    * `gdisk /dev/nvme0n1` — Interactively review and edit partitions on an NVMe disk.
-    * `sgdisk --print /dev/sda` — List partition layout for scripts or troubleshooting.
-    * `sgdisk --backup=~/backups/sda.gpt --print /dev/sda` — Save a GPT backup before modifying the table.
+    * `gdisk /dev/nvme0n1` -- Interactively review and edit partitions on an NVMe disk.
+    * `sgdisk --print /dev/sda` -- List partition layout for scripts or troubleshooting.
+    * `sgdisk --backup=~/backups/sda.gpt --print /dev/sda` -- Save a GPT backup before modifying the table.
 */
 
 {

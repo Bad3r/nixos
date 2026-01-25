@@ -16,9 +16,9 @@
     -x: Stay on a single filesystem and avoid crossing mount points.
 
   Example Usage:
-    * `ncdu /var` — Investigate disk usage in `/var` and delete logs or caches interactively.
-    * `ncdu -o scan.json /srv` — Capture usage data on a server for offline analysis.
-    * `ncdu -x --exclude '/var/lib/docker/*' /var` — Audit a filesystem without crossing into container layers.
+    * `ncdu /var` -- Investigate disk usage in `/var` and delete logs or caches interactively.
+    * `ncdu -o scan.json /srv` -- Capture usage data on a server for offline analysis.
+    * `ncdu -x --exclude '/var/lib/docker/*' /var` -- Audit a filesystem without crossing into container layers.
 */
 
 {

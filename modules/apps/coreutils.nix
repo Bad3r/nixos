@@ -7,7 +7,7 @@
 
   Summary:
     * Provides canonical implementations of commands such as `ls`, `cp`, `mv`, `chmod`, and `cat`.
-    * Extends POSIX behavior with GNU-specific options, localization, and robust internationalization support.
+    * Extends POSIX behavior with GNU-specific options, localization, and internationalization support.
 
   Options:
     --help: Append to any coreutils command (e.g., `ls --help`) to display detailed usage information.

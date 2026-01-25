@@ -16,9 +16,9 @@
     corepack enable pnpm: Activate pinned pnpm versions shipped with Node 24.
 
   Example Usage:
-    * `node --test` — Run tests using the built-in test runner infrastructure.
-    * `npm create vite@latest my-app` — Scaffold a web project using the latest npm toolchains.
-    * `corepack enable pnpm {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} pnpm install` — Switch to pnpm package management for the project.
+    * `node --test` -- Run tests using the built-in test runner infrastructure.
+    * `npm create vite@latest my-app` -- Scaffold a web project using the latest npm toolchains.
+    * `corepack enable pnpm {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} pnpm install` -- Switch to pnpm package management for the project.
 */
 _:
 let

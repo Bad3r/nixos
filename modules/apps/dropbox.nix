@@ -15,9 +15,9 @@
     dropbox filestatus <path>: Inspect sync status for a specific file or directory.
 
   Example Usage:
-    * `dropbox start -i` — Run the initial setup wizard to link your account.
-    * `dropbox status` — Check current synchronization state and recent activity.
-    * `dropbox exclude add temp/` — Skip syncing temporary directories to the cloud.
+    * `dropbox start -i` -- Run the initial setup wizard to link your account.
+    * `dropbox status` -- Check current synchronization state and recent activity.
+    * `dropbox exclude add temp/` -- Skip syncing temporary directories to the cloud.
 */
 _:
 let

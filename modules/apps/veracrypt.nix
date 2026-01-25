@@ -16,9 +16,9 @@
     veracrypt --password <pass> --keyfiles <file>: Supply credentials non-interactively (use cautiously).
 
   Example Usage:
-    * `veracrypt` — Launch the GUI to create or mount encrypted volumes.
-    * `veracrypt --text --create secret.hc --size 500M --encryption AES` — Create a 500 MB container from the terminal.
-    * `veracrypt --text --mount secret.hc /mnt/secure` — Mount an existing container to a directory.
+    * `veracrypt` -- Launch the GUI to create or mount encrypted volumes.
+    * `veracrypt --text --create secret.hc --size 500M --encryption AES` -- Create a 500 MB container from the terminal.
+    * `veracrypt --text --mount secret.hc /mnt/secure` -- Mount an existing container to a directory.
 */
 _:
 let

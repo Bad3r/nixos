@@ -16,9 +16,9 @@
     --list: Print metadata about images instead of opening the viewer.
 
   Example Usage:
-    * `feh ~/Pictures` — Browse photos in slideshow mode with keyboard navigation.
-    * `feh --bg-fill ~/Pictures/wallpaper.jpg` — Apply a wallpaper across monitors.
-    * `feh --recursive --sort name ~/Wallpapers` — Present a sorted slideshow across nested directories.
+    * `feh ~/Pictures` -- Browse photos in slideshow mode with keyboard navigation.
+    * `feh --bg-fill ~/Pictures/wallpaper.jpg` -- Apply a wallpaper across monitors.
+    * `feh --recursive --sort name ~/Wallpapers` -- Present a sorted slideshow across nested directories.
 */
 
 {

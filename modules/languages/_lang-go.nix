@@ -6,7 +6,7 @@
   Repository: https://github.com/golang/go
 
   Summary:
-    * Provides Go compiler and toolchain with language server (gopls), comprehensive linter (golangci-lint), and debugger (delve).
+    * Provides Go compiler and toolchain with language server (gopls), meta-linter (golangci-lint), and debugger (delve).
     * Emphasizes simplicity and productivity with built-in concurrency primitives (goroutines, channels), fast compilation, and single-binary deployment.
 
   Included Tools:
@@ -16,10 +16,10 @@
     delve: Full-featured debugger for Go programs with support for goroutines and expression evaluation.
 
   Example Usage:
-    * `go mod init example.com/myproject` — Initialize new Go module.
-    * `go build -o myapp .` — Build binary from current module.
-    * `golangci-lint run --enable-all` — Run comprehensive linting with all available checkers.
-    * `dlv debug` — Start interactive debugging session for current package.
+    * `go mod init example.com/myproject` -- Initialize new Go module.
+    * `go build -o myapp .` -- Build binary from current module.
+    * `golangci-lint run --enable-all` -- Run all linters.
+    * `dlv debug` -- Start interactive debugging session for current package.
 */
 _:
 {

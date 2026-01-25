@@ -46,7 +46,7 @@ Setting `R2_REGION` ensures the helper exports `AWS_REGION=eu`/`AWS_DEFAULT_REGI
 and appends `s3-ext-region=eu` to the Duplicati destination, matching the Cloudflare
 R2 S3 compatibility guidance.citeturn0cfdocs\_\_search_cloudflare_documentation0
 
-> The passphrase is mandatory—Duplicati refuses to run encrypted backups without
+> The passphrase is mandatory--Duplicati refuses to run encrypted backups without
 > it. Rotate it with `sops -d` + `openssl rand -base64 32` when needed.
 > If you use different key names, override
 > `services.duplicati-r2.credentials.<name>.secret` to match the new selector.
@@ -127,7 +127,7 @@ runtime unit files via the `duplicati-r2-generate-units.service`. The rendered
 manifest lives at `/run/duplicati-r2/config.json` and every timer/service points
 to it through `DUPLICATI_R2_CONFIG`.
 
-> Prefer encrypted manifests for hosts deployed from this repo—paths and
+> Prefer encrypted manifests for hosts deployed from this repo--paths and
 > schedules stay out of Git and only materialize on the target system. Inline
 > `services.duplicati-r2.targets` remains available for tests or throwaway
 > setups, but it embeds the configuration in the Nix store.
@@ -252,7 +252,7 @@ Following these steps ensures the generator picks up the updated manifest and Du
 
 ## 7. Keeping the backup healthy
 
-- Keep the manifest’s `targets` tidy—remove unused entries to keep S3
+- Keep the manifest’s `targets` tidy--remove unused entries to keep S3
   storage minimal and timers readable.
 - When rotating credentials, update `secrets/duplicati-r2.yaml` and redeploy;
   the rendered env file refreshes automatically.

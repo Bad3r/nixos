@@ -13,10 +13,10 @@
     temurin-bin-25: Eclipse Temurin JDK 25 binary distribution including javac compiler, java runtime, jar packager, and standard library.
 
   Example Usage:
-    * `javac Main.java` — Compile Java source file to bytecode.
-    * `java -jar application.jar` — Execute packaged Java application.
-    * `java --version` — Display installed JDK version and build information.
-    * `jshell` — Launch interactive Java REPL for experimentation and prototyping.
+    * `javac Main.java` -- Compile Java source file to bytecode.
+    * `java -jar application.jar` -- Execute packaged Java application.
+    * `java --version` -- Display installed JDK version and build information.
+    * `jshell` -- Launch interactive Java REPL for experimentation and prototyping.
 */
 _:
 {

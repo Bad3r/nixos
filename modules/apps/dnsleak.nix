@@ -13,8 +13,8 @@
     dnsleak: Run the check; no additional flags are required.
 
   Example Usage:
-    * `dnsleak` — Display the detected public IP and the DNS servers listed in `/etc/resolv.conf`.
-    * `dnsleak | tee /tmp/dnsleak.log` — Capture the output for auditing or support tickets.
+    * `dnsleak` -- Display the detected public IP and the DNS servers listed in `/etc/resolv.conf`.
+    * `dnsleak | tee /tmp/dnsleak.log` -- Capture the output for auditing or support tickets.
 */
 _:
 let

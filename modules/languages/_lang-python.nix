@@ -16,10 +16,10 @@
     ruff: Extremely fast Python linter and formatter combining functionality of flake8, black, isort, and more.
 
   Example Usage:
-    * `python -m venv .venv && source .venv/bin/activate` — Create and activate virtual environment.
-    * `uv pip install requests` — Install packages with high-performance resolver.
-    * `pyright --watch` — Run type checker in watch mode for continuous feedback.
-    * `ruff check --fix .` — Lint and auto-fix code issues across project.
+    * `python -m venv .venv && source .venv/bin/activate` -- Create and activate virtual environment.
+    * `uv pip install requests` -- Install packages with high-performance resolver.
+    * `pyright --watch` -- Run type checker in watch mode for continuous feedback.
+    * `ruff check --fix .` -- Lint and auto-fix code issues across project.
 */
 _:
 {

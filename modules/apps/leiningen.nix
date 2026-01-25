@@ -17,9 +17,9 @@
     lein run [args]: Run the project's `-main` function with arguments.
 
   Example Usage:
-    * `lein new app example` — Create a new application skeleton.
-    * `lein repl` — Launch a REPL with the project's dependencies available.
-    * `lein uberjar` — Package the project into a standalone jar for deployment.
+    * `lein new app example` -- Create a new application skeleton.
+    * `lein repl` -- Launch a REPL with the project's dependencies available.
+    * `lein uberjar` -- Package the project into a standalone jar for deployment.
 */
 _:
 let

@@ -15,8 +15,8 @@
     filen-desktop --enable-logging: Emit verbose logs for troubleshooting sync issues.
 
   Example Usage:
-    * `filen-desktop` — Start the GUI client and connect to your Filen account.
-    * `filen-desktop --start-in-tray` — Keep the client running in the background while syncing files.
+    * `filen-desktop` -- Start the GUI client and connect to your Filen account.
+    * `filen-desktop --start-in-tray` -- Keep the client running in the background while syncing files.
     * Configure selective sync via the Preferences dialog to limit bandwidth and watched folders.
 */
 _:

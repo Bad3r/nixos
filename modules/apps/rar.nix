@@ -17,9 +17,9 @@
     -pPASSWORD: Encrypt archive entries with the supplied password (prompted if omitted).
 
   Example Usage:
-    * `rar a backups/project.rar src/ docs/` — Create a RAR archive from project directories.
-    * `rar a -m5 -p$(pass show infra/rar-password) secure.rar secrets/` — Compress sensitive data with maximum compression and encryption.
-    * `unrar x downloads/fonts.rar` — Extract archive contents preserving directory structure.
+    * `rar a backups/project.rar src/ docs/` -- Create a RAR archive from project directories.
+    * `rar a -m5 -p$(pass show infra/rar-password) secure.rar secrets/` -- Compress sensitive data with maximum compression and encryption.
+    * `unrar x downloads/fonts.rar` -- Extract archive contents preserving directory structure.
 */
 _:
 let
