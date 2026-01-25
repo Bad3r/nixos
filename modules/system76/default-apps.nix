@@ -37,6 +37,10 @@ let
         Default web browser for this host.
         Set to null to not configure a default browser via XDG mimeapps.
       '';
+      extraConfig = name: {
+        environment.variables.BROWSER = name;
+        home-manager.sharedModules = [ { home.sessionVariables.BROWSER = name; } ];
+      };
     };
 
     terminal = {
