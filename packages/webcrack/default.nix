@@ -1,3 +1,6 @@
+# NOTE: webcrack only supports webpack and browserify bundles.
+# It does NOT support esbuild/bun ESM bundles (misdetects as browserify).
+# See LIMITATIONS.md for details on bundle format detection.
 {
   lib,
   stdenv,
