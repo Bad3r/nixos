@@ -113,6 +113,29 @@
         "type": "gitlab"
       }
     },
+    "claude-desktop-linux-flake": {
+      "inputs": {
+        "flake-utils": [
+          "dedupe_flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1764098187,
+        "narHash": "sha256-H6JjWXhKqxZ8QLMoqndZx9e5x0Sv5AiipSmqvIxIbgo=",
+        "owner": "k3d3",
+        "repo": "claude-desktop-linux-flake",
+        "rev": "b2b040cb68231d2118906507d9cc8fd181ca6308",
+        "type": "github"
+      },
+      "original": {
+        "owner": "k3d3",
+        "repo": "claude-desktop-linux-flake",
+        "type": "github"
+      }
+    },
     "cloudflare-go": {
       "flake": false,
       "locked": {
@@ -604,6 +627,7 @@
     "root": {
       "inputs": {
         "burpsuite-pro-flake": "burpsuite-pro-flake",
+        "claude-desktop-linux-flake": "claude-desktop-linux-flake",
         "cloudflare-go": "cloudflare-go",
         "cloudflare-python": "cloudflare-python",
         "cloudflare-rs": "cloudflare-rs",

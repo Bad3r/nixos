@@ -188,8 +188,10 @@ symlinkJoin {
   };
 
   meta = {
-    description = "Claude AI Web Progressive App";
+    description = "Claude AI Web Progressive App (DEPRECATED: use claude-desktop)";
     longDescription = ''
+      DEPRECATED: This package is replaced by claude-desktop. Use programs.claude-desktop.extended instead.
+
       A containerized browser window for Claude AI using ungoogled-chromium in app mode.
 
       Features:

@@ -1,4 +1,6 @@
 /*
+  DEPRECATED: Use claude-desktop instead. This module will be removed in a future release.
+
   Package: claude-wpa
   Description: Claude AI Web Progressive App using ungoogled-chromium.
   Homepage: https://claude.ai
@@ -44,7 +46,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable claude-wpa.";
+          description = "Whether to enable claude-wpa. DEPRECATED: Use claude-desktop instead.";
           example = true;
         };
 
