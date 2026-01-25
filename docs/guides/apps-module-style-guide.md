@@ -43,10 +43,12 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
 
 ## Module Body
 
-- Define the module with the standard lambda: `{ pkgs, lib, ... }:`. Include `lib` only when used.
-- Prefer `environment.systemPackages = [ pkgs.<tool> ];` for simple package exposure. Use `lib.mkDefault` when the package should remain optional, matching `ent.nix` if defaults are desired.
-- Limit additional configuration to essentials required for the app to function.
-- Maintain two-space indentation for attribute sets.
+- The outer flake-parts module takes `_:` (ignores its config argument)
+- Define the NixOS module as a function inside a `let` binding with `{ config, lib, pkgs, ... }:`
+- Place `cfg = config.programs.<tool>.extended;` inside the NixOS module function (not the outer scope)
+- Prefer `environment.systemPackages = [ cfg.package ];` for package exposure
+- Limit additional configuration to essentials required for the app to function
+- Maintain two-space indentation for attribute sets
 
 ## Example Skeleton
 
@@ -66,13 +68,36 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
     -f: Important flag summary.
     -q: Another flag.
 */
-
-{
-  flake.nixosModules.apps.example =
-    { pkgs, ... }:
+_:
+let
+  ExampleModule =
     {
-      environment.systemPackages = [ pkgs.example ];
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.example.extended;
+    in
+    {
+      options.programs.example.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to enable example.";
+        };
+
+        package = lib.mkPackageOption pkgs "example" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
     };
+in
+{
+  flake.nixosModules.apps.example = ExampleModule;
 }
 ```
 
@@ -259,6 +284,50 @@ nix flake check --accept-flake-config --no-build
 **Cause:** Flakes copy the git tree to `/nix/store`, including only tracked (staged or committed) files. Untracked files are ignored.
 
 **Solution:** Always `git add` new files before running `nix flake check`.
+
+### Flake-Parts vs NixOS Config Scope
+
+**Problem:** Build fails with "attribute 'programs' missing" when accessing `config.programs.<tool>.extended`.
+
+**Cause:** The outer flake-parts module receives flake-parts config (which has no `programs` attribute). Using `{ config, lib, pkgs, ... }:` at the outer scope binds `config` to flake-parts config, not NixOS config.
+
+```nix
+# WRONG - config is flake-parts config, not NixOS config
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  cfg = config.programs.tool.extended;  # ERROR: programs doesn't exist
+  ToolModule = { ... };
+in
+{
+  flake.nixosModules.apps.tool = ToolModule;
+}
+
+# CORRECT - NixOS module receives NixOS config
+_:
+let
+  ToolModule =
+    {
+      config,  # This is NixOS config
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.tool.extended;  # Works correctly
+    in
+    { ... };
+in
+{
+  flake.nixosModules.apps.tool = ToolModule;
+}
+```
+
+**Solution:** Use `_:` for the outer flake-parts module and define the NixOS module function inside a `let` binding.
 
 ### NixOS-HM Dependency Guard Pattern
 

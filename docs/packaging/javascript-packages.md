@@ -13,8 +13,9 @@ These nixpkgs packages demonstrate various patterns for packaging JavaScript app
 | **synchrony**        | `$HOME/git/nixpkgs/pkgs/by-name/sy/synchrony/package.nix`        | Simple `cp -r node_modules`                   | Single-package pnpm projects (non-monorepo)                     |
 | **siyuan**           | `$HOME/git/nixpkgs/pkgs/by-name/si/siyuan/package.nix`           | `sourceRoot` + `postPatch` to `fetchPnpmDeps` | Monorepo subpackage with lockfile at root                       |
 | **heroic-unwrapped** | `$HOME/git/nixpkgs/pkgs/by-name/he/heroic-unwrapped/package.nix` | `npm_config_nodedir` for native modules       | Electron/native addons needing Node headers                     |
+| **tweakcc**          | `packages/tweakcc/default.nix` (local)                           | shamefully-hoist + autoPatchelfHook           | ESM apps with prebuilt native addons, external deps             |
 
-> **Note:** Paths reference a local nixpkgs clone at `$HOME/git/nixpkgs`. Clone via `ghq get NixOS/nixpkgs` or adjust paths to your setup.
+> **Note:** nixpkgs paths reference a local clone at `$HOME/git/nixpkgs`. Clone via `ghq get NixOS/nixpkgs` or adjust paths.
 
 ## pnpm Packages
 
@@ -199,6 +200,31 @@ nativeBuildInputs = [
 ];
 ```
 
+### Prebuilt Native Addons
+
+Some packages ship prebuilt `.node` binaries instead of building from source. Use `autoPatchelfHook` to fix library paths:
+
+```nix
+nativeBuildInputs = [
+  nodejs
+  pnpm_9
+  pnpmConfigHook
+  makeWrapper
+  autoPatchelfHook
+];
+
+# libstdc++ for native addons
+buildInputs = [ stdenv.cc.cc.lib ];
+
+# Remove musl binaries (we use glibc)
+preFixup = ''
+  find $out -name "*.musl.node" -delete
+  find $out -path "*linux-x64-musl*" -delete
+'';
+```
+
+The `preFixup` runs before `autoPatchelfHook`, removing incompatible musl variants that would cause patching errors.
+
 ## Electron Apps
 
 Electron packaging requires additional configuration:
@@ -302,9 +328,31 @@ makeWrapper ${nodejs}/bin/node $out/bin/my-app \
   --add-flags "$out/lib/my-app/dist/cli.js"
 ```
 
-### Missing Transitive Dependencies
+### Missing Transitive Dependencies (ESM + pnpm)
 
-If hoisted install doesn't include transitive deps, fall back to copying entire workspace (Pattern 1).
+pnpm's nested `node_modules` breaks ESM resolution for transitive deps. Use `shamefully-hoist` via `.npmrc` (not `pnpm config set`):
+
+```nix
+installPhase = ''
+  rm -rf node_modules
+  echo "node-linker=hoisted" > .npmrc
+  echo "shamefully-hoist=true" >> .npmrc
+  pnpm --offline --prod --ignore-scripts install
+  cp -rL node_modules $out/lib/my-app/
+'';
+```
+
+This flattens all deps to node_modules root, enabling proper ESM resolution.
+
+### Bundlers That Don't Bundle Dependencies
+
+Tools like tsdown/tsup mark `dependencies` as external by default. Check for `rollup-plugin-node-externals` in `devDependencies`. If present, the build output requires `node_modules` at runtime:
+
+```nix
+# Copy both bundled output AND node_modules
+cp -r dist package.json $out/lib/my-app/
+cp -rL node_modules $out/lib/my-app/
+```
 
 ## Searching for Examples
 
@@ -375,11 +423,13 @@ stdenv.mkDerivation {
 
 - **Get pnpm deps hash**: Build with placeholder, check error
 - **Filter workspaces**: `pnpmWorkspaces = [ "pkg-name..." ];`
-- **Flatten node_modules**: `pnpm config set nodeLinker hoisted`
+- **Flatten node_modules**: Write `.npmrc` with `node-linker=hoisted` and `shamefully-hoist=true`
 - **Skip native rebuild**: `pnpm --ignore-scripts install`
 - **Node headers (Node apps)**: `env.npm_config_nodedir = nodejs;`
 - **Node headers (Electron)**: `export npm_config_nodedir=${electron.headers}`
 - **Skip Electron download**: `env.ELECTRON_SKIP_BINARY_DOWNLOAD = "1";`
+- **Prebuilt native addons**: `autoPatchelfHook` + `buildInputs = [ stdenv.cc.cc.lib ]`
+- **Remove musl binaries**: `preFixup = ''find $out -name "*.musl.node" -delete'';`
 - **Dereference symlinks**: `cp -rL node_modules $out/`
 - **Production only**: `pnpm --prod install`
 - **Offline install**: `pnpm --offline install`
