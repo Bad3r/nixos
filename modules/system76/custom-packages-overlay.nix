@@ -13,6 +13,7 @@ _: {
         claude-wpa = final.callPackage ../../packages/claude-wpa { };
         rg-fzf = final.callPackage ../../packages/rg-fzf { };
         webcrack = final.callPackage ../../packages/webcrack { };
+        wakaru = final.callPackage ../../packages/wakaru { };
 
         # i3 window manager utilities
         i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };
