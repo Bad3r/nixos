@@ -187,20 +187,24 @@ let
     handlers.${meta.source}
       or (throw "Unknown MCP source type: ${meta.source}. Valid: ${toString (lib.attrNames handlers)}");
 
+  # Build config for a single server (public API for advanced use cases)
+  # mkServer :: Pkgs -> String -> AttrSet
+  mkServer =
+    pkgs: name:
+    let
+      mcpPkgs = inputs.mcp-servers-nix.packages.${pkgs.stdenv.hostPlatform.system};
+    in
+    (mkServerConfig { inherit pkgs mcpPkgs; } name) // { type = "stdio"; };
+
   # Build configs for a list of servers (simplified API for consumers)
   # mkServers :: Pkgs -> [String] -> AttrSet
   mkServers =
     pkgs: enabled:
     let
-      mcpPkgs = inputs.mcp-servers-nix.packages.${pkgs.stdenv.hostPlatform.system};
-
       # Validate all requested servers exist (right = valid, wrong = invalid)
       inherit (lib.partition (name: serverCatalog ? ${name}) enabled) right wrong;
       catalogNames = lib.concatStringsSep ", " (lib.attrNames serverCatalog);
-
-      result = lib.genAttrs right (
-        name: (mkServerConfig { inherit pkgs mcpPkgs; } name) // { type = "stdio"; }
-      );
+      result = lib.genAttrs right (mkServer pkgs);
     in
     if wrong != [ ] then
       lib.warn "Unknown MCP server(s): ${lib.concatStringsSep ", " wrong}. Valid: ${catalogNames}" result
@@ -216,6 +220,7 @@ in
     inherit
       serverCatalog
       defaultTimeout
+      mkServer
       mkServers
       ;
   };
