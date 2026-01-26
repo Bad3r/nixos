@@ -17,9 +17,58 @@
 { lib, inputs, ... }:
 let
   # ════════════════════════════════════════════════════════════════════════════
+  # Type Definitions - Server Catalog Entry Schema
+  # ════════════════════════════════════════════════════════════════════════════
+
+  validSources = [
+    "nix"
+    "sse"
+    "npx"
+  ];
+
+  # Required fields per source type
+  requiredFields = {
+    nix = [ "package" ];
+    sse = [ "url" ];
+    npx = [ "package" ];
+  };
+
+  # Optional fields per source type
+  optionalFields = {
+    nix = [ "secretEnvVar" ];
+    sse = [ "timeout" ];
+    npx = [ "timeout" ];
+  };
+
+  # Validate a single catalog entry
+  validateEntry =
+    name: entry:
+    let
+      source = entry.source or (throw "MCP server '${name}': missing required field 'source'");
+      validSource = lib.elem source validSources;
+      required = requiredFields.${source} or [ ];
+      optional = optionalFields.${source} or [ ];
+      allowedFields = [ "source" ] ++ required ++ optional;
+      entryFields = lib.attrNames entry;
+      missingFields = lib.filter (f: !(entry ? ${f})) required;
+      extraFields = lib.filter (f: !(lib.elem f allowedFields)) entryFields;
+    in
+    if !validSource then
+      throw "MCP server '${name}': invalid source '${source}'. Valid: ${toString validSources}"
+    else if missingFields != [ ] then
+      throw "MCP server '${name}' (${source}): missing required fields: ${toString missingFields}"
+    else if extraFields != [ ] then
+      throw "MCP server '${name}' (${source}): unknown fields: ${toString extraFields}. Allowed: ${toString allowedFields}"
+    else
+      entry;
+
+  # Validate all catalog entries
+  validateCatalog = lib.mapAttrs validateEntry;
+
+  # ════════════════════════════════════════════════════════════════════════════
   # Server Catalog - Single Source of Truth
   # ════════════════════════════════════════════════════════════════════════════
-  serverCatalog = {
+  serverCatalog = validateCatalog {
     # ──────────────────────────────────────────────────────────────────────────
     # Nix packages (mcp-servers-nix, fully reproducible)
     # ──────────────────────────────────────────────────────────────────────────
