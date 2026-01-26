@@ -1,51 +1,48 @@
 excludes = [
-    "inputs/*",
-    "lefthook.yml",
-    "nixos-manual/*",
-    "*.lock",
-    "*.patch",
-    "package-lock.json",
-    "go.mod",
-    "go.sum",
-    ".gitattributes",
-    ".gitignore",
-    ".gitmodules",
-    ".hgignore",
-    ".svnignore",
-    "LICENSE",
+  "inputs/*",
+  "lefthook.yml",
+  "nixos-manual/*",
+  "*.lock",
+  "*.patch",
+  "package-lock.json",
+  "go.mod",
+  "go.sum",
+  ".gitattributes",
+  ".gitignore",
+  ".gitmodules",
+  ".hgignore",
+  ".svnignore",
+  "LICENSE",
 ]
 
 [formatter.nixfmt]
-command = "/nix/store/b5m1h822ln0s493r30sgns77618ws59n-nixfmt-1.2.0/bin/nixfmt"
-excludes = []
+command = "nixfmt"
 includes = ["*.nix"]
-options = []
 
 [formatter.prettier]
-command = "/nix/store/0xf3ga1c7hapnxk75f6b98qhw4nnggn8-prettier-3.6.2/bin/prettier"
+command = "prettier"
 excludes = ["README.md"]
 includes = [
-    "*.cjs",
-    "*.css",
-    "*.html",
-    "*.js",
-    "*.json",
-    "*.json5",
-    "*.jsx",
-    "*.md",
-    "*.mdx",
-    "*.mjs",
-    "*.scss",
-    "*.ts",
-    "*.tsx",
-    "*.vue",
-    "*.yaml",
-    "*.yml",
+  "*.cjs",
+  "*.css",
+  "*.html",
+  "*.js",
+  "*.json",
+  "*.json5",
+  "*.jsx",
+  "*.md",
+  "*.mdx",
+  "*.mjs",
+  "*.scss",
+  "*.ts",
+  "*.tsx",
+  "*.vue",
+  "*.yaml",
+  "*.yml",
 ]
 options = ["--write"]
 
 [formatter.shfmt]
-command = "/nix/store/r3pj36ll7v3ss2z679arpwkg7pnka3s3-shfmt-3.12.0/bin/shfmt"
-excludes = []
+command = "shfmt"
 includes = ["*.sh", "*.bash", "*.envrc", "*.envrc.*"]
 options = ["-w", "-i", "2", "-s"]
