@@ -199,7 +199,6 @@
     in
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
-        inputs.mcp-servers-nix.flakeModule
         (inputs.import-tree ./modules)
       ];
 

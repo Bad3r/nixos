@@ -9,7 +9,6 @@
     {
       pkgs,
       config,
-      lib,
       ...
     }:
     {
@@ -120,8 +119,7 @@
             ghActionsList
             config.packages.generation-manager
             config.treefmt.build.wrapper
-          ]
-          ++ config.mcp-servers.packages;
+          ];
 
         shellHook = ''
           # Use repo-local treefmt cache (matches lefthook hook location)
@@ -133,10 +131,6 @@
           if [ ! -f .git/hooks/pre-commit ] || ! grep -q "lefthook" .git/hooks/pre-commit 2>/dev/null; then
             lefthook install
           fi
-        ''
-        + lib.optionalString (config.mcp-servers.shellHook != "") ''
-          # MCP servers: create/update .mcp.json for Claude Code
-          ${config.mcp-servers.shellHook}
         '';
       };
 
