@@ -6,46 +6,30 @@
   Repository: https://github.com/anthropics/claude-code
 
   Notes:
-    * Assumes Context7 API key is provisioned via SOPS at `sops.secrets."context7/api-key"`.
+    * MCP servers configured via flake.lib.mcp (modules/integrations/mcp-servers.nix)
+    * Context7 API key provisioned via SOPS at `sops.secrets."context7/api-key"`
 */
 
 _: {
   flake.homeManagerModules.apps."claude-code" =
     {
       osConfig,
-      config,
       lib,
       pkgs,
+      mcpLib,
       ...
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "claude-code" "extended" "enable" ] false osConfig;
 
-      # Check if context7 secret is available
-      hasContext7Secret = config.sops.secrets ? "context7/api-key";
-
-      mcp = import ../../lib/mcp-servers.nix {
-        inherit lib pkgs config;
-        defaultVariants = {
-          deepwiki = "stdio";
-        };
-      };
-
-      claudeMcpServers = mcp.select {
-        sequential-thinking = true;
-        time = false;
-        cfdocs = true;
-        cfbuilds = false;
-        cfobservability = false;
-        cfradar = false;
-        cfcontainers = false;
-        cfbrowser = true;
-        cfgraphql = false;
-        deepwiki = true;
-        context7 = hasContext7Secret; # Only enable if secret exists
-      };
-
-      defaultServers = claudeMcpServers;
+      # MCP servers via centralized catalog
+      mcpServers = mcpLib.mkServers pkgs [
+        "sequential-thinking"
+        "context7"
+        "cfdocs"
+        "cfbrowser"
+        "deepwiki"
+      ];
 
       # Claude Code settings.json configuration
       claudeSettings = {
@@ -147,7 +131,7 @@ _: {
         theme = "dark"; # Theme
         thinkingEnabled = true; # Thinking mode
         verbose = true; # Verbose output
-        mcpServers = defaultServers;
+        inherit mcpServers;
       };
 
       # Combined config as JSON for the activation script
@@ -192,7 +176,7 @@ _: {
             mv "$TMP_FILE" "$CLAUDE_CONFIG"
             chmod 600 "$CLAUDE_CONFIG"
 
-            echo "✢ Claude Code: config applied"
+            echo "✢ Claude Code: config applied (MCP via mcp-servers-nix)"
           '';
 
           sessionVariables = {
@@ -209,7 +193,7 @@ _: {
             CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "1";
             BASH_DEFAULT_TIMEOUT_MS = "240000";
             BASH_MAX_TIMEOUT_MS = "4800000";
-            BASH_MAX_OUTPUT_LENGTH = "2048";
+            BASH_MAX_OUTPUT_LENGTH = "1024";
             # MAX_THINKING_TOKENS = "32768";
             # CLAUDE_CODE_MAX_OUTPUT_TOKENS = "UNKNOWN";
             # MAX_MCP_OUTPUT_TOKENS = "32000";

@@ -173,6 +173,7 @@ in
         extraSpecialArgs = {
           hasGlobalPkgs = true;
           inherit inputs metaOwner;
+          mcpLib = config.flake.lib.mcp;
         };
         backupFileExtension = "hm.bk";
 
