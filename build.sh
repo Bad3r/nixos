@@ -16,6 +16,10 @@ NIX_CONFIGURATION=$'experimental-features = nix-command flakes pipe-operators\n'
 NIX_CONFIGURATION+=$'accept-flake-config = true\n'
 NIX_CONFIGURATION+=$'allow-import-from-derivation = false\n'
 NIX_CONFIGURATION+=$'abort-on-warn = true\n'
+# Authenticate with GitHub to avoid API rate limits during flake operations
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  NIX_CONFIGURATION+="access-tokens = github.com=$(gh auth token)"$'\n'
+fi
 # Note: Avoid restricted settings that cause warnings for non-trusted users
 # (e.g., substituters, trusted-public-keys, log-lines). Those should be
 # configured system-wide via nix.settings for trusted users.
