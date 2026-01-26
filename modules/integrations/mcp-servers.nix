@@ -101,6 +101,36 @@ let
       url = "https://browser.mcp.cloudflare.com/sse";
     };
 
+    cfbuilds = {
+      source = "sse";
+      url = "https://builds.mcp.cloudflare.com/sse";
+    };
+
+    cfobservability = {
+      source = "sse";
+      url = "https://observability.mcp.cloudflare.com/sse";
+    };
+
+    cfbindings = {
+      source = "sse";
+      url = "https://bindings.mcp.cloudflare.com/sse";
+    };
+
+    cfradar = {
+      source = "sse";
+      url = "https://radar.mcp.cloudflare.com/sse";
+    };
+
+    cfcontainers = {
+      source = "sse";
+      url = "https://containers.mcp.cloudflare.com/sse";
+    };
+
+    cfgraphql = {
+      source = "sse";
+      url = "https://graphql.mcp.cloudflare.com/sse";
+    };
+
     # ──────────────────────────────────────────────────────────────────────────
     # NPX packages (fetched at runtime)
     # ──────────────────────────────────────────────────────────────────────────
