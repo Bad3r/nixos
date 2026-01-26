@@ -36,6 +36,16 @@
           default = { };
           description = "Flake-level evaluation checks (kept lightweight to avoid builds).";
         };
+        xdg = lib.mkOption {
+          type = lib.types.attrsOf lib.types.anything;
+          default = { };
+          description = "XDG desktop file mappings and MIME type helpers.";
+        };
+        mcp = lib.mkOption {
+          type = lib.types.attrsOf lib.types.anything;
+          default = { };
+          description = "MCP (Model Context Protocol) server catalog and builder functions.";
+        };
       };
 
       homeManagerModules = lib.mkOption {

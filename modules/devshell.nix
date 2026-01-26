@@ -6,7 +6,11 @@
     ./devshell/pentesting.nix
   ];
   perSystem =
-    { pkgs, config, ... }:
+    {
+      pkgs,
+      config,
+      ...
+    }:
     {
       # Use make-shells pattern for better modularity
       make-shells.default = {

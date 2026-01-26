@@ -16,6 +16,7 @@
     --sandbox-mode <mode>: Adjust the sandbox level for commands launched by Codex.
 
   Notes:
+    * MCP servers configured via flake.lib.mcp (modules/integrations/mcp-servers.nix)
     * Package installation handled by NixOS module (modules/apps/codex.nix) via llm-agents.nix.
 */
 
@@ -26,31 +27,22 @@ _: {
       pkgs,
       config,
       lib,
+      mcpLib,
       ...
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "codex" "extended" "enable" ] false osConfig;
       codexPkg = lib.attrByPath [ "programs" "codex" "extended" "package" ] pkgs.codex osConfig;
 
-      mcp = import ../../lib/mcp-servers.nix {
-        inherit lib pkgs config;
-      };
-
-      codexMcpServers = mcp.selectWithoutType {
-        sequential-thinking = true;
-        memory = true;
-        time = true;
-        cfdocs = true;
-        cfbindings = false;
-        cfbuilds = false;
-        cfobservability = false;
-        cfradar = false;
-        cfcontainers = false; # conflicts w/ builtin review command
-        cfbrowser = true;
-        cfgraphql = false;
-        deepwiki = true;
-        context7 = true;
-      };
+      # MCP servers via centralized catalog
+      codexMcpServers = mcpLib.mkServers pkgs [
+        "sequential-thinking"
+        "memory"
+        "context7"
+        "cfdocs"
+        "cfbrowser"
+        "deepwiki"
+      ];
     in
     {
       config = lib.mkIf nixosEnabled {

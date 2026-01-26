@@ -23,6 +23,10 @@ _: {
             # lefthook local overrides (user-specific, not committed)
             /lefthook-local.yml
 
+            # claude code testing
+            .mcp.json
+            .specify/
+
             # direnv state
             .direnv/
             .envrc.local
