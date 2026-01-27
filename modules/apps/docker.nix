@@ -22,11 +22,12 @@ let
       config,
       lib,
       pkgs,
+      metaOwner,
       ...
     }:
     let
       cfg = config.programs.docker.extended;
-      owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] null config;
+      owner = metaOwner.username;
     in
     {
       options.programs.docker.extended = {
@@ -77,9 +78,9 @@ let
 
               home-manager.extraAppImports = lib.mkAfter [ "lazydocker" ];
             }
-            (lib.mkIf (owner != null) {
+            {
               users.users.${owner}.extraGroups = lib.mkAfter [ "docker" ];
-            })
+            }
           ]
         ))
       ];

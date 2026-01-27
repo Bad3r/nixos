@@ -5,14 +5,14 @@
       config,
       pkgs,
       lib,
+      metaOwner,
       ...
     }:
     let
       # Detect if act secret file exists to avoid evaluation failures
       actSecretExists = builtins.pathExists (./../../secrets + "/act.yaml");
       gpgSecretExists = builtins.pathExists (./../../secrets + "/gpg/vx.asc");
-      ownerUsername = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] "vx" config;
-      ownerName = lib.attrByPath [ "users" "users" ownerUsername "name" ] ownerUsername config;
+      ownerName = metaOwner.username;
     in
     {
       imports = [ inputs.sops-nix.nixosModules.sops ];

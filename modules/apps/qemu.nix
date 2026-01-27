@@ -21,11 +21,12 @@ let
       config,
       lib,
       pkgs,
+      metaOwner,
       ...
     }:
     let
       cfg = config.programs.qemu.extended;
-      owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] null config;
+      owner = metaOwner.username;
     in
     {
       options.programs.qemu.extended = {
@@ -76,13 +77,13 @@ let
               };
               home-manager.extraAppImports = lib.mkAfter [ "virt-manager" ];
             }
-            (lib.mkIf (owner != null) {
+            {
               users.users.${owner}.extraGroups = lib.mkAfter [
                 "kvm"
                 "libvirtd"
                 "qemu-libvirtd"
               ];
-            })
+            }
           ]
         ))
       ];

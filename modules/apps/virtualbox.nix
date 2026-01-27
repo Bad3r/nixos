@@ -20,11 +20,12 @@ let
       config,
       lib,
       pkgs,
+      metaOwner,
       ...
     }:
     let
       cfg = config.programs.virtualbox.extended;
-      owner = lib.attrByPath [ "flake" "lib" "meta" "owner" "username" ] null config;
+      owner = metaOwner.username;
     in
     {
       options.programs.virtualbox.extended = {
@@ -55,9 +56,9 @@ let
                 package = pkgs.virtualbox;
               };
             }
-            (lib.mkIf (owner != null) {
+            {
               users.users.${owner}.extraGroups = lib.mkAfter [ "vboxusers" ];
-            })
+            }
           ]
         ))
       ];
