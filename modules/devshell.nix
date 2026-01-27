@@ -91,7 +91,6 @@
             nix-tree
             nix-diff
             zsh
-            act
             jq
             ripgrep
             lefthook # Replaces pre-commit
