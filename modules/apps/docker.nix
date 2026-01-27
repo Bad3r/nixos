@@ -38,7 +38,7 @@ let
 
         enableDaemon = lib.mkOption {
           type = lib.types.bool;
-          default = false;
+          default = cfg.enable;
           description = "Whether to enable the Docker daemon (virtualisation.docker).";
         };
 
@@ -72,7 +72,7 @@ let
             {
               virtualisation.docker = {
                 enable = true;
-                enableOnBoot = true;
+                enableOnBoot = false;
               };
 
               home-manager.extraAppImports = lib.mkAfter [ "lazydocker" ];
