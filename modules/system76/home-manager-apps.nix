@@ -1,6 +1,7 @@
 { config, lib, ... }:
 let
   extraAppNames = [
+    "act"
     "atuin"
     "autorandr"
     "bat"
