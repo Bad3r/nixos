@@ -263,7 +263,7 @@ The `build.sh` script performs full validation (format, hooks, flake check) befo
 ### Commit & PR Expectations
 
 - Use Conventional Commits (`type(scope): summary`)
-- Keep commits focused and note affected hosts/modules
+- One commit = one logical concern. Include all files needed for that concern, even if multiple files change. Separate unrelated concerns into separate commits (feature vs docs, moduleA vs moduleB). Note affected hosts/modules
 - Record validation commands run during development
 - Add screenshots only for user-facing changes
 - Stage only files you directly modified
