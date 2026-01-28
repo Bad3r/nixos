@@ -10,6 +10,39 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
 - Identify the canonical user manual or API reference and verify that the URL resolves (follow redirects when necessary). Prefer HTTPS endpoints maintained by the project owner.
 - Document which source satisfied each field in your working notes so reviewers can replay the lookup if needed.
 
+## External Flake Input Packages
+
+When adding packages from external flake inputs (e.g., `llm-agents.nix`) instead of nixpkgs:
+
+### Discovery & Verification
+
+```bash
+# List available packages in the flake
+nix eval github:org/repo#packages.x86_64-linux --apply builtins.attrNames
+
+# Check package metadata
+nix eval github:org/repo#packages.x86_64-linux.<name>.meta.description --raw
+nix eval github:org/repo#packages.x86_64-linux.<name>.meta.homepage --raw
+```
+
+### Module Structure Differences
+
+- **Outer module signature**: Use `{ inputs, ... }:` instead of `_:` to access flake inputs
+- **Package option pattern**:
+  ```nix
+  package = lib.mkOption {
+    type = lib.types.package;
+    default = inputs.<flake-name>.packages.${pkgs.stdenv.hostPlatform.system}.<package-name>;
+    defaultText = lib.literalExpression "inputs.<flake-name>.packages.\${system}.<package-name>";
+    description = "The <package-name> package to use.";
+  };
+  ```
+- **Notes section**: Always document the source flake in the header's `Notes:` section
+
+### Example
+
+See `modules/apps/claude-code.nix`, `modules/apps/spec-kit.nix`, or `modules/apps/codex.nix` for complete examples.
+
 ## Scope
 
 - Applies to every NixOS app module exported under `flake.nixosModules.apps`.
@@ -38,12 +71,18 @@ This guide defines the expectations for `modules/apps/<tool>.nix` files. Use it 
 - Bullet style inside the comment:
   - Use `*` for generic bullet points (`Summary`, `Tests`, `Notes`).
   - Use the literal option token (for example `-b`) as the bullet for `Options`, as shown in `ent.nix`.
+- When documenting CLI options:
+  - For flag-based tools: Use literal flags (`-f`, `--verbose`) as bullet markers
+  - For subcommand-based tools: Use subcommand names (`init`, `generate`, `onboard`)
+  - For tools with minimal CLI: Document what exists, even if only 1-2 items
+  - For GUI or daemon tools: Document configuration patterns or notable behaviors instead
 - Unicode characters are acceptable; retain the form used by upstream documentation (for example `π` in statistical descriptions).
 - When a project offers multiple front-ends (for example CLI and GUI), scope the comment to the component delivered by the package.
 
 ## Module Body
 
-- The outer flake-parts module takes `_:` (ignores its config argument)
+- For nixpkgs packages: The outer flake-parts module takes `_:` (ignores its config argument)
+- For external flake inputs: Use `{ inputs, ... }:` to access flake inputs
 - Define the NixOS module as a function inside a `let` binding with `{ config, lib, pkgs, ... }:`
 - Place `cfg = config.programs.<tool>.extended;` inside the NixOS module function (not the outer scope)
 - Prefer `environment.systemPackages = [ cfg.package ];` for package exposure
@@ -101,6 +140,62 @@ in
 }
 ```
 
+## Example Skeleton (External Flake Input)
+
+```nix
+/*
+  Package: example
+  Description: Short explanation.
+  Homepage: https://example.org
+  Documentation: https://docs.example.org/cli
+  Repository: https://github.com/example/example
+
+  Summary:
+    * Key capability line one.
+    * Key capability line two.
+
+  Options:
+    -f: Important flag summary.
+    -q: Another flag.
+
+  Notes:
+    * Package sourced from example-flake (github:org/example-flake).
+*/
+{ inputs, ... }:
+{
+  flake.nixosModules.apps.example =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.example.extended;
+    in
+    {
+      options.programs.example.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to enable example.";
+        };
+
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = inputs.example-flake.packages.${pkgs.stdenv.hostPlatform.system}.example;
+          defaultText = lib.literalExpression "inputs.example-flake.packages.\${system}.example";
+          description = "The example package to use.";
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+}
+```
+
 ## Namespace Selection
 
 Most apps use `programs.<name>.extended`. However, apps requiring NixOS services (udev, systemd) use `services.<name>.extended` instead.
@@ -124,7 +219,9 @@ The module pattern is identical--just substitute `programs` with `services` in o
 
 When adding a new app, complete each step in order:
 
-### 1. Verify Package in nixpkgs
+### 1. Verify Package Availability
+
+**For nixpkgs packages**:
 
 ```bash
 # Check package exists and isn't deprecated/aliased
@@ -132,6 +229,17 @@ nix eval nixpkgs#<name>.meta.description --raw
 
 # If you get an error about aliases, check the actual package name
 nix eval nixpkgs#<name> --raw 2>&1
+```
+
+**For external flake input packages**:
+
+```bash
+# List available packages
+nix eval github:org/repo#packages.x86_64-linux --apply builtins.attrNames
+
+# Verify package exists and check metadata
+nix eval github:org/repo#packages.x86_64-linux.<name>.meta.description --raw
+nix eval github:org/repo#packages.x86_64-linux.<name>.meta.homepage --raw
 ```
 
 Some packages have different names (e.g., `floorp` is deprecated → use `floorp-bin`).
@@ -273,6 +381,11 @@ git add modules/style/stylix.nix
 
 nix fmt
 nix flake check --accept-flake-config --no-build
+
+# Additional verification (optional but recommended)
+nix eval .#nixosConfigurations.system76.options.programs.<tool>.extended.enable.type --raw  # Should output "bool"
+nix eval .#nixosConfigurations.system76.config.programs.<tool>.extended.enable 2>&1 | tail -1  # Should output "true"
+nix eval .#nixosConfigurations.system76.config.environment.systemPackages --apply 'pkgs: builtins.any (p: p.pname or "" == "<tool>") pkgs' 2>&1 | tail -1  # Should output "true"
 ```
 
 ## Common Pitfalls
