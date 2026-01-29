@@ -20,11 +20,16 @@ _: {
               - summary
               - failure
               - success
+              - execution
+              - execution_info
+              - execution_output
 
             pre-commit:
               parallel: true
               skip: [merge, rebase]
               fail_on_changes: ci
+              # Modified/added files (staged or not) + untracked files
+              files: sh -c '{ git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard; } | sort -u'
 
               jobs:
                 - name: validation
@@ -37,13 +42,13 @@ _: {
                     jobs:
                       - name: check-yaml
                         tags: [validation]
-                        run: yamllint -d relaxed -- {staged_files}
+                        run: yamllint -d relaxed -- {files}
                         glob: "**/*.{yaml,yml}"
                         fail_text: "Invalid YAML syntax. Check errors above."
 
                       - name: check-json
                         tags: [validation]
-                        run: jq empty {staged_files}
+                        run: jq empty {files}
                         glob: "**/*.json"
                         fail_text: "Invalid JSON syntax. Validate with: jq . <file>"
 
@@ -57,14 +62,14 @@ _: {
                     jobs:
                       - name: ripsecrets
                         tags: [security]
-                        run: ripsecrets -- {staged_files}
+                        run: ripsecrets -- {files}
                         exclude:
                           - "modules/networking/networking.nix"
                         fail_text: "Secrets/keys detected! Remove sensitive data or add to .secretsignore"
 
                       - name: ensure-sops
                         tags: [security]
-                        run: lefthook-ensure-sops {staged_files}
+                        run: lefthook-ensure-sops {files}
                         glob: "secrets/**/*.{yaml,yml,json,env,ini,age,enc}"
                         fail_text: "Secrets must be SOPS-encrypted. Run: sops <file>"
 
@@ -92,12 +97,12 @@ _: {
                     jobs:
                       - name: deadnix
                         tags: [nix]
-                        run: deadnix --fail -- {staged_files}
+                        run: deadnix --fail -- {files}
                         fail_text: "Unused code detected. Remove dead bindings shown above."
 
                       - name: statix
                         tags: [nix]
-                        run: lefthook-statix {staged_files}
+                        run: lefthook-statix {files}
                         fail_text: "Nix anti-patterns found. Run: statix fix <file>"
 
                 - name: quality
@@ -109,7 +114,7 @@ _: {
                     jobs:
                       - name: typos
                         tags: [quality]
-                        run: typos --config .typos.toml -- {staged_files}
+                        run: typos --config .typos.toml -- {files}
                         fail_text: "Typos detected. Run: typos -w <file> to fix, or add to .typos.toml"
 
                 - name: custom
