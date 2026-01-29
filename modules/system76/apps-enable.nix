@@ -223,6 +223,7 @@
       pyright.extended.enable = lib.mkOverride 1100 false;
       python.extended.enable = lib.mkOverride 1100 true;
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
+      "quick-webapps".extended.enable = lib.mkOverride 1100 true;
       radare2.extended.enable = lib.mkOverride 1100 false;
       raindrop.extended.enable = lib.mkOverride 1100 true;
       rar.extended.enable = lib.mkOverride 1100 true;
@@ -254,6 +255,7 @@
       strace.extended.enable = lib.mkOverride 1100 true;
       sysstat.extended.enable = lib.mkOverride 1100 true;
       tar.extended.enable = lib.mkOverride 1100 true;
+      tangram.extended.enable = lib.mkOverride 1100 true;
       tealdeer.extended.enable = lib.mkOverride 1100 true;
       "telegram-desktop".extended.enable = lib.mkOverride 1100 true;
       "teams-for-linux".extended.enable = lib.mkOverride 1100 false;
