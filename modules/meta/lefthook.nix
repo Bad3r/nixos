@@ -29,7 +29,9 @@ _: {
               skip: [merge, rebase]
               fail_on_changes: ci
               # Modified/added files (staged or not) + untracked files
-              files: sh -c '{ git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard; } | sort -u'
+              files: >-
+                sh -c '{ git diff --name-only HEAD 2>/dev/null;
+                git ls-files --others --exclude-standard; } | sort -u'
 
               jobs:
                 - name: validation
@@ -65,7 +67,9 @@ _: {
                         run: ripsecrets -- {files}
                         exclude:
                           - "modules/networking/networking.nix"
-                        fail_text: "Secrets/keys detected! Remove sensitive data or add to .secretsignore"
+                        fail_text: >-
+                          Secrets/keys detected! Remove sensitive data
+                          or add to .secretsignore
 
                       - name: ensure-sops
                         tags: [security]
@@ -84,7 +88,9 @@ _: {
                       - name: treefmt
                         tags: [formatting]
                         run: lefthook-treefmt
-                        fail_text: "Formatting failed. Check syntax errors above, then run: nix fmt"
+                        fail_text: >-
+                          Formatting failed. Check syntax errors above,
+                          then run: nix fmt
 
                 - name: nix-linting
                   priority: 4
@@ -115,7 +121,9 @@ _: {
                       - name: typos
                         tags: [quality]
                         run: typos --config .typos.toml -- {files}
-                        fail_text: "Typos detected. Run: typos -w <file> to fix, or add to .typos.toml"
+                        fail_text: >-
+                          Typos detected. Run: typos -w <file> to fix,
+                          or add to .typos.toml
 
                 - name: custom
                   priority: 6
@@ -127,12 +135,16 @@ _: {
                         env:
                           AUTO_FIX_MANAGED: "1"
                           MANAGED_FILES_VERBOSE: "0"
-                        fail_text: "Managed files out of sync. Run: nix develop -c write-files"
+                        fail_text: >-
+                          Managed files out of sync.
+                          Run: nix develop -c write-files
 
                       - name: apps-catalog-sync
                         tags: [custom]
                         run: lefthook-apps-catalog-sync
-                        fail_text: "apps-enable.nix out of sync with modules/apps/. See errors above."
+                        fail_text: >-
+                          apps-enable.nix out of sync with modules/apps/.
+                          See errors above.
           '';
         }
         {

@@ -27,20 +27,24 @@ jobs:
 
       - name: Prefer HTTPS for GitHub
         run: |
-          git config --global url."https://github.com/".insteadOf git@github.com:
-          git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+          URL="https://github.com/"
+          git config --global url."$URL".insteadOf git@github.com:
+          git config --global url."$URL".insteadOf ssh://git@github.com/
 
       - name: Update flake inputs
         id: update
         run: |
           # Update all inputs except secrets (requires private SSH access)
           # Get all inputs except 'secrets' and 'self'
-          inputs=$(nix flake metadata --json | jq -r '.locks.nodes.root.inputs | keys[]' | grep -v "^secrets$" || true)
+          inputs=$(nix flake metadata --json \
+            | jq -r '.locks.nodes.root.inputs | keys[]' \
+            | grep -v "^secrets$" || true)
 
           if [ -n "$inputs" ]; then
             for input in $inputs; do
               echo "Updating $input..."
-              nix flake lock --update-input "$input" || echo "Failed to update $input, skipping..."
+              nix flake lock --update-input "$input" \
+                || echo "Failed to update $input, skipping..."
             done
           fi
 
@@ -62,7 +66,11 @@ jobs:
         run: |
           echo "## Updated Inputs" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          nix flake metadata --json | jq -r '.locks.nodes | to_entries[] | select(.value.locked) | "\(.key): \(.value.locked.rev // .value.locked.narHash)"' >> $GITHUB_STEP_SUMMARY
+          nix flake metadata --json | jq -r '
+            .locks.nodes | to_entries[]
+            | select(.value.locked)
+            | "\(.key): \(.value.locked.rev // .value.locked.narHash)"
+          ' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Create Pull Request
@@ -91,7 +99,7 @@ jobs:
             Review the changes and merge if everything looks good.
 
             ---
-            *Automated by [update-flake.yml](https://github.com/${{ github.repository }}/blob/main/.github/workflows/update-flake.yml)*
+            *Automated by update-flake.yml workflow*
           branch: automated/flake-update
           delete-branch: true
           labels: |

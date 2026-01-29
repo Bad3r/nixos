@@ -37,7 +37,8 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4.1)
+          # Optional: Specify model (defaults to Claude Sonnet 4,
+          # uncomment for Claude Opus 4.1)
           # model: "claude-opus-4-1-20250805"
 
           # Direct prompt for automated review (no @claude mention needed)
@@ -51,25 +52,32 @@ jobs:
 
             Be constructive and helpful in your feedback.
 
-          # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
+          # Optional: Use sticky comments to make Claude reuse
+          # the same comment on subsequent pushes to the same PR
           # use_sticky_comment: true
 
           # Optional: Customize review based on file types
           # direct_prompt: |
           #   Review this PR focusing on:
-          #   - For TypeScript files: Type safety and proper interface usage
-          #   - For API endpoints: Security, input validation, and error handling
-          #   - For React components: Performance, accessibility, and best practices
+          #   - For TypeScript files: Type safety, proper interface usage
+          #   - For API endpoints: Security, input validation, errors
+          #   - For React components: Performance, accessibility
           #   - For tests: Coverage, edge cases, and test quality
 
           # Optional: Different prompts for different authors
           # direct_prompt: |
-          #   ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' &&
-          #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
-          #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
+          #   ${{
+          #     github.event.pull_request.author_association ==
+          #       'FIRST_TIME_CONTRIBUTOR' &&
+          #     'Welcome! Review this first-time contributor PR.
+          #      Be encouraging with detailed explanations.' ||
+          #     'Review focusing on coding standards and best practices.'
+          #   }}
 
           # Optional: Add specific tools for running tests or linting
-          # allowed_tools: "Bash(npm run test),Bash(npm run lint),Bash(npm run typecheck)"
+          # allowed_tools: >-
+          #   Bash(npm run test),Bash(npm run lint),
+          #   Bash(npm run typecheck)
 
           # Optional: Skip review for certain conditions
           # if: |

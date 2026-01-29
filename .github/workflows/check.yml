@@ -20,15 +20,17 @@ jobs:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
       - name: Prefer HTTPS for GitHub
         run: |
-          git config --global url."https://github.com/".insteadOf git@github.com:
-          git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+          URL="https://github.com/"
+          git config --global url."$URL".insteadOf git@github.com:
+          git config --global url."$URL".insteadOf ssh://git@github.com/
       - name: Check flake
         run: nix flake check --extra-experimental-features pipe-operators
       - name: Check namespace compliance
         run: ./test-dendritic-compliance.sh
       - name: Build configurations
         run: |
-          nix build .#nixosConfigurations.system76.config.system.build.toplevel \
+          HOST=".#nixosConfigurations.system76"
+          nix build "$HOST.config.system.build.toplevel" \
             --dry-run --extra-experimental-features pipe-operators
       - name: Generate dependency graph
         run: ./generate-dependency-graph.sh

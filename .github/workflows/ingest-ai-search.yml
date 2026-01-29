@@ -22,18 +22,21 @@ jobs:
       - name: Determine Worker URL
         id: worker-url
         run: |
+          BASE="nixos-module-docs-api"
+          DOMAIN="exploit.workers.dev"
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
-            echo "url=https://nixos-module-docs-api.exploit.workers.dev" >> $GITHUB_OUTPUT
+            echo "url=https://$BASE.$DOMAIN" >> $GITHUB_OUTPUT
           else
-            echo "url=https://nixos-module-docs-api-staging.exploit.workers.dev" >> $GITHUB_OUTPUT
+            echo "url=https://$BASE-staging.$DOMAIN" >> $GITHUB_OUTPUT
           fi
 
       - name: Trigger AI Search Ingestion
         env:
           WORKER_URL: ${{ steps.worker-url.outputs.url }}
           API_KEY: ${{ secrets.MODULE_API_KEY }}
+          ENV_NAME: ${{ github.event.inputs.environment }}
         run: |
-          echo "Triggering AI Search ingestion for ${{ github.event.inputs.environment }}..."
+          echo "Triggering AI Search ingestion for $ENV_NAME..."
 
           RESPONSE=$(curl -X POST "$WORKER_URL/api/admin/ai-search/ingest" \
             -H "X-API-Key: $API_KEY" \
@@ -63,7 +66,8 @@ jobs:
           sleep 10  # Wait for ingestion to process
 
           # Test semantic search
-          RESULT=$(curl -s "$WORKER_URL/api/modules/search?q=system&mode=semantic")
+          ENDPOINT="$WORKER_URL/api/modules/search"
+          RESULT=$(curl -s "$ENDPOINT?q=system&mode=semantic")
           MODE=$(echo "$RESULT" | jq -r '.mode')
           VERSION=$(echo "$RESULT" | jq -r '.search_version // "unknown"')
 
@@ -89,10 +93,10 @@ jobs:
           ## Next Steps
           Test the AI Search features:
           \`\`\`bash
+          URL="${{ steps.worker-url.outputs.url }}/api/modules/search"
           # Semantic search
-          curl "${{ steps.worker-url.outputs.url }}/api/modules/search?q=networking&mode=semantic"
-
+          curl "\$URL?q=networking&mode=semantic"
           # AI-powered responses
-          curl "${{ steps.worker-url.outputs.url }}/api/modules/search?q=how%20to%20configure%20ssh&ai=true"
+          curl "\$URL?q=how%20to%20configure%20ssh&ai=true"
           \`\`\`
           EOF
