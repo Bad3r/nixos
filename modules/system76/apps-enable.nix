@@ -134,6 +134,7 @@
       jnv.extended.enable = lib.mkOverride 1100 true;
       john.extended.enable = lib.mkOverride 1100 false;
       jq.extended.enable = lib.mkOverride 1100 true;
+      karere.extended.enable = lib.mkOverride 1100 true;
       kcolorchooser.extended.enable = lib.mkOverride 1100 true;
       kdiskmark.extended.enable = lib.mkOverride 1100 true;
       "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
