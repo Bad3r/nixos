@@ -294,7 +294,7 @@
       wireshark.extended.enable = lib.mkOverride 1100 false;
       "worker-build".extended.enable = lib.mkOverride 1100 true;
       "workers-rs-sdk".extended.enable = lib.mkOverride 1100 false;
-      wrangler.extended.enable = lib.mkOverride 1100 true;
+      wrangler.extended.enable = lib.mkOverride 1100 false; # pnpmDeps hash mismatch
       xbacklight.extended.enable = lib.mkOverride 1100 true;
       xclip.extended.enable = lib.mkOverride 1100 true;
       "xfce4-power-manager".extended.enable = lib.mkOverride 1100 false;
