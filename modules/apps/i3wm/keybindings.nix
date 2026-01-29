@@ -203,8 +203,11 @@
               "${mod}+space" = "floating toggle";
               "${mod}+Shift+space" = "focus mode_toggle";
 
+              # Clipboard
+              "${mod}+p" = "exec --no-startup-id rofi -modi 'clipboard:greenclip print' -show clipboard";
+
               # Focus
-              "${mod}+p" = "focus parent";
+              # "${mod}+p" = "focus parent"; # Replaced by clipboard
               "${mod}+c" = "focus child";
               "${mod}+h" = "focus left";
               "${mod}+j" = "focus down";

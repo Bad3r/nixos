@@ -104,6 +104,7 @@
       "github-mcp-server".extended.enable = lib.mkOverride 1100 true;
       glow.extended.enable = lib.mkOverride 1100 true;
       "gnome-disk-utility".extended.enable = lib.mkOverride 1100 true;
+      greenclip.extended.enable = lib.mkOverride 1100 true;
       gnugrep.extended.enable = lib.mkOverride 1100 true;
       gnumake.extended.enable = lib.mkOverride 1100 true;
       gnused.extended.enable = lib.mkOverride 1100 true;

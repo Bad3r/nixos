@@ -25,6 +25,7 @@ let
     "gcc"
     "git"
     "go"
+    "greenclip"
     "google-chrome"
     "gptfdisk"
     "htop"
