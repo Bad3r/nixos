@@ -64,10 +64,10 @@ See `modules/apps/claude-code.nix`, `modules/apps/spec-kit.nix`, or `modules/app
   - `Documentation:` -- canonical manual, user guide, or reference docs. Prefer first-party sources; if none exist, use the section of the homepage that acts as official documentation.
   - `Repository:` -- upstream GitHub project URL when available. Omit only if no public GitHub repository exists.
 - Provide the following subsections, each separated by a blank line:
-  - `Summary:` -- two bullet points describing primary functionality.
+  - `Summary:` -- brief bullet points describing primary functionality (typically 2, but use as many as needed).
   - `Tests:` -- only include when upstream documents deterministic CLI outputs (for example `ent.nix`). If no canonical tests exist, omit the section completely rather than inventing ad-hoc commands.
   - `Options:` -- bullet list covering notable flags, switches, or usage notes. Use `-flag` entries to mirror CLI flags and keep bullets to one line each. Reference official command documentation when paraphrasing behaviour.
-  - `Notes:` -- optional section for module-specific implementation details. Use when the module delegates responsibilities (e.g., package installation handled by Home Manager) or has namespace considerations (e.g., uses `services` instead of `programs`). Omit for straightforward modules.
+  - `Notes:` -- optional section for module-specific implementation details. Use as many bullets as needed to document delegated responsibilities, namespace considerations, or related packages. Omit for straightforward modules.
 - Bullet style inside the comment:
   - Use `*` for generic bullet points (`Summary`, `Tests`, `Notes`).
   - Use the literal option token (for example `-b`) as the bullet for `Options`, as shown in `ent.nix`.
