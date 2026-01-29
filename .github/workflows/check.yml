@@ -1,5 +1,6 @@
+---
 name: Dendritic Pattern Compliance Check
-on:
+"on":
   workflow_dispatch:
 jobs:
   check-compliance:

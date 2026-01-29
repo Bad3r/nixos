@@ -33,8 +33,8 @@ if [ "$needs_update" = "1" ]; then
   # Extract only PATH from nix develop (POSIX-compatible)
   nix_path=$(nix develop --accept-flake-config -c sh -c 'echo "$PATH"' 2>/dev/null)
   if [ -n "$nix_path" ]; then
-    echo "export PATH=\"$nix_path\"" >"$CACHE_FILE"
-    echo "$current_hash" >"$HASH_FILE"
+    echo "export PATH=\"$nix_path\"" > "$CACHE_FILE"
+    echo "$current_hash" > "$HASH_FILE"
     echo "Cache generated: $CACHE_FILE" >&2
   else
     echo "Warning: Failed to generate cache, hooks may fail outside devshell" >&2

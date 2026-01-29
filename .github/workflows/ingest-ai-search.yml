@@ -1,6 +1,7 @@
+---
 name: Ingest to AI Search
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       environment:

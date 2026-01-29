@@ -1,3 +1,4 @@
+---
 # .sops.yaml -- SOPS recipient policy for this repository
 #
 # Purpose
@@ -34,7 +35,7 @@ creation_rules:
       - age:
           - *admin_user
           - *host_prod1
-        # Add more admin/host recipients as needed
+          # Add more admin/host recipients as needed
 
   # 2) Development secrets (admins + development hosts)
   - path_regex: secrets/development/[^/]+\.(yaml|yml|json|env|ini)$
@@ -49,7 +50,7 @@ creation_rules:
     key_groups:
       - age:
           - *admin_user
-        # Add host(s) that run 'act' locally if needed
+          # Add host(s) that run 'act' locally if needed
 
   # 4) Catch‑all for other secrets under secrets/ (YAML/JSON/dotenv/INI)
   - path_regex: secrets/[^/]+\.(yaml|yml|json|env|ini)$
@@ -59,11 +60,11 @@ creation_rules:
           - *host_prod1
           - *host_dev1
 
-  # 5) (Optional) Binary secrets: encrypt entire files first,
-  #    then commit *.enc files
-  #    Example: sops -e /path/to/file > secrets/binary/file.enc
-  # - path_regex: secrets/binary/.*\.enc$
-  #   key_groups:
-  #     - age:
-  #       - *admin_user
-  #       - *host_prod1
+# 5) (Optional) Binary secrets: encrypt entire files first,
+#    then commit *.enc files
+#    Example: sops -e /path/to/file > secrets/binary/file.enc
+# - path_regex: secrets/binary/.*\.enc$
+#   key_groups:
+#     - age:
+#       - *admin_user
+#       - *host_prod1
