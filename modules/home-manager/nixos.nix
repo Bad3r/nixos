@@ -142,7 +142,7 @@ let
     "bat"
     "eza"
     "fzf"
-    "ghq-mirror"
+    "git-mirror"
     "kitty"
   ];
   extraAppImports = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;

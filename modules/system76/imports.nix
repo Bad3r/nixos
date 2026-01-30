@@ -36,6 +36,7 @@ in
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
       config.flake.nixosModules."duplicati-r2"
+      config.flake.nixosModules.mirror-root
 
       # External hardware modules
       inputs.nixos-hardware.nixosModules.system76
