@@ -43,7 +43,7 @@
       "claude-code".extended.installPackage = lib.mkOverride 1100 false; # Managed via bun
       "claude-desktop".extended.enable = lib.mkOverride 1100 true;
       "claude-plugins".extended.enable = lib.mkOverride 1100 true;
-      clawdbot.extended.enable = lib.mkOverride 1100 true;
+      clawdbot.extended.enable = lib.mkOverride 1100 false;
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
       "clojure-lsp".extended.enable = lib.mkOverride 1100 false;
       cloudflared.extended.enable = lib.mkOverride 1100 true;
