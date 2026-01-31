@@ -60,6 +60,57 @@ hardware-backed SSH keys can coexist without breaking SOPS.
 
 The Home Manager module `modules/home/r2-user.nix` reads `sops.templates."r2"` (populated when `secrets/r2.env` exists). Follow the same pattern as above; the shell helper prints actionable errors if the template is missing.
 
+## Editing Encrypted Files Safely
+
+### Interactive Editing
+
+For simple edits, use `sops` directly—it handles decryption, opens your editor, and re-encrypts on save:
+
+```bash
+sops secrets/<name>.yaml
+```
+
+### Programmatic / Scripted Editing
+
+When modifying secrets programmatically (e.g., appending rules, updating values via scripts), follow this procedure to avoid data loss:
+
+```bash
+# 1. Decrypt to a TEMPORARY file (never redirect over the original)
+sops -d secrets/<name>.yaml > /tmp/plaintext.yaml
+
+# 2. Modify the temporary file
+# ... your edits here ...
+
+# 3. Write the modified content to the TARGET path (overwrite is safe now)
+cp /tmp/plaintext.yaml secrets/<name>.yaml
+
+# 4. Encrypt IN-PLACE with -i flag
+sops -e -i secrets/<name>.yaml
+
+# 5. Clean up plaintext
+rm /tmp/plaintext.yaml
+```
+
+**Critical warnings:**
+
+| Anti-pattern                                     | Why it fails                                                                                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `sops -e /tmp/file.yaml > secrets/original.yaml` | Shell truncates `original.yaml` to 0 bytes _before_ sops runs. If sops fails, the original is gone.                              |
+| `sops -e secrets/file.tmp > secrets/file.yaml`   | Files with non-matching extensions (`.tmp`) don't match `.sops.yaml` creation rules, causing `no matching creation rules found`. |
+| `sops -d secrets/file.yaml > secrets/file.yaml`  | Same truncation issue—output redirect destroys input before read.                                                                |
+
+**Safe one-liner pattern:**
+
+```bash
+sops -d secrets/<name>.yaml > /tmp/plain.yaml && \
+  # modify /tmp/plain.yaml as needed, then:
+  cp /tmp/plain.yaml secrets/<name>.yaml && \
+  sops -e -i secrets/<name>.yaml && \
+  rm /tmp/plain.yaml
+```
+
+The key insight: always use `sops -e -i` (in-place) for the final encryption step, never shell redirects.
+
 ## Quick Checklist
 
 - [ ] `write-files` run after changing `modules/security/sops-policy.nix`.
@@ -70,12 +121,15 @@ The Home Manager module `modules/home/r2-user.nix` reads `sops.templates."r2"` (
 
 ## Common Issues
 
-| Symptom                               | Fix                                                                                                                                      |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `no secret material for ...`          | Check that the encrypted file exists. Declarations are guarded with `pathExists`.                                                        |
-| `Unknown recipient` while editing     | Regenerate `.sops.yaml` (`nix develop -c write-files`) or add the key to `modules/security/sops-policy.nix`.                             |
-| `Permission denied` reading secret    | Adjust the `owner`/`group` fields in the module; sops-nix enforces them strictly.                                                        |
-| `act` complaining about missing token | Ensure `/etc/act/secrets.env` exists (rerun `./build.sh --host <host> --boot` or the approved deployment helper after updating secrets). |
+| Symptom                               | Fix                                                                                                                                                                                     |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no secret material for ...`          | Check that the encrypted file exists. Declarations are guarded with `pathExists`.                                                                                                       |
+| `Unknown recipient` while editing     | Regenerate `.sops.yaml` (`nix develop -c write-files`) or add the key to `modules/security/sops-policy.nix`.                                                                            |
+| `Permission denied` reading secret    | Adjust the `owner`/`group` fields in the module; sops-nix enforces them strictly.                                                                                                       |
+| `act` complaining about missing token | Ensure `/etc/act/secrets.env` exists (rerun `./build.sh --host <host> --boot` or the approved deployment helper after updating secrets).                                                |
+| `no matching creation rules found`    | The file path doesn't match any regex in `.sops.yaml`. Ensure the file is under `secrets/` with a valid extension (`.yaml`, `.json`, `.env`, etc.). Temp files like `.tmp` won't match. |
+| `sops metadata not found`             | The file is plaintext or corrupted. Re-encrypt with `sops -e -i <file>` if plaintext, or restore from backup if corrupted.                                                              |
+| File truncated to 0 bytes             | Shell redirect (`>`) truncated before command ran. Restore from backup and use `sops -e -i` (in-place) instead of redirects.                                                            |
 
 ## Validation Commands
 
