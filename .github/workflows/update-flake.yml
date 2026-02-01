@@ -2,8 +2,8 @@
 name: Update Flake Inputs
 "on":
   schedule:
-    - cron: "0 2 * * *"  # Daily at 2 AM UTC
-  workflow_dispatch:  # Allow manual trigger
+    - cron: "0 2 * * *" # Daily at 2 AM UTC
+  workflow_dispatch: # Allow manual trigger
 
 permissions:
   contents: write
@@ -23,7 +23,7 @@ jobs:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
           extra_nix_config: |
             experimental-features = nix-command flakes pipe-operators
-            abort-on-warn = true
+            abort-on-warn = false
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
       - name: Prefer HTTPS for GitHub

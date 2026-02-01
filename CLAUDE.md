@@ -64,7 +64,7 @@ This flake enforces strict evaluation and build settings:
 
 | Setting                        | Value                  | Purpose                                                           |
 | ------------------------------ | ---------------------- | ----------------------------------------------------------------- |
-| `abort-on-warn`                | `true`                 | Treat warnings as errors to maintain code quality                 |
+| `abort-on-warn`                | `false`                | Disabled due to upstream nixpkgs warning (issue #485682)          |
 | `extra-experimental-features`  | `[ "pipe-operators" ]` | Enable pipe operator syntax in Nix expressions                    |
 | `allow-import-from-derivation` | `false`                | Prevent IFD to ensure evaluation purity and build reproducibility |
 | `experimental-features`        | `nix-command flakes`   | Enable flakes and new Nix CLI                                     |

@@ -11,7 +11,7 @@
                 NIX_CONFIG="experimental-features = nix-command flakes pipe-operators
         accept-flake-config = true
         allow-import-from-derivation = false
-        abort-on-warn = true"
+        abort-on-warn = false"
                 if command -v gh &>/dev/null && gh auth status &>/dev/null; then
                   NIX_CONFIG+="
         access-tokens = github.com=$(gh auth token)"

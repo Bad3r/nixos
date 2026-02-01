@@ -7,8 +7,9 @@
     nix.settings = {
       # Auto-trust flake nixConfig settings (safe for own repositories)
       accept-flake-config = true;
-      # Treat Nix warnings as errors to maintain code quality
-      abort-on-warn = true;
+      # Disabled due to upstream nixpkgs warning in make-options-doc
+      # See: https://github.com/NixOS/nixpkgs/issues/485682
+      abort-on-warn = false;
       # Prevent IFD to ensure evaluation purity and build reproducibility
       allow-import-from-derivation = false;
       keep-outputs = false;
