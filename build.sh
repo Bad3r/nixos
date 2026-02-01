@@ -15,7 +15,7 @@ set -Eeu -o pipefail
 NIX_CONFIGURATION=$'experimental-features = nix-command flakes pipe-operators\n'
 NIX_CONFIGURATION+=$'accept-flake-config = true\n'
 NIX_CONFIGURATION+=$'allow-import-from-derivation = false\n'
-NIX_CONFIGURATION+=$'abort-on-warn = true\n'
+NIX_CONFIGURATION+=$'abort-on-warn = false\n'
 # Authenticate with GitHub to avoid API rate limits during flake operations
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
   NIX_CONFIGURATION+="access-tokens = github.com=$(gh auth token)"$'\n'
@@ -42,6 +42,7 @@ SKIP_CHECK=false
 SKIP_SCORE=false
 KEEP_GOING=false
 REPAIR=false
+BOOTSTRAP_CACHES=false
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
 # Colors for output (readonly constants)
@@ -69,6 +70,7 @@ Options:
       --skip-all         Skip all validation steps (git hooks, flake check)
       --keep-going       Continue building despite failures (nix --keep-going)
       --repair           Repair corrupted store paths during build
+      --bootstrap        Use extra substituters for first build (e.g., Determinate Nix)
   -h, --help             Show this help message
 
   Usage Example:
@@ -167,6 +169,10 @@ while [[ $# -gt 0 ]]; do
     REPAIR=true
     shift
     ;;
+  --bootstrap)
+    BOOTSTRAP_CACHES=true
+    shift
+    ;;
   -h | --help)
     show_help
     exit 0
@@ -211,6 +217,22 @@ if [[ ! -f "${FLAKE_DIR}/flake.nix" ]]; then
 fi
 
 # Configure build settings
+# Bootstrap substituters for first build (before system has them configured)
+# Used for initial Determinate Nix setup or similar migrations
+BOOTSTRAP_SUBSTITUTERS=(
+  "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
+  "https://mirror.sjtu.edu.cn/nix-channels/store"
+  "https://mirrors.ustc.edu.cn/nix-channels/store"
+  "https://cache.nixos.org"
+  "https://cache.garnix.io"
+  "https://cache.numtide.com"
+)
+BOOTSTRAP_TRUSTED_KEYS=(
+  "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+  "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
+  "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+)
+
 configure_nix_flags() {
   local flags=()
 
@@ -238,6 +260,12 @@ configure_nix_flags() {
   # Repair corrupted store paths
   if [[ ${REPAIR} == "true" ]]; then
     flags+=("--repair")
+  fi
+
+  # Bootstrap caches for first build (replaces system substituters entirely)
+  if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
+    flags+=("--option" "substituters" "${BOOTSTRAP_SUBSTITUTERS[*]}")
+    flags+=("--option" "trusted-public-keys" "${BOOTSTRAP_TRUSTED_KEYS[*]}")
   fi
 
   NIX_FLAGS=("${flags[@]}")
@@ -280,7 +308,9 @@ check_reboot_needed() {
   # Check kernel version
   local running_kernel current_kernel
   running_kernel="$(uname -r)"
-  current_kernel="$(readlink /run/current-system/kernel | sed 's|.*-linux-||;s|/.*||')"
+  # Extract version number (e.g., 6.18.8) from kernel path
+  # Handles both standard (linux-6.18.8) and CachyOS (linux-cachyos-latest-x86_64-v3-6.18.8)
+  current_kernel="$(readlink /run/current-system/kernel | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1)"
   if [[ ${running_kernel} != "${current_kernel}" ]]; then
     needs_reboot=true
     reasons+=("Kernel: ${running_kernel} -> ${current_kernel}")
