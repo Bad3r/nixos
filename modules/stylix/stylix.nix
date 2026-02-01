@@ -165,6 +165,9 @@
 
           # GTK3 apps need this setting to use dark theme variant
           gtk.gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
+
+          # GTK4 apps need this setting to use dark theme variant
+          gtk.gtk4.extraConfig.gtk-application-prefer-dark-theme = true;
         };
     };
 
