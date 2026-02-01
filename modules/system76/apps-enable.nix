@@ -58,6 +58,8 @@
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
       curl.extended.enable = lib.mkOverride 1100 true;
       curlie.extended.enable = lib.mkOverride 1100 true;
+      "czkawka-cli".extended.enable = lib.mkOverride 1100 true;
+      "czkawka-gui".extended.enable = lib.mkOverride 1100 true;
       cutter.extended.enable = lib.mkOverride 1100 false;
       ddrescue.extended.enable = lib.mkOverride 1100 true;
       deadnix.extended.enable = lib.mkOverride 1100 true;
@@ -250,6 +252,7 @@
       sqlmap.extended.enable = lib.mkOverride 1100 false;
       starship.extended.enable = lib.mkOverride 1100 true;
       statix.extended.enable = lib.mkOverride 1100 true;
+      stash.extended.enable = lib.mkOverride 1100 true;
       steam.extended.enable = lib.mkOverride 1100 true;
       synchrony.extended.enable = lib.mkOverride 1100 true;
       strace.extended.enable = lib.mkOverride 1100 true;
