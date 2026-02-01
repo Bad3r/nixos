@@ -91,7 +91,7 @@
           export -f sync_repo
 
           mapfile -t repos < <(grep -vE '^[[:space:]]*(#|$)' "${reposFile}")
-          printf '%s\n' "''${repos[@]}" | parallel --line-buffer -j"$jobs" sync_repo
+          printf '%s\n' "''${repos[@]}" | SHELL=${pkgs.bash}/bin/bash parallel --line-buffer -j"$jobs" sync_repo
         '';
       };
     in
