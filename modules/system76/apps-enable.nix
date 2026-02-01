@@ -94,11 +94,12 @@
       flarectl.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;
       formatting.extended.enable = lib.mkOverride 1100 true;
+      "frida-tools".extended.enable = lib.mkOverride 1100 true;
       fzf.extended.enable = lib.mkOverride 1100 true;
       gawk.extended.enable = lib.mkOverride 1100 true;
       gcc.extended.enable = lib.mkOverride 1100 true;
       gdb.extended.enable = lib.mkOverride 1100 true;
-      ghidra.extended.enable = lib.mkOverride 1100 false;
+      ghidra.extended.enable = lib.mkOverride 1100 true;
       git.extended.enable = lib.mkOverride 1100 true;
       "git-filter-repo".extended.enable = lib.mkOverride 1100 true;
       gimp.extended.enable = lib.mkOverride 1100 false;
