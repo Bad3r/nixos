@@ -14,84 +14,85 @@
       cfg = config.programs.gitMirror;
       reposFile = pkgs.writeText "repos.txt" (lib.concatStringsSep "\n" cfg.repos);
 
-      mirrorScript = pkgs.writeShellApplication {
-        name = "git-mirror";
+      # Helper script for syncing a single repo (called by parallel)
+      syncRepoScript = pkgs.writeShellApplication {
+        name = "git-mirror-sync-repo";
         runtimeInputs = with pkgs; [
           git
           coreutils
-          gnugrep
           gawk
-          parallel
         ];
         text = ''
-          set -euo pipefail
-          umask 002
-
-          export root="${cfg.root}"
-          export max_backups=${toString cfg.maxBackups}
-          export jobs=${toString cfg.jobs}
+          set -eu
+          spec="$1"
+          dir="$GIT_MIRROR_ROOT/$(printf '%s' "$spec" | tr '/' '-')"
+          url="https://github.com/$spec.git"
+          max_backups="$GIT_MIRROR_MAX_BACKUPS"
 
           log() { printf '%s %s\n' "$(date -Is)" "$*" >&2; }
-          export -f log
 
-          spec_to_dir() { printf '%s' "''${1//\//-}"; }
-          export -f spec_to_dir
+          log "$spec: syncing"
 
-          sync_repo() {
-            local spec dir url
-            spec="$1"
-            dir="$root/$(spec_to_dir "$spec")"
-            url="https://github.com/$spec.git"
+          # Clone if missing
+          if [ ! -d "$dir" ]; then
+            git clone "$url" "$dir" && chmod g+s "$dir"
+            log "$spec: cloned"
+            exit 0
+          fi
 
-            log "$spec: syncing"
+          [ -d "$dir/.git" ] || { log "$spec: not a git repo"; exit 1; }
 
-            # Clone if missing
-            if [ ! -d "$dir" ]; then
-              git clone "$url" "$dir" && chmod g+s "$dir"
-              log "$spec: cloned"
-              return 0
+          git -C "$dir" remote update --prune || { log "$spec: fetch failed"; exit 1; }
+
+          # Stash dirty work
+          if [ -n "$(git -C "$dir" status -s)" ]; then
+            git -C "$dir" stash push -u -m "git-mirror: $(date -u +%Y%m%dT%H%M%SZ)" || true
+            # Prune old stashes (reverse order to avoid index shifting)
+            git -C "$dir" stash list | awk -F: '/git-mirror:/ {print $1}' | tail -n +"$((max_backups + 1))" | \
+              tac | xargs -r -I{} git -C "$dir" stash drop {} 2>/dev/null || true
+          fi
+
+          # Get tracking branch
+          tracking=$(git -C "$dir" rev-parse --abbrev-ref '@{u}' 2>/dev/null) || \
+            tracking="origin/$(git -C "$dir" remote show origin | awk '/HEAD branch/ {print $3}')"
+
+          local_sha=$(git -C "$dir" rev-parse HEAD)
+          remote_sha=$(git -C "$dir" rev-parse "$tracking")
+
+          if [ "$local_sha" != "$remote_sha" ]; then
+            # Backup diverging history
+            base_sha=$(git -C "$dir" merge-base HEAD "$tracking" 2>/dev/null || true)
+            if [ -z "$base_sha" ] || [ "$base_sha" != "$remote_sha" ]; then
+              git -C "$dir" branch "git-mirror/backup-$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || true
+              # Prune old backups
+              git -C "$dir" for-each-ref --sort=-committerdate --format='%(refname:short)' \
+                refs/heads/git-mirror/backup-* | tail -n +"$((max_backups + 1))" | \
+                xargs -r -I{} git -C "$dir" branch -D {} 2>/dev/null || true
             fi
+            git -C "$dir" reset --hard "$tracking"
+          fi
 
-            [ -d "$dir/.git" ] || { log "$spec: not a git repo"; return 1; }
+          git -C "$dir" clean -fdx >/dev/null
+          log "$spec: up to date"
+        '';
+      };
 
-            git -C "$dir" remote update --prune || { log "$spec: fetch failed"; return 1; }
-
-            # Stash dirty work
-            if [ -n "$(git -C "$dir" status -s)" ]; then
-              git -C "$dir" stash push -u -m "git-mirror: $(date -u +%Y%m%dT%H%M%SZ)" || true
-              # Prune old stashes (reverse order to avoid index shifting)
-              git -C "$dir" stash list | awk -F: '/git-mirror:/ {print $1}' | tail -n +$((max_backups + 1)) | \
-                tac | xargs -r -I{} git -C "$dir" stash drop {} 2>/dev/null || true
-            fi
-
-            # Get tracking branch
-            local tracking local_sha remote_sha base_sha
-            tracking=$(git -C "$dir" rev-parse --abbrev-ref '@{u}' 2>/dev/null) || \
-              tracking="origin/$(git -C "$dir" remote show origin | awk '/HEAD branch/ {print $3}')"
-
-            local_sha=$(git -C "$dir" rev-parse HEAD)
-            remote_sha=$(git -C "$dir" rev-parse "$tracking")
-
-            if [ "$local_sha" != "$remote_sha" ]; then
-              # Backup diverging history
-              base_sha=$(git -C "$dir" merge-base HEAD "$tracking" 2>/dev/null || true)
-              if [ -z "$base_sha" ] || [ "$base_sha" != "$remote_sha" ]; then
-                git -C "$dir" branch "git-mirror/backup-$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || true
-                # Prune old backups
-                git -C "$dir" for-each-ref --sort=-committerdate --format='%(refname:short)' \
-                  refs/heads/git-mirror/backup-* | tail -n +$((max_backups + 1)) | \
-                  xargs -r -I{} git -C "$dir" branch -D {} 2>/dev/null || true
-              fi
-              git -C "$dir" reset --hard "$tracking"
-            fi
-
-            git -C "$dir" clean -fdx >/dev/null
-            log "$spec: up to date"
-          }
-          export -f sync_repo
-
-          mapfile -t repos < <(grep -vE '^[[:space:]]*(#|$)' "${reposFile}")
-          printf '%s\n' "''${repos[@]}" | SHELL=${pkgs.bash}/bin/bash parallel --line-buffer -j"$jobs" sync_repo
+      # Main entry point
+      mirrorScript = pkgs.writeShellApplication {
+        name = "git-mirror";
+        runtimeInputs = with pkgs; [
+          coreutils
+          gnugrep
+          parallel
+          syncRepoScript
+        ];
+        text = ''
+          set -eu
+          umask 002
+          export GIT_MIRROR_ROOT="${cfg.root}"
+          export GIT_MIRROR_MAX_BACKUPS=${toString cfg.maxBackups}
+          grep -vE '^[[:space:]]*(#|$)' "${reposFile}" | \
+            parallel --line-buffer -j${toString cfg.jobs} git-mirror-sync-repo
         '';
       };
     in
