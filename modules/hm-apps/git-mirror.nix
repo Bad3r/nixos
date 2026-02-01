@@ -21,17 +21,21 @@
           coreutils
           gnugrep
           gawk
+          parallel
         ];
         text = ''
           set -euo pipefail
           umask 002
 
-          root="${cfg.root}"
-          max_backups=${toString cfg.maxBackups}
+          export root="${cfg.root}"
+          export max_backups=${toString cfg.maxBackups}
+          export jobs=${toString cfg.jobs}
 
           log() { printf '%s %s\n' "$(date -Is)" "$*" >&2; }
+          export -f log
 
           spec_to_dir() { printf '%s' "''${1//\//-}"; }
+          export -f spec_to_dir
 
           sync_repo() {
             local spec dir url
@@ -84,13 +88,10 @@
             git -C "$dir" clean -fdx >/dev/null
             log "$spec: up to date"
           }
+          export -f sync_repo
 
           mapfile -t repos < <(grep -vE '^[[:space:]]*(#|$)' "${reposFile}")
-          rc=0
-          for spec in "''${repos[@]}"; do
-            sync_repo "$spec" || rc=1
-          done
-          exit "$rc"
+          printf '%s\n' "''${repos[@]}" | parallel --line-buffer -j"$jobs" sync_repo
         '';
       };
     in
@@ -118,6 +119,12 @@
           type = lib.types.ints.positive;
           default = 5;
           description = "Max stashes/backup branches to keep per repo.";
+        };
+
+        jobs = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 4;
+          description = "Number of parallel sync jobs.";
         };
 
         timer = lib.mkOption {
