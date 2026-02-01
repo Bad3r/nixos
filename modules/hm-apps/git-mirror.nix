@@ -92,7 +92,7 @@
           export GIT_MIRROR_ROOT="${cfg.root}"
           export GIT_MIRROR_MAX_BACKUPS=${toString cfg.maxBackups}
           grep -vE '^[[:space:]]*(#|$)' "${reposFile}" | \
-            parallel --line-buffer -j${toString cfg.jobs} git-mirror-sync-repo
+            parallel --line-buffer -j${toString cfg.jobs} ${syncRepoScript}/bin/git-mirror-sync-repo
         '';
       };
     in
