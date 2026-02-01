@@ -1,0 +1,4 @@
+- Short section headers with ##
+- Bold for key terms
+- Terse, imperative language
+- Simple bullet points
