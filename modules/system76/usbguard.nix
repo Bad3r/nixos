@@ -27,6 +27,9 @@ let
   secretExists = builtins.pathExists secretFile;
 
   runtimeRuleFile = "/var/lib/usbguard/rules.conf";
+
+  # Set to false to disable USBGuard entirely
+  enabled = false;
 in
 {
   configurations.nixos.system76.module =
@@ -36,8 +39,10 @@ in
 
       config = lib.mkMerge [
         {
+          services.usbguard.enable = lib.mkForce enabled;
+        }
+        (lib.mkIf enabled {
           services.usbguard = {
-            enable = lib.mkForce true;
             rules = lib.mkForce null;
             ruleFile = lib.mkForce runtimeRuleFile;
             IPCAllowedUsers = lib.mkForce (
@@ -96,9 +101,8 @@ in
           # - security_lsmprop_to_secctx fails with LSM=landlock,yama,bpf,apparmor
           security.audit.enable = lib.mkForce false;
           security.auditd.enable = lib.mkForce false;
-
-        }
-        (lib.optionalAttrs secretExists {
+        })
+        (lib.mkIf (enabled && secretExists) {
           sops.secrets.${secretName} = {
             sopsFile = secretFile;
             path = secretRuntimePath;
@@ -108,13 +112,12 @@ in
             restartUnits = [ "usbguard.service" ];
           };
         })
-        (lib.optionalAttrs (!secretExists) { })
-        {
+        (lib.mkIf enabled {
           systemd.tmpfiles.rules = [
             "f /var/lib/usbguard/rules.conf 0600 root root -"
             "d /var/lib/usbguard/IPCAccessControl.d 0700 root root -"
           ];
-        }
+        })
       ];
     };
 }
