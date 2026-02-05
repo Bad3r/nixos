@@ -226,11 +226,13 @@ BOOTSTRAP_SUBSTITUTERS=(
   "https://cache.nixos.org"
   "https://cache.garnix.io"
   "https://cache.numtide.com"
+  "https://attic.xuyh0120.win/lantian"
 )
 BOOTSTRAP_TRUSTED_KEYS=(
   "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
   "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
   "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+  "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
 )
 
 configure_nix_flags() {

@@ -4,16 +4,16 @@
 
   Source: https://github.com/xddxdd/nix-cachyos-kernel
 */
-_: {
-  # DISABLED: lantian cache has SSL issues - uncomment to re-enable
-  # configurations.nixos.system76.module = {
-  #   # Add CachyOS kernel overlay (pinned versions for binary cache)
-  #   nixpkgs.overlays = [ inputs.nix-cachyos-kernel.overlays.pinned ];
-  #
-  #   # Binary cache for pre-built CachyOS kernels (low priority - only has kernels)
-  #   nix.settings = {
-  #     substituters = lib.mkAfter [ "https://attic.xuyh0120.win/lantian" ];
-  #     trusted-public-keys = lib.mkAfter [ "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=" ];
-  #   };
-  # };
+{ inputs, lib, ... }:
+{
+  configurations.nixos.system76.module = {
+    # Add CachyOS kernel overlay (pinned versions for binary cache)
+    nixpkgs.overlays = [ inputs.nix-cachyos-kernel.overlays.pinned ];
+
+    # Binary cache for pre-built CachyOS kernels (low priority - only has kernels)
+    nix.settings = {
+      substituters = lib.mkAfter [ "https://attic.xuyh0120.win/lantian" ];
+      trusted-public-keys = lib.mkAfter [ "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=" ];
+    };
+  };
 }
