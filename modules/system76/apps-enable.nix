@@ -54,7 +54,7 @@
       "cloudflare-warp".extended.enable = lib.mkOverride 1100 true;
       cmake.extended.enable = lib.mkOverride 1100 true;
       "coderabbit-cli".extended.enable = lib.mkOverride 1100 true;
-      codex.extended.enable = lib.mkOverride 1100 false;
+      codex.extended.enable = lib.mkOverride 1100 true;
       coreutils.extended.enable = lib.mkOverride 1100 true;
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
       curl.extended.enable = lib.mkOverride 1100 true;
@@ -318,6 +318,7 @@
       zip.extended.enable = lib.mkOverride 1100 true;
       "zoom-us".extended.enable = lib.mkOverride 1100 false;
       zathura.extended.enable = lib.mkOverride 1100 true;
+      zbar.extended.enable = lib.mkOverride 1100 true;
       zoxide.extended.enable = lib.mkOverride 1100 true;
       "zsh-completions".extended.enable = lib.mkOverride 1100 true;
       zstd.extended.enable = lib.mkOverride 1100 true;
