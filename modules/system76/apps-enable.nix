@@ -164,6 +164,8 @@
       ltrace.extended.enable = lib.mkOverride 1100 false;
       lutris.extended.enable = lib.mkOverride 1100 false;
       lxsession.extended.enable = lib.mkOverride 1100 true;
+      maestral.extended.enable = lib.mkOverride 1100 true;
+      "maestral-gui".extended.enable = lib.mkOverride 1100 true;
       maim.extended.enable = lib.mkOverride 1100 true;
       malimite.extended.enable = lib.mkOverride 1100 false;
       marktext.extended.enable = lib.mkOverride 1100 true;
