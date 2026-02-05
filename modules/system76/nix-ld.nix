@@ -42,6 +42,8 @@
             xorg.libXv
             xorg.libXinerama
             xorg.libXtst
+            xorg.libXi
+            xorg.libXcursor
             mesa
             libglvnd
             libva
@@ -49,6 +51,22 @@
             libdrm
             libgbm
             alsa-lib
+            libpulseaudio # PulseAudio client library (works with pipewire-pulse)
+            # Android emulator dependencies (from nixpkgs/pkgs/development/mobile/androidenv/emulator.nix)
+            libcxx
+            libtiff
+            libuuid
+            libbsd
+            ncurses5
+            xorg.libXrender
+            xorg.libICE
+            xorg.libSM
+            xorg.libxkbfile
+            libpng
+            libjpeg
+            libwebp
+            snappy
+            SDL2
             cups
             libxkbcommon
             expat
