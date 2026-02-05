@@ -137,6 +137,7 @@
       iaito.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 true;
       jnv.extended.enable = lib.mkOverride 1100 true;
+      jadx.extended.enable = lib.mkOverride 1100 true;
       john.extended.enable = lib.mkOverride 1100 false;
       jq.extended.enable = lib.mkOverride 1100 true;
       karere.extended.enable = lib.mkOverride 1100 true;
