@@ -136,6 +136,11 @@ let
     "homeManagerModules"
     "r2Secrets"
   ];
+  virustotalModule = loadHomeModule ../home/virustotal-secrets.nix [
+    "flake"
+    "homeManagerModules"
+    "virustotalSecrets"
+  ];
 
   defaultAppImports = [
     "codex"
@@ -154,6 +159,7 @@ let
     baseModule
     context7Module
     r2Module
+    virustotalModule
   ];
 
 in
