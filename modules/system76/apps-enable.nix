@@ -131,7 +131,7 @@
       httpx.extended.enable = lib.mkOverride 1100 true;
       hydra.extended.enable = lib.mkOverride 1100 false;
       hyperfine.extended.enable = lib.mkOverride 1100 true;
-      inkscape.extended.enable = lib.mkOverride 1100 true;
+      inkscape.extended.enable = lib.mkOverride 1100 false;
       "i3lock-color".extended.enable = lib.mkOverride 1100 true;
       "i3status-rust".extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 false;
@@ -306,7 +306,7 @@
       wireshark.extended.enable = lib.mkOverride 1100 false;
       "worker-build".extended.enable = lib.mkOverride 1100 true;
       "workers-rs-sdk".extended.enable = lib.mkOverride 1100 false;
-      wrangler.extended.enable = lib.mkOverride 1100 false; # pnpmDeps hash mismatch
+      wrangler.extended.enable = lib.mkOverride 1100 true;
       xbacklight.extended.enable = lib.mkOverride 1100 true;
       xclip.extended.enable = lib.mkOverride 1100 true;
       "xfce4-power-manager".extended.enable = lib.mkOverride 1100 false;
