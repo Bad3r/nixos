@@ -16,6 +16,7 @@ _: {
         wakaru = final.callPackage ../../packages/wakaru { };
         restringer = final.callPackage ../../packages/restringer { };
         tweakcc = final.callPackage ../../packages/tweakcc { };
+        video-cache = final.callPackage ../../packages/video-cache { };
 
         # i3 window manager utilities
         i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };

@@ -288,6 +288,7 @@
       "ventoy-full".extended.enable = lib.mkOverride 1100 true;
       veracrypt.extended.enable = lib.mkOverride 1100 true;
       vim.extended.enable = lib.mkOverride 1100 false; # Provided by nixvim (vimAlias = true)
+      "video-cache".extended.enable = lib.mkOverride 1100 true;
       "virt-manager".extended.enable = lib.mkOverride 1100 false;
       virtualbox.extended.enable = lib.mkOverride 1100 false;
       vlc.extended.enable = lib.mkOverride 1100 false;
