@@ -15,6 +15,7 @@ PN = "PN"           # Part Number
 # App/tool names
 iterm2_with_bell = "iterm2_with_bell"
 Autorize = "Autorize"                 # Burp Suite extension
+Hashi = "Hashi"                       # HashiCorp (company name prefix)
 Laf = "Laf"                           # FlatLaf Java look-and-feel suffix
 
 # NixOS/nixpkgs terms

@@ -109,6 +109,7 @@
             config.packages."lefthook-ensure-sops"
             config.packages."lefthook-managed-files-drift"
             config.packages."lefthook-apps-catalog-sync"
+            config.packages."lefthook-vulnix"
 
             age
             sops

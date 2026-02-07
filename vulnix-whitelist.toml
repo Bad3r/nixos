@@ -1,0 +1,367 @@
+# vulnix false-positive whitelist
+# Generated: 2026-02-07
+# These are CPE name collisions — the CVEs target different products
+# that happen to share the same package name in Nix.
+
+# --- Haskell library bindings (not the C/system libs they wrap) ---
+
+["async-2.2.5"]
+# Haskell async (not Node.js async)
+cve = "CVE-2021-43138"
+
+["async-2.2.5-r3.cabal"]
+cve = "CVE-2021-43138"
+
+["curl-0.4.49"]
+# Haskell curl binding (not curl 7.x/8.x C library)
+cve = [ "CVE-2022-27776", "CVE-2022-27781", "CVE-2022-27782", "CVE-2022-32206", "CVE-2022-32221", "CVE-2022-35252", "CVE-2022-43552", "CVE-2023-28319", "CVE-2023-28320", "CVE-2023-28321", "CVE-2023-28322" ]
+
+["dbus-0.9.7"]
+# Haskell dbus binding (not dbus-daemon/libdbus)
+cve = [ "CVE-2022-42010", "CVE-2022-42011", "CVE-2022-42012" ]
+
+["Diff-1.0.2"]
+# Haskell Diff lib (CVE is for a WordPress plugin)
+cve = "CVE-2024-13278"
+
+["discord-0.0.121"]
+# Haskell discord-haskell binding (not Discord desktop app)
+cve = "CVE-2024-23739"
+
+["hedgehog-1.5"]
+# Haskell property testing lib (CVE is for hedgehog-lab JS project)
+cve = "CVE-2021-4276"
+
+["hedgehog-1.5-r2.cabal"]
+cve = "CVE-2021-4276"
+
+["jose-0.11"]
+# Haskell jose lib (CVEs are for node-jose / panva/jose JS libs)
+cve = [ "CVE-2023-50967", "CVE-2024-28176" ]
+
+["network-3.2.8.0"]
+# Haskell network socket lib (CVEs are for router/appliance products)
+cve = [ "CVE-2021-35047", "CVE-2021-35048", "CVE-2021-35049", "CVE-2021-35050", "CVE-2022-0486", "CVE-2022-0997", "CVE-2022-24388", "CVE-2022-24389", "CVE-2022-24390", "CVE-2022-24391", "CVE-2022-24392", "CVE-2022-24393", "CVE-2022-24394" ]
+
+["safe-0.3.21"]
+# Haskell safe lib (CVEs are for F-Secure SAFE antivirus)
+cve = [ "CVE-2021-33594", "CVE-2021-33595", "CVE-2021-33596", "CVE-2021-40834", "CVE-2021-40835", "CVE-2021-44751", "CVE-2022-28868", "CVE-2022-28869", "CVE-2022-28870", "CVE-2022-28872", "CVE-2022-28873", "CVE-2022-38163", "CVE-2022-38164", "CVE-2022-47524" ]
+
+["safe-0.3.21-r1.cabal"]
+cve = [ "CVE-2021-33594", "CVE-2021-33595", "CVE-2021-33596", "CVE-2021-40834", "CVE-2021-40835", "CVE-2021-44751", "CVE-2022-28868", "CVE-2022-28869", "CVE-2022-28870", "CVE-2022-28872", "CVE-2022-28873", "CVE-2022-38163", "CVE-2022-38164", "CVE-2022-47524" ]
+
+["systemd-2.4.0"]
+# Haskell systemd binding (not systemd init system)
+cve = [ "CVE-2021-33910", "CVE-2022-3821", "CVE-2023-26604", "CVE-2025-4598" ]
+
+["vault-0.3.1.6"]
+# Haskell vault (type-safe persistent store, not HashiCorp Vault)
+cve = [ "CVE-2021-27400", "CVE-2021-3024", "CVE-2021-38554", "CVE-2021-41802", "CVE-2022-41316", "CVE-2023-0620", "CVE-2023-0665", "CVE-2023-2121", "CVE-2023-24999", "CVE-2023-25000", "CVE-2023-6337", "CVE-2024-2048", "CVE-2024-8365", "CVE-2025-4166", "CVE-2025-6011", "CVE-2025-6014", "CVE-2025-6037" ]
+
+["warp-3.4.9"]
+# Haskell warp WAI server (CVEs are for Cloudflare WARP VPN)
+cve = [ "CVE-2022-2145", "CVE-2022-2225", "CVE-2022-3320", "CVE-2022-3512", "CVE-2022-4428", "CVE-2022-4457", "CVE-2023-0238", "CVE-2023-0652", "CVE-2023-0654", "CVE-2023-1412", "CVE-2023-1862", "CVE-2023-2754", "CVE-2025-0651" ]
+
+["websockets-0.13.0.0"]
+# Haskell websockets lib (CVE is for npm websockets)
+cve = "CVE-2021-33880"
+
+["websockets-0.13.0.0-r5.cabal"]
+cve = "CVE-2021-33880"
+
+["word-wrap-0.5"]
+# Haskell word-wrap (CVE is for npm word-wrap ReDoS)
+cve = "CVE-2023-26115"
+
+["yaml-0.11.11.2"]
+# Haskell yaml (CVEs are for Go go-yaml)
+cve = [ "CVE-2021-4235", "CVE-2022-3064" ]
+
+["yaml-0.11.11.2-r2.cabal"]
+cve = [ "CVE-2021-4235", "CVE-2022-3064" ]
+
+["zlib-0.7.1.1"]
+# Haskell zlib binding (CVEs are for the C zlib, scanned separately)
+cve = [ "CVE-2022-37434", "CVE-2023-45853", "CVE-2023-6992", "CVE-2026-22184" ]
+
+["stringbuilder-0.5.1"]
+# Haskell stringbuilder (CVE is for npm stringbuilder)
+cve = "CVE-2024-21524"
+
+# --- Rust crate name collisions ---
+
+["semver-1.0.24"]
+# Rust semver crate (CVE is for npm semver ReDoS)
+cve = "CVE-2022-25883"
+
+["paste-1.0.15"]
+# Rust paste crate by dtolnay (CVE is for SUSE Paste)
+cve = "CVE-2022-21948"
+
+["nix-0.30.1"]
+# Rust nix crate (Unix API bindings, not Nix package manager)
+cve = "CVE-2024-27297"
+
+["tap-1.0.1"]
+# Rust tap crate (CVE is for Jenkins TAP Plugin)
+cve = "CVE-2023-41940"
+
+# --- Jenkins plugin CVEs matching VCS tool names ---
+
+["git-2.52.0"]
+# CVEs are for Jenkins Git Plugin, not git itself
+cve = [ "CVE-2021-21684", "CVE-2022-30947", "CVE-2022-36882", "CVE-2022-36883", "CVE-2022-36884", "CVE-2022-38663" ]
+
+["subversion-1.14.5"]
+# CVEs are for Jenkins Subversion Plugin, not Apache Subversion
+cve = [ "CVE-2021-21698", "CVE-2022-29046", "CVE-2022-29048" ]
+
+["mercurial-7.1"]
+# CVE is for Jenkins Mercurial Plugin, not Mercurial SCM
+cve = "CVE-2022-43410"
+
+["mercurial-7.1-vendor"]
+cve = "CVE-2022-43410"
+
+["mercurial-7.1-vendor-staging"]
+cve = "CVE-2022-43410"
+
+["junit-4.13.2.jar"]
+# CVEs are for Jenkins JUnit Plugin, not JUnit framework
+cve = [ "CVE-2022-34176", "CVE-2022-45380", "CVE-2023-25761" ]
+
+["junit-4.13.2.pom"]
+cve = [ "CVE-2022-34176", "CVE-2022-45380", "CVE-2023-25761" ]
+
+["xunit-2.9.3"]
+# CVE is for Jenkins xUnit Plugin, not .NET xUnit
+cve = "CVE-2022-34181"
+
+# --- Other name collisions ---
+
+["ShellCheck-0.11.0"]
+# CVE is for Pax8 shellcheck product, not koalaman's ShellCheck linter
+cve = "CVE-2021-28794"
+
+["shellcheck-0.11.0"]
+cve = "CVE-2021-28794"
+
+["ada-3.4.1"]
+# ada-url C++ parser (CVE is for Ada Support chatbot platform)
+cve = "CVE-2024-9410"
+
+["immer-0.9.1"]
+# C++ immer persistent data structures (CVEs are for JS immer npm)
+cve = [ "CVE-2021-23436", "CVE-2021-3757" ]
+
+["snappy-1.2.2"]
+# Google C++ Snappy compression (CVEs are for PHP/Java snappy)
+cve = [ "CVE-2023-28115", "CVE-2023-41330" ]
+
+["rubygems-3.7.2"]
+# CVE is for sigstore cosign, not RubyGems
+cve = "CVE-2022-36073"
+
+["codex-0.98.0"]
+# NixOS codex (CVE is for Opentext Codex document mgmt)
+cve = "CVE-2021-43635"
+
+["dash-0.5.13.1"]
+# POSIX dash shell (CVE is for an npm dashboard package)
+cve = "CVE-2024-21485"
+
+["ninja-1.13.2"]
+# Ninja build system (CVE is for a different "ninja" product)
+cve = "CVE-2021-4336"
+
+["openmp-21.1.8"]
+# LLVM OpenMP runtime (CVE is for Intel oneAPI DPC++ compiler)
+cve = "CVE-2022-26345"
+
+["memcached-1.6.40"]
+# CVE is misattributed / for a different product
+cve = "CVE-2022-26635"
+
+["httpclient-4.5.14.jar"]
+# Apache HttpClient Java (CVE is for Symfony HttpClient PHP)
+cve = "CVE-2024-50342"
+
+["httpclient-4.5.14.pom"]
+cve = "CVE-2024-50342"
+
+["thrift-0.22.0"]
+# Apache Thrift 0.22.0 (CVE-2021-24028 was fixed in 0.14.0)
+cve = "CVE-2021-24028"
+
+["image-viewer-1.2.3.jar"]
+# Generic name collision — CVEs are for a different image viewer product
+cve = [ "CVE-2021-26233", "CVE-2021-26234", "CVE-2021-26235", "CVE-2021-26236", "CVE-2021-26237", "CVE-2022-36947" ]
+
+["image-viewer-1.2.3.pom"]
+cve = [ "CVE-2021-26233", "CVE-2021-26234", "CVE-2021-26235", "CVE-2021-26236", "CVE-2021-26237", "CVE-2022-36947" ]
+
+["log4j-2.17.1.pom"]
+# Phantom CVE — does not correspond to a real Log4j vulnerability
+cve = "CVE-2025-68161"
+
+["log4j-2.24.1.pom"]
+cve = "CVE-2025-68161"
+
+["nemo-6.6.3"]
+# Cinnamon Nemo file manager (CVEs are for NVIDIA Nemo AI framework)
+cve = [ "CVE-2025-23249", "CVE-2025-23250", "CVE-2025-23251", "CVE-2025-23360" ]
+
+["Minio-6.0.0"]
+# Haskell MinIO client library (CVEs are for MinIO server)
+cve = [ "CVE-2021-21287", "CVE-2021-21362", "CVE-2021-21390", "CVE-2021-43858", "CVE-2022-35919", "CVE-2023-28433", "CVE-2023-28434" ]
+
+["libmemcached-1.0.18"]
+# C libmemcached client lib (CVE is for memcachier Node.js client)
+cve = "CVE-2023-27478"
+
+# --- Already patched in nixpkgs (vulnix version-string mismatch) ---
+
+["polkit-1.pam"]
+# "1" is the polkit API version, not pkg version. PwnKit fixed years ago.
+cve = "CVE-2021-4034"
+
+[dbus-1]
+# "1" is the D-Bus spec version. CVEs fixed in dbus 1.14.4+, nixpkgs is patched.
+cve = [ "CVE-2022-42010", "CVE-2022-42011", "CVE-2022-42012" ]
+
+["cups-2.4.16"]
+# CVE fixed in CUPS 2.4.2; version 2.4.16 already includes the fix.
+cve = "CVE-2022-26691"
+
+["obsidian-1.11.5"]
+# CVE fixed in Obsidian 1.1.5; version 1.11.5 already includes the fix.
+cve = "CVE-2023-24044"
+
+["kitty-0.45.0"]
+# CVE-2024-23749/25003/25004 fixed in 0.31+. Terrapin is SSH protocol-level, mitigated.
+cve = [ "CVE-2023-48795", "CVE-2024-23749", "CVE-2024-25003", "CVE-2024-25004" ]
+
+[lapack-3]
+# "3" is the major version; nixpkgs ships 3.12.x which includes the fix (3.10.1+).
+cve = "CVE-2021-4048"
+
+# --- Not applicable to this architecture ---
+
+["gcc-15.2.0"]
+# CVE-2023-4039 is AArch64-only stack protector bypass; this is x86_64.
+cve = "CVE-2023-4039"
+
+# --- Build-time only dependencies (not in runtime closure) ---
+
+["go-1.22.12-linux-386-bootstrap"]
+# Bootstrap compiler, only used to build Go itself
+cve = [ "CVE-2023-49292", "CVE-2025-0913", "CVE-2025-4674", "CVE-2025-47906", "CVE-2025-47907", "CVE-2025-47912", "CVE-2025-58185", "CVE-2025-58187", "CVE-2025-58188", "CVE-2025-58189", "CVE-2025-61723", "CVE-2025-61724", "CVE-2025-61727", "CVE-2025-61729", "CVE-2025-61730" ]
+
+["go-1.22.12-linux-amd64-bootstrap"]
+# Bootstrap compiler, only used to build Go itself
+cve = [ "CVE-2023-49292", "CVE-2025-0913", "CVE-2025-4674", "CVE-2025-47906", "CVE-2025-47907", "CVE-2025-47912", "CVE-2025-58185", "CVE-2025-58187", "CVE-2025-58188", "CVE-2025-58189", "CVE-2025-61723", "CVE-2025-61724", "CVE-2025-61727", "CVE-2025-61729", "CVE-2025-61730" ]
+
+["python-2.7.18.12"]
+# EOL Python 2.7, used only as build-time bootstrap dependency in nixpkgs
+cve = [ "CVE-2021-23336", "CVE-2021-3733", "CVE-2022-0391", "CVE-2022-26488", "CVE-2022-45061", "CVE-2022-48560", "CVE-2022-48564", "CVE-2022-48565", "CVE-2022-48566", "CVE-2023-24329", "CVE-2023-36632", "CVE-2023-40217", "CVE-2024-49050", "CVE-2024-6232", "CVE-2024-7592", "CVE-2024-9287", "CVE-2025-12084", "CVE-2025-12781", "CVE-2025-13836", "CVE-2025-13837", "CVE-2025-49714", "CVE-2025-6075" ]
+
+["pip-20.3.4-source"]
+# Bundled with Python 2.7 bootstrap, build-time only
+cve = [ "CVE-2021-3572", "CVE-2023-5752" ]
+
+["setuptools-44.0.0-source"]
+# Build-time Python packaging tool
+cve = [ "CVE-2022-40897", "CVE-2025-47273" ]
+
+["setuptools-68.0.0-py3-none-any.whl"]
+# Build-time Python packaging tool
+cve = "CVE-2025-47273"
+
+["wheel-0.37.1-py2.py3-none-any.whl"]
+# Build-time Python packaging tool
+cve = "CVE-2022-40898"
+
+["wheel-0.37.1-source"]
+# Build-time Python packaging tool
+cve = "CVE-2022-40898"
+
+["binutils-2.44"]
+# Build-time linker/assembler, low-severity crash-on-malformed-input
+cve = [ "CVE-2025-1153", "CVE-2025-3198", "CVE-2025-8224", "CVE-2025-8225" ]
+
+["yasm-1.3.0"]
+# Build-time assembler, all CVEs are crash-on-crafted-input
+cve = [ "CVE-2021-33454", "CVE-2021-33455", "CVE-2021-33456", "CVE-2021-33457", "CVE-2021-33458", "CVE-2021-33459", "CVE-2021-33460", "CVE-2021-33461", "CVE-2021-33462", "CVE-2021-33463", "CVE-2021-33464", "CVE-2021-33465", "CVE-2021-33466", "CVE-2021-33467", "CVE-2021-33468", "CVE-2023-30402", "CVE-2023-31972", "CVE-2023-31973", "CVE-2023-31974", "CVE-2023-31975", "CVE-2023-51258" ]
+
+["sassc-3.6.2"]
+# Build-time Sass compiler
+cve = "CVE-2022-43357"
+
+# --- Java/Maven build artifacts (fetched sources, not runtime services) ---
+
+["commons-beanutils-1.9.4.jar"]
+# Maven artifact, build dependency
+cve = "CVE-2025-48734"
+
+["commons-beanutils-1.9.4.pom"]
+cve = "CVE-2025-48734"
+
+["commons-io-2.11.0.jar"]
+# Maven artifact, build dependency
+cve = "CVE-2024-47554"
+
+["commons-io-2.11.0.pom"]
+cve = "CVE-2024-47554"
+
+["commons-text-1.8.pom"]
+# Maven artifact, build dependency
+cve = "CVE-2022-42889"
+
+["commons-text-1.9.pom"]
+cve = "CVE-2022-42889"
+
+["guava-19.0.pom"]
+# Maven artifact, build dependency
+cve = "CVE-2023-2976"
+
+["guava-27.0.1-jre.jar"]
+cve = "CVE-2023-2976"
+
+["guava-27.0.1-jre.pom"]
+cve = "CVE-2023-2976"
+
+["guava-27.1-android.pom"]
+cve = "CVE-2023-2976"
+
+["guava-31.0.1-jre.jar"]
+cve = "CVE-2023-2976"
+
+["guava-31.0.1-jre.pom"]
+cve = "CVE-2023-2976"
+
+["protobuf-java-3.17.3.jar"]
+# Maven artifact, build dependency
+cve = [ "CVE-2022-3171", "CVE-2024-7254" ]
+
+["protobuf-java-3.17.3.pom"]
+cve = [ "CVE-2022-3171", "CVE-2024-7254" ]
+
+["protobuf-java-3.25.3.jar"]
+cve = "CVE-2024-7254"
+
+["protobuf-java-3.25.3.pom"]
+cve = "CVE-2024-7254"
+
+["snakeyaml-1.23-android.jar"]
+# Maven artifact, build dependency
+cve = [ "CVE-2022-1471", "CVE-2022-25857", "CVE-2022-38749", "CVE-2022-38750", "CVE-2022-38751", "CVE-2022-38752", "CVE-2022-41854" ]
+
+["snakeyaml-1.23.pom"]
+cve = [ "CVE-2022-1471", "CVE-2022-25857", "CVE-2022-38749", "CVE-2022-38750", "CVE-2022-38751", "CVE-2022-38752", "CVE-2022-41854" ]
+
+["xz-1.9.jar"]
+# Maven artifact, build dependency
+cve = "CVE-2022-1271"
+
+["xz-1.9.pom"]
+cve = "CVE-2022-1271"

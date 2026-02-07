@@ -78,6 +78,10 @@ _: {
                         glob: "secrets/**/*.{yaml,yml,json,env,ini,age,enc}"
                         fail_text: "Secrets must be SOPS-encrypted. Run: sops <file>"
 
+                      - name: vulnix
+                        tags: [security]
+                        run: lefthook-vulnix
+
                 - name: formatting
                   priority: 3
                   exclude:
