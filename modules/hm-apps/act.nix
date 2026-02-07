@@ -14,7 +14,7 @@ _: {
           -P ubuntu-18.04=ghcr.io/catthehacker/ubuntu:act-18.04
 
           # Persist Nix store across runs via named Docker volume
-          --container-options "-v nix-store:/nix"
+          --container-options -v --container-options nix-store:/nix
         '';
       };
     };
