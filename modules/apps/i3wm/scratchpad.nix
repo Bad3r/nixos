@@ -40,7 +40,7 @@
         };
 
         runtimeInputs = [
-          pkgs.xorg.xrandr
+          pkgs.xrandr
         ];
 
         text = /* bash */ ''

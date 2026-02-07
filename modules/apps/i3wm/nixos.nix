@@ -35,7 +35,7 @@ let
         xfce4-settings
         xfce4-power-manager
         xclip
-        xorg.xbacklight
+        xbacklight
       ];
 
     };

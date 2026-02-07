@@ -52,10 +52,10 @@ let
               fontconfig
               # Common runtime dependencies
               libgcc
-              xorg.libX11
-              xorg.libXcursor
-              xorg.libXrandr
-              xorg.libXi
+              libx11
+              libxcursor
+              libxrandr
+              libxi
               # Audio
               libpulseaudio
               alsa-lib

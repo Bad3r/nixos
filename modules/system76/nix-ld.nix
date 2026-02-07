@@ -30,20 +30,20 @@
             atk
             at-spi2-core
             at-spi2-atk
-            xorg.libX11
-            xorg.libXrandr
-            xorg.libXext
-            xorg.libXfixes
-            xorg.libXcomposite
-            xorg.libXdamage
-            xorg.libxcb
-            xorg.libxshmfence
-            xorg.libXxf86vm
-            xorg.libXv
-            xorg.libXinerama
-            xorg.libXtst
-            xorg.libXi
-            xorg.libXcursor
+            libx11
+            libxrandr
+            libxext
+            libxfixes
+            libxcomposite
+            libxdamage
+            libxcb
+            libxshmfence
+            libxxf86vm
+            libxv
+            libxinerama
+            libxtst
+            libxi
+            libxcursor
             mesa
             libglvnd
             libva
@@ -58,10 +58,10 @@
             libuuid
             libbsd
             ncurses5
-            xorg.libXrender
-            xorg.libICE
-            xorg.libSM
-            xorg.libxkbfile
+            libxrender
+            libice
+            libsm
+            libxkbfile
             libpng
             libjpeg
             libwebp

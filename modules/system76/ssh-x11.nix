@@ -10,8 +10,8 @@
       };
 
       environment.systemPackages = lib.mkAfter [
-        pkgs.xorg.xauth
-        pkgs.xorg.xhost
+        pkgs.xauth
+        pkgs.xhost
       ];
     };
 }

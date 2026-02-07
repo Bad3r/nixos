@@ -122,7 +122,7 @@
         emoji = "${lib.getExe pkgs.rofimoji} --selector rofi";
         playerctl = lib.getExe pkgs.playerctl;
         volume = lib.getExe pkgs.pamixer;
-        brightness = lib.getExe pkgs.xorg.xbacklight;
+        brightness = lib.getExe pkgs.xbacklight;
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
         ocr = lib.getExe pkgs.normcap;
         logseqToggle = lib.getExe toggleLogseqScript;
@@ -156,7 +156,7 @@
         runtimeInputs = [
           pkgs.i3lock-color
           pkgs.procps
-          pkgs.xorg.xbacklight
+          pkgs.xbacklight
         ];
         text = ''
           set -eu
@@ -384,13 +384,13 @@
                 }
                 # DPMS: Keep screens on for 1 hour (3600s) before standby/suspend/off
                 {
-                  command = "${pkgs.xorg.xset}/bin/xset dpms 3600 3600 3600";
+                  command = "${pkgs.xset}/bin/xset dpms 3600 3600 3600";
                   always = true;
                   notification = false;
                 }
                 # Screen saver: Blank after 1 hour (3600s)
                 {
-                  command = "${pkgs.xorg.xset}/bin/xset s 3600 3600";
+                  command = "${pkgs.xset}/bin/xset s 3600 3600";
                   always = true;
                   notification = false;
                 }

@@ -28,7 +28,7 @@
               pkgs.coreutils
               pkgs.procps
               pkgs.gawk
-              pkgs.xorg.xbacklight
+              pkgs.xbacklight
             ];
             text = /* bash */ ''
               set -eu
