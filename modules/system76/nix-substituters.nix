@@ -9,10 +9,12 @@ let
     # Priority 50 - community caches
     "https://cache.garnix.io"
     "https://cache.numtide.com"
+    "https://nixpkgs-unfree.cachix.org" # unfree packages (unrar, etc.)
   ];
   trustedKeys = [
     "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
     "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+    "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
   ];
 in
 {
