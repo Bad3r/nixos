@@ -17,19 +17,19 @@
   nss,
   zlib,
   # X11 libraries
-  libX11,
-  libXau,
-  libXcomposite,
-  libXcursor,
-  libXdamage,
-  libXdmcp,
-  libXext,
-  libXfixes,
-  libXi,
-  libXinerama,
-  libXrandr,
-  libXrender,
-  libXtst,
+  libx11,
+  libxau,
+  libxcomposite,
+  libxcursor,
+  libxdamage,
+  libxdmcp,
+  libxext,
+  libxfixes,
+  libxi,
+  libxinerama,
+  libxrandr,
+  libxrender,
+  libxtst,
   libxcb,
 }:
 
@@ -81,19 +81,19 @@ let
     nss
     stdenv.cc.cc
     zlib
-    libX11
-    libXau
-    libXcomposite
-    libXcursor
-    libXdamage
-    libXdmcp
-    libXext
-    libXfixes
-    libXi
-    libXinerama
-    libXrandr
-    libXrender
-    libXtst
+    libx11
+    libxau
+    libxcomposite
+    libxcursor
+    libxdamage
+    libxdmcp
+    libxext
+    libxfixes
+    libxi
+    libxinerama
+    libxrandr
+    libxrender
+    libxtst
     libxcb
   ];
 

@@ -40,7 +40,7 @@ let
           description = "Whether to enable xbacklight brightness control.";
         };
 
-        package = lib.mkPackageOption pkgs [ "xorg" "xbacklight" ] { };
+        package = lib.mkPackageOption pkgs "xbacklight" { };
       };
 
       config = lib.mkIf cfg.enable {
