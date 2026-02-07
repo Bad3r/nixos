@@ -140,7 +140,16 @@ let
     };
   };
 
-  defaultTimeout = 10000;
+  # Timeout in seconds (used by Codex via startup_timeout_sec)
+  # Also converted to milliseconds for Claude Code (startup_timeout_ms)
+  defaultTimeoutSec = 30;
+
+  # Helper to generate both timeout formats for cross-tool compatibility
+  # Codex uses startup_timeout_sec, Claude Code uses startup_timeout_ms
+  mkTimeouts = sec: {
+    startup_timeout_sec = sec; # Codex
+    startup_timeout_ms = sec * 1000; # Claude Code
+  };
 
   # ════════════════════════════════════════════════════════════════════════════
   # Builder Functions
@@ -155,6 +164,8 @@ let
       meta =
         serverCatalog.${name}
           or (throw "Unknown MCP server: ${name}. Valid: ${toString (lib.attrNames serverCatalog)}");
+
+      timeouts = mkTimeouts (meta.timeout or defaultTimeoutSec);
 
       # Dispatch table for source types
       handlers = {
@@ -186,14 +197,14 @@ let
             {
               command = "${wrapper}/bin/${name}-wrapper";
               args = [ ];
-              startup_timeout_ms = defaultTimeout;
             }
+            // timeouts
           else
             {
               command = binPath;
               args = [ ];
-              startup_timeout_ms = defaultTimeout;
-            };
+            }
+            // timeouts;
 
         sse = {
           command = "${lib.getExe' pkgs.nodejs "npx"}";
@@ -201,8 +212,8 @@ let
             "mcp-remote"
             meta.url
           ];
-          startup_timeout_ms = meta.timeout or defaultTimeout;
-        };
+        }
+        // timeouts;
 
         npx = {
           command = "${lib.getExe' pkgs.nodejs "npx"}";
@@ -210,8 +221,8 @@ let
             "-y"
             meta.package
           ];
-          startup_timeout_ms = meta.timeout or defaultTimeout;
-        };
+        }
+        // timeouts;
       };
     in
     handlers.${meta.source}
@@ -249,10 +260,10 @@ in
   flake.lib.mcp = {
     inherit
       serverCatalog
-      defaultTimeout
       mkServer
       mkServers
       ;
+    defaultTimeout = defaultTimeoutSec;
   };
 
 }
