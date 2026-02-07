@@ -33,6 +33,7 @@ let
     "jq"
     "keepassxc"
     "kitty"
+    "lazydocker"
     "lazygit"
     "less"
     # "libreoffice"

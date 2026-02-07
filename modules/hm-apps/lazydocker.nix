@@ -1,44 +1,45 @@
 /*
   Package: lazydocker
-  Description: Simple terminal UI for both docker and docker-compose.
+  Description: Simple terminal UI for both Docker and Docker Compose.
   Homepage: https://github.com/jesseduffield/lazydocker
-  Documentation: https://github.com/jesseduffield/lazydocker#readme
+  Documentation: https://github.com/jesseduffield/lazydocker/blob/master/README.md
   Repository: https://github.com/jesseduffield/lazydocker
 
   Summary:
-    * Provides an ncurses-style dashboard for inspecting containers, images, volumes, and compose projects.
-    * Supports log streaming, resource metrics, shell entry, and command execution without typing long docker commands.
+    * Enables Home Manager configuration management for lazydocker.
+    * Delegates package installation to the NixOS module (package = null).
 
-  Options:
-    --config <file>: Use a custom YAML configuration (default `~/.config/lazydocker/config.yml`).
-    --debug: Enable verbose logging to diagnose issues.
-    --version: Print the client version and exit.
-    -H <host>: Connect to a remote Docker host via DOCKER_HOST syntax.
-
-  Example Usage:
-    * `lazydocker` -- Explore running containers, view logs, and manage compose stacks from the terminal.
-    * `lazydocker --config ~/.config/lazydocker/team.yml` -- Apply shared team settings and shortcuts.
-    * `DOCKER_HOST=ssh://ops@prod.example.com lazydocker` -- Inspect containers on a remote host over SSH.
+  Notes:
+    * Theme uses ANSI color names which Stylix remaps to base16 values via the terminal palette.
+    * Upstream defaults to macOS `open` command; overridden to `xdg-open` for NixOS.
 */
-
-{
+_: {
   flake.homeManagerModules.apps.lazydocker =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
-      cfg = config.programs.lazydocker.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "lazydocker" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.lazydocker.extended = {
-        enable = lib.mkEnableOption "Simple terminal UI for both docker and docker-compose.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.lazydocker ];
+      config = lib.mkIf nixosEnabled {
+        programs.lazydocker = {
+          enable = true;
+          package = null;
+          settings = {
+            gui.theme = {
+              activeBorderColor = [
+                "blue"
+                "bold"
+              ];
+              inactiveBorderColor = [ "default" ];
+              selectedLineBgColor = [ "blue" ];
+              optionsTextColor = [ "blue" ];
+            };
+            oS = {
+              openCommand = "xdg-open {{filename}}";
+              openLinkCommand = "xdg-open {{link}}";
+            };
+          };
+        };
       };
     };
 }
