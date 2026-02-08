@@ -180,6 +180,7 @@ in
           hasGlobalPkgs = true;
           inherit inputs metaOwner;
           mcpLib = config.flake.lib.mcp;
+          skillsLib = config.flake.lib.skills;
         };
         backupFileExtension = "hm.bk";
 

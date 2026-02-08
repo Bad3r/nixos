@@ -35,6 +35,7 @@ _: {
       config,
       lib,
       mcpLib,
+      skillsLib,
       ...
     }:
     let
@@ -155,6 +156,24 @@ _: {
         };
       };
 
+      # ── Commit Skill ──────────────────────────────────────────────────────
+      # Codex SKILL.md with YAML frontmatter + shared rules from skillsLib
+      commitSkillMd = ''
+        ---
+        name: commit
+        description: >
+          Create a well-formatted git commit following all project safety rules,
+          Conventional Commits format, and staging best practices.
+        metadata:
+          short-description: Git commit with safety rules and Conventional Commits
+        ---
+
+        # Git Commit Skill
+
+        ${skillsLib.commitRules}
+        ${skillsLib.commitWorkflow}
+      '';
+
       baseConfigFile = tomlFormat.generate "codex-config-base" baseSettings;
       nixProjectsFile = tomlFormat.generate "codex-nix-projects" nixProjectSettings;
 
@@ -221,11 +240,16 @@ _: {
           };
         };
 
-        # Base config (nix-managed, read-only symlink to store)
-        xdg.configFile."codex/config.base.toml".source = baseConfigFile;
+        xdg.configFile = {
+          # Base config (nix-managed, read-only symlink to store)
+          "codex/config.base.toml".source = baseConfigFile;
 
-        # Nix-managed trusted projects (read-only symlink to store)
-        xdg.configFile."codex/projects.nix.toml".source = nixProjectsFile;
+          # Nix-managed trusted projects (read-only symlink to store)
+          "codex/projects.nix.toml".source = nixProjectsFile;
+
+          # Commit skill (user-scoped, discovered by SkillsManager at ~/.config/codex/skills/)
+          "codex/skills/commit/SKILL.md".text = commitSkillMd;
+        };
       };
     };
 }

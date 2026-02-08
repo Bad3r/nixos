@@ -7,6 +7,7 @@
 
   Notes:
     * MCP servers configured via flake.lib.mcp (modules/integrations/mcp-servers.nix)
+    * Commit skill rules from flake.lib.skills (modules/integrations/skills.nix)
     * Context7 API key provisioned via SOPS at `sops.secrets."context7/api-key"`
 */
 
@@ -17,6 +18,7 @@ _: {
       lib,
       pkgs,
       mcpLib,
+      skillsLib,
       ...
     }:
     let
@@ -137,6 +139,46 @@ _: {
       # Combined config as JSON for the activation script
       claudeJsonConfigFile = pkgs.writeText "claude-json-config.json" (builtins.toJSON claudeJsonConfig);
 
+      # ── Commit Skill ──────────────────────────────────────────────────────
+      # Claude Code frontmatter + dynamic context + shared rules + workflow
+      commitSkillMd = ''
+        ---
+        name: commit
+        description: >
+          This skill should be used when the user invokes /commit to create a git commit.
+          It consolidates all project safety rules, Conventional Commits format, and staging
+          best practices into a single repeatable workflow.
+        disable-model-invocation: true
+        allowed-tools: Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Read, Grep, Glob
+        argument-hint: "[optional commit message]"
+        ---
+
+        # Git Commit Skill
+
+        Create a well-formatted git commit following all project safety rules and Conventional Commits format.
+
+        ## Current Git State
+
+        Working tree status:
+        !`git status --short`
+
+        Already staged changes:
+        !`git diff --staged --stat`
+
+        Recent commits (for style reference):
+        !`git log --oneline -5`
+
+        ${skillsLib.commitRules}
+
+        ### If `$ARGUMENTS` is provided
+
+        Use the provided text as the commit message directly. Still run through the pre-commit checklist and staging rules before committing.
+
+        ### If no arguments provided
+
+        ${skillsLib.commitWorkflow}
+      '';
+
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -147,6 +189,10 @@ _: {
               # Ensure Claude Code picks up the new settings
               echo "✢ Claude Code: settings updated"
             '';
+          };
+
+          file.".claude/skills/commit/SKILL.md" = {
+            text = commitSkillMd;
           };
 
           # Configure Claude Code UI preferences and MCP servers in ~/.claude.json
