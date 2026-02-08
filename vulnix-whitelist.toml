@@ -219,6 +219,21 @@ cve = [ "CVE-2021-21287", "CVE-2021-21362", "CVE-2021-21390", "CVE-2021-43858", 
 # C libmemcached client lib (CVE is for memcachier Node.js client)
 cve = "CVE-2023-27478"
 
+["orc-0.4.41"]
+# GStreamer Optimized Inner Loop Compiler (CVE is for Apache ORC columnar format)
+cve = "CVE-2025-47436"
+
+["jam-2.6.1"]
+# Perforce Jam build tool (CVE is for wix-incubator/jam Python Jinja2 tool)
+cve = "CVE-2025-3841"
+
+["jam-2.6.1.tar"]
+cve = "CVE-2025-3841"
+
+["libmpeg2-0.5.1"]
+# Original libmpeg2 MPEG-2 decoder (CVE is for Ittiam's Android libmpeg2 fork)
+cve = "CVE-2022-37416"
+
 # --- Already patched in nixpkgs (vulnix version-string mismatch) ---
 
 ["polkit-1.pam"]
@@ -245,21 +260,62 @@ cve = [ "CVE-2023-48795", "CVE-2024-23749", "CVE-2024-25003", "CVE-2024-25004" ]
 # "3" is the major version; nixpkgs ships 3.12.x which includes the fix (3.10.1+).
 cve = "CVE-2021-4048"
 
-# --- Not applicable to this architecture ---
+["accountsservice-23.13.9"]
+# CVE introduced by Ubuntu's 0010-set-language.patch, not present in upstream GNOME
+cve = "CVE-2023-3297"
+
+["avahi-0.8"]
+# CVE-2021-26720 affects avahi-daemon-check-dns.sh, a Debian-only packaging script
+cve = "CVE-2021-26720"
+
+["libcdio-2.3.0"]
+# Buffer overflow fixed in 2.3.0 per NVD description; CPE range including 2.3.0 is incorrect
+cve = "CVE-2024-36600"
+
+["libpng-1.2.59"]
+# Both CVEs target the simplified API introduced in libpng 1.6.0; not present in 1.2.x
+cve = [ "CVE-2025-66293", "CVE-2025-64505" ]
+
+["zlib-1.3.1"]
+# CVE-2026-22184 is in contrib/untgz utility, not installed by NixOS
+# CVE-2023-6992 affects Cloudflare's zlib fork only, not upstream zlib
+cve = [ "CVE-2026-22184", "CVE-2023-6992" ]
+
+# --- Not applicable to this platform ---
 
 ["gcc-15.2.0"]
 # CVE-2023-4039 is AArch64-only stack protector bypass; this is x86_64.
 cve = "CVE-2023-4039"
 
+["openvpn-2.6.14"]
+# CVE-2025-13751 affects the Windows interactive service component only
+cve = "CVE-2025-13751"
+
+["marktext-0.17.0-unstable-2025-11-19"]
+# CVE-2023-1004 relies on Windows Script Host JScript handler; Linux not affected
+cve = "CVE-2023-1004"
+
+["capstone-5.0.1-py3-none-win_amd64.whl"]
+# Windows Python wheel; not applicable on Linux
+cve = [ "CVE-2025-67873", "CVE-2025-68114" ]
+
 # --- Build-time only dependencies (not in runtime closure) ---
 
 ["go-1.22.12-linux-386-bootstrap"]
 # Bootstrap compiler, only used to build Go itself
-cve = [ "CVE-2023-49292", "CVE-2025-0913", "CVE-2025-4674", "CVE-2025-47906", "CVE-2025-47907", "CVE-2025-47912", "CVE-2025-58185", "CVE-2025-58187", "CVE-2025-58188", "CVE-2025-58189", "CVE-2025-61723", "CVE-2025-61724", "CVE-2025-61727", "CVE-2025-61729", "CVE-2025-61730" ]
+cve = [ "CVE-2023-49292", "CVE-2025-0913", "CVE-2025-4674", "CVE-2025-47906", "CVE-2025-47907", "CVE-2025-47912", "CVE-2025-58185", "CVE-2025-58187", "CVE-2025-58188", "CVE-2025-58189", "CVE-2025-61723", "CVE-2025-61724", "CVE-2025-61726", "CVE-2025-61727", "CVE-2025-61728", "CVE-2025-61729", "CVE-2025-61730", "CVE-2025-61731", "CVE-2025-61732", "CVE-2025-68119", "CVE-2025-68121" ]
 
 ["go-1.22.12-linux-amd64-bootstrap"]
 # Bootstrap compiler, only used to build Go itself
-cve = [ "CVE-2023-49292", "CVE-2025-0913", "CVE-2025-4674", "CVE-2025-47906", "CVE-2025-47907", "CVE-2025-47912", "CVE-2025-58185", "CVE-2025-58187", "CVE-2025-58188", "CVE-2025-58189", "CVE-2025-61723", "CVE-2025-61724", "CVE-2025-61727", "CVE-2025-61729", "CVE-2025-61730" ]
+cve = [ "CVE-2023-49292", "CVE-2025-0913", "CVE-2025-4674", "CVE-2025-47906", "CVE-2025-47907", "CVE-2025-47912", "CVE-2025-58185", "CVE-2025-58187", "CVE-2025-58188", "CVE-2025-58189", "CVE-2025-61723", "CVE-2025-61724", "CVE-2025-61726", "CVE-2025-61727", "CVE-2025-61728", "CVE-2025-61729", "CVE-2025-61730", "CVE-2025-61731", "CVE-2025-61732", "CVE-2025-68119", "CVE-2025-68121" ]
+
+["go-1.24.13"]
+# CVE-2023-49292 is for ecies/go (third-party ECIES package), not the Go compiler
+cve = "CVE-2023-49292"
+
+["go-1.25.5"]
+# CVE-2023-49292 is for ecies/go (third-party ECIES package), not the Go compiler
+cve = "CVE-2023-49292"
 
 ["python-2.7.18.12"]
 # EOL Python 2.7, used only as build-time bootstrap dependency in nixpkgs
@@ -296,6 +352,20 @@ cve = [ "CVE-2021-33454", "CVE-2021-33455", "CVE-2021-33456", "CVE-2021-33457", 
 ["sassc-3.6.2"]
 # Build-time Sass compiler
 cve = "CVE-2022-43357"
+
+# --- FFmpeg version-string mismatches (already fixed or never affected a release) ---
+
+["ffmpeg-6.1.4"]
+# Fixed in 6.1.3 (included in 6.1.4), git-master-only, or never affected a release
+cve = [ "CVE-2023-49502", "CVE-2023-50007", "CVE-2023-50008", "CVE-2023-50009", "CVE-2024-31578", "CVE-2024-31582", "CVE-2025-1373", "CVE-2025-25468", "CVE-2025-25469" ]
+
+["ffmpeg-7.1.3"]
+# CVE-2023-5179x series fixed in 7.0 (predates 7.1.x); git-master-only CVEs
+cve = [ "CVE-2023-51791", "CVE-2023-51793", "CVE-2023-51794", "CVE-2023-51795", "CVE-2023-51796", "CVE-2023-51797", "CVE-2023-51798", "CVE-2025-25468", "CVE-2025-25469" ]
+
+["ffmpeg-8.0.1"]
+# CVE-2023-5179x series fixed in 7.0 (predates 8.x); git-master-only CVEs
+cve = [ "CVE-2023-51791", "CVE-2023-51793", "CVE-2023-51794", "CVE-2023-51795", "CVE-2023-51796", "CVE-2023-51797", "CVE-2023-51798", "CVE-2025-25468", "CVE-2025-25469" ]
 
 # --- Java/Maven build artifacts (fetched sources, not runtime services) ---
 
