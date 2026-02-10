@@ -78,11 +78,6 @@
       };
     };
 
-    secrets = {
-      url = "path:./secrets";
-      flake = false;
-    };
-
     refjump-nvim = {
       flake = false;
       url = "github:mawkler/refjump.nvim";
@@ -205,6 +200,8 @@
     inputs:
     let
       ownerProfile = import ./lib/meta-owner-profile.nix;
+      rootPath = ./.;
+      secretsRoot = "${toString rootPath}/secrets";
     in
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
@@ -217,8 +214,12 @@
       ];
 
       _module.args = {
-        rootPath = ./.;
-        inherit inputs;
+        inherit
+          inputs
+          rootPath
+          secretsRoot
+          ;
+        hasSecretsDir = builtins.pathExists secretsRoot;
         pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
         metaOwner = ownerProfile;
       };

@@ -1,8 +1,8 @@
 {
   lib,
   pkgs,
-  inputs,
   metaOwner,
+  secretsRoot,
   ...
 }:
 let
@@ -20,8 +20,8 @@ let
   ownerUsername = metaOwner.username;
 
   hostSlug = "system76";
-  secretDir = inputs.secrets + "/usbguard";
-  secretFile = secretDir + "/${hostSlug}.yaml";
+  secretDir = "${secretsRoot}/usbguard";
+  secretFile = "${secretDir}/${hostSlug}.yaml";
   secretName = "usbguard/${hostSlug}.rules";
   secretRuntimePath = "/run/secrets/usbguard/${hostSlug}.rules";
   secretExists = builtins.pathExists secretFile;

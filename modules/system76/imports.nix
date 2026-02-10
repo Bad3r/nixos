@@ -2,6 +2,7 @@
   config,
   lib,
   inputs,
+  secretsRoot,
   metaOwner,
   ...
 }:
@@ -46,8 +47,13 @@ in
     ++ lib.optionals system76SupportExists [ config.flake.nixosModules.system76-support ]
     ++ lib.optionals lenovyMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ];
 
-    # Pass metaOwner to all imported modules
-    _module.args.metaOwner = metaOwner;
+    # Pass shared module args to all imported modules
+    _module.args = {
+      inherit
+        metaOwner
+        secretsRoot
+        ;
+    };
 
     nixpkgs.allowedUnfreePackages = lib.mkAfter [
       "p7zip-rar"
@@ -97,8 +103,13 @@ in
           # - Provides consistent parameter passing across the module hierarchy
           #
           # See also: modules/meta/owner.nix for the receiving side pattern
-          _module.args.metaOwner = metaOwner;
-          _module.args.inputs = inputs;
+          _module.args = {
+            inherit
+              metaOwner
+              inputs
+              secretsRoot
+              ;
+          };
         }
         (
           { lib, ... }:
@@ -109,7 +120,11 @@ in
         config.configurations.nixos.system76.module
       ];
       specialArgs = {
-        inherit inputs metaOwner;
+        inherit
+          inputs
+          metaOwner
+          secretsRoot
+          ;
       };
     };
   };

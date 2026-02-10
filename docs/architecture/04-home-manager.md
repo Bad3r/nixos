@@ -107,9 +107,9 @@ Home-level secrets helpers guard SOPS declarations behind `builtins.pathExists`:
 
 ```nix
 # modules/home/context7-secrets.nix
-{ config, lib, ... }:
+{ config, lib, secretsRoot, ... }:
 let
-  secretPath = ../../secrets/context7.yaml;
+  secretPath = "${secretsRoot}/context7.yaml";
 in
 lib.mkIf (builtins.pathExists secretPath) {
   sops.secrets."context7/api-key" = {

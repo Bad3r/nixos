@@ -7,13 +7,13 @@
   # when sops is not present in the synthetic check environment.
   flake.homeManagerModules.r2Secrets =
     {
-      inputs,
       lib,
       metaOwner,
+      secretsRoot,
       ...
     }:
     let
-      r2Env = inputs.secrets + "/r2.env";
+      r2Env = "${secretsRoot}/r2.env";
       homeDirectory = "/home/${metaOwner.username}";
     in
     {

@@ -107,7 +107,7 @@ Import the module together with `sops-nix`, point it at the encrypted manifest,
 and enable the service:
 
 ```nix
-{ inputs, ... }: {
+{ inputs, secretsRoot, ... }: {
   imports = [
     inputs.sops-nix.nixosModules.sops
     inputs.self.nixosModules."duplicati-r2"
@@ -117,7 +117,7 @@ and enable the service:
 
   services.duplicati-r2 = {
     enable = true;
-    configFile = inputs.secrets + "/duplicati-config.json";
+    configFile = "${secretsRoot}/duplicati-config.json";
   };
 }
 ```
