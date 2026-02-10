@@ -172,12 +172,19 @@ _: {
          - Fallback: `main`, then `master`
       3. Derive `repo_name` and create worktree under `~/trees/<repo_name>/`
       4. Choose a unique non-main branch name (append `-r2`, `-r3`, ... when needed)
-      5. Create a brand-new worktree and branch:
+      5. If the source checkout has local edits, create a transfer stash that includes staged, unstaged, and untracked files:
+         - `git status --porcelain` (if empty, skip transfer steps)
+         - `git stash push --include-untracked -m "worktree-atomic-transfer-<timestamp>"`
+         - `transfer_stash="$(git rev-parse --verify refs/stash)"`
+      6. Create a brand-new worktree and branch:
          - `git worktree add -b <new-branch> "$HOME/trees/<repo_name>/<worktree-name>" <base-branch>`
-      6. Verify the new worktree did not exist in the pre-snapshot and now exists in post-snapshot
-      7. Run preflight checks and commit inside the new worktree
-      8. If `push_required=true`, push with upstream tracking
-      9. If `pr_required=true`, create PR; if `labels_required=true`, apply labels
+      7. Verify the new worktree did not exist in the pre-snapshot and now exists in post-snapshot
+      8. If a transfer stash was created, apply it inside the new worktree with index state preserved:
+         - `git -C "$HOME/trees/<repo_name>/<worktree-name>" stash apply --index "$transfer_stash"`
+      9. Run preflight checks and commit inside the new worktree
+      10. If `push_required=true`, push with upstream tracking
+      11. If `pr_required=true`, create PR; if `labels_required=true`, apply labels
+      12. Never run `git stash drop` or `git stash clear`; keep transfer stashes unless the user explicitly requests cleanup
 
       ### Post-Commit
 
