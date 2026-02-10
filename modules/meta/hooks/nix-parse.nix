@@ -19,7 +19,8 @@ _: {
 
             for path in "$@"; do
               if [ -f "$path" ]; then
-                nix-instantiate --parse "$path" >/dev/null || status=$?
+                # Suppress parsed output, but keep parse errors on stderr.
+                nix-instantiate --parse "$path" 1>/dev/null || status=$?
               fi
             done
 
