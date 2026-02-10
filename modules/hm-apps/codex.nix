@@ -162,10 +162,10 @@ _: {
         ---
         name: commit
         description: >
-          Create a well-formatted git commit following all project safety rules,
-          Conventional Commits format, and staging best practices.
+          Execute safe git commit workflows using either continuation on the current
+          non-main branch or isolated branch/worktree creation when required.
         metadata:
-          short-description: Git commit with safety rules and Conventional Commits
+          short-description: Dual-mode git commit workflow with branch protection
         ---
 
         # Git Commit Skill

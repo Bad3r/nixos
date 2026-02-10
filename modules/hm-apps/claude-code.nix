@@ -146,16 +146,16 @@ _: {
         name: commit
         description: >
           This skill should be used when the user invokes /commit to create a git commit.
-          It consolidates all project safety rules, Conventional Commits format, and staging
-          best practices into a single repeatable workflow.
+          It supports continuation commits on non-main branches and isolated worktree
+          commits when branch protection or user intent requires a new branch.
         disable-model-invocation: true
-        allowed-tools: Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Read, Grep, Glob
+        allowed-tools: Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Bash(git worktree *), Bash(git for-each-ref *), Bash(git rev-parse *), Bash(git branch *), Bash(git push *), Bash(mkdir *), Bash(gh repo view *), Bash(gh pr *), Bash(gh label *), Read, Grep, Glob
         argument-hint: "[optional commit message]"
         ---
 
         # Git Commit Skill
 
-        Create a well-formatted git commit following all project safety rules and Conventional Commits format.
+        Create a well-formatted git commit following all project safety rules and Conventional Commits format, with automatic selection between continuation and worktree-isolated modes.
 
         ## Current Git State
 

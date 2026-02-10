@@ -100,11 +100,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1770509506,
-        "narHash": "sha256-LZkJA4nMm16L9yfj5Uk/RMLiEw6FXgYj9W8fLlAQTe4=",
+        "lastModified": 1770697414,
+        "narHash": "sha256-xs7ORlZyjYjNjt3mTOnbT2QcvrMxDr4RqIafZVmnhjQ=",
         "owner": "_VX3r",
         "repo": "burpsuite-pro-flake",
-        "rev": "71ef8654de9766a098e3472a605ed7a606e4474e",
+        "rev": "686d3029c4adb206e17344af9b5465d34ab1b837",
         "type": "gitlab"
       },
       "original": {

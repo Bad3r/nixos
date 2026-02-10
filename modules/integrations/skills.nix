@@ -107,22 +107,84 @@ _: {
     '';
 
     # ════════════════════════════════════════════════════════════════════════
-    # Shared commit workflow — tool-agnostic steps
+    # Shared commit workflow — dual-mode commit path selection
     # Consumers may prepend tool-specific argument handling or dynamic
     # context sections before interpolating this block.
     # ════════════════════════════════════════════════════════════════════════
     commitWorkflow = ''
       ## Workflow
 
-      1. Run `git status` and `git diff --staged` to analyze staged changes
-      2. If nothing is staged, analyze unstaged changes and ask the user which files to stage
-      3. Draft a commit message following the format above
-      4. Present the draft to the user for approval before committing
-      5. After user approves, create the commit
+      ### Select Mode
+
+      Choose exactly one mode before staging or committing:
+
+      1. Read the current branch: `git rev-parse --abbrev-ref HEAD`
+      2. Parse intent flags from the user request:
+         - `push_required` when the user asks to push
+         - `pr_required` when the user asks to open a pull request
+         - `labels_required` when the user asks to apply labels
+      3. Normalize flags:
+         - If `push_required=true`, force `pr_required=true` and `labels_required=true`
+         - If `pr_required=true`, force `labels_required=true`
+      4. Select mode in this precedence order:
+         - If current branch is `main` or `master`: **`worktree_atomic`**
+         - Else if the user explicitly asks for a new branch/worktree: **`worktree_atomic`**
+         - Else if the user explicitly asks to continue current/same branch: **`continue_current_branch`**
+         - Else (non-main branch): **`continue_current_branch`**
+      5. Ask one short clarifying question only if intent remains ambiguous after these rules.
+
+      ### Shared Preflight (both modes)
+
+      Run these checks before staging or committing:
+
+      ```bash
+      git status --short
+      git diff --staged --stat
+      git diff --stat
+      git log --oneline -5
+      ```
+
+      If nothing is staged, inspect unstaged changes and propose exact file paths to stage.
+
+      ### `continue_current_branch` Mode
+
+      Use this mode to keep working on the active non-main branch.
+
+      1. Refuse execution if current branch is `main` or `master`
+      2. Stage only explicit file paths for one logical concern
+      3. Draft a Conventional Commit message
+      4. Present the draft for approval if no explicit message was provided
+      5. Commit on the current branch
+      6. If `push_required=true`, run `git push -u origin <current-branch>`
+      7. If `pr_required=true`, run `gh pr create --fill --head <current-branch>`
+      8. If `labels_required=true`, apply labels with `gh pr edit --add-label ...`
+
+      ### `worktree_atomic` Mode
+
+      Use this mode for protected branches or when the user asks for explicit branch/worktree isolation.
+
+      1. Snapshot worktrees and refs before changes:
+         - `git worktree list --porcelain`
+         - `git for-each-ref --format='%(refname:short)' refs/heads refs/remotes`
+      2. Resolve base branch in this order:
+         - User-specified base
+         - `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`
+         - Fallback: `main`, then `master`
+      3. Derive `repo_name` and create worktree under `~/trees/<repo_name>/`
+      4. Choose a unique non-main branch name (append `-r2`, `-r3`, ... when needed)
+      5. Create a brand-new worktree and branch:
+         - `git worktree add -b <new-branch> "$HOME/trees/<repo_name>/<worktree-name>" <base-branch>`
+      6. Verify the new worktree did not exist in the pre-snapshot and now exists in post-snapshot
+      7. Run preflight checks and commit inside the new worktree
+      8. If `push_required=true`, push with upstream tracking
+      9. If `pr_required=true`, create PR; if `labels_required=true`, apply labels
 
       ### Post-Commit
 
-      Run `git status` after committing to verify success and show the user the result.
+      Run `git status --short` after committing and report:
+      - active branch and worktree path
+      - commit SHA
+      - push/PR/labels results when requested
     '';
   };
 }
