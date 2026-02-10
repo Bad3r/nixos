@@ -108,10 +108,13 @@
 
         repos = lib.mkOption {
           type = lib.types.listOf lib.types.str;
-          default = [ ];
+          default = [
+            "cachix/git-hooks.nix"
+          ];
           example = [
             "NixOS/nixpkgs"
             "nix-community/home-manager"
+            "cachix/git-hooks.nix"
           ];
           description = "GitHub repos to mirror (owner/repo format).";
         };
