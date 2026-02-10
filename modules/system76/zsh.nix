@@ -3,8 +3,8 @@
     programs.zsh = {
       enable = true;
       interactiveShellInit = ''
-                # Source Home Manager session variables (for home.sessionVariables, home.sessionPath)
-                source "$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh"
+                # Source Home Manager session variables from per-user profile path.
+                source "/etc/profiles/per-user/vx/etc/profile.d/hm-session-vars.sh"
 
                 # Nix CLI config: enable flakes, pipe-operators, and GitHub authentication
                 # Keep aligned with build.sh and flake.nix nixConfig
