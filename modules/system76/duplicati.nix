@@ -15,7 +15,7 @@ in
       })
       (lib.mkIf (!duplicatiSecretsReady) {
         warnings = [
-          "services.duplicati-r2 is disabled because encrypted files are missing: ${manifestFile} and/or ${credentialsFile}."
+          "services.duplicati-r2 is disabled because encrypted files are missing: ${manifestFile} and/or ${credentialsFile}. Initialize secrets with `git submodule update --init --recursive` or see docs/sops/README.md."
         ];
       })
     ];
