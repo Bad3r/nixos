@@ -97,7 +97,7 @@ let
     - Never run `git add -A` or `git add .`; stage explicit file paths only.
     - Never run `git push --force` to `main` or `master`.
     - Never use `--no-verify` or `--no-gpg-sign`.
-    - Never run `rm` or `rm -rf`; use recoverable deletion tooling when deletion is required.
+    - Never run `rm` or `rm -rf`; use recoverable deletion tool `rip` when deletion is required.
 
     After a pre-commit hook failure, never run `git commit --amend` unless the user explicitly asks to amend the previous commit.
 
@@ -150,11 +150,6 @@ let
     git log --oneline -5
     ```
 
-    Verify and enforce:
-
-    1. Refuse to commit secrets or credentials (`.env`, keys, tokens, certificates, credential dumps).
-    2. Flag generated or managed artifacts when their source definitions were not updated.
-
     ## Stage Changes Intentionally
 
     Use atomic staging rules:
@@ -169,7 +164,7 @@ let
 
     Use Conventional Commits format: `type(scope): summary`.
 
-    Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`.
+    Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `docs`.
 
     Choose scope from the primary module/directory/domain affected. Keep summary concise and focused on intent.
 
