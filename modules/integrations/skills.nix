@@ -98,6 +98,8 @@ let
     - Never run `git push --force` to `main` or `master`.
     - Never use `--no-verify` or `--no-gpg-sign`.
     - Never run `rm` or `rm -rf`; use recoverable deletion tool `rip` when deletion is required.
+    - When moving edits to a new worktree, the invoking checkout must become clean before any staging or commit continues.
+    - If the invoking checkout remains dirty after transfer, fail hard and report remaining paths.
 
     After a pre-commit hook failure, never run `git commit --amend` unless the user explicitly asks to amend the previous commit.
 
@@ -211,20 +213,25 @@ let
     ```
 
     14. Capture post-create worktree list and verify invocation-local creation gate passed.
-    15. Transfer pending edits from the invoking checkout into the new worktree before switching active directory:
-       - Detect pending state with `git status --porcelain`.
-       - If pending edits exist, create a transfer stash with index preservation:
+    15. Move pending edits out of the invoking checkout into the new worktree before switching active directory:
+       - Detect pending state with `git status --porcelain --untracked-files=all`.
+       - If no pending edits exist, skip transfer and continue.
+       - If pending tracked, staged, or untracked edits exist, create a uniquely tagged transfer stash:
 
     ```bash
     git stash push --include-untracked --message "commit-skill-transfer-<nonce>"
     ```
 
-       - Capture the created stash ref and apply it into the new worktree with index restoration:
+       - Capture and record the created transfer stash ref.
+       - Immediately verify the invoking checkout is clean using `git status --porcelain --untracked-files=all`.
+       - If any path remains, stop immediately, report exact remaining paths, and do not continue.
+       - Apply the transfer stash into the new worktree with index restoration:
 
     ```bash
     git -C "$HOME/trees/$repo_name/$new_worktree_name" stash apply --index "$transfer_stash_ref"
     ```
 
+       - If stash apply fails, stop immediately, report stderr and the stash ref, and do not continue.
        - Never drop transfer stashes automatically; keep them available for recovery.
     16. Set the new worktree path as the active working directory for all subsequent commands.
     17. Run preflight checks, stage exact files, draft/confirm message when needed, and commit.
