@@ -41,6 +41,15 @@ _: {
               entry = "${config.packages.hook-statix}/bin/hook-statix";
             };
 
+            nix-parse = {
+              enable = true;
+              name = "nix-parse";
+              description = "Parse staged Nix files with nix-instantiate --parse.";
+              entry = "${config.packages.hook-nix-parse}/bin/hook-nix-parse";
+              pass_filenames = true;
+              files = "\\.nix$";
+            };
+
             typos = {
               enable = true;
               settings.configPath = ".typos.toml";
