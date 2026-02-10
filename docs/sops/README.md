@@ -2,8 +2,12 @@
 
 This repository manages secrets with [sops](https://github.com/mozilla/sops) and [sops-nix](https://github.com/Mic92/sops-nix). The policy is intentionally small: one editor key, one host key, and a handful of templates that expose runtime files only when encrypted material exists.
 
-The `secrets/` git submodule is optional at evaluation time. Secret-backed
-features are enabled only when the corresponding encrypted files exist.
+The `secrets/` git submodule is optional at evaluation time.
+
+This flake intentionally sets `self.submodules = false` so fetch/evaluation does
+not depend on submodule checkout state. In pure flake evaluation, secret-backed
+features are skipped unless secret files are explicitly provided by another
+configuration path.
 
 ## What Ships in the Repo
 

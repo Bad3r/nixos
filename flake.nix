@@ -6,7 +6,9 @@
   };
 
   inputs = {
-    self.submodules = true;
+    # Keep secrets submodule optional for flake source evaluation.
+    # Secret-backed modules are guarded and only activate when files are present.
+    self.submodules = false;
     files.url = "github:mightyiam/files";
 
     flake-parts = {
