@@ -1,6 +1,6 @@
 excludes = [
   "inputs/*",
-  "lefthook.yml",
+  ".pre-commit-config.yaml",
   "nixos-manual/*",
   "*.lock",
   "*.patch",
