@@ -192,12 +192,12 @@ Branch `<type>` uses Conventional Commits prefixes (see _Commit & PR Expectation
 
 ### Development Environment
 
-| Trigger            | Command                                  | Preconditions                                                  | Post-check                                                                             |
-| ------------------ | ---------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Starting work      | `nix develop`                            | Clean working tree; network access available for substituters. | Shell prompt shows dev environment; tools like `treefmt` and `lefthook` are available. |
-| Format sources     | `nix fmt`                                | Run from repo root inside or outside dev shell.                | No staged formatting diffs remain (`git status`).                                      |
-| Run hooks          | `nix develop -c lefthook run pre-commit` | Dev shell ready; workspace writeable.                          | Command exits 0; review generated reports for TODO fixes.                              |
-| Generate artefacts | `nix develop -c write-files`             | Dev shell ready; updates managed files.                        | Check git diff for changes to `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`.       |
+| Trigger            | Command                                                         | Preconditions                                                  | Post-check                                                                               |
+| ------------------ | --------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Starting work      | `nix develop`                                                   | Clean working tree; network access available for substituters. | Shell prompt shows dev environment; tools like `treefmt` and `pre-commit` are available. |
+| Format sources     | `nix fmt`                                                       | Run from repo root inside or outside dev shell.                | No staged formatting diffs remain (`git status`).                                        |
+| Run hooks          | `nix develop -c pre-commit run --all-files --hook-stage manual` | Dev shell ready; workspace writeable.                          | Command exits 0; review generated reports for TODO fixes.                                |
+| Generate artefacts | `nix develop -c write-files`                                    | Dev shell ready; updates managed files.                        | Check git diff for changes to `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`.         |
 
 ### Validation & Builds
 

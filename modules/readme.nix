@@ -52,7 +52,7 @@
           |---------|-------------|
           | `nix develop` | Enter dev shell |
           | `nix fmt` | Format files |
-          | `lefthook run pre-commit` | Run all hooks |
+          | `pre-commit run --all-files --hook-stage manual` | Run all hooks |
 
         '';
 

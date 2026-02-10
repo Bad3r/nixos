@@ -5,7 +5,7 @@ _: {
       # Do not format vendored inputs or generated config files
       global.excludes = [
         "inputs/*"
-        "lefthook.yml"
+        ".pre-commit-config.yaml"
         "nixos-manual/*"
       ];
       # Generated README must match write-files output exactly; exclude from prettier

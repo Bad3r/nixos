@@ -25,7 +25,7 @@ The script runs a validation pipeline (format, pre-commit hooks, flake check) be
 |---------|-------------|
 | `nix develop` | Enter dev shell |
 | `nix fmt` | Format files |
-| `lefthook run pre-commit` | Run all hooks |
+| `pre-commit run --all-files --hook-stage manual` | Run all hooks |
 
 ## Home Manager Package Pattern
 
@@ -58,6 +58,4 @@ The following files are defined in Nix and generated via [mightyiam/files](https
 - `.gitignore`
 - `.sops.yaml`
 - `README.md`
-- `lefthook.yml`
-- `scripts/lefthook-rc.sh`
 

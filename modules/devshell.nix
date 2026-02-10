@@ -9,13 +9,13 @@
     {
       pkgs,
       config,
+      lib,
       ...
     }:
     {
       # Use make-shells pattern for better modularity
       make-shells.default = {
         packages =
-          with pkgs;
           let
             ghActionsRun = pkgs.writeShellApplication {
               name = "gh-actions-run";
@@ -85,52 +85,50 @@
               '';
             };
           in
-          [
-            nixfmt
-            nil # Nix LSP
-            nix-tree
-            nix-diff
-            zsh
-            jq
-            ripgrep
-            lefthook # Replaces pre-commit
+          lib.unique (
+            (with pkgs; [
+              nixfmt
+              nil # Nix LSP
+              nix-tree
+              nix-diff
+              zsh
+              jq
+              ripgrep
+              pre-commit
 
-            # Direct tools for inline lefthook commands
-            deadnix # For: deadnix --fail {staged_files}
-            statix # For: lefthook-statix (also available directly)
-            typos # For: typos --config .typos.toml {staged_files}
-            ripsecrets # For: ripsecrets {staged_files}
-            yamllint # For: yamllint -d relaxed {staged_files}
-            # jq already present for: jq empty {staged_files}
+              # Direct linting/formatting/security tools
+              deadnix
+              statix
+              typos
+              gitleaks
+              yamllint
 
-            # Lefthook hook scripts (from modules/meta/hooks/)
-            config.packages."lefthook-treefmt"
-            config.packages."lefthook-statix"
-            config.packages."lefthook-ensure-sops"
-            config.packages."lefthook-managed-files-drift"
-            config.packages."lefthook-apps-catalog-sync"
-            config.packages."lefthook-vulnix"
+              # Custom project hooks
+              config.packages."hook-statix"
+              config.packages."hook-managed-files-drift"
+              config.packages."hook-apps-catalog-sync"
+              config.packages."hook-vulnix"
+              config.packages."hook-gitleaks"
 
-            age
-            sops
-            ssh-to-age
-            ssh-to-pgp
-            ghActionsRun
-            ghActionsList
-            config.packages.generation-manager
-            config.treefmt.build.wrapper
-          ];
+              age
+              sops
+              ssh-to-age
+              ssh-to-pgp
+              ghActionsRun
+              ghActionsList
+              config.packages.generation-manager
+              config.treefmt.build.wrapper
+            ])
+            ++ config.pre-commit.settings.enabledPackages
+          );
 
         shellHook = ''
-          # Use repo-local treefmt cache (matches lefthook hook location)
+          # Use repo-local treefmt cache.
           treefmt_cache="$PWD/.git/treefmt-cache/cache"
           mkdir -p "$treefmt_cache" 2>/dev/null || true
           export TREEFMT_CACHE_DB="$treefmt_cache/eval-cache"
 
-          # Install lefthook hooks only if not already installed
-          if [ ! -f .git/hooks/pre-commit ] || ! grep -q "lefthook" .git/hooks/pre-commit 2>/dev/null; then
-            lefthook install
-          fi
+          ${config.pre-commit.shellHook}
         '';
       };
 

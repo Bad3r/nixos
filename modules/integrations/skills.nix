@@ -53,7 +53,7 @@ _: {
 
       3. **Formatting and hooks** — remind the user if not yet run:
          - `nix fmt` for formatting
-         - `nix develop -c lefthook run pre-commit` for hooks
+         - `nix develop -c pre-commit run --all-files --hook-stage manual` for hooks
 
       ## Staging Rules
 

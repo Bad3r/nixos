@@ -2,25 +2,28 @@ _: {
   perSystem =
     { pkgs, ... }:
     {
-      packages.lefthook-statix = pkgs.writeShellApplication {
-        name = "lefthook-statix";
+      packages.hook-statix = pkgs.writeShellApplication {
+        name = "hook-statix";
         runtimeInputs = [
           pkgs.statix
           pkgs.coreutils
         ];
         text = # bash
           ''
+            set -euo pipefail
+
             status=0
             if [ "$#" -eq 0 ]; then
               statix check --format errfmt || status=$?
-              exit $status
+              exit "$status"
             fi
-            for f in "$@"; do
-              if [ -f "$f" ]; then
-                statix check --format errfmt "$f" || status=$?
+
+            for path in "$@"; do
+              if [ -f "$path" ]; then
+                statix check --format errfmt "$path" || status=$?
               fi
             done
-            exit $status
+            exit "$status"
           '';
       };
     };

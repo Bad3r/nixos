@@ -1,9 +1,9 @@
 _: {
   perSystem =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
     {
-      packages.lefthook-managed-files-drift = pkgs.writeShellApplication {
-        name = "lefthook-managed-files-drift";
+      packages.hook-managed-files-drift = pkgs.writeShellApplication {
+        name = "hook-managed-files-drift";
         runtimeInputs = [
           pkgs.git
           pkgs.coreutils
@@ -11,26 +11,25 @@ _: {
           pkgs.gnugrep
           pkgs.gnused
           pkgs.gawk
+          config.files.writer.drv
         ];
         text = # bash
           ''
+            set -euo pipefail
+
             root=$(git rev-parse --show-toplevel)
             cd "$root"
 
-            if ! command -v write-files >/dev/null 2>&1; then
-              exit 0
-            fi
+            mode="''${MANAGED_FILES_MODE:-verify}"
+            verbose="''${MANAGED_FILES_VERBOSE:-0}"
+            writer="${config.files.writer.drv}/bin/write-files"
 
-            writer=$(command -v write-files)
             mapfile -t pairs < <(grep -E '^cat /nix/store/.+ > .+$' "$writer" || true)
-
             if [ "''${#pairs[@]}" -eq 0 ]; then
               exit 0
             fi
 
             drift=0
-            AUTO_FIX="''${AUTO_FIX_MANAGED:-1}"
-            VERBOSE="''${MANAGED_FILES_VERBOSE:-0}"
             declare -a update_paths=()
 
             for line in "''${pairs[@]}"; do
@@ -39,43 +38,40 @@ _: {
               dst="$root/$dst_rel"
 
               if [ ! -f "$dst" ]; then
-                if [ "$AUTO_FIX" != 1 ] || [ "$VERBOSE" = 1 ]; then
-                  echo "✗ Missing managed file: $dst_rel" >&2
-                fi
                 drift=1
                 update_paths+=("$dst_rel")
+                echo "✗ Missing managed file: $dst_rel" >&2
                 continue
               fi
 
               if ! cmp -s "$src" "$dst"; then
-                if [ "$AUTO_FIX" != 1 ] || [ "$VERBOSE" = 1 ]; then
-                  echo "✗ Drift detected: $dst_rel" >&2
-                  diff -u --label "$dst_rel(expected)" "$src" --label "$dst_rel" "$dst" | sed 's/^/    /' || true
-                fi
                 drift=1
                 update_paths+=("$dst_rel")
+                echo "✗ Drift detected: $dst_rel" >&2
+                if [ "$verbose" = "1" ]; then
+                  diff -u --label "$dst_rel(expected)" "$src" --label "$dst_rel" "$dst" \
+                    | sed 's/^/    /' || true
+                fi
               fi
             done
 
-            if [ "$drift" -ne 0 ]; then
-              if [ "''${#update_paths[@]}" -gt 0 ]; then
-                write-files >/dev/null
-                git add "''${update_paths[@]}" 2>/dev/null || true
-
-                if [ "$AUTO_FIX" = 1 ]; then
-                  GIT_COMMITTER_DATE="$(date -u -R)" \
-                  GIT_AUTHOR_DATE="$(date -u -R)" \
-                  git -c core.hooksPath=/dev/null commit --no-verify \
-                    -m "chore(managed): refresh generated files" "''${update_paths[@]}" >/dev/null 2>&1 || true
-                else
-                  if [ "$VERBOSE" = 1 ]; then
-                    echo "Run: write-files, then commit the changes." >&2
-                  fi
-                  exit 1
-                fi
-              fi
+            if [ "$drift" -eq 0 ]; then
               exit 0
             fi
+
+            if [ "$mode" = "apply" ]; then
+              "$writer" >/dev/null
+              git add "''${update_paths[@]}" 2>/dev/null || true
+              echo "Managed files refreshed and staged:"
+              printf '  - %s\n' "''${update_paths[@]}"
+              exit 0
+            fi
+
+            echo "" >&2
+            echo "Managed files out of sync with Nix definitions." >&2
+            echo "Run: nix develop -c write-files" >&2
+            echo "Then stage updates and commit normally." >&2
+            exit 1
           '';
       };
     };

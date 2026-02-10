@@ -194,6 +194,11 @@
     };
 
     dedupe_systems.url = "github:nix-systems/default";
+
+    git-hooks = {
+      url = "github:cachix/git-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -203,6 +208,7 @@
     in
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
+        inputs."git-hooks".flakeModule
         (inputs.import-tree ./modules)
       ];
 
