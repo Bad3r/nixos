@@ -3,6 +3,7 @@
   inputs,
   lib,
   metaOwner,
+  secretsRoot,
   ...
 }:
 let
@@ -15,6 +16,7 @@ let
       inputs
       lib
       metaOwner
+      secretsRoot
       ;
   }
   // moduleArgs;
@@ -179,7 +181,11 @@ in
         useUserPackages = true;
         extraSpecialArgs = {
           hasGlobalPkgs = true;
-          inherit inputs metaOwner;
+          inherit
+            inputs
+            metaOwner
+            secretsRoot
+            ;
           mcpLib = config.flake.lib.mcp;
           skillsLib = config.flake.lib.skills;
         };

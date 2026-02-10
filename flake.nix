@@ -6,7 +6,9 @@
   };
 
   inputs = {
-    self.submodules = true;
+    # Keep secrets submodule optional for flake source evaluation.
+    # Secret-backed modules are guarded and only activate when files are present.
+    self.submodules = false;
     files.url = "github:mightyiam/files";
 
     flake-parts = {
@@ -76,11 +78,6 @@
         flake-parts.follows = "flake-parts";
         nixpkgs.follows = "nixpkgs";
       };
-    };
-
-    secrets = {
-      url = "path:./secrets";
-      flake = false;
     };
 
     refjump-nvim = {
@@ -205,6 +202,8 @@
     inputs:
     let
       ownerProfile = import ./lib/meta-owner-profile.nix;
+      rootPath = ./.;
+      secretsRoot = "${toString rootPath}/secrets";
     in
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
@@ -217,8 +216,12 @@
       ];
 
       _module.args = {
-        rootPath = ./.;
-        inherit inputs;
+        inherit
+          inputs
+          rootPath
+          secretsRoot
+          ;
+        hasSecretsDir = builtins.pathExists secretsRoot;
         pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
         metaOwner = ownerProfile;
       };
