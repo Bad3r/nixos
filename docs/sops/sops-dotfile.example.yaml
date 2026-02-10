@@ -59,7 +59,6 @@ creation_rules:
           - *admin_user
           - *host_prod1
           - *host_dev1
-
 # 5) (Optional) Binary secrets: encrypt entire files first,
 #    then commit *.enc files
 #    Example: sops -e /path/to/file > secrets/binary/file.enc

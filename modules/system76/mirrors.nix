@@ -22,7 +22,6 @@
           "numtide/llm-agents.nix"
           "Mic92/sops-nix"
           "cachix/git-hooks.nix"
-          "evilmartians/lefthook"
           "hercules-ci/flake.parts-website"
           "mightyiam/files"
           "numtide/treefmt-nix"

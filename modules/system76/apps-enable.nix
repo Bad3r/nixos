@@ -150,7 +150,6 @@
       leiningen.extended.enable = lib.mkOverride 1100 false;
       lazydocker.extended.enable = lib.mkOverride 1100 true;
       lazygit.extended.enable = lib.mkOverride 1100 true;
-      lefthook.extended.enable = lib.mkOverride 1100 true;
       less.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 false;
@@ -226,12 +225,13 @@
       pnpm.extended.enable = lib.mkOverride 1100 true;
       potrace.extended.enable = lib.mkOverride 1100 true;
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 true;
-      "pre-commit".extended.enable = lib.mkOverride 1100 false;
+      "pre-commit".extended.enable = lib.mkOverride 1100 true;
       procps.extended.enable = lib.mkOverride 1100 true;
       "protonvpn-gui".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 true;
       pyright.extended.enable = lib.mkOverride 1100 false;
       python.extended.enable = lib.mkOverride 1100 true;
+      pyyaml.extended.enable = lib.mkOverride 1100 true;
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
       radare2.extended.enable = lib.mkOverride 1100 false;
       raindrop.extended.enable = lib.mkOverride 1100 true;
@@ -315,6 +315,7 @@
       xh.extended.enable = lib.mkOverride 1100 true;
       xkill.extended.enable = lib.mkOverride 1100 true;
       xsel.extended.enable = lib.mkOverride 1100 true;
+      xxd.extended.enable = lib.mkOverride 1100 true;
       xz.extended.enable = lib.mkOverride 1100 true;
       yaak.extended.enable = lib.mkOverride 1100 true;
       yarn.extended.enable = lib.mkOverride 1100 true;

@@ -8,20 +8,20 @@ Run the following before every push:
 
 ```bash
 nix fmt
-nix develop -c lefthook run pre-commit --all-files
+nix develop -c pre-commit run --all-files --hook-stage manual
 generation-manager score    # Target: 90/90
 nix flake check --accept-flake-config
 ```
 
 ### Individual Commands
 
-| Command                                  | Purpose                                         |
-| ---------------------------------------- | ----------------------------------------------- |
-| `nix fmt`                                | Format all Nix files                            |
-| `nix develop -c lefthook run pre-commit` | Run git hooks (treefmt, deadnix, statix, typos) |
-| `generation-manager score`               | Evaluate Dendritic pattern compliance           |
-| `nix flake check --accept-flake-config`  | Full flake validation                           |
-| `nix flake check --no-build --offline`   | Quick check without building                    |
+| Command                                                         | Purpose                                                   |
+| --------------------------------------------------------------- | --------------------------------------------------------- |
+| `nix fmt`                                                       | Format all Nix files                                      |
+| `nix develop -c pre-commit run --all-files --hook-stage manual` | Run git hooks (treefmt, deadnix, statix, typos, gitleaks) |
+| `generation-manager score`                                      | Evaluate Dendritic pattern compliance                     |
+| `nix flake check --accept-flake-config`                         | Full flake validation                                     |
+| `nix flake check --no-build --offline`                          | Quick check without building                              |
 
 ### Build Commands
 
