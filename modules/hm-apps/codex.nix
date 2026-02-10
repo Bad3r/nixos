@@ -180,9 +180,10 @@ _: {
                 nixProjects="$cfgDir/projects.nix.toml"
                 userProjects="$cfgDir/trusted-projects.toml"
                 out="$cfgDir/config.toml"
+                tmpOut="''${out}.tmp"
 
                 if [ -f "$base" ]; then
-                  if ${tomlMergePython}/bin/python - "$base" "$nixProjects" "$userProjects" "$out.tmp" <<'PY'
+                  if ${tomlMergePython}/bin/python - "$base" "$nixProjects" "$userProjects" "$tmpOut" <<'PY'
         from pathlib import Path
         import sys
         import tomllib
@@ -217,10 +218,17 @@ _: {
         Path(out_path).write_text(tomlkit.dumps(merged), encoding="utf-8")
         PY
                   then
-                    [ -s "$out.tmp" ] && mv "$out.tmp" "$out" \
-                      || echo "codex-wrapper: config assembly failed, using existing config" >&2
+                    if [ -s "$tmpOut" ]; then
+                      mv "$tmpOut" "$out"
+                    else
+                      echo "codex-wrapper: ERROR: merged config is empty or missing at $tmpOut" >&2
+                      exit 1
+                    fi
                   else
-                    echo "codex-wrapper: config merge failed, using existing config" >&2
+                    mergeStatus=$?
+                    echo "codex-wrapper: ERROR: failed to merge config (exit $mergeStatus)" >&2
+                    echo "codex-wrapper: ERROR: base=$base nixProjects=$nixProjects userProjects=$userProjects" >&2
+                    exit "$mergeStatus"
                   fi
                 fi
 
@@ -268,7 +276,15 @@ _: {
 
               backupPath="$legacyBackupBase"
               if [ -e "$backupPath" ]; then
-                backupPath="''${legacyBackupBase}-$(date +%s)"
+                i=0
+                while :; do
+                  candidate="''${legacyBackupBase}-$$-$i"
+                  if [ ! -e "$candidate" ]; then
+                    backupPath="$candidate"
+                    break
+                  fi
+                  i=$((i + 1))
+                done
               fi
               run mv "$agentsHome" "$backupPath"
             fi

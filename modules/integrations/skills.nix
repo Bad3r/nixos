@@ -211,14 +211,29 @@ let
     ```
 
     14. Capture post-create worktree list and verify invocation-local creation gate passed.
-    15. Set the new worktree path as the active working directory for all subsequent commands.
-    16. Run preflight checks, stage exact files, draft/confirm message when needed, and commit.
-    17. If `push_required`, push safely with upstream tracking.
-    18. If `pr_required`, create PR with `gh pr create --fill --base base-branch --head active-branch` unless user provides custom title/body.
-    19. Because `pr_required` implies `labels_required`, always set labels immediately after PR creation:
+    15. Transfer pending edits from the invoking checkout into the new worktree before switching active directory:
+       - Detect pending state with `git status --porcelain`.
+       - If pending edits exist, create a transfer stash with index preservation:
+
+    ```bash
+    git stash push --include-untracked --message "commit-skill-transfer-<nonce>"
+    ```
+
+       - Capture the created stash ref and apply it into the new worktree with index restoration:
+
+    ```bash
+    git -C "$HOME/trees/$repo_name/$new_worktree_name" stash apply --index "$transfer_stash_ref"
+    ```
+
+       - Never drop transfer stashes automatically; keep them available for recovery.
+    16. Set the new worktree path as the active working directory for all subsequent commands.
+    17. Run preflight checks, stage exact files, draft/confirm message when needed, and commit.
+    18. If `push_required`, push safely with upstream tracking.
+    19. If `pr_required`, create PR with `gh pr create --fill --base base-branch --head active-branch` unless user provides custom title/body.
+    20. Because `pr_required` implies `labels_required`, always set labels immediately after PR creation:
        - Prefer user-provided labels.
        - Otherwise inspect `gh label list` and apply best-matching existing labels.
-    20. Return new worktree path, active branch, commit SHA, and optional push/PR outputs.
+    21. Return new worktree path, active branch, commit SHA, and optional push/PR outputs.
 
     ## Handle Failures
 
@@ -259,7 +274,7 @@ let
           description = "Execute safe Git commit workflows when the user invokes /commit or asks to commit changes. Always create a new git worktree under ~/trees/repo-name and commit there, never directly on main/master. Use for /commit, /commit and push, and /commit in a new branch then push and create a pull request with gh and labels.";
           "disable-model-invocation" = true;
           "allowed-tools" =
-            "Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Bash(git worktree *), Bash(git for-each-ref *), Bash(git rev-parse *), Bash(git branch *), Bash(git push *), Bash(mkdir *), Bash(gh repo view *), Bash(gh pr *), Bash(gh label *), Read, Grep, Glob";
+            "Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Bash(git worktree *), Bash(git stash *), Bash(git for-each-ref *), Bash(git rev-parse *), Bash(git branch *), Bash(git push *), Bash(mkdir *), Bash(gh repo view *), Bash(gh pr *), Bash(gh label *), Read, Grep, Glob";
           "argument-hint" = "[optional commit message]";
         };
         intro = "Create a well-formatted git commit following all project safety rules and Conventional Commits format.";
