@@ -22,7 +22,6 @@ Mirrors are managed declaratively in `modules/system76/mirrors.nix` and synced t
 | numtide/llm-agents.nix          | `$LOCAL_MIRRORS/numtide-llm-agents.nix`          | LLM agent tooling reference.                        |
 | Mic92/sops-nix                  | `$LOCAL_MIRRORS/Mic92-sops-nix`                  | Manage encrypted secrets integrations.              |
 | cachix/git-hooks.nix            | `$LOCAL_MIRRORS/cachix-git-hooks.nix`            | Update hook definitions or debug pre-commit.        |
-| evilmartians/lefthook           | `$LOCAL_MIRRORS/evilmartians-lefthook`           | Reference lefthook docs or debug hook failures.     |
 | hercules-ci/flake.parts-website | `$LOCAL_MIRRORS/hercules-ci-flake.parts-website` | Flake-parts documentation and examples.             |
 | mightyiam/files                 | `$LOCAL_MIRRORS/mightyiam-files`                 | Modify sources for generated repo artefacts.        |
 | numtide/treefmt-nix             | `$LOCAL_MIRRORS/numtide-treefmt-nix`             | Adjust formatting behavior or version pins.         |

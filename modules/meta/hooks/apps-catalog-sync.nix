@@ -2,8 +2,8 @@ _: {
   perSystem =
     { pkgs, ... }:
     {
-      packages.lefthook-apps-catalog-sync = pkgs.writeShellApplication {
-        name = "lefthook-apps-catalog-sync";
+      packages.hook-apps-catalog-sync = pkgs.writeShellApplication {
+        name = "hook-apps-catalog-sync";
         runtimeInputs = [
           pkgs.git
           pkgs.coreutils
@@ -25,17 +25,6 @@ _: {
               "vmware-workstation"
               "ovftool"
             )
-
-            should_run=0
-            if git diff --cached --name-status --diff-filter=AD | grep -q "^[AD].*$apps_dir/.*\.nix$"; then
-              should_run=1
-            fi
-            if git diff --cached --name-only | grep -q "^$catalog_file$"; then
-              should_run=1
-            fi
-            if [ "$should_run" -eq 0 ]; then
-              exit 0
-            fi
 
             mapfile -t filesystem_apps < <(
               find "$apps_dir" -maxdepth 1 -type f -name "*.nix" ! -name "_*.nix" -printf "%f\n" \
