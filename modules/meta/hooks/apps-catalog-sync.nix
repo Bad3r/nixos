@@ -14,7 +14,9 @@ _: {
         ];
         text = # bash
           ''
-            root=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+            set -euo pipefail
+
+            root=$(git rev-parse --show-toplevel)
             cd "$root"
 
             apps_dir="modules/apps"
