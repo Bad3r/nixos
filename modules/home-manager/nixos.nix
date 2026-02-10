@@ -176,6 +176,7 @@ in
 
       config.home-manager = {
         useGlobalPkgs = true;
+        useUserPackages = true;
         extraSpecialArgs = {
           hasGlobalPkgs = true;
           inherit inputs metaOwner;

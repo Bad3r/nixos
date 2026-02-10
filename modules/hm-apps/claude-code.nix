@@ -140,44 +140,8 @@ _: {
       claudeJsonConfigFile = pkgs.writeText "claude-json-config.json" (builtins.toJSON claudeJsonConfig);
 
       # ── Commit Skill ──────────────────────────────────────────────────────
-      # Claude Code frontmatter + dynamic context + shared rules + workflow
-      commitSkillMd = ''
-        ---
-        name: commit
-        description: >
-          This skill should be used when the user invokes /commit to create a git commit.
-          It supports continuation commits on non-main branches and isolated worktree
-          commits when branch protection or user intent requires a new branch.
-        disable-model-invocation: true
-        allowed-tools: Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Bash(git worktree *), Bash(git for-each-ref *), Bash(git rev-parse *), Bash(git branch *), Bash(git push *), Bash(mkdir *), Bash(gh repo view *), Bash(gh pr *), Bash(gh label *), Read, Grep, Glob
-        argument-hint: "[optional commit message]"
-        ---
-
-        # Git Commit Skill
-
-        Create a well-formatted git commit following all project safety rules and Conventional Commits format, with automatic selection between continuation and worktree-isolated modes.
-
-        ## Current Git State
-
-        Working tree status:
-        !`git status --short`
-
-        Already staged changes:
-        !`git diff --staged --stat`
-
-        Recent commits (for style reference):
-        !`git log --oneline -5`
-
-        ${skillsLib.commitRules}
-
-        ### If `$ARGUMENTS` is provided
-
-        Use the provided text as the commit message directly. Still run through the pre-commit checklist and staging rules before committing.
-
-        ### If no arguments provided
-
-        ${skillsLib.commitWorkflow}
-      '';
+      commitSkill = skillsLib.skillDefs.commit;
+      commitSkillMd = skillsLib.renderClaudeSkillMd commitSkill;
 
     in
     {

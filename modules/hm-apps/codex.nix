@@ -43,6 +43,7 @@ _: {
       codexPkg = lib.attrByPath [ "programs" "codex" "extended" "package" ] pkgs.codex osConfig;
       homeDir = config.home.homeDirectory;
       configDir = "${config.xdg.configHome}/codex";
+      agentsDir = "${config.xdg.configHome}/agents";
       tomlFormat = pkgs.formats.toml { };
 
       # MCP servers via centralized catalog
@@ -58,8 +59,8 @@ _: {
       # Base settings (everything except projects — those are merged at runtime)
       baseSettings = {
         # Core settings
-        model = "gpt-5.2-codex";
-        profile = "gpt-5.2-codex";
+        model = "gpt-5.3-codex";
+        profile = "default";
         approval_policy = "never";
         sandbox_mode = "danger-full-access";
         personality = "pragmatic";
@@ -107,13 +108,19 @@ _: {
 
         # Feature flags
         features = {
-          shell_snapshot = true;
+          apply_patch_freeform = true;
           apps = true;
+          child_agents_md = true;
+          collab = true;
+          memory_tool = true;
+          shell_snapshot = true;
+          skill_env_var_dependency_prompt = true;
+          sqlite = true;
           steer = true;
           undo = true;
           unified_exec = true;
           use_linux_sandbox_bwrap = false;
-          responses_websockets = true;
+          responses_websockets = false; # 10/02/26 doesnt work as expected
         };
 
         # Shell environment
@@ -136,8 +143,8 @@ _: {
 
         # Profiles
         profiles = {
-          "gpt-5.2-codex" = {
-            model = "gpt-5.2-codex";
+          default = {
+            model = "gpt-5.3-codex";
             approval_policy = "never";
             model_supports_reasoning_summaries = true;
             model_reasoning_effort = "xhigh";
@@ -157,53 +164,75 @@ _: {
       };
 
       # ── Commit Skill ──────────────────────────────────────────────────────
-      # Codex SKILL.md with YAML frontmatter + shared rules from skillsLib
-      commitSkillMd = ''
-        ---
-        name: commit
-        description: >
-          Execute safe git commit workflows using either continuation on the current
-          non-main branch or isolated branch/worktree creation when required.
-        metadata:
-          short-description: Dual-mode git commit workflow with branch protection
-        ---
-
-        # Git Commit Skill
-
-        ${skillsLib.commitRules}
-        ${skillsLib.commitWorkflow}
-      '';
+      commitSkill = skillsLib.skillDefs.commit;
+      commitSkillDir = skillsLib.mkCodexSkillDir pkgs commitSkill;
 
       baseConfigFile = tomlFormat.generate "codex-config-base" baseSettings;
       nixProjectsFile = tomlFormat.generate "codex-nix-projects" nixProjectSettings;
+      tomlMergePython = pkgs.python3.withPackages (ps: [ ps.tomlkit ]);
 
-      yq = lib.getExe pkgs.yq-go;
-
-      # Wrapper that merges split config files before launching codex.
-      # Reads base settings + nix projects + user-managed projects, deep-merges
-      # them into config.toml, then execs the real binary.
+      # Wrapper that assembles config.toml before launching codex.
+      # Uses parser-based TOML merge with precedence:
+      # base settings < nix-managed projects < user-managed projects.
       codexWrapped = pkgs.writeShellScriptBin "codex" ''
-        cfgDir="''${CODEX_HOME:-${configDir}}"
-        base="$cfgDir/config.base.toml"
-        nixProjects="$cfgDir/projects.nix.toml"
-        userProjects="$cfgDir/trusted-projects.toml"
-        out="$cfgDir/config.toml"
+                cfgDir="''${CODEX_HOME:-${configDir}}"
+                base="$cfgDir/config.base.toml"
+                nixProjects="$cfgDir/projects.nix.toml"
+                userProjects="$cfgDir/trusted-projects.toml"
+                out="$cfgDir/config.toml"
+                tmpOut="''${out}.tmp"
 
-        if [ -f "$base" ] && [ -f "$nixProjects" ]; then
-          if [ -f "$userProjects" ] && grep -q '[^[:space:]#]' "$userProjects" 2>/dev/null; then
-            ${yq} eval-all -p toml -o toml \
-              'select(fi == 0) * select(fi == 1) * select(fi == 2)' \
-              "$base" "$nixProjects" "$userProjects" > "$out.tmp" && mv "$out.tmp" "$out" \
-              || echo "codex-wrapper: config merge failed, using existing config" >&2
-          else
-            ${yq} eval-all -p toml -o toml \
-              'select(fi == 0) * select(fi == 1)' \
-              "$base" "$nixProjects" > "$out.tmp" && mv "$out.tmp" "$out" \
-              || echo "codex-wrapper: config merge failed, using existing config" >&2
-          fi
-        fi
+                if [ -f "$base" ]; then
+                  if ${tomlMergePython}/bin/python - "$base" "$nixProjects" "$userProjects" "$tmpOut" <<'PY'
+        from pathlib import Path
+        import sys
+        import tomllib
+        import tomlkit
 
-        exec ${codexPkg}/bin/codex "$@"
+
+        def load_toml(path_str: str) -> dict:
+            path = Path(path_str)
+            if not path.exists():
+                return {}
+            raw = path.read_text(encoding="utf-8")
+            if not raw.strip():
+                return {}
+            return tomllib.loads(raw)
+
+
+        def deep_merge(base: dict, override: dict) -> dict:
+            for key, value in override.items():
+                current = base.get(key)
+                if isinstance(current, dict) and isinstance(value, dict):
+                    deep_merge(current, value)
+                else:
+                    base[key] = value
+            return base
+
+
+        base_path, nix_projects_path, user_projects_path, out_path = sys.argv[1:5]
+        merged = {}
+        for path in (base_path, nix_projects_path, user_projects_path):
+            deep_merge(merged, load_toml(path))
+
+        Path(out_path).write_text(tomlkit.dumps(merged), encoding="utf-8")
+        PY
+                  then
+                    if [ -s "$tmpOut" ]; then
+                      mv "$tmpOut" "$out"
+                    else
+                      echo "codex-wrapper: ERROR: merged config is empty or missing at $tmpOut" >&2
+                      exit 1
+                    fi
+                  else
+                    mergeStatus=$?
+                    echo "codex-wrapper: ERROR: failed to merge config (exit $mergeStatus)" >&2
+                    echo "codex-wrapper: ERROR: base=$base nixProjects=$nixProjects userProjects=$userProjects" >&2
+                    exit "$mergeStatus"
+                  fi
+                fi
+
+                exec ${codexPkg}/bin/codex "$@"
       '';
     in
     {
@@ -234,6 +263,36 @@ _: {
                         fi
           '';
 
+          # Codex discovers user skills in ~/.agents/skills
+          activation.codexAgentsHomeLink = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            agentsHome="${homeDir}/.agents"
+            legacyBackupBase="${homeDir}/.agents.pre-xdg-migration"
+
+            # If ~/.agents is a real directory, migrate its contents into
+            # ~/.config/agents and archive the legacy directory before linking.
+            if [ -d "$agentsHome" ] && [ ! -L "$agentsHome" ]; then
+              run mkdir -p "${agentsDir}"
+              run cp -a "$agentsHome/." "${agentsDir}/"
+
+              backupPath="$legacyBackupBase"
+              if [ -e "$backupPath" ]; then
+                i=0
+                while :; do
+                  candidate="''${legacyBackupBase}-$$-$i"
+                  if [ ! -e "$candidate" ]; then
+                    backupPath="$candidate"
+                    break
+                  fi
+                  i=$((i + 1))
+                done
+              fi
+              run mv "$agentsHome" "$backupPath"
+            fi
+
+            run mkdir -p "${agentsDir}/skills"
+            run ln -sfnT "${agentsDir}" "$agentsHome"
+          '';
+
           sessionVariables = {
             CODEX_HOME = lib.mkDefault configDir;
             CODEX_DISABLE_UPDATE_CHECK = "1";
@@ -247,8 +306,8 @@ _: {
           # Nix-managed trusted projects (read-only symlink to store)
           "codex/projects.nix.toml".source = nixProjectsFile;
 
-          # Commit skill (user-scoped, discovered by SkillsManager at ~/.config/codex/skills/)
-          "codex/skills/commit/SKILL.md".text = commitSkillMd;
+          # Commit skill (user-scoped, discovered by SkillsManager at ~/.agents/skills/)
+          "agents/skills/commit".source = commitSkillDir;
         };
       };
     };
