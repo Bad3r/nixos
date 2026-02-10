@@ -232,6 +232,7 @@
       psmisc.extended.enable = lib.mkOverride 1100 true;
       pyright.extended.enable = lib.mkOverride 1100 false;
       python.extended.enable = lib.mkOverride 1100 true;
+      pyyaml.extended.enable = lib.mkOverride 1100 true;
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
       radare2.extended.enable = lib.mkOverride 1100 false;
       raindrop.extended.enable = lib.mkOverride 1100 true;
@@ -315,6 +316,7 @@
       xh.extended.enable = lib.mkOverride 1100 true;
       xkill.extended.enable = lib.mkOverride 1100 true;
       xsel.extended.enable = lib.mkOverride 1100 true;
+      xxd.extended.enable = lib.mkOverride 1100 true;
       xz.extended.enable = lib.mkOverride 1100 true;
       yaak.extended.enable = lib.mkOverride 1100 true;
       yarn.extended.enable = lib.mkOverride 1100 true;

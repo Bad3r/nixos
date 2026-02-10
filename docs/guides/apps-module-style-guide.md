@@ -43,6 +43,85 @@ nix eval github:org/repo#packages.x86_64-linux.<name>.meta.homepage --raw
 
 See `modules/apps/claude-code.nix`, `modules/apps/spec-kit.nix`, or `modules/apps/codex.nix` for complete examples.
 
+## Python Packages
+
+When adding Python packages from `nixpkgs.python3Packages` (e.g., `pyyaml`, `cloudflare`):
+
+### Discovery & Verification
+
+```bash
+# Verify Python package exists (top-level nixpkgs#<name> will NOT work)
+nix eval nixpkgs#python3Packages.<name>.meta.description --raw
+
+# Check homepage and version
+nix eval nixpkgs#python3Packages.<name>.meta.homepage --raw
+nix eval nixpkgs#python3Packages.<name>.version --raw
+```
+
+### Module Structure Differences
+
+- **Package option**: Use list-path syntax to reach the nested `python3Packages` attribute:
+  ```nix
+  package = lib.mkPackageOption pkgs [ "python3Packages" "<name>" ] { };
+  ```
+- **Everything else** (outer `_:`, `let` binding, options namespace, `lib.mkIf`, export) is identical to standard modules.
+- **Options section**: For library-only packages with no CLI, document key API entry points (functions, classes) instead of flags or subcommands.
+
+### Example Skeleton
+
+```nix
+/*
+  Package: py-example
+  Description: Short explanation.
+  Homepage: https://example.org
+  Documentation: https://docs.example.org
+  Repository: https://github.com/example/py-example
+
+  Summary:
+    * Key capability line one.
+    * Key capability line two.
+
+  Options:
+    example.load(stream): Parse input from a string or file.
+    example.dump(data): Serialize Python objects to output format.
+*/
+_:
+let
+  PyExampleModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.py-example.extended;
+    in
+    {
+      options.programs.py-example.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to enable py-example.";
+        };
+
+        package = lib.mkPackageOption pkgs [ "python3Packages" "py-example" ] { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.py-example = PyExampleModule;
+}
+```
+
+### Example
+
+See `modules/apps/pyyaml.nix` (library) and `modules/apps/cloudflare-python-sdk.nix` (SDK with CLI) for complete examples.
+
 ## Scope
 
 - Applies to every NixOS app module exported under `flake.nixosModules.apps`.
@@ -76,6 +155,7 @@ See `modules/apps/claude-code.nix`, `modules/apps/spec-kit.nix`, or `modules/app
   - For subcommand-based tools: Use subcommand names (`init`, `generate`, `onboard`)
   - For tools with minimal CLI: Document what exists, even if only 1-2 items
   - For GUI or daemon tools: Document configuration patterns or notable behaviors instead
+  - For library packages (Python, C, etc.): Document key API functions or classes as entry points
 - Unicode characters are acceptable; retain the form used by upstream documentation (for example `π` in statistical descriptions).
 - When a project offers multiple front-ends (for example CLI and GUI), scope the comment to the component delivered by the package.
 
