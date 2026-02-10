@@ -2,10 +2,10 @@ _: {
   perSystem =
     { pkgs, ... }:
     {
-      packages.hook-statix = pkgs.writeShellApplication {
-        name = "hook-statix";
+      packages.hook-nix-parse = pkgs.writeShellApplication {
+        name = "hook-nix-parse";
         runtimeInputs = [
-          pkgs.statix
+          pkgs.nix
           pkgs.coreutils
         ];
         text = # bash
@@ -14,15 +14,16 @@ _: {
 
             status=0
             if [ "$#" -eq 0 ]; then
-              statix check --format errfmt || status=$?
-              exit "$status"
+              exit 0
             fi
 
             for path in "$@"; do
               if [ -f "$path" ]; then
-                statix check --format errfmt "$path" || status=$?
+                # Suppress parsed output, but keep parse errors on stderr.
+                nix-instantiate --parse "$path" 1>/dev/null || status=$?
               fi
             done
+
             exit "$status"
           '';
       };
