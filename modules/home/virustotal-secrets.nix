@@ -7,13 +7,13 @@
   flake.homeManagerModules.virustotalSecrets =
     {
       config,
-      inputs,
       lib,
       metaOwner,
+      secretsRoot,
       ...
     }:
     let
-      vtSecretFile = inputs.secrets + "/virustotal.yaml";
+      vtSecretFile = "${secretsRoot}/virustotal.yaml";
       homeDirectory = "/home/${metaOwner.username}";
     in
     {

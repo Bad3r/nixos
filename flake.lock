@@ -850,7 +850,6 @@
         "nixvim": "nixvim",
         "node-cloudflare": "node-cloudflare",
         "refjump-nvim": "refjump-nvim",
-        "secrets": "secrets",
         "sink-rotate": "sink-rotate",
         "smart-scrolloff-nvim": "smart-scrolloff-nvim",
         "sops-nix": "sops-nix",
@@ -861,18 +860,6 @@
         "workers-rs": "workers-rs",
         "zsh-auto-notify": "zsh-auto-notify"
       }
-    },
-    "secrets": {
-      "flake": false,
-      "locked": {
-        "path": "./secrets",
-        "type": "path"
-      },
-      "original": {
-        "path": "./secrets",
-        "type": "path"
-      },
-      "parent": []
     },
     "sink-rotate": {
       "inputs": {

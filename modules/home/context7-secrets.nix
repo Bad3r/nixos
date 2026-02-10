@@ -1,13 +1,13 @@
 {
   flake.homeManagerModules.context7Secrets =
     {
-      inputs,
       lib,
       metaOwner,
+      secretsRoot,
       ...
     }:
     let
-      ctxFile = inputs.secrets + "/context7.yaml";
+      ctxFile = "${secretsRoot}/context7.yaml";
       homeDirectory = "/home/${metaOwner.username}";
     in
     {

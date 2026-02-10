@@ -2,6 +2,7 @@
   lib,
   config,
   inputs,
+  secretsRoot,
   metaOwner,
   ...
 }:
@@ -12,11 +13,17 @@ let
     inputs.nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
-        { _module.args.metaOwner = metaOwner; }
+        {
+          _module.args.metaOwner = metaOwner;
+          _module.args.secretsRoot = secretsRoot;
+        }
         module
       ];
       specialArgs = {
-        inherit metaOwner;
+        inherit
+          metaOwner
+          secretsRoot
+          ;
       };
     }
   );

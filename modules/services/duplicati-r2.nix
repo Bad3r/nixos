@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ secretsRoot, ... }:
 let
   module =
     {
@@ -25,7 +25,7 @@ let
 
       cfg = config.services.duplicati-r2;
 
-      credentialsSecretPath = inputs.secrets + "/duplicati-r2.yaml";
+      credentialsSecretPath = "${secretsRoot}/duplicati-r2.yaml";
       credentialsExist = builtins.pathExists credentialsSecretPath;
 
       credentialNames = [
@@ -656,7 +656,7 @@ let
             When set, the file is decrypted via sops.templates during activation
             so the plaintext never enters the Nix store.
           '';
-          example = literalExpression "inputs.secrets + \"/duplicati-config.json\"";
+          example = literalExpression ''"${secretsRoot}/duplicati-config.json"'';
         };
 
         environmentFile = mkOption {
@@ -736,7 +736,7 @@ let
           assertions = [
             {
               assertion = credentialsExist;
-              message = "services.duplicati-r2 requires secrets/duplicati-r2.yaml (encrypted via sops).";
+              message = "services.duplicati-r2 requires an encrypted credentials file at ${credentialsSecretPath}.";
             }
             {
               assertion = builtins.substring 0 1 (toString cfg.environmentFile) == "/";

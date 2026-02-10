@@ -1,10 +1,10 @@
 {
   lib,
-  inputs,
+  secretsRoot,
   ...
 }:
 let
-  fontArchive = inputs.secrets + "/fonts/monolisa.tar.zst";
+  fontArchive = "${secretsRoot}/fonts/monolisa.tar.zst";
   secretExists = builtins.pathExists fontArchive;
   secretName = "fonts/monolisa.archive";
   secretRuntimePath = "/run/secrets/fonts/monolisa.archive";

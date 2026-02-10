@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, secretsRoot, ... }:
 {
   flake.nixosModules.base =
     {
@@ -10,8 +10,10 @@
     }:
     let
       # Detect if act secret file exists to avoid evaluation failures
-      actSecretExists = builtins.pathExists (./../../secrets + "/act.yaml");
-      gpgSecretExists = builtins.pathExists (./../../secrets + "/gpg/vx.asc");
+      actSecretFile = "${secretsRoot}/act.yaml";
+      gpgSecretFile = "${secretsRoot}/gpg/vx.asc";
+      actSecretExists = builtins.pathExists actSecretFile;
+      gpgSecretExists = builtins.pathExists gpgSecretFile;
       ownerName = metaOwner.username;
     in
     {
@@ -33,7 +35,7 @@
       }
       // lib.mkIf actSecretExists {
         sops.secrets."act/github_token" = {
-          sopsFile = inputs.secrets + "/act.yaml";
+          sopsFile = actSecretFile;
           mode = "0400";
           owner = ownerName;
         };
@@ -52,7 +54,7 @@
       }
       // lib.mkIf gpgSecretExists {
         sops.secrets."gpg/vx-secret-key" = {
-          sopsFile = inputs.secrets + "/gpg/vx.asc";
+          sopsFile = gpgSecretFile;
           format = "binary";
           mode = "0400";
           owner = ownerName;

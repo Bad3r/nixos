@@ -1,4 +1,4 @@
-{ lib, inputs, ... }:
+{ lib, secretsRoot, ... }:
 {
   # System-scoped sops-nix declaration for the ACME DNS API token.
   #
@@ -13,7 +13,7 @@
   flake.nixosModules.base =
     _:
     let
-      cfTokenFile = inputs.secrets + "/cf-api-token.yaml";
+      cfTokenFile = "${secretsRoot}/cf-api-token.yaml";
       cfTokenExists = builtins.pathExists cfTokenFile;
     in
     {
