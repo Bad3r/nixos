@@ -314,7 +314,7 @@ check_reboot_needed() {
   # Handles standard kernels (linux-6.19), patch versions (linux-6.18.9),
   # and CachyOS variants (linux-cachyos-...-6.18.8) without tripping pipefail.
   current_kernel_link="$(readlink /run/current-system/kernel 2>/dev/null || true)"
-  current_kernel="$(printf '%s\n' "${current_kernel_link}" | sed -nE 's#.*([0-9]+\.[0-9]+(\.[0-9]+)?).*#\1#p')"
+  current_kernel="$(printf '%s\n' "${current_kernel_link}" | sed -nE 's#.*-linux[^/]*-([0-9]+\.[0-9]+(\.[0-9]+)?)([^0-9].*)?$#\1#p')"
 
   if [[ -n ${current_kernel} ]]; then
     if [[ ${running_kernel} != "${current_kernel}" ]]; then

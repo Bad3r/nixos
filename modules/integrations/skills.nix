@@ -98,8 +98,9 @@ let
     - Never run `git push --force` to `main` or `master`.
     - Never use `--no-verify` or `--no-gpg-sign`.
     - Never run `rm` or `rm -rf`; use recoverable deletion tool `rip` when deletion is required.
-    - When moving edits to a new worktree, the invoking checkout must become clean before any staging or commit continues.
-    - If the invoking checkout remains dirty after transfer, fail hard and report remaining paths.
+    - Treat `flake.lock` as protected and exclude it from transfer, staging, and cleanup unless the user explicitly requests it.
+    - When moving edits to a new worktree with explicit file paths, only those paths must become clean in the invoking checkout before staging or commit continues.
+    - If the required cleanup scope remains dirty after transfer, fail hard and report remaining paths.
 
     After a pre-commit hook failure, never run `git commit --amend` unless the user explicitly asks to amend the previous commit.
 
@@ -158,6 +159,7 @@ let
 
     - Stage only files for one logical concern.
     - Use explicit paths: `git add path/to/file1 path/to/file2`.
+    - Exclude `flake.lock` from staging unless the user explicitly requested it.
     - Split unrelated concerns into separate commits.
 
     If nothing is staged, inspect unstaged changes, propose the exact file list to stage, and proceed only after user confirmation.
@@ -166,7 +168,7 @@ let
 
     Use Conventional Commits format: `type(scope): summary`.
 
-    Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `docs`.
+    Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`.
 
     Choose scope from the primary module/directory/domain affected. Keep summary concise and focused on intent.
 
@@ -187,9 +189,15 @@ let
        - `push_required` for push requests
        - `pr_required` for PR requests
        - `labels_required` when PR labels are requested
+       - `requested_paths` when the user names explicit files to commit
+       - `keep_source_paths` when the user explicitly asks to keep source-checkout edits
+       - `flake_lock_explicit` when `flake.lock` is explicitly requested
     2. Normalize intent flags:
        - If `push_required` is true, force `pr_required=true` and `labels_required=true`.
        - If `pr_required` is true, force `labels_required=true`.
+       - If `flake_lock_explicit` is false, remove `flake.lock` from `requested_paths`.
+       - If `requested_paths` becomes empty after filtering, stop and ask for explicit paths.
+       - Set `cleanup_source_paths=true` when `requested_paths` is non-empty and `keep_source_paths` is false.
     3. Resolve branch seed in this order:
        - Explicit branch text from user input
        - Explicit ticket/issue id from user input
@@ -214,17 +222,22 @@ let
 
     14. Capture post-create worktree list and verify invocation-local creation gate passed.
     15. Move pending edits out of the invoking checkout into the new worktree before switching active directory:
-       - Detect pending state with `git status --porcelain --untracked-files=all`.
-       - If no pending edits exist, skip transfer and continue.
-       - If pending tracked, staged, or untracked edits exist, create a uniquely tagged transfer stash:
+       - Record `invoking_checkout="$(pwd)"` before changing directories; use this for source-scope cleanup and verification commands.
+       - Resolve transfer scope:
+         - If `requested_paths` is non-empty, transfer only those paths.
+         - Otherwise transfer all pending paths except `flake.lock` by default.
+       - Detect pending state inside the transfer scope.
+       - If no pending edits exist in scope, skip transfer and continue.
+       - Create a uniquely tagged transfer stash for the scoped paths:
 
     ```bash
-    git stash push --include-untracked --message "commit-skill-transfer-<nonce>"
+    git stash push --include-untracked --message "commit-skill-transfer-<nonce>" -- <scoped-paths...>
     ```
 
+       - For full-scope transfers, use scoped paths `.` and `:(exclude)flake.lock` unless `flake_lock_explicit` is true.
        - Capture and record the created transfer stash ref.
-       - Immediately verify the invoking checkout is clean using `git status --porcelain --untracked-files=all`.
-       - If any path remains, stop immediately, report exact remaining paths, and do not continue.
+       - Immediately verify the invoking checkout is clean for the required scope.
+       - If required paths remain, stop immediately, report exact remaining paths, and do not continue.
        - Apply the transfer stash into the new worktree with index restoration:
 
     ```bash
@@ -235,12 +248,17 @@ let
        - Never drop transfer stashes automatically; keep them available for recovery.
     16. Set the new worktree path as the active working directory for all subsequent commands.
     17. Run preflight checks, stage exact files, draft/confirm message when needed, and commit.
-    18. If `push_required`, push safely with upstream tracking.
-    19. If `pr_required`, create PR with `gh pr create --fill --base base-branch --head active-branch` unless user provides custom title/body.
-    20. Because `pr_required` implies `labels_required`, always set labels immediately after PR creation:
+    18. If `cleanup_source_paths=true`, clean requested paths in the invoking checkout after commit:
+       - For tracked files, run `git -C "$invoking_checkout" restore --source=HEAD -- <path>`.
+       - For untracked files, run `rip "$invoking_checkout/<path>"`.
+       - Verify with `git -C "$invoking_checkout" status --porcelain --untracked-files=all -- <requested_paths...>`.
+       - If any requested path remains dirty, stop and report exact paths.
+    19. If `push_required`, push safely with upstream tracking.
+    20. If `pr_required`, create PR with `gh pr create --fill --base base-branch --head active-branch` unless user provides custom title/body.
+    21. Because `pr_required` implies `labels_required`, always set labels immediately after PR creation:
        - Prefer user-provided labels.
        - Otherwise inspect `gh label list` and apply best-matching existing labels.
-    21. Return new worktree path, active branch, commit SHA, and optional push/PR outputs.
+    22. Return new worktree path, active branch, commit SHA, and optional push/PR outputs.
 
     ## Handle Failures
 
@@ -281,7 +299,7 @@ let
           description = "Execute safe Git commit workflows when the user invokes /commit or asks to commit changes. Always create a new git worktree under ~/trees/repo-name and commit there, never directly on main/master. Use for /commit, /commit and push, and /commit in a new branch then push and create a pull request with gh and labels.";
           "disable-model-invocation" = true;
           "allowed-tools" =
-            "Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Bash(git worktree *), Bash(git stash *), Bash(git for-each-ref *), Bash(git rev-parse *), Bash(git branch *), Bash(git push *), Bash(mkdir *), Bash(gh repo view *), Bash(gh pr *), Bash(gh label *), Read, Grep, Glob";
+            "Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Bash(git worktree *), Bash(git stash *), Bash(git restore *), Bash(git ls-files *), Bash(git for-each-ref *), Bash(git rev-parse *), Bash(git branch *), Bash(git push *), Bash(mkdir *), Bash(rip *), Bash(gh repo view *), Bash(gh pr *), Bash(gh label *), Read, Grep, Glob";
           "argument-hint" = "[optional commit message]";
         };
         intro = "Create a well-formatted git commit following all project safety rules and Conventional Commits format.";
