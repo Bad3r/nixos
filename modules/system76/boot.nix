@@ -2,10 +2,8 @@ _: {
   configurations.nixos.system76.module =
     { config, pkgs, ... }:
     {
-      # Latest stable kernel
-      # CachyOS alternative (requires cachyos-kernel.nix enabled):
-      # boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-latest-x86_64-v3;
-      boot.kernelPackages = pkgs.linuxPackages_latest;
+      # CachyOS generic kernel package set with BORE scheduler/performance patches.
+      boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-latest;
       boot = {
         # Base kernel modules for System76 hardware
         initrd.availableKernelModules = [
