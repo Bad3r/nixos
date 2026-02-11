@@ -222,6 +222,7 @@ let
 
     14. Capture post-create worktree list and verify invocation-local creation gate passed.
     15. Move pending edits out of the invoking checkout into the new worktree before switching active directory:
+       - Record `invoking_checkout="$(pwd)"` before changing directories; use this for source-scope cleanup and verification commands.
        - Resolve transfer scope:
          - If `requested_paths` is non-empty, transfer only those paths.
          - Otherwise transfer all pending paths except `flake.lock` by default.
@@ -248,9 +249,9 @@ let
     16. Set the new worktree path as the active working directory for all subsequent commands.
     17. Run preflight checks, stage exact files, draft/confirm message when needed, and commit.
     18. If `cleanup_source_paths=true`, clean requested paths in the invoking checkout after commit:
-       - For tracked files, run `git restore --source=HEAD -- <path>`.
-       - For untracked files, run `rip <path>`.
-       - Verify with `git status --porcelain --untracked-files=all -- <requested_paths...>`.
+       - For tracked files, run `git -C "$invoking_checkout" restore --source=HEAD -- <path>`.
+       - For untracked files, run `rip "$invoking_checkout/<path>"`.
+       - Verify with `git -C "$invoking_checkout" status --porcelain --untracked-files=all -- <requested_paths...>`.
        - If any requested path remains dirty, stop and report exact paths.
     19. If `push_required`, push safely with upstream tracking.
     20. If `pr_required`, create PR with `gh pr create --fill --base base-branch --head active-branch` unless user provides custom title/body.
