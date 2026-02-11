@@ -18,6 +18,9 @@
                 fi
                 export NIX_CONFIG
 
+                # Mirror bash behavior: expose hostname through HOSTNAME in zsh.
+                export HOSTNAME="$HOST"
+
                 setopt NO_INTERACTIVE_COMMENTS
                 alias nr='nix run nixpkgs#'
                 alias ns='nix shell nixpkgs#'
