@@ -11,7 +11,7 @@
     * Stores history in RAM (tmpfs) by default; cleared on reboot.
 
   Config Options:
-    max_history_length: Maximum clipboard entries to retain (default: 50).
+    max_history_length: Maximum clipboard entries to retain (default: 100).
     max_selection_size_bytes: Max size per entry; 0 = unlimited (default: 0).
     trim_space_from_selection: Strip leading/trailing whitespace (default: true).
     use_primary_selection_as_input: Merge X primary selection with clipboard (default: false).
@@ -64,7 +64,7 @@ _: {
 
         maxHistoryLength = lib.mkOption {
           type = lib.types.ints.positive;
-          default = 50;
+          default = 100;
           description = "Maximum number of clipboard entries to retain.";
         };
 
