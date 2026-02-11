@@ -24,7 +24,8 @@ modules/
 
 - Prefix experimental or parked files with `_` to exclude them without deleting history
 - Put unfinished work under `_scratch/` or `_archive/` directories
-- Never use literal `./path/to/module.nix` imports -- move files freely since consumers import by name
+- Prefer aggregator references (`config.flake.nixosModules.*`, `config.flake.homeManagerModules.*`) in host/app composition instead of literal path imports
+- `_`-prefixed files can still be imported explicitly from a non-underscored module when you intentionally want private building blocks (for example, `modules/languages/lang.nix` importing `./_lang-*.nix`)
 
 ## How Files Become Modules
 

@@ -21,7 +21,7 @@ This directory explains how the Dendritic Pattern organizes this NixOS configura
 | "Cannot coerce null to string" error | [02-module-authoring.md#the-two-context-problem](02-module-authoring.md#the-two-context-problem) |
 | Understanding aggregator namespaces  | [03-nixos-modules.md](03-nixos-modules.md)                                                       |
 | Home Manager app loading             | [04-home-manager.md](04-home-manager.md)                                                         |
-| Adding a new host                    | [05-host-composition.md](05-host-composition.md)                                                 |
+| Understanding host composition       | [05-host-composition.md](05-host-composition.md)                                                 |
 | Validation commands                  | [06-reference.md#validation](06-reference.md#validation)                                         |
 | Glossary of terms                    | [06-reference.md#glossary](06-reference.md#glossary)                                             |
 

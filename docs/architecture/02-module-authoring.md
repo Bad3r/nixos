@@ -46,18 +46,19 @@ Return an attribute set directly when you don't need extra arguments.
 ### Pattern 3: Multi-Namespace Module
 
 ```nix
-# modules/git/git.nix
-{ ... }:
+# modules/stylix/stylix.nix
+{ inputs, ... }:
 {
-  flake.nixosModules.git = { ... }: {
-    programs.git.enable = true;
+  flake.nixosModules.base = {
+    imports = [ inputs.stylix.nixosModules.stylix ];
   };
 
-  flake.homeManagerModules.base = { pkgs, ... }: {
-    programs.git = {
-      enable = true;
-      package = pkgs.gitFull;
-    };
+  flake.homeManagerModules.base = {
+    imports = [ inputs.stylix.homeModules.stylix ];
+  };
+
+  flake.homeManagerModules.apps.stylix-gui = { ... }: {
+    # GUI-only HM theming
   };
 }
 ```
@@ -68,10 +69,18 @@ One file can populate both aggregators. Keep the scopes independent.
 
 ```nix
 # modules/base/nix-settings.nix
-{ lib, ... }:
+{ config, ... }:
 {
-  flake.nixosModules.base = lib.mkIf true {
+  config = {
     nix.settings.experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
+
+    flake.nixosModules.base.nix = {
+      inherit (config.nix) settings;
+    };
+
+    flake.homeManagerModules.base = _: {
+      nix.settings = config.nix.settings;
+    };
   };
 }
 ```
@@ -85,10 +94,11 @@ Use `lib.mkIf`, `lib.mkMerge`, and other option helpers to extend shared modules
 { config, lib, ... }:
 {
   configurations.nixos.system76.module = {
-    imports = lib.filter (module: module != null) [
-      (config.flake.nixosModules.base or null)
-      (config.flake.nixosModules."system76-support" or null)
-    ];
+    imports =
+      [ config.flake.nixosModules.base ]
+      ++ lib.optionals (lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config) [
+        config.flake.nixosModules."system76-support"
+      ];
   };
 }
 ```
@@ -101,7 +111,7 @@ See [Host Composition](05-host-composition.md) for details.
 | ----------------------------------------- | ----------------------------------------------------------------------- |
 | `{ config, lib, pkgs, ... }:` at file top | Remove `pkgs` from outer scope; wrap exported value in `{ pkgs, ... }:` |
 | `imports = [ ./path/to/module.nix ]`      | Use `config.flake.nixosModules.<name>` instead                          |
-| `with config.flake.nixosModules.apps;`    | Use `config.flake.lib.nixos.getApps` for cached lookups                 |
+| `with config.flake.nixosModules.apps;`    | Use `config.flake.lib.nixos.getApps` / `getAllApps` helpers             |
 | Forgetting to guard optional modules      | Wrap with `lib.mkIf` or `lib.optionals`                                 |
 
 ## The Two-Context Problem
@@ -178,11 +188,9 @@ in
 ## Introspection & Debugging
 
 ```bash
-# Enter repl with flake context
-nix develop -c nix repl
-> :lf .
-> :p config.flake.nixosModules            # Inspect registered modules
-> :p config.flake.homeManagerModules.apps # Inspect Home Manager apps
+# List module namespaces
+nix eval --accept-flake-config --json .#nixosModules --apply builtins.attrNames
+nix eval --accept-flake-config --json .#homeManagerModules.apps --apply builtins.attrNames
 
 # Evaluate specific host option
 nix eval .#nixosConfigurations.system76.config.boot.loader
