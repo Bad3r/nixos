@@ -6,9 +6,9 @@
   };
 
   inputs = {
-    # Keep secrets submodule optional for flake source evaluation.
-    # Secret-backed modules are guarded and only activate when files are present.
-    self.submodules = false;
+    # Include the secrets submodule in flake source snapshots so secret existence
+    # checks evaluate against the real checkout content.
+    self.submodules = true;
     files.url = "github:mightyiam/files";
 
     flake-parts = {
@@ -203,7 +203,7 @@
     let
       ownerProfile = import ./lib/meta-owner-profile.nix;
       rootPath = ./.;
-      secretsRoot = "${toString rootPath}/secrets";
+      secretsRoot = rootPath + "/secrets";
     in
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
