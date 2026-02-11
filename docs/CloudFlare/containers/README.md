@@ -1,7 +1,7 @@
 # Cloudflare Containers Technical Documentation
 
 > **Status**: Beta
-> **Last Updated**: February 2026
+> **Last Updated**: February 11, 2026
 > **Minimum Requirement**: Workers Paid Plan ($5/month)
 
 ## Overview
@@ -57,17 +57,29 @@ npx wrangler deploy
 | `standard-1` | 1/2  | 4 GiB   | 8 GB  |
 | `standard-2` | 1    | 6 GiB   | 12 GB |
 | `standard-3` | 2    | 8 GiB   | 16 GB |
+| `standard-4` | 4    | 12 GiB  | 20 GB |
+
+Custom instance types are also supported, with current limits up to 4 vCPU, 12 GiB RAM, and 20 GB disk (minimum 1 vCPU).
 
 ## When to Use Containers vs Workers
 
-| Aspect         | Workers         | Containers                 |
-| -------------- | --------------- | -------------------------- |
-| **Cold Start** | ~0ms            | 2-3 seconds                |
-| **Runtime**    | V8 (JS/TS/WASM) | Any (Docker)               |
-| **Memory**     | 128 MB          | Up to 8 GB                 |
-| **CPU Time**   | 30s (paid)      | Unlimited                  |
-| **Disk**       | None            | 2-16 GB                    |
-| **Best For**   | API, edge logic | Heavy compute, legacy apps |
+| Aspect         | Workers                                 | Containers                                    |
+| -------------- | --------------------------------------- | --------------------------------------------- |
+| **Cold Start** | Very fast (edge runtime)                | Higher (container provisioning/warm-up)       |
+| **Runtime**    | V8 (JS/TS/WASM)                         | Any runtime packaged as a container image     |
+| **CPU Time**   | 30s default, configurable up to 300s    | Long-running process model                    |
+| **Disk**       | No container filesystem                 | 2-20 GB per instance                          |
+| **Best For**   | API, routing, edge logic, orchestration | Runtime-specific services and heavier compute |
+
+## Nix Build Suitability
+
+For Nix package builds (especially kernel and browser-heavy closures), Containers are usually not ideal as the primary builder due to per-instance resource limits and beta platform gaps.
+
+Recommended pattern:
+
+1. Use dedicated x86_64 builders (local, VM, or remote builders) for compilation.
+2. Use Cloudflare R2 as the binary cache storage backend (for Attic or similar cache frontends).
+3. Keep Workers/Containers for orchestration, APIs, and cache-serving workflows rather than full package compilation.
 
 ## Minimal Example
 
@@ -101,6 +113,12 @@ CMD ["node", "server.js"]
 ## Official Resources
 
 - [Cloudflare Containers Documentation](https://developers.cloudflare.com/containers/)
+- [Containers: Limits and Instance Types](https://developers.cloudflare.com/containers/platform-details/limits/)
+- [Containers: Beta Info and Roadmap](https://developers.cloudflare.com/containers/beta-info/)
+- [Containers: Pricing](https://developers.cloudflare.com/containers/pricing/)
+- [Workers Builds: Limits and Pricing](https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/)
+- [Workers CPU time update (up to 5 minutes)](https://developers.cloudflare.com/changelog/2025-03-25-higher-cpu-limits/)
+- [R2 Pricing](https://developers.cloudflare.com/r2/pricing/)
 - [Container Package (npm)](https://www.npmjs.com/package/@cloudflare/containers)
 - [Container Package (GitHub)](https://github.com/cloudflare/containers)
 - [Example Demos](https://github.com/cloudflare/containers-demos)
