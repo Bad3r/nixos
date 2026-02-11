@@ -227,14 +227,12 @@ BOOTSTRAP_SUBSTITUTERS=(
   "https://cache.garnix.io"
   "https://cache.numtide.com"
   "https://nixpkgs-unfree.cachix.org"
-  "https://attic.xuyh0120.win/lantian"
 )
 BOOTSTRAP_TRUSTED_KEYS=(
   "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
   "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
   "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
   "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
-  "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
 )
 
 configure_nix_flags() {
@@ -316,7 +314,7 @@ check_reboot_needed() {
   # Handles standard kernels (linux-6.19), patch versions (linux-6.18.9),
   # and CachyOS variants (linux-cachyos-...-6.18.8) without tripping pipefail.
   current_kernel_link="$(readlink /run/current-system/kernel 2>/dev/null || true)"
-  current_kernel="$(printf '%s\n' "${current_kernel_link}" | sed -nE 's#.*([0-9]+\.[0-9]+(\.[0-9]+)?).*#\1#p')"
+  current_kernel="$(printf '%s\n' "${current_kernel_link}" | sed -nE 's#.*-linux[^/]*-([0-9]+\.[0-9]+(\.[0-9]+)?)([^0-9].*)?$#\1#p')"
 
   if [[ -n ${current_kernel} ]]; then
     if [[ ${running_kernel} != "${current_kernel}" ]]; then
