@@ -1,96 +1,59 @@
 # Owner No-Sudo Operations
 
-This page documents configuration-managed privileged operations available to the system owner user.
+This page documents configuration-managed operations available to the system owner user without entering a sudo password.
 
 Scope:
 
-- Owner identity source:
-  - `lib/meta-owner-profile.nix`
+- owner and group assignment:
   - `modules/meta/owner.nix`
-- i7z implementation:
-  - `modules/apps/i7z.nix`
 - polkit rules:
   - `modules/security/polkit.nix`
 - sudo-rs rules:
-  - `security.sudo-rs.extraRules`
+  - `modules/system76/sudo.nix`
+- kernel setting affecting `dmesg`:
+  - `modules/system76/boot.nix`
 
-## Commands That Do Not Require `sudo` (polkit)
+## Commands That Do Not Require `sudo`
 
 - Power commands:
   - `poweroff`, `reboot`
   - `systemctl poweroff`, `systemctl reboot`
-  - Granted by polkit login1 actions for wheel group:
+  - mechanism:
+    - polkit wheel login1 actions
+  - Granted by wheel login1 actions:
     - `org.freedesktop.login1.power-off*`
     - `org.freedesktop.login1.reboot*`
-- NetworkManager and ModemManager commands:
+- NetworkManager/ModemManager commands:
   - `nmcli ...` privileged actions
   - `mmcli ...` privileged actions
+  - mechanism:
+    - polkit `networkmanager` group allow rules
   - Granted to `networkmanager` group by evaluated `security.polkit.extraConfig`.
-- i7z:
-  - `i7z`
-  - Executed via owner-only `security.wrappers.i7z` with `cap_sys_rawio=ep` and controlled `/dev/cpu/*/msr` access.
+- Log/kernel visibility:
+  - `journalctl ...`
+    - mechanism:
+      - `systemd-journal` group membership
+    - available without sudo because owner is in `systemd-journal`.
+  - `dmesg ...`
+    - mechanism:
+      - `kernel.dmesg_restrict = 0`
+    - available without sudo because `kernel.dmesg_restrict = 0`.
 
 ## Commands That Are Passwordless With `sudo-rs`
 
 - `sudo systemctl suspend`, `sudo reboot`, `sudo poweroff`
-  - Granted by one `NOPASSWD` wheel rule in `security.sudo-rs.extraRules`.
+  - Granted by `NOPASSWD` wheel rule in `security.sudo-rs.extraRules`.
 
-## Wrapper Commands
+## Related
 
-Inspect current wrapper set:
-
-```bash
-➜ nix eval --json .#nixosConfigurations.$(hostname).config.security.wrappers | jq 'keys'
-[
-  "chsh",
-  "dbus-daemon-launch-helper",
-  "fusermount",
-  "fusermount3",
-  "i7z",
-  "locate",
-  "mount",
-  "newgidmap",
-  "newgrp",
-  "newuidmap",
-  "passwd",
-  "pkexec",
-  "plocate",
-  "sg",
-  "su",
-  "sudo",
-  "sudoedit",
-  "umount",
-  "unix_chkpwd"
-]
-```
-
-NOTE: most are inherited from upstream
-
-## i7z Implementation Logic
-
-- Goal:
-  - Run `i7z` without `sudo` while narrowing privilege scope.
-- Design:
-  - `security.wrappers.i7z` restricts execution to the owner account and applies `cap_sys_rawio=ep`.
-  - `hardware.cpu.x86.msr` sets `/dev/cpu/*/msr` to `root:msr 0660`.
-  - Owner account is added to `msr` group.
-  - Activation script reapplies ownership and mode on switch/boot to correct stale device-node permissions.
-- Rationale:
-  - `i7z` checks write permission on MSR devices; `0660` is required for non-root operation.
-  - Dedicated `msr` group reduces exposure compared with broad groups.
-- Residual risk:
-  - `cap_sys_rawio` remains high privilege; compromise of the owner account can abuse it.
+- Owner group privilege map:
+  - [docs/security/owner-group-privileges.md](owner-group-privileges.md)
 
 ## Verification
 
-- Identity and group membership:
-  - `whoami`
+- Commands:
   - `id -nG`
-- i7z wrapper and capability:
-  - `ls -l /run/wrappers/bin/i7z`
-  - `getcap /run/wrappers/bin/i7z`
-- MSR device permissions:
-  - `stat -c '%n %U:%G %a' /dev/cpu/0/msr`
-- Evaluated policy:
+  - `journalctl -n 20 --no-pager`
+  - `dmesg -T | head -n 20`
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.polkit.extraConfig | jq -r`
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.sudo-rs.extraRules | jq`

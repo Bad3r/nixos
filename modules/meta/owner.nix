@@ -31,11 +31,7 @@
           extraGroups = lib.mkAfter [
             "wheel" # Admin privileges
             "networkmanager" # Network configuration
-            "audio" # Audio devices
-            "video" # Video devices
-            "dialout" # Serial ports
             "render" # GPU acceleration
-            "input" # Input devices
             "lp" # Printers and USB devices
             "systemd-journal" # Read journalctl without sudo
             "adm" # Read /var/log files without sudo
