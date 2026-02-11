@@ -66,7 +66,8 @@ in
 
     # Security & authentication
     security.polkit.wheelPowerManagement.enable = true;
-    security.polkit.wheelSystemdManagement.enable = true;
+    # Do not grant broad systemd unit management without explicit elevation.
+    security.polkit.wheelSystemdManagement.enable = false;
 
     # Gaming & performance
     programs = {
