@@ -260,7 +260,7 @@
       sqlmap.extended.enable = lib.mkOverride 1100 false;
       starship.extended.enable = lib.mkOverride 1100 true;
       statix.extended.enable = lib.mkOverride 1100 true;
-      stash.extended.enable = lib.mkOverride 1100 true;
+      stash.extended.enable = lib.mkOverride 1100 false; # TODO: build error 11/02
       steam.extended.enable = lib.mkOverride 1100 true;
       synchrony.extended.enable = lib.mkOverride 1100 true;
       strace.extended.enable = lib.mkOverride 1100 true;
