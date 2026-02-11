@@ -254,7 +254,7 @@ let
 
         package = lib.mkOption {
           type = lib.types.package;
-          default = pkgs.wineWowPackages.staging;
+          default = pkgs.wineWow64Packages.staging;
           description = "The Wine package to use.";
         };
       };
