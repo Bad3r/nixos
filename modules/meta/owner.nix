@@ -28,7 +28,6 @@
           initialPassword = "";
           # isNormalUser auto-sets: group="users", createHome=true, home="/home/${username}", useDefaultShell=true
 
-          # All groups the user needs (merged from base/users.nix)
           extraGroups = lib.mkAfter [
             "wheel" # Admin privileges
             "networkmanager" # Network configuration
@@ -36,14 +35,10 @@
             "video" # Video devices
             "dialout" # Serial ports
             "render" # GPU acceleration
-            "bluetooth" # Bluetooth devices
             "input" # Input devices
-            "plugdev" # Removable devices
             "lp" # Printers and USB devices
             "systemd-journal" # Read journalctl without sudo
             "adm" # Read /var/log files without sudo
-            "netdev" # Network device management (avahi)
-            "power" # Power management (thermald)
           ];
 
           # SSH authorized keys for remote access
