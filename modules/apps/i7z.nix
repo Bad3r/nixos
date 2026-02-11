@@ -17,10 +17,8 @@
     --socket1 <id>: Select a secondary socket ID for dual-socket monitoring.
 
   Notes:
-    * Installs a `security.wrappers.i7z` capability wrapper so `i7z` can run without sudo.
+    * Does not install a capability wrapper; running `i7z` requires explicit elevation.
     * Enables `hardware.cpu.x86.msr` because i7z reads model-specific registers.
-    * Restricts the privileged wrapper to the configured owner account only.
-    * Restricts MSR device node ownership to the configured owner account.
 */
 _:
 let
@@ -28,13 +26,11 @@ let
     {
       config,
       lib,
-      metaOwner,
       pkgs,
       ...
     }:
     let
       cfg = config.programs.i7z.extended;
-      owner = metaOwner.username or (throw "i7z module: expected metaOwner.username to be defined");
     in
     {
       options.programs.i7z.extended = {
@@ -50,20 +46,9 @@ let
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
 
-        hardware.cpu.x86.msr = {
-          enable = true;
-          owner = owner;
-          group = config.users.users.${owner}.group;
-          mode = "0400";
-        };
-
-        security.wrappers.i7z = {
-          owner = owner;
-          group = config.hardware.cpu.x86.msr.group;
-          permissions = "u+rx,g-rwx,o-rwx";
-          source = lib.getExe cfg.package;
-          capabilities = "cap_sys_rawio=ep";
-        };
+        # Keep MSR support enabled for root-run i7z, with default restrictive
+        # permissions managed by the upstream x86-msr module.
+        hardware.cpu.x86.msr.enable = true;
       };
     };
 in

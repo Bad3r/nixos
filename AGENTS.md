@@ -193,12 +193,12 @@ PR body should include:
 
 ### Development Environment
 
-| Trigger            | Command                                  | Preconditions                                   | Post-check                                                         |
-| ------------------ | ---------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
-| Start work         | `nix develop`                            | Clean tree; network available for substituters. | Dev tools available (`treefmt`, `pre-commit`, etc.).               |
-| Format sources     | `nix fmt`                                | Run at repo root.                               | No remaining formatting diffs in `git status`.                     |
+| Trigger            | Command                                                         | Preconditions                                   | Post-check                                                         |
+| ------------------ | --------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
+| Start work         | `nix develop`                                                   | Clean tree; network available for substituters. | Dev tools available (`treefmt`, `pre-commit`, etc.).               |
+| Format sources     | `nix fmt`                                                       | Run at repo root.                               | No remaining formatting diffs in `git status`.                     |
 | Run hooks          | `nix develop -c pre-commit run --all-files --hook-stage manual` | Dev shell ready; workspace writable.            | Exit code 0; review reported TODOs/failures.                       |
-| Generate artifacts | `nix develop -c write-files`             | Dev shell ready; managed files may update.      | Review diffs in `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`. |
+| Generate artifacts | `nix develop -c write-files`                                    | Dev shell ready; managed files may update.      | Review diffs in `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`. |
 
 ### Validation and Builds
 
