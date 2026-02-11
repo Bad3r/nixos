@@ -78,8 +78,8 @@ let
         };
 
         security.wrappers.i7z = {
-          owner = owner;
-          group = config.hardware.cpu.x86.msr.group;
+          inherit owner;
+          inherit (config.hardware.cpu.x86.msr) group;
           permissions = "u+rx,g-rwx,o-rwx";
           source = lib.getExe cfg.package;
           capabilities = "cap_sys_rawio=ep";
