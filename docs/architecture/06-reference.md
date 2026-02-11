@@ -9,8 +9,8 @@ Run the following before every push:
 ```bash
 nix fmt
 nix develop -c pre-commit run --all-files --hook-stage manual
-generation-manager score    # Target: 90/90
-nix flake check --accept-flake-config
+nix run .#generation-manager -- score   # target: 35/35
+nix flake check --accept-flake-config --no-build --offline
 ```
 
 ### Individual Commands
@@ -19,52 +19,53 @@ nix flake check --accept-flake-config
 | --------------------------------------------------------------- | --------------------------------------------------------- |
 | `nix fmt`                                                       | Format all Nix files                                      |
 | `nix develop -c pre-commit run --all-files --hook-stage manual` | Run git hooks (treefmt, deadnix, statix, typos, gitleaks) |
-| `generation-manager score`                                      | Evaluate Dendritic pattern compliance                     |
-| `nix flake check --accept-flake-config`                         | Full flake validation                                     |
-| `nix flake check --no-build --offline`                          | Quick check without building                              |
+| `nix run .#generation-manager -- score`                         | Evaluate Dendritic pattern compliance                     |
+| `nix flake check --accept-flake-config`                         | Full flake validation (with builds/checks)                |
+| `nix flake check --accept-flake-config --no-build --offline`    | Fast offline evaluation-only check                        |
 
 ### Build Commands
 
-| Command                                                               | Purpose                          |
-| --------------------------------------------------------------------- | -------------------------------- |
-| `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` | Build host closure               |
-| `./build.sh`                                                          | Full validation + deployment     |
-| `./build.sh --skip-all`                                               | Skip validation (emergency only) |
+| Command                                                                 | Purpose                          |
+| ----------------------------------------------------------------------- | -------------------------------- |
+| `nix build .#nixosConfigurations.system76.config.system.build.toplevel` | Build System76 host closure      |
+| `./build.sh`                                                            | Full validation + deployment     |
+| `./build.sh --skip-all`                                                 | Skip validation (emergency only) |
 
 ## Troubleshooting
 
-| Scenario                       | Resolution                                                                                 |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
-| Missing app reference          | Use `config.flake.lib.nixos.hasApp "name"` or `nix eval '.#flake.nixosModules.apps'`       |
-| Helper assertion failures      | Run `nix flake check` -- see `flake.checks.helpers-exist`                                  |
-| Managed file drift             | Run `nix develop -c write-files` then `git diff`                                           |
-| Unfree package blocked         | Add to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix` |
-| "Cannot coerce null to string" | See [Two-Context Problem](02-module-authoring.md#the-two-context-problem)                  |
+| Scenario                       | Resolution                                                                                                     |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Missing app reference          | Use `config.flake.lib.nixos.hasApp "name"` or `nix eval --json .#nixosModules.apps --apply builtins.attrNames` |
+| Helper assertion failures      | Run `nix flake check --accept-flake-config` and inspect `checks.<system>.helpers-exist`                        |
+| Managed file drift             | Run `nix develop -c write-files` then `git diff`                                                               |
+| Unfree package blocked         | Add to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`                     |
+| "Cannot coerce null to string" | See [Two-Context Problem](02-module-authoring.md#the-two-context-problem)                                      |
 
 ## Introspection
 
 ```bash
-# Explore via REPL
-nix develop --accept-flake-config -c nix repl --expr 'import ./.'
+# Show high-level flake outputs
+nix flake show --accept-flake-config --all-systems
 
-# Inside REPL
-:p config.flake.nixosModules
-:p config.configurations.nixos.system76.module.imports
+# Inspect aggregator keys
+nix eval --accept-flake-config --json .#nixosModules --apply builtins.attrNames
+nix eval --accept-flake-config --json .#homeManagerModules --apply builtins.attrNames
+nix eval --accept-flake-config --json .#homeManagerModules.apps --apply builtins.attrNames
 
-# Evaluate specific options
+# Evaluate specific host options
 nix eval .#nixosConfigurations.system76.config.boot.loader
 nix eval .#nixosConfigurations.system76.config.system.build.toplevel
 ```
 
 ## External Tooling
 
-| Tool                       | Purpose                  | Example                                          |
-| -------------------------- | ------------------------ | ------------------------------------------------ |
-| Context7 MCP               | Documentation lookups    | Via `lib/mcp-servers.nix`                        |
-| DeepWiki                   | GitHub repo exploration  | `deepwiki read-wiki-structure --repo owner/repo` |
-| `nix-index` / `nix-locate` | Find packaged binaries   | `nix-locate 'bin/act'`                           |
-| `write-files`              | Regenerate managed files | `nix develop -c write-files`                     |
-| `gh-actions-run`           | Local GitHub Actions     | `nix develop -c gh-actions-run -n`               |
+| Tool                       | Purpose                  | Example                                               |
+| -------------------------- | ------------------------ | ----------------------------------------------------- |
+| Context7 MCP               | Documentation lookups    | Configured via `modules/integrations/mcp-servers.nix` |
+| DeepWiki MCP               | GitHub repo exploration  | Query via MCP `deepwiki_fetch` with `owner/repo`      |
+| `nix-index` / `nix-locate` | Find packaged binaries   | `nix-locate 'bin/act'`                                |
+| `write-files`              | Regenerate managed files | `nix develop -c write-files`                          |
+| `gh-actions-run`           | Local GitHub Actions     | `nix develop -c gh-actions-run -n`                    |
 
 ## Dev Shell Helpers
 
@@ -93,7 +94,7 @@ Available after `nix develop`:
 
 | Resource            | Location                                 |
 | ------------------- | ---------------------------------------- |
-| NixOS manual mirror | `nixos_docs_md/`                         |
+| NixOS manual mirror | `nixos-manual/`                          |
 | Home Manager manual | `/home/vx/git/home-manager/docs/manual/` |
 | Stylix source       | `/home/vx/git/stylix`                    |
 | nixpkgs             | `/home/vx/git/nixpkgs`                   |

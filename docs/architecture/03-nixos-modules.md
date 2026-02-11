@@ -28,26 +28,25 @@ Per-app modules live under `flake.nixosModules.apps.<name>` and follow the patte
 
 The module `modules/meta/nixos-app-helpers.nix` exposes helpers via `config.flake.lib.nixos`:
 
-| Helper     | Signature                     | Purpose                            |
-| ---------- | ----------------------------- | ---------------------------------- |
-| `hasApp`   | `string -> bool`              | Check if app exists                |
-| `getApp`   | `string -> module`            | Get single app (throws if missing) |
-| `getApps`  | `[string] -> [module]`        | Get multiple apps                  |
-| `getAppOr` | `string -> default -> module` | Get app with fallback              |
+| Helper       | Signature                     | Purpose                            |
+| ------------ | ----------------------------- | ---------------------------------- |
+| `hasApp`     | `string -> bool`              | Check if app exists                |
+| `getApp`     | `string -> module`            | Get single app (throws if missing) |
+| `getApps`    | `[string] -> [module]`        | Get multiple apps                  |
+| `getAllApps` | `[module]`                    | Get every discovered app module    |
+| `getAppOr`   | `string -> default -> module` | Get app with fallback              |
 
 ### Usage Example
 
 ```nix
-# modules/system76/apps-enable.nix
+# modules/system76/apps-base.nix
 { config, ... }:
+let
+  helpers = config._module.args.nixosAppHelpers;
+in
 {
   configurations.nixos.system76.module.imports =
-    config.flake.lib.nixos.getApps [
-      "python"
-      "uv"
-      "ruff"
-      "pyright"
-    ];
+    helpers.getAllApps;
 }
 ```
 
@@ -68,43 +67,22 @@ in
 }
 ```
 
-## perSystem and Custom Packages
+## `perSystem` vs host overlays
 
-Custom packages under `packages/<name>/default.nix` are exposed via the flake-parts `perSystem` mechanism:
+This repository uses both patterns, for different purposes:
 
-```nix
-# Accessing packages
-perSystem.packages.raindrop
-perSystem.packages.dnsleak
+- `perSystem.packages` is used for flake-exposed tooling packages (for example, `generation-manager` and hook helpers).
+- Host app packages in `packages/<name>/default.nix` are injected through the System76 overlay in `modules/system76/custom-packages-overlay.nix`, then consumed as regular `pkgs.<name>` values by app modules.
 
-# From command line
-nix build .#raindrop
-nix build .#packages.x86_64-linux.raindrop
-```
-
-App modules can wire these into system packages:
-
-```nix
-# modules/apps/raindrop.nix
-{ config, ... }:
-{
-  flake.nixosModules.apps.raindrop = { pkgs, ... }: {
-    environment.systemPackages = [
-      config.flake.packages.${pkgs.system}.raindrop
-    ];
-  };
-}
-```
-
-See [Custom Packages Style Guide](../guides/custom-packages-style-guide.md) for package authoring conventions.
+This means many host-only packages are **not** available under `.#packages.<system>.<name>` directly; they are available inside the host evaluation (`nixosConfigurations.system76`) where the overlay is active.
 
 ## Shared System Helpers
 
-| Module                                  | Export                                         | Purpose                           |
-| --------------------------------------- | ---------------------------------------------- | --------------------------------- |
-| `modules/hardware/system76-support.nix` | `flake.nixosModules."system76-support"`        | System76 kernel modules, firmware |
-| `modules/hardware/lenovo-y27q-20.nix`   | `flake.nixosModules."hardware-lenovo-y27q-20"` | Monitor profile                   |
-| `modules/virtualization/*.nix`          | `flake.nixosModules.{virt,docker,libvirt,...}` | Virtualization stacks             |
+| Module                                         | Export                                         | Purpose                           |
+| ---------------------------------------------- | ---------------------------------------------- | --------------------------------- |
+| `modules/system76/support.nix`                 | `flake.nixosModules."system76-support"`        | System76 kernel modules, firmware |
+| `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | Monitor profile                   |
+| `modules/system76/virtualization.nix`          | host options under `system76.virtualization.*` | Virtualization app toggles        |
 
 ## System-Level Utilities
 
