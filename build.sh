@@ -310,14 +310,21 @@ check_reboot_needed() {
   local reasons=()
 
   # Check kernel version
-  local running_kernel current_kernel
+  local running_kernel current_kernel current_kernel_link
   running_kernel="$(uname -r)"
-  # Extract version number (e.g., 6.18.8) from kernel path
-  # Handles both standard (linux-6.18.8) and CachyOS (linux-cachyos-latest-x86_64-v3-6.18.8)
-  current_kernel="$(readlink /run/current-system/kernel | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1)"
-  if [[ ${running_kernel} != "${current_kernel}" ]]; then
-    needs_reboot=true
-    reasons+=("Kernel: ${running_kernel} -> ${current_kernel}")
+  # Extract version number from kernel path.
+  # Handles standard kernels (linux-6.19), patch versions (linux-6.18.9),
+  # and CachyOS variants (linux-cachyos-...-6.18.8) without tripping pipefail.
+  current_kernel_link="$(readlink /run/current-system/kernel 2>/dev/null || true)"
+  current_kernel="$(printf '%s\n' "${current_kernel_link}" | sed -nE 's#.*([0-9]+\.[0-9]+(\.[0-9]+)?).*#\1#p')"
+
+  if [[ -n ${current_kernel} ]]; then
+    if [[ ${running_kernel} != "${current_kernel}" ]]; then
+      needs_reboot=true
+      reasons+=("Kernel: ${running_kernel} -> ${current_kernel}")
+    fi
+  else
+    status_msg "${YELLOW}" "Unable to parse target kernel version from /run/current-system/kernel (${current_kernel_link:-unavailable}); skipping kernel reboot check."
   fi
 
   # Check nvidia driver (if present)
