@@ -134,6 +134,7 @@
       inkscape.extended.enable = lib.mkOverride 1100 false;
       "i3lock-color".extended.enable = lib.mkOverride 1100 true;
       "i3status-rust".extended.enable = lib.mkOverride 1100 true;
+      i7z.extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 true;
       jnv.extended.enable = lib.mkOverride 1100 true;
