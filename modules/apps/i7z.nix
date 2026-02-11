@@ -20,7 +20,7 @@
     * Installs a `security.wrappers.i7z` capability wrapper so `i7z` can run without sudo.
     * Enables `hardware.cpu.x86.msr` because i7z reads model-specific registers.
     * Restricts the privileged wrapper to the configured owner account only.
-    * Restricts MSR device node ownership to the configured owner account.
+    * Grants MSR device access through a dedicated `msr` group.
 */
 _:
 let
@@ -52,9 +52,29 @@ let
 
         hardware.cpu.x86.msr = {
           enable = true;
-          owner = owner;
-          group = config.users.users.${owner}.group;
-          mode = "0400";
+          # udev OWNER must be a system account; regular users are ignored.
+          owner = "root";
+          group = "msr";
+          # i7z validates W_OK on /dev/cpu/*/msr before starting.
+          mode = "0660";
+        };
+
+        users.users.${owner}.extraGroups = lib.mkAfter [ config.hardware.cpu.x86.msr.group ];
+
+        # Ensure existing MSR device nodes are relabeled on activation.
+        # Some systems keep /dev/cpu/*/msr at kernel defaults until explicitly
+        # adjusted, even when the udev rule is present.
+        system.activationScripts.i7z-msr-permissions = {
+          deps = [ "specialfs" ];
+          text = ''
+            if [ -d /dev/cpu ]; then
+              for msr in /dev/cpu/*/msr; do
+                [ -e "$msr" ] || continue
+                chown root:${config.hardware.cpu.x86.msr.group} "$msr"
+                chmod ${config.hardware.cpu.x86.msr.mode} "$msr"
+              done
+            fi
+          '';
         };
 
         security.wrappers.i7z = {
