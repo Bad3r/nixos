@@ -12,10 +12,5 @@
       min-free = 53687091200; # 50GB - trigger GC when less than this
     };
 
-    gc = {
-      automatic = true;
-      dates = "weekly";
-      options = "--delete-older-than 14d";
-    };
   };
 }

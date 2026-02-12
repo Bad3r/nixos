@@ -4,8 +4,8 @@
 #   ./build.sh [--offline] [--verbose]
 ##
 ## This script performs validation (git hooks and flake checks),
-## then builds the system closure as the current user and switches using the
-## system sudo wrapper. It never disables the sandbox or performs GC/optimise,
+## then deploys via `nh os` after validation succeeds. It never disables the
+## sandbox or performs GC/optimise,
 ## and it does not mutate repo file ownership. Keep permission and state
 ## management declarative in NixOS modules.
 set -Eeu -o pipefail
@@ -46,6 +46,7 @@ REPAIR=false
 BOOTSTRAP_CACHES=false
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
+NH_FLAGS=()
 # Colors for output (readonly constants)
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
@@ -70,7 +71,7 @@ Options:
       --skip-check       Skip the 'nix flake check' validation step
       --skip-all         Skip all validation steps (pre-commit hooks, flake check)
       --skip-firmware    Skip firmware refresh/check/apply after successful switch
-      --keep-going       Continue building despite failures (nix --keep-going)
+      --keep-going       Continue building despite failures
       --repair           Repair corrupted store paths during build
       --bootstrap        Use extra substituters for first build (e.g., Determinate Nix)
   -h, --help             Show this help message
@@ -241,42 +242,53 @@ BOOTSTRAP_TRUSTED_KEYS=(
   "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
 )
 
-configure_nix_flags() {
-  local flags=()
+configure_build_flags() {
+  local nix_flags=()
+  local nh_flags=()
 
-  flags+=(
+  nix_flags+=(
     "--option" "cores" "3"
     "--option" "max-jobs" "2"
+  )
+  nh_flags+=(
+    "--cores" "3"
+    "--max-jobs" "2"
+    "--accept-flake-config"
   )
 
   # Offline mode
   if [[ ${OFFLINE} == "true" ]]; then
-    flags+=("--offline")
+    nix_flags+=("--offline")
+    nh_flags+=("--offline")
   fi
 
   # Verbose mode
   if [[ ${VERBOSE} == "true" ]]; then
-    flags+=("--verbose")
+    nix_flags+=("--verbose")
+    nh_flags+=("--verbose")
     set -x
   fi
 
   # Keep going despite failures
   if [[ ${KEEP_GOING} == "true" ]]; then
-    flags+=("--keep-going")
+    nix_flags+=("--keep-going")
+    nh_flags+=("--keep-going")
   fi
 
   # Repair corrupted store paths
   if [[ ${REPAIR} == "true" ]]; then
-    flags+=("--repair")
+    nix_flags+=("--repair")
+    nh_flags+=("--repair")
   fi
 
   # Bootstrap caches for first build (replaces system substituters entirely)
   if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
-    flags+=("--option" "substituters" "${BOOTSTRAP_SUBSTITUTERS[*]}")
-    flags+=("--option" "trusted-public-keys" "${BOOTSTRAP_TRUSTED_KEYS[*]}")
+    nix_flags+=("--option" "substituters" "${BOOTSTRAP_SUBSTITUTERS[*]}")
+    nix_flags+=("--option" "trusted-public-keys" "${BOOTSTRAP_TRUSTED_KEYS[*]}")
   fi
 
-  NIX_FLAGS=("${flags[@]}")
+  NIX_FLAGS=("${nix_flags[@]}")
+  NH_FLAGS=("${nh_flags[@]}")
 }
 
 ensure_clean_git_tree() {
@@ -381,11 +393,18 @@ run_flake_update() {
 
 check_sudo_access() {
   if ! /run/wrappers/bin/sudo -n true 2>/dev/null; then
-    status_msg "${YELLOW}" "Sudo access required for deployment. You may be prompted for your password."
+    status_msg "${YELLOW}" "Sudo access required for firmware updates. You may be prompted for your password."
     if ! /run/wrappers/bin/sudo -v; then
-      error_msg "Failed to obtain sudo access. Cannot proceed with deployment."
+      error_msg "Failed to obtain sudo access. Cannot proceed with firmware updates."
       exit 1
     fi
+  fi
+}
+
+check_nh_available() {
+  if ! command -v nh >/dev/null 2>&1; then
+    error_msg "nh not found in PATH. Enable/install programs.nh before deploying."
+    exit 1
   fi
 }
 
@@ -395,6 +414,8 @@ run_firmware_updates() {
     status_msg "${YELLOW}" "Install/enable fwupd tooling to manage LVFS firmware updates on switch."
     return 0
   fi
+
+  check_sudo_access
 
   status_msg "${YELLOW}" "Checking/applying firmware updates via fwupdmgr..."
   local firmware_failed=false
@@ -429,7 +450,7 @@ main() {
   # Fail fast on dirty git trees to ensure reproducible builds
   ensure_clean_git_tree
 
-  configure_nix_flags
+  configure_build_flags
 
   if [[ ${SKIP_HOOKS} == "false" ]]; then
     status_msg "${YELLOW}" "Running pre-commit hooks..."
@@ -458,14 +479,13 @@ main() {
 
   status_msg "${GREEN}" "Validation completed successfully!"
 
-  # Verify sudo access before deployment
-  check_sudo_access
+  check_nh_available
 
-  # Deploy using nixos-rebuild which handles profile + bootloader updates
-  status_msg "${YELLOW}" "Deploying '${TARGET_HOST}' via nixos-rebuild (${ACTION})..."
+  # Deploy using nh os which handles build + activation with native elevation
+  status_msg "${YELLOW}" "Deploying '${TARGET_HOST}' via nh os (${ACTION})..."
   case "${ACTION}" in
   switch | boot)
-    /run/wrappers/bin/sudo --preserve-env=NIX_CONFIG,NIX_CONFIGURATION,SSH_AUTH_SOCK nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${TARGET_HOST}" --accept-flake-config "${NIX_FLAGS[@]}"
+    nh os "${ACTION}" "${NH_FLAGS[@]}" -H "${TARGET_HOST}" "${FLAKE_DIR}"
     if [[ ${ACTION} == "switch" ]]; then
       status_msg "${GREEN}" "System switched successfully!"
       if [[ ${SKIP_FIRMWARE} == "false" ]]; then
