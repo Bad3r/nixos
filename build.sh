@@ -47,6 +47,7 @@ BOOTSTRAP_CACHES=false
 ACTION="switch" # default action after build: switch | boot
 NIX_FLAGS=()
 NH_FLAGS=()
+NH_CMD=()
 # Colors for output (readonly constants)
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
@@ -283,8 +284,12 @@ configure_build_flags() {
 
   # Bootstrap caches for first build (replaces system substituters entirely)
   if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
-    nix_flags+=("--option" "substituters" "${BOOTSTRAP_SUBSTITUTERS[*]}")
-    nix_flags+=("--option" "trusted-public-keys" "${BOOTSTRAP_TRUSTED_KEYS[*]}")
+    # Apply bootstrap cache configuration via environment so it is honored by
+    # both direct `nix` commands and `nh`-driven builds.
+    NIX_CONFIGURATION+="substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"$'\n'
+    NIX_CONFIGURATION+="trusted-public-keys = ${BOOTSTRAP_TRUSTED_KEYS[*]}"$'\n'
+    export NIX_CONFIGURATION
+    export NIX_CONFIG="${NIX_CONFIGURATION}"
   fi
 
   NIX_FLAGS=("${nix_flags[@]}")
@@ -401,11 +406,19 @@ check_sudo_access() {
   fi
 }
 
-check_nh_available() {
-  if ! command -v nh >/dev/null 2>&1; then
-    error_msg "nh not found in PATH. Enable/install programs.nh before deploying."
+resolve_nh_command() {
+  if command -v nh >/dev/null 2>&1; then
+    NH_CMD=(nh)
+    return 0
+  fi
+
+  if [[ ${OFFLINE} == "true" ]]; then
+    error_msg "nh not found in PATH and offline mode is enabled; cannot bootstrap nh."
     exit 1
   fi
+
+  status_msg "${YELLOW}" "nh not found in PATH; bootstrapping via nixpkgs#nh for this run."
+  NH_CMD=(nix run --accept-flake-config nixpkgs#nh --)
 }
 
 run_firmware_updates() {
@@ -479,13 +492,13 @@ main() {
 
   status_msg "${GREEN}" "Validation completed successfully!"
 
-  check_nh_available
+  resolve_nh_command
 
   # Deploy using nh os which handles build + activation with native elevation
   status_msg "${YELLOW}" "Deploying '${TARGET_HOST}' via nh os (${ACTION})..."
   case "${ACTION}" in
   switch | boot)
-    nh os "${ACTION}" "${NH_FLAGS[@]}" -H "${TARGET_HOST}" "${FLAKE_DIR}"
+    "${NH_CMD[@]}" os "${ACTION}" "${NH_FLAGS[@]}" -H "${TARGET_HOST}" "${FLAKE_DIR}"
     if [[ ${ACTION} == "switch" ]]; then
       status_msg "${GREEN}" "System switched successfully!"
       if [[ ${SKIP_FIRMWARE} == "false" ]]; then

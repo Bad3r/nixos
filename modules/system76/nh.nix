@@ -6,40 +6,41 @@
   `programs.nh` options with owner-derived paths.
 */
 { lib, metaOwner, ... }:
-let
-  ownerName = metaOwner.username;
-  ownerHome = "/home/${ownerName}";
-  ownerFlakeDir = "${ownerHome}/nixos";
-in
 {
-  configurations.nixos.system76.module = {
-    programs.nh = {
-      enable = lib.mkDefault true;
-      flake = lib.mkDefault ownerFlakeDir;
-
-      clean = {
+  configurations.nixos.system76.module =
+    { config, ... }:
+    let
+      ownerHome = config.users.users.${metaOwner.username}.home;
+      ownerFlakeDir = "${ownerHome}/nixos";
+    in
+    {
+      programs.nh = {
         enable = lib.mkDefault true;
-        dates = lib.mkDefault "weekly";
-        extraArgs = lib.mkDefault "--keep-since 14d --keep 3";
-      };
-    };
+        flake = lib.mkDefault ownerFlakeDir;
 
-    home-manager.sharedModules = lib.mkAfter [
-      (
-        { osConfig, lib, ... }:
-        let
-          osFlake = lib.attrByPath [ "programs" "nh" "flake" ] ownerFlakeDir osConfig;
-        in
-        {
-          programs.nh = {
-            enable = lib.mkDefault true;
-            flake = lib.mkDefault osFlake;
-            osFlake = lib.mkDefault osFlake;
-            homeFlake = lib.mkDefault osFlake;
-            clean.enable = lib.mkDefault false;
-          };
-        }
-      )
-    ];
-  };
+        clean = {
+          enable = lib.mkDefault true;
+          dates = lib.mkDefault "weekly";
+          extraArgs = lib.mkDefault "--keep-since 14d --keep 3";
+        };
+      };
+
+      home-manager.sharedModules = lib.mkAfter [
+        (
+          { osConfig, lib, ... }:
+          let
+            defaultFlake =
+              "${osConfig.users.users.${metaOwner.username}.home}/nixos";
+            osFlake = lib.attrByPath [ "programs" "nh" "flake" ] defaultFlake osConfig;
+          in
+          {
+            programs.nh = {
+              enable = lib.mkDefault true;
+              flake = lib.mkDefault osFlake;
+              clean.enable = lib.mkDefault false;
+            };
+          }
+        )
+      ];
+    };
 }
