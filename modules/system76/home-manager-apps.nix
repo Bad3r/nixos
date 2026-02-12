@@ -40,7 +40,6 @@ let
     "lutris"
     "mpv"
     "ncdu"
-    "nh"
     "nix-index"
     "nixvim"
     "obsidian"
