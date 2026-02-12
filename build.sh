@@ -40,6 +40,7 @@ AUTO_UPDATE=false
 SKIP_HOOKS=false
 SKIP_CHECK=false
 SKIP_SCORE=false
+SKIP_FIRMWARE=false
 KEEP_GOING=false
 REPAIR=false
 BOOTSTRAP_CACHES=false
@@ -68,6 +69,7 @@ Options:
       --skip-hooks       Skip the pre-commit validation
       --skip-check       Skip the 'nix flake check' validation step
       --skip-all         Skip all validation steps (pre-commit hooks, flake check)
+      --skip-firmware    Skip firmware refresh/check/apply after successful switch
       --keep-going       Continue building despite failures (nix --keep-going)
       --repair           Repair corrupted store paths during build
       --bootstrap        Use extra substituters for first build (e.g., Determinate Nix)
@@ -159,6 +161,10 @@ while [[ $# -gt 0 ]]; do
     SKIP_HOOKS=true
     SKIP_CHECK=true
     SKIP_SCORE=true
+    shift
+    ;;
+  --skip-firmware)
+    SKIP_FIRMWARE=true
     shift
     ;;
   --keep-going)
@@ -383,6 +389,38 @@ check_sudo_access() {
   fi
 }
 
+run_firmware_updates() {
+  if ! command -v fwupdmgr >/dev/null 2>&1; then
+    status_msg "${YELLOW}" "fwupdmgr not found; skipping firmware updates."
+    status_msg "${YELLOW}" "Install/enable fwupd tooling to manage LVFS firmware updates on switch."
+    return 0
+  fi
+
+  status_msg "${YELLOW}" "Checking/applying firmware updates via fwupdmgr..."
+  local firmware_failed=false
+
+  if ! /run/wrappers/bin/sudo fwupdmgr refresh --force; then
+    firmware_failed=true
+    status_msg "${YELLOW}" "Firmware metadata refresh failed (manual retry: sudo fwupdmgr refresh --force)."
+  fi
+
+  if ! /run/wrappers/bin/sudo fwupdmgr get-updates; then
+    firmware_failed=true
+    status_msg "${YELLOW}" "Firmware update query failed (manual retry: sudo fwupdmgr get-updates)."
+  fi
+
+  if ! /run/wrappers/bin/sudo fwupdmgr update; then
+    firmware_failed=true
+    status_msg "${YELLOW}" "Firmware update apply step reported an error (manual retry: sudo fwupdmgr update)."
+  fi
+
+  if [[ ${firmware_failed} == "true" ]]; then
+    status_msg "${YELLOW}" "Firmware update step completed with warnings; system switch remains successful."
+  else
+    status_msg "${GREEN}" "Firmware update step completed."
+  fi
+}
+
 main() {
   if [[ ${AUTO_UPDATE} == "true" ]]; then
     run_flake_update
@@ -430,6 +468,11 @@ main() {
     /run/wrappers/bin/sudo --preserve-env=NIX_CONFIG,NIX_CONFIGURATION,SSH_AUTH_SOCK nixos-rebuild "${ACTION}" --flake "${FLAKE_DIR}#${TARGET_HOST}" --accept-flake-config "${NIX_FLAGS[@]}"
     if [[ ${ACTION} == "switch" ]]; then
       status_msg "${GREEN}" "System switched successfully!"
+      if [[ ${SKIP_FIRMWARE} == "false" ]]; then
+        run_firmware_updates
+      else
+        status_msg "${YELLOW}" "Skipping firmware updates (--skip-firmware flag used)..."
+      fi
       check_reboot_needed
     else
       status_msg "${GREEN}" "Generation installed. It will become active on next reboot."
