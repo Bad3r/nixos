@@ -326,6 +326,20 @@ ensure_clean_git_tree() {
   fi
 }
 
+sync_pre_commit_hooks() {
+  local sync_script="${FLAKE_DIR}/scripts/hooks/sync-pre-commit-hooks.sh"
+  if [[ ! -x ${sync_script} ]]; then
+    error_msg "Hook sync script not found or not executable: ${sync_script}"
+    exit 1
+  fi
+
+  status_msg "${YELLOW}" "Synchronizing pre-commit hooks for worktree compatibility..."
+  (
+    cd "${FLAKE_DIR}"
+    nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c bash "${sync_script}"
+  )
+}
+
 check_reboot_needed() {
   local needs_reboot=false
   local reasons=()
@@ -466,8 +480,12 @@ main() {
   configure_build_flags
 
   if [[ ${SKIP_HOOKS} == "false" ]]; then
+    sync_pre_commit_hooks
     status_msg "${YELLOW}" "Running pre-commit hooks..."
-    nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c pre-commit run --all-files --hook-stage manual
+    (
+      cd "${FLAKE_DIR}"
+      nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c pre-commit run --all-files --hook-stage manual
+    )
   else
     status_msg "${YELLOW}" "Skipping pre-commit hooks (--skip-hooks flag used)..."
   fi

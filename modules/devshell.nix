@@ -130,6 +130,11 @@
           export TREEFMT_CACHE_DB="$treefmt_cache/eval-cache"
 
           ${config.pre-commit.shellHook}
+
+          repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+          if [ -n "''${repo_root}" ] && [ -x "''${repo_root}/scripts/hooks/sync-pre-commit-hooks.sh" ]; then
+            "''${repo_root}/scripts/hooks/sync-pre-commit-hooks.sh"
+          fi
         '';
       };
 
