@@ -29,8 +29,7 @@
         (
           { osConfig, lib, ... }:
           let
-            defaultFlake =
-              "${osConfig.users.users.${metaOwner.username}.home}/nixos";
+            defaultFlake = "${osConfig.users.users.${metaOwner.username}.home}/nixos";
             osFlake = lib.attrByPath [ "programs" "nh" "flake" ] defaultFlake osConfig;
           in
           {
