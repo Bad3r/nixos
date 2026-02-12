@@ -185,7 +185,6 @@
       networkmanagerapplet.extended.enable = lib.mkOverride 1100 true;
       "networkmanager-dmenu".extended.enable = lib.mkOverride 1100 true;
       "networkmanager-openvpn".extended.enable = lib.mkOverride 1100 true;
-      nh.extended.enable = lib.mkOverride 1100 true;
       nicotine.extended.enable = lib.mkOverride 1100 true;
       nil.extended.enable = lib.mkOverride 1100 true;
       niv.extended.enable = lib.mkOverride 1100 true;
