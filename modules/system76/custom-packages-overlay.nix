@@ -12,6 +12,7 @@ _: {
         malimite = final.callPackage ../../packages/malimite { };
         claude-wpa = final.callPackage ../../packages/claude-wpa { };
         rg-fzf = final.callPackage ../../packages/rg-fzf { };
+        sss-nix-repair = final.callPackage ../../packages/sss-nix-repair { };
         webcrack = final.callPackage ../../packages/webcrack { };
         wakaru = final.callPackage ../../packages/wakaru { };
         restringer = final.callPackage ../../packages/restringer { };
