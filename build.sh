@@ -10,26 +10,6 @@
 ## management declarative in NixOS modules.
 set -Eeu -o pipefail
 
-# Nix CLI config via env: enable nix-command, flakes, pipe-operators, etc.
-# Keep aligned with flake.nix nixConfig; do not relax security settings.
-NIX_CONFIGURATION=$'experimental-features = nix-command flakes pipe-operators\n'
-NIX_CONFIGURATION+=$'accept-flake-config = true\n'
-NIX_CONFIGURATION+=$'allow-import-from-derivation = false\n'
-NIX_CONFIGURATION+=$'abort-on-warn = false\n'
-# Authenticate with GitHub to avoid API rate limits during flake operations
-if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-  NIX_CONFIGURATION+="access-tokens = github.com=$(gh auth token)"$'\n'
-fi
-# Note: Avoid restricted settings that cause warnings for non-trusted users
-# (e.g., substituters, trusted-public-keys, log-lines). Those should be
-# configured system-wide via nix.settings for trusted users.
-export NIX_CONFIGURATION
-
-# Back-compat for Nix versions that read NIX_CONFIG only
-export NIX_CONFIG="${NIX_CONFIGURATION}"
-
-# Above export mirrors flake-provided nixConfig and required features.
-
 # Initialize variables with defaults
 FLAKE_DIR="${PWD}"
 TARGET_HOST="$(hostname)"
@@ -45,8 +25,7 @@ KEEP_GOING=false
 REPAIR=false
 BOOTSTRAP_CACHES=false
 ACTION="switch" # default action after build: switch | boot
-NIX_FLAGS=()
-NH_FLAGS=()
+BUILD_FLAGS=()
 NH_CMD=()
 # Colors for output (readonly constants)
 readonly RED='\033[0;31m'
@@ -67,7 +46,7 @@ Options:
   -v, --verbose          Enable verbose output
       --boot             Install as next-boot generation (do not activate now)
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
-      --update           Run 'nix flake update' and auto-commit before building
+      --update           Run 'nix flake metadata --refresh' and 'nix flake update' before building
       --skip-hooks       Skip the pre-commit validation
       --skip-check       Skip the 'nix flake check' validation step
       --skip-all         Skip all validation steps (pre-commit hooks, flake check)
@@ -206,13 +185,6 @@ switch | boot) ;;
   ;;
 esac
 
-# When explicitly allowing dirty trees, suppress Nix's dirty tree warning.
-if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
-  NIX_CONFIGURATION+=$'warn-dirty = false\n'
-  export NIX_CONFIGURATION
-  export NIX_CONFIG="${NIX_CONFIGURATION}"
-fi
-
 # Validate configuration directory
 if [[ ! -d ${FLAKE_DIR} ]]; then
   error_msg "Configuration directory not found: ${FLAKE_DIR}"
@@ -244,56 +216,58 @@ BOOTSTRAP_TRUSTED_KEYS=(
 )
 
 configure_build_flags() {
-  local nix_flags=()
-  local nh_flags=()
+  local build_cores="$(($(nproc --all) - 1))" # Nix default = 0 (all cores per build job)
+  local build_max_jobs="1"                    # Nix default = 1
 
-  nix_flags+=(
-    "--option" "cores" "3"
-    "--option" "max-jobs" "2"
-  )
-  nh_flags+=(
-    "--cores" "3"
-    "--max-jobs" "2"
+  BUILD_FLAGS=(
+    "--cores" "${build_cores}"
+    "--max-jobs" "${build_max_jobs}"
     "--accept-flake-config"
   )
 
   # Offline mode
   if [[ ${OFFLINE} == "true" ]]; then
-    nix_flags+=("--offline")
-    nh_flags+=("--offline")
+    BUILD_FLAGS+=("--offline")
   fi
 
   # Verbose mode
   if [[ ${VERBOSE} == "true" ]]; then
-    nix_flags+=("--verbose")
-    nh_flags+=("--verbose")
+    BUILD_FLAGS+=("--verbose")
     set -x
   fi
 
   # Keep going despite failures
   if [[ ${KEEP_GOING} == "true" ]]; then
-    nix_flags+=("--keep-going")
-    nh_flags+=("--keep-going")
+    BUILD_FLAGS+=("--keep-going")
   fi
 
   # Repair corrupted store paths
   if [[ ${REPAIR} == "true" ]]; then
-    nix_flags+=("--repair")
-    nh_flags+=("--repair")
+    BUILD_FLAGS+=("--repair")
+  fi
+}
+
+configure_nix_config() {
+  NIX_CONFIG=$'experimental-features = nix-command flakes pipe-operators\n'
+  NIX_CONFIG+=$'accept-flake-config = true\n'
+  NIX_CONFIG+=$'allow-import-from-derivation = false\n'
+  NIX_CONFIG+=$'abort-on-warn = false\n'
+
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    NIX_CONFIG+="access-tokens = github.com=$(gh auth token)"$'\n'
+  fi
+
+  if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+    NIX_CONFIG+=$'warn-dirty = false\n'
   fi
 
   # Bootstrap caches for first build (replaces system substituters entirely)
   if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
-    # Apply bootstrap cache configuration via environment so it is honored by
-    # both direct `nix` commands and `nh`-driven builds.
-    NIX_CONFIGURATION+="substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"$'\n'
-    NIX_CONFIGURATION+="trusted-public-keys = ${BOOTSTRAP_TRUSTED_KEYS[*]}"$'\n'
-    export NIX_CONFIGURATION
-    export NIX_CONFIG="${NIX_CONFIGURATION}"
+    NIX_CONFIG+="substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"$'\n'
+    NIX_CONFIG+="trusted-public-keys = ${BOOTSTRAP_TRUSTED_KEYS[*]}"$'\n'
   fi
 
-  NIX_FLAGS=("${nix_flags[@]}")
-  NH_FLAGS=("${nh_flags[@]}")
+  export NIX_CONFIG
 }
 
 ensure_clean_git_tree() {
@@ -336,52 +310,25 @@ sync_pre_commit_hooks() {
   status_msg "${YELLOW}" "Synchronizing pre-commit hooks for worktree compatibility..."
   (
     cd "${FLAKE_DIR}"
-    nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c bash "${sync_script}"
+    nix develop "${BUILD_FLAGS[@]}" -c bash "${sync_script}"
   )
 }
 
 check_reboot_needed() {
-  local needs_reboot=false
-  local reasons=()
+  local booted_system current_system
+  booted_system="$(readlink -f /run/booted-system 2>/dev/null || true)"
+  current_system="$(readlink -f /run/current-system 2>/dev/null || true)"
 
-  # Check kernel version
-  local running_kernel current_kernel current_kernel_link
-  running_kernel="$(uname -r)"
-  # Extract version number from kernel path.
-  # Handles standard kernels (linux-6.19), patch versions (linux-6.18.9),
-  # and CachyOS variants (linux-cachyos-...-6.18.8) without tripping pipefail.
-  current_kernel_link="$(readlink /run/current-system/kernel 2>/dev/null || true)"
-  current_kernel="$(printf '%s\n' "${current_kernel_link}" | sed -nE 's#.*-linux[^/]*-([0-9]+\.[0-9]+(\.[0-9]+)?)([^0-9].*)?$#\1#p')"
-
-  if [[ -n ${current_kernel} ]]; then
-    if [[ ${running_kernel} != "${current_kernel}" ]]; then
-      needs_reboot=true
-      reasons+=("Kernel: ${running_kernel} -> ${current_kernel}")
-    fi
-  else
-    status_msg "${YELLOW}" "Unable to parse target kernel version from /run/current-system/kernel (${current_kernel_link:-unavailable}); skipping kernel reboot check."
+  if [[ -z ${booted_system} || -z ${current_system} ]]; then
+    status_msg "${YELLOW}" "Unable to resolve /run/booted-system or /run/current-system; skipping reboot check."
+    return 0
   fi
 
-  # Check nvidia driver (if present)
-  if [[ -d /run/current-system/sw/lib/nvidia ]]; then
-    local running_nvidia current_nvidia
-    running_nvidia="$(cat /sys/module/nvidia/version 2>/dev/null || echo "not loaded")"
-    current_nvidia="$(readlink /run/current-system/sw/lib/nvidia | sed 's/.*nvidia-//;s/-.*$//' || echo "unknown")"
-    if [[ ${running_nvidia} != "${current_nvidia}" && ${running_nvidia} != "not loaded" ]]; then
-      needs_reboot=true
-      reasons+=("NVIDIA: ${running_nvidia} -> ${current_nvidia}")
-    fi
-  fi
-
-  if [[ ${needs_reboot} == "true" ]]; then
+  if [[ ${booted_system} != "${current_system}" ]]; then
     printf "\n"
-    status_msg "${YELLOW}" "Reboot recommended to apply changes:"
-    local body=""
-    for reason in "${reasons[@]}"; do
-      printf "    - %s\n" "${reason}"
-      body+="${reason}"$'\n'
-    done
-    # Desktop notification (non-blocking, don't fail if unavailable)
+    status_msg "${YELLOW}" "Reboot recommended to apply changes: booted generation differs from current generation."
+    printf "    - Booted: %s\n" "${booted_system}"
+    printf "    - Current: %s\n" "${current_system}"
     if command -v notify-send >/dev/null 2>&1; then
       notify-send \
         --urgency=normal \
@@ -389,35 +336,16 @@ check_reboot_needed() {
         --icon="${HOME}/.local/share/icons/Ant-Dark/apps/scalable/system-reboot.svg" \
         --category=system \
         "Reboot Recommended" \
-        "$(printf "%b" "${body}")" 2>/dev/null || true
+        "Booted generation differs from current generation." 2>/dev/null || true
     fi
   fi
 }
 
 run_flake_update() {
   status_msg "${YELLOW}" "Refreshing flake metadata..."
-  nix flake metadata "${FLAKE_DIR}" --refresh "${NIX_FLAGS[@]}"
+  nix flake metadata "${FLAKE_DIR}" --refresh "${BUILD_FLAGS[@]}"
   status_msg "${YELLOW}" "Updating flake inputs..."
-  nix flake update --flake "${FLAKE_DIR}" "${NIX_FLAGS[@]}"
-  if command -v git >/dev/null 2>&1; then
-    if git -C "${FLAKE_DIR}" diff --quiet -- flake.lock; then
-      status_msg "${GREEN}" "flake.lock already up to date."
-    else
-      status_msg "${YELLOW}" "Committing flake.lock changes..."
-      git -C "${FLAKE_DIR}" add flake.lock
-      git -C "${FLAKE_DIR}" commit -m "chore(flake): update inputs"
-    fi
-  fi
-}
-
-check_sudo_access() {
-  if ! /run/wrappers/bin/sudo -n true 2>/dev/null; then
-    status_msg "${YELLOW}" "Sudo access required for firmware updates. You may be prompted for your password."
-    if ! /run/wrappers/bin/sudo -v; then
-      error_msg "Failed to obtain sudo access. Cannot proceed with firmware updates."
-      exit 1
-    fi
-  fi
+  nix flake update --flake "${FLAKE_DIR}" "${BUILD_FLAGS[@]}"
 }
 
 resolve_nh_command() {
@@ -432,7 +360,7 @@ resolve_nh_command() {
   fi
 
   status_msg "${YELLOW}" "nh not found in PATH; bootstrapping via nixpkgs#nh for this run."
-  NH_CMD=(nix run --accept-flake-config nixpkgs#nh --)
+  NH_CMD=(nix run nixpkgs#nh --)
 }
 
 run_firmware_updates() {
@@ -441,8 +369,6 @@ run_firmware_updates() {
     status_msg "${YELLOW}" "Install/enable fwupd tooling to manage LVFS firmware updates on switch."
     return 0
   fi
-
-  check_sudo_access
 
   status_msg "${YELLOW}" "Checking/applying firmware updates via fwupdmgr..."
   local firmware_failed=false
@@ -470,21 +396,22 @@ run_firmware_updates() {
 }
 
 main() {
+  configure_nix_config
+  configure_build_flags
+
   if [[ ${AUTO_UPDATE} == "true" ]]; then
     run_flake_update
+  else
+    # Fail fast on dirty git trees to ensure reproducible builds
+    ensure_clean_git_tree
   fi
-
-  # Fail fast on dirty git trees to ensure reproducible builds
-  ensure_clean_git_tree
-
-  configure_build_flags
 
   if [[ ${SKIP_HOOKS} == "false" ]]; then
     sync_pre_commit_hooks
     status_msg "${YELLOW}" "Running pre-commit hooks..."
     (
       cd "${FLAKE_DIR}"
-      nix develop --accept-flake-config "${NIX_FLAGS[@]}" -c pre-commit run --all-files --hook-stage manual
+      nix develop "${BUILD_FLAGS[@]}" -c pre-commit run --all-files --hook-stage manual
     )
   else
     status_msg "${YELLOW}" "Skipping pre-commit hooks (--skip-hooks flag used)..."
@@ -503,7 +430,7 @@ main() {
 
   if [[ ${SKIP_CHECK} == "false" ]]; then
     status_msg "${YELLOW}" "Validating flake (evaluation + invariants)..."
-    nix flake check "${FLAKE_DIR}" --accept-flake-config --no-build "${NIX_FLAGS[@]}"
+    nix flake check "${FLAKE_DIR}" --no-build "${BUILD_FLAGS[@]}"
   else
     status_msg "${YELLOW}" "Skipping flake check (--skip-check flag used)..."
   fi
@@ -516,7 +443,7 @@ main() {
   status_msg "${YELLOW}" "Deploying '${TARGET_HOST}' via nh os (${ACTION})..."
   case "${ACTION}" in
   switch | boot)
-    "${NH_CMD[@]}" os "${ACTION}" "${NH_FLAGS[@]}" -H "${TARGET_HOST}" "${FLAKE_DIR}"
+    "${NH_CMD[@]}" os "${ACTION}" "${BUILD_FLAGS[@]}" -H "${TARGET_HOST}" "${FLAKE_DIR}"
     if [[ ${ACTION} == "switch" ]]; then
       status_msg "${GREEN}" "System switched successfully!"
       if [[ ${SKIP_FIRMWARE} == "false" ]]; then
