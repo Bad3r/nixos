@@ -251,8 +251,11 @@
       "rust-clippy".extended.enable = lib.mkOverride 1100 false;
       rustfmt.extended.enable = lib.mkOverride 1100 false;
       s5cmd.extended.enable = lib.mkOverride 1100 true;
+      screenkey.extended.enable = lib.mkOverride 1100 true;
       "signal-desktop".extended.enable = lib.mkOverride 1100 true;
+      simplescreenrecorder.extended.enable = lib.mkOverride 1100 true;
       skim.extended.enable = lib.mkOverride 1100 false;
+      slop.extended.enable = lib.mkOverride 1100 true;
       smartmontools.extended.enable = lib.mkOverride 1100 true;
       sqlite.extended.enable = lib.mkOverride 1100 true;
       spectacle.extended.enable = lib.mkOverride 1100 false;
