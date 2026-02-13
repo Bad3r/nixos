@@ -261,6 +261,7 @@
       spectacle.extended.enable = lib.mkOverride 1100 false;
       "spec-kit".extended.enable = lib.mkOverride 1100 true;
       sqlmap.extended.enable = lib.mkOverride 1100 false;
+      "sss-nix-repair".extended.enable = lib.mkOverride 1100 true;
       starship.extended.enable = lib.mkOverride 1100 true;
       statix.extended.enable = lib.mkOverride 1100 true;
       stash.extended.enable = lib.mkOverride 1100 false; # TODO: build error 11/02
