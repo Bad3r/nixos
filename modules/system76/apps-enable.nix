@@ -251,13 +251,17 @@
       "rust-clippy".extended.enable = lib.mkOverride 1100 false;
       rustfmt.extended.enable = lib.mkOverride 1100 false;
       s5cmd.extended.enable = lib.mkOverride 1100 true;
+      screenkey.extended.enable = lib.mkOverride 1100 true;
       "signal-desktop".extended.enable = lib.mkOverride 1100 true;
+      simplescreenrecorder.extended.enable = lib.mkOverride 1100 true;
       skim.extended.enable = lib.mkOverride 1100 false;
+      slop.extended.enable = lib.mkOverride 1100 true;
       smartmontools.extended.enable = lib.mkOverride 1100 true;
       sqlite.extended.enable = lib.mkOverride 1100 true;
       spectacle.extended.enable = lib.mkOverride 1100 false;
       "spec-kit".extended.enable = lib.mkOverride 1100 true;
       sqlmap.extended.enable = lib.mkOverride 1100 false;
+      "sss-nix-repair".extended.enable = lib.mkOverride 1100 true;
       starship.extended.enable = lib.mkOverride 1100 true;
       statix.extended.enable = lib.mkOverride 1100 true;
       stash.extended.enable = lib.mkOverride 1100 false; # TODO: build error 11/02
