@@ -40,11 +40,13 @@
           ```bash
           ./build.sh              # validate and deploy
           ./build.sh --boot       # install for next boot only
-          ./build.sh --update     # update flake inputs first
+          ./build.sh --update     # refresh metadata + update flake inputs
           ./build.sh --offline    # Offline build
           ```
 
-          The script runs a validation pipeline (format, pre-commit hooks, flake check) before deployment. It refuses to run on a dirty worktree by default; use `--allow-dirty` to override.
+          The script runs a validation pipeline (format, pre-commit hooks, flake check) before deployment.
+          It refuses to run on a dirty worktree by default; use `--allow-dirty` to override.
+          `--update` intentionally allows dirty worktrees and does not auto-commit `flake.lock`.
 
           **Development commands:**
 
