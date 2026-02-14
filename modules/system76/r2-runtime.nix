@@ -43,6 +43,7 @@
         enable = true;
         accountIdFile = "/run/secrets/r2/account-id";
         credentialsFile = "/run/secrets/r2/credentials.env";
+        explorerEnvFile = "/run/secrets/r2/explorer.env";
       };
 
       systemd = {
