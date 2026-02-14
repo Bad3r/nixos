@@ -55,6 +55,28 @@
               mode = "0400";
               owner = ownerName;
             };
+
+            # Worker admin signing credentials for `r2 share worker ...`.
+            #
+            # Keep these in SOPS and render them at runtime so the secret never
+            # lands in the Nix store.
+            "r2/explorer-admin-kid" = {
+              sopsFile = r2SecretFile;
+              format = "yaml";
+              key = "explorer_admin_kid";
+              path = "/run/secrets/r2/explorer-admin-kid";
+              mode = "0400";
+              owner = ownerName;
+            };
+
+            "r2/explorer-admin-secret" = {
+              sopsFile = r2SecretFile;
+              format = "yaml";
+              key = "explorer_admin_secret";
+              path = "/run/secrets/r2/explorer-admin-secret";
+              mode = "0400";
+              owner = ownerName;
+            };
           };
 
           templates."r2-credentials.env" = {
@@ -64,6 +86,17 @@
               AWS_SECRET_ACCESS_KEY=${config.sops.placeholder."r2/secret-access-key"}
             '';
             path = "/run/secrets/r2/credentials.env";
+            mode = "0400";
+            owner = ownerName;
+          };
+
+          templates."r2-explorer.env" = {
+            content = ''
+              R2_EXPLORER_BASE_URL=https://files.unsigned.sh
+              R2_EXPLORER_ADMIN_KID=${config.sops.placeholder."r2/explorer-admin-kid"}
+              R2_EXPLORER_ADMIN_SECRET=${config.sops.placeholder."r2/explorer-admin-secret"}
+            '';
+            path = "/run/secrets/r2/explorer.env";
             mode = "0400";
             owner = ownerName;
           };

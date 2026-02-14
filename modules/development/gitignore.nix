@@ -61,7 +61,7 @@ _: {
             ########################################
             node_modules/
             .cache/
-
+            .wrangler/
             ########################################
             # Secrets safety (defense-in-depth)
             # Do not commit private keys or local env files
