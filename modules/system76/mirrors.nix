@@ -15,6 +15,7 @@
 
           # Nix community
           "nix-community/home-manager"
+          "nix-community/nh"
           "nix-community/nixvim"
           "nix-community/stylix"
 
@@ -26,6 +27,7 @@
           "mightyiam/files"
           "numtide/treefmt-nix"
           "vic/import-tree"
+          "evilmartians/lefthook"
 
           # Documentation
           "github/docs"
@@ -33,6 +35,7 @@
 
           # Applications
           "logseq/logseq"
+          "s0md3v/wappalyzer-next"
         ];
       };
     };
