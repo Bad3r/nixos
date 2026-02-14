@@ -52,6 +52,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    r2-cloud.url = "path:/home/vx/trees/nix-R2-CloudFlare-Flake/phase-8-1-accountidfile-support";
+
     # nix-on-droid = {
     #   url = "github:nix-community/nix-on-droid";
     #   inputs = {
