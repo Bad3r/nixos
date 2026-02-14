@@ -248,23 +248,23 @@ configure_build_flags() {
 }
 
 configure_nix_config() {
-  append_nix_config_line() {
-    printf -v NIX_CONFIG '%s%s\n' "${NIX_CONFIG}" "$1"
-  }
+  NIX_CONFIG=$'experimental-features = nix-command flakes pipe-operators\n'
+  NIX_CONFIG+=$'accept-flake-config = true\n'
+  NIX_CONFIG+=$'allow-import-from-derivation = false\n'
+  NIX_CONFIG+=$'abort-on-warn = false\n'
 
-  NIX_CONFIG=""
-  append_nix_config_line "experimental-features = nix-command flakes pipe-operators"
-  append_nix_config_line "accept-flake-config = true"
-  append_nix_config_line "allow-import-from-derivation = false"
-  append_nix_config_line "abort-on-warn = false"
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    NIX_CONFIG+="access-tokens = github.com=$(gh auth token)"$'\n'
+  fi
 
-  append_nix_config_line "access-tokens = github.com=$(gh auth token)"
+  if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+    NIX_CONFIG+=$'warn-dirty = false\n'
+  fi
 
-  append_nix_config_line "warn-dirty = false"
-
+  # Bootstrap caches for first build (replaces system substituters entirely)
   if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
-    append_nix_config_line "substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"
-    append_nix_config_line "trusted-public-keys = ${BOOTSTRAP_TRUSTED_KEYS[*]}"
+    NIX_CONFIG+="substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"$'\n'
+    NIX_CONFIG+="trusted-public-keys = ${BOOTSTRAP_TRUSTED_KEYS[*]}"$'\n'
   fi
 
   export NIX_CONFIG
