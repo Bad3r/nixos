@@ -1,12 +1,18 @@
-{ lib, secretsRoot, ... }:
+{
+  lib,
+  metaOwner,
+  secretsRoot,
+  ...
+}:
 {
   # System-scoped declarations for Cloudflare R2 secrets sourced from
   # secrets/r2.yaml and rendered to /run/secrets/r2/*.
   flake.nixosModules.base =
-    _:
+    { config, ... }:
     let
       r2SecretFile = "${secretsRoot}/r2.yaml";
       r2SecretExists = builtins.pathExists r2SecretFile;
+      ownerName = metaOwner.username;
     in
     {
       # sops-nix is imported centrally in modules/security/secrets.nix (base),
@@ -20,6 +26,7 @@
               key = "account_id";
               path = "/run/secrets/r2/account-id";
               mode = "0400";
+              owner = ownerName;
             };
 
             "r2/access-key-id" = {
@@ -28,6 +35,7 @@
               key = "access_key_id";
               path = "/run/secrets/r2/access-key-id";
               mode = "0400";
+              owner = ownerName;
             };
 
             "r2/secret-access-key" = {
@@ -36,6 +44,7 @@
               key = "secret_access_key";
               path = "/run/secrets/r2/secret-access-key";
               mode = "0400";
+              owner = ownerName;
             };
 
             "r2/restic-password" = {
@@ -44,17 +53,19 @@
               key = "restic_password";
               path = "/run/secrets/r2/restic-password";
               mode = "0400";
+              owner = ownerName;
             };
           };
 
           templates."r2-credentials.env" = {
             content = ''
-              R2_ACCOUNT_ID={{ .r2/account-id }}
-              AWS_ACCESS_KEY_ID={{ .r2/access-key-id }}
-              AWS_SECRET_ACCESS_KEY={{ .r2/secret-access-key }}
+              R2_ACCOUNT_ID=${config.sops.placeholder."r2/account-id"}
+              AWS_ACCESS_KEY_ID=${config.sops.placeholder."r2/access-key-id"}
+              AWS_SECRET_ACCESS_KEY=${config.sops.placeholder."r2/secret-access-key"}
             '';
             path = "/run/secrets/r2/credentials.env";
             mode = "0400";
+            owner = ownerName;
           };
         };
       };
