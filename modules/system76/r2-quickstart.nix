@@ -8,6 +8,10 @@
         against R2 (S3-compatible). Replace placeholders as needed and
         copy the configs to your user environment. Do not store secrets here.
 
+        Runtime credentials are rendered from secrets/r2.yaml to:
+          /run/secrets/r2/credentials.env
+        This file is owner-readable and can be sourced directly.
+
         R2 Docs: https://developers.cloudflare.com/r2/
       '';
 
