@@ -52,6 +52,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # R2 integration module flake (portable source; no machine-local paths)
+    r2-flake.url = "github:Bad3r/nix-R2-CloudFlare-Flake?ref=main";
+
     # nix-on-droid = {
     #   url = "github:nix-community/nix-on-droid";
     #   inputs = {

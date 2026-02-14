@@ -38,6 +38,7 @@ in
       config.flake.nixosModules.ssh
       config.flake.nixosModules."duplicati-r2"
       config.flake.nixosModules.mirror-root
+      inputs.r2-flake.nixosModules.default
 
       # External hardware modules
       inputs.nixos-hardware.nixosModules.system76
@@ -83,6 +84,8 @@ in
       python.extended.enable = true;
       go.extended.enable = true;
     };
+
+    home-manager.sharedModules = lib.mkAfter [ inputs.r2-flake.homeManagerModules.default ];
   };
 
   # Export the System76 configuration so the flake exposes it under nixosConfigurations

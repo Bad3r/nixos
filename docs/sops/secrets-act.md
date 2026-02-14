@@ -11,7 +11,7 @@ This repository stores the personal access token used by `act` in `secrets/act.y
 ## Host Setup (one-time)
 
 1. Generate the Age host key if it does not already exist (see `docs/sops/README.md`).
-2. Ensure the host key is listed in `modules/security/sops-policy.nix` (it is named `host_primary` by default). Run `nix develop -c write-files` to refresh `.sops.yaml`.
+2. Ensure the host key is listed in `modules/security/sops-policy.nix` (it is named `host_pub_key` by default). Run `nix develop -c write-files` to refresh `.sops.yaml`.
 
 ## Adding or Rotating the Token
 
