@@ -1,24 +1,29 @@
 keys:
-  - &host_primary age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf
+  - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf
 
 creation_rules:
   - path_regex: secrets/act\.yaml
     encrypted_regex: "^(github_token)$"
     key_groups:
       - age:
-          - *host_primary
+          - *host_pub_key
 
   - path_regex: secrets/r2\.env
     key_groups:
       - age:
-          - *host_primary
+          - *host_pub_key
+
+  - path_regex: secrets/r2\.yaml
+    key_groups:
+      - age:
+          - *host_pub_key
 
   - path_regex: secrets/fonts/.+
     key_groups:
       - age:
-          - *host_primary
+          - *host_pub_key
 
   - path_regex: secrets/.+\.(yaml|yml|json|env|ini|asc)$
     key_groups:
       - age:
-          - *host_primary
+          - *host_pub_key
