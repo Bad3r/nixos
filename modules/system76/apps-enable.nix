@@ -108,6 +108,7 @@
       "github-mcp-server".extended.enable = lib.mkOverride 1100 true;
       glow.extended.enable = lib.mkOverride 1100 true;
       "gnome-disk-utility".extended.enable = lib.mkOverride 1100 true;
+      "gnome-file-roller".extended.enable = lib.mkOverride 1100 true;
       greenclip.extended.enable = lib.mkOverride 1100 true;
       gnugrep.extended.enable = lib.mkOverride 1100 true;
       gnumake.extended.enable = lib.mkOverride 1100 true;
@@ -264,7 +265,7 @@
       "sss-nix-repair".extended.enable = lib.mkOverride 1100 true;
       starship.extended.enable = lib.mkOverride 1100 true;
       statix.extended.enable = lib.mkOverride 1100 true;
-      stash.extended.enable = lib.mkOverride 1100 false; # TODO: build error 11/02
+      stash.extended.enable = lib.mkOverride 1100 true;
       steam.extended.enable = lib.mkOverride 1100 true;
       synchrony.extended.enable = lib.mkOverride 1100 true;
       strace.extended.enable = lib.mkOverride 1100 true;
