@@ -10,7 +10,11 @@ _: {
           enable = true;
           allowedTCPPorts = [
             22
+            9999
           ]; # SSH if needed
+          allowedUDPPorts = [
+            9999
+          ];
           allowedTCPPortRanges = [
             {
               from = 8000;
