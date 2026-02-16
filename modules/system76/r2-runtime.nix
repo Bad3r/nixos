@@ -22,6 +22,14 @@
           localPath = "/data/r2/workspace";
           syncInterval = "5m";
         };
+
+        mounts.fonts = {
+          bucket = "nix-r2-cf-r2e-files-prod";
+          remotePrefix = "fonts";
+          mountPoint = "/data/r2/mount/fonts";
+          localPath = "/data/fonts";
+          syncInterval = "30m";
+        };
       };
 
       services.r2-restic = {
@@ -57,6 +65,14 @@
             User = username;
             Group = group;
           };
+          "r2-mount-fonts".serviceConfig = {
+            User = username;
+            Group = group;
+          };
+          "r2-bisync-fonts".serviceConfig = {
+            User = username;
+            Group = group;
+          };
           "r2-restic-backup".serviceConfig = {
             User = username;
             Group = group;
@@ -68,6 +84,7 @@
           "d /data/r2 0750 ${username} ${group} - -"
           "d /data/r2/mount 0750 ${username} ${group} - -"
           "d /data/r2/mount/workspace 0750 ${username} ${group} - -"
+          "d /data/r2/mount/fonts 0750 ${username} ${group} - -"
           "d /data/r2/workspace 0750 ${username} ${group} - -"
         ];
       };
