@@ -96,20 +96,20 @@ There are a few special NixOS options for test VMs:
 
 `virtualisation.memorySize`
 
-: The memory of the VM in MiB (1024×1024 bytes).
+:   The memory of the VM in MiB (1024×1024 bytes).
 
 `virtualisation.vlans`
 
-: The virtual networks to which the VM is connected. See
-[`nat.nix`](https://github.com/NixOS/nixpkgs/blob/master/nixos/tests/nat.nix)
-for an example.
+:   The virtual networks to which the VM is connected. See
+    [`nat.nix`](https://github.com/NixOS/nixpkgs/blob/master/nixos/tests/nat.nix)
+    for an example.
 
 `virtualisation.writableStore`
 
-: By default, the Nix store in the VM is not writable. If you enable
-this option, a writable union file system is mounted on top of the
-Nix store to make it appear writable. This is necessary for tests
-that run Nix operations that modify the store.
+:   By default, the Nix store in the VM is not writable. If you enable
+    this option, a writable union file system is mounted on top of the
+    Nix store to make it appear writable. This is necessary for tests
+    that run Nix operations that modify the store.
 
 For more options, see the module
 [`qemu-vm.nix`](https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/virtualisation/qemu-vm.nix).
@@ -230,7 +230,7 @@ with foo_running:
 
 `seconds_interval`
 
-: specifies how often the condition should be polled:
+:   specifies how often the condition should be polled:
 
 ```py
 @polling_condition(seconds_interval=10)
@@ -240,7 +240,7 @@ def foo_running():
 
 `description`
 
-: is used in the log when the condition is checked. If this is not provided, the description is pulled from the docstring of the function. These two are therefore equivalent:
+:   is used in the log when the condition is checked. If this is not provided, the description is pulled from the docstring of the function. These two are therefore equivalent:
 
 ```py
 @polling_condition
@@ -283,8 +283,8 @@ In that case, `numpy` is chosen from the generic `python3Packages`.
 
 The NixOS test framework returns tests with multiple overriding methods.
 
-`overrideTestDerivation` _function_
-: Like applying `overrideAttrs` on the [test](#test-opt-test) derivation.
+`overrideTestDerivation` *function*
+:   Like applying `overrideAttrs` on the [test](#test-opt-test) derivation.
 
     This is a convenience for `extend` with an override on the [`rawTestDerivationArg`](#test-opt-rawTestDerivationArg) option.
 
@@ -293,8 +293,8 @@ The NixOS test framework returns tests with multiple overriding methods.
         Just as with `overrideAttrs`, an abbreviated form can be used, e.g. `prevAttrs: { /* … */ }` or even `{ /* … */ }`.
         See [`lib.extends`](https://nixos.org/manual/nixpkgs/stable/#function-library-lib.fixedPoints.extends).
 
-`extendNixOS { module = ` _module_ `; specialArgs = ` _specialArgs_ `; }`
-: Evaluates the test with additional NixOS modules and/or arguments.
+`extendNixOS { module = ` *module* `; specialArgs = ` *specialArgs* `; }`
+:   Evaluates the test with additional NixOS modules and/or arguments.
 
     `module`
     :   A NixOS module to add to all the nodes in the test. Sets test option [`extraBaseModules`](#test-opt-extraBaseModules).
@@ -324,8 +324,8 @@ The NixOS test framework returns tests with multiple overriding methods.
     ```
     :::
 
-`extend { modules = ` _modules_ `; specialArgs = ` _specialArgs_ `; }`
-: Adds new `nixosTest` modules and/or module arguments to the test, which are evaluated together with the existing modules and [built-in options](#sec-test-options-reference).
+`extend { modules = ` *modules* `; specialArgs = ` *specialArgs* `; }`
+:   Adds new `nixosTest` modules and/or module arguments to the test, which are evaluated together with the existing modules and [built-in options](#sec-test-options-reference).
 
     If you're only looking to extend the _NixOS_ configurations of the test, and not something else about the test, you may use the `extendNixOS` convenience function instead.
 

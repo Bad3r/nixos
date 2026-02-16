@@ -40,7 +40,7 @@ Here, we include two modules from the same directory, `vpn.nix` and
 
 Note that both `configuration.nix` and `kde.nix` define the option
 [](#opt-environment.systemPackages). When multiple modules define an
-option, NixOS will try to _merge_ the definitions. In the case of
+option, NixOS will try to *merge* the definitions. In the case of
 [](#opt-environment.systemPackages) the lists of packages will be
 concatenated. The value in `configuration.nix` is
 merged last, so for list-type options, it will appear at the end of the
@@ -72,8 +72,8 @@ When using multiple modules, you may need to access configuration values
 defined in other modules. This is what the `config` function argument is
 for: it contains the complete, merged system configuration. That is,
 `config` is the result of combining the configurations returned by every
-module. (If you're wondering how it's possible that the (indirect) _result_
-of a function is passed as an _input_ to that same function: that's
+module. (If you're wondering how it's possible that the (indirect) *result*
+of a function is passed as an *input* to that same function: that's
 because Nix is a "lazy" language --- it only computes values when
 they are needed. This works as long as no individual configuration
 value depends on itself.)

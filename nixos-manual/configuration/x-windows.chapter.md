@@ -35,7 +35,7 @@ Thus you should pick one or more of the following lines:
 }
 ```
 
-NixOS's default _display manager_ (the program that provides a graphical
+NixOS's default *display manager* (the program that provides a graphical
 login prompt and manages the X server) is LightDM. You can select an
 alternative one by picking one of the following lines:
 
@@ -104,11 +104,10 @@ using lightdm for a user `alice`:
 }
 ```
 
-## Running X without a display manager {#sec-x11-startx}
+## Running X without a display manager  {#sec-x11-startx}
 
 It is possible to avoid a display manager entirely and starting the X server
 manually from a virtual terminal. Add to your configuration:
-
 ```nix
 {
   services.xserver.displayManager.startx = {
@@ -117,7 +116,6 @@ manually from a virtual terminal. Add to your configuration:
   };
 }
 ```
-
 then you can start the X server with the `startx` command.
 
 The second option will generate a base `xinitrc` script that will run your
@@ -125,7 +123,6 @@ window manager and set up the systemd user session.
 You can extend the script using the
 [extraCommands](#opt-services.xserver.displayManager.startx.extraCommands)
 option, for example:
-
 ```nix
 {
   services.xserver.displayManager.startx = {
@@ -138,20 +135,16 @@ option, for example:
   };
 }
 ```
-
 or, alternatively, you can write your own from scratch in `~/.xinitrc`.
 
 In this case, remember you're responsible for starting the window manager, for
 example:
-
 ```shell
 sxhkd &
 bspwm &
 ```
-
 and if you have enabled some systemd user service, you will probably want to
 also add these lines too:
-
 ```shell
 # import required env variables from the current shell
 systemctl --user import-environment DISPLAY XDG_SESSION_ID
@@ -186,7 +179,6 @@ to set one. The recommended configuration for modern systems is:
 ```nix
 { services.xserver.videoDrivers = [ "modesetting" ]; }
 ```
-
 ::: {.note}
 The `modesetting` driver doesn't currently provide a `TearFree` option (this
 will become available in an upcoming X.org release), So, without using a
@@ -316,14 +308,14 @@ broken XKB file can lead to the X session crashing at login. Therefore,
 you're strongly advised to **test your layout before applying it**:
 
 ```ShellSession
-$ nix-shell -p xorg.xkbcomp
+$ nix-shell -p xkbcomp
 $ setxkbmap -I/yourpath us-greek -print | xkbcomp -I/yourpath - $DISPLAY
 ```
 
 You can inspect the predefined XKB files for examples:
 
 ```ShellSession
-$ echo "$(nix-build --no-out-link '<nixpkgs>' -A xorg.xkeyboardconfig)/etc/X11/xkb/"
+$ echo "$(nix-build --no-out-link '<nixpkgs>' -A xkeyboard-config)/etc/X11/xkb/"
 ```
 
 Once the configuration is applied, and you did a logout/login cycle, the
@@ -336,7 +328,7 @@ A layout can have several other components besides `xkb_symbols`, for
 example we will define new keycodes for some multimedia key and bind
 these to some symbol.
 
-Use the _xev_ utility from `pkgs.xorg.xev` to find the codes of the keys
+Use the *xev* utility from `pkgs.xev` to find the codes of the keys
 of interest, then create a `media-key` file to hold the keycodes
 definitions
 

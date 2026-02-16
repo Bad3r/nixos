@@ -12,34 +12,33 @@ merging is handled.
 
 `types.bool`
 
-: A boolean, its values can be `true` or `false`.
-All definitions must have the same value, after priorities. An error is thrown in case of a conflict.
+:   A boolean, its values can be `true` or `false`.
+    All definitions must have the same value, after priorities. An error is thrown in case of a conflict.
 
 `types.boolByOr`
 
-: A boolean, its values can be `true` or `false`.
-The result is `true` if _any_ of multiple definitions is `true`.
-In other words, definitions are merged with the logical _OR_ operator.
+:   A boolean, its values can be `true` or `false`.
+    The result is `true` if _any_ of multiple definitions is `true`.
+    In other words, definitions are merged with the logical _OR_ operator.
 
 `types.path`
 
-: A filesystem path that starts with a slash. Even if derivations can be
-considered as paths, the more specific `types.package` should be preferred.
+:   A filesystem path that starts with a slash. Even if derivations can be
+     considered as paths, the more specific `types.package` should be preferred.
 
 `types.pathInStore`
 
-: A path that is contained in the Nix store. This can be a top-level store
-path like `pkgs.hello` or a descendant like `"${pkgs.hello}/bin/hello"`.
+:   A path that is contained in the Nix store. This can be a top-level store
+    path like `pkgs.hello` or a descendant like `"${pkgs.hello}/bin/hello"`.
 
 `types.externalPath`
 
-: A path that is not contained in the Nix store. Typical use cases are:
-secrets, password or any other external file.
+:   A path that is not contained in the Nix store. Typical use cases are:
+    secrets, password or any other external file.
 
 ::: {.warning}
-This type only validates that the path is not _currently_ in the Nix store.
+This type only validates that the path is not *currently* in the Nix store.
 It does NOT prevent the value from being copied to the store later when:
-
 - Referenced in a derivation
 - Used in certain path operations (e.g., `${path}` interpolation)
 - Passed to functions that copy to the store
@@ -47,10 +46,10 @@ It does NOT prevent the value from being copied to the store later when:
 Users must still be careful about how they reference these paths.
 :::
 
-`types.pathWith` { _`inStore`_ ? `null`, _`absolute`_ ? `null` }
+`types.pathWith` { *`inStore`* ? `null`, *`absolute`* ? `null` }
 
-: A filesystem path. Either a string or something that can be coerced
-to a string.
+:   A filesystem path. Either a string or something that can be coerced
+    to a string.
 
     **Parameters**
 
@@ -71,21 +70,21 @@ to a string.
 
 `types.package`
 
-: A top-level store path. This can be an attribute set pointing
-to a store path, like a derivation or a flake input.
+:   A top-level store path. This can be an attribute set pointing
+    to a store path, like a derivation or a flake input.
 
-`types.enum` _`l`_
+`types.enum` *`l`*
 
-: One element of the list _`l`_, e.g. `types.enum [ "left" "right" ]`.
-Multiple definitions cannot be merged.
+:   One element of the list *`l`*, e.g. `types.enum [ "left" "right" ]`.
+    Multiple definitions cannot be merged.
 
     If you want to pair these values with more information, possibly of
     distinct types, consider using a [sum type](#sec-option-types-sums).
 
 `types.anything`
 
-: A type that accepts any value and recursively merges attribute sets
-together. This type is recommended when the option type is unknown.
+:   A type that accepts any value and recursively merges attribute sets
+    together. This type is recommended when the option type is unknown.
 
     ::: {#ex-types-anything .example}
     ### `types.anything`
@@ -122,25 +121,25 @@ together. This type is recommended when the option type is unknown.
 
 `types.raw`
 
-: A type which doesn't do any checking, merging or nested evaluation. It
-accepts a single arbitrary value that is not recursed into, making it
-useful for values coming from outside the module system, such as package
-sets or arbitrary data. Options of this type are still evaluated according
-to priorities and conditionals, so `mkForce`, `mkIf` and co. still work on
-the option value itself, but not for any value nested within it. This type
-should only be used when checking, merging and nested evaluation are not
-desirable.
+:   A type which doesn't do any checking, merging or nested evaluation. It
+    accepts a single arbitrary value that is not recursed into, making it
+    useful for values coming from outside the module system, such as package
+    sets or arbitrary data. Options of this type are still evaluated according
+    to priorities and conditionals, so `mkForce`, `mkIf` and co. still work on
+    the option value itself, but not for any value nested within it. This type
+    should only be used when checking, merging and nested evaluation are not
+    desirable.
 
 `types.optionType`
 
-: The type of an option's type. Its merging operation ensures that nested
-options have the correct file location annotated, and that if possible,
-multiple option definitions are correctly merged together. The main use
-case is as the type of the `_module.freeformType` option.
+:   The type of an option's type. Its merging operation ensures that nested
+    options have the correct file location annotated, and that if possible,
+    multiple option definitions are correctly merged together. The main use
+    case is as the type of the `_module.freeformType` option.
 
 `types.attrs`
 
-: A free-form attribute set.
+:   A free-form attribute set.
 
     ::: {.warning}
     This type will be deprecated in the future because it doesn't
@@ -153,47 +152,47 @@ case is as the type of the `_module.freeformType` option.
 
 `types.pkgs`
 
-: A type for the top level Nixpkgs package set.
+:   A type for the top level Nixpkgs package set.
 
 ### Numeric types {#sec-option-types-numeric}
 
 `types.int`
 
-: A signed integer.
+:   A signed integer.
 
 `types.ints.{s8, s16, s32}`
 
-: Signed integers with a fixed length (8, 16 or 32 bits). They go from
-−2^n/2 to
-2^n/2−1 respectively (e.g. `−128` to
-`127` for 8 bits).
+:   Signed integers with a fixed length (8, 16 or 32 bits). They go from
+    −2^n/2 to
+    2^n/2−1 respectively (e.g. `−128` to
+    `127` for 8 bits).
 
 `types.ints.unsigned`
 
-: An unsigned integer (that is >= 0).
+:   An unsigned integer (that is >= 0).
 
 `types.ints.{u8, u16, u32}`
 
-: Unsigned integers with a fixed length (8, 16 or 32 bits). They go
-from 0 to 2^n−1 respectively (e.g. `0`
-to `255` for 8 bits).
+:   Unsigned integers with a fixed length (8, 16 or 32 bits). They go
+    from 0 to 2^n−1 respectively (e.g. `0`
+    to `255` for 8 bits).
 
-`types.ints.between` _`lowest highest`_
+`types.ints.between` *`lowest highest`*
 
-: An integer between _`lowest`_ and _`highest`_ (both inclusive).
+:   An integer between *`lowest`* and *`highest`* (both inclusive).
 
 `types.ints.positive`
 
-: A positive integer (that is > 0).
+:   A positive integer (that is > 0).
 
 `types.port`
 
-: A port number. This type is an alias to
-`types.ints.u16`.
+:   A port number. This type is an alias to
+    `types.ints.u16`.
 
 `types.float`
 
-: A floating point number.
+:   A floating point number.
 
     ::: {.warning}
     Converting a floating point number to a string with `toString` or `toJSON`
@@ -202,75 +201,75 @@ to `255` for 8 bits).
 
 `types.number`
 
-: Either a signed integer or a floating point number. No implicit conversion
-is done between the two types, and multiple equal definitions will only be
-merged if they have the same type.
+:   Either a signed integer or a floating point number. No implicit conversion
+    is done between the two types, and multiple equal definitions will only be
+    merged if they have the same type.
 
-`types.numbers.between` _`lowest highest`_
+`types.numbers.between` *`lowest highest`*
 
-: An integer or floating point number between _`lowest`_ and _`highest`_ (both inclusive).
+:   An integer or floating point number between *`lowest`* and *`highest`* (both inclusive).
 
 `types.numbers.nonnegative`
 
-: A nonnegative integer or floating point number (that is >= 0).
+:   A nonnegative integer or floating point number (that is >= 0).
 
 `types.numbers.positive`
 
-: A positive integer or floating point number (that is > 0).
+:   A positive integer or floating point number (that is > 0).
 
 ### String types {#sec-option-types-string}
 
 `types.str`
 
-: A string. Multiple definitions cannot be merged.
+:   A string. Multiple definitions cannot be merged.
 
-`types.separatedString` _`sep`_
+`types.separatedString` *`sep`*
 
-: A string. Multiple definitions are concatenated with _`sep`_, e.g.
-`types.separatedString "|"`.
+:   A string. Multiple definitions are concatenated with *`sep`*, e.g.
+    `types.separatedString "|"`.
 
 `types.lines`
 
-: A string. Multiple definitions are concatenated with a new line
-`"\n"`.
+:   A string. Multiple definitions are concatenated with a new line
+    `"\n"`.
 
 `types.commas`
 
-: A string. Multiple definitions are concatenated with a comma `","`.
+:   A string. Multiple definitions are concatenated with a comma `","`.
 
 `types.envVar`
 
-: A string. Multiple definitions are concatenated with a colon `":"`.
+:   A string. Multiple definitions are concatenated with a colon `":"`.
 
 `types.strMatching`
 
-: A string matching a specific regular expression. Multiple
-definitions cannot be merged. The regular expression is processed
-using `builtins.match`.
+:   A string matching a specific regular expression. Multiple
+    definitions cannot be merged. The regular expression is processed
+    using `builtins.match`.
 
 ### Specialised types {#sec-option-types-specialised}
 
 `types.luaInline`
 
-: A string wrapped using `lib.mkLuaInline`. Allows embedding lua expressions
-inline within generated lua. Multiple definitions cannot be merged.
+:   A string wrapped using `lib.mkLuaInline`. Allows embedding lua expressions
+    inline within generated lua. Multiple definitions cannot be merged.
 
 ## Submodule types {#sec-option-types-submodule}
 
 Submodules are detailed in [Submodule](#section-option-types-submodule).
 
-`types.submodule` _`o`_
+`types.submodule` *`o`*
 
-: A set of sub options _`o`_. _`o`_ can be an attribute set, a function
-returning an attribute set, or a path to a file containing such a
-value. Submodules are used in composed types to create modular
-options. This is equivalent to
-`types.submoduleWith { modules = toList o; shorthandOnlyDefinesConfig = true; }`.
+:   A set of sub options *`o`*. *`o`* can be an attribute set, a function
+    returning an attribute set, or a path to a file containing such a
+    value. Submodules are used in composed types to create modular
+    options. This is equivalent to
+    `types.submoduleWith { modules = toList o; shorthandOnlyDefinesConfig = true; }`.
 
-`types.submoduleWith` { _`modules`_, _`specialArgs`_ ? {}, _`shorthandOnlyDefinesConfig`_ ? false }
+`types.submoduleWith` { *`modules`*, *`specialArgs`* ? {}, *`shorthandOnlyDefinesConfig`* ? false }
 
-: Like `types.submodule`, but more flexible and with better defaults.
-It has parameters
+:   Like `types.submodule`, but more flexible and with better defaults.
+    It has parameters
 
     -   *`modules`* A list of modules to use by default for this
         submodule type. This gets combined with all option definitions
@@ -309,8 +308,8 @@ It has parameters
 
 `types.deferredModule`
 
-: Whereas `submodule` represents an option tree, `deferredModule` represents
-a module value, such as a module file or a configuration.
+:   Whereas `submodule` represents an option tree, `deferredModule` represents
+    a module value, such as a module file or a configuration.
 
     It can be set multiple times.
 
@@ -333,46 +332,45 @@ A union of types is a type such that a value is valid when it is valid for at le
 If some values are instances of more than one of the types, it is not possible to distinguish which type they are meant to be instances of. If that's needed, consider using a [sum type](#sec-option-types-sums).
 
 <!-- SYNC WITH oneOf BELOW -->
+`types.either` *`t1 t2`*
 
-`types.either` _`t1 t2`_
-
-: Type _`t1`_ or type _`t2`_, e.g. `with types; either int str`.
-Multiple definitions cannot be merged.
+:   Type *`t1`* or type *`t2`*, e.g. `with types; either int str`.
+    Multiple definitions cannot be merged.
 
     ::: {.warning}
     `either` and `oneOf` eagerly decide the active type based on the passed types' shallow check method. For composite types like `attrsOf` and `submodule`, which both match all attribute set definitions, the first type argument will be chosen for the returned option value, and this therefore also decides how nested values are checked and merged. For example, `either (attrsOf int) (submodule {...})` will always use `attrsOf int` for any attribute set value, even if it was intended as a submodule. This behavior is a trade-off that keeps the implementation simple and the evaluation order predictable, avoiding unexpected strictness problems such as infinite recursions. When proper type discrimination is needed, consider using a [sum type](#sec-option-types-sums) like `attrTag` instead.
     :::
 
 <!-- SYNC WITH either ABOVE -->
+`types.oneOf` \[ *`t1 t2`* ... \]
 
-`types.oneOf` \[ _`t1 t2`_ ... \]
-
-: Type _`t1`_ or type _`t2`_ and so forth, e.g.
-`with types; oneOf [ int str bool ]`. Multiple definitions cannot be
-merged.
+:   Type *`t1`* or type *`t2`* and so forth, e.g.
+    `with types; oneOf [ int str bool ]`. Multiple definitions cannot be
+    merged.
 
     ::: {.warning}
     `either` and `oneOf` eagerly decide the active type based on the passed types' shallow check method. For composite types like `attrsOf` and `submodule`, which both match all attribute set definitions, the first matching type in the list will be chosen for the returned option value, and this therefore also decides how nested values are checked and merged. For example, `oneOf [ (attrsOf int) (submodule {...}) ]` will always use `attrsOf int` for any attribute set value, even if it was intended as a submodule. This behavior is a trade-off that keeps the implementation simple and the evaluation order predictable, avoiding unexpected strictness problems such as infinite recursions. When proper type discrimination is needed, consider using a [sum type](#sec-option-types-sums) like `attrTag` instead.
     :::
 
-`types.nullOr` _`t`_
+`types.nullOr` *`t`*
 
-: `null` or type _`t`_. Multiple definitions are merged according to
-type _`t`_.
+:   `null` or type *`t`*. Multiple definitions are merged according to
+    type *`t`*.
 
     This is mostly equivalent to `either (enum [ null ]) t`, but `nullOr` provides a `null` fallback for attribute values with `mkIf false` definitions in `lazyAttrsOf (nullOr t)`, whereas `either` would throw an error when the attribute is accessed.
 
+
 ## Sum types {#sec-option-types-sums}
 
-A sum type can be thought of, conceptually, as a _`types.enum`_ where each valid item is paired with at least a type, through some value syntax.
+A sum type can be thought of, conceptually, as a *`types.enum`* where each valid item is paired with at least a type, through some value syntax.
 Nix does not have a built-in syntax for this pairing of a label and a type or value, so sum types may be represented in multiple ways.
 
 If the you're interested in can be distinguished without a label, you may simplify your value syntax with a [union type](#sec-option-types-unions) instead.
 
-`types.attrTag` _`{ attr1 = option1; attr2 = option2; ... }`_
+`types.attrTag` *`{ attr1 = option1; attr2 = option2; ... }`*
 
-: An attribute set containing one attribute, whose name must be picked from
-the attribute set (`attr1`, etc) and whose value consists of definitions that are valid for the corresponding option (`option1`, etc).
+:   An attribute set containing one attribute, whose name must be picked from
+    the attribute set (`attr1`, etc) and whose value consists of definitions that are valid for the corresponding option (`option1`, etc).
 
     This type appears in the documentation as _attribute-tagged union_.
 
@@ -422,15 +420,15 @@ the attribute set (`attr1`, etc) and whose value consists of definitions that ar
 Composed types are types that take a type as parameter. `listOf
    int` and `either int str` are examples of composed types.
 
-`types.listOf` _`t`_
+`types.listOf` *`t`*
 
-: A list of _`t`_ type, e.g. `types.listOf
+:   A list of *`t`* type, e.g. `types.listOf
           int`. Multiple definitions are merged with list concatenation.
 
-`types.attrsOf` _`t`_
+`types.attrsOf` *`t`*
 
-: An attribute set of where all the values are of _`t`_ type. Multiple
-definitions result in the joined attribute set.
+:   An attribute set of where all the values are of *`t`* type. Multiple
+    definitions result in the joined attribute set.
 
     ::: {.note}
     This type is *strict* in its values, which in turn means attributes
@@ -438,11 +436,11 @@ definitions result in the joined attribute set.
            types.lazyAttrsOf` for a lazy version.
     :::
 
-`types.lazyAttrsOf` _`t`_
+`types.lazyAttrsOf` *`t`*
 
-: An attribute set of where all the values are of _`t`_ type. Multiple
-definitions result in the joined attribute set. This is the lazy
-version of `types.attrsOf
+:   An attribute set of where all the values are of *`t`* type. Multiple
+    definitions result in the joined attribute set. This is the lazy
+    version of `types.attrsOf
           `, allowing attributes to depend on each other.
 
     ::: {.warning}
@@ -456,9 +454,9 @@ version of `types.attrsOf
     returned instead for the same `mkIf false` definition.
     :::
 
-`types.attrsWith` { _`elemType`_, _`lazy`_ ? false, _`placeholder`_ ? "name" }
+`types.attrsWith` { *`elemType`*, *`lazy`* ? false, *`placeholder`* ? "name" }
 
-: An attribute set of where all the values are of _`elemType`_ type.
+:   An attribute set of where all the values are of *`elemType`* type.
 
     **Parameters**
 
@@ -480,30 +478,45 @@ version of `types.attrsOf
 
       Displays the option as `foo.<id>` in the manual.
 
-`types.uniq` _`t`_
 
-: Ensures that type _`t`_ cannot be merged. It is used to ensure option
-definitions are provided only once.
+`types.uniq` *`t`*
 
-`types.unique` `{ message = m }` _`t`_
+:   Ensures that type *`t`* cannot be merged. It is used to ensure option
+    definitions are provided only once.
 
-: Ensures that type _`t`_ cannot be merged. Prints the message _`m`_, after
-the line `The option <option path> is defined multiple times.` and before
-a list of definition locations.
+`types.unique` `{ message = m }` *`t`*
 
-`types.coercedTo` _`from f to`_
+:   Ensures that type *`t`* cannot be merged. Prints the message *`m`*, after
+    the line `The option <option path> is defined multiple times.` and before
+    a list of definition locations.
 
-: Type _`to`_ or type _`from`_ which will be coerced to type _`to`_ using
-function _`f`_ which takes an argument of type _`from`_ and return a
-value of type _`to`_. Can be used to preserve backwards compatibility
-of an option if its type was changed.
+`types.coercedTo` *`from f to`*
+
+:   Type *`to`* or type *`from`* which will be coerced to type *`to`* using
+    function *`f`* which takes an argument of type *`from`* and return a
+    value of type *`to`*. Can be used to preserve backwards compatibility
+    of an option if its type was changed.
+
+`types.json`
+
+:   A type representing JSON-compatible values. This includes `null`, booleans,
+    integers, floats, strings, paths, attribute sets, and lists.
+    Attribute sets and lists can be arbitrarily nested and contain any JSON-compatible
+    values.
+
+`types.toml`
+
+:   A type representing TOML-compatible values. This includes booleans,
+    integers, floats, strings, paths, attribute sets, and lists.
+    Attribute sets and lists can be arbitrarily nested and contain any TOML-compatible
+    values.
 
 ## Submodule {#section-option-types-submodule}
 
 `submodule` is a very powerful type that defines a set of sub-options
 that are handled like a separate module.
 
-It takes a parameter _`o`_, that should be a set, or a function returning
+It takes a parameter *`o`*, that should be a set, or a function returning
 a set with an `options` key defining the sub-options. Submodule option
 definitions are type-checked accordingly to the `options` declarations.
 Of course, you can nest submodule option definitions for even higher
@@ -518,9 +531,7 @@ you will still need to provide a default value (e.g. an empty attribute set)
 if you want to allow users to leave it undefined.
 
 ::: {#ex-submodule-direct .example}
-
 ### Directly defined submodule
-
 ```nix
 {
   options.mod = mkOption {
@@ -536,13 +547,10 @@ if you want to allow users to leave it undefined.
   };
 }
 ```
-
 :::
 
 ::: {#ex-submodule-reference .example}
-
 ### Submodule defined as a reference
-
 ```nix
 let
   modOptions = {
@@ -559,7 +567,6 @@ in
   };
 }
 ```
-
 :::
 
 The `submodule` type is especially interesting when used with composed
@@ -569,9 +576,7 @@ multiple definitions of the submodule option set
 ([Example: Definition of a list of submodules](#ex-submodule-listof-definition)).
 
 ::: {#ex-submodule-listof-declaration .example}
-
 ### Declaration of a list of submodules
-
 ```nix
 {
   options.mod = mkOption {
@@ -587,13 +592,10 @@ multiple definitions of the submodule option set
   };
 }
 ```
-
 :::
 
 ::: {#ex-submodule-listof-definition .example}
-
 ### Definition of a list of submodules
-
 ```nix
 {
   config.mod = [
@@ -608,7 +610,6 @@ multiple definitions of the submodule option set
   ];
 }
 ```
-
 :::
 
 When composed with `attrsOf`
@@ -617,9 +618,7 @@ multiple named definitions of the submodule option set
 ([Example: Definition of attribute sets of submodules](#ex-submodule-attrsof-definition)).
 
 ::: {#ex-submodule-attrsof-declaration .example}
-
 ### Declaration of attribute sets of submodules
-
 ```nix
 {
   options.mod = mkOption {
@@ -635,13 +634,10 @@ multiple named definitions of the submodule option set
   };
 }
 ```
-
 :::
 
 ::: {#ex-submodule-attrsof-definition .example}
-
 ### Definition of attribute sets of submodules
-
 ```nix
 {
   config.mod.one = {
@@ -654,7 +650,6 @@ multiple named definitions of the submodule option set
   };
 }
 ```
-
 :::
 
 ## Extending types {#sec-option-types-extending}
@@ -663,11 +658,11 @@ Types are mainly characterized by their `check` and `merge` functions.
 
 `check`
 
-: The function to type check the value. Takes a value as parameter and
-return a boolean. It is possible to extend a type check with the
-`addCheck` function ([Example: Adding a type check](#ex-extending-type-check-1)),
-or to fully override the check function
-([Example: Overriding a type check](#ex-extending-type-check-2)).
+:   The function to type check the value. Takes a value as parameter and
+    return a boolean. It is possible to extend a type check with the
+    `addCheck` function ([Example: Adding a type check](#ex-extending-type-check-1)),
+    or to fully override the check function
+    ([Example: Overriding a type check](#ex-extending-type-check-2)).
 
     ::: {#ex-extending-type-check-1 .example}
     ### Adding a type check
@@ -699,10 +694,10 @@ or to fully override the check function
 
 `merge`
 
-: Function to merge the options values when multiple values are set.
-The function takes two parameters, `loc` the option path as a list
-of strings, and `defs` the list of defined values as a list. It is
-possible to override a type merge function for custom needs.
+:   Function to merge the options values when multiple values are set.
+    The function takes two parameters, `loc` the option path as a list
+    of strings, and `defs` the list of defined values as a list. It is
+    possible to override a type merge function for custom needs.
 
 ## Custom types {#sec-option-types-custom}
 
@@ -715,23 +710,23 @@ The only required parameter is `name`.
 
 `name`
 
-: A string representation of the type function name.
+:   A string representation of the type function name.
 
 `description`
 
-: Description of the type used in documentation. Give information of
-the type and any of its arguments.
+:   Description of the type used in documentation. Give information of
+    the type and any of its arguments.
 
 `check`
 
-: A function to type check the definition value. Takes the definition
-value as a parameter and returns a boolean indicating the type check
-result, `true` for success and `false` for failure.
+:   A function to type check the definition value. Takes the definition
+    value as a parameter and returns a boolean indicating the type check
+    result, `true` for success and `false` for failure.
 
 `merge`
 
-: A function to merge multiple definitions values. Takes two
-parameters:
+:   A function to merge multiple definitions values. Takes two
+    parameters:
 
     *`loc`*
 
@@ -749,37 +744,37 @@ parameters:
 
 `getSubOptions`
 
-: For composed types that can take a submodule as type parameter, this
-function generate sub-options documentation. It takes the current
-option prefix as a list and return the set of sub-options. Usually
-defined in a recursive manner by adding a term to the prefix, e.g.
-`prefix:
+:   For composed types that can take a submodule as type parameter, this
+    function generate sub-options documentation. It takes the current
+    option prefix as a list and return the set of sub-options. Usually
+    defined in a recursive manner by adding a term to the prefix, e.g.
+    `prefix:
           elemType.getSubOptions (prefix ++
-          ["prefix"])` where _`"prefix"`_ is the newly added prefix.
+          ["prefix"])` where *`"prefix"`* is the newly added prefix.
 
 `getSubModules`
 
-: For composed types that can take a submodule as type parameter, this
-function should return the type parameters submodules. If the type
-parameter is called `elemType`, the function should just recursively
-look into submodules by returning `elemType.getSubModules;`.
+:   For composed types that can take a submodule as type parameter, this
+    function should return the type parameters submodules. If the type
+    parameter is called `elemType`, the function should just recursively
+    look into submodules by returning `elemType.getSubModules;`.
 
 `substSubModules`
 
-: For composed types that can take a submodule as type parameter, this
-function can be used to substitute the parameter of a submodule
-type. It takes a module as parameter and return the type with the
-submodule options substituted. It is usually defined as a type
-function call with a recursive call to `substSubModules`, e.g for a
-type `composedType` that take an `elemtype` type parameter, this
-function should be defined as `m:
+:   For composed types that can take a submodule as type parameter, this
+    function can be used to substitute the parameter of a submodule
+    type. It takes a module as parameter and return the type with the
+    submodule options substituted. It is usually defined as a type
+    function call with a recursive call to `substSubModules`, e.g for a
+    type `composedType` that take an `elemtype` type parameter, this
+    function should be defined as `m:
           composedType (elemType.substSubModules m)`.
 
 `typeMerge`
 
-: A function to merge multiple type declarations. Takes the type to
-merge `functor` as parameter. A `null` return value means that type
-cannot be merged.
+:   A function to merge multiple type declarations. Takes the type to
+    merge `functor` as parameter. A `null` return value means that type
+    cannot be merged.
 
     *`f`*
 
@@ -790,8 +785,8 @@ cannot be merged.
 
 `functor`
 
-: An attribute set representing the type. It is used for type
-operations and has the following keys:
+:   An attribute set representing the type. It is used for type
+    operations and has the following keys:
 
     `type`
 

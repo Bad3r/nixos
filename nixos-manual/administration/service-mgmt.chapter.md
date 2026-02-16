@@ -78,7 +78,7 @@ in e.g `#pkg-out#/lib/systemd/`. Putting such a package in
 `environment.systemPackages` doesn't make the service available to
 users or the system.
 
-In order to enable a systemd _system_ service with provided upstream
+In order to enable a systemd *system* service with provided upstream
 package, use (e.g):
 
 ```nix
@@ -94,7 +94,7 @@ Nixpkgs' [ `nixos/modules/` directory
 the service is simple enough, the above method should work, and start
 the service on boot.
 
-_User_ systemd services on the other hand, should be treated
+*User* systemd services on the other hand, should be treated
 differently. Given a package that has a systemd unit file at
 `#pkg-out#/lib/systemd/user/`, using [](#opt-systemd.packages) will
 make you able to start the service via `systemctl --user start`, but it
@@ -152,7 +152,6 @@ for template-specific overrides. A service needs to be defined twice, once
 for the base unit and once for the instance. All instances must include
 `overrideStrategy = "asDropin"` for the change detection to work. This
 example illustrates this:
-
 ```nix
 {
   systemd.services = {

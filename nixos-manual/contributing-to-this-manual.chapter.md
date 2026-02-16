@@ -43,7 +43,7 @@ Use [`devmode`](https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/de/dev
 
 Once you have a successful build, you can open the relevant HTML (path mentioned above) in a browser along with the anchor, and observe the redirection.
 
-Note that if you already loaded the page and _then_ input the anchor, you will need to perform a reload. This is because browsers do not re-run client JS code when only the anchor has changed.
+Note that if you already loaded the page and *then* input the anchor, you will need to perform a reload. This is because browsers do not re-run client JS code when only the anchor has changed.
 
 ## Contributing to the `configuration.nix` options documentation {#sec-contributing-options}
 
@@ -88,7 +88,7 @@ Being written in `mdoc`, these manpages use semantic markup. This following subs
 
 ### Command lines and arguments {#ssec-contributing-nixos-tools-cli-and-args}
 
-In any manpage, commands, flags and arguments to the _current_ executable should be marked according to their semantics. Commands, flags and arguments passed to _other_ executables should not be marked like this and should instead be considered as code examples and marked with `Ql`.
+In any manpage, commands, flags and arguments to the *current* executable should be marked according to their semantics. Commands, flags and arguments passed to *other* executables should not be marked like this and should instead be considered as code examples and marked with `Ql`.
 
 - Use `Fl` to mark flag arguments, `Ar` for their arguments.
 - Repeating arguments should be marked by adding an ellipsis (spelled with periods, `...`).
@@ -98,7 +98,6 @@ In any manpage, commands, flags and arguments to the _current_ executable should
 - Mutually exclusive groups of arguments should be enclosed in curly brackets, preferably created with `Bro`/`Brc` blocks.
 
 When an argument is used in an example it should be marked up with `Ar` again to differentiate it from a constant. For example, a command with a `--host name` option that calls ssh to retrieve the host's local time would signify this thusly:
-
 ```
 This will run
 .Ic ssh Ar name Ic time
@@ -111,8 +110,8 @@ Constant paths should be marked with `Pa`, NixOS options with `Va`, and environm
 
 Generated paths, e.g. `result/bin/run-hostname-vm` (where `hostname` is a variable or arguments) should be marked as `Ql` inline literals with their variable components marked appropriately.
 
-- When `hostname` refers to an argument, it becomes `.Ql result/bin/run- Ns Ar hostname Ns -vm`
-- When `hostname` refers to a variable, it becomes `.Ql result/bin/run- Ns Va hostname Ns -vm`
+ - When `hostname` refers to an argument, it becomes `.Ql result/bin/run- Ns Ar hostname Ns -vm`
+ - When `hostname` refers to a variable, it becomes `.Ql result/bin/run- Ns Va hostname Ns -vm`
 
 ### Code examples and other commands {#ssec-contributing-nixos-tools-code-examples}
 

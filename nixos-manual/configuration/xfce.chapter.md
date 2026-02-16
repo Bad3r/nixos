@@ -9,7 +9,7 @@ To enable the Xfce Desktop Environment, set
 }
 ```
 
-Optionally, _picom_ can be enabled for nice graphical effects, some
+Optionally, *picom* can be enabled for nice graphical effects, some
 example settings:
 
 ```nix

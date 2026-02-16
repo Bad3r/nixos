@@ -1,7 +1,7 @@
 # Configuration Syntax {#sec-configuration-syntax}
 
 The NixOS configuration file `/etc/nixos/configuration.nix` is actually
-a _Nix expression_, which is the Nix package manager's purely functional
+a *Nix expression*, which is the Nix package manager's purely functional
 language for describing how to build packages and configurations. This
 means you have all the expressive power of that language at your
 disposal, including the ability to abstract over common patterns, which

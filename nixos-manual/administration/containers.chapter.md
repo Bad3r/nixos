@@ -1,6 +1,6 @@
 # Container Management {#ch-containers}
 
-NixOS allows you to easily run other NixOS instances as _containers_.
+NixOS allows you to easily run other NixOS instances as *containers*.
 Containers are a light-weight approach to virtualisation that runs
 software in the container at the same speed as in the host system. NixOS
 containers share the Nix store of the host, making container creation

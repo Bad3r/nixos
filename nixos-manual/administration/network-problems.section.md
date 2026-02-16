@@ -1,6 +1,6 @@
 # Network Problems {#sec-nix-network-issues}
 
-Nix uses a so-called _binary cache_ to optimise building a package from
+Nix uses a so-called *binary cache* to optimise building a package from
 source into downloading it as a pre-built binary. That is, whenever a
 command like `nixos-rebuild` needs a path in the Nix store, Nix will try
 to download that path from the Internet rather than build it from

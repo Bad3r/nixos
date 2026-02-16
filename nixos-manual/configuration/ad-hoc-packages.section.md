@@ -25,7 +25,7 @@ $ nix-channel --update nixos
 ```
 
 and then running `nix-env -i` again. Other packages in the profile are
-_not_ affected; this is the crucial difference with the declarative
+*not* affected; this is the crucial difference with the declarative
 style of package management, where running `nixos-rebuild switch` causes
 all packages to be updated to their current versions in the NixOS
 channel. You can however upgrade all packages for which there is a newer

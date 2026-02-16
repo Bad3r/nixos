@@ -1,5 +1,4 @@
 # NixOS Manual {#book-nixos-manual}
-
 ## Version @NIXOS_VERSION@
 
 <!--
