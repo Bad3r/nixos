@@ -33,9 +33,9 @@ export default {
 
 | Resource          | Current Limit    | Notes                    |
 | ----------------- | ---------------- | ------------------------ |
-| **Max vCPU**      | 2 cores          | standard-3 instance      |
-| **Max Memory**    | 8 GB             | standard-3 instance      |
-| **Max Disk**      | 16 GB            | standard-3 instance      |
+| **Max vCPU**      | 4 cores          | standard-4 instance      |
+| **Max Memory**    | 12 GB            | standard-4 instance      |
+| **Max Disk**      | 20 GB            | standard-4 instance      |
 | **Architecture**  | linux/amd64 only | No ARM support           |
 | **Max instances** | Account-limited  | Contact CF for increases |
 
@@ -128,8 +128,8 @@ return container.fetch(request);
 | Resource      | Current | Planned        |
 | ------------- | ------- | -------------- |
 | Max instances | Limited | Higher         |
-| Max memory    | 8 GB    | Larger options |
-| Max vCPU      | 2       | More cores     |
+| Max memory    | 12 GB   | Larger options |
+| Max vCPU      | 4       | More cores     |
 
 #### Reduced Log Noise
 
@@ -181,7 +181,7 @@ return container.fetch(request);
 | Aspect                  | CF Containers   | Lambda Containers         |
 | ----------------------- | --------------- | ------------------------- |
 | **Max runtime**         | Unlimited       | 15 minutes                |
-| **Memory**              | Up to 8 GB      | Up to 10 GB               |
+| **Memory**              | Up to 12 GB     | Up to 10 GB               |
 | **State**               | Built-in (DO)   | External (DynamoDB, etc.) |
 | **Cold start**          | 2-3 seconds     | Similar or higher         |
 | **Networking**          | HTTP via Worker | VPC integration           |
@@ -341,7 +341,7 @@ Consider waiting if you need:
 - Guaranteed SLAs
 - Persistent disk
 - Direct TCP/UDP ingress
-- Very large instances (>8GB RAM)
+- Very large instances (>12GB RAM)
 
 ### Safe for Beta Use
 

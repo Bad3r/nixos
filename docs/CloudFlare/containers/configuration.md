@@ -131,14 +131,14 @@ crons = ["0 * * * *"]
 
 ## Container Configuration Options
 
-| Option                        | Type   | Required | Description                                          |
-| ----------------------------- | ------ | -------- | ---------------------------------------------------- |
-| `class_name`                  | string | Yes      | Name of the Container class in your code             |
-| `image`                       | string | Yes      | Dockerfile path or registry URL                      |
-| `instance_type`               | string | No       | `lite`, `basic`, `standard-1/2/3` (default: `basic`) |
-| `max_instances`               | number | No       | Maximum concurrent instances                         |
-| `rollout_step_percentage`     | number | No       | First rollout step percentage (default: 10)          |
-| `rollout_active_grace_period` | number | No       | Seconds before active containers update              |
+| Option                        | Type             | Required | Description                                                                                      |
+| ----------------------------- | ---------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `class_name`                  | string           | Yes      | Name of the Container class in your code                                                         |
+| `image`                       | string           | Yes      | Dockerfile path or registry URL                                                                  |
+| `instance_type`               | string \| object | No       | `lite`, `basic`, `standard-1/2/3/4`, or custom `{ vcpu, memory_mib, disk_mb }` (default: `lite`) |
+| `max_instances`               | number           | No       | Maximum concurrent instances                                                                     |
+| `rollout_step_percentage`     | number           | No       | First rollout step percentage (default: 10)                                                      |
+| `rollout_active_grace_period` | number           | No       | Seconds before active containers update                                                          |
 
 ## Image Configuration
 

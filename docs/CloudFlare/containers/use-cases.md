@@ -188,7 +188,6 @@ if __name__ == "__main__":
 import { Container, getContainer } from "@cloudflare/containers";
 
 export class BatchJob extends Container {
-  defaultPort = 8080; // Not used, but required
   sleepAfter = "1m"; // Short timeout after job completes
 
   envVars = {
@@ -203,8 +202,8 @@ export default {
 
     const job = getContainer(env.BATCH_JOB, "daily-job");
 
-    // Start the job and wait for it to complete
-    await job.startAndWaitForPorts();
+    // Start the batch container on schedule
+    await job.start();
 
     // Job runs its CMD and exits
     // Container will sleep after 1 minute
@@ -217,7 +216,7 @@ export default {
       new URL(request.url).pathname === "/trigger"
     ) {
       const job = getContainer(env.BATCH_JOB, "manual-job");
-      await job.startAndWaitForPorts();
+      await job.start();
       return new Response("Job triggered");
     }
     return new Response("POST /trigger to run job", { status: 400 });
@@ -623,37 +622,85 @@ CMD ["node", "server.js"]
 
 ```javascript
 const http = require("http");
-const { execSync } = require("child_process");
-const fs = require("fs");
+const { spawn } = require("child_process");
+const { randomUUID } = require("crypto");
+const fs = require("fs").promises;
+const os = require("os");
 const path = require("path");
 
+const MAX_DIMENSION = 4096;
+
+function parseDimension(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? fallback), 10);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > MAX_DIMENSION) {
+    throw new Error(
+      `Dimensions must be an integer between 1 and ${MAX_DIMENSION}`,
+    );
+  }
+  return parsed;
+}
+
+function runConvert(inputPath, outputPath, width, height) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("convert", [
+      inputPath,
+      "-resize",
+      `${width}x${height}`,
+      outputPath,
+    ]);
+    let stderr = "";
+
+    proc.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`convert failed (${code}): ${stderr.trim()}`));
+    });
+  });
+}
+
 const server = http.createServer(async (req, res) => {
-  if (req.method === "POST" && req.url === "/resize") {
-    const chunks = [];
-    for await (const chunk of req) chunks.push(chunk);
-    const imageBuffer = Buffer.concat(chunks);
-
-    const width = req.headers["x-width"] || 200;
-    const height = req.headers["x-height"] || 200;
-
-    const inputPath = "/tmp/input.jpg";
-    const outputPath = "/tmp/output.jpg";
-
-    fs.writeFileSync(inputPath, imageBuffer);
-
-    execSync(`convert ${inputPath} -resize ${width}x${height} ${outputPath}`);
-
-    const result = fs.readFileSync(outputPath);
-
-    res.writeHead(200, { "Content-Type": "image/jpeg" });
-    res.end(result);
-
-    // Cleanup
-    fs.unlinkSync(inputPath);
-    fs.unlinkSync(outputPath);
-  } else {
+  if (req.method !== "POST" || req.url !== "/resize") {
     res.writeHead(404);
     res.end("Not Found");
+    return;
+  }
+
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const imageBuffer = Buffer.concat(chunks);
+
+  let width;
+  let height;
+  try {
+    width = parseDimension(req.headers["x-width"], 200);
+    height = parseDimension(req.headers["x-height"], 200);
+  } catch (error) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: error.message }));
+    return;
+  }
+
+  const requestId = randomUUID();
+  const inputPath = path.join(os.tmpdir(), `input-${requestId}.jpg`);
+  const outputPath = path.join(os.tmpdir(), `output-${requestId}.jpg`);
+
+  try {
+    await fs.writeFile(inputPath, imageBuffer);
+    await runConvert(inputPath, outputPath, width, height);
+    const result = await fs.readFile(outputPath);
+    res.writeHead(200, { "Content-Type": "image/jpeg" });
+    res.end(result);
+  } catch (error) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Image processing failed" }));
+  } finally {
+    await Promise.allSettled([fs.unlink(inputPath), fs.unlink(outputPath)]);
   }
 });
 
