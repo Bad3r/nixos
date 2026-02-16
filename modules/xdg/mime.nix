@@ -45,6 +45,78 @@ let
     "application/x-directory"
   ];
 
+  # MIME types for archive managers
+  # Source: org.gnome.FileRoller.desktop (MimeType=...)
+  archiveMimeTypes = [
+    "application/bzip2"
+    "application/gzip"
+    "application/vnd.android.package-archive"
+    "application/vnd.debian.binary-package"
+    "application/vnd.ms-cab-compressed"
+    "application/vnd.rar"
+    "application/x-7z-compressed"
+    "application/x-7z-compressed-tar"
+    "application/x-ace"
+    "application/x-alz"
+    "application/x-apple-diskimage"
+    "application/x-ar"
+    "application/x-archive"
+    "application/x-arj"
+    "application/x-brotli"
+    "application/x-bzip"
+    "application/x-bzip-brotli-tar"
+    "application/x-bzip-compressed-tar"
+    "application/x-bzip1"
+    "application/x-bzip1-compressed-tar"
+    "application/x-bzip3"
+    "application/x-bzip3-compressed-tar"
+    "application/x-cabinet"
+    "application/x-cd-image"
+    "application/x-chrome-extension"
+    "application/x-compress"
+    "application/x-compressed-tar"
+    "application/x-cpio"
+    "application/x-deb"
+    "application/x-ear"
+    "application/x-gtar"
+    "application/x-gzip"
+    "application/x-gzpostscript"
+    "application/x-java-archive"
+    "application/x-lha"
+    "application/x-lhz"
+    "application/x-lrzip"
+    "application/x-lrzip-compressed-tar"
+    "application/x-lz4"
+    "application/x-lz4-compressed-tar"
+    "application/x-lzip"
+    "application/x-lzip-compressed-tar"
+    "application/x-lzma"
+    "application/x-lzma-compressed-tar"
+    "application/x-lzop"
+    "application/x-ms-dos-executable"
+    "application/x-ms-wim"
+    "application/x-rar"
+    "application/x-rar-compressed"
+    "application/x-rpm"
+    "application/x-rzip"
+    "application/x-rzip-compressed-tar"
+    "application/x-source-rpm"
+    "application/x-stuffit"
+    "application/x-tar"
+    "application/x-tarz"
+    "application/x-tzo"
+    "application/x-war"
+    "application/x-xar"
+    "application/x-xz"
+    "application/x-xz-compressed-tar"
+    "application/x-zip"
+    "application/x-zip-compressed"
+    "application/x-zoo"
+    "application/x-zstd-compressed-tar"
+    "application/zip"
+    "application/zstd"
+  ];
+
   # MIME types for image viewers
   imageViewerMimeTypes = [
     "image/avif"
@@ -193,6 +265,13 @@ let
       };
     };
 
+    archiveManager = {
+      file-roller = {
+        desktop = "org.gnome.FileRoller.desktop";
+        module = "gnome-file-roller";
+      };
+    };
+
     imageViewer = {
       feh = {
         desktop = "feh.desktop";
@@ -260,6 +339,7 @@ in
       browserMimeTypes
       terminalMimeTypes
       fileManagerMimeTypes
+      archiveMimeTypes
       imageViewerMimeTypes
       documentViewerMimeTypes
       audioPlayerMimeTypes
@@ -270,6 +350,7 @@ in
     mkBrowserDefaults = mkDefaults browserMimeTypes;
     mkTerminalDefaults = mkDefaults terminalMimeTypes;
     mkFileManagerDefaults = mkDefaults fileManagerMimeTypes;
+    mkArchiveManagerDefaults = mkDefaults archiveMimeTypes;
     mkImageViewerDefaults = mkDefaults imageViewerMimeTypes;
     mkDocumentViewerDefaults = mkDefaults documentViewerMimeTypes;
     mkAudioPlayerDefaults = mkDefaults audioPlayerMimeTypes;

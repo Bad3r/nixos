@@ -8,6 +8,7 @@
     system76.defaults.browser = "floorp";
     system76.defaults.terminal = "kitty";
     system76.defaults.fileManager = "nemo";
+    system76.defaults.archiveManager = "file-roller";
     system76.defaults.imageViewer = "nsxiv";
     system76.defaults.documentViewer = "zathura";
     system76.defaults.audioPlayer = "mpv";
@@ -84,6 +85,16 @@ let
         environment.variables.FILE_MANAGER = name;
         home-manager.sharedModules = [ { home.sessionVariables.FILE_MANAGER = name; } ];
       };
+    };
+
+    archiveManager = {
+      mkMimeDefaults = xdg.mime.mkArchiveManagerDefaults;
+      defaultValue = "file-roller";
+      example = "file-roller";
+      description = ''
+        Default archive manager (zip, tar, 7z, rar, etc.) for this host.
+        Set to null to not configure a default archive manager via XDG mimeapps.
+      '';
     };
 
     imageViewer = {
