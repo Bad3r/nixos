@@ -6,19 +6,35 @@
         # Source Home Manager session variables from per-user profile path.
         source "/etc/profiles/per-user/vx/etc/profile.d/hm-session-vars.sh"
 
-        # Nix CLI config export disabled in interactive shell.
-        # Exporting multiline NIX_CONFIG here can break nh elevation with:
-        #   env: 'nix-command': No such file or directory
-        # Keep build-time Nix config in build.sh/flake nixConfig instead.
-        # NIX_CONFIG="experimental-features = nix-command flakes pipe-operators
-        # accept-flake-config = true
-        # allow-import-from-derivation = false
-        # abort-on-warn = false"
-        # if command -v gh &>/dev/null && gh auth status &>/dev/null; then
-        #   NIX_CONFIG+="
-        # access-tokens = github.com=$(gh auth token)"
-        # fi
-        # export NIX_CONFIG
+        # Keep bulk Nix CLI config in build.sh / flake nixConfig.
+        # Here we only inject GitHub auth so Nix fetches are authenticated.
+        if command -v gh &>/dev/null; then
+          _nix_github_token="$(gh auth token 2>/dev/null || true)"
+          if [[ -n $_nix_github_token ]]; then
+            _nix_access_tokens_line="access-tokens = github.com=$_nix_github_token"
+
+            _nix_config_current=""
+            if (( $+NIX_CONFIG )); then
+              _nix_config_current="$NIX_CONFIG"
+            fi
+
+            case "$_nix_config_current" in
+              (*"$_nix_access_tokens_line") ;;
+              (*)
+                if [[ -n $_nix_config_current ]]; then
+                  _nix_config_current+=$'\n'
+                fi
+                _nix_config_current+="$_nix_access_tokens_line"
+                NIX_CONFIG="$_nix_config_current"
+                ;;
+            esac
+
+            export NIX_CONFIG
+            unset _nix_access_tokens_line
+            unset _nix_config_current
+          fi
+          unset _nix_github_token
+        fi
 
         # Mirror bash behavior: expose hostname through HOSTNAME in zsh.
         export HOSTNAME="$HOST"
