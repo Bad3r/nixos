@@ -9,10 +9,9 @@ the system on a stable release.
 `disabledModules` is a top level attribute like `imports`, `options` and
 `config`. It contains a list of modules that will be disabled. This can
 either be:
-
-- the full path to the module,
-- or a string with the filename relative to the modules path (eg. \<nixpkgs/nixos/modules> for nixos),
-- or an attribute set containing a specific `key` attribute.
+ - the full path to the module,
+ - or a string with the filename relative to the modules path (eg. \<nixpkgs/nixos/modules> for nixos),
+ - or an attribute set containing a specific `key` attribute.
 
 The latter allows some modules to be disabled, despite them being distributed
 via attributes instead of file paths. The `key` should be globally unique, so

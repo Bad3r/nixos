@@ -13,7 +13,7 @@ The NixOS configuration file generally looks like this:
 The first line (`{ config, pkgs, ... }:`) denotes that this is actually
 a function that takes at least the two arguments `config` and `pkgs`.
 (These are explained later, in chapter [](#sec-writing-modules)) The
-function returns a _set_ of option definitions (`{ ... }`).
+function returns a *set* of option definitions (`{ ... }`).
 These definitions have the form `name = value`, where `name` is the
 name of an option and `value` is its value. For example,
 
@@ -60,7 +60,7 @@ share the same prefix (such as `services.httpd`).
 
 NixOS checks your option definitions for correctness. For instance, if
 you try to define an option that doesn't exist (that is, doesn't have a
-corresponding _option declaration_), `nixos-rebuild` will give an error
+corresponding *option declaration*), `nixos-rebuild` will give an error
 like:
 
 ```plain
@@ -80,7 +80,7 @@ Options have various types of values. The most important are:
 
 Strings
 
-: Strings are enclosed in double quotes, e.g.
+:   Strings are enclosed in double quotes, e.g.
 
     ```nix
     {
@@ -112,7 +112,7 @@ Strings
 
 Booleans
 
-: These can be `true` or `false`, e.g.
+:   These can be `true` or `false`, e.g.
 
     ```nix
     {
@@ -123,7 +123,7 @@ Booleans
 
 Integers
 
-: For example,
+:   For example,
 
     ```nix
     {
@@ -139,8 +139,8 @@ Integers
 
 Sets
 
-: Sets were introduced above. They are name/value pairs enclosed in
-braces, as in the option definition
+:   Sets were introduced above. They are name/value pairs enclosed in
+    braces, as in the option definition
 
     ```nix
     {
@@ -154,8 +154,8 @@ braces, as in the option definition
 
 Lists
 
-: The important thing to note about lists is that list elements are
-separated by whitespace, like this:
+:   The important thing to note about lists is that list elements are
+    separated by whitespace, like this:
 
     ```nix
     {
@@ -173,9 +173,9 @@ separated by whitespace, like this:
 
 Packages
 
-: Usually, the packages you need are already part of the Nix Packages
-collection, which is a set that can be accessed through the function
-argument `pkgs`. Typical uses:
+:   Usually, the packages you need are already part of the Nix Packages
+    collection, which is a set that can be accessed through the function
+    argument `pkgs`. Typical uses:
 
     ```nix
     {

@@ -33,7 +33,7 @@ we assign the name `wan` to the interface with MAC address
 }
 ```
 
-Note that links are directly read by udev, _not networkd_, and will work
+Note that links are directly read by udev, *not networkd*, and will work
 even if networkd is disabled.
 
 Alternatively, we can use a plain old udev rule:

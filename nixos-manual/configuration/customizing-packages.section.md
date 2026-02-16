@@ -3,7 +3,6 @@
 The Nixpkgs configuration for a NixOS system is set by the {option}`nixpkgs.config` option.
 
 ::::{.example}
-
 # Globally allow unfree packages
 
 ```nix
@@ -34,12 +33,10 @@ Unfortunately, Nixpkgs currently lacks a way to query available package configur
 ::: {.note}
 For example, many packages come with extensions one might add.
 Examples include:
-
 - [`passExtensions.pass-otp`](https://search.nixos.org/packages?query=passExtensions.pass-otp)
 - [`python312Packages.requests`](https://search.nixos.org/packages?query=python312Packages.requests)
 
 You can use them like this:
-
 ```nix
 {
   environment.systemPackages = with pkgs; [
@@ -56,7 +53,6 @@ You can use them like this:
   ];
 }
 ```
-
 :::
 
 Apart from high-level options, it's possible to tweak a package in
@@ -81,7 +77,7 @@ would be a list with two elements.)
 Even greater customisation is possible using the function
 `overrideAttrs`. While the `override` mechanism above overrides the
 arguments of a package function, `overrideAttrs` allows changing the
-_attributes_ passed to `mkDerivation`. This permits changing any aspect
+*attributes* passed to `mkDerivation`. This permits changing any aspect
 of the package, such as the source code. For instance, if you want to
 override the source code of Emacs, you can say:
 
@@ -107,7 +103,7 @@ original package; other packages in Nixpkgs continue to depend on the
 original rather than the customised package. This means that if another
 package in your system depends on the original package, you end up with
 two instances of the package. If you want to have everything depend on
-your customised instance, you can apply a _global_ override as follows:
+your customised instance, you can apply a *global* override as follows:
 
 ```nix
 {

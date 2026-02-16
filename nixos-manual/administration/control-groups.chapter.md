@@ -1,7 +1,7 @@
 # Control Groups {#sec-cgroups}
 
 To keep track of the processes in a running system, systemd uses
-_control groups_ (cgroups). A control group is a set of processes used
+*control groups* (cgroups). A control group is a set of processes used
 to allocate resources such as CPU, memory or I/O bandwidth. There can be
 multiple control group hierarchies, allowing each kind of resource to be
 managed independently.

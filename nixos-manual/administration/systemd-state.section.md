@@ -7,11 +7,11 @@ unique and persistent; otherwise, the system journal may fail to list earlier
 boots, etc.
 
 `systemd` generates a random `machine-id(5)` during boot if it does not already exist,
-and persists it in `/etc/machine-id`. As such, it suffices to make that file persistent.
+and persists it in `/etc/machine-id`.  As such, it suffices to make that file persistent.
 
 Alternatively, it is possible to generate a random `machine-id(5)`; while the
-specification allows for _any_ hex-encoded 128b value, systemd itself uses
-[UUIDv4], _i.e._ random UUIDs, and it is thus preferable to do so as well, in
+specification allows for *any* hex-encoded 128b value, systemd itself uses
+[UUIDv4], *i.e.* random UUIDs, and it is thus preferable to do so as well, in
 case some software assumes `machine-id(5)` to be a UUIDv4. Those can be
 generated with `uuidgen -r | tr -d -` (`tr` being used to remove the dashes).
 
@@ -22,10 +22,10 @@ latter approach.
 [UUIDv4]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)
 [discourage]: https://github.com/NixOS/nixpkgs/pull/268995
 
+
 ## `/var/lib/systemd` {#sec-var-systemd}
 
 Moreover, `systemd` expects its state directory — `/var/lib/systemd` — to persist, for:
-
 - {manpage}`systemd-random-seed(8)`, which loads a 256b “seed” into the kernel's RNG
   at boot time, and saves a fresh one during shutdown;
 - {manpage}`systemd.timer(5)` with `Persistent=yes`, which are then run after boot if
@@ -38,6 +38,7 @@ Moreover, `systemd` expects its state directory — `/var/lib/systemd` — to pe
 - possibly other things, this list is not meant to be exhaustive.
 
 In any case, making `/var/lib/systemd` persistent is recommended.
+
 
 ## `/var/log/journal/{machine-id}` {#sec-var-journal}
 

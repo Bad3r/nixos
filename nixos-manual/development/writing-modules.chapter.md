@@ -1,7 +1,7 @@
 # Writing NixOS Modules {#sec-writing-modules}
 
 NixOS has a modular system for declarative configuration. This system
-combines multiple _modules_ to produce the full system configuration.
+combines multiple *modules* to produce the full system configuration.
 One of the modules that constitute the configuration is
 `/etc/nixos/configuration.nix`. Most of the others live in the
 [`nixos/modules`](https://github.com/NixOS/nixpkgs/tree/master/nixos/modules)
@@ -11,8 +11,8 @@ Each NixOS module is a file that handles one logical aspect of the
 configuration, such as a specific kind of hardware, a service, or
 network settings. A module configuration does not have to handle
 everything from scratch; it can use the functionality provided by other
-modules for its implementation. Thus a module can _declare_ options that
-can be used by other modules, and conversely can _define_ options
+modules for its implementation. Thus a module can *declare* options that
+can be used by other modules, and conversely can *define* options
 provided by other modules in its own implementation. For example, the
 module
 [`pam.nix`](https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/security/pam.nix)
@@ -33,14 +33,12 @@ NixOS modules:
 }
 ```
 
-This is actually an _abbreviated_ form of module that only defines
+This is actually an *abbreviated* form of module that only defines
 options, but does not declare any. The structure of full NixOS modules
 is shown in [Example: Structure of NixOS Modules](#ex-module-syntax).
 
 ::: {#ex-module-syntax .example}
-
 ### Structure of NixOS Modules
-
 ```nix
 { config, pkgs, ... }:
 
@@ -58,28 +56,27 @@ is shown in [Example: Structure of NixOS Modules](#ex-module-syntax).
   };
 }
 ```
-
 :::
 
 The meaning of each part is as follows.
 
-- The first line makes the current Nix expression a function. The variable
-  `pkgs` contains Nixpkgs (by default, it takes the `nixpkgs` entry of
-  `NIX_PATH`, see the [Nix manual](https://nixos.org/manual/nix/stable/#sec-common-env)
-  for further details), while `config` contains the full system
-  configuration. This line can be omitted if there is no reference to
-  `pkgs` and `config` inside the module.
+-   The first line makes the current Nix expression a function. The variable
+    `pkgs` contains Nixpkgs (by default, it takes the `nixpkgs` entry of
+    `NIX_PATH`, see the [Nix manual](https://nixos.org/manual/nix/stable/#sec-common-env)
+    for further details), while `config` contains the full system
+    configuration. This line can be omitted if there is no reference to
+    `pkgs` and `config` inside the module.
 
-- This `imports` list enumerates the paths to other NixOS modules that
-  should be included in the evaluation of the system configuration. A
-  default set of modules is defined in the file `modules/module-list.nix`.
-  These don't need to be added in the import list.
+-   This `imports` list enumerates the paths to other NixOS modules that
+    should be included in the evaluation of the system configuration. A
+    default set of modules is defined in the file `modules/module-list.nix`.
+    These don't need to be added in the import list.
 
-- The attribute `options` is a nested set of _option declarations_
-  (described below).
+-   The attribute `options` is a nested set of *option declarations*
+    (described below).
 
-- The attribute `config` is a nested set of _option definitions_ (also
-  described below).
+-   The attribute `config` is a nested set of *option definitions* (also
+    described below).
 
 [Example: NixOS Module for the "locate" Service](#locate-example)
 shows a module that handles the regular update of the "locate" database,
@@ -101,12 +98,10 @@ directive, e.g. when using an `extraArgs` option to pass additional arguments to
 the service. The functions `utils.escapeSystemdExecArg` and
 `utils.escapeSystemdExecArgs` are provided for this, see [Example: Escaping in
 Exec directives](#exec-escaping-example) for an example. When using these
-functions system environment substitution should _not_ be disabled explicitly.
+functions system environment substitution should *not* be disabled explicitly.
 
 ::: {#locate-example .example}
-
 ### NixOS Module for the "locate" Service
-
 ```nix
 {
   config,
@@ -175,13 +170,10 @@ in
   };
 }
 ```
-
 :::
 
 ::: {#exec-escaping-example .example}
-
 ### Escaping in Exec directives
-
 ```nix
 {
   config,
@@ -216,7 +208,6 @@ in
   };
 }
 ```
-
 :::
 
 ```{=include=} sections

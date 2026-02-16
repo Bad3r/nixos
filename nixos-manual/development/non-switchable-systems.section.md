@@ -15,7 +15,7 @@ profile:
 ```
 
 The most notable deviation of this profile from a standard NixOS configuration
-is that after building it, you cannot switch _to_ the configuration anymore.
+is that after building it, you cannot switch *to* the configuration anymore.
 The profile sets `config.system.switch.enable = false;`, which excludes
 `switch-to-configuration`, the central script called by `nixos-rebuild`, from
 your system. Removing this script makes the image lighter and slightly more

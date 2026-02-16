@@ -23,10 +23,9 @@ nix-build -A kexec.x86_64-linux '<nixpkgs/nixos/release.nix>'
 ```
 
 This will create a `result` directory containing the following:
-
-- `bzImage` (the Linux kernel)
-- `initrd` (the initrd file)
-- `kexec-boot` (a shellscript invoking `kexec`)
+ - `bzImage` (the Linux kernel)
+ - `initrd` (the initrd file)
+ - `kexec-boot` (a shellscript invoking `kexec`)
 
 These three files are meant to be copied over to the other already running
 Linux Distribution.
@@ -34,7 +33,7 @@ Linux Distribution.
 Note its symlinks pointing elsewhere, so `cd` in, and use
 `scp * root@$destination` to copy it over, rather than rsync.
 
-Once you finished copying, execute `kexec-boot` _on the destination_, and after
+Once you finished copying, execute `kexec-boot` *on the destination*, and after
 some seconds, the machine should be booting into an (ephemeral) NixOS
 installation medium.
 
@@ -50,6 +49,7 @@ the default installer image, you can build your own `configuration.nix`:
   users.users.root.openssh.authorizedKeys.keys = [ "my-ssh-pubkey" ];
 }
 ```
+
 
 ```ShellSession
 nix-build '<nixpkgs/nixos>' \

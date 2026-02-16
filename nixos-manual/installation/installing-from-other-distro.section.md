@@ -202,17 +202,18 @@ The first steps to all these are the same:
     bootup scripts require its presence).
 
     `/etc/NIXOS_LUSTRATE` tells the NixOS bootup scripts to move
-    _everything_ that's in the root partition to `/old-root`. This will
+    *everything* that's in the root partition to `/old-root`. This will
     move your existing distribution out of the way in the very early
     stages of the NixOS bootup. There are exceptions (we do need to keep
     NixOS there after all), so the NixOS lustrate process will not
     touch:
-    - The `/nix` directory
 
-    - The `/boot` directory
+    -   The `/nix` directory
 
-    - Any file or directory listed in `/etc/NIXOS_LUSTRATE` (one per
-      line)
+    -   The `/boot` directory
+
+    -   Any file or directory listed in `/etc/NIXOS_LUSTRATE` (one per
+        line)
 
     ::: {.note}
     The act of "lustrating" refers to the wiping of the existing distribution.
@@ -245,6 +246,7 @@ The first steps to all these are the same:
     The details of this step can vary depending on the bootloader configuration in NixOS and the bootloader in use by the current system.
 
     The commands below should work for:
+
     - [BIOS](https://en.wikipedia.org/wiki/BIOS) systems.
 
     - [UEFI](https://en.wikipedia.org/wiki/UEFI) systems where both the current system and NixOS mount the [EFI System Partition](https://en.wikipedia.org/wiki/EFI_system_partition) on `/boot`.
@@ -268,6 +270,7 @@ The first steps to all these are the same:
     Cross your fingers, reboot, hopefully you should get a NixOS prompt!
 
     In other cases, most commonly where the [EFI System Partition](https://en.wikipedia.org/wiki/EFI_system_partition) of the current system is instead mounted on `/boot/efi`, the goal is to:
+
     - Make sure `/boot` (and the [EFI System Partition](https://en.wikipedia.org/wiki/EFI_system_partition), if mounted elsewhere) are mounted how the NixOS configuration would mount them.
 
     - Clear them of files related to the current system, backing them up outside of `/boot`.

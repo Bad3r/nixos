@@ -25,5 +25,4 @@ profiles.chapter.md
 mattermost.chapter.md
 kubernetes.chapter.md
 ```
-
 <!-- Apache; libvirtd virtualisation -->

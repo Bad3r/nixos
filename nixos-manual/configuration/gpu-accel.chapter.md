@@ -17,7 +17,7 @@ both to the X Window System and Wayland compositors.
 It is used by various applications such as Blender and Darktable to
 accelerate certain operations.
 
-OpenCL applications load drivers through the _Installable Client Driver_
+OpenCL applications load drivers through the *Installable Client Driver*
 (ICD) mechanism. In this mechanism, an ICD file specifies the path to
 the OpenCL driver for a particular GPU family. In NixOS, there are two
 ways to make ICD files visible to the ICD loader. The first is through
@@ -76,7 +76,7 @@ configuration can be used:
 
 ## Vulkan {#sec-gpu-accel-vulkan}
 
-[Vulkan](<https://en.wikipedia.org/wiki/Vulkan_(API)>) is a graphics and
+[Vulkan](https://en.wikipedia.org/wiki/Vulkan_(API)) is a graphics and
 compute API for GPUs. It is used directly by games or indirectly though
 compatibility layers like
 [DXVK](https://github.com/doitsujin/dxvk/wiki).
@@ -84,8 +84,8 @@ compatibility layers like
 By default, if [](#opt-hardware.graphics.enable)
 is enabled, Mesa is installed and provides Vulkan for supported hardware.
 
-Similar to OpenCL, Vulkan drivers are loaded through the _Installable
-Client Driver_ (ICD) mechanism. ICD files for Vulkan are JSON files that
+Similar to OpenCL, Vulkan drivers are loaded through the *Installable
+Client Driver* (ICD) mechanism. ICD files for Vulkan are JSON files that
 specify the path to the driver library and the supported Vulkan version.
 All successfully loaded drivers are exposed to the application as
 different GPUs. In NixOS, there are two ways to make ICD files visible
@@ -162,7 +162,7 @@ configuration, GPU devices have world-read/write permissions
 (`/dev/dri/renderD*`) or are tagged as `uaccess` (`/dev/dri/card*`). The
 access control lists of devices with the `uaccess` tag will be updated
 automatically when a user logs in through `systemd-logind`. For example,
-if the user _alice_ is logged in, the access control list should look as
+if the user *alice* is logged in, the access control list should look as
 follows:
 
 ```ShellSession
@@ -182,7 +182,7 @@ to add the user to the `video` group and log in again.
 
 ### Mixing different versions of nixpkgs {#sec-gpu-accel-common-issues-mixing-nixpkgs}
 
-The _Installable Client Driver_ (ICD) mechanism used by OpenCL and
+The *Installable Client Driver* (ICD) mechanism used by OpenCL and
 Vulkan loads runtimes into its address space using `dlopen`. Mixing an
 ICD loader mechanism and runtimes from different version of nixpkgs may
 not work. For example, if the ICD loader uses an older version of glibc

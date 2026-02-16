@@ -3,7 +3,7 @@
 Nix has a purely functional model, meaning that packages are never
 upgraded in place. Instead new versions of packages end up in a
 different location in the Nix store (`/nix/store`). You should
-periodically run Nix's _garbage collector_ to remove old, unreferenced
+periodically run Nix's *garbage collector* to remove old, unreferenced
 packages. This is easy:
 
 ```ShellSession

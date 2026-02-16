@@ -20,6 +20,7 @@ checks:
   [systemd.services.\<name\>.reloadTriggers](#opt-systemd.services). There are
   some additional keys in the `[Unit]` section that are ignored as well. If the
   unit files differ in any way, the following actions are performed:
+
   - `.path` and `.slice` units are ignored. There is no need to restart them
     since changes in their values are applied by systemd when systemd is
     reloaded.

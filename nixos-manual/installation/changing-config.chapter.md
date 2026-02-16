@@ -44,7 +44,7 @@ to build the configuration and make it the boot default, but not switch
 to it now (so it will only take effect after the next reboot).
 
 You can make your configuration show up in a different submenu of the
-GRUB 2 boot screen by giving it a different _profile name_, e.g.
+GRUB 2 boot screen by giving it a different *profile name*, e.g.
 
 ```ShellSession
 # nixos-rebuild switch -p test
@@ -74,7 +74,7 @@ whether everything compiles cleanly.
 
 If you have a machine that supports hardware virtualisation, you can
 also test the new configuration in a sandbox by building and running a
-QEMU _virtual machine_ that contains the desired configuration. Just do
+QEMU *virtual machine* that contains the desired configuration. Just do
 
 ```ShellSession
 $ nixos-rebuild build-vm
@@ -90,7 +90,7 @@ following to your configuration:
 { users.users.your-user.initialHashedPassword = "test"; }
 ```
 
-_Important:_ delete the \$hostname.qcow2 file if you have started the
+*Important:* delete the \$hostname.qcow2 file if you have started the
 virtual machine at least once without the right users, otherwise the
 changes will not get picked up. You can forward ports on the host to the
 guest. For instance, the following will forward host port 2222 to guest

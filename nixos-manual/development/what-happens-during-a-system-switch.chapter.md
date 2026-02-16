@@ -30,7 +30,6 @@ be controlled by the units which are explained here.
 
 After calculating what should be done, the actions are carried out. The order
 of actions is always the same:
-
 - Stop units (`systemctl stop`)
 - Run activation script (`$out/activate`)
 - See if the activation script requested more units to restart

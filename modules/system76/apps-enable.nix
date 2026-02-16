@@ -64,6 +64,7 @@
       cutter.extended.enable = lib.mkOverride 1100 false;
       ddrescue.extended.enable = lib.mkOverride 1100 true;
       deadnix.extended.enable = lib.mkOverride 1100 true;
+      devenv.extended.enable = lib.mkOverride 1100 true;
       delve.extended.enable = lib.mkOverride 1100 false;
       "desktop-file-utils".extended.enable = lib.mkOverride 1100 true;
       diffutils.extended.enable = lib.mkOverride 1100 true;

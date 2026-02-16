@@ -28,15 +28,15 @@ select the image, select the USB flash drive and click "Write".
 3. Make sure all partitions on the device are properly unmounted. Replace `sdX`
    with your device (e.g. `sdb`).
 
-```ShellSession
-sudo umount /dev/sdX*
-```
+  ```ShellSession
+  sudo umount /dev/sdX*
+  ```
 
 4. Then use the `dd` utility to write the image to the USB flash drive.
 
-```ShellSession
-sudo dd bs=4M conv=fsync oflag=direct status=progress if=<path-to-image> of=/dev/sdX
-```
+  ```ShellSession
+  sudo dd bs=4M conv=fsync oflag=direct status=progress if=<path-to-image> of=/dev/sdX
+  ```
 
 ## Creating bootable USB flash drive from a Terminal on macOS {#sec-booting-from-usb-macos}
 
@@ -46,27 +46,27 @@ sudo dd bs=4M conv=fsync oflag=direct status=progress if=<path-to-image> of=/dev
 3. Make sure all partitions on the device are properly unmounted. Replace `diskX`
    with your device (e.g. `disk1`).
 
-```ShellSession
-diskutil unmountDisk diskX
-```
+  ```ShellSession
+  diskutil unmountDisk diskX
+  ```
 
 4. Then use the `dd` utility to write the image to the USB flash drive.
 
-```ShellSession
-sudo dd if=<path-to-image> of=/dev/rdiskX bs=4m
-```
+  ```ShellSession
+  sudo dd if=<path-to-image> of=/dev/rdiskX bs=4m
+  ```
 
-After `dd` completes, a GUI dialog "The disk
-you inserted was not readable by this computer" will pop up, which can
-be ignored.
+  After `dd` completes, a GUI dialog "The disk
+  you inserted was not readable by this computer" will pop up, which can
+  be ignored.
 
-::: {.note}
-Using the 'raw' `rdiskX` device instead of `diskX` with dd completes in
-minutes instead of hours.
-:::
+  ::: {.note}
+  Using the 'raw' `rdiskX` device instead of `diskX` with dd completes in
+  minutes instead of hours.
+  :::
 
 5. Eject the disk when it is finished.
 
-```ShellSession
-diskutil eject /dev/diskX
-```
+  ```ShellSession
+  diskutil eject /dev/diskX
+  ```

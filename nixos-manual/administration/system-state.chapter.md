@@ -9,6 +9,7 @@ this kind of configuration, special care needs to be taken.
 
 [impermanent systems]: https://wiki.nixos.org/wiki/Impermanence
 
+
 ```{=include=} sections
 nixos-state.section.md
 systemd-state.section.md

@@ -30,7 +30,7 @@ nixos.firefox   firefox-23.0   Mozilla Firefox - the browser, reloaded
 ...
 ```
 
-The first column in the output is the _attribute name_, such as
+The first column in the output is the *attribute name*, such as
 `nixos.thunderbird`.
 
 Note: the `nixos` prefix tells us that we want to get the package from
