@@ -6,7 +6,7 @@
 
 | Storage Type           | Persistence | Capacity       | Use Case            |
 | ---------------------- | ----------- | -------------- | ------------------- |
-| Container Disk         | Ephemeral   | 2-16 GB        | Temp files, cache   |
+| Container Disk         | Ephemeral   | 2-20 GB        | Temp files, cache   |
 | Durable Object Storage | Persistent  | Up to 10 GB    | App state, metadata |
 | R2 (FUSE Mount)        | Persistent  | Unlimited      | Files, large data   |
 | Workers KV             | Persistent  | Per-key limits | Config, sessions    |
@@ -16,7 +16,7 @@
 ### Characteristics
 
 - **Ephemeral**: Cleared on every restart/sleep
-- **Size**: Determined by instance type (2-16 GB)
+- **Size**: Determined by instance type (2-20 GB)
 - **Performance**: Fast, local SSD-like
 - **Access**: Standard filesystem operations
 
@@ -29,6 +29,7 @@
 | `standard-1`  | 8 GB       |
 | `standard-2`  | 12 GB      |
 | `standard-3`  | 16 GB      |
+| `standard-4`  | 20 GB      |
 
 ### Use Cases
 

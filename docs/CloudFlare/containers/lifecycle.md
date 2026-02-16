@@ -329,7 +329,8 @@ export class MyContainer extends Container {
 | `basic`      | 1 GiB   | Typical web services             |
 | `standard-1` | 4 GiB   | Memory-intensive apps            |
 | `standard-2` | 6 GiB   | Large data processing            |
-| `standard-3` | 8 GiB   | Maximum workloads                |
+| `standard-3` | 8 GiB   | Heavy workloads                  |
+| `standard-4` | 12 GiB  | Maximum workloads                |
 
 ## Disk Behavior
 

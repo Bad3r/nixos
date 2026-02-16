@@ -71,7 +71,7 @@ Forward an HTTP request to the container.
 
 ```typescript
 const response = await container.fetch(request);
-const response = await container.fetch(
+const apiResponse = await container.fetch(
   new Request("http://container/api/data"),
 );
 ```

@@ -149,9 +149,9 @@ Resources are fixed per instance type:
 ┌─────────────────────────────────────┐
 │         Container VM                │
 │  ┌─────────────────────────────┐    │
-│  │  vCPU: 1/16 to 2 cores     │    │
-│  │  Memory: 256MB to 8GB      │    │
-│  │  Disk: 2GB to 16GB         │    │
+│  │  vCPU: 1/16 to 4 cores     │    │
+│  │  Memory: 256MB to 12GB     │    │
+│  │  Disk: 2GB to 20GB         │    │
 │  └─────────────────────────────┘    │
 └─────────────────────────────────────┘
 ```
