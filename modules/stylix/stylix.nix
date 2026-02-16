@@ -160,14 +160,11 @@
             pkgs.gucharmap
           ];
 
-          # Set dark mode preference for GTK apps (not handled by Stylix GTK target)
+          # Set dark mode preference for GNOME/libadwaita apps
           dconf.settings."org/gnome/desktop/interface".color-scheme = "prefer-dark";
 
-          # GTK3 apps need this setting to use dark theme variant
+          # Legacy GTK3 apps still use this key for dark theme variants.
           gtk.gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
-
-          # GTK4 apps need this setting to use dark theme variant
-          gtk.gtk4.extraConfig.gtk-application-prefer-dark-theme = true;
         };
     };
 
