@@ -18,6 +18,7 @@
   configurations.nixos.system76.module = {
     programs = {
       act.extended.enable = lib.mkOverride 1100 true;
+      actionlint.extended.enable = lib.mkOverride 1100 true;
       "aircrack-ng".extended.enable = lib.mkOverride 1100 false;
       "android-studio".extended.enable = lib.mkOverride 1100 false;
       "antigravity-fhs".extended.enable = lib.mkOverride 1100 true;
@@ -94,6 +95,7 @@
       firefox.extended.enable = lib.mkOverride 1100 true;
       floorp.extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 true;
+      fonttools.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;
       formatting.extended.enable = lib.mkOverride 1100 true;
       "frida-tools".extended.enable = lib.mkOverride 1100 true;
@@ -274,7 +276,7 @@
       tar.extended.enable = lib.mkOverride 1100 true;
       tealdeer.extended.enable = lib.mkOverride 1100 true;
       "telegram-desktop".extended.enable = lib.mkOverride 1100 true;
-      "teams-for-linux".extended.enable = lib.mkOverride 1100 false;
+      "teams-for-linux".extended.enable = lib.mkOverride 1100 true;
       "temurin-bin-25".extended.enable = lib.mkOverride 1100 false;
       terraform.extended.enable = lib.mkOverride 1100 false;
       tesseract.extended.enable = lib.mkOverride 1100 true;

@@ -24,6 +24,7 @@
 
       programs = {
         zsh.enable = true;
+        zsh.enableCompletion = true;
         # nix-index-database module disables command-not-found and provides
         # nix-index with pre-built database; shell integration replaces command-not-found
         nix-index = {

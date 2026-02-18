@@ -39,6 +39,14 @@
         # Mirror bash behavior: expose hostname through HOSTNAME in zsh.
         export HOSTNAME="$HOST"
 
+        # Register custom build.sh completions from zsh site-functions.
+        if (( $+functions[compdef] )); then
+          autoload -Uz _build_sh
+          compdef _build_sh build.sh
+          compdef _build_sh ./build.sh
+          compdef _build_sh "$HOME/nixos/build.sh"
+        fi
+
         setopt NO_INTERACTIVE_COMMENTS
         alias nr='nix run nixpkgs#'
         alias ns='nix shell nixpkgs#'
