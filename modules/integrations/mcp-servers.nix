@@ -37,7 +37,10 @@ let
   optionalFields = {
     nix = [ "secretEnvVar" ];
     sse = [ "timeout" ];
-    npx = [ "timeout" ];
+    npx = [
+      "timeout"
+      "args"
+    ];
   };
 
   # Validate a single catalog entry
@@ -143,6 +146,25 @@ let
       source = "npx";
       package = "mcp-deepwiki@latest";
     };
+
+    chrome-devtools = {
+      source = "npx";
+      package = "chrome-devtools-mcp@latest";
+      # Privacy + safety defaults from upstream docs.
+      args = [
+        "--isolated"
+        "--no-usage-statistics"
+      ];
+      timeout = 120;
+    };
+
+    playwright = {
+      source = "npx";
+      package = "@playwright/mcp@latest";
+      # Security-first default: use in-memory profile (no persisted browser state).
+      args = [ "--isolated" ];
+      timeout = 120;
+    };
   };
 
   # Timeout in seconds (used by Codex via startup_timeout_sec)
@@ -225,7 +247,8 @@ let
           args = [
             "-y"
             meta.package
-          ];
+          ]
+          ++ (meta.args or [ ]);
         }
         // timeouts;
       };
