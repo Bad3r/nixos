@@ -30,7 +30,9 @@ _: {
         "context7"
         "cfdocs"
         "cfbrowser"
+        "chrome-devtools"
         "deepwiki"
+        "playwright"
       ];
 
       # Claude Code settings.json configuration

@@ -54,7 +54,9 @@ _: {
         "openaiDeveloperDocs"
         "cfdocs"
         "cfbrowser"
+        "chrome-devtools"
         "deepwiki"
+        "playwright"
       ];
 
       # Base settings (everything except projects — those are merged at runtime)
