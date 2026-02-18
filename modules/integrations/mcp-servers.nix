@@ -131,6 +131,11 @@ let
       url = "https://graphql.mcp.cloudflare.com/sse";
     };
 
+    openaiDeveloperDocs = {
+      source = "sse";
+      url = "https://developers.openai.com/mcp";
+    };
+
     # ──────────────────────────────────────────────────────────────────────────
     # NPX packages (fetched at runtime)
     # ──────────────────────────────────────────────────────────────────────────

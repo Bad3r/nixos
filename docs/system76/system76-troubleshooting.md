@@ -249,6 +249,25 @@ glmark2
 stress-ng --cpu 12 --vm 4 --vm-bytes 2G --timeout 10m
 ```
 
+## Audio
+
+Use this recovery command anytime audio disappears:
+NOTE: Do not run wpctl set-route 63 3 blindly. Use this guarded switch instead:
+
+```bash
+HP_NUMID=$(amixer -c 2 controls | sed -n "s/^numid=\([0-9]\+\),iface=CARD,name='Headphone Jack'.*/\1/p")
+HP_STATE=$(amixer -c 2 cget numid="$HP_NUMID" | sed -n "s/^  : values=//p")
+if [ "$HP_STATE" = "on" ]; then
+    wpctl set-route 63 3
+    amixer -c 2 sset Speaker off
+    amixer -c 2 sset Headphone on
+else
+    wpctl set-route 63 2
+    amixer -c 2 sset Speaker on
+    amixer -c 2 sset Headphone on
+fi
+```
+
 ---
 
 ## Quick Reference
