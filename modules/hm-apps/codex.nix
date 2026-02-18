@@ -51,6 +51,7 @@ _: {
         "sequential-thinking"
         "memory"
         "context7"
+        "openaiDeveloperDocs"
         "cfdocs"
         "cfbrowser"
         "deepwiki"

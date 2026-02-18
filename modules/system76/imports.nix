@@ -42,7 +42,6 @@ in
 
       # External hardware modules
       inputs.nixos-hardware.nixosModules.system76
-      inputs.nixos-hardware.nixosModules.system76-darp6
     ]
     # Optional modules (graceful degradation)
     ++ lib.optionals system76SupportExists [ config.flake.nixosModules.system76-support ]
