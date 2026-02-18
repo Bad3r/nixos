@@ -45,7 +45,7 @@ See `modules/apps/claude-code.nix`, `modules/apps/spec-kit.nix`, or `modules/app
 
 ## Python Packages
 
-When adding Python packages from `nixpkgs.python3Packages` (e.g., `pyyaml`, `cloudflare`):
+When adding Python packages from `nixpkgs.python3Packages` (e.g., `pyyaml`, `cloudflare`, `yamllint`):
 
 ### Discovery & Verification
 
