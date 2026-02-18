@@ -114,7 +114,7 @@ _: {
           apply_patch_freeform = true;
           apps = true;
           child_agents_md = true;
-          collab = true;
+          multi_agent = true;
           memory_tool = true;
           shell_snapshot = true;
           skill_env_var_dependency_prompt = true;
