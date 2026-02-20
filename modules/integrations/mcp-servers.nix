@@ -150,7 +150,7 @@ let
     chrome-devtools = {
       source = "npx";
       package = "chrome-devtools-mcp@latest";
-      # Privacy + safety defaults from upstream docs.
+      # Privacy + safety defaults; browser executable is resolved by mkServerConfig.
       args = [
         "--isolated"
         "--no-usage-statistics"
@@ -161,7 +161,7 @@ let
     playwright = {
       source = "npx";
       package = "@playwright/mcp@latest";
-      # Security-first default: use in-memory profile (no persisted browser state).
+      # Keep browser state isolated; browser executable is resolved by mkServerConfig.
       args = [ "--isolated" ];
       timeout = 120;
     };
@@ -242,15 +242,86 @@ let
         }
         // timeouts;
 
-        npx = {
-          command = "${lib.getExe' pkgs.nodejs "npx"}";
-          args = [
-            "-y"
-            meta.package
-          ]
-          ++ (meta.args or [ ]);
-        }
-        // timeouts;
+        npx =
+          if name == "playwright" then
+            let
+              wrapper = pkgs.writeShellScriptBin "playwright-mcp-wrapper" ''
+                set -euo pipefail
+
+                browser_executable=""
+                browser_flag=""
+
+                for candidate in google-chrome-stable google-chrome chromium chromium-browser; do
+                  if command -v "$candidate" >/dev/null 2>&1; then
+                    browser_executable="$(command -v "$candidate")"
+                    if [ "$candidate" = "google-chrome-stable" ] || [ "$candidate" = "google-chrome" ]; then
+                      browser_flag="--browser=chrome"
+                    fi
+                    break
+                  fi
+                done
+
+                if [ -z "$browser_executable" ]; then
+                  echo "playwright MCP: no supported browser in PATH (google-chrome-stable, google-chrome, chromium, chromium-browser)." >&2
+                  echo "playwright MCP: install one of those browsers to avoid browser_install downloads." >&2
+                  exit 1
+                fi
+
+                exec ${lib.getExe' pkgs.nodejs "npx"} \
+                  -y \
+                  ${meta.package} \
+                  "--executable-path=$browser_executable" \
+                  ''${browser_flag:+$browser_flag} \
+                  "$@"
+              '';
+            in
+            {
+              command = "${wrapper}/bin/playwright-mcp-wrapper";
+              args = meta.args or [ ];
+            }
+            // timeouts
+          else if name == "chrome-devtools" then
+            let
+              wrapper = pkgs.writeShellScriptBin "chrome-devtools-mcp-wrapper" ''
+                set -euo pipefail
+
+                browser_executable=""
+
+                for candidate in google-chrome-stable google-chrome chromium chromium-browser; do
+                  if command -v "$candidate" >/dev/null 2>&1; then
+                    browser_executable="$(command -v "$candidate")"
+                    break
+                  fi
+                done
+
+                if [ -z "$browser_executable" ]; then
+                  echo "chrome-devtools MCP: no supported browser in PATH (google-chrome-stable, google-chrome, chromium, chromium-browser)." >&2
+                  echo "chrome-devtools MCP: install one of those browsers or use --browserUrl/--wsEndpoint to attach to an existing debug session." >&2
+                  exit 1
+                fi
+
+                exec ${lib.getExe' pkgs.nodejs "npx"} \
+                  -y \
+                  ${meta.package} \
+                  "--executablePath=$browser_executable" \
+                  "$@"
+              '';
+            in
+            {
+              command = "${wrapper}/bin/chrome-devtools-mcp-wrapper";
+              args = meta.args or [ ];
+            }
+            // timeouts
+          else
+            {
+              command = "${lib.getExe' pkgs.nodejs "npx"}";
+              args = [
+                "-y"
+                meta.package
+              ]
+              ++ (meta.args or [ ]);
+            }
+            // timeouts;
       };
     in
     handlers.${meta.source}
