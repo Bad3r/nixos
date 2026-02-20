@@ -108,11 +108,6 @@
             {
               dunst = {
                 enable = lib.mkDefault true;
-                iconTheme = {
-                  name = "Qogir-Dark";
-                  package = pkgs.qogir-icon-theme;
-                  size = "32x32";
-                };
               };
               picom.enable = false;
               udiskie = {
