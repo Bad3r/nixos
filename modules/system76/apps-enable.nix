@@ -226,6 +226,7 @@
       pixman.extended.enable = lib.mkOverride 1100 true;
       "pkg-config".extended.enable = lib.mkOverride 1100 true;
       planify.extended.enable = lib.mkOverride 1100 true;
+      playwright.extended.enable = lib.mkOverride 1100 true;
       playerctl.extended.enable = lib.mkOverride 1100 true;
       pnpm.extended.enable = lib.mkOverride 1100 true;
       potrace.extended.enable = lib.mkOverride 1100 true;
