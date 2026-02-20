@@ -147,6 +147,9 @@
             };
           };
 
+          # Keep Dunst icon size centralized with Stylix icon theme settings.
+          services.dunst.iconTheme.size = "32x32";
+
           programs = {
             kitty = {
               settings.font_size = 12;
