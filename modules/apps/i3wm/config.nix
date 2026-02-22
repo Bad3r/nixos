@@ -376,26 +376,6 @@
               inherit (i3Commands) terminal;
               menu = i3Commands.launcher;
 
-              startup = lib.mkAfter [
-                {
-                  command = "${lib.getExe' pkgs.hsetroot "hsetroot"} -solid '${stylixColorsStrictWithHash.base00}'";
-                  always = true;
-                  notification = false;
-                }
-                # DPMS: Keep screens on for 1 hour (3600s) before standby/suspend/off
-                {
-                  command = "${pkgs.xset}/bin/xset dpms 3600 3600 3600";
-                  always = true;
-                  notification = false;
-                }
-                # Screen saver: Blank after 1 hour (3600s)
-                {
-                  command = "${pkgs.xset}/bin/xset s 3600 3600";
-                  always = true;
-                  notification = false;
-                }
-              ];
-
               floating = {
                 modifier = "Mod1";
                 border = 5;
