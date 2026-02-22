@@ -9,17 +9,29 @@ _: {
     }:
     let
       tailscaleEnabled = lib.attrByPath [ "programs" "tailscale" "extended" "enable" ] false osConfig;
+      tailscaleHostAlias = lib.attrByPath [
+        "programs"
+        "tailscale"
+        "extended"
+        "sshHostAlias"
+      ] "tailscale" osConfig;
+      tailscaleHostName = lib.attrByPath [
+        "programs"
+        "tailscale"
+        "extended"
+        "sshHostName"
+      ] "100.64.1.5" osConfig;
     in
     {
       home.file = lib.mkMerge [
         (lib.mkIf tailscaleEnabled {
-          ".ssh/hosts/tailscale".text = ''
-            Host tailscale
+          ".ssh/hosts/${tailscaleHostAlias}".text = ''
+            Host ${tailscaleHostAlias}
               Port 22
               ForwardAgent yes
               ForwardX11 yes
               User ${metaOwner.username}
-              HostName 100.64.1.5
+              HostName ${tailscaleHostName}
           '';
         })
         {
