@@ -275,6 +275,7 @@
       strace.extended.enable = lib.mkOverride 1100 true;
       sysstat.extended.enable = lib.mkOverride 1100 true;
       tar.extended.enable = lib.mkOverride 1100 true;
+      tailscale.extended.enable = lib.mkOverride 1100 true;
       tealdeer.extended.enable = lib.mkOverride 1100 true;
       "telegram-desktop".extended.enable = lib.mkOverride 1100 true;
       "teams-for-linux".extended.enable = lib.mkOverride 1100 true;
