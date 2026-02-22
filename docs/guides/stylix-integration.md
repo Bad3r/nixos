@@ -179,9 +179,81 @@ If theming isn't applying, verify:
 2. The corresponding `programs.<app>.enable` is `true`
 3. The target exists in the current context (NixOS vs HM)
 
+## Tray Icons and Theme Consistency
+
+Stylix does not directly control all tray icons. A tray icon is only themeable when
+the application publishes an icon name through StatusNotifier/AppIndicator.
+When an app publishes only a bitmap/pixmap (or an absolute icon file path), the icon
+is effectively hardcoded and theme overrides will not apply.
+
+### Classify the Icon First
+
+Use DBus inspection tools to determine whether a tray icon is themeable:
+
+- `d-feet` for interactive DBus property inspection
+- `gdbus` or `busctl` for CLI inspection of StatusNotifier items
+- `dbus-monitor "interface='org.kde.StatusNotifierItem'"` to observe updates
+
+Look for:
+
+- `IconName` or `AttentionIconName`: themeable
+- `IconPixmap` only: typically hardcoded
+
+### If the Icon Is Themeable (`IconName`)
+
+1. Add icon overrides in your icon theme (prefer `~/.local/share/icons` for user-local overrides).
+2. Ensure `index.theme` inheritance includes `hicolor`.
+3. Provide symbolic variants where applicable (`*-symbolic.svg`) for better recoloring.
+4. Rebuild icon caches and restart the tray host.
+
+Useful commands:
+
+```bash
+# Install/override an icon resource under the current user
+xdg-icon-resource install --context status --size 24 my-icon.png my-app
+
+# Rebuild icon cache for a specific theme (command name depends on package version)
+gtk4-update-icon-cache ~/.local/share/icons/<theme-name>
+# or: gtk-update-icon-cache ~/.local/share/icons/<theme-name>
+```
+
+Panel-specific controls can also help:
+
+- Sway bar supports `icon_theme` in `sway-bar` configuration.
+- Waybar tray supports explicit icon mappings (`tray.icons`) for per-app overrides.
+
+### If the Icon Is Hardcoded (`IconPixmap` or Absolute Path)
+
+Use a replacement workflow:
+
+1. Try `hardcode-tray` or `hardcode-fixer` for known desktop apps.
+2. On NixOS, avoid mutating application files in place under `/nix/store`.
+3. Prefer package-level patching (`overrideAttrs`, wrapper flags, or patched assets) so the fix is reproducible.
+
+In practice, hardcoded tray fixes in this repository should live in module/package
+definitions, not ad-hoc local filesystem edits.
+
+### App Author Guidance (Long-Term Fix)
+
+When maintaining an app, prefer icon-theme APIs over fixed file assets:
+
+- Qt: `QIcon::fromTheme(...)` and symbolic-friendly assets
+- GTK/AppIndicator: icon names loaded through theme APIs, not absolute files
+
+This gives the tray host enough metadata to apply theme-consistent icons.
+
+### Decision Path
+
+1. Identify whether the tray item exposes `IconName` or only pixmaps.
+2. If `IconName`, fix via theme override and cache refresh.
+3. If hardcoded, patch packaging/app assets in Nix, or use a targeted fixer tool.
+4. Upstream the change when possible so local patch burden is reduced.
+
 ## Related Documentation
 
 - [`docs/architecture/01-pattern-overview.md`](../architecture/01-pattern-overview.md) -- module discovery and aggregator patterns
 - [`docs/architecture/04-home-manager.md`](../architecture/04-home-manager.md) -- how Home Manager modules are composed
 - [Apps Module Style Guide](apps-module-style-guide.md) -- per-app module authoring conventions
 - [Stylix Documentation](https://danth.github.io/stylix/) -- upstream reference
+- [Status Notifier Item Specification](https://specifications.freedesktop.org/status-notifier-item-spec/latest-single/) -- icon name vs pixmap behavior
+- [Icon Theme Specification](https://xdg.pages.freedesktop.org/xdg-specs/icon-theme-spec/latest/) -- icon lookup and inheritance rules
