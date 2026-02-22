@@ -50,6 +50,8 @@
   - Debugging techniques for Nix expressions, NixOS modules, and Home Manager including REPL, tracing, and common errors.
 - [guides/stylix-integration.md](guides/stylix-integration.md)
   - Stylix theming integration covering NixOS vs Home Manager targets, autoEnable behavior, and common pitfalls.
+- [guides/tray-icon-theming.md](guides/tray-icon-theming.md)
+  - i3/i3bar tray icon theming guide with protocol classification, runtime verification, and remediation workflow.
 
 ## MCP
 

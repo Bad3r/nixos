@@ -9,6 +9,7 @@ Style guides, coding standards, and how-to documentation.
 | [GitHub Deployments](github-deployments.md)                   | Deployment tracking via GitHub API                  |
 | [Nix Debugging Manual](nix-debugging-manual.md)               | General Nix/NixOS/Home Manager debugging techniques |
 | [Stylix Integration](stylix-integration.md)                   | Theming constraints for module authors              |
+| [Tray Icon Theming (i3/i3bar)](tray-icon-theming.md)          | Runtime tray ownership and icon theming remediation |
 
 ## Related
 
