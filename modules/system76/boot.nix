@@ -4,6 +4,8 @@ _: {
     {
       # CachyOS generic kernel package set with BORE scheduler/performance patches.
       boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-latest;
+      #boot.kernelPackages = pkgs.linuxPackages;
+
       boot = {
         # Base kernel modules for System76 hardware
         initrd.availableKernelModules = [
