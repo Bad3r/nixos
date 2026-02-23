@@ -1,7 +1,7 @@
 _: {
   configurations.nixos.system76.module = {
     nixpkgs.overlays = [
-      (final: _prev: {
+      (final: prev: {
         # Add custom packages to nixpkgs
         raindrop = final.callPackage ../../packages/raindrop { };
         electron-mail = final.callPackage ../../packages/electron-mail { };
@@ -19,6 +19,13 @@ _: {
         restringer = final.callPackage ../../packages/restringer { };
         tweakcc = final.callPackage ../../packages/tweakcc { };
         video-cache = final.callPackage ../../packages/video-cache { };
+
+        # Temporary workaround: deno 2.6.10 currently fails checkPhase
+        # (`integration_tests` target mismatch) on this nixpkgs revision.
+        deno = prev.deno.overrideAttrs (_old: {
+          doCheck = false;
+          doInstallCheck = false;
+        });
 
         # i3 window manager utilities
         i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };
