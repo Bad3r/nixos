@@ -15,6 +15,7 @@ _: {
     {
       # Platform configuration (required)
       nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
+      system76.gpu.mode = "nvidia-only";
 
       # Hardware configuration
       hardware = {
