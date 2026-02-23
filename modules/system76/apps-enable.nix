@@ -34,6 +34,7 @@
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 true;
       bun.extended.enable = lib.mkOverride 1100 true;
+      bubblewrap.extended.enable = lib.mkOverride 1100 true;
       burpsuite.extended.enable = lib.mkOverride 1100 true;
       bzip2.extended.enable = lib.mkOverride 1100 true;
       cachix.extended.enable = lib.mkOverride 1100 true;
@@ -82,6 +83,7 @@
       duf.extended.enable = lib.mkOverride 1100 true;
       dunst.extended.enable = lib.mkOverride 1100 true;
       dust.extended.enable = lib.mkOverride 1100 true;
+      dwarfs.extended.enable = lib.mkOverride 1100 true;
       "electron-mail".extended.enable = lib.mkOverride 1100 true;
       "element-desktop".extended.enable = lib.mkOverride 1100 false;
       ent.extended.enable = lib.mkOverride 1100 true;
@@ -99,7 +101,9 @@
       forgit.extended.enable = lib.mkOverride 1100 true;
       formatting.extended.enable = lib.mkOverride 1100 true;
       "frida-tools".extended.enable = lib.mkOverride 1100 true;
+      "fuse-overlayfs".extended.enable = lib.mkOverride 1100 true;
       fzf.extended.enable = lib.mkOverride 1100 true;
+      gamescope.extended.enable = lib.mkOverride 1100 false;
       gawk.extended.enable = lib.mkOverride 1100 true;
       gcc.extended.enable = lib.mkOverride 1100 true;
       gdb.extended.enable = lib.mkOverride 1100 true;
