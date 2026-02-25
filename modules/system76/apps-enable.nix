@@ -287,6 +287,7 @@
       terraform.extended.enable = lib.mkOverride 1100 false;
       tesseract.extended.enable = lib.mkOverride 1100 true;
       testdisk.extended.enable = lib.mkOverride 1100 true;
+      thunderbird.extended.enable = lib.mkOverride 1100 true;
       tokei.extended.enable = lib.mkOverride 1100 true;
       tor.extended.enable = lib.mkOverride 1100 true;
       "tor-browser".extended.enable = lib.mkOverride 1100 true;
