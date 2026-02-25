@@ -95,14 +95,14 @@ Available after `nix develop`:
 
 ## Resource Links
 
-| Resource            | Location                                 |
-| ------------------- | ---------------------------------------- |
-| NixOS manual mirror | `nixos-manual/`                          |
-| Home Manager manual | `/home/vx/git/home-manager/docs/manual/` |
-| Stylix source       | `/home/vx/git/stylix`                    |
-| nixpkgs             | `/home/vx/git/nixpkgs`                   |
-| sops-nix            | `/home/vx/git/sops-nix`                  |
-| import-tree         | `/home/vx/git/import-tree`               |
+| Resource            | Location                                            |
+| ------------------- | --------------------------------------------------- |
+| NixOS manual mirror | `nixos-manual/`                                     |
+| Home Manager manual | `/data/git/nix-community-home-manager/docs/manual/` |
+| Stylix source       | `/data/git/nix-community-stylix`                    |
+| nixpkgs             | `/data/git/NixOS-nixpkgs`                           |
+| sops-nix            | `/data/git/Mic92-sops-nix`                          |
+| import-tree         | `/data/git/vic-import-tree`                         |
 
 ## Next Steps
 

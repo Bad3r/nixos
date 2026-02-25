@@ -236,10 +236,10 @@ PR body should include:
 
 ### Repository Maintenance
 
-| Trigger             | Command                                         | Preconditions                                  | Post-check                                 |
-| ------------------- | ----------------------------------------------- | ---------------------------------------------- | ------------------------------------------ |
-| Remove files safely | `rip <path>`                                    | File is intended for deletion.                 | Confirm expected deletion in `git status`. |
-| Mirror updates      | `nix develop -c ghq get <repo>` or `ghq update` | Shared GHQ root configured; network available. | Mirror updated under `$HOME/git/<repo>`.   |
+| Trigger             | Command                                         | Preconditions                                  | Post-check                                       |
+| ------------------- | ----------------------------------------------- | ---------------------------------------------- | ------------------------------------------------ |
+| Remove files safely | `rip <path>`                                    | File is intended for deletion.                 | Confirm expected deletion in `git status`.       |
+| Mirror updates      | `nix develop -c ghq get <repo>` or `ghq update` | Shared GHQ root configured; network available. | Mirror updated under `/data/git/{owner}-{repo}`. |
 
 ### Troubleshooting
 
@@ -313,19 +313,19 @@ Pause, summarize the issue, and ask `vx` for direction.
 
 ## Local Mirrors
 
-| Name           | Path                       | Use When                                                       |
-| -------------- | -------------------------- | -------------------------------------------------------------- |
-| Stylix         | `$HOME/git/stylix`         | Inspect source or apply local patches.                         |
-| Home Manager   | `$HOME/git/home-manager`   | Review module behavior or backport fixes.                      |
-| i3 Docs        | `$HOME/git/i3wm-docs`      | Reference i3 documentation offline.                            |
-| nixpkgs        | `$HOME/git/nixpkgs`        | Inspect/patch upstream expressions.                            |
-| nixos-hardware | `$HOME/git/nixos-hardware` | Pull hardware profiles and troubleshoot host hardware options. |
-| nixvim         | `$HOME/git/nixvim`         | Examine NixVim modules and options.                            |
-| treefmt-nix    | `$HOME/git/treefmt-nix`    | Adjust formatter behavior or pinning.                          |
-| git-hooks.nix  | `$HOME/git/git-hooks.nix`  | Update hook definitions or debug pre-commit failures.          |
-| sops-nix       | `$HOME/git/sops-nix`       | Manage encrypted secret integrations.                          |
-| import-tree    | `$HOME/git/import-tree`    | Review/extend auto-loading behavior.                           |
-| files module   | `$HOME/git/files`          | Update generated artifact sources (e.g., `.gitignore`).        |
+| Name           | Path                                   | Use When                                                       |
+| -------------- | -------------------------------------- | -------------------------------------------------------------- |
+| Stylix         | `/data/git/nix-community-stylix`       | Inspect source or apply local patches.                         |
+| Home Manager   | `/data/git/nix-community-home-manager` | Review module behavior or backport fixes.                      |
+| i3 Docs        | `/data/git/i3-i3.github.io`            | Reference i3 documentation offline.                            |
+| nixpkgs        | `/data/git/NixOS-nixpkgs`              | Inspect/patch upstream expressions.                            |
+| nixos-hardware | `/data/git/NixOS-nixos-hardware`       | Pull hardware profiles and troubleshoot host hardware options. |
+| nixvim         | `/data/git/nix-community-nixvim`       | Examine NixVim modules and options.                            |
+| treefmt-nix    | `/data/git/numtide-treefmt-nix`        | Adjust formatter behavior or pinning.                          |
+| git-hooks.nix  | `/data/git/cachix-git-hooks.nix`       | Update hook definitions or debug pre-commit failures.          |
+| sops-nix       | `/data/git/Mic92-sops-nix`             | Manage encrypted secret integrations.                          |
+| import-tree    | `/data/git/vic-import-tree`            | Review/extend auto-loading behavior.                           |
+| files module   | `/data/git/mightyiam-files`            | Update generated artifact sources (e.g., `.gitignore`).        |
 
 ## MCP Tools
 
