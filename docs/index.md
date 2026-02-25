@@ -31,6 +31,23 @@
 - [cloudflare/cloudflared-tunnel-sample.md](cloudflare/cloudflared-tunnel-sample.md)
   - Sample NixOS configuration for Cloudflare Tunnel (cloudflared) with ingress rules and credential setup.
 
+## R2 Cloud
+
+- [r2-cloud/README.md](r2-cloud/README.md)
+  - Index for `nix-R2-CloudFlare-Flake` consumer integration docs in this repo.
+- [r2-cloud/input-and-module-wiring.md](r2-cloud/input-and-module-wiring.md)
+  - How `inputs.r2-flake` is wired into System76 NixOS and Home Manager imports.
+- [r2-cloud/secrets-and-rendered-files.md](r2-cloud/secrets-and-rendered-files.md)
+  - Mapping from `secrets/r2.yaml` to `/run/secrets/r2/*` and HM env templates.
+- [r2-cloud/system76-runtime.md](r2-cloud/system76-runtime.md)
+  - Runtime contract for sync/restic/git-annex/r2 wrapper on this host.
+- [r2-cloud/home-manager-r2-cloud.md](r2-cloud/home-manager-r2-cloud.md)
+  - HM-side `programs.r2-cloud` load path and credential-source behavior.
+- [r2-cloud/validation-and-drift-checks.md](r2-cloud/validation-and-drift-checks.md)
+  - Operator checks to prove integration is still intact.
+- [r2-cloud/troubleshooting.md](r2-cloud/troubleshooting.md)
+  - Integration-specific failure diagnosis and repair paths.
+
 ## Drafts
 
 - [drafts/android-emulator-network-plan.md](drafts/android-emulator-network-plan.md)
