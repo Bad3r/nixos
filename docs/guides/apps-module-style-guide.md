@@ -353,10 +353,10 @@ programs = {
 
 ```bash
 # Check local mirror
-ls "~/git/home-manager/modules/programs/<tool>.nix"
+ls /data/git/nix-community-home-manager/modules/programs/<tool>.nix
 
 # Or search for the program
-grep -r "programs\.<tool>" ~/git/home-manager/modules/programs/
+grep -r "programs\.<tool>" /data/git/nix-community-home-manager/modules/programs/
 ```
 
 If HM support exists, continue to step 6. Otherwise, skip to step 8.
@@ -368,7 +368,7 @@ Create `modules/hm-apps/<tool>.nix`. HM modules **must** guard against enabling 
 **Before writing the module**, check if the HM module's package option is nullable:
 
 ```bash
-grep -A3 "package.*=" ~/git/home-manager/modules/programs/<tool>.nix
+grep -A3 "package.*=" /data/git/nix-community-home-manager/modules/programs/<tool>.nix
 # Look for: nullable = true;
 ```
 
@@ -437,7 +437,7 @@ extraAppNames = [
 
 ```bash
 # Check if stylix supports the app
-grep -r "<tool>" ~/git/stylix/modules/
+grep -r "<tool>" /data/git/nix-community-stylix/modules/
 ```
 
 ### 9. Add Stylix Configuration (if supported)
@@ -568,19 +568,19 @@ This pattern aligns with CLAUDE.md guidance: "Use `lib.hasAttrByPath` + `lib.get
 
 ### Home Manager
 
-| Check               | Command                                                                 |
-| ------------------- | ----------------------------------------------------------------------- |
-| Module exists       | `ls ~/git/home-manager/modules/programs/<tool>.nix`                     |
-| Search by name      | `grep -r "programs\.<tool>" ~/git/home-manager/modules/`                |
-| Firefox derivatives | Check `~/git/home-manager/modules/programs/firefox/mkFirefoxModule.nix` |
+| Check               | Command                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------- |
+| Module exists       | `ls /data/git/nix-community-home-manager/modules/programs/<tool>.nix`                     |
+| Search by name      | `grep -r "programs\.<tool>" /data/git/nix-community-home-manager/modules/`                |
+| Firefox derivatives | Check `/data/git/nix-community-home-manager/modules/programs/firefox/mkFirefoxModule.nix` |
 
 ### Stylix
 
-| Check                    | Command                                   |
-| ------------------------ | ----------------------------------------- |
-| General support          | `grep -r "<tool>" ~/git/stylix/modules/`  |
-| Firefox/Floorp/LibreWolf | `cat ~/git/stylix/modules/firefox/hm.nix` |
-| Available options        | `cat ~/git/stylix/modules/<tool>/`        |
+| Check                    | Command                                                     |
+| ------------------------ | ----------------------------------------------------------- |
+| General support          | `grep -r "<tool>" /data/git/nix-community-stylix/modules/`  |
+| Firefox/Floorp/LibreWolf | `cat /data/git/nix-community-stylix/modules/firefox/hm.nix` |
+| Available options        | `cat /data/git/nix-community-stylix/modules/<tool>/`        |
 
 ### NUR Firefox Addons
 

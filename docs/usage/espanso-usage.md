@@ -331,4 +331,4 @@ The espanso module is auto-discovered from:
 - **Matches Guide**: https://espanso.org/docs/matches/basics/
 - **Variables Reference**: https://espanso.org/docs/matches/extensions/
 - **nixpkgs Package**: `pkgs/by-name/es/espanso/package.nix`
-- **Home Manager Module**: `/home/vx/git/home-manager/modules/services/espanso.nix`
+- **Home Manager Module**: `/data/git/nix-community-home-manager/modules/services/espanso.nix`
