@@ -15,6 +15,7 @@
 
           # Nix community
           "nix-community/home-manager"
+          "nix-community/nh"
           "nix-community/nixvim"
           "nix-community/stylix"
 
@@ -22,6 +23,8 @@
           "numtide/llm-agents.nix"
           "Mic92/sops-nix"
           "cachix/git-hooks.nix"
+          "cachix/docs.cachix.org"
+          "evilmartians/lefthook"
           "hercules-ci/flake.parts-website"
           "mightyiam/files"
           "numtide/treefmt-nix"
@@ -33,6 +36,7 @@
 
           # Applications
           "logseq/logseq"
+          "s0md3v/wappalyzer-next"
         ];
       };
     };
