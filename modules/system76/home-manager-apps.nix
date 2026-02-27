@@ -56,6 +56,7 @@ let
     "starship"
     "stylix-gui"
     "tealdeer"
+    "thunderbird"
     "tree"
     "usbguard-notifier"
     "uv"
