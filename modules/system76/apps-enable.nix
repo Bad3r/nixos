@@ -83,7 +83,7 @@
       duf.extended.enable = lib.mkOverride 1100 true;
       dunst.extended.enable = lib.mkOverride 1100 true;
       dust.extended.enable = lib.mkOverride 1100 true;
-      dwarfs.extended.enable = lib.mkOverride 1100 true;
+      dwarfs.extended.enable = lib.mkOverride 1100 true; # Default dependency of steam extraTools
       "electron-mail".extended.enable = lib.mkOverride 1100 true;
       "element-desktop".extended.enable = lib.mkOverride 1100 false;
       ent.extended.enable = lib.mkOverride 1100 true;
@@ -146,7 +146,7 @@
       iaito.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 true;
       jnv.extended.enable = lib.mkOverride 1100 true;
-      jadx.extended.enable = lib.mkOverride 1100 true;
+      jadx.extended.enable = lib.mkOverride 1100 false;
       john.extended.enable = lib.mkOverride 1100 false;
       jq.extended.enable = lib.mkOverride 1100 true;
       just.extended.enable = lib.mkOverride 1100 true;
@@ -154,7 +154,7 @@
       kcolorchooser.extended.enable = lib.mkOverride 1100 true;
       kdiskmark.extended.enable = lib.mkOverride 1100 true;
       "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
-      krita.extended.enable = lib.mkOverride 1100 true;
+      krita.extended.enable = lib.mkOverride 1100 false;
       kitty.extended.enable = lib.mkOverride 1100 true;
       ktailctl.extended.enable = lib.mkOverride 1100 true;
       leiningen.extended.enable = lib.mkOverride 1100 false;
@@ -284,7 +284,7 @@
       "telegram-desktop".extended.enable = lib.mkOverride 1100 true;
       "teams-for-linux".extended.enable = lib.mkOverride 1100 true;
       "temurin-bin-25".extended.enable = lib.mkOverride 1100 false;
-      terraform.extended.enable = lib.mkOverride 1100 false;
+      terraform.extended.enable = lib.mkOverride 1100 true;
       tesseract.extended.enable = lib.mkOverride 1100 true;
       testdisk.extended.enable = lib.mkOverride 1100 true;
       thunderbird.extended.enable = lib.mkOverride 1100 true;
