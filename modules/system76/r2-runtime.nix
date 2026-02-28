@@ -36,7 +36,7 @@
             bucket = "nix-r2-cf-r2e-files-prod";
             remotePrefix = "docs";
             mountPoint = "/data/r2/mount/docs";
-            localPath = "/data/docs";
+            localPath = "/data/Docs";
             syncInterval = "5m";
           };
         };
@@ -105,7 +105,7 @@
           "d /data/r2/mount/fonts 0750 ${username} ${group} - -"
           "d /data/r2/mount/docs 0750 ${username} ${group} - -"
           "d /data/r2/workspace 0750 ${username} ${group} - -"
-          "d /data/docs 0750 ${username} ${group} - -"
+          "d /data/Docs 0750 ${username} ${group} - -"
         ];
       };
     };
