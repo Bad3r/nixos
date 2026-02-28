@@ -148,34 +148,6 @@ stdenv.mkDerivation (finalAttrs: {
     find $out -path "*linux-x64-musl*" -delete
   '';
 
-  # isolated-vm links against Node.js internal libraries (libuv, openssl, icu, sqlite, etc.)
-  # These are provided by Node.js at runtime, so we can safely ignore them
-  autoPatchelfIgnoreMissingDeps = [
-    "libuv.so.1"
-    "libssl.so.3"
-    "libcrypto.so.3"
-    "libicuuc.so.76"
-    "libicui18n.so.76"
-    "libsqlite3.so"
-    "libuvwasi.so"
-    "libz.so.1"
-    "libnghttp2.so.14"
-    "libnghttp3.so.9"
-    "libngtcp2.so.16"
-    "libngtcp2.so.17"
-    "libngtcp2_crypto_quictls.so.8"
-    "libcares.so.2"
-    "libbrotlidec.so.1"
-    "libbrotlienc.so.1"
-    "libsimdjson.so.22"
-    "libsimdjson.so.29"
-    "libsimdutf.so.20"
-    "libllhttp.so.9.3"
-    "libada.so.3"
-    "libnbytes.so.0"
-    "libncrypto.so.0"
-  ];
-
   # NOTE: Copies pnpm workspace to preserve symlink structure for runtime.
   # Uses isolated-vm 6.0.2 (patched from 5.0.1) for VM-based deobfuscation.
   installPhase = ''
