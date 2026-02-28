@@ -20,13 +20,6 @@ _: {
         tweakcc = final.callPackage ../../packages/tweakcc { };
         video-cache = final.callPackage ../../packages/video-cache { };
 
-        # Temporary workaround: deno 2.6.10 currently fails checkPhase
-        # (`integration_tests` target mismatch) on this nixpkgs revision.
-        deno = prev.deno.overrideAttrs (_old: {
-          doCheck = false;
-          doInstallCheck = false;
-        });
-
         # Workaround: dwarfs 0.12.4 currently fails with boost 1.89
         # (`boost_system` no longer resolves during CMake configure).
         dwarfs = prev.dwarfs.override {
