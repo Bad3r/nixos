@@ -163,6 +163,7 @@ _: {
           "${homeDir}/nixos".trust_level = "trusted";
           "${homeDir}/trees".trust_level = "trusted";
           "/data".trust_level = "trusted";
+          "/data/dev/azure".trust_level = "trusted";
         };
       };
 
