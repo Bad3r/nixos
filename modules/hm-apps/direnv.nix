@@ -54,7 +54,6 @@ _: {
               # Allow direnv in home directory projects
               prefix = [
                 "~/git"
-                "~/igit"
                 "/data/git"
                 "~/projects"
                 "~/src"

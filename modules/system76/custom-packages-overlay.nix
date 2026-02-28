@@ -27,6 +27,22 @@ _: {
           doInstallCheck = false;
         });
 
+        # Workaround: dwarfs 0.12.4 currently fails with boost 1.89
+        # (`boost_system` no longer resolves during CMake configure).
+        dwarfs = prev.dwarfs.override {
+          boost = prev.boost187;
+        };
+
+        # Workaround: marktext 0.17.0's native module rebuild can fail with
+        # `node-gyp: not found` under the current Node 24 toolchain.
+        marktext = prev.marktext.overrideAttrs (old: {
+          nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
+            prev."node-gyp"
+          ];
+          npm_config_node_gyp = "${prev."node-gyp"}/bin/node-gyp";
+          NODE_GYP = "${prev."node-gyp"}/bin/node-gyp";
+        });
+
         # i3 window manager utilities
         i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };
         i3-scratchpad-show-or-create = final.callPackage ../../packages/i3-scratchpad-show-or-create { };
