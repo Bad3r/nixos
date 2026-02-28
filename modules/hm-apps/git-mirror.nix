@@ -1,5 +1,5 @@
 /*
-  Syncs GitHub repositories to a flat /git/{owner}-{repo} structure.
+  Syncs GitHub repositories to a flat /data/git/{owner}-{repo} structure.
   Preserves local work via stash/backup before resetting to upstream.
 */
 {
