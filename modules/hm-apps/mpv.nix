@@ -74,7 +74,7 @@ _: {
           };
 
           scripts = with pkgs.mpvScripts; [
-            mpv-cheatsheet
+            # mpv-cheatsheet
             mpris # use standard media keys
             # autoload # auto load previous/next file in playlist
             reload # reload streamed file when stuck buffering

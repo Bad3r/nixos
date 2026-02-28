@@ -15,20 +15,30 @@
         credentialsFile = "/run/secrets/r2/credentials.env";
         accountIdFile = "/run/secrets/r2/account-id";
 
-        mounts.workspace = {
-          bucket = "nix-r2-cf-r2e-files-prod";
-          remotePrefix = "workspace";
-          mountPoint = "/data/r2/mount/workspace";
-          localPath = "/data/r2/workspace";
-          syncInterval = "5m";
-        };
+        mounts = {
+          workspace = {
+            bucket = "nix-r2-cf-r2e-files-prod";
+            remotePrefix = "workspace";
+            mountPoint = "/data/r2/mount/workspace";
+            localPath = "/data/r2/workspace";
+            syncInterval = "5m";
+          };
 
-        mounts.fonts = {
-          bucket = "nix-r2-cf-r2e-files-prod";
-          remotePrefix = "fonts";
-          mountPoint = "/data/r2/mount/fonts";
-          localPath = "/data/fonts";
-          syncInterval = "30m";
+          fonts = {
+            bucket = "nix-r2-cf-r2e-files-prod";
+            remotePrefix = "fonts";
+            mountPoint = "/data/r2/mount/fonts";
+            localPath = "/data/fonts";
+            syncInterval = "30m";
+          };
+
+          docs = {
+            bucket = "nix-r2-cf-r2e-files-prod";
+            remotePrefix = "docs";
+            mountPoint = "/data/r2/mount/docs";
+            localPath = "/data/Docs";
+            syncInterval = "5m";
+          };
         };
       };
 
@@ -73,6 +83,14 @@
             User = username;
             Group = group;
           };
+          "r2-mount-docs".serviceConfig = {
+            User = username;
+            Group = group;
+          };
+          "r2-bisync-docs".serviceConfig = {
+            User = username;
+            Group = group;
+          };
           "r2-restic-backup".serviceConfig = {
             User = username;
             Group = group;
@@ -85,7 +103,9 @@
           "d /data/r2/mount 0750 ${username} ${group} - -"
           "d /data/r2/mount/workspace 0750 ${username} ${group} - -"
           "d /data/r2/mount/fonts 0750 ${username} ${group} - -"
+          "d /data/r2/mount/docs 0750 ${username} ${group} - -"
           "d /data/r2/workspace 0750 ${username} ${group} - -"
+          "d /data/Docs 0750 ${username} ${group} - -"
         ];
       };
     };

@@ -48,14 +48,13 @@ let
           type = lib.types.listOf lib.types.package;
           default = with pkgs; [
             mpvScripts.thumbfast
-            mpvScripts.mpv-cheatsheet
+            # mpvScripts.mpv-cheatsheet
           ];
           description = ''
             mpv scripts to install.
 
             Included by default:
             - thumbfast: Fast thumbnail preview
-            - mpv-cheatsheet: Keybinding overlay
           '';
           example = lib.literalExpression "with pkgs; [ mpvScripts.thumbfast ]";
         };
