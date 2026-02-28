@@ -35,6 +35,7 @@
           "i3/i3.github.io"
 
           # Applications
+          "better-auth/better-auth"
           "logseq/logseq"
           "s0md3v/wappalyzer-next"
         ];
