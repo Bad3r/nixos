@@ -71,6 +71,9 @@ The R2 cutover uses `secrets/r2.yaml` as the source of truth. System secrets are
 extracted to `/run/secrets/r2/*` and Home Manager renders
 `~/.config/cloudflare/r2/env` via `modules/home/r2-secrets.nix`.
 
+For the full integration contract (input wiring, runtime consumers, drift
+checks), see [`docs/r2-cloud/README.md`](../r2-cloud/README.md).
+
 ## Editing Encrypted Files Safely
 
 ### Interactive Editing
