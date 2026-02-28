@@ -26,6 +26,8 @@
       atuin.extended.enable = lib.mkOverride 1100 true;
       "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
       awscli2.extended.enable = lib.mkOverride 1100 false;
+      azd.extended.enable = lib.mkOverride 1100 true;
+      "azure-cli".extended.enable = lib.mkOverride 1100 true;
       babashka.extended.enable = lib.mkOverride 1100 false;
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
@@ -186,6 +188,7 @@
       metasploit.extended.enable = lib.mkOverride 1100 false;
       "minio-client".extended.enable = lib.mkOverride 1100 true;
       mitmproxy.extended.enable = lib.mkOverride 1100 false;
+      "msgraph-cli".extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 true;
       "mullvad-browser".extended.enable = lib.mkOverride 1100 true;
       nemo.extended.enable = lib.mkOverride 1100 true;
