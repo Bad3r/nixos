@@ -95,17 +95,17 @@ Available after `nix develop`:
 
 ## Resource Links
 
-| Resource            | Location                                            |
+<<<<<<< Updated upstream
+| Resource | Location |
 | ------------------- | --------------------------------------------------- |
-| NixOS manual mirror | `nixos-manual/`                                     |
+| NixOS manual mirror | `nixos-manual/` |
 | Home Manager manual | `/data/git/nix-community-home-manager/docs/manual/` |
-| Stylix source       | `/data/git/nix-community-stylix`                    |
-| nixpkgs             | `/data/git/NixOS-nixpkgs`                           |
-| sops-nix            | `/data/git/Mic92-sops-nix`                          |
-| import-tree         | `/data/git/vic-import-tree`                         |
+| Stylix source | `/data/git/nix-community-stylix` |
+| nixpkgs | `/data/git/NixOS-nixpkgs` |
+| sops-nix | `/data/git/Mic92-sops-nix` |
+| import-tree | `/data/git/vic-import-tree` |
 
 ## Next Steps
 
 - [Pattern Overview](01-pattern-overview.md) -- Dendritic fundamentals
 - [Module Authoring](02-module-authoring.md) -- writing modules correctly
-- [CLAUDE.md](/home/vx/nixos/CLAUDE.md) -- full repository guide
