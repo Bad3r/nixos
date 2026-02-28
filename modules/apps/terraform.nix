@@ -43,5 +43,6 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "terraform" ];
   flake.nixosModules.apps.terraform = TerraformModule;
 }
