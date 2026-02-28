@@ -14,10 +14,34 @@
   jq,
   yq-go,
   python3,
+  ada,
+  brotli,
+  c-ares,
+  icu76,
+  libuv,
+  llhttp,
+  nghttp2,
+  nghttp3,
+  ngtcp2,
+  openssl,
+  simdjson,
+  simdutf,
+  sqlite,
+  uvwasi,
+  zlib,
 }:
 
 let
   version = "2.15.1";
+  simdutf_6 = simdutf.overrideAttrs {
+    version = "6.5.0";
+    src = fetchFromGitHub {
+      owner = "simdutf";
+      repo = "simdutf";
+      rev = "v6.5.0";
+      hash = "sha256-bZ4r62GMz2Dkd3fKTJhelitaA8jUBaDjG6jOysEg8Nk=";
+    };
+  };
 
   # Patch source to remove patchedDependencies which causes lockfile mismatch
   patchedSrc = stdenv.mkDerivation {
@@ -78,7 +102,22 @@ stdenv.mkDerivation (finalAttrs: {
   # Libraries for native addons (isolated-vm links against Node internals)
   buildInputs = [
     stdenv.cc.cc.lib
-    nodejs_22 # provides libuv, openssl, icu, etc.
+    nodejs_22
+    (lib.getLib zlib)
+    (lib.getLib llhttp)
+    (lib.getLib libuv)
+    (lib.getLib ada)
+    (lib.getLib simdjson)
+    (lib.getLib simdutf_6)
+    (lib.getLib brotli)
+    (lib.getLib c-ares)
+    (lib.getLib nghttp2)
+    (lib.getLib nghttp3)
+    (lib.getLib ngtcp2)
+    (lib.getLib sqlite)
+    (lib.getLib uvwasi)
+    (lib.getLib openssl)
+    (lib.getLib icu76)
   ];
 
   # Point node-gyp to Node headers (prevents download in sandbox)
@@ -130,6 +169,7 @@ stdenv.mkDerivation (finalAttrs: {
     "libbrotlienc.so.1"
     "libsimdjson.so.22"
     "libsimdjson.so.29"
+    "libsimdutf.so.20"
     "libllhttp.so.9.3"
     "libada.so.3"
     "libnbytes.so.0"
