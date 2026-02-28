@@ -38,17 +38,18 @@ Complete hosts live under `configurations.nixos.<name>.module`. The helper in `m
 
 The System76 host is composed by many files that all extend `configurations.nixos.system76.module`:
 
-| File                                           | Purpose                                             |
-| ---------------------------------------------- | --------------------------------------------------- |
-| `modules/system76/imports.nix`                 | Baseline module imports and hardware profile wiring |
-| `modules/system76/apps-base.nix`               | Imports all discovered NixOS app modules            |
-| `modules/system76/apps-enable.nix`             | Per-app enable/disable defaults                     |
-| `modules/system76/home-manager-apps.nix`       | Extra HM app imports and shared module wiring       |
-| `modules/system76/default-apps.nix`            | XDG default application selection + env vars        |
-| `modules/system76/custom-packages-overlay.nix` | Injects local `packages/*` into host `pkgs` overlay |
-| `modules/system76/hardware-config.nix`         | Filesystems, firmware, low-level hardware settings  |
-| `modules/system76/nvidia-gpu.nix`              | NVIDIA PRIME configuration                          |
-| `modules/system76/services.nix`                | Service-level host behavior                         |
+| File                                           | Purpose                                               |
+| ---------------------------------------------- | ----------------------------------------------------- |
+| `modules/system76/imports.nix`                 | Baseline module imports and hardware profile wiring   |
+| `modules/system76/apps-base.nix`               | Imports all discovered NixOS app modules              |
+| `modules/system76/apps-enable.nix`             | Per-app enable/disable defaults                       |
+| `modules/system76/home-manager-apps.nix`       | Extra HM app imports and shared module wiring         |
+| `modules/system76/default-apps.nix`            | XDG default application selection + env vars          |
+| `modules/system76/custom-packages-overlay.nix` | Injects local `packages/*` into host `pkgs` overlay   |
+| `modules/system76/r2-runtime.nix`              | Host runtime bindings for external `r2-flake` modules |
+| `modules/system76/hardware-config.nix`         | Filesystems, firmware, low-level hardware settings    |
+| `modules/system76/nvidia-gpu.nix`              | NVIDIA PRIME configuration                            |
+| `modules/system76/services.nix`                | Service-level host behavior                           |
 
 ## App and Home Manager Wiring
 
@@ -61,6 +62,10 @@ Home Manager is wired similarly:
 
 - `modules/home-manager/nixos.nix` provides HM base + default app imports
 - `modules/system76/home-manager-apps.nix` appends additional app keys via `home-manager.extraAppImports`
+- `modules/system76/imports.nix` appends external shared modules such as `inputs.r2-flake.homeManagerModules.default`
+
+For integration-specific details of the external R2 module chain, see
+[`../r2-cloud/input-and-module-wiring.md`](../r2-cloud/input-and-module-wiring.md).
 
 ## Single-Host Repository Policy
 
