@@ -28,6 +28,7 @@ Mirrors are managed declaratively in `modules/system76/mirrors.nix` and synced t
 | vic/import-tree                 | `$LOCAL_MIRRORS/vic-import-tree`                 | Review import-tree or extend module auto-loading.   |
 | github/docs                     | `$LOCAL_MIRRORS/github-docs`                     | GitHub documentation reference.                     |
 | i3/i3.github.io                 | `$LOCAL_MIRRORS/i3-i3.github.io`                 | Reference i3 window manager documentation offline.  |
+| better-auth/better-auth         | `$LOCAL_MIRRORS/better-auth-better-auth`         | Inspect Better Auth source and patch behavior.      |
 | logseq/logseq                   | `$LOCAL_MIRRORS/logseq-logseq`                   | Logseq source and plugin development.               |
 
 ## Adding Repositories
