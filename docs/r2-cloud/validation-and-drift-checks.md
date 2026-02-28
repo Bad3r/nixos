@@ -23,10 +23,15 @@ expected files/options in this repository.
 Run from repo root:
 
 ```bash
+# Verify flake input registration
 rg -n 'r2-flake\\.url' flake.nix
+# Verify module imports from r2-flake
 rg -n 'inputs\\.r2-flake\\.(nixosModules|homeManagerModules)\\.default' modules/system76/imports.nix
+# Verify runtime service and program configurations
 rg -n 'services\\.r2-sync|services\\.r2-restic|programs\\.git-annex-r2|programs\\.r2-cloud' modules/system76/r2-runtime.nix
-rg -n 'path_regex: secrets/r2\\.yaml' modules/security/sops-policy.nix
+# Verify SOPS creation rule for r2 secrets
+rg -n 'path_regex: secrets/r2\\\.yaml' modules/security/sops-policy.nix
+# Verify secret file references
 rg -n 'r2-credentials\\.env|r2-explorer\\.env|cloudflare/r2/env' modules/security/r2-cloud-secrets.nix modules/home/r2-secrets.nix
 ```
 
