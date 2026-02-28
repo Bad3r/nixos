@@ -8,6 +8,7 @@
   Summary:
     * Provides `dwarfs`, `dwarfsextract`, and `dwarfsck` commands used by jc141 launchers for archive mount and extraction flows.
     * Delivers compact game payload storage while preserving fast read paths and integrity verification tooling.
+    * Used by default in `programs.steam.extended.extraTools` for Steam mod/runtime compatibility workflows.
 
   Options:
     dwarfs <image> <mountpoint>: Mount a `.dwarfs` archive through FUSE.

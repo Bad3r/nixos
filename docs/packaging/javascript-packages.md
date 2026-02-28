@@ -6,16 +6,16 @@ This guide covers packaging npm, pnpm, and bun-based JavaScript applications in 
 
 These nixpkgs packages demonstrate various patterns for packaging JavaScript applications:
 
-| Package              | Path                                                             | Pattern                                       | When to Use                                                     |
-| -------------------- | ---------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------- |
-| **Misskey**          | `$HOME/git/nixpkgs/pkgs/by-name/mi/misskey/package.nix`          | Copy entire workspace, wrap `pnpm run`        | pnpm monorepos with native modules; preserves symlink structure |
-| **cspell**           | `$HOME/git/nixpkgs/pkgs/by-name/cs/cspell/package.nix`           | `pnpmWorkspaces` filter + hoisted reinstall   | Monorepos without native modules; minimal closure               |
-| **synchrony**        | `$HOME/git/nixpkgs/pkgs/by-name/sy/synchrony/package.nix`        | Simple `cp -r node_modules`                   | Single-package pnpm projects (non-monorepo)                     |
-| **siyuan**           | `$HOME/git/nixpkgs/pkgs/by-name/si/siyuan/package.nix`           | `sourceRoot` + `postPatch` to `fetchPnpmDeps` | Monorepo subpackage with lockfile at root                       |
-| **heroic-unwrapped** | `$HOME/git/nixpkgs/pkgs/by-name/he/heroic-unwrapped/package.nix` | `npm_config_nodedir` for native modules       | Electron/native addons needing Node headers                     |
-| **tweakcc**          | `packages/tweakcc/default.nix` (local)                           | shamefully-hoist + autoPatchelfHook           | ESM apps with prebuilt native addons, external deps             |
+| Package              | Path                                                                   | Pattern                                       | When to Use                                                     |
+| -------------------- | ---------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------- |
+| **Misskey**          | `/data/git/NixOS-nixpkgs/pkgs/by-name/mi/misskey/package.nix`          | Copy entire workspace, wrap `pnpm run`        | pnpm monorepos with native modules; preserves symlink structure |
+| **cspell**           | `/data/git/NixOS-nixpkgs/pkgs/by-name/cs/cspell/package.nix`           | `pnpmWorkspaces` filter + hoisted reinstall   | Monorepos without native modules; minimal closure               |
+| **synchrony**        | `/data/git/NixOS-nixpkgs/pkgs/by-name/sy/synchrony/package.nix`        | Simple `cp -r node_modules`                   | Single-package pnpm projects (non-monorepo)                     |
+| **siyuan**           | `/data/git/NixOS-nixpkgs/pkgs/by-name/si/siyuan/package.nix`           | `sourceRoot` + `postPatch` to `fetchPnpmDeps` | Monorepo subpackage with lockfile at root                       |
+| **heroic-unwrapped** | `/data/git/NixOS-nixpkgs/pkgs/by-name/he/heroic-unwrapped/package.nix` | `npm_config_nodedir` for native modules       | Electron/native addons needing Node headers                     |
+| **tweakcc**          | `packages/tweakcc/default.nix` (local)                                 | shamefully-hoist + autoPatchelfHook           | ESM apps with prebuilt native addons, external deps             |
 
-> **Note:** nixpkgs paths reference a local clone at `$HOME/git/nixpkgs`. Clone via `ghq get NixOS/nixpkgs` or adjust paths.
+> **Note:** nixpkgs paths reference a local clone at `/data/git/NixOS-nixpkgs`. Clone via `ghq get NixOS/nixpkgs` or adjust paths.
 
 ## pnpm Packages
 
@@ -392,20 +392,20 @@ cp -rL node_modules $out/lib/my-app/
 Find pnpm packages in nixpkgs:
 
 ```bash
-rg -l 'pnpmConfigHook' $HOME/git/nixpkgs/pkgs/by-name
+rg -l 'pnpmConfigHook' /data/git/NixOS-nixpkgs/pkgs/by-name
 ```
 
 Find packages with specific patterns:
 
 ```bash
 # Monorepo with workspaces
-rg 'pnpmWorkspaces' $HOME/git/nixpkgs/pkgs/by-name
+rg 'pnpmWorkspaces' /data/git/NixOS-nixpkgs/pkgs/by-name
 
 # Native module handling
-rg 'npm_config_nodedir' $HOME/git/nixpkgs/pkgs/by-name
+rg 'npm_config_nodedir' /data/git/NixOS-nixpkgs/pkgs/by-name
 
 # Hoisted node_modules
-rg 'nodeLinker hoisted' $HOME/git/nixpkgs/pkgs/by-name
+rg 'nodeLinker hoisted' /data/git/NixOS-nixpkgs/pkgs/by-name
 ```
 
 ## npm Packages
