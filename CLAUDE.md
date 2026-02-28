@@ -240,7 +240,7 @@ The `build.sh` script performs full validation (format, hooks, flake check) befo
 | Trigger              | Command                                         | Preconditions                                      | Post-check                                               |
 | -------------------- | ----------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------- |
 | Remove files safely  | `rip <path>`                                    | Ensure file is tracked or intended for deletion.   | Confirm `git status` shows deletion; revert if mistaken. |
-| Mirror updates (ghq) | `nix develop -c ghq get <repo>` or `ghq update` | Shared GHQ root configured; ensure network access. | Mirror updated under `$HOME/git/<repo>`.                 |
+| Mirror updates (ghq) | `nix develop -c ghq get <repo>` or `ghq update` | Shared GHQ root configured; ensure network access. | Mirror updated under `/data/git/<repo>`.                 |
 
 ### Troubleshooting
 
@@ -314,19 +314,19 @@ Pause, summarize the situation, and ask vx for direction before proceeding.
 
 ## Local Mirrors
 
-| Name           | Path                       | Use When                                                          |
-| -------------- | -------------------------- | ----------------------------------------------------------------- |
-| Stylix         | `$HOME/git/stylix`         | Inspect Stylix source or apply local patches.                     |
-| Home Manager   | `$HOME/git/home-manager`   | Review module behaviors or backport fixes.                        |
-| i3 Docs        | `$HOME/git/i3wm-docs`      | Reference i3 window manager documentation offline.                |
-| nixpkgs        | `$HOME/git/nixpkgs`        | Vendor patches or inspect upstream expressions.                   |
-| nixos-hardware | `$HOME/git/nixos-hardware` | Pull hardware profiles or troubleshoot hardware-specific options. |
-| nixvim         | `$HOME/git/nixvim`         | Examine NixVim modules and options.                               |
-| treefmt-nix    | `$HOME/git/treefmt-nix`    | Adjust formatting behavior or version pins.                       |
-| git-hooks.nix  | `$HOME/git/git-hooks.nix`  | Update hook definitions or debug pre-commit failures.             |
-| sops-nix       | `$HOME/git/sops-nix`       | Manage encrypted secrets integrations.                            |
-| import-tree    | `$HOME/git/import-tree`    | Review import-tree functionality or extend module auto-loading.   |
-| files module   | `$HOME/git/files`          | Modify sources that generate repo artefacts (e.g., `.gitignore`). |
+| Name           | Path                                   | Use When                                                          |
+| -------------- | -------------------------------------- | ----------------------------------------------------------------- |
+| Stylix         | `/data/git/nix-community-stylix`       | Inspect Stylix source or apply local patches.                     |
+| Home Manager   | `/data/git/nix-community-home-manager` | Review module behaviors or backport fixes.                        |
+| i3 Docs        | `/data/git/i3-i3.github.io`            | Reference i3 window manager documentation offline.                |
+| nixpkgs        | `/data/git/NixOS-nixpkgs`              | Vendor patches or inspect upstream expressions.                   |
+| nixos-hardware | `/data/git/NixOS-nixos-hardware`       | Pull hardware profiles or troubleshoot hardware-specific options. |
+| nixvim         | `/data/git/nix-community-nixvim`       | Examine NixVim modules and options.                               |
+| treefmt-nix    | `/data/git/numtide-treefmt-nix`        | Adjust formatting behavior or version pins.                       |
+| git-hooks.nix  | `/data/git/cachix-git-hooks.nix`       | Update hook definitions or debug pre-commit failures.             |
+| sops-nix       | `/data/git/Mic92-sops-nix`             | Manage encrypted secrets integrations.                            |
+| import-tree    | `/data/git/vic-import-tree`            | Review import-tree functionality or extend module auto-loading.   |
+| files module   | `/data/git/mightyiam-files`            | Modify sources that generate repo artefacts (e.g., `.gitignore`). |
 
 ## MCP Tools
 
