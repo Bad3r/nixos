@@ -1,4 +1,4 @@
-# Creates and manages the shared /git directory for local mirrors.
+# Creates and manages the shared /data/git mirror root.
 {
   flake.nixosModules.mirror-root =
     {
