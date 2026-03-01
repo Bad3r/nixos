@@ -90,6 +90,7 @@ _: {
         # Reasoning settings
         model_supports_reasoning_summaries = true;
         model_reasoning_effort = "xhigh";
+        plan_mode_reasoning_effort = "xhigh"; # none|minimal|low|medium|high|xhigh
         model_reasoning_summary = "detailed";
         model_verbosity = "medium";
 
