@@ -30,6 +30,7 @@ Mirrors are managed declaratively in `modules/system76/mirrors.nix` and synced t
 | i3/i3.github.io                 | `$LOCAL_MIRRORS/i3-i3.github.io`                 | Reference i3 window manager documentation offline.  |
 | better-auth/better-auth         | `$LOCAL_MIRRORS/better-auth-better-auth`         | Inspect Better Auth source and patch behavior.      |
 | logseq/logseq                   | `$LOCAL_MIRRORS/logseq-logseq`                   | Logseq source and plugin development.               |
+| openai/codex                    | `$LOCAL_MIRRORS/openai-codex`                    | Inspect Codex source and integration behavior.      |
 
 ## Adding Repositories
 

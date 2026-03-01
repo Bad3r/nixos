@@ -115,7 +115,7 @@ _: {
           apps = true;
           child_agents_md = true;
           multi_agent = true;
-          memory_tool = true;
+          memories = true;
           shell_snapshot = true;
           skill_env_var_dependency_prompt = true;
           sqlite = true;

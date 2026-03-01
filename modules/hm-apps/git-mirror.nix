@@ -115,6 +115,7 @@
             "NixOS/nixpkgs"
             "nix-community/home-manager"
             "better-auth/better-auth"
+            "openai/codex"
             "cachix/git-hooks.nix"
           ];
           description = "GitHub repos to mirror (owner/repo format).";
