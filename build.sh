@@ -274,6 +274,16 @@ configure_nix_config() {
   export NIX_CONFIG
 }
 
+resolve_installable() {
+  # When allow-dirty is enabled, force a path flake reference so untracked
+  # files are included in evaluation/build (git+file ignores untracked files).
+  if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+    printf "path:%s" "${FLAKE_DIR}"
+  else
+    printf "%s" "${FLAKE_DIR}"
+  fi
+}
+
 ensure_clean_git_tree() {
   # Respect explicit override via flag or env var
   if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
@@ -445,9 +455,20 @@ main() {
 
   # Deploy using nh os which handles build + activation with native elevation
   status_msg "${YELLOW}" "Deploying '${TARGET_HOST}' via nh os (${ACTION})..."
+  local installable
+  installable="$(resolve_installable)"
   case "${ACTION}" in
   switch | boot)
-    "${NH_CMD[@]}" os "${ACTION}" "${BUILD_FLAGS[@]}" -H "${TARGET_HOST}" "${FLAKE_DIR}"
+    nh_os_args=(
+      os
+      "${ACTION}"
+      -H "${TARGET_HOST}"
+      "${installable}"
+    )
+    if [[ ${#BUILD_FLAGS[@]} -gt 0 ]]; then
+      nh_os_args+=(-- "${BUILD_FLAGS[@]}")
+    fi
+    "${NH_CMD[@]}" "${nh_os_args[@]}"
     if [[ ${ACTION} == "switch" ]]; then
       status_msg "${GREEN}" "System switched successfully!"
       if [[ ${SKIP_FIRMWARE} == "false" ]]; then
