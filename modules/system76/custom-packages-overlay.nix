@@ -7,6 +7,7 @@ _: {
         electron-mail = final.callPackage ../../packages/electron-mail { };
         wappalyzer-next = final.callPackage ../../packages/wappalyzer-next { };
         age-plugin-fido2prf = final.callPackage ../../packages/age-plugin-fido2prf { };
+        azd = final.callPackage ../../packages/azd { };
         charles = final.callPackage ../../packages/charles { };
         dnsleak = final.callPackage ../../packages/dnsleak { };
         opendirectorydownloader = final.callPackage ../../packages/opendirectorydownloader { };
