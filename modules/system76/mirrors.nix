@@ -37,6 +37,7 @@
           # Applications
           "better-auth/better-auth"
           "logseq/logseq"
+          "openai/codex"
           "s0md3v/wappalyzer-next"
         ];
       };

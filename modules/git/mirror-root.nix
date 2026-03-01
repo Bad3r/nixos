@@ -1,4 +1,4 @@
-# Creates and manages the shared /data/git mirror root (e.g. /data/git/better-auth-better-auth).
+# Creates and manages the shared /data/git mirror root (e.g. /data/git/openai-codex).
 {
   flake.nixosModules.mirror-root =
     {
