@@ -51,17 +51,17 @@ let
   commitSelectModeSection = command: ''
     ## Select Mode
 
-    Always execute in `worktree_atomic` mode. Interpret user intent only as post-commit actions:
+    Default to `worktree_atomic` mode. Switch to `direct_current_branch` only when the user explicitly requests current-branch execution.
 
     1. `${command}` means commit only (no push, no PR) in a newly created worktree.
-    2. `${command} and push` means commit + push + PR + labels from a newly created worktree.
+    2. `${command} and push` means commit + push + PR + labels from a newly created worktree, unless the user explicitly requests the current branch.
     3. `${command} ... create pull request` means commit + push + PR + labels from a newly created worktree.
     4. `${command} ... explicit branch` uses the provided text as the branch seed, then still creates a brand-new unique branch.
   '';
 
   commitSkillBody = ''
     If the user provides an explicit commit message argument, use it after checks. If user intent is ambiguous, ask one short clarifying question before mutating state.
-    If a user requests a direct commit on `main` or `master`, refuse and continue with a new worktree branch workflow.
+    Direct commits on the current branch are allowed only when the user explicitly requests current-branch execution, including `main` or `master`.
     Never reuse an existing worktree path from a prior invocation.
     Never reuse any existing local or remote branch name from a prior invocation.
 
@@ -104,17 +104,18 @@ let
 
     After a pre-commit hook failure, never run `git commit --amend` unless the user explicitly asks to amend the previous commit.
 
-    ## Enforce Main Branch Protection
+    ## Enforce Main Branch Protection (Default Mode)
 
-    Apply this guard before any staging or commit:
+    Apply this guard before any staging or commit unless `current_branch_explicit=true`:
 
     - Never run `git commit` when current branch is `main` or `master`.
     - Never perform commit operations in-place on the primary checkout when it is on `main` or `master`.
     - Always create a new worktree and new non-main branch first, then commit inside that new worktree.
+    - Exception: if the user explicitly requests current-branch execution, allow in-place commit/push on the active branch, including `main` or `master`.
 
     ## Require Invocation-Local Worktree Creation
 
-    Enforce this gate before any `git add` or `git commit`:
+    Enforce this gate before any `git add` or `git commit` when `current_branch_explicit=false`:
 
     1. Snapshot existing worktree paths at invocation start:
 
@@ -129,7 +130,7 @@ let
 
     ## Require Invocation-Local Branch Creation
 
-    Enforce this gate before any `git worktree add`, `git add`, or `git commit`:
+    Enforce this gate before any `git worktree add`, `git add`, or `git commit` when `current_branch_explicit=false`:
 
     1. Snapshot existing local and remote branch names at invocation start:
 
@@ -183,45 +184,48 @@ let
     )"
     ```
 
-    ## Execute Workflow (Always Worktree-First)
+    ## Execute Workflow
 
     1. Parse intent flags from the user request:
        - `push_required` for push requests
        - `pr_required` for PR requests
        - `labels_required` when PR labels are requested
+       - `current_branch_explicit` only when the user clearly requests current-branch execution
        - `requested_paths` when the user names explicit files to commit
        - `keep_source_paths` when the user explicitly asks to keep source-checkout edits
        - `flake_lock_explicit` when `flake.lock` is explicitly requested
     2. Normalize intent flags:
-       - If `push_required` is true, force `pr_required=true` and `labels_required=true`.
-       - If `pr_required` is true, force `labels_required=true`.
+       - If `current_branch_explicit` is false and `push_required` is true, force `pr_required=true` and `labels_required=true`.
+       - If `current_branch_explicit` is false and `pr_required` is true, force `labels_required=true`.
+       - If `current_branch_explicit` is true, do not auto-enable PR or labels; run only what the user explicitly requested.
        - If `flake_lock_explicit` is false, remove `flake.lock` from `requested_paths`.
        - If `requested_paths` becomes empty after filtering, stop and ask for explicit paths.
        - Set `cleanup_source_paths=true` when `requested_paths` is non-empty and `keep_source_paths` is false.
-    3. Resolve branch seed in this order:
+    3. If `current_branch_explicit` is true, keep the invoking checkout as active path and skip steps 4-16.
+    4. Resolve branch seed in this order:
        - Explicit branch text from user input
        - Explicit ticket/issue id from user input
        - New seed inferred from request slug + established naming style
-    4. Select base branch in this order:
+    5. Select base branch in this order:
        - User-specified base
        - `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`
        - Fallback `main`, then `master` if present
-    5. Compute `repo_name` and `trees_repo_dir`, then ensure `"$trees_repo_dir"` exists.
-    6. Capture pre-create worktree list.
-    7. Capture pre-create branch list (local + remote refs).
-    8. Infer naming style from `~/trees/<repo_name>` and build provisional branch/worktree names from branch seed.
-    9. Enforce invocation-local branch creation gate by suffixing until branch name is globally unique against pre-snapshot refs.
-    10. Derive `new_worktree_name` from final `new_branch` by replacing `/` with `-`.
-    11. Ensure `new_branch` is never `main` or `master`.
-    12. If `"$HOME/trees/$repo_name/$new_worktree_name"` already exists, append a deterministic suffix (`-r2`, `-r3`, ...) until unique.
-    13. Create worktree and new branch from base:
+    6. Compute `repo_name` and `trees_repo_dir`, then ensure `"$trees_repo_dir"` exists.
+    7. Capture pre-create worktree list.
+    8. Capture pre-create branch list (local + remote refs).
+    9. Infer naming style from `~/trees/<repo_name>` and build provisional branch/worktree names from branch seed.
+    10. Enforce invocation-local branch creation gate by suffixing until branch name is globally unique against pre-snapshot refs.
+    11. Derive `new_worktree_name` from final `new_branch` by replacing `/` with `-`.
+    12. Ensure `new_branch` is never `main` or `master`.
+    13. If `"$HOME/trees/$repo_name/$new_worktree_name"` already exists, append a deterministic suffix (`-r2`, `-r3`, ...) until unique.
+    14. Create worktree and new branch from base:
 
     ```bash
     git worktree add -b new-branch "$HOME/trees/$repo_name/new-worktree-name" base-branch
     ```
 
-    14. Capture post-create worktree list and verify invocation-local creation gate passed.
-    15. Move pending edits out of the invoking checkout into the new worktree before switching active directory:
+    15. Capture post-create worktree list and verify invocation-local creation gate passed.
+    16. Move pending edits out of the invoking checkout into the new worktree before switching active directory:
        - Record `invoking_checkout="$(pwd)"` before changing directories; use this for source-scope cleanup and verification commands.
        - Resolve transfer scope:
          - If `requested_paths` is non-empty, transfer only those paths.
@@ -246,19 +250,19 @@ let
 
        - If stash apply fails, stop immediately, report stderr and the stash ref, and do not continue.
        - Never drop transfer stashes automatically; keep them available for recovery.
-    16. Set the new worktree path as the active working directory for all subsequent commands.
-    17. Run preflight checks, stage exact files, draft/confirm message when needed, and commit.
-    18. If `cleanup_source_paths=true`, clean requested paths in the invoking checkout after commit:
+    17. Set active working directory to the new worktree when `current_branch_explicit=false`; otherwise keep the invoking checkout active.
+    18. Run preflight checks, stage exact files, draft/confirm message when needed, and commit.
+    19. If `cleanup_source_paths=true` and `current_branch_explicit=false`, clean requested paths in the invoking checkout after commit:
        - For tracked files, run `git -C "$invoking_checkout" restore --source=HEAD -- <path>`.
        - For untracked files, run `rip "$invoking_checkout/<path>"`.
        - Verify with `git -C "$invoking_checkout" status --porcelain --untracked-files=all -- <requested_paths...>`.
        - If any requested path remains dirty, stop and report exact paths.
-    19. If `push_required`, push safely with upstream tracking.
-    20. If `pr_required`, create PR with `gh pr create --fill --base base-branch --head active-branch` unless user provides custom title/body.
-    21. Because `pr_required` implies `labels_required`, always set labels immediately after PR creation:
+    20. If `push_required`, push safely with upstream tracking.
+    21. If `pr_required`, create PR with `gh pr create --fill --base base-branch --head active-branch` unless user provides custom title/body.
+    22. Because `pr_required` implies `labels_required`, always set labels immediately after PR creation:
        - Prefer user-provided labels.
        - Otherwise inspect `gh label list` and apply best-matching existing labels.
-    22. Return new worktree path, active branch, commit SHA, and optional push/PR outputs.
+    23. Return active path, active branch, commit SHA, whether `current_branch_explicit` was used, and optional push/PR outputs.
 
     ## Handle Failures
 
@@ -282,21 +286,21 @@ let
       codex = {
         frontmatter = {
           name = "commit";
-          description = "Execute safe Git commit workflows when the user invokes $commit or asks to commit changes. Always create a new git worktree under ~/trees/repo-name and commit there, never directly on main/master. Use for $commit, $commit and push, and $commit in a new branch then push and create a pull request with gh and labels.";
+          description = "Safe commit workflow: default to a fresh ~/trees worktree + branch; allow current-branch commit/push only when explicitly requested, including main/master.";
         };
         intro = "Create a well-formatted git commit following all project safety rules and Conventional Commits format.";
         sections = [ (commitSelectModeSection "$commit") ];
         interface = {
           display_name = "Commit Workflow";
           short_description = "Safe commit, push, branch, and PR workflow";
-          default_prompt = "Use $commit to create a fresh ~/trees worktree and brand-new branch, commit off main/master, and when pushing always create a PR and apply labels.";
+          default_prompt = "Use $commit with default worktree + new-branch flow. Commit/push on the current branch only when the user explicitly requests it, including main/master.";
         };
       };
 
       claude = {
         frontmatter = {
           name = "commit";
-          description = "Execute safe Git commit workflows when the user invokes /commit or asks to commit changes. Always create a new git worktree under ~/trees/repo-name and commit there, never directly on main/master. Use for /commit, /commit and push, and /commit in a new branch then push and create a pull request with gh and labels.";
+          description = "Safe commit workflow: default to a fresh ~/trees worktree + branch; allow current-branch commit/push only when explicitly requested, including main/master.";
           "disable-model-invocation" = true;
           "allowed-tools" =
             "Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Bash(git worktree *), Bash(git stash *), Bash(git restore *), Bash(git ls-files *), Bash(git for-each-ref *), Bash(git rev-parse *), Bash(git branch *), Bash(git push *), Bash(mkdir *), Bash(rip *), Bash(gh repo view *), Bash(gh pr *), Bash(gh label *), Read, Grep, Glob";

@@ -59,8 +59,146 @@ _: {
         "playwright"
       ];
 
-      # Base settings (everything except projects — those are merged at runtime)
-      baseSettings = {
+      # Codex defaults (all available non-Windows options).
+      # `null` means "unset": Codex uses its built-in default for that key.
+      codexDefaultSettings = {
+        # agents = null;
+        allow_login_shell = true;
+        analytics = {
+          enabled = true;
+        };
+        approval_policy = "on-request";
+        apps = { };
+        background_terminal_max_timeout = 300000;
+        # chatgpt_base_url = null;
+        check_for_update_on_startup = true;
+        cli_auth_credentials_store = "auto";
+        # commit_attribution = null;
+        # compact_prompt = null;
+        # developer_instructions = null;
+        disable_paste_burst = false;
+        # experimental_compact_prompt_file = null;
+        # experimental_realtime_ws_backend_prompt = null;
+        # experimental_realtime_ws_base_url = null;
+        # experimental_use_freeform_apply_patch = null;
+        # experimental_use_unified_exec_tool = null;
+        features = {
+          apply_patch_freeform = false;
+          apps = false;
+          apps_mcp_gateway = false;
+          child_agents_md = false;
+          codex_git_commit = false;
+          default_mode_request_user_input = false;
+          enable_request_compression = true;
+          js_repl = false;
+          js_repl_tools_only = false;
+          memories = false;
+          multi_agent = false;
+          personality = true;
+          powershell_utf8 = false;
+          prevent_idle_sleep = false;
+          realtime_conversation = false;
+          request_permissions = false;
+          responses_websockets = false;
+          responses_websockets_v2 = false;
+          runtime_metrics = false;
+          shell_snapshot = true;
+          shell_tool = true;
+          shell_zsh_fork = false;
+          skill_env_var_dependency_prompt = false;
+          skill_mcp_dependency_install = true;
+          sqlite = true;
+          undo = false;
+          unified_exec = true;
+          use_linux_sandbox_bwrap = false;
+          voice_transcription = false;
+        };
+        feedback = {
+          enabled = true;
+        };
+        file_opener = "vscode";
+        # forced_chatgpt_workspace_id = null;
+        # forced_login_method = null;
+        # ghost_snapshot = null;
+        hide_agent_reasoning = false;
+        history = {
+          # max_bytes = null;
+          persistence = "save-all";
+        };
+        # instructions = null;
+        # js_repl_node_module_dirs = null;
+        # js_repl_node_path = null;
+        # log_dir = null;
+        # mcp_oauth_callback_port = null;
+        # mcp_oauth_callback_url = null;
+        mcp_oauth_credentials_store = "auto";
+        mcp_servers = { };
+        # memories = null;
+        # model = null;
+        # model_auto_compact_token_limit = null;
+        # model_catalog_json = null;
+        # model_context_window = null;
+        # model_instructions_file = null;
+        model_provider = "openai";
+        model_providers = { };
+        # model_reasoning_effort = null;
+        model_reasoning_summary = "auto";
+        # model_supports_reasoning_summaries = null;
+        model_verbosity = "medium";
+        # notice = null;
+        # notify = null;
+        # oss_provider = null;
+        otel = {
+          environment = "dev";
+          exporter = "none";
+          log_user_prompt = false;
+          trace_exporter = "none";
+        };
+        # permissions = null;
+        # personality = null;
+        # plan_mode_reasoning_effort = null;
+        # profile = null;
+        profiles = { };
+        # project_doc_fallback_filenames = null;
+        # project_doc_max_bytes = null;
+        project_root_markers = [ ".git" ];
+        projects = { };
+        # review_model = null;
+        sandbox_mode = "workspace-write";
+        # sandbox_workspace_write = {
+        #   exclude_slash_tmp = null;
+        #   exclude_tmpdir_env_var = null;
+        #   network_access = null;
+        #   writable_roots = null;
+        # };
+        # shell_environment_policy = {
+        #   exclude = null;
+        #   experimental_use_profile = null;
+        #   ignore_default_excludes = null;
+        #   include_only = null;
+        #   "inherit" = null;
+        #   set = null;
+        # };
+        show_raw_agent_reasoning = false;
+        # skills = null;
+        # sqlite_home = null;
+        suppress_unstable_features_warning = false;
+        # tool_output_token_limit = null;
+        # tools = null;
+        tui = {
+          alternate_screen = "auto";
+          animations = true;
+          notification_method = "auto";
+          # notifications = null;
+          show_tooltips = true;
+          # status_line = null;
+        };
+        web_search = "cached";
+        # zsh_path = null;
+      };
+
+      # Existing non-default values (kept as-is).
+      codexSettingsOverrides = {
         # Core settings
         model = "gpt-5.3-codex";
         profile = "default";
@@ -68,6 +206,7 @@ _: {
         sandbox_mode = "danger-full-access";
         personality = "pragmatic";
         web_search = "live";
+        zsh_path = lib.getExe pkgs.zsh;
 
         # Developer instructions for security research context
         developer_instructions = ''
@@ -102,29 +241,39 @@ _: {
         notify = [ "notify-send" ];
 
         # Privacy/telemetry
-        analytics.enabled = false;
-        feedback.enabled = false;
+        analytics = {
+          enabled = false;
+        };
+        feedback = {
+          enabled = false;
+        };
         check_for_update_on_startup = false;
 
         # Experimental settings
         suppress_unstable_features_warning = true;
-        enable_request_compression = false;
 
         # Feature flags
         features = {
           apply_patch_freeform = true;
           apps = true;
+          apps_mcp_gateway = false;
           child_agents_md = true;
+          codex_git_commit = true;
+          default_mode_request_user_input = true;
+          enable_request_compression = false;
+          js_repl = true; # Requires Node >= v22.22.0.
           multi_agent = true;
           memories = true;
+          realtime_conversation = true;
+          request_permissions = true;
+          shell_zsh_fork = true;
           shell_snapshot = true;
           skill_env_var_dependency_prompt = true;
           sqlite = true;
-          steer = true;
           undo = true;
           unified_exec = true;
-          use_linux_sandbox_bwrap = false;
-          responses_websockets = false; # 10/02/26 doesnt work as expected
+          use_linux_sandbox_bwrap = true;
+          responses_websockets_v2 = true;
         };
 
         # Shell environment
@@ -157,6 +306,11 @@ _: {
           };
         };
       };
+
+      # Base settings (everything except projects — those are merged at runtime)
+      baseSettings = lib.filterAttrsRecursive (_: value: value != null) (
+        lib.recursiveUpdate codexDefaultSettings codexSettingsOverrides
+      );
 
       # Nix-managed trusted project directories (static, always-trusted paths)
       nixProjectSettings = {
