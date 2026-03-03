@@ -142,7 +142,8 @@ _: {
         model_provider = "openai";
         model_providers = { };
         # model_reasoning_effort = null;
-        model_reasoning_summary = "auto";
+        # Disabled because gpt-5.3-codex-spark returns 400 unsupported_parameter for `reasoning.summary`.
+        # model_reasoning_summary = "auto";
         # model_supports_reasoning_summaries = null;
         model_verbosity = "medium";
         # notice = null;
@@ -230,7 +231,6 @@ _: {
         model_supports_reasoning_summaries = true;
         model_reasoning_effort = "xhigh";
         plan_mode_reasoning_effort = "xhigh"; # none|minimal|low|medium|high|xhigh
-        model_reasoning_summary = "detailed";
         model_verbosity = "medium";
 
         # Reasoning visibility
@@ -301,7 +301,6 @@ _: {
             approval_policy = "never";
             model_supports_reasoning_summaries = true;
             model_reasoning_effort = "xhigh";
-            model_reasoning_summary = "detailed";
             model_verbosity = "medium";
           };
         };
