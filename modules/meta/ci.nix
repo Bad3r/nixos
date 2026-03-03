@@ -13,14 +13,14 @@ let
   mkHostDesktopFilesCheck =
     hostName: hostConfig: pkgs:
     let
-      inherit (hostConfig.config.system76) defaults;
+      defaults = lib.attrByPath [ hostName "defaults" ] null hostConfig.config;
 
       # Build check commands for each configured default
       checkCommands = lib.flatten (
         lib.mapAttrsToList (
           catName: catDesktopFiles:
           let
-            selectedApp = defaults.${catName};
+            selectedApp = if defaults == null then null else defaults.${catName} or null;
           in
           # Guard: only proceed if a default is configured for this category
           if selectedApp == null then
@@ -30,10 +30,10 @@ let
               appInfo = catDesktopFiles.${selectedApp};
               moduleName = appInfo.module;
               desktopFile = appInfo.desktop;
-              isEnabled = hostConfig.config.programs.${moduleName}.extended.enable;
-              pkg = hostConfig.config.programs.${moduleName}.extended.package;
+              isEnabled = lib.attrByPath [ "programs" moduleName "extended" "enable" ] false hostConfig.config;
+              pkg = lib.attrByPath [ "programs" moduleName "extended" "package" ] null hostConfig.config;
             in
-            lib.optional isEnabled ''
+            lib.optional (isEnabled && pkg != null) ''
               if [ ! -f "${pkg}/share/applications/${desktopFile}" ]; then
                 echo "ERROR: Desktop file '${desktopFile}' not found in package '${pkg.name}'"
                 echo "       Expected at: ${pkg}/share/applications/${desktopFile}"
