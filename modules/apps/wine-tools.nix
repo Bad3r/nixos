@@ -45,7 +45,17 @@ let
       # Custom steam-run with additional libraries for better compatibility
       customSteamRun =
         (pkgs.steam.override {
+          # `steam` uses:
+          # - extraPkgs for target packages/tools
+          # - extraLibraries for multilib shared libraries (32/64-bit)
+          # Put Wine/Proton runtime libs in extraLibraries so 32-bit wine can
+          # resolve them (for example libfreetype.so.6).
           extraPkgs =
+            p: with p; [
+              # .NET/Mono support
+              mono
+            ];
+          extraLibraries =
             p: with p; [
               # Font rendering
               freetype
@@ -61,8 +71,6 @@ let
               alsa-lib
               # Graphics
               vulkan-loader
-              # .NET/Mono support
-              mono
             ];
         }).run;
       steamRunExe = lib.getExe customSteamRun;
