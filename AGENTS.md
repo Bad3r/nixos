@@ -2,7 +2,7 @@
 
 This file provides guidance to coding agents working in this repository.
 
-> IMPORTANT: This repo manages a single System76 host with the sole user `vx`. Do not introduce additional hosts or users.
+> IMPORTANT: This repo now manages multiple hosts (e.g., `system76`, `tpnix`) with the single user `vx` shared across them. Introducing additional users still requires explicit direction from `vx`.
 
 > IMPORTANT: Never consider backward compatibility. Eliminate legacy support by default.
 
