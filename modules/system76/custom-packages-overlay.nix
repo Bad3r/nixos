@@ -11,6 +11,7 @@ _: {
         charles = final.callPackage ../../packages/charles { };
         dnsleak = final.callPackage ../../packages/dnsleak { };
         opendirectorydownloader = final.callPackage ../../packages/opendirectorydownloader { };
+        less = final.callPackage ../../packages/less { };
         malimite = final.callPackage ../../packages/malimite { };
         claude-wpa = final.callPackage ../../packages/claude-wpa { };
         rg-fzf = final.callPackage ../../packages/rg-fzf { };
