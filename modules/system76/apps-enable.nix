@@ -353,6 +353,7 @@
       autorandr.extended.enable = lib.mkOverride 1100 true;
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
+      pcscd.extended.enable = lib.mkOverride 1100 true;
     };
   };
 }
