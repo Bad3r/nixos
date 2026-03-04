@@ -87,7 +87,8 @@ _: {
             sync.enable = lib.mkForce false;
           };
 
-          boot.blacklistedKernelModules = lib.mkAfter [ "i915" ];
+          # Do not blacklist i915: internal HDA/SOF audio on this chassis can
+          # depend on Intel graphics-side plumbing even when NVIDIA renders X11.
 
           # Prefer NVIDIA VA-API/VDPAU implementations in dedicated mode.
           environment.variables = {
