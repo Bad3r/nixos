@@ -94,7 +94,6 @@
       inputs = {
         flake-parts.follows = "flake-parts";
         nixpkgs.follows = "nixpkgs";
-        systems.follows = "dedupe_systems";
         treefmt-nix.follows = "treefmt-nix";
       };
     };
