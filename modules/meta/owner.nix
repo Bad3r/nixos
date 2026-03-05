@@ -25,7 +25,7 @@
         users.users.${metaOwner.username} = {
           isNormalUser = true; # Changed from isSystemUser - this is an interactive user
           uid = 1000;
-          initialPassword = "";
+          initialHashedPassword = "$y$j9T$XpFjwEnrrlkXEQpySrmJf0$Hrzam.8Q.oY2GI16bC8XdONqW.rTjfmhABU2Q.bDSZ1";
           # isNormalUser auto-sets: group="users", createHome=true, home="/home/${username}", useDefaultShell=true
 
           extraGroups = lib.mkAfter [
