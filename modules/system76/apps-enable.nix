@@ -18,6 +18,7 @@
   configurations.nixos.system76.module = {
     programs = {
       act.extended.enable = lib.mkOverride 1100 true;
+      whois.extended.enable = lib.mkOverride 1100 true;
       actionlint.extended.enable = lib.mkOverride 1100 true;
       "aircrack-ng".extended.enable = lib.mkOverride 1100 false;
       "android-studio".extended.enable = lib.mkOverride 1100 false;
