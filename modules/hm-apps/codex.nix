@@ -228,7 +228,7 @@ _: {
         '';
 
         # Reasoning settings
-        model_supports_reasoning_summaries = true;
+        # model_supports_reasoning_summaries = true; # Avoid sending reasoning.summary.
         model_reasoning_effort = "xhigh";
         plan_mode_reasoning_effort = "xhigh"; # none|minimal|low|medium|high|xhigh
         model_verbosity = "medium";
@@ -299,7 +299,7 @@ _: {
           default = {
             model = "gpt-5.3-codex";
             approval_policy = "never";
-            model_supports_reasoning_summaries = true;
+            # model_supports_reasoning_summaries = true; # Avoid sending reasoning.summary.
             model_reasoning_effort = "xhigh";
             model_verbosity = "medium";
           };
