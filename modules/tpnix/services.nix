@@ -1,0 +1,106 @@
+_: {
+  configurations.nixos.tpnix.module =
+    { pkgs, lib, ... }:
+    {
+      # Cannot use systemd.sysusers with normal users (only supports system users)
+      # systemd.sysusers.enable = true;
+      systemd.coredump = {
+        enable = true;
+        extraConfig = ''
+          MaxUse=1G
+          KeepFree=2G
+          MaxRetentionSec=3d
+        '';
+      };
+
+      # lock = logind signal -> xss-lock --transfer-sleep-lock (i3lock-stylix)
+      services.logind.settings.Login = {
+        HandlePowerKey = lib.mkDefault "lock";
+        HandleLidSwitch = lib.mkDefault "suspend"; # ignore, lock, suspend, poweroff, hibernate
+        HandleLidSwitchExternalPower = lib.mkDefault "suspend"; # On AC power
+        HandleLidSwitchDocked = lib.mkDefault "suspend"; # External display connected
+      };
+
+      services = {
+        journald = {
+          storage = "persistent";
+          extraConfig = ''
+            SystemMaxUse=1G
+            SystemKeepFree=10G
+          '';
+        };
+
+        # Disable samples and network clients until configured on this host
+        cloudflared.enable = lib.mkForce false;
+        cloudflare-warp.enable = lib.mkForce false;
+
+        # Disable printing by default on this host; remove Samsung driver
+        printing = {
+          enable = lib.mkForce false;
+          drivers = with pkgs; [
+            gutenprint
+            # hplip  # Requires unfree license
+            brlaser
+          ];
+        };
+
+        # Enable CUPS for printing
+        avahi = {
+          enable = lib.mkDefault true;
+          nssmdns4 = true;
+          openFirewall = true;
+        };
+
+        # Power management
+        upower.enable = true;
+        power-profiles-daemon.enable = lib.mkDefault true;
+
+        # Enable GVFS for trash support, mounting, etc.
+        gvfs.enable = true;
+
+        # Enable thumbnail generation
+        tumbler.enable = true;
+
+        # Enable locate service
+        locate = {
+          enable = true;
+          package = pkgs.plocate;
+        };
+
+        # Enable weekly fstrim for SSDs
+        fstrim.enable = true;
+
+        thermald.enable = lib.mkDefault true;
+
+        # Keep System76-specific scheduler disabled unless explicitly enabled.
+        system76-scheduler.enable = lib.mkDefault false;
+
+        # LACT: GPU control and monitoring (power limits, fan curves, clocks)
+        # Supports NVIDIA, AMD, and Intel GPUs
+        lact.enable = true;
+      };
+
+      # Power management configuration.
+      powerManagement = {
+        enable = true;
+        cpuFreqGovernor = lib.mkDefault "performance"; # ondemand, powersave, performance
+        powertop.enable = false; # Aggressive USB autosuspend causes device issues
+        resumeCommands = ''
+          # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
+          ${pkgs.systemd}/bin/loginctl lock-sessions
+        '';
+      };
+
+      # CoolerControl: DISABLED - conflicts with System76 EC fan control
+      # When both CoolerControl and EC control fans simultaneously (e.g., Fn+1),
+      # the EC hangs causing system crash. See: github.com/pop-os/system76-dkms/issues/11
+      # Let EC and system76-power handle fans natively.
+      programs.coolercontrol.enable = false;
+
+      # Disable ACME sample certs until configured with real domain/token
+      security.acme = {
+        acceptTerms = lib.mkDefault false;
+        certs = lib.mkForce { };
+      };
+    };
+}
