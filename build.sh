@@ -222,11 +222,13 @@ BOOTSTRAP_TRUSTED_KEYS=(
 configure_build_flags() {
   local build_cores="$(($(nproc --all) - 1))" # Nix default = 0 (all cores per build job)
   local build_max_jobs="1"                    # Nix default = 1
+  local nix_experimental_features="nix-command flakes pipe-operators"
 
   BUILD_FLAGS=(
     "--cores" "${build_cores}"
     "--max-jobs" "${build_max_jobs}"
     "--accept-flake-config"
+    "--extra-experimental-features" "${nix_experimental_features}"
   )
 
   # Offline mode
