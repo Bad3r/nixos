@@ -9,6 +9,7 @@
       ...
     }:
     let
+      cfg = config.security.repoSecrets;
       # Detect if act secret file exists to avoid evaluation failures
       actSecretFile = "${secretsRoot}/act.yaml";
       gpgSecretFile = "${secretsRoot}/gpg/vx.asc";
@@ -18,6 +19,12 @@
     in
     {
       imports = [ inputs.sops-nix.nixosModules.sops ];
+
+      options.security.repoSecrets.enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Whether to declare repository-managed SOPS secrets (act/gpg).";
+      };
 
       config = {
         environment.systemPackages = with pkgs; [
@@ -33,7 +40,7 @@
         # (prevents evaluation errors when secrets repo is absent)
         _module.args = { };
       }
-      // lib.mkIf actSecretExists {
+      // lib.mkIf (cfg.enable && actSecretExists) {
         sops.secrets."act/github_token" = {
           sopsFile = actSecretFile;
           mode = "0400";
@@ -52,13 +59,23 @@
         # Expose a stable path for act to use
         environment.etc."act/secrets.env".source = config.sops.templates."act-env".path;
       }
-      // lib.mkIf gpgSecretExists {
+      // lib.mkIf (cfg.enable && gpgSecretExists) {
         sops.secrets."gpg/vx-secret-key" = {
           sopsFile = gpgSecretFile;
           format = "binary";
           mode = "0400";
           owner = ownerName;
         };
+      }
+      // lib.mkIf (cfg.enable && !actSecretExists) {
+        warnings = [
+          "security.repoSecrets.enable is true but ${actSecretFile} is missing; skipping act secret."
+        ];
+      }
+      // lib.mkIf (cfg.enable && !gpgSecretExists) {
+        warnings = [
+          "security.repoSecrets.enable is true but ${gpgSecretFile} is missing; skipping gpg secret."
+        ];
       };
     };
 

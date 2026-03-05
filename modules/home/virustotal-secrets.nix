@@ -13,23 +13,39 @@
       ...
     }:
     let
+      cfg = config.home.virustotalSecrets;
       vtSecretFile = "${secretsRoot}/virustotal.yaml";
+      vtSecretExists = builtins.pathExists vtSecretFile;
       homeDirectory = "/home/${metaOwner.username}";
     in
     {
-      config = lib.mkIf (builtins.pathExists vtSecretFile) {
-        sops.secrets."virustotal/api-key" = {
-          sopsFile = vtSecretFile;
-          key = "virustotal_api_key";
-        };
-
-        sops.templates.".vt.toml" = {
-          content = ''
-            apikey="${config.sops.placeholder."virustotal/api-key"}"
-          '';
-          path = "${homeDirectory}/.vt.toml";
-          mode = "0600";
-        };
+      options.home.virustotalSecrets.enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Whether to provision Home Manager VirusTotal API key secret.";
       };
+
+      config = lib.mkMerge [
+        (lib.mkIf (cfg.enable && vtSecretExists) {
+          sops.secrets."virustotal/api-key" = {
+            sopsFile = vtSecretFile;
+            key = "virustotal_api_key";
+          };
+
+          sops.templates.".vt.toml" = {
+            content = ''
+              apikey="${config.sops.placeholder."virustotal/api-key"}"
+            '';
+            path = "${homeDirectory}/.vt.toml";
+            mode = "0600";
+          };
+        })
+
+        (lib.mkIf (cfg.enable && !vtSecretExists) {
+          warnings = [
+            "home.virustotalSecrets.enable is true but ${vtSecretFile} is missing; skipping VirusTotal secret."
+          ];
+        })
+      ];
     };
 }
