@@ -65,9 +65,17 @@ in
     hardware.system76.extended.enable = true;
 
     # Security & authentication
-    security.polkit.wheelPowerManagement.enable = true;
-    # Do not grant broad systemd unit management without explicit elevation.
-    security.polkit.wheelSystemdManagement.enable = false;
+    security = {
+      polkit.wheelPowerManagement.enable = true;
+      # Do not grant broad systemd unit management without explicit elevation.
+      polkit.wheelSystemdManagement.enable = false;
+      r2CloudSecrets.enable = lib.mkDefault true;
+    };
+    home-manager.users.${metaOwner.username}.home = {
+      context7Secrets.enable = lib.mkDefault true;
+      r2Secrets.enable = lib.mkDefault true;
+      virustotalSecrets.enable = lib.mkDefault true;
+    };
 
     # Gaming & performance
     programs = {
