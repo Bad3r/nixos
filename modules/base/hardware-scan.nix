@@ -1,3 +1,4 @@
+{ lib, ... }:
 {
   flake.nixosModules.base = {
     # Replicate critical functionality from installer/scan/not-detected.nix
@@ -24,7 +25,7 @@
     # Fully selective approach: firmware is declared explicitly per-host
     # This avoids pulling unnecessary firmware packages
     hardware = {
-      enableRedistributableFirmware = false;
+      enableRedistributableFirmware = lib.mkDefault true;
       enableAllFirmware = false;
     };
 
