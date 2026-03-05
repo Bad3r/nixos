@@ -37,7 +37,6 @@
           # PipeWire controls for selecting outputs and adjusting volume
           pwvucontrol
           qpwgraph
-          helvum
 
           # Audio production and codecs
           alsa-utils
