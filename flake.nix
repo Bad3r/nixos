@@ -205,10 +205,8 @@
     let
       ownerProfile = import ./lib/meta-owner-profile.nix;
       rootPath = ./.;
-      # Keep secretsRoot as a string (not a path object). This avoids evaluation
-      # failures in flake snapshot contexts when the `secrets` submodule/store
-      # path is unavailable; consumers gate with builtins.pathExists.
-      secretsRoot = toString rootPath + "/secrets";
+      # Keep secretsRoot as a path so sopsFile values preserve path/store context.
+      secretsRoot = rootPath + "/secrets";
     in
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
