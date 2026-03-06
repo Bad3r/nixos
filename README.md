@@ -1,6 +1,6 @@
 # NixOS Configuration
 
-A NixOS configuration using the [Dendritic Pattern](https://github.com/mightyiam/infra), an organic configuration growth pattern with automatic module discovery. Powered by [flake-parts](https://flake.parts/).
+A NixOS configuration using the [Dendritic Pattern](https://github.com/mightyiam/dendritic), an organic configuration growth pattern with automatic module discovery. Powered by [flake-parts](https://flake.parts/).
 
 ## Automatic Import
 
@@ -23,11 +23,11 @@ It refuses to run on a dirty worktree by default; use `--allow-dirty` to overrid
 
 **Development commands:**
 
-| Command | Description |
-|---------|-------------|
-| `nix develop` | Enter dev shell |
-| `nix fmt` | Format files |
-| `pre-commit run --all-files --hook-stage manual` | Run all hooks |
+| Command                                          | Description     |
+| ------------------------------------------------ | --------------- |
+| `nix develop`                                    | Enter dev shell |
+| `nix fmt`                                        | Format files    |
+| `pre-commit run --all-files --hook-stage manual` | Run all hooks   |
 
 ## Home Manager Package Pattern
 
@@ -45,12 +45,12 @@ See the [sops documentation](docs/sops/README.md) for usage instructions.
 
 Inputs prefixed with `dedupe_` exist solely for deduplication via `.follows` declarations.
 
-| Input | Followed By |
-|-------|-------------|
-| `dedupe_flake-compat` | make-shell |
-| `dedupe_flake-utils` | (internal) |
-| `dedupe_nur` | stylix |
-| `dedupe_systems` | stylix, dedupe_flake-utils |
+| Input                 | Followed By                |
+| --------------------- | -------------------------- |
+| `dedupe_flake-compat` | make-shell                 |
+| `dedupe_flake-utils`  | (internal)                 |
+| `dedupe_nur`          | stylix                     |
+| `dedupe_systems`      | stylix, dedupe_flake-utils |
 
 ## Generated Files
 
@@ -60,4 +60,3 @@ The following files are defined in Nix and generated via [mightyiam/files](https
 - `.gitignore`
 - `.sops.yaml`
 - `README.md`
-
