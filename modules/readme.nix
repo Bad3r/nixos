@@ -17,7 +17,7 @@
         ''
           # NixOS Configuration
 
-          A NixOS configuration using the [Dendritic Pattern](https://github.com/mightyiam/infra), an organic configuration growth pattern with automatic module discovery. Powered by [flake-parts](https://flake.parts/).
+          A NixOS configuration using the [Dendritic Pattern](https://github.com/mightyiam/dendritic), an organic configuration growth pattern with automatic module discovery. Powered by [flake-parts](https://flake.parts/).
 
         '';
 
