@@ -39,6 +39,7 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+        networking.networkmanager.plugins = [ cfg.package ];
       };
     };
 in

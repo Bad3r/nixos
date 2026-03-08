@@ -11,11 +11,11 @@
 
   Options:
     protonvpn-gui: Launch the ProtonVPN desktop client and sign in with Proton credentials.
-    CLI: ProtonVPN GUI also installs `protonvpn-cli` for headless control (`protonvpn-cli c`, `protonvpn-cli status`, etc.).
+    CLI: This package currently installs `protonvpn-app` only (no separate `protonvpn-cli` binary).
 
   Example Usage:
     * `protonvpn-gui` -- Open the GUI, select a profile, and connect to a VPN server.
-    * `protonvpn-cli c --sc` -- Connect to the fastest Secure Core server via CLI.
+    * `protonvpn-app --start-minimized` -- Launch the app with tray-first behavior.
     * Enable “Kill Switch” in settings to block traffic if the VPN disconnects unexpectedly.
 */
 _:
