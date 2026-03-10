@@ -155,7 +155,7 @@ let
         "--isolated"
         "--no-usage-statistics"
       ];
-      timeout = 120;
+      timeout = 240;
     };
 
     playwright = {
@@ -163,13 +163,13 @@ let
       package = "@playwright/mcp@latest";
       # Keep browser state isolated; browser executable is resolved by mkServerConfig.
       args = [ "--isolated" ];
-      timeout = 120;
+      timeout = 240;
     };
   };
 
   # Timeout in seconds (used by Codex via startup_timeout_sec)
   # Also converted to milliseconds for Claude Code (startup_timeout_ms)
-  defaultTimeoutSec = 30;
+  defaultTimeoutSec = 60;
 
   # Helper to generate both timeout formats for cross-tool compatibility
   # Codex uses startup_timeout_sec, Claude Code uses startup_timeout_ms
