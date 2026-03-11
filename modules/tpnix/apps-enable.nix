@@ -166,6 +166,7 @@
       mattermost.extended.enable = lib.mkOverride 1100 false;
       "media-toolchain".extended.enable = lib.mkOverride 1100 false;
       metasploit.extended.enable = lib.mkOverride 1100 false;
+      mlr.extended.enable = lib.mkOverride 1100 true;
       "minio-client".extended.enable = lib.mkOverride 1100 false;
       mitmproxy.extended.enable = lib.mkOverride 1100 false;
       "msgraph-cli".extended.enable = lib.mkOverride 1100 false;
