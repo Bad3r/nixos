@@ -70,10 +70,20 @@ in
       repoSecrets.enable = lib.mkForce false;
       r2CloudSecrets.enable = lib.mkForce false;
     };
-    home-manager.users.${metaOwner.username}.home = {
-      context7Secrets.enable = lib.mkForce false;
-      r2Secrets.enable = lib.mkForce false;
-      virustotalSecrets.enable = lib.mkForce false;
+    home-manager.users.${metaOwner.username} = {
+      home = {
+        context7Secrets.enable = lib.mkForce false;
+        r2Secrets.enable = lib.mkForce false;
+        virustotalSecrets.enable = lib.mkForce false;
+      };
+
+      programs.git = {
+        signing.signByDefault = lib.mkForce false;
+        settings = {
+          commit.gpgSign = lib.mkForce false;
+          tag.gpgSign = lib.mkForce false;
+        };
+      };
     };
 
     home-manager.sharedModules = lib.mkAfter (
