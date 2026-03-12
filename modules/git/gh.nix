@@ -3,7 +3,7 @@
     programs.gh = {
       enable = true;
       settings = {
-        git_protocol = "ssh";
+        git_protocol = "https";
         editor = "vim";
       };
     };
