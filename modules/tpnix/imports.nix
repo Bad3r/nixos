@@ -36,6 +36,7 @@ in
     imports = [
       config.flake.nixosModules.base
       config.flake.nixosModules.sopsRuntime
+      config.flake.nixosModules.repoSecrets
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
     ]
