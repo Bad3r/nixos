@@ -1,7 +1,8 @@
-{ lib, ... }:
+{ config, lib, ... }:
 {
   configurations.nixos.system76.module = {
     services.gnome.gnome-keyring.enable = lib.mkForce false;
     security.pam.services.login.enableGnomeKeyring = lib.mkForce false;
+    home-manager.sharedModules = lib.mkAfter [ config.flake.homeManagerModules.repoGpgSecret ];
   };
 }
