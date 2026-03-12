@@ -34,6 +34,7 @@ in
       # Required infrastructure (exported NixOS modules)
       # Note: base includes Stylix via modules/style/stylix.nix contribution
       config.flake.nixosModules.base
+      config.flake.nixosModules.sopsRuntime
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
       config.flake.nixosModules."duplicati-r2"
