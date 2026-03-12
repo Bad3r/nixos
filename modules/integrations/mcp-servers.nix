@@ -7,6 +7,7 @@
 
   Source types:
     - nix: Packages from mcp-servers-nix (fully reproducible)
+    - http: Remote streamable HTTP MCP servers
     - sse: Remote SSE servers bridged via mcp-remote
     - npx: NPM packages fetched at runtime
 
@@ -22,6 +23,7 @@ let
 
   validSources = [
     "nix"
+    "http"
     "sse"
     "npx"
   ];
@@ -29,6 +31,7 @@ let
   # Required fields per source type
   requiredFields = {
     nix = [ "package" ];
+    http = [ "url" ];
     sse = [ "url" ];
     npx = [ "package" ];
   };
@@ -36,6 +39,7 @@ let
   # Optional fields per source type
   optionalFields = {
     nix = [ "secretEnvVar" ];
+    http = [ "timeout" ];
     sse = [ "timeout" ];
     npx = [
       "timeout"
@@ -92,47 +96,51 @@ let
     };
 
     # ──────────────────────────────────────────────────────────────────────────
-    # SSE servers (remote, bridged via mcp-remote)
+    # Remote HTTP servers (preferred transport for managed Cloudflare MCP)
     # ──────────────────────────────────────────────────────────────────────────
     cfdocs = {
-      source = "sse";
-      url = "https://docs.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://docs.mcp.cloudflare.com/mcp";
     };
 
     cfbrowser = {
-      source = "sse";
-      url = "https://browser.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://browser.mcp.cloudflare.com/mcp";
     };
 
     cfbuilds = {
-      source = "sse";
-      url = "https://builds.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://builds.mcp.cloudflare.com/mcp";
     };
 
     cfobservability = {
-      source = "sse";
-      url = "https://observability.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://observability.mcp.cloudflare.com/mcp";
     };
 
     cfbindings = {
-      source = "sse";
-      url = "https://bindings.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://bindings.mcp.cloudflare.com/mcp";
     };
 
     cfradar = {
-      source = "sse";
-      url = "https://radar.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://radar.mcp.cloudflare.com/mcp";
     };
 
     cfcontainers = {
-      source = "sse";
-      url = "https://containers.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://containers.mcp.cloudflare.com/mcp";
     };
 
     cfgraphql = {
-      source = "sse";
-      url = "https://graphql.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://graphql.mcp.cloudflare.com/mcp";
     };
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # SSE servers (remote, bridged via mcp-remote)
+    # ──────────────────────────────────────────────────────────────────────────
 
     openaiDeveloperDocs = {
       source = "sse";
@@ -211,12 +219,11 @@ let
                 ];
                 text = /* bash */ ''
                   secret_path="''${XDG_DATA_HOME:-$HOME/.local/share}/context7/api-key"
-                  if [ ! -r "$secret_path" ]; then
-                    echo "${name}: missing secret at $secret_path" >&2
-                    exit 1
+                  if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
+                    # Context7 works without an API key; only export auth when the optional secret exists.
+                    # shellcheck disable=SC2155
+                    export ${meta.secretEnvVar}="$(tr -d '\n' < "$secret_path")"
                   fi
-                  # shellcheck disable=SC2155
-                  export ${meta.secretEnvVar}="$(tr -d '\n' < "$secret_path")"
                   exec ${binPath} "$@"
                 '';
               };
@@ -224,14 +231,21 @@ let
             {
               command = "${wrapper}/bin/${name}-wrapper";
               args = [ ];
+              type = "stdio";
             }
             // timeouts
           else
             {
               command = binPath;
               args = [ ];
+              type = "stdio";
             }
             // timeouts;
+
+        http = {
+          inherit (meta) url;
+        }
+        // timeouts;
 
         sse = {
           command = "${lib.getExe' pkgs.nodejs "npx"}";
@@ -239,6 +253,7 @@ let
             "mcp-remote"
             meta.url
           ];
+          type = "stdio";
         }
         // timeouts;
 
@@ -278,6 +293,7 @@ let
             {
               command = "${wrapper}/bin/playwright-mcp-wrapper";
               args = meta.args or [ ];
+              type = "stdio";
             }
             // timeouts
           else if name == "chrome-devtools" then
@@ -310,6 +326,7 @@ let
             {
               command = "${wrapper}/bin/chrome-devtools-mcp-wrapper";
               args = meta.args or [ ];
+              type = "stdio";
             }
             // timeouts
           else
@@ -320,6 +337,7 @@ let
                 meta.package
               ]
               ++ (meta.args or [ ]);
+              type = "stdio";
             }
             // timeouts;
       };
@@ -334,7 +352,7 @@ let
     let
       mcpPkgs = inputs.mcp-servers-nix.packages.${pkgs.stdenv.hostPlatform.system};
     in
-    (mkServerConfig { inherit pkgs mcpPkgs; } name) // { type = "stdio"; };
+    mkServerConfig { inherit pkgs mcpPkgs; } name;
 
   # Build configs for a list of servers (simplified API for consumers)
   # mkServers :: Pkgs -> [String] -> AttrSet
