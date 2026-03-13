@@ -187,7 +187,6 @@ in
             secretsRoot
             ;
           inherit (config.flake.lib) agents;
-          mcpLib = config.flake.lib.mcp;
         };
         backupFileExtension = "hm.bk";
 
