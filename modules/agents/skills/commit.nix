@@ -1,53 +1,5 @@
-/*
-  Shared Skill Library
-
-  This module provides flake.lib.skills with:
-    - skillDefs: Canonical, agent-agnostic skill definitions
-    - renderCodexSkillMd: Render SKILL.md for Codex
-    - mkCodexSkillDir: Build a full Codex skill directory (SKILL.md + agents/openai.yaml)
-    - renderClaudeSkillMd: Render SKILL.md for Claude Code
-
-  Consumers:
-    - modules/hm-apps/codex.nix
-    - modules/hm-apps/claude-code.nix
-*/
-{ lib, ... }:
+_:
 let
-  renderFrontmatter =
-    fields: fieldOrder:
-    let
-      orderedKeys = lib.filter (key: fields ? ${key}) fieldOrder;
-      extraKeys = lib.sort builtins.lessThan (
-        lib.filter (key: !(lib.elem key fieldOrder)) (lib.attrNames fields)
-      );
-      keys = orderedKeys ++ extraKeys;
-      lines = map (key: "${key}: ${builtins.toJSON fields.${key}}") keys;
-    in
-    ''
-      ---
-      ${lib.concatStringsSep "\n" lines}
-      ---
-    '';
-
-  renderSkillBody =
-    {
-      title,
-      intro ? "",
-      sections ? [ ],
-      body,
-    }:
-    let
-      sectionBlocks = lib.filter (section: section != "") sections;
-      sectionText = lib.concatStringsSep "\n\n" sectionBlocks;
-      introText = lib.optionalString (intro != "") "${intro}\n\n";
-      sectionsText = lib.optionalString (sectionText != "") "${sectionText}\n\n";
-    in
-    ''
-      # ${title}
-
-      ${introText}${sectionsText}${body}
-    '';
-
   commitSelectModeSection = command: ''
     ## Select Mode
 
@@ -272,162 +224,54 @@ let
     2. Explain whether commit/push/PR happened or not.
     3. Provide the smallest safe recovery step and continue only after confirmation when state is ambiguous.
   '';
-
-  skillDefs = {
-    commit = {
-      id = "commit";
-      title = "Git Commit Skill";
-      body = commitSkillBody;
-      targets = {
-        codex = true;
-        claude = true;
-      };
-
-      codex = {
-        frontmatter = {
-          name = "commit";
-          description = "Safe commit workflow: default to a fresh ~/trees worktree + branch; allow current-branch commit/push only when explicitly requested, including main/master.";
-        };
-        intro = "Create a well-formatted git commit following all project safety rules and Conventional Commits format.";
-        sections = [ (commitSelectModeSection "$commit") ];
-        interface = {
-          display_name = "Commit Workflow";
-          short_description = "Safe commit, push, branch, and PR workflow";
-          default_prompt = "Use $commit with default worktree + new-branch flow. Commit/push on the current branch only when the user explicitly requests it, including main/master.";
-        };
-      };
-
-      claude = {
-        frontmatter = {
-          name = "commit";
-          description = "Safe commit workflow: default to a fresh ~/trees worktree + branch; allow current-branch commit/push only when explicitly requested, including main/master.";
-          "disable-model-invocation" = true;
-          "allowed-tools" =
-            "Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Bash(git worktree *), Bash(git stash *), Bash(git restore *), Bash(git ls-files *), Bash(git for-each-ref *), Bash(git rev-parse *), Bash(git branch *), Bash(git push *), Bash(mkdir *), Bash(rip *), Bash(gh repo view *), Bash(gh pr *), Bash(gh label *), Read, Grep, Glob";
-          "argument-hint" = "[optional commit message]";
-        };
-        intro = "Create a well-formatted git commit following all project safety rules and Conventional Commits format.";
-        dynamicSections = [
-          (commitSelectModeSection "/commit")
-          ''
-            ## Current Git State
-
-            Working tree status:
-            !`git status --short`
-
-            Already staged changes:
-            !`git diff --staged --stat`
-
-            Recent commits (for style reference):
-            !`git log --oneline -5`
-          ''
-          ''
-            ### If `$ARGUMENTS` is provided
-
-            Use the provided text as the commit message directly. Still run through safety checks before committing.
-          ''
-        ];
-      };
-    };
-  };
-
-  renderCodexSkillMd =
-    skillDef:
-    if !(skillDef.targets.codex or false) then
-      throw "Skill '${skillDef.id}' does not target Codex"
-    else
-      let
-        frontmatter = renderFrontmatter skillDef.codex.frontmatter [
-          "name"
-          "description"
-        ];
-        body = renderSkillBody {
-          inherit (skillDef) title;
-          intro = skillDef.codex.intro or "";
-          sections = skillDef.codex.sections or [ ];
-          inherit (skillDef) body;
-        };
-      in
-      ''
-        ${frontmatter}
-
-        ${body}
-      '';
-
-  renderCodexOpenaiYaml =
-    skillDef:
-    if !(skillDef.targets.codex or false) then
-      throw "Skill '${skillDef.id}' does not target Codex"
-    else
-      let
-        interface = skillDef.codex.interface or { };
-        requiredFields = [
-          "display_name"
-          "short_description"
-          "default_prompt"
-        ];
-        missingFields = lib.filter (field: !(interface ? ${field})) requiredFields;
-      in
-      if missingFields != [ ] then
-        throw "Skill '${skillDef.id}' missing Codex interface fields: ${lib.concatStringsSep ", " missingFields}"
-      else
-        ''
-          interface:
-            display_name: ${builtins.toJSON interface.display_name}
-            short_description: ${builtins.toJSON interface.short_description}
-            default_prompt: ${builtins.toJSON interface.default_prompt}
-        '';
-
-  mkCodexSkillDir =
-    pkgs: skillDef:
-    if !(skillDef.targets.codex or false) then
-      throw "Skill '${skillDef.id}' does not target Codex"
-    else
-      let
-        skillMdFile = pkgs.writeText "codex-skill-${skillDef.id}-SKILL.md" (renderCodexSkillMd skillDef);
-        openaiYamlFile = pkgs.writeText "codex-skill-${skillDef.id}-openai.yaml" (
-          renderCodexOpenaiYaml skillDef
-        );
-      in
-      pkgs.runCommand "codex-skill-${skillDef.id}" { } ''
-        mkdir -p "$out/agents"
-        cp ${skillMdFile} "$out/SKILL.md"
-        cp ${openaiYamlFile} "$out/agents/openai.yaml"
-      '';
-
-  renderClaudeSkillMd =
-    skillDef:
-    if !(skillDef.targets.claude or false) then
-      throw "Skill '${skillDef.id}' does not target Claude Code"
-    else
-      let
-        frontmatter = renderFrontmatter skillDef.claude.frontmatter [
-          "name"
-          "description"
-          "disable-model-invocation"
-          "allowed-tools"
-          "argument-hint"
-        ];
-        body = renderSkillBody {
-          inherit (skillDef) title;
-          intro = skillDef.claude.intro or "";
-          sections = skillDef.claude.dynamicSections or [ ];
-          inherit (skillDef) body;
-        };
-      in
-      ''
-        ${frontmatter}
-
-        ${body}
-      '';
 in
 {
-  flake.lib.skills = {
-    inherit
-      skillDefs
-      renderCodexSkillMd
-      mkCodexSkillDir
-      renderClaudeSkillMd
-      ;
+  flake.lib.agents._internal.skills.raw.commit = {
+    name = "commit";
+    title = "Git Commit Skill";
+    description = "Safe commit workflow: default to a fresh ~/trees worktree + branch; allow current-branch commit/push only when explicitly requested, including main/master.";
+    body = commitSkillBody;
+
+    codex = {
+      prelude = ''
+        Create a well-formatted git commit following all project safety rules and Conventional Commits format.
+
+        ${commitSelectModeSection "$commit"}
+      '';
+      openaiYaml.interface = {
+        display_name = "Commit Workflow";
+        short_description = "Safe commit, push, branch, and PR workflow";
+        default_prompt = "Use $commit with default worktree + new-branch flow. Commit/push on the current branch only when the user explicitly requests it, including main/master.";
+      };
+    };
+
+    claude = {
+      frontmatter = {
+        "disable-model-invocation" = true;
+        "allowed-tools" =
+          "Bash(git status*), Bash(git diff*), Bash(git log*), Bash(git add *), Bash(git commit *), Bash(git worktree *), Bash(git stash *), Bash(git restore *), Bash(git ls-files *), Bash(git for-each-ref *), Bash(git rev-parse *), Bash(git branch *), Bash(git push *), Bash(mkdir *), Bash(rip *), Bash(gh repo view *), Bash(gh pr *), Bash(gh label *), Read, Grep, Glob";
+        "argument-hint" = "[optional commit message]";
+      };
+      prelude = ''
+        Create a well-formatted git commit following all project safety rules and Conventional Commits format.
+
+        ${commitSelectModeSection "/commit"}
+
+        ## Current Git State
+
+        Working tree status:
+        !`git status --short`
+
+        Already staged changes:
+        !`git diff --staged --stat`
+
+        Recent commits (for style reference):
+        !`git log --oneline -5`
+
+        ### If `$ARGUMENTS` is provided
+
+        Use the provided text as the commit message directly. Still run through safety checks before committing.
+      '';
+    };
   };
 }

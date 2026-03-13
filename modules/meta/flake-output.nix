@@ -46,6 +46,13 @@
           default = { };
           description = "MCP (Model Context Protocol) server catalog and builder functions.";
         };
+        agents = lib.mkOption {
+          type = lib.types.submodule {
+            freeformType = lib.types.attrsOf lib.types.anything;
+          };
+          default = { };
+          description = "Agent helper libraries, registries, and client-specific compiled outputs.";
+        };
       };
 
       homeManagerModules = lib.mkOption {
