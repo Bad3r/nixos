@@ -204,6 +204,7 @@ _: {
         model = "gpt-5.3-codex";
         review_model = "gpt-5.3-codex";
         profile = "default";
+        commit_attribution = "";
         approval_policy = "never";
         sandbox_mode = "danger-full-access";
         personality = "pragmatic";
