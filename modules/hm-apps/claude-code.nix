@@ -7,7 +7,7 @@
 
   Notes:
     * MCP servers configured via flake.lib.mcp (modules/integrations/mcp-servers.nix)
-    * Commit skill rules from flake.lib.skills (modules/integrations/skills.nix)
+    * Agent skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
     * Context7 API key provisioned via SOPS at `sops.secrets."context7/api-key"`
 */
 
@@ -18,7 +18,7 @@ _: {
       lib,
       pkgs,
       mcpLib,
-      skillsLib,
+      agents,
       ...
     }:
     let
@@ -142,8 +142,7 @@ _: {
       claudeJsonConfigFile = pkgs.writeText "claude-json-config.json" (builtins.toJSON claudeJsonConfig);
 
       # ── Commit Skill ──────────────────────────────────────────────────────
-      commitSkill = skillsLib.skillDefs.commit;
-      commitSkillMd = skillsLib.renderClaudeSkillMd commitSkill;
+      commitSkillMd = agents.skills.commit.claude;
 
     in
     {
