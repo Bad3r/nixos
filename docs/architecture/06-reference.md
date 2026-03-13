@@ -62,13 +62,13 @@ nix eval .#nixosConfigurations.system76.config.system.build.toplevel
 
 ## External Tooling
 
-| Tool                       | Purpose                  | Example                                               |
-| -------------------------- | ------------------------ | ----------------------------------------------------- |
-| Context7 MCP               | Documentation lookups    | Configured via `modules/integrations/mcp-servers.nix` |
-| DeepWiki MCP               | GitHub repo exploration  | Query via MCP `deepwiki_fetch` with `owner/repo`      |
-| `nix-index` / `nix-locate` | Find packaged binaries   | `nix-locate 'bin/act'`                                |
-| `write-files`              | Regenerate managed files | `nix develop -c write-files`                          |
-| `gh-actions-run`           | Local GitHub Actions     | `nix develop -c gh-actions-run -n`                    |
+| Tool                       | Purpose                  | Example                                          |
+| -------------------------- | ------------------------ | ------------------------------------------------ |
+| Context7 MCP               | Documentation lookups    | Configured via `flake.lib.agents.mcp`            |
+| DeepWiki MCP               | GitHub repo exploration  | Query via MCP `deepwiki_fetch` with `owner/repo` |
+| `nix-index` / `nix-locate` | Find packaged binaries   | `nix-locate 'bin/act'`                           |
+| `write-files`              | Regenerate managed files | `nix develop -c write-files`                     |
+| `gh-actions-run`           | Local GitHub Actions     | `nix develop -c gh-actions-run -n`               |
 
 ## Dev Shell Helpers
 

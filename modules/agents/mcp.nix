@@ -328,21 +328,57 @@ let
 
   escapeTableCell = value: lib.replaceStrings [ "|" "\n" ] [ "\\|" " " ] value;
 
-  renderReferenceRow =
-    server:
+  padRight =
+    width: value:
     let
-      inherit (server.docs)
-        primaryUse
-        accessNotes
-        example
-        ;
+      padding = width - lib.stringLength value;
     in
-    "| `${escapeTableCell server.name}` | ${escapeTableCell (renderClientList server.clients)} | ${escapeTableCell primaryUse} | ${escapeTableCell accessNotes} | ${escapeTableCell example} |";
+    value + lib.concatStrings (builtins.genList (_: " ") (if padding > 0 then padding else 0));
+
+  tableHeaders = [
+    "Tool"
+    "Default Clients"
+    "Primary Use"
+    "Access Notes"
+    "Example"
+  ];
 
   renderReferenceMarkdown =
     let
       serverNames = builtins.sort builtins.lessThan (lib.attrNames validatedServers);
-      rows = map (name: renderReferenceRow validatedServers.${name}) serverNames;
+      rows = map (
+        name:
+        let
+          server = validatedServers.${name};
+        in
+        [
+          "`${escapeTableCell server.name}`"
+          (escapeTableCell (renderClientList server.clients))
+          (escapeTableCell server.docs.primaryUse)
+          (escapeTableCell server.docs.accessNotes)
+          (escapeTableCell server.docs.example)
+        ]
+      ) serverNames;
+      allRows = [ tableHeaders ] ++ rows;
+      columnCount = builtins.length tableHeaders;
+      columnWidths = builtins.genList (
+        index: lib.foldl' lib.max 0 (map (row: lib.stringLength (builtins.elemAt row index)) allRows)
+      ) columnCount;
+      renderTableRow =
+        cells:
+        let
+          paddedCells = builtins.genList (
+            index: padRight (builtins.elemAt columnWidths index) (builtins.elemAt cells index)
+          ) columnCount;
+        in
+        "| " + lib.concatStringsSep " | " paddedCells + " |";
+      renderRule =
+        "| "
+        + lib.concatStringsSep " | " (
+          map (width: lib.concatStrings (builtins.genList (_: "-") width)) columnWidths
+        )
+        + " |";
+      renderedRows = map renderTableRow rows;
     in
     lib.concatStringsSep "\n" (
       [
@@ -350,10 +386,11 @@ let
         ""
         "Generated from `flake.lib.agents.mcp.servers`. `Default Clients` shows which Nix-managed clients enable each server out of the box. Use `/mcp` to inspect current runtime availability."
         ""
-        "| Tool | Default Clients | Primary Use | Access Notes | Example |"
-        "| ---- | --------------- | ----------- | ------------ | ------- |"
+        (renderTableRow tableHeaders)
+        renderRule
       ]
-      ++ rows
+      ++ renderedRows
+      ++ [ "" ]
     );
 in
 {
