@@ -35,7 +35,7 @@ _: {
       config,
       lib,
       mcpLib,
-      skillsLib,
+      agents,
       ...
     }:
     let
@@ -323,8 +323,7 @@ _: {
       };
 
       # ── Commit Skill ──────────────────────────────────────────────────────
-      commitSkill = skillsLib.skillDefs.commit;
-      commitSkillDir = skillsLib.mkCodexSkillDir pkgs commitSkill;
+      commitSkillDir = (agents.skills.commit.codex pkgs).dir;
 
       baseConfigFile = tomlFormat.generate "codex-config-base" baseSettings;
       nixProjectsFile = tomlFormat.generate "codex-nix-projects" nixProjectSettings;
