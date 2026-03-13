@@ -142,7 +142,7 @@ _: {
         model_provider = "openai";
         model_providers = { };
         # model_reasoning_effort = null;
-        # Disabled because gpt-5.3-codex-spark returns 400 unsupported_parameter for `reasoning.summary`.
+        # Disabled because gpt-5.4-spark returns 400 unsupported_parameter for `reasoning.summary`.
         # model_reasoning_summary = "auto";
         # model_supports_reasoning_summaries = null;
         model_verbosity = "medium";
@@ -201,8 +201,8 @@ _: {
       # Existing non-default values (kept as-is).
       codexSettingsOverrides = {
         # Core settings
-        model = "gpt-5.3-codex";
-        review_model = "gpt-5.3-codex";
+        model = "gpt-5.4";
+        review_model = "gpt-5.4";
         profile = "default";
         commit_attribution = "";
         approval_policy = "never";
@@ -299,7 +299,7 @@ _: {
         # Profiles
         profiles = {
           default = {
-            model = "gpt-5.3-codex";
+            model = "gpt-5.4";
             approval_policy = "never";
             # model_supports_reasoning_summaries = true; # Avoid sending reasoning.summary.
             model_reasoning_effort = "xhigh";
