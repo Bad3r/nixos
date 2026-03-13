@@ -74,7 +74,16 @@ let
         field: value: validateNonEmptyString skillName "codex.openaiYaml.interface.${field}" value
       ) validatedInterface
     else
-      throw "Agent skill '${skillName}' missing Codex interface fields: ${lib.concatStringsSep ", " missingFields}";
+      throw ''
+        Agent skill '${skillName}' missing Codex interface fields: ${lib.concatStringsSep ", " missingFields}
+
+        Example:
+          codex.openaiYaml.interface = {
+            display_name = "My Skill";
+            short_description = "Does something useful";
+            default_prompt = "Use this skill to...";
+          };
+      '';
 
   validateClientSpec =
     skillName: client: clientSpec:
