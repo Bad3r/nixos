@@ -186,8 +186,8 @@ in
             metaOwner
             secretsRoot
             ;
+          inherit (config.flake.lib) agents;
           mcpLib = config.flake.lib.mcp;
-          skillsLib = config.flake.lib.skills;
         };
         backupFileExtension = "hm.bk";
 
