@@ -41,17 +41,12 @@
           default = { };
           description = "XDG desktop file mappings and MIME type helpers.";
         };
-        mcp = lib.mkOption {
-          type = lib.types.attrsOf lib.types.anything;
-          default = { };
-          description = "MCP (Model Context Protocol) server catalog and builder functions.";
-        };
         agents = lib.mkOption {
           type = lib.types.submodule {
             freeformType = lib.types.attrsOf lib.types.anything;
           };
           default = { };
-          description = "Agent helper libraries, registries, and client-specific compiled outputs.";
+          description = "Agent helper libraries, registries, and compiled outputs for skills and MCP integrations.";
         };
       };
 

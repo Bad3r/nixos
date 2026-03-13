@@ -6,7 +6,7 @@
   Repository: https://github.com/anthropics/claude-code
 
   Notes:
-    * MCP servers configured via flake.lib.mcp (modules/integrations/mcp-servers.nix)
+    * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Agent skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
     * Context7 API key provisioned via SOPS at `sops.secrets."context7/api-key"`
 */
@@ -17,23 +17,14 @@ _: {
       osConfig,
       lib,
       pkgs,
-      mcpLib,
       agents,
       ...
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "claude-code" "extended" "enable" ] false osConfig;
 
-      # MCP servers via centralized catalog
-      mcpServers = mcpLib.mkServers pkgs [
-        "sequential-thinking"
-        "context7"
-        "cfdocs"
-        "cfbrowser"
-        "chrome-devtools"
-        "deepwiki"
-        "playwright"
-      ];
+      # MCP servers via compiled agents.mcp client profile
+      mcpServers = agents.mcp.clients.claude.servers pkgs;
 
       # Claude Code settings.json configuration
       claudeSettings = {
@@ -187,7 +178,7 @@ _: {
             mv "$TMP_FILE" "$CLAUDE_CONFIG"
             chmod 600 "$CLAUDE_CONFIG"
 
-            echo "✢ Claude Code: config applied (MCP via mcp-servers-nix)"
+            echo "✢ Claude Code: config applied (MCP via agents.mcp)"
           '';
 
           sessionVariables = {

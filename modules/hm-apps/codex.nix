@@ -16,7 +16,7 @@
     --sandbox-mode <mode>: Adjust the sandbox level for commands launched by Codex.
 
   Notes:
-    * MCP servers configured via flake.lib.mcp (modules/integrations/mcp-servers.nix)
+    * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Package installation handled by NixOS module (modules/apps/codex.nix) via llm-agents.nix.
     * Config is split into three TOML files merged at launch by the codex wrapper:
       - config.base.toml: nix-managed base settings (read-only)
@@ -34,7 +34,6 @@ _: {
       pkgs,
       config,
       lib,
-      mcpLib,
       agents,
       ...
     }:
@@ -46,18 +45,8 @@ _: {
       agentsDir = "${config.xdg.configHome}/agents";
       tomlFormat = pkgs.formats.toml { };
 
-      # MCP servers via centralized catalog
-      codexMcpServers = mcpLib.mkServers pkgs [
-        "sequential-thinking"
-        "memory"
-        "context7"
-        "openaiDeveloperDocs"
-        "cfdocs"
-        "cfbrowser"
-        "chrome-devtools"
-        "deepwiki"
-        "playwright"
-      ];
+      # MCP servers via compiled agents.mcp client profile
+      codexMcpServers = agents.mcp.clients.codex.servers pkgs;
 
       # Codex defaults (all available non-Windows options).
       # `null` means "unset": Codex uses its built-in default for that key.
