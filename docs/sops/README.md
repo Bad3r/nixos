@@ -15,7 +15,8 @@ configuration path.
   - `owner_bad3r` (Age public key) – the maintainer who edits secrets.
   - `host_pub_key` (Age public key) – the System76 laptop recipient used for decryption at activation time.
   - Three specific rules in addition to the general catch-all: `secrets/act.yaml`, `secrets/r2.yaml`, and `secrets/fonts/.+`.
-- `modules/security/secrets.nix` imports `inputs.sops-nix.nixosModules.sops`, exposes `age`/`sops` in `environment.systemPackages`, and points `sops.age.keyFile` to `/var/lib/sops-nix/key.txt`.
+- `modules/security/sops-runtime.nix` owns the shared NixOS `sops-nix` runtime import, exposes `age`/`sops` in `environment.systemPackages`, and points `sops.age.keyFile` to `/var/lib/sops-nix/key.txt`.
+- `modules/security/secrets.nix` only declares repository-managed system secrets and templates.
 - Secret declarations are guarded with `builtins.pathExists`. If `secrets/act.yaml` is missing the entire block is skipped, keeping evaluation pure.
 - Secret files are resolved from `${rootPath}/secrets` via shared `secretsRoot`
   module arguments (no dedicated flake input is required).
@@ -35,7 +36,8 @@ configuration path.
 
 ### Home Manager user service
 
-The Home Manager side now runs `sops-nix.service` with an isolated home directory at
+The Home Manager runtime now lives in `modules/home-manager/sops-runtime.nix` and runs
+`sops-nix.service` with an isolated home directory at
 `~/.local/share/sops-nix`. Make sure `~/.config/sops/age/keys.txt` contains the user Age
 identity (matching the `owner_bad3r` recipient). Because the service never sees `~/.ssh/`,
 hardware-backed SSH keys can coexist without breaking SOPS.

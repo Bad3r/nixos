@@ -17,8 +17,8 @@
       cfTokenExists = builtins.pathExists cfTokenFile;
     in
     {
-      # sops-nix is imported centrally in modules/security/secrets.nix (base),
-      # so we only declare the secret here.
+      # Hosts import the shared sops runtime module separately, so this module
+      # only declares the secret here.
       config = lib.mkIf cfTokenExists {
         sops.secrets."cf-api-token" = {
           sopsFile = cfTokenFile;
