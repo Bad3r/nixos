@@ -117,7 +117,6 @@ let
               or is exported via flake.homeManagerModules.apps.${name}
       '';
 
-  sopsModule = inputs.sops-nix.homeManagerModules.sops;
   stateVersionModule =
     { osConfig, ... }:
     {
@@ -127,6 +126,11 @@ let
     "flake"
     "homeManagerModules"
     "base"
+  ];
+  sopsRuntimeModule = loadHomeModule ../home-manager/sops-runtime.nix [
+    "flake"
+    "homeManagerModules"
+    "sopsRuntime"
   ];
   context7Module = loadHomeModule ../home/context7-secrets.nix [
     "flake"
@@ -156,9 +160,9 @@ let
   allAppImports = lib.unique (defaultAppImports ++ extraAppImports);
   appModules = map loadAppModule allAppImports;
   coreModules = [
-    sopsModule
     stateVersionModule
     baseModule
+    sopsRuntimeModule
     context7Module
     r2Module
     virustotalModule

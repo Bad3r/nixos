@@ -35,6 +35,7 @@ in
   configurations.nixos.tpnix.module = {
     imports = [
       config.flake.nixosModules.base
+      config.flake.nixosModules.sopsRuntime
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
     ]

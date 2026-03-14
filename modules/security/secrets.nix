@@ -1,9 +1,8 @@
-{ inputs, secretsRoot, ... }:
+{ secretsRoot, ... }:
 {
   flake.nixosModules.base =
     {
       config,
-      pkgs,
       lib,
       metaOwner,
       ...
@@ -18,8 +17,6 @@
       ownerName = metaOwner.username;
     in
     {
-      imports = [ inputs.sops-nix.nixosModules.sops ];
-
       options.security.repoSecrets.enable = lib.mkOption {
         type = lib.types.bool;
         default = true;
@@ -27,15 +24,6 @@
       };
 
       config = {
-        environment.systemPackages = with pkgs; [
-          age
-          sops
-        ];
-
-        # Configure sops-nix (key file path can be customized per host)
-        sops.age.keyFile = lib.mkForce "/var/lib/sops-nix/key.txt";
-        sops.age.sshKeyPaths = lib.mkForce [ ];
-
         # Only declare secrets if the encrypted file is present in repo
         # (prevents evaluation errors when secrets repo is absent)
         _module.args = { };
