@@ -17,7 +17,7 @@
       options.home.context7Secrets.enable = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = "Whether to provision Home Manager Context7 API key secret.";
+        description = "Whether to provision the optional Home Manager Context7 API key secret.";
       };
 
       config = lib.mkMerge [

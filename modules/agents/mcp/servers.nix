@@ -35,112 +35,112 @@ _: {
       ];
       docs = {
         primaryUse = "Look up library IDs and documentation for coding tasks.";
-        accessNotes = "Requires the Context7 API key provisioned at the standard local secret path.";
+        accessNotes = "Works without an API key; provision the standard local secret path for higher rate limits.";
         example = "`context7 resolve-library-id --name <library>`";
       };
     };
 
     cfdocs = {
-      source = "sse";
-      url = "https://docs.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://docs.mcp.cloudflare.com/mcp";
       clients = [
         "claude"
         "codex"
       ];
       docs = {
         primaryUse = "Search Cloudflare documentation.";
-        accessNotes = "Use for Workers, R2, Zero Trust, and other Cloudflare services.";
+        accessNotes = "Use for Workers, R2, Zero Trust, and other Cloudflare services through the streamable HTTP endpoint.";
         example = "`cfdocs search --query \"Workers KV\"`";
       };
     };
 
     cfbrowser = {
-      source = "sse";
-      url = "https://browser.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://browser.mcp.cloudflare.com/mcp";
       clients = [
         "claude"
         "codex"
       ];
       docs = {
         primaryUse = "Render and capture live webpages.";
-        accessNotes = "Useful for verifying UI changes against deployed sites.";
+        accessNotes = "Useful for verifying UI changes against deployed sites through the streamable HTTP endpoint.";
         example = "`cfbrowser get-url-html --url <page>`";
       };
     };
 
     cfbuilds = {
-      source = "sse";
-      url = "https://builds.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://builds.mcp.cloudflare.com/mcp";
       clients = [ ];
       docs = {
         primaryUse = "Inspect Cloudflare builds and deployment activity.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfbuilds` tools.";
       };
     };
 
     cfobservability = {
-      source = "sse";
-      url = "https://observability.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://observability.mcp.cloudflare.com/mcp";
       clients = [ ];
       docs = {
         primaryUse = "Query Cloudflare observability and logging data.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfobservability` tools.";
       };
     };
 
     cfbindings = {
-      source = "sse";
-      url = "https://bindings.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://bindings.mcp.cloudflare.com/mcp";
       clients = [ ];
       docs = {
         primaryUse = "Inspect Cloudflare bindings for Workers and Pages projects.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfbindings` tools.";
       };
     };
 
     cfradar = {
-      source = "sse";
-      url = "https://radar.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://radar.mcp.cloudflare.com/mcp";
       clients = [ ];
       docs = {
         primaryUse = "Query Cloudflare Radar internet telemetry and trends.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfradar` tools.";
       };
     };
 
     cfcontainers = {
-      source = "sse";
-      url = "https://containers.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://containers.mcp.cloudflare.com/mcp";
       clients = [ ];
       docs = {
         primaryUse = "Inspect Cloudflare Containers projects and instances.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfcontainers` tools.";
       };
     };
 
     cfgraphql = {
-      source = "sse";
-      url = "https://graphql.mcp.cloudflare.com/sse";
+      source = "http";
+      url = "https://graphql.mcp.cloudflare.com/mcp";
       clients = [ ];
       docs = {
         primaryUse = "Run GraphQL queries against Cloudflare analytics endpoints.";
-        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code; uses the streamable HTTP endpoint.";
         example = "Use `/mcp` to inspect the available `cfgraphql` tools.";
       };
     };
 
     openaiDeveloperDocs = {
-      source = "sse";
+      source = "http";
       url = "https://developers.openai.com/mcp";
       clients = [ "codex" ];
       docs = {
         primaryUse = "Search OpenAI developer docs and API references.";
-        accessNotes = "Enabled by default only for Codex.";
+        accessNotes = "Enabled by default only for Codex through a streamable HTTP endpoint.";
         example = "`codex mcp add openaiDeveloperDocs --url https://developers.openai.com/mcp`";
       };
     };

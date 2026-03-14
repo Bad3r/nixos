@@ -8,7 +8,7 @@
   Notes:
     * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Agent skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
-    * Context7 API key provisioned via SOPS at `sops.secrets."context7/api-key"`
+    * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
 */
 
 _: {
