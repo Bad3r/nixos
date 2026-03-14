@@ -80,6 +80,7 @@ in
     };
     home-manager.users.${metaOwner.username}.home = {
       context7Secrets.enable = lib.mkDefault true;
+      repoGpgSecret.enable = lib.mkDefault true;
       r2Secrets.enable = lib.mkDefault true;
       virustotalSecrets.enable = lib.mkDefault true;
     };
