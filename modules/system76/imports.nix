@@ -23,6 +23,11 @@ let
   # Optional flake module checks
   system76SupportExists = lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config;
   lenovyMonitorExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-lenovo-y27q-20" ] config;
+  repoGpgSecretModuleExists = lib.hasAttrByPath [
+    "self"
+    "homeManagerModules"
+    "repoGpgSecret"
+  ] inputs;
 in
 {
   configurations.nixos.system76.module = {
@@ -35,6 +40,7 @@ in
       # Note: base includes Stylix via modules/style/stylix.nix contribution
       config.flake.nixosModules.base
       config.flake.nixosModules.sopsRuntime
+      config.flake.nixosModules.repoSecrets
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
       config.flake.nixosModules."duplicati-r2"
@@ -93,7 +99,14 @@ in
       go.extended.enable = true;
     };
 
-    home-manager.sharedModules = lib.mkAfter [ inputs.r2-flake.homeManagerModules.default ];
+    home-manager.sharedModules = lib.mkAfter (
+      [
+        inputs.r2-flake.homeManagerModules.default
+      ]
+      ++ lib.optionals repoGpgSecretModuleExists [
+        (lib.getAttrFromPath [ "self" "homeManagerModules" "repoGpgSecret" ] inputs)
+      ]
+    );
   };
 
   # Export the System76 configuration so the flake exposes it under nixosConfigurations
