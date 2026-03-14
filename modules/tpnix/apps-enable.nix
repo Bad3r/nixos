@@ -18,7 +18,7 @@
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
-      blueberry.extended.enable = lib.mkOverride 1100 true;
+      blueman.extended.enable = lib.mkOverride 1100 true;
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 false;
       bun.extended.enable = lib.mkOverride 1100 true;
