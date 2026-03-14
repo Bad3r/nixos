@@ -9,6 +9,7 @@ let
 
   validSources = [
     "nix"
+    "http"
     "sse"
     "npx"
   ];
@@ -30,12 +31,14 @@ let
 
   requiredFields = {
     nix = [ "package" ];
+    http = [ "url" ];
     sse = [ "url" ];
     npx = [ "package" ];
   };
 
   optionalFields = {
     nix = [ "secretEnvVar" ];
+    http = [ "timeout" ];
     sse = [ "timeout" ];
     npx = [
       "timeout"
@@ -170,12 +173,11 @@ let
                 ];
                 text = /* bash */ ''
                   secret_path="''${XDG_DATA_HOME:-$HOME/.local/share}/context7/api-key"
-                  if [ ! -r "$secret_path" ]; then
-                    echo "${name}: missing secret at $secret_path" >&2
-                    exit 1
+                  if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
+                    # Context7 supports unauthenticated access; export auth only when the optional secret exists.
+                    # shellcheck disable=SC2155
+                    export ${meta.secretEnvVar}="$(tr -d '\n' < "$secret_path")"
                   fi
-                  # shellcheck disable=SC2155
-                  export ${meta.secretEnvVar}="$(tr -d '\n' < "$secret_path")"
                   exec ${binPath} "$@"
                 '';
               };
@@ -183,14 +185,22 @@ let
             {
               command = "${wrapper}/bin/${name}-wrapper";
               args = [ ];
+              type = "stdio";
             }
             // timeouts
           else
             {
               command = binPath;
               args = [ ];
+              type = "stdio";
             }
             // timeouts;
+
+        http = {
+          inherit (meta) url;
+          type = "http";
+        }
+        // timeouts;
 
         sse = {
           command = "${lib.getExe' pkgs.nodejs "npx"}";
@@ -198,6 +208,7 @@ let
             "mcp-remote"
             meta.url
           ];
+          type = "stdio";
         }
         // timeouts;
 
@@ -237,6 +248,7 @@ let
             {
               command = "${wrapper}/bin/playwright-mcp-wrapper";
               args = meta.args or [ ];
+              type = "stdio";
             }
             // timeouts
           else if name == "chrome-devtools" then
@@ -269,6 +281,7 @@ let
             {
               command = "${wrapper}/bin/chrome-devtools-mcp-wrapper";
               args = meta.args or [ ];
+              type = "stdio";
             }
             // timeouts
           else
@@ -279,6 +292,7 @@ let
                 meta.package
               ]
               ++ (meta.args or [ ]);
+              type = "stdio";
             }
             // timeouts;
       };
@@ -291,7 +305,7 @@ let
     let
       mcpPkgs = inputs.mcp-servers-nix.packages.${pkgs.stdenv.hostPlatform.system};
     in
-    (mkServerConfig { inherit pkgs mcpPkgs; } name) // { type = "stdio"; };
+    mkServerConfig { inherit pkgs mcpPkgs; } name;
 
   mkServers =
     pkgs: enabled:
