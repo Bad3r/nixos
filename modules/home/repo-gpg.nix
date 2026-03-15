@@ -27,7 +27,12 @@
         fingerprint = lib.mkOption {
           type = lib.types.str;
           default = "981DE78A201C2B735FF0B545A3967CCA47D5275F";
-          description = "Fingerprint of the repository GPG signing key.";
+          description = ''
+            Fingerprint of the repository GPG signing key.
+            Defaults to the shared vx repository signing key so Git signing and
+            pass bootstrap stay aligned unless a host deliberately overrides it
+            for key rotation or testing.
+          '';
         };
 
         secretFile = lib.mkOption {
