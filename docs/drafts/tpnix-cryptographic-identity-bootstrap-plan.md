@@ -37,7 +37,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
    - `secrets/gpg/tpnix.asc`
    - `secrets/ssh/tpnix/id_ed25519.asc`
 5. Runtime secret paths:
-   - `/run/secrets/gpg/vx-secret-key` (declared via `sops.secrets."gpg/vx-secret-key"`)
+   - Home Manager `config.sops.secrets."gpg/vx-secret-key".path` (declared via a dedicated Home Manager GPG secret module)
    - `/run/secrets/ssh/vx-auth-key` (declared via `sops.secrets."ssh/vx-auth-key"`)
 6. SSH client identity for `tpnix`: use managed runtime key path, not `~/.ssh/id_ed25519`.
 
@@ -65,30 +65,28 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
 2. `modules/system76/imports.nix`
    - Add explicit host signing key:
-     - `home-manager.users.${metaOwner.username}.programs.git.signing.key = lib.mkForce "<SYSTEM76_GPG_FPR>";`
+     - `home-manager.users.${metaOwner.username}.programs.git.signing.key = lib.mkForce "<SYSTEM76_GPG_FINGERPRINT>";`
 
 3. `modules/tpnix/imports.nix`
-   - Set `security.repoSecrets.enable = lib.mkForce true;`
+   - Do not rely on `security.repoSecrets` for OpenPGP material; that module is ACT-only.
    - Add explicit host signing key:
-     - `home-manager.users.${metaOwner.username}.programs.git.signing.key = lib.mkForce "<TPNIX_GPG_FPR>";`
+     - `home-manager.users.${metaOwner.username}.programs.git.signing.key = lib.mkForce "<TPNIX_GPG_FINGERPRINT>";`
    - Override SSH identity file for `tpnix`:
      - `home-manager.users.${metaOwner.username}.programs.ssh.matchBlocks."*".identityFile = lib.mkForce [ "/run/secrets/ssh/vx-auth-key" ];`
 
 4. `modules/security/secrets.nix`
    - Resolve host slug from `config.networking.hostName`.
-   - Replace single GPG secret source with host-specific source:
-     - `secrets/gpg/${host}.asc`
    - Add host-scoped SSH secret source:
      - `secrets/ssh/${host}/id_ed25519.asc`
+   - Keep repository ACT secrets separate from host key material.
    - Declare:
-     - `sops.secrets."gpg/vx-secret-key"` (`format = "binary"`, owner `vx`, mode `0400`)
      - `sops.secrets."ssh/vx-auth-key"` (`format = "binary"`, owner `vx`, mode `0400`, path `/run/secrets/ssh/vx-auth-key`)
 
 5. `modules/home/pass-secret-service.nix`
    - Replace static fingerprint with dynamic source:
      - `config.programs.git.signing.key`
-   - Read secret path from OS config:
-     - `osConfig.sops.secrets."gpg/vx-secret-key".path`
+   - Read secret path from Home Manager config:
+     - `config.sops.secrets."gpg/vx-secret-key".path`
    - Keep guarded activation (import only when both fingerprint and secret path exist).
 
 6. `modules/tpnix/ssh.nix`
