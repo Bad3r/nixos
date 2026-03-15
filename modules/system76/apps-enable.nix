@@ -220,7 +220,9 @@
       nvd.extended.enable = lib.mkOverride 1100 true;
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 true;
+      "oh-my-opencode".extended.enable = lib.mkOverride 1100 true;
       okular.extended.enable = lib.mkOverride 1100 false;
+      opencode.extended.enable = lib.mkOverride 1100 true;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 true;
       openssl.extended.enable = lib.mkOverride 1100 true;
       openvpn.extended.enable = lib.mkOverride 1100 true;
