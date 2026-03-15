@@ -43,6 +43,7 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+        services.blueman.enable = true;
       };
     };
 in
