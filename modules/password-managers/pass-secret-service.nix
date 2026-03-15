@@ -19,10 +19,6 @@ let
           After = [ "graphical-session.target" ];
           PartOf = lib.mkForce [ "graphical-session.target" ];
         };
-        Service.Environment = [
-          "DISPLAY=:0"
-          "XAUTHORITY=%h/.Xauthority"
-        ];
         Install = {
           Alias = [ "dbus-org.freedesktop.secrets.service" ];
           WantedBy = lib.mkForce [ "graphical-session.target" ];
