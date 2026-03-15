@@ -39,7 +39,7 @@ let
           description = "Whether to enable Xfce4 power manager.";
         };
 
-        package = lib.mkPackageOption pkgs [ "xfce" "xfce4-power-manager" ] { };
+        package = lib.mkPackageOption pkgs [ "xfce4-power-manager" ] { };
       };
 
       config = lib.mkIf cfg.enable {
