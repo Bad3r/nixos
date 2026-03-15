@@ -1,6 +1,6 @@
 { secretsRoot, ... }:
 {
-  flake.nixosModules.base =
+  flake.nixosModules.repoSecrets =
     {
       config,
       lib,
@@ -9,62 +9,41 @@
     }:
     let
       cfg = config.security.repoSecrets;
-      # Detect if act secret file exists to avoid evaluation failures
       actSecretFile = "${secretsRoot}/act.yaml";
-      gpgSecretFile = "${secretsRoot}/gpg/vx.asc";
       actSecretExists = builtins.pathExists actSecretFile;
-      gpgSecretExists = builtins.pathExists gpgSecretFile;
       ownerName = metaOwner.username;
     in
     {
       options.security.repoSecrets.enable = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Whether to declare repository-managed SOPS secrets (act/gpg).";
+        description = "Whether to declare repository-managed system SOPS secrets for act.";
       };
 
-      config = {
-        # Only declare secrets if the encrypted file is present in repo
-        # (prevents evaluation errors when secrets repo is absent)
-        _module.args = { };
-      }
-      // lib.mkIf (cfg.enable && actSecretExists) {
-        sops.secrets."act/github_token" = {
-          sopsFile = actSecretFile;
-          mode = "0400";
-          owner = ownerName;
-        };
+      config = lib.mkMerge [
+        (lib.mkIf (cfg.enable && actSecretExists) {
+          sops.secrets."act/github_token" = {
+            sopsFile = actSecretFile;
+            mode = "0400";
+            owner = ownerName;
+          };
 
-        # Template an env file: GITHUB_TOKEN=...
-        sops.templates."act-env" = {
-          content = ''
-            GITHUB_TOKEN={{ .act/github_token }}
-          '';
-          mode = "0400";
-          owner = ownerName;
-        };
+          sops.templates."act-env" = {
+            content = ''
+              GITHUB_TOKEN={{ .act/github_token }}
+            '';
+            mode = "0400";
+            owner = ownerName;
+          };
 
-        # Expose a stable path for act to use
-        environment.etc."act/secrets.env".source = config.sops.templates."act-env".path;
-      }
-      // lib.mkIf (cfg.enable && gpgSecretExists) {
-        sops.secrets."gpg/vx-secret-key" = {
-          sopsFile = gpgSecretFile;
-          format = "binary";
-          mode = "0400";
-          owner = ownerName;
-        };
-      }
-      // lib.mkIf (cfg.enable && !actSecretExists) {
-        warnings = [
-          "security.repoSecrets.enable is true but ${actSecretFile} is missing; skipping act secret."
-        ];
-      }
-      // lib.mkIf (cfg.enable && !gpgSecretExists) {
-        warnings = [
-          "security.repoSecrets.enable is true but ${gpgSecretFile} is missing; skipping gpg secret."
-        ];
-      };
+          environment.etc."act/secrets.env".source = config.sops.templates."act-env".path;
+        })
+
+        (lib.mkIf (cfg.enable && !actSecretExists) {
+          warnings = [
+            "security.repoSecrets.enable is true but ${actSecretFile} is missing; skipping act secret."
+          ];
+        })
+      ];
     };
-
 }
