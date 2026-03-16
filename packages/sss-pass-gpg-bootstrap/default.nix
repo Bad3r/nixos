@@ -81,22 +81,12 @@ writeShellApplication {
         elif [ ! -f "$gpg_id_file" ]; then
           needs_init=1
           init_reason=".gpg-id is missing"
-        else
-          first_fingerprint="$(sed -n '1p' "$gpg_id_file")"
-          extra_fingerprint="$(sed -n '2p' "$gpg_id_file")"
-          if [ "$first_fingerprint" != "$expected_fingerprint" ]; then
-            needs_init=1
-            init_reason=".gpg-id fingerprint $first_fingerprint does not match expected $expected_fingerprint"
-          elif [ -n "$extra_fingerprint" ]; then
-            needs_init=1
-            init_reason=".gpg-id contains multiple fingerprints; expected only $expected_fingerprint"
-          fi
         fi
 
         if [ "$needs_init" -eq 1 ]; then
           echo "Initializing pass store because $init_reason" >&2
-          if ! pass init --quiet "$expected_fingerprint"; then
-            echo "pass init failed while repairing the store state; verify that $expected_fingerprint is imported and $store_dir is writable" >&2
+          if ! pass init "$expected_fingerprint"; then
+            echo "pass init failed while initializing missing store state; verify that $expected_fingerprint is imported and $store_dir is writable" >&2
             exit 1
           fi
         fi
