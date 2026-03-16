@@ -3,16 +3,29 @@
     {
       config,
       lib,
-      pkgs,
+      osConfig ? { },
       ...
     }:
     let
+      nixosEnabled = lib.attrByPath [
+        "programs"
+        "sss-pass-gpg-bootstrap"
+        "extended"
+        "enable"
+      ] false osConfig;
+      passGpgBootstrap = lib.attrByPath [
+        "programs"
+        "sss-pass-gpg-bootstrap"
+        "extended"
+        "package"
+      ] null osConfig;
       repoGpg = lib.attrByPath [ "home" "repoGpg" ] { } config;
       keyFingerprint = repoGpg.fingerprint or "";
       keySecret = lib.attrByPath [ "sops" "secrets" "gpg/vx-secret-key" ] null config;
       keyPath = if keySecret == null then null else keySecret.path;
-      haveKeyPath = (repoGpg.available or false) && keyPath != null && keyFingerprint != "";
-      passGpgBootstrap = pkgs."sss-pass-gpg-bootstrap";
+      bootstrapReady = nixosEnabled && passGpgBootstrap != null;
+      haveKeyPath =
+        bootstrapReady && (repoGpg.available or false) && keyPath != null && keyFingerprint != "";
     in
     {
       home.activation.importPassGpgKey = lib.mkIf haveKeyPath (
