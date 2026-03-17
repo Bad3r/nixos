@@ -287,6 +287,15 @@ _: {
         # TUI settings
         tui = {
           notifications = true;
+          status_line = [
+            "model-with-reasoning"
+            "context-remaining"
+            "current-dir"
+            "git-branch"
+            "five-hour-limit"
+            "weekly-limit"
+            "fast-mode"
+          ];
         };
 
         # MCP servers
