@@ -82,7 +82,7 @@ trap_error() {
   if [[ ${#FUNCNAME[@]} -gt 2 ]]; then
     printf "  Call stack:\n" >&2
     for ((i = 1; i < ${#FUNCNAME[@]}; i++)); do
-      printf "    %s() at line %s\n" "${FUNCNAME[i]}" "${BASH_LINENO[i - 1]}" >&2
+      printf "    %s() at line %s\n" "${FUNCNAME[i]}" "${BASH_LINENO[i-1]}" >&2
     done
   fi
   exit "${exit_code}"
