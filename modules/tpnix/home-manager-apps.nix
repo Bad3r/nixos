@@ -5,7 +5,6 @@ let
     "atuin"
     "autorandr"
     "bat"
-    "bitwarden-desktop"
     "bottom"
     "bun"
     "claude-code"
