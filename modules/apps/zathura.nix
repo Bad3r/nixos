@@ -9,6 +9,11 @@
     * Supports multiple document formats (PDF, PostScript, DjVu) via plugin system.
     * Features vim-like keybindings, bookmarks, SyncTeX support, and customizable interface.
 
+  Example Usage:
+    * `zathura report.pdf` -- Open a PDF in the keyboard-driven viewer.
+    * `zathura -P 42 report.pdf` -- Jump directly to page 42 on open.
+    * `zathura -f indicator report.pdf` -- Open a document and start searching immediately.
+
   Options:
     -c: Path to the config directory.
     -d: Path to the data directory.
