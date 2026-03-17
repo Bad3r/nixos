@@ -1,12 +1,15 @@
 {
   flake.nixosModules.base =
     { pkgs, ... }:
+    let
+      pinentryDispatch = pkgs.callPackage ../../packages/pinentry-dispatch { };
+    in
     {
       programs.gnupg.agent = {
         enable = true;
         enableSSHSupport = true;
         enableExtraSocket = true;
-        pinentryPackage = pkgs.pinentry-curses;
+        pinentryPackage = pinentryDispatch;
         # Cache GPG/SSH passphrases for 8 hours
         # Modern NixOS uses agent.settings mapped to gpg-agent.conf keys
         settings = {
