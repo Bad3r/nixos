@@ -322,6 +322,17 @@ let
     else
       result;
 
+  normalizeServerForClient =
+    client: name: server:
+    if client == "claude" && validatedServers.${name}.source == "http" then
+      server // { type = "remote"; }
+    else
+      server;
+
+  mkClientServers =
+    client: pkgs: enabled:
+    lib.mapAttrs (name: server: normalizeServerForClient client name server) (mkServers pkgs enabled);
+
   clientServerNames =
     client:
     lib.filter (name: lib.elem client validatedServers.${name}.clients) (
@@ -330,7 +341,7 @@ let
 
   compiledClients = lib.genAttrs validClients (client: {
     names = clientServerNames client;
-    servers = pkgs: mkServers pkgs (clientServerNames client);
+    servers = pkgs: mkClientServers client pkgs (clientServerNames client);
   });
 
   renderClientList =

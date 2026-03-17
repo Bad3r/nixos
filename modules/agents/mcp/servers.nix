@@ -145,6 +145,20 @@ _: {
       };
     };
 
+    gh_grep = {
+      source = "http";
+      url = "https://mcp.grep.app";
+      clients = [
+        "claude"
+        "codex"
+      ];
+      docs = {
+        primaryUse = "Search public GitHub code indexed by grep.app.";
+        accessNotes = "Enabled by default for Codex and Claude Code through the remote grep.app HTTP endpoint.";
+        example = "Use `/mcp` to inspect the available `gh_grep` tools.";
+      };
+    };
+
     deepwiki = {
       source = "npx";
       package = "mcp-deepwiki@latest";
