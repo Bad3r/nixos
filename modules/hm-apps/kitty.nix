@@ -27,6 +27,13 @@ _: {
     { osConfig, lib, ... }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "kitty" "extended" "enable" ] false osConfig;
+      arabicRanges = lib.concatStringsSep "," [
+        "U+0600-U+06FF"
+        "U+0750-U+077F"
+        "U+08A0-U+08FF"
+        "U+FB50-U+FDFF"
+        "U+FE70-U+FEFF"
+      ];
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -155,6 +162,11 @@ _: {
             "kitty_mod+a>d" = "set_background_opacity default";
             "kitty_mod+delete" = "clear_terminal reset active";
           };
+
+          extraConfig = ''
+            # Prefer an Arabic-capable font for Arabic codepoint ranges.
+            symbol_map ${arabicRanges} Noto Sans Arabic UI
+          '';
         };
       };
     };

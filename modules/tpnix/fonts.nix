@@ -58,6 +58,24 @@ in
                   "Symbols Nerd Font Mono"
                 ];
               };
+              localConf = ''
+                <?xml version="1.0"?>
+                <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+                <fontconfig>
+                  ${lib.optionalString (secretExists && sopsRuntimeReady) "<dir>${fontInstallDir}</dir>"}
+                  <match target="pattern">
+                    <test name="lang" compare="contains">
+                      <string>ar</string>
+                    </test>
+                    <edit name="family" mode="prepend" binding="strong">
+                      <string>Noto Sans Arabic UI</string>
+                      <string>Noto Sans Arabic</string>
+                      <string>Noto Naskh Arabic</string>
+                      <string>DejaVu Sans Mono</string>
+                    </edit>
+                  </match>
+                </fontconfig>
+              '';
             };
           };
         }
@@ -119,14 +137,6 @@ in
               fc-cache -f "${fontInstallDir}"
             '';
           };
-
-          fonts.fontconfig.localConf = ''
-            <?xml version="1.0"?>
-            <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
-            <fontconfig>
-              <dir>${fontInstallDir}</dir>
-            </fontconfig>
-          '';
         })
         (lib.optionalAttrs (secretExists && (!sopsRuntimeReady)) {
           warnings = [
