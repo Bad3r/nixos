@@ -183,6 +183,7 @@
       mosh.extended.enable = lib.mkOverride 1100 true;
       "msgraph-cli".extended.enable = lib.mkOverride 1100 false;
       mpv.extended.enable = lib.mkOverride 1100 false;
+      mupdf.extended.enable = lib.mkOverride 1100 true;
       "mullvad-browser".extended.enable = lib.mkOverride 1100 false;
       nemo.extended.enable = lib.mkOverride 1100 true;
       neovim.extended.enable = lib.mkOverride 1100 true;
@@ -213,6 +214,7 @@
       nvd.extended.enable = lib.mkOverride 1100 false;
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 false;
+      ocrmypdf.extended.enable = lib.mkOverride 1100 true;
       okular.extended.enable = lib.mkOverride 1100 false;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 false;
       openssh.extended.enable = lib.mkOverride 1100 true;
@@ -232,6 +234,7 @@
       playwright.extended.enable = lib.mkOverride 1100 true;
       playerctl.extended.enable = lib.mkOverride 1100 false;
       pnpm.extended.enable = lib.mkOverride 1100 true;
+      "poppler-utils".extended.enable = lib.mkOverride 1100 true;
       potrace.extended.enable = lib.mkOverride 1100 false;
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 false;
       "pre-commit".extended.enable = lib.mkOverride 1100 true;
@@ -239,10 +242,12 @@
       "protonvpn-gui".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 false;
       pwgen.extended.enable = lib.mkOverride 1100 true;
+      pymupdf.extended.enable = lib.mkOverride 1100 true;
       pyright.extended.enable = lib.mkOverride 1100 true;
       python.extended.enable = lib.mkOverride 1100 true;
       pyyaml.extended.enable = lib.mkOverride 1100 false;
       qbittorrent.extended.enable = lib.mkOverride 1100 false;
+      qpdf.extended.enable = lib.mkOverride 1100 true;
       radare2.extended.enable = lib.mkOverride 1100 false;
       raindrop.extended.enable = lib.mkOverride 1100 false;
       rar.extended.enable = lib.mkOverride 1100 true;
