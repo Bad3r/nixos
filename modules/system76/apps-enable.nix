@@ -301,6 +301,7 @@
       sshfs.extended.enable = lib.mkOverride 1100 true;
       "sss-nix-repair".extended.enable = lib.mkOverride 1100 true;
       "sss-pass-gpg-bootstrap".extended.enable = lib.mkOverride 1100 false;
+      snip.extended.enable = lib.mkOverride 1100 true;
       starship.extended.enable = lib.mkOverride 1100 true;
       statix.extended.enable = lib.mkOverride 1100 true;
       stash.extended.enable = lib.mkOverride 1100 true;
