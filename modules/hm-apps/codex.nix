@@ -288,13 +288,23 @@ _: {
         tui = {
           notifications = true;
           status_line = [
-            "model-with-reasoning"
-            "context-remaining"
-            "current-dir"
-            "git-branch"
-            "five-hour-limit"
-            "weekly-limit"
-            "fast-mode"
+            # Configure Status Line: Select which items to display in the status line.
+            "model-with-reasoning" # Current model name with reasoning level
+            "context-remaining" # Percentage of context window remaining (omitted when unknown)
+            "current-dir" # Current working directory
+            # "model-name" # Current model name
+            # "project-root" # Project root directory (omitted when unavailable)
+            "git-branch" # Current Git branch (omitted when unavailable)
+            # "context-used" # Percentage of context window used (omitted when unknown)
+            "five-hour-limit" # Remaining usage on 5-hour usage limit (omitted when unavailable)
+            "weekly-limit" # Remaining usage on weekly usage limit (omitted when unavailable)
+            # "codex-version" # Codex application version
+            # "context-window-size" # Total context window size in tokens (omitted when unknown)
+            # "used-tokens" # Total tokens used in session (omitted when zero)
+            # "total-input-tokens" # Total input tokens used in session
+            # "total-output-tokens" # Total output tokens used in session
+            # "session-id" # Current session identifier (omitted until session starts)
+            "fast-mode" # Whether Fast mode is currently active
           ];
         };
 
