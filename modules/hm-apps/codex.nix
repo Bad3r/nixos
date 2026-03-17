@@ -87,7 +87,7 @@ _: {
           powershell_utf8 = false;
           prevent_idle_sleep = false;
           realtime_conversation = false;
-          request_permissions = false;
+          exec_permission_approvals = false;
           responses_websockets = false;
           responses_websockets_v2 = false;
           runtime_metrics = false;
@@ -256,7 +256,7 @@ _: {
           multi_agent = true;
           memories = true;
           realtime_conversation = true;
-          request_permissions = true;
+          exec_permission_approvals = true;
           shell_zsh_fork = true;
           shell_snapshot = true;
           skill_env_var_dependency_prompt = true;
