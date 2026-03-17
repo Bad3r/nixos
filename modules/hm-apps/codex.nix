@@ -454,6 +454,11 @@ _: {
           # Nix-managed trusted projects (read-only symlink to store)
           "codex/projects.nix.toml".source = nixProjectsFile;
 
+          # User-level Codex instructions under XDG config home
+          "codex/AGENTS.md".text = ''
+            If you are unsure how to do something, use `gh_grep` to search code examples from GitHub.
+          '';
+
           # Commit skill (user-scoped, discovered by SkillsManager at ~/.agents/skills/)
           "agents/skills/commit".source = commitSkillDir;
         };
