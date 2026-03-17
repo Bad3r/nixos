@@ -267,6 +267,13 @@ _: {
           responses_websockets_v2 = true;
         };
 
+        memories = {
+          use_memories = true;
+          generate_memories = true;
+          max_raw_memories_for_consolidation = 128; # Default: 256
+          max_unused_days = 24; # Default: 30
+        };
+
         # Shell environment
         shell_environment_policy = {
           "inherit" = "all";
