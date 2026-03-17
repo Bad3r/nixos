@@ -131,6 +131,76 @@ _: {
           # 1. Deferred activation - prevents blocking UI while otter creates buffers/attaches LSPs
           # 2. Diagnostic filter - suppresses otter diagnostics for .nix files (''${ causes false positives)
           extraConfigLua = ''
+            -- Window-local Arabic viewing helpers for mixed RTL/LTR content.
+            local function set_arabic_view(enabled)
+              if enabled then
+                if vim.w.arabic_view_state == nil then
+                  vim.w.arabic_view_state = {
+                    wrap = vim.wo.wrap,
+                    linebreak = vim.wo.linebreak,
+                    breakindent = vim.wo.breakindent,
+                    rightleftcmd = vim.wo.rightleftcmd,
+                    sidescrolloff = vim.wo.sidescrolloff,
+                  }
+                end
+
+                vim.go.arabicshape = true
+                vim.cmd("setlocal rightleft")
+                vim.opt_local.rightleftcmd = "search"
+                vim.wo.wrap = true
+                vim.wo.linebreak = true
+                vim.wo.breakindent = true
+                vim.wo.sidescrolloff = 0
+              else
+                local state = vim.w.arabic_view_state
+                vim.cmd("setlocal norightleft")
+
+                if state ~= nil then
+                  vim.wo.wrap = state.wrap
+                  vim.wo.linebreak = state.linebreak
+                  vim.wo.breakindent = state.breakindent
+                  vim.opt_local.rightleftcmd = state.rightleftcmd
+                  vim.wo.sidescrolloff = state.sidescrolloff
+                  vim.w.arabic_view_state = nil
+                end
+              end
+            end
+
+            vim.api.nvim_create_user_command("ArabicView", function(opts)
+              local arg = opts.args ~= "" and opts.args or "toggle"
+
+              if arg == "split" then
+                vim.cmd("vsplit")
+                set_arabic_view(true)
+                return
+              end
+
+              if arg == "on" then
+                set_arabic_view(true)
+              elseif arg == "off" then
+                set_arabic_view(false)
+              elseif arg == "toggle" then
+                set_arabic_view(not vim.wo.rightleft)
+              else
+                vim.notify("ArabicView expects on, off, toggle, or split", vim.log.levels.ERROR)
+              end
+            end, {
+              nargs = "?",
+              complete = function()
+                return { "on", "off", "toggle", "split" }
+              end,
+              desc = "Toggle Arabic-friendly window view",
+            })
+
+            vim.keymap.set("n", "<leader>ua", "<cmd>ArabicView toggle<CR>", {
+              desc = "Toggle Arabic view",
+              silent = true,
+            })
+            vim.keymap.set("n", "<leader>uA", "<cmd>ArabicView split<CR>", {
+              desc = "Arabic view split",
+              silent = true,
+            })
+
             -- Filter otter diagnostics for nix files only
             -- Intercepts vim.diagnostic.set() which is how otter forwards diagnostics
             local orig_diagnostic_set = vim.diagnostic.set
