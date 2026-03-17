@@ -23,10 +23,10 @@ let
   # Optional flake module checks
   system76SupportExists = lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config;
   lenovyMonitorExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-lenovo-y27q-20" ] config;
-  repoGpgSecretModuleExists = lib.hasAttrByPath [
+  repoGpgModuleExists = lib.hasAttrByPath [
     "self"
     "homeManagerModules"
-    "repoGpgSecret"
+    "repoGpg"
   ] inputs;
 in
 {
@@ -80,7 +80,7 @@ in
     };
     home-manager.users.${metaOwner.username}.home = {
       context7Secrets.enable = lib.mkDefault true;
-      repoGpgSecret.enable = lib.mkDefault true;
+      repoGpg.enable = lib.mkDefault true;
       r2Secrets.enable = lib.mkDefault true;
       virustotalSecrets.enable = lib.mkDefault true;
     };
@@ -104,8 +104,8 @@ in
       [
         inputs.r2-flake.homeManagerModules.default
       ]
-      ++ lib.optionals repoGpgSecretModuleExists [
-        (lib.getAttrFromPath [ "self" "homeManagerModules" "repoGpgSecret" ] inputs)
+      ++ lib.optionals repoGpgModuleExists [
+        (lib.getAttrFromPath [ "self" "homeManagerModules" "repoGpg" ] inputs)
       ]
     );
   };

@@ -1,168 +1,189 @@
 { lib, metaOwner, ... }:
 {
-  flake.homeManagerModules.base = {
-    programs = {
-      git = lib.mkMerge [
-        # Base git configuration
-        {
-          enable = true;
+  flake.homeManagerModules.base =
+    { config, ... }:
+    {
+      programs = {
+        git = lib.mkMerge [
+          # Base git configuration
+          {
+            enable = true;
 
-          # Git configuration settings
-          settings = {
-            # Common aliases for faster workflow
-            alias = {
-              # Status and info
-              st = "status";
-              s = "status --short";
+            # Git configuration settings
+            settings = {
+              # Common aliases for faster workflow
+              alias = {
+                # Status and info
+                st = "status";
+                s = "status --short";
 
-              # Branching
-              br = "branch";
-              co = "checkout";
-              cob = "checkout -b";
+                # Branching
+                br = "branch";
+                co = "checkout";
+                cob = "checkout -b";
 
-              # Committing
-              ci = "commit";
-              cia = "commit --amend";
-              cim = "commit -m";
+                # Committing
+                ci = "commit";
+                cia = "commit --amend";
+                cim = "commit -m";
 
-              # Diff
-              d = "diff";
-              dc = "diff --cached";
-              ds = "diff --stat";
+                # Diff
+                d = "diff";
+                dc = "diff --cached";
+                ds = "diff --stat";
 
-              # Log
-              l = "log --oneline";
-              ll = "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
-              lg = "log --graph --oneline --decorate --all";
+                # Log
+                l = "log --oneline";
+                ll = "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
+                lg = "log --graph --oneline --decorate --all";
 
-              # Remotes
-              f = "fetch";
-              fa = "fetch --all";
-              p = "push";
-              pf = "push --force-with-lease";
-              pl = "pull";
-              plr = "pull --rebase";
+                # Remotes
+                f = "fetch";
+                fa = "fetch --all";
+                p = "push";
+                pf = "push --force-with-lease";
+                pl = "pull";
+                plr = "pull --rebase";
 
-              # Rebasing
-              rb = "rebase";
-              rbi = "rebase -i";
-              rbc = "rebase --continue";
-              rba = "rebase --abort";
+                # Rebasing
+                rb = "rebase";
+                rbi = "rebase -i";
+                rbc = "rebase --continue";
+                rba = "rebase --abort";
 
-              # Stash
-              sta = "stash";
-              stp = "stash pop";
-              stl = "stash list";
+                # Stash
+                sta = "stash";
+                stp = "stash pop";
+                stl = "stash list";
+
+                # Misc
+                cl = "clone";
+                sw = "switch";
+                swc = "switch -c";
+              };
+
+              # Core settings
+              core = {
+                # editor uses $EDITOR env var (set via default-apps.nix)
+                # pager is set by programs.delta when enabled
+                whitespace = "trailing-space,space-before-tab";
+              };
+
+              # Diff tool uses $DIFFPROG env var (set via default-apps.nix)
+              diff.tool = "diffprog";
+              difftool.diffprog.cmd = "\${DIFFPROG:-nvim -d} \"$LOCAL\" \"$REMOTE\"";
+              difftool.prompt = false;
+
+              # Pull settings
+              pull.rebase = false;
+
+              # Push settings
+              push.default = "simple";
+              push.autoSetupRemote = true;
+
+              # Color settings
+              color.ui = true;
+
+              # Diff settings
+              diff = {
+                algorithm = "histogram";
+                colorMoved = "default";
+              };
+
+              # Init settings
+              init.defaultBranch = "main";
+
+              # Merge settings
+              merge.conflictStyle = "zdiff3";
+
+              # Rebase settings
+              rebase.autoStash = true;
+            };
+
+            # LFS configuration
+            lfs = {
+              enable = true;
+              skipSmudge = false;
+            };
+
+            # Global gitignore
+            ignores = [
+              # OS files
+              ".DS_Store"
+              "Thumbs.db"
+
+              # Editor files
+              "*~"
+              "*.swp"
+              "*.swo"
+              ".*.sw?"
+              ".vscode/"
+              ".idea/"
+
+              # Build artifacts
+              "*.o"
+              "*.so"
+              "*.a"
+              "*.dylib"
+              "*.dll"
+              "*.exe"
+
+              # Nix
+              "result"
+              "result-*"
 
               # Misc
-              cl = "clone";
-              sw = "switch";
-              swc = "switch -c";
+              ".envrc.local"
+              ".direnv/"
+            ];
+          }
+
+          # User identity from owner profile
+          {
+            settings.user = {
+              inherit (metaOwner.git) name email;
             };
+          }
 
-            # Core settings
-            core = {
-              # editor uses $EDITOR env var (set via default-apps.nix)
-              # pager is set by programs.delta when enabled
-              whitespace = "trailing-space,space-before-tab";
-            };
+          # GPG commit signing
+          (
+            let
+              repoGpg = lib.attrByPath [ "home" "repoGpg" ] { } config;
+              keyFingerprint = repoGpg.fingerprint or null;
+            in
+            if (repoGpg.signingReady or false) && keyFingerprint != null then
+              {
+                signing = {
+                  key = keyFingerprint; # pragma: allowlist secret
+                  signByDefault = true;
+                  format = "openpgp";
+                };
+                settings = {
+                  commit.gpgSign = true;
+                  tag.gpgSign = true;
+                };
+              }
+            else
+              {
+                signing.signByDefault = false;
+                settings = {
+                  commit.gpgSign = false;
+                  tag.gpgSign = false;
+                };
+              }
+          )
+        ];
 
-            # Diff tool uses $DIFFPROG env var (set via default-apps.nix)
-            diff.tool = "diffprog";
-            difftool.diffprog.cmd = "\${DIFFPROG:-nvim -d} \"$LOCAL\" \"$REMOTE\"";
-            difftool.prompt = false;
-
-            # Pull settings
-            pull.rebase = false;
-
-            # Push settings
-            push.default = "simple";
-            push.autoSetupRemote = true;
-
-            # Color settings
-            color.ui = true;
-
-            # Diff settings
-            diff = {
-              algorithm = "histogram";
-              colorMoved = "default";
-            };
-
-            # Init settings
-            init.defaultBranch = "main";
-
-            # Merge settings
-            merge.conflictStyle = "zdiff3";
-
-            # Rebase settings
-            rebase.autoStash = true;
+        # Delta diff viewer (moved from programs.git.delta to programs.delta)
+        delta = {
+          enable = true;
+          options = {
+            navigate = true;
+            light = false;
+            side-by-side = false;
+            line-numbers = true;
           };
-
-          # LFS configuration
-          lfs = {
-            enable = true;
-            skipSmudge = false;
-          };
-
-          # Global gitignore
-          ignores = [
-            # OS files
-            ".DS_Store"
-            "Thumbs.db"
-
-            # Editor files
-            "*~"
-            "*.swp"
-            "*.swo"
-            ".*.sw?"
-            ".vscode/"
-            ".idea/"
-
-            # Build artifacts
-            "*.o"
-            "*.so"
-            "*.a"
-            "*.dylib"
-            "*.dll"
-            "*.exe"
-
-            # Nix
-            "result"
-            "result-*"
-
-            # Misc
-            ".envrc.local"
-            ".direnv/"
-          ];
-        }
-
-        # User identity from owner profile
-        {
-          settings.user = {
-            inherit (metaOwner.git) name email;
-          };
-        }
-
-        # GPG commit signing
-        {
-          signing = {
-            key = "981DE78A201C2B735FF0B545A3967CCA47D5275F"; # pragma: allowlist secret
-            signByDefault = true;
-            format = "openpgp";
-          };
-        }
-      ];
-
-      # Delta diff viewer (moved from programs.git.delta to programs.delta)
-      delta = {
-        enable = true;
-        options = {
-          navigate = true;
-          light = false;
-          side-by-side = false;
-          line-numbers = true;
         };
       };
     };
-  };
 }

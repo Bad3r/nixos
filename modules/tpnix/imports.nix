@@ -78,14 +78,6 @@ in
         r2Secrets.enable = lib.mkForce false;
         virustotalSecrets.enable = lib.mkForce false;
       };
-
-      programs.git = {
-        signing.signByDefault = lib.mkForce false;
-        settings = {
-          commit.gpgSign = lib.mkForce false;
-          tag.gpgSign = lib.mkForce false;
-        };
-      };
     };
 
     home-manager.sharedModules = lib.mkAfter (
