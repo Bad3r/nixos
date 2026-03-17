@@ -36,7 +36,7 @@
       bat.extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 true;
-      "bitwarden-desktop".extended.enable = lib.mkOverride 1100 true;
+      "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
       blueman.extended.enable = lib.mkOverride 1100 true;
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 true;
@@ -314,7 +314,7 @@
       tcpdump.extended.enable = lib.mkOverride 1100 true;
       tealdeer.extended.enable = lib.mkOverride 1100 true;
       "telegram-desktop".extended.enable = lib.mkOverride 1100 true;
-      "teams-for-linux".extended.enable = lib.mkOverride 1100 true;
+      "teams-for-linux".extended.enable = lib.mkOverride 1100 false;
       "temurin-bin-25".extended.enable = lib.mkOverride 1100 false;
       terraform.extended.enable = lib.mkOverride 1100 true;
       tesseract.extended.enable = lib.mkOverride 1100 true;
