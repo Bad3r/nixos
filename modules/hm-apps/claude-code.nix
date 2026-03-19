@@ -162,9 +162,15 @@ _: {
               echo "{}" > "$CLAUDE_CONFIG"
             fi
 
-            # Merge Nix-managed settings into existing config (preserves runtime state)
+            # Merge Nix-managed settings into existing config while replacing
+            # Nix-managed MCP server entries wholesale to avoid stale per-server
+            # keys like old command/args transport fallbacks lingering forever.
             if ! ${pkgs.jq}/bin/jq --slurpfile nixConfig ${claudeJsonConfigFile} \
-              '. * $nixConfig[0]' "$CLAUDE_CONFIG" > "$TMP_FILE"; then
+              '. as $existing
+              | $nixConfig[0] as $nix
+              | ($existing * $nix)
+              | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))' \
+              "$CLAUDE_CONFIG" > "$TMP_FILE"; then
               echo "ERROR: jq failed to merge config" >&2
               exit 1
             fi
