@@ -56,7 +56,8 @@ _: {
         analytics = {
           enabled = true;
         };
-        approval_policy = "on-request";
+        #approval_policy = "on-request";
+        approval_policy = "never";
         apps = { };
         background_terminal_max_timeout = 300000;
         # chatgpt_base_url = null;
@@ -194,8 +195,9 @@ _: {
         review_model = "gpt-5.4";
         profile = "default";
         commit_attribution = "";
+        #approval_policy = "on-request";
         approval_policy = "never";
-        sandbox_mode = "danger-full-access";
+        sandbox_mode = "workspace-write";
         personality = "pragmatic";
         web_search = "live";
         zsh_path = lib.getExe pkgs.zsh;
@@ -315,7 +317,8 @@ _: {
         profiles = {
           default = {
             model = "gpt-5.4";
-            approval_policy = "never";
+            approval_policy = "on-request";
+            sandbox_mode = "workspace-write";
             # model_supports_reasoning_summaries = true; # Avoid sending reasoning.summary.
             model_reasoning_effort = "xhigh";
             model_verbosity = "medium";
