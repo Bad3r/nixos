@@ -111,6 +111,19 @@ _: {
                 "manual"
               ];
             };
+
+            mcp-docs-sync = {
+              enable = true;
+              name = "mcp-docs-sync";
+              description = "Ensure MCP reference docs match the generated agents.mcp output.";
+              entry = "${config.packages.hook-mcp-docs-sync}/bin/hook-mcp-docs-sync";
+              pass_filenames = false;
+              files = "^(modules/agents/mcp\\.nix|modules/agents/mcp/servers\\.nix)$";
+              stages = [
+                "pre-push"
+                "manual"
+              ];
+            };
           };
         };
       };
