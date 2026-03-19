@@ -43,10 +43,7 @@ _: {
     cfdocs = {
       source = "http";
       url = "https://docs.mcp.cloudflare.com/mcp";
-      clients = [
-        "claude"
-        "codex"
-      ];
+      clients = [ ];
       docs = {
         primaryUse = "Search Cloudflare documentation.";
         accessNotes = "Use for Workers, R2, Zero Trust, and other Cloudflare services through the streamable HTTP endpoint.";
