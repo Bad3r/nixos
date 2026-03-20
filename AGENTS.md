@@ -10,7 +10,7 @@ This file provides guidance to coding agents working in this repository.
 
 These rules override all other instructions. Violations are unacceptable.
 
-### Rule 1: Never Make Changes Irrecoverable
+### Never Make Changes Irrecoverable
 
 Absolutely forbidden:
 
@@ -24,6 +24,8 @@ Required practices:
 
 - Use `rip <path>` instead of `rm` for deletions (recoverable from graveyard)
 - Use `git stash` when needed, but never drop stashes
+- Allowed stash operations are `git stash`, `git stash list`, `git stash show`, and `git stash apply`
+- `git stash pop` requires explicit user approval
 - If temporarily moving changes aside, leave stashes intact
 - Preserve user changes; if uncertain, ask first
 - Before any potentially destructive operation, stop and ask
@@ -33,25 +35,6 @@ If something is accidentally deleted:
 1. Immediately attempt recovery (stash hash, reflog, `rip` graveyard, etc.)
 2. Inform the user exactly what happened and what was recovered
 3. Never hide or minimize deletion mistakes
-
-### Rule 2: Git Stash Operations
-
-Allowed:
-
-- `git stash`
-- `git stash list`
-- `git stash show`
-- `git stash pop` (only with user approval)
-- `git stash apply`
-
-Forbidden:
-
-- `git stash drop`
-- `git stash clear`
-
-Preferred alternative:
-
-- Use `rip` for temporary file removal when possible
 
 ## File Parsing and Search
 
@@ -288,15 +271,12 @@ sops.secrets."context7/api-key" = {
 
 ## Safety and Escalation
 
-Review "Critical Safety Rules" before any risky operation.
+Review "Critical Safety Rules" before any risky operation. The table below only lists additional repo-specific guardrails that are not already covered above.
 
 ### Guardrails
 
 | Risky Action                                        | Status                     | Alternative                                                                               |
 | --------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------- |
-| `git stash drop` / `git stash clear`                | ABSOLUTELY FORBIDDEN       | Never delete stashes; use `git stash apply` when needed.                                  |
-| `git reset --hard`, `git clean -fd`                 | ABSOLUTELY FORBIDDEN       | Ask user first before any destructive git operation.                                      |
-| `rm` or `rm -rf` on user files                      | ABSOLUTELY FORBIDDEN       | Use `rip` for recoverable deletion.                                                       |
 | `nixos-rebuild` against live host                   | FORBIDDEN                  | Use `nix build` or `./build.sh` workflows above.                                          |
 | `generation-manager switch`                         | FORBIDDEN                  | Use approved deployment path only.                                                        |
 | `nix-collect-garbage` / `sudo nix-collect-garbage`  | FORBIDDEN                  | Escalate to maintainer; avoid broad garbage collection.                                   |
@@ -343,19 +323,8 @@ If configured, use `/mcp` to check server availability.
 
 - Never `@mention` users who are not repository collaborators.
 
-## Important Reminders
-
-### Priority: Data Safety
-
-- Never make user changes irrecoverable
-- Never use `git stash drop`, `git stash clear`, `git reset --hard`, or `rm -rf` on user files
-- Use `rip` instead of `rm` for deletions
-- Do not perform destructive operations without explicit user approval
-
-### General Practices
+## General Practices
 
 - Do what was asked, nothing more and nothing less
 - Prefer editing existing files over creating new ones
 - Do not create docs/README files unless explicitly requested
-- Generated artifacts (`.actrc`, `.gitignore`, `.sops.yaml`, `README.md`) are managed by the files module
-- `build.sh` refuses dirty trees by default; use `--allow-dirty` only when necessary
