@@ -44,6 +44,9 @@ _: {
       configDir = "${config.xdg.configHome}/codex";
       agentsDir = "${config.xdg.configHome}/agents";
       tomlFormat = pkgs.formats.toml { };
+      coreutilsMktemp = lib.getExe' pkgs.coreutils "mktemp";
+      coreutilsRm = lib.getExe' pkgs.coreutils "rm";
+      coreutilsSha256sum = lib.getExe' pkgs.coreutils "sha256sum";
       execPolicyRule =
         {
           pattern,
@@ -802,35 +805,81 @@ _: {
       # Wrapper that assembles config.toml before launching codex.
       # Uses parser-based TOML merge with precedence:
       # base settings < nix-managed projects < user-managed projects.
+      # Re-merges only when the input file hashes change.
       codexWrapped = pkgs.writeShellScriptBin "codex" ''
                 cfgDir="''${CODEX_HOME:-${configDir}}"
                 base="$cfgDir/config.base.toml"
                 nixProjects="$cfgDir/projects.nix.toml"
                 userProjects="$cfgDir/trusted-projects.toml"
                 out="$cfgDir/config.toml"
-                tmpOut="''${out}.tmp"
+                mergeStamp="$cfgDir/config.merge.sha256"
                 tmpDir="/tmp/agents"
+                tmpOut=""
+                tmpStamp=""
 
                 mkdir -p "$tmpDir"
                 export TMPDIR="$tmpDir"
                 export PATH="${rmShim}/bin:$PATH"
 
+                cleanupMergeArtifacts() {
+                  if [ -n "$tmpOut" ] && [ -e "$tmpOut" ]; then
+                    ${coreutilsRm} -f -- "$tmpOut"
+                  fi
+                  if [ -n "$tmpStamp" ] && [ -e "$tmpStamp" ]; then
+                    ${coreutilsRm} -f -- "$tmpStamp"
+                  fi
+                }
+
+                hashInputs() {
+                  for path in "$base" "$nixProjects" "$userProjects"; do
+                    if [ -f "$path" ]; then
+                      printf 'file\t%s\t' "$path"
+                      ${coreutilsSha256sum} "$path"
+                    else
+                      printf 'missing\t%s\n' "$path"
+                    fi
+                  done | ${coreutilsSha256sum} | awk '{print $1}'
+                }
+
                 if [ -f "$base" ]; then
-                  if ${tomlMergePython}/bin/python - "$base" "$nixProjects" "$userProjects" "$tmpOut" <<'PY'
+                  inputHash="$(hashInputs)"
+                  cachedHash=""
+                  if [ -f "$mergeStamp" ]; then
+                    read -r cachedHash < "$mergeStamp" || cachedHash=""
+                  fi
+
+                  if [ ! -s "$out" ] || [ "$cachedHash" != "$inputHash" ]; then
+                    tmpOut="$(${coreutilsMktemp} "$tmpDir/codex-config.XXXXXXXX.toml")" || {
+                      echo "codex-wrapper: ERROR: failed to create temporary config file in $tmpDir" >&2
+                      exit 1
+                    }
+                    tmpStamp="$(${coreutilsMktemp} "$tmpDir/codex-config-stamp.XXXXXXXX")" || {
+                      echo "codex-wrapper: ERROR: failed to create temporary stamp file in $tmpDir" >&2
+                      exit 1
+                    }
+                    trap cleanupMergeArtifacts EXIT INT TERM
+
+                    if ${tomlMergePython}/bin/python - "$base" "$nixProjects" "$userProjects" "$tmpOut" <<'PY'
         from pathlib import Path
         import sys
         import tomllib
         import tomlkit
 
 
-        def load_toml(path_str: str) -> dict:
+        def load_toml(label: str, path_str: str) -> dict:
             path = Path(path_str)
             if not path.exists():
                 return {}
-            raw = path.read_text(encoding="utf-8")
+            try:
+                raw = path.read_text(encoding="utf-8")
+            except OSError as exc:
+                raise SystemExit(f"{label}: failed to read {path}: {exc}") from exc
             if not raw.strip():
                 return {}
-            return tomllib.loads(raw)
+            try:
+                return tomllib.loads(raw)
+            except tomllib.TOMLDecodeError as exc:
+                raise SystemExit(f"{label}: invalid TOML in {path}: {exc}") from exc
 
 
         def deep_merge(base: dict, override: dict) -> dict:
@@ -845,23 +894,40 @@ _: {
 
         base_path, nix_projects_path, user_projects_path, out_path = sys.argv[1:5]
         merged = {}
-        for path in (base_path, nix_projects_path, user_projects_path):
-            deep_merge(merged, load_toml(path))
+        for label, path in (
+            ("base config", base_path),
+            ("nix-managed projects", nix_projects_path),
+            ("user-managed projects", user_projects_path),
+        ):
+            deep_merge(merged, load_toml(label, path))
 
-        Path(out_path).write_text(tomlkit.dumps(merged), encoding="utf-8")
+        out_file = Path(out_path)
+        try:
+            out_file.write_text(tomlkit.dumps(merged), encoding="utf-8")
+        except OSError as exc:
+            raise SystemExit(f"failed to write merged config to {out_file}: {exc}") from exc
         PY
-                  then
-                    if [ -s "$tmpOut" ]; then
-                      mv "$tmpOut" "$out"
+                    then
+                      if [ -s "$tmpOut" ]; then
+                        if ! printf '%s\n' "$inputHash" > "$tmpStamp"; then
+                          echo "codex-wrapper: ERROR: failed to write merge stamp to $tmpStamp" >&2
+                          exit 1
+                        fi
+                        mv "$tmpOut" "$out"
+                        tmpOut=""
+                        mv "$tmpStamp" "$mergeStamp"
+                        tmpStamp=""
+                        trap - EXIT INT TERM
+                      else
+                        echo "codex-wrapper: ERROR: merged config is empty or missing at $tmpOut" >&2
+                        exit 1
+                      fi
                     else
-                      echo "codex-wrapper: ERROR: merged config is empty or missing at $tmpOut" >&2
-                      exit 1
+                      mergeStatus=$?
+                      echo "codex-wrapper: ERROR: failed to merge config (exit $mergeStatus)" >&2
+                      echo "codex-wrapper: ERROR: base=$base nixProjects=$nixProjects userProjects=$userProjects out=$out" >&2
+                      exit "$mergeStatus"
                     fi
-                  else
-                    mergeStatus=$?
-                    echo "codex-wrapper: ERROR: failed to merge config (exit $mergeStatus)" >&2
-                    echo "codex-wrapper: ERROR: base=$base nixProjects=$nixProjects userProjects=$userProjects" >&2
-                    exit "$mergeStatus"
                   fi
                 fi
 
@@ -914,6 +980,8 @@ _: {
             codexAgentsHomeLink = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
               agentsHome="${homeDir}/.agents"
               legacyBackupBase="${homeDir}/.agents.pre-xdg-migration"
+              maxLegacyBackups=8
+              maxBackupAttempts=32
 
               # If ~/.agents is a real directory, migrate its contents into
               # ~/.config/agents and archive the legacy directory before linking.
@@ -921,10 +989,21 @@ _: {
                 run mkdir -p "${agentsDir}"
                 run cp -a "$agentsHome/." "${agentsDir}/"
 
+                existingLegacyBackups=0
+                for candidate in "$legacyBackupBase" "$legacyBackupBase"-*; do
+                  if [ -e "$candidate" ]; then
+                    existingLegacyBackups=$((existingLegacyBackups + 1))
+                  fi
+                done
+                if [ "$existingLegacyBackups" -ge "$maxLegacyBackups" ]; then
+                  echo "codex-activation: ERROR: refusing to create more than $maxLegacyBackups legacy backups matching $legacyBackupBase*" >&2
+                  exit 1
+                fi
+
                 backupPath="$legacyBackupBase"
                 if [ -e "$backupPath" ]; then
                   i=0
-                  while :; do
+                  while [ "$i" -lt "$maxBackupAttempts" ]; do
                     candidate="''${legacyBackupBase}-$$-$i"
                     if [ ! -e "$candidate" ]; then
                       backupPath="$candidate"
@@ -932,6 +1011,10 @@ _: {
                     fi
                     i=$((i + 1))
                   done
+                  if [ "$i" -ge "$maxBackupAttempts" ]; then
+                    echo "codex-activation: ERROR: exhausted $maxBackupAttempts backup name attempts for $legacyBackupBase" >&2
+                    exit 1
+                  fi
                 fi
                 run mv "$agentsHome" "$backupPath"
               fi
