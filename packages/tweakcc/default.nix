@@ -18,7 +18,7 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "Piebald-AI";
     repo = "tweakcc";
     rev = "f876bc80eae12777750667e31253b6c408a896d5";
-    hash = "sha256-/zM78az4rz/fgfbD++XNfvrdSSx01xirJf9YGiCv/Pw=";
+    hash = "sha256-XnowPWl6vtNWVyZaUwiI8UhGe+d5UdkdIvRl1Tj1J/4=";
   };
 
   nativeBuildInputs = [
