@@ -46,6 +46,7 @@ let
     "pcmanfm"
     "pentesting-devshell"
     "rclone"
+    "remmina"
     "ripgrep"
     "ripgrep-all"
     "rofi"
