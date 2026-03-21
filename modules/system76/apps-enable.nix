@@ -228,6 +228,7 @@
       "node-cloudflare-sdk".extended.enable = lib.mkOverride 1100 false;
       nodejs_22.extended.enable = lib.mkOverride 1100 true;
       nodejs_24.extended.enable = lib.mkOverride 1100 true;
+      "nomachine-client".extended.enable = lib.mkOverride 1100 true;
       normcap.extended.enable = lib.mkOverride 1100 true;
       nrm.extended.enable = lib.mkOverride 1100 true;
       nsxiv.extended.enable = lib.mkOverride 1100 true;
@@ -275,6 +276,7 @@
       raindrop.extended.enable = lib.mkOverride 1100 true;
       rar.extended.enable = lib.mkOverride 1100 true;
       rclone.extended.enable = lib.mkOverride 1100 true;
+      remmina.extended.enable = lib.mkOverride 1100 true;
       rg-fzf.extended.enable = lib.mkOverride 1100 true;
       rip2.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
