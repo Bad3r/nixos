@@ -128,6 +128,31 @@ _: {
         exec "''${cmd[@]}" -- "''${operands[@]}"
       '';
 
+      # Scope recoverable bare `rm` rewrites to the top-level Codex shell command
+      # instead of mutating PATH for every subprocess those commands spawn.
+      codexZshWrapper = pkgs.writeShellScriptBin "codex-zsh" ''
+        set -euo pipefail
+
+        realZsh=${lib.getExe pkgs.zsh}
+        rmShimPath=${rmShim}/bin/rm
+
+        if [ "$#" -ge 2 ] && { [ "$1" = "-c" ] || [ "$1" = "-lc" ]; }; then
+          shellFlag="$1"
+          wrappedCommand="$2"
+          shift 2
+
+          export CODEX_WRAPPED_COMMAND="$wrappedCommand"
+          exec "$realZsh" "$shellFlag" '
+            rm() {
+              "'"$rmShimPath"'" "$@"
+            }
+            eval "$CODEX_WRAPPED_COMMAND"
+          ' "$@"
+        fi
+
+        exec "$realZsh" "$@"
+      '';
+
       execPolicyManagedRules =
         let
           allowAllCommands = [
@@ -638,7 +663,7 @@ _: {
         default_permissions = "workspace";
         personality = "pragmatic";
         web_search = "live";
-        zsh_path = lib.getExe pkgs.zsh;
+        zsh_path = lib.getExe codexZshWrapper;
 
         # Developer instructions for security research context
         developer_instructions = ''
@@ -819,7 +844,6 @@ _: {
 
                 mkdir -p "$tmpDir"
                 export TMPDIR="$tmpDir"
-                export PATH="${rmShim}/bin:$PATH"
 
                 cleanupMergeArtifacts() {
                   if [ -n "$tmpOut" ] && [ -e "$tmpOut" ]; then
