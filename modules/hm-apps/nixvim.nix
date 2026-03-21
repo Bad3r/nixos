@@ -129,7 +129,9 @@ _: {
 
           # Otter configuration:
           # 1. Deferred activation - prevents blocking UI while otter creates buffers/attaches LSPs
-          # 2. Diagnostic filter - suppresses otter diagnostics for .nix files (''${ causes false positives)
+          # 2. Automatic activation is limited to buffers that actually contain injected languages,
+          #    so plain Nix files avoid the extra LSP fan-out while embedded shell/Lua/etc. still work
+          # 3. Diagnostic filter - suppresses otter diagnostics for .nix files (''${ causes false positives)
           extraConfigLua = ''
             -- Window-local Arabic viewing helpers for mixed RTL/LTR content.
             local function set_arabic_view(enabled)
@@ -216,16 +218,65 @@ _: {
               return orig_diagnostic_set(namespace, bufnr, diagnostics, opts)
             end
 
-            -- Deferred otter activation to prevent blocking UI on file open
-            -- Highlighting loads immediately, LSP features follow after delay
+            local function otter_has_injected_languages(bufnr)
+              local main_lang = vim.bo[bufnr].filetype
+              local parser_lang = vim.treesitter.language.get_lang(main_lang)
+              if parser_lang == nil then
+                return false
+              end
+
+              local ok_parser, parser = pcall(vim.treesitter.get_parser, bufnr, parser_lang)
+              if not ok_parser or parser == nil then
+                return false
+              end
+
+              local ok_parse = pcall(parser.parse, parser, true)
+              if not ok_parse then
+                return false
+              end
+
+              local injectable = rawget(_G, "OtterConfig") and OtterConfig.injectable_languages or {}
+              local seen = {}
+              for _, lang in ipairs(injectable) do
+                seen[lang] = true
+              end
+
+              local function has_injected_tree(lang_tree)
+                for lang, child_tree in pairs(lang_tree:children()) do
+                  if lang ~= main_lang and seen[lang] then
+                    return true
+                  end
+                  if has_injected_tree(child_tree) then
+                    return true
+                  end
+                end
+                return false
+              end
+
+              return has_injected_tree(parser)
+            end
+
+            -- Deferred otter activation to prevent blocking UI on file open.
+            -- Use the target buffer explicitly so delayed activation does not race into
+            -- whichever buffer happens to be current 150ms later.
             vim.api.nvim_create_autocmd("FileType", {
               pattern = { "nix", "markdown", "quarto", "rmd" },
               callback = function(args)
                 vim.defer_fn(function()
-                  if not vim.api.nvim_buf_is_valid(args.buf) then return end
+                  if not vim.api.nvim_buf_is_valid(args.buf) or not vim.api.nvim_buf_is_loaded(args.buf) then
+                    return
+                  end
+                  if not otter_has_injected_languages(args.buf) then
+                    return
+                  end
                   local ok, otter = pcall(require, "otter")
                   if ok then
-                    otter.activate()
+                    vim.api.nvim_buf_call(args.buf, function()
+                      if vim.bo[args.buf].buftype ~= "" then
+                        return
+                      end
+                      otter.activate()
+                    end)
                   end
                 end, 150)
               end,
@@ -624,12 +675,7 @@ _: {
                   write_to_disk = false;
                 };
 
-                lsp = {
-                  diagnostic_update_events = [
-                    "BufWritePost"
-                    "InsertLeave"
-                  ];
-                };
+                lsp.diagnostic_update_events = [ "BufWritePost" ];
               };
             };
 
