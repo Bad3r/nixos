@@ -16,7 +16,7 @@
 
   Notes:
     * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
-    * Configuration managed by Home Manager module (modules/hm-apps/codex.nix).
+    * Configuration managed by Home Manager module (modules/agents/codex/home-manager.nix).
 */
 { inputs, ... }:
 {
