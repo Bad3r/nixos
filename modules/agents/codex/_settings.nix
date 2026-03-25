@@ -113,6 +113,8 @@ let
           "~/git" = "write";
           "~/igit" = "write";
           "~/nixos" = "write";
+          "~/dotfiles" = "write";
+          "~/.config" = "write";
         };
       };
     };
