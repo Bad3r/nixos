@@ -217,6 +217,7 @@
       obsidian.extended.enable = lib.mkOverride 1100 false;
       ocrmypdf.extended.enable = lib.mkOverride 1100 true;
       okular.extended.enable = lib.mkOverride 1100 false;
+      onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 false;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 false;
       openssh.extended.enable = lib.mkOverride 1100 true;
       openssl.extended.enable = lib.mkOverride 1100 true;
@@ -285,7 +286,6 @@
       sshfs.extended.enable = lib.mkOverride 1100 true;
       "sss-nix-repair".extended.enable = lib.mkOverride 1100 true;
       "sss-pass-gpg-bootstrap".extended.enable = lib.mkOverride 1100 true;
-      snip.extended.enable = lib.mkOverride 1100 true;
       starship.extended.enable = lib.mkOverride 1100 true;
       statix.extended.enable = lib.mkOverride 1100 true;
       stash.extended.enable = lib.mkOverride 1100 false;
@@ -341,6 +341,7 @@
       "worker-build".extended.enable = lib.mkOverride 1100 false;
       "workers-rs-sdk".extended.enable = lib.mkOverride 1100 false;
       wrangler.extended.enable = lib.mkOverride 1100 false;
+      wpsoffice.extended.enable = lib.mkOverride 1100 false;
       xbacklight.extended.enable = lib.mkOverride 1100 true;
       xclip.extended.enable = lib.mkOverride 1100 true;
       "xfce4-power-manager".extended.enable = lib.mkOverride 1100 true;
