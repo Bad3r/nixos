@@ -264,7 +264,7 @@
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 true;
       "pre-commit".extended.enable = lib.mkOverride 1100 true;
       procps.extended.enable = lib.mkOverride 1100 true;
-      "protonvpn-gui".extended.enable = lib.mkOverride 1100 true;
+      "proton-vpn".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 true;
       pwgen.extended.enable = lib.mkOverride 1100 true;
       pymupdf.extended.enable = lib.mkOverride 1100 true;
