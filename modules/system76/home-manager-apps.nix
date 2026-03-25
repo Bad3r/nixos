@@ -41,6 +41,7 @@ let
     "ncdu"
     "nix-index"
     "nixvim"
+    "onlyoffice-desktopeditors"
     "obsidian"
     "pandoc"
     "pcmanfm"
