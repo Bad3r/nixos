@@ -284,8 +284,14 @@ _: {
           '';
 
           # hmts.nvim - enhanced treesitter injections for Home Manager/Nix files
+          # plenary.nvim is added explicitly because the pinned nixvim/nixpkgs
+          # combination does not currently pull telescope's runtime dependency
+          # onto the packpath.
           # Detects embedded languages via /* lang */ comments, shebangs, and filename inference
-          extraPlugins = [ pkgs.vimPlugins.hmts-nvim ];
+          extraPlugins = [
+            pkgs.vimPlugins.plenary-nvim
+            pkgs.vimPlugins.hmts-nvim
+          ];
 
           # Plugins configuration
           plugins = {
