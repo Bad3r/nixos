@@ -1,5 +1,5 @@
 /*
-  Package: protonvpn-gui
+  Package: proton-vpn
   Description: Official ProtonVPN desktop application with secure core, NetShield, and auto-connect features.
   Homepage: https://protonvpn.com/
   Documentation: https://protonvpn.com/support/linux-vpn-tool/
@@ -10,17 +10,17 @@
     * Integrates Proton account login, multi-hop (Secure Core), NetShield malware/ad blocking, and connection speed metrics.
 
   Options:
-    protonvpn-gui: Launch the ProtonVPN desktop client and sign in with Proton credentials.
-    CLI: This package currently installs `protonvpn-app` only (no separate `protonvpn-cli` binary).
+    protonvpn-app: Launch the ProtonVPN desktop client and sign in with Proton credentials.
+    CLI: This package installs `protonvpn-app` as its main program.
 
   Example Usage:
-    * `protonvpn-gui` -- Open the GUI, select a profile, and connect to a VPN server.
+    * `protonvpn-app` -- Open the GUI, select a profile, and connect to a VPN server.
     * `protonvpn-app --start-minimized` -- Launch the app with tray-first behavior.
     * Enable “Kill Switch” in settings to block traffic if the VPN disconnects unexpectedly.
 */
 _:
 let
-  ProtonvpnGuiModule =
+  ProtonVpnModule =
     {
       config,
       lib,
@@ -28,17 +28,17 @@ let
       ...
     }:
     let
-      cfg = config.programs."protonvpn-gui".extended;
+      cfg = config.programs."proton-vpn".extended;
     in
     {
-      options.programs.protonvpn-gui.extended = {
+      options.programs."proton-vpn".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable protonvpn-gui.";
+          description = "Whether to enable proton-vpn.";
         };
 
-        package = lib.mkPackageOption pkgs "protonvpn-gui" { };
+        package = lib.mkPackageOption pkgs "proton-vpn" { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -48,6 +48,6 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "protonvpn-gui" ];
-  flake.nixosModules.apps.protonvpn-gui = ProtonvpnGuiModule;
+  nixpkgs.allowedUnfreePackages = [ "proton-vpn" ];
+  flake.nixosModules.apps."proton-vpn" = ProtonVpnModule;
 }
