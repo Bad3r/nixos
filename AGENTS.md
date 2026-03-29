@@ -327,4 +327,5 @@ If configured, use `/mcp` to check server availability.
 
 - Do what was asked, nothing more and nothing less
 - Prefer editing existing files over creating new ones
+- If an issue is upstream, do not add a local wrapper or workaround unless the user explicitly asks for it or approves it
 - Do not create docs/README files unless explicitly requested
