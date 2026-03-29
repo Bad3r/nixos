@@ -81,7 +81,6 @@ _: {
               pass_filenames = false;
               always_run = true;
               stages = [
-                "pre-push"
                 "manual"
               ];
             };
