@@ -20,11 +20,18 @@ let
     {
       config,
       lib,
+      metaOwner,
       pkgs,
+      secretsRoot,
       ...
     }:
     let
       cfg = config.programs.rclone.extended;
+      owner = metaOwner.username;
+      gdriveSecretFile = "${secretsRoot}/rclone_gdrive.env";
+      gdriveSecretExists = builtins.pathExists gdriveSecretFile;
+      gdriveSecretPath = "/run/secrets/rclone/gdrive-env";
+      repoSecretsEnabled = lib.attrByPath [ "security" "repoSecrets" "enable" ] true config;
     in
     {
       options.programs.rclone.extended = {
@@ -37,9 +44,33 @@ let
         package = lib.mkPackageOption pkgs "rclone" { };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
-      };
+      config = lib.mkMerge [
+        (lib.mkIf cfg.enable {
+          environment.systemPackages = [ cfg.package ];
+        })
+
+        (lib.mkIf (cfg.enable && gdriveSecretExists && repoSecretsEnabled) {
+          sops.secrets."rclone/gdrive-env" = {
+            sopsFile = gdriveSecretFile;
+            format = "dotenv";
+            path = gdriveSecretPath;
+            inherit owner;
+            mode = "0400";
+          };
+        })
+
+        (lib.mkIf (cfg.enable && gdriveSecretExists && (!repoSecretsEnabled)) {
+          warnings = [
+            "programs.rclone.extended.enable is true and ${gdriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping gdrive secret materialization. Manage rclone gdrive config manually or enable repo secrets after SOPS decryption is configured."
+          ];
+        })
+
+        (lib.mkIf (cfg.enable && !gdriveSecretExists) {
+          warnings = [
+            "programs.rclone.extended.enable is true but ${gdriveSecretFile} is missing; skipping gdrive remote setup."
+          ];
+        })
+      ];
     };
 in
 {
