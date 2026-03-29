@@ -17,6 +17,8 @@ _: {
       nixosEnabled = lib.attrByPath [ "programs" "rclone" "extended" "enable" ] false osConfig;
       gdriveSecretFile = "${secretsRoot}/rclone_gdrive.env";
       gdriveSecretExists = builtins.pathExists gdriveSecretFile;
+      gdriveEnvPath = lib.attrByPath [ "sops" "secrets" "rclone/gdrive-env" "path" ] null osConfig;
+      repoSecretsEnabled = lib.attrByPath [ "security" "repoSecrets" "enable" ] true osConfig;
       gdriveSecretContents = if gdriveSecretExists then builtins.readFile gdriveSecretFile else "";
       gdriveTokenExists = lib.hasInfix "GDRIVE_TOKEN=" gdriveSecretContents;
       renderedRcloneConfig = "${config.xdg.configHome}/rclone/rclone.conf";
@@ -31,15 +33,9 @@ _: {
             };
           }
 
-          (lib.mkIf gdriveSecretExists {
-            sops.secrets."rclone/gdrive-env" = {
-              sopsFile = gdriveSecretFile;
-              format = "dotenv";
-              mode = "0400";
-            };
-
+          (lib.mkIf (gdriveEnvPath != null) {
             home.activation.configureRcloneConfig = lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
-              gdriveEnvPath=${lib.escapeShellArg config.sops.secrets."rclone/gdrive-env".path}
+              gdriveEnvPath=${lib.escapeShellArg gdriveEnvPath}
               renderedConfig=${lib.escapeShellArg renderedRcloneConfig}
               renderedDir="$(dirname "$renderedConfig")"
 
@@ -76,9 +72,15 @@ _: {
             '';
           })
 
-          (lib.mkIf (!gdriveSecretExists) {
+          (lib.mkIf (gdriveSecretExists && (!repoSecretsEnabled)) {
             warnings = [
-              "programs.rclone.extended.enable is true but ${gdriveSecretFile} is missing; skipping gdrive remote setup."
+              "programs.rclone.extended.enable is true and ${gdriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping gdrive remote setup. Manage ~/.config/rclone/rclone.conf manually or enable repo secrets after SOPS decryption is configured."
+            ];
+          })
+
+          (lib.mkIf (gdriveSecretExists && repoSecretsEnabled && gdriveEnvPath == null) {
+            warnings = [
+              "programs.rclone.extended.enable is true and ${gdriveSecretFile} exists, but no system-side rclone/gdrive-env secret path was declared in osConfig; skipping gdrive remote setup."
             ];
           })
 
