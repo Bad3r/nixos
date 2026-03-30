@@ -147,6 +147,22 @@
 
           systemd.user.services = lib.mkMerge [
             {
+              snixembed = {
+                Unit = {
+                  Description = "snixembed SNI-to-XEmbed tray bridge";
+                  PartOf = [ "tray.target" ];
+                  After = [ "graphical-session-pre.target" ];
+                  Before = [ "tray.target" ];
+                };
+                Install.WantedBy = [ "tray.target" ];
+                Service = {
+                  Type = "dbus";
+                  BusName = "org.kde.StatusNotifierWatcher";
+                  ExecStart = lib.getExe pkgs.snixembed;
+                  Restart = "on-failure";
+                };
+              };
+
               autotiling-rs = {
                 Unit = {
                   Description = "Autotiling for i3";
