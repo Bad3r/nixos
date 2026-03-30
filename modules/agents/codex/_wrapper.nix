@@ -68,6 +68,7 @@ let
   # Wrapper that assembles config.toml before launching codex.
   # Uses parser-based TOML merge with precedence:
   # base settings < nix-managed projects < user-managed projects.
+  # Execpolicy is not merged here; Codex loads rules separately from CODEX_HOME/rules/.
   # Re-merges only when the input file hashes change.
   codexWrapped = pkgs.writeShellScriptBin "codex" ''
     cfgDir="''${CODEX_HOME:-${configDir}}"
