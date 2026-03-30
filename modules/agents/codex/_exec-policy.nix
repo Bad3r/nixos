@@ -83,7 +83,11 @@ let
 
   # Scope recoverable bare `rm` rewrites to the top-level Codex shell command
   # instead of mutating PATH for every subprocess those commands spawn.
-  codexZshWrapper = pkgs.writeShellScriptBin "codex-zsh" ''
+  #
+  # Keep the wrapper executable named `zsh` so Codex continues to classify
+  # `zsh -lc ...` invocations as shell commands and applies execpolicy to the
+  # inner script instead of requiring a blanket allowlist for the wrapper.
+  codexZshWrapper = pkgs.writeShellScriptBin "zsh" ''
     set -euo pipefail
 
     realZsh=${lib.getExe pkgs.zsh}
@@ -116,6 +120,9 @@ let
         "awk"
         "nl"
         "rg"
+        "mktemp"
+        "codex"
+        "claude"
         "grep"
         "jq"
         "yq"
@@ -123,6 +130,7 @@ let
         "sqlite"
         "sqlite3"
         "cat"
+        "stat"
         "uv"
         "bun"
         "npm"

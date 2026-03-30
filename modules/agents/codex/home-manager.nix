@@ -24,6 +24,8 @@
       - config.base.toml: nix-managed base settings (read-only)
       - projects.nix.toml: nix-managed trusted project paths (read-only)
       - trusted-projects.toml: user-managed trusted project paths (mutable)
+    * Execpolicy is separate from config.toml and is loaded from the rules/ directory under CODEX_HOME.
+      The nix-managed layer is written to codex/rules/20-managed.rules.
     * To trust a new project, add it to ~/.config/codex/trusted-projects.toml:
         [projects."/path/to/project"]
         trust_level = "trusted"
