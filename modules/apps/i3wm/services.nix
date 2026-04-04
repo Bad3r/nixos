@@ -12,7 +12,6 @@
     let
       i3Enabled = lib.attrByPath [ "xsession" "windowManager" "i3" "enable" ] false config;
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
-      lxsessionEnabled = lib.attrByPath [ "integrations" "lxsession" "enable" ] true hostI3Cfg;
       xfsettingsdEnabled = lib.attrByPath [ "integrations" "xfsettingsd" "enable" ] true hostI3Cfg;
     in
     {
@@ -21,7 +20,6 @@
           kittyCommand = lib.getExe pkgs.kitty;
           nemoCommand = lib.getExe' pkgs.nemo "nemo";
           xfsettingsdCommand = "${pkgs.xfce4-settings}/bin/xfsettingsd";
-          lxsessionCommand = lib.getExe' pkgs.lxsession "lxsession";
           lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] null config;
           xssLockPackage = pkgs.xss-lock.overrideAttrs (old: {
             cmakeFlags = (old.cmakeFlags or [ ]) ++ [ "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" ];
@@ -164,20 +162,6 @@
                 };
               };
             }
-            (lib.optionalAttrs lxsessionEnabled {
-              lxsession = {
-                Unit = {
-                  Description = "LXSession session manager";
-                  After = [ "graphical-session.target" ];
-                  PartOf = [ "graphical-session.target" ];
-                };
-                Install.WantedBy = [ "graphical-session.target" ];
-                Service = {
-                  ExecStart = lxsessionCommand;
-                  Restart = "on-failure";
-                };
-              };
-            })
             (lib.optionalAttrs xfsettingsdEnabled {
               xfsettingsd = {
                 Unit = {
