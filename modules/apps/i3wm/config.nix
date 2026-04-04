@@ -13,6 +13,14 @@
     let
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
       powerProfileBackend = lib.attrByPath [ "powerProfiles" "backend" ] "system76-power" hostI3Cfg;
+      sessionMetadata = {
+        DESKTOP_SESSION = "none+i3";
+        XDG_CURRENT_DESKTOP = "none+i3:X-NIXOS-SYSTEMD-AWARE";
+        XDG_SESSION_TYPE = "x11";
+      };
+      sessionMetadataExports = lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") sessionMetadata
+      );
       graphicalEnvVars = [
         "DBUS_SESSION_BUS_ADDRESS"
         "DESKTOP_SESSION"
@@ -389,12 +397,6 @@
       };
 
       config = {
-        home.sessionVariables = {
-          DESKTOP_SESSION = lib.mkDefault "none+i3";
-          XDG_CURRENT_DESKTOP = lib.mkDefault "none+i3:X-NIXOS-SYSTEMD-AWARE";
-          XDG_SESSION_TYPE = lib.mkDefault "x11";
-        };
-
         # Expose resolved commands for other modules (e.g., keybindings.nix)
         gui.i3.commands = lib.mkDefault commandsDefault;
 
@@ -433,6 +435,7 @@
           enable = true;
           importedVariables = lib.mkAfter graphicalEnvVars;
           profileExtra = lib.mkAfter ''
+            ${sessionMetadataExports}
             ${lib.getExe' pkgs.dbus "dbus-update-activation-environment"} --systemd ${graphicalEnvArgs}
           '';
           windowManager.i3 = {
