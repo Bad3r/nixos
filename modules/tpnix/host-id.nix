@@ -1,5 +1,5 @@
 {
   configurations.nixos.tpnix.module = {
-    networking.hostId = "eaae4496";
+    networking.hostId = "34b34f67";
   };
 }
