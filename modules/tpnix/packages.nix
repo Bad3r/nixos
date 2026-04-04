@@ -1,6 +1,10 @@
 { lib, ... }:
 {
   nixpkgs.allowedUnfreePackages = [
+    # NVIDIA drivers
+    "nvidia-settings"
+    "nvidia-x11"
+
     # Development tools
     "code"
     "vscode"

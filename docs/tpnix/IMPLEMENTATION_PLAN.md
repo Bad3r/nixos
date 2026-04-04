@@ -1,110 +1,106 @@
-# tpnix Technical Implementation Plan
+# tpnix Hardware Migration Plan
 
-Status: draft  
-Target host: `tpnix` (new office laptop, 8 GiB RAM, single user `vx`)  
-Goal: add a lean NixOS configuration alongside `system76` using the existing flake structure and minimal hardware changes (reuse current partitions; no new encryption/repartitioning).
+Status: current
+Target host: `tpnix` on Lenovo ThinkPad P15s Gen 2i
+Goal: keep `tpnix` as the canonical host identity while replacing the old hardware profile with the scanned facts from this device.
 
-## 1) Objectives & Constraints
+## 1) Current Hardware Facts
 
-- Lightweight, “office/CLI-first” profile: i3wm, terminal, browsers, file manager, note/office tools; no gaming/pentest/virtualization/heavy SDKs by default.
-- Keep current disk layout and encryption as-is; reuse `/etc/nixos/hardware-configuration.nix` data.
-- Maintain single user `vx`; repo now supports multiple hosts (`system76`, `tpnix`).
-- Prefer upstream kernels and generic hardware settings; avoid System76/NVIDIA/CachyOS specifics unless detected hardware requires it.
+- Machine model: Lenovo ThinkPad P15s Gen 2i
+- Platform: `x86_64-linux`
+- Boot mode: EFI with `systemd-boot`
+- Root filesystem:
+  - mapped device: `/dev/mapper/luks-dc8e394e-d685-429e-b256-3b803635b47d`
+  - backing LUKS UUID: `dc8e394e-d685-429e-b256-3b803635b47d`
+  - filesystem: `ext4`
+- Boot filesystem:
+  - device UUID: `1F94-C5D7`
+  - filesystem: `vfat`
+- Swap:
+  - mapped device: `/dev/mapper/luks-df7db70f-8965-4516-976d-8fdac91ae660`
+  - backing LUKS UUID: `df7db70f-8965-4516-976d-8fdac91ae660`
+- Required initrd modules:
+  - `xhci_pci`
+  - `thunderbolt`
+  - `nvme`
+  - `usbhid`
+  - `usb_storage`
+  - `sd_mod`
+  - `sdhci_pci`
+- Required kernel modules:
+  - `kvm-intel`
 
-## 2) Inputs & Facts
+These values come from the locally generated `/etc/nixos/hardware-configuration.nix` and supersede the old unencrypted `tpnix` storage layout.
 
-- Hardware (from `/etc/nixos/hardware-configuration.nix`):
-  - `/` UUID `11920378-b861-46d6-b4d8-64a90ce03bbb` (ext4)
-  - `/boot` UUID `DC64-2E36` (vfat, fmask/dmask 0077)
-  - swap UUID `a9baee3b-5b98-4a80-95c9-0c1cb974b2e9`
-  - initrd modules: `xhci_pci thunderbolt nvme usb_storage sd_mod`; kernelModules: `kvm-intel`; hostPlatform `x86_64-linux`; intel microcode enabled.
-- System style: flake-parts auto-import; `configurations.nixos.<host>.module` pattern; apps via `modules/apps` + app toggles.
-- Secrets: `sops-nix` key at `/var/lib/sops-nix/key.txt`; MonoLisa font secret optional.
+## 2) Module Ownership
 
-## 3) Target Host Topology
+- `modules/tpnix/hardware-config.nix` owns all scan-derived facts:
+  - `boot.initrd.availableKernelModules`
+  - `boot.initrd.kernelModules`
+  - `boot.initrd.luks.devices`
+  - `boot.kernelModules`
+  - `boot.extraModulePackages`
+  - `fileSystems`
+  - `swapDevices`
+- `modules/tpnix/boot.nix` owns host policy:
+  - `pkgs.cachyosKernels.linuxPackages-cachyos-latest`
+  - `systemd-boot` settings
+  - crash dump reservation
+  - kernel sysctls
+- `modules/tpnix/firmware-manager-fix.nix` owns the firmware-manager compatibility override and enables `services.fwupd`.
+- The repo keeps using `modules/base/hardware-scan.nix` for generic scan support. Do not import `installer/scan/not-detected.nix` directly into the host module.
 
-- New aggregator module: `modules/tpnix/imports.nix`
-  - Imports shared: `flake.nixosModules.{base,lang,ssh}` (and other shared modules still applicable: xdg, pipewire, dbus, nix-settings as host scope).
-  - Omits System76-specific imports and CachyOS kernel overlay.
-  - Exposes `flake.nixosConfigurations.tpnix`.
-- Host-specific modules under `modules/tpnix/`:
-  - `hardware-config.nix` (from current `/etc/nixos/hardware-configuration.nix`, plus touchpad tweaks).
-  - `hostname.nix` (`networking.hostName = "tpnix"`).
-  - `host-id.nix` (new random 8-hex).
-  - `network.nix` (NetworkManager, firewall minimal: allow ssh 22 only unless needed).
-  - `nix-settings.nix` (experimental features, lower `min-free` ~8–10 GiB, `max-jobs` 2–4, `auto-optimise-store = true`; optional `nix-substituters` reuse).
-  - `state-version.nix` (`26.05`).
-  - `power.nix` (enable `power-profiles-daemon`; disable system76-scheduler/lact).
-  - `apps-enable.nix` (lean app profile; see §5).
-  - `default-apps.nix` override (align defaults to enabled apps).
-  - Optional: `fonts.nix` (reuse MonoLisa if secret present), `nix-ld.nix` (only if needed for FHS/VSC).
+## 3) Migration Requirements
 
-## 4) Hardware & Boot Plan
+- Preserve logical identity:
+  - keep `networking.hostName = "tpnix"`
+  - keep single user `vx`
+- Rotate physical-machine identity:
+  - set a new random `networking.hostId`
+  - expect new SSH host keys on the replacement hardware
+- Keep this branch scoped to the hardware baseline:
+  - current-storage facts
+  - host identity rotation
+  - bootloader policy
+  - firmware update support
+- Use the host boot policy that is actually committed here:
+  - `boot.kernelPackages = lib.mkDefault pkgs.cachyosKernels.linuxPackages-cachyos-latest`
+  - `systemd-boot` stays enabled with the existing editor, console, and configuration-limit settings
+- Keep the graphics-stack migration out of scope for this document revision:
+  - do not describe `NVIDIA PRIME`, `services.xserver.videoDrivers`, or runtime graphics policy here
+- Keep existing touchpad behavior unless validation shows a regression:
+  - tap-to-click
+  - middle-button emulation
+  - natural scrolling
+- Keep power and desktop policy unchanged where still valid:
+  - `power-profiles-daemon`
+  - `thermald`
+  - `NetworkManager`
+  - Bluetooth enabled
+  - lid close suspends
 
-- Use stock `pkgs.linuxPackages`.
-- Keep initrd modules and swap/root/boot UUIDs exactly as scanned.
-- Add touchpad libinput defaults: tap, natural scroll, middle emulation.
-- Supported filesystems: `ext4` (and `vfat` via boot; add `ntfs-3g` only if required).
-- Bootloader: systemd-boot with sane limits; reuse defaults (no CachyOS params; no NVIDIA kernel params).
-- If discrete GPU absent, ensure `services.xserver.videoDrivers = [ "modesetting" ]` and remove PRIME/NVIDIA options.
+## 4) Pitfalls To Avoid
 
-## 5) Application Profile (lean)
+- Do not reuse the old plain ext4 root, EFI, or swap UUIDs; the new host uses encrypted root and encrypted swap.
+- Do not leave boot storage facts split across `boot.nix` and `hardware-config.nix`; that creates drift on the next hardware change.
+- Do not copy the generated file verbatim into the repo; preserve repo policy and only lift the machine-specific facts.
+- Do not reuse the old `networking.hostId`; that risks collisions if the previous machine ever comes back online.
+- Do not let this document describe a different kernel or graphics policy than the code in this branch; this branch now carries the CachyOS boot policy and leaves the graphics stack to a separate change.
+- Do not assume missing firmware packages in advance. If Wi-Fi, audio, or suspend behavior fails after boot, inspect logs and add only the exact firmware that is proven necessary.
 
-- Enable:
-  - WM stack: i3, i3status-rust, dunst, rofi, picom, greenclip, autorandr, xdg utilities.
-  - Terminal/editor: kitty, neovim (nixvim), ripgrep, fd/fzf, jq, git, gnupg/ssh tools, zip/unzip/p7zip, coreutils, curl/wget, tealdeer, htop/bottom.
-  - Browsers: floorp or firefox (choose one primary), optional chromium-free alt (librewolf) disabled by default.
-  - File manager: nemo or pcmanfm; clipboard: xclip/xsel.
-  - Notes/office: obsidian, logseq, planify/pandoc, zathura, nsxiv, mpv.
-  - Networking: NetworkManager applet, openvpn if needed, tailscale optional (default off).
-- Disable by default: steam/games, burpsuite/pentest suite, heavy SDKs (rust/go/java/clojure), virtualization (qemu/vmware/virtualbox), docker (enable only if required), cloudflare warp/cloudflared, R2 runtime, duplicati, git mirrors, system76 hardware apps, GPU tools, wine, upscayl, vscode-fhs unless requested.
-- Update `apps-enable.nix` to reflect explicit enables/disables; keep `home-manager-apps` aligned to the same subset.
+## 5) Validation And Rollout
 
-## 6) Services & UX
-
-- Audio: pipewire + rtkit.
-- Bluetooth: enable, power on boot.
-- DBus/XDG portals: gtk portal for electron apps.
-- Power: `power-profiles-daemon` on; no system76-power, no lact; logind lid/power actions = lock/suspend per office preference.
-- Printing: default off; add CUPS only if required.
-- Journald/coredump: tighten (e.g., journald `SystemMaxUse=200M`, coredump `MaxUse=512M`, `MaxRetentionSec=3d`).
-- fstrim weekly on SSD.
-- Firewall: on; allow 22/tcp only (adjust if services added).
-
-## 7) Nix & Package Settings
-
-- `nix.settings.experimental-features = [ "nix-command" "flakes" "pipe-operators" ]`.
-- `auto-optimise-store = true`; `min-free = 8–10 GiB`; `max-jobs = 2–4`; `cores = 0` (auto).
-- Substituters: reuse existing list or trim to `cache.nixos.org` + one fast mirror; keep trusted keys in sync.
-- Optional `nix-ld` if VSCode server/FHS binaries are needed; otherwise omit to reduce closure size.
-
-## 8) Secrets & Fonts
-
-- Keep `sops-nix` key path `/var/lib/sops-nix/key.txt`; no extra age sshKeyPaths.
-- R2/duplicati/mirrors: omit for tpnix unless explicitly requested.
-- MonoLisa fonts: include only if secret `secrets/fonts/monolisa.tar.zst` exists; otherwise fall back to Noto + Nerd Fonts.
-
-## 9) Deliverables (repo changes)
-
-- `docs/tpnix/IMPLEMENTATION_PLAN.md` (this document).
-- New host module set under `modules/tpnix/`:
-  - `imports.nix`, `hardware-config.nix`, `hostname.nix`, `host-id.nix`, `network.nix`, `nix-settings.nix`, `state-version.nix`, `power.nix`, `apps-enable.nix`, `default-apps.nix`, optional `home-manager-apps.nix`, `fonts.nix`, `nix-ld.nix`.
-- No changes to `modules/system76/*` other than shared multi-host support already updated.
-
-## 10) Validation & Rollout
-
-- Commands (from repo root):
+- Validate from the repo root:
   1. `nix flake check --accept-flake-config --no-build --offline`
   2. `nix build .#nixosConfigurations.tpnix.config.system.build.toplevel`
-  3. Optional: `nix fmt` / `nix develop -c treefmt` if formatting changes arise.
-- Deployment (when ready): `./build.sh --host tpnix --boot` (installs next-boot generation without activating). For dry build only, use `nix build .#nixosConfigurations.tpnix.config.system.build.toplevel`.
-- Post-boot checks: networking (NM), audio (pw-cli/pavucontrol), display/i3 startx, suspend/resume, keyboard/touchpad, disk mounts, firewall ports.
-
-## 11) Open Decisions
-
-- Choose primary browser (floorp vs firefox) and file manager (nemo vs pcmanfm).
-- Whether to keep docker enabled by default.
-- Whether `nix-ld` is needed on this host.
-- If any cloud sync (dropbox/maestral) is required by default.
-- Printing support needed? (CUPS on/off).
-- Tailscale/OpenVPN defaults.
+- Deploy cautiously:
+  1. `./build.sh --host tpnix --boot`
+  2. reboot into the generated `tpnix` entry
+- First-boot acceptance checks:
+  1. `hostnamectl` reports `tpnix`
+  2. `findmnt / /boot` shows the mapped LUKS root and the new EFI UUID
+  3. `swapon --show` shows the mapped encrypted swap device
+  4. boot unlock prompts work cleanly with reused LUKS passphrases
+  5. `bootctl status` is healthy
+  6. Wi-Fi, Bluetooth, audio, suspend/resume, touchpad, and external display paths work
+  7. SSH clients have the new host key recorded for `tpnix`

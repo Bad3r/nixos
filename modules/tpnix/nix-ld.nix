@@ -1,74 +1,84 @@
 _: {
   configurations.nixos.tpnix.module =
-    { pkgs, ... }:
+    {
+      config,
+      pkgs,
+      lib,
+      ...
+    }:
     {
       programs.nix-ld = {
         enable = true;
-        libraries = with pkgs; [
-          glibc
-          glib
-          openssl
-          nss
-          nspr
-          stdenv.cc.cc
-          stdenv.cc.cc.lib
-          zlib
-          curl
-          dbus
-          icu
-          libxml2
-          libxslt
-          freetype
-          fontconfig
-          gtk3
-          gdk-pixbuf
-          pango
-          cairo
-          atk
-          at-spi2-core
-          at-spi2-atk
-          libx11
-          libxrandr
-          libxext
-          libxfixes
-          libxcomposite
-          libxdamage
-          libxcb
-          libxshmfence
-          libxxf86vm
-          libxv
-          libxinerama
-          libxtst
-          libxi
-          libxcursor
-          mesa
-          libglvnd
-          libva
-          vulkan-loader
-          libdrm
-          libgbm
-          alsa-lib
-          libpulseaudio # PulseAudio client library (works with pipewire-pulse)
-          # Android emulator dependencies (from nixpkgs/pkgs/development/mobile/androidenv/emulator.nix)
-          libcxx
-          libtiff
-          libuuid
-          libbsd
-          ncurses5
-          libxrender
-          libice
-          libsm
-          libxkbfile
-          libpng
-          libjpeg
-          libwebp
-          snappy
-          SDL2
-          cups
-          libxkbcommon
-          expat
-          systemd
-        ];
+        libraries =
+          with pkgs;
+          [
+            glibc
+            glib
+            openssl
+            nss
+            nspr
+            stdenv.cc.cc
+            stdenv.cc.cc.lib
+            zlib
+            curl
+            dbus
+            icu
+            libxml2
+            libxslt
+            freetype
+            fontconfig
+            gtk3
+            gdk-pixbuf
+            pango
+            cairo
+            atk
+            at-spi2-core
+            at-spi2-atk
+            libx11
+            libxrandr
+            libxext
+            libxfixes
+            libxcomposite
+            libxdamage
+            libxcb
+            libxshmfence
+            libxxf86vm
+            libxv
+            libxinerama
+            libxtst
+            libxi
+            libxcursor
+            mesa
+            libglvnd
+            libva
+            vulkan-loader
+            libdrm
+            libgbm
+            alsa-lib
+            libpulseaudio # PulseAudio client library (works with pipewire-pulse)
+            # Android emulator dependencies (from nixpkgs/pkgs/development/mobile/androidenv/emulator.nix)
+            libcxx
+            libtiff
+            libuuid
+            libbsd
+            ncurses5
+            libxrender
+            libice
+            libsm
+            libxkbfile
+            libpng
+            libjpeg
+            libwebp
+            snappy
+            SDL2
+            cups
+            libxkbcommon
+            expat
+            systemd
+          ]
+          ++ lib.optionals (config.hardware.nvidia.modesetting.enable or false) [
+            config.hardware.nvidia.package
+          ];
       };
 
       environment = {

@@ -36,7 +36,7 @@
       circumflex.extended.enable = lib.mkOverride 1100 false;
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
       "claude-code".extended.enable = lib.mkOverride 1100 true;
-      "claude-desktop".extended.enable = lib.mkOverride 1100 true;
+      "claude-desktop".extended.enable = lib.mkOverride 1100 false; # Upstream flake still references removed pkgs.nodePackages
       "claude-plugins".extended.enable = lib.mkOverride 1100 false;
       clawdbot.extended.enable = lib.mkOverride 1100 false;
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
@@ -166,7 +166,7 @@
       lsof.extended.enable = lib.mkOverride 1100 true;
       ltrace.extended.enable = lib.mkOverride 1100 true;
       lutris.extended.enable = lib.mkOverride 1100 false;
-      lxsession.extended.enable = lib.mkOverride 1100 true;
+      lxsession.extended.enable = lib.mkOverride 1100 false;
       lynis.extended.enable = lib.mkOverride 1100 true;
       maestral.extended.enable = lib.mkOverride 1100 false;
       "maestral-gui".extended.enable = lib.mkOverride 1100 false;
@@ -214,7 +214,7 @@
       ntfs3g.extended.enable = lib.mkOverride 1100 true;
       nvd.extended.enable = lib.mkOverride 1100 false;
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
-      obsidian.extended.enable = lib.mkOverride 1100 false;
+      obsidian.extended.enable = lib.mkOverride 1100 true;
       ocrmypdf.extended.enable = lib.mkOverride 1100 true;
       okular.extended.enable = lib.mkOverride 1100 false;
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 false;
@@ -344,8 +344,8 @@
       wpsoffice.extended.enable = lib.mkOverride 1100 false;
       xbacklight.extended.enable = lib.mkOverride 1100 true;
       xclip.extended.enable = lib.mkOverride 1100 true;
-      "xfce4-power-manager".extended.enable = lib.mkOverride 1100 true;
-      "xfce4-settings".extended.enable = lib.mkOverride 1100 true;
+      "xfce4-power-manager".extended.enable = lib.mkOverride 1100 false;
+      "xfce4-settings".extended.enable = lib.mkOverride 1100 false;
       xh.extended.enable = lib.mkOverride 1100 true;
       xkill.extended.enable = lib.mkOverride 1100 true;
       xkcdpass.extended.enable = lib.mkOverride 1100 true;
