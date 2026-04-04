@@ -17,8 +17,7 @@
     * Auto-generates YAML files to ~/.config/espanso/.
 
   Display Server Support:
-    * Both X11 and Wayland support enabled by default on Linux.
-    * Module sets x11Support=true, waylandSupport=true, and package-wayland=pkgs.espanso-wayland.
+    * Both X11 and Wayland support are enabled by default on Linux.
     * Home Manager creates a wrapper that checks $WAYLAND_DISPLAY and launches the correct binary.
     * To reduce closure size, disable unused support:
       services.espanso.x11Support = false;  # Wayland-only
@@ -42,25 +41,15 @@ _: {
     {
       osConfig,
       lib,
-      pkgs,
       ...
     }:
     let
-      inherit (pkgs.stdenv.hostPlatform) isLinux;
       enabled = lib.attrByPath [ "services" "espanso" "extended" "enable" ] false osConfig;
-      x11Session = lib.attrByPath [ "services" "xserver" "enable" ] false osConfig;
     in
     {
       config = lib.mkIf enabled {
         services.espanso = {
           enable = true;
-
-          # Keep Espanso aligned with the host session type instead of relying on runtime guessing.
-          x11Support = lib.mkDefault (isLinux && x11Session);
-          waylandSupport = lib.mkDefault (isLinux && !x11Session);
-
-          # Keep the wrapper aligned with the enabled session type to avoid probing the wrong backend.
-          "package-wayland" = lib.mkDefault (if isLinux && !x11Session then pkgs.espanso-wayland else null);
 
           # Default configuration
           configs = {

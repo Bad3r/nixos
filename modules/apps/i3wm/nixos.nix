@@ -14,12 +14,6 @@ let
     {
       options.gui.i3 = {
         integrations = {
-          lxsession.enable = lib.mkOption {
-            type = lib.types.bool;
-            default = true;
-            description = "Whether the i3 session should launch LXSession as an auxiliary session manager.";
-          };
-
           xfsettingsd.enable = lib.mkOption {
             type = lib.types.bool;
             default = true;
@@ -70,7 +64,6 @@ let
             xclip
             xbacklight
           ]
-          ++ lib.optionals cfg.integrations.lxsession.enable [ lxsession ]
           ++ lib.optionals cfg.integrations.xfsettingsd.enable [
             xfce4-power-manager
             xfce4-settings
