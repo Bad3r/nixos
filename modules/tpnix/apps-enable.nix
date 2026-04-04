@@ -357,7 +357,7 @@
       "yubico-piv-tool".extended.enable = lib.mkOverride 1100 true;
       "yubikey-manager".extended.enable = lib.mkOverride 1100 true;
       "yubikey-personalization".extended.enable = lib.mkOverride 1100 true;
-      "yq-go".extended.enable = lib.mkOverride 1100 false;
+      "yq-go".extended.enable = lib.mkOverride 1100 true;
       zip.extended.enable = lib.mkOverride 1100 true;
       "zoom-us".extended.enable = lib.mkOverride 1100 false;
       zathura.extended.enable = lib.mkOverride 1100 true;
