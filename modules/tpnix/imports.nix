@@ -66,6 +66,14 @@ in
       "unrar"
     ];
 
+    gui.i3 = {
+      integrations = {
+        lxsession.enable = false;
+        xfsettingsd.enable = false;
+      };
+      powerProfiles.backend = "powerprofilesctl";
+    };
+
     security = {
       polkit.wheelPowerManagement.enable = true;
       polkit.wheelSystemdManagement.enable = false;
