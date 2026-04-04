@@ -4,12 +4,16 @@
   flake.homeManagerModules.apps.i3-config =
     {
       config,
+      osConfig ? { },
       pkgs,
       lib,
       ...
     }:
     let
       i3Enabled = lib.attrByPath [ "xsession" "windowManager" "i3" "enable" ] false config;
+      hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
+      lxsessionEnabled = lib.attrByPath [ "integrations" "lxsession" "enable" ] true hostI3Cfg;
+      xfsettingsdEnabled = lib.attrByPath [ "integrations" "xfsettingsd" "enable" ] true hostI3Cfg;
     in
     {
       config = lib.mkIf i3Enabled (
@@ -159,7 +163,8 @@
                   Restart = "on-failure";
                 };
               };
-
+            }
+            (lib.optionalAttrs lxsessionEnabled {
               lxsession = {
                 Unit = {
                   Description = "LXSession session manager";
@@ -172,7 +177,8 @@
                   Restart = "on-failure";
                 };
               };
-
+            })
+            (lib.optionalAttrs xfsettingsdEnabled {
               xfsettingsd = {
                 Unit = {
                   Description = "Xfce settings daemon";
@@ -185,7 +191,7 @@
                   Restart = "on-failure";
                 };
               };
-            }
+            })
           ];
         }
       );
