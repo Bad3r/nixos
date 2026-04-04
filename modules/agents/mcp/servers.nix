@@ -157,16 +157,16 @@ _: {
     };
 
     deepwiki = {
-      source = "npx";
-      package = "mcp-deepwiki@latest";
+      source = "http";
+      url = "https://mcp.deepwiki.com/mcp";
       clients = [
         "claude"
         "codex"
       ];
       docs = {
         primaryUse = "Browse repository knowledge bases.";
-        accessNotes = "Pass `owner/repo` to fetch docs.";
-        example = "`deepwiki read_wiki_structure --repo owner/repo`";
+        accessNotes = "Official remote no-authentication-required HTTP endpoint; pass `owner/repo` to the DeepWiki tools.";
+        example = "`claude mcp add -s user -t http deepwiki https://mcp.deepwiki.com/mcp`";
       };
     };
 
