@@ -2,8 +2,6 @@
 
 This file provides guidance to coding agents working in this repository.
 
-> IMPORTANT: This repo now manages multiple hosts (e.g., `system76`, `tpnix`) with the single user `vx` shared across them. Introducing additional users still requires explicit direction from `vx`.
-
 > IMPORTANT: Never consider backward compatibility. Eliminate legacy support by default.
 
 ## Critical Safety Rules (Read First)
@@ -26,7 +24,6 @@ Required practices:
 - Use `git stash` when needed, but never drop stashes
 - Allowed stash operations are `git stash`, `git stash list`, `git stash show`, and `git stash apply`
 - `git stash pop` requires explicit user approval
-- If temporarily moving changes aside, leave stashes intact
 - Preserve user changes; if uncertain, ask first
 - Before any potentially destructive operation, stop and ask
 
@@ -38,27 +35,13 @@ If something is accidentally deleted:
 
 ## File Parsing and Search
 
-Before reading any file, check file size and extension. For structured data, extract only what you need.
-
-Search:
-
-- Use `rg -C 5 'pattern'`
-- Do not use `grep` unless `rg` is unavailable
-
-Extract by format:
-
 - JSON: `jq`
 - YAML/XML/TOML/CSV/INI/HCL: `yq` (use `-p` for non-YAML)
 - HTML: `htmlq -f file.html '.selector'`
 - SQLite: `sqlite3`
+- IMPORTANT: if file is large, sample with `rg`, `head`, `tail`, or `sed`, etc..
 
-Workflow:
-
-1. Unknown location: use `rg` to find files
-2. Known structured file: use `jq`/`yq`/format-specific extraction
-3. Plain text: if file is large, sample with `rg`, `head`, `tail`, or `sed`
-
-Error handling:
+## Error handling
 
 - Do not hide failures; fail loudly and report actionable diagnostics
 
@@ -147,14 +130,6 @@ in
 }
 ```
 
-Requirements:
-
-- Use `options.programs.<name>.extended`
-- Define `enable` with `mkOption` and `default = false`
-- Define `package` with `mkPackageOption`
-- Gate config with `lib.mkIf cfg.enable`
-- Export as `flake.nixosModules.apps.<name>`
-
 ## Execution Playbooks
 
 ### Branch Workflow
@@ -217,27 +192,18 @@ PR body should include:
 | Run jobs  | `nix develop -c gh-actions-run`    | Dev shell ready | Runs actions locally via `act` |
 | Dry run   | `nix develop -c gh-actions-run -n` | Dev shell ready | Shows planned execution        |
 
-### Repository Maintenance
-
-| Trigger             | Command                                         | Preconditions                                  | Post-check                                       |
-| ------------------- | ----------------------------------------------- | ---------------------------------------------- | ------------------------------------------------ |
-| Remove files safely | `rip <path>`                                    | File is intended for deletion.                 | Confirm expected deletion in `git status`.       |
-| Mirror updates      | `nix develop -c ghq get <repo>` or `ghq update` | Shared GHQ root configured; network available. | Mirror updated under `/data/git/{owner}-{repo}`. |
-
 ### Troubleshooting
 
 | Scenario               | Resolution                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------- |
 | Unfree package blocked | Add package to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`.     |
-| Missing app reference  | Use `config.flake.lib.nixos.hasApp "app-name"` or inspect `nix eval '.#flake.nixosModules.apps'`.       |
-| Managed file drift     | Run `nix develop -c write-files` then inspect `git diff`.                                               |
+| Missing app reference  | Ensure that the file is tracked by git.                                                                 |
 | Explore config in repl | `nix develop --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports. |
 
 ## Coding Style and Verification
 
 | Topic      | Guidance                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Formatting | Use two-space indentation in Nix. Prefer `nix fmt` or `nix develop -c treefmt`.                                                                       |
 | Naming     | Prefer lowercase, hyphenated identifiers. Prefix experiments with `_` to avoid auto-discovery.                                                        |
 | Imports    | Expose modules through namespace exports; avoid literal path imports.                                                                                 |
 | Validation | Keep `nix flake check --accept-flake-config` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules. |
@@ -271,25 +237,12 @@ sops.secrets."context7/api-key" = {
 
 ## Safety and Escalation
 
-Review "Critical Safety Rules" before any risky operation. The table below only lists additional repo-specific guardrails that are not already covered above.
-
-### Guardrails
-
-| Risky Action                                        | Status                     | Alternative                                                                               |
-| --------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------- |
-| `nixos-rebuild` against live host                   | FORBIDDEN                  | Use `nix build` or `./build.sh` workflows above.                                          |
-| `generation-manager switch`                         | FORBIDDEN                  | Use approved deployment path only.                                                        |
-| `nix-collect-garbage` / `sudo nix-collect-garbage`  | FORBIDDEN                  | Escalate to maintainer; avoid broad garbage collection.                                   |
-| Destructive history edits (`git checkout <commit>`) | FORBIDDEN WITHOUT APPROVAL | Use `git switch`; coordinate before any history-rewriting or destructive checkout action. |
-
-### Escalate When
+Escalate when:
 
 1. A needed workflow is not documented
 2. A command fails and remediation is unclear
-3. A generated file seems to need direct edits
-4. Safety guardrails conflict with the task
 
-Pause, summarize the issue, and ask `vx` for direction.
+Pause, summarize the issue, and ask for direction.
 
 ## Local Mirrors
 
@@ -307,25 +260,10 @@ Pause, summarize the issue, and ask `vx` for direction.
 | import-tree    | `/data/git/vic-import-tree`            | Review/extend auto-loading behavior.                           |
 | files module   | `/data/git/mightyiam-files`            | Update generated artifact sources (e.g., `.gitignore`).        |
 
-## MCP Tools
+## Practices
 
-If configured, use `/mcp` to check server availability.
-
-| Tool                  | Primary Use                                  | Access Notes                          |
-| --------------------- | -------------------------------------------- | ------------------------------------- |
-| `context7`            | Resolve library IDs and fetch docs           | Resolve ID before fetching docs       |
-| `cfdocs`              | Search Cloudflare documentation              | Use for Workers, R2, Zero Trust, etc. |
-| `cfbrowser`           | Render/capture live webpages                 | Useful for UI verification            |
-| `deepwiki`            | Browse repository knowledge bases            | Supply `owner/repo`                   |
-| `sequential-thinking` | Track structured reasoning for complex tasks | Use for nontrivial debugging/planning |
-
-## GitHub Mentions
-
-- Never `@mention` users who are not repository collaborators.
-
-## General Practices
-
-- Do what was asked, nothing more and nothing less
+- Do what was asked, nothing more and nothing less.
 - Prefer editing existing files over creating new ones
-- If an issue is upstream, do not add a local wrapper or workaround unless the user explicitly asks for it or approves it
-- Do not create docs/README files unless explicitly requested
+- If an issue is upstream, do not add a local wrapper or workaround unless the user explicitly asks for it or approves it.
+- IMPORTANT: For any task task, you **MUST** resolve it idiomatically and following best-practices.
+- IMPORTANT: DO NOT BE LAZY OR TAKE SHORTCUTS
