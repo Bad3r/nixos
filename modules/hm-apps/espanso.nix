@@ -48,18 +48,19 @@ _: {
     let
       inherit (pkgs.stdenv.hostPlatform) isLinux;
       enabled = lib.attrByPath [ "services" "espanso" "extended" "enable" ] false osConfig;
+      x11Session = lib.attrByPath [ "services" "xserver" "enable" ] false osConfig;
     in
     {
       config = lib.mkIf enabled {
         services.espanso = {
           enable = true;
 
-          # Enable both X11 and Wayland support on Linux for auto-detection
-          x11Support = lib.mkDefault isLinux;
-          waylandSupport = lib.mkDefault isLinux;
+          # Keep Espanso aligned with the host session type instead of relying on runtime guessing.
+          x11Support = lib.mkDefault (isLinux && x11Session);
+          waylandSupport = lib.mkDefault (isLinux && !x11Session);
 
-          # Ensure Wayland package is available when waylandSupport is enabled
-          "package-wayland" = lib.mkDefault (if isLinux then pkgs.espanso-wayland else null);
+          # Keep the wrapper aligned with the enabled session type to avoid probing the wrong backend.
+          "package-wayland" = lib.mkDefault (if isLinux && !x11Session then pkgs.espanso-wayland else null);
 
           # Default configuration
           configs = {
@@ -143,6 +144,20 @@ _: {
                 }
               ];
             };
+          };
+        };
+
+        systemd.user.services.espanso = {
+          Unit = {
+            After = lib.mkAfter [ "graphical-session.target" ];
+            PartOf = lib.mkForce [ "graphical-session.target" ];
+          };
+          Install = {
+            WantedBy = lib.mkForce [ "graphical-session.target" ];
+          };
+          Service = {
+            Restart = lib.mkDefault "on-failure";
+            RestartSec = lib.mkDefault 3;
           };
         };
       };

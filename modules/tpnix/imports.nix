@@ -81,7 +81,15 @@ in
     };
 
     home-manager.sharedModules = lib.mkAfter (
-      lib.optionals r2HomeModuleExists [ inputs."r2-flake".homeManagerModules.default ]
+      [
+        {
+          services.espanso = {
+            waylandSupport = lib.mkForce false;
+            x11Support = lib.mkForce true;
+          };
+        }
+      ]
+      ++ lib.optionals r2HomeModuleExists [ inputs."r2-flake".homeManagerModules.default ]
     );
   };
 
