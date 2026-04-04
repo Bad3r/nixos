@@ -1,4 +1,7 @@
 { metaOwner, ... }:
+let
+  r2RuntimeEnabled = false;
+in
 {
   configurations.nixos.system76.module =
     { config, lib, ... }:
@@ -6,7 +9,7 @@
       inherit (metaOwner) username;
       group = lib.attrByPath [ "users" "users" username "group" ] "users" config;
     in
-    {
+    (lib.optionalAttrs r2RuntimeEnabled {
       # Allow non-root mounts to use `--allow-other`.
       programs.fuse.userAllowOther = true;
 
@@ -108,5 +111,10 @@
           "d /data/Docs 0750 ${username} ${group} - -"
         ];
       };
-    };
+    })
+    // (lib.optionalAttrs (!r2RuntimeEnabled) {
+      warnings = [
+        "System76 R2 integration is disabled until the upstream r2-flake stops referencing removed pkgs.nodePackages."
+      ];
+    });
 }
