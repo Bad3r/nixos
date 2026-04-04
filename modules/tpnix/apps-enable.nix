@@ -214,7 +214,7 @@
       ntfs3g.extended.enable = lib.mkOverride 1100 true;
       nvd.extended.enable = lib.mkOverride 1100 false;
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
-      obsidian.extended.enable = lib.mkOverride 1100 false;
+      obsidian.extended.enable = lib.mkOverride 1100 true;
       ocrmypdf.extended.enable = lib.mkOverride 1100 true;
       okular.extended.enable = lib.mkOverride 1100 false;
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 false;
