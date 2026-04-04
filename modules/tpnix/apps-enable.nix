@@ -166,7 +166,7 @@
       lsof.extended.enable = lib.mkOverride 1100 true;
       ltrace.extended.enable = lib.mkOverride 1100 true;
       lutris.extended.enable = lib.mkOverride 1100 false;
-      lxsession.extended.enable = lib.mkOverride 1100 true;
+      lxsession.extended.enable = lib.mkOverride 1100 false;
       lynis.extended.enable = lib.mkOverride 1100 true;
       maestral.extended.enable = lib.mkOverride 1100 false;
       "maestral-gui".extended.enable = lib.mkOverride 1100 false;
@@ -344,8 +344,8 @@
       wpsoffice.extended.enable = lib.mkOverride 1100 false;
       xbacklight.extended.enable = lib.mkOverride 1100 true;
       xclip.extended.enable = lib.mkOverride 1100 true;
-      "xfce4-power-manager".extended.enable = lib.mkOverride 1100 true;
-      "xfce4-settings".extended.enable = lib.mkOverride 1100 true;
+      "xfce4-power-manager".extended.enable = lib.mkOverride 1100 false;
+      "xfce4-settings".extended.enable = lib.mkOverride 1100 false;
       xh.extended.enable = lib.mkOverride 1100 true;
       xkill.extended.enable = lib.mkOverride 1100 true;
       xkcdpass.extended.enable = lib.mkOverride 1100 true;
