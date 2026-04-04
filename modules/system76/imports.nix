@@ -28,6 +28,7 @@ let
     "homeManagerModules"
     "repoGpg"
   ] inputs;
+  r2FlakeEnabled = false;
 in
 {
   configurations.nixos.system76.module = {
@@ -45,13 +46,17 @@ in
       config.flake.nixosModules.ssh
       config.flake.nixosModules."duplicati-r2"
       config.flake.nixosModules.mirror-root
-      inputs.r2-flake.nixosModules.default
 
       # External hardware modules
       inputs.nixos-hardware.nixosModules.system76
     ]
     # Optional modules (graceful degradation)
     ++ lib.optionals system76SupportExists [ config.flake.nixosModules.system76-support ]
+    ++
+      lib.optionals (r2FlakeEnabled && lib.hasAttrByPath [ "r2-flake" "nixosModules" "default" ] inputs)
+        [
+          inputs.r2-flake.nixosModules.default
+        ]
     ++ lib.optionals lenovyMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ];
 
     # Pass shared module args to all imported modules
@@ -76,12 +81,12 @@ in
       polkit.wheelPowerManagement.enable = true;
       # Do not grant broad systemd unit management without explicit elevation.
       polkit.wheelSystemdManagement.enable = false;
-      r2CloudSecrets.enable = lib.mkDefault true;
+      r2CloudSecrets.enable = lib.mkForce false;
     };
     home-manager.users.${metaOwner.username}.home = {
       context7Secrets.enable = lib.mkDefault true;
       repoGpg.enable = lib.mkDefault true;
-      r2Secrets.enable = lib.mkDefault true;
+      r2Secrets.enable = lib.mkForce false;
       virustotalSecrets.enable = lib.mkDefault true;
     };
 
@@ -101,9 +106,11 @@ in
     };
 
     home-manager.sharedModules = lib.mkAfter (
-      [
-        inputs.r2-flake.homeManagerModules.default
-      ]
+      lib.optionals
+        (r2FlakeEnabled && lib.hasAttrByPath [ "r2-flake" "homeManagerModules" "default" ] inputs)
+        [
+          inputs.r2-flake.homeManagerModules.default
+        ]
       ++ lib.optionals repoGpgModuleExists [
         (lib.getAttrFromPath [ "self" "homeManagerModules" "repoGpg" ] inputs)
       ]
