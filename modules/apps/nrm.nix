@@ -41,7 +41,7 @@ let
           description = "Whether to enable nrm.";
         };
 
-        package = lib.mkPackageOption pkgs.nodePackages "nrm" { };
+        package = lib.mkPackageOption pkgs "nrm" { };
       };
 
       config = lib.mkIf cfg.enable {
