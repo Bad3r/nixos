@@ -4,12 +4,15 @@
   flake.homeManagerModules.apps.i3-config =
     {
       config,
+      osConfig ? { },
       pkgs,
       lib,
       ...
     }:
     let
       stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
+      hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
+      xfsettingsdEnabled = lib.attrByPath [ "integrations" "xfsettingsd" "enable" ] true hostI3Cfg;
       xfconfQuery = lib.getExe' pkgs.xfconf "xfconf-query";
       stickyKeyToggles = [
         {
@@ -51,7 +54,7 @@
     in
     {
       config.xsession.windowManager.i3.config.startup = lib.mkAfter (
-        (map mkSetFalseCommand stickyKeyToggles)
+        (lib.optionals xfsettingsdEnabled (map mkSetFalseCommand stickyKeyToggles))
         ++ [
           {
             command = "${lib.getExe' pkgs.hsetroot "hsetroot"} -solid '${stylixColors.base00}'";
