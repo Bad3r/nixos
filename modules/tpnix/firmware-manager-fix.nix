@@ -14,5 +14,7 @@ _: {
         });
       })
     ];
+    # Enable LVFS firmware updates
+    services.fwupd.enable = true;
   };
 }
