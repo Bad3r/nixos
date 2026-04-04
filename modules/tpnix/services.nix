@@ -9,7 +9,6 @@ _: {
         extraConfig = ''
           MaxUse=1G
           KeepFree=2G
-          MaxRetentionSec=3d
         '';
       };
 
@@ -71,13 +70,6 @@ _: {
         fstrim.enable = true;
 
         thermald.enable = lib.mkDefault true;
-
-        # Keep System76-specific scheduler disabled unless explicitly enabled.
-        system76-scheduler.enable = lib.mkDefault false;
-
-        # LACT: GPU control and monitoring (power limits, fan curves, clocks)
-        # Supports NVIDIA, AMD, and Intel GPUs
-        lact.enable = true;
       };
 
       # Power management configuration.
@@ -91,10 +83,7 @@ _: {
         '';
       };
 
-      # CoolerControl: DISABLED - conflicts with System76 EC fan control
-      # When both CoolerControl and EC control fans simultaneously (e.g., Fn+1),
-      # the EC hangs causing system crash. See: github.com/pop-os/system76-dkms/issues/11
-      # Let EC and system76-power handle fans natively.
+      # Keep hardware fan-control tooling disabled unless this host needs manual tuning.
       programs.coolercontrol.enable = false;
 
       # Disable ACME sample certs until configured with real domain/token

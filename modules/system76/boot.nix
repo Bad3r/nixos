@@ -1,6 +1,6 @@
 _: {
   configurations.nixos.system76.module =
-    { config, pkgs, ... }:
+    { pkgs, ... }:
     {
       # CachyOS generic kernel package set with BORE scheduler/performance patches.
       boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-latest;
@@ -38,9 +38,6 @@ _: {
           "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
           "nvidia.NVreg_EnableGpuFirmware=1"
         ];
-
-        # Add NVIDIA driver to extra module packages
-        extraModulePackages = [ config.boot.kernelPackages.nvidia_x11 ];
 
         crashDump = {
           enable = true;

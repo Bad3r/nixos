@@ -4,12 +4,15 @@
   flake.homeManagerModules.apps.i3-config =
     {
       config,
+      osConfig ? { },
       pkgs,
       lib,
       ...
     }:
     let
       i3Enabled = lib.attrByPath [ "xsession" "windowManager" "i3" "enable" ] false config;
+      hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
+      xfsettingsdEnabled = lib.attrByPath [ "integrations" "xfsettingsd" "enable" ] true hostI3Cfg;
     in
     {
       config = lib.mkIf i3Enabled (
@@ -17,7 +20,6 @@
           kittyCommand = lib.getExe pkgs.kitty;
           nemoCommand = lib.getExe' pkgs.nemo "nemo";
           xfsettingsdCommand = "${pkgs.xfce4-settings}/bin/xfsettingsd";
-          lxsessionCommand = lib.getExe' pkgs.lxsession "lxsession";
           lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] null config;
           xssLockPackage = pkgs.xss-lock.overrideAttrs (old: {
             cmakeFlags = (old.cmakeFlags or [ ]) ++ [ "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" ];
@@ -159,20 +161,8 @@
                   Restart = "on-failure";
                 };
               };
-
-              lxsession = {
-                Unit = {
-                  Description = "LXSession session manager";
-                  After = [ "graphical-session.target" ];
-                  PartOf = [ "graphical-session.target" ];
-                };
-                Install.WantedBy = [ "graphical-session.target" ];
-                Service = {
-                  ExecStart = lxsessionCommand;
-                  Restart = "on-failure";
-                };
-              };
-
+            }
+            (lib.optionalAttrs xfsettingsdEnabled {
               xfsettingsd = {
                 Unit = {
                   Description = "Xfce settings daemon";
@@ -185,7 +175,7 @@
                   Restart = "on-failure";
                 };
               };
-            }
+            })
           ];
         }
       );

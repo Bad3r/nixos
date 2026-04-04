@@ -61,10 +61,19 @@ in
     };
 
     nixpkgs.allowedUnfreePackages = lib.mkAfter [
+      "nvidia-settings"
+      "nvidia-x11"
       "p7zip-rar"
       "rar"
       "unrar"
     ];
+
+    gui.i3 = {
+      integrations = {
+        xfsettingsd.enable = false;
+      };
+      powerProfiles.backend = "powerprofilesctl";
+    };
 
     security = {
       polkit.wheelPowerManagement.enable = true;
@@ -81,7 +90,15 @@ in
     };
 
     home-manager.sharedModules = lib.mkAfter (
-      lib.optionals r2HomeModuleExists [ inputs."r2-flake".homeManagerModules.default ]
+      [
+        {
+          services.espanso = {
+            waylandSupport = lib.mkForce false;
+            x11Support = lib.mkForce true;
+          };
+        }
+      ]
+      ++ lib.optionals r2HomeModuleExists [ inputs."r2-flake".homeManagerModules.default ]
     );
   };
 
