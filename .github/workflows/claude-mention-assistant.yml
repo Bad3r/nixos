@@ -56,17 +56,18 @@ jobs:
           # Optional: Customize the trigger phrase (default: @claude)
           # trigger_phrase: "/claude"
 
-          # Optional: Configure Claude via CLI arguments.
-          # claude_args: |
-          #   --model claude-opus-4-1-20250805
-          #   --max-turns 10
-          #   --allowedTools Bash(npm install)
-          #   --allowedTools Bash(npm run build)
-          #   --allowedTools Bash(npm run test:*)
-          #   --allowedTools Bash(npm run lint:*)
-          #   --system-prompt
-          #   "Follow repository conventions and prefer
-          #   documented Nix workflows."
+          # Explicit model selection plus a minimal shell toolset for
+          # repo inspection and GitHub workflow interaction.
+          claude_args: >-
+            --model claude-opus-4-6
+            --allowedTools mcp__github_inline_comment__create_inline_comment
+            --allowedTools Bash(git status:*)
+            --allowedTools Bash(git diff:*)
+            --allowedTools Bash(git show:*)
+            --allowedTools Bash(git log:*)
+            --allowedTools Bash(gh pr view:*)
+            --allowedTools Bash(gh pr diff:*)
+            --allowedTools Bash(gh issue view:*)
 
           # Optional: Advanced settings configuration.
           # settings: |
