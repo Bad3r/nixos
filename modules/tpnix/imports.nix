@@ -61,6 +61,8 @@ in
     };
 
     nixpkgs.allowedUnfreePackages = lib.mkAfter [
+      "nvidia-settings"
+      "nvidia-x11"
       "p7zip-rar"
       "rar"
       "unrar"
