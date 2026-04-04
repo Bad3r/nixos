@@ -3,11 +3,9 @@
   configurations.nixos.tpnix.module =
     { pkgs, ... }:
     {
-      # Use the standard nixpkgs kernel for this host.
-      boot.kernelPackages = lib.mkDefault pkgs.linuxPackages;
+      boot.kernelPackages = lib.mkDefault pkgs.cachyosKernels.linuxPackages-cachyos-latest;
 
       boot = {
-        # Base kernel modules for this host class.
         initrd.availableKernelModules = [
           "xhci_pci"
           "ahci"
@@ -20,15 +18,21 @@
           "sdhci_pci"
         ];
 
-        # Initrd modules (none required explicitly here)
-        initrd.kernelModules = [ ];
-
-        # CPU virtualization and monitoring
         kernelModules = [
-          "kvm-intel" # Intel VT-x virtualization
-          "coretemp" # CPU temperature monitoring
-          "intel_pt" # Intel Processor Trace for perf profiling
+          "kvm-intel"
+          "coretemp"
+          "intel_pt"
         ];
+
+        loader = {
+          systemd-boot = {
+            enable = true;
+            editor = false;
+            consoleMode = "auto";
+            configurationLimit = 5;
+          };
+          efi.canTouchEfiVariables = true;
+        };
 
         crashDump = {
           enable = true;
