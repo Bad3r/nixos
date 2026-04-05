@@ -59,6 +59,7 @@ let
     "tealdeer"
     "thunderbird"
     "tree"
+    "ungoogled-chromium"
     "usbguard-notifier"
     "uv"
     # "vim" # Provided by nixvim (vimAlias = true)
