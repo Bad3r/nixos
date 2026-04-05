@@ -20,7 +20,7 @@ _: {
       clients = [ ];
       docs = {
         primaryUse = "Persist lightweight graph memory across runs.";
-        accessNotes = "Enabled by default only for Codex.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
         example = "`memory search_nodes --query \"token endpoint\"`";
       };
     };
