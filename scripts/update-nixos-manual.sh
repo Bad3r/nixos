@@ -21,6 +21,8 @@ echo "   nixpkgs revision: $NIXPKGS_REV_SHORT"
 
 # Remove existing manual directory
 if [[ -d $MANUAL_DIR ]]; then
+  echo "🔓 Making existing nixos-manual writable..."
+  chmod -R u+w "$MANUAL_DIR"
   echo "🗑️  Removing existing nixos-manual directory..."
   rm -rf "$MANUAL_DIR"
 fi

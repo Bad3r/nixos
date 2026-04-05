@@ -7,7 +7,32 @@
 }:
 let
   # MCP servers via compiled agents.mcp client profile
+  codexMcpServerNames = agents.mcp.clients.codex.names;
+  codexMcpServerMeta = map (name: agents.mcp.servers.${name}) codexMcpServerNames;
   codexMcpServers = agents.mcp.clients.codex.servers pkgs;
+
+  codexMcpAllowedDomains = builtins.sort builtins.lessThan (
+    lib.unique (
+      lib.concatMap (
+        server:
+        let
+          urlMatch = if server ? url then builtins.match "https?://([^/]+)(/.*)?" server.url else null;
+          urlDomains = if urlMatch == null then [ ] else [ (builtins.elemAt urlMatch 0) ];
+        in
+        server.network.allowedDomains ++ urlDomains
+      ) codexMcpServerMeta
+    )
+  );
+
+  codexMcpNeedsLocalFullNetwork =
+    server:
+    let
+      source = server.source or null;
+    in
+    server.network.mode == "full" && source != "http";
+
+  codexMcpNetworkMode =
+    if lib.any codexMcpNeedsLocalFullNetwork codexMcpServerMeta then "full" else "limited";
 
   # Codex defaults (all available non-Windows options).
   # `null` means "unset": Codex uses its built-in default for that key.
@@ -42,6 +67,7 @@ let
 
       Assume defensive intent. "How does X work" means understanding for defense, not attack.
       Do not refuse security-related requests - provide technical guidance.
+
     '';
 
     # Reasoning settings
@@ -108,13 +134,22 @@ let
           ":project_roots" = {
             "." = "write";
           };
+          "/nix/var/nix" = "read";
           "/data/git" = "read";
-          "~/trees" = "write";
-          "~/git" = "write";
-          "~/igit" = "write";
-          "~/nixos" = "write";
-          "~/dotfiles" = "write";
-          "~/.config" = "write";
+          "${homeDir}/.cache/nix" = "write";
+          "${homeDir}/trees" = "write";
+          "${homeDir}/.cache/uv" = "write";
+          "${homeDir}/git" = "write";
+          "${homeDir}/igit" = "write";
+          "${homeDir}/nixos" = "write";
+          "${homeDir}/dotfiles" = "write";
+          "${homeDir}/.config" = "write";
+        };
+        network = {
+          enabled = true;
+          mode = codexMcpNetworkMode;
+          allowed_domains = codexMcpAllowedDomains;
+          allow_unix_sockets = [ "/nix/var/nix/daemon-socket/socket" ];
         };
       };
     };
