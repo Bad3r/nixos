@@ -4,37 +4,65 @@ Repositories mirrored locally via `git-mirror` for offline access and patching.
 
 ## Configuration
 
-Mirrors are managed declaratively in `modules/system76/mirrors.nix` and synced to `/data/git/{owner}-{repo}`.
+Mirrors are managed in the host-specific mirror module at `modules/<host>/mirrors.nix`.
+The shared mirror root is defined in `modules/git/mirror-root.nix`.
+Repositories sync to `/data/git/{owner}-{repo}`.
 
+- **Host enablement**: Set `localMirrors.enable = true;` and `home-manager.users.${metaOwner.username}.programs.gitMirror.enable = true;` in the host mirror module
 - **Environment variable**: `$LOCAL_MIRRORS` points to `/data/git`
 - **Sync schedule**: Daily via systemd timer
 - **Manual sync**: `systemctl --user start git-mirror.service`
 
-## Mirrored Repositories
+## Enable On A Host
 
-| Repository                      | Path                                             | Use When                                            |
-| ------------------------------- | ------------------------------------------------ | --------------------------------------------------- |
-| NixOS/nixos-hardware            | `$LOCAL_MIRRORS/NixOS-nixos-hardware`            | Hardware profiles or troubleshoot hardware options. |
-| NixOS/nixpkgs                   | `$LOCAL_MIRRORS/NixOS-nixpkgs`                   | Vendor patches or inspect upstream expressions.     |
-| nix-community/home-manager      | `$LOCAL_MIRRORS/nix-community-home-manager`      | Review module behaviors or backport fixes.          |
-| nix-community/nixvim            | `$LOCAL_MIRRORS/nix-community-nixvim`            | Examine NixVim modules and options.                 |
-| nix-community/stylix            | `$LOCAL_MIRRORS/nix-community-stylix`            | Inspect Stylix source or apply local patches.       |
-| numtide/llm-agents.nix          | `$LOCAL_MIRRORS/numtide-llm-agents.nix`          | LLM agent tooling reference.                        |
-| Mic92/sops-nix                  | `$LOCAL_MIRRORS/Mic92-sops-nix`                  | Manage encrypted secrets integrations.              |
-| cachix/git-hooks.nix            | `$LOCAL_MIRRORS/cachix-git-hooks.nix`            | Update hook definitions or debug pre-commit.        |
-| hercules-ci/flake.parts-website | `$LOCAL_MIRRORS/hercules-ci-flake.parts-website` | Flake-parts documentation and examples.             |
-| mightyiam/files                 | `$LOCAL_MIRRORS/mightyiam-files`                 | Modify sources for generated repo artefacts.        |
-| numtide/treefmt-nix             | `$LOCAL_MIRRORS/numtide-treefmt-nix`             | Adjust formatting behavior or version pins.         |
-| vic/import-tree                 | `$LOCAL_MIRRORS/vic-import-tree`                 | Review import-tree or extend module auto-loading.   |
-| github/docs                     | `$LOCAL_MIRRORS/github-docs`                     | GitHub documentation reference.                     |
-| i3/i3.github.io                 | `$LOCAL_MIRRORS/i3-i3.github.io`                 | Reference i3 window manager documentation offline.  |
-| better-auth/better-auth         | `$LOCAL_MIRRORS/better-auth-better-auth`         | Inspect Better Auth source and patch behavior.      |
-| logseq/logseq                   | `$LOCAL_MIRRORS/logseq-logseq`                   | Logseq source and plugin development.               |
-| openai/codex                    | `$LOCAL_MIRRORS/openai-codex`                    | Inspect Codex source and integration behavior.      |
+Enable mirrors in `modules/<host>/mirrors.nix` by turning on both the shared mirror root and the user sync job:
+
+```nix
+localMirrors.enable = true;
+
+home-manager.users.${metaOwner.username}.programs.gitMirror = {
+  enable = true;
+  repos = [
+    "owner/repo"
+    # ...
+  ];
+};
+```
+
+The timer is only created when `programs.gitMirror.enable = true;`.
+
+## Apply And Verify
+
+Rebuild the target host, then verify that the user timer exists and run the first sync manually:
+
+```bash
+./build.sh --host <host>
+systemctl --user is-enabled git-mirror.timer
+systemctl --user status git-mirror.timer --no-pager
+systemctl --user start git-mirror.service
+systemctl --user list-timers git-mirror.timer
+ls -ld /data/git
+```
+
+If the first sync fails, inspect the user service logs:
+
+```bash
+journalctl --user -u git-mirror.service -n 50 --no-pager
+```
+
+## Path Mapping
+
+Each host defines its own `programs.gitMirror.repos` list in `modules/<host>/mirrors.nix`.
+Each repository spec uses `owner/repo` format and maps to a flat local directory name by replacing `/` with `-`.
+
+| Repository spec | Local path                    |
+| --------------- | ----------------------------- |
+| `owner/repo`    | `$LOCAL_MIRRORS/owner-repo`   |
+| `openai/codex`  | `$LOCAL_MIRRORS/openai-codex` |
 
 ## Adding Repositories
 
-Edit `modules/system76/mirrors.nix`:
+Edit `programs.gitMirror.repos` in the relevant `modules/<host>/mirrors.nix` file:
 
 ```nix
 programs.gitMirror.repos = [
@@ -42,5 +70,3 @@ programs.gitMirror.repos = [
   # ...
 ];
 ```
-
-Rebuild and run `systemctl --user start git-mirror.service`.
