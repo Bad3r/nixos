@@ -38,6 +38,7 @@
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 true;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
       blueman.extended.enable = lib.mkOverride 1100 true;
+      brightnessctl.extended.enable = lib.mkOverride 1100 true;
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 true;
       bun.extended.enable = lib.mkOverride 1100 true;
