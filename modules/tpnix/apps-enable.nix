@@ -23,6 +23,7 @@
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 true;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
       blueman.extended.enable = lib.mkOverride 1100 true;
+      brightnessctl.extended.enable = lib.mkOverride 1100 true;
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 false;
       bun.extended.enable = lib.mkOverride 1100 true;
@@ -106,7 +107,7 @@
       "git-filter-repo".extended.enable = lib.mkOverride 1100 true;
       gimp.extended.enable = lib.mkOverride 1100 false;
       glab.extended.enable = lib.mkOverride 1100 true;
-      "github-mcp-server".extended.enable = lib.mkOverride 1100 true;
+      "github-mcp-server".extended.enable = lib.mkOverride 1100 false;
       glow.extended.enable = lib.mkOverride 1100 true;
       "gnome-disk-utility".extended.enable = lib.mkOverride 1100 false;
       "gnome-file-roller".extended.enable = lib.mkOverride 1100 true;
@@ -232,7 +233,7 @@
       picom.extended.enable = lib.mkOverride 1100 true;
       pixman.extended.enable = lib.mkOverride 1100 false;
       "pkg-config".extended.enable = lib.mkOverride 1100 false;
-      planify.extended.enable = lib.mkOverride 1100 true;
+      planify.extended.enable = lib.mkOverride 1100 false;
       playwright.extended.enable = lib.mkOverride 1100 true;
       playerctl.extended.enable = lib.mkOverride 1100 false;
       pnpm.extended.enable = lib.mkOverride 1100 true;
