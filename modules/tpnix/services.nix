@@ -52,7 +52,7 @@ _: {
 
         # Power management
         upower.enable = true;
-        power-profiles-daemon.enable = lib.mkDefault true;
+        power-profiles-daemon.enable = lib.mkForce true;
 
         # Enable GVFS for trash support, mounting, etc.
         gvfs.enable = true;
@@ -75,12 +75,27 @@ _: {
       # Power management configuration.
       powerManagement = {
         enable = true;
-        cpuFreqGovernor = lib.mkDefault "performance"; # ondemand, powersave, performance
+        cpuFreqGovernor = lib.mkForce "performance"; # ondemand, powersave, performance
         powertop.enable = false; # Aggressive USB autosuspend causes device issues
         resumeCommands = ''
           # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
           ${pkgs.systemd}/bin/loginctl lock-sessions
+
+          # Re-assert the daemon profile after resume.
+          ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance
         '';
+      };
+
+      systemd.services.tpnix-power-profile = {
+        description = "Force power-profiles-daemon profile to performance";
+        wantedBy = [ "multi-user.target" ];
+        wants = [ "power-profiles-daemon.service" ];
+        after = [ "power-profiles-daemon.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance";
+          RemainAfterExit = true;
+        };
       };
 
       # Keep hardware fan-control tooling disabled unless this host needs manual tuning.

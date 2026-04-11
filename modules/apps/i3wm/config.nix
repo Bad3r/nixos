@@ -13,6 +13,7 @@
     let
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
       powerProfileBackend = lib.attrByPath [ "powerProfiles" "backend" ] "system76-power" hostI3Cfg;
+      powerProfileSelectionAllowed = lib.attrByPath [ "powerProfiles" "allowSelection" ] true hostI3Cfg;
       sessionMetadata = {
         DESKTOP_SESSION = "none+i3";
         XDG_CURRENT_DESKTOP = "none+i3:X-NIXOS-SYSTEMD-AWARE";
@@ -96,12 +97,23 @@
         text = ''
           set -euo pipefail
           backend=${lib.escapeShellArg powerProfileBackend}
+          selection_allowed=${lib.escapeShellArg (if powerProfileSelectionAllowed then "true" else "false")}
 
           # Get current profile
           if [ "$backend" = "powerprofilesctl" ]; then
             current=$(powerprofilesctl get 2>/dev/null || echo "unknown")
           else
             current=$(system76-power profile 2>/dev/null | grep -oP '(?<=Power Profile: ).*' || echo "unknown")
+          fi
+
+          if [ "$selection_allowed" != "true" ]; then
+            if [ "$backend" = "powerprofilesctl" ]; then
+              powerprofilesctl set performance
+            else
+              system76-power profile performance
+            fi
+            notify-send -i battery "Power Profile" "Performance mode is enforced on this host"
+            exit 0
           fi
 
           if [ "$backend" = "powerprofilesctl" ]; then
