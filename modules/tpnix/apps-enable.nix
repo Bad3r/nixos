@@ -153,15 +153,18 @@
       "kiro-fhs".extended.enable = lib.mkOverride 1100 false;
       krita.extended.enable = lib.mkOverride 1100 false;
       kitty.extended.enable = lib.mkOverride 1100 true;
-      ktailctl.extended.enable = lib.mkOverride 1100 false;
+      ktailctl.extended.enable = lib.mkOverride 1100 true;
       leiningen.extended.enable = lib.mkOverride 1100 false;
       lazydocker.extended.enable = lib.mkOverride 1100 false;
       lazygit.extended.enable = lib.mkOverride 1100 true;
       less.extended.enable = lib.mkOverride 1100 true;
+      libreoffice.extended.enable = lib.mkOverride 1100 false;
       libnotify.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 false;
+      libstdcxx.extended.enable = lib.mkOverride 1100 true;
       localsend.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.enable = lib.mkOverride 1100 true;
+      logseq.extended.disableGpuCompositing = lib.mkOverride 1100 true;
       "logseq-cli".extended.enable = lib.mkOverride 1100 true;
       lshw.extended.enable = lib.mkOverride 1100 true;
       lsof.extended.enable = lib.mkOverride 1100 true;
@@ -175,7 +178,7 @@
       malimite.extended.enable = lib.mkOverride 1100 false;
       marktext.extended.enable = lib.mkOverride 1100 true;
       mattermost.extended.enable = lib.mkOverride 1100 false;
-      "media-toolchain".extended.enable = lib.mkOverride 1100 false;
+      "media-toolchain".extended.enable = lib.mkOverride 1100 true;
       metasploit.extended.enable = lib.mkOverride 1100 false;
       mlr.extended.enable = lib.mkOverride 1100 true;
       "minio-client".extended.enable = lib.mkOverride 1100 false;
@@ -289,7 +292,7 @@
       "sss-pass-gpg-bootstrap".extended.enable = lib.mkOverride 1100 true;
       starship.extended.enable = lib.mkOverride 1100 true;
       statix.extended.enable = lib.mkOverride 1100 true;
-      stash.extended.enable = lib.mkOverride 1100 false;
+      stash.extended.enable = lib.mkOverride 1100 true;
       steam.extended.enable = lib.mkOverride 1100 false;
       synchrony.extended.enable = lib.mkOverride 1100 false;
       strace.extended.enable = lib.mkOverride 1100 true;

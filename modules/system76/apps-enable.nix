@@ -174,8 +174,10 @@
       lazydocker.extended.enable = lib.mkOverride 1100 true;
       lazygit.extended.enable = lib.mkOverride 1100 true;
       less.extended.enable = lib.mkOverride 1100 true;
+      libreoffice.extended.enable = lib.mkOverride 1100 false;
       libnotify.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 false;
+      libstdcxx.extended.enable = lib.mkOverride 1100 false;
       localsend.extended.enable = lib.mkOverride 1100 true;
       # TODO: Test with disableGpuCompositing = false after future NVIDIA driver updates
       # Workaround for blank window with NVIDIA 580.x + PRIME sync (2026-01)
