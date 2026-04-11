@@ -29,6 +29,12 @@ let
           default = "system76-power";
           description = "Power-profile backend exposed to shared i3 launcher scripts.";
         };
+
+        powerProfiles.allowSelection = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Whether the i3 power-profile launcher may switch away from the enforced host profile.";
+        };
       };
 
       config = {

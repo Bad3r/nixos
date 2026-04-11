@@ -72,7 +72,10 @@ in
       integrations = {
         xfsettingsd.enable = false;
       };
-      powerProfiles.backend = "powerprofilesctl";
+      powerProfiles = {
+        backend = "powerprofilesctl";
+        allowSelection = false;
+      };
     };
 
     security = {
