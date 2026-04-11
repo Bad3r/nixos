@@ -84,8 +84,8 @@
       exiftool.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 false;
       file.extended.enable = lib.mkOverride 1100 true;
-      "filen-cli".extended.enable = lib.mkOverride 1100 false;
-      "filen-desktop".extended.enable = lib.mkOverride 1100 false;
+      "filen-cli".extended.enable = lib.mkOverride 1100 true;
+      "filen-desktop".extended.enable = lib.mkOverride 1100 true;
       filezilla.extended.enable = lib.mkOverride 1100 false;
       findutils.extended.enable = lib.mkOverride 1100 true;
       firefox.extended.enable = lib.mkOverride 1100 false;
