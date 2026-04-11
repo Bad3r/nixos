@@ -16,6 +16,7 @@
       awscli2.extended.enable = lib.mkOverride 1100 false;
       azd.extended.enable = lib.mkOverride 1100 false;
       "azure-cli".extended.enable = lib.mkOverride 1100 false;
+      b3sum.extended.enable = lib.mkOverride 1100 true;
       babashka.extended.enable = lib.mkOverride 1100 false;
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
@@ -84,7 +85,6 @@
       exiftool.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 false;
       file.extended.enable = lib.mkOverride 1100 true;
-      "filen-cli".extended.enable = lib.mkOverride 1100 true;
       "filen-desktop".extended.enable = lib.mkOverride 1100 true;
       filezilla.extended.enable = lib.mkOverride 1100 false;
       findutils.extended.enable = lib.mkOverride 1100 true;
