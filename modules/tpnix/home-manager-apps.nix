@@ -35,7 +35,7 @@ let
     "lazydocker"
     "lazygit"
     "less"
-    # "libreoffice"
+    "libreoffice"
     "lutris"
     "mpv"
     "ncdu"
