@@ -90,6 +90,7 @@ let
   codexZshWrapper = pkgs.writeShellScriptBin "zsh" ''
     set -euo pipefail
 
+    direnvBin=${lib.getExe pkgs.direnv}
     realZsh=${lib.getExe pkgs.zsh}
     rmShimPath=${rmShim}/bin/rm
 
@@ -100,6 +101,10 @@ let
 
       export CODEX_WRAPPED_COMMAND="$wrappedCommand"
       exec "$realZsh" "$shellFlag" '
+        # Mirror interactive direnv behavior for Codex non-interactive shell commands.
+        if direnvExports="$("'"$direnvBin"'" export zsh 2>/dev/null)"; then
+          eval "$direnvExports"
+        fi
         rm() {
           "'"$rmShimPath"'" "$@"
         }
