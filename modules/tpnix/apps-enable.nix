@@ -198,7 +198,7 @@
       "networkmanager-dmenu".extended.enable = lib.mkOverride 1100 true;
       "networkmanager-openvpn".extended.enable = lib.mkOverride 1100 true;
       nftables.extended.enable = lib.mkOverride 1100 true;
-      nicotine.extended.enable = lib.mkOverride 1100 false;
+      nicotine.extended.enable = lib.mkOverride 1100 true;
       nil.extended.enable = lib.mkOverride 1100 true;
       niv.extended.enable = lib.mkOverride 1100 true;
       "nix-diff".extended.enable = lib.mkOverride 1100 true;
@@ -254,7 +254,7 @@
       pyright.extended.enable = lib.mkOverride 1100 true;
       python.extended.enable = lib.mkOverride 1100 true;
       pyyaml.extended.enable = lib.mkOverride 1100 false;
-      qbittorrent.extended.enable = lib.mkOverride 1100 false;
+      qbittorrent.extended.enable = lib.mkOverride 1100 true;
       qpdf.extended.enable = lib.mkOverride 1100 true;
       radare2.extended.enable = lib.mkOverride 1100 false;
       raindrop.extended.enable = lib.mkOverride 1100 false;
