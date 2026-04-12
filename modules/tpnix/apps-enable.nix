@@ -11,6 +11,7 @@
       "android-studio".extended.enable = lib.mkOverride 1100 false;
       "antigravity-fhs".extended.enable = lib.mkOverride 1100 false;
       arandr.extended.enable = lib.mkOverride 1100 true;
+      "ast-grep".extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
       "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
       awscli2.extended.enable = lib.mkOverride 1100 false;
@@ -282,6 +283,7 @@
       socat.extended.enable = lib.mkOverride 1100 true;
       sops.extended.enable = lib.mkOverride 1100 true;
       sqlite.extended.enable = lib.mkOverride 1100 false;
+      sourcemapper.extended.enable = lib.mkOverride 1100 true;
       "source-map-explorer".extended.enable = lib.mkOverride 1100 true;
       spectacle.extended.enable = lib.mkOverride 1100 false;
       "spec-kit".extended.enable = lib.mkOverride 1100 false;
