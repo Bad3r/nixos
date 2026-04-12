@@ -337,8 +337,8 @@
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
       vulnix.extended.enable = lib.mkOverride 1100 false;
       "wappalyzer-next".extended.enable = lib.mkOverride 1100 false;
-      wakaru.extended.enable = lib.mkOverride 1100 false;
-      webcrack.extended.enable = lib.mkOverride 1100 false;
+      wakaru.extended.enable = lib.mkOverride 1100 true;
+      webcrack.extended.enable = lib.mkOverride 1100 true;
       wgcf.extended.enable = lib.mkOverride 1100 false;
       wezterm.extended.enable = lib.mkOverride 1100 false;
       wget.extended.enable = lib.mkOverride 1100 true;
