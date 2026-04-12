@@ -10,6 +10,7 @@ _: {
         azd = final.callPackage ../../packages/azd { };
         charles = final.callPackage ../../packages/charles { };
         dnsleak = final.callPackage ../../packages/dnsleak { };
+        gitlawb = final.callPackage ../../packages/gitlawb { };
         opendirectorydownloader = final.callPackage ../../packages/opendirectorydownloader { };
         less = final.callPackage ../../packages/less { };
         malimite = final.callPackage ../../packages/malimite { };

@@ -106,6 +106,7 @@
       git.extended.enable = lib.mkOverride 1100 true;
       "git-filter-repo".extended.enable = lib.mkOverride 1100 true;
       gimp.extended.enable = lib.mkOverride 1100 false;
+      gitlawb.extended.enable = lib.mkOverride 1100 false;
       glab.extended.enable = lib.mkOverride 1100 true;
       "github-mcp-server".extended.enable = lib.mkOverride 1100 false;
       glow.extended.enable = lib.mkOverride 1100 true;
