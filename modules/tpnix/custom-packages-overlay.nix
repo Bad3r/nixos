@@ -16,6 +16,7 @@ _: {
         claude-wpa = final.callPackage ../../packages/claude-wpa { };
         rg-fzf = final.callPackage ../../packages/rg-fzf { };
         sss-nix-repair = final.callPackage ../../packages/sss-nix-repair { };
+        source-map-explorer = final.callPackage ../../packages/source-map-explorer { };
         webcrack = final.callPackage ../../packages/webcrack { };
         wakaru = final.callPackage ../../packages/wakaru { };
         restringer = final.callPackage ../../packages/restringer { };
