@@ -20,7 +20,6 @@
           ];
           kernelModules = [ ];
           luks = {
-            reusePassphrases = true;
             devices = {
               "luks-dc8e394e-d685-429e-b256-3b803635b47d".device =
                 "/dev/disk/by-uuid/dc8e394e-d685-429e-b256-3b803635b47d";

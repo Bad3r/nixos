@@ -68,8 +68,6 @@ _: {
 
           # LUKS encryption for devices
           luks = {
-            # Reuse the first entered passphrase to unlock all LUKS devices
-            reusePassphrases = true;
 
             devices = {
               # Root device

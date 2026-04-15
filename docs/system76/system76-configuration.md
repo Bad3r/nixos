@@ -146,7 +146,6 @@ boot = {
 ```nix
 # modules/system76/hardware-config.nix
 boot.initrd.luks = {
-  reusePassphrases = true;
   devices = {
     "luks-..." = { device = "/dev/disk/by-uuid/..."; };  # Root
     "luks-..." = { device = "/dev/disk/by-uuid/..."; };  # Swap
