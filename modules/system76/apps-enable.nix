@@ -60,7 +60,6 @@
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 true;
-      # To switch to bun: set nix.enable = false and bun.enable = true (requires bun.extended.enable = true)
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;
       "claude-desktop".extended.enable = lib.mkOverride 1100 false; # Upstream flake still references removed pkgs.nodePackages
       "claude-plugins".extended.enable = lib.mkOverride 1100 true;
