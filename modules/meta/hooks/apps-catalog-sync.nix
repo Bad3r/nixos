@@ -49,6 +49,7 @@ _: {
 
             mapfile -t catalog_apps < <(
               grep -E '\.extended\.enable' "$catalog_file" \
+                | grep -v '^\s*#' \
                 | sed -E 's/^\s+//' \
                 | sed -E "s/^([\"']?)([a-zA-Z0-9_-]+)\1\.extended\.enable.*/\2/" \
                 | sort
