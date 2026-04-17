@@ -200,8 +200,8 @@ fi
 # Bootstrap substituters for first build (before system has them configured)
 # Used for initial Determinate Nix setup or similar migrations
 BOOTSTRAP_SUBSTITUTERS=(
-  "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
-  #"https://mirror.sjtu.edu.cn/nix-channels/store"
+  #"https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
+  "https://mirror.sjtu.edu.cn/nix-channels/store"
   "https://mirrors.ustc.edu.cn/nix-channels/store"
   "https://cache.nixos.org"
   "https://cache.garnix.io"
