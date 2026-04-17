@@ -1,9 +1,9 @@
 /*
   Package: media-toolchain
   Description: Convenience bundle installing the project's standard multimedia tools (mpv, Stash, ffmpeg, ImageMagick, Ghostscript, GStreamer plugins).
-  Homepage: https://github.com/vx/nixos
-  Documentation: https://github.com/vx/nixos
-  Repository: https://github.com/vx/nixos
+  Homepage: https://github.com/Bad3r/nixos
+  Documentation: https://github.com/Bad3r/nixos
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Ensures media playback, transcoding, thumbnail generation, and document rendering utilities are available in the environment.

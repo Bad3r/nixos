@@ -158,7 +158,7 @@ writeShellApplication {
 
   meta = {
     description = "Build and maintain a cache of video file durations";
-    homepage = "https://github.com/vx/nixos";
+    homepage = "https://github.com/Bad3r/nixos";
     license = lib.licenses.mit;
     mainProgram = "video-cache";
     platforms = lib.platforms.linux;

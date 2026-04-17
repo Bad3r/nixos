@@ -321,7 +321,7 @@ writeShellApplication {
 
   meta = {
     description = "Guided Nix store repair workflow with generation triage and optional cleanup";
-    homepage = "https://github.com/vx/nixos";
+    homepage = "https://github.com/Bad3r/nixos";
     license = lib.licenses.mit;
     mainProgram = "sss-nix-repair";
     platforms = lib.platforms.linux;
