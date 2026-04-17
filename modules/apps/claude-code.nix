@@ -79,8 +79,9 @@
             description = ''
               Install claude-code via `bun install -g @anthropic-ai/claude-code`
               during every Home Manager activation. Requires
-              `programs.bun.extended.enable = true`. Binary lands at
-              `$XDG_DATA_HOME/bun/bin/claude`.
+              `programs.bun.extended.enable = true`; this module automatically
+              imports the `bun` Home Manager app module when the bun install
+              method is enabled. Binary lands at `$XDG_DATA_HOME/bun/bin/claude`.
             '';
           };
         };
@@ -100,6 +101,9 @@
       config = lib.mkIf cfg.enable {
         environment.systemPackages = lib.optional cfg.installMethods.nix.enable cfg.package;
         nixpkgs.allowedUnfreePackages = lib.optionals cfg.installMethods.nix.enable [ "claude-code" ];
+        # Import by Home Manager app key so import-tree resolves the module location.
+        # The bun HM module owns BUN_INSTALL/PATH setup and the createBunDir DAG node.
+        home-manager.extraAppImports = lib.mkAfter (lib.optional cfg.installMethods.bun.enable "bun");
 
         assertions = [
           {
