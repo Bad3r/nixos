@@ -51,9 +51,16 @@ _: {
               fs_map["$app"]=1
             done
 
+            add_all_catalog_files() {
+              while IFS= read -r f; do
+                catalog_files_to_check["$f"]=1
+              done < <(find . -path "*/modules/*/apps-enable.nix" -printf "%P\n" | sort)
+            }
+
             # Determine which apps-enable.nix files to check.
-            # In pre-push mode pre-commit sets PRE_COMMIT_FROM_REF / PRE_COMMIT_TO_REF;
-            # only check files changed in the pushed range and skip entirely if none match.
+            # In pre-push mode pre-commit sets PRE_COMMIT_FROM_REF / PRE_COMMIT_TO_REF.
+            # App module changes affect every host catalog, so compare all catalogs in that case.
+            # Catalog-only changes can stay scoped to the changed catalog files.
             # In manual mode those vars are absent so check every apps-enable.nix found.
             declare -A catalog_files_to_check=()
 
@@ -69,18 +76,21 @@ _: {
                   from_ref=$(git rev-list --max-parents=0 "$to_ref" | head -1)
                 fi
               fi
+              app_modules_changed=0
               while IFS= read -r changed_file; do
                 if [[ "$changed_file" =~ ^modules/[^/]+/apps-enable\.nix$ ]]; then
                   catalog_files_to_check["$changed_file"]=1
+                elif [[ "$changed_file" =~ ^modules/apps/[^_/][^/]*\.nix$ ]]; then
+                  app_modules_changed=1
                 fi
               done < <(git diff --name-only "''${from_ref}..''${to_ref}" 2>/dev/null || true)
-              if [ "''${#catalog_files_to_check[@]}" -eq 0 ]; then
+              if [ "$app_modules_changed" -eq 1 ]; then
+                add_all_catalog_files
+              elif [ "''${#catalog_files_to_check[@]}" -eq 0 ]; then
                 exit 0
               fi
             else
-              while IFS= read -r f; do
-                catalog_files_to_check["$f"]=1
-              done < <(find . -path "*/modules/*/apps-enable.nix" -printf "%P\n" | sort)
+              add_all_catalog_files
             fi
 
             overall_exit=0
