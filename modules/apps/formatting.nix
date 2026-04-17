@@ -1,9 +1,9 @@
 /*
   Package: formatting
   Description: Collection bundle of common code formatters used across the repository.
-  Homepage: https://github.com/vx/nixos
-  Documentation: https://github.com/vx/nixos
-  Repository: https://github.com/vx/nixos
+  Homepage: https://github.com/Bad3r/nixos
+  Documentation: https://github.com/Bad3r/nixos
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Installs the project-standard formatter toolchain (e.g. `nixfmt`, `shfmt`, `prettier`) to ensure consistent styling across languages.

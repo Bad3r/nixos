@@ -1,28 +1,26 @@
 /*
-  Package: burpsuitepro
-  Description: Integrated web security testing platform from PortSwigger for intercepting, scanning, and exploiting HTTP/S traffic.
-  Homepage: https://portswigger.net/
+  Package: burpsuite
+  Description: Burp Suite Community Edition — integrated platform for web application security testing.
+  Homepage: https://portswigger.net/burp/communitydownload
   Documentation: https://portswigger.net/burp/documentation
-  Repository: https://gitlab.com/_VX3r/burpsuite-pro-flake
+  Repository: https://github.com/NixOS/nixpkgs/tree/master/pkgs/by-name/bu/burpsuite
 
   Summary:
-    * Provides an intercepting proxy, repeater, intruder, and extensible plugins for web pentesting.
-    * Automates vulnerability scanning while offering manual tooling for exploitation and request manipulation.
+    * Provides the Community Edition launcher (`burpsuite`) packaged from upstream nixpkgs.
+    * Ships an intercepting proxy, repeater, and decoder for manual web pentesting; advanced scanning requires the Professional edition module.
 
   Options:
-    burpsuitepro: Launch the desktop suite with the default UI inside an FHS environment.
-    BURP_JVM_ARGS="-Xmx4G" burpsuitepro: Increase JVM heap for large engagements.
-    JAVA_TOOL_OPTIONS="-Djava.awt.headless=true" burpsuitepro: Run with headless-compatible settings for automation pipelines.
+    burpsuite: Launch Burp Suite Community Edition inside its FHS environment.
+    BURP_JVM_ARGS="-Xmx4G" burpsuite: Increase JVM heap for larger engagements.
+    JAVA_TOOL_OPTIONS="-Djava.awt.headless=true" burpsuite: Pass additional Java flags to the launcher.
 
   Example Usage:
-    * `burpsuitepro` -- Start Burp Suite and configure browser proxy settings to intercept traffic.
-    * `BURP_JVM_ARGS="-Xmx8G" burpsuitepro` -- Allocate a larger heap for massive site crawls.
-    * Add extensions from the BApp Store (e.g., Autorize, Logger++) to enhance capabilities.
+    * `burpsuite` -- Start Burp Suite and configure the browser proxy to intercept traffic.
+    * `BURP_JVM_ARGS="-Xmx8G" burpsuite` -- Allocate a larger heap for crawling large applications.
+    * Enable `programs.burpsuitepro.extended` separately for the Professional edition module.
 */
-{ inputs, ... }:
+_:
 let
-  packageFor = system: inputs."burpsuite-pro-flake".packages.${system}.burpsuitepro;
-
   BurpsuiteModule =
     {
       config,
@@ -38,26 +36,18 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable Burp Suite Pro.";
+          description = "Whether to enable Burp Suite Community Edition.";
         };
 
-        package = lib.mkPackageOption pkgs "burpsuitepro" { };
+        package = lib.mkPackageOption pkgs "burpsuite" { };
       };
 
-      config = {
-        # Add overlay to make burpsuitepro available in pkgs
-        # Must be unconditional so the package option can resolve
-        nixpkgs.overlays = [
-          (_final: prev: {
-            burpsuitepro = packageFor prev.stdenv.hostPlatform.system;
-          })
-        ];
-
-        environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
       };
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "burpsuitepro" ];
+  nixpkgs.allowedUnfreePackages = [ "burpsuite" ];
   flake.nixosModules.apps.burpsuite = BurpsuiteModule;
 }

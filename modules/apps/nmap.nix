@@ -3,7 +3,7 @@
   Description: Network exploration and security auditing utility for port scanning and service enumeration.
   Homepage: https://nmap.org/
   Documentation: https://nmap.org/book/
-  Repository: https://svn.nmap.org/
+  Repository: https://svn.nmap.org/nmap
 
   Summary:
     * Performs flexible TCP/UDP port scans, OS detection, version probing, and scriptable service checks.

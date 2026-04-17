@@ -133,6 +133,77 @@ _: {
           #    so plain Nix files avoid the extra LSP fan-out while embedded shell/Lua/etc. still work
           # 3. Diagnostic filter - suppresses otter diagnostics for .nix files (''${ causes false positives)
           extraConfigLua = ''
+            -- Scratch buffer auto-naming: assign timestamped names to unnamed buffers
+            -- so swap files become identifiable and recoverable after crashes.
+            -- On first save, the filename is enriched with a slug from the buffer content.
+            local scratch_augroup = vim.api.nvim_create_augroup("nvim_scratch_naming", { clear = true })
+            local scratch_dir = vim.fn.stdpath("data") .. "/scratch"
+            vim.fn.mkdir(scratch_dir, "p")
+
+            local function assign_scratch_name(buf)
+              if vim.api.nvim_buf_get_name(buf) ~= "" then return end
+              if vim.bo[buf].buftype ~= "" then return end
+              if not vim.bo[buf].modifiable then return end
+              if not vim.bo[buf].buflisted then return end
+              if vim.b[buf].scratch_named then return end
+
+              local stamp = os.date("%Y-%m-%d-%H%M%S")
+              local rand = string.format("%04x", vim.uv.hrtime() % 0x10000)
+              local path = string.format("%s/scratch-%s-%s.md", scratch_dir, stamp, rand)
+              vim.api.nvim_buf_set_name(buf, path)
+              vim.b[buf].scratch_named = true
+            end
+
+            vim.api.nvim_create_autocmd("BufEnter", {
+              group = scratch_augroup,
+              callback = function(args)
+                vim.schedule(function()
+                  if vim.api.nvim_buf_is_valid(args.buf) then
+                    assign_scratch_name(args.buf)
+                  end
+                end)
+              end,
+            })
+
+            vim.api.nvim_create_autocmd("BufWritePost", {
+              group = scratch_augroup,
+              callback = function(args)
+                local name = vim.api.nvim_buf_get_name(args.buf)
+                if not name:match("/scratch/scratch%-") then return end
+                if vim.b[args.buf].scratch_slugified then return end
+
+                local basename = vim.fn.fnamemodify(name, ":t")
+                if not basename:match("^scratch%-%d%d%d%d%-%d%d%-%d%d%-%d%d%d%d%d%d%-%x%x%x%x%.md$") then return end
+
+                local lines = vim.api.nvim_buf_get_lines(args.buf, 0, 20, false)
+                local first = ""
+                for _, line in ipairs(lines) do
+                  if line:match("%S") then
+                    first = line
+                    break
+                  end
+                end
+                if first == "" then return end
+
+                local slug = first:lower()
+                  :gsub("[^%w]+", "-")
+                  :gsub("^-+", "")
+                  :gsub("-+$", "")
+                  :sub(1, 40)
+                  :gsub("-+$", "")
+                if slug == "" then return end
+
+                local old_path = name
+                local new_path = name:gsub("%.md$", "-" .. slug .. ".md")
+                if new_path == old_path then return end
+
+                local ok = vim.uv.fs_rename(old_path, new_path)
+                if not ok then return end
+                vim.api.nvim_buf_set_name(args.buf, new_path)
+                vim.b[args.buf].scratch_slugified = true
+              end,
+            })
+
             -- Window-local Arabic viewing helpers for mixed RTL/LTR content.
             local function set_arabic_view(enabled)
               if enabled then

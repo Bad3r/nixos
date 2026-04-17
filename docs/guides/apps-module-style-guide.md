@@ -141,7 +141,8 @@ See `modules/apps/pyyaml.nix` (library) and `modules/apps/cloudflare-python-sdk.
   - `Description:` -- one-sentence summary.
   - `Homepage:` -- primary product landing page.
   - `Documentation:` -- canonical manual, user guide, or reference docs. Prefer first-party sources; if none exist, use the section of the homepage that acts as official documentation.
-  - `Repository:` -- upstream GitHub project URL when available. Omit only if no public GitHub repository exists.
+  - `Repository:` -- project repository/source code URL when available. If no public repository exists, set the value to `nil`.
+- If `Homepage:`, `Documentation:`, and `Repository:` would all resolve to the same URL, set `Homepage:` and `Documentation:` to `nil` and keep only `Repository:` populated with that canonical URL.
 - Provide the following subsections, each separated by a blank line:
   - `Summary:` -- brief bullet points describing primary functionality (typically 2, but use as many as needed).
   - `Tests:` -- only include when upstream documents deterministic CLI outputs (for example `ent.nix`). If no canonical tests exist, omit the section completely rather than inventing ad-hoc commands.

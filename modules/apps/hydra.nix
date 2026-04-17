@@ -39,7 +39,7 @@ let
           description = "Whether to enable hydra.";
         };
 
-        package = lib.mkPackageOption pkgs "hydra" { };
+        package = lib.mkPackageOption pkgs "thc-hydra" { };
       };
 
       config = lib.mkIf cfg.enable {

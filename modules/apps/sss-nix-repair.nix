@@ -1,9 +1,9 @@
 /*
   Package: sss-nix-repair
   Description: Guided Nix store repair workflow with generation triage and optional cleanup.
-  Homepage: https://github.com/vx/nixos
-  Documentation: https://github.com/vx/nixos/tree/main/docs/troubleshooting/nix-store-maintenance.md
-  Repository: https://github.com/vx/nixos
+  Homepage: https://github.com/Bad3r/nixos
+  Documentation: https://github.com/Bad3r/nixos/tree/main/docs/troubleshooting/nix-store-maintenance.md
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Runs `nh clean all` and `nix store verify --repair` using host-safe defaults for routine recovery.
