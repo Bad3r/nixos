@@ -148,7 +148,7 @@ _: {
               if vim.b[buf].scratch_named then return end
 
               local stamp = os.date("%Y-%m-%d-%H%M%S")
-              local rand = string.format("%04x", math.random(0, 0xffff))
+              local rand = string.format("%04x", vim.uv.hrtime() % 0x10000)
               local path = string.format("%s/scratch-%s-%s.md", scratch_dir, stamp, rand)
               vim.api.nvim_buf_set_name(buf, path)
               vim.b[buf].scratch_named = true
@@ -172,6 +172,9 @@ _: {
                 if not name:match("/scratch/scratch%-") then return end
                 if vim.b[args.buf].scratch_slugified then return end
 
+                local basename = vim.fn.fnamemodify(name, ":t")
+                if not basename:match("^scratch%-%d%d%d%d%-%d%d%-%d%d%-%d%d%d%d%d%d%-%x%x%x%x%.md$") then return end
+
                 local lines = vim.api.nvim_buf_get_lines(args.buf, 0, 20, false)
                 local first = ""
                 for _, line in ipairs(lines) do
@@ -194,7 +197,8 @@ _: {
                 local new_path = name:gsub("%.md$", "-" .. slug .. ".md")
                 if new_path == old_path then return end
 
-                vim.uv.fs_rename(old_path, new_path)
+                local ok = vim.uv.fs_rename(old_path, new_path)
+                if not ok then return end
                 vim.api.nvim_buf_set_name(args.buf, new_path)
                 vim.b[args.buf].scratch_slugified = true
               end,
