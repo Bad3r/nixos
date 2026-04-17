@@ -3,7 +3,7 @@
   Description: Simple shell utility that checks outward-facing IP and resolvers to detect DNS leaks.
   Homepage: https://support.opendns.com/hc/en-us/articles/227987727-How-to-Test-If-OpenDNS-Is-Working
   Documentation: https://support.opendns.com/hc/en-us/articles/227987727-How-to-Test-If-OpenDNS-Is-Working
-  Repository: https://github.com/vx/nixos
+  Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Queries OpenDNS (`myip.opendns.com`) to display your current public IP and ensure resolvers route through the expected service.
