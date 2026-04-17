@@ -10,9 +10,6 @@
           22
           9999 # Stash default port
         ];
-        allowedUDPPorts = [
-          9999 # Stash default port
-        ];
       };
     };
   };
