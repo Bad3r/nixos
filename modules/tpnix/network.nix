@@ -6,8 +6,13 @@
       useDHCP = lib.mkDefault true;
       firewall = {
         enable = true;
-        allowedTCPPorts = [ 22 ];
-        allowedUDPPorts = [ ];
+        allowedTCPPorts = [
+          22
+          9999 # Stash default port
+        ];
+        allowedUDPPorts = [
+          9999 # Stash default port
+        ];
       };
     };
   };
