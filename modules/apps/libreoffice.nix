@@ -2,7 +2,7 @@
   Package: libreoffice
   Description: Comprehensive, professional-quality productivity suite, a variant of openoffice.org.
   Homepage: https://libreoffice.org/
-  Documentation: https://help.libreoffice.org/latest/en-US/text/shared/guide/startcenter.html
+  Documentation: https://help.libreoffice.org/latest/en-US/text/shared/guide/start_parameters.html
   Repository: https://git.libreoffice.org/core
 
   Summary:

@@ -7,7 +7,8 @@
       actionlint.extended.enable = lib.mkOverride 1100 true;
       age.extended.enable = lib.mkOverride 1100 true;
       "age-plugin-fido2prf".extended.enable = lib.mkOverride 1100 true;
-      "aircrack-ng".extended.enable = lib.mkOverride 1100 false;
+      "aircrack-ng".extended.enable = lib.mkOverride 1100 true;
+      amass.extended.enable = lib.mkOverride 1100 true;
       "android-studio".extended.enable = lib.mkOverride 1100 false;
       "antigravity-fhs".extended.enable = lib.mkOverride 1100 false;
       arandr.extended.enable = lib.mkOverride 1100 true;
@@ -31,15 +32,22 @@
       bun.extended.enable = lib.mkOverride 1100 true;
       bubblewrap.extended.enable = lib.mkOverride 1100 true;
       burpsuite.extended.enable = lib.mkOverride 1100 true;
+      "burpsuite-loader".extended.enable = lib.mkOverride 1100 true;
+      burpsuitepro.extended.enable = lib.mkOverride 1100 true;
       bzip2.extended.enable = lib.mkOverride 1100 true;
       cachix.extended.enable = lib.mkOverride 1100 true;
       cargo.extended.enable = lib.mkOverride 1100 true;
       certbot.extended.enable = lib.mkOverride 1100 true;
+      cewl.extended.enable = lib.mkOverride 1100 true;
+      charles.extended.enable = lib.mkOverride 1100 true;
       "cf-terraforming".extended.enable = lib.mkOverride 1100 false;
       circumflex.extended.enable = lib.mkOverride 1100 false;
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
       "claude-code".extended.enable = lib.mkOverride 1100 true;
-      "claude-desktop".extended.enable = lib.mkOverride 1100 false; # Upstream flake still references removed pkgs.nodePackages
+      "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
+      # To switch to nix: set nix.enable = true and bun.enable = false
+      "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 true;
+      "claude-desktop".extended.enable = lib.mkOverride 1100 true; # Upstream flake still references removed pkgs.nodePackages
       "claude-plugins".extended.enable = lib.mkOverride 1100 false;
       clawdbot.extended.enable = lib.mkOverride 1100 false;
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
@@ -66,6 +74,7 @@
       delve.extended.enable = lib.mkOverride 1100 false;
       "desktop-file-utils".extended.enable = lib.mkOverride 1100 true;
       diffutils.extended.enable = lib.mkOverride 1100 true;
+      dirbuster.extended.enable = lib.mkOverride 1100 true;
       direnv.extended.enable = lib.mkOverride 1100 true;
       discord.extended.enable = lib.mkOverride 1100 false;
       dmenu.extended.enable = lib.mkOverride 1100 true;
@@ -85,6 +94,7 @@
       ent.extended.enable = lib.mkOverride 1100 false;
       exiftool.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 false;
+      feroxbuster.extended.enable = lib.mkOverride 1100 true;
       file.extended.enable = lib.mkOverride 1100 true;
       "filen-desktop".extended.enable = lib.mkOverride 1100 true;
       filezilla.extended.enable = lib.mkOverride 1100 false;
@@ -118,6 +128,7 @@
       gnumake.extended.enable = lib.mkOverride 1100 false;
       gnused.extended.enable = lib.mkOverride 1100 false;
       go.extended.enable = lib.mkOverride 1100 false;
+      gobuster.extended.enable = lib.mkOverride 1100 true;
       "golangci-lint".extended.enable = lib.mkOverride 1100 false;
       "google-chrome".extended.enable = lib.mkOverride 1100 true;
       gopass.extended.enable = lib.mkOverride 1100 true;
@@ -134,7 +145,7 @@
       htmlq.extended.enable = lib.mkOverride 1100 true;
       httpie.extended.enable = lib.mkOverride 1100 true;
       httpx.extended.enable = lib.mkOverride 1100 true;
-      hydra.extended.enable = lib.mkOverride 1100 false;
+      hydra.extended.enable = lib.mkOverride 1100 true;
       hyperfine.extended.enable = lib.mkOverride 1100 false;
       inkscape.extended.enable = lib.mkOverride 1100 false;
       "i3lock-color".extended.enable = lib.mkOverride 1100 true;
@@ -145,7 +156,7 @@
       iptables.extended.enable = lib.mkOverride 1100 true;
       jnv.extended.enable = lib.mkOverride 1100 false;
       jadx.extended.enable = lib.mkOverride 1100 false;
-      john.extended.enable = lib.mkOverride 1100 false;
+      john.extended.enable = lib.mkOverride 1100 true;
       jq.extended.enable = lib.mkOverride 1100 true;
       just.extended.enable = lib.mkOverride 1100 false;
       karere.extended.enable = lib.mkOverride 1100 false;
@@ -160,7 +171,7 @@
       lazydocker.extended.enable = lib.mkOverride 1100 false;
       lazygit.extended.enable = lib.mkOverride 1100 true;
       less.extended.enable = lib.mkOverride 1100 true;
-      libreoffice.extended.enable = lib.mkOverride 1100 false;
+      libreoffice.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 false;
       libstdcxx.extended.enable = lib.mkOverride 1100 true;
@@ -181,16 +192,17 @@
       marktext.extended.enable = lib.mkOverride 1100 true;
       mattermost.extended.enable = lib.mkOverride 1100 false;
       "media-toolchain".extended.enable = lib.mkOverride 1100 true;
-      metasploit.extended.enable = lib.mkOverride 1100 false;
+      metasploit.extended.enable = lib.mkOverride 1100 true;
       mlr.extended.enable = lib.mkOverride 1100 true;
       "minio-client".extended.enable = lib.mkOverride 1100 false;
       mkcert.extended.enable = lib.mkOverride 1100 true;
-      mitmproxy.extended.enable = lib.mkOverride 1100 false;
+      mitmproxy.extended.enable = lib.mkOverride 1100 true;
       mosh.extended.enable = lib.mkOverride 1100 true;
       "msgraph-cli".extended.enable = lib.mkOverride 1100 false;
       mpv.extended.enable = lib.mkOverride 1100 false;
       mupdf.extended.enable = lib.mkOverride 1100 true;
       "mullvad-browser".extended.enable = lib.mkOverride 1100 false;
+      mysql.extended.enable = lib.mkOverride 1100 true;
       nemo.extended.enable = lib.mkOverride 1100 true;
       neovim.extended.enable = lib.mkOverride 1100 true;
       netcat.extended.enable = lib.mkOverride 1100 true;
@@ -222,8 +234,10 @@
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 true;
       ocrmypdf.extended.enable = lib.mkOverride 1100 true;
+      "oh-my-opencode".extended.enable = lib.mkOverride 1100 false;
       okular.extended.enable = lib.mkOverride 1100 false;
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 false;
+      opencode.extended.enable = lib.mkOverride 1100 true;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 false;
       openssh.extended.enable = lib.mkOverride 1100 true;
       openssl.extended.enable = lib.mkOverride 1100 true;
@@ -275,6 +289,8 @@
       rustfmt.extended.enable = lib.mkOverride 1100 false;
       s5cmd.extended.enable = lib.mkOverride 1100 false;
       screenkey.extended.enable = lib.mkOverride 1100 false;
+      seclists.extended.enable = lib.mkOverride 1100 true;
+      selenium.extended.enable = lib.mkOverride 1100 true;
       "signal-desktop".extended.enable = lib.mkOverride 1100 false;
       simplescreenrecorder.extended.enable = lib.mkOverride 1100 true;
       skim.extended.enable = lib.mkOverride 1100 false;
@@ -287,7 +303,7 @@
       "source-map-explorer".extended.enable = lib.mkOverride 1100 true;
       spectacle.extended.enable = lib.mkOverride 1100 false;
       "spec-kit".extended.enable = lib.mkOverride 1100 false;
-      sqlmap.extended.enable = lib.mkOverride 1100 false;
+      sqlmap.extended.enable = lib.mkOverride 1100 true;
       "ssh-audit".extended.enable = lib.mkOverride 1100 true;
       "ssh-to-age".extended.enable = lib.mkOverride 1100 true;
       "ssh-to-pgp".extended.enable = lib.mkOverride 1100 true;
@@ -314,9 +330,9 @@
       thunderbird.extended.enable = lib.mkOverride 1100 true;
       tokei.extended.enable = lib.mkOverride 1100 false;
       tor.extended.enable = lib.mkOverride 1100 true;
-      "tor-browser".extended.enable = lib.mkOverride 1100 false;
-      torsocks.extended.enable = lib.mkOverride 1100 false;
-      tweakcc.extended.enable = lib.mkOverride 1100 false;
+      "tor-browser".extended.enable = lib.mkOverride 1100 true;
+      torsocks.extended.enable = lib.mkOverride 1100 true;
+      tweakcc.extended.enable = lib.mkOverride 1100 true;
       udiskie.extended.enable = lib.mkOverride 1100 false;
       "ungoogled-chromium".extended.enable = lib.mkOverride 1100 true;
       unrar.extended.enable = lib.mkOverride 1100 true;
@@ -336,11 +352,12 @@
       "vt-cli".extended.enable = lib.mkOverride 1100 true;
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
       vulnix.extended.enable = lib.mkOverride 1100 false;
-      "wappalyzer-next".extended.enable = lib.mkOverride 1100 false;
+      "wappalyzer-next".extended.enable = lib.mkOverride 1100 true;
       wakaru.extended.enable = lib.mkOverride 1100 true;
       webcrack.extended.enable = lib.mkOverride 1100 true;
       wgcf.extended.enable = lib.mkOverride 1100 false;
       wezterm.extended.enable = lib.mkOverride 1100 false;
+      whatweb.extended.enable = lib.mkOverride 1100 true;
       wget.extended.enable = lib.mkOverride 1100 true;
       which.extended.enable = lib.mkOverride 1100 true;
       "wine-tools".extended.enable = lib.mkOverride 1100 true;
@@ -367,6 +384,7 @@
       "yubikey-personalization".extended.enable = lib.mkOverride 1100 true;
       "yq-go".extended.enable = lib.mkOverride 1100 true;
       zip.extended.enable = lib.mkOverride 1100 true;
+      zap.extended.enable = lib.mkOverride 1100 true;
       "zoom-us".extended.enable = lib.mkOverride 1100 false;
       zathura.extended.enable = lib.mkOverride 1100 true;
       zbar.extended.enable = lib.mkOverride 1100 true;
@@ -380,6 +398,7 @@
       autorandr.extended.enable = lib.mkOverride 1100 true;
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
+      pcscd.extended.enable = lib.mkOverride 1100 true;
     };
   };
 }

@@ -10,10 +10,7 @@ _: {
           enable = true;
           allowedTCPPorts = [
             22
-            9999
-          ]; # SSH if needed
-          allowedUDPPorts = [
-            9999
+            9999 # Stash default port
           ];
           allowedTCPPortRanges = [
             {

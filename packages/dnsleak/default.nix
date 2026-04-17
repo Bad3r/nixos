@@ -45,7 +45,7 @@ writeShellApplication {
 
   meta = with lib; {
     description = "Simple shell utility that checks outward-facing IP and resolvers to detect DNS leaks";
-    homepage = "https://github.com/vx/nixos";
+    homepage = "https://github.com/Bad3r/nixos";
     license = licenses.mit;
     maintainers = [ ];
     platforms = platforms.all;
