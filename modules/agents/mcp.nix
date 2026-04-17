@@ -29,6 +29,11 @@ let
     codex = "Codex";
   };
 
+  validNetworkModes = [
+    "limited"
+    "full"
+  ];
+
   requiredFields = {
     nix = [ "package" ];
     http = [ "url" ];
@@ -83,6 +88,40 @@ let
     else
       lib.mapAttrs (field: value: validateNonEmptyString serverName "docs.${field}" value) validatedDocs;
 
+  validateStringList =
+    serverName: field: values:
+    if !builtins.isList values then
+      throw "Agent MCP server '${serverName}' requires list field '${field}'"
+    else if !lib.all (value: builtins.isString value && value != "") values then
+      throw "Agent MCP server '${serverName}' requires all '${field}' entries to be non-empty strings"
+    else
+      builtins.sort builtins.lessThan (lib.unique values);
+
+  validateNetwork =
+    serverName: network:
+    let
+      validatedNetwork =
+        if builtins.isAttrs network then
+          validateAllowedFields "'${serverName}'.network'" [
+            "mode"
+            "allowedDomains"
+          ] network
+        else
+          throw "Agent MCP server '${serverName}' requires attrset field 'network'";
+      mode = validatedNetwork.mode or "limited";
+      allowedDomains =
+        if validatedNetwork ? allowedDomains then
+          validateStringList serverName "network.allowedDomains" validatedNetwork.allowedDomains
+        else
+          [ ];
+    in
+    if lib.elem mode validNetworkModes then
+      {
+        inherit mode allowedDomains;
+      }
+    else
+      throw "Agent MCP server '${serverName}' has invalid network.mode '${mode}'. Valid: ${toString validNetworkModes}";
+
   validateClients =
     serverName: clients:
     let
@@ -114,6 +153,7 @@ let
         "source"
         "clients"
         "docs"
+        "network"
       ]
       ++ required
       ++ optional;
@@ -136,6 +176,14 @@ let
         name = serverName;
         clients = validateClients serverName validatedServer.clients;
         docs = validateDocs serverName validatedServer.docs;
+        network =
+          if validatedServer ? network then
+            validateNetwork serverName validatedServer.network
+          else
+            {
+              mode = "limited";
+              allowedDomains = [ ];
+            };
       };
 
   validatedServers = lib.mapAttrs validateServer rawServers;

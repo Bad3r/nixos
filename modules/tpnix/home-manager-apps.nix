@@ -35,7 +35,7 @@ let
     "lazydocker"
     "lazygit"
     "less"
-    # "libreoffice"
+    "libreoffice"
     "lutris"
     "mpv"
     "ncdu"
@@ -59,6 +59,7 @@ let
     "tealdeer"
     "thunderbird"
     "tree"
+    "ungoogled-chromium"
     "usbguard-notifier"
     "uv"
     # "vim" # Provided by nixvim (vimAlias = true)

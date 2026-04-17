@@ -82,6 +82,8 @@
 
 ## Reference
 
+- [reference/github-labels.md](reference/github-labels.md)
+  - GitHub label taxonomy, application rules, and label-family reference for issues and pull requests.
 - [reference/local-mirrors.md](reference/local-mirrors.md)
   - List of repositories mirrored locally via ghq for offline access and patching.
 - [reference/mcp-tools.md](reference/mcp-tools.md)

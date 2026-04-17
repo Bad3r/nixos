@@ -26,11 +26,13 @@
       "android-studio".extended.enable = lib.mkOverride 1100 false;
       "antigravity-fhs".extended.enable = lib.mkOverride 1100 true;
       arandr.extended.enable = lib.mkOverride 1100 true;
+      "ast-grep".extended.enable = lib.mkOverride 1100 false;
       atuin.extended.enable = lib.mkOverride 1100 true;
       "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
       awscli2.extended.enable = lib.mkOverride 1100 false;
       azd.extended.enable = lib.mkOverride 1100 true;
       "azure-cli".extended.enable = lib.mkOverride 1100 true;
+      b3sum.extended.enable = lib.mkOverride 1100 true;
       babashka.extended.enable = lib.mkOverride 1100 false;
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
@@ -38,6 +40,7 @@
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 true;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
       blueman.extended.enable = lib.mkOverride 1100 true;
+      brightnessctl.extended.enable = lib.mkOverride 1100 true;
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 true;
       bun.extended.enable = lib.mkOverride 1100 true;
@@ -52,7 +55,7 @@
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installPackage = lib.mkOverride 1100 false; # Managed via bun
-      "claude-desktop".extended.enable = lib.mkOverride 1100 true;
+      "claude-desktop".extended.enable = lib.mkOverride 1100 false; # Upstream flake still references removed pkgs.nodePackages
       "claude-plugins".extended.enable = lib.mkOverride 1100 true;
       clawdbot.extended.enable = lib.mkOverride 1100 false;
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
@@ -99,7 +102,6 @@
       exiftool.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 true;
       file.extended.enable = lib.mkOverride 1100 true;
-      "filen-cli".extended.enable = lib.mkOverride 1100 true;
       "filen-desktop".extended.enable = lib.mkOverride 1100 true;
       filezilla.extended.enable = lib.mkOverride 1100 true;
       findutils.extended.enable = lib.mkOverride 1100 true;
@@ -121,6 +123,7 @@
       git.extended.enable = lib.mkOverride 1100 true;
       "git-filter-repo".extended.enable = lib.mkOverride 1100 true;
       gimp.extended.enable = lib.mkOverride 1100 false;
+      gitlawb.extended.enable = lib.mkOverride 1100 false;
       glab.extended.enable = lib.mkOverride 1100 true;
       "github-mcp-server".extended.enable = lib.mkOverride 1100 true;
       glow.extended.enable = lib.mkOverride 1100 true;
@@ -173,8 +176,10 @@
       lazydocker.extended.enable = lib.mkOverride 1100 true;
       lazygit.extended.enable = lib.mkOverride 1100 true;
       less.extended.enable = lib.mkOverride 1100 true;
+      libreoffice.extended.enable = lib.mkOverride 1100 false;
       libnotify.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 false;
+      libstdcxx.extended.enable = lib.mkOverride 1100 false;
       localsend.extended.enable = lib.mkOverride 1100 true;
       # TODO: Test with disableGpuCompositing = false after future NVIDIA driver updates
       # Workaround for blank window with NVIDIA 580.x + PRIME sync (2026-01)
@@ -300,6 +305,8 @@
       socat.extended.enable = lib.mkOverride 1100 true;
       sops.extended.enable = lib.mkOverride 1100 true;
       sqlite.extended.enable = lib.mkOverride 1100 true;
+      sourcemapper.extended.enable = lib.mkOverride 1100 false;
+      "source-map-explorer".extended.enable = lib.mkOverride 1100 false;
       spectacle.extended.enable = lib.mkOverride 1100 false;
       "spec-kit".extended.enable = lib.mkOverride 1100 true;
       sqlmap.extended.enable = lib.mkOverride 1100 false;
