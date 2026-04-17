@@ -15,9 +15,12 @@
     dumpcap -i <iface> -w file.pcapng: Capture packets with minimal overhead.
 
   Example Usage:
-    * `wireshark` -- Inspect live traffic; ensure membership in the `wireshark` group for capture rights.
+    * `wireshark` -- Inspect live traffic; `wheel` users can capture through the capability-wrapped `dumpcap`.
     * `tshark -Y "http.request" -r capture.pcapng` -- Filter HTTP requests from a saved capture.
     * `dumpcap -i eth0 -b duration:300 -w /tmp/trace` -- Rotate captures every five minutes for long-running monitoring.
+
+  Notes:
+    * Creates a compatibility `wireshark` group for tooling and policies that still expect it, while packet capture remains wheel-gated in this repo.
 */
 _:
 let
@@ -25,8 +28,8 @@ let
     {
       config,
       lib,
-      pkgs,
       metaOwner,
+      pkgs,
       ...
     }:
     let
@@ -46,12 +49,16 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
-
-        # Create wireshark group for packet capture permissions
         users.groups.wireshark = { };
-
-        # Add owner to wireshark group
         users.users.${owner}.extraGroups = lib.mkAfter [ "wireshark" ];
+
+        security.wrappers.dumpcap = {
+          source = "${cfg.package}/bin/dumpcap";
+          capabilities = "cap_net_raw,cap_net_admin+eip";
+          owner = "root";
+          group = "wheel";
+          permissions = "u+rx,g+x";
+        };
       };
     };
 in
