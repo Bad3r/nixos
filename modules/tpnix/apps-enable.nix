@@ -44,6 +44,9 @@
       circumflex.extended.enable = lib.mkOverride 1100 false;
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
       "claude-code".extended.enable = lib.mkOverride 1100 false;
+      "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
+      # To switch to nix: set nix.enable = true and bun.enable = false
+      "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 true;
       "claude-desktop".extended.enable = lib.mkOverride 1100 true; # Upstream flake still references removed pkgs.nodePackages
       "claude-plugins".extended.enable = lib.mkOverride 1100 false;
       clawdbot.extended.enable = lib.mkOverride 1100 false;
