@@ -1,7 +1,7 @@
 /*
   Package: whatweb
   Description: Web technology fingerprinting scanner for identifying frameworks, CMSes, and infrastructure components.
-  Homepage: https://github.com/urbanadventurer/whatweb
+  Homepage: nil
   Documentation: https://github.com/urbanadventurer/whatweb/wiki
   Repository: https://github.com/urbanadventurer/whatweb
 

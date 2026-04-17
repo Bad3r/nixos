@@ -3,6 +3,7 @@
   Description: Desktop web debugging proxy for inspecting and modifying HTTP(S) traffic.
   Homepage: https://www.charlesproxy.com/
   Documentation: https://www.charlesproxy.com/documentation/
+  Repository: nil
 
   Summary:
     * Provides the Charles proxy GUI packaged from the repo-local `packages/charles` derivation.
