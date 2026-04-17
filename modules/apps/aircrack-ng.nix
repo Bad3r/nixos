@@ -63,7 +63,7 @@ let
 
         security.wrappers = lib.genAttrs aircrackWheelTools (tool: {
           source = "${cfg.package}/bin/${tool}";
-          capabilities = "cap_net_raw,cap_net_admin+eip";
+          capabilities = "cap_net_raw,cap_net_admin+ep";
           owner = "root";
           group = "wheel";
           permissions = "u+rx,g+x";

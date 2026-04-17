@@ -54,7 +54,7 @@ let
 
         security.wrappers.dumpcap = {
           source = "${cfg.package}/bin/dumpcap";
-          capabilities = "cap_net_raw,cap_net_admin+eip";
+          capabilities = "cap_net_raw,cap_net_admin+ep";
           owner = "root";
           group = "wheel";
           permissions = "u+rx,g+x";

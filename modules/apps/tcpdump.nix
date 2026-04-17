@@ -47,7 +47,7 @@ let
 
         security.wrappers.tcpdump = {
           source = "${cfg.package}/bin/tcpdump";
-          capabilities = "cap_net_raw,cap_net_admin+eip";
+          capabilities = "cap_net_raw,cap_net_admin+ep";
           owner = "root";
           group = "wheel";
           permissions = "u+rx,g+x";
