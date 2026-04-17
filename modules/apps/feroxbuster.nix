@@ -1,7 +1,7 @@
 /*
   Package: feroxbuster
   Description: Fast recursive content discovery tool for web directories, files, and parameters.
-  Homepage: https://github.com/epi052/feroxbuster
+  Homepage: nil
   Documentation: https://epi052.github.io/feroxbuster-docs/
   Repository: https://github.com/epi052/feroxbuster
 

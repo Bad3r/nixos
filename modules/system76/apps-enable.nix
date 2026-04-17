@@ -218,8 +218,8 @@
       "msgraph-cli".extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 true;
       mupdf.extended.enable = lib.mkOverride 1100 true;
-      mysql.extended.enable = lib.mkOverride 1100 false;
       "mullvad-browser".extended.enable = lib.mkOverride 1100 true;
+      mysql.extended.enable = lib.mkOverride 1100 false;
       nemo.extended.enable = lib.mkOverride 1100 true;
       neovim.extended.enable = lib.mkOverride 1100 true;
       netcat.extended.enable = lib.mkOverride 1100 true;
