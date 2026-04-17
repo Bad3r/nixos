@@ -234,8 +234,10 @@
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 true;
       ocrmypdf.extended.enable = lib.mkOverride 1100 true;
+      "oh-my-opencode".extended.enable = lib.mkOverride 1100 false;
       okular.extended.enable = lib.mkOverride 1100 false;
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 false;
+      opencode.extended.enable = lib.mkOverride 1100 false;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 false;
       openssh.extended.enable = lib.mkOverride 1100 true;
       openssl.extended.enable = lib.mkOverride 1100 true;
@@ -396,6 +398,7 @@
       autorandr.extended.enable = lib.mkOverride 1100 true;
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
+      pcscd.extended.enable = lib.mkOverride 1100 true;
     };
   };
 }
