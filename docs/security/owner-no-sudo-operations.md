@@ -38,6 +38,18 @@ Scope:
     - mechanism:
       - `kernel.dmesg_restrict = 0`
     - available without sudo because `kernel.dmesg_restrict = 0`.
+- Packet capture:
+  - `wireshark`
+  - `tcpdump`
+  - selected `aircrack-ng` capture and injection binaries
+  - mechanism:
+    - `security.wrappers` with `CAP_NET_RAW` and `CAP_NET_ADMIN`
+    - available to users in the `wheel` group
+  - compatibility:
+    - a `wireshark` group is also created and assigned to the owner user for tooling or policy that still expects it
+  - limitation:
+    - monitor-mode setup via `airmon-ng` is not capability-wrapped and still requires elevated setup
+  - available without sudo because packet capture is granted through capability-wrapped binaries rather than `sudo`.
 
 ## Commands That Are Passwordless With `sudo-rs`
 

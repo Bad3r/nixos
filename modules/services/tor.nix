@@ -1,6 +1,6 @@
 { lib, ... }:
-{
-  configurations.nixos.system76.module = {
+let
+  clientOnlyTorModule = {
     # Tor Configuration - Client Only Mode
     # =======================================
     # This configuration ensures Tor runs ONLY as a client and will NEVER act as:
@@ -91,4 +91,8 @@
       };
     };
   };
+in
+{
+  configurations.nixos.system76.module = clientOnlyTorModule;
+  configurations.nixos.tpnix.module = clientOnlyTorModule;
 }

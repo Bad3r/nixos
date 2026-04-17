@@ -26,6 +26,7 @@ let
     {
       config,
       lib,
+      pkgs,
       ...
     }:
     let
@@ -35,22 +36,15 @@ let
       options.programs.metasploit.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
-          default = false; # Explicitly disabled
-          description = ''
-            Whether to enable Metasploit Framework.
-
-            NOTE: This option exists for consistency but does nothing.
-            Metasploit is available in the pentesting devshell only.
-            See devshell configuration for actual metasploit access.
-          '';
+          default = false;
+          description = "Whether to enable Metasploit Framework.";
         };
+
+        package = lib.mkPackageOption pkgs "metasploit" { };
       };
 
       config = lib.mkIf cfg.enable {
-        # Intentionally empty: metasploit stays in the pentesting devshell only.
-        warnings = [
-          "programs.metasploit.extended is a no-op. Use the pentesting devshell instead."
-        ];
+        environment.systemPackages = [ cfg.package ];
       };
     };
 in

@@ -18,9 +18,25 @@
     * `airodump-ng wlan0mon` -- Collect handshakes and network details once interface is in monitor mode.
     * `aireplay-ng --deauth 10 -a <AP> -c <CLIENT> wlan0mon` -- Force a reconnect to capture WPA handshakes.
     * `aircrack-ng -w wordlist.txt handshake.cap` -- Crack a WPA2-PSK handshake using a wordlist.
+
+  Notes:
+    * Capability wrappers are installed for selected live capture and injection commands so `wheel` users can use them without `sudo`.
+    * `airmon-ng` remains an upstream shell script, so monitor-mode setup still requires elevated setup.
 */
 _:
 let
+  aircrackWheelTools = [
+    "airbase-ng"
+    "aireplay-ng"
+    "airodump-ng"
+    "airserv-ng"
+    "airtun-ng"
+    "besside-ng"
+    "easside-ng"
+    "tkiptun-ng"
+    "wesside-ng"
+  ];
+
   AircrackNgModule =
     {
       config,
@@ -44,6 +60,14 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        security.wrappers = lib.genAttrs aircrackWheelTools (tool: {
+          source = "${cfg.package}/bin/${tool}";
+          capabilities = "cap_net_raw,cap_net_admin+ep";
+          owner = "root";
+          group = "wheel";
+          permissions = "u+rx,g+x";
+        });
       };
     };
 in
