@@ -17,10 +17,10 @@ _: {
     memory = {
       source = "nix";
       package = "mcp-server-memory";
-      clients = [ "codex" ];
+      clients = [ ];
       docs = {
         primaryUse = "Persist lightweight graph memory across runs.";
-        accessNotes = "Enabled by default only for Codex.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
         example = "`memory search_nodes --query \"token endpoint\"`";
       };
     };
@@ -29,6 +29,7 @@ _: {
       source = "nix";
       package = "context7-mcp";
       secretEnvVar = "CONTEXT7_API_KEY";
+      network.allowedDomains = [ "context7.com" ];
       clients = [
         "claude"
         "codex"
@@ -54,6 +55,7 @@ _: {
     cfbrowser = {
       source = "http";
       url = "https://browser.mcp.cloudflare.com/mcp";
+      network.mode = "full";
       clients = [
         "claude"
         "codex"
@@ -134,6 +136,7 @@ _: {
     openaiDeveloperDocs = {
       source = "http";
       url = "https://developers.openai.com/mcp";
+      network.allowedDomains = [ "*.openai.com" ];
       clients = [ "codex" ];
       docs = {
         primaryUse = "Search OpenAI developer docs and API references.";
@@ -157,22 +160,23 @@ _: {
     };
 
     deepwiki = {
-      source = "npx";
-      package = "mcp-deepwiki@latest";
+      source = "http";
+      url = "https://mcp.deepwiki.com/mcp";
       clients = [
         "claude"
         "codex"
       ];
       docs = {
         primaryUse = "Browse repository knowledge bases.";
-        accessNotes = "Pass `owner/repo` to fetch docs.";
-        example = "`deepwiki read_wiki_structure --repo owner/repo`";
+        accessNotes = "Official remote no-authentication-required HTTP endpoint; pass `owner/repo` to the DeepWiki tools.";
+        example = "`claude mcp add -s user -t http deepwiki https://mcp.deepwiki.com/mcp`";
       };
     };
 
     chrome-devtools = {
       source = "npx";
       package = "chrome-devtools-mcp@latest";
+      network.mode = "full";
       args = [
         "--isolated"
         "--no-usage-statistics"
@@ -192,6 +196,7 @@ _: {
     playwright = {
       source = "npx";
       package = "@playwright/mcp@latest";
+      network.mode = "full";
       args = [ "--isolated" ];
       timeout = 240;
       clients = [

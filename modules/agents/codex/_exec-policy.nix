@@ -90,6 +90,7 @@ let
   codexZshWrapper = pkgs.writeShellScriptBin "zsh" ''
     set -euo pipefail
 
+    direnvBin=${lib.getExe pkgs.direnv}
     realZsh=${lib.getExe pkgs.zsh}
     rmShimPath=${rmShim}/bin/rm
 
@@ -100,6 +101,10 @@ let
 
       export CODEX_WRAPPED_COMMAND="$wrappedCommand"
       exec "$realZsh" "$shellFlag" '
+        # Mirror interactive direnv behavior for Codex non-interactive shell commands.
+        if direnvExports="$("'"$direnvBin"'" export zsh 2>/dev/null)"; then
+          eval "$direnvExports"
+        fi
         rm() {
           "'"$rmShimPath"'" "$@"
         }
@@ -120,6 +125,13 @@ let
         "awk"
         "nl"
         "rg"
+        "strings"
+        "readlink"
+        "readline"
+        "find"
+        "sort"
+        "uniq"
+        "printf"
         "mktemp"
         "codex"
         "claude"
@@ -127,6 +139,7 @@ let
         "jq"
         "yq"
         "htmlq"
+        "mkdir"
         "sqlite"
         "sqlite3"
         "cat"
@@ -146,52 +159,64 @@ let
         "eza"
         "du"
         "lsblk"
+        "python"
+        "python3"
         "playwright"
         "chromium"
       ];
 
-      allowedNixPatterns = [
+      nixHostExecutables = [
+        {
+          name = "nix";
+          paths = [
+            "/run/current-system/sw/bin/nix"
+            (lib.getExe pkgs.nix)
+          ];
+        }
+        {
+          name = "nix-instantiate";
+          paths = [
+            "/run/current-system/sw/bin/nix-instantiate"
+            (lib.getExe' pkgs.nix "nix-instantiate")
+          ];
+        }
+      ];
+
+      nixAllowedSubcommands = [
+        [ "develop" ]
+        [ "run" ]
+        [ "shell" ]
+        [ "fmt" ]
+        [ "eval" ]
+        [ "build" ]
         [
-          "nix"
-          "develop"
-        ]
-        [
-          "nix"
-          "run"
-        ]
-        [
-          "nix"
-          "shell"
-        ]
-        [
-          "nix"
-          "fmt"
-        ]
-        [
-          "nix"
-          "eval"
-        ]
-        [
-          "nix"
-          "build"
-        ]
-        [
-          "nix"
           "flake"
           "check"
         ]
         [
-          "nix"
           "store"
           "diff-closure"
         ]
         [
-          "nix"
           "store"
           "repair"
         ]
-        [ "nix-instantiate" ]
       ];
+
+      allowedNixPatterns =
+        let
+          withNix = subcommand: [ "nix" ] ++ subcommand;
+          withAcceptFlakeConfig =
+            subcommand:
+            [
+              "nix"
+              "--accept-flake-config"
+            ]
+            ++ subcommand;
+        in
+        (map withNix nixAllowedSubcommands)
+        ++ (map withAcceptFlakeConfig nixAllowedSubcommands)
+        ++ [ [ "nix-instantiate" ] ];
 
       promptedGitRules = [
         {
@@ -434,8 +459,9 @@ let
     lib.concatStringsSep "\n" (
       [
         "# Managed by Home Manager. Edit modules/agents/codex/_exec-policy.nix."
-        "# Allowlisted nix commands bypass sandbox because Linux Codex currently cannot use"
-        "# network.allow_unix_sockets to reach /nix/var/nix/daemon-socket/socket."
+        "# Allowlisted nix commands run without execpolicy prompts."
+        "# The workspace permissions profile grants ~/.cache/nix write access and"
+        "# allows the Nix daemon Unix socket at /nix/var/nix/daemon-socket/socket."
         "# Git destructive coverage is best-effort: execpolicy only matches argv prefixes,"
         "# so forms like `git -C repo reset --hard`, `git checkout -- path`, or"
         "# `git push origin main --force` do not hit these prompt rules."
@@ -453,6 +479,11 @@ let
         ""
         "# Auto-allowed command prefixes"
       ]
+      ++ [
+        ""
+        "# Canonicalize common Nix host executable paths before prefix matching"
+      ]
+      ++ map execPolicyHostExecutable nixHostExecutables
       ++ map (cmd: execPolicyRule { pattern = [ cmd ]; }) allowAllCommands
       ++ [
         ""

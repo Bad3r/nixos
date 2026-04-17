@@ -19,7 +19,45 @@
 */
 { inputs, ... }:
 let
-  packageFor = system: inputs."claude-desktop-linux-flake".packages.${system}.claude-desktop-with-fhs;
+  upstreamSrc = inputs."claude-desktop-linux-flake";
+
+  packageFor =
+    pkgs:
+    let
+      patchy-cnb = pkgs.callPackage "${upstreamSrc}/pkgs/patchy-cnb.nix" { };
+
+      claude-desktop = pkgs.callPackage "${upstreamSrc}/pkgs/claude-desktop.nix" {
+        inherit patchy-cnb;
+        # TODO: Remove this compatibility shim once upstream stops referencing
+        # nodePackages.asar and uses pkgs.asar directly.
+        # Upstream still expects nodePackages.asar, but nixpkgs moved asar top-level.
+        nodePackages = {
+          inherit (pkgs) asar;
+        };
+      };
+    in
+    {
+      inherit claude-desktop;
+      claude-desktop-with-fhs = pkgs.buildFHSEnv {
+        name = "claude-desktop";
+        targetPkgs =
+          pkgs': with pkgs'; [
+            docker
+            glibc
+            openssl
+            nodejs
+            uv
+          ];
+        runScript = "${claude-desktop}/bin/claude-desktop";
+        extraInstallCommands = ''
+          mkdir -p $out/share/applications
+          cp ${claude-desktop}/share/applications/claude.desktop $out/share/applications/
+
+          mkdir -p $out/share/icons
+          cp -r ${claude-desktop}/share/icons/* $out/share/icons/
+        '';
+      };
+    };
 
   ClaudeDesktopModule =
     {
@@ -47,7 +85,7 @@ let
         # Must be unconditional so the package option can resolve
         nixpkgs.overlays = [
           (_final: prev: {
-            claude-desktop-with-fhs = packageFor prev.stdenv.hostPlatform.system;
+            inherit (packageFor prev) claude-desktop claude-desktop-with-fhs;
           })
         ];
 

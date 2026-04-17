@@ -5,11 +5,43 @@
   flake.homeManagerModules.apps.i3-config =
     {
       config,
+      osConfig ? { },
       pkgs,
       lib,
       ...
     }:
     let
+      hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
+      powerProfileBackend = lib.attrByPath [ "powerProfiles" "backend" ] "system76-power" hostI3Cfg;
+      powerProfileSelectionAllowed = lib.attrByPath [ "powerProfiles" "allowSelection" ] true hostI3Cfg;
+      sessionMetadata = {
+        DESKTOP_SESSION = "none+i3";
+        XDG_CURRENT_DESKTOP = "none+i3:X-NIXOS-SYSTEMD-AWARE";
+        XDG_SESSION_TYPE = "x11";
+      };
+      sessionMetadataExports = lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") sessionMetadata
+      );
+      graphicalEnvVars = [
+        "DBUS_SESSION_BUS_ADDRESS"
+        "DESKTOP_SESSION"
+        "DISPLAY"
+        "PATH"
+        "QML2_IMPORT_PATH"
+        "QT_PLUGIN_PATH"
+        "QT_QPA_PLATFORMTHEME"
+        "QT_STYLE_OVERRIDE"
+        "SSH_AUTH_SOCK"
+        "XAUTHORITY"
+        "XDG_CONFIG_DIRS"
+        "XDG_CURRENT_DESKTOP"
+        "XDG_DATA_DIRS"
+        "XDG_RUNTIME_DIR"
+        "XDG_SESSION_ID"
+        "XDG_SESSION_TYPE"
+      ];
+      graphicalEnvArgs = lib.concatStringsSep " " graphicalEnvVars;
+
       # Stylix colors (defined early for use in scripts)
       stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
 
@@ -47,26 +79,58 @@
         '';
       };
 
-      # Power profile switcher using rofi and system76-power
+      # Power profile switcher using the host-selected backend
       powerProfileScript = pkgs.writeShellApplication {
         name = "power-profile-rofi";
         runtimeInputs = [
-          pkgs.rofi
-          pkgs.system76-power
           pkgs.libnotify
-          pkgs.gnugrep
+          pkgs.rofi
+        ]
+        ++ lib.optionals (powerProfileBackend == "system76-power") [
           pkgs.gawk
+          pkgs.gnugrep
+          pkgs.system76-power
+        ]
+        ++ lib.optionals (powerProfileBackend == "powerprofilesctl") [
+          pkgs.power-profiles-daemon
         ];
         text = ''
           set -euo pipefail
+          backend=${lib.escapeShellArg powerProfileBackend}
+          selection_allowed=${lib.escapeShellArg (if powerProfileSelectionAllowed then "true" else "false")}
 
           # Get current profile
-          current=$(system76-power profile 2>/dev/null | grep -oP '(?<=Power Profile: ).*' || echo "unknown")
+          if [ "$backend" = "powerprofilesctl" ]; then
+            current=$(powerprofilesctl get 2>/dev/null || echo "unknown")
+          else
+            current=$(system76-power profile 2>/dev/null | grep -oP '(?<=Power Profile: ).*' || echo "unknown")
+          fi
 
-          # Define profiles with icons
-          battery="  Battery (power saving)"
-          balanced="  Balanced (default)"
-          performance="  Performance (max power)"
+          if [ "$selection_allowed" != "true" ]; then
+            if [ "$backend" = "powerprofilesctl" ]; then
+              powerprofilesctl set performance
+            else
+              system76-power profile performance
+            fi
+            notify-send -i battery "Power Profile" "Performance mode is enforced on this host"
+            exit 0
+          fi
+
+          if [ "$backend" = "powerprofilesctl" ]; then
+            power_saver_profile="power-saver"
+            power_saver_label="  Power Saver"
+            balanced_profile="balanced"
+            balanced_label="  Balanced"
+            performance_profile="performance"
+            performance_label="  Performance"
+          else
+            power_saver_profile="Battery"
+            power_saver_label="  Battery (power saving)"
+            balanced_profile="Balanced"
+            balanced_label="  Balanced (default)"
+            performance_profile="Performance"
+            performance_label="  Performance (max power)"
+          fi
 
           # Mark current profile
           mark_current() {
@@ -81,9 +145,9 @@
 
           # Build menu
           menu=$(printf "%s\n%s\n%s" \
-            "$(mark_current "Battery" "$battery")" \
-            "$(mark_current "Balanced" "$balanced")" \
-            "$(mark_current "Performance" "$performance")")
+            "$(mark_current "$power_saver_profile" "$power_saver_label")" \
+            "$(mark_current "$balanced_profile" "$balanced_label")" \
+            "$(mark_current "$performance_profile" "$performance_label")")
 
           # Show rofi menu (Stylix-themed)
           chosen=$(echo "$menu" | rofi -dmenu -i -p "Power Profile" -theme-str '
@@ -99,16 +163,28 @@
 
           # Extract profile name and apply
           case "$chosen" in
-            *Battery*)
-              system76-power profile battery
-              notify-send -i battery "Power Profile" "Switched to Battery mode"
+            *Power\ Saver*|*Battery*)
+              if [ "$backend" = "powerprofilesctl" ]; then
+                powerprofilesctl set power-saver
+              else
+                system76-power profile battery
+              fi
+              notify-send -i battery "Power Profile" "Switched to Power Saver mode"
               ;;
             *Balanced*)
-              system76-power profile balanced
+              if [ "$backend" = "powerprofilesctl" ]; then
+                powerprofilesctl set balanced
+              else
+                system76-power profile balanced
+              fi
               notify-send -i battery "Power Profile" "Switched to Balanced mode"
               ;;
             *Performance*)
-              system76-power profile performance
+              if [ "$backend" = "powerprofilesctl" ]; then
+                powerprofilesctl set performance
+              else
+                system76-power profile performance
+              fi
               notify-send -i battery "Power Profile" "Switched to Performance mode"
               ;;
           esac
@@ -369,6 +445,11 @@
 
         xsession = {
           enable = true;
+          importedVariables = lib.mkAfter graphicalEnvVars;
+          profileExtra = lib.mkAfter ''
+            ${sessionMetadataExports}
+            ${lib.getExe' pkgs.dbus "dbus-update-activation-environment"} --systemd ${graphicalEnvArgs}
+          '';
           windowManager.i3 = {
             enable = true;
             config = {

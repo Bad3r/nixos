@@ -1,23 +1,19 @@
 /*
   Package: filen-desktop
-  Description: Filen graphical desktop client for encrypted cloud file syncing.
-  Homepage: https://filen.io/
-  Documentation: https://docs.filen.io/
+  Description: Filen Desktop Client.
+  Homepage: https://filen.io/products/desktop
+  Documentation: https://docs.filen.io/docs/desktop/
   Repository: https://github.com/FilenCloudDienste/filen-desktop
 
   Summary:
-    * Synchronizes local folders with Filen end-to-end encrypted cloud storage via a desktop tray application.
-    * Provides selective sync, bandwidth limits, share management, and cross-platform file versioning.
+    * Synchronizes local folders with Filen end-to-end encrypted cloud storage through the desktop client.
+    * Mounts network drives and exposes local WebDAV or S3 endpoints alongside native file management.
 
   Options:
-    filen-desktop --start-in-tray: Launch minimized to the system tray.
-    filen-desktop --proxy-server=<url>: Route traffic through an HTTP/SOCKS proxy.
-    filen-desktop --enable-logging: Emit verbose logs for troubleshooting sync issues.
-
-  Example Usage:
-    * `filen-desktop` -- Start the GUI client and connect to your Filen account.
-    * `filen-desktop --start-in-tray` -- Keep the client running in the background while syncing files.
-    * Configure selective sync via the Preferences dialog to limit bandwidth and watched folders.
+    permanent synchronizations: Configure ongoing one-way, two-way, or backup-style folder sync relationships.
+    network drive: Mount Filen storage as a local drive with native desktop file access.
+    local WebDAV server: Serve account contents to other local apps or devices through WebDAV.
+    local S3 server: Expose account contents through a local S3-compatible endpoint.
 */
 _:
 let

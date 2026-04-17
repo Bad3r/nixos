@@ -1,13 +1,13 @@
 # Local repository mirrors for tpnix host.
 # Synced daily to /data/git/{owner}-{repo}
-{ lib, metaOwner, ... }:
+{ metaOwner, ... }:
 {
   configurations.nixos.tpnix.module = _: {
     config = {
-      localMirrors.enable = lib.mkDefault false;
+      localMirrors.enable = true;
 
       home-manager.users.${metaOwner.username}.programs.gitMirror = {
-        enable = lib.mkDefault false;
+        enable = true;
         repos = [
           # NixOS
           "NixOS/nixos-hardware"

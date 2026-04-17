@@ -1,14 +1,51 @@
 { lib, ... }:
 {
   configurations.nixos.tpnix.module =
-    { pkgs, ... }:
     {
-      hardware.bluetooth = {
-        enable = true;
-        powerOnBoot = true;
+      config,
+      pkgs,
+      ...
+    }:
+    {
+      boot.blacklistedKernelModules = [ "nouveau" ];
+
+      hardware = {
+        bluetooth = {
+          enable = true;
+          powerOnBoot = true;
+        };
+
+        graphics.extraPackages = [
+          pkgs.nvidia-vaapi-driver
+          pkgs.vulkan-validation-layers
+        ];
+
+        nvidia = {
+          package = config.boot.kernelPackages.nvidiaPackages.production;
+          modesetting.enable = true;
+          open = false;
+          gsp.enable = true;
+          powerManagement.enable = true;
+          powerManagement.finegrained = false;
+          nvidiaSettings = true;
+
+          prime = {
+            offload.enable = lib.mkForce false;
+            sync.enable = true;
+            intelBusId = "PCI:0:2:0";
+            nvidiaBusId = "PCI:1:0:0";
+          };
+        };
+
+        nvidia-container-toolkit.enable = true;
       };
 
       security.rtkit.enable = true;
+
+      environment.systemPackages = with pkgs; [
+        mesa-demos
+        vulkan-tools
+      ];
 
       services = {
         dbus = {
@@ -27,7 +64,10 @@
 
         xserver = {
           enable = true;
-          videoDrivers = [ "modesetting" ];
+          videoDrivers = lib.mkForce [ "nvidia" ];
+          screenSection = lib.mkDefault ''
+            Option "metamodes" "nvidia-auto-select +0+0 {ForceFullCompositionPipeline=On}"
+          '';
           xkb = {
             layout = "us";
             variant = "";
@@ -35,7 +75,6 @@
         };
 
         power-profiles-daemon.enable = true;
-        system76-scheduler.enable = lib.mkForce false;
         lact.enable = lib.mkForce false;
 
         logind.settings.Login = {
@@ -54,14 +93,6 @@
 
         printing.enable = lib.mkForce false;
         fstrim.enable = true;
-      };
-
-      systemd.coredump = {
-        enable = true;
-        extraConfig = ''
-          MaxUse=512M
-          MaxRetentionSec=3d
-        '';
       };
 
       xdg = {

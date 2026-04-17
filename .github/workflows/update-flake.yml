@@ -104,5 +104,6 @@ jobs:
           branch: automated/flake-update
           delete-branch: true
           labels: |
-            dependencies
-            automated
+            type(dependency-update)
+            origin(automated)
+            area(flake)
