@@ -3,6 +3,7 @@
   Description: Utility which reads and writes data across network connections, using the LibreSSL implementation.
   Homepage: https://www.libressl.org
   Documentation: https://www.libressl.org
+  Repository: https://github.com/libressl/portable
 
   Summary:
     * Opens raw TCP or UDP connections for debugging, banner grabbing, and simple protocol testing.
