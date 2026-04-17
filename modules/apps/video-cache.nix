@@ -1,8 +1,8 @@
 /*
   Package: video-cache
   Description: Build and maintain a cache of video file durations for filtering and playback.
-  Homepage: https://github.com/vx/nixos
-  Documentation: https://github.com/vx/nixos/tree/main/packages/video-cache
+  Homepage: https://github.com/Bad3r/nixos
+  Documentation: https://github.com/Bad3r/nixos/tree/main/packages/video-cache
 
   Summary:
     * Scans directories for video files and caches their durations in TSV format.
