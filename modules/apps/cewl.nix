@@ -19,6 +19,7 @@
 
   Notes:
     * Adds a local overlay so `pkgs.cewl` includes the `getoptlong` gem missing from the pinned nixpkgs package.
+    * The overlay reuses the pinned nixpkgs CeWL package directory as the Bundler gemdir and fails explicitly if nixpkgs moves it.
 */
 _:
 let
@@ -261,9 +262,14 @@ let
           (
             _final: prev:
             let
+              cewlGemdir = prev.path + "/pkgs/by-name/ce/cewl";
               rubyEnv = prev.bundlerEnv {
                 name = "cewl-ruby-env";
-                gemdir = prev.path + "/pkgs/by-name/ce/cewl";
+                gemdir =
+                  if builtins.pathExists cewlGemdir then
+                    cewlGemdir
+                  else
+                    throw "cewl overlay: expected nixpkgs CeWL package directory at ${toString cewlGemdir}";
                 inherit gemfile lockfile gemset;
               };
             in
