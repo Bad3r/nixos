@@ -23,6 +23,7 @@
       age.extended.enable = lib.mkOverride 1100 true;
       "age-plugin-fido2prf".extended.enable = lib.mkOverride 1100 true;
       "aircrack-ng".extended.enable = lib.mkOverride 1100 false;
+      amass.extended.enable = lib.mkOverride 1100 false;
       "android-studio".extended.enable = lib.mkOverride 1100 false;
       "antigravity-fhs".extended.enable = lib.mkOverride 1100 true;
       arandr.extended.enable = lib.mkOverride 1100 true;
@@ -46,10 +47,14 @@
       bun.extended.enable = lib.mkOverride 1100 true;
       bubblewrap.extended.enable = lib.mkOverride 1100 true;
       burpsuite.extended.enable = lib.mkOverride 1100 true;
+      "burpsuite-loader".extended.enable = lib.mkOverride 1100 false;
+      burpsuitepro.extended.enable = lib.mkOverride 1100 false;
       bzip2.extended.enable = lib.mkOverride 1100 true;
       cachix.extended.enable = lib.mkOverride 1100 true;
       cargo.extended.enable = lib.mkOverride 1100 false;
       certbot.extended.enable = lib.mkOverride 1100 true;
+      cewl.extended.enable = lib.mkOverride 1100 false;
+      charles.extended.enable = lib.mkOverride 1100 false;
       "cf-terraforming".extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
@@ -82,6 +87,7 @@
       delve.extended.enable = lib.mkOverride 1100 false;
       "desktop-file-utils".extended.enable = lib.mkOverride 1100 true;
       diffutils.extended.enable = lib.mkOverride 1100 true;
+      dirbuster.extended.enable = lib.mkOverride 1100 false;
       direnv.extended.enable = lib.mkOverride 1100 true;
       discord.extended.enable = lib.mkOverride 1100 true;
       dmenu.extended.enable = lib.mkOverride 1100 true;
@@ -101,6 +107,7 @@
       ent.extended.enable = lib.mkOverride 1100 true;
       exiftool.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 true;
+      feroxbuster.extended.enable = lib.mkOverride 1100 false;
       file.extended.enable = lib.mkOverride 1100 true;
       "filen-desktop".extended.enable = lib.mkOverride 1100 true;
       filezilla.extended.enable = lib.mkOverride 1100 true;
@@ -134,6 +141,7 @@
       gnumake.extended.enable = lib.mkOverride 1100 true;
       gnused.extended.enable = lib.mkOverride 1100 true;
       go.extended.enable = lib.mkOverride 1100 false;
+      gobuster.extended.enable = lib.mkOverride 1100 false;
       "golangci-lint".extended.enable = lib.mkOverride 1100 false;
       "google-chrome".extended.enable = lib.mkOverride 1100 true;
       gopass.extended.enable = lib.mkOverride 1100 true;
@@ -210,6 +218,7 @@
       "msgraph-cli".extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 true;
       mupdf.extended.enable = lib.mkOverride 1100 true;
+      mysql.extended.enable = lib.mkOverride 1100 false;
       "mullvad-browser".extended.enable = lib.mkOverride 1100 true;
       nemo.extended.enable = lib.mkOverride 1100 true;
       neovim.extended.enable = lib.mkOverride 1100 true;
@@ -297,6 +306,8 @@
       rustfmt.extended.enable = lib.mkOverride 1100 false;
       s5cmd.extended.enable = lib.mkOverride 1100 true;
       screenkey.extended.enable = lib.mkOverride 1100 true;
+      seclists.extended.enable = lib.mkOverride 1100 false;
+      selenium.extended.enable = lib.mkOverride 1100 false;
       "signal-desktop".extended.enable = lib.mkOverride 1100 true;
       simplescreenrecorder.extended.enable = lib.mkOverride 1100 true;
       skim.extended.enable = lib.mkOverride 1100 false;
@@ -363,6 +374,7 @@
       webcrack.extended.enable = lib.mkOverride 1100 true;
       wgcf.extended.enable = lib.mkOverride 1100 true;
       wezterm.extended.enable = lib.mkOverride 1100 false;
+      whatweb.extended.enable = lib.mkOverride 1100 false;
       wget.extended.enable = lib.mkOverride 1100 true;
       which.extended.enable = lib.mkOverride 1100 true;
       "wine-tools".extended.enable = lib.mkOverride 1100 true;
@@ -389,6 +401,7 @@
       "yubikey-personalization".extended.enable = lib.mkOverride 1100 true;
       "yq-go".extended.enable = lib.mkOverride 1100 true;
       zip.extended.enable = lib.mkOverride 1100 true;
+      zap.extended.enable = lib.mkOverride 1100 false;
       "zoom-us".extended.enable = lib.mkOverride 1100 false;
       zathura.extended.enable = lib.mkOverride 1100 true;
       zbar.extended.enable = lib.mkOverride 1100 true;
