@@ -237,7 +237,7 @@
       "oh-my-opencode".extended.enable = lib.mkOverride 1100 false;
       okular.extended.enable = lib.mkOverride 1100 false;
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 false;
-      opencode.extended.enable = lib.mkOverride 1100 false;
+      opencode.extended.enable = lib.mkOverride 1100 true;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 false;
       openssh.extended.enable = lib.mkOverride 1100 true;
       openssl.extended.enable = lib.mkOverride 1100 true;
