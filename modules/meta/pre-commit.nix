@@ -101,7 +101,7 @@ _: {
             apps-catalog-sync = {
               enable = true;
               name = "apps-catalog-sync";
-              description = "Ensure modules/system76/apps-enable.nix matches modules/apps/";
+              description = "Ensure apps-enable.nix files match modules/apps/ for each modified host.";
               entry = "${config.packages.hook-apps-catalog-sync}/bin/hook-apps-catalog-sync";
               pass_filenames = false;
               always_run = true;

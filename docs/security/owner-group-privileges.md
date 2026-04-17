@@ -25,8 +25,13 @@ Scope:
     - polkit allow for login1 power actions:
       - `org.freedesktop.login1.power-off*`
       - `org.freedesktop.login1.reboot*`
+    - packet-capture wrappers with `CAP_NET_RAW` / `CAP_NET_ADMIN` for:
+      - Wireshark
+      - `tcpdump`
+      - selected `aircrack-ng` capture and injection binaries
   - security impact:
     - administrative control path by design.
+    - also grants non-root packet capture through capability-wrapped binaries; `airmon-ng` monitor-mode setup is still outside that wrapper surface.
 
 - `networkmanager`:
   - access:
@@ -64,6 +69,14 @@ Scope:
     - read/modify queued print jobs and printer-facing data.
 
 ## Additional Owner Groups Added By Other Modules
+
+- `wireshark` (when Wireshark app module is enabled):
+  - source:
+    - `modules/apps/wireshark.nix`
+  - access:
+    - compatibility group membership for tooling or policy that expects the traditional `wireshark` group.
+  - security impact:
+    - limited direct impact in this repo because packet capture itself is granted through wheel-based capability wrappers.
 
 - `docker` (when Docker daemon module is enabled):
   - source:
