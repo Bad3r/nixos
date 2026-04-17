@@ -52,7 +52,6 @@
         iproute2 # ip, ss, tc, ...
         tcpdump
         nmap # includes ncat
-        snicat # TLS & SNI aware netcat https://github.com/CTFd/snicat
         socat
         curl
         wget

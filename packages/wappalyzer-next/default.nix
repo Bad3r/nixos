@@ -6,15 +6,15 @@
 
 python3Packages.buildPythonApplication rec {
   pname = "wappalyzer-next";
-  version = "1.0.17";
+  version = "1.0.20";
 
   format = "setuptools";
 
   src = fetchFromGitHub {
     owner = "s0md3v";
     repo = "wappalyzer-next";
-    rev = "dd1651fc2f3186775d491f70a3c31cb431b0f4e5";
-    hash = "sha256-QW19zx5KkrZJ+RTmcKNkcJtzn5fe7xqy3s5GdmBUsXg=";
+    rev = "88ceb4873d4f14a3c44a1bb22c38c3db47919fe5";
+    hash = "sha256-vu9Gci9E+DEZYCljTpP4cX7lk6aG/BOqAeGVyhuFnkI=";
   };
 
   propagatedBuildInputs = with python3Packages; [

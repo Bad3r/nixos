@@ -14,6 +14,7 @@
 _: {
   flake.homeManagerModules.apps."claude-code" =
     {
+      config,
       osConfig,
       lib,
       pkgs,
@@ -22,6 +23,17 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "claude-code" "extended" "enable" ] false osConfig;
+
+      bunInstallEnabled = lib.attrByPath [
+        "programs"
+        "claude-code"
+        "extended"
+        "installMethods"
+        "bun"
+        "enable"
+      ] false osConfig;
+      bunInstallDir = "${config.xdg.dataHome}/bun";
+      bunBin = lib.getExe osConfig.programs.bun.extended.package;
 
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
@@ -152,40 +164,48 @@ _: {
           };
 
           # Configure Claude Code UI preferences and MCP servers in ~/.claude.json
-          activation.claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-            CLAUDE_CONFIG="$HOME/.claude.json"
-            TMP_FILE="$(mktemp)"
-            trap 'rm -f "$TMP_FILE"' EXIT
+          activation = {
+            claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+              CLAUDE_CONFIG="$HOME/.claude.json"
+              TMP_FILE="$(mktemp)"
+              trap 'rm -f "$TMP_FILE"' EXIT
 
-            # Ensure the file exists
-            if [ ! -f "$CLAUDE_CONFIG" ]; then
-              echo "{}" > "$CLAUDE_CONFIG"
-            fi
+              # Ensure the file exists
+              if [ ! -f "$CLAUDE_CONFIG" ]; then
+                echo "{}" > "$CLAUDE_CONFIG"
+              fi
 
-            # Merge Nix-managed settings into existing config while replacing
-            # Nix-managed MCP server entries wholesale to avoid stale per-server
-            # keys like old command/args transport fallbacks lingering forever.
-            if ! ${pkgs.jq}/bin/jq --slurpfile nixConfig ${claudeJsonConfigFile} \
-              '. as $existing
-              | $nixConfig[0] as $nix
-              | ($existing * $nix)
-              | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))' \
-              "$CLAUDE_CONFIG" > "$TMP_FILE"; then
-              echo "ERROR: jq failed to merge config" >&2
-              exit 1
-            fi
+              # Merge Nix-managed settings into existing config while replacing
+              # Nix-managed MCP server entries wholesale to avoid stale per-server
+              # keys like old command/args transport fallbacks lingering forever.
+              if ! ${pkgs.jq}/bin/jq --slurpfile nixConfig ${claudeJsonConfigFile} \
+                '. as $existing
+                | $nixConfig[0] as $nix
+                | ($existing * $nix)
+                | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))' \
+                "$CLAUDE_CONFIG" > "$TMP_FILE"; then
+                echo "ERROR: jq failed to merge config" >&2
+                exit 1
+              fi
 
-            # Validate result is valid JSON
-            if ! ${pkgs.jq}/bin/jq empty "$TMP_FILE" 2>/dev/null; then
-              echo "ERROR: resulting config is not valid JSON" >&2
-              exit 1
-            fi
+              # Validate result is valid JSON
+              if ! ${pkgs.jq}/bin/jq empty "$TMP_FILE" 2>/dev/null; then
+                echo "ERROR: resulting config is not valid JSON" >&2
+                exit 1
+              fi
 
-            mv "$TMP_FILE" "$CLAUDE_CONFIG"
-            chmod 600 "$CLAUDE_CONFIG"
+              mv "$TMP_FILE" "$CLAUDE_CONFIG"
+              chmod 600 "$CLAUDE_CONFIG"
 
-            echo "✢ Claude Code: config applied (MCP via agents.mcp)"
-          '';
+              echo "✢ Claude Code: config applied (MCP via agents.mcp)"
+            '';
+          }
+          // lib.optionalAttrs bunInstallEnabled {
+            installClaudeCodeViaBun = lib.hm.dag.entryAfter [ "writeBoundary" "createBunDir" ] ''
+              export BUN_INSTALL="${bunInstallDir}"
+              run ${bunBin} install -g @anthropic-ai/claude-code
+            '';
+          };
 
           sessionVariables = {
             # Duplicates of postFixup in modules/apps/claude-code.nix (belt-and-suspenders)

@@ -3,6 +3,7 @@
   Description: Network sniffer.
   Homepage: https://www.tcpdump.org/
   Documentation: https://www.tcpdump.org/
+  Repository: https://github.com/the-tcpdump-group/tcpdump
 
   Summary:
     * Captures and decodes packets from live interfaces or saved capture files.
@@ -14,6 +15,9 @@
     -r file: Read packets from an existing capture file instead of a live interface.
     -w file: Write raw packets to a capture file for later analysis.
     -s snaplen: Limit how many bytes of each packet are captured.
+
+  Notes:
+    * Installs a capability wrapper so `wheel` users can capture without invoking `sudo`.
 */
 _:
 let
@@ -40,6 +44,14 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        security.wrappers.tcpdump = {
+          source = "${cfg.package}/bin/tcpdump";
+          capabilities = "cap_net_raw,cap_net_admin+ep";
+          owner = "root";
+          group = "wheel";
+          permissions = "u+rx,g+x";
+        };
       };
     };
 in
