@@ -1,7 +1,9 @@
 /*
   Package: wappalyzer-next
   Description: CLI for detecting website technology stacks powered by Wappalyzer fingerprints.
-  Homepage: https://github.com/s0md3v/wappalyzer-next
+  Homepage: nil
+  Documentation: nil
+  Repository: https://github.com/s0md3v/wappalyzer-next
 
   Summary:
     * Provides the `wappalyzer` command-line utility backed by the latest Wappalyzer dataset.
