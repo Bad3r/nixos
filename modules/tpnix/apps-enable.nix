@@ -43,7 +43,7 @@
       "cf-terraforming".extended.enable = lib.mkOverride 1100 false;
       circumflex.extended.enable = lib.mkOverride 1100 false;
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
-      # "claude-code".extended.enable = lib.mkOverride 1100 true;
+      "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-desktop".extended.enable = lib.mkOverride 1100 false; # Upstream flake still references removed pkgs.nodePackages
       "claude-plugins".extended.enable = lib.mkOverride 1100 false;
       clawdbot.extended.enable = lib.mkOverride 1100 false;

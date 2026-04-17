@@ -45,7 +45,7 @@ let
     "obsidian"
     "pandoc"
     "pcmanfm"
-    # "pentesting-devshell"
+    "pentesting-devshell"
     "rclone"
     "remmina"
     "ripgrep"
