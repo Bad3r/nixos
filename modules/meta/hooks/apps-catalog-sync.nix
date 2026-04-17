@@ -20,7 +20,6 @@ _: {
             cd "$root"
 
             apps_dir="modules/apps"
-            catalog_file="modules/system76/apps-enable.nix"
 
             excluded_apps=(
               "qemu"
@@ -47,83 +46,129 @@ _: {
             done
             filesystem_apps=("''${filtered_fs_apps[@]}")
 
-            mapfile -t catalog_apps < <(
-              grep -E '\.extended\.enable' "$catalog_file" \
-                | grep -v '^\s*#' \
-                | sed -E 's/^\s+//' \
-                | sed -E "s/^([\"']?)([a-zA-Z0-9_-]+)\1\.extended\.enable.*/\2/" \
-                | sort
-            )
-
-            declare -A fs_map catalog_map
+            declare -A fs_map=()
             for app in "''${filesystem_apps[@]}"; do
               fs_map["$app"]=1
             done
-            for app in "''${catalog_apps[@]}"; do
-              catalog_map["$app"]=1
-            done
 
-            declare -a missing=()
-            for app in "''${filesystem_apps[@]}"; do
-              if [ -z "''${catalog_map[$app]:-}" ]; then
-                missing+=("$app")
+            # Determine which apps-enable.nix files to check.
+            # In pre-push mode pre-commit sets PRE_COMMIT_FROM_REF / PRE_COMMIT_TO_REF;
+            # only check files changed in the pushed range and skip entirely if none match.
+            # In manual mode those vars are absent so check every apps-enable.nix found.
+            declare -A catalog_files_to_check=()
+
+            from_ref="''${PRE_COMMIT_FROM_REF:-}"
+            to_ref="''${PRE_COMMIT_TO_REF:-}"
+
+            if [ -n "$from_ref" ] && [ -n "$to_ref" ]; then
+              if [ "$from_ref" = "0000000000000000000000000000000000000000" ]; then
+                if main_ref=$(git rev-parse origin/main 2>/dev/null); then
+                  from_ref=$(git merge-base "$to_ref" "$main_ref" 2>/dev/null \
+                    || git rev-list --max-parents=0 "$to_ref" | head -1)
+                else
+                  from_ref=$(git rev-list --max-parents=0 "$to_ref" | head -1)
+                fi
               fi
-            done
-
-            declare -a stale=()
-            for app in "''${catalog_apps[@]}"; do
-              if [ -z "''${fs_map[$app]:-}" ]; then
-                stale+=("$app")
+              while IFS= read -r changed_file; do
+                if [[ "$changed_file" =~ ^modules/[^/]+/apps-enable\.nix$ ]]; then
+                  catalog_files_to_check["$changed_file"]=1
+                fi
+              done < <(git diff --name-only "''${from_ref}..''${to_ref}" 2>/dev/null || true)
+              if [ "''${#catalog_files_to_check[@]}" -eq 0 ]; then
+                exit 0
               fi
-            done
-
-            if [ "''${#missing[@]}" -gt 0 ] || [ "''${#stale[@]}" -gt 0 ]; then
-              echo "" >&2
-              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
-              echo "❌ Error: apps-enable.nix is out of sync with modules/apps/" >&2
-              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
-              echo "" >&2
-
-              if [ "''${#missing[@]}" -gt 0 ]; then
-                echo "📝 Missing entries (add these to $catalog_file):" >&2
-                echo "" >&2
-                for app in "''${missing[@]}"; do
-                  if [[ "$app" =~ - ]]; then
-                    echo "  \"$app\".extended.enable = lib.mkOverride 1100 false;" >&2
-                  else
-                    echo "  $app.extended.enable = lib.mkOverride 1100 false;" >&2
-                  fi
-                done
-                echo "" >&2
-              fi
-
-              if [ "''${#stale[@]}" -gt 0 ]; then
-                echo "🗑️  Stale entries (remove these from $catalog_file):" >&2
-                echo "" >&2
-                for app in "''${stale[@]}"; do
-                  if [[ "$app" =~ - ]]; then
-                    line_num=$(grep -n "\"$app\"\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
-                  else
-                    line_num=$(grep -n "$app\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
-                  fi
-                  echo "  $app (line $line_num)" >&2
-                done
-                echo "" >&2
-              fi
-
-              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
-              echo "ℹ️  Summary:" >&2
-              echo "   Filesystem: ''${#filesystem_apps[@]} apps" >&2
-              echo "   Catalog:    ''${#catalog_apps[@]} apps" >&2
-              echo "   Missing:    ''${#missing[@]} entries" >&2
-              echo "   Stale:      ''${#stale[@]} entries" >&2
-              if [ "''${#excluded_apps[@]}" -gt 0 ]; then
-                echo "   Excluded:   ''${#excluded_apps[@]} apps (managed by specialized modules)" >&2
-              fi
-              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
-              echo "" >&2
-              exit 1
+            else
+              while IFS= read -r f; do
+                catalog_files_to_check["$f"]=1
+              done < <(find . -path "*/modules/*/apps-enable.nix" -printf "%P\n" | sort)
             fi
+
+            overall_exit=0
+
+            mapfile -t sorted_catalog_files < <(printf '%s\n' "''${!catalog_files_to_check[@]}" | sort)
+
+            for catalog_file in "''${sorted_catalog_files[@]}"; do
+              [ -f "$catalog_file" ] || continue
+
+              mapfile -t catalog_apps < <(
+                grep -E '\.extended\.enable' "$catalog_file" \
+                  | grep -v '^\s*#' \
+                  | sed -E 's/^\s+//' \
+                  | sed -E "s/^([\"']?)([a-zA-Z0-9_-]+)\1\.extended\.enable.*/\2/" \
+                  | sort
+              )
+
+              declare -A catalog_map=()
+              for app in "''${catalog_apps[@]}"; do
+                catalog_map["$app"]=1
+              done
+
+              declare -a missing=()
+              for app in "''${filesystem_apps[@]}"; do
+                if [ -z "''${catalog_map[$app]:-}" ]; then
+                  missing+=("$app")
+                fi
+              done
+
+              declare -a stale=()
+              for app in "''${catalog_apps[@]}"; do
+                if [ -z "''${fs_map[$app]:-}" ]; then
+                  stale+=("$app")
+                fi
+              done
+
+              if [ "''${#missing[@]}" -gt 0 ] || [ "''${#stale[@]}" -gt 0 ]; then
+                echo "" >&2
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+                echo "❌ Error: apps-enable.nix is out of sync with modules/apps/" >&2
+                echo "   File: $catalog_file" >&2
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+                echo "" >&2
+
+                if [ "''${#missing[@]}" -gt 0 ]; then
+                  echo "📝 Missing entries (add these to $catalog_file):" >&2
+                  echo "" >&2
+                  for app in "''${missing[@]}"; do
+                    if [[ "$app" =~ - ]]; then
+                      echo "  \"$app\".extended.enable = lib.mkOverride 1100 false;" >&2
+                    else
+                      echo "  $app.extended.enable = lib.mkOverride 1100 false;" >&2
+                    fi
+                  done
+                  echo "" >&2
+                fi
+
+                if [ "''${#stale[@]}" -gt 0 ]; then
+                  echo "🗑️  Stale entries (remove these from $catalog_file):" >&2
+                  echo "" >&2
+                  for app in "''${stale[@]}"; do
+                    if [[ "$app" =~ - ]]; then
+                      line_num=$(grep -n "\"$app\"\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                    else
+                      line_num=$(grep -n "$app\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                    fi
+                    echo "  $app (line $line_num)" >&2
+                  done
+                  echo "" >&2
+                fi
+
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+                echo "ℹ️  Summary:" >&2
+                echo "   File:       $catalog_file" >&2
+                echo "   Filesystem: ''${#filesystem_apps[@]} apps" >&2
+                echo "   Catalog:    ''${#catalog_apps[@]} apps" >&2
+                echo "   Missing:    ''${#missing[@]} entries" >&2
+                echo "   Stale:      ''${#stale[@]} entries" >&2
+                if [ "''${#excluded_apps[@]}" -gt 0 ]; then
+                  echo "   Excluded:   ''${#excluded_apps[@]} apps (managed by specialized modules)" >&2
+                fi
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
+                echo "" >&2
+                overall_exit=1
+              fi
+            done
+
+            exit $overall_exit
           '';
       };
     };
