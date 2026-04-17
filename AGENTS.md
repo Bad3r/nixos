@@ -4,6 +4,8 @@ This file provides guidance to coding agents working in this repository.
 
 > IMPORTANT: Never consider backward compatibility. Eliminate legacy support by default.
 
+> IMPORTANT: This repo currently manages only the `system76` and `tpnix` NixOS hosts for the owner user `vx`. Keep host-specific behavior in the matching `modules/<host>/` tree.
+
 ## Critical Safety Rules (Read First)
 
 These rules override all other instructions. Violations are unacceptable.
@@ -92,14 +94,14 @@ Inputs prefixed with `dedupe_` exist for dependency deduplication through `.foll
 
 ### Repository Layout
 
-| Domain              | Location                                          | Notes                                                                                              |
-| ------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| NixOS modules       | `modules/`                                        | Auto-loaded. Host-specific logic under `modules/system76`; shared bundles grouped by domain.       |
-| Shared derivations  | `packages/`                                       | Common build logic shared between modules.                                                         |
-| Helper scripts      | `scripts/`                                        | Operational tooling.                                                                               |
-| Documentation       | `docs/`, `nixos-manual/`                          | Long-form references and local workflows.                                                          |
-| Secrets             | `secrets/`                                        | Encrypted payloads managed via `sops.secrets`.                                                     |
-| Generated artifacts | `.actrc`, `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module. Update source definitions instead of editing generated output directly. |
+| Domain              | Location                                          | Notes                                                                                                            |
+| ------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| NixOS modules       | `modules/`                                        | Auto-loaded. Host-specific logic under `modules/system76` and `modules/tpnix`; shared bundles grouped by domain. |
+| Shared derivations  | `packages/`                                       | Common build logic shared between modules.                                                                       |
+| Helper scripts      | `scripts/`                                        | Operational tooling.                                                                                             |
+| Documentation       | `docs/`, `nixos-manual/`                          | Long-form references and local workflows.                                                                        |
+| Secrets             | `secrets/`                                        | Encrypted payloads managed via `sops.secrets`.                                                                   |
+| Generated artifacts | `.actrc`, `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module. Update source definitions instead of editing generated output directly.               |
 
 ### Module Authoring Guidelines (`modules/apps/*`)
 
