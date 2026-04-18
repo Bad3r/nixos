@@ -64,6 +64,7 @@ in
       # Provide `r2` in PATH for the real user.
       home-manager.users.${username}.programs.r2-cloud = {
         enable = true;
+        enableRcloneRemote = false;
         accountIdFile = "/run/secrets/r2/account-id";
         credentialsFile = "/run/secrets/r2/credentials.env";
         explorerEnvFile = "/run/secrets/r2/explorer.env";
