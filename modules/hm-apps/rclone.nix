@@ -31,8 +31,6 @@ _: {
       config = lib.mkIf nixosEnabled (
         lib.mkMerge [
           {
-            programs.r2-cloud.enableRcloneRemote = lib.mkForce false;
-
             programs.rclone = {
               enable = true;
               # Package installed by NixOS module (not overridable here)
