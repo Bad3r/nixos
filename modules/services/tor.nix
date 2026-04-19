@@ -90,6 +90,10 @@ let
         # ConnectionPadding = "auto";
       };
     };
+
+    # Keep the Tor unit available for manual use, not enabled
+    # Users can start it when needed with `systemctl start tor`.
+    systemd.services.tor.wantedBy = lib.mkForce [ ];
   };
 in
 {
