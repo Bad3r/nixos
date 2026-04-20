@@ -59,6 +59,8 @@ _: {
             ];
 
             nvidia = {
+              # GTX 1070 Max-Q is supported by the 580.xx legacy branch; newer production drivers ignore it.
+              package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
               modesetting.enable = true;
               powerManagement.enable = true;
               # Fine-grained power management (D3 power gating) is incompatible with PRIME sync.
