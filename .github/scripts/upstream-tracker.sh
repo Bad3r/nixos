@@ -438,10 +438,18 @@ probe_release_stream_version() {
     printf 'missing\n'
     return 0
   fi
+  # SemVer says `1.0.0-rc1 < 1.0.0`, but `sort -V` sorts them as equal-ish
+  # so a prerelease tag would falsely satisfy `target >= 1.0.0`. Skip
+  # prereleases unless the min itself is a prerelease (user opted in).
+  local min_is_prerelease=0
+  [[ $min == *-* ]] && min_is_prerelease=1
   while IFS= read -r tag; do
     [[ -z $tag ]] && continue
     strip="${tag#v}"
     strip="${strip#V}"
+    if ((min_is_prerelease == 0)) && [[ $strip == *-* ]]; then
+      continue
+    fi
     if semver_ge "$strip" "$min"; then
       printf 'released:%s\n' "$tag"
       return 0
