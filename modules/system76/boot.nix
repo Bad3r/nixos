@@ -27,7 +27,6 @@ _: {
         kernelModules = [
           "kvm-intel" # Intel VT-x virtualization
           "coretemp" # CPU temperature monitoring
-          "intel_pt" # Intel Processor Trace for perf profiling
         ];
 
         # Blacklist nouveau to avoid conflicts with proprietary NVIDIA driver
