@@ -1,0 +1,16 @@
+{
+  "blockers_resolved": 0,
+  "blockers_total": 0,
+  "comment_body": null,
+  "issue": null,
+  "refs": [],
+  "timestamp": "2026-04-20T18:17Z",
+  "warnings": [
+    "Upstream pull requests: line does not start with a role keyword: `https://github.com/NixOS/nixpkgs/pull/500707`",
+    "Upstream pull requests: line does not start with a role keyword: `NixOS/nixpkgs#500707`"
+  ],
+  "warnings_body": "<!-- upstream-tracker v1 parse --> sig=caf7df1a52d5\nTemplate drift detected on 2026-04-20T18:17Z:\n\n- Upstream pull requests: line does not start with a role keyword: `https://github.com/NixOS/nixpkgs/pull/500707`\n- Upstream pull requests: line does not start with a role keyword: `NixOS/nixpkgs#500707`",
+  "would_comment": false,
+  "would_transition_label": false,
+  "would_warn": true
+}

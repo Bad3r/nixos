@@ -1,0 +1,32 @@
+{
+  "blockers_resolved": 0,
+  "blockers_total": 1,
+  "comment_body": null,
+  "issue": null,
+  "refs": [
+    {
+      "contains_sha": "",
+      "identifier": "500707",
+      "kind": "pr",
+      "label": "open",
+      "min_version": "",
+      "note": "r-ryantm envfs bump",
+      "owner": "NixOS",
+      "ref_type": "",
+      "repo": "nixpkgs",
+      "resolved": false,
+      "role": "blocker",
+      "section": "Upstream pull requests",
+      "sig": "34f2c0c90595",
+      "state": "open",
+      "sub_kind": "",
+      "url": "https://github.com/NixOS/nixpkgs/pull/500707"
+    }
+  ],
+  "timestamp": "2026-04-20T18:17Z",
+  "warnings": [],
+  "warnings_body": null,
+  "would_comment": false,
+  "would_transition_label": false,
+  "would_warn": false
+}

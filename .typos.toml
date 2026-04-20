@@ -1,8 +1,10 @@
 [default]
 extend-ignore-re = [
-  "[A-Za-z0-9+/=]{32,}", # base64/age blobs
-  "-[A-Za-z0-9]{1,4}",   # short CLI flags (e.g. -Pn)
-  "\\.[A-Za-z0-9]{1,4}", # short file ext. (e.g. .edn)
+  "[A-Za-z0-9+/=]{32,}",     # base64/age blobs
+  "-[A-Za-z0-9]{1,4}",       # short CLI flags (e.g. -Pn)
+  "\\.[A-Za-z0-9]{1,4}",     # short file ext. (e.g. .edn)
+  "sig=[0-9a-f]{8,}",        # upstream-tracker sha1 signatures
+  "(?i)@[0-9a-f]{40}",       # full commit SHAs in URLs or notes
 ]
 
 [default.extend-words]

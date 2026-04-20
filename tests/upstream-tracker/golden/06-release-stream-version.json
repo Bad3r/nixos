@@ -1,0 +1,32 @@
+{
+  "blockers_resolved": 1,
+  "blockers_total": 1,
+  "comment_body": "<!-- upstream-tracker v1 --> sig=04b9260de9b6\n<!-- refs: sig=04b9260de9b6 -->\nUpstream state changes detected on 2026-04-20T18:17Z:\n\n- blocker **released (7.0.0)** https://github.com/FortAwesome/Font-Awesome/releases\n\nLabel swapped: `status(blocked-upstream)` → `status(ready-to-unblock)`.\n(1 of 1 `blocker` references resolved.)",
+  "issue": null,
+  "refs": [
+    {
+      "contains_sha": "",
+      "identifier": "",
+      "kind": "release-stream-version",
+      "label": "released (7.0.0)",
+      "min_version": "7.0.0",
+      "note": "target >= 7.0.0",
+      "owner": "FortAwesome",
+      "ref_type": "",
+      "repo": "Font-Awesome",
+      "resolved": true,
+      "role": "blocker",
+      "section": "Upstream releases and channels",
+      "sig": "04b9260de9b6",
+      "state": "released:7.0.0",
+      "sub_kind": "version",
+      "url": "https://github.com/FortAwesome/Font-Awesome/releases"
+    }
+  ],
+  "timestamp": "2026-04-20T18:17Z",
+  "warnings": [],
+  "warnings_body": null,
+  "would_comment": true,
+  "would_transition_label": true,
+  "would_warn": false
+}
