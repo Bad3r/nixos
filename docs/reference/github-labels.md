@@ -27,14 +27,15 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 
 ## Status Labels
 
-| Label                      | Description                                                                                         |
-| -------------------------- | --------------------------------------------------------------------------------------------------- |
-| `status(backlog)`          | Use for accepted work that is intentionally unscheduled; not for items blocked externally.          |
-| `status(blocked-upstream)` | Use when this repo cannot proceed until an upstream fix or release lands; not for reprioritization. |
-| `status(in-progress)`      | Use for work actively being implemented; not for merely planned or queued work.                     |
-| `status(duplicate)`        | Use when another issue or pull request already tracks the same work.                                |
-| `status(invalid)`          | Use when the report is not actionable for this repo as filed.                                       |
-| `status(wontfix)`          | Use when the work is understood but will not be pursued.                                            |
+| Label                      | Description                                                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `status(backlog)`          | Use for accepted work that is intentionally unscheduled; not for items blocked externally.                                        |
+| `status(blocked-upstream)` | Use when this repo cannot proceed until an upstream fix or release lands; not for reprioritization.                               |
+| `status(ready-to-unblock)` | Applied automatically when the upstream tracker detects all blockers resolved; indicates the local workaround can now be removed. |
+| `status(in-progress)`      | Use for work actively being implemented; not for merely planned or queued work.                                                   |
+| `status(duplicate)`        | Use when another issue or pull request already tracks the same work.                                                              |
+| `status(invalid)`          | Use when the report is not actionable for this repo as filed.                                                                     |
+| `status(wontfix)`          | Use when the work is understood but will not be pursued.                                                                          |
 
 ## Priority Labels
 
