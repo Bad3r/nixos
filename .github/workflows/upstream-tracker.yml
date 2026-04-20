@@ -21,7 +21,8 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       UPSTREAM_TRACKER_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+      ISSUE_NUMBER: ${{ inputs.issue }}
     steps:
       - uses: actions/checkout@v5.0.0
       - name: Track upstream state
-        run: .github/scripts/upstream-tracker.sh ${{ inputs.issue }}
+        run: .github/scripts/upstream-tracker.sh "${ISSUE_NUMBER:-}"
