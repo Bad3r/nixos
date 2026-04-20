@@ -23,12 +23,6 @@ _: {
         tweakcc = final.callPackage ../../packages/tweakcc { };
         video-cache = final.callPackage ../../packages/video-cache { };
 
-        # Workaround: dwarfs 0.12.4 currently fails with boost 1.89
-        # (`boost_system` no longer resolves during CMake configure).
-        dwarfs = prev.dwarfs.override {
-          boost = prev.boost187;
-        };
-
         # Workaround: marktext 0.17.0's native module rebuild can fail with
         # `node-gyp: not found` under the current Node 24 toolchain.
         marktext = prev.marktext.overrideAttrs (old: {
