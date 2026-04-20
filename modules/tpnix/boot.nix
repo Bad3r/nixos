@@ -21,7 +21,6 @@
         kernelModules = [
           "kvm-intel"
           "coretemp"
-          "intel_pt"
         ];
 
         loader = {
