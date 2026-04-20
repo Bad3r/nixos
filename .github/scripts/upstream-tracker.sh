@@ -567,13 +567,11 @@ collect_seen_sigs() {
 compose_digest_body() {
   local ts="$1" refs_json="$2" blockers_total="$3" blockers_resolved="$4"
   local run_sig
-  run_sig="$(
-    jq -r '
-      map(.role + "|" + .url + "|" + .kind + "|" + .state) | sort | .[]
-    ' <<<"$refs_json" | sig "$(cat)"
-  )"
+  run_sig="$(sig "$(jq -r '
+    map(.role + "|" + .url + "|" + .kind + "|" + .state) | sort | .[]
+  ' <<<"$refs_json")")"
   if [[ -z $run_sig ]]; then
-    run_sig="$(printf '%s' "$ts" | sig "$(cat)")"
+    run_sig="$(sig "$ts")"
   fi
 
   local ref_sigs
@@ -605,7 +603,7 @@ compose_warning_body() {
   local ts="$1" warnings_json="$2"
   local joined warn_sig
   joined="$(jq -r '.[]' <<<"$warnings_json" | sort)"
-  warn_sig="$(printf '%s' "$joined" | sig "$(cat)")"
+  warn_sig="$(sig "$joined")"
   {
     printf '%s sig=%s\n' "$MARKER_PARSE" "$warn_sig"
     printf 'Template drift detected on %s:\n\n' "$ts"
@@ -655,11 +653,11 @@ process_issue_body() {
     ref="$(jq -c ".[$i]" <<<"$refs_json")"
     state="$(probe_ref "$ref")"
     if is_resolved_state "$state"; then resolved=true; else resolved=false; fi
-    sig_val="$(printf '%s|%s|%s|%s' \
+    sig_val="$(sig "$(printf '%s|%s|%s|%s' \
       "$(jq -r '.role' <<<"$ref")" \
       "$(jq -r '.url' <<<"$ref")" \
       "$(jq -r '.kind' <<<"$ref")" \
-      "$state" | sig "$(cat)")"
+      "$state")")"
     label="$(state_label "$state")"
     ref="$(jq -c \
       --arg state "$state" \
@@ -697,7 +695,7 @@ process_issue_body() {
   warn_count="$(jq 'length' <<<"$warnings_json")"
   if [[ $warn_count -gt 0 ]]; then
     local warn_sig
-    warn_sig="$(jq -r '.[]' <<<"$warnings_json" | sort | sig "$(cat)")"
+    warn_sig="$(sig "$(jq -r '.[]' <<<"$warnings_json" | sort)")"
     if ! grep -q "sig=$warn_sig" <<<"$seen"; then
       warnings_body="$(compose_warning_body "$ts" "$warnings_json")"
       should_warn=true
