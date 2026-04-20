@@ -460,7 +460,10 @@ probe_release_stream_version() {
 
 probe_release_stream_contains() {
   local owner="$1" repo="$2" sha="$3" out tags tag cmp status
-  out="$(api_or_missing "repos/$owner/$repo/tags?per_page=100")"
+  # Cap to the 20 most recent tags to bound API calls — each tag costs one
+  # `compare` request. For deeper coverage users should pin a specific
+  # release-tag or release-stream-version instead of relying on contains.
+  out="$(api_or_missing "repos/$owner/$repo/tags?per_page=20")"
   if [[ $out == "__upstream_tracker_missing__" ]]; then
     printf 'missing\n'
     return 0
