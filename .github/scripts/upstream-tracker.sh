@@ -101,7 +101,20 @@ gh_api() {
       return 77
     fi
   fi
-  gh api "$path" "$@" 2>/dev/null
+  local tmp_stderr rc=0
+  tmp_stderr="$(mktemp)"
+  gh api "$path" "$@" 2>"$tmp_stderr" || rc=$?
+  if ((rc != 0)); then
+    local err
+    err="$(<"$tmp_stderr")"
+    # 404 is the normal "ref does not exist" signal; keep it quiet.
+    # Anything else (auth, rate limits, 5xx, network) is worth surfacing.
+    if [[ $err != *"HTTP 404"* && $err != *"Not Found"* ]]; then
+      warn "gh api $path failed (rc=$rc): ${err//$'\n'/ }"
+    fi
+  fi
+  rm -f "$tmp_stderr"
+  return "$rc"
 }
 
 # ----- parser -----------------------------------------------------------------
