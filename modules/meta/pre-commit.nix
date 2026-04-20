@@ -111,6 +111,19 @@ _: {
               ];
             };
 
+            build-sh-completion-sync = {
+              enable = true;
+              name = "build-sh-completion-sync";
+              description = "Ensure modules/apps/build-sh-completion.nix lists the same flags as build.sh.";
+              entry = "${config.packages.hook-build-sh-completion-sync}/bin/hook-build-sh-completion-sync";
+              pass_filenames = false;
+              files = "^(build\\.sh|modules/apps/build-sh-completion\\.nix)$";
+              stages = [
+                "pre-push"
+                "manual"
+              ];
+            };
+
             mcp-docs-sync = {
               enable = true;
               name = "mcp-docs-sync";
