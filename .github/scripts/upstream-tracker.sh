@@ -498,15 +498,8 @@ probe_branch_sha() {
 }
 
 probe_ref() {
-  local ref_json="$1"
-  local kind owner repo identifier sub_kind min_version contains_sha
-  kind="$(jq -r '.kind' <<<"$ref_json")"
-  owner="$(jq -r '.owner' <<<"$ref_json")"
-  repo="$(jq -r '.repo' <<<"$ref_json")"
-  identifier="$(jq -r '.identifier' <<<"$ref_json")"
-  sub_kind="$(jq -r '.sub_kind' <<<"$ref_json")"
-  min_version="$(jq -r '.min_version' <<<"$ref_json")"
-  contains_sha="$(jq -r '.contains_sha' <<<"$ref_json")"
+  local kind="$1" owner="$2" repo="$3" identifier="$4"
+  local min_version="$5" contains_sha="$6"
   case "$kind" in
   pr) probe_pr "$owner" "$repo" "$identifier" ;;
   issue) probe_issue "$owner" "$repo" "$identifier" ;;
@@ -645,28 +638,44 @@ process_issue_body() {
   warnings_json="$(jq -c '.warnings' <<<"$parsed")"
 
   # probe every ref; enrich with state + sig + label.
-  local enriched="[]"
-  local len
+  local -a enriched_recs=()
+  local len i ref state resolved sig_val label
+  local role url kind owner repo identifier min_version contains_sha
+  local -a fields
   len="$(jq 'length' <<<"$refs_json")"
-  local i ref state resolved sig_val label
   for ((i = 0; i < len; i++)); do
     ref="$(jq -c ".[$i]" <<<"$refs_json")"
-    state="$(probe_ref "$ref")"
+    # One jq call per ref; emit each field on its own line so empty fields
+    # survive (read -r with IFS=\t collapses empty fields because tab is
+    # whitespace; mapfile -t preserves them).
+    mapfile -t fields < <(jq -r '
+      .role, .url, .kind, .owner, .repo, .identifier, .min_version, .contains_sha
+    ' <<<"$ref")
+    role="${fields[0]}"
+    url="${fields[1]}"
+    kind="${fields[2]}"
+    owner="${fields[3]}"
+    repo="${fields[4]}"
+    identifier="${fields[5]}"
+    min_version="${fields[6]}"
+    contains_sha="${fields[7]}"
+    state="$(probe_ref "$kind" "$owner" "$repo" "$identifier" "$min_version" "$contains_sha")"
     if is_resolved_state "$state"; then resolved=true; else resolved=false; fi
-    sig_val="$(sig "$(printf '%s|%s|%s|%s' \
-      "$(jq -r '.role' <<<"$ref")" \
-      "$(jq -r '.url' <<<"$ref")" \
-      "$(jq -r '.kind' <<<"$ref")" \
-      "$state")")"
+    sig_val="$(sig "${role}|${url}|${kind}|${state}")"
     label="$(state_label "$state")"
-    ref="$(jq -c \
+    enriched_recs+=("$(jq -c \
       --arg state "$state" \
       --argjson resolved "$resolved" \
       --arg sig "$sig_val" \
       --arg label "$label" \
-      '. + {state:$state, resolved:$resolved, sig:$sig, label:$label}' <<<"$ref")"
-    enriched="$(jq -c --argjson rec "$ref" '. + [$rec]' <<<"$enriched")"
+      '. + {state:$state, resolved:$resolved, sig:$sig, label:$label}' <<<"$ref")")
   done
+  local enriched
+  if ((${#enriched_recs[@]} > 0)); then
+    enriched="$(printf '%s\n' "${enriched_recs[@]}" | jq -s -c '.')"
+  else
+    enriched="[]"
+  fi
 
   local blockers_total blockers_resolved
   blockers_total="$(jq '[.[] | select(.role == "blocker")] | length' <<<"$enriched")"
