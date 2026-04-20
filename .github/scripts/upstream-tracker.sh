@@ -363,7 +363,7 @@ semver_ge() {
   [[ $first == "$b" ]]
 }
 
-api_or_die() {
+api_or_missing() {
   local out rc=0
   out="$(gh_api "$@")" || rc=$?
   if [[ $rc -ne 0 ]]; then
@@ -375,7 +375,7 @@ api_or_die() {
 
 probe_pr() {
   local owner="$1" repo="$2" num="$3" out state merged
-  out="$(api_or_die "repos/$owner/$repo/pulls/$num")"
+  out="$(api_or_missing "repos/$owner/$repo/pulls/$num")"
   if [[ $out == "__upstream_tracker_missing__" ]]; then
     printf 'missing\n'
     return 0
@@ -395,7 +395,7 @@ probe_pr() {
 
 probe_issue() {
   local owner="$1" repo="$2" num="$3" out state
-  out="$(api_or_die "repos/$owner/$repo/issues/$num")"
+  out="$(api_or_missing "repos/$owner/$repo/issues/$num")"
   if [[ $out == "__upstream_tracker_missing__" ]]; then
     printf 'missing\n'
     return 0
@@ -410,7 +410,7 @@ probe_issue() {
 
 probe_release_tag() {
   local owner="$1" repo="$2" tag="$3" out
-  out="$(api_or_die "repos/$owner/$repo/releases/tags/$tag")"
+  out="$(api_or_missing "repos/$owner/$repo/releases/tags/$tag")"
   if [[ $out == "__upstream_tracker_missing__" ]]; then
     printf 'missing\n'
     return 0
@@ -420,7 +420,7 @@ probe_release_tag() {
 
 probe_release_stream_version() {
   local owner="$1" repo="$2" min="$3" out tag strip
-  out="$(api_or_die "repos/$owner/$repo/releases?per_page=30")"
+  out="$(api_or_missing "repos/$owner/$repo/releases?per_page=30")"
   if [[ $out == "__upstream_tracker_missing__" ]]; then
     printf 'missing\n'
     return 0
@@ -439,7 +439,7 @@ probe_release_stream_version() {
 
 probe_release_stream_contains() {
   local owner="$1" repo="$2" sha="$3" out tags tag cmp status
-  out="$(api_or_die "repos/$owner/$repo/tags?per_page=100")"
+  out="$(api_or_missing "repos/$owner/$repo/tags?per_page=100")"
   if [[ $out == "__upstream_tracker_missing__" ]]; then
     printf 'missing\n'
     return 0
@@ -447,7 +447,7 @@ probe_release_stream_contains() {
   tags="$(printf '%s' "$out" | jq -r '.[].name // empty')"
   while IFS= read -r tag; do
     [[ -z $tag ]] && continue
-    cmp="$(api_or_die "repos/$owner/$repo/compare/$sha...$tag")"
+    cmp="$(api_or_missing "repos/$owner/$repo/compare/$sha...$tag")"
     [[ $cmp == "__upstream_tracker_missing__" ]] && continue
     status="$(printf '%s' "$cmp" | jq -r '.status // empty')"
     case "$status" in
@@ -462,7 +462,7 @@ probe_release_stream_contains() {
 
 probe_plain_tag() {
   local owner="$1" repo="$2" tag="$3" out
-  out="$(api_or_die "repos/$owner/$repo/git/ref/tags/$tag")"
+  out="$(api_or_missing "repos/$owner/$repo/git/ref/tags/$tag")"
   if [[ $out == "__upstream_tracker_missing__" ]]; then
     printf 'missing\n'
     return 0
@@ -472,7 +472,7 @@ probe_plain_tag() {
 
 probe_branch_sha() {
   local owner="$1" repo="$2" branch="$3" sha="$4" out status
-  out="$(api_or_die "repos/$owner/$repo/compare/$sha...$branch")"
+  out="$(api_or_missing "repos/$owner/$repo/compare/$sha...$branch")"
   if [[ $out == "__upstream_tracker_missing__" ]]; then
     printf 'missing\n'
     return 0
