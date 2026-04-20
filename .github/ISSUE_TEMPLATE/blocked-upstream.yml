@@ -1,0 +1,301 @@
+name: Blocked by upstream
+description: >-
+  Track local work that is blocked until an upstream issue, PR, release,
+  or channel update lands.
+title: "<type>(<scope>): <imperative> once <trigger>"
+labels:
+  - "status(blocked-upstream)"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for issues whose **primary purpose** is to track an
+        upstream fix (e.g., a nixpkgs PR, a third-party repo release, an
+        unstable-branch catch-up). Cases that also involve local cleanup, a
+        temporarily disabled package, validation work, or a lockfile catch-up
+        belong here as long as the blocker is upstream.
+
+        ### Title convention
+
+        Issue titles follow Conventional Commits style so they scan
+        consistently in GitHub lists, notifications, and cross-references:
+
+        ```
+        <type>(<scope>): <imperative action> once <trigger>
+        ```
+
+        - **`<type>`** — one of `chore` | `fix` | `refactor` | `deps` |
+          `feat` | `build`. Must match the **Type** body field below.
+        - **`<scope>`** — package, module, host, or area. Must match the
+          **Scope** body field below.
+        - **`<imperative action>`** — short verb phrase describing what
+          happens once unblocked (`drop`, `remove`, `retire`, `re-enable`,
+          `upgrade`, `unpin`).
+        - **`<trigger>`** — concise unblock condition (`nixpkgs#500707
+          lands`, `unstable ships boost 1.89`, `upstream v7 releases`).
+
+        Examples:
+        - `chore(envfs): drop local overlay once nixpkgs#500707 lands`
+        - `fix(ltrace): re-enable once nixpkgs#475934 lands in unstable`
+        - `deps(fonts): upgrade font-awesome to v7 once compatible`
+
+        The **Type** and **Scope** body fields below are the machine-canonical
+        source for automation — they render as `### Type\n<value>` and
+        `### Scope\n<value>` and can be read without regex. The title carries
+        the same values for human readability.
+
+        ### Automation convention
+
+        GitHub does not validate textarea contents at submission time — the
+        rules below are a **convention**, not mechanically enforced. Bots
+        parsing this template should treat non-conforming input as a parse
+        warning and surface it for human review rather than hard-failing.
+
+        Each field renders as `### <Label>` in the issue body; automation
+        parses sections by that heading. Field labels are therefore
+        **parser-stable** and should not be renamed without coordinating
+        an update to the parser.
+
+        - **Role-prefixed URL lines (convention).** On the **Upstream pull
+          requests**, **Upstream issues**, and **Upstream releases and
+          channels** fields, each non-sentinel line should start with a
+          lowercase role keyword:
+          - `blocker` — the primary thing we are waiting on.
+          - `fix` — upstream change that ships the fix (merged PR, etc.).
+          - `related` — supporting context (root-cause, tracking, dep bug,
+            etc.).
+          - `superseded` — an earlier attempt that has since been replaced.
+
+          Intended grammar per line: `<role> <URL>[ - <free-form note>]`.
+          Full `https://github.com/...` URLs are expected so bots can resolve
+          owner/repo/number without guessing; short-form references such as
+          `NixOS/nixpkgs#500707` are outside the convention and will not parse
+          reliably.
+        - **`none` sentinel (convention).** Required URL fields with no
+          applicable reference should contain the literal token `none`
+          (lowercase, whole line) **and nothing else** — `none` is only
+          valid when it is the sole non-empty line in the field. Automation
+          should warn when `none` appears alongside any URL. Automation
+          should also treat GitHub's `_No response_` as empty; neither is
+          a literal value.
+        - **`Type` and `Scope` (form-enforced at submission time).** At
+          initial submission `Type` is constrained to the dropdown options
+          and `Scope` is non-empty — but both fields remain editable
+          afterward, so automation should still warn if they are missing or
+          hold unexpected values. When well-formed, they render as
+          `### Type\n<value>` and `### Scope\n<value>` and can be read
+          without regex. Together with the issue title they reconstitute
+          the full `type(scope): title` identifier.
+        - **Unblock condition (non-empty at submission time).** Required
+          single-line input; non-empty at initial form submission but
+          editable afterward. Content is free text — automation should treat
+          it as a human-readable signal, not a structured query.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      description: |
+        Conventional Commits type for the local action triggered once unblocked.
+        `chore` — cleanup, removal, or maintenance with no behavior change.
+        `fix` — re-enabling or correcting broken functionality.
+        `refactor` — structural change without intended behavior change.
+        `deps` — dependency or flake-input version bump.
+        `feat` — new capability gated on upstream availability.
+        `build` — build-system or CI change.
+      options:
+        - chore
+        - fix
+        - refactor
+        - deps
+        - feat
+        - build
+    validations:
+      required: true
+
+  - type: input
+    id: scope
+    attributes:
+      label: Scope
+      description: |
+        Package, module, host, or area affected (lowercase, hyphenated).
+        Matches existing repo labels where possible — e.g., `envfs`,
+        `proton-vpn`, `flake`, `pentesting`, `fonts`, `system76`.
+      placeholder: envfs
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: |
+        One or two paragraphs. What local state exists in this repo (workaround,
+        disabled package, pinned version, pending upgrade, etc.), *why* is it
+        needed, and what upstream change unblocks the follow-up?
+      placeholder: |
+        We pin `envfs` to 1.2.0 via a local overlay because 1.1.0 logs a
+        spurious `usr-bin.mount: Failed with result 'protocol'` at boot.
+        Upstream fix shipped in Mic92/envfs#216 (1.2.0); waiting on nixpkgs
+        to bump the packaged version.
+    validations:
+      required: true
+
+  - type: input
+    id: unblock-condition
+    attributes:
+      label: Unblock condition
+      description: |
+        One sentence describing the upstream state that unblocks action in
+        this repo — testable against upstream only. Local cleanup and
+        validation belong in Exit criteria, not here.
+      placeholder: "Unblocked when nixpkgs unstable contains envfs >= 1.2.0."
+    validations:
+      required: true
+
+  - type: textarea
+    id: upstream-pull-requests
+    attributes:
+      label: Upstream pull requests
+      description: |
+        One role-prefixed GitHub URL per line (see role vocabulary in the
+        Automation convention section above). Use `none` if no upstream PR
+        is tracked (for example, when waiting on an unstable-branch
+        catch-up).
+      placeholder: |
+        blocker https://github.com/NixOS/nixpkgs/pull/500707 - r-ryantm bot PR
+        fix https://github.com/Mic92/envfs/pull/216
+      value: none
+    validations:
+      required: true
+
+  - type: textarea
+    id: upstream-issues
+    attributes:
+      label: Upstream issues
+      description: |
+        One role-prefixed GitHub URL per line (see role vocabulary in the
+        Automation convention section above). Use `none` if no upstream
+        issue is tracked.
+      placeholder: |
+        related https://github.com/Mic92/envfs/issues/206
+        blocker https://github.com/NixOS/nixpkgs/issues/494561
+      value: none
+    validations:
+      required: true
+
+  - type: textarea
+    id: upstream-releases
+    attributes:
+      label: Upstream releases and channels
+      description: |
+        One role-prefixed URL per line. Four accepted URL kinds:
+
+        - **Specific GitHub release** —
+          `https://github.com/<owner>/<repo>/releases/tag/<tag>`
+          A version constraint note (e.g., `- envfs >= 1.2.0`) is optional.
+          Automation polls the Releases API for that exact tag.
+        - **Plain tag** — `https://github.com/<owner>/<repo>/tree/<tag>`
+          Use when upstream publishes tags without release objects. A
+          `ref-type tag` note is **required** to disambiguate from the
+          branch/channel kind below.
+        - **Release stream** — `https://github.com/<owner>/<repo>/releases`
+          Use when the target tag is not yet known. A `target >= x.y.z` or
+          `contains <owner>/<repo>@<full-40-char-sha>` note is **required**
+          so automation has a concrete version floor to check against.
+        - **Branch or channel** —
+          `https://github.com/<owner>/<repo>/tree/<branch>`
+          A `contains <owner>/<repo>@<full-40-char-sha>` note is **required**
+          so automation has a concrete target commit to poll against.
+
+        Use the role vocabulary from the Automation convention section above.
+        Use `none` if none of the above applies.
+      placeholder: |
+        fix https://github.com/Mic92/envfs/releases/tag/1.2.0 - envfs >= 1.2.0
+        fix https://github.com/FortAwesome/Font-Awesome/releases - target >= 7.0
+        fix https://github.com/NixOS/nix/tree/master - contains NixOS/nix@<sha>
+      value: none
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround-location
+    attributes:
+      label: Local workaround / affected code
+      description: |
+        One entry per line identifying the local code that must change once
+        the upstream blocker resolves — workaround to remove, package to
+        re-enable, version to upgrade, etc. Prefer GitHub permalinks pinned
+        to a commit SHA so line ranges do not drift (e.g.,
+        `https://github.com/Bad3r/nixos/blob/<sha>/path.nix#L9-L34`).
+        Plain relative paths (`modules/base/envfs.nix`) are acceptable for
+        whole-file changes. List every file that must be touched.
+      placeholder: |
+        https://github.com/Bad3r/nixos/blob/cd63f312/modules/base/envfs.nix#L9-L34
+        modules/system76/custom-packages-overlay.nix
+    validations:
+      required: true
+
+  - type: textarea
+    id: exit-criteria
+    attributes:
+      label: Exit criteria
+      description: |
+        Checklist of conditions that must *all* be true before closing this
+        issue. Edit to match the specifics of this workaround; keep every
+        item as a GitHub task-list entry (`- [ ] …`) so progress is visible.
+        The checklist should operationalise the Unblock condition above.
+      value: |
+        - [ ] Unblock condition satisfied
+        - [ ] `./build.sh --update` pulls in a lockfile revision with the fix
+        - [ ] Local follow-up implemented for every file listed above
+        - [ ] All affected hosts rebuild cleanly
+        - [ ] Post-fix validation commands (below), if any, succeed
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: |
+        Exact commands to run to confirm the upstream fix is live and the
+        local follow-up is complete. Leave blank if no mechanical check applies.
+      render: shell
+      placeholder: |
+        nix eval .#nixosConfigurations.system76.pkgs.envfs.version
+        nix build .#nixosConfigurations.system76.config.system.build.toplevel
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: |
+        Optional extra context: root-cause analysis, error output, related
+        local issues, historical references, nixpkgs PR review state, etc.
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: >-
+            I searched existing `status(blocked-upstream)` issues and
+            this is not a duplicate.
+          required: true
+        - label: >-
+            Upstream references are canonical for their role:
+            blocker/fix entries point at the repo that ships the fix.
+          required: true
+        - label: >-
+            Every non-`none` reference line starts with a reserved role
+            keyword (`blocker`, `fix`, `related`, `superseded`).
+          required: true
+        - label: >-
+            Every entry in Local workaround / affected code reflects the
+            current state on `main`.
+          required: true
+        - label: >-
+            The `type` and `scope` in the issue title match the Type
+            and Scope body fields.
+          required: true
