@@ -51,10 +51,10 @@ jobs:
 
           # Check if flake.lock changed
           if git diff --quiet flake.lock; then
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No updates available"
           else
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "Flake inputs updated (excluding secrets)"
           fi
 
@@ -65,14 +65,16 @@ jobs:
       - name: Show updated inputs
         if: steps.update.outputs.changed == 'true'
         run: |
-          echo "## Updated Inputs" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          nix flake metadata --json | jq -r '
-            .locks.nodes | to_entries[]
-            | select(.value.locked)
-            | "\(.key): \(.value.locked.rev // .value.locked.narHash)"
-          ' >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Updated Inputs"
+            echo '```'
+            nix flake metadata --json | jq -r '
+              .locks.nodes | to_entries[]
+              | select(.value.locked)
+              | "\(.key): \(.value.locked.rev // .value.locked.narHash)"
+            '
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create Pull Request
         if: steps.update.outputs.changed == 'true'
