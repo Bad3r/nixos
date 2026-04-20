@@ -1,0 +1,32 @@
+{
+  "blockers_resolved": 0,
+  "blockers_total": 1,
+  "comment_body": null,
+  "issue": null,
+  "refs": [
+    {
+      "contains_sha": "",
+      "identifier": "216",
+      "kind": "pr",
+      "label": "missing",
+      "min_version": "",
+      "note": "wait until filesystem is ready",
+      "owner": "Mic92",
+      "ref_type": "",
+      "repo": "envfs",
+      "resolved": false,
+      "role": "blocker",
+      "section": "Upstream pull requests",
+      "sig": "ae6b370529b5",
+      "state": "missing",
+      "sub_kind": "",
+      "url": "https://github.com/Mic92/envfs/pull/216"
+    }
+  ],
+  "timestamp": "2026-04-20T18:17Z",
+  "warnings": [],
+  "warnings_body": null,
+  "would_comment": false,
+  "would_transition_label": false,
+  "would_warn": false
+}
