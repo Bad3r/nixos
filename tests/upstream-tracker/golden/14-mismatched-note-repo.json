@@ -1,0 +1,34 @@
+{
+  "blockers_resolved": 0,
+  "blockers_total": 1,
+  "comment_body": null,
+  "issue": null,
+  "refs": [
+    {
+      "contains_sha": "000102030405060708090a0b0c0d0e0f10111213",
+      "identifier": "",
+      "kind": "release-stream-contains",
+      "label": "missing",
+      "min_version": "",
+      "note": "contains Other/Repo@000102030405060708090a0b0c0d0e0f10111213",
+      "owner": "Mic92",
+      "ref_type": "",
+      "repo": "envfs",
+      "resolved": false,
+      "role": "blocker",
+      "section": "Upstream releases and channels",
+      "sig": "0357317afc53",
+      "state": "missing",
+      "sub_kind": "contains",
+      "url": "https://github.com/Mic92/envfs/releases"
+    }
+  ],
+  "timestamp": "2026-04-20T18:17Z",
+  "warnings": [
+    "Upstream releases and channels: `contains Other/Repo@...` repo differs from URL `Mic92/envfs`; still polling against URL repo"
+  ],
+  "warnings_body": "<!-- upstream-tracker v1 parse --> sig=ced863245cb1\nTemplate drift detected on 2026-04-20T18:17Z:\n\n- Upstream releases and channels: `contains Other/Repo@...` repo differs from URL `Mic92/envfs`; still polling against URL repo",
+  "would_comment": false,
+  "would_transition_label": false,
+  "would_warn": true
+}

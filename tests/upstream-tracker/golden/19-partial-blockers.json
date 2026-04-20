@@ -1,0 +1,50 @@
+{
+  "blockers_resolved": 1,
+  "blockers_total": 2,
+  "comment_body": "<!-- upstream-tracker v1 --> sig=767efae42475\n<!-- refs: sig=767efae42475 -->\nUpstream state changes detected on 2026-04-20T18:17Z:\n\n- blocker **merged** https://github.com/NixOS/nixpkgs/pull/111\n\n`blocker` progress: 1 of 2 resolved — label unchanged.",
+  "issue": null,
+  "refs": [
+    {
+      "contains_sha": "",
+      "identifier": "111",
+      "kind": "pr",
+      "label": "merged",
+      "min_version": "",
+      "note": "merged",
+      "owner": "NixOS",
+      "ref_type": "",
+      "repo": "nixpkgs",
+      "resolved": true,
+      "role": "blocker",
+      "section": "Upstream pull requests",
+      "sig": "767efae42475",
+      "state": "merged",
+      "sub_kind": "",
+      "url": "https://github.com/NixOS/nixpkgs/pull/111"
+    },
+    {
+      "contains_sha": "",
+      "identifier": "222",
+      "kind": "pr",
+      "label": "open",
+      "min_version": "",
+      "note": "still open",
+      "owner": "NixOS",
+      "ref_type": "",
+      "repo": "nixpkgs",
+      "resolved": false,
+      "role": "blocker",
+      "section": "Upstream pull requests",
+      "sig": "3faa1dbfb300",
+      "state": "open",
+      "sub_kind": "",
+      "url": "https://github.com/NixOS/nixpkgs/pull/222"
+    }
+  ],
+  "timestamp": "2026-04-20T18:17Z",
+  "warnings": [],
+  "warnings_body": null,
+  "would_comment": true,
+  "would_transition_label": false,
+  "would_warn": false
+}

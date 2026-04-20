@@ -1,0 +1,32 @@
+{
+  "blockers_resolved": 1,
+  "blockers_total": 1,
+  "comment_body": "<!-- upstream-tracker v1 --> sig=100f004a39c1\n<!-- refs: sig=100f004a39c1 -->\nUpstream state changes detected on 2026-04-20T18:17Z:\n\n- blocker **contained** https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable\n\nLabel swapped: `status(blocked-upstream)` → `status(ready-to-unblock)`.\n(1 of 1 `blocker` references resolved.)",
+  "issue": null,
+  "refs": [
+    {
+      "contains_sha": "96360a0615ef425cc67d9b49db9794b91f644863",
+      "identifier": "nixpkgs-unstable",
+      "kind": "tree-branch-sha",
+      "label": "contained",
+      "min_version": "",
+      "note": "contains NixOS/nixpkgs@96360a0615ef425cc67d9b49db9794b91f644863",
+      "owner": "NixOS",
+      "ref_type": "",
+      "repo": "nixpkgs",
+      "resolved": true,
+      "role": "blocker",
+      "section": "Upstream releases and channels",
+      "sig": "100f004a39c1",
+      "state": "contained",
+      "sub_kind": "contains",
+      "url": "https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable"
+    }
+  ],
+  "timestamp": "2026-04-20T18:17Z",
+  "warnings": [],
+  "warnings_body": null,
+  "would_comment": true,
+  "would_transition_label": true,
+  "would_warn": false
+}

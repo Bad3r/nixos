@@ -1,0 +1,32 @@
+{
+  "blockers_resolved": 1,
+  "blockers_total": 1,
+  "comment_body": "<!-- upstream-tracker v1 --> sig=8363e687b107\n<!-- refs: sig=8363e687b107 -->\nUpstream state changes detected on 2026-04-20T18:17Z:\n\n- blocker **merged** https://github.com/NixOS/nixpkgs/pull/500707\n\nLabel swapped: `status(blocked-upstream)` → `status(ready-to-unblock)`.\n(1 of 1 `blocker` references resolved.)",
+  "issue": null,
+  "refs": [
+    {
+      "contains_sha": "",
+      "identifier": "500707",
+      "kind": "pr",
+      "label": "merged",
+      "min_version": "",
+      "note": "r-ryantm envfs bump",
+      "owner": "NixOS",
+      "ref_type": "",
+      "repo": "nixpkgs",
+      "resolved": true,
+      "role": "blocker",
+      "section": "Upstream pull requests",
+      "sig": "8363e687b107",
+      "state": "merged",
+      "sub_kind": "",
+      "url": "https://github.com/NixOS/nixpkgs/pull/500707"
+    }
+  ],
+  "timestamp": "2026-04-20T18:17Z",
+  "warnings": [],
+  "warnings_body": null,
+  "would_comment": true,
+  "would_transition_label": true,
+  "would_warn": false
+}

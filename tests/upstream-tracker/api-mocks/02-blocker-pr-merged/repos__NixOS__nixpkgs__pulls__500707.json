@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "body": {
+    "number": 500707,
+    "state": "closed",
+    "merged": true,
+    "merged_at": "2026-04-18T12:00:00Z"
+  }
+}
