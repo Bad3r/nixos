@@ -26,9 +26,9 @@ jobs:
           BASE="nixos-module-docs-api"
           DOMAIN="exploit.workers.dev"
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
-            echo "url=https://$BASE.$DOMAIN" >> $GITHUB_OUTPUT
+            echo "url=https://$BASE.$DOMAIN" >> "$GITHUB_OUTPUT"
           else
-            echo "url=https://$BASE-staging.$DOMAIN" >> $GITHUB_OUTPUT
+            echo "url=https://$BASE-staging.$DOMAIN" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Trigger AI Search Ingestion
@@ -84,7 +84,7 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          cat << EOF >> $GITHUB_STEP_SUMMARY
+          cat << EOF >> "$GITHUB_STEP_SUMMARY"
           # AI Search Ingestion
 
           ## Status
