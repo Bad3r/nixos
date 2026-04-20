@@ -254,9 +254,9 @@ parse_issue_body() {
       warnings+=("$section: \`none\` appears alongside URLs; URLs will still be parsed")
     fi
 
+    ((${#raw_lines[@]} > 0)) || continue
     local raw
-    for raw in "${raw_lines[@]:-}"; do
-      [[ -z $raw ]] && continue
+    for raw in "${raw_lines[@]}"; do
       local role url note role_re rest
       role_re='^(blocker|fix|related|superseded)[[:space:]]+(.*)$'
       if [[ ! $raw =~ $role_re ]]; then
