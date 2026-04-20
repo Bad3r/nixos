@@ -606,7 +606,7 @@ compose_digest_body() {
 compose_warning_body() {
   local ts="$1" warnings_json="$2"
   local joined warn_sig
-  joined="$(jq -r '.[]' <<<"$warnings_json" | sort)"
+  joined="$(jq -r '.[]' <<<"$warnings_json" | LC_ALL=C sort)"
   warn_sig="$(sig "$joined")"
   {
     printf '%s sig=%s\n' "$MARKER_PARSE" "$warn_sig"
@@ -720,7 +720,7 @@ process_issue_body() {
   warn_count="$(jq 'length' <<<"$warnings_json")"
   if [[ $warn_count -gt 0 ]]; then
     local warn_sig
-    warn_sig="$(sig "$(jq -r '.[]' <<<"$warnings_json" | sort)")"
+    warn_sig="$(sig "$(jq -r '.[]' <<<"$warnings_json" | LC_ALL=C sort)")"
     if ! grep -q "sig=$warn_sig" <<<"$seen"; then
       warnings_body="$(compose_warning_body "$ts" "$warnings_json")"
       should_warn=true
