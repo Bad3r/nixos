@@ -21,6 +21,7 @@ _: {
       repoSecretsEnabled = lib.attrByPath [ "security" "repoSecrets" "enable" ] true osConfig;
       gdriveSecretContents = if gdriveSecretExists then builtins.readFile gdriveSecretFile else "";
       gdriveTokenExists = lib.hasInfix "GDRIVE_TOKEN=" gdriveSecretContents;
+      gdriveReady = gdriveSecretExists && repoSecretsEnabled && gdriveEnvPath != null;
       r2SecretFile = "${secretsRoot}/r2.yaml";
       r2SecretExists = builtins.pathExists r2SecretFile;
       r2SecretsEnabled = lib.attrByPath [ "home" "r2Secrets" "enable" ] false config;
@@ -44,7 +45,8 @@ _: {
                   if r2EndpointAvailable then config.sops.templates."rclone/r2-endpoint".path else ""
                 )
               }
-              gdriveEnabled=${lib.boolToString gdriveSecretExists}
+              gdriveEnabled=${lib.boolToString gdriveReady}
+              gdriveEnvPath=${lib.escapeShellArg (if gdriveReady then gdriveEnvPath else "")}
 
               run mkdir -p "$renderedDir"
               chmod 700 "$renderedDir"
@@ -62,8 +64,6 @@ _: {
               } > "$tmpConfig"
 
               if [ "$gdriveEnabled" = true ]; then
-                gdriveEnvPath=${lib.escapeShellArg config.sops.secrets."rclone/gdrive-env".path}
-
                 unset GDRIVE_CLIENT_ID GDRIVE_CLIENT_SECRET GDRIVE_TOKEN
                 . "$gdriveEnvPath"
 
@@ -88,14 +88,6 @@ _: {
               run mv "$tmpConfig" "$renderedConfig"
             '';
           }
-
-          (lib.mkIf gdriveSecretExists {
-            sops.secrets."rclone/gdrive-env" = {
-              sopsFile = gdriveSecretFile;
-              format = "dotenv";
-              mode = "0400";
-            };
-          })
 
           (lib.mkIf r2EndpointAvailable {
             sops.templates."rclone/r2-endpoint" = {
