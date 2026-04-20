@@ -18,6 +18,9 @@ permissions:
 jobs:
   track:
     runs-on: ubuntu-latest
+    concurrency:
+      group: upstream-tracker
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       UPSTREAM_TRACKER_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
