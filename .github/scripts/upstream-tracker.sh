@@ -690,7 +690,12 @@ process_issue_body() {
 
   local blockers_total blockers_resolved
   blockers_total="$(jq '[.[] | select(.role == "blocker")] | length' <<<"$enriched")"
-  blockers_resolved="$(jq '[.[] | select(.role == "blocker" and .resolved)] | length' <<<"$enriched")"
+  # `closed-unmerged` is a terminal state worth surfacing in the digest, but
+  # an upstream PR that was rejected without merge does NOT unblock us — the
+  # fix did not land. Exclude it from the count that drives label transition.
+  blockers_resolved="$(jq '
+    [.[] | select(.role == "blocker" and .resolved and .state != "closed-unmerged")] | length
+  ' <<<"$enriched")"
 
   # seen-sig lookup (skipped in parse-only mode).
   local seen="" seen_set
