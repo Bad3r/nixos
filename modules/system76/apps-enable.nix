@@ -406,6 +406,7 @@
       zbar.extended.enable = lib.mkOverride 1100 true;
       zoxide.extended.enable = lib.mkOverride 1100 true;
       "zsh-completions".extended.enable = lib.mkOverride 1100 true;
+      "build-sh-completion".extended.enable = lib.mkOverride 1100 true;
       zstd.extended.enable = lib.mkOverride 1100 true;
     };
 
