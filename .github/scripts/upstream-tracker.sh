@@ -784,7 +784,12 @@ resolve_target_issues() {
     printf '%s\n' "$explicit"
     return 0
   fi
-  gh issue list --state open --label "$BLOCKED_LABEL" --limit 200 \
+  # Use --search instead of --label: the REST /issues?labels= filter that
+  # backs `gh issue list --label` silently returns no results when the label
+  # name contains characters like `(` or `)`. The search API handles quoted
+  # label names correctly.
+  gh issue list --state open \
+    --search "label:\"$BLOCKED_LABEL\"" --limit 200 \
     --json number --jq '.[].number'
 }
 
