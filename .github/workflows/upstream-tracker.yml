@@ -1,0 +1,27 @@
+---
+name: Upstream Tracker
+"on":
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "Single issue number (optional; default: all labeled open)"
+        required: false
+      dry_run:
+        description: "Do not post comments or edit labels"
+        type: boolean
+        default: false
+permissions:
+  issues: write
+  contents: read
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      UPSTREAM_TRACKER_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+    steps:
+      - uses: actions/checkout@v5.0.0
+      - name: Track upstream state
+        run: .github/scripts/upstream-tracker.sh ${{ inputs.issue }}
