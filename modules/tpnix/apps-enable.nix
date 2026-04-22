@@ -221,6 +221,7 @@
       "nix-prefetch-git".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-github".extended.enable = lib.mkOverride 1100 true;
       "nix-tree".extended.enable = lib.mkOverride 1100 true;
+      "nixpkgs-review".extended.enable = lib.mkOverride 1100 true;
       nmap.extended.enable = lib.mkOverride 1100 true;
       "node-cloudflare-sdk".extended.enable = lib.mkOverride 1100 false;
       nodejs_22.extended.enable = lib.mkOverride 1100 false;
@@ -287,6 +288,7 @@
       rustc.extended.enable = lib.mkOverride 1100 false;
       "rust-clippy".extended.enable = lib.mkOverride 1100 false;
       rustfmt.extended.enable = lib.mkOverride 1100 false;
+      "s-tui".extended.enable = lib.mkOverride 1100 true;
       s5cmd.extended.enable = lib.mkOverride 1100 false;
       screenkey.extended.enable = lib.mkOverride 1100 false;
       seclists.extended.enable = lib.mkOverride 1100 true;
