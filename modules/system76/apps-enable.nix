@@ -61,7 +61,7 @@
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 true;
-      "claude-desktop".extended.enable = lib.mkOverride 1100 true; # Upstream flake still references removed pkgs.nodePackages
+      "claude-desktop".extended.enable = lib.mkOverride 1100 true;
       "claude-plugins".extended.enable = lib.mkOverride 1100 true;
       clawdbot.extended.enable = lib.mkOverride 1100 false;
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
@@ -237,6 +237,7 @@
       "nix-prefetch-git".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-github".extended.enable = lib.mkOverride 1100 true;
       "nix-tree".extended.enable = lib.mkOverride 1100 true;
+      "nixpkgs-review".extended.enable = lib.mkOverride 1100 true;
       nmap.extended.enable = lib.mkOverride 1100 true;
       "node-cloudflare-sdk".extended.enable = lib.mkOverride 1100 false;
       nodejs_22.extended.enable = lib.mkOverride 1100 true;
@@ -303,6 +304,7 @@
       rustc.extended.enable = lib.mkOverride 1100 false;
       "rust-clippy".extended.enable = lib.mkOverride 1100 false;
       rustfmt.extended.enable = lib.mkOverride 1100 false;
+      "s-tui".extended.enable = lib.mkOverride 1100 true;
       s5cmd.extended.enable = lib.mkOverride 1100 true;
       screenkey.extended.enable = lib.mkOverride 1100 true;
       seclists.extended.enable = lib.mkOverride 1100 true;
@@ -338,7 +340,7 @@
       tcpdump.extended.enable = lib.mkOverride 1100 true;
       tealdeer.extended.enable = lib.mkOverride 1100 true;
       "telegram-desktop".extended.enable = lib.mkOverride 1100 true;
-      "teams-for-linux".extended.enable = lib.mkOverride 1100 false;
+      "teams-for-linux".extended.enable = lib.mkOverride 1100 true;
       "temurin-bin-25".extended.enable = lib.mkOverride 1100 true;
       terraform.extended.enable = lib.mkOverride 1100 true;
       tesseract.extended.enable = lib.mkOverride 1100 true;
