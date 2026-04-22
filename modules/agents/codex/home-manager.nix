@@ -83,7 +83,7 @@ _: {
           enable = true;
           package = null; # Installed via wrapper below
           settings = lib.mkForce { }; # Config handled by merge workflow
-          custom-instructions = "";
+          context = "";
         };
 
         home = {
