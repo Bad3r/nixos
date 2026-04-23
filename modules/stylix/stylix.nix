@@ -77,6 +77,7 @@
           # Check which apps are enabled at NixOS level
           firefoxEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
           floorpEnabled = lib.attrByPath [ "programs" "floorp" "extended" "enable" ] false osConfig;
+          librewolfEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
           zathuraEnabled = lib.attrByPath [ "programs" "zathura" "extended" "enable" ] false osConfig;
         in
         {
@@ -136,6 +137,14 @@
 
               # Floorp profile theming (only if enabled)
               floorp = lib.mkIf floorpEnabled {
+                profileNames = [ "primary" ];
+                colorTheme.enable = true; # uses Firefox Color extension from NUR
+                firefoxGnomeTheme.enable = false;
+                fonts.enable = false;
+              };
+
+              # LibreWolf profile theming (only if enabled)
+              librewolf = lib.mkIf librewolfEnabled {
                 profileNames = [ "primary" ];
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;
