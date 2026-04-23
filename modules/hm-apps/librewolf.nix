@@ -19,15 +19,57 @@
 
 _: {
   flake.homeManagerModules.apps.librewolf =
-    { osConfig, lib, ... }:
+    {
+      osConfig,
+      lib,
+      pkgs,
+      inputs,
+      ...
+    }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
+      inherit (pkgs.stdenv.hostPlatform) system;
+      inherit (inputs.dedupe_nur.legacyPackages.${system}.repos.rycee) firefox-addons;
+      geckoBrowser = import ./_gecko-browser-common.nix { inherit firefox-addons; };
     in
     {
       config = lib.mkIf nixosEnabled {
         programs.librewolf = {
           enable = true;
-          package = null;
+          inherit (osConfig.programs.librewolf.extended) package;
+
+          # Core enterprise policies via the wrapped LibreWolf. DisableTelemetry
+          # and friends are already enforced by LibreWolf's built-in prefs; they
+          # are repeated here so the policy surface stays identical to
+          # firefox/floorp and the shared extension wiring composes cleanly.
+          policies = {
+            DisableTelemetry = true;
+            DisableFirefoxStudies = true;
+            DisablePocket = true;
+          }
+          // geckoBrowser.extensionPolicies;
+
+          profiles.primary = {
+            id = 0;
+
+            settings = {
+              # Auto-enable packaged extensions (e.g. Stylix's FirefoxColor add-on)
+              # on first profile load; without this, scope-masked XPIs land
+              # installed-but-disabled and the Stylix theme never applies.
+              "extensions.autoDisableScopes" = 0;
+            };
+
+            extensions = {
+              # Acknowledge that declarative settings override existing ones.
+              force = true;
+
+              # LibreWolf ships uBO bundled; installing it again from NUR pins
+              # the version declaratively and dedupes against the bundle by ID.
+              packages = geckoBrowser.extensionPackages;
+
+              settings = geckoBrowser.extensionStorage;
+            };
+          };
         };
       };
     };
