@@ -1,0 +1,33 @@
+_: {
+  # Generate and manage the project .gitleaks.toml via the files module
+  # Pattern mirrors modules/development/gitignore.nix
+  perSystem =
+    { pkgs, ... }:
+    {
+      files.files = [
+        {
+          path_ = ".gitleaks.toml";
+          drv = pkgs.writeText ".gitleaks.toml" ''
+            # Inherit the upstream default ruleset and extend with repo-local
+            # allowlists for documentation-only directories that contain
+            # example secrets, and for well-known public keys used for
+            # upstream signature verification.
+            [extend]
+            useDefault = true
+
+            [[allowlists]]
+            description = "Documentation examples with placeholder secrets"
+            paths = [
+              "nixos-manual/.*",
+            ]
+
+            [[allowlists]]
+            description = "DNSCrypt resolvers-list public minisign verification key"
+            regexes = [
+              "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3",
+            ]
+          '';
+        }
+      ];
+    };
+}
