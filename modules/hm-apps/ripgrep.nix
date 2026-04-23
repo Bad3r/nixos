@@ -15,9 +15,6 @@
     -g, --glob <pattern>: Include or exclude files matching the glob pattern.
     --hidden: Search hidden files and directories.
     --json: Emit machine-readable JSON results for tooling.
-
-  Notes:
-    * Package installation handled by NixOS module at modules/apps/ripgrep.nix.
 */
 _: {
   flake.homeManagerModules.apps.ripgrep =

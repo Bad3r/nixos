@@ -31,7 +31,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.element-desktop = {
           enable = true;
-          package = null; # Package installed by NixOS module
+          package = null;
         };
       };
     };

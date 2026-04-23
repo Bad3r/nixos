@@ -6,8 +6,6 @@
   Repository: https://github.com/nix-community/home-manager
 
   Notes:
-    * Enabled only when `programs.thunderbird.extended.enable` is true in the NixOS configuration.
-    * `programs.thunderbird.package` is non-nullable in Home Manager, so package delegation uses defaults.
     * Declares a default `main` profile to support declarative Thunderbird state.
 */
 _: {

@@ -6,7 +6,6 @@
   Repository: https://gitlab.com/Remmina/Remmina
 
   Summary:
-    * Enables Home Manager's `services.remmina` module only when the corresponding NixOS app module is enabled.
     * Keeps Remmina's RDP MIME wiring declarative without inheriting the upstream graphical-session autostart service.
 
   Options:
@@ -18,7 +17,6 @@
   Notes:
     * Home Manager exposes Remmina under `services.remmina`, not `programs.remmina`.
     * Upstream Home Manager defaults to a `graphical-session.target` user service with `Restart=on-failure`; this wrapper disables it.
-    * The upstream Home Manager `package` option is not nullable, so this wrapper omits it and relies on the default package when enabled.
 */
 _: {
   flake.homeManagerModules.apps.remmina =
@@ -29,7 +27,7 @@ _: {
     {
       config = lib.mkIf nixosEnabled {
         services.remmina = {
-          enable = true; # enable hm integration
+          enable = true;
           systemdService.enable = false;
         };
       };

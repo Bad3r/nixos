@@ -27,7 +27,6 @@ _: {
     {
       osConfig,
       lib,
-      pkgs,
       ...
     }:
     let
@@ -37,9 +36,8 @@ _: {
       config = lib.mkIf enabled {
         programs.vscode = {
           enable = true;
-
-          # Use vscode-fhs for better extension compatibility on NixOS
-          package = pkgs.vscode-fhs;
+          package = null;
+          pname = "vscode";
 
           # Stylix will automatically theme the "default" profile
           # Additional configuration can be added here:

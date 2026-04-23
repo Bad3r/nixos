@@ -14,7 +14,6 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.yarn = {
           enable = true;
-          # No package option - HM yarn module only manages config file
         };
       };
     };
