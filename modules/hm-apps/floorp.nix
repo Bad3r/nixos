@@ -32,6 +32,7 @@ _: {
       cfg = config.home.floorp;
       inherit (pkgs.stdenv.hostPlatform) system;
       inherit (inputs.dedupe_nur.legacyPackages.${system}.repos.rycee) firefox-addons;
+      geckoBrowser = import ./_gecko-browser-common.nix { inherit firefox-addons; };
     in
     {
       options.home.floorp = {
@@ -46,23 +47,15 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.floorp = {
           enable = true;
+          inherit (osConfig.programs.floorp.extended) package;
 
           # Core enterprise policies via the wrapped Floorp
           policies = {
             DisableTelemetry = true;
             DisableFirefoxStudies = true;
             DisablePocket = true;
-            ExtensionSettings = {
-              "uBlock0@raymondhill.net" = {
-                installation_mode = "force_installed";
-                install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
-              };
-              "bitwarden@bitwarden.com" = {
-                installation_mode = "force_installed";
-                install_url = "https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi";
-              };
-            };
-          };
+          }
+          // geckoBrowser.extensionPolicies;
 
           # Language packs
           languagePacks = [ "en-US" ];
@@ -237,23 +230,6 @@ _: {
                 };
               };
 
-              # Declarative bookmarks
-              bookmarks = {
-                force = true;
-                settings = [
-                  {
-                    name = "Extensions";
-                    toolbar = true;
-                    bookmarks = [
-                      {
-                        name = "Bitwarden";
-                        url = "https://vault.bitwarden.com/";
-                      }
-                    ];
-                  }
-                ];
-              };
-
               # Multi-Account Container(s)
               containersForce = true; # Floorp modifies this file at runtime; force overwrite
               containers = {
@@ -270,25 +246,9 @@ _: {
                 force = true;
 
                 # Install extensions from NUR
-                packages = with firefox-addons; [
-                  ublock-origin
-                  bitwarden
-                ];
+                packages = geckoBrowser.extensionPackages;
 
-                settings."uBlock0@raymondhill.net".settings = {
-                  selectedFilterLists = [
-                    "ublock-filters"
-                    "ublock-privacy"
-                    "ublock-unbreak"
-                    "ublock-quick-fixes"
-                    # Extra lists to suppress cookie banners/annoyances
-                    "ublock-annoyances"
-                    "adguard-cookies"
-                    "ublock-cookies-adguard"
-                    "fanboy-cookiemonster"
-                    "ublock-cookies-easylist"
-                  ];
-                };
+                settings = geckoBrowser.extensionStorage;
               };
             };
           };
