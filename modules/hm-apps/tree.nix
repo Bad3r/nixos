@@ -24,21 +24,16 @@
 {
   flake.homeManagerModules.apps.tree =
     {
-      config,
       lib,
-      pkgs,
+      osConfig,
       ...
     }:
     let
-      cfg = config.programs.tree.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "nix-tree" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.tree.extended = {
-        enable = lib.mkEnableOption "Command to produce a depth indented directory listing.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.tree ];
+      config = lib.mkIf nixosEnabled {
+        home.packages = [ osConfig.programs.nix-tree.extended.package ];
       };
     };
 }

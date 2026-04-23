@@ -5,10 +5,6 @@
   Documentation: https://github.com/jesseduffield/lazydocker/blob/master/README.md
   Repository: https://github.com/jesseduffield/lazydocker
 
-  Summary:
-    * Enables Home Manager configuration management for lazydocker.
-    * Delegates package installation to the NixOS module (package = null).
-
   Notes:
     * Theme uses ANSI color names which Stylix remaps to base16 values via the terminal palette.
     * Upstream defaults to macOS `open` command; overridden to `xdg-open` for NixOS.

@@ -6,7 +6,6 @@
   Repository: https://github.com/ungoogled-software/ungoogled-chromium
 
   Summary:
-    * Mirrors the NixOS ungoogled-chromium app module into Home Manager.
     * Reuses the wrapped package so the default Chromium Web Store extension is available in HM-managed profiles too.
 */
 

@@ -24,21 +24,16 @@
 {
   flake.homeManagerModules.apps.bitwarden-desktop =
     {
-      config,
       lib,
-      pkgs,
+      osConfig,
       ...
     }:
     let
-      cfg = config.programs.bitwarden-desktop.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "bitwarden-desktop" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.bitwarden-desktop.extended = {
-        enable = lib.mkEnableOption "Secure and free password manager for all of your devices.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.bitwarden-desktop ];
+      config = lib.mkIf nixosEnabled {
+        home.packages = [ osConfig.programs.bitwarden-desktop.extended.package ];
       };
     };
 }

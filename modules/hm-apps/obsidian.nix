@@ -14,7 +14,6 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.obsidian = {
           enable = true;
-          # Package installed by NixOS module (not overridable here)
         };
 
         # Workaround for upstream home-manager bug: the obsidian activation script

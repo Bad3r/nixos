@@ -24,21 +24,16 @@
 {
   flake.homeManagerModules.apps.libreoffice =
     {
-      config,
       lib,
-      pkgs,
+      osConfig,
       ...
     }:
     let
-      cfg = config.programs.libreoffice.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "libreoffice" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.libreoffice.extended = {
-        enable = lib.mkEnableOption "Comprehensive, professional-quality productivity suite, a variant of openoffice.org.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.libreoffice ];
+      config = lib.mkIf nixosEnabled {
+        home.packages = [ osConfig.programs.libreoffice.extended.package ];
       };
     };
 }

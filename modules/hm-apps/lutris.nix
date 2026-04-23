@@ -14,7 +14,6 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.lutris = {
           enable = true;
-          # Package installed by NixOS module (not overridable here)
         };
       };
     };

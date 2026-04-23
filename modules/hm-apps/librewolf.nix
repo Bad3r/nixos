@@ -19,12 +19,7 @@
 
 _: {
   flake.homeManagerModules.apps.librewolf =
-    {
-      osConfig,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
     in
@@ -32,7 +27,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.librewolf = {
           enable = true;
-          package = pkgs.librewolf-bin-unwrapped;
+          package = null;
         };
       };
     };

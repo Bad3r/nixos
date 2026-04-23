@@ -36,7 +36,6 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.mpv = {
           enable = true;
-          package = pkgs.mpv;
           config = {
             osc = "yes"; # On Screen Controller
             pause = "no"; # Start the player in paused state

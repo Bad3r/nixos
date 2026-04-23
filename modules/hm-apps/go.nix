@@ -14,7 +14,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.go = {
           enable = true;
-          package = null; # Package installed by NixOS module
+          package = null;
         };
       };
     };

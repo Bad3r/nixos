@@ -27,7 +27,6 @@ _: {
       osConfig,
       config,
       lib,
-      pkgs,
       metaOwner,
       ...
     }:
@@ -63,7 +62,6 @@ _: {
 
         services.flameshot = {
           enable = true;
-          package = pkgs.flameshot;
           settings = {
             General = {
               copyOnDoubleClick = true;

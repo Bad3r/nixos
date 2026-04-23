@@ -24,21 +24,16 @@
 {
   flake.homeManagerModules.apps.file-roller =
     {
-      config,
       lib,
-      pkgs,
+      osConfig,
       ...
     }:
     let
-      cfg = config.programs.file-roller.extended;
+      nixosEnabled = lib.attrByPath [ "programs" "gnome-file-roller" "extended" "enable" ] false osConfig;
     in
     {
-      options.programs.file-roller.extended = {
-        enable = lib.mkEnableOption "Archive manager for the GNOME desktop environment.";
-      };
-
-      config = lib.mkIf cfg.enable {
-        home.packages = [ pkgs.file-roller ];
+      config = lib.mkIf nixosEnabled {
+        home.packages = [ osConfig.programs.gnome-file-roller.extended.package ];
       };
     };
 }

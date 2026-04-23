@@ -14,9 +14,6 @@
     -r: Output raw strings instead of quoted JSON strings.
     -s: Slurp all inputs into an array before processing.
     -f <file>: Load filters from a file rather than command line.
-
-  Notes:
-    * Package installation handled by NixOS module at modules/apps/jq.nix.
 */
 _: {
   flake.homeManagerModules.apps.jq =
