@@ -36,6 +36,7 @@ let
     "lazygit"
     "less"
     # "libreoffice"
+    "librewolf"
     "lutris"
     "mpv"
     "ncdu"
