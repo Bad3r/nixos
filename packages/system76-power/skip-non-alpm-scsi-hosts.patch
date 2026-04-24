@@ -1,16 +1,25 @@
-Skip SCSI hosts that do not expose link_power_management_policy.
+Tolerate SCSI hosts that cannot accept ALPM policy writes.
 
-USB-attached SCSI, virtio-scsi, software RAID, and some card readers
-show up under /sys/class/scsi_host/ but have no ALPM attribute. Writing
-to it fails with ENOENT, which aborts profile application. The daemon
-continues to report the previous profile even though CPU/pstate
-settings were applied.
+Two real-world cases break profile application because `?` propagates
+the first sysfs write error and aborts the loop:
+
+  * USB-attached SCSI, virtio-scsi, software RAID, and card readers
+    appear under /sys/class/scsi_host/ but expose no ALPM attribute,
+    so the write returns ENOENT.
+  * AHCI ports whose BIOS keeps ALPM under firmware control read
+    "keep_firmware_settings" and reject writes with EOPNOTSUPP (errno
+    95); e.g. the Clevo P95xEx / System76 oryp4.
+
+Both are "this host cannot be configured via ALPM, skip it" cases. The
+rest of the profile (CPU governor, pstate, PCI runtime-PM) already
+applies even when this step fails, but the daemon keeps reporting the
+previous profile and the CLI exits non-zero.
 
 Upstream: https://github.com/pop-os/system76-power/issues/377
 
 --- a/src/daemon/profiles.rs
 +++ b/src/daemon/profiles.rs
-@@ -205,9 +205,19 @@ fn scsi_host_link_time_pm_policy(policies: &'static [&'static str]) -> Result<()
+@@ -205,9 +205,30 @@ fn scsi_host_link_time_pm_policy(policies: &'static [&'static str]) -> Result<()
      for device in ScsiHost::iter() {
          match device {
              Ok(device) => {
@@ -23,11 +32,22 @@ Upstream: https://github.com/pop-os/system76-power/issues/377
 +                    continue;
 +                }
 +                if let Err(why) = device.set_link_power_management_policy(policies) {
-+                    // Attribute may disappear mid-loop on hot-remove; tolerate ENOENT.
-+                    if why.kind() != io::ErrorKind::NotFound {
-+                        return Err(ScsiHostError::LinkTimePolicy(
-+                            policies[0], device.id().to_owned(), why,
-+                        ));
++                    // Tolerate hosts that cannot accept policy changes: ENOENT
++                    // on hot-remove races, and EOPNOTSUPP on firmware-locked
++                    // AHCI ports (link_power_management_policy reads
++                    // "keep_firmware_settings").
++                    match why.kind() {
++                        io::ErrorKind::NotFound | io::ErrorKind::Unsupported => {
++                            log::debug!(
++                                "skipping SCSI host {}: ALPM unwritable ({})",
++                                device.id(), why
++                            );
++                        }
++                        _ => {
++                            return Err(ScsiHostError::LinkTimePolicy(
++                                policies[0], device.id().to_owned(), why,
++                            ));
++                        }
 +                    }
 +                }
              }
