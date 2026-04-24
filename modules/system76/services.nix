@@ -95,22 +95,26 @@ _: {
         resumeCommands = ''
           # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
           ${pkgs.systemd}/bin/loginctl lock-sessions
+          # Reassert performance profile; kernel-reset sysfs values (ALPM,
+          # PCIe runtime PM) do not survive suspend on all hardware.
+          ${pkgs.system76-power}/bin/system76-power profile performance || true
         '';
       };
 
-      # Set system76-power profile to performance on boot
-      # Note: system76-power may report non-critical errors (e.g., SATA link PM not supported)
-      # but still successfully set the profile
+      # Set system76-power profile to performance on boot. The daemon is
+      # provided by system76-power.service (D-Bus name com.system76.PowerDaemon);
+      # wait for dbus.service so D-Bus activation succeeds.
       systemd.services.system76-power-profile = {
         description = "Set System76 power profile to performance";
         wantedBy = [ "multi-user.target" ];
-        after = [ "com.system76.PowerDaemon.service" ];
+        after = [
+          "system76-power.service"
+          "dbus.service"
+        ];
+        wants = [ "system76-power.service" ];
         serviceConfig = {
           Type = "oneshot";
           ExecStart = "${pkgs.system76-power}/bin/system76-power profile performance";
-          RemainAfterExit = true;
-          # Allow exit code 1 (non-critical errors like unsupported SATA link PM)
-          SuccessExitStatus = [ 1 ];
         };
       };
 

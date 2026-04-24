@@ -1,0 +1,35 @@
+Skip SCSI hosts that do not expose link_power_management_policy.
+
+USB-attached SCSI, virtio-scsi, software RAID, and some card readers
+show up under /sys/class/scsi_host/ but have no ALPM attribute. Writing
+to it fails with ENOENT, which aborts profile application. The daemon
+continues to report the previous profile even though CPU/pstate
+settings were applied.
+
+Upstream: https://github.com/pop-os/system76-power/issues/377
+
+--- a/src/daemon/profiles.rs
++++ b/src/daemon/profiles.rs
+@@ -205,9 +205,19 @@ fn scsi_host_link_time_pm_policy(policies: &'static [&'static str]) -> Result<()
+     for device in ScsiHost::iter() {
+         match device {
+             Ok(device) => {
+-                device.set_link_power_management_policy(policies).map_err(|why| {
+-                    ScsiHostError::LinkTimePolicy(policies[0], device.id().to_owned(), why)
+-                })?;
++                // Skip hosts without an ALPM attribute (USB-attached SCSI,
++                // virtio-scsi, software RAID, card readers, etc.).
++                if !device.path().join("link_power_management_policy").exists() {
++                    continue;
++                }
++                if let Err(why) = device.set_link_power_management_policy(policies) {
++                    // Attribute may disappear mid-loop on hot-remove; tolerate ENOENT.
++                    if why.kind() != io::ErrorKind::NotFound {
++                        return Err(ScsiHostError::LinkTimePolicy(
++                            policies[0], device.id().to_owned(), why,
++                        ));
++                    }
++                }
+             }
+             Err(why) => {
+                 log::warn!("failed to iterate SCSI Host device: {}", why);
