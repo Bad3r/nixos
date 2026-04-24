@@ -56,6 +56,14 @@ let
     "behind-the-scene * 3p-frame noop"
     "* * 3p-script block"
     "* * 3p-frame block"
+
+    # Trusted sites: allow 3p scripts and frames
+    "github.com * 3p-script noop"
+    "github.com * 3p-frame noop"
+    "github.dev * 3p-script noop"
+    "github.dev * 3p-frame noop"
+    "githubassets.com * 3p-script noop"
+    "githubassets.com * 3p-frame noop"
   ];
   extensionSettings = {
     "${ublockOriginId}" = {
