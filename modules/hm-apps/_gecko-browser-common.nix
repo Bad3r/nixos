@@ -25,7 +25,22 @@ let
   librewolfUblockOriginListData = builtins.fromJSON (
     builtins.readFile ./_librewolf-ubo-default-lists.json
   );
-  librewolfUblockOriginLists = librewolfUblockOriginListData.lists;
+  # Commented out from LibreWolf upstream defaults (filtered below):
+  # - adguard-spyware-url
+  # - ublock-badware
+  # - easylist
+  # - urlhaus-1
+  # - curben-phishing
+  disabledLibrewolfLists = [
+    "adguard-spyware-url"
+    "ublock-badware"
+    "easylist"
+    "urlhaus-1"
+    "curben-phishing"
+  ];
+  librewolfUblockOriginLists = builtins.filter (
+    list: !(builtins.elem list disabledLibrewolfLists)
+  ) librewolfUblockOriginListData.lists;
   # uBO "medium mode": block third-party scripts and frames by default.
   # Users whitelist trusted sites interactively via the uBO popup
   # (per-site 3p-script/3p-frame => noop), so expect site breakage until
@@ -72,17 +87,28 @@ in
 
   extensionStorage."${ublockOriginId}".settings = {
     advancedUserEnabled = true;
+    cloudStorageEnabled = true;
     dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
     selectedFilterLists = librewolfUblockOriginLists ++ [
       # Additional regional lists
       "ara-0"
 
+      # Additional generic ad blocking
+      "adguard-generic"
+
+      # Network / LAN protection
+      "block-lan"
+
       # Additional lists to suppress cookie banners/annoyances
       "ublock-annoyances"
       "adguard-cookies"
       "ublock-cookies-adguard"
-      "fanboy-cookiemonster"
-      "ublock-cookies-easylist"
+      # "fanboy-cookiemonster"
+      # "ublock-cookies-easylist"
+      "fanboy-thirdparty_social"
+      "adguard-other-annoyances"
+      "adguard-popup-overlays"
+      "adguard-widgets"
     ];
   };
 }
