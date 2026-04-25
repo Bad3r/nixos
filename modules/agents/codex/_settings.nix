@@ -41,8 +41,8 @@ let
   # Existing non-default values (kept as-is).
   codexSettingsOverrides = {
     # Core settings
-    model = "gpt-5.4";
-    review_model = "gpt-5.4";
+    model = "gpt-5.5";
+    review_model = "gpt-5.5";
     profile = "default";
     commit_attribution = "";
     approval_policy = "on-request";
@@ -194,7 +194,7 @@ let
     # Profiles
     profiles = {
       default = {
-        model = "gpt-5.4";
+        model = "gpt-5.5";
         approval_policy = "on-request";
         # model_supports_reasoning_summaries = true; # Avoid sending reasoning.summary.
         model_reasoning_effort = "xhigh";
