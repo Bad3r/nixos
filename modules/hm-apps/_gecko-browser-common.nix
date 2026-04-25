@@ -42,28 +42,89 @@ let
     list: !(builtins.elem list disabledLibrewolfLists)
   ) librewolfUblockOriginListData.lists;
   # uBO "medium mode": block third-party scripts and frames by default.
-  # Users whitelist trusted sites interactively via the uBO popup
-  # (per-site 3p-script/3p-frame => noop), so expect site breakage until
-  # a site is explicitly allowed. See
+  # Commonly-used sites are pre-whitelisted below; other sites need
+  # interactive whitelisting via the uBO popup (per-site
+  # 3p-script/3p-frame => noop). See
   # https://github.com/gorhill/uBlock/wiki/Blocking-mode:-medium-mode.
   ublockOriginMediumModeRules = [
     "behind-the-scene * * noop"
-    "behind-the-scene * image noop"
-    "behind-the-scene * 3p noop"
-    "behind-the-scene * inline-script noop"
-    "behind-the-scene * 1p-script noop"
-    "behind-the-scene * 3p-script noop"
-    "behind-the-scene * 3p-frame noop"
     "* * 3p-script block"
     "* * 3p-frame block"
 
     # Trusted sites: allow 3p scripts and frames
+    # Source-host match covers all subdomains
+
+    # Dev hosting & code collaboration
     "github.com * 3p-script noop"
     "github.com * 3p-frame noop"
     "github.dev * 3p-script noop"
     "github.dev * 3p-frame noop"
-    "githubassets.com * 3p-script noop"
-    "githubassets.com * 3p-frame noop"
+    "gitlab.com * 3p-script noop"
+    "gitlab.com * 3p-frame noop"
+    "bitbucket.org * 3p-script noop"
+    "bitbucket.org * 3p-frame noop"
+    "codeberg.org * 3p-script noop"
+    "codeberg.org * 3p-frame noop"
+
+    # Package registries & developer docs
+    "hub.docker.com * 3p-script noop"
+    "hub.docker.com * 3p-frame noop"
+    "developer.mozilla.org * 3p-script noop"
+    "developer.mozilla.org * 3p-frame noop"
+    "developers.google.com * 3p-script noop"
+    "developers.google.com * 3p-frame noop"
+    "nixos.org * 3p-script noop"
+    "nixos.org * 3p-frame noop"
+    "formulae.brew.sh * 3p-script noop"
+    "formulae.brew.sh * 3p-frame noop"
+
+    # Q&A and knowledge
+    "stackoverflow.com * 3p-script noop"
+    "stackoverflow.com * 3p-frame noop"
+    "stackexchange.com * 3p-script noop"
+    "stackexchange.com * 3p-frame noop"
+    "superuser.com * 3p-script noop"
+    "superuser.com * 3p-frame noop"
+    "askubuntu.com * 3p-script noop"
+    "askubuntu.com * 3p-frame noop"
+    "serverfault.com * 3p-script noop"
+    "serverfault.com * 3p-frame noop"
+
+    # Google productivity
+    "docs.google.com * 3p-script noop"
+    "docs.google.com * 3p-frame noop"
+    "drive.google.com * 3p-script noop"
+    "drive.google.com * 3p-frame noop"
+    "mail.google.com * 3p-script noop"
+    "mail.google.com * 3p-frame noop"
+    "accounts.google.com * 3p-script noop"
+    "accounts.google.com * 3p-frame noop"
+
+    # Microsoft 365
+    "teams.cloud.microsoft * 3p-script noop"
+    "teams.cloud.microsoft * 3p-frame noop"
+
+    # Cloud consoles
+    "cloud.google.com * 3p-script noop"
+    "cloud.google.com * 3p-frame noop"
+
+    # AI tools
+    "chatgpt.com * 3p-script noop"
+    "chatgpt.com * 3p-frame noop"
+    "auth.openai.com * 3p-script noop"
+    "auth.openai.com * 3p-frame noop"
+    "claude.ai * 3p-script noop"
+    "claude.ai * 3p-frame noop"
+    "gemini.google.com * 3p-script noop"
+    "gemini.google.com * 3p-frame noop"
+
+    # Proton web properties
+    "proton.me * 3p-script noop"
+    "proton.me * 3p-frame noop"
+
+    # Mozilla / extensions
+    "addons.mozilla.org * 3p-script noop"
+    "addons.mozilla.org * 3p-frame noop"
   ];
   extensionSettings = {
     "${ublockOriginId}" = {
@@ -96,6 +157,11 @@ in
   extensionStorage."${ublockOriginId}".settings = {
     advancedUserEnabled = true;
     cloudStorageEnabled = true;
+    showIconBadge = false;
+    hostnameSwitchesString = builtins.concatStringsSep "\n" [
+      "no-csp-reports: * true"
+      "no-large-media: behind-the-scene false"
+    ];
     dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
     selectedFilterLists = librewolfUblockOriginLists ++ [
       # Additional regional lists

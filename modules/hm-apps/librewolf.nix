@@ -36,6 +36,15 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.librewolf = {
           enable = true;
+          # LibreWolf builds use the XDG-compliant profile root
+          # ~/.config/librewolf/librewolf regardless of MOZ_LEGACY_PROFILES,
+          # but Home Manager's LibreWolf module still defaults to ~/.librewolf.
+          # Point HM at the path LibreWolf actually reads so declarative
+          # profile seeding reaches the running browser.
+          # Keep prefs under profiles.*.settings: HM still writes top-level
+          # settings to ~/.librewolf/librewolf.overrides.cfg regardless of
+          # configPath.
+          configPath = ".config/librewolf/librewolf";
           inherit (osConfig.programs.librewolf.extended) package;
 
           # Core enterprise policies via the wrapped LibreWolf. DisableTelemetry
