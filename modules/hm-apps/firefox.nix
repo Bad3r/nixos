@@ -28,6 +28,12 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.firefox = {
           enable = true;
+          # nixpkgs wraps Firefox with MOZ_LEGACY_PROFILES=1, which forces
+          # reads from ~/.mozilla/firefox. Home Manager stateVersion 26.05
+          # switched this default to $XDG_CONFIG_HOME/mozilla/firefox, which
+          # Firefox ignores. Pin to the legacy path so HM writes where
+          # Firefox reads.
+          configPath = ".mozilla/firefox";
           inherit (osConfig.programs.firefox.extended) package;
 
           # Core enterprise policies via the wrapped Firefox
