@@ -20,16 +20,12 @@ let
     else
       null;
 
-  sopsRuntimeReady = false;
+  inherit (config.flake.lib.nixos.hosts.tpnix) sopsRuntimeReady;
 
   duplicatiModuleExists =
     sopsRuntimeReady && lib.hasAttrByPath [ "flake" "nixosModules" "duplicati-r2" ] config;
   mirrorRootModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "mirror-root" ] config;
   lenovoMonitorExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-lenovo-y27q-20" ] config;
-  r2NixosModuleExists =
-    sopsRuntimeReady && lib.hasAttrByPath [ "r2-flake" "nixosModules" "default" ] inputs;
-  r2HomeModuleExists =
-    sopsRuntimeReady && lib.hasAttrByPath [ "r2-flake" "homeManagerModules" "default" ] inputs;
 in
 {
   configurations.nixos.tpnix.module = {
@@ -42,7 +38,6 @@ in
     ]
     ++ lib.optionals duplicatiModuleExists [ config.flake.nixosModules."duplicati-r2" ]
     ++ lib.optionals mirrorRootModuleExists [ config.flake.nixosModules.mirror-root ]
-    ++ lib.optionals r2NixosModuleExists [ inputs."r2-flake".nixosModules.default ]
     ++ lib.optionals lenovoMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ]
     ++ [
       (
@@ -92,17 +87,14 @@ in
       };
     };
 
-    home-manager.sharedModules = lib.mkAfter (
-      [
-        {
-          services.espanso = {
-            waylandSupport = lib.mkForce false;
-            x11Support = lib.mkForce true;
-          };
-        }
-      ]
-      ++ lib.optionals r2HomeModuleExists [ inputs."r2-flake".homeManagerModules.default ]
-    );
+    home-manager.sharedModules = lib.mkAfter [
+      {
+        services.espanso = {
+          waylandSupport = lib.mkForce false;
+          x11Support = lib.mkForce true;
+        };
+      }
+    ];
   };
 
   flake = lib.mkIf (lib.hasAttrByPath [ "configurations" "nixos" "tpnix" "module" ] config) {

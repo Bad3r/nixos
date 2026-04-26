@@ -28,7 +28,6 @@ let
     "homeManagerModules"
     "repoGpg"
   ] inputs;
-  r2FlakeEnabled = false;
 in
 {
   configurations.nixos.system76.module = {
@@ -52,11 +51,6 @@ in
     ]
     # Optional modules (graceful degradation)
     ++ lib.optionals system76SupportExists [ config.flake.nixosModules.system76-support ]
-    ++
-      lib.optionals (r2FlakeEnabled && lib.hasAttrByPath [ "r2-flake" "nixosModules" "default" ] inputs)
-        [
-          inputs.r2-flake.nixosModules.default
-        ]
     ++ lib.optionals lenovyMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ];
 
     # Pass shared module args to all imported modules
@@ -106,12 +100,7 @@ in
     };
 
     home-manager.sharedModules = lib.mkAfter (
-      lib.optionals
-        (r2FlakeEnabled && lib.hasAttrByPath [ "r2-flake" "homeManagerModules" "default" ] inputs)
-        [
-          inputs.r2-flake.homeManagerModules.default
-        ]
-      ++ lib.optionals repoGpgModuleExists [
+      lib.optionals repoGpgModuleExists [
         (lib.getAttrFromPath [ "self" "homeManagerModules" "repoGpg" ] inputs)
       ]
     );
