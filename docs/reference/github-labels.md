@@ -20,6 +20,7 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 | Label                     | Description                                                                                              |
 | ------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `type(bug)`               | Use for a broken behavior or regression that needs fixing; not for questions or planned changes.         |
+| `type(fix)`               | Use for a corrective change that resolves broken behavior, configuration, or wiring; mirrors `fix(...)`. |
 | `type(enhancement)`       | Use for net-new capability or an intentional improvement; not for refactors or routine bumps.            |
 | `type(question)`          | Use when the issue is asking for clarification or design input; not for confirmed implementation work.   |
 | `type(docs)`              | Use for documentation-only work or missing documentation; not for code changes that merely include docs. |
