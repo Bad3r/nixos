@@ -11,7 +11,8 @@ _: {
             ########################################
             # NixOS / Flakes outputs
             ########################################
-            flake.lock # not worth the headache
+            # not worth the headache
+            flake.lock
             # Common Nix build symlinks
             /result
             /result-*
