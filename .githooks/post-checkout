@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Managed by Nix. Edit modules/development/git-hooks-post-checkout.nix
+# then run `nix develop -c write-files` to refresh.
+#
+# post-checkout args: $1=prev_head $2=new_head $3=flag (1=branch, 0=file)
+# Fires on `git checkout <branch>` and on `git worktree add`.
+[ "${3:-0}" = "1" ] || exit 0
+
+if ! git submodule update --init --recursive --quiet; then
+  printf 'post-checkout: submodule update failed (continuing)\n' >&2
+fi
+exit 0
