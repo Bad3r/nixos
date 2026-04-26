@@ -1,8 +1,13 @@
-{ lib, secretsRoot, ... }:
+{
+  config,
+  lib,
+  secretsRoot,
+  ...
+}:
 let
   manifestFile = "${secretsRoot}/duplicati-config.json";
   credentialsFile = "${secretsRoot}/duplicati-r2.yaml";
-  sopsRuntimeReady = false;
+  inherit (config.flake.lib.nixos.hosts.tpnix) sopsRuntimeReady;
   duplicatiSecretsReady =
     sopsRuntimeReady && (builtins.pathExists manifestFile) && (builtins.pathExists credentialsFile);
 in
