@@ -29,7 +29,7 @@
       brightnessctl.extended.enable = lib.mkOverride 1100 true;
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 false;
-      "brave-origin".extended.enable = lib.mkOverride 1100 false;
+      "brave-origin".extended.enable = lib.mkOverride 1100 true;
       bun.extended.enable = lib.mkOverride 1100 true;
       bubblewrap.extended.enable = lib.mkOverride 1100 true;
       burpsuite.extended.enable = lib.mkOverride 1100 true;

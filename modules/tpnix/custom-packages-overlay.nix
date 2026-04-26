@@ -3,6 +3,7 @@ _: {
     nixpkgs.overlays = [
       (final: prev: {
         # Add custom packages to nixpkgs
+        brave-origin = final.callPackage ../../packages/brave-origin { };
         raindrop = final.callPackage ../../packages/raindrop { };
         electron-mail = final.callPackage ../../packages/electron-mail { };
         wappalyzer-next = final.callPackage ../../packages/wappalyzer-next { };
