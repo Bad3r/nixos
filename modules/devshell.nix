@@ -137,6 +137,9 @@
           if [ -n "''${repo_root}" ] && [ -x "''${repo_root}/scripts/hooks/sync-pre-commit-hooks.sh" ]; then
             "''${repo_root}/scripts/hooks/sync-pre-commit-hooks.sh"
           fi
+          if [ -n "''${repo_root}" ] && [ -x "''${repo_root}/scripts/hooks/install-git-hooks.sh" ]; then
+            "''${repo_root}/scripts/hooks/install-git-hooks.sh"
+          fi
         '';
       };
 
