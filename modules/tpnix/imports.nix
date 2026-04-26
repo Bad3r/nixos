@@ -20,7 +20,7 @@ let
     else
       null;
 
-  sopsRuntimeReady = false;
+  inherit (config.flake.lib.nixos.hosts.tpnix) sopsRuntimeReady;
 
   duplicatiModuleExists =
     sopsRuntimeReady && lib.hasAttrByPath [ "flake" "nixosModules" "duplicati-r2" ] config;
