@@ -28,6 +28,12 @@ main() {
   for src in .githooks/*; do
     [[ -f ${src} ]] || continue
     name="$(basename "${src}")"
+    case "${name}" in
+    pre-commit | pre-push)
+      error_msg "refusing to overwrite pre-commit-managed hook: ${name} (owned by scripts/hooks/sync-pre-commit-hooks.sh)"
+      exit 1
+      ;;
+    esac
     dest="${hooks_dir}/${name}"
     install -m 0755 "${src}" "${dest}"
   done
