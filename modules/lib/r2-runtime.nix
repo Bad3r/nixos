@@ -46,7 +46,7 @@
           ];
         })
 
-        (lib.optionalAttrs runtimeEnabled {
+        (lib.mkIf runtimeEnabled {
           # Allow non-root mounts to use `--allow-other`.
           programs.fuse.userAllowOther = true;
 
@@ -152,7 +152,7 @@
           };
         })
 
-        (lib.optionalAttrs (!runtimeEnabled) {
+        (lib.mkIf (!runtimeEnabled) {
           warnings = [ (policy.disabledReason or "R2 runtime disabled.") ];
         })
       ];
