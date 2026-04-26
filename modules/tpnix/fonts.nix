@@ -1,11 +1,12 @@
 {
+  config,
   lib,
   secretsRoot,
   ...
 }:
 let
   fontArchive = "${secretsRoot}/fonts/monolisa.tar.zst";
-  sopsRuntimeReady = false;
+  inherit (config.flake.lib.nixos.hosts.tpnix) sopsRuntimeReady;
   secretExists = builtins.pathExists fontArchive;
   secretName = "fonts/monolisa.archive";
   secretRuntimePath = "/run/secrets/fonts/monolisa.archive";
