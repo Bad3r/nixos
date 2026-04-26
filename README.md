@@ -57,6 +57,7 @@ Inputs prefixed with `dedupe_` exist solely for deduplication via `.follows` dec
 The following files are defined in Nix and generated via [mightyiam/files](https://github.com/mightyiam/files) using `nix develop -c write-files`:
 
 - `.actrc`
+- `.githooks/post-checkout`
 - `.gitignore`
 - `.gitleaks.toml`
 - `.sops.yaml`
