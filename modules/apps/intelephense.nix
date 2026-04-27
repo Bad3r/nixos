@@ -7,7 +7,7 @@
 
   Summary:
     * Provides completions, diagnostics, go-to-definition, and find-references for PHP projects.
-    * Free community tier; the binary is `intelephense`.
+    * Licensed under a proprietary unfree license; the binary is `intelephense`.
 
   Example Usage:
     * `intelephense --stdio` -- Start the language server in stdio mode (normally launched by the editor).
@@ -41,5 +41,6 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "intelephense" ];
   flake.nixosModules.apps.intelephense = IntelephenseModule;
 }
