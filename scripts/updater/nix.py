@@ -121,12 +121,19 @@ def nix_build(
     return nix_command(args, check=check)
 
 
-def nix_store_prefetch_file(url: str, hash_type: str = "sha256") -> str:
+def nix_store_prefetch_file(
+    url: str,
+    hash_type: str = "sha256",
+    *,
+    unpack: bool = False,
+) -> str:
     """Prefetch a file using nix store and return its hash.
 
     Args:
         url: URL to prefetch
         hash_type: Hash algorithm to use
+        unpack: Whether to unpack the archive before hashing (use True for
+            fetchzip / fetchFromGitHub-style sources)
 
     Returns:
         Hash in SRI format
@@ -138,8 +145,10 @@ def nix_store_prefetch_file(url: str, hash_type: str = "sha256") -> str:
         "--hash-type",
         hash_type,
         "--json",
-        url,
     ]
+    if unpack:
+        args.append("--unpack")
+    args.append(url)
     result = nix_command(args)
     data = json.loads(result.stdout)
     return cast("str", data["hash"])

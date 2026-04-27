@@ -22,11 +22,13 @@ def calculate_dependency_hash(
     """Calculate dependency hash by building with dummy hash and extracting from error.
 
     This function:
-    1. Saves the current hash value
+    1. Snapshots the on-disk hashes file
     2. Writes a dummy hash to hashes.json
     3. Triggers a nix build (which will fail)
     4. Extracts the correct hash from the build error
-    5. Restores original hash on failure
+    5. On failure, restores the original file content wholesale so callers
+       never observe a half-updated hashes.json (e.g. with a new srcRev but
+       a stale dependency hash).
 
     Args:
         package_attr: Nix package attribute (e.g., ".#codex", ".#claude-code")
@@ -42,7 +44,9 @@ def calculate_dependency_hash(
 
     """
     print(f"Calculating {hash_key}...")
-    original_hash = data[hash_key]
+    original_content = (
+        hashes_file.read_text() if hashes_file.exists() else None
+    )
 
     # Write dummy hash
     data[hash_key] = DUMMY_SHA256_HASH
@@ -55,9 +59,10 @@ def calculate_dependency_hash(
     except NixCommandError as e:
         dep_hash = extract_hash_from_build_error(e.args[0])
         if not dep_hash:
-            # Restore original hash
-            data[hash_key] = original_hash
-            save_hashes(hashes_file, data)
+            # Restore the entire original file so we never leave a partially
+            # updated hashes.json behind on extraction failure.
+            if original_content is not None:
+                hashes_file.write_text(original_content)
             msg = f"Could not extract hash from build error:\n{e.args[0]}"
             raise ValueError(msg) from e
         return dep_hash
