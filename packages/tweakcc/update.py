@@ -15,7 +15,7 @@ from typing import Any, cast
 
 
 def _flake_root(start: Path) -> Path:
-    """Walk up from ``start`` until a directory containing ``flake.nix`` is found."""
+    """Walk up from directory ``start`` until ``flake.nix`` is found."""
     for parent in [start, *start.parents]:
         if (parent / "flake.nix").is_file():
             return parent
@@ -23,7 +23,7 @@ def _flake_root(start: Path) -> Path:
     raise RuntimeError(msg)
 
 
-FLAKE_ROOT = _flake_root(Path(__file__).resolve())
+FLAKE_ROOT = _flake_root(Path(__file__).resolve().parent)
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
 from updater import (  # noqa: E402
