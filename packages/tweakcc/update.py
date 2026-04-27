@@ -9,20 +9,30 @@ yet been released. The pin is therefore a commit SHA plus the commit
 date encoded as ``unstable-YYYY-MM-DD``.
 """
 
-import json
 import sys
 from pathlib import Path
 from typing import Any, cast
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 
-from updater import (
+def _flake_root(start: Path) -> Path:
+    """Walk up from ``start`` until a directory containing ``flake.nix`` is found."""
+    for parent in [start, *start.parents]:
+        if (parent / "flake.nix").is_file():
+            return parent
+    msg = f"Could not find flake.nix above {start}"
+    raise RuntimeError(msg)
+
+
+FLAKE_ROOT = _flake_root(Path(__file__).resolve())
+sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
+
+from updater import (  # noqa: E402
     calculate_dependency_hash,
+    calculate_url_hash,
     fetch_json,
     load_hashes,
     save_hashes,
 )
-from updater.nix import nix_command
 
 REPO = "Piebald-AI/tweakcc"
 BRANCH = "main"
@@ -33,15 +43,6 @@ def latest_main_commit() -> dict[str, Any]:
     """Fetch the latest commit on ``main`` from the GitHub API."""
     url = f"https://api.github.com/repos/{REPO}/commits/{BRANCH}"
     return cast("dict[str, Any]", fetch_json(url))
-
-
-def prefetch_github(rev: str) -> str:
-    """Prefetch a fetchFromGitHub-compatible tarball and return its SRI hash."""
-    url = f"https://github.com/{REPO}/archive/{rev}.tar.gz"
-    result = nix_command(
-        ["store", "prefetch-file", "--unpack", "--hash-type", "sha256", "--json", url],
-    )
-    return cast("str", json.loads(result.stdout)["hash"])
 
 
 def main() -> None:
@@ -59,7 +60,10 @@ def main() -> None:
         return
 
     print("Calculating source hash...")
-    src_hash = prefetch_github(sha)
+    src_hash = calculate_url_hash(
+        f"https://github.com/{REPO}/archive/{sha}.tar.gz",
+        unpack=True,
+    )
 
     new_data: dict[str, Any] = {
         "version": f"unstable-{date}",
