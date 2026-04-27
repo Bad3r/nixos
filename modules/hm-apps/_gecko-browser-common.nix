@@ -103,6 +103,12 @@ let
     # Microsoft 365
     "teams.cloud.microsoft * 3p-script noop"
     "teams.cloud.microsoft * 3p-frame noop"
+    "login.microsoftonline.com * 3p-script noop"
+    "login.microsoftonline.com * 3p-frame noop"
+    "login.live.com * 3p-script noop"
+    "login.live.com * 3p-frame noop"
+    "login.microsoft.com * 3p-script noop"
+    "login.microsoft.com * 3p-frame noop"
 
     # Cloud consoles
     "cloud.google.com * 3p-script noop"
