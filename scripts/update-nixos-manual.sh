@@ -88,7 +88,9 @@ BACKUP_MANUAL="$TMP_PARENT/nixos-manual.previous"
 
 echo "📋 Staging manual from nixpkgs..."
 cp -R "$MANUAL_SOURCE" "$STAGED_MANUAL"
-chmod -R u+rwX,go+rX "$STAGED_MANUAL"
+# `chmod -R` follows symlinks; scope to regular files and directories so any
+# stray outward-pointing symlink in the source can't redirect the chmod.
+find "$STAGED_MANUAL" \( -type d -o -type f \) -exec chmod u+rwX,go+rX {} +
 
 echo "🔁 Replacing nixos-manual..."
 if [[ -e $MANUAL_DIR ]]; then
