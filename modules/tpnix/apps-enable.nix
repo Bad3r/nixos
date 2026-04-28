@@ -236,7 +236,7 @@
       nodejs_22.extended.enable = lib.mkOverride 1100 false;
       nodejs_24.extended.enable = lib.mkOverride 1100 false;
       "nomachine-client".extended.enable = lib.mkOverride 1100 false;
-      normcap.extended.enable = lib.mkOverride 1100 false;
+      normcap.extended.enable = lib.mkOverride 1100 true; # OCR
       nrm.extended.enable = lib.mkOverride 1100 false;
       nsxiv.extended.enable = lib.mkOverride 1100 true;
       ntfs3g.extended.enable = lib.mkOverride 1100 true;
@@ -272,7 +272,7 @@
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 false;
       procps.extended.enable = lib.mkOverride 1100 false;
       "proton-vpn".extended.enable = lib.mkOverride 1100 true;
-      psmisc.extended.enable = lib.mkOverride 1100 false;
+      psmisc.extended.enable = lib.mkOverride 1100 true; # Provides killall
       pwgen.extended.enable = lib.mkOverride 1100 true;
       pymupdf.extended.enable = lib.mkOverride 1100 true;
       pyright.extended.enable = lib.mkOverride 1100 true;
@@ -334,7 +334,7 @@
       tar.extended.enable = lib.mkOverride 1100 true;
       tcpdump.extended.enable = lib.mkOverride 1100 true;
       tealdeer.extended.enable = lib.mkOverride 1100 true;
-      "teams-for-linux".extended.enable = lib.mkOverride 1100 false;
+      "teams-for-linux".extended.enable = lib.mkOverride 1100 true;
       "telegram-desktop".extended.enable = lib.mkOverride 1100 false;
       "temurin-bin-25".extended.enable = lib.mkOverride 1100 true;
       terraform.extended.enable = lib.mkOverride 1100 false;

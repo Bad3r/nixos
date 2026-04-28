@@ -123,6 +123,8 @@ let
     "claude.ai * 3p-frame noop"
     "gemini.google.com * 3p-script noop"
     "gemini.google.com * 3p-frame noop"
+    "notebooklm.google * 3p-script noop"
+    "notebooklm.google * 3p-frame noop"
 
     # Proton web properties
     "proton.me * 3p-script noop"
