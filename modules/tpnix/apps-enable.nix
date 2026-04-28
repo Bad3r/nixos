@@ -43,6 +43,7 @@
       "cf-terraforming".extended.enable = lib.mkOverride 1100 false;
       charles.extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 false;
+      clangd.extended.enable = lib.mkOverride 1100 false;
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       # To switch to nix: set nix.enable = true and bun.enable = false
@@ -51,11 +52,8 @@
       "claude-plugins".extended.enable = lib.mkOverride 1100 false;
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
       clawdbot.extended.enable = lib.mkOverride 1100 false;
-      clangd.extended.enable = lib.mkOverride 1100 false;
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
       "clojure-lsp".extended.enable = lib.mkOverride 1100 false;
-      "csharp-ls".extended.enable = lib.mkOverride 1100 false;
-      cloudflared.extended.enable = lib.mkOverride 1100 false;
       "cloudflare-go-sdk".extended.enable = lib.mkOverride 1100 false;
       "cloudflare-python-sdk".extended.enable = lib.mkOverride 1100 false;
       "cloudflare-rs-sdk".extended.enable = lib.mkOverride 1100 false;
@@ -67,6 +65,7 @@
       coreutils.extended.enable = lib.mkOverride 1100 true;
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
       cryptsetup.extended.enable = lib.mkOverride 1100 true;
+      "csharp-ls".extended.enable = lib.mkOverride 1100 false;
       curl.extended.enable = lib.mkOverride 1100 true;
       curlie.extended.enable = lib.mkOverride 1100 true;
       cutter.extended.enable = lib.mkOverride 1100 false;
@@ -151,18 +150,16 @@
       httpx.extended.enable = lib.mkOverride 1100 true;
       hydra.extended.enable = lib.mkOverride 1100 true;
       hyperfine.extended.enable = lib.mkOverride 1100 false;
-      intelephense.extended.enable = lib.mkOverride 1100 false;
-      inkscape.extended.enable = lib.mkOverride 1100 false;
       "i3lock-color".extended.enable = lib.mkOverride 1100 true;
       "i3status-rust".extended.enable = lib.mkOverride 1100 true;
       i7z.extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 false;
       inkscape.extended.enable = lib.mkOverride 1100 false;
+      intelephense.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 false;
       iptables.extended.enable = lib.mkOverride 1100 true;
-      "jdt-language-server".extended.enable = lib.mkOverride 1100 false;
-      jnv.extended.enable = lib.mkOverride 1100 false;
       jadx.extended.enable = lib.mkOverride 1100 false;
+      "jdt-language-server".extended.enable = lib.mkOverride 1100 false;
       jnv.extended.enable = lib.mkOverride 1100 false;
       john.extended.enable = lib.mkOverride 1100 true;
       jq.extended.enable = lib.mkOverride 1100 true;
@@ -305,13 +302,13 @@
       selenium.extended.enable = lib.mkOverride 1100 true;
       "signal-desktop".extended.enable = lib.mkOverride 1100 false;
       simplescreenrecorder.extended.enable = lib.mkOverride 1100 true;
-      "sourcekit-lsp".extended.enable = lib.mkOverride 1100 false;
       skim.extended.enable = lib.mkOverride 1100 false;
       slop.extended.enable = lib.mkOverride 1100 true;
       smartmontools.extended.enable = lib.mkOverride 1100 false;
       socat.extended.enable = lib.mkOverride 1100 true;
       sops.extended.enable = lib.mkOverride 1100 true;
       "source-map-explorer".extended.enable = lib.mkOverride 1100 true;
+      "sourcekit-lsp".extended.enable = lib.mkOverride 1100 false;
       sourcemapper.extended.enable = lib.mkOverride 1100 true;
       "spec-kit".extended.enable = lib.mkOverride 1100 false;
       spectacle.extended.enable = lib.mkOverride 1100 false;
@@ -343,10 +340,10 @@
       thunderbird.extended.enable = lib.mkOverride 1100 true;
       tokei.extended.enable = lib.mkOverride 1100 false;
       tor.extended.enable = lib.mkOverride 1100 true;
-      "typescript-language-server".extended.enable = lib.mkOverride 1100 false;
       "tor-browser".extended.enable = lib.mkOverride 1100 true;
       torsocks.extended.enable = lib.mkOverride 1100 true;
       tweakcc.extended.enable = lib.mkOverride 1100 true;
+      "typescript-language-server".extended.enable = lib.mkOverride 1100 false;
       udiskie.extended.enable = lib.mkOverride 1100 false;
       "ungoogled-chromium".extended.enable = lib.mkOverride 1100 true;
       unrar.extended.enable = lib.mkOverride 1100 true;
