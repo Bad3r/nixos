@@ -20,28 +20,37 @@ case "$REPO_ROOT" in
 esac
 
 MANUAL_DIR="$REPO_ROOT/nixos-manual"
+# TMP_PARENT is owned jointly by the success path (which clears it inline and
+# resets it to "") and the EXIT trap (which cleans up early exits). The empty
+# reset is what keeps the trap from double-acting after a successful run.
 TMP_PARENT=""
 STAGED_MANUAL=""
 BACKUP_MANUAL=""
 updated=false
 
 cleanup() {
-  local rc=$?
-
-  if [[ $updated == false && -n $BACKUP_MANUAL && -d $BACKUP_MANUAL && ! -e $MANUAL_DIR ]]; then
-    echo "Restoring previous nixos-manual after failed update..." >&2
-    mv "$BACKUP_MANUAL" "$MANUAL_DIR"
+  if [[ $updated == false && -n $BACKUP_MANUAL && -d $BACKUP_MANUAL ]]; then
+    if [[ ! -e $MANUAL_DIR ]]; then
+      echo "Restoring previous nixos-manual after failed update..." >&2
+      mv "$BACKUP_MANUAL" "$MANUAL_DIR"
+    else
+      echo "Skipped restoring backup: $MANUAL_DIR already exists." >&2
+      echo "Previous manual preserved at $BACKUP_MANUAL; inspect and resolve manually." >&2
+    fi
   fi
 
   if [[ -n $STAGED_MANUAL && -d $STAGED_MANUAL ]]; then
-    rip "$STAGED_MANUAL" >/dev/null 2>&1 || true
+    if ! rip "$STAGED_MANUAL" >/dev/null 2>&1; then
+      echo "Failed to remove staged manual at $STAGED_MANUAL; clean it up manually." >&2
+    fi
   fi
 
   if [[ -n $TMP_PARENT && -d $TMP_PARENT ]]; then
-    rmdir "$TMP_PARENT" 2>/dev/null || true
+    if ! rmdir "$TMP_PARENT" 2>/dev/null; then
+      echo "Leftover entries in $TMP_PARENT; clean it up manually:" >&2
+      ls -A "$TMP_PARENT" >&2 || true
+    fi
   fi
-
-  return "$rc"
 }
 
 trap cleanup EXIT
