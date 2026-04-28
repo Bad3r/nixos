@@ -185,6 +185,7 @@
       "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
       kitty.extended.enable = lib.mkOverride 1100 true;
       "kotlin-language-server".extended.enable = lib.mkOverride 1100 false;
+      krita.extended.enable = lib.mkOverride 1100 false;
       ktailctl.extended.enable = lib.mkOverride 1100 true;
       lazydocker.extended.enable = lib.mkOverride 1100 true;
       lazygit.extended.enable = lib.mkOverride 1100 true;
