@@ -11,7 +11,6 @@ _: {
             ########################################
             # NixOS / Flakes outputs
             ########################################
-            #flake.lock
             # Common Nix build symlinks
             /result
             /result-*
@@ -57,6 +56,8 @@ _: {
             *.swo
             *~
             *.tgz
+            tmp_*
+            *_tmp*
             ########################################
             # Language/vendor caches (safe defaults)
             ########################################
