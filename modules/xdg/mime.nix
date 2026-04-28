@@ -526,18 +526,20 @@ let
       example = "nvim";
       description = ''
         Default text editor for this host.
-        Sets EDITOR and VISUAL environment variables.
+        Sets EDITOR, VISUAL, and GIT_EDITOR environment variables.
       '';
       extraConfig = value: {
         environment.variables = {
           EDITOR = value;
           VISUAL = value;
+          GIT_EDITOR = value;
         };
         home-manager.sharedModules = [
           {
             home.sessionVariables = {
               EDITOR = value;
               VISUAL = value;
+              GIT_EDITOR = value;
             };
           }
         ];
