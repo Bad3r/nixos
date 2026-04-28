@@ -880,18 +880,17 @@ _: {
                   settings = {
                     integrations.diffview = true;
                     graph_style = "unicode";
-                    disable_commit_confirmation = false;
-                    kind = "tab";
                   };
                 };
 
-                # Three-way merge conflict navigator (co/ct/cb/c0, ]x/[x defaults)
+                # Three-way merge conflict navigator. Default mappings rebind
+                # `co`/`ct`/`cb`/`c0` (and `]x`/`[x`) inside conflict buffers,
+                # so vim's `ct{char}` motion is shadowed while markers remain.
                 git-conflict = {
                   enable = true;
                   settings = {
                     default_mappings = true;
                     default_commands = true;
-                    disable_diagnostics = false;
                     list_opener = "copen";
                   };
                 };
