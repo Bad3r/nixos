@@ -479,9 +479,9 @@ _: {
                       "gi" = "implementation";
                       "gr" = "references";
                       "K" = "hover";
-                      "<leader>la" = "code_action";
-                      "<leader>lf" = "format";
-                      "<leader>lr" = "rename";
+                      "<leader>rn" = "rename";
+                      "<leader>ca" = "code_action";
+                      "<leader>f" = "format";
                     };
                   };
                 };
