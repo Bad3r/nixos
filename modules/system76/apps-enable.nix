@@ -58,6 +58,7 @@
       "cf-terraforming".extended.enable = lib.mkOverride 1100 true;
       charles.extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
+      clangd.extended.enable = lib.mkOverride 1100 false;
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 true;
@@ -78,6 +79,7 @@
       coreutils.extended.enable = lib.mkOverride 1100 true;
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
       cryptsetup.extended.enable = lib.mkOverride 1100 true;
+      "csharp-ls".extended.enable = lib.mkOverride 1100 false;
       curl.extended.enable = lib.mkOverride 1100 true;
       curlie.extended.enable = lib.mkOverride 1100 true;
       cutter.extended.enable = lib.mkOverride 1100 false;
@@ -167,9 +169,11 @@
       i7z.extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 false;
       inkscape.extended.enable = lib.mkOverride 1100 false;
+      intelephense.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 true;
       iptables.extended.enable = lib.mkOverride 1100 true;
       jadx.extended.enable = lib.mkOverride 1100 false;
+      "jdt-language-server".extended.enable = lib.mkOverride 1100 false;
       jnv.extended.enable = lib.mkOverride 1100 true;
       john.extended.enable = lib.mkOverride 1100 true;
       jq.extended.enable = lib.mkOverride 1100 true;
@@ -180,6 +184,7 @@
       keepassxc.extended.enable = lib.mkOverride 1100 true;
       "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
       kitty.extended.enable = lib.mkOverride 1100 true;
+      "kotlin-language-server".extended.enable = lib.mkOverride 1100 false;
       krita.extended.enable = lib.mkOverride 1100 false;
       ktailctl.extended.enable = lib.mkOverride 1100 true;
       lazydocker.extended.enable = lib.mkOverride 1100 true;
@@ -199,6 +204,7 @@
       lshw.extended.enable = lib.mkOverride 1100 true;
       lsof.extended.enable = lib.mkOverride 1100 true;
       ltrace.extended.enable = lib.mkOverride 1100 true;
+      "lua-language-server".extended.enable = lib.mkOverride 1100 false;
       lutris.extended.enable = lib.mkOverride 1100 false;
       lxsession.extended.enable = lib.mkOverride 1100 true;
       lynis.extended.enable = lib.mkOverride 1100 true;
@@ -319,6 +325,7 @@
       socat.extended.enable = lib.mkOverride 1100 true;
       sops.extended.enable = lib.mkOverride 1100 true;
       "source-map-explorer".extended.enable = lib.mkOverride 1100 true;
+      "sourcekit-lsp".extended.enable = lib.mkOverride 1100 false;
       sourcemapper.extended.enable = lib.mkOverride 1100 true;
       "spec-kit".extended.enable = lib.mkOverride 1100 true;
       spectacle.extended.enable = lib.mkOverride 1100 false;
@@ -353,6 +360,7 @@
       "tor-browser".extended.enable = lib.mkOverride 1100 true;
       torsocks.extended.enable = lib.mkOverride 1100 true;
       tweakcc.extended.enable = lib.mkOverride 1100 true;
+      "typescript-language-server".extended.enable = lib.mkOverride 1100 false;
       udiskie.extended.enable = lib.mkOverride 1100 true;
       "ungoogled-chromium".extended.enable = lib.mkOverride 1100 true;
       unrar.extended.enable = lib.mkOverride 1100 true;
