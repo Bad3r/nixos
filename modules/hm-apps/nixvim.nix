@@ -136,8 +136,12 @@ _: {
                 -- so swap files become identifiable and recoverable after crashes.
                 -- On first save, the filename is enriched with a slug from the buffer content.
                 local scratch_augroup = vim.api.nvim_create_augroup("nvim_scratch_naming", { clear = true })
-                local scratch_dir = vim.fn.stdpath("data") .. "/scratch"
-                vim.fn.mkdir(scratch_dir, "p")
+                local swap_dir = vim.fn.stdpath("cache") .. "/swap"
+                vim.fn.mkdir(swap_dir, "p")
+
+                -- `//` suffix tells Vim to encode the full file path into the
+                -- swap filename, so files sharing a basename never collide.
+                vim.opt.directory = swap_dir .. "//"
 
                 local function assign_scratch_name(buf)
                   if vim.api.nvim_buf_get_name(buf) ~= "" then return end
@@ -148,7 +152,7 @@ _: {
 
                   local stamp = os.date("%Y-%m-%d-%H%M%S")
                   local rand = string.format("%04x", vim.uv.hrtime() % 0x10000)
-                  local path = string.format("%s/scratch-%s-%s.md", scratch_dir, stamp, rand)
+                  local path = string.format("scratch-%s-%s.md", stamp, rand)
                   vim.api.nvim_buf_set_name(buf, path)
                   vim.b[buf].scratch_named = true
                 end
@@ -167,10 +171,10 @@ _: {
                 vim.api.nvim_create_autocmd("BufWritePost", {
                   group = scratch_augroup,
                   callback = function(args)
-                    local name = vim.api.nvim_buf_get_name(args.buf)
-                    if not name:match("/scratch/scratch%-") then return end
+                    if not vim.b[args.buf].scratch_named then return end
                     if vim.b[args.buf].scratch_slugified then return end
 
+                    local name = vim.api.nvim_buf_get_name(args.buf)
                     local basename = vim.fn.fnamemodify(name, ":t")
                     if not basename:match("^scratch%-%d%d%d%d%-%d%d%-%d%d%-%d%d%d%d%d%d%-%x%x%x%x%.md$") then return end
 
