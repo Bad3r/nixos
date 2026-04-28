@@ -850,6 +850,17 @@ _: {
                   };
                 };
 
+                # Three-way merge conflict navigator (co/ct/cb/c0, ]x/[x defaults)
+                git-conflict = {
+                  enable = true;
+                  settings = {
+                    default_mappings = true;
+                    default_commands = true;
+                    disable_diagnostics = false;
+                    list_opener = "copen";
+                  };
+                };
+
                 # Comment plugin
                 comment = {
                   enable = true;
