@@ -43,6 +43,7 @@
       "cf-terraforming".extended.enable = lib.mkOverride 1100 false;
       charles.extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 false;
+      clangd.extended.enable = lib.mkOverride 1100 false;
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       # To switch to nix: set nix.enable = true and bun.enable = false
@@ -64,6 +65,7 @@
       coreutils.extended.enable = lib.mkOverride 1100 true;
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
       cryptsetup.extended.enable = lib.mkOverride 1100 true;
+      "csharp-ls".extended.enable = lib.mkOverride 1100 false;
       curl.extended.enable = lib.mkOverride 1100 true;
       curlie.extended.enable = lib.mkOverride 1100 true;
       cutter.extended.enable = lib.mkOverride 1100 false;
@@ -153,9 +155,11 @@
       i7z.extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 false;
       inkscape.extended.enable = lib.mkOverride 1100 false;
+      intelephense.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 false;
       iptables.extended.enable = lib.mkOverride 1100 true;
       jadx.extended.enable = lib.mkOverride 1100 false;
+      "jdt-language-server".extended.enable = lib.mkOverride 1100 false;
       jnv.extended.enable = lib.mkOverride 1100 false;
       john.extended.enable = lib.mkOverride 1100 true;
       jq.extended.enable = lib.mkOverride 1100 true;
@@ -166,6 +170,7 @@
       keepassxc.extended.enable = lib.mkOverride 1100 true;
       "kiro-fhs".extended.enable = lib.mkOverride 1100 false;
       kitty.extended.enable = lib.mkOverride 1100 true;
+      "kotlin-language-server".extended.enable = lib.mkOverride 1100 false;
       krita.extended.enable = lib.mkOverride 1100 false;
       ktailctl.extended.enable = lib.mkOverride 1100 true;
       lazydocker.extended.enable = lib.mkOverride 1100 false;
@@ -183,6 +188,7 @@
       lshw.extended.enable = lib.mkOverride 1100 true;
       lsof.extended.enable = lib.mkOverride 1100 true;
       ltrace.extended.enable = lib.mkOverride 1100 true;
+      "lua-language-server".extended.enable = lib.mkOverride 1100 false;
       lutris.extended.enable = lib.mkOverride 1100 false;
       lxsession.extended.enable = lib.mkOverride 1100 false;
       lynis.extended.enable = lib.mkOverride 1100 true;
@@ -228,7 +234,7 @@
       nodejs_22.extended.enable = lib.mkOverride 1100 false;
       nodejs_24.extended.enable = lib.mkOverride 1100 false;
       "nomachine-client".extended.enable = lib.mkOverride 1100 false;
-      normcap.extended.enable = lib.mkOverride 1100 false;
+      normcap.extended.enable = lib.mkOverride 1100 true; # OCR
       nrm.extended.enable = lib.mkOverride 1100 false;
       nsxiv.extended.enable = lib.mkOverride 1100 true;
       ntfs3g.extended.enable = lib.mkOverride 1100 true;
@@ -264,7 +270,7 @@
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 false;
       procps.extended.enable = lib.mkOverride 1100 false;
       "proton-vpn".extended.enable = lib.mkOverride 1100 true;
-      psmisc.extended.enable = lib.mkOverride 1100 false;
+      psmisc.extended.enable = lib.mkOverride 1100 true; # Provides killall
       pwgen.extended.enable = lib.mkOverride 1100 true;
       pymupdf.extended.enable = lib.mkOverride 1100 true;
       pyright.extended.enable = lib.mkOverride 1100 true;
@@ -303,6 +309,7 @@
       socat.extended.enable = lib.mkOverride 1100 true;
       sops.extended.enable = lib.mkOverride 1100 true;
       "source-map-explorer".extended.enable = lib.mkOverride 1100 true;
+      "sourcekit-lsp".extended.enable = lib.mkOverride 1100 false;
       sourcemapper.extended.enable = lib.mkOverride 1100 true;
       "spec-kit".extended.enable = lib.mkOverride 1100 false;
       spectacle.extended.enable = lib.mkOverride 1100 false;
@@ -325,7 +332,7 @@
       tar.extended.enable = lib.mkOverride 1100 true;
       tcpdump.extended.enable = lib.mkOverride 1100 true;
       tealdeer.extended.enable = lib.mkOverride 1100 true;
-      "teams-for-linux".extended.enable = lib.mkOverride 1100 false;
+      "teams-for-linux".extended.enable = lib.mkOverride 1100 true;
       "telegram-desktop".extended.enable = lib.mkOverride 1100 false;
       "temurin-bin-25".extended.enable = lib.mkOverride 1100 true;
       terraform.extended.enable = lib.mkOverride 1100 false;
@@ -337,6 +344,7 @@
       "tor-browser".extended.enable = lib.mkOverride 1100 true;
       torsocks.extended.enable = lib.mkOverride 1100 true;
       tweakcc.extended.enable = lib.mkOverride 1100 true;
+      "typescript-language-server".extended.enable = lib.mkOverride 1100 false;
       udiskie.extended.enable = lib.mkOverride 1100 false;
       "ungoogled-chromium".extended.enable = lib.mkOverride 1100 true;
       unrar.extended.enable = lib.mkOverride 1100 true;

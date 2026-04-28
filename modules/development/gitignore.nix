@@ -11,7 +11,6 @@ _: {
             ########################################
             # NixOS / Flakes outputs
             ########################################
-            #flake.lock
             # Common Nix build symlinks
             /result
             /result-*
@@ -60,6 +59,8 @@ _: {
             # scripts/update-nixos-manual.sh tempdir; only visible after kill -9
             # since the EXIT trap normally removes it.
             /.nixos-manual-update.*
+            tmp_*
+            *_tmp*
             ########################################
             # Language/vendor caches (safe defaults)
             ########################################

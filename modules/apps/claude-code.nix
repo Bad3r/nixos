@@ -20,6 +20,25 @@
     * Configuration managed by Home Manager module (modules/hm-apps/claude-code.nix).
 */
 { inputs, ... }:
+let
+  # Maps each Claude Code LSP plugin key → the NixOS programs.<name> option name.
+  # Used both to declare lspPlugins options and to generate priority-1050 enable
+  # overrides when a plugin is active, beating the catalog's 1100 false without
+  # suppressing a catalog true (we only ever assert true here, never false).
+  lspPluginProgramMap = {
+    "clangd-lsp" = "clangd";
+    "csharp-lsp" = "csharp-ls";
+    "gopls-lsp" = "gopls";
+    "jdtls-lsp" = "jdt-language-server";
+    "kotlin-lsp" = "kotlin-language-server";
+    "lua-lsp" = "lua-language-server";
+    "php-lsp" = "intelephense";
+    "pyright-lsp" = "pyright";
+    "rust-analyzer-lsp" = "rust-analyzer";
+    "swift-lsp" = "sourcekit-lsp";
+    "typescript-lsp" = "typescript-language-server";
+  };
+in
 {
   flake.nixosModules.apps.claude-code =
     {
@@ -96,37 +115,62 @@
             enumerating individual install methods.
           '';
         };
-      };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = lib.optional cfg.installMethods.nix.enable cfg.package;
-        nixpkgs.allowedUnfreePackages = lib.optionals cfg.installMethods.nix.enable [ "claude-code" ];
-        # Import by Home Manager app key so import-tree resolves the module location.
-        # The bun HM module owns BUN_INSTALL/PATH setup and the createBunDir DAG node.
-        home-manager.extraAppImports = lib.mkAfter (lib.optional cfg.installMethods.bun.enable "bun");
-
-        assertions = [
-          {
-            assertion = cfg.anyInstallEnabled;
-            message = ''
-              programs.claude-code.extended.enable = true, but no install method
-              is enabled. Set one of:
-                programs.claude-code.extended.installMethods.nix.enable = true;
-                programs.claude-code.extended.installMethods.bun.enable = true;
-              (typically in modules/<host>/apps-enable.nix)
+        lspPlugins = lib.mapAttrs (
+          pluginKey: _:
+          lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = ''
+              Whether to enable the ${pluginKey} Claude Code LSP plugin and ensure
+              its binary is installed. When true, overrides the catalog at priority
+              1050 so the package is installed even if apps-enable.nix says false.
             '';
           }
-          {
-            assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
-            message = ''
-              programs.claude-code.extended.installMethods.bun.enable requires
-              programs.bun.extended.enable = true. Enable bun in your host's
-              apps-enable.nix (e.g. modules/tpnix/apps-enable.nix:32 or
-              modules/system76/apps-enable.nix:47) before enabling the bun
-              install method for claude-code.
-            '';
-          }
-        ];
+        ) lspPluginProgramMap;
       };
+
+      config = lib.mkIf cfg.enable (
+        lib.mkMerge (
+          [
+            {
+              environment.systemPackages = lib.optional cfg.installMethods.nix.enable cfg.package;
+              nixpkgs.allowedUnfreePackages = lib.optionals cfg.installMethods.nix.enable [ "claude-code" ];
+              # Import by Home Manager app key so import-tree resolves the module location.
+              # The bun HM module owns BUN_INSTALL/PATH setup and the createBunDir DAG node.
+              home-manager.extraAppImports = lib.mkAfter (lib.optional cfg.installMethods.bun.enable "bun");
+
+              assertions = [
+                {
+                  assertion = cfg.anyInstallEnabled;
+                  message = ''
+                    programs.claude-code.extended.enable = true, but no install method
+                    is enabled. Set one of:
+                      programs.claude-code.extended.installMethods.nix.enable = true;
+                      programs.claude-code.extended.installMethods.bun.enable = true;
+                    (typically in modules/<host>/apps-enable.nix)
+                  '';
+                }
+                {
+                  assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
+                  message = ''
+                    programs.claude-code.extended.installMethods.bun.enable requires
+                    programs.bun.extended.enable = true. Enable bun in your host's
+                    apps-enable.nix (e.g. modules/tpnix/apps-enable.nix:32 or
+                    modules/system76/apps-enable.nix:47) before enabling the bun
+                    install method for claude-code.
+                  '';
+                }
+              ];
+            }
+          ]
+          ++ lib.mapAttrsToList (
+            pluginKey: programName:
+            lib.mkIf cfg.lspPlugins.${pluginKey} {
+              programs.${programName}.extended.enable = lib.mkOverride 1050 true;
+            }
+          ) lspPluginProgramMap
+        )
+      );
     };
 }

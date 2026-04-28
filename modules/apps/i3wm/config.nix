@@ -16,7 +16,9 @@
       powerProfileSelectionAllowed = lib.attrByPath [ "powerProfiles" "allowSelection" ] true hostI3Cfg;
       sessionMetadata = {
         DESKTOP_SESSION = "none+i3";
-        XDG_CURRENT_DESKTOP = "none+i3:X-NIXOS-SYSTEMD-AWARE";
+        # `i3` is included as a standalone token so xdg-desktop-portal picks up
+        # the i3-scoped portals.conf (split is `:`, not `+`).
+        XDG_CURRENT_DESKTOP = "none+i3:i3:X-NIXOS-SYSTEMD-AWARE";
         XDG_SESSION_TYPE = "x11";
       };
       sessionMetadataExports = lib.concatStringsSep "\n" (
