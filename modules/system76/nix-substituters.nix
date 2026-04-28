@@ -25,6 +25,8 @@ in
       narinfo-cache-negative-ttl = 10800; # 3 hours
       http-connections = lib.mkForce 0; # unlimited
       http2 = true;
+      download-attempts = 1;
+      connect-timeout = 1;
     };
   };
 }

@@ -27,9 +27,6 @@ in
       extra-trusted-public-keys = lib.mkAfter cachyosPublicKeys;
 
       # Lantian's attic offloads NAR chunks to Telnyx Object Storage, which
-      # can deliver them slowly enough to trip Nix's default stall timeout
-      # while fetching large kernel-modules NARs. Give curl more patience.
-      connect-timeout = 30;
       stalled-download-timeout = 900;
     };
   };
