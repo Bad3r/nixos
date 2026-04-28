@@ -802,7 +802,21 @@ _: {
                             function()
                               vim.ui.input({ prompt = "Commit message: " }, function(msg)
                                 if not msg or msg == "" then return end
-                                vim.cmd(("!git commit -m %s"):format(vim.fn.shellescape(msg)))
+                                vim.system(
+                                  { "git", "commit", "-m", msg },
+                                  { text = true },
+                                  vim.schedule_wrap(function(out)
+                                    if out.code == 0 then
+                                      vim.notify("Committed", vim.log.levels.INFO)
+                                      vim.cmd("DiffviewRefresh")
+                                    else
+                                      vim.notify(
+                                        "git commit failed: " .. (out.stderr or ""),
+                                        vim.log.levels.ERROR
+                                      )
+                                    end
+                                  end)
+                                )
                               end)
                             end
                           '';
@@ -814,11 +828,24 @@ _: {
                           action.__raw = ''
                             function()
                               vim.ui.input({ prompt = "Amend commit (empty=no-edit): " }, function(msg)
+                                local args = { "git", "commit", "--amend" }
                                 if not msg or msg == "" then
-                                  vim.cmd("!git commit --amend --no-edit")
+                                  table.insert(args, "--no-edit")
                                 else
-                                  vim.cmd(("!git commit --amend -m %s"):format(vim.fn.shellescape(msg)))
+                                  table.insert(args, "-m")
+                                  table.insert(args, msg)
                                 end
+                                vim.system(args, { text = true }, vim.schedule_wrap(function(out)
+                                  if out.code == 0 then
+                                    vim.notify("Amended", vim.log.levels.INFO)
+                                    vim.cmd("DiffviewRefresh")
+                                  else
+                                    vim.notify(
+                                      "git commit --amend failed: " .. (out.stderr or ""),
+                                      vim.log.levels.ERROR
+                                    )
+                                  end
+                                end))
                               end)
                             end
                           '';
