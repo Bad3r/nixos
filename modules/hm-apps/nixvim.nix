@@ -763,15 +763,23 @@ _: {
 
                     file_panel.tree_options.folder_statuses = "always";
 
-                    commit_log_panel.win_config = {
-                      type = "float";
-                      relative = "editor";
-                      border = "rounded";
-                      width.__raw = "math.floor(vim.o.columns * 0.8)";
-                      height.__raw = "math.floor(vim.o.lines * 0.8)";
-                      row.__raw = "math.floor(vim.o.lines * 0.1)";
-                      col.__raw = "math.floor(vim.o.columns * 0.1)";
-                    };
+                    # Function form: re-evaluated each open so the float tracks
+                    # terminal resizes instead of locking to startup dimensions.
+                    commit_log_panel.win_config.__raw = ''
+                      function()
+                        local width = math.floor(vim.o.columns * 0.8)
+                        local height = math.floor(vim.o.lines * 0.8)
+                        return {
+                          type = "float",
+                          relative = "editor",
+                          border = "rounded",
+                          width = width,
+                          height = height,
+                          row = math.floor((vim.o.lines - height) / 2),
+                          col = math.floor((vim.o.columns - width) / 2),
+                        }
+                      end
+                    '';
 
                     hooks = {
                       diff_buf_read.__raw = ''
