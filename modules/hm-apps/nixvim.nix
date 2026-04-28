@@ -472,7 +472,7 @@ _: {
                       "gr" = "references";
                       "K" = "hover";
                       "<leader>rn" = "rename";
-                      "<leader>ca" = "code_action";
+                      "<leader>la" = "code_action";
                       "<leader>f" = "format";
                     };
                   };
