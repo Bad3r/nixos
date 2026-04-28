@@ -32,10 +32,13 @@
 
       xdg.portal = {
         enable = true;
-        extraPortals = with pkgs; [
-          xdg-desktop-portal-gtk
-        ];
-        config.common.default = "gtk";
+        extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+        # Screenshot=none lets flameshot fall back to its native XCB path
+        # instead of blocking 30s on a portal call gtk no longer answers.
+        config.i3 = {
+          default = [ "gtk" ];
+          "org.freedesktop.impl.portal.Screenshot" = "none";
+        };
       };
     };
 }
