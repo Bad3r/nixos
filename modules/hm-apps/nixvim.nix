@@ -1200,7 +1200,7 @@ _: {
                 {
                   mode = "n";
                   key = "<leader>gp";
-                  action = "<cmd>DiffviewOpen origin/HEAD...HEAD --imply-local<CR>";
+                  action = "<cmd>DiffviewOpen origin/HEAD...HEAD<CR>";
                   options.desc = "Diffview: PR diff";
                 }
                 {
