@@ -746,11 +746,8 @@ _: {
                       ];
                     };
 
-                    signs = {
-                      fold_closed = "";
-                      fold_open = "";
-                      done = "";
-                    };
+                    # Suppress the default "✓" done glyph for an icon-free panel.
+                    signs.done = "";
 
                     view = {
                       default.winbar_info = true;
@@ -905,7 +902,6 @@ _: {
                   settings = {
                     picker = "telescope";
                     enable_builtin = true;
-                    use_local_fs = false;
                     default_remote = [
                       "upstream"
                       "origin"
