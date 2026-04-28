@@ -861,6 +861,24 @@ _: {
                   };
                 };
 
+                # Inline GitHub PR/issue review via `gh` CLI
+                octo = {
+                  enable = true;
+                  lazyLoad = {
+                    enable = true;
+                    settings.cmd = [ "Octo" ];
+                  };
+                  settings = {
+                    picker = "telescope";
+                    enable_builtin = true;
+                    use_local_fs = false;
+                    default_remote = [
+                      "upstream"
+                      "origin"
+                    ];
+                  };
+                };
+
                 # Comment plugin
                 comment = {
                   enable = true;
@@ -1175,6 +1193,14 @@ _: {
                   key = "<leader>gn";
                   action = "<cmd>Neogit<CR>";
                   options.desc = "Neogit: open";
+                }
+
+                # Octo
+                {
+                  mode = "n";
+                  key = "<leader>go";
+                  action = "<cmd>Octo<CR>";
+                  options.desc = "Octo: PR review";
                 }
               ];
 
