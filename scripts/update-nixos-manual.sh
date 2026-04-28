@@ -8,6 +8,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+
+# REPO_ROOT is interpolated into a flake URL ("path:$REPO_ROOT") below; both
+# `path:` URLs and bare absolute paths are URL-parsed by Nix, so reject paths
+# containing characters that would be misread as query/fragment delimiters.
+case "$REPO_ROOT" in
+*[\?\#]* | *[[:space:]]*)
+  echo "REPO_ROOT contains characters that conflict with flake URL syntax: $REPO_ROOT" >&2
+  exit 1
+  ;;
+esac
+
 MANUAL_DIR="$REPO_ROOT/nixos-manual"
 TMP_PARENT=""
 STAGED_MANUAL=""
