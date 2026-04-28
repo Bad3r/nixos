@@ -33,6 +33,18 @@ let
     "x-scheme-handler/https"
   ];
 
+  # MIME types for mail clients
+  mailClientMimeTypes = [
+    "message/rfc822"
+    "x-scheme-handler/mailto"
+  ];
+
+  # MIME types for BitTorrent clients
+  torrentClientMimeTypes = [
+    "application/x-bittorrent"
+    "x-scheme-handler/magnet"
+  ];
+
   # MIME types for terminal emulators
   terminalMimeTypes = [
     "application/x-terminal-emulator"
@@ -246,6 +258,20 @@ let
       };
     };
 
+    mailClient = {
+      thunderbird = {
+        desktop = "thunderbird.desktop";
+        module = "thunderbird";
+      };
+    };
+
+    torrentClient = {
+      qbittorrent = {
+        desktop = "org.qbittorrent.qBittorrent.desktop";
+        module = "qbittorrent";
+      };
+    };
+
     fileManager = {
       dolphin = {
         desktop = "org.kde.dolphin.desktop";
@@ -337,6 +363,8 @@ in
     inherit
       mkDefaults
       browserMimeTypes
+      mailClientMimeTypes
+      torrentClientMimeTypes
       terminalMimeTypes
       fileManagerMimeTypes
       archiveMimeTypes
@@ -348,6 +376,8 @@ in
 
     # Category-specific helpers (convenience wrappers around mkDefaults)
     mkBrowserDefaults = mkDefaults browserMimeTypes;
+    mkMailClientDefaults = mkDefaults mailClientMimeTypes;
+    mkTorrentClientDefaults = mkDefaults torrentClientMimeTypes;
     mkTerminalDefaults = mkDefaults terminalMimeTypes;
     mkFileManagerDefaults = mkDefaults fileManagerMimeTypes;
     mkArchiveManagerDefaults = mkDefaults archiveMimeTypes;
