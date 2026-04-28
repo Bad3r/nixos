@@ -101,40 +101,44 @@ in
         name: cat:
         let
           value = cfg.${name};
-          # value is constrained by enum type to valid keys in desktopFiles
-          appInfo = cat.desktopFiles.${value};
-          moduleName = appInfo.module;
-          # Check module existence and enablement separately for proper error messages
-          moduleExists = config.programs ? ${moduleName};
-          hasExtended = moduleExists && config.programs.${moduleName} ? extended;
-          hasEnable = hasExtended && config.programs.${moduleName}.extended ? enable;
-          isEnabled = hasEnable && config.programs.${moduleName}.extended.enable;
         in
-        lib.optional (value != null) {
-          assertion = isEnabled;
-          message =
-            if !moduleExists then
-              ''
-                system76.defaults.${name} is set to "${value}" but the app module 'programs.${moduleName}' does not exist.
-                Create the app module or set system76.defaults.${name} = null; to disable this default.
-              ''
-            else if !hasExtended then
-              ''
-                system76.defaults.${name} is set to "${value}" but 'programs.${moduleName}.extended' does not exist.
-                The app module may not follow the expected pattern.
-              ''
-            else if !hasEnable then
-              ''
-                system76.defaults.${name} is set to "${value}" but 'programs.${moduleName}.extended.enable' does not exist.
-                The app module may not follow the expected pattern.
-              ''
-            else
-              ''
-                system76.defaults.${name} is set to "${value}" but the app module is not enabled.
-                Enable it with: programs.${moduleName}.extended.enable = true;
-                Or set system76.defaults.${name} = null; to disable this default.
-              '';
-        };
+        lib.optional (value != null) (
+          let
+            # value is constrained by enum type to valid keys in desktopFiles
+            appInfo = cat.desktopFiles.${value};
+            moduleName = appInfo.module;
+            # Check module existence and enablement separately for proper error messages
+            moduleExists = config.programs ? ${moduleName};
+            hasExtended = moduleExists && config.programs.${moduleName} ? extended;
+            hasEnable = hasExtended && config.programs.${moduleName}.extended ? enable;
+            isEnabled = hasEnable && config.programs.${moduleName}.extended.enable;
+          in
+          {
+            assertion = isEnabled;
+            message =
+              if !moduleExists then
+                ''
+                  system76.defaults.${name} is set to "${value}" but the app module 'programs.${moduleName}' does not exist.
+                  Create the app module or set system76.defaults.${name} = null; to disable this default.
+                ''
+              else if !hasExtended then
+                ''
+                  system76.defaults.${name} is set to "${value}" but 'programs.${moduleName}.extended' does not exist.
+                  The app module may not follow the expected pattern.
+                ''
+              else if !hasEnable then
+                ''
+                  system76.defaults.${name} is set to "${value}" but 'programs.${moduleName}.extended.enable' does not exist.
+                  The app module may not follow the expected pattern.
+                ''
+              else
+                ''
+                  system76.defaults.${name} is set to "${value}" but the app module is not enabled.
+                  Enable it with: programs.${moduleName}.extended.enable = true;
+                  Or set system76.defaults.${name} = null; to disable this default.
+                '';
+          }
+        );
     in
     {
       options.system76.defaults =

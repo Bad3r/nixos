@@ -393,9 +393,9 @@ let
         Default web browser for this host.
         Set to null to not configure a default browser via XDG mimeapps.
       '';
-      extraConfig = name: {
-        environment.variables.BROWSER = name;
-        home-manager.sharedModules = [ { home.sessionVariables.BROWSER = name; } ];
+      extraConfig = value: {
+        environment.variables.BROWSER = value;
+        home-manager.sharedModules = [ { home.sessionVariables.BROWSER = value; } ];
       };
     };
 
@@ -427,15 +427,15 @@ let
         Default terminal emulator for this host.
         Set to null to not configure a default terminal via XDG mimeapps.
       '';
-      extraConfig = name: {
+      extraConfig = value: {
         environment.variables = {
-          TERMINAL = name;
+          TERMINAL = value;
           COLORTERM = "truecolor";
         };
         home-manager.sharedModules = [
           {
             home.sessionVariables = {
-              TERMINAL = name;
+              TERMINAL = value;
               COLORTERM = "truecolor";
             };
           }
@@ -451,9 +451,9 @@ let
         Default file manager for this host.
         Set to null to not configure a default file manager via XDG mimeapps.
       '';
-      extraConfig = name: {
-        environment.variables.FILE_MANAGER = name;
-        home-manager.sharedModules = [ { home.sessionVariables.FILE_MANAGER = name; } ];
+      extraConfig = value: {
+        environment.variables.FILE_MANAGER = value;
+        home-manager.sharedModules = [ { home.sessionVariables.FILE_MANAGER = value; } ];
       };
     };
 
@@ -475,9 +475,9 @@ let
         Default image viewer for this host.
         Set to null to not configure a default image viewer via XDG mimeapps.
       '';
-      extraConfig = name: {
-        environment.variables.IMAGE = name;
-        home-manager.sharedModules = [ { home.sessionVariables.IMAGE = name; } ];
+      extraConfig = value: {
+        environment.variables.IMAGE = value;
+        home-manager.sharedModules = [ { home.sessionVariables.IMAGE = value; } ];
       };
     };
 
@@ -489,9 +489,9 @@ let
         Default document viewer (PDF, EPUB, DjVu, etc.) for this host.
         Set to null to not configure a default document viewer via XDG mimeapps.
       '';
-      extraConfig = name: {
-        environment.variables.READER = name;
-        home-manager.sharedModules = [ { home.sessionVariables.READER = name; } ];
+      extraConfig = value: {
+        environment.variables.READER = value;
+        home-manager.sharedModules = [ { home.sessionVariables.READER = value; } ];
       };
     };
 
@@ -513,9 +513,9 @@ let
         Default video player for this host.
         Set to null to not configure a default video player via XDG mimeapps.
       '';
-      extraConfig = name: {
-        environment.variables.VIDEO_PLAYER = name;
-        home-manager.sharedModules = [ { home.sessionVariables.VIDEO_PLAYER = name; } ];
+      extraConfig = value: {
+        environment.variables.VIDEO_PLAYER = value;
+        home-manager.sharedModules = [ { home.sessionVariables.VIDEO_PLAYER = value; } ];
       };
     };
   };
