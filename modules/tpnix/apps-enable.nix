@@ -228,6 +228,7 @@
       "nix-prefetch-git".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-github".extended.enable = lib.mkOverride 1100 true;
       "nix-tree".extended.enable = lib.mkOverride 1100 true;
+      "nix-write-files".extended.enable = lib.mkOverride 1100 true;
       "nixpkgs-review".extended.enable = lib.mkOverride 1100 true;
       nmap.extended.enable = lib.mkOverride 1100 true;
       "node-cloudflare-sdk".extended.enable = lib.mkOverride 1100 false;
