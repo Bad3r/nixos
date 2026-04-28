@@ -9,6 +9,8 @@
     * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Agent skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
+    * LSP plugin enablement and binary installation are governed by
+      programs.claude-code.extended.lspPlugins in modules/apps/claude-code.nix.
 */
 
 _: {
@@ -38,9 +40,16 @@ _: {
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
 
+      # Derive enabledPlugins from the NixOS-level lspPlugins option so that the
+      # single source of truth lives in programs.claude-code.extended.lspPlugins.
+      enabledPlugins = lib.mapAttrs' (
+        pluginKey: enabled: lib.nameValuePair "${pluginKey}@claude-plugins-official" enabled
+      ) (lib.attrByPath [ "programs" "claude-code" "extended" "lspPlugins" ] { } osConfig);
+
       # Claude Code settings.json configuration
       claudeSettings = {
         cleanupPeriodDays = 30;
+        inherit enabledPlugins;
         env = {
           # Duplicates of postFixup in modules/apps/claude-code.nix (belt-and-suspenders)
           DISABLE_AUTOUPDATER = "1";

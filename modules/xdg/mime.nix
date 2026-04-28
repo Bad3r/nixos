@@ -33,6 +33,18 @@ let
     "x-scheme-handler/https"
   ];
 
+  # MIME types for mail clients
+  mailClientMimeTypes = [
+    "message/rfc822"
+    "x-scheme-handler/mailto"
+  ];
+
+  # MIME types for BitTorrent clients
+  torrentClientMimeTypes = [
+    "application/x-bittorrent"
+    "x-scheme-handler/magnet"
+  ];
+
   # MIME types for terminal emulators
   terminalMimeTypes = [
     "application/x-terminal-emulator"
@@ -246,6 +258,20 @@ let
       };
     };
 
+    mailClient = {
+      thunderbird = {
+        desktop = "thunderbird.desktop";
+        module = "thunderbird";
+      };
+    };
+
+    torrentClient = {
+      qbittorrent = {
+        desktop = "org.qbittorrent.qBittorrent.desktop";
+        module = "qbittorrent";
+      };
+    };
+
     fileManager = {
       dolphin = {
         desktop = "org.kde.dolphin.desktop";
@@ -329,14 +355,13 @@ let
       };
     };
   };
-in
-{
-  flake.lib.xdg.desktopFiles = desktopFiles;
 
-  flake.lib.xdg.mime = {
+  mime = {
     inherit
       mkDefaults
       browserMimeTypes
+      mailClientMimeTypes
+      torrentClientMimeTypes
       terminalMimeTypes
       fileManagerMimeTypes
       archiveMimeTypes
@@ -348,6 +373,8 @@ in
 
     # Category-specific helpers (convenience wrappers around mkDefaults)
     mkBrowserDefaults = mkDefaults browserMimeTypes;
+    mkMailClientDefaults = mkDefaults mailClientMimeTypes;
+    mkTorrentClientDefaults = mkDefaults torrentClientMimeTypes;
     mkTerminalDefaults = mkDefaults terminalMimeTypes;
     mkFileManagerDefaults = mkDefaults fileManagerMimeTypes;
     mkArchiveManagerDefaults = mkDefaults archiveMimeTypes;
@@ -355,5 +382,231 @@ in
     mkDocumentViewerDefaults = mkDefaults documentViewerMimeTypes;
     mkAudioPlayerDefaults = mkDefaults audioPlayerMimeTypes;
     mkVideoPlayerDefaults = mkDefaults videoPlayerMimeTypes;
+  };
+
+  defaultAppCategoryMeta = {
+    browser = {
+      mkMimeDefaults = mime.mkBrowserDefaults;
+      defaultValue = "floorp";
+      example = "floorp";
+      description = ''
+        Default web browser for this host.
+        Set to null to not configure a default browser via XDG mimeapps.
+      '';
+      extraConfig = value: {
+        environment.variables.BROWSER = value;
+        home-manager.sharedModules = [ { home.sessionVariables.BROWSER = value; } ];
+      };
+    };
+
+    mailClient = {
+      mkMimeDefaults = mime.mkMailClientDefaults;
+      defaultValue = "thunderbird";
+      example = "thunderbird";
+      description = ''
+        Default mail client for this host.
+        Set to null to not configure a default mail client via XDG mimeapps.
+      '';
+    };
+
+    torrentClient = {
+      mkMimeDefaults = mime.mkTorrentClientDefaults;
+      defaultValue = "qbittorrent";
+      example = "qbittorrent";
+      description = ''
+        Default BitTorrent client for this host.
+        Set to null to not configure a default BitTorrent client via XDG mimeapps.
+      '';
+    };
+
+    terminal = {
+      mkMimeDefaults = mime.mkTerminalDefaults;
+      defaultValue = "kitty";
+      example = "kitty";
+      description = ''
+        Default terminal emulator for this host.
+        Set to null to not configure a default terminal via XDG mimeapps.
+      '';
+      extraConfig = value: {
+        environment.variables = {
+          TERMINAL = value;
+          COLORTERM = "truecolor";
+        };
+        home-manager.sharedModules = [
+          {
+            home.sessionVariables = {
+              TERMINAL = value;
+              COLORTERM = "truecolor";
+            };
+          }
+        ];
+      };
+    };
+
+    fileManager = {
+      mkMimeDefaults = mime.mkFileManagerDefaults;
+      defaultValue = "nemo";
+      example = "nemo";
+      description = ''
+        Default file manager for this host.
+        Set to null to not configure a default file manager via XDG mimeapps.
+      '';
+      extraConfig = value: {
+        environment.variables.FILE_MANAGER = value;
+        home-manager.sharedModules = [ { home.sessionVariables.FILE_MANAGER = value; } ];
+      };
+    };
+
+    archiveManager = {
+      mkMimeDefaults = mime.mkArchiveManagerDefaults;
+      defaultValue = "file-roller";
+      example = "file-roller";
+      description = ''
+        Default archive manager (zip, tar, 7z, rar, etc.) for this host.
+        Set to null to not configure a default archive manager via XDG mimeapps.
+      '';
+    };
+
+    imageViewer = {
+      mkMimeDefaults = mime.mkImageViewerDefaults;
+      defaultValue = "nsxiv";
+      example = "nsxiv";
+      description = ''
+        Default image viewer for this host.
+        Set to null to not configure a default image viewer via XDG mimeapps.
+      '';
+      extraConfig = value: {
+        environment.variables.IMAGE = value;
+        home-manager.sharedModules = [ { home.sessionVariables.IMAGE = value; } ];
+      };
+    };
+
+    documentViewer = {
+      mkMimeDefaults = mime.mkDocumentViewerDefaults;
+      defaultValue = "zathura";
+      example = "zathura";
+      description = ''
+        Default document viewer (PDF, EPUB, DjVu, etc.) for this host.
+        Set to null to not configure a default document viewer via XDG mimeapps.
+      '';
+      extraConfig = value: {
+        environment.variables.READER = value;
+        home-manager.sharedModules = [ { home.sessionVariables.READER = value; } ];
+      };
+    };
+
+    audioPlayer = {
+      mkMimeDefaults = mime.mkAudioPlayerDefaults;
+      defaultValue = "mpv";
+      example = "mpv";
+      description = ''
+        Default audio player for this host.
+        Set to null to not configure a default audio player via XDG mimeapps.
+      '';
+    };
+
+    videoPlayer = {
+      mkMimeDefaults = mime.mkVideoPlayerDefaults;
+      defaultValue = "mpv";
+      example = "mpv";
+      description = ''
+        Default video player for this host.
+        Set to null to not configure a default video player via XDG mimeapps.
+      '';
+      extraConfig = value: {
+        environment.variables.VIDEO_PLAYER = value;
+        home-manager.sharedModules = [ { home.sessionVariables.VIDEO_PLAYER = value; } ];
+      };
+    };
+  };
+
+  defaultAppEnvOnlyMeta = {
+    editor = {
+      defaultValue = "nvim";
+      example = "nvim";
+      description = ''
+        Default text editor for this host.
+        Sets EDITOR, VISUAL, and GIT_EDITOR environment variables.
+      '';
+      extraConfig = value: {
+        environment.variables = {
+          EDITOR = value;
+          VISUAL = value;
+          GIT_EDITOR = value;
+        };
+        home-manager.sharedModules = [
+          {
+            home.sessionVariables = {
+              EDITOR = value;
+              VISUAL = value;
+              GIT_EDITOR = value;
+            };
+          }
+        ];
+      };
+    };
+
+    pager = {
+      defaultValue = "less";
+      example = "bat";
+      description = ''
+        Default pager for this host.
+        Sets PAGER, MANPAGER, and MANWIDTH environment variables.
+      '';
+      extraConfig = value: {
+        environment.variables = {
+          PAGER = value;
+          MANPAGER = value;
+          MANWIDTH = "120";
+        };
+        home-manager.sharedModules = [
+          {
+            home.sessionVariables = {
+              PAGER = value;
+              MANPAGER = value;
+              MANWIDTH = "120";
+            };
+          }
+        ];
+      };
+    };
+
+    diffProgram = {
+      defaultValue = "nvim -d";
+      example = "nvim -d";
+      description = ''
+        Default diff program for this host.
+        Sets DIFFPROG environment variable (used by pacdiff, etc.).
+      '';
+      extraConfig = value: {
+        environment.variables.DIFFPROG = value;
+        home-manager.sharedModules = [ { home.sessionVariables.DIFFPROG = value; } ];
+      };
+    };
+
+    opener = {
+      defaultValue = "xdg-open";
+      example = "xdg-open";
+      description = ''
+        Default generic file opener for this host.
+        Sets OPENER environment variable (delegates to XDG MIME handlers).
+      '';
+      extraConfig = value: {
+        environment.variables.OPENER = value;
+        home-manager.sharedModules = [ { home.sessionVariables.OPENER = value; } ];
+      };
+    };
+  };
+in
+{
+  flake = {
+    lib.xdg = {
+      inherit
+        desktopFiles
+        defaultAppCategoryMeta
+        defaultAppEnvOnlyMeta
+        mime
+        ;
+    };
   };
 }
