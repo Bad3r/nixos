@@ -56,6 +56,9 @@ _: {
             *.swo
             *~
             *.tgz
+            # scripts/update-nixos-manual.sh tempdir; only visible after kill -9
+            # since the EXIT trap normally removes it.
+            /.nixos-manual-update.*
             tmp_*
             *_tmp*
             ########################################
