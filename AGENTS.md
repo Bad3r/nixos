@@ -210,8 +210,13 @@ PR body should include:
 | Imports    | Expose modules through namespace exports; avoid literal path imports.                                                                                 |
 | Validation | Keep `nix flake check --accept-flake-config` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules. |
 
-For documentation-only or simple changes, use targeted checks instead of a full
-`nix flake check` unless the user asks for full validation.
+Skip full `nix flake check` only when the change cannot affect flake
+evaluation: non-Nix edits (docs, scripts not consumed by the flake build) and
+value-level edits (lists, attrset values) inside modules whose structure does
+not change. Any structural change, including new modules, new or removed
+imports, option declarations, type changes, or anything touching modules
+imported into a host closure, requires `nix flake check` unless the user
+explicitly asks to skip it.
 
 ### Commit and PR Expectations
 
