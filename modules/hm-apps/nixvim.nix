@@ -351,6 +351,14 @@ _: {
                     end, 150)
                   end,
                 })
+
+                -- diffview: diagonal slashes for diff filler lines (lower visual noise than '-')
+                vim.opt.fillchars:append({ diff = "╱" })
+
+                -- :DvStash → quick stash inspector (per USAGE.md recipe)
+                vim.api.nvim_create_user_command("DvStash", function()
+                  vim.cmd("DiffviewFileHistory -g --range=stash")
+                end, { desc = "Inspect git stash via diffview" })
               '';
 
               # hmts.nvim - enhanced treesitter injections for Home Manager/Nix files
@@ -710,6 +718,123 @@ _: {
                   };
                 };
 
+                # Diff/PR review surface with diffview.nvim
+                diffview = {
+                  enable = true;
+
+                  lazyLoad = {
+                    enable = true;
+                    settings.cmd = [
+                      "DiffviewOpen"
+                      "DiffviewClose"
+                      "DiffviewFocusFiles"
+                      "DiffviewToggleFiles"
+                      "DiffviewRefresh"
+                      "DiffviewLog"
+                      "DiffviewFileHistory"
+                    ];
+                  };
+
+                  settings = {
+                    enhanced_diff_hl = true;
+                    show_help_hints = false;
+
+                    default_args = {
+                      DiffviewOpen = [
+                        "--imply-local"
+                        "-uno"
+                      ];
+                    };
+
+                    signs = {
+                      fold_closed = "";
+                      fold_open = "";
+                      done = "";
+                    };
+
+                    view = {
+                      default.winbar_info = true;
+                      merge_tool = {
+                        layout = "diff3_mixed";
+                        winbar_info = true;
+                      };
+                      file_history.winbar_info = true;
+                    };
+
+                    file_panel.tree_options.folder_statuses = "always";
+
+                    commit_log_panel.win_config = {
+                      type = "float";
+                      relative = "editor";
+                      border = "rounded";
+                      width.__raw = "math.floor(vim.o.columns * 0.8)";
+                      height.__raw = "math.floor(vim.o.lines * 0.8)";
+                      row.__raw = "math.floor(vim.o.lines * 0.1)";
+                      col.__raw = "math.floor(vim.o.columns * 0.1)";
+                    };
+
+                    hooks = {
+                      diff_buf_read.__raw = ''
+                        function(_)
+                          vim.opt_local.wrap = false
+                          vim.opt_local.list = false
+                          vim.opt_local.colorcolumn = "80"
+                          vim.opt_local.cursorline = false
+                          vim.opt_local.signcolumn = "no"
+                        end
+                      '';
+                    };
+
+                    keymaps = {
+                      file_panel = [
+                        {
+                          mode = "n";
+                          key = "cc";
+                          action.__raw = ''
+                            function()
+                              vim.ui.input({ prompt = "Commit message: " }, function(msg)
+                                if not msg or msg == "" then return end
+                                vim.cmd(("!git commit -m %s"):format(vim.fn.shellescape(msg)))
+                              end)
+                            end
+                          '';
+                          description = "Commit staged changes";
+                        }
+                        {
+                          mode = "n";
+                          key = "ca";
+                          action.__raw = ''
+                            function()
+                              vim.ui.input({ prompt = "Amend commit (empty=no-edit): " }, function(msg)
+                                if not msg or msg == "" then
+                                  vim.cmd("!git commit --amend --no-edit")
+                                else
+                                  vim.cmd(("!git commit --amend -m %s"):format(vim.fn.shellescape(msg)))
+                                end
+                              end)
+                            end
+                          '';
+                          description = "Amend last commit";
+                        }
+                        {
+                          mode = "n";
+                          key = "<esc>";
+                          action.__raw = "require('diffview.actions').close";
+                          description = "Close diffview";
+                        }
+                      ];
+                      file_history_panel = [
+                        {
+                          mode = "n";
+                          key = "<esc>";
+                          action.__raw = "require('diffview.actions').close";
+                          description = "Close diffview";
+                        }
+                      ];
+                    };
+                  };
+                };
+
                 # Comment plugin
                 comment = {
                   enable = true;
@@ -966,6 +1091,56 @@ _: {
                   key = "K";
                   action = ":m '<-2<CR>gv=gv";
                   options.desc = "Move line up";
+                }
+
+                # Diffview
+                {
+                  mode = "n";
+                  key = "<leader>gd";
+                  action = "<cmd>DiffviewOpen<CR>";
+                  options.desc = "Diffview: open";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>gD";
+                  action = "<cmd>DiffviewClose<CR>";
+                  options.desc = "Diffview: close";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>gh";
+                  action = "<cmd>DiffviewFileHistory %<CR>";
+                  options.desc = "Diffview: file history (current)";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>gH";
+                  action = "<cmd>DiffviewFileHistory<CR>";
+                  options.desc = "Diffview: file history (all)";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>gp";
+                  action = "<cmd>DiffviewOpen origin/HEAD...HEAD --imply-local<CR>";
+                  options.desc = "Diffview: PR diff";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>gP";
+                  action = "<cmd>DiffviewFileHistory --range=origin/HEAD...HEAD --right-only --no-merges<CR>";
+                  options.desc = "Diffview: per-commit PR review";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>gs";
+                  action = "<cmd>DiffviewOpen --staged<CR>";
+                  options.desc = "Diffview: staged";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>gS";
+                  action = "<cmd>DvStash<CR>";
+                  options.desc = "Diffview: stash";
                 }
               ];
 
