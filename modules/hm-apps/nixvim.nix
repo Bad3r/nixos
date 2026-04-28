@@ -835,6 +835,21 @@ _: {
                   };
                 };
 
+                # Magit-style git interface, backed by diffview for inline diffs
+                neogit = {
+                  enable = true;
+                  lazyLoad = {
+                    enable = true;
+                    settings.cmd = [ "Neogit" ];
+                  };
+                  settings = {
+                    integrations.diffview = true;
+                    graph_style = "unicode";
+                    disable_commit_confirmation = false;
+                    kind = "tab";
+                  };
+                };
+
                 # Comment plugin
                 comment = {
                   enable = true;
@@ -1141,6 +1156,14 @@ _: {
                   key = "<leader>gS";
                   action = "<cmd>DvStash<CR>";
                   options.desc = "Diffview: stash";
+                }
+
+                # Neogit
+                {
+                  mode = "n";
+                  key = "<leader>gn";
+                  action = "<cmd>Neogit<CR>";
+                  options.desc = "Neogit: open";
                 }
               ];
 
