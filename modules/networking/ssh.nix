@@ -15,10 +15,11 @@ _: {
         config = {
           services.openssh = {
             enable = true;
-            openFirewall = true;
+            # Per-host firewall rules restrict port 22 to LAN + Tailscale.
+            openFirewall = false;
 
             settings = {
-              PasswordAuthentication = false;
+              PasswordAuthentication = lib.mkDefault false;
               ClientAliveInterval = 60;
               ClientAliveCountMax = 3;
               MaxAuthTries = 3;
