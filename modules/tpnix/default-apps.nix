@@ -6,6 +6,8 @@
 
   Usage:
     tpnix.defaults.browser = "floorp";
+    tpnix.defaults.mailClient = "thunderbird";
+    tpnix.defaults.torrentClient = "qbittorrent";
     tpnix.defaults.terminal = "kitty";
     tpnix.defaults.fileManager = "nemo";
     tpnix.defaults.archiveManager = "file-roller";
@@ -47,6 +49,26 @@ let
         environment.variables.BROWSER = name;
         home-manager.sharedModules = [ { home.sessionVariables.BROWSER = name; } ];
       };
+    };
+
+    mailClient = {
+      mkMimeDefaults = xdg.mime.mkMailClientDefaults;
+      defaultValue = "thunderbird";
+      example = "thunderbird";
+      description = ''
+        Default mail client for this host.
+        Set to null to not configure a default mail client via XDG mimeapps.
+      '';
+    };
+
+    torrentClient = {
+      mkMimeDefaults = xdg.mime.mkTorrentClientDefaults;
+      defaultValue = "qbittorrent";
+      example = "qbittorrent";
+      description = ''
+        Default BitTorrent client for this host.
+        Set to null to not configure a default BitTorrent client via XDG mimeapps.
+      '';
     };
 
     terminal = {
