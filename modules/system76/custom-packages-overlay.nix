@@ -45,36 +45,6 @@ _: {
           NODE_GYP = "${prev."node-gyp"}/bin/node-gyp";
         });
 
-        # Track the latest upstream ProtonVPN release line (api-core 5.x)
-        # ahead of the nixpkgs channel pin. The GTK app pins
-        # proton-vpn-api-core (>= 5.0.0) in debian/control, so both move
-        # together.
-        pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-          (_: python-prev: {
-            proton-vpn-api-core = python-prev.proton-vpn-api-core.overridePythonAttrs (_: rec {
-              version = "5.0.1";
-              src = prev.fetchFromGitHub {
-                owner = "ProtonVPN";
-                repo = "python-proton-vpn-api-core";
-                rev = "v${version}";
-                hash = "sha256-XdQLgHKNqBNwY51niSiE1HHxLJ3efipS03IUiyHQCiY=";
-              };
-            });
-          })
-        ];
-
-        proton-vpn =
-          (final.callPackage (prev.path + "/pkgs/by-name/pr/proton-vpn/package.nix") { }).overrideAttrs
-            (_: rec {
-              version = "4.15.3";
-              src = prev.fetchFromGitHub {
-                owner = "ProtonVPN";
-                repo = "proton-vpn-gtk-app";
-                tag = "v${version}";
-                hash = "sha256-2v8BckNmm7Ecw+uAgOyfofHDPWgXkJJ8DmhMszb0tg0=";
-              };
-            });
-
         # i3 window manager utilities
         i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };
         i3-scratchpad-show-or-create = final.callPackage ../../packages/i3-scratchpad-show-or-create { };
