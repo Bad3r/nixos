@@ -17,6 +17,9 @@
 */
 
 _: {
+  # Upstream akinsho/git-conflict.nvim ships no LICENSE file, so nixpkgs flags
+  # the plugin as unfree. The allowlist entry is required for evaluation until
+  # upstream publishes a license.
   nixpkgs.allowedUnfreePackages = [ "git-conflict.nvim" ];
 
   flake.homeManagerModules.apps.nixvim =
