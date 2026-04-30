@@ -10,6 +10,7 @@ _: {
       cfg = config.system76.gpu;
       # nix-cachyos-kernel exposes the closed driver as the package itself;
       # current nixpkgs' NVIDIA module expects the closed module at `.mod`.
+      # Mirror any change in modules/tpnix/power.nix.
       closedNvidiaPackage =
         package:
         package
