@@ -8,6 +8,14 @@ _: {
     }:
     let
       cfg = config.system76.gpu;
+      # nix-cachyos-kernel exposes the closed driver as the package itself;
+      # current nixpkgs' NVIDIA module expects the closed module at `.mod`.
+      closedNvidiaPackage =
+        package:
+        package
+        // {
+          mod = package;
+        };
     in
     {
       options.system76.gpu = {
@@ -60,7 +68,7 @@ _: {
 
             nvidia = {
               # GTX 1070 Max-Q is supported by the 580.xx legacy branch; newer production drivers ignore it.
-              package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
+              package = closedNvidiaPackage config.boot.kernelPackages.nvidiaPackages.legacy_580;
               modesetting.enable = true;
               powerManagement.enable = true;
               # Fine-grained power management (D3 power gating) is incompatible with PRIME sync.
