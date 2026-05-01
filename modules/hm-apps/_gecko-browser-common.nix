@@ -125,6 +125,8 @@ let
     "gemini.google.com * 3p-frame noop"
     "notebooklm.google * 3p-script noop"
     "notebooklm.google * 3p-frame noop"
+    "codeassist.google * 3p-script noop"
+    "codeassist.google * 3p-frame noop"
 
     # Proton web properties
     "proton.me * 3p-script noop"
