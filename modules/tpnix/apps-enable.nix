@@ -271,7 +271,6 @@
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 false;
       procps.extended.enable = lib.mkOverride 1100 false;
       "proton-vpn".extended.enable = lib.mkOverride 1100 true;
-      "protonmail-bridge".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 true; # Provides killall
       pwgen.extended.enable = lib.mkOverride 1100 true;
       pymupdf.extended.enable = lib.mkOverride 1100 true;
@@ -414,6 +413,7 @@
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
       pcscd.extended.enable = lib.mkOverride 1100 true;
+      "protonmail-bridge".extended.enable = lib.mkOverride 1100 true;
     };
   };
 }
