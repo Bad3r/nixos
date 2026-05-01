@@ -127,6 +127,8 @@ let
     "notebooklm.google * 3p-frame noop"
     "codeassist.google * 3p-script noop"
     "codeassist.google * 3p-frame noop"
+    "aistudio.google.com * 3p-script noop"
+    "aistudio.google.com * 3p-frame noop"
 
     # Proton web properties
     "proton.me * 3p-script noop"
