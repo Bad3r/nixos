@@ -370,14 +370,11 @@ _: {
                 end, { desc = "Inspect git stash via diffview" })
               '';
 
-              # hmts.nvim - enhanced treesitter injections for Home Manager/Nix files
               # plenary.nvim is added explicitly because the pinned nixvim/nixpkgs
               # combination does not currently pull telescope's runtime dependency
               # onto the packpath.
-              # Detects embedded languages via /* lang */ comments, shebangs, and filename inference
               extraPlugins = [
                 pkgs.vimPlugins.plenary-nvim
-                pkgs.vimPlugins.hmts-nvim
               ];
 
               # Plugins configuration
@@ -945,7 +942,6 @@ _: {
                 };
 
                 # Otter - LSP features for embedded languages (e.g., bash in writeShellApplication)
-                # Works with hmts.nvim: hmts detects languages via injection queries, otter provides LSP
                 # Activation deferred in extraConfigLua to prevent blocking UI on file open
                 # Diagnostics filtered in extraConfigLua to suppress shellcheck ''${ false positives for nix
                 otter = {
