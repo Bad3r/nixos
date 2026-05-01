@@ -47,12 +47,17 @@ _: {
       config =
         if nvimEnabled then
           {
+            # Use navarasu/onedark.nvim directly instead of stylix's base16 mapping
+            stylix.targets.nixvim.enable = false;
+
             programs.nixvim = {
               enable = true;
               package = nvimPkg;
               viAlias = true;
               vimAlias = true;
               defaultEditor = true;
+
+              colorschemes.onedark.enable = true;
 
               # Leader key
               globals.mapleader = mkDefault " ";
@@ -996,7 +1001,6 @@ _: {
                 # Lazy loading
                 lz-n.enable = true;
 
-                # Status line (uses Stylix theme)
                 lualine = {
                   enable = true;
                 };
@@ -1012,6 +1016,7 @@ _: {
                       separator = true;
                     }
                   ];
+                  settings.options.style_preset.__raw = "require('bufferline').style_preset.minimal";
                 };
 
                 # Web devicons (required by nvim-tree, telescope, bufferline, lualine)
