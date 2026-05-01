@@ -1001,7 +1001,6 @@ _: {
                 # Lazy loading
                 lz-n.enable = true;
 
-                # Status line (uses Stylix theme)
                 lualine = {
                   enable = true;
                 };
