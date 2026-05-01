@@ -69,10 +69,15 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        services.protonmail-bridge = {
-          enable = true;
-          inherit (cfg) package path logLevel;
-        };
+        services.protonmail-bridge = lib.mkMerge [
+          {
+            enable = true;
+            inherit (cfg) package path;
+          }
+          (lib.mkIf (cfg.logLevel != null) {
+            inherit (cfg) logLevel;
+          })
+        ];
       };
     };
 in
