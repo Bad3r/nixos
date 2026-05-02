@@ -96,28 +96,55 @@ die() {
 
 usage() {
   cat <<'USAGE'
-pr-comments-mgmt.sh: resolve and/or minimize PR review threads via GitHub GraphQL.
+pr-comments-mgmt.sh: GitHub PR review-thread and PR-write CLI.
 
-A helper with strict mode, that uses the GitHub GraphQL API (`gh api graphql`) to:
-  * resolveReviewThread: close a review thread
-  * minimizeComment: hide a comment as OUTDATED (or another classifier)
+Wraps `gh api graphql` and `gh pr {edit,comment,review,view}` so triage
+workflows can stay on one CLI surface with one output convention. All
+mutation results and per-action progress are NDJSON on stderr; structured
+payloads land on stdout.
 
-Subcommands:
-  resolve <thread-id>...                   Resolve one or more threads.
-  hide-comment <comment-node-id>...        Minimize comments as OUTDATED.
-  hide-thread <thread-id>...               Minimize every comment in the thread
-                                           then resolve it.
-  list-threads                             Print thread IDs (+ resolution and
-                                           comment node IDs) as JSON for the
-                                           PR named by `--pr`, or for the
-                                           current branch's open PR when
-                                           `--pr` is omitted.
-  current-pr                               Print the PR named by `--pr` (or
-                                           the current branch's open PR when
-                                           `--pr` is omitted) as JSON
-                                           (number, title, body, and labels
-                                           as a name array). Exits non-zero
-                                           if no PR is found.
+Read subcommands:
+  list-threads                             Paginated review threads (with
+                                           inner comment pagination merged).
+                                           Default output: JSON array.
+  list-reviews                             Paginated reviews (state, body,
+                                           author, submittedAt, url, commit).
+                                           Default output: JSON array.
+  get-thread <thread-id>                   Single review thread, same shape
+                                           as one element of list-threads.
+  current-pr                               PR view as JSON, including id,
+                                           state, url, refs, author, draft,
+                                           mergeable, mergeStateStatus, and
+                                           labels flattened to a name array.
+
+Thread mutation subcommands (bulk; positional ids or stdin):
+  resolve <thread-id>...                   Close one or more review threads.
+  unresolve <thread-id>...                 Reopen one or more review threads.
+  hide-comment <comment-node-id>...        Minimize comments via the active
+                                           --reason classifier.
+  unhide-comment <comment-node-id>...      Unminimize comments.
+  hide-thread <thread-id>...               Minimize every visible comment in
+                                           the thread then resolve it.
+  reply <thread-id> [body|--body|--body-file FILE]
+                                           Post a threaded reply via
+                                           addPullRequestReviewThreadReply.
+
+PR write subcommands:
+  set-title <text>                         Edit PR title.
+  set-body [body|--body|--body-file FILE]  Edit PR body.
+  add-label <name>...                      Bulk add labels (positional or
+                                           stdin).
+  remove-label <name>...                   Bulk remove labels (positional or
+                                           stdin).
+  set-labels <name>...                     Set the PR's labels to exactly
+                                           the supplied set (computes
+                                           add/remove diff).
+  comment [body|--body|--body-file FILE]   Post an issue-level (top-level)
+                                           PR conversation comment.
+  review --approve|--request-changes|--comment [--body|--body-file FILE]
+                                           Submit a PR review. --approve
+                                           permits an empty body; the
+                                           others require a non-empty body.
 
 Options:
   --pr <number|owner/repo#number>          Target a specific PR. With a bare
@@ -125,22 +152,56 @@ Options:
                                            When omitted, the current branch's
                                            open PR is used.
   --reason {OUTDATED|RESOLVED|OFF_TOPIC|SPAM|ABUSE|DUPLICATE}
-                                           Classifier for hide* (default: OUTDATED).
-  --quiet                                  Suppress per-action output.
+                                           Classifier for hide-comment and
+                                           hide-thread (default: OUTDATED).
+  --format json|ndjson                     Output format for list-threads
+                                           and list-reviews (default: json).
+  --unresolved                             list-threads filter: keep
+                                           threads with isResolved == false.
+  --outdated                               list-threads filter: keep
+                                           threads with isOutdated == true.
+  --author <login>                         list-threads filter: keep threads
+                                           whose first comment was authored
+                                           by <login>.
+  --path <glob>                            list-threads filter: keep threads
+                                           whose path matches the glob
+                                           (`*` and `?` wildcards).
+  --minimized true|false                   list-threads filter: keep threads
+                                           where every comment is minimized
+                                           (true) or where at least one
+                                           comment is not (false).
+  --body <text>, --body-file <path|->      Body source for reply, set-body,
+                                           comment, and review. `-` means
+                                           stdin.
+  --approve, --request-changes, --comment  Review event flag (review only).
+  --quiet                                  Suppress per-action progress
+                                           lines (the bulk summary is still
+                                           emitted).
   -h, --help                               Show this message.
+
+Bulk verbs (resolve, unresolve, hide-comment, unhide-comment, hide-thread,
+add-label, remove-label) accept ids or names on stdin when no positional
+arguments are given (one per line, blank and `# ...` lines ignored), and
+emit a final summary record `{"verb":...,"ok":N,"failed":M}` on stderr.
 
 Exit codes:
   0   success
   1   user error (bad args, missing prerequisites)
-  2   API error
+  2   API error (one or more bulk-verb actions failed)
 
 Examples:
   pr-comments-mgmt.sh resolve PRRT_kwDOPeLwm85_EPVC
   pr-comments-mgmt.sh hide-thread --reason OUTDATED PRRT_kwDOPeLwm85_EQHI
-  pr-comments-mgmt.sh list-threads
-  pr-comments-mgmt.sh --pr 123 list-threads
-  pr-comments-mgmt.sh --pr owner/repo#123 list-threads
-  pr-comments-mgmt.sh current-pr
+  pr-comments-mgmt.sh list-threads --format=ndjson --unresolved
+  pr-comments-mgmt.sh --pr 123 list-threads --author Bad3r --path '*.sh'
+  pr-comments-mgmt.sh --pr owner/repo#123 list-reviews
+  pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC
+  pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'
+  pr-comments-mgmt.sh --pr 149 set-labels 'type(enhancement)' 'area(scripts)'
+  pr-comments-mgmt.sh --pr 149 comment --body-file response.md
+  pr-comments-mgmt.sh --pr 149 review --comment --body 'LGTM'
+  pr-comments-mgmt.sh list-threads --format=ndjson --unresolved \
+    | jq -r '.id' | pr-comments-mgmt.sh resolve
 USAGE
 }
 
