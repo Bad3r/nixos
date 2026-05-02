@@ -11,6 +11,7 @@ let
     # "copyq"
     "dive"
     "docker-compose"
+    "doom-emacs"
     "element-desktop"
     "espanso"
     # "evince"

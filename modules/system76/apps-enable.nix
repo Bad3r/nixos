@@ -99,6 +99,7 @@
       dnsleak.extended.enable = lib.mkOverride 1100 true;
       docker.extended.enable = lib.mkOverride 1100 true;
       dolphin.extended.enable = lib.mkOverride 1100 false;
+      "doom-emacs".extended.enable = lib.mkOverride 1100 true;
       "dragon-drop".extended.enable = lib.mkOverride 1100 true;
       dropbox.extended.enable = lib.mkOverride 1100 true;
       dua.extended.enable = lib.mkOverride 1100 true;
