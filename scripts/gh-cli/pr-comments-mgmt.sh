@@ -179,7 +179,12 @@ Options:
                                            char), `**` (zero or more
                                            directory levels via `**/`,
                                            one or more trailing levels
-                                           via `/**`).
+                                           via `/**`). Backslash escapes
+                                           (e.g., `\*` for a literal
+                                           star) are not supported;
+                                           review-thread paths
+                                           realistically never contain
+                                           glob meta-characters.
   --minimized true|false                   list-threads filter: keep threads
                                            where every comment is minimized
                                            (true) or where at least one
@@ -338,6 +343,10 @@ _glob_to_regex() {
   # Globstar tokens are extracted via NUL-byte placeholders before the
   # `*` / `?` rewrite so the bare-`*` rule (which now stops at `/`) does
   # not eat their inner stars. Every other regex meta-char is escaped.
+  # Backslash escapes are intentionally not supported: review-thread
+  # paths realistically never contain literal `*`/`?` characters, and a
+  # `\*`-style passthrough would complicate the placeholder ordering
+  # without paying back any real-world coverage.
   local glob="$1"
   local re=${glob}
   re=${re//\\/\\\\}
