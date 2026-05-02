@@ -352,6 +352,11 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
       return 2
     fi
 
+    if ! printf '%s' "${response}" | jq -e '.data.repository.pullRequest' >/dev/null; then
+      err "list-threads: ${owner}/${repo} pull request #${pr_number} not found"
+      return 2
+    fi
+
     local page
     page=$(printf '%s' "${response}" | jq '.data.repository.pullRequest.reviewThreads.nodes')
 
