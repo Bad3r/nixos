@@ -10,6 +10,20 @@ REASON="OUTDATED"
 
 readonly VALID_REASONS=("OUTDATED" "RESOLVED" "OFF_TOPIC" "SPAM" "ABUSE" "DUPLICATE")
 
+# Per-subcommand allowlist of long-flag short names (without the leading
+# `--`). Every subcommand must register here; `_assert_flags_for` consults
+# this map to reject flags that do not apply to the chosen subcommand.
+declare -rA SUBCOMMAND_FLAGS=(
+  ["resolve"]="quiet"
+  ["hide-comment"]="quiet reason"
+  ["hide-thread"]="quiet reason"
+  ["list-threads"]="quiet"
+  ["current-pr"]="quiet"
+)
+
+# Long-flag short names parsed off argv, preserved in order of appearance.
+SET_FLAGS=()
+
 # Plain-text on purpose: every other error is NDJSON, but `_json_string`
 # itself depends on `jq`, so we cannot format this one as JSON.
 if ! command -v jq >/dev/null 2>&1; then
@@ -119,6 +133,23 @@ valid_reason() {
     [[ ${candidate} == "${r}" ]] && return 0
   done
   return 1
+}
+
+_assert_flags_for() {
+  # Args: <subcommand>
+  # Dies if any flag in SET_FLAGS is not declared in SUBCOMMAND_FLAGS for
+  # the given subcommand, or if the subcommand has no allowlist entry at
+  # all (forces every new subcommand to register explicitly).
+  local subcommand="$1"
+  if [[ -z ${SUBCOMMAND_FLAGS[${subcommand}]+x} ]]; then
+    die 1 "internal: no flag allowlist for subcommand '${subcommand}'"
+  fi
+  local allowed=" ${SUBCOMMAND_FLAGS[${subcommand}]} "
+  local flag
+  for flag in "${SET_FLAGS[@]}"; do
+    [[ ${allowed} == *" ${flag} "* ]] ||
+      die 1 "${subcommand}: --${flag//_/-} is not applicable"
+  done
 }
 
 graphql_call() {
@@ -413,7 +444,6 @@ main() {
   require_cmd gh
 
   local positional=()
-  local reason_set=false
   while (($# > 0)); do
     case "$1" in
     -h | --help)
@@ -422,20 +452,21 @@ main() {
       ;;
     --quiet)
       QUIET=true
+      SET_FLAGS+=(quiet)
       shift
       ;;
     --reason)
       [[ -n ${2:-} ]] || die 1 "--reason requires a value"
       valid_reason "$2" || die 1 "--reason must be one of: ${VALID_REASONS[*]}"
       REASON="$2"
-      reason_set=true
+      SET_FLAGS+=(reason)
       shift 2
       ;;
     --reason=*)
       local rv="${1#--reason=}"
       valid_reason "${rv}" || die 1 "--reason must be one of: ${VALID_REASONS[*]}"
       REASON="${rv}"
-      reason_set=true
+      SET_FLAGS+=(reason)
       shift
       ;;
     --)
@@ -463,7 +494,7 @@ main() {
 
   case "${subcommand}" in
   resolve)
-    [[ ${reason_set} == true ]] && die 1 "resolve: --reason is not applicable"
+    _assert_flags_for "${subcommand}"
     ((${#args[@]} > 0)) || die 1 "resolve: need at least one thread id"
     local id rc=0
     for id in "${args[@]}"; do
@@ -472,6 +503,7 @@ main() {
     exit "${rc}"
     ;;
   hide-comment)
+    _assert_flags_for "${subcommand}"
     ((${#args[@]} > 0)) || die 1 "hide-comment: need at least one comment node id"
     local id rc=0
     for id in "${args[@]}"; do
@@ -480,6 +512,7 @@ main() {
     exit "${rc}"
     ;;
   hide-thread)
+    _assert_flags_for "${subcommand}"
     ((${#args[@]} > 0)) || die 1 "hide-thread: need at least one thread id"
     local id rc=0
     for id in "${args[@]}"; do
@@ -488,12 +521,12 @@ main() {
     exit "${rc}"
     ;;
   current-pr)
-    [[ ${reason_set} == true ]] && die 1 "current-pr: --reason is not applicable"
+    _assert_flags_for "${subcommand}"
     ((${#args[@]} == 0)) || die 1 "current-pr: takes no arguments"
     current_pr || exit $?
     ;;
   list-threads)
-    [[ ${reason_set} == true ]] && die 1 "list-threads: --reason is not applicable"
+    _assert_flags_for "${subcommand}"
     local owner_repo pr_number
     case "${#args[@]}" in
     0)
