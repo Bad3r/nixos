@@ -22,6 +22,7 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["list-comments"]="quiet pr format sort limit author minimized superseded similar-prefix"
   ["current-pr"]="quiet pr"
   ["get-thread"]="quiet pr"
+  ["get-comment"]="quiet pr"
   ["reply"]="quiet pr body body-file"
   ["unresolve"]="quiet pr"
   ["unhide-comment"]="quiet pr"
@@ -132,6 +133,9 @@ Read subcommands:
                                            Default output: JSON array.
   get-thread <thread-id>                   Single review thread, same shape
                                            as one element of list-threads.
+  get-comment <comment-node-id>            Single issue-level (top-level)
+                                           PR comment, same shape as one
+                                           element of list-comments.
   current-pr                               PR view as JSON. Fields:
                                            id, number, title, body, state,
                                            url, headRefName, baseRefName,
@@ -383,6 +387,7 @@ Examples:
         'BEGIN{print "id","resolved","outdated","path","line","author","comments","visible"} 1' \
     | column -t -s $'\t'
   pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC
+  pr-comments-mgmt.sh get-comment IC_kwDOPeLwm88AAAABBCSK6A
   pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'
   pr-comments-mgmt.sh --pr 149 set-labels 'type(enhancement)' 'area(scripts)'
   pr-comments-mgmt.sh --pr 149 comment --body-file response.md
@@ -1544,6 +1549,50 @@ query($id: ID!) {
     _paginate_thread_comments | jq '.'
 }
 
+get_comment() {
+  # Mirror of `get_thread` for issue-level (top-level) PR comments.
+  # Same field shape as one element of `list-comments`. The node id is
+  # globally unique on GitHub's side, so `--pr` is accepted (for surface
+  # consistency) but never read.
+  local comment_id="$1"
+  [[ -n ${comment_id} ]] || die 1 "get-comment: empty comment id"
+
+  local response
+  if ! response=$(graphql_call '
+query($id: ID!) {
+  node(id: $id) {
+    __typename
+    ... on IssueComment {
+      id
+      databaseId
+      author { login }
+      body
+      createdAt
+      updatedAt
+      url
+      isMinimized
+      minimizedReason
+      viewerCanMinimize
+      viewerCanUpdate
+      viewerCanDelete
+    }
+  }
+}
+' "id=${comment_id}"); then
+    err "get-comment: graphql call failed for ${comment_id}"
+    return 2
+  fi
+
+  local typename
+  typename=$(printf '%s' "${response}" | jq -r '.data.node.__typename // ""')
+  if [[ ${typename} != "IssueComment" ]]; then
+    err "get-comment: ${comment_id} is ${typename:-not found}, expected IssueComment"
+    return 2
+  fi
+
+  printf '%s' "${response}" | jq '.data.node | del(.__typename)'
+}
+
 current_pr() {
   pr_resolve
 
@@ -1850,6 +1899,12 @@ main() {
     ((${#args[@]} == 1)) ||
       die 1 "get-thread: expected exactly one thread id (got ${#args[@]})"
     get_thread "${args[0]}" || exit $?
+    ;;
+  get-comment)
+    _assert_flags_for "${subcommand}"
+    ((${#args[@]} == 1)) ||
+      die 1 "get-comment: expected exactly one comment id (got ${#args[@]})"
+    get_comment "${args[0]}" || exit $?
     ;;
   reply)
     _assert_flags_for "${subcommand}"
