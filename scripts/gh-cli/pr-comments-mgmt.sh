@@ -18,6 +18,7 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["hide-comment"]="quiet reason"
   ["hide-thread"]="quiet reason"
   ["list-threads"]="quiet pr"
+  ["list-reviews"]="quiet pr"
   ["current-pr"]="quiet pr"
   ["get-thread"]="quiet"
 )
@@ -567,6 +568,63 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
   printf '%s' "${all_threads}" | jq '.'
 }
 
+list_reviews() {
+  pr_resolve
+  local owner=${PR_OWNER_REPO%/*}
+  local repo=${PR_OWNER_REPO#*/}
+  local pr_number=${PR_NUMBER}
+
+  local cursor="null"
+  local all_reviews='[]'
+
+  while :; do
+    local response
+    if ! response=$(graphql_call '
+query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviews(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          databaseId
+          state
+          body
+          author { login }
+          submittedAt
+          url
+          commit { oid }
+        }
+      }
+    }
+  }
+}
+' "owner=${owner}" "repo=${repo}" "number=${pr_number}" "cursor=${cursor}"); then
+      err "list-reviews: graphql call failed"
+      return 2
+    fi
+
+    if ! printf '%s' "${response}" | jq -e '.data.repository.pullRequest' >/dev/null; then
+      err "list-reviews: ${owner}/${repo} pull request #${pr_number} not found"
+      return 2
+    fi
+
+    local page
+    page=$(printf '%s' "${response}" | jq '.data.repository.pullRequest.reviews.nodes')
+
+    all_reviews=$(jq -n --argjson a "${all_reviews}" --argjson b "${page}" '$a + $b')
+
+    local page_info has_next
+    page_info=$(printf '%s' "${response}" |
+      jq -c '.data.repository.pullRequest.reviews.pageInfo')
+    has_next=$(printf '%s' "${page_info}" | jq -r '.hasNextPage')
+    [[ ${has_next} == "true" ]] || break
+    cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
+  done
+
+  printf '%s' "${all_reviews}" | jq '.'
+}
+
 get_thread() {
   local thread_id="$1"
   [[ -n ${thread_id} ]] || die 1 "get-thread: empty thread id"
@@ -767,6 +825,11 @@ main() {
     _assert_flags_for "${subcommand}"
     ((${#args[@]} == 0)) || die 1 "list-threads: takes no positional arguments (use --pr)"
     list_threads || exit $?
+    ;;
+  list-reviews)
+    _assert_flags_for "${subcommand}"
+    ((${#args[@]} == 0)) || die 1 "list-reviews: takes no positional arguments (use --pr)"
+    list_reviews || exit $?
     ;;
   get-thread)
     _assert_flags_for "${subcommand}"
