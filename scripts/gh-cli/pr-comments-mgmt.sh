@@ -17,9 +17,9 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["resolve"]="quiet pr"
   ["hide-comment"]="quiet pr reason"
   ["hide-thread"]="quiet pr reason"
-  ["list-threads"]="quiet pr format unresolved outdated author path minimized"
-  ["list-reviews"]="quiet pr format"
-  ["list-comments"]="quiet pr format author minimized"
+  ["list-threads"]="quiet pr format sort limit unresolved outdated author path minimized"
+  ["list-reviews"]="quiet pr format sort limit"
+  ["list-comments"]="quiet pr format sort limit author minimized"
   ["current-pr"]="quiet pr"
   ["get-thread"]="quiet pr"
   ["reply"]="quiet pr body body-file"
@@ -195,11 +195,22 @@ Options:
   --reason {OUTDATED|RESOLVED|OFF_TOPIC|SPAM|ABUSE|DUPLICATE}
                                            Classifier for hide-comment and
                                            hide-thread (default: OUTDATED).
-  --format json|ndjson|ids                 Output format for list-threads,
+  --format json|ndjson|ids|text|full       Output format for list-threads,
                                            list-reviews, and list-comments
-                                           (default: json). `ids` emits one
-                                           `.id` per line, suitable for
-                                           piping into bulk verbs.
+                                           (default: json). `ids` emits
+                                           one `.id` per line; `text`
+                                           emits a one-line summary per
+                                           item; `full` emits a header
+                                           plus body block per item.
+  --sort newest|oldest                     Sort list-* output by the natural
+                                           per-item timestamp
+                                           (submittedAt for reviews,
+                                           createdAt for comments and the
+                                           thread's first comment).
+  --limit N                                Keep the first N items after
+                                           --sort. Pair with
+                                           `--sort newest --limit 5` for
+                                           the five most recent items.
   --unresolved                             list-threads filter: keep
                                            threads with isResolved == false.
   --outdated                               list-threads filter: keep
@@ -262,6 +273,12 @@ Examples:
     | jq -r 'select(.state == "CHANGES_REQUESTED") | .id' \
     | pr-comments-mgmt.sh dismiss-review --pr 149 \
         --body 'addressed in commit abc1234; dismissing stale review'
+  pr-comments-mgmt.sh --pr 149 list-reviews \
+    --sort=newest --limit=1 --format=full
+  pr-comments-mgmt.sh --pr 149 list-reviews \
+    --sort=newest --limit=5 --format=text
+  pr-comments-mgmt.sh --pr 149 list-comments \
+    --sort=newest --limit=3 --format=full
   pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC
   pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'
   pr-comments-mgmt.sh --pr 149 set-labels 'type(enhancement)' 'area(scripts)'
@@ -480,16 +497,70 @@ _apply_thread_filters() {
   jq "${jq_args[@]}" "${jq_filter}"
 }
 
+_apply_view() {
+  # Reads a JSON array on stdin and applies --sort + --limit. The first
+  # arg is the jq path expression for the per-item timestamp used by
+  # --sort (e.g., `.submittedAt`, `.createdAt`,
+  # `.comments.nodes[0].createdAt`). No-op when neither flag is set.
+  local time_field="$1"
+  local jq_filter='.'
+  local jq_args=()
+  if _set_flags_has sort; then
+    jq_filter+=" | sort_by(${time_field})"
+    [[ ${SORT_ORDER} == newest ]] && jq_filter+=' | reverse'
+  fi
+  if _set_flags_has limit; then
+    jq_filter+=' | .[0:$lim]'
+    jq_args+=(--argjson lim "${LIMIT_VAL}")
+  fi
+  jq "${jq_args[@]}" "${jq_filter}"
+}
+
 _format_array() {
   # Filter for list-* subcommands. Reads a JSON array on stdin; emits
-  # one of three shapes per OUTPUT_FORMAT:
+  # one of five shapes per OUTPUT_FORMAT:
   #   json   pretty-printed JSON array (default)
   #   ndjson one JSON document per line
   #   ids    one `.id` per line, blank/null ids skipped
+  #   text   one short summary line per item (per-kind fields)
+  #   full   header + body block per item (per-kind layout)
+  # The first arg is the kind ("threads", "reviews", "comments") and
+  # selects per-verb templates for text/full.
+  local kind="$1"
   case "${OUTPUT_FORMAT}" in
   ndjson) jq -c '.[]' ;;
   ids) jq -r '.[].id // empty' ;;
+  text) _format_text "${kind}" ;;
+  full) _format_full "${kind}" ;;
   *) jq '.' ;;
+  esac
+}
+
+_format_text() {
+  case "$1" in
+  reviews)
+    jq -r '.[] | "[\(.submittedAt)] \(.author.login) (\(.state)) body=\((.body // "") | length) chars"'
+    ;;
+  comments)
+    jq -r '.[] | "[\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) body=\((.body // "") | length) chars"'
+    ;;
+  threads)
+    jq -r '.[] | "[\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) comments=\(.comments.nodes | length)"'
+    ;;
+  esac
+}
+
+_format_full() {
+  case "$1" in
+  reviews)
+    jq -r '.[] | "=== [\(.submittedAt)] \(.author.login) (\(.state)) ===\n\(.body // "")\n"'
+    ;;
+  comments)
+    jq -r '.[] | "=== [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) ===\n\(.body // "")\n"'
+    ;;
+  threads)
+    jq -r '.[] | "=== [\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
+    ;;
   esac
 }
 
@@ -1069,7 +1140,8 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
   done
 
-  printf '%s' "${all_threads}" | _apply_thread_filters | _format_array
+  printf '%s' "${all_threads}" | _apply_thread_filters |
+    _apply_view '.comments.nodes[0].createdAt' | _format_array threads
 }
 
 list_reviews() {
@@ -1126,7 +1198,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
   done
 
-  printf '%s' "${all_reviews}" | _format_array
+  printf '%s' "${all_reviews}" | _apply_view '.submittedAt' | _format_array reviews
 }
 
 list_comments() {
@@ -1191,7 +1263,8 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
   done
 
-  printf '%s' "${all_comments}" | _apply_comment_filters | _format_array
+  printf '%s' "${all_comments}" | _apply_comment_filters |
+    _apply_view '.createdAt' | _format_array comments
 }
 
 get_thread() {
@@ -1329,8 +1402,8 @@ main() {
     --format)
       [[ -n ${2:-} ]] || die 1 "--format requires a value"
       case "$2" in
-      json | ndjson | ids) OUTPUT_FORMAT="$2" ;;
-      *) die 1 "--format must be one of: json, ndjson, ids" ;;
+      json | ndjson | ids | text | full) OUTPUT_FORMAT="$2" ;;
+      *) die 1 "--format must be one of: json, ndjson, ids, text, full" ;;
       esac
       SET_FLAGS+=(format)
       shift 2
@@ -1338,10 +1411,42 @@ main() {
     --format=*)
       local fv="${1#--format=}"
       case "${fv}" in
-      json | ndjson | ids) OUTPUT_FORMAT="${fv}" ;;
-      *) die 1 "--format must be one of: json, ndjson, ids" ;;
+      json | ndjson | ids | text | full) OUTPUT_FORMAT="${fv}" ;;
+      *) die 1 "--format must be one of: json, ndjson, ids, text, full" ;;
       esac
       SET_FLAGS+=(format)
+      shift
+      ;;
+    --sort)
+      [[ -n ${2:-} ]] || die 1 "--sort requires a value"
+      case "$2" in
+      newest | oldest) SORT_ORDER="$2" ;;
+      *) die 1 "--sort must be one of: newest, oldest" ;;
+      esac
+      SET_FLAGS+=(sort)
+      shift 2
+      ;;
+    --sort=*)
+      local sv="${1#--sort=}"
+      case "${sv}" in
+      newest | oldest) SORT_ORDER="${sv}" ;;
+      *) die 1 "--sort must be one of: newest, oldest" ;;
+      esac
+      SET_FLAGS+=(sort)
+      shift
+      ;;
+    --limit)
+      [[ -n ${2:-} ]] || die 1 "--limit requires a value"
+      [[ ${2} =~ ^[1-9][0-9]*$ ]] || die 1 "--limit must be a positive integer"
+      LIMIT_VAL="$2"
+      SET_FLAGS+=(limit)
+      shift 2
+      ;;
+    --limit=*)
+      local lv="${1#--limit=}"
+      [[ ${lv} =~ ^[1-9][0-9]*$ ]] || die 1 "--limit must be a positive integer"
+      LIMIT_VAL="${lv}"
+      SET_FLAGS+=(limit)
       shift
       ;;
     --unresolved)
