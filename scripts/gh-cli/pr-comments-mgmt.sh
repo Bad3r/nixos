@@ -17,8 +17,8 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["resolve"]="quiet"
   ["hide-comment"]="quiet reason"
   ["hide-thread"]="quiet reason"
-  ["list-threads"]="quiet pr"
-  ["list-reviews"]="quiet pr"
+  ["list-threads"]="quiet pr format"
+  ["list-reviews"]="quiet pr format"
   ["current-pr"]="quiet pr"
   ["get-thread"]="quiet"
 )
@@ -37,6 +37,10 @@ PR_NUMBER=""
 # from "flag absent".
 BODY_TEXT=""
 BODY_FILE=""
+
+# Output format for list-* subcommands. Always one of "json" (default,
+# pretty-printed JSON array) or "ndjson" (one JSON document per line).
+OUTPUT_FORMAT="json"
 
 # Plain-text on purpose: every other error is NDJSON, but `_json_string`
 # itself depends on `jq`, so we cannot format this one as JSON.
@@ -227,6 +231,17 @@ _collect_ids() {
     [[ -z ${line} || ${line} =~ ^[[:space:]]*# ]] && continue
     printf '%s\n' "${line}"
   done
+}
+
+_format_array() {
+  # Filter for list-* subcommands. Reads a JSON array on stdin; emits a
+  # pretty-printed array (json) or one JSON document per line (ndjson)
+  # per OUTPUT_FORMAT.
+  if [[ ${OUTPUT_FORMAT} == "ndjson" ]]; then
+    jq -c '.[]'
+  else
+    jq '.'
+  fi
 }
 
 _bulk_summary() {
@@ -565,7 +580,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
   done
 
-  printf '%s' "${all_threads}" | jq '.'
+  printf '%s' "${all_threads}" | _format_array
 }
 
 list_reviews() {
@@ -622,7 +637,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
   done
 
-  printf '%s' "${all_reviews}" | jq '.'
+  printf '%s' "${all_reviews}" | _format_array
 }
 
 get_thread() {
@@ -755,6 +770,24 @@ main() {
       BODY_FILE="${1#--body-file=}"
       [[ -n ${BODY_FILE} ]] || die 1 "--body-file requires a value"
       SET_FLAGS+=(body-file)
+      shift
+      ;;
+    --format)
+      [[ -n ${2:-} ]] || die 1 "--format requires a value"
+      case "$2" in
+      json | ndjson) OUTPUT_FORMAT="$2" ;;
+      *) die 1 "--format must be one of: json, ndjson" ;;
+      esac
+      SET_FLAGS+=(format)
+      shift 2
+      ;;
+    --format=*)
+      local fv="${1#--format=}"
+      case "${fv}" in
+      json | ndjson) OUTPUT_FORMAT="${fv}" ;;
+      *) die 1 "--format must be one of: json, ndjson" ;;
+      esac
+      SET_FLAGS+=(format)
       shift
       ;;
     --)
