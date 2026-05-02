@@ -358,26 +358,30 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     local page
     page=$(printf '%s' "${response}" | jq '.data.repository.pullRequest.reviewThreads.nodes')
 
-    # For any thread whose inner comments are paginated, fetch and merge the rest.
-    local idx count
-    count=$(printf '%s' "${page}" | jq 'length')
-    for ((idx = 0; idx < count; idx++)); do
+    # Find thread indices whose inner comments span more than one page in a
+    # single jq pass, then merge follow-up pages only for those entries.
+    local needs=()
+    mapfile -t needs < <(printf '%s' "${page}" |
+      jq -r 'to_entries[] | select(.value.comments.pageInfo.hasNextPage) | .key')
+    local idx
+    for idx in "${needs[@]}"; do
       local thread_in thread_out
       thread_in=$(printf '%s' "${page}" | jq ".[${idx}]")
-      if [[ $(printf '%s' "${thread_in}" | jq -r '.comments.pageInfo.hasNextPage') == "true" ]]; then
-        if ! thread_out=$(printf '%s' "${thread_in}" | _paginate_thread_comments); then
-          return 2
-        fi
-        page=$(jq -n --argjson p "${page}" --argjson t "${thread_out}" --argjson i "${idx}" '$p | .[$i] = $t')
+      if ! thread_out=$(printf '%s' "${thread_in}" | _paginate_thread_comments); then
+        return 2
       fi
+      page=$(jq -n --argjson p "${page}" --argjson t "${thread_out}" --argjson i "${idx}" \
+        '$p | .[$i] = $t')
     done
 
     all_threads=$(jq -n --argjson a "${all_threads}" --argjson b "${page}" '$a + $b')
 
-    local has_next
-    has_next=$(printf '%s' "${response}" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+    local page_info has_next
+    page_info=$(printf '%s' "${response}" |
+      jq -c '.data.repository.pullRequest.reviewThreads.pageInfo')
+    has_next=$(printf '%s' "${page_info}" | jq -r '.hasNextPage')
     [[ ${has_next} == "true" ]] || break
-    cursor=$(printf '%s' "${response}" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+    cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
   done
 
   printf '%s' "${all_threads}" | jq '.'
