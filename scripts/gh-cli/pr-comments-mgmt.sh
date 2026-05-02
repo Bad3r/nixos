@@ -30,6 +30,12 @@ PR_REF=""
 PR_OWNER_REPO=""
 PR_NUMBER=""
 
+# `--body` / `--body-file` raw values; presence is tracked via SET_FLAGS
+# (entries `body` and `body-file`) so empty bodies are distinguishable
+# from "flag absent".
+BODY_TEXT=""
+BODY_FILE=""
+
 # Plain-text on purpose: every other error is NDJSON, but `_json_string`
 # itself depends on `jq`, so we cannot format this one as JSON.
 if ! command -v jq >/dev/null 2>&1; then
@@ -159,6 +165,78 @@ _assert_flags_for() {
     [[ ${allowed} == *" ${flag} "* ]] ||
       die 1 "${subcommand}: --${flag//_/-} is not applicable"
   done
+}
+
+_set_flags_has() {
+  # Args: <flag>
+  # Returns 0 iff <flag> was supplied on argv.
+  local target="$1" f
+  for f in "${SET_FLAGS[@]}"; do
+    [[ ${f} == "${target}" ]] && return 0
+  done
+  return 1
+}
+
+_read_body() {
+  # Args: <subcommand-tag> [<positional-body>]
+  # Echoes the body text on stdout from exactly one of: --body-file
+  # (where `-` reads stdin), --body, or a single positional argument.
+  # Dies with code 1 if zero or multiple sources are supplied.
+  local tag="$1"
+  shift
+  local positional=$#
+  local has_body=0 has_body_file=0
+  _set_flags_has body && has_body=1
+  _set_flags_has body-file && has_body_file=1
+  local sources=$((has_body + has_body_file))
+  ((positional > 0)) && sources=$((sources + 1))
+  ((sources == 1)) ||
+    die 1 "${tag}: provide exactly one of <body>, --body, or --body-file"
+
+  if ((has_body_file)); then
+    if [[ ${BODY_FILE} == "-" ]]; then
+      cat
+    else
+      [[ -r ${BODY_FILE} ]] ||
+        die 1 "${tag}: --body-file '${BODY_FILE}' is not readable"
+      cat -- "${BODY_FILE}"
+    fi
+  elif ((has_body)); then
+    printf '%s' "${BODY_TEXT}"
+  else
+    printf '%s' "$1"
+  fi
+}
+
+_collect_ids() {
+  # Args: <ids...>
+  # Echoes one id per line on stdout. With positionals, echoes those
+  # (skipping empty strings). Without positionals, reads from stdin
+  # ignoring blank lines and `# ...` comment lines.
+  if (($# > 0)); then
+    local id
+    for id in "$@"; do
+      [[ -n ${id} ]] && printf '%s\n' "${id}"
+    done
+    return 0
+  fi
+  local line
+  while IFS= read -r line; do
+    [[ -z ${line} || ${line} =~ ^[[:space:]]*# ]] && continue
+    printf '%s\n' "${line}"
+  done
+}
+
+_bulk_summary() {
+  # Args: <verb> <ok> <failed>
+  # Emits a single NDJSON record on stderr summarizing the run; always
+  # emitted, even under --quiet (the per-action log lines are the noisy
+  # channel that --quiet suppresses).
+  local verb="$1" ok="$2" failed="$3"
+  printf '{"level":"info","prog":%s,"verb":%s,"ok":%d,"failed":%d}\n' \
+    "$(_json_string "${PROG_NAME}")" \
+    "$(_json_string "${verb}")" \
+    "${ok}" "${failed}" >&2
 }
 
 pr_resolve() {
@@ -514,6 +592,29 @@ main() {
       SET_FLAGS+=(pr)
       shift
       ;;
+    --body)
+      [[ $# -ge 2 ]] || die 1 "--body requires a value"
+      BODY_TEXT="$2"
+      SET_FLAGS+=(body)
+      shift 2
+      ;;
+    --body=*)
+      BODY_TEXT="${1#--body=}"
+      SET_FLAGS+=(body)
+      shift
+      ;;
+    --body-file)
+      [[ -n ${2:-} ]] || die 1 "--body-file requires a value"
+      BODY_FILE="$2"
+      SET_FLAGS+=(body-file)
+      shift 2
+      ;;
+    --body-file=*)
+      BODY_FILE="${1#--body-file=}"
+      [[ -n ${BODY_FILE} ]] || die 1 "--body-file requires a value"
+      SET_FLAGS+=(body-file)
+      shift
+      ;;
     --)
       shift
       positional+=("$@")
@@ -540,30 +641,38 @@ main() {
   case "${subcommand}" in
   resolve)
     _assert_flags_for "${subcommand}"
-    ((${#args[@]} > 0)) || die 1 "resolve: need at least one thread id"
-    local id rc=0
-    for id in "${args[@]}"; do
-      resolve_thread "${id}" || rc=$?
-    done
-    exit "${rc}"
+    local id ok=0 failed=0
+    while IFS= read -r id; do
+      if resolve_thread "${id}"; then ok=$((ok + 1)); else failed=$((failed + 1)); fi
+    done < <(_collect_ids "${args[@]}")
+    _bulk_summary resolve "${ok}" "${failed}"
+    exit $((failed > 0 ? 2 : 0))
     ;;
   hide-comment)
     _assert_flags_for "${subcommand}"
-    ((${#args[@]} > 0)) || die 1 "hide-comment: need at least one comment node id"
-    local id rc=0
-    for id in "${args[@]}"; do
-      minimize_comment "${id}" "${REASON}" || rc=$?
-    done
-    exit "${rc}"
+    local id ok=0 failed=0
+    while IFS= read -r id; do
+      if minimize_comment "${id}" "${REASON}"; then
+        ok=$((ok + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    done < <(_collect_ids "${args[@]}")
+    _bulk_summary hide-comment "${ok}" "${failed}"
+    exit $((failed > 0 ? 2 : 0))
     ;;
   hide-thread)
     _assert_flags_for "${subcommand}"
-    ((${#args[@]} > 0)) || die 1 "hide-thread: need at least one thread id"
-    local id rc=0
-    for id in "${args[@]}"; do
-      hide_thread "${id}" "${REASON}" || rc=$?
-    done
-    exit "${rc}"
+    local id ok=0 failed=0
+    while IFS= read -r id; do
+      if hide_thread "${id}" "${REASON}"; then
+        ok=$((ok + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    done < <(_collect_ids "${args[@]}")
+    _bulk_summary hide-thread "${ok}" "${failed}"
+    exit $((failed > 0 ? 2 : 0))
     ;;
   current-pr)
     _assert_flags_for "${subcommand}"
