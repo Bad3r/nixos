@@ -149,6 +149,7 @@ Thread mutation subcommands (bulk; positional ids or stdin):
   reply <thread-id> [body|--body|--body-file FILE]
                                            Post a threaded reply via
                                            addPullRequestReviewThreadReply.
+                                           Body must be non-empty.
   dismiss-review <review-node-id>... --body|--body-file FILE
                                            Dismiss one or more PR reviews
                                            via dismissPullRequestReview.
@@ -166,7 +167,10 @@ Thread mutation subcommands (bulk; positional ids or stdin):
 
 PR write subcommands:
   set-title <text>                         Edit PR title.
-  set-body [body|--body|--body-file FILE]  Edit PR body.
+  set-body [body|--body|--body-file FILE]  Edit PR body. Body must be
+                                           non-empty (use the GitHub UI
+                                           or `gh pr edit --body ''` to
+                                           clear).
   add-label <name>...                      Bulk add labels (positional or
                                            stdin).
   remove-label <name>...                   Bulk remove labels (positional or
@@ -175,9 +179,10 @@ PR write subcommands:
                                            the supplied set (computes
                                            add/remove diff).
   comment [body|--body|--body-file FILE]   Post an issue-level (top-level)
-                                           PR conversation comment.
-                                           (Distinct from review's
-                                           --comment event flag below.)
+                                           PR conversation comment. Body
+                                           must be non-empty. (Distinct
+                                           from review's --comment event
+                                           flag below.)
   review --approve|--request-changes|--comment [--body|--body-file FILE]
                                            Submit a PR review. --approve
                                            permits an empty body; the
@@ -1683,6 +1688,7 @@ main() {
     local rid="${args[0]}"
     local rbody
     rbody=$(_read_body reply "${args[@]:1}") || exit $?
+    [[ -n ${rbody} ]] || die 1 "reply: body cannot be empty"
     reply_thread "${rid}" "${rbody}" || exit $?
     ;;
   unresolve)
@@ -1756,6 +1762,7 @@ main() {
     pr_resolve
     local sb_body
     sb_body=$(_read_body set-body "${args[@]}") || exit $?
+    [[ -n ${sb_body} ]] || die 1 "set-body: body cannot be empty"
     _gh_run pr edit "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
       --body "${sb_body}" >/dev/null || exit $?
     log "set-body: ${PR_OWNER_REPO}#${PR_NUMBER}"
@@ -1811,6 +1818,7 @@ main() {
     pr_resolve
     local cm_body
     cm_body=$(_read_body comment "${args[@]}") || exit $?
+    [[ -n ${cm_body} ]] || die 1 "comment: body cannot be empty"
     _gh_run pr comment "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
       --body "${cm_body}" || exit $?
     ;;
