@@ -1600,7 +1600,7 @@ main() {
     ;;
   set-labels)
     _assert_flags_for "${subcommand}"
-    local sl_names=()
+    local sl_names=() name
     while IFS= read -r name; do
       sl_names+=("${name}")
     done < <(_collect_ids "${args[@]}")
