@@ -498,14 +498,17 @@ _bulk_summary() {
 
 _bulk_count_file_init() {
   # Creates the temp file used by `_collect_ids` to record its
-  # pre-filter line count and exports its path via
+  # pre-filter line count, in the shell variable
   # ${BULK_READ_COUNT_FILE}. Caller must invoke `_bulk_count_file_done`
-  # after the loop to reset the env var and remove the file. An EXIT
+  # after the loop to reset the variable and remove the file. An EXIT
   # trap also fires `_bulk_count_file_done` so the file is cleaned up
   # on every exit path, including the `_assert_processed` -> die ->
   # exit branch which would otherwise bypass the explicit teardown.
+  # No `export` needed: `_collect_ids` is invoked through process
+  # substitution `< <(_collect_ids ...)`, which is a bash subshell and
+  # inherits unexported variables. `export` only matters for child
+  # processes started via `execve`, which this code path does not use.
   BULK_READ_COUNT_FILE=$(mktemp)
-  export BULK_READ_COUNT_FILE
   trap '_bulk_count_file_done' EXIT
 }
 
