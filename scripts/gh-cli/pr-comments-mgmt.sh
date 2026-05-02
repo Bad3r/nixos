@@ -138,7 +138,7 @@ graphql_call() {
   fi
 
   local errors
-  errors=$(printf '%s' "${response}" | jq -c '.errors // empty')
+  errors=$(printf '%s' "${response}" | jq -c '(.errors // []) | select(length > 0)')
   if [[ -n ${errors} ]]; then
     err "graphql errors: ${errors}"
     return 2
