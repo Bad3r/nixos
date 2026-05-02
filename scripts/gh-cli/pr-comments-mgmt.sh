@@ -22,6 +22,8 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["current-pr"]="quiet pr"
   ["get-thread"]="quiet"
   ["reply"]="quiet body body-file"
+  ["unresolve"]="quiet"
+  ["unhide-comment"]="quiet"
 )
 
 # Long-flag short names parsed off argv, preserved in order of appearance.
@@ -444,6 +446,64 @@ mutation($id: ID!, $classifier: ReportedContentClassifiers!) {
   fi
 
   log "hidden (${classifier}): ${node_id}"
+}
+
+unresolve_thread() {
+  local thread_id="$1"
+  [[ -n ${thread_id} ]] || die 1 "unresolve: empty thread id"
+
+  local response
+  if ! response=$(graphql_call '
+mutation($id: ID!) {
+  unresolveReviewThread(input: { threadId: $id }) {
+    thread { id isResolved }
+  }
+}
+' "id=${thread_id}"); then
+    err "unresolve: graphql call failed for ${thread_id}"
+    return 2
+  fi
+
+  local resolved
+  resolved=$(printf '%s' "${response}" | jq -r '.data.unresolveReviewThread.thread.isResolved // "null"')
+
+  case "${resolved}" in
+  false) log "unresolved: ${thread_id}" ;;
+  null)
+    err "unresolve: unexpected response for ${thread_id}: ${response}"
+    return 2
+    ;;
+  *)
+    err "unresolve: ${thread_id} reported isResolved=${resolved}"
+    return 2
+    ;;
+  esac
+}
+
+unminimize_comment() {
+  local node_id="$1"
+  [[ -n ${node_id} ]] || die 1 "unhide-comment: empty comment node id"
+
+  local response
+  if ! response=$(graphql_call '
+mutation($id: ID!) {
+  unminimizeComment(input: { subjectId: $id }) {
+    unminimizedComment { isMinimized }
+  }
+}
+' "id=${node_id}"); then
+    err "unhide-comment: graphql call failed for ${node_id}"
+    return 2
+  fi
+
+  local is_min
+  is_min=$(printf '%s' "${response}" | jq -r '.data.unminimizeComment.unminimizedComment.isMinimized // "null"')
+  if [[ ${is_min} != "false" ]]; then
+    err "unhide-comment: unexpected response for ${node_id}: ${response}"
+    return 2
+  fi
+
+  log "unhidden: ${node_id}"
 }
 
 reply_thread() {
@@ -1026,6 +1086,32 @@ main() {
     local rbody
     rbody=$(_read_body reply "${args[@]:1}") || exit $?
     reply_thread "${rid}" "${rbody}" || exit $?
+    ;;
+  unresolve)
+    _assert_flags_for "${subcommand}"
+    local id ok=0 failed=0
+    while IFS= read -r id; do
+      if unresolve_thread "${id}"; then
+        ok=$((ok + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    done < <(_collect_ids "${args[@]}")
+    _bulk_summary unresolve "${ok}" "${failed}"
+    exit $((failed > 0 ? 2 : 0))
+    ;;
+  unhide-comment)
+    _assert_flags_for "${subcommand}"
+    local id ok=0 failed=0
+    while IFS= read -r id; do
+      if unminimize_comment "${id}"; then
+        ok=$((ok + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    done < <(_collect_ids "${args[@]}")
+    _bulk_summary unhide-comment "${ok}" "${failed}"
+    exit $((failed > 0 ? 2 : 0))
     ;;
   *)
     die 1 "unknown subcommand: ${subcommand}"
