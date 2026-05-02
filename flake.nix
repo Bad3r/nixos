@@ -2,7 +2,10 @@
   nixConfig = {
     abort-on-warn = false;
     extra-experimental-features = [ "pipe-operators" ];
-    allow-import-from-derivation = false;
+    # IFD is required by `nix-doom-emacs-unstraightened` (lib.importJSON of
+    # `doom-intermediates/packages.json`). No other module in this repo relies
+    # on IFD; flake evaluation otherwise stays pure.
+    allow-import-from-derivation = true;
   };
 
   inputs = {
@@ -71,6 +74,16 @@
       url = "github:xddxdd/nix-cachyos-kernel/release";
     };
 
+    emacs-overlay = {
+      url = "github:nix-community/emacs-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    nix-doom-emacs-unstraightened = {
+      url = "github:marienz/nix-doom-emacs-unstraightened";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
@@ -134,6 +147,7 @@
       flake = false;
       url = "github:cloudflare/cloudflare-go";
     };
+
     cloudflare-python = {
       flake = false;
       url = "github:cloudflare/cloudflare-python";
