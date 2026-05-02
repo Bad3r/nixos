@@ -319,7 +319,7 @@ Examples:
     --sort=newest --limit=3 --format=full
   pr-comments-mgmt.sh --pr 149 list-threads --format=tsv \
     | awk -F'\t' -v OFS='\t' \
-        'BEGIN{print "id","resolved","outdated","path","line","author","comments","unmin"} 1' \
+        'BEGIN{print "id","resolved","outdated","path","line","author","comments","visible"} 1' \
     | column -t -s $'\t'
   pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC
   pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'
