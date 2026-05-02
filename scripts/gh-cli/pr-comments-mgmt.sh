@@ -25,6 +25,7 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["reply"]="quiet pr body body-file"
   ["unresolve"]="quiet pr"
   ["unhide-comment"]="quiet pr"
+  ["dismiss-review"]="quiet pr body body-file"
   ["set-title"]="quiet pr"
   ["set-body"]="quiet pr body body-file"
   ["add-label"]="quiet pr"
@@ -138,6 +139,20 @@ Thread mutation subcommands (bulk; positional ids or stdin):
   reply <thread-id> [body|--body|--body-file FILE]
                                            Post a threaded reply via
                                            addPullRequestReviewThreadReply.
+  dismiss-review <review-node-id>... --body|--body-file FILE
+                                           Dismiss one or more PR reviews
+                                           via dismissPullRequestReview.
+                                           Only APPROVED and
+                                           CHANGES_REQUESTED reviews are
+                                           dismissable; COMMENTED and
+                                           PENDING reviews are rejected
+                                           by GitHub at runtime even
+                                           though the input type accepts
+                                           any review id. Message is
+                                           required and shared across
+                                           all ids. Irreversible (no
+                                           undismiss mutation in the
+                                           public API).
 
 PR write subcommands:
   set-title <text>                         Edit PR title.
@@ -215,9 +230,10 @@ Options:
   -h, --help                               Show this message.
 
 Bulk verbs (resolve, unresolve, hide-comment, unhide-comment, hide-thread,
-add-label, remove-label) accept ids or names on stdin when no positional
-arguments are given (one per line, blank and `# ...` lines ignored), and
-emit a final summary record `{"verb":...,"ok":N,"failed":M}` on stderr.
+dismiss-review, add-label, remove-label) accept ids or names on stdin when
+no positional arguments are given (one per line, blank and `# ...` lines
+ignored), and emit a final summary record `{"verb":...,"ok":N,"failed":M}`
+on stderr.
 
 Exit codes:
   0   success
@@ -233,6 +249,10 @@ Examples:
   pr-comments-mgmt.sh --pr 149 list-comments \
     --minimized=false --format=ids \
     | pr-comments-mgmt.sh hide-comment --pr 149 --reason RESOLVED
+  pr-comments-mgmt.sh --pr 149 list-reviews --format=ndjson \
+    | jq -r 'select(.state == "CHANGES_REQUESTED") | .id' \
+    | pr-comments-mgmt.sh dismiss-review --pr 149 \
+        --body 'addressed in commit abc1234; dismissing stale review'
   pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC
   pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'
   pr-comments-mgmt.sh --pr 149 set-labels 'type(enhancement)' 'area(scripts)'
@@ -349,12 +369,13 @@ _collect_ids() {
     return 0
   fi
   local line count=0
-  while IFS= read -r line; do
+  while IFS= read -r line || [[ -n ${line} ]]; do
     count=$((count + 1))
     [[ -z ${line} || ${line} =~ ^[[:space:]]*# ]] && continue
     printf '%s\n' "${line}"
   done
   [[ -n ${BULK_READ_COUNT_FILE:-} ]] && printf '%d' "${count}" >"${BULK_READ_COUNT_FILE}"
+  return 0
 }
 
 _glob_to_regex() {
@@ -755,6 +776,41 @@ mutation($id: ID!) {
   fi
 
   log "unhidden: ${node_id}"
+}
+
+dismiss_review() {
+  # Args: <review-node-id> <message>
+  # `dismissPullRequestReview` only accepts reviews in APPROVED or
+  # CHANGES_REQUESTED state; COMMENTED and PENDING reviews are rejected
+  # by GitHub at runtime ("Can not dismiss a commented pull request
+  # review") even though the input type does not distinguish. The
+  # mutation is irreversible via the public API (no undismiss).
+  local review_id="$1"
+  local message="$2"
+  [[ -n ${review_id} ]] || die 1 "dismiss-review: empty review id"
+  [[ -n ${message} ]] || die 1 "dismiss-review: message cannot be empty"
+
+  local response
+  if ! response=$(graphql_call '
+mutation($id: ID!, $message: String!) {
+  dismissPullRequestReview(input: { pullRequestReviewId: $id, message: $message }) {
+    pullRequestReview { id state }
+  }
+}
+' "id=${review_id}" "raw:message=${message}"); then
+    err "dismiss-review: graphql call failed for ${review_id}"
+    return 2
+  fi
+
+  local state
+  state=$(printf '%s' "${response}" |
+    jq -r '.data.dismissPullRequestReview.pullRequestReview.state // ""')
+  if [[ ${state} != "DISMISSED" ]]; then
+    err "dismiss-review: unexpected response for ${review_id}: ${response}"
+    return 2
+  fi
+
+  log "dismissed: ${review_id}"
 }
 
 reply_thread() {
@@ -1459,6 +1515,29 @@ main() {
     _assert_processed unhide-comment "${ok}" "${failed}"
     _bulk_count_file_done
     _bulk_summary unhide-comment "${ok}" "${failed}"
+    exit $((failed > 0 ? 2 : 0))
+    ;;
+  dismiss-review)
+    _assert_flags_for "${subcommand}"
+    if ! _set_flags_has body && ! _set_flags_has body-file; then
+      die 1 "dismiss-review: --body or --body-file is required (positional args are review ids)"
+    fi
+    local dr_message
+    dr_message=$(_read_body dismiss-review) || exit $?
+    [[ -n ${dr_message} ]] ||
+      die 1 "dismiss-review: message cannot be empty"
+    local id ok=0 failed=0
+    _bulk_count_file_init
+    while IFS= read -r id; do
+      if dismiss_review "${id}" "${dr_message}"; then
+        ok=$((ok + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    done < <(_collect_ids "${args[@]}")
+    _assert_processed dismiss-review "${ok}" "${failed}"
+    _bulk_count_file_done
+    _bulk_summary dismiss-review "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
   set-title)
