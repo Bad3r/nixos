@@ -850,7 +850,17 @@ hide_thread() {
   local classifier="$2"
   [[ -n ${thread_id} ]] || die 1 "hide-thread: empty thread id"
 
+  # Cursor sentinel convention shared by every paginator below: bash
+  # variable `"null"` is forwarded by `gh -F cursor=null` as the JSON
+  # `null` literal (gh parses `-F` values as JSON-ish), which `$cursor:
+  # String` accepts as "no cursor / first page". Subsequent iterations
+  # overwrite it with `endCursor`. Any other sentinel string would be
+  # rejected by GitHub as `Argument 'cursor' has an invalid value`.
   local cursor="null"
+  # First-page-only __typename validation: a node id ↔ type mapping is
+  # stable across pages on GitHub's side (the same id cannot be a
+  # PullRequestReviewThread on page 1 and something else on page 2),
+  # so checking once is sufficient.
   local validated=false
   while :; do
     local response
