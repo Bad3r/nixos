@@ -201,7 +201,8 @@ Options:
   --reason {OUTDATED|RESOLVED|OFF_TOPIC|SPAM|ABUSE|DUPLICATE}
                                            Classifier for hide-comment and
                                            hide-thread (default: OUTDATED).
-  --format json|ndjson|ids|text|full|tsv   Output format for list-threads,
+  --format json|ndjson|ids|text|full|tsv|body
+                                           Output format for list-threads,
                                            list-reviews, and list-comments
                                            (default: json). `ids` emits
                                            one `.id` per line; `text`
@@ -216,8 +217,16 @@ Options:
                                            columns (no header — pipe to
                                            `column -t` for visual
                                            columns or `cut -f<n>` /
-                                           `awk -F'\t'` downstream).
-                                           text/full are not stable
+                                           `awk -F'\t'` downstream);
+                                           `body` emits the raw `.body`
+                                           per item (opener body for
+                                           threads), no headers or
+                                           separators — best paired with
+                                           `--limit=1`, since multi-item
+                                           runs concatenate without
+                                           delimiters (use `full` for
+                                           multi-item dumps).
+                                           text/full/body are not stable
                                            contracts; downstream
                                            parsers should use ndjson
                                            or tsv.
@@ -567,7 +576,7 @@ _apply_view() {
 
 _format_array() {
   # Filter for list-* subcommands. Reads a JSON array on stdin; emits
-  # one of six shapes per OUTPUT_FORMAT:
+  # one of seven shapes per OUTPUT_FORMAT:
   #   json   pretty-printed JSON array (default)
   #   ndjson one JSON document per line
   #   ids    one `.id` per line, blank/null ids skipped
@@ -576,8 +585,12 @@ _format_array() {
   #   tsv    one tab-separated record per item (per-kind columns,
   #          no header — pipe to `column -t` for visual columns or
   #          `cut -f<n>` / `awk -F'\t'` for downstream parsing)
+  #   body   raw `.body` per item (opener body for threads); no
+  #          headers, no separators. Intended for single-item dumps
+  #          (`--limit=1`); multi-item runs concatenate without
+  #          delimiters and should prefer `full` instead.
   # The first arg is the kind ("threads", "reviews", "comments") and
-  # selects per-verb templates for text/full/tsv.
+  # selects per-verb templates for text/full/tsv/body.
   local kind="$1"
   case "${OUTPUT_FORMAT}" in
   ndjson) jq -c '.[]' ;;
@@ -585,6 +598,7 @@ _format_array() {
   text) _format_text "${kind}" ;;
   full) _format_full "${kind}" ;;
   tsv) _format_tsv "${kind}" ;;
+  body) _format_body "${kind}" ;;
   *) jq '.' ;;
   esac
 }
@@ -655,6 +669,18 @@ _format_tsv() {
     ] | @tsv'
     ;;
   *) die 1 "_format_tsv: unknown kind '$1'" ;;
+  esac
+}
+
+_format_body() {
+  # Raw `.body` per item, no headers or separators. Threads emit the
+  # opener body (`.comments.nodes[0].body`) for parity with `full`.
+  # Best paired with `--limit=1`; multi-item runs concatenate without
+  # delimiters, so callers wanting structure should use `full` instead.
+  case "$1" in
+  reviews | comments) jq -r '.[] | (.body // "")' ;;
+  threads) jq -r '.[] | (.comments.nodes[0].body // "")' ;;
+  *) die 1 "_format_body: unknown kind '$1'" ;;
   esac
 }
 
@@ -1496,8 +1522,8 @@ main() {
     --format)
       [[ -n ${2:-} ]] || die 1 "--format requires a value"
       case "$2" in
-      json | ndjson | ids | text | full | tsv) OUTPUT_FORMAT="$2" ;;
-      *) die 1 "--format must be one of: json, ndjson, ids, text, full, tsv" ;;
+      json | ndjson | ids | text | full | tsv | body) OUTPUT_FORMAT="$2" ;;
+      *) die 1 "--format must be one of: json, ndjson, ids, text, full, tsv, body" ;;
       esac
       SET_FLAGS+=(format)
       shift 2
@@ -1505,8 +1531,8 @@ main() {
     --format=*)
       local fv="${1#--format=}"
       case "${fv}" in
-      json | ndjson | ids | text | full | tsv) OUTPUT_FORMAT="${fv}" ;;
-      *) die 1 "--format must be one of: json, ndjson, ids, text, full, tsv" ;;
+      json | ndjson | ids | text | full | tsv | body) OUTPUT_FORMAT="${fv}" ;;
+      *) die 1 "--format must be one of: json, ndjson, ids, text, full, tsv, body" ;;
       esac
       SET_FLAGS+=(format)
       shift
