@@ -19,7 +19,7 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["hide-thread"]="quiet pr reason"
   ["list-threads"]="quiet pr format unresolved outdated author path minimized"
   ["list-reviews"]="quiet pr format"
-  ["list-comments"]="quiet pr format"
+  ["list-comments"]="quiet pr format author minimized"
   ["current-pr"]="quiet pr"
   ["get-thread"]="quiet pr"
   ["reply"]="quiet pr body body-file"
@@ -171,15 +171,19 @@ Options:
   --reason {OUTDATED|RESOLVED|OFF_TOPIC|SPAM|ABUSE|DUPLICATE}
                                            Classifier for hide-comment and
                                            hide-thread (default: OUTDATED).
-  --format json|ndjson                     Output format for list-threads,
+  --format json|ndjson|ids                 Output format for list-threads,
                                            list-reviews, and list-comments
-                                           (default: json).
+                                           (default: json). `ids` emits one
+                                           `.id` per line, suitable for
+                                           piping into bulk verbs.
   --unresolved                             list-threads filter: keep
                                            threads with isResolved == false.
   --outdated                               list-threads filter: keep
                                            threads with isOutdated == true.
   --author <login>                         list-threads filter: keep threads
                                            whose first comment was authored
+                                           by <login>. list-comments
+                                           filter: keep comments authored
                                            by <login>.
   --path <glob>                            list-threads filter: keep threads
                                            whose path matches the glob.
@@ -198,6 +202,9 @@ Options:
                                            where every comment is minimized
                                            (true) or where at least one
                                            comment is not (false).
+                                           list-comments filter: keep
+                                           comments where isMinimized
+                                           matches the value.
   --body <text>, --body-file <path|->      Body source for reply, set-body,
                                            comment, and review. `-` means
                                            stdin.
@@ -223,8 +230,8 @@ Examples:
   pr-comments-mgmt.sh list-threads --format=ndjson --unresolved
   pr-comments-mgmt.sh --pr 123 list-threads --author Bad3r --path '*.sh'
   pr-comments-mgmt.sh --pr owner/repo#123 list-reviews
-  pr-comments-mgmt.sh --pr 149 list-comments --format=ndjson \
-    | jq -r 'select(.isMinimized | not) | .id' \
+  pr-comments-mgmt.sh --pr 149 list-comments \
+    --minimized=false --format=ids \
     | pr-comments-mgmt.sh hide-comment --pr 149 --reason RESOLVED
   pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC
   pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'
@@ -393,6 +400,26 @@ _glob_to_regex() {
   printf '^%s$' "${re}"
 }
 
+_apply_comment_filters() {
+  # Reads a JSON array of issue-level (top-level) comments on stdin
+  # (the shape `list-comments` produces) and emits a filtered array.
+  # No-op when no `--author` or `--minimized` flag was supplied.
+  local jq_filter='.'
+  local jq_args=()
+  if _set_flags_has author; then
+    jq_filter+=' | map(select((.author.login // "") == $author))'
+    jq_args+=(--arg author "${FILTER_AUTHOR}")
+  fi
+  if _set_flags_has minimized; then
+    if [[ ${FILTER_MINIMIZED} == "true" ]]; then
+      jq_filter+=' | map(select(.isMinimized))'
+    else
+      jq_filter+=' | map(select(.isMinimized | not))'
+    fi
+  fi
+  jq "${jq_args[@]}" "${jq_filter}"
+}
+
 _apply_thread_filters() {
   # Reads a JSON array of threads on stdin, emits a filtered array.
   # No-op when no `--unresolved`, `--outdated`, `--author`, `--path`, or
@@ -424,14 +451,16 @@ _apply_thread_filters() {
 }
 
 _format_array() {
-  # Filter for list-* subcommands. Reads a JSON array on stdin; emits a
-  # pretty-printed array (json) or one JSON document per line (ndjson)
-  # per OUTPUT_FORMAT.
-  if [[ ${OUTPUT_FORMAT} == "ndjson" ]]; then
-    jq -c '.[]'
-  else
-    jq '.'
-  fi
+  # Filter for list-* subcommands. Reads a JSON array on stdin; emits
+  # one of three shapes per OUTPUT_FORMAT:
+  #   json   pretty-printed JSON array (default)
+  #   ndjson one JSON document per line
+  #   ids    one `.id` per line, blank/null ids skipped
+  case "${OUTPUT_FORMAT}" in
+  ndjson) jq -c '.[]' ;;
+  ids) jq -r '.[].id // empty' ;;
+  *) jq '.' ;;
+  esac
 }
 
 _bulk_summary() {
@@ -1083,7 +1112,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
   done
 
-  printf '%s' "${all_comments}" | _format_array
+  printf '%s' "${all_comments}" | _apply_comment_filters | _format_array
 }
 
 get_thread() {
@@ -1221,8 +1250,8 @@ main() {
     --format)
       [[ -n ${2:-} ]] || die 1 "--format requires a value"
       case "$2" in
-      json | ndjson) OUTPUT_FORMAT="$2" ;;
-      *) die 1 "--format must be one of: json, ndjson" ;;
+      json | ndjson | ids) OUTPUT_FORMAT="$2" ;;
+      *) die 1 "--format must be one of: json, ndjson, ids" ;;
       esac
       SET_FLAGS+=(format)
       shift 2
@@ -1230,8 +1259,8 @@ main() {
     --format=*)
       local fv="${1#--format=}"
       case "${fv}" in
-      json | ndjson) OUTPUT_FORMAT="${fv}" ;;
-      *) die 1 "--format must be one of: json, ndjson" ;;
+      json | ndjson | ids) OUTPUT_FORMAT="${fv}" ;;
+      *) die 1 "--format must be one of: json, ndjson, ids" ;;
       esac
       SET_FLAGS+=(format)
       shift
