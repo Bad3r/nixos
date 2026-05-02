@@ -422,7 +422,18 @@ query($id: ID!, $cursor: String) {
     ... on PullRequestReviewThread {
       comments(first: 100, after: $cursor) {
         pageInfo { hasNextPage endCursor }
-        nodes { id databaseId author { login } isMinimized minimizedReason }
+        nodes {
+          id
+          databaseId
+          author { login }
+          body
+          diffHunk
+          originalLine
+          originalStartLine
+          subjectType
+          isMinimized
+          minimizedReason
+        }
       }
     }
   }
@@ -485,11 +496,28 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
           id
           isResolved
           isOutdated
+          isCollapsed
           path
           line
+          subjectType
+          resolvedBy { login }
+          viewerCanResolve
+          viewerCanUnresolve
+          viewerCanReply
           comments(first: 100) {
             pageInfo { hasNextPage endCursor }
-            nodes { id databaseId author { login } isMinimized minimizedReason }
+            nodes {
+              id
+              databaseId
+              author { login }
+              body
+              diffHunk
+              originalLine
+              originalStartLine
+              subjectType
+              isMinimized
+              minimizedReason
+            }
           }
         }
       }
