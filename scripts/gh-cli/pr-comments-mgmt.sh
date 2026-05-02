@@ -225,7 +225,12 @@ Options:
                                              threads:  id, isResolved,
                                              isOutdated, path, line,
                                              first_author, comments,
-                                             unminimized
+                                             visible_comments
+                                             (visible_comments is the
+                                             count of comments where
+                                             isMinimized is false, i.e.,
+                                             current state, not action
+                                             history.)
   --sort newest|oldest                     Sort list-* output by the natural
                                            per-item timestamp
                                            (submittedAt for reviews,
@@ -625,7 +630,9 @@ _format_tsv() {
     ;;
   threads)
     # id, isResolved, isOutdated, path, line, first_author, comments,
-    # unminimized — matches the recurring "thread audit" workflow.
+    # visible_comments — matches the recurring "thread audit" workflow.
+    # `visible_comments` is the count of comments with `isMinimized=false`
+    # (current state, not action history).
     jq -r '.[] | [
       .id,
       .isResolved,
