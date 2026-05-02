@@ -206,14 +206,21 @@ Options:
                                            (default: json). `ids` emits
                                            one `.id` per line; `text`
                                            emits a one-line summary per
-                                           item; `full` emits a header
-                                           plus body block per item;
+                                           item, prefixed with `<id>\t`
+                                           so `cut -f1` extracts the id;
+                                           `full` emits a header
+                                           (`=== <id> ... ===`) plus
+                                           body block per item;
                                            `tsv` emits one tab-separated
                                            record per item with per-verb
                                            columns (no header — pipe to
                                            `column -t` for visual
                                            columns or `cut -f<n>` /
                                            `awk -F'\t'` downstream).
+                                           text/full are not stable
+                                           contracts; downstream
+                                           parsers should use ndjson
+                                           or tsv.
                                            tsv columns:
                                              reviews:  id, submittedAt,
                                              author, state, body_len,
@@ -583,15 +590,18 @@ _format_array() {
 }
 
 _format_text() {
+  # Each line starts with `<id>\t` so `cut -f1` extracts the id and
+  # `cut -f2-` extracts the human-readable rest. The text/full shapes
+  # are not stable contracts; downstream parsers should use ndjson/tsv.
   case "$1" in
   reviews)
-    jq -r '.[] | "[\(.submittedAt)] \(.author.login) (\(.state)) body=\((.body // "") | length) chars"'
+    jq -r '.[] | "\(.id)\t[\(.submittedAt)] \(.author.login) (\(.state)) body=\((.body // "") | length) chars"'
     ;;
   comments)
-    jq -r '.[] | "[\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) body=\((.body // "") | length) chars"'
+    jq -r '.[] | "\(.id)\t[\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) body=\((.body // "") | length) chars"'
     ;;
   threads)
-    jq -r '.[] | "[\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) comments=\(.comments.nodes | length)"'
+    jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) comments=\(.comments.nodes | length)"'
     ;;
   *) die 1 "_format_text: unknown kind '$1'" ;;
   esac
@@ -603,13 +613,13 @@ _format_full() {
   # summary, not a thread dump.
   case "$1" in
   reviews)
-    jq -r '.[] | "=== [\(.submittedAt)] \(.author.login) (\(.state)) ===\n\(.body // "")\n"'
+    jq -r '.[] | "=== \(.id) [\(.submittedAt)] \(.author.login) (\(.state)) ===\n\(.body // "")\n"'
     ;;
   comments)
-    jq -r '.[] | "=== [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) ===\n\(.body // "")\n"'
+    jq -r '.[] | "=== \(.id) [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) ===\n\(.body // "")\n"'
     ;;
   threads)
-    jq -r '.[] | "=== [\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
+    jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
     ;;
   *) die 1 "_format_full: unknown kind '$1'" ;;
   esac
