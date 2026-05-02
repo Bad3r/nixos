@@ -112,10 +112,12 @@ Read subcommands:
                                            Default output: JSON array.
   get-thread <thread-id>                   Single review thread, same shape
                                            as one element of list-threads.
-  current-pr                               PR view as JSON, including id,
-                                           state, url, refs, author, draft,
-                                           mergeable, mergeStateStatus, and
-                                           labels flattened to a name array.
+  current-pr                               PR view as JSON. Fields:
+                                           id, number, title, body, state,
+                                           url, headRefName, baseRefName,
+                                           author, isDraft, mergeable,
+                                           mergeStateStatus, and labels
+                                           flattened to a name array.
 
 Thread mutation subcommands (bulk; positional ids or stdin):
   resolve <thread-id>...                   Close one or more review threads.
@@ -141,10 +143,17 @@ PR write subcommands:
                                            add/remove diff).
   comment [body|--body|--body-file FILE]   Post an issue-level (top-level)
                                            PR conversation comment.
+                                           (Distinct from review's
+                                           --comment event flag below.)
   review --approve|--request-changes|--comment [--body|--body-file FILE]
                                            Submit a PR review. --approve
                                            permits an empty body; the
                                            others require a non-empty body.
+                                           Note: the --comment flag here
+                                           selects the review event
+                                           "COMMENT" and is unrelated to
+                                           the standalone `comment`
+                                           subcommand.
 
 Options:
   --pr <number|owner/repo#number>          Target a specific PR. With a bare
