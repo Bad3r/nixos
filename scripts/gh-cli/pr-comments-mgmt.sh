@@ -946,9 +946,10 @@ _paginate_thread_comments() {
       return 2
     fi
 
-    thread=$(jq -n --argjson t "${thread}" --argjson p "${page}" '
-      $t | .comments.nodes += $p.data.node.comments.nodes
-         | .comments.pageInfo = $p.data.node.comments.pageInfo
+    thread=$(printf '%s\n%s' "${thread}" "${page}" | jq -s '
+      .[0] as $t | .[1] as $p
+      | $t | .comments.nodes += $p.data.node.comments.nodes
+           | .comments.pageInfo = $p.data.node.comments.pageInfo
     ')
 
     has_next=$(printf '%s' "${thread}" | jq -r '.comments.pageInfo.hasNextPage')
@@ -1032,11 +1033,11 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
       if ! thread_out=$(printf '%s' "${thread_in}" | _paginate_thread_comments); then
         return 2
       fi
-      page=$(jq -n --argjson p "${page}" --argjson t "${thread_out}" --argjson i "${idx}" \
-        '$p | .[$i] = $t')
+      page=$(printf '%s\n%s' "${page}" "${thread_out}" |
+        jq -s --argjson i "${idx}" '.[0] as $p | .[1] as $t | $p | .[$i] = $t')
     done
 
-    all_threads=$(jq -n --argjson a "${all_threads}" --argjson b "${page}" '$a + $b')
+    all_threads=$(printf '%s\n%s' "${all_threads}" "${page}" | jq -s 'add')
 
     local page_info has_next
     page_info=$(printf '%s' "${response}" |
@@ -1093,7 +1094,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     local page
     page=$(printf '%s' "${response}" | jq '.data.repository.pullRequest.reviews.nodes')
 
-    all_reviews=$(jq -n --argjson a "${all_reviews}" --argjson b "${page}" '$a + $b')
+    all_reviews=$(printf '%s\n%s' "${all_reviews}" "${page}" | jq -s 'add')
 
     local page_info has_next
     page_info=$(printf '%s' "${response}" |
@@ -1158,7 +1159,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     local page
     page=$(printf '%s' "${response}" | jq '.data.repository.pullRequest.comments.nodes')
 
-    all_comments=$(jq -n --argjson a "${all_comments}" --argjson b "${page}" '$a + $b')
+    all_comments=$(printf '%s\n%s' "${all_comments}" "${page}" | jq -s 'add')
 
     local page_info has_next
     page_info=$(printf '%s' "${response}" |
