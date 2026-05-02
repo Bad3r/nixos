@@ -10,15 +10,31 @@ REASON="OUTDATED"
 
 readonly VALID_REASONS=("OUTDATED" "RESOLVED" "OFF_TOPIC" "SPAM" "ABUSE" "DUPLICATE")
 
+_json_string() {
+  # Emit "$1" as a JSON string literal (with surrounding quotes), escaping
+  # backslashes, double quotes, and the common control characters.
+  local s=$1
+  s=${s//\\/\\\\}
+  s=${s//\"/\\\"}
+  s=${s//$'\b'/\\b}
+  s=${s//$'\f'/\\f}
+  s=${s//$'\n'/\\n}
+  s=${s//$'\r'/\\r}
+  s=${s//$'\t'/\\t}
+  printf '"%s"' "$s"
+}
+
 err() {
-  printf '%s: error: %s\n' "${PROG_NAME}" "$*" >&2
+  printf '{"level":"error","prog":%s,"message":%s}\n' \
+    "$(_json_string "${PROG_NAME}")" "$(_json_string "$*")" >&2
 }
 
 trap 'err "fatal: line ${LINENO} (exit $?): ${BASH_COMMAND}"' ERR
 
 log() {
   [[ ${QUIET} == true ]] && return 0
-  printf '%s\n' "$*" >&2
+  printf '{"level":"info","prog":%s,"message":%s}\n' \
+    "$(_json_string "${PROG_NAME}")" "$(_json_string "$*")" >&2
 }
 
 die() {
@@ -79,6 +95,20 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die 1 "required command not found: $1"
 }
 
+_gh_run() {
+  # Run "gh $@", capturing gh's stderr and re-emitting it via err on failure
+  # so callers stay in JSON-only output mode. gh's stdout passes through to
+  # this function's stdout. Returns gh's exit code.
+  local _rc=0 _stderr
+  exec 4>&1
+  _stderr=$(gh "$@" 2>&1 1>&4) || _rc=$?
+  exec 4>&-
+  if ((_rc != 0)) && [[ -n ${_stderr} ]]; then
+    err "gh ${1:-?}: ${_stderr}"
+  fi
+  return "${_rc}"
+}
+
 valid_reason() {
   local candidate="$1"
   local r
@@ -103,7 +133,7 @@ graphql_call() {
   done
 
   local response
-  if ! response=$(gh api graphql -f query="${query}" "${args[@]}"); then
+  if ! response=$(_gh_run api graphql -f query="${query}" "${args[@]}"); then
     return 2
   fi
 
@@ -351,7 +381,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
 
 current_pr() {
   local data
-  if ! data=$(gh pr view --json number,title,body,labels); then
+  if ! data=$(_gh_run pr view --json number,title,body,labels); then
     err "current-pr: no open PR found for current branch"
     return 1
   fi
@@ -448,15 +478,15 @@ main() {
     local owner_repo pr_number
     case "${#args[@]}" in
     0)
-      owner_repo=$(gh repo view --json nameWithOwner -q .nameWithOwner) ||
+      owner_repo=$(_gh_run repo view --json nameWithOwner -q .nameWithOwner) ||
         die 1 "list-threads: failed to detect current repo via gh"
-      pr_number=$(gh pr view --json number -q .number) ||
+      pr_number=$(_gh_run pr view --json number -q .number) ||
         die 1 "list-threads: failed to detect current PR via gh"
       ;;
     1)
       [[ ${args[0]} =~ ^[0-9]+$ ]] ||
         die 1 "list-threads: single arg must be a PR number; got '${args[0]}'"
-      owner_repo=$(gh repo view --json nameWithOwner -q .nameWithOwner) ||
+      owner_repo=$(_gh_run repo view --json nameWithOwner -q .nameWithOwner) ||
         die 1 "list-threads: failed to detect current repo via gh"
       pr_number="${args[0]}"
       ;;
