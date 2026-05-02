@@ -96,9 +96,12 @@ require_cmd() {
 }
 
 _gh_run() {
-  # Run "gh $@", capturing gh's stderr and re-emitting it via err on failure
-  # so callers stay in JSON-only output mode. gh's stdout passes through to
-  # this function's stdout. Returns gh's exit code.
+  # Run "gh $@". gh's stdout passes through to this function's stdout.
+  # gh's stderr is captured: on failure it is re-emitted via `err` so
+  # callers stay in JSON-only output mode; on success it is intentionally
+  # dropped (typical content is interactive progress hints, deprecation
+  # notices, etc., none of which belong in the structured stdout stream).
+  # Returns gh's exit code.
   local _rc=0 _stderr
   exec 4>&1
   _stderr=$(gh "$@" 2>&1 1>&4) || _rc=$?
