@@ -473,7 +473,8 @@ mutation($id: ID!) {
   fi
 
   local resolved
-  resolved=$(printf '%s' "${response}" | jq -r '.data.resolveReviewThread.thread.isResolved // "null"')
+  resolved=$(printf '%s' "${response}" |
+    jq -r '.data.resolveReviewThread.thread.isResolved | tostring')
 
   case "${resolved}" in
   true) log "resolved: ${thread_id}" ;;
@@ -506,7 +507,8 @@ mutation($id: ID!, $classifier: ReportedContentClassifiers!) {
   fi
 
   local is_min
-  is_min=$(printf '%s' "${response}" | jq -r '.data.minimizeComment.minimizedComment.isMinimized // "null"')
+  is_min=$(printf '%s' "${response}" |
+    jq -r '.data.minimizeComment.minimizedComment.isMinimized | tostring')
 
   if [[ ${is_min} != "true" ]]; then
     err "hide: unexpected response for ${node_id}: ${response}"
@@ -574,7 +576,8 @@ mutation($id: ID!) {
   fi
 
   local resolved
-  resolved=$(printf '%s' "${response}" | jq -r '.data.unresolveReviewThread.thread.isResolved // "null"')
+  resolved=$(printf '%s' "${response}" |
+    jq -r '.data.unresolveReviewThread.thread.isResolved | tostring')
 
   case "${resolved}" in
   false) log "unresolved: ${thread_id}" ;;
@@ -606,7 +609,8 @@ mutation($id: ID!) {
   fi
 
   local is_min
-  is_min=$(printf '%s' "${response}" | jq -r '.data.unminimizeComment.unminimizedComment.isMinimized // "null"')
+  is_min=$(printf '%s' "${response}" |
+    jq -r '.data.unminimizeComment.unminimizedComment.isMinimized | tostring')
   if [[ ${is_min} != "false" ]]; then
     err "unhide-comment: unexpected response for ${node_id}: ${response}"
     return 2
