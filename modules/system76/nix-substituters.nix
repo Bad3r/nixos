@@ -10,6 +10,8 @@ let
     "https://cache.garnix.io"
     "https://cache.numtide.com"
     "https://nixpkgs-unfree.cachix.org" # unfree packages (unrar, etc.)
+    # nix-community.cachix.org / doom-emacs-unstraightened.cachix.org are
+    # appended by modules/apps/doom-emacs.nix when the module is enabled.
   ];
   trustedKeys = [
     "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="

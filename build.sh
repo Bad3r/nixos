@@ -208,6 +208,8 @@ BOOTSTRAP_SUBSTITUTERS=(
   "https://cache.numtide.com"
   "https://nixpkgs-unfree.cachix.org"
   "https://nix-logseq-git-flake.cachix.org"
+  "https://nix-community.cachix.org"
+  "https://doom-emacs-unstraightened.cachix.org"
   "https://attic.xuyh0120.win/lantian"
 )
 BOOTSTRAP_TRUSTED_KEYS=(
@@ -216,6 +218,8 @@ BOOTSTRAP_TRUSTED_KEYS=(
   "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
   "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
   "nix-logseq-git-flake.cachix.org-1:DSBNW07PSRyCvS926tpIWahb53OIydwwZhsP6LhJNZo="
+  "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+  "doom-emacs-unstraightened.cachix.org-1:O5oOlRPnmQEvVaFyuMTmthCEooHbrg54WgSLR07tmg4="
   "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
 )
 
@@ -261,7 +265,8 @@ configure_nix_config() {
   NIX_CONFIG=""
   append_nix_config_line "experimental-features = nix-command flakes pipe-operators"
   append_nix_config_line "accept-flake-config = true"
-  append_nix_config_line "allow-import-from-derivation = false"
+  # IFD required by `nix-doom-emacs-unstraightened` (see flake.nix#nixConfig).
+  append_nix_config_line "allow-import-from-derivation = true"
   append_nix_config_line "abort-on-warn = false"
 
   append_nix_config_line "access-tokens = github.com=$(gh auth token)"
