@@ -317,6 +317,11 @@ _collect_ids() {
   # Echoes one id per line on stdout. With positionals, echoes those
   # (skipping empty strings). Without positionals, reads from stdin
   # ignoring blank lines and `# ...` comment lines.
+  #
+  # On the stdin path, the pre-filter line count is written to
+  # ${BULK_READ_COUNT_FILE} when that env var is set, so callers can
+  # distinguish "stdin was empty" (count=0) from "stdin had only blank
+  # / comment lines" (count>0) when no ids end up emitted.
   if (($# > 0)); then
     local id
     for id in "$@"; do
@@ -324,11 +329,13 @@ _collect_ids() {
     done
     return 0
   fi
-  local line
+  local line count=0
   while IFS= read -r line; do
+    count=$((count + 1))
     [[ -z ${line} || ${line} =~ ^[[:space:]]*# ]] && continue
     printf '%s\n' "${line}"
   done
+  [[ -n ${BULK_READ_COUNT_FILE:-} ]] && printf '%d' "${count}" >"${BULK_READ_COUNT_FILE}"
 }
 
 _glob_to_regex() {
@@ -427,16 +434,45 @@ _bulk_summary() {
     "${ok}" "${failed}" >&2
 }
 
+_bulk_count_file_init() {
+  # Creates the temp file used by `_collect_ids` to record its
+  # pre-filter line count and exports its path via
+  # ${BULK_READ_COUNT_FILE}. Caller must invoke `_bulk_count_file_done`
+  # after the loop to reset the env var and remove the file.
+  BULK_READ_COUNT_FILE=$(mktemp)
+  export BULK_READ_COUNT_FILE
+}
+
+_bulk_count_file_done() {
+  [[ -n ${BULK_READ_COUNT_FILE:-} ]] || return 0
+  rm -f -- "${BULK_READ_COUNT_FILE}"
+  unset BULK_READ_COUNT_FILE
+}
+
 _assert_processed() {
   # Args: <verb> <ok> <failed>
   # Dies when the bulk verb processed zero ids (positional + stdin both
-  # empty). A zero-iteration run is indistinguishable from "everything
-  # succeeded" via the exit code alone, so callers would lose the signal
-  # that input never arrived (a closed pipe upstream, an empty filter
-  # match, etc.).
+  # empty, or stdin contained only blank / `#`-comment lines). A
+  # zero-iteration run is indistinguishable from "everything succeeded"
+  # via the exit code alone, so callers would lose the signal that
+  # input never arrived (a closed pipe upstream, an empty filter
+  # match, etc.). When the bulk loop set ${BULK_READ_COUNT_FILE}, the
+  # message names the stdin line count so the caller can tell apart
+  # "stdin closed" (read 0 lines) from "stdin had N lines, all
+  # filtered" (read N lines).
   local verb="$1" ok="$2" failed="$3"
-  (((ok + failed) > 0)) ||
-    die 1 "${verb}: no ids supplied (positional or stdin)"
+  (((ok + failed) > 0)) && return 0
+  local detail="positional or stdin"
+  if [[ -n ${BULK_READ_COUNT_FILE:-} && -s ${BULK_READ_COUNT_FILE} ]]; then
+    local lines
+    lines=$(<"${BULK_READ_COUNT_FILE}")
+    if ((lines > 0)); then
+      detail="read ${lines} stdin line(s), all blank/comment"
+    else
+      detail="positional empty, stdin empty"
+    fi
+  fi
+  die 1 "${verb}: no ids supplied (${detail})"
 }
 
 pr_resolve() {
@@ -1208,16 +1244,19 @@ main() {
   resolve)
     _assert_flags_for "${subcommand}"
     local id ok=0 failed=0
+    _bulk_count_file_init
     while IFS= read -r id; do
       if resolve_thread "${id}"; then ok=$((ok + 1)); else failed=$((failed + 1)); fi
     done < <(_collect_ids "${args[@]}")
     _assert_processed resolve "${ok}" "${failed}"
+    _bulk_count_file_done
     _bulk_summary resolve "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
   hide-comment)
     _assert_flags_for "${subcommand}"
     local id ok=0 failed=0
+    _bulk_count_file_init
     while IFS= read -r id; do
       if minimize_comment "${id}" "${REASON}"; then
         ok=$((ok + 1))
@@ -1226,12 +1265,14 @@ main() {
       fi
     done < <(_collect_ids "${args[@]}")
     _assert_processed hide-comment "${ok}" "${failed}"
+    _bulk_count_file_done
     _bulk_summary hide-comment "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
   hide-thread)
     _assert_flags_for "${subcommand}"
     local id ok=0 failed=0
+    _bulk_count_file_init
     while IFS= read -r id; do
       if hide_thread "${id}" "${REASON}"; then
         ok=$((ok + 1))
@@ -1240,6 +1281,7 @@ main() {
       fi
     done < <(_collect_ids "${args[@]}")
     _assert_processed hide-thread "${ok}" "${failed}"
+    _bulk_count_file_done
     _bulk_summary hide-thread "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
@@ -1275,6 +1317,7 @@ main() {
   unresolve)
     _assert_flags_for "${subcommand}"
     local id ok=0 failed=0
+    _bulk_count_file_init
     while IFS= read -r id; do
       if unresolve_thread "${id}"; then
         ok=$((ok + 1))
@@ -1283,12 +1326,14 @@ main() {
       fi
     done < <(_collect_ids "${args[@]}")
     _assert_processed unresolve "${ok}" "${failed}"
+    _bulk_count_file_done
     _bulk_summary unresolve "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
   unhide-comment)
     _assert_flags_for "${subcommand}"
     local id ok=0 failed=0
+    _bulk_count_file_init
     while IFS= read -r id; do
       if unminimize_comment "${id}"; then
         ok=$((ok + 1))
@@ -1297,6 +1342,7 @@ main() {
       fi
     done < <(_collect_ids "${args[@]}")
     _assert_processed unhide-comment "${ok}" "${failed}"
+    _bulk_count_file_done
     _bulk_summary unhide-comment "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
@@ -1324,6 +1370,7 @@ main() {
     _assert_flags_for "${subcommand}"
     pr_resolve
     local name ok=0 failed=0
+    _bulk_count_file_init
     while IFS= read -r name; do
       if _gh_run pr edit "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
         --add-label "${name}" >/dev/null; then
@@ -1334,6 +1381,7 @@ main() {
       fi
     done < <(_collect_ids "${args[@]}")
     _assert_processed add-label "${ok}" "${failed}"
+    _bulk_count_file_done
     _bulk_summary add-label "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
@@ -1341,6 +1389,7 @@ main() {
     _assert_flags_for "${subcommand}"
     pr_resolve
     local name ok=0 failed=0
+    _bulk_count_file_init
     while IFS= read -r name; do
       if _gh_run pr edit "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
         --remove-label "${name}" >/dev/null; then
@@ -1351,6 +1400,7 @@ main() {
       fi
     done < <(_collect_ids "${args[@]}")
     _assert_processed remove-label "${ok}" "${failed}"
+    _bulk_count_file_done
     _bulk_summary remove-label "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
