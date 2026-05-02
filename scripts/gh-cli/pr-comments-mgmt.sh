@@ -17,12 +17,18 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["resolve"]="quiet"
   ["hide-comment"]="quiet reason"
   ["hide-thread"]="quiet reason"
-  ["list-threads"]="quiet"
-  ["current-pr"]="quiet"
+  ["list-threads"]="quiet pr"
+  ["current-pr"]="quiet pr"
 )
 
 # Long-flag short names parsed off argv, preserved in order of appearance.
 SET_FLAGS=()
+
+# Raw `--pr <ref>` argument, resolved by `pr_resolve` into PR_OWNER_REPO
+# and PR_NUMBER. Empty when --pr was not supplied.
+PR_REF=""
+PR_OWNER_REPO=""
+PR_NUMBER=""
 
 # Plain-text on purpose: every other error is NDJSON, but `_json_string`
 # itself depends on `jq`, so we cannot format this one as JSON.
@@ -71,20 +77,23 @@ Subcommands:
   hide-comment <comment-node-id>...        Minimize comments as OUTDATED.
   hide-thread <thread-id>...               Minimize every comment in the thread
                                            then resolve it.
-  list-threads [<owner/repo>] [<pr-number>]
-                                           Print thread IDs (+ resolution and
-                                           comment node IDs) as JSON. With no
-                                           args, defaults to current repo and
-                                           PR via gh; with one numeric arg,
-                                           uses it as the PR number for the
-                                           current repo.
-  current-pr                               Print the open PR for the current
-                                           repo/branch as JSON (number, title,
-                                           body, and labels as a name array).
-                                           Exits non-zero if no open PR is
-                                           found.
+  list-threads                             Print thread IDs (+ resolution and
+                                           comment node IDs) as JSON for the
+                                           PR named by `--pr`, or for the
+                                           current branch's open PR when
+                                           `--pr` is omitted.
+  current-pr                               Print the PR named by `--pr` (or
+                                           the current branch's open PR when
+                                           `--pr` is omitted) as JSON
+                                           (number, title, body, and labels
+                                           as a name array). Exits non-zero
+                                           if no PR is found.
 
 Options:
+  --pr <number|owner/repo#number>          Target a specific PR. With a bare
+                                           number, the current repo is used.
+                                           When omitted, the current branch's
+                                           open PR is used.
   --reason {OUTDATED|RESOLVED|OFF_TOPIC|SPAM|ABUSE|DUPLICATE}
                                            Classifier for hide* (default: OUTDATED).
   --quiet                                  Suppress per-action output.
@@ -97,10 +106,10 @@ Exit codes:
 
 Examples:
   pr-comments-mgmt.sh resolve PRRT_kwDOPeLwm85_EPVC
-  pr-comments-mgmt.sh hide-thread --reason OUTDATED PRRT_kwDOPeLwm85_EQHI PRRT_kwDOPeLwm85_EQsI
+  pr-comments-mgmt.sh hide-thread --reason OUTDATED PRRT_kwDOPeLwm85_EQHI
   pr-comments-mgmt.sh list-threads
-  pr-comments-mgmt.sh list-threads 123
-  pr-comments-mgmt.sh list-threads owner/repo 123
+  pr-comments-mgmt.sh --pr 123 list-threads
+  pr-comments-mgmt.sh --pr owner/repo#123 list-threads
   pr-comments-mgmt.sh current-pr
 USAGE
 }
@@ -150,6 +159,37 @@ _assert_flags_for() {
     [[ ${allowed} == *" ${flag} "* ]] ||
       die 1 "${subcommand}: --${flag//_/-} is not applicable"
   done
+}
+
+pr_resolve() {
+  # Populate PR_OWNER_REPO and PR_NUMBER from PR_REF when set, otherwise
+  # fall back to the current branch via gh. With an explicit PR_REF the
+  # caller has named a PR by id, so no state assertion is performed; the
+  # gh-fallback path keeps the historical "must be OPEN" guard.
+  if [[ -n ${PR_REF} ]]; then
+    if [[ ${PR_REF} =~ ^([^/[:space:]]+/[^/#[:space:]]+)#([0-9]+)$ ]]; then
+      PR_OWNER_REPO=${BASH_REMATCH[1]}
+      PR_NUMBER=${BASH_REMATCH[2]}
+    elif [[ ${PR_REF} =~ ^[0-9]+$ ]]; then
+      PR_OWNER_REPO=$(_gh_run repo view --json nameWithOwner -q .nameWithOwner) ||
+        die 1 "--pr ${PR_REF}: failed to detect current repo via gh"
+      PR_NUMBER=${PR_REF}
+    else
+      die 1 "--pr: expected <number> or <owner/repo>#<number>; got '${PR_REF}'"
+    fi
+    return 0
+  fi
+
+  PR_OWNER_REPO=$(_gh_run repo view --json nameWithOwner -q .nameWithOwner) ||
+    die 1 "failed to detect current repo via gh"
+  local pr_view
+  pr_view=$(_gh_run pr view --json number,state) ||
+    die 1 "failed to detect current PR via gh"
+  local state
+  state=$(printf '%s' "${pr_view}" | jq -r '.state')
+  [[ ${state} == "OPEN" ]] ||
+    die 1 "PR for current branch is ${state}, expected OPEN (use --pr to override)"
+  PR_NUMBER=$(printf '%s' "${pr_view}" | jq -r '.number')
 }
 
 graphql_call() {
@@ -347,13 +387,10 @@ _paginate_thread_comments() {
 }
 
 list_threads() {
-  local owner_repo="$1"
-  local pr_number="$2"
-  [[ ${owner_repo} == */* ]] || die 1 "list-threads: expected <owner/repo>, got '${owner_repo}'"
-  [[ ${pr_number} =~ ^[0-9]+$ ]] || die 1 "list-threads: expected numeric pr number, got '${pr_number}'"
-
-  local owner=${owner_repo%/*}
-  local repo=${owner_repo#*/}
+  pr_resolve
+  local owner=${PR_OWNER_REPO%/*}
+  local repo=${PR_OWNER_REPO#*/}
+  local pr_number=${PR_NUMBER}
 
   local cursor="null"
   local all_threads='[]'
@@ -424,16 +461,12 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
 }
 
 current_pr() {
-  local data
-  if ! data=$(_gh_run pr view --json number,title,body,labels,state); then
-    err "current-pr: no PR found for current branch"
-    return 1
-  fi
+  pr_resolve
 
-  local state
-  state=$(printf '%s' "${data}" | jq -r '.state')
-  if [[ ${state} != "OPEN" ]]; then
-    err "current-pr: PR for current branch is ${state}, expected OPEN"
+  local data
+  if ! data=$(_gh_run pr view "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
+    --json number,title,body,labels,state); then
+    err "current-pr: failed to view ${PR_OWNER_REPO}#${PR_NUMBER}"
     return 1
   fi
 
@@ -467,6 +500,18 @@ main() {
       valid_reason "${rv}" || die 1 "--reason must be one of: ${VALID_REASONS[*]}"
       REASON="${rv}"
       SET_FLAGS+=(reason)
+      shift
+      ;;
+    --pr)
+      [[ -n ${2:-} ]] || die 1 "--pr requires a value"
+      PR_REF="$2"
+      SET_FLAGS+=(pr)
+      shift 2
+      ;;
+    --pr=*)
+      PR_REF="${1#--pr=}"
+      [[ -n ${PR_REF} ]] || die 1 "--pr requires a value"
+      SET_FLAGS+=(pr)
       shift
       ;;
     --)
@@ -527,34 +572,8 @@ main() {
     ;;
   list-threads)
     _assert_flags_for "${subcommand}"
-    local owner_repo pr_number
-    case "${#args[@]}" in
-    0)
-      owner_repo=$(_gh_run repo view --json nameWithOwner -q .nameWithOwner) ||
-        die 1 "list-threads: failed to detect current repo via gh"
-      local pr_view
-      pr_view=$(_gh_run pr view --json number,state) ||
-        die 1 "list-threads: failed to detect current PR via gh"
-      [[ $(printf '%s' "${pr_view}" | jq -r '.state') == "OPEN" ]] ||
-        die 1 "list-threads: PR for current branch is $(printf '%s' "${pr_view}" | jq -r '.state'), expected OPEN"
-      pr_number=$(printf '%s' "${pr_view}" | jq -r '.number')
-      ;;
-    1)
-      [[ ${args[0]} =~ ^[0-9]+$ ]] ||
-        die 1 "list-threads: single arg must be a PR number; got '${args[0]}'"
-      owner_repo=$(_gh_run repo view --json nameWithOwner -q .nameWithOwner) ||
-        die 1 "list-threads: failed to detect current repo via gh"
-      pr_number="${args[0]}"
-      ;;
-    2)
-      owner_repo="${args[0]}"
-      pr_number="${args[1]}"
-      ;;
-    *)
-      die 1 "list-threads: too many arguments (expected 0, 1, or 2; got ${#args[@]})"
-      ;;
-    esac
-    list_threads "${owner_repo}" "${pr_number}" || exit $?
+    ((${#args[@]} == 0)) || die 1 "list-threads: takes no positional arguments (use --pr)"
+    list_threads || exit $?
     ;;
   *)
     die 1 "unknown subcommand: ${subcommand}"
