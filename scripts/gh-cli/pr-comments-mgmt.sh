@@ -19,6 +19,7 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["hide-thread"]="quiet reason"
   ["list-threads"]="quiet pr"
   ["current-pr"]="quiet pr"
+  ["get-thread"]="quiet"
 )
 
 # Long-flag short names parsed off argv, preserved in order of appearance.
@@ -566,6 +567,61 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
   printf '%s' "${all_threads}" | jq '.'
 }
 
+get_thread() {
+  local thread_id="$1"
+  [[ -n ${thread_id} ]] || die 1 "get-thread: empty thread id"
+
+  local response
+  if ! response=$(graphql_call '
+query($id: ID!) {
+  node(id: $id) {
+    __typename
+    ... on PullRequestReviewThread {
+      id
+      isResolved
+      isOutdated
+      isCollapsed
+      path
+      line
+      subjectType
+      resolvedBy { login }
+      viewerCanResolve
+      viewerCanUnresolve
+      viewerCanReply
+      comments(first: 100) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          databaseId
+          author { login }
+          body
+          diffHunk
+          originalLine
+          originalStartLine
+          subjectType
+          isMinimized
+          minimizedReason
+        }
+      }
+    }
+  }
+}
+' "id=${thread_id}"); then
+    err "get-thread: graphql call failed for ${thread_id}"
+    return 2
+  fi
+
+  local typename
+  typename=$(printf '%s' "${response}" | jq -r '.data.node.__typename // ""')
+  if [[ ${typename} != "PullRequestReviewThread" ]]; then
+    err "get-thread: ${thread_id} is ${typename:-not found}, expected PullRequestReviewThread"
+    return 2
+  fi
+
+  printf '%s' "${response}" | jq -c '.data.node | del(.__typename)' |
+    _paginate_thread_comments | jq '.'
+}
+
 current_pr() {
   pr_resolve
 
@@ -711,6 +767,12 @@ main() {
     _assert_flags_for "${subcommand}"
     ((${#args[@]} == 0)) || die 1 "list-threads: takes no positional arguments (use --pr)"
     list_threads || exit $?
+    ;;
+  get-thread)
+    _assert_flags_for "${subcommand}"
+    ((${#args[@]} == 1)) ||
+      die 1 "get-thread: expected exactly one thread id (got ${#args[@]})"
+    get_thread "${args[0]}" || exit $?
     ;;
   *)
     die 1 "unknown subcommand: ${subcommand}"
