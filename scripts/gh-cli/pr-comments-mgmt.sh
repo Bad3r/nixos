@@ -387,12 +387,19 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
 
 current_pr() {
   local data
-  if ! data=$(_gh_run pr view --json number,title,body,labels); then
-    err "current-pr: no open PR found for current branch"
+  if ! data=$(_gh_run pr view --json number,title,body,labels,state); then
+    err "current-pr: no PR found for current branch"
     return 1
   fi
 
-  printf '%s' "${data}" | jq '.labels |= map(.name)'
+  local state
+  state=$(printf '%s' "${data}" | jq -r '.state')
+  if [[ ${state} != "OPEN" ]]; then
+    err "current-pr: PR for current branch is ${state}, expected OPEN"
+    return 1
+  fi
+
+  printf '%s' "${data}" | jq 'del(.state) | .labels |= map(.name)'
 }
 
 main() {
@@ -486,8 +493,12 @@ main() {
     0)
       owner_repo=$(_gh_run repo view --json nameWithOwner -q .nameWithOwner) ||
         die 1 "list-threads: failed to detect current repo via gh"
-      pr_number=$(_gh_run pr view --json number -q .number) ||
+      local pr_view
+      pr_view=$(_gh_run pr view --json number,state) ||
         die 1 "list-threads: failed to detect current PR via gh"
+      [[ $(printf '%s' "${pr_view}" | jq -r '.state') == "OPEN" ]] ||
+        die 1 "list-threads: PR for current branch is $(printf '%s' "${pr_view}" | jq -r '.state'), expected OPEN"
+      pr_number=$(printf '%s' "${pr_view}" | jq -r '.number')
       ;;
     1)
       [[ ${args[0]} =~ ^[0-9]+$ ]] ||
