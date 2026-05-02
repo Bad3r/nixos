@@ -164,8 +164,13 @@ Options:
                                            whose first comment was authored
                                            by <login>.
   --path <glob>                            list-threads filter: keep threads
-                                           whose path matches the glob
-                                           (`*` and `?` wildcards).
+                                           whose path matches the glob.
+                                           Wildcards: `*` (within a path
+                                           segment), `?` (one non-`/`
+                                           char), `**` (zero or more
+                                           directory levels via `**/`,
+                                           one or more trailing levels
+                                           via `/**`).
   --minimized true|false                   list-threads filter: keep threads
                                            where every comment is minimized
                                            (true) or where at least one
@@ -313,8 +318,17 @@ _collect_ids() {
 }
 
 _glob_to_regex() {
-  # fnmatch-style glob -> jq-compatible anchored regex. `*` matches any
-  # run, `?` matches one char, every other regex meta-char is escaped.
+  # gitignore-style glob -> jq-compatible anchored regex.
+  #
+  #   `?`   one char, but never `/`         -> [^/]
+  #   `*`   any run within a path segment   -> [^/]*
+  #   `**/` zero or more directory levels   -> (?:[^/]+/)*
+  #   `/**` one or more trailing levels     -> (?:/[^/]+)+
+  #   `**`  any chars including `/`         -> .*
+  #
+  # Globstar tokens are extracted via NUL-byte placeholders before the
+  # `*` / `?` rewrite so the bare-`*` rule (which now stops at `/`) does
+  # not eat their inner stars. Every other regex meta-char is escaped.
   local glob="$1"
   local re=${glob}
   re=${re//\\/\\\\}
@@ -329,8 +343,16 @@ _glob_to_regex() {
   re=${re//|/\\|}
   re=${re//^/\\^}
   re=${re//\$/\\\$}
-  re=${re//\*/.*}
-  re=${re//\?/.}
+  # Globstar placeholders. Order matters: `**/` and `/**` first, then bare `**`.
+  local g1=$'\x01' g2=$'\x02' g3=$'\x03'
+  re=${re//\*\*\//${g1}}
+  re=${re//\/\*\*/${g2}}
+  re=${re//\*\*/${g3}}
+  re=${re//\*/[^/]*}
+  re=${re//\?/[^/]}
+  re=${re//${g1}/(?:[^/]+/)*}
+  re=${re//${g2}/(?:/[^/]+)+}
+  re=${re//${g3}/.*}
   printf '^%s$' "${re}"
 }
 
