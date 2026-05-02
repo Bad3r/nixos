@@ -17,7 +17,7 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["resolve"]="quiet"
   ["hide-comment"]="quiet reason"
   ["hide-thread"]="quiet reason"
-  ["list-threads"]="quiet pr format"
+  ["list-threads"]="quiet pr format unresolved outdated author path minimized"
   ["list-reviews"]="quiet pr format"
   ["current-pr"]="quiet pr"
   ["get-thread"]="quiet"
@@ -41,6 +41,14 @@ BODY_FILE=""
 # Output format for list-* subcommands. Always one of "json" (default,
 # pretty-printed JSON array) or "ndjson" (one JSON document per line).
 OUTPUT_FORMAT="json"
+
+# list-threads filters. Presence is tracked via SET_FLAGS for the boolean
+# filters (unresolved, outdated) so empty values do not collide with
+# "flag absent". The author/path/minimized values are read off these
+# globals when their flags are set.
+FILTER_AUTHOR=""
+FILTER_PATH=""
+FILTER_MINIMIZED=""
 
 # Plain-text on purpose: every other error is NDJSON, but `_json_string`
 # itself depends on `jq`, so we cannot format this one as JSON.
@@ -231,6 +239,58 @@ _collect_ids() {
     [[ -z ${line} || ${line} =~ ^[[:space:]]*# ]] && continue
     printf '%s\n' "${line}"
   done
+}
+
+_glob_to_regex() {
+  # fnmatch-style glob -> jq-compatible anchored regex. `*` matches any
+  # run, `?` matches one char, every other regex meta-char is escaped.
+  local glob="$1"
+  local re=${glob}
+  re=${re//\\/\\\\}
+  re=${re//./\\.}
+  re=${re//+/\\+}
+  re=${re//(/\\(}
+  re=${re//)/\\)}
+  re=${re//\[/\\[}
+  re=${re//\]/\\]}
+  re=${re//\{/\\\{}
+  re=${re//\}/\\\}}
+  re=${re//|/\\|}
+  re=${re//^/\\^}
+  re=${re//\$/\\\$}
+  re=${re//\*/.*}
+  re=${re//\?/.}
+  printf '^%s$' "${re}"
+}
+
+_apply_thread_filters() {
+  # Reads a JSON array of threads on stdin, emits a filtered array.
+  # No-op when no `--unresolved`, `--outdated`, `--author`, `--path`, or
+  # `--minimized` flag was supplied.
+  local jq_filter='.'
+  local jq_args=()
+  if _set_flags_has unresolved; then
+    jq_filter+=' | map(select(.isResolved | not))'
+  fi
+  if _set_flags_has outdated; then
+    jq_filter+=' | map(select(.isOutdated))'
+  fi
+  if _set_flags_has author; then
+    jq_filter+=' | map(select((.comments.nodes[0].author.login // "") == $author))'
+    jq_args+=(--arg author "${FILTER_AUTHOR}")
+  fi
+  if _set_flags_has path; then
+    jq_filter+=' | map(select(.path | test($path_re)))'
+    jq_args+=(--arg path_re "$(_glob_to_regex "${FILTER_PATH}")")
+  fi
+  if _set_flags_has minimized; then
+    if [[ ${FILTER_MINIMIZED} == "true" ]]; then
+      jq_filter+=' | map(select((.comments.nodes | length) > 0 and all(.comments.nodes[]; .isMinimized)))'
+    else
+      jq_filter+=' | map(select(any(.comments.nodes[]; .isMinimized | not)))'
+    fi
+  fi
+  jq "${jq_args[@]}" "${jq_filter}"
 }
 
 _format_array() {
@@ -580,7 +640,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
   done
 
-  printf '%s' "${all_threads}" | _format_array
+  printf '%s' "${all_threads}" | _apply_thread_filters | _format_array
 }
 
 list_reviews() {
@@ -788,6 +848,56 @@ main() {
       *) die 1 "--format must be one of: json, ndjson" ;;
       esac
       SET_FLAGS+=(format)
+      shift
+      ;;
+    --unresolved)
+      SET_FLAGS+=(unresolved)
+      shift
+      ;;
+    --outdated)
+      SET_FLAGS+=(outdated)
+      shift
+      ;;
+    --author)
+      [[ -n ${2:-} ]] || die 1 "--author requires a value"
+      FILTER_AUTHOR="$2"
+      SET_FLAGS+=(author)
+      shift 2
+      ;;
+    --author=*)
+      FILTER_AUTHOR="${1#--author=}"
+      [[ -n ${FILTER_AUTHOR} ]] || die 1 "--author requires a value"
+      SET_FLAGS+=(author)
+      shift
+      ;;
+    --path)
+      [[ -n ${2:-} ]] || die 1 "--path requires a value"
+      FILTER_PATH="$2"
+      SET_FLAGS+=(path)
+      shift 2
+      ;;
+    --path=*)
+      FILTER_PATH="${1#--path=}"
+      [[ -n ${FILTER_PATH} ]] || die 1 "--path requires a value"
+      SET_FLAGS+=(path)
+      shift
+      ;;
+    --minimized)
+      [[ -n ${2:-} ]] || die 1 "--minimized requires a value (true|false)"
+      case "$2" in
+      true | false) FILTER_MINIMIZED="$2" ;;
+      *) die 1 "--minimized must be one of: true, false" ;;
+      esac
+      SET_FLAGS+=(minimized)
+      shift 2
+      ;;
+    --minimized=*)
+      local mv="${1#--minimized=}"
+      case "${mv}" in
+      true | false) FILTER_MINIMIZED="${mv}" ;;
+      *) die 1 "--minimized must be one of: true, false" ;;
+      esac
+      SET_FLAGS+=(minimized)
       shift
       ;;
     --)
