@@ -387,6 +387,18 @@ _bulk_summary() {
     "${ok}" "${failed}" >&2
 }
 
+_assert_processed() {
+  # Args: <verb> <ok> <failed>
+  # Dies when the bulk verb processed zero ids (positional + stdin both
+  # empty). A zero-iteration run is indistinguishable from "everything
+  # succeeded" via the exit code alone, so callers would lose the signal
+  # that input never arrived (a closed pipe upstream, an empty filter
+  # match, etc.).
+  local verb="$1" ok="$2" failed="$3"
+  (((ok + failed) > 0)) ||
+    die 1 "${verb}: no ids supplied (positional or stdin)"
+}
+
 pr_resolve() {
   # Populate PR_OWNER_REPO and PR_NUMBER from PR_REF when set, otherwise
   # fall back to the current branch via gh. With an explicit PR_REF the
@@ -1159,6 +1171,7 @@ main() {
     while IFS= read -r id; do
       if resolve_thread "${id}"; then ok=$((ok + 1)); else failed=$((failed + 1)); fi
     done < <(_collect_ids "${args[@]}")
+    _assert_processed resolve "${ok}" "${failed}"
     _bulk_summary resolve "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
@@ -1172,6 +1185,7 @@ main() {
         failed=$((failed + 1))
       fi
     done < <(_collect_ids "${args[@]}")
+    _assert_processed hide-comment "${ok}" "${failed}"
     _bulk_summary hide-comment "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
@@ -1185,6 +1199,7 @@ main() {
         failed=$((failed + 1))
       fi
     done < <(_collect_ids "${args[@]}")
+    _assert_processed hide-thread "${ok}" "${failed}"
     _bulk_summary hide-thread "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
@@ -1227,6 +1242,7 @@ main() {
         failed=$((failed + 1))
       fi
     done < <(_collect_ids "${args[@]}")
+    _assert_processed unresolve "${ok}" "${failed}"
     _bulk_summary unresolve "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
@@ -1240,6 +1256,7 @@ main() {
         failed=$((failed + 1))
       fi
     done < <(_collect_ids "${args[@]}")
+    _assert_processed unhide-comment "${ok}" "${failed}"
     _bulk_summary unhide-comment "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
@@ -1274,6 +1291,7 @@ main() {
         failed=$((failed + 1))
       fi
     done < <(_collect_ids "${args[@]}")
+    _assert_processed add-label "${ok}" "${failed}"
     _bulk_summary add-label "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
@@ -1290,6 +1308,7 @@ main() {
         failed=$((failed + 1))
       fi
     done < <(_collect_ids "${args[@]}")
+    _assert_processed remove-label "${ok}" "${failed}"
     _bulk_summary remove-label "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
     ;;
