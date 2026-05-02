@@ -219,6 +219,7 @@ hide_thread() {
     if ! response=$(graphql_call '
 query($id: ID!, $cursor: String) {
   node(id: $id) {
+    __typename
     ... on PullRequestReviewThread {
       comments(first: 100, after: $cursor) {
         pageInfo { hasNextPage endCursor }
@@ -233,10 +234,10 @@ query($id: ID!, $cursor: String) {
     fi
 
     if [[ ${validated} == false ]]; then
-      local kind
-      kind=$(printf '%s' "${response}" | jq -r '.data.node // empty | type')
-      if [[ ${kind} != "object" ]]; then
-        err "hide-thread: ${thread_id} not found or not a PullRequestReviewThread"
+      local typename
+      typename=$(printf '%s' "${response}" | jq -r '.data.node.__typename // ""')
+      if [[ ${typename} != "PullRequestReviewThread" ]]; then
+        err "hide-thread: ${thread_id} is ${typename:-not found}, expected PullRequestReviewThread"
         return 2
       fi
       validated=true
