@@ -10,6 +10,8 @@ REASON="OUTDATED"
 
 readonly VALID_REASONS=("OUTDATED" "RESOLVED" "OFF_TOPIC" "SPAM" "ABUSE" "DUPLICATE")
 
+# Plain-text on purpose: every other error is NDJSON, but `_json_string`
+# itself depends on `jq`, so we cannot format this one as JSON.
 if ! command -v jq >/dev/null 2>&1; then
   printf 'pr-comments-mgmt.sh: required command not found: jq\n' >&2
   exit 1
