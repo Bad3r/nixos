@@ -50,8 +50,10 @@ PR_NUMBER=""
 BODY_TEXT=""
 BODY_FILE=""
 
-# Output format for list-* subcommands. Always one of "json" (default,
-# pretty-printed JSON array) or "ndjson" (one JSON document per line).
+# Output format for list-* subcommands. One of "json" (default, pretty
+# array), "ndjson" (one document per line), "ids" (one .id per line),
+# "text" (one short line per item), or "full" (header + body block per
+# item). text/full are dispatched per verb to pick relevant fields.
 OUTPUT_FORMAT="json"
 
 # list-threads filters. Presence is tracked via SET_FLAGS for the boolean
@@ -61,6 +63,13 @@ OUTPUT_FORMAT="json"
 FILTER_AUTHOR=""
 FILTER_PATH=""
 FILTER_MINIMIZED=""
+
+# View options for list-* subcommands. SORT_ORDER is "newest" or
+# "oldest" when set; LIMIT_VAL is a positive integer when set.
+# Presence is tracked via SET_FLAGS so an empty value never silently
+# means "no flag".
+SORT_ORDER=""
+LIMIT_VAL=""
 
 # Plain-text on purpose: every other error is NDJSON, but `_json_string`
 # itself depends on `jq`, so we cannot format this one as JSON.
@@ -693,7 +702,7 @@ set_labels() {
     return 2
 
   local desired
-  desired=$(jq -n --args '$ARGS.positional' "$@")
+  desired=$(jq -n --args '$ARGS.positional | unique' "$@")
 
   local diff
   diff=$(jq -nc --argjson c "${current}" --argjson d "${desired}" \
