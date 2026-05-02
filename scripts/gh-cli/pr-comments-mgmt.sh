@@ -14,16 +14,23 @@ readonly VALID_REASONS=("OUTDATED" "RESOLVED" "OFF_TOPIC" "SPAM" "ABUSE" "DUPLIC
 # `--`). Every subcommand must register here; `_assert_flags_for` consults
 # this map to reject flags that do not apply to the chosen subcommand.
 declare -rA SUBCOMMAND_FLAGS=(
-  ["resolve"]="quiet"
-  ["hide-comment"]="quiet reason"
-  ["hide-thread"]="quiet reason"
+  ["resolve"]="quiet pr"
+  ["hide-comment"]="quiet pr reason"
+  ["hide-thread"]="quiet pr reason"
   ["list-threads"]="quiet pr format unresolved outdated author path minimized"
   ["list-reviews"]="quiet pr format"
   ["current-pr"]="quiet pr"
-  ["get-thread"]="quiet"
-  ["reply"]="quiet body body-file"
-  ["unresolve"]="quiet"
-  ["unhide-comment"]="quiet"
+  ["get-thread"]="quiet pr"
+  ["reply"]="quiet pr body body-file"
+  ["unresolve"]="quiet pr"
+  ["unhide-comment"]="quiet pr"
+  ["set-title"]="quiet pr"
+  ["set-body"]="quiet pr body body-file"
+  ["add-label"]="quiet pr"
+  ["remove-label"]="quiet pr"
+  ["set-labels"]="quiet pr"
+  ["comment"]="quiet pr body body-file"
+  ["review"]="quiet pr body body-file approve request-changes comment"
 )
 
 # Long-flag short names parsed off argv, preserved in order of appearance.
@@ -446,6 +453,47 @@ mutation($id: ID!, $classifier: ReportedContentClassifiers!) {
   fi
 
   log "hidden (${classifier}): ${node_id}"
+}
+
+set_labels() {
+  # Args: <desired-name>...
+  # Sets the PR's labels to exactly the supplied set by computing the
+  # add/remove diff against the current labels and issuing a single
+  # `gh pr edit` call. No-op when the diff is empty.
+  pr_resolve
+
+  local current
+  current=$(_gh_run pr view "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
+    --json labels -q '[.labels[].name]') ||
+    return 2
+
+  local desired
+  desired=$(jq -n --args '$ARGS.positional' "$@")
+
+  local diff
+  diff=$(jq -nc --argjson c "${current}" --argjson d "${desired}" \
+    '{add: ($d - $c), remove: ($c - $d)}')
+
+  local edit_args=() name
+  while IFS= read -r name; do
+    [[ -n ${name} ]] && edit_args+=(--add-label "${name}")
+  done < <(printf '%s' "${diff}" | jq -r '.add[]')
+  while IFS= read -r name; do
+    [[ -n ${name} ]] && edit_args+=(--remove-label "${name}")
+  done < <(printf '%s' "${diff}" | jq -r '.remove[]')
+
+  if ((${#edit_args[@]} == 0)); then
+    log "set-labels: no changes for ${PR_OWNER_REPO}#${PR_NUMBER}"
+    return 0
+  fi
+
+  _gh_run pr edit "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
+    "${edit_args[@]}" >/dev/null || return 2
+
+  local added removed
+  added=$(printf '%s' "${diff}" | jq -r '.add | length')
+  removed=$(printf '%s' "${diff}" | jq -r '.remove | length')
+  log "set-labels: ${PR_OWNER_REPO}#${PR_NUMBER} +${added} -${removed}"
 }
 
 unresolve_thread() {
@@ -999,6 +1047,18 @@ main() {
       SET_FLAGS+=(minimized)
       shift
       ;;
+    --approve)
+      SET_FLAGS+=(approve)
+      shift
+      ;;
+    --request-changes)
+      SET_FLAGS+=(request-changes)
+      shift
+      ;;
+    --comment)
+      SET_FLAGS+=(comment)
+      shift
+      ;;
     --)
       shift
       positional+=("$@")
@@ -1112,6 +1172,108 @@ main() {
     done < <(_collect_ids "${args[@]}")
     _bulk_summary unhide-comment "${ok}" "${failed}"
     exit $((failed > 0 ? 2 : 0))
+    ;;
+  set-title)
+    _assert_flags_for "${subcommand}"
+    ((${#args[@]} == 1)) ||
+      die 1 "set-title: expected exactly one title (got ${#args[@]})"
+    pr_resolve
+    _gh_run pr edit "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
+      --title "${args[0]}" >/dev/null || exit $?
+    log "set-title: ${PR_OWNER_REPO}#${PR_NUMBER}"
+    ;;
+  set-body)
+    _assert_flags_for "${subcommand}"
+    pr_resolve
+    local sb_body
+    sb_body=$(_read_body set-body "${args[@]}") || exit $?
+    _gh_run pr edit "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
+      --body "${sb_body}" >/dev/null || exit $?
+    log "set-body: ${PR_OWNER_REPO}#${PR_NUMBER}"
+    ;;
+  add-label)
+    _assert_flags_for "${subcommand}"
+    pr_resolve
+    local name ok=0 failed=0
+    while IFS= read -r name; do
+      if _gh_run pr edit "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
+        --add-label "${name}" >/dev/null; then
+        log "added: ${name}"
+        ok=$((ok + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    done < <(_collect_ids "${args[@]}")
+    _bulk_summary add-label "${ok}" "${failed}"
+    exit $((failed > 0 ? 2 : 0))
+    ;;
+  remove-label)
+    _assert_flags_for "${subcommand}"
+    pr_resolve
+    local name ok=0 failed=0
+    while IFS= read -r name; do
+      if _gh_run pr edit "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
+        --remove-label "${name}" >/dev/null; then
+        log "removed: ${name}"
+        ok=$((ok + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    done < <(_collect_ids "${args[@]}")
+    _bulk_summary remove-label "${ok}" "${failed}"
+    exit $((failed > 0 ? 2 : 0))
+    ;;
+  set-labels)
+    _assert_flags_for "${subcommand}"
+    local sl_names=()
+    while IFS= read -r name; do
+      sl_names+=("${name}")
+    done < <(_collect_ids "${args[@]}")
+    set_labels "${sl_names[@]}" || exit $?
+    ;;
+  comment)
+    _assert_flags_for "${subcommand}"
+    pr_resolve
+    local cm_body
+    cm_body=$(_read_body comment "${args[@]}") || exit $?
+    _gh_run pr comment "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
+      --body "${cm_body}" || exit $?
+    ;;
+  review)
+    _assert_flags_for "${subcommand}"
+    ((${#args[@]} == 0)) ||
+      die 1 "review: takes no positional arguments"
+    pr_resolve
+    local rv_event="" rv_count=0
+    if _set_flags_has approve; then
+      rv_event="--approve"
+      rv_count=$((rv_count + 1))
+    fi
+    if _set_flags_has request-changes; then
+      rv_event="--request-changes"
+      rv_count=$((rv_count + 1))
+    fi
+    if _set_flags_has comment; then
+      rv_event="--comment"
+      rv_count=$((rv_count + 1))
+    fi
+    ((rv_count == 1)) ||
+      die 1 "review: provide exactly one of --approve, --request-changes, --comment"
+    local rv_body=""
+    if _set_flags_has body || _set_flags_has body-file; then
+      rv_body=$(_read_body review) || exit $?
+    fi
+    if [[ ${rv_event} != "--approve" && -z ${rv_body} ]]; then
+      die 1 "review: ${rv_event} requires a non-empty body"
+    fi
+    if [[ -z ${rv_body} ]]; then
+      _gh_run pr review "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
+        "${rv_event}" || exit $?
+    else
+      _gh_run pr review "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
+        "${rv_event}" --body "${rv_body}" || exit $?
+    fi
+    log "review (${rv_event#--}): ${PR_OWNER_REPO}#${PR_NUMBER}"
     ;;
   *)
     die 1 "unknown subcommand: ${subcommand}"
