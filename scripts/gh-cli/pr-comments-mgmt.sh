@@ -522,7 +522,12 @@ set_labels() {
   # Args: <desired-name>...
   # Sets the PR's labels to exactly the supplied set by computing the
   # add/remove diff against the current labels and issuing a single
-  # `gh pr edit` call. No-op when the diff is empty.
+  # `gh pr edit` call. No-op when the diff is empty. Refuses an empty
+  # desired set: clearing every label is irrecoverable from this CLI's
+  # perspective and is almost always a bug (empty positionals + closed
+  # stdin), not an intent. Use `remove-label` explicitly to drop labels.
+  (($# > 0)) ||
+    die 1 "set-labels: refusing to clear all labels (empty desired set); use 'remove-label' to drop labels explicitly"
   pr_resolve
 
   local current
