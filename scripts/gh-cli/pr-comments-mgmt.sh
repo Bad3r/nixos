@@ -21,6 +21,7 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["list-reviews"]="quiet pr format"
   ["current-pr"]="quiet pr"
   ["get-thread"]="quiet"
+  ["reply"]="quiet body body-file"
 )
 
 # Long-flag short names parsed off argv, preserved in order of appearance.
@@ -351,14 +352,23 @@ graphql_call() {
   # Args: <query> <field=value>... -> echoes JSON body to stdout, returns exit code.
   # Inspects the response for top-level GraphQL `errors` and fails with code 2 if present,
   # so partial errors (data populated alongside errors) are never silently swallowed.
+  #
+  # Each `field=value` is forwarded with `gh -F`, so numeric/boolean/null
+  # values are typed correctly (Int/Boolean/null); a leading `raw:` prefix
+  # forces `gh -f` instead, sending the value as a string verbatim. Use
+  # `raw:` for arbitrary string payloads (e.g., review bodies) so values
+  # that happen to look like `true`, `null`, or a number do not get
+  # silently coerced.
   local query="$1"
   shift
 
-  # Use `-F` so numeric/boolean values are typed correctly (Int/Boolean/null);
-  # GraphQL Int! variables like `$number` reject quoted strings sent via `-f`.
   local args=()
+  local kv
   for kv in "$@"; do
-    args+=(-F "${kv}")
+    case "${kv}" in
+    raw:*) args+=(-f "${kv#raw:}") ;;
+    *) args+=(-F "${kv}") ;;
+    esac
   done
 
   local response
@@ -434,6 +444,35 @@ mutation($id: ID!, $classifier: ReportedContentClassifiers!) {
   fi
 
   log "hidden (${classifier}): ${node_id}"
+}
+
+reply_thread() {
+  local thread_id="$1"
+  local body="$2"
+  [[ -n ${thread_id} ]] || die 1 "reply: empty thread id"
+
+  local response
+  if ! response=$(graphql_call '
+mutation($id: ID!, $body: String!) {
+  addPullRequestReviewThreadReply(input: {
+    pullRequestReviewThreadId: $id,
+    body: $body
+  }) {
+    comment { id databaseId url body author { login } }
+  }
+}
+' "id=${thread_id}" "raw:body=${body}"); then
+    err "reply: graphql call failed for ${thread_id}"
+    return 2
+  fi
+
+  local cid
+  cid=$(printf '%s' "${response}" | jq -r '.data.addPullRequestReviewThreadReply.comment.id // ""')
+  [[ -n ${cid} ]] ||
+    die 2 "reply: unexpected response for ${thread_id}: ${response}"
+
+  log "replied: ${thread_id} -> ${cid}"
+  printf '%s' "${response}" | jq '.data.addPullRequestReviewThreadReply.comment'
 }
 
 hide_thread() {
@@ -979,6 +1018,14 @@ main() {
     ((${#args[@]} == 1)) ||
       die 1 "get-thread: expected exactly one thread id (got ${#args[@]})"
     get_thread "${args[0]}" || exit $?
+    ;;
+  reply)
+    _assert_flags_for "${subcommand}"
+    ((${#args[@]} >= 1)) || die 1 "reply: missing thread id"
+    local rid="${args[0]}"
+    local rbody
+    rbody=$(_read_body reply "${args[@]:1}") || exit $?
+    reply_thread "${rid}" "${rbody}" || exit $?
     ;;
   *)
     die 1 "unknown subcommand: ${subcommand}"
