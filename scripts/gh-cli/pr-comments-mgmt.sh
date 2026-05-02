@@ -195,13 +195,31 @@ Options:
   --reason {OUTDATED|RESOLVED|OFF_TOPIC|SPAM|ABUSE|DUPLICATE}
                                            Classifier for hide-comment and
                                            hide-thread (default: OUTDATED).
-  --format json|ndjson|ids|text|full       Output format for list-threads,
+  --format json|ndjson|ids|text|full|tsv   Output format for list-threads,
                                            list-reviews, and list-comments
                                            (default: json). `ids` emits
                                            one `.id` per line; `text`
                                            emits a one-line summary per
                                            item; `full` emits a header
-                                           plus body block per item.
+                                           plus body block per item;
+                                           `tsv` emits one tab-separated
+                                           record per item with per-verb
+                                           columns (no header — pipe to
+                                           `column -t` for visual
+                                           columns or `cut -f<n>` /
+                                           `awk -F'\t'` downstream).
+                                           tsv columns:
+                                             reviews:  id, submittedAt,
+                                             author, state, body_len,
+                                             url
+                                             comments: id, createdAt,
+                                             author, isMinimized,
+                                             minimizedReason, body_len,
+                                             url
+                                             threads:  id, isResolved,
+                                             isOutdated, path, line,
+                                             first_author, comments,
+                                             unminimized
   --sort newest|oldest                     Sort list-* output by the natural
                                            per-item timestamp
                                            (submittedAt for reviews,
@@ -279,6 +297,10 @@ Examples:
     --sort=newest --limit=5 --format=text
   pr-comments-mgmt.sh --pr 149 list-comments \
     --sort=newest --limit=3 --format=full
+  pr-comments-mgmt.sh --pr 149 list-threads --format=tsv \
+    | awk -F'\t' -v OFS='\t' \
+        'BEGIN{print "id","resolved","outdated","path","line","author","comments","unmin"} 1' \
+    | column -t -s $'\t'
   pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC
   pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'
   pr-comments-mgmt.sh --pr 149 set-labels 'type(enhancement)' 'area(scripts)'
@@ -518,20 +540,24 @@ _apply_view() {
 
 _format_array() {
   # Filter for list-* subcommands. Reads a JSON array on stdin; emits
-  # one of five shapes per OUTPUT_FORMAT:
+  # one of six shapes per OUTPUT_FORMAT:
   #   json   pretty-printed JSON array (default)
   #   ndjson one JSON document per line
   #   ids    one `.id` per line, blank/null ids skipped
   #   text   one short summary line per item (per-kind fields)
   #   full   header + body block per item (per-kind layout)
+  #   tsv    one tab-separated record per item (per-kind columns,
+  #          no header — pipe to `column -t` for visual columns or
+  #          `cut -f<n>` / `awk -F'\t'` for downstream parsing)
   # The first arg is the kind ("threads", "reviews", "comments") and
-  # selects per-verb templates for text/full.
+  # selects per-verb templates for text/full/tsv.
   local kind="$1"
   case "${OUTPUT_FORMAT}" in
   ndjson) jq -c '.[]' ;;
   ids) jq -r '.[].id // empty' ;;
   text) _format_text "${kind}" ;;
   full) _format_full "${kind}" ;;
+  tsv) _format_tsv "${kind}" ;;
   *) jq '.' ;;
   esac
 }
@@ -560,6 +586,36 @@ _format_full() {
     ;;
   threads)
     jq -r '.[] | "=== [\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
+    ;;
+  esac
+}
+
+_format_tsv() {
+  # Per-verb tab-separated columns. No header row — this is meant to
+  # feed straight into awk/cut/column. Body length is reported instead
+  # of the body itself so a row stays one line.
+  case "$1" in
+  reviews)
+    # id, submittedAt, author, state, body_len, url
+    jq -r '.[] | [.id, .submittedAt, .author.login, .state, ((.body // "") | length), .url] | @tsv'
+    ;;
+  comments)
+    # id, createdAt, author, isMinimized, minimizedReason, body_len, url
+    jq -r '.[] | [.id, .createdAt, .author.login, .isMinimized, (.minimizedReason // ""), ((.body // "") | length), .url] | @tsv'
+    ;;
+  threads)
+    # id, isResolved, isOutdated, path, line, first_author, comments,
+    # unminimized — matches the recurring "thread audit" workflow.
+    jq -r '.[] | [
+      .id,
+      .isResolved,
+      .isOutdated,
+      (.path // ""),
+      (.line // ""),
+      (.comments.nodes[0].author.login // ""),
+      (.comments.nodes | length),
+      (.comments.nodes | map(select(.isMinimized | not)) | length)
+    ] | @tsv'
     ;;
   esac
 }
@@ -1329,7 +1385,7 @@ current_pr() {
   if ! data=$(_gh_run pr view "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" --json \
     id,number,title,body,state,url,headRefName,baseRefName,author,isDraft,mergeable,mergeStateStatus,labels); then
     err "current-pr: failed to view ${PR_OWNER_REPO}#${PR_NUMBER}"
-    return 1
+    return 2
   fi
 
   printf '%s' "${data}" | jq '.labels |= map(.name)'
@@ -1402,8 +1458,8 @@ main() {
     --format)
       [[ -n ${2:-} ]] || die 1 "--format requires a value"
       case "$2" in
-      json | ndjson | ids | text | full) OUTPUT_FORMAT="$2" ;;
-      *) die 1 "--format must be one of: json, ndjson, ids, text, full" ;;
+      json | ndjson | ids | text | full | tsv) OUTPUT_FORMAT="$2" ;;
+      *) die 1 "--format must be one of: json, ndjson, ids, text, full, tsv" ;;
       esac
       SET_FLAGS+=(format)
       shift 2
@@ -1411,8 +1467,8 @@ main() {
     --format=*)
       local fv="${1#--format=}"
       case "${fv}" in
-      json | ndjson | ids | text | full) OUTPUT_FORMAT="${fv}" ;;
-      *) die 1 "--format must be one of: json, ndjson, ids, text, full" ;;
+      json | ndjson | ids | text | full | tsv) OUTPUT_FORMAT="${fv}" ;;
+      *) die 1 "--format must be one of: json, ndjson, ids, text, full, tsv" ;;
       esac
       SET_FLAGS+=(format)
       shift
