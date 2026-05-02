@@ -570,13 +570,13 @@ current_pr() {
   pr_resolve
 
   local data
-  if ! data=$(_gh_run pr view "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
-    --json number,title,body,labels,state); then
+  if ! data=$(_gh_run pr view "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" --json \
+    id,number,title,body,state,url,headRefName,baseRefName,author,isDraft,mergeable,mergeStateStatus,labels); then
     err "current-pr: failed to view ${PR_OWNER_REPO}#${PR_NUMBER}"
     return 1
   fi
 
-  printf '%s' "${data}" | jq 'del(.state) | .labels |= map(.name)'
+  printf '%s' "${data}" | jq '.labels |= map(.name)'
 }
 
 main() {
