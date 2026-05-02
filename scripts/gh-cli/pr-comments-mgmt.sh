@@ -19,6 +19,7 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["hide-thread"]="quiet pr reason"
   ["list-threads"]="quiet pr format unresolved outdated author path minimized"
   ["list-reviews"]="quiet pr format"
+  ["list-comments"]="quiet pr format"
   ["current-pr"]="quiet pr"
   ["get-thread"]="quiet pr"
   ["reply"]="quiet pr body body-file"
@@ -110,6 +111,13 @@ Read subcommands:
   list-reviews                             Paginated reviews (state, body,
                                            author, submittedAt, url, commit).
                                            Default output: JSON array.
+  list-comments                            Paginated issue-level (top-level)
+                                           PR conversation comments. Per
+                                           comment: id, databaseId, author,
+                                           body, createdAt, updatedAt, url,
+                                           isMinimized, minimizedReason,
+                                           viewerCan{Minimize,Update,Delete}.
+                                           Default output: JSON array.
   get-thread <thread-id>                   Single review thread, same shape
                                            as one element of list-threads.
   current-pr                               PR view as JSON. Fields:
@@ -163,8 +171,9 @@ Options:
   --reason {OUTDATED|RESOLVED|OFF_TOPIC|SPAM|ABUSE|DUPLICATE}
                                            Classifier for hide-comment and
                                            hide-thread (default: OUTDATED).
-  --format json|ndjson                     Output format for list-threads
-                                           and list-reviews (default: json).
+  --format json|ndjson                     Output format for list-threads,
+                                           list-reviews, and list-comments
+                                           (default: json).
   --unresolved                             list-threads filter: keep
                                            threads with isResolved == false.
   --outdated                               list-threads filter: keep
@@ -214,6 +223,9 @@ Examples:
   pr-comments-mgmt.sh list-threads --format=ndjson --unresolved
   pr-comments-mgmt.sh --pr 123 list-threads --author Bad3r --path '*.sh'
   pr-comments-mgmt.sh --pr owner/repo#123 list-reviews
+  pr-comments-mgmt.sh --pr 149 list-comments --format=ndjson \
+    | jq -r 'select(.isMinimized | not) | .id' \
+    | pr-comments-mgmt.sh hide-comment --pr 149 --reason RESOLVED
   pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC
   pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'
   pr-comments-mgmt.sh --pr 149 set-labels 'type(enhancement)' 'area(scripts)'
@@ -1009,6 +1021,71 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
   printf '%s' "${all_reviews}" | _format_array
 }
 
+list_comments() {
+  # Issue-level (top-level) PR conversation comments. Distinct from
+  # `list-threads` (inline review comments) and `list-reviews` (review
+  # submissions). The GraphQL `pullRequest.comments` connection backs
+  # the `gh api repos/.../issues/<n>/comments` REST endpoint.
+  pr_resolve
+  local owner=${PR_OWNER_REPO%/*}
+  local repo=${PR_OWNER_REPO#*/}
+  local pr_number=${PR_NUMBER}
+
+  local cursor="null"
+  local all_comments='[]'
+
+  while :; do
+    local response
+    if ! response=$(graphql_call '
+query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      comments(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          databaseId
+          author { login }
+          body
+          createdAt
+          updatedAt
+          url
+          isMinimized
+          minimizedReason
+          viewerCanMinimize
+          viewerCanUpdate
+          viewerCanDelete
+        }
+      }
+    }
+  }
+}
+' "owner=${owner}" "repo=${repo}" "number=${pr_number}" "cursor=${cursor}"); then
+      err "list-comments: graphql call failed"
+      return 2
+    fi
+
+    if ! printf '%s' "${response}" | jq -e '.data.repository.pullRequest' >/dev/null; then
+      err "list-comments: ${owner}/${repo} pull request #${pr_number} not found"
+      return 2
+    fi
+
+    local page
+    page=$(printf '%s' "${response}" | jq '.data.repository.pullRequest.comments.nodes')
+
+    all_comments=$(jq -n --argjson a "${all_comments}" --argjson b "${page}" '$a + $b')
+
+    local page_info has_next
+    page_info=$(printf '%s' "${response}" |
+      jq -c '.data.repository.pullRequest.comments.pageInfo')
+    has_next=$(printf '%s' "${page_info}" | jq -r '.hasNextPage')
+    [[ ${has_next} == "true" ]] || break
+    cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
+  done
+
+  printf '%s' "${all_comments}" | _format_array
+}
+
 get_thread() {
   local thread_id="$1"
   [[ -n ${thread_id} ]] || die 1 "get-thread: empty thread id"
@@ -1303,6 +1380,11 @@ main() {
     _assert_flags_for "${subcommand}"
     ((${#args[@]} == 0)) || die 1 "list-reviews: takes no positional arguments (use --pr)"
     list_reviews || exit $?
+    ;;
+  list-comments)
+    _assert_flags_for "${subcommand}"
+    ((${#args[@]} == 0)) || die 1 "list-comments: takes no positional arguments (use --pr)"
+    list_comments || exit $?
     ;;
   get-thread)
     _assert_flags_for "${subcommand}"
