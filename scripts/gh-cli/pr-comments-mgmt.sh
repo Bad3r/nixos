@@ -10,18 +10,16 @@ REASON="OUTDATED"
 
 readonly VALID_REASONS=("OUTDATED" "RESOLVED" "OFF_TOPIC" "SPAM" "ABUSE" "DUPLICATE")
 
+if ! command -v jq >/dev/null 2>&1; then
+  printf 'pr-comments-mgmt.sh: required command not found: jq\n' >&2
+  exit 1
+fi
+
 _json_string() {
-  # Emit "$1" as a JSON string literal (with surrounding quotes), escaping
-  # backslashes, double quotes, and the common control characters.
-  local s=$1
-  s=${s//\\/\\\\}
-  s=${s//\"/\\\"}
-  s=${s//$'\b'/\\b}
-  s=${s//$'\f'/\\f}
-  s=${s//$'\n'/\\n}
-  s=${s//$'\r'/\\r}
-  s=${s//$'\t'/\\t}
-  printf '"%s"' "$s"
+  # Emit "$1" as a JSON string literal (with surrounding quotes). Delegates
+  # to jq so the full U+0000-U+001F control-character range and surrogate
+  # pairs are escaped per RFC 8259 §7, instead of only the named escapes.
+  jq -Rn --arg s "$1" '$s'
 }
 
 err() {
@@ -404,7 +402,6 @@ current_pr() {
 
 main() {
   require_cmd gh
-  require_cmd jq
 
   local positional=()
   local reason_set=false
