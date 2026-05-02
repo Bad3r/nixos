@@ -1264,6 +1264,8 @@ main() {
     _assert_flags_for "${subcommand}"
     ((${#args[@]} == 1)) ||
       die 1 "set-title: expected exactly one title (got ${#args[@]})"
+    [[ -n ${args[0]} ]] ||
+      die 1 "set-title: title cannot be empty"
     pr_resolve
     _gh_run pr edit "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" \
       --title "${args[0]}" >/dev/null || exit $?
