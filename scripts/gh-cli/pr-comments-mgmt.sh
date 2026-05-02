@@ -18,8 +18,8 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["hide-comment"]="quiet pr reason"
   ["hide-thread"]="quiet pr reason"
   ["list-threads"]="quiet pr format sort limit unresolved outdated author path minimized"
-  ["list-reviews"]="quiet pr format sort limit"
-  ["list-comments"]="quiet pr format sort limit author minimized"
+  ["list-reviews"]="quiet pr format sort limit author superseded similar-prefix"
+  ["list-comments"]="quiet pr format sort limit author minimized superseded similar-prefix"
   ["current-pr"]="quiet pr"
   ["get-thread"]="quiet pr"
   ["reply"]="quiet pr body body-file"
@@ -57,13 +57,14 @@ BODY_FILE=""
 # dispatched per verb to pick relevant fields.
 OUTPUT_FORMAT="json"
 
-# list-threads filters. Presence is tracked via SET_FLAGS for the boolean
-# filters (unresolved, outdated) so empty values do not collide with
-# "flag absent". The author/path/minimized values are read off these
-# globals when their flags are set.
+# list-* filters. Presence is tracked via SET_FLAGS for the boolean
+# filters (unresolved, outdated, superseded) so empty values do not
+# collide with "flag absent". The author/path/minimized/similar-prefix
+# values are read off these globals when their flags are set.
 FILTER_AUTHOR=""
 FILTER_PATH=""
 FILTER_MINIMIZED=""
+SIMILAR_PREFIX_VAL=""
 
 # View options for list-* subcommands. SORT_ORDER is "newest" or
 # "oldest" when set; LIMIT_VAL is a positive integer when set.
@@ -271,9 +272,9 @@ Options:
                                            threads with isOutdated == true.
   --author <login>                         list-threads filter: keep threads
                                            whose first comment was authored
-                                           by <login>. list-comments
-                                           filter: keep comments authored
-                                           by <login>.
+                                           by <login>. list-comments and
+                                           list-reviews filter: keep items
+                                           authored by <login>.
   --path <glob>                            list-threads filter: keep threads
                                            whose path matches the glob.
                                            Wildcards: `*` (within a path
@@ -294,6 +295,39 @@ Options:
                                            list-comments filter: keep
                                            comments where isMinimized
                                            matches the value.
+  --superseded                             list-comments and list-reviews
+                                           filter: keep items where some
+                                           other item by the same author
+                                           has a strictly later timestamp
+                                           (createdAt for comments,
+                                           submittedAt for reviews).
+                                           Equivalently: drop the most
+                                           recent item per author and keep
+                                           the rest. Tied timestamps:
+                                           both retained. PENDING reviews
+                                           (submittedAt == null) are
+                                           excluded from both sides of
+                                           the comparison. Runs after
+                                           --author/--minimized so
+                                           `--minimized=false --superseded`
+                                           reads as "from what is still
+                                           visible, drop the newest per
+                                           author and keep the rest."
+  --similar-prefix N                       Modifier on --superseded
+                                           (list-comments, list-reviews):
+                                           tightens the supersession
+                                           check to also require shared
+                                           first N bytes of `.body`
+                                           between the candidate and its
+                                           newer same-author item.
+                                           Useful for status-update
+                                           authors whose round-N
+                                           comments share a common
+                                           title prefix but who also
+                                           post substantive one-off
+                                           comments. Standalone use
+                                           (without --superseded) is
+                                           rejected.
   --body <text>, --body-file <path|->      Body source for reply, set-body,
                                            comment, and review. `-` means
                                            stdin.
@@ -323,6 +357,17 @@ Examples:
   pr-comments-mgmt.sh --pr 149 list-comments \
     --minimized=false --format=ids \
     | pr-comments-mgmt.sh hide-comment --pr 149 --reason RESOLVED
+  pr-comments-mgmt.sh --pr 149 list-comments \
+    --superseded --author claude --minimized=false --format=ids \
+    | pr-comments-mgmt.sh hide-comment --pr 149 --reason OUTDATED
+  pr-comments-mgmt.sh --pr 149 list-comments \
+    --superseded --author claude --similar-prefix 30 \
+    --minimized=false --format=ids \
+    | pr-comments-mgmt.sh hide-comment --pr 149 --reason OUTDATED
+  pr-comments-mgmt.sh --pr 149 list-reviews \
+    --superseded --author claude --format=ids \
+    | pr-comments-mgmt.sh dismiss-review --pr 149 \
+        --body 'superseded by newer review iteration'
   pr-comments-mgmt.sh --pr 149 list-reviews --format=ndjson \
     | jq -r 'select(.state == "CHANGES_REQUESTED") | .id' \
     | pr-comments-mgmt.sh dismiss-review --pr 149 \
@@ -508,7 +553,15 @@ _glob_to_regex() {
 _apply_comment_filters() {
   # Reads a JSON array of issue-level (top-level) comments on stdin
   # (the shape `list-comments` produces) and emits a filtered array.
-  # No-op when no `--author` or `--minimized` flag was supplied.
+  # No-op when none of `--author`, `--minimized`, `--superseded`, or
+  # `--similar-prefix` was supplied.
+  #
+  # `--superseded` runs after `--author`/`--minimized` on purpose, so
+  # `--minimized=false --superseded` reads as "from what is still
+  # visible, drop the newest per author and keep the rest" — drives
+  # the iterative hide-comment loop to zero. `--similar-prefix` is a
+  # modifier that only tightens `--superseded`; the cross-flag
+  # precondition is enforced in `main` before we get here.
   local jq_filter='.'
   local jq_args=()
   if _set_flags_has author; then
@@ -521,6 +574,54 @@ _apply_comment_filters() {
     else
       jq_filter+=' | map(select(.isMinimized | not))'
     fi
+  fi
+  if _set_flags_has superseded; then
+    jq_filter+='
+      | . as $all
+      | map(. as $c | select(
+          $all | any(
+            (.author.login // "") == ($c.author.login // "") and
+            (.createdAt > $c.createdAt) and
+            ($prefix_n == 0
+              or ((.body // "")[0:$prefix_n] == ($c.body // "")[0:$prefix_n]))
+          )
+        ))'
+    local prefix_n=0
+    _set_flags_has similar-prefix && prefix_n=${SIMILAR_PREFIX_VAL}
+    jq_args+=(--argjson prefix_n "${prefix_n}")
+  fi
+  jq "${jq_args[@]}" "${jq_filter}"
+}
+
+_apply_review_filters() {
+  # Reads a JSON array of reviews on stdin, emits a filtered array.
+  # No-op when neither `--author` nor `--superseded` was supplied.
+  # PENDING reviews (`submittedAt == null`) are excluded from both
+  # sides of the supersession comparison: they have no temporal
+  # ordering relative to submitted reviews, so neither supersedes
+  # nor is superseded.
+  local jq_filter='.'
+  local jq_args=()
+  if _set_flags_has author; then
+    jq_filter+=' | map(select((.author.login // "") == $author))'
+    jq_args+=(--arg author "${FILTER_AUTHOR}")
+  fi
+  if _set_flags_has superseded; then
+    jq_filter+='
+      | . as $all
+      | map(. as $r | select(
+          $r.submittedAt != null
+          and ($all | any(
+            (.author.login // "") == ($r.author.login // "") and
+            .submittedAt != null and
+            (.submittedAt > $r.submittedAt) and
+            ($prefix_n == 0
+              or ((.body // "")[0:$prefix_n] == ($r.body // "")[0:$prefix_n]))
+          ))
+        ))'
+    local prefix_n=0
+    _set_flags_has similar-prefix && prefix_n=${SIMILAR_PREFIX_VAL}
+    jq_args+=(--argjson prefix_n "${prefix_n}")
   fi
   jq "${jq_args[@]}" "${jq_filter}"
 }
@@ -1318,7 +1419,8 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     cursor=$(printf '%s' "${page_info}" | jq -r '.endCursor')
   done
 
-  printf '%s' "${all_reviews}" | _apply_view '.submittedAt' | _format_array reviews
+  printf '%s' "${all_reviews}" | _apply_review_filters |
+    _apply_view '.submittedAt' | _format_array reviews
 }
 
 list_comments() {
@@ -1619,6 +1721,24 @@ main() {
       SET_FLAGS+=(minimized)
       shift
       ;;
+    --superseded)
+      SET_FLAGS+=(superseded)
+      shift
+      ;;
+    --similar-prefix)
+      [[ -n ${2:-} ]] || die 1 "--similar-prefix requires a value"
+      [[ ${2} =~ ^[1-9][0-9]*$ ]] || die 1 "--similar-prefix must be a positive integer"
+      SIMILAR_PREFIX_VAL="$2"
+      SET_FLAGS+=(similar-prefix)
+      shift 2
+      ;;
+    --similar-prefix=*)
+      local spv="${1#--similar-prefix=}"
+      [[ ${spv} =~ ^[1-9][0-9]*$ ]] || die 1 "--similar-prefix must be a positive integer"
+      SIMILAR_PREFIX_VAL="${spv}"
+      SET_FLAGS+=(similar-prefix)
+      shift
+      ;;
     --approve)
       SET_FLAGS+=(approve)
       shift
@@ -1712,11 +1832,17 @@ main() {
   list-reviews)
     _assert_flags_for "${subcommand}"
     ((${#args[@]} == 0)) || die 1 "list-reviews: takes no positional arguments (use --pr)"
+    if _set_flags_has similar-prefix && ! _set_flags_has superseded; then
+      die 1 "list-reviews: --similar-prefix requires --superseded"
+    fi
     list_reviews || exit $?
     ;;
   list-comments)
     _assert_flags_for "${subcommand}"
     ((${#args[@]} == 0)) || die 1 "list-comments: takes no positional arguments (use --pr)"
+    if _set_flags_has similar-prefix && ! _set_flags_has superseded; then
+      die 1 "list-comments: --similar-prefix requires --superseded"
+    fi
     list_comments || exit $?
     ;;
   get-thread)
