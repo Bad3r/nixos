@@ -10,8 +10,9 @@
       # Disabled due to upstream nixpkgs warning in make-options-doc
       # See: https://github.com/NixOS/nixpkgs/issues/485682
       abort-on-warn = false;
-      # Prevent IFD to ensure evaluation purity and build reproducibility
-      allow-import-from-derivation = false;
+      # Required by `nix-doom-emacs-unstraightened`, which evaluates a JSON
+      # manifest produced by a build derivation. Mirrors flake.nix#nixConfig.
+      allow-import-from-derivation = true;
       keep-outputs = false;
       experimental-features = [
         "nix-command"
