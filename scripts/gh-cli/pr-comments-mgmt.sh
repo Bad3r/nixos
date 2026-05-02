@@ -225,8 +225,17 @@ Options:
                                            (submittedAt for reviews,
                                            createdAt for comments and the
                                            thread's first comment).
-  --limit N                                Keep the first N items after
-                                           --sort. Pair with
+                                           `newest` places null timestamps
+                                           (PENDING reviews) at the tail,
+                                           so `--sort newest --limit N`
+                                           never surfaces a pending
+                                           review while any submitted
+                                           review exists.
+  --limit N                                Keep the first N items. Without
+                                           --sort, items are kept in
+                                           cursor-pagination order
+                                           (typically oldest-first as
+                                           returned by GitHub). Pair with
                                            `--sort newest --limit 5` for
                                            the five most recent items.
   --unresolved                             list-threads filter: keep
@@ -573,10 +582,14 @@ _format_text() {
   threads)
     jq -r '.[] | "[\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) comments=\(.comments.nodes | length)"'
     ;;
+  *) die 1 "_format_text: unknown kind '$1'" ;;
   esac
 }
 
 _format_full() {
+  # `threads` renders only the thread-opener's body. Use `get-thread <id>`
+  # for the full reply chain; `full` is meant as a one-block-per-thread
+  # summary, not a thread dump.
   case "$1" in
   reviews)
     jq -r '.[] | "=== [\(.submittedAt)] \(.author.login) (\(.state)) ===\n\(.body // "")\n"'
@@ -587,6 +600,7 @@ _format_full() {
   threads)
     jq -r '.[] | "=== [\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
     ;;
+  *) die 1 "_format_full: unknown kind '$1'" ;;
   esac
 }
 
@@ -617,6 +631,7 @@ _format_tsv() {
       (.comments.nodes | map(select(.isMinimized | not)) | length)
     ] | @tsv'
     ;;
+  *) die 1 "_format_tsv: unknown kind '$1'" ;;
   esac
 }
 
