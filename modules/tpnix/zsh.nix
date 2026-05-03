@@ -46,7 +46,7 @@ in
         # Source kitty's shell integration when running inside kitty.
         # Why: HM's programs.kitty sets shell_integration=no-rc, but it only
         # auto-sources from HM-managed zsh; this zsh is NixOS-managed.
-        if [[ -n "$KITTY_INSTALLATION_DIR" ]]; then
+        if [[ -n "$KITTY_INSTALLATION_DIR" && -f "$KITTY_INSTALLATION_DIR"/shell-integration/zsh/kitty-integration ]]; then
           export KITTY_SHELL_INTEGRATION="enabled"
           autoload -Uz -- "$KITTY_INSTALLATION_DIR"/shell-integration/zsh/kitty-integration
           kitty-integration
