@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   pkgs,
   metaOwner,
@@ -6,6 +7,7 @@
   ...
 }:
 let
+  inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   usbguardLib =
     let
       libAttrs = import ../security/usbguard-lib.nix { inherit lib; };
@@ -35,10 +37,7 @@ in
   configurations.nixos.tpnix.module =
     { config, lib, ... }:
     let
-      sopsInstallSecretsDeps = lib.optional (lib.attrByPath [
-        "sops"
-        "useSystemdActivation"
-      ] false config) "sops-install-secrets.service";
+      installSecretsDeps = sopsInstallSecretsDeps config;
     in
     {
       imports = moduleImports;
@@ -62,7 +61,7 @@ in
           };
 
           systemd.services.usbguard = {
-            after = lib.mkAfter sopsInstallSecretsDeps;
+            after = lib.mkAfter installSecretsDeps;
             preStart = lib.mkAfter ''
               install -D -m 0600 /dev/null ${runtimeRuleFile}
               cat ${baseRulesFile} > ${runtimeRuleFile}

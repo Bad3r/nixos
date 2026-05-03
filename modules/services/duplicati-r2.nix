@@ -1,5 +1,6 @@
-{ secretsRoot, ... }:
+{ config, secretsRoot, ... }:
 let
+  inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   module =
     {
       config,
@@ -122,13 +123,10 @@ let
       manifestTemplateName = "duplicati-r2-manifest.json";
       generatorServiceName = "duplicati-r2-generate-units";
       sopsInstallSecretsService = "sops-install-secrets.service";
-      sopsInstallSecretsDeps = lib.optional (lib.attrByPath [
-        "sops"
-        "useSystemdActivation"
-      ] false config) sopsInstallSecretsService;
-      generatedUnitAfter = concatStringsSep " " ([ "network-online.target" ] ++ sopsInstallSecretsDeps);
+      installSecretsDeps = sopsInstallSecretsDeps config;
+      generatedUnitAfter = concatStringsSep " " ([ "network-online.target" ] ++ installSecretsDeps);
       generatedUnitRequires = lib.optionalString (
-        sopsInstallSecretsDeps != [ ]
+        installSecretsDeps != [ ]
       ) "Requires=${sopsInstallSecretsService}";
 
       usingSecret = cfg.configFile != null;
@@ -819,8 +817,8 @@ let
 
           systemd.services.${generatorServiceName} = {
             description = "Generate Duplicati R2 systemd units";
-            after = sopsInstallSecretsDeps ++ [ "network-online.target" ];
-            requires = sopsInstallSecretsDeps;
+            after = installSecretsDeps ++ [ "network-online.target" ];
+            requires = installSecretsDeps;
             wants = [ "network-online.target" ];
             wantedBy = [ "multi-user.target" ];
             restartTriggers = [

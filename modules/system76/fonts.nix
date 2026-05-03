@@ -1,10 +1,12 @@
 {
+  config,
   lib,
   secretsRoot,
   ...
 }:
 let
   fontArchive = "${secretsRoot}/fonts/monolisa.tar.zst";
+  inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   secretExists = builtins.pathExists fontArchive;
   secretName = "fonts/monolisa.archive";
   secretRuntimePath = "/run/secrets/fonts/monolisa.archive";
@@ -14,10 +16,7 @@ in
   configurations.nixos.system76.module =
     { config, pkgs, ... }:
     let
-      sopsInstallSecretsDeps = lib.optional (lib.attrByPath [
-        "sops"
-        "useSystemdActivation"
-      ] false config) "sops-install-secrets.service";
+      installSecretsDeps = sopsInstallSecretsDeps config;
     in
     {
       config = lib.mkMerge [
@@ -85,8 +84,8 @@ in
           systemd.services.monolisa-fonts = {
             description = "Install MonoLisa fonts from encrypted archive";
             wantedBy = [ "multi-user.target" ];
-            after = sopsInstallSecretsDeps;
-            requires = sopsInstallSecretsDeps;
+            after = installSecretsDeps;
+            requires = installSecretsDeps;
             path = [
               pkgs.coreutils
               pkgs.findutils
