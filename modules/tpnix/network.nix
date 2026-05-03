@@ -30,6 +30,7 @@
         }
 
         delRoutes() {
+          :
           ${lib.concatMapStringsSep "\n          " (host: ''
             ${pkgs.iproute2}/bin/ip route del ${host}/32 dev "$IFACE" 2>/dev/null || true
           '') vpnBypassHosts}
