@@ -22,12 +22,14 @@ buildNpmPackage rec {
 
   # The upstream `build` script invokes scripts/bundle-litellm.mjs, which
   # downloads the LiteLLM price table from the network. The snapshot it would
-  # produce is already committed to src/data/litellm-snapshot.json, so skip
-  # the network step and run tsup directly.
+  # produce is already committed to src/data/litellm-snapshot.json, so drop
+  # the script and run tsup directly. Re-verify the substituted text on the
+  # next version bump.
   postPatch = ''
     substituteInPlace package.json \
       --replace-fail '"build": "node scripts/bundle-litellm.mjs && tsup"' \
                      '"build": "tsup"'
+    rm scripts/bundle-litellm.mjs
   '';
 
   meta = {
