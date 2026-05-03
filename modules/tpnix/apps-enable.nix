@@ -186,7 +186,7 @@
       localsend.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.disableGpuCompositing = lib.mkOverride 1100 true;
-      "logseq-cli".extended.enable = lib.mkOverride 1100 true;
+      "logseq-cli".extended.enable = lib.mkOverride 1100 false;
       lshw.extended.enable = lib.mkOverride 1100 true;
       lsof.extended.enable = lib.mkOverride 1100 true;
       ltrace.extended.enable = lib.mkOverride 1100 true;
