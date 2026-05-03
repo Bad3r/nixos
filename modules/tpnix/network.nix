@@ -12,9 +12,15 @@
       ];
 
       vpnBypassDispatcher = pkgs.writeShellScript "vpn-bypass-dispatcher" ''
+        # `set -o pipefail` is intentionally unset: the `ip ... | awk`
+        # pipeline must produce an empty `gw` (and silent return) when an
+        # interface has no IPv4 default route, rather than aborting the
+        # dispatcher.
         set -eu
         IFACE="''${1:-}"
         ACTION="''${2:-}"
+
+        log() { ${pkgs.util-linux}/bin/logger -t vpn-bypass "$*"; }
 
         case "$IFACE" in
           "" | lo | proton0 | tun* | wg* | tailscale*) exit 0 ;;
@@ -27,9 +33,11 @@
             # Lease without a gateway: drop any previously-planted bypass
             # routes so traffic falls back to ProtonVPN instead of pointing
             # at a stale gateway.
+            log "no gateway on $IFACE; clearing bypass routes"
             delRoutes
             return 0
           fi
+          log "planting bypass routes on $IFACE via $gw (action=$ACTION)"
           ${lib.concatMapStringsSep "\n          " (host: ''
             ${pkgs.iproute2}/bin/ip route replace ${host}/32 via "$gw" dev "$IFACE"
           '') vpnBypassHosts}
@@ -44,7 +52,7 @@
 
         case "$ACTION" in
           up | dhcp4-change | dhcp6-change) addRoutes ;;
-          down) delRoutes ;;
+          down) log "removing bypass routes from $IFACE"; delRoutes ;;
         esac
       '';
     in
