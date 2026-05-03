@@ -23,7 +23,13 @@
         addRoutes() {
           gw=$(${pkgs.iproute2}/bin/ip -4 -o route show default dev "$IFACE" \
             | ${pkgs.gawk}/bin/awk '/default via / {print $3; exit}')
-          [ -n "$gw" ] || return 0
+          if [ -z "$gw" ]; then
+            # Lease without a gateway: drop any previously-planted bypass
+            # routes so traffic falls back to ProtonVPN instead of pointing
+            # at a stale gateway.
+            delRoutes
+            return 0
+          fi
           ${lib.concatMapStringsSep "\n          " (host: ''
             ${pkgs.iproute2}/bin/ip route replace ${host}/32 via "$gw" dev "$IFACE"
           '') vpnBypassHosts}
