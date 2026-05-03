@@ -164,6 +164,7 @@
       jnv.extended.enable = lib.mkOverride 1100 false;
       john.extended.enable = lib.mkOverride 1100 true;
       jq.extended.enable = lib.mkOverride 1100 true;
+      "jupyter-all".extended.enable = lib.mkOverride 1100 true;
       just.extended.enable = lib.mkOverride 1100 false;
       karere.extended.enable = lib.mkOverride 1100 false;
       kcolorchooser.extended.enable = lib.mkOverride 1100 false;
@@ -185,7 +186,7 @@
       localsend.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.disableGpuCompositing = lib.mkOverride 1100 true;
-      "logseq-cli".extended.enable = lib.mkOverride 1100 true;
+      "logseq-cli".extended.enable = lib.mkOverride 1100 false;
       lshw.extended.enable = lib.mkOverride 1100 true;
       lsof.extended.enable = lib.mkOverride 1100 true;
       ltrace.extended.enable = lib.mkOverride 1100 true;
@@ -197,6 +198,7 @@
       "maestral-gui".extended.enable = lib.mkOverride 1100 false;
       maim.extended.enable = lib.mkOverride 1100 true;
       malimite.extended.enable = lib.mkOverride 1100 false;
+      "marp-cli".extended.enable = lib.mkOverride 1100 true;
       marktext.extended.enable = lib.mkOverride 1100 true;
       mattermost.extended.enable = lib.mkOverride 1100 false;
       "media-toolchain".extended.enable = lib.mkOverride 1100 true;
@@ -281,6 +283,7 @@
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
       qpdf.extended.enable = lib.mkOverride 1100 true;
       qrencode.extended.enable = lib.mkOverride 1100 true;
+      quarto.extended.enable = lib.mkOverride 1100 true;
       radare2.extended.enable = lib.mkOverride 1100 false;
       raindrop.extended.enable = lib.mkOverride 1100 false;
       rar.extended.enable = lib.mkOverride 1100 true;
