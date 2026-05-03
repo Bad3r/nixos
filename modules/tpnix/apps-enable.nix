@@ -60,6 +60,7 @@
       "cloudflare-warp".extended.enable = lib.mkOverride 1100 false;
       cloudflared.extended.enable = lib.mkOverride 1100 false;
       cmake.extended.enable = lib.mkOverride 1100 true;
+      codeburn.extended.enable = lib.mkOverride 1100 true;
       "coderabbit-cli".extended.enable = lib.mkOverride 1100 false;
       codex.extended.enable = lib.mkOverride 1100 true;
       coreutils.extended.enable = lib.mkOverride 1100 true;

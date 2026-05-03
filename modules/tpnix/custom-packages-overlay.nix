@@ -15,6 +15,7 @@ _: {
         opendirectorydownloader = final.callPackage ../../packages/opendirectorydownloader { };
         malimite = final.callPackage ../../packages/malimite { };
         claude-wpa = final.callPackage ../../packages/claude-wpa { };
+        codeburn = final.callPackage ../../packages/codeburn { };
         rg-fzf = final.callPackage ../../packages/rg-fzf { };
         sss-nix-repair = final.callPackage ../../packages/sss-nix-repair { };
         source-map-explorer = final.callPackage ../../packages/source-map-explorer { };
