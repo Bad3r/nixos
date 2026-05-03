@@ -54,8 +54,9 @@ BODY_FILE=""
 # Output format for list-* subcommands. One of "json" (default, pretty
 # array), "ndjson" (one document per line), "ids" (one .id per line),
 # "text" (one short line per item), "full" (header + body block per
-# item), or "tsv" (per-kind tab-separated columns). text/full/tsv are
-# dispatched per verb to pick relevant fields.
+# item), "tsv" (per-kind tab-separated columns), or "body" (raw .body
+# per item, opener body for threads). text/full/tsv/body are dispatched
+# per verb to pick relevant fields.
 OUTPUT_FORMAT="json"
 
 # list-* filters. Presence is tracked via SET_FLAGS for the boolean
