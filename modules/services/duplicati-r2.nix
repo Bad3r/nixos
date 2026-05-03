@@ -125,9 +125,9 @@ let
       sopsInstallSecretsService = "sops-install-secrets.service";
       installSecretsDeps = sopsInstallSecretsDeps config;
       generatedUnitAfter = concatStringsSep " " ([ "network-online.target" ] ++ installSecretsDeps);
-      generatedUnitRequires = lib.optionalString (
+      generatedUnitRequiresLine = lib.optionalString (
         installSecretsDeps != [ ]
-      ) "Requires=${sopsInstallSecretsService}";
+      ) "\nRequires=${sopsInstallSecretsService}";
 
       usingSecret = cfg.configFile != null;
 
@@ -554,8 +554,7 @@ let
                       cat > "$unit_dir/$service" <<EOF
           [Unit]
           Description=Duplicati R2 backup ($slug)
-          After=${generatedUnitAfter}
-          ${generatedUnitRequires}
+          After=${generatedUnitAfter}${generatedUnitRequiresLine}
           Wants=network-online.target
 
           [Service]
@@ -591,8 +590,7 @@ let
                         cat > "$unit_dir/$verify_service" <<EOF
           [Unit]
           Description=Duplicati R2 verification ($slug)
-          After=${generatedUnitAfter}
-          ${generatedUnitRequires}
+          After=${generatedUnitAfter}${generatedUnitRequiresLine}
           Wants=network-online.target
 
           [Service]
