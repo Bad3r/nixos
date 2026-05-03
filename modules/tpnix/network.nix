@@ -59,7 +59,8 @@
           fi
           log "planting bypass routes on $IFACE via $gw (action=$ACTION)"
           ${lib.concatMapStringsSep "\n          " (host: ''
-            ${pkgs.iproute2}/bin/ip route replace ${host}/32 via "$gw" dev "$IFACE"
+            ${pkgs.iproute2}/bin/ip route replace ${host}/32 via "$gw" dev "$IFACE" \
+              || log "ip route replace failed for ${host} via $gw on $IFACE"
           '') vpnBypassHosts}
         }
 
