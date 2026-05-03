@@ -1,5 +1,6 @@
-{ secretsRoot, ... }:
+{ config, secretsRoot, ... }:
 let
+  inherit (config.flake.lib.security) sopsInstallSecretsDeps sopsInstallSecretsService;
   module =
     {
       config,
@@ -121,6 +122,14 @@ let
       manifestDest = "/run/duplicati-r2/config.json";
       manifestTemplateName = "duplicati-r2-manifest.json";
       generatorServiceName = "duplicati-r2-generate-units";
+      # Gate the dependency on `sops.useSystemdActivation`: sops-nix only
+      # creates `sops-install-secrets.service` under that mode (issue #37);
+      # activation-script hosts decrypt secrets before any unit ordering.
+      installSecretsDeps = sopsInstallSecretsDeps config;
+      generatedUnitAfter = concatStringsSep " " ([ "network-online.target" ] ++ installSecretsDeps);
+      generatedUnitRequiresLine = lib.optionalString (
+        installSecretsDeps != [ ]
+      ) "\nRequires=${sopsInstallSecretsService}";
 
       usingSecret = cfg.configFile != null;
 
@@ -547,8 +556,7 @@ let
                       cat > "$unit_dir/$service" <<EOF
           [Unit]
           Description=Duplicati R2 backup ($slug)
-          After=network-online.target sops-install-secrets.service
-          Requires=sops-install-secrets.service
+          After=${generatedUnitAfter}${generatedUnitRequiresLine}
           Wants=network-online.target
 
           [Service]
@@ -584,8 +592,7 @@ let
                         cat > "$unit_dir/$verify_service" <<EOF
           [Unit]
           Description=Duplicati R2 verification ($slug)
-          After=network-online.target sops-install-secrets.service
-          Requires=sops-install-secrets.service
+          After=${generatedUnitAfter}${generatedUnitRequiresLine}
           Wants=network-online.target
 
           [Service]
@@ -810,11 +817,8 @@ let
 
           systemd.services.${generatorServiceName} = {
             description = "Generate Duplicati R2 systemd units";
-            after = [
-              "sops-install-secrets.service"
-              "network-online.target"
-            ];
-            requires = [ "sops-install-secrets.service" ];
+            after = installSecretsDeps ++ [ "network-online.target" ];
+            requires = installSecretsDeps;
             wants = [ "network-online.target" ];
             wantedBy = [ "multi-user.target" ];
             restartTriggers = [
