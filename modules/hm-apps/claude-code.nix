@@ -11,6 +11,13 @@
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
     * LSP plugin enablement and binary installation are governed by
       programs.claude-code.extended.lspPlugins in modules/apps/claude-code.nix.
+    * Additional non-LSP plugins are governed by
+      programs.claude-code.extended.extraPlugins in modules/apps/claude-code.nix.
+    * `enabledPlugins` keys end with `@<marketplace>` (see
+      ~/.claude/plugins/known_marketplaces.json). Default plugins assume the
+      `claude-plugins-official` marketplace is registered (install once with
+      `claude-plugins install anthropics/claude-plugins-official`); entries
+      that reference an unregistered marketplace are silently ignored.
 */
 
 _: {
