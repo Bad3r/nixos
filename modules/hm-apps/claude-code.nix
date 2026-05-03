@@ -11,6 +11,13 @@
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
     * LSP plugin enablement and binary installation are governed by
       programs.claude-code.extended.lspPlugins in modules/apps/claude-code.nix.
+    * Additional non-LSP plugins are governed by
+      programs.claude-code.extended.extraPlugins in modules/apps/claude-code.nix.
+    * `enabledPlugins` keys end with `@<marketplace>` (see
+      ~/.claude/plugins/known_marketplaces.json). Default plugins assume the
+      `claude-plugins-official` marketplace is registered (install once with
+      `claude-plugins install anthropics/claude-plugins-official`); entries
+      that reference an unregistered marketplace are silently ignored.
 */
 
 _: {
@@ -40,11 +47,17 @@ _: {
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
 
-      # Derive enabledPlugins from the NixOS-level lspPlugins option so that the
-      # single source of truth lives in programs.claude-code.extended.lspPlugins.
-      enabledPlugins = lib.mapAttrs' (
-        pluginKey: enabled: lib.nameValuePair "${pluginKey}@claude-plugins-official" enabled
-      ) (lib.attrByPath [ "programs" "claude-code" "extended" "lspPlugins" ] { } osConfig);
+      # enabledPlugins is composed of:
+      #   1. LSP plugins derived from programs.claude-code.extended.lspPlugins
+      #      (single source of truth for LSP-style plugins).
+      #   2. Additional plugins from programs.claude-code.extended.extraPlugins,
+      #      keyed by the "<plugin>@<marketplace>" identifier used by
+      #      Claude Code's settings.json.
+      enabledPlugins =
+        (lib.mapAttrs' (
+          pluginKey: enabled: lib.nameValuePair "${pluginKey}@claude-plugins-official" enabled
+        ) (lib.attrByPath [ "programs" "claude-code" "extended" "lspPlugins" ] { } osConfig))
+        // (lib.attrByPath [ "programs" "claude-code" "extended" "extraPlugins" ] { } osConfig);
 
       # Claude Code settings.json configuration
       claudeSettings = {
