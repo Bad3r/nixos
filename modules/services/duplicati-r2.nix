@@ -123,6 +123,9 @@ let
       manifestTemplateName = "duplicati-r2-manifest.json";
       generatorServiceName = "duplicati-r2-generate-units";
       sopsInstallSecretsService = "sops-install-secrets.service";
+      # Gate the dependency on `sops.useSystemdActivation`: sops-nix only
+      # creates `sops-install-secrets.service` under that mode (issue #37);
+      # activation-script hosts decrypt secrets before any unit ordering.
       installSecretsDeps = sopsInstallSecretsDeps config;
       generatedUnitAfter = concatStringsSep " " ([ "network-online.target" ] ++ installSecretsDeps);
       generatedUnitRequiresLine = lib.optionalString (
