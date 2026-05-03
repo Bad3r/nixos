@@ -7,6 +7,17 @@
       # local LAN gateway. Proton's policy-routing setup includes
       # `from all lookup main suppress_prefixlength 0`, so a /32 host route
       # planted in the main table wins over Proton's `default dev proton0`.
+      #
+      # Scope and limitations:
+      # - IPv4 only. The dispatcher renders each entry as `<host>/32` and
+      #   calls plain `ip route` (no `-6`); IPv6 literals would need
+      #   `/128` and a separate code path. Add IPv6 destinations
+      #   elsewhere or extend the dispatcher to detect address family
+      #   before reusing this list for `::` literals.
+      # - Hardcoded IPs. Each entry is the upstream's current address at
+      #   the time it was added; if the origin renumbers, refresh the
+      #   value here. DNS resolution at boot would defeat the bypass
+      #   because `mail.deem.sa` would resolve via Proton's DNS.
       vpnBypassHosts = [
         "66.9.145.15" # mail.deem.sa — origin drops ProtonVPN exit IPs
       ];
