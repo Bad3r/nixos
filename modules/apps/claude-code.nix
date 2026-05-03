@@ -128,6 +128,29 @@ in
             '';
           }
         ) lspPluginProgramMap;
+
+        extraPlugins = lib.mkOption {
+          type = lib.types.attrsOf lib.types.bool;
+          default = {
+            "frontend-design@claude-plugins-official" = true;
+          };
+          example = lib.literalExpression ''
+            {
+              "frontend-design@claude-plugins-official" = true;
+              "some-other-plugin@some-marketplace" = false;
+            }
+          '';
+          description = ''
+            Additional non-LSP Claude Code plugins to enable, keyed by the
+            `"<plugin>@<marketplace>"` identifier used in
+            `~/.claude/settings.json`'s `enabledPlugins`. Set an entry to
+            `false` to keep the key registered but disabled, or override the
+            whole attrset to drop defaults entirely. The marketplace named in
+            the suffix must already be registered in
+            `~/.claude/plugins/known_marketplaces.json` for the entry to take
+            effect.
+          '';
+        };
       };
 
       config = lib.mkIf cfg.enable (
