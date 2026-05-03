@@ -122,10 +122,11 @@ and enable the service:
 }
 ```
 
-During activation `sops-install-secrets` decrypts the manifest and rewrites
-runtime unit files via the `duplicati-r2-generate-units.service`. The rendered
-manifest lives at `/run/duplicati-r2/config.json` and every timer/service points
-to it through `DUPLICATI_R2_CONFIG`.
+During activation `sops-nix` decrypts the manifest, either through activation
+scripts or `sops-install-secrets.service` depending on the host backend. The
+`duplicati-r2-generate-units.service` then rewrites runtime unit files. The
+rendered manifest lives at `/run/duplicati-r2/config.json` and every
+timer/service points to it through `DUPLICATI_R2_CONFIG`.
 
 > Prefer encrypted manifests for hosts deployed from this repo--paths and
 > schedules stay out of Git and only materialize on the target system. Inline
@@ -228,12 +229,29 @@ Tidy the scratch directory when finished and scrub sensitive artifacts.
    rm /tmp/duplicati-config.json.tmp /tmp/duplicati-config.json.wrapped
    ```
 
-4. **Refresh secrets and regenerate unit files.**
+4. **Refresh secrets and regenerate unit files.** Pick the path that matches
+   your sops backend:
+   - Always-correct (rebuilds the closure):
 
-   ```bash
-   sudo systemctl restart sops-install-secrets.service
-   sudo systemctl start duplicati-r2-generate-units.service
-   ```
+     ```bash
+     sudo nixos-rebuild switch --flake .#<host>
+     sudo systemctl start duplicati-r2-generate-units.service
+     ```
+
+   - `sops.useSystemdActivation = true` hosts (only the encrypted manifest
+     changed):
+
+     ```bash
+     sudo systemctl restart sops-install-secrets.service
+     sudo systemctl start duplicati-r2-generate-units.service
+     ```
+
+   - Activation-script hosts (only the encrypted manifest changed):
+
+     ```bash
+     sudo /run/current-system/activate
+     sudo systemctl start duplicati-r2-generate-units.service
+     ```
 
 5. **Run the new backup manually** (optional, but recommended) and inspect logs:
 
