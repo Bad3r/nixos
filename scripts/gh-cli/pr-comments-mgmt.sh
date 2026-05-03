@@ -74,31 +74,24 @@ SIMILAR_PREFIX_VAL=""
 SORT_ORDER=""
 LIMIT_VAL=""
 
-# Plain-text on purpose: every other error is NDJSON, but `_json_string`
-# itself depends on `jq`, so we cannot format this one as JSON.
+# Plain-text on purpose: every other diagnostic is NDJSON emitted through
+# `jq`, so the bootstrap check for `jq` itself cannot use that path.
 if ! command -v jq >/dev/null 2>&1; then
   printf 'pr-comments-mgmt.sh: required command not found: jq\n' >&2
   exit 1
 fi
 
-_json_string() {
-  # Emit "$1" as a JSON string literal (with surrounding quotes). Delegates
-  # to jq so the full U+0000-U+001F control-character range and surrogate
-  # pairs are escaped per RFC 8259 §7, instead of only the named escapes.
-  jq -Rn --arg s "$1" '$s'
-}
-
 err() {
-  printf '{"level":"error","prog":%s,"message":%s}\n' \
-    "$(_json_string "${PROG_NAME}")" "$(_json_string "$*")" >&2
+  jq -cn --arg prog "${PROG_NAME}" --arg message "$*" \
+    '{level: "error", prog: $prog, message: $message}' >&2
 }
 
 trap 'err "fatal: line ${LINENO} (exit $?): ${BASH_COMMAND}"' ERR
 
 log() {
   [[ ${QUIET} == true ]] && return 0
-  printf '{"level":"info","prog":%s,"message":%s}\n' \
-    "$(_json_string "${PROG_NAME}")" "$(_json_string "$*")" >&2
+  jq -cn --arg prog "${PROG_NAME}" --arg message "$*" \
+    '{level: "info", prog: $prog, message: $message}' >&2
 }
 
 die() {
@@ -796,10 +789,12 @@ _bulk_summary() {
   # emitted, even under --quiet (the per-action log lines are the noisy
   # channel that --quiet suppresses).
   local verb="$1" ok="$2" failed="$3"
-  printf '{"level":"info","prog":%s,"verb":%s,"ok":%d,"failed":%d}\n' \
-    "$(_json_string "${PROG_NAME}")" \
-    "$(_json_string "${verb}")" \
-    "${ok}" "${failed}" >&2
+  jq -cn \
+    --arg prog "${PROG_NAME}" \
+    --arg verb "${verb}" \
+    --argjson ok "${ok}" \
+    --argjson failed "${failed}" \
+    '{level: "info", prog: $prog, verb: $verb, ok: $ok, failed: $failed}' >&2
 }
 
 _bulk_count_file_init() {
