@@ -22,8 +22,17 @@
 
         log() { ${pkgs.util-linux}/bin/logger -t vpn-bypass "$*"; }
 
+        # Skip non-LAN interfaces. Bypassing a tunnel device with a
+        # /32 host route would forward traffic into another VPN's exit,
+        # which defeats the purpose. Extend this list when a new tunnel
+        # interface naming scheme appears on the host.
         case "$IFACE" in
-          "" | lo | proton0 | tun* | wg* | tailscale*) exit 0 ;;
+          "" | lo \
+          | proton0 \
+          | tun* | tap* \
+          | wg* \
+          | tailscale* \
+          | nordlynx* | mullvad* | gpd* | ipsec*) exit 0 ;;
         esac
 
         addRoutes() {
