@@ -178,6 +178,7 @@
       jnv.extended.enable = lib.mkOverride 1100 true;
       john.extended.enable = lib.mkOverride 1100 true;
       jq.extended.enable = lib.mkOverride 1100 true;
+      "jupyter-all".extended.enable = lib.mkOverride 1100 true;
       just.extended.enable = lib.mkOverride 1100 true;
       karere.extended.enable = lib.mkOverride 1100 true;
       kcolorchooser.extended.enable = lib.mkOverride 1100 true;
@@ -213,6 +214,7 @@
       "maestral-gui".extended.enable = lib.mkOverride 1100 true;
       maim.extended.enable = lib.mkOverride 1100 true;
       malimite.extended.enable = lib.mkOverride 1100 false;
+      "marp-cli".extended.enable = lib.mkOverride 1100 true;
       marktext.extended.enable = lib.mkOverride 1100 true;
       mattermost.extended.enable = lib.mkOverride 1100 false;
       "media-toolchain".extended.enable = lib.mkOverride 1100 true;
@@ -297,6 +299,7 @@
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
       qpdf.extended.enable = lib.mkOverride 1100 true;
       qrencode.extended.enable = lib.mkOverride 1100 true;
+      quarto.extended.enable = lib.mkOverride 1100 true;
       radare2.extended.enable = lib.mkOverride 1100 false;
       raindrop.extended.enable = lib.mkOverride 1100 true;
       rar.extended.enable = lib.mkOverride 1100 true;
