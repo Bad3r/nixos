@@ -39,7 +39,7 @@ let
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable codeburn.";
+          description = "Whether to enable Codeburn, an interactive TUI dashboard for AI coding token cost observability.";
         };
 
         package = lib.mkPackageOption pkgs "codeburn" { };
