@@ -43,6 +43,16 @@ in
         # Mirror bash behavior: expose hostname through HOSTNAME in zsh.
         export HOSTNAME="$HOST"
 
+        # Source kitty's shell integration when running inside kitty.
+        # Why: HM's programs.kitty sets shell_integration=no-rc, but it only
+        # auto-sources from HM-managed zsh; this zsh is NixOS-managed.
+        if [[ -n "$KITTY_INSTALLATION_DIR" ]]; then
+          export KITTY_SHELL_INTEGRATION="enabled"
+          autoload -Uz -- "$KITTY_INSTALLATION_DIR"/shell-integration/zsh/kitty-integration
+          kitty-integration
+          unfunction kitty-integration
+        fi
+
         # Register custom build.sh completions from zsh site-functions.
         if (( $+functions[compdef] )); then
           autoload -Uz _build_sh
