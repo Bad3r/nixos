@@ -42,9 +42,13 @@ _: {
 
       # Derive enabledPlugins from the NixOS-level lspPlugins option so that the
       # single source of truth lives in programs.claude-code.extended.lspPlugins.
-      enabledPlugins = lib.mapAttrs' (
-        pluginKey: enabled: lib.nameValuePair "${pluginKey}@claude-plugins-official" enabled
-      ) (lib.attrByPath [ "programs" "claude-code" "extended" "lspPlugins" ] { } osConfig);
+      enabledPlugins =
+        (lib.mapAttrs' (
+          pluginKey: enabled: lib.nameValuePair "${pluginKey}@claude-plugins-official" enabled
+        ) (lib.attrByPath [ "programs" "claude-code" "extended" "lspPlugins" ] { } osConfig))
+        // {
+          "frontend-design@claude-code-plugins" = true;
+        };
 
       # Claude Code settings.json configuration
       claudeSettings = {
