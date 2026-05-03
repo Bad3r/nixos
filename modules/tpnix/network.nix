@@ -21,8 +21,8 @@
         esac
 
         addRoutes() {
-          gw=$(${pkgs.iproute2}/bin/ip -4 route show default dev "$IFACE" \
-            | ${pkgs.gawk}/bin/awk '/default/ {print $3; exit}')
+          gw=$(${pkgs.iproute2}/bin/ip -4 -o route show default dev "$IFACE" \
+            | ${pkgs.gawk}/bin/awk '/default via / {print $3; exit}')
           [ -n "$gw" ] || return 0
           ${lib.concatMapStringsSep "\n          " (host: ''
             ${pkgs.iproute2}/bin/ip route replace ${host}/32 via "$gw" dev "$IFACE"
