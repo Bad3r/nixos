@@ -121,6 +121,15 @@ let
       manifestDest = "/run/duplicati-r2/config.json";
       manifestTemplateName = "duplicati-r2-manifest.json";
       generatorServiceName = "duplicati-r2-generate-units";
+      sopsInstallSecretsService = "sops-install-secrets.service";
+      sopsInstallSecretsDeps = lib.optional (lib.attrByPath [
+        "sops"
+        "useSystemdActivation"
+      ] false config) sopsInstallSecretsService;
+      generatedUnitAfter = concatStringsSep " " ([ "network-online.target" ] ++ sopsInstallSecretsDeps);
+      generatedUnitRequires = lib.optionalString (
+        sopsInstallSecretsDeps != [ ]
+      ) "Requires=${sopsInstallSecretsService}";
 
       usingSecret = cfg.configFile != null;
 
@@ -547,8 +556,8 @@ let
                       cat > "$unit_dir/$service" <<EOF
           [Unit]
           Description=Duplicati R2 backup ($slug)
-          After=network-online.target sops-install-secrets.service
-          Requires=sops-install-secrets.service
+          After=${generatedUnitAfter}
+          ${generatedUnitRequires}
           Wants=network-online.target
 
           [Service]
@@ -584,8 +593,8 @@ let
                         cat > "$unit_dir/$verify_service" <<EOF
           [Unit]
           Description=Duplicati R2 verification ($slug)
-          After=network-online.target sops-install-secrets.service
-          Requires=sops-install-secrets.service
+          After=${generatedUnitAfter}
+          ${generatedUnitRequires}
           Wants=network-online.target
 
           [Service]
@@ -810,11 +819,8 @@ let
 
           systemd.services.${generatorServiceName} = {
             description = "Generate Duplicati R2 systemd units";
-            after = [
-              "sops-install-secrets.service"
-              "network-online.target"
-            ];
-            requires = [ "sops-install-secrets.service" ];
+            after = sopsInstallSecretsDeps ++ [ "network-online.target" ];
+            requires = sopsInstallSecretsDeps;
             wants = [ "network-online.target" ];
             wantedBy = [ "multi-user.target" ];
             restartTriggers = [

@@ -33,7 +33,13 @@ let
 in
 {
   configurations.nixos.tpnix.module =
-    { lib, ... }:
+    { config, lib, ... }:
+    let
+      sopsInstallSecretsDeps = lib.optional (lib.attrByPath [
+        "sops"
+        "useSystemdActivation"
+      ] false config) "sops-install-secrets.service";
+    in
     {
       imports = moduleImports;
 
@@ -56,7 +62,7 @@ in
           };
 
           systemd.services.usbguard = {
-            after = lib.mkAfter [ "sops-install-secrets.service" ];
+            after = lib.mkAfter sopsInstallSecretsDeps;
             preStart = lib.mkAfter ''
               install -D -m 0600 /dev/null ${runtimeRuleFile}
               cat ${baseRulesFile} > ${runtimeRuleFile}

@@ -12,7 +12,13 @@ let
 in
 {
   configurations.nixos.system76.module =
-    { pkgs, ... }:
+    { config, pkgs, ... }:
+    let
+      sopsInstallSecretsDeps = lib.optional (lib.attrByPath [
+        "sops"
+        "useSystemdActivation"
+      ] false config) "sops-install-secrets.service";
+    in
     {
       config = lib.mkMerge [
         {
@@ -79,8 +85,8 @@ in
           systemd.services.monolisa-fonts = {
             description = "Install MonoLisa fonts from encrypted archive";
             wantedBy = [ "multi-user.target" ];
-            after = [ "sops-install-secrets.service" ];
-            requires = [ "sops-install-secrets.service" ];
+            after = sopsInstallSecretsDeps;
+            requires = sopsInstallSecretsDeps;
             path = [
               pkgs.coreutils
               pkgs.findutils
