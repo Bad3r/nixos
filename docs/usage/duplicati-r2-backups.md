@@ -246,8 +246,7 @@ Tidy the scratch directory when finished and scrub sensitive artifacts.
      sudo systemctl start duplicati-r2-generate-units.service
      ```
 
-   - Activation-script hosts (the current `system76`/`tpnix` default — only
-     the encrypted manifest changed):
+   - Activation-script hosts (only the encrypted manifest changed):
 
      ```bash
      sudo /run/current-system/activate
