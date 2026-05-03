@@ -136,8 +136,11 @@ in
           };
           example = lib.literalExpression ''
             {
-              "frontend-design@claude-plugins-official" = true;
-              "some-other-plugin@some-marketplace" = false;
+              # Enable an extra plugin from a registered marketplace:
+              "design-system@some-marketplace" = true;
+              # Keep an entry registered in settings.json but disabled
+              # (per-key override; differs from omitting the entry entirely):
+              "frontend-design@claude-plugins-official" = false;
             }
           '';
           description = ''
@@ -148,7 +151,9 @@ in
             whole attrset to drop defaults entirely. The marketplace named in
             the suffix must already be registered in
             `~/.claude/plugins/known_marketplaces.json` for the entry to take
-            effect.
+            effect. LSP plugin keys (those that would collide with
+            `lspPlugins.<key>@claude-plugins-official`) are rejected by
+            assertion to avoid silently masking the LSP-managed enable state.
           '';
         };
       };
@@ -163,28 +168,59 @@ in
               # The bun HM module owns BUN_INSTALL/PATH setup and the createBunDir DAG node.
               home-manager.extraAppImports = lib.mkAfter (lib.optional cfg.installMethods.bun.enable "bun");
 
-              assertions = [
-                {
-                  assertion = cfg.anyInstallEnabled;
-                  message = ''
-                    programs.claude-code.extended.enable = true, but no install method
-                    is enabled. Set one of:
-                      programs.claude-code.extended.installMethods.nix.enable = true;
-                      programs.claude-code.extended.installMethods.bun.enable = true;
-                    (typically in modules/<host>/apps-enable.nix)
-                  '';
-                }
-                {
-                  assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
-                  message = ''
-                    programs.claude-code.extended.installMethods.bun.enable requires
-                    programs.bun.extended.enable = true. Enable bun in your host's
-                    apps-enable.nix (e.g. modules/tpnix/apps-enable.nix:32 or
-                    modules/system76/apps-enable.nix:47) before enabling the bun
-                    install method for claude-code.
-                  '';
-                }
-              ];
+              assertions =
+                let
+                  extraKeys = lib.attrNames cfg.extraPlugins;
+                  malformedKeys = lib.filter (k: builtins.match ".+@.+" k == null) extraKeys;
+                  lspKeysWithMarket = map (k: "${k}@claude-plugins-official") (lib.attrNames cfg.lspPlugins);
+                  lspCollisions = lib.intersectLists extraKeys lspKeysWithMarket;
+                in
+                [
+                  {
+                    assertion = cfg.anyInstallEnabled;
+                    message = ''
+                      programs.claude-code.extended.enable = true, but no install method
+                      is enabled. Set one of:
+                        programs.claude-code.extended.installMethods.nix.enable = true;
+                        programs.claude-code.extended.installMethods.bun.enable = true;
+                      (typically in modules/<host>/apps-enable.nix)
+                    '';
+                  }
+                  {
+                    assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
+                    message = ''
+                      programs.claude-code.extended.installMethods.bun.enable requires
+                      programs.bun.extended.enable = true. Enable bun in your host's
+                      apps-enable.nix (e.g. modules/tpnix/apps-enable.nix:32 or
+                      modules/system76/apps-enable.nix:47) before enabling the bun
+                      install method for claude-code.
+                    '';
+                  }
+                  {
+                    assertion = malformedKeys == [ ];
+                    message = ''
+                      programs.claude-code.extended.extraPlugins keys must follow the
+                      "<plugin>@<marketplace>" form (matching the suffix used in
+                      ~/.claude/settings.json's enabledPlugins and the marketplace name
+                      in ~/.claude/plugins/known_marketplaces.json). A key without an
+                      "@" suffix is silently ignored by Claude Code at runtime.
+                      Invalid keys: ${toString malformedKeys}
+                    '';
+                  }
+                  {
+                    assertion = lspCollisions == [ ];
+                    message = ''
+                      programs.claude-code.extended.extraPlugins must not include LSP
+                      plugin keys. LSP plugins are managed by
+                      programs.claude-code.extended.lspPlugins.<key> and are merged
+                      into ~/.claude/settings.json with the @claude-plugins-official
+                      marketplace suffix; placing them under extraPlugins would
+                      disable them in settings.json without removing the installed
+                      binary, producing a confusing inconsistency.
+                      Conflicting keys: ${toString lspCollisions}
+                    '';
+                  }
+                ];
             }
           ]
           ++ lib.mapAttrsToList (
