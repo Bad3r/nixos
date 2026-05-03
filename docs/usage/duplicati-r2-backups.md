@@ -229,12 +229,30 @@ Tidy the scratch directory when finished and scrub sensitive artifacts.
    rm /tmp/duplicati-config.json.tmp /tmp/duplicati-config.json.wrapped
    ```
 
-4. **Refresh secrets and regenerate unit files.**
+4. **Refresh secrets and regenerate unit files.** Pick the path that matches
+   your sops backend:
+   - Always-correct (rebuilds the closure):
 
-   ```bash
-   sudo nixos-rebuild switch --flake .#<host>
-   sudo systemctl start duplicati-r2-generate-units.service
-   ```
+     ```bash
+     sudo nixos-rebuild switch --flake .#<host>
+     sudo systemctl start duplicati-r2-generate-units.service
+     ```
+
+   - `sops.useSystemdActivation = true` hosts (only the encrypted manifest
+     changed):
+
+     ```bash
+     sudo systemctl restart sops-install-secrets.service
+     sudo systemctl start duplicati-r2-generate-units.service
+     ```
+
+   - Activation-script hosts (the current `system76`/`tpnix` default — only
+     the encrypted manifest changed):
+
+     ```bash
+     sudo /run/current-system/activate
+     sudo systemctl start duplicati-r2-generate-units.service
+     ```
 
 5. **Run the new backup manually** (optional, but recommended) and inspect logs:
 
