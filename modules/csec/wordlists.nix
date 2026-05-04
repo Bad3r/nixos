@@ -12,21 +12,29 @@
     discovered at evaluation time via builtins.readDir, so anything the
     upstream nixpkgs `wordlists` meta-package adds (currently seclists,
     wfuzz, nmap.lst, rockyou.txt) is exposed automatically.
-  - Plus three manual entries pointing at packages outside the meta-package:
+  - Plus the entries declared in `csec.wordlists.manualLinks`, defaulting
+    to packages that ship their wordlists outside the meta-package:
       * dirbuster   -> ${pkgs.dirbuster}/share/dirbuster
       * metasploit  -> ${pkgs.metasploit}/share/msf/data/wordlists
-      * john.lst    -> ${pkgs.john}/share/john/password.lst
+      * john.lst    -> ${pkgs.john}/share/john/password.lst (single file
+                       rather than a directory, intentional Kali parity)
 
-  Add more via csec.wordlists.extraLinks; explicit entries override the
-  auto-discovered ones if names collide. Hosts opt in by importing
-  flake.csec.wordlists and setting csec.wordlists.enable = true.
+  Hosts that do not need the heavier defaults (metasploit alone is
+  ~800 MB) can drop them with `csec.wordlists.manualLinks = { }` or
+  override individual entries by name. Add unrelated symlinks via
+  `csec.wordlists.extraLinks`; entries in `extraLinks` win over both
+  auto-discovered and manual links when names collide. Hosts opt in by
+  importing flake.csec.wordlists and setting csec.wordlists.enable = true.
 
   Future csec feature modules should export their own
   flake.csec.<name> entry (declared in modules/meta/flake-output.nix as
   attrsOf deferredModule) so each is opt-in independently.
 
-  Note: this module relies on import-from-derivation to read the wordlists
-  store path at evaluation time.
+  Note: this module relies on import-from-derivation. `builtins.readDir`
+  realises the `pkgs.wordlists` store path during evaluation, and each
+  declared `manualLinks` target is checked with `builtins.pathExists` so
+  upstream layout drift surfaces as an assertion failure rather than a
+  silent dangling symlink.
 */
 {
   flake.csec.wordlists =
@@ -42,18 +50,15 @@
       wordlistsAutoLinks = lib.mapAttrs (name: _type: "${wordlistsRoot}/${name}") (
         builtins.readDir wordlistsRoot
       );
-      manualLinks = {
-        dirbuster = "${pkgs.dirbuster}/share/dirbuster";
-        metasploit = "${pkgs.metasploit}/share/msf/data/wordlists";
-        "john.lst" = "${pkgs.john}/share/john/password.lst";
-      };
-      builtinLinks = wordlistsAutoLinks // manualLinks;
-      links = builtinLinks // cfg.extraLinks;
+      links = wordlistsAutoLinks // cfg.manualLinks // cfg.extraLinks;
       dirEntry = {
         mode = "0755";
         user = "root";
         group = "root";
       };
+      missingManualTargets = lib.filter (name: !builtins.pathExists (toString cfg.manualLinks.${name})) (
+        lib.attrNames cfg.manualLinks
+      );
     in
     {
       options.csec.wordlists = {
@@ -71,8 +76,32 @@
           '';
         };
 
+        manualLinks = lib.mkOption {
+          type = lib.types.attrsOf (lib.types.either lib.types.path lib.types.str);
+          default = {
+            dirbuster = "${pkgs.dirbuster}/share/dirbuster";
+            metasploit = "${pkgs.metasploit}/share/msf/data/wordlists";
+            "john.lst" = "${pkgs.john}/share/john/password.lst";
+          };
+          defaultText = lib.literalExpression ''
+            {
+              dirbuster = "''${pkgs.dirbuster}/share/dirbuster";
+              metasploit = "''${pkgs.metasploit}/share/msf/data/wordlists";
+              "john.lst" = "''${pkgs.john}/share/john/password.lst";
+            }
+          '';
+          description = ''
+            Manual name -> store-path mappings for tools whose wordlists
+            live outside the `pkgs.wordlists` meta-package. Each target
+            is checked with `builtins.pathExists` at evaluation time, so
+            upstream layout changes fail loudly. Set to `{ }` to opt
+            out of the default heavyweight packages (notably
+            `metasploit`, ~800 MB).
+          '';
+        };
+
         extraLinks = lib.mkOption {
-          type = lib.types.attrsOf lib.types.path;
+          type = lib.types.attrsOf (lib.types.either lib.types.path lib.types.str);
           default = { };
           example = lib.literalExpression ''
             {
@@ -80,9 +109,11 @@
             }
           '';
           description = ''
-            Extra name -> source mappings. Each entry creates
-            <path>/<name> as a symlink to the given target. Built-in
-            links may be overridden by setting the same attribute name.
+            Extra name -> source mappings layered on top of the
+            auto-discovered and manual links. Each entry creates
+            `<path>/<name>` as a symlink to the given target. Names
+            already provided by `manualLinks` or auto-discovery are
+            overridden by entries here.
           '';
         };
       };
@@ -92,6 +123,19 @@
       # and C-escaped by NixOS rather than interpolated into a space-delimited
       # rule string.
       config = lib.mkIf cfg.enable {
+        assertions = [
+          {
+            assertion = missingManualTargets == [ ];
+            message = ''
+              csec.wordlists.manualLinks references targets that do not
+              exist in the Nix store: ${lib.concatStringsSep ", " missingManualTargets}.
+              An upstream package layout likely changed; update the
+              affected entries (or remove them) in
+              `csec.wordlists.manualLinks`.
+            '';
+          }
+        ];
+
         systemd.tmpfiles.settings."10-csec-wordlists" = {
           "${cfg.path}".d = dirEntry;
         }
