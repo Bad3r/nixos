@@ -28,8 +28,8 @@
   Note: this module relies on import-from-derivation to read the wordlists
   store path at evaluation time.
 */
-let
-  module =
+{
+  flake.csec.wordlists =
     {
       config,
       lib,
@@ -103,7 +103,4 @@ let
         ) links;
       };
     };
-in
-{
-  flake.csec.wordlists = module;
 }
