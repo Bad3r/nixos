@@ -21,12 +21,6 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://github.com/owasp-amass/amass/blob/master/doc/user_guide.md>
   - Desc.: OWASP attack-surface mapping and subdomain enumeration.
   - Stat.: Maintained (latest release 2025-04-07).
-- dnsenum
-  - run..: `dnsenum $domain`
-  - Repo.: <https://github.com/SparrowOchon/dnsenum2>
-  - Docs.: <https://github.com/SparrowOchon/dnsenum2#readme>
-  - Desc.: Multi-purpose DNS enumeration toolkit with AXFR, brute force, and Google scraping.
-  - Stat.: Maintained (latest release 2025-03-15).
 - dnsx
   - run..: `dnsx -l hosts.txt -resp`
   - Repo.: <https://github.com/projectdiscovery/dnsx>
@@ -120,12 +114,6 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://epi052.github.io/feroxbuster-docs/>
   - Desc.: Rust-based content discovery scanner.
   - Stat.: Maintained (latest release 2025-12-13).
-- ffuf
-  - run..: `ffuf -u $url/FUZZ -w $wordlist`
-  - Repo.: <https://github.com/ffuf/ffuf>
-  - Docs.: <https://github.com/ffuf/ffuf/wiki>
-  - Desc.: Fast Go-based web fuzzer for content discovery, vhost, and parameter brute forcing.
-  - Stat.: Maintenance mode (latest release 2023-09-16; active upstream commits, no recent tag).
 - gobuster
   - run..: `gobuster dir -u $url -w $wordlist`
   - Repo.: <https://github.com/OJ/gobuster>
@@ -144,24 +132,6 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://github.com/sqlmapproject/sqlmap/wiki>
   - Desc.: Automated SQL injection detection and exploitation.
   - Stat.: Maintained (latest release 2026-01-01).
-- wfuzz
-  - run..: `wfuzz -w $wordlist $url/FUZZ`
-  - Repo.: <https://github.com/xmendez/wfuzz>
-  - Docs.: <https://wfuzz.readthedocs.io/>
-  - Desc.: Python web application fuzzer with payload encoders, iterators, and matchers.
-  - Stat.: Maintained (latest release 2026-01-21).
-- wpscan
-  - run..: `wpscan --url $url`
-  - Repo.: <https://github.com/wpscanteam/wpscan>
-  - Docs.: <https://github.com/wpscanteam/wpscan/wiki>
-  - Desc.: Black box WordPress security scanner for plugins, themes, users, and credentials.
-  - Stat.: Maintained (latest release 2025-02-24).
-- xnlinkfinder
-  - run..: `xnLinkFinder -i $url`
-  - Repo.: <https://github.com/xnl-h4ck3r/xnLinkFinder>
-  - Docs.: <https://github.com/xnl-h4ck3r/xnLinkFinder#readme>
-  - Desc.: Endpoint, parameter, and target-specific wordlist extractor from URLs, JS, and proxy logs.
-  - Stat.: Maintained (latest release 2026-03-08).
 - zap
   - run..: `zap`
   - Repo.: <https://github.com/zaproxy/zaproxy>
@@ -196,35 +166,18 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Desc.: John the Ripper CPU-focused password cracker.
   - Stat.: Maintained (latest commit 2026-04-13; no formal release).
 - seclists
-  - run..: `ls /usr/share/wordlists/seclists/`
+  - run..: `ls $(nix eval --raw nixpkgs#seclists)/share/seclists`
   - Repo.: <https://github.com/danielmiessler/SecLists>
   - Docs.: <https://github.com/danielmiessler/SecLists#readme>
   - Desc.: Curated wordlist collection (passwords, payloads, fuzzing data).
   - Stat.: Maintained (latest release 2026-03-23).
 
-When `csec.wordlists.enable = true` is set on a host, this configuration exposes the bundled wordlists under the Kali-style canonical paths:
+Reference list trees shipped by the entries above (resolve with `nix eval --raw nixpkgs#<pkg>` and concatenate with the noted suffix):
 
-Auto-discovered from the nixpkgs `wordlists` meta-package (every top-level entry under `${pkgs.wordlists}/share/wordlists/` is symlinked via `builtins.readDir`, so anything upstream adds is exposed automatically). Currently:
-
-- `/usr/share/wordlists/seclists/...` (the full SecLists tree)
-- `/usr/share/wordlists/wfuzz/...` (wfuzz's `general`, `Injections`, `others`, `stress`, `vulns`, `webservices` trees)
-- `/usr/share/wordlists/nmap.lst` (nmap's SNMP community wordlist)
-- `/usr/share/wordlists/rockyou.txt` (the RockYou password leak)
-
-Manually wired (sourced from packages outside the meta-package):
-
-- `/usr/share/wordlists/dirbuster/...` (DirBuster's `directory-list-2.3-{small,medium}.txt` and friends)
-- `/usr/share/wordlists/metasploit/...` (Metasploit's `data/wordlists/` collection: `http_default_userpass.txt`, `joomla.txt`, `ipmi_passwords.txt`, etc.)
-- `/usr/share/wordlists/john.lst` (John the Ripper's `password.lst`)
-
-Tutorials and scripts that hardcode `/usr/share/wordlists/...` will resolve. Add more entries via `csec.wordlists.extraLinks`; explicit entries override auto-discovered ones if names collide.
-
-Tools also ship lists in their own `share/<tool>/` trees that this module does not symlink because they are not commonly referenced through `/usr/share/wordlists/`:
-
-- `nmap` keeps a dozen targeted lists under `${pkgs.nmap}/share/nmap/nselib/data/` (passwords.lst, usernames.lst, snmpcommunities.lst, http-sql-errors.lst, drupal-modules.lst, oracle-default-accounts.lst, vhosts-{full,default}.lst, wp-{plugins,themes}.lst, http-web-files-extensions.lst).
-- `john` ships charset files (`*.chr`) and `rules/` alongside `password.lst`; reference them directly under `${pkgs.john}/share/john/`.
-- `hashcat` ships `rules/`, `masks/`, and `charsets/` under `${pkgs.hashcat}/share/doc/hashcat/`; not wordlists, but feed credential-attack pipelines.
-- `sqlmap` packs its wordlist into `wordlist.tx_` (a zip blob) inside its Python site-packages tree.
+- `seclists` -> `share/seclists/`
+- `nmap` -> `share/nmap/nselib/data/` (`passwords.lst`, `usernames.lst`, `snmpcommunities.lst`, `http-sql-errors.lst`, `drupal-modules.lst`, `oracle-default-accounts.lst`, `vhosts-{full,default}.lst`, `wp-{plugins,themes}.lst`, `http-web-files-extensions.lst`)
+- `john` -> `share/john/` (`password.lst`, `*.chr`, `rules/`)
+- `hashcat` -> `share/doc/hashcat/` (`rules/`, `masks/`, `charsets/`)
 
 ## Wireless Auditing
 
@@ -456,18 +409,6 @@ Tools also ship lists in their own `share/<tool>/` trees that this module does n
   - Docs.: <https://cisofy.com/documentation/lynis/>
   - Desc.: Unix system hardening auditor.
   - Stat.: Maintained (latest release 2025-10-23).
-- nuclei
-  - run..: `nuclei -u $target`
-  - Repo.: <https://github.com/projectdiscovery/nuclei>
-  - Docs.: <https://docs.projectdiscovery.io/tools/nuclei>
-  - Desc.: Template-based vulnerability scanner spanning HTTP, DNS, network, SSL, file, and code checks.
-  - Stat.: Maintained (latest release 2025-04-18).
-- nuclei-templates
-  - run..: `nuclei -t /path/to/nuclei-templates -u $target`
-  - Repo.: <https://github.com/projectdiscovery/nuclei-templates>
-  - Docs.: <https://docs.projectdiscovery.io/templates>
-  - Desc.: Curated detection template corpus consumed by nuclei (CVEs, misconfigurations, exposures).
-  - Stat.: Maintained (latest release 2025-04-15).
 - ssh-audit
   - run..: `ssh-audit $host`
   - Repo.: <https://github.com/jtesta/ssh-audit>

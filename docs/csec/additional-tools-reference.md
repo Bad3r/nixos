@@ -171,6 +171,12 @@ Each entry lists a representative run command, upstream repository, official doc
   - Docs.: <https://github.com/darkoperator/dnsrecon#readme>
   - Desc.: DNS enumeration script for AXFR, brute force, reverse-lookup, and zone walking.
   - Stat.: Maintained (1.6.0, 2026-02-28).
+- dnsenum
+  - run..: `nix run nixpkgs#dnsenum -- $domain`
+  - Repo.: <https://github.com/SparrowOchon/dnsenum2>
+  - Docs.: <https://github.com/SparrowOchon/dnsenum2#readme>
+  - Desc.: Multi-purpose Perl DNS enumeration toolkit with AXFR, brute force, and Google scraping.
+  - Stat.: Maintained (latest release 2025-03-15).
 - massdns
   - run..: `nix run nixpkgs#massdns -- -r resolvers.txt subdomains.txt`
   - Repo.: <https://github.com/blechschmidt/massdns>
@@ -323,6 +329,30 @@ Each entry lists a representative run command, upstream repository, official doc
 
 ## Web Application Testing
 
+- ffuf
+  - run..: `nix run nixpkgs#ffuf -- -u $url/FUZZ -w $wordlist`
+  - Repo.: <https://github.com/ffuf/ffuf>
+  - Docs.: <https://github.com/ffuf/ffuf/wiki>
+  - Desc.: Fast Go-based web fuzzer for content discovery, vhost, and parameter brute forcing.
+  - Stat.: Maintenance mode (latest release 2023-09-16; active upstream commits, no recent tag).
+- wfuzz
+  - run..: `nix run nixpkgs#wfuzz -- -w $wordlist $url/FUZZ`
+  - Repo.: <https://github.com/xmendez/wfuzz>
+  - Docs.: <https://wfuzz.readthedocs.io/>
+  - Desc.: Python web application fuzzer with payload encoders, iterators, and matchers.
+  - Stat.: Maintained (latest release 2026-01-21).
+- wpscan
+  - run..: `NIXPKGS_ALLOW_UNFREE=1 nix run --impure nixpkgs#wpscan -- --url $url`
+  - Repo.: <https://github.com/wpscanteam/wpscan>
+  - Docs.: <https://github.com/wpscanteam/wpscan/wiki>
+  - Desc.: Black box WordPress security scanner for plugins, themes, users, and credentials. Marked `unfreeRedistributable` in nixpkgs.
+  - Stat.: Maintained (latest release 2025-02-24).
+- xnlinkfinder
+  - run..: `nix run nixpkgs#xnlinkfinder -- -i $url`
+  - Repo.: <https://github.com/xnl-h4ck3r/xnLinkFinder>
+  - Docs.: <https://github.com/xnl-h4ck3r/xnLinkFinder#readme>
+  - Desc.: Endpoint, parameter, and target-specific wordlist extractor from URLs, JS, and proxy logs.
+  - Stat.: Maintained (latest release 2026-03-08).
 - dalfox
   - run..: `nix run nixpkgs#dalfox -- url $url`
   - Repo.: <https://github.com/hahwul/dalfox>
@@ -723,6 +753,18 @@ Each entry lists a representative run command, upstream repository, official doc
 
 ## Auditing, SAST & Vulnerability Assessment
 
+- nuclei
+  - run..: `nix run nixpkgs#nuclei -- -u $target`
+  - Repo.: <https://github.com/projectdiscovery/nuclei>
+  - Docs.: <https://docs.projectdiscovery.io/tools/nuclei>
+  - Desc.: Template-based vulnerability scanner spanning HTTP, DNS, network, SSL, file, and code checks.
+  - Stat.: Maintained (latest release 2025-04-18).
+- nuclei-templates
+  - run..: `nix run nixpkgs#nuclei -- -t $(nix eval --raw nixpkgs#nuclei-templates)/share/nuclei-templates -u $target`
+  - Repo.: <https://github.com/projectdiscovery/nuclei-templates>
+  - Docs.: <https://docs.projectdiscovery.io/templates>
+  - Desc.: Curated detection template corpus consumed by nuclei (CVEs, misconfigurations, exposures).
+  - Stat.: Maintained (latest release 2025-04-15).
 - semgrep
   - run..: `nix run nixpkgs#semgrep -- --config auto $path`
   - Repo.: <https://github.com/semgrep/semgrep>
