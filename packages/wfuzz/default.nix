@@ -37,6 +37,7 @@ buildPythonPackage (finalAttrs: {
     })
     # replace removed `pipes` stdlib module with `shlex` for Python >= 3.13
     # https://github.com/xmendez/wfuzz/issues/380
+    # Drop once xmendez/wfuzz#380 is merged and a release is cut.
     ./python-313-shlex.patch
   ];
 
