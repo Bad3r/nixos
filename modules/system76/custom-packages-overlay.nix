@@ -25,6 +25,15 @@ _: {
         tweakcc = final.callPackage ../../packages/tweakcc { };
         video-cache = final.callPackage ../../packages/video-cache { };
 
+        # nixpkgs wfuzz silently drops the `screenshot` plugin on Python 3.13
+        # (removed `pipes` stdlib module) and ships netaddr as a test-only dep,
+        # leaving iprange/ipnet payloads broken with a misleading "pip install"
+        # message. Patches are pending upstream review at xmendez/wfuzz#380 and
+        # nixpkgs PR; remove this override once they land.
+        wfuzz = final.python3Packages.toPythonApplication (
+          final.python3Packages.callPackage ../../packages/wfuzz { }
+        );
+
         # system76-power 1.2.8 aborts profile application when any SCSI host
         # lacks link_power_management_policy (USB-attached SCSI, virtio-scsi,
         # card readers). The daemon then keeps reporting the previous profile

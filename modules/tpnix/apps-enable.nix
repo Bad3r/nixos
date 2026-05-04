@@ -83,6 +83,7 @@
       discord.extended.enable = lib.mkOverride 1100 false;
       dmenu.extended.enable = lib.mkOverride 1100 true;
       dmidecode.extended.enable = lib.mkOverride 1100 false;
+      dnsenum.extended.enable = lib.mkOverride 1100 true;
       dnsleak.extended.enable = lib.mkOverride 1100 true;
       dnsx.extended.enable = lib.mkOverride 1100 true;
       docker.extended.enable = lib.mkOverride 1100 false;
@@ -101,6 +102,7 @@
       exiftool.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 false;
       feroxbuster.extended.enable = lib.mkOverride 1100 true;
+      ffuf.extended.enable = lib.mkOverride 1100 true;
       file.extended.enable = lib.mkOverride 1100 true;
       "filen-desktop".extended.enable = lib.mkOverride 1100 true;
       filezilla.extended.enable = lib.mkOverride 1100 false;
@@ -245,6 +247,8 @@
       nrm.extended.enable = lib.mkOverride 1100 false;
       nsxiv.extended.enable = lib.mkOverride 1100 true;
       ntfs3g.extended.enable = lib.mkOverride 1100 true;
+      nuclei.extended.enable = lib.mkOverride 1100 true;
+      "nuclei-templates".extended.enable = lib.mkOverride 1100 true;
       nvd.extended.enable = lib.mkOverride 1100 false;
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 true;
@@ -379,6 +383,7 @@
       webcrack.extended.enable = lib.mkOverride 1100 true;
       webex.extended.enable = lib.mkOverride 1100 true;
       wezterm.extended.enable = lib.mkOverride 1100 false;
+      wfuzz.extended.enable = lib.mkOverride 1100 true;
       wgcf.extended.enable = lib.mkOverride 1100 false;
       wget.extended.enable = lib.mkOverride 1100 true;
       whatweb.extended.enable = lib.mkOverride 1100 true;
@@ -389,6 +394,7 @@
       wireshark.extended.enable = lib.mkOverride 1100 true;
       "worker-build".extended.enable = lib.mkOverride 1100 false;
       "workers-rs-sdk".extended.enable = lib.mkOverride 1100 false;
+      wpscan.extended.enable = lib.mkOverride 1100 true;
       wpsoffice.extended.enable = lib.mkOverride 1100 false;
       wrangler.extended.enable = lib.mkOverride 1100 false;
       xbacklight.extended.enable = lib.mkOverride 1100 true;
@@ -398,6 +404,7 @@
       xh.extended.enable = lib.mkOverride 1100 true;
       xkcdpass.extended.enable = lib.mkOverride 1100 true;
       xkill.extended.enable = lib.mkOverride 1100 true;
+      xnlinkfinder.extended.enable = lib.mkOverride 1100 true;
       xsel.extended.enable = lib.mkOverride 1100 true;
       xxd.extended.enable = lib.mkOverride 1100 true;
       xz.extended.enable = lib.mkOverride 1100 true;
