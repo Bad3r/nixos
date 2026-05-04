@@ -84,6 +84,7 @@
       dmenu.extended.enable = lib.mkOverride 1100 true;
       dmidecode.extended.enable = lib.mkOverride 1100 false;
       dnsleak.extended.enable = lib.mkOverride 1100 true;
+      dnsx.extended.enable = lib.mkOverride 1100 true;
       docker.extended.enable = lib.mkOverride 1100 false;
       dolphin.extended.enable = lib.mkOverride 1100 false;
       "doom-emacs".extended.enable = lib.mkOverride 1100 true;
@@ -201,6 +202,7 @@
       malimite.extended.enable = lib.mkOverride 1100 false;
       "marp-cli".extended.enable = lib.mkOverride 1100 true;
       marktext.extended.enable = lib.mkOverride 1100 true;
+      masscan.extended.enable = lib.mkOverride 1100 true;
       mattermost.extended.enable = lib.mkOverride 1100 false;
       "media-toolchain".extended.enable = lib.mkOverride 1100 true;
       metasploit.extended.enable = lib.mkOverride 1100 true;
@@ -333,6 +335,7 @@
       statix.extended.enable = lib.mkOverride 1100 true;
       steam.extended.enable = lib.mkOverride 1100 false;
       strace.extended.enable = lib.mkOverride 1100 true;
+      subfinder.extended.enable = lib.mkOverride 1100 true;
       synchrony.extended.enable = lib.mkOverride 1100 false;
       sysstat.extended.enable = lib.mkOverride 1100 true;
       tailscale.extended.enable = lib.mkOverride 1100 true;
