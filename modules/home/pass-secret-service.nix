@@ -30,13 +30,19 @@
     {
       home.activation.importPassGpgKey = lib.mkIf haveKeyPath (
         lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          ${lib.getExe passGpgBootstrap} import-key ${lib.escapeShellArg keyPath} ${lib.escapeShellArg keyFingerprint}
+          if [ -r ${lib.escapeShellArg keyPath} ]; then
+            ${lib.getExe passGpgBootstrap} import-key ${lib.escapeShellArg keyPath} ${lib.escapeShellArg keyFingerprint}
+          else
+            echo "Skipping GPG key import: secret not yet available at ${keyPath}" >&2
+          fi
         ''
       );
 
       home.activation.initPassStore = lib.mkIf haveKeyPath (
         lib.hm.dag.entryAfter [ "importPassGpgKey" ] ''
-          ${lib.getExe passGpgBootstrap} init-store ${lib.escapeShellArg keyFingerprint}
+          if [ -r ${lib.escapeShellArg keyPath} ]; then
+            ${lib.getExe passGpgBootstrap} init-store ${lib.escapeShellArg keyFingerprint}
+          fi
         ''
       );
     };
