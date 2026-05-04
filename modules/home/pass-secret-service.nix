@@ -33,7 +33,7 @@
           if [ -r ${lib.escapeShellArg keyPath} ]; then
             ${lib.getExe passGpgBootstrap} import-key ${lib.escapeShellArg keyPath} ${lib.escapeShellArg keyFingerprint}
           else
-            echo "Skipping GPG key import: secret not yet available at ${keyPath}" >&2
+            echo "Skipping GPG key import: secret not yet available at" ${lib.escapeShellArg keyPath} >&2
           fi
         ''
       );
