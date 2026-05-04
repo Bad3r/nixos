@@ -128,7 +128,7 @@ _: {
             background_image = "none";
             background_image_layout = "tiled";
             background_image_linear = "no";
-            dynamic_background_opacity = "no";
+            dynamic_background_opacity = "yes";
             background_tint = "0.0";
             dim_opacity = "1.0";
             # Runtime helpers
@@ -154,8 +154,10 @@ _: {
             "kitty_mod+enter" = "new_window";
             "kitty_mod+equal" = "change_font_size all +2.0";
             "kitty_mod+minus" = "change_font_size all -2.0";
-            "kitty_mod+backspace" = "change_font_size all 0";
+            # kitty_mod+backspace is free for future use
+            "kitty_mod+0" = "change_font_size all 0";
             "kitty_mod+e" = "kitten hints";
+            "kitty_mod+p>l" = "kitten hints --type line --program @";
             "kitty_mod+a>m" = "set_background_opacity +0.1";
             "kitty_mod+a>l" = "set_background_opacity -0.1";
             "kitty_mod+a>1" = "set_background_opacity 1";
