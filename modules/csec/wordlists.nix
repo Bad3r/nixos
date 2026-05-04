@@ -139,7 +139,10 @@
             assertion = missingManualTargets == [ ];
             message = ''
               csec.wordlists.manualLinks references targets that do not
-              exist in the Nix store: ${lib.concatStringsSep ", " missingManualTargets}.
+              exist in the Nix store:
+              ${lib.concatMapStringsSep "\n" (
+                name: "  - ${name} -> ${toString cfg.manualLinks.${name}}"
+              ) missingManualTargets}
               An upstream package layout likely changed; update the
               affected entries (or remove them) in
               `csec.wordlists.manualLinks`.
