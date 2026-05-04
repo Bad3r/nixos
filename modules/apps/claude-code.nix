@@ -70,8 +70,8 @@ in
           default = false;
           description = ''
             Whether this host uses claude-code. Configures Home Manager side
-            (settings, skills, MCP merge). Requires at least one entry in
-            `installMethods.*.enable` to also be true.
+            (settings, skills, MCP merge) regardless of whether any install
+            method is enabled, so the binary may be managed outside Nix.
           '';
         };
 
@@ -97,23 +97,17 @@ in
             default = false;
             description = ''
               Install claude-code via `bun install -g @anthropic-ai/claude-code`
-              during every Home Manager activation. Requires
+              on every Home Manager activation when the npm registry probe
+              succeeds (curl against the latest-version endpoint with
+              `--fail --max-time 5`). If the probe fails for any reason
+              (DNS, TLS, HTTP 4xx/5xx, timeout), the install step is
+              skipped, a warning is logged, and the existing binary (if any)
+              at `$XDG_DATA_HOME/bun/bin/claude` is preserved. Requires
               `programs.bun.extended.enable = true`; this module automatically
               imports the `bun` Home Manager app module when the bun install
-              method is enabled. Binary lands at `$XDG_DATA_HOME/bun/bin/claude`.
+              method is enabled.
             '';
           };
-        };
-
-        anyInstallEnabled = lib.mkOption {
-          type = lib.types.bool;
-          readOnly = true;
-          default = cfg.enable && (cfg.installMethods.nix.enable || cfg.installMethods.bun.enable);
-          description = ''
-            Read-only. True if claude-code is enabled with at least one install
-            method. Consumers can use this to check availability without
-            enumerating individual install methods.
-          '';
         };
 
         lspPlugins = lib.mapAttrs (
@@ -176,16 +170,6 @@ in
                   lspCollisions = lib.intersectLists extraKeys lspKeysWithMarket;
                 in
                 [
-                  {
-                    assertion = cfg.anyInstallEnabled;
-                    message = ''
-                      programs.claude-code.extended.enable = true, but no install method
-                      is enabled. Set one of:
-                        programs.claude-code.extended.installMethods.nix.enable = true;
-                        programs.claude-code.extended.installMethods.bun.enable = true;
-                      (typically in modules/<host>/apps-enable.nix)
-                    '';
-                  }
                   {
                     assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
                     message = ''
