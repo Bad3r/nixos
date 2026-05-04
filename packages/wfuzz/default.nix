@@ -54,10 +54,7 @@ buildPythonPackage (finalAttrs: {
   ]
   ++ lib.optionals stdenv.hostPlatform.isWindows [ colorama ];
 
-  nativeCheckInputs = [
-    netaddr
-    pytestCheckHook
-  ];
+  nativeCheckInputs = [ pytestCheckHook ];
 
   preCheck = ''
     export HOME=$(mktemp -d)
