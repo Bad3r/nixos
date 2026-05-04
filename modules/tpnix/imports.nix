@@ -31,6 +31,7 @@ in
   configurations.nixos.tpnix.module = {
     imports = [
       config.flake.nixosModules.base
+      config.flake.csec.wordlists
       config.flake.nixosModules.sopsRuntime
       config.flake.nixosModules.repoSecrets
       config.flake.nixosModules.lang
@@ -79,6 +80,9 @@ in
       repoSecrets.enable = lib.mkForce false;
       r2CloudSecrets.enable = lib.mkForce false;
     };
+
+    # Cybersecurity wordlist symlinks under /usr/share/wordlists/
+    csec.wordlists.enable = true;
     home-manager.users.${metaOwner.username} = {
       home = {
         context7Secrets.enable = lib.mkForce false;

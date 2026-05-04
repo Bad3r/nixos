@@ -10,8 +10,13 @@
       # Disabled due to upstream nixpkgs warning in make-options-doc
       # See: https://github.com/NixOS/nixpkgs/issues/485682
       abort-on-warn = false;
-      # Required by `nix-doom-emacs-unstraightened`, which evaluates a JSON
-      # manifest produced by a build derivation. Mirrors flake.nix#nixConfig.
+      # IFD consumers in this repo (mirrors flake.nix#nixConfig):
+      #   * nix-doom-emacs-unstraightened: evaluates a JSON manifest produced
+      #     by a build derivation.
+      #   * modules/csec/wordlists.nix: reads the wordlists store path with
+      #     builtins.readDir to auto-discover top-level entries.
+      # Update both this comment and flake.nix when adding or removing IFD
+      # consumers.
       allow-import-from-derivation = true;
       keep-outputs = false;
       experimental-features = [

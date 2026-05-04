@@ -2,9 +2,13 @@
   nixConfig = {
     abort-on-warn = false;
     extra-experimental-features = [ "pipe-operators" ];
-    # IFD is required by `nix-doom-emacs-unstraightened` (lib.importJSON of
-    # `doom-intermediates/packages.json`). No other module in this repo relies
-    # on IFD; flake evaluation otherwise stays pure.
+    # IFD consumers in this repo:
+    #   * nix-doom-emacs-unstraightened: lib.importJSON of
+    #     `doom-intermediates/packages.json`.
+    #   * modules/csec/wordlists.nix: builtins.readDir on
+    #     `${pkgs.wordlists}/share/wordlists` to auto-discover symlink names.
+    # Update both this comment and modules/base/nix-settings.nix when adding
+    # or removing IFD consumers.
     allow-import-from-derivation = true;
   };
 

@@ -39,6 +39,7 @@ in
       # Required infrastructure (exported NixOS modules)
       # Note: base includes Stylix via modules/style/stylix.nix contribution
       config.flake.nixosModules.base
+      config.flake.csec.wordlists
       config.flake.nixosModules.sopsRuntime
       config.flake.nixosModules.repoSecrets
       config.flake.nixosModules.lang
@@ -69,6 +70,9 @@ in
 
     # Hardware support
     hardware.system76.extended.enable = true;
+
+    # Cybersecurity wordlist symlinks under /usr/share/wordlists/
+    csec.wordlists.enable = true;
 
     # Security & authentication
     security = {
