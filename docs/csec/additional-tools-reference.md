@@ -2,7 +2,7 @@
 
 Reference catalog of cybersecurity tools that complement the active toolkit in [`docs/csec/toolkit.md`](../../docs/csec/toolkit.md). Most can be invoked ad-hoc through `nix run`, dropped into a `nix shell`, or promoted to a host by authoring a `modules/apps/<name>.nix` module and flipping the corresponding flag in `apps-enable.nix`.
 
-Each entry lists a representative run command, upstream repository, official documentation, and a one-line description. Verified against `nixpkgs` rev pinned in `flake.lock` on 2026-05-04.
+Each entry lists a representative run command, upstream repository, official documentation, and a one-line description. Verified against `nixpkgs` rev pinned in `flake.lock` on 2026-05-04. The companion smoke-test report lives in [`additional-tools-runtime-status.md`](additional-tools-runtime-status.md).
 
 `Stat.` classifies upstream health as of 2026-05-04: **Maintained** (tagged release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), or **Deprecated** (archived, abandoned, or officially superseded).
 
