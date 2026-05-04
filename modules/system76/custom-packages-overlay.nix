@@ -1,11 +1,8 @@
 { config, ... }:
-let
-  inherit (config.flake.lib) customPackagesOverlay;
-in
 {
   configurations.nixos.system76.module = {
     nixpkgs.overlays = [
-      customPackagesOverlay
+      config.flake.lib.overlays.customPackages
       (_final: prev: {
         # system76-power 1.2.8 aborts profile application when any SCSI host
         # lacks link_power_management_policy (USB-attached SCSI, virtio-scsi,

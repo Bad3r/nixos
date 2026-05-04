@@ -1,13 +1,15 @@
-# Shared nixpkgs overlay used by every host. Hosts compose this with any
-# host-specific overlay extras (see `modules/system76/custom-packages-overlay.nix`
-# for an example that adds a hardware-specific patch on top).
+# Shared nixpkgs overlay surfaced as `config.flake.lib.overlays.customPackages`.
+# This module only *defines* the overlay; hosts opt in by composing it into
+# `nixpkgs.overlays` (see `modules/system76/custom-packages-overlay.nix` for an
+# example that prepends this overlay and then layers a hardware-specific patch
+# on top).
 #
 # Resolution rules:
 # - `final.callPackage` for in-tree derivations under `packages/`.
 # - `prev.<pkg>.overrideAttrs` for upstream packages that need patching, version
 #   bumps, or dependency tweaks until the upstream issue is resolved.
 _: {
-  flake.lib.customPackagesOverlay = final: prev: {
+  flake.lib.overlays.customPackages = final: prev: {
     # In-tree custom packages from `packages/`.
     brave-origin = final.callPackage ../../packages/brave-origin { };
     raindrop = final.callPackage ../../packages/raindrop { };
