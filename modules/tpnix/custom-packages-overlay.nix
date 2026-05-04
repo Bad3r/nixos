@@ -25,7 +25,6 @@ _: {
         tweakcc = final.callPackage ../../packages/tweakcc { };
         video-cache = final.callPackage ../../packages/video-cache { };
 
-<<<<<<< feat/csec-tools
         # nixpkgs wfuzz silently drops the `screenshot` plugin on Python 3.13
         # (removed `pipes` stdlib module) and ships netaddr as a test-only dep,
         # leaving iprange/ipnet payloads broken with a misleading "pip install"
@@ -34,7 +33,7 @@ _: {
         wfuzz = final.python3Packages.toPythonApplication (
           final.python3Packages.callPackage ../../packages/wfuzz { }
         );
-=======
+
         # Bump librepods to v0.2.5 (nixpkgs pins v0.2.0). v0.2.5 swaps
         # qtquick3d for qtdeclarative + qttools and adds Widgets/DBus.
         librepods = prev.librepods.overrideAttrs (_old: rec {
@@ -54,7 +53,6 @@ _: {
             prev.qt6.qttools
           ];
         });
->>>>>>> main
 
         # Workaround: marktext 0.17.0's native module rebuild can fail with
         # `node-gyp: not found` under the current Node 24 toolchain.
