@@ -15,11 +15,10 @@ Each entry lists a representative run command, upstream repository, official doc
   - Desc.: Maintained CrackMapExec fork for SMB/WinRM/MSSQL/LDAP/SSH/RDP/FTP exploitation and AD enumeration.
   - Stat.: Maintained (v1.5.1, 2026-02-23).
 - impacket
-  - run..: `nix shell nixpkgs#python3Packages.impacket -c impacket-secretsdump -- $user:$pass@$target`
-    - ⚠️ Failed to run: the nixpkgs derivation ships scripts as `secretsdump.py`; the `impacket-secretsdump` alias does not exist. Use `nix shell nixpkgs#python3Packages.impacket -c secretsdump.py ...` instead.
+  - run..: `nix shell nixpkgs#python3Packages.impacket -c secretsdump.py -- $user:$pass@$target`
   - Repo.: <https://github.com/fortra/impacket>
   - Docs.: <https://www.fortra.com/resources/tools/impacket>
-  - Desc.: Python class library plus CLI scripts (`secretsdump.py`, `psexec.py`, `wmiexec.py`, `GetUserSPNs.py`, `ntlmrelayx.py`) for protocol-level Windows attacks.
+  - Desc.: Python class library plus CLI scripts (`secretsdump.py`, `psexec.py`, `wmiexec.py`, `GetUserSPNs.py`, `ntlmrelayx.py`) for protocol-level Windows attacks. The nixpkgs derivation keeps the `.py` suffix on every script; `impacket-*` aliases do not exist.
   - Stat.: Maintained (0.13.0, 2025-10-22).
 - bloodhound
   - run..: `nix run nixpkgs#bloodhound`
@@ -47,12 +46,11 @@ Each entry lists a representative run command, upstream repository, official doc
   - Desc.: Interactive WinRM shell with built-in upload/download, AMSI bypass scaffolding, and PowerShell pass-through.
   - Stat.: Maintained (v3.9, 2025-12-07).
 - kerbrute
-  - run..: `nix run nixpkgs#kerbrute -- userenum -d $domain users.txt`
-    - ⚠️ Failed to run: the nixpkgs `kerbrute` attribute resolves to impacket's Python AS-REP roasting tool, not ropnop's Go binary. The `userenum` subcommand belongs to ropnop's CLI and does not exist in the impacket version.
-  - Repo.: <https://github.com/ropnop/kerbrute>
-  - Docs.: <https://github.com/ropnop/kerbrute#readme>
-  - Desc.: Stealthy Kerberos username and password enumerator using AS-REQ pre-auth.
-  - Stat.: Deprecated (v1.0.3, 2019-12-15; no upstream activity in 5+ years).
+  - run..: `nix run nixpkgs#kerbrute -- -domain $domain -users users.txt -passwords passwords.txt`
+  - Repo.: <https://github.com/TarlogicSecurity/kerbrute>
+  - Docs.: <https://github.com/TarlogicSecurity/kerbrute#readme>
+  - Desc.: Tarlogic's Python Kerberos brute-forcer (TGT requests with AS-REQ pre-auth) built on impacket. Note that ropnop's Go `kerbrute` (with the `userenum` subcommand) is a different upstream and is not in nixpkgs.
+  - Stat.: Maintenance mode (PyPI 0.0.2, 2017-02-18; mature single-purpose tool).
 - certipy
   - run..: `nix run nixpkgs#certipy -- find -u $user@$domain -p $pass`
   - Repo.: <https://github.com/ly4k/Certipy>
@@ -385,10 +383,10 @@ Each entry lists a representative run command, upstream repository, official doc
   - Desc.: Stream all URLs the Wayback Machine knows for a domain.
   - Stat.: Deprecated (v0.1.0, 2022-04-05; no commits in 3+ years; superseded by gau).
 - gowitness
-  - run..: `nix run nixpkgs#gowitness -- single -u $url`
+  - run..: `nix run nixpkgs#gowitness -- scan -u $url`
   - Repo.: <https://github.com/sensepost/gowitness>
   - Docs.: <https://github.com/sensepost/gowitness/wiki>
-  - Desc.: Headless-Chrome web screenshot utility with reporting UI.
+  - Desc.: Headless-Chrome web screenshot utility with reporting UI. The legacy `single` subcommand was renamed to `scan` in v3.
   - Stat.: Maintained (3.1.1, 2025-11-24).
 - eyewitness
   - run..: `nix run nixpkgs#eyewitness -- --web -f urls.txt`
@@ -571,11 +569,10 @@ Each entry lists a representative run command, upstream repository, official doc
 ## Reverse Engineering & Dynamic Analysis
 
 - pwntools
-  - run..: `nix run nixpkgs#pwntools -- shellcraft amd64.linux.sh`
-    - ⚠️ Failed to run: `meta.mainProgram` is unset, so `nix run` cannot resolve the binary. The CLI is `pwn`. Use `nix shell nixpkgs#pwntools -c pwn ...` instead.
+  - run..: `nix shell nixpkgs#pwntools -c pwn -- shellcraft amd64.linux.sh`
   - Repo.: <https://github.com/Gallopsled/pwntools>
   - Docs.: <https://docs.pwntools.com/>
-  - Desc.: CTF and exploit-development framework with shellcode helpers, ROP utilities, GDB integration.
+  - Desc.: CTF and exploit-development framework with shellcode helpers, ROP utilities, GDB integration. The CLI binary is `pwn`; `nix run` cannot resolve it because `meta.mainProgram` is unset upstream.
   - Stat.: Maintained (v4.15.0, 2025-10-12).
 - scapy
   - run..: `nix run nixpkgs#python3Packages.scapy`
@@ -642,11 +639,10 @@ Each entry lists a representative run command, upstream repository, official doc
 ## Forensics, Recovery & Imaging
 
 - volatility3
-  - run..: `nix run nixpkgs#volatility3 -- -f $memdump windows.info`
-    - ⚠️ Failed to run: binaries are `vol` and `volshell`, not `volatility3`. The package is also unfree. Use `NIXPKGS_ALLOW_UNFREE=1 nix shell --impure nixpkgs#volatility3 -c vol ...` instead.
+  - run..: `NIXPKGS_ALLOW_UNFREE=1 nix shell --impure nixpkgs#volatility3 -c vol -- -f $memdump windows.info`
   - Repo.: <https://github.com/volatilityfoundation/volatility3>
   - Docs.: <https://volatility3.readthedocs.io/>
-  - Desc.: Memory forensics framework for Windows/Linux/macOS captures.
+  - Desc.: Memory forensics framework for Windows/Linux/macOS captures. Binaries are `vol` and `volshell`; the derivation is marked unfree, so the invocation needs `NIXPKGS_ALLOW_UNFREE=1 --impure` (or an entry in `modules/meta/nixpkgs-allowed-unfree.nix`).
   - Stat.: Maintained (v2.28.0, 2026-04-30).
 - sleuthkit
   - run..: `nix shell nixpkgs#sleuthkit -c fls -- -r $image`
@@ -705,8 +701,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Desc.: Fast Sigma/Yara hunter over Windows event-log archives (EVTX) with bundled detection rule packs.
   - Stat.: Maintained (v2.15.0, 2026-04-27).
 - hayabusa
-  - run..: `nix run nixpkgs#hayabusa -- csv-timeline -d $evtx_dir -o timeline.csv`
-    - ⚠️ Failed to run: the nixpkgs `hayabusa` attribute is the IPC daemon by `koutoftimer`, not the Yamato Security Windows EVTX Sigma scanner. The documented `csv-timeline` flags do not apply. The Yamato tool needs a custom package.
+  - run..: Must create a custom nixpkg (the `hayabusa` attribute in nixpkgs is `koutoftimer`'s unrelated IPC daemon, not the Yamato Security EVTX scanner).
   - Repo.: <https://github.com/Yamato-Security/hayabusa>
   - Docs.: <https://github.com/Yamato-Security/hayabusa/wiki>
   - Desc.: Windows event-log timeline generator and Sigma rule engine focused on incident-response triage.
@@ -853,11 +848,10 @@ Each entry lists a representative run command, upstream repository, official doc
   - Desc.: Static vulnerability analyzer for application containers (Quay/Red Hat).
   - Stat.: Maintained (v4.9.0, 2025-12-10).
 - scoutsuite
-  - run..: `uvx scoutsuite $provider`
-    - ⚠️ Failed to run: the package's CLI entry point is `scout`, not `scoutsuite`. Use `uvx --from scoutsuite scout ...` instead.
+  - run..: `uvx --from scoutsuite scout $provider`
   - Repo.: <https://github.com/nccgroup/ScoutSuite>
   - Docs.: <https://github.com/nccgroup/ScoutSuite/wiki>
-  - Desc.: Multi-cloud security auditing tool (AWS/Azure/GCP/AliCloud/OCI/Kubernetes). Not in nixpkgs.
+  - Desc.: Multi-cloud security auditing tool (AWS/Azure/GCP/AliCloud/OCI/Kubernetes). Not in nixpkgs; PyPI ships the `scout` console script.
   - Stat.: Maintenance mode (last release v5.14.0, 2024-05-10; active upstream commits, no recent tag).
 - falco
   - run..: Must create a custom nixpkg.
@@ -899,11 +893,10 @@ Each entry lists a representative run command, upstream repository, official doc
   - Desc.: TCP/UDP tunnel over HTTP/WebSockets; classic egress and pivot helper.
   - Stat.: Maintained (v1.11.5, 2026-03-09).
 - ligolo-ng
-  - run..: `nix run nixpkgs#ligolo-ng -- -selfcert -laddr 0.0.0.0:11601`
-    - ⚠️ Failed to run: the package ships `ligolo-proxy` and `ligolo-agent`; no `ligolo-ng` binary. Use `nix shell nixpkgs#ligolo-ng -c ligolo-proxy ...` instead.
+  - run..: `nix shell nixpkgs#ligolo-ng -c ligolo-proxy -- -selfcert -laddr 0.0.0.0:11601`
   - Repo.: <https://github.com/nicocha30/ligolo-ng>
   - Docs.: <https://github.com/nicocha30/ligolo-ng/wiki>
-  - Desc.: TUN-based pivoting that exposes the target network as a routable interface on the operator host.
+  - Desc.: TUN-based pivoting that exposes the target network as a routable interface on the operator host. The package ships `ligolo-proxy` and `ligolo-agent`; there is no top-level `ligolo-ng` binary.
   - Stat.: Maintained (v0.8.3, 2026-02-15).
 - proxychains-ng
   - run..: `nix run nixpkgs#proxychains-ng -- nmap -sT $target`
@@ -918,10 +911,10 @@ Each entry lists a representative run command, upstream repository, official doc
   - Desc.: Multi-protocol tunneling/proxy daemon (HTTP/SOCKS5/SS/TLS/QUIC/KCP) for relays, pivots, and egress chaining.
   - Stat.: Maintenance mode (last release v2.12.0, 2024-10-10; active development).
 - frp
-  - run..: `nix run nixpkgs#frp -- -c frpc.toml`
+  - run..: `nix shell nixpkgs#frp -c frpc -- -c frpc.toml`
   - Repo.: <https://github.com/fatedier/frp>
   - Docs.: <https://gofrp.org/en/>
-  - Desc.: Fast reverse-proxy that exposes services behind NAT or firewalls over TCP/UDP/HTTP/HTTPS/STCP.
+  - Desc.: Fast reverse-proxy that exposes services behind NAT or firewalls over TCP/UDP/HTTP/HTTPS/STCP. The package ships `frpc` (client) and `frps` (server); there is no default app for `nix run`.
   - Stat.: Maintained (v0.68.1, 2026-04-13).
 
 ## Notes
