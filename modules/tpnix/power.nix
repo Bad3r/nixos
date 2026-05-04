@@ -6,17 +6,6 @@
       pkgs,
       ...
     }:
-    let
-      # nix-cachyos-kernel exposes the closed driver as the package itself;
-      # current nixpkgs' NVIDIA module expects the closed module at `.mod`.
-      # Mirror any change in modules/system76/nvidia-gpu.nix.
-      closedNvidiaPackage =
-        package:
-        package
-        // {
-          mod = package;
-        };
-    in
     {
       boot.blacklistedKernelModules = [ "nouveau" ];
 
@@ -32,7 +21,7 @@
         ];
 
         nvidia = {
-          package = closedNvidiaPackage config.boot.kernelPackages.nvidiaPackages.production;
+          package = config.boot.kernelPackages.nvidiaPackages.production;
           modesetting.enable = true;
           open = false;
           gsp.enable = true;
