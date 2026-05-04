@@ -1,7 +1,7 @@
 /*
   Package: ffuf
   Description: Fast Go-based web fuzzer for content discovery, virtual host enumeration, and parameter brute-forcing.
-  Homepage: nil
+  Homepage: https://ffuf.io
   Documentation: https://github.com/ffuf/ffuf/wiki
   Repository: https://github.com/ffuf/ffuf
 
