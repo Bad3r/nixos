@@ -11,9 +11,11 @@ _: {
     # logs usr-bin.mount as `result=protocol` even though the mount succeeds.
     # Fixed upstream in Mic92/envfs#216 (released as 1.2.0).
     # Dep lookups (`fetchFromGitHub`, `rustPlatform.fetchCargoVendor`) go
-    # through `final` so any later overlay that rebinds them feeds into this
-    # build instead of being silently bypassed. The `prev.envfs.overrideAttrs`
-    # entry point stays on `prev` so we extend the unmodified upstream attrs.
+    # through `final` so any other overlay that rebinds them feeds into this
+    # build via the fixpoint instead of being silently bypassed (overlay
+    # registration order is irrelevant here — the fixpoint observes all
+    # overlays). The `prev.envfs.overrideAttrs` entry point stays on `prev`
+    # so we extend the unmodified upstream attrs.
     nixpkgs.overlays = [
       (final: prev: {
         envfs = prev.envfs.overrideAttrs (_oldAttrs: {
