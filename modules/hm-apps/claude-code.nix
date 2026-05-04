@@ -223,6 +223,13 @@ _: {
             '';
           }
           // lib.optionalAttrs bunInstallEnabled {
+            # The probe URL is pinned to the public npm registry because every
+            # host in this repo runs bun against the default registry. If a
+            # future host points bun at a private mirror via `~/.bunfig.toml`
+            # or `BUN_CONFIG_REGISTRY`, this probe will check the wrong
+            # endpoint and either skip a working install or run an install
+            # that fails immediately. Update the URL alongside the bun config
+            # if that ever happens.
             installClaudeCodeViaBun = lib.hm.dag.entryAfter [ "writeBoundary" "createBunDir" ] ''
               export BUN_INSTALL="${bunInstallDir}"
               if ${pkgs.curl}/bin/curl --silent --show-error --fail --max-time 5 \
