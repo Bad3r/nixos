@@ -97,10 +97,13 @@ in
             default = false;
             description = ''
               Install claude-code via `bun install -g @anthropic-ai/claude-code`
-              during every Home Manager activation. Requires
+              on every Home Manager activation when `registry.npmjs.org` is
+              reachable. If the reachability probe fails, the install step is
+              skipped, a warning is logged, and the existing binary (if any)
+              at `$XDG_DATA_HOME/bun/bin/claude` is preserved. Requires
               `programs.bun.extended.enable = true`; this module automatically
               imports the `bun` Home Manager app module when the bun install
-              method is enabled. Binary lands at `$XDG_DATA_HOME/bun/bin/claude`.
+              method is enabled.
             '';
           };
         };
