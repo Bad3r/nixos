@@ -10,8 +10,9 @@
 
   - Every top-level entry under ${pkgs.wordlists}/share/wordlists/ is
     discovered at evaluation time via builtins.readDir, so anything the
-    upstream nixpkgs `wordlists` meta-package adds (currently seclists,
-    wfuzz, nmap.lst, rockyou.txt) is exposed automatically.
+    upstream nixpkgs `wordlists` meta-package adds (e.g. seclists, wfuzz,
+    nmap.lst, rockyou.txt at the time of writing) is exposed
+    automatically.
   - Plus the entries declared in `csec.wordlists.manualLinks`, defaulting
     to packages that ship their wordlists outside the meta-package:
       * dirbuster   -> ${pkgs.dirbuster}/share/dirbuster
