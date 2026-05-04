@@ -660,10 +660,10 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
   - Stat.: Maintained (latest release 2025-12-05).
 - netcat
   - run..: `nc -lvnp 4444`
-  - Repo.: <https://nc110.sourceforge.io/>
-  - Docs.: <https://nc110.sourceforge.io/>
-  - Desc.: Raw TCP/UDP read/write for port testing, banner grabbing, and pivots.
-  - Stat.: Deprecated (latest release 1996-03-20; original Hobbit netcat unmaintained, modern systems ship ncat or OpenBSD netcat).
+  - Repo.: <https://github.com/libressl/portable>
+  - Docs.: <https://man.openbsd.org/nc.1>
+  - Desc.: Raw TCP/UDP read/write for port testing, banner grabbing, and pivots; this attribute packages the LibreSSL/OpenBSD-derived `nc` (not Hobbit's nc110).
+  - Stat.: Maintained (LibreSSL 4.2.1; active OpenBSD release cadence).
 - socat
   - run..: `socat TCP-LISTEN:1234 EXEC:/bin/bash`
   - Repo.: <http://www.dest-unreach.org/socat/>
