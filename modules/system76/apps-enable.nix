@@ -271,6 +271,7 @@
       openssh.extended.enable = lib.mkOverride 1100 true;
       openssl.extended.enable = lib.mkOverride 1100 true;
       openvpn.extended.enable = lib.mkOverride 1100 true;
+      overskride.extended.enable = lib.mkOverride 1100 true;
       p7zip.extended.enable = lib.mkOverride 1100 true;
       "p7zip-rar".extended.enable = lib.mkOverride 1100 true;
       pamixer.extended.enable = lib.mkOverride 1100 true;
