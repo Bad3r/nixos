@@ -18,24 +18,25 @@ _: {
     # so we extend the unmodified upstream attrs.
     nixpkgs.overlays = [
       (final: prev: {
-        envfs = prev.envfs.overrideAttrs (_oldAttrs: {
-          version = "1.2.0";
-          src = final.fetchFromGitHub {
-            owner = "Mic92";
-            repo = "envfs";
-            rev = "1.2.0";
-            hash = "sha256-hj/6zS9ebF0IDqgc1Dne59nWx80nk6jn2gj8BzQUFIQ=";
-          };
-          cargoDeps = final.rustPlatform.fetchCargoVendor {
+        envfs = prev.envfs.overrideAttrs (
+          _oldAttrs:
+          let
             src = final.fetchFromGitHub {
               owner = "Mic92";
               repo = "envfs";
               rev = "1.2.0";
               hash = "sha256-hj/6zS9ebF0IDqgc1Dne59nWx80nk6jn2gj8BzQUFIQ=";
             };
-            hash = "sha256-dz3gpE464jnmSDsAsmJHcxUsEKeUURNoUjgGU2214Xg=";
-          };
-        });
+          in
+          {
+            version = "1.2.0";
+            inherit src;
+            cargoDeps = final.rustPlatform.fetchCargoVendor {
+              inherit src;
+              hash = "sha256-dz3gpE464jnmSDsAsmJHcxUsEKeUURNoUjgGU2214Xg=";
+            };
+          }
+        );
       })
     ];
   };
