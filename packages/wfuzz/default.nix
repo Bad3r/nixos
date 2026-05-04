@@ -90,6 +90,6 @@ buildPythonPackage (finalAttrs: {
     license = with lib.licenses; [ gpl2Only ];
     maintainers = with lib.maintainers; [ pamplemousse ];
     mainProgram = "wfuzz";
-    platforms = lib.platforms.unix;
+    platforms = lib.platforms.linux;
   };
 })
