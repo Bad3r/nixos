@@ -38,7 +38,6 @@ let
     }:
     let
       cfg = config.csec.wordlists;
-      parent = dirOf cfg.path;
       wordlistsRoot = "${pkgs.wordlists}/share/wordlists";
       wordlistsAutoLinks = lib.mapAttrs (name: _type: "${wordlistsRoot}/${name}") (
         builtins.readDir wordlistsRoot
@@ -65,7 +64,10 @@ let
           default = "/usr/share/wordlists";
           description = ''
             Filesystem path under which wordlist symlinks are created.
-            The parent directory is also created if missing.
+            The parent directory must already exist (it does for the
+            default `/usr/share`); this module never adjusts permissions
+            of any directory outside `cfg.path` itself, so configuring a
+            user-owned location such as `/home/<user>/wordlists` is safe.
           '';
         };
 
@@ -91,7 +93,6 @@ let
       # rule string.
       config = lib.mkIf cfg.enable {
         systemd.tmpfiles.settings."10-csec-wordlists" = {
-          "${parent}".d = dirEntry;
           "${cfg.path}".d = dirEntry;
         }
         // lib.mapAttrs' (
