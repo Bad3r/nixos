@@ -84,6 +84,34 @@ This means many host-only packages are **not** available under `.#packages.<syst
 | `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | Monitor profile                   |
 | `modules/system76/virtualization.nix`          | host options under `system76.virtualization.*` | Virtualization app toggles        |
 
+## The `flake.csec` Namespace
+
+Cybersecurity-tooling NixOS modules register under `flake.csec.<feature>`, declared in `modules/meta/flake-output.nix` as `attrsOf deferredModule`. Each feature is a first-class entry rather than collapsing into a parent module like sub-keys under `flake.nixosModules.*` would (`lazyAttrsOf raw` does not give per-feature merge semantics without flat name mangling).
+
+```nix
+flake.csec = {
+  wordlists = { ... };  # Kali-style symlinks under /usr/share/wordlists/
+  # Future feature modules register here.
+};
+```
+
+Hosts opt in explicitly by importing the module and toggling its enable flag:
+
+```nix
+# modules/system76/imports.nix
+configurations.nixos.system76.module = {
+  imports = [
+    config.flake.csec.wordlists
+    # ...
+  ];
+  csec.wordlists.enable = true;
+};
+```
+
+| Module                       | Export                 | Purpose                                                                                |
+| ---------------------------- | ---------------------- | -------------------------------------------------------------------------------------- |
+| `modules/csec/wordlists.nix` | `flake.csec.wordlists` | Kali-style wordlist symlinks (auto-discovered via IFD, see `flake.nix#nixConfig` note) |
+
 ## System-Level Utilities
 
 | Module                                    | Purpose                                        |
