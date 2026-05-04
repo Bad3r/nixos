@@ -57,9 +57,9 @@
         user = "root";
         group = "root";
       };
-      missingManualTargets = lib.filter (name: !builtins.pathExists (toString cfg.manualLinks.${name})) (
-        lib.attrNames cfg.manualLinks
-      );
+      missingManualEntries = lib.filterAttrs (
+        _name: target: !builtins.pathExists (toString target)
+      ) cfg.manualLinks;
     in
     {
       options.csec.wordlists = {
@@ -137,13 +137,13 @@
       config = lib.mkIf cfg.enable {
         assertions = [
           {
-            assertion = missingManualTargets == [ ];
+            assertion = missingManualEntries == { };
             message = ''
               csec.wordlists.manualLinks references targets that do not
               exist in the Nix store:
-              ${lib.concatMapStringsSep "\n" (
-                name: "  - ${name} -> ${toString cfg.manualLinks.${name}}"
-              ) missingManualTargets}
+              ${lib.concatStringsSep "\n" (
+                lib.mapAttrsToList (name: target: "  - ${name} -> ${toString target}") missingManualEntries
+              )}
               An upstream package layout likely changed; update the
               affected entries (or remove them) in
               `csec.wordlists.manualLinks`.
