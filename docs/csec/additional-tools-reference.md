@@ -1,6 +1,6 @@
 # Pentesting Tooling Reference
 
-Reference catalog of cybersecurity tools that complement the active toolkit in [`docs/csec/toolkit.md`](../../docs/csec/toolkit.md). Most can be invoked ad-hoc through `nix run`, dropped into a `nix shell`, or promoted to a host by authoring a `modules/apps/<name>.nix` module and flipping the corresponding flag in `apps-enable.nix`.
+Reference catalog of cybersecurity tools that complement the active toolkit in [`toolkit.md`](toolkit.md). Most can be invoked ad-hoc through `nix run`, dropped into a `nix shell`, or promoted to a host by authoring a `modules/apps/<name>.nix` module and flipping the corresponding flag in `apps-enable.nix`.
 
 Each entry lists a representative run command, upstream repository, official documentation, and a one-line description. Verified against `nixpkgs` rev pinned in `flake.lock` on 2026-05-04. The companion smoke-test report lives in [`additional-tools-runtime-status.md`](additional-tools-runtime-status.md).
 
@@ -927,6 +927,6 @@ Each entry lists a representative run command, upstream repository, official doc
 ## Notes
 
 - Top-level nixpkgs attributes can be wired into a host with `lib.mkPackageOption pkgs "$image" { }`.
-- Python-namespaced attributes (e.g. `python3Packages.impacket`, `python3Packages.scapy`) use the list-path form documented in [`docs/guides/apps-module-style-guide.md`](../../docs/guides/apps-module-style-guide.md).
+- Python-namespaced attributes (e.g. `python3Packages.impacket`, `python3Packages.scapy`) use the list-path form documented in [`apps-module-style-guide.md`](../guides/apps-module-style-guide.md).
 - Entries marked **Not in nixpkgs** can be packaged locally under `packages/`, pulled via an external flake input, or substituted with the listed alternative.
 - Promoting a tool to permanent installation requires a matching `modules/apps/<name>.nix` module plus an entry in each host's `apps-enable.nix`.
