@@ -12,7 +12,7 @@
   Options:
     enable: Toggle the doom-emacs integration; the actual package is installed by the Home Manager module.
     package: Emacs derivation passed to Unstraightened (defaults to pkgs.emacs from the emacs-overlay).
-    doomDir: Path to the doomdir bundled into the build (defaults to a minimal in-tree placeholder).
+    doomDir: Path to the doomdir bundled into the build (defaults to the upstream Doom starter templates).
     enableService: Enable the Home Manager `services.emacs` user daemon backed by Doom.
 
   Notes:
@@ -25,11 +25,15 @@
       `doom-emacs-unstraightened.cachix.org` (Doom build artefacts) into
       `nix.settings.extra-substituters` so substitution covers both layers. Trust
       keys are mirrored in `extra-trusted-public-keys`.
+    * Installs the unfree `symbola` font system-wide; Doom uses it as the Unicode
+      fallback face and `doom doctor` warns when it is missing.
     * Configuration and install delegated to Home Manager (modules/hm-apps/doom-emacs.nix).
     * Override doomDir to point at a real Doom configuration for a personalised setup.
 */
 { inputs, ... }:
 {
+  nixpkgs.allowedUnfreePackages = [ "symbola" ];
+
   flake.nixosModules.apps.doom-emacs =
     {
       config,
@@ -73,8 +77,10 @@
           defaultText = lib.literalExpression "./doom-emacs-doomdir";
           description = ''
             Path to the Doom configuration directory (init.el / packages.el / config.el)
-            bundled into the build. The default is a placeholder; point this at a real
-            doomdir to install a meaningful configuration.
+            bundled into the build. The default ships the upstream Doom starter
+            templates (static/{init,packages,config}.example.el) and gives a working
+            evil/vertico/corfu/magit setup out of the box. Override to layer in a
+            personal doomdir.
           '';
         };
 
@@ -85,9 +91,8 @@
             Whether to enable the Home Manager `services.emacs` user daemon. The
             upstream homeModule wires `services.emacs.package` to the Doom build
             automatically, so the daemon launches the Unstraightened binary.
-            Defaults to `false` because `systemctl --user` keeps the daemon
-            restarting if Doom errors out on a placeholder configuration; opt in
-            per host once a real doomdir is wired up.
+            Opt in per host once Doom starts cleanly to avoid an `systemctl --user`
+            restart loop on configuration errors.
           '';
         };
       };
@@ -102,6 +107,7 @@
           cachePublicKey
           doomCachePublicKey
         ];
+        fonts.packages = [ pkgs.symbola ];
       };
     };
 }
