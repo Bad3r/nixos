@@ -198,6 +198,7 @@
         terminal = lib.getExe pkgs.kitty;
         browser = lib.getExe config.programs.floorp.finalPackage;
         emoji = "${lib.getExe pkgs.rofimoji} --selector rofi";
+        bluetoothMenu = "${lib.getExe pkgs.bzmenu} --launcher rofi";
         playerctl = lib.getExe pkgs.playerctl;
         volume = lib.getExe pkgs.pamixer;
         brightness = lib.getExe pkgs.xbacklight;

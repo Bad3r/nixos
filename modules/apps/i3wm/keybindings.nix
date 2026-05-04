@@ -181,6 +181,7 @@
                 "exec --no-startup-id ${commands.focusOrLaunch} '${config.gui.i3.browserClass}' '${commands.browser}'";
               "${mod}+d" = "exec ${commands.launcher}";
               "${mod}+b" = "exec ${commands.emoji}";
+              "${mod}+Shift+b" = "exec --no-startup-id ${commands.bluetoothMenu}";
               "${mod}+s" = "exec ${commands.screenshot}";
               "${mod}+Shift+o" = "exec --no-startup-id ${commands.ocr}";
 
@@ -225,7 +226,7 @@
               "${mod}+z" = "scratchpad show";
 
               # Borders
-              "${mod}+Shift+b" = "border toggle";
+              "${mod}+Shift+Mod1+b" = "border toggle";
               "${mod}+n" = "border normal";
               "${mod}+y" = "border pixel 3";
               "${mod}+u" = "border none";
