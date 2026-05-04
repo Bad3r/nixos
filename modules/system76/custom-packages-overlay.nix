@@ -36,6 +36,26 @@ _: {
           ];
         });
 
+        # Bump librepods to v0.2.5 (nixpkgs pins v0.2.0). v0.2.5 swaps
+        # qtquick3d for qtdeclarative + qttools and adds Widgets/DBus.
+        librepods = prev.librepods.overrideAttrs (_old: rec {
+          version = "0.2.5";
+          src = prev.fetchFromGitHub {
+            owner = "kavishdevar";
+            repo = "librepods";
+            tag = "v${version}";
+            hash = "sha256-6l1WjwjDbv5e3tDaWo9+XSEjr9ge/hKysIkeUqyiO4U=";
+          };
+          buildInputs = [
+            prev.libpulseaudio
+            prev.openssl
+            prev.qt6.qtbase
+            prev.qt6.qtconnectivity
+            prev.qt6.qtdeclarative
+            prev.qt6.qttools
+          ];
+        });
+
         # Workaround: marktext 0.17.0's native module rebuild can fail with
         # `node-gyp: not found` under the current Node 24 toolchain.
         marktext = prev.marktext.overrideAttrs (old: {
