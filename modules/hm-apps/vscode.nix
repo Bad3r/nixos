@@ -37,7 +37,6 @@ _: {
         programs.vscode = {
           enable = true;
           package = null;
-          pname = "vscode";
 
           # Stylix will automatically theme the "default" profile
           # Additional configuration can be added here:
