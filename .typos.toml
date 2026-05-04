@@ -37,4 +37,5 @@ extend-exclude = [
   "**/.clj-kondo/**",
   ".lsp/**",
   "**/.lsp/**",
+  "modules/apps/doom-emacs-doomdir/init.el",
 ]
