@@ -44,32 +44,35 @@ _: {
 
     # Bump librepods to v0.2.5 (nixpkgs pins v0.2.0). v0.2.5 swaps
     # qtquick3d for qtdeclarative + qttools and adds Widgets/DBus.
+    # Dep lookups go through `final` so any later overlay (e.g. an `openssl`
+    # CVE patch) feeds into this build instead of being silently bypassed.
     librepods = prev.librepods.overrideAttrs (_old: rec {
       version = "0.2.5";
-      src = prev.fetchFromGitHub {
+      src = final.fetchFromGitHub {
         owner = "kavishdevar";
         repo = "librepods";
         tag = "v${version}";
         hash = "sha256-6l1WjwjDbv5e3tDaWo9+XSEjr9ge/hKysIkeUqyiO4U=";
       };
       buildInputs = [
-        prev.libpulseaudio
-        prev.openssl
-        prev.qt6.qtbase
-        prev.qt6.qtconnectivity
-        prev.qt6.qtdeclarative
-        prev.qt6.qttools
+        final.libpulseaudio
+        final.openssl
+        final.qt6.qtbase
+        final.qt6.qtconnectivity
+        final.qt6.qtdeclarative
+        final.qt6.qttools
       ];
     });
 
     # Workaround: marktext 0.17.0's native module rebuild can fail with
-    # `node-gyp: not found` under the current Node 24 toolchain.
+    # `node-gyp: not found` under the current Node 24 toolchain. Pull
+    # `node-gyp` from `final` for the same fixpoint reason as `librepods`.
     marktext = prev.marktext.overrideAttrs (old: {
       nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
-        prev."node-gyp"
+        final."node-gyp"
       ];
-      npm_config_node_gyp = "${prev."node-gyp"}/bin/node-gyp";
-      NODE_GYP = "${prev."node-gyp"}/bin/node-gyp";
+      npm_config_node_gyp = "${final."node-gyp"}/bin/node-gyp";
+      NODE_GYP = "${final."node-gyp"}/bin/node-gyp";
     });
 
     # i3 window manager utilities
