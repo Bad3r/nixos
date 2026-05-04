@@ -55,12 +55,12 @@ Canonical documentation lives under `docs/architecture/`.
 
 ## Nix Configuration
 
-| Setting                        | Value                  | Purpose                                                                     |
-| ------------------------------ | ---------------------- | --------------------------------------------------------------------------- |
-| `abort-on-warn`                | `false`                | Disabled due to upstream nixpkgs warning (issue `#485682`)                  |
-| `extra-experimental-features`  | `[ "pipe-operators" ]` | Enable pipe operator syntax in Nix expressions                              |
-| `allow-import-from-derivation` | `true`                 | Required by `nix-doom-emacs-unstraightened` (no other module relies on IFD) |
-| `experimental-features`        | `nix-command flakes`   | Enable flakes and new Nix CLI                                               |
+| Setting                        | Value                  | Purpose                                                                                     |
+| ------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------- |
+| `abort-on-warn`                | `false`                | Disabled due to upstream nixpkgs warning (issue `#485682`)                                  |
+| `extra-experimental-features`  | `[ "pipe-operators" ]` | Enable pipe operator syntax in Nix expressions                                              |
+| `allow-import-from-derivation` | `true`                 | Required by IFD consumers: `nix-doom-emacs-unstraightened` and `modules/csec/wordlists.nix` |
+| `experimental-features`        | `nix-command flakes`   | Enable flakes and new Nix CLI                                                               |
 
 These settings are mirrored in `build.sh` via `NIX_CONFIGURATION`.
 
