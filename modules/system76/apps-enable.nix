@@ -39,7 +39,6 @@
       bc.extended.enable = lib.mkOverride 1100 true;
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 true;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
-      blueman.extended.enable = lib.mkOverride 1100 true;
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 true;
       "brave-origin".extended.enable = lib.mkOverride 1100 true;
@@ -391,6 +390,7 @@
       wakaru.extended.enable = lib.mkOverride 1100 true;
       "wappalyzer-next".extended.enable = lib.mkOverride 1100 true;
       webcrack.extended.enable = lib.mkOverride 1100 true;
+      webex.extended.enable = lib.mkOverride 1100 true;
       wezterm.extended.enable = lib.mkOverride 1100 false;
       wgcf.extended.enable = lib.mkOverride 1100 true;
       wget.extended.enable = lib.mkOverride 1100 true;
