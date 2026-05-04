@@ -10,18 +10,22 @@ _: {
     # helper before the FUSE mount is visible in /proc/self/mountinfo, so systemd
     # logs usr-bin.mount as `result=protocol` even though the mount succeeds.
     # Fixed upstream in Mic92/envfs#216 (released as 1.2.0).
+    # Dep lookups (`fetchFromGitHub`, `rustPlatform.fetchCargoVendor`) go
+    # through `final` so any later overlay that rebinds them feeds into this
+    # build instead of being silently bypassed. The `prev.envfs.overrideAttrs`
+    # entry point stays on `prev` so we extend the unmodified upstream attrs.
     nixpkgs.overlays = [
-      (_final: prev: {
+      (final: prev: {
         envfs = prev.envfs.overrideAttrs (_oldAttrs: {
           version = "1.2.0";
-          src = prev.fetchFromGitHub {
+          src = final.fetchFromGitHub {
             owner = "Mic92";
             repo = "envfs";
             rev = "1.2.0";
             hash = "sha256-hj/6zS9ebF0IDqgc1Dne59nWx80nk6jn2gj8BzQUFIQ=";
           };
-          cargoDeps = prev.rustPlatform.fetchCargoVendor {
-            src = prev.fetchFromGitHub {
+          cargoDeps = final.rustPlatform.fetchCargoVendor {
+            src = final.fetchFromGitHub {
               owner = "Mic92";
               repo = "envfs";
               rev = "1.2.0";
