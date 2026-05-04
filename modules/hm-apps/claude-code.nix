@@ -236,8 +236,10 @@ _: {
                   --output /dev/null \
                   https://registry.npmjs.org/@anthropic-ai/claude-code/latest; then
                 run ${bunBin} install -g @anthropic-ai/claude-code
+              elif [ -x "$BUN_INSTALL/bin/claude" ]; then
+                echo "warning: installClaudeCodeViaBun: npm registry unreachable, keeping existing install at $BUN_INSTALL/bin/claude" >&2
               else
-                echo "warning: installClaudeCodeViaBun: npm registry unreachable, keeping existing install" >&2
+                echo "warning: installClaudeCodeViaBun: npm registry unreachable and no existing claude-code binary at $BUN_INSTALL/bin/claude; rerun home-manager switch when the network recovers" >&2
               fi
             '';
           };
