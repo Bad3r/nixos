@@ -70,8 +70,8 @@ in
           default = false;
           description = ''
             Whether this host uses claude-code. Configures Home Manager side
-            (settings, skills, MCP merge). Requires at least one entry in
-            `installMethods.*.enable` to also be true.
+            (settings, skills, MCP merge) regardless of whether any install
+            method is enabled, so the binary may be managed outside Nix.
           '';
         };
 
@@ -103,17 +103,6 @@ in
               method is enabled. Binary lands at `$XDG_DATA_HOME/bun/bin/claude`.
             '';
           };
-        };
-
-        anyInstallEnabled = lib.mkOption {
-          type = lib.types.bool;
-          readOnly = true;
-          default = cfg.enable && (cfg.installMethods.nix.enable || cfg.installMethods.bun.enable);
-          description = ''
-            Read-only. True if claude-code is enabled with at least one install
-            method. Consumers can use this to check availability without
-            enumerating individual install methods.
-          '';
         };
 
         lspPlugins = lib.mapAttrs (
@@ -176,16 +165,6 @@ in
                   lspCollisions = lib.intersectLists extraKeys lspKeysWithMarket;
                 in
                 [
-                  {
-                    assertion = cfg.anyInstallEnabled;
-                    message = ''
-                      programs.claude-code.extended.enable = true, but no install method
-                      is enabled. Set one of:
-                        programs.claude-code.extended.installMethods.nix.enable = true;
-                        programs.claude-code.extended.installMethods.bun.enable = true;
-                      (typically in modules/<host>/apps-enable.nix)
-                    '';
-                  }
                   {
                     assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
                     message = ''

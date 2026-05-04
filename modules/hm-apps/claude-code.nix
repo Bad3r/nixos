@@ -225,7 +225,13 @@ _: {
           // lib.optionalAttrs bunInstallEnabled {
             installClaudeCodeViaBun = lib.hm.dag.entryAfter [ "writeBoundary" "createBunDir" ] ''
               export BUN_INSTALL="${bunInstallDir}"
-              run ${bunBin} install -g @anthropic-ai/claude-code
+              if ${pkgs.curl}/bin/curl --silent --fail --max-time 5 \
+                  --output /dev/null \
+                  https://registry.npmjs.org/@anthropic-ai/claude-code/latest; then
+                run ${bunBin} install -g @anthropic-ai/claude-code
+              else
+                echo "warning: installClaudeCodeViaBun: npm registry unreachable, keeping existing install" >&2
+              fi
             '';
           };
 
