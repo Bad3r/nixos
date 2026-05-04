@@ -13,7 +13,7 @@
     overskride: Launch the Bluetooth and Obex client window.
 
   Notes:
-    * Requires the BlueZ daemon (`services.blueman.enable` or `hardware.bluetooth.enable`); enable Bluetooth at the host level.
+    * Requires the BlueZ daemon (`hardware.bluetooth.enable`); enable Bluetooth at the host level.
     * Pulls in gtk4 + libadwaita; intentional GUI dependency for non-GNOME desktops such as i3wm.
 */
 _:
