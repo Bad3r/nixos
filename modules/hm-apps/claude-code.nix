@@ -225,7 +225,7 @@ _: {
           // lib.optionalAttrs bunInstallEnabled {
             installClaudeCodeViaBun = lib.hm.dag.entryAfter [ "writeBoundary" "createBunDir" ] ''
               export BUN_INSTALL="${bunInstallDir}"
-              if ${pkgs.curl}/bin/curl --silent --fail --max-time 5 \
+              if ${pkgs.curl}/bin/curl --silent --show-error --fail --max-time 5 \
                   --output /dev/null \
                   https://registry.npmjs.org/@anthropic-ai/claude-code/latest; then
                 run ${bunBin} install -g @anthropic-ai/claude-code
