@@ -199,6 +199,7 @@
       less.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
       libreoffice.extended.enable = lib.mkOverride 1100 true;
+      librepods.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 true;
       libstdcxx.extended.enable = lib.mkOverride 1100 true;
       localsend.extended.enable = lib.mkOverride 1100 true;
