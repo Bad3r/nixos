@@ -69,10 +69,21 @@
           default = "/usr/share/wordlists";
           description = ''
             Filesystem path under which wordlist symlinks are created.
-            The parent directory must already exist (it does for the
-            default `/usr/share`); this module never adjusts permissions
-            of any directory outside `cfg.path` itself, so configuring a
-            user-owned location such as `/home/<user>/wordlists` is safe.
+
+            Two contracts apply:
+
+            - The parent directory of `cfg.path` must already exist
+              (always true for the default `/usr/share`); this module
+              never adjusts permissions of anything outside `cfg.path`
+              itself.
+            - The directory at `cfg.path` is enforced as
+              `0755 root:root` on every boot via the systemd-tmpfiles
+              `d` rule, so pointing this option at a user-owned path
+              such as `/home/<user>/wordlists` will have ownership
+              reclaimed by root on each activation. Use a
+              system-managed location (the default
+              `/usr/share/wordlists`, `/var/lib/wordlists`, etc.)
+              unless that behaviour is acceptable.
           '';
         };
 
