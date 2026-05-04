@@ -11,7 +11,7 @@ consult the host catalog to confirm availability before relying on a specific bi
 
 Each entry below lists a representative invocation, upstream repository, official documentation, and a one-line description.
 
-`Stat.` classifies upstream health as of 2026-05-04: **Maintained** (release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), or **Deprecated** (archived, abandoned, or superseded).
+`Stat.` classifies upstream health as of 2026-05-04: **Maintained** (release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), **Core utility** (foundational POSIX/GNU tooling whose release cadence does not map to the other categories), or **Deprecated** (archived, abandoned, or superseded).
 
 ## Network Reconnaissance & Enumeration
 
@@ -753,7 +753,7 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
   - Repo.: <https://gitlab.com/bzip2/bzip2>
   - Docs.: <https://sourceware.org/bzip2/docs.html>
   - Desc.: BZ2 compression utility used in CTF unpacking and malware triage.
-  - Stat.: Maintenance mode (latest release 2019-07-13; mature, infrequent commits on GitLab).
+  - Stat.: Core utility (1.0.8, 2019-07-13).
 - gzip
   - run..: `gzip -d $file.gz`
   - Repo.: <https://git.savannah.gnu.org/cgit/gzip.git>
@@ -801,19 +801,19 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
   - Repo.: <https://git.savannah.gnu.org/cgit/tar.git>
   - Docs.: <https://www.gnu.org/software/tar/manual/>
   - Desc.: Tarball handling for evidence packaging and unpacking.
-  - Stat.: Maintenance mode (latest release 2023-07-18; GNU project, regular commits).
+  - Stat.: Core utility (GNU tar 1.35, 2023-07-18).
 - unzip
   - run..: `unzip $archive.zip`
   - Repo.: <https://infozip.sourceforge.net/UnZip.html>
   - Docs.: <https://infozip.sourceforge.net/UnZip.html>
   - Desc.: ZIP archive extraction utility.
-  - Stat.: Deprecated (latest release 2009-04-20; Info-ZIP project abandoned).
+  - Stat.: Deprecated (latest release 2009-04-20; Info-ZIP project abandoned; prefer `bsdunzip` from libarchive or `7z x` from `p7zip` for new work).
 - zip
   - run..: `zip -r $archive.zip $dir`
   - Repo.: <https://infozip.sourceforge.net/Zip.html>
   - Docs.: <https://infozip.sourceforge.net/Zip.html>
   - Desc.: ZIP archive creation utility.
-  - Stat.: Deprecated (latest release 2008-07-07; Info-ZIP project abandoned).
+  - Stat.: Deprecated (latest release 2008-07-07; Info-ZIP project abandoned; prefer `bsdtar --format zip` from libarchive or `7z a` from `p7zip` for new work).
 
 ## QR & Encoded Payload Handling
 
