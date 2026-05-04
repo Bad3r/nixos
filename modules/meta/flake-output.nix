@@ -75,6 +75,16 @@
         description = "Aggregated Home Manager modules for the single System76 host";
       };
 
+      # Cybersecurity-tooling NixOS modules. Declared with attrsOf
+      # deferredModule so each feature (`flake.csec.<feature>`) is a
+      # first-class entry rather than collapsing into the parent module
+      # like sub-keys under `flake.nixosModules.*` would.
+      csec = lib.mkOption {
+        type = lib.types.attrsOf lib.types.deferredModule;
+        default = { };
+        description = "Per-feature csec NixOS modules (merged by name).";
+      };
+
     };
   };
 }
