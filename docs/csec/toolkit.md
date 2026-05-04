@@ -1,0 +1,1028 @@
+# Pentesting Toolkit
+
+Catalog of cybersecurity-relevant applications managed by this configuration.\
+The list covers purpose-built offensive, defensive, forensic, and reverse-engineering tooling,\
+plus general-purpose utilities that show up frequently in pentesting, recon, enumeration, and\
+incident response workflows.
+
+**Source of truth**: each host's `apps-enable.nix`. Per-tool option flags live in `modules/apps/<name>.nix`.\
+A given entry may be enabled on one host and disabled on another;\
+consult the host catalog to confirm availability before relying on a specific binary.
+
+Each entry below lists a representative invocation, upstream repository, official documentation, and a one-line description.
+
+`Stat.` classifies upstream health as of 2026-05-04: **Maintained** (release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), **Core utility** (foundational POSIX/GNU tooling whose release cadence does not map to the other categories), or **Deprecated** (archived, abandoned, or superseded).
+
+## Network Reconnaissance & Enumeration
+
+- amass
+  - run..: `amass enum -d $domain`
+  - Repo.: <https://github.com/owasp-amass/amass>
+  - Docs.: <https://github.com/owasp-amass/amass/blob/master/doc/user_guide.md>
+  - Desc.: OWASP attack-surface mapping and subdomain enumeration.
+  - Stat.: Maintained (latest release 2025-04-07).
+- dnsx
+  - run..: `dnsx -l hosts.txt -resp`
+  - Repo.: <https://github.com/projectdiscovery/dnsx>
+  - Docs.: <https://docs.projectdiscovery.io/tools/dnsx>
+  - Desc.: Concurrent DNS toolkit for resolving and probing host lists.
+  - Stat.: Maintained (latest release 2025-12-10).
+- httpx
+  - run..: `httpx -l hosts.txt`
+  - Repo.: <https://github.com/projectdiscovery/httpx>
+  - Docs.: <https://docs.projectdiscovery.io/tools/httpx>
+  - Desc.: Fast HTTP toolkit for probing, fingerprinting, and triage.
+  - Stat.: Maintained (latest release 2025-03-09).
+- masscan
+  - run..: `masscan -p1-65535 $target --rate 10000`
+  - Repo.: <https://github.com/robertdavidgraham/masscan>
+  - Docs.: <https://github.com/robertdavidgraham/masscan#readme>
+  - Desc.: Asynchronous Internet-scale TCP port scanner.
+  - Stat.: Maintenance mode (latest release 2021-01-31; active upstream commits, no recent tag).
+- nmap
+  - run..: `nmap -sV -sC $target`
+  - Repo.: <https://github.com/nmap/nmap>
+  - Docs.: <https://nmap.org/book/>
+  - Desc.: Network mapper, port scanner, and NSE scripting host.
+  - Stat.: Maintained (latest release 2025-08-21).
+- opendirectorydownloader
+  - run..: `OpenDirectoryDownloader --url $url`
+  - Repo.: <https://github.com/KoalaBear84/OpenDirectoryDownloader>
+  - Docs.: <https://github.com/KoalaBear84/OpenDirectoryDownloader#readme>
+  - Desc.: Crawls and exports public open directories for OSINT collection.
+  - Stat.: Maintained (latest release 2025-09-02).
+- subfinder
+  - run..: `subfinder -d $domain`
+  - Repo.: <https://github.com/projectdiscovery/subfinder>
+  - Docs.: <https://docs.projectdiscovery.io/tools/subfinder>
+  - Desc.: Passive subdomain discovery aggregator.
+  - Stat.: Maintained (latest release 2026-04-25).
+- wappalyzer-next
+  - run..: `wappalyzer -i $url`
+  - Repo.: <https://github.com/s0md3v/wappalyzer-next>
+  - Docs.: <https://github.com/s0md3v/wappalyzer-next#readme>
+  - Desc.: Identifies frameworks, CMSes, and libraries behind web pages.
+  - Stat.: Maintained (latest release 2025-05-01).
+- whatweb
+  - run..: `whatweb $url`
+  - Repo.: <https://github.com/urbanadventurer/WhatWeb>
+  - Docs.: <https://github.com/urbanadventurer/WhatWeb/wiki>
+  - Desc.: Fingerprints web servers, plugins, and content management systems.
+  - Stat.: Maintained (latest release 2026-04-03).
+- whois
+  - run..: `whois $domain`
+  - Repo.: <https://github.com/rfc1036/whois>
+  - Docs.: <https://github.com/rfc1036/whois#readme>
+  - Desc.: Domain registration and ownership lookups.
+  - Stat.: Maintained (latest release 2026-02-17).
+
+## Web Application Testing & Proxies
+
+- burpsuite
+  - run..: `burpsuite`
+  - Repo.: <https://portswigger.net/burp>
+  - Docs.: <https://portswigger.net/burp/documentation>
+  - Desc.: PortSwigger Burp Suite Community edition.
+  - Stat.: Maintained (latest release 2026-04-29).
+- burpsuite-loader
+  - run..: `burpsuite-loader`
+  - Repo.: <https://portswigger.net/burp>
+  - Docs.: <https://portswigger.net/burp/documentation>
+  - Desc.: Loader companion for Burp extensions and licensed builds.
+  - Stat.: Maintained (latest release 2026-04-29).
+- burpsuitepro
+  - run..: `burpsuitepro`
+  - Repo.: <https://portswigger.net/burp/pro>
+  - Docs.: <https://portswigger.net/burp/documentation/desktop>
+  - Desc.: PortSwigger Burp Suite Professional.
+  - Stat.: Maintained (latest release 2026-04-29).
+- charles
+  - run..: `charles`
+  - Repo.: <https://www.charlesproxy.com/>
+  - Docs.: <https://www.charlesproxy.com/documentation/>
+  - Desc.: HTTP/HTTPS debugging proxy with SSL interception.
+  - Stat.: Maintained (latest release 2026-05-02).
+- dirbuster
+  - run..: `dirbuster`
+  - Repo.: <https://gitlab.com/kalilinux/packages/dirbuster>
+  - Docs.: <https://www.kali.org/tools/dirbuster/>
+  - Desc.: Multi-threaded directory and file brute forcer.
+  - Stat.: Deprecated (latest release 2023-04-08; upstream OWASP project abandoned, superseded by gobuster/feroxbuster).
+- feroxbuster
+  - run..: `feroxbuster -u $url -w $wordlist`
+  - Repo.: <https://github.com/epi052/feroxbuster>
+  - Docs.: <https://epi052.github.io/feroxbuster-docs/>
+  - Desc.: Rust-based content discovery scanner.
+  - Stat.: Maintained (latest release 2025-12-13).
+- gobuster
+  - run..: `gobuster dir -u $url -w $wordlist`
+  - Repo.: <https://github.com/OJ/gobuster>
+  - Docs.: <https://github.com/OJ/gobuster#readme>
+  - Desc.: Go-based directory, DNS, and vhost brute forcer.
+  - Stat.: Maintained (latest release 2025-09-04).
+- mitmproxy
+  - run..: `mitmproxy`
+  - Repo.: <https://github.com/mitmproxy/mitmproxy>
+  - Docs.: <https://docs.mitmproxy.org/>
+  - Desc.: Interactive HTTPS interception proxy with Python scripting.
+  - Stat.: Maintained (latest release 2026-04-12).
+- sqlmap
+  - run..: `sqlmap -u $url`
+  - Repo.: <https://github.com/sqlmapproject/sqlmap>
+  - Docs.: <https://github.com/sqlmapproject/sqlmap/wiki>
+  - Desc.: Automated SQL injection detection and exploitation.
+  - Stat.: Maintained (latest release 2026-01-01).
+- zap
+  - run..: `zap`
+  - Repo.: <https://github.com/zaproxy/zaproxy>
+  - Docs.: <https://www.zaproxy.org/docs/>
+  - Desc.: OWASP ZAP web application scanner and intercept proxy.
+  - Stat.: Maintained (latest release 2025-12-15).
+
+## Credential Attacks & Wordlists
+
+- cewl
+  - run..: `cewl $url`
+  - Repo.: <https://github.com/digininja/CeWL>
+  - Docs.: <https://github.com/digininja/CeWL#readme>
+  - Desc.: Custom wordlist generator that scrapes target sites.
+  - Stat.: Maintenance mode (latest release 2024-07-30; active upstream commits).
+- hashcat
+  - run..: `hashcat -m $mode hashes.txt wordlist.txt`
+  - Repo.: <https://github.com/hashcat/hashcat>
+  - Docs.: <https://hashcat.net/wiki/>
+  - Desc.: GPU-accelerated password hash cracker.
+  - Stat.: Maintenance mode (latest release 2024-08-23; active upstream development).
+- hydra
+  - run..: `hydra -L users.txt -P passwords.txt $target $service`
+  - Repo.: <https://github.com/vanhauser-thc/thc-hydra>
+  - Docs.: <https://github.com/vanhauser-thc/thc-hydra#readme>
+  - Desc.: Parallelized network login brute forcer.
+  - Stat.: Maintained (latest release 2025-05-03).
+- john
+  - run..: `john --wordlist=$wordlist hashes.txt`
+  - Repo.: <https://github.com/openwall/john>
+  - Docs.: <https://www.openwall.com/john/doc/>
+  - Desc.: John the Ripper CPU-focused password cracker.
+  - Stat.: Maintained (latest commit 2026-04-13; no formal release).
+- seclists
+  - run..: `ls $(nix eval --raw nixpkgs#seclists)/share/seclists`
+  - Repo.: <https://github.com/danielmiessler/SecLists>
+  - Docs.: <https://github.com/danielmiessler/SecLists#readme>
+  - Desc.: Curated wordlist collection (passwords, payloads, fuzzing data).
+  - Stat.: Maintained (latest release 2026-03-23).
+
+Reference list trees shipped by the entries above (resolve with `nix eval --raw nixpkgs#<pkg>` and concatenate with the noted suffix):
+
+- `seclists` -> `share/seclists/`
+- `nmap` -> `share/nmap/nselib/data/` (`passwords.lst`, `usernames.lst`, `snmpcommunities.lst`, `http-sql-errors.lst`, `drupal-modules.lst`, `oracle-default-accounts.lst`, `vhosts-{full,default}.lst`, `wp-{plugins,themes}.lst`, `http-web-files-extensions.lst`)
+- `john` -> `share/john/` (`password.lst`, `*.chr`, `rules/`)
+- `hashcat` -> `share/doc/hashcat/` (`rules/`, `masks/`, `charsets/`)
+
+## Wireless Auditing
+
+- aircrack-ng
+  - run..: `aircrack-ng capture.cap`
+  - Repo.: <https://github.com/aircrack-ng/aircrack-ng>
+  - Docs.: <https://www.aircrack-ng.org/documentation.html>
+  - Desc.: 802.11 WPA/WEP capture, replay, and key-recovery suite.
+  - Stat.: Maintenance mode (latest release 2022-05-10; active upstream commits, no recent tag).
+
+## Exploitation Frameworks
+
+- metasploit
+  - run..: `msfconsole`
+  - Repo.: <https://github.com/rapid7/metasploit-framework>
+  - Docs.: <https://docs.metasploit.com/>
+  - Desc.: Modular exploitation, post-exploitation, and payload framework.
+  - Stat.: Maintained (latest release 2026-04-30).
+
+## Reverse Engineering & Dynamic Analysis
+
+- frida-tools
+  - run..: `frida -U $process`
+  - Repo.: <https://github.com/frida/frida-tools>
+  - Docs.: <https://frida.re/docs/>
+  - Desc.: Dynamic instrumentation of native and managed runtimes.
+  - Stat.: Maintained (latest release 2026-05-01).
+- gdb
+  - run..: `gdb $binary`
+  - Repo.: <https://sourceware.org/git/binutils-gdb.git>
+  - Docs.: <https://sourceware.org/gdb/documentation/>
+  - Desc.: GNU debugger for native binary inspection and exploit development.
+  - Stat.: Maintained (latest release 2025-12-20).
+- ghidra
+  - run..: `ghidra`
+  - Repo.: <https://github.com/NationalSecurityAgency/ghidra>
+  - Docs.: <https://ghidra-sre.org/>
+  - Desc.: NSA reverse engineering platform with decompiler.
+  - Stat.: Maintained (latest release 2025-03-04).
+- ltrace
+  - run..: `ltrace $binary`
+  - Repo.: <https://gitlab.com/cespedes/ltrace>
+  - Docs.: <https://www.ltrace.org/>
+  - Desc.: Library call tracer.
+  - Stat.: Maintained (latest release 2025-09-16).
+- strace
+  - run..: `strace $binary`
+  - Repo.: <https://github.com/strace/strace>
+  - Docs.: <https://strace.io/>
+  - Desc.: System call tracer.
+  - Stat.: Maintained (latest release 2026-04-26).
+- valgrind
+  - run..: `valgrind $binary`
+  - Repo.: <https://sourceware.org/git/valgrind.git>
+  - Docs.: <https://valgrind.org/docs/>
+  - Desc.: Memory error and vulnerability inspection toolkit.
+  - Stat.: Maintained (latest release 2026-04-20).
+
+## JavaScript Reversing & Source Recovery
+
+- source-map-explorer
+  - run..: `source-map-explorer bundle.js bundle.js.map`
+  - Repo.: <https://github.com/danvk/source-map-explorer>
+  - Docs.: <https://github.com/danvk/source-map-explorer#readme>
+  - Desc.: Visualizes JavaScript bundles using source maps.
+  - Stat.: Deprecated (latest release 2022-09-26; no upstream activity in 3+ years).
+- sourcemapper
+  - run..: `sourcemapper -url $url -output dir`
+  - Repo.: <https://github.com/denandz/sourcemapper>
+  - Docs.: <https://github.com/denandz/sourcemapper#readme>
+  - Desc.: Reconstructs original sources from production source maps.
+  - Stat.: Maintenance mode (latest release 2024-03-07; mature, occasional patches).
+- synchrony
+  - run..: `synchrony bundle.js`
+  - Repo.: <https://github.com/relative/synchrony>
+  - Docs.: <https://github.com/relative/synchrony#readme>
+  - Desc.: JavaScript deobfuscator targeting common obfuscators.
+  - Stat.: Maintenance mode (latest release 2023-11-09; mature single-author tool).
+- wakaru
+  - run..: `wakaru bundle.js -o out/`
+  - Repo.: <https://github.com/pionxzh/wakaru>
+  - Docs.: <https://wakaru.netlify.app/>
+  - Desc.: JavaScript reverse-engineering toolkit (deminify, deobfuscate).
+  - Stat.: Maintained (latest release 2026-05-03).
+- webcrack
+  - run..: `webcrack bundle.js -o out/`
+  - Repo.: <https://github.com/j4k0xb/webcrack>
+  - Docs.: <https://github.com/j4k0xb/webcrack#readme>
+  - Desc.: JavaScript bundle unpacker and deobfuscator.
+  - Stat.: Maintained (latest release 2026-04-25).
+
+## Anonymity, VPN & Tunneling
+
+- cloudflare-warp
+  - run..: `warp-cli connect`
+  - Repo.: <https://1.1.1.1/>
+  - Docs.: <https://developers.cloudflare.com/warp-client/>
+  - Desc.: Cloudflare WARP client (1.1.1.1 over WireGuard).
+  - Stat.: Maintained (latest release 2026-04-02).
+- cloudflared
+  - run..: `cloudflared tunnel --url http://localhost:8000`
+  - Repo.: <https://github.com/cloudflare/cloudflared>
+  - Docs.: <https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/>
+  - Desc.: Cloudflare Tunnel client; useful for routing lab traffic.
+  - Stat.: Maintained (latest release 2026-03-09).
+- dnsleak
+  - run..: `dnsleak`
+  - Repo.: <https://github.com/macvk/dnsleaktest>
+  - Docs.: <https://github.com/macvk/dnsleaktest#readme>
+  - Desc.: DNS leak testing utility.
+  - Stat.: Maintenance mode (latest release 2024-03-07; mature single-purpose script).
+- networkmanager-openvpn
+  - run..: `nm-connection-editor`
+  - Repo.: <https://gitlab.gnome.org/GNOME/NetworkManager-openvpn>
+  - Docs.: <https://networkmanager.dev/docs/>
+  - Desc.: NetworkManager OpenVPN plugin for managing `.ovpn` profiles from the desktop.
+  - Stat.: Maintained (latest release 2025-12-22).
+- openvpn
+  - run..: `openvpn --config $cfg.ovpn`
+  - Repo.: <https://github.com/OpenVPN/openvpn>
+  - Docs.: <https://openvpn.net/community-resources/>
+  - Desc.: OpenVPN userspace client and server for TLS-based VPN tunnels.
+  - Stat.: Maintained (latest release 2026-04-30).
+- proton-vpn
+  - run..: `protonvpn-app`
+  - Repo.: <https://github.com/ProtonVPN/linux-app>
+  - Docs.: <https://protonvpn.com/support/linux-vpn-tool/>
+  - Desc.: Proton VPN client.
+  - Stat.: Maintained (latest release 2026-04-22).
+- tailscale
+  - run..: `tailscale up`
+  - Repo.: <https://github.com/tailscale/tailscale>
+  - Docs.: <https://tailscale.com/kb/>
+  - Desc.: Mesh VPN built on WireGuard for lab and operator networks.
+  - Stat.: Maintained (latest release 2026-03-27).
+- tor
+  - run..: `tor`
+  - Repo.: <https://gitlab.torproject.org/tpo/core/tor>
+  - Docs.: <https://community.torproject.org/onion-services/setup/>
+  - Desc.: Tor daemon and CLI controller.
+  - Stat.: Maintained (latest release 2026-03-25).
+- tor-browser
+  - run..: `tor-browser`
+  - Repo.: <https://gitlab.torproject.org/tpo/applications/tor-browser>
+  - Docs.: <https://tb-manual.torproject.org/>
+  - Desc.: Hardened Firefox routed over Tor.
+  - Stat.: Maintained (latest release 2026-04-28).
+- torsocks
+  - run..: `torsocks $command`
+  - Repo.: <https://gitlab.torproject.org/tpo/core/torsocks>
+  - Docs.: <https://gitlab.torproject.org/tpo/core/torsocks#readme>
+  - Desc.: Wraps unaware programs through the Tor SOCKS proxy.
+  - Stat.: Maintained (latest release 2025-12-22).
+- wgcf
+  - run..: `wgcf register`
+  - Repo.: <https://github.com/ViRb3/wgcf>
+  - Docs.: <https://github.com/ViRb3/wgcf#readme>
+  - Desc.: Cloudflare WARP/WireGuard registration client.
+  - Stat.: Maintained (latest release 2026-01-07).
+- wireguard-tools
+  - run..: `wg-quick up $iface`
+  - Repo.: <https://git.zx2c4.com/wireguard-tools/>
+  - Docs.: <https://www.wireguard.com/quickstart/>
+  - Desc.: WireGuard userspace utilities.
+  - Stat.: Maintained (latest release 2026-02-23).
+
+## Forensics, Recovery & Imaging
+
+- ddrescue
+  - run..: `ddrescue $src $dst log.txt`
+  - Repo.: <https://www.gnu.org/software/ddrescue/>
+  - Docs.: <https://www.gnu.org/software/ddrescue/manual/ddrescue_manual.html>
+  - Desc.: Block-level recovery from failing media; standard forensic imager.
+  - Stat.: Maintained (latest release 2026-01-02).
+- ent
+  - run..: `ent $file`
+  - Repo.: <https://www.fourmilab.ch/random/>
+  - Docs.: <https://www.fourmilab.ch/random/>
+  - Desc.: Statistical randomness tests for entropy and crypto-quality analysis.
+  - Stat.: Deprecated (latest release 2008-01-28; abandoned single-author tool).
+- exiftool
+  - run..: `exiftool $file`
+  - Repo.: <https://github.com/exiftool/exiftool>
+  - Docs.: <https://exiftool.org/>
+  - Desc.: EXIF and metadata reader/editor for images, documents, and binaries.
+  - Stat.: Maintained (latest release 2026-04-17).
+- file
+  - run..: `file $path`
+  - Repo.: <https://github.com/file/file>
+  - Docs.: <https://www.darwinsys.com/file/>
+  - Desc.: Magic-byte file type identification.
+  - Stat.: Maintained (latest release 2026-02-27).
+- foremost
+  - run..: `foremost -i $image -o output/`
+  - Repo.: <https://foremost.sourceforge.net/>
+  - Docs.: <https://foremost.sourceforge.net/>
+  - Desc.: Header-based file carving from disk images.
+  - Stat.: Deprecated (latest release 2010-11; project abandoned on SourceForge).
+- normcap
+  - run..: `normcap`
+  - Repo.: <https://github.com/dynobo/normcap>
+  - Docs.: <https://dynobo.github.io/normcap/>
+  - Desc.: Screen OCR; commonly used to lift text from CTF artifacts and screenshots.
+  - Stat.: Maintained (latest release 2025-08-31).
+- testdisk
+  - run..: `testdisk`
+  - Repo.: <https://www.cgsecurity.org/wiki/TestDisk>
+  - Docs.: <https://www.cgsecurity.org/wiki/TestDisk_Documentation>
+  - Desc.: Partition table and filesystem recovery.
+  - Stat.: Maintenance mode (latest release 2024-02-22; active project, slow release cadence).
+- ventoy-full
+  - run..: `Ventoy2Disk.sh -i /dev/sdX`
+  - Repo.: <https://github.com/ventoy/Ventoy>
+  - Docs.: <https://www.ventoy.net/en/doc_start.html>
+  - Desc.: Multi-ISO bootable USB builder for forensic and live-response media.
+  - Stat.: Maintained (latest release 2025-04-23).
+- xxd
+  - run..: `xxd $file`
+  - Repo.: <https://github.com/vim/vim>
+  - Docs.: <https://linux.die.net/man/1/xxd>
+  - Desc.: Hex dump and reverse hex viewer.
+  - Stat.: Maintained (latest release 2026-05-03).
+
+## Auditing & Vulnerability Assessment
+
+- lynis
+  - run..: `lynis audit system`
+  - Repo.: <https://github.com/CISOfy/lynis>
+  - Docs.: <https://cisofy.com/documentation/lynis/>
+  - Desc.: Unix system hardening auditor.
+  - Stat.: Maintained (latest release 2025-10-23).
+- ssh-audit
+  - run..: `ssh-audit $host`
+  - Repo.: <https://github.com/jtesta/ssh-audit>
+  - Docs.: <https://github.com/jtesta/ssh-audit#readme>
+  - Desc.: SSH server configuration, key exchange, and host key auditor.
+  - Stat.: Maintenance mode (latest release 2024-10-15; active upstream commits).
+- vt-cli
+  - run..: `vt file $hash`
+  - Repo.: <https://github.com/VirusTotal/vt-cli>
+  - Docs.: <https://docs.virustotal.com/docs/vt-cli>
+  - Desc.: VirusTotal CLI for hash and URL reputation lookups.
+  - Stat.: Maintained (latest release 2026-02-17).
+- vulnix
+  - run..: `vulnix --system`
+  - Repo.: <https://github.com/nix-community/vulnix>
+  - Docs.: <https://github.com/nix-community/vulnix#readme>
+  - Desc.: NixOS-aware CVE scanner against the system closure.
+  - Stat.: Maintained (latest release 2025-02-17).
+
+## Cryptography, Secrets & Credential Management
+
+- age
+  - run..: `age -r $recipient -o out.age $file`
+  - Repo.: <https://github.com/FiloSottile/age>
+  - Docs.: <https://age-encryption.org/>
+  - Desc.: Modern file encryption tool with small key format.
+  - Stat.: Maintained (latest release 2025-12-28).
+- age-plugin-fido2prf
+  - run..: `age-plugin-fido2prf`
+  - Repo.: <https://github.com/Fl1ger/age-plugin-fido2prf>
+  - Docs.: <https://github.com/Fl1ger/age-plugin-fido2prf#readme>
+  - Desc.: FIDO2 PRF plugin for hardware-backed age encryption.
+  - Stat.: Deprecated (upstream repository unavailable).
+- b3sum
+  - run..: `b3sum $file`
+  - Repo.: <https://github.com/BLAKE3-team/BLAKE3>
+  - Docs.: <https://github.com/BLAKE3-team/BLAKE3#readme>
+  - Desc.: BLAKE3 hashing utility for fast integrity and forensic hashing.
+  - Stat.: Maintenance mode (latest release 2024-04-25; active BLAKE3 development).
+- bitwarden-cli
+  - run..: `bw login`
+  - Repo.: <https://github.com/bitwarden/clients>
+  - Docs.: <https://bitwarden.com/help/cli/>
+  - Desc.: Bitwarden vault CLI.
+  - Stat.: Maintained (latest release 2026-04-23).
+- certbot
+  - run..: `certbot certonly`
+  - Repo.: <https://github.com/certbot/certbot>
+  - Docs.: <https://eff-certbot.readthedocs.io/>
+  - Desc.: Let's Encrypt ACME client.
+  - Stat.: Maintained (latest release 2026-04-07).
+- cryptsetup
+  - run..: `cryptsetup luksOpen $device $name`
+  - Repo.: <https://gitlab.com/cryptsetup/cryptsetup>
+  - Docs.: <https://gitlab.com/cryptsetup/cryptsetup/-/wikis/home>
+  - Desc.: LUKS disk encryption userspace.
+  - Stat.: Maintained (latest release 2026-04-02).
+- gopass
+  - run..: `gopass list`
+  - Repo.: <https://github.com/gopasspw/gopass>
+  - Docs.: <https://github.com/gopasspw/gopass/blob/master/docs/index.md>
+  - Desc.: Pass-compatible password store.
+  - Stat.: Maintained (latest release 2025-12-13).
+- gpg-tui
+  - run..: `gpg-tui`
+  - Repo.: <https://github.com/orhun/gpg-tui>
+  - Docs.: <https://github.com/orhun/gpg-tui#readme>
+  - Desc.: TUI GPG keyring manager.
+  - Stat.: Maintained (latest release 2025-04-23).
+- keepassxc
+  - run..: `keepassxc`
+  - Repo.: <https://github.com/keepassxreboot/keepassxc>
+  - Docs.: <https://keepassxc.org/docs/>
+  - Desc.: KeePassXC password manager (KDBX databases).
+  - Stat.: Maintained (latest release 2026-03-10).
+- mkcert
+  - run..: `mkcert example.com`
+  - Repo.: <https://github.com/FiloSottile/mkcert>
+  - Docs.: <https://github.com/FiloSottile/mkcert#readme>
+  - Desc.: Local development certificate authority.
+  - Stat.: Maintenance mode (latest release 2024-04-26; mature, sporadic commits).
+- openssl
+  - run..: `openssl s_client -connect $host:443`
+  - Repo.: <https://github.com/openssl/openssl>
+  - Docs.: <https://docs.openssl.org/>
+  - Desc.: TLS/SSL toolkit and cryptographic CLI.
+  - Stat.: Maintained (latest release 2025-04-14).
+- pwgen
+  - run..: `pwgen 32 1`
+  - Repo.: <https://github.com/tytso/pwgen>
+  - Docs.: <https://github.com/tytso/pwgen#readme>
+  - Desc.: Random password generator.
+  - Stat.: Deprecated (latest release 2017-08-07; no upstream activity in 6+ years).
+- sops
+  - run..: `sops $file`
+  - Repo.: <https://github.com/getsops/sops>
+  - Docs.: <https://github.com/getsops/sops#readme>
+  - Desc.: Secrets-OPS encrypted config files (used by `sops-nix`).
+  - Stat.: Maintained (latest release 2026-03-18).
+- ssh-to-age
+  - run..: `ssh-to-age < ~/.ssh/id_ed25519.pub`
+  - Repo.: <https://github.com/Mic92/ssh-to-age>
+  - Docs.: <https://github.com/Mic92/ssh-to-age#readme>
+  - Desc.: Convert SSH host keys to age recipients.
+  - Stat.: Maintained (latest release 2026-04-23).
+- ssh-to-pgp
+  - run..: `ssh-to-pgp -i ~/.ssh/id_ed25519 -o key.gpg`
+  - Repo.: <https://github.com/Mic92/ssh-to-pgp>
+  - Docs.: <https://github.com/Mic92/ssh-to-pgp#readme>
+  - Desc.: Convert SSH host keys to PGP keys.
+  - Stat.: Maintained (latest release 2025-03-26).
+- veracrypt
+  - run..: `veracrypt`
+  - Repo.: <https://github.com/veracrypt/VeraCrypt>
+  - Docs.: <https://www.veracrypt.fr/en/Documentation.html>
+  - Desc.: TrueCrypt-compatible disk encryption with hidden volumes.
+  - Stat.: Maintained (latest release 2025-05-31).
+- xkcdpass
+  - run..: `xkcdpass`
+  - Repo.: <https://github.com/redacted/XKCD-password-generator>
+  - Docs.: <https://github.com/redacted/XKCD-password-generator#readme>
+  - Desc.: Memorable passphrase generator.
+  - Stat.: Maintained (latest release 2026-01-11).
+- yubico-piv-tool
+  - run..: `yubico-piv-tool -a status`
+  - Repo.: <https://github.com/Yubico/yubico-piv-tool>
+  - Docs.: <https://developers.yubico.com/yubico-piv-tool/>
+  - Desc.: PIV smartcard configuration for YubiKey.
+  - Stat.: Maintained (latest release 2025-01-20).
+- yubikey-manager
+  - run..: `ykman info`
+  - Repo.: <https://github.com/Yubico/yubikey-manager>
+  - Docs.: <https://developers.yubico.com/yubikey-manager/>
+  - Desc.: YubiKey configuration utility.
+  - Stat.: Maintained (latest release 2026-04-15).
+- yubikey-personalization
+  - run..: `ykpersonalize -y -1`
+  - Repo.: <https://github.com/Yubico/yubikey-personalization>
+  - Docs.: <https://developers.yubico.com/yubikey-personalization/>
+  - Desc.: YubiKey OTP and challenge-response setup.
+  - Stat.: Deprecated (repository archived 2025-02-20; last release 2019-07-03).
+
+## Disk & Storage Inspection
+
+- gparted
+  - run..: `gparted`
+  - Repo.: <https://gitlab.gnome.org/GNOME/gparted>
+  - Docs.: <https://gparted.org/documentation.php>
+  - Desc.: Graphical partition editor used during forensic mounting and image preparation.
+  - Stat.: Maintained (latest release 2026-03-17).
+- parted
+  - run..: `parted $device`
+  - Repo.: <https://git.savannah.gnu.org/cgit/parted.git>
+  - Docs.: <https://www.gnu.org/software/parted/manual/>
+  - Desc.: Command-line partition editor used during forensic mounting and image preparation.
+  - Stat.: Maintained (latest release 2026-04-08).
+- gnome-disk-utility
+  - run..: `gnome-disks`
+  - Repo.: <https://gitlab.gnome.org/GNOME/gnome-disk-utility>
+  - Docs.: <https://help.gnome.org/users/gnome-help/stable/disk.html>
+  - Desc.: GUI disk inspector with SMART and image creation features.
+  - Stat.: Maintenance mode (latest release 2024-09-03; active GNOME upstream).
+- hdparm
+  - run..: `hdparm -I $device`
+  - Repo.: <https://sourceforge.net/projects/hdparm/>
+  - Docs.: <https://sourceforge.net/projects/hdparm/files/>
+  - Desc.: Low-level ATA/SATA control; flushes caches and reads identify data.
+  - Stat.: Maintenance mode (latest release 2018-03-25; mature core utility, infrequent updates).
+- lshw
+  - run..: `lshw -short`
+  - Repo.: <https://github.com/lyonel/lshw>
+  - Docs.: <https://ezix.org/project/wiki/HardwareLiSter>
+  - Desc.: Hardware inventory used to document acquisition systems.
+  - Stat.: Maintenance mode (latest release 2024-01-06; active upstream commits).
+- nvme-cli
+  - run..: `nvme list`
+  - Repo.: <https://github.com/linux-nvme/nvme-cli>
+  - Docs.: <https://github.com/linux-nvme/nvme-cli#readme>
+  - Desc.: NVMe namespace, log, and self-test inspection.
+  - Stat.: Maintenance mode (latest release 2024-11-04; active upstream commits).
+- smartmontools
+  - run..: `smartctl -a $device`
+  - Repo.: <https://github.com/smartmontools/smartmontools>
+  - Docs.: <https://www.smartmontools.org/>
+  - Desc.: SMART self-tests and disk health attributes.
+  - Stat.: Maintained (latest release 2025-05-12).
+
+## Document & PDF Analysis
+
+- ocrmypdf
+  - run..: `ocrmypdf $in.pdf $out.pdf`
+  - Repo.: <https://github.com/ocrmypdf/OCRmyPDF>
+  - Docs.: <https://ocrmypdf.readthedocs.io/>
+  - Desc.: Adds OCR layers to scanned PDFs for searchable evidence.
+  - Stat.: Maintained (latest release 2025-04-06).
+- poppler-utils
+  - run..: `pdftotext $file.pdf -`
+  - Repo.: <https://gitlab.freedesktop.org/poppler/poppler>
+  - Docs.: <https://poppler.freedesktop.org/>
+  - Desc.: pdfinfo, pdfimages, pdftotext for content extraction.
+  - Stat.: Maintained (latest release 2026-05-03).
+- pymupdf
+  - run..: `python -c 'import pymupdf; pymupdf.open("file.pdf")'`
+  - Repo.: <https://github.com/pymupdf/PyMuPDF>
+  - Docs.: <https://pymupdf.readthedocs.io/>
+  - Desc.: Python PDF manipulation library used in analysis scripts.
+  - Stat.: Maintained (latest release 2026-04-24).
+- qpdf
+  - run..: `qpdf --decrypt --password=$pass $in $out`
+  - Repo.: <https://github.com/qpdf/qpdf>
+  - Docs.: <https://qpdf.readthedocs.io/>
+  - Desc.: Structural PDF inspection and decryption.
+  - Stat.: Maintained (latest release 2026-01-24).
+- tesseract
+  - run..: `tesseract $image $out`
+  - Repo.: <https://github.com/tesseract-ocr/tesseract>
+  - Docs.: <https://tesseract-ocr.github.io/>
+  - Desc.: OCR engine behind many image-to-text pipelines.
+  - Stat.: Maintained (latest release 2025-12-26).
+
+## Database Clients
+
+- mysql
+  - run..: `mysql -h $host -u $user -p`
+  - Repo.: <https://github.com/MariaDB/server>
+  - Docs.: <https://mariadb.com/kb/en/documentation/>
+  - Desc.: MySQL/MariaDB client used during SQL injection follow-up and DB review.
+  - Stat.: Maintained (latest release 2025-02-12).
+- sqlite
+  - run..: `sqlite3 $file.db`
+  - Repo.: <https://github.com/sqlite/sqlite>
+  - Docs.: <https://www.sqlite.org/docs.html>
+  - Desc.: SQLite CLI for inspecting application databases and forensic artifacts.
+  - Stat.: Maintained (latest release 2026-04-09).
+
+## Traffic Capture & Network Diagnostics
+
+- iptables
+  - run..: `iptables -L -nv`
+  - Repo.: <https://git.netfilter.org/iptables/>
+  - Docs.: <https://www.netfilter.org/documentation/>
+  - Desc.: Legacy Netfilter rule administration for lab routing and isolation.
+  - Stat.: Maintained (latest release 2026-03-04).
+- nftables
+  - run..: `nft list ruleset`
+  - Repo.: <https://git.netfilter.org/nftables/>
+  - Docs.: <https://wiki.nftables.org/>
+  - Desc.: Modern Netfilter rule administration for lab routing and isolation.
+  - Stat.: Maintained (latest release 2025-12-05).
+- netcat
+  - run..: `nc -lvnp 4444`
+  - Repo.: <https://github.com/libressl/portable>
+  - Docs.: <https://man.openbsd.org/nc.1>
+  - Desc.: Raw TCP/UDP read/write for port testing, banner grabbing, and pivots; this attribute packages the LibreSSL/OpenBSD-derived `nc` (not Hobbit's nc110).
+  - Stat.: Maintained (LibreSSL 4.2.1; active OpenBSD release cadence).
+- socat
+  - run..: `socat TCP-LISTEN:1234 EXEC:/bin/bash`
+  - Repo.: <http://www.dest-unreach.org/socat/>
+  - Docs.: <http://www.dest-unreach.org/socat/doc/socat.html>
+  - Desc.: Bidirectional data relay between sockets, files, and processes.
+  - Stat.: Maintained (latest release 2026-02-12).
+- tcpdump
+  - run..: `tcpdump -i $iface -w out.pcap`
+  - Repo.: <https://github.com/the-tcpdump-group/tcpdump>
+  - Docs.: <https://www.tcpdump.org/manpages/tcpdump.1.html>
+  - Desc.: Command-line packet capture.
+  - Stat.: Maintained (latest release 2025-12-30).
+- wireshark
+  - run..: `wireshark`
+  - Repo.: <https://gitlab.com/wireshark/wireshark>
+  - Docs.: <https://www.wireshark.org/docs/>
+  - Desc.: GUI packet analyzer with deep protocol dissectors.
+  - Stat.: Maintained (latest release 2026-04-29).
+
+## System Internals & Incident Response
+
+- bottom
+  - run..: `btm`
+  - Repo.: <https://github.com/ClementTsang/bottom>
+  - Docs.: <https://clementtsang.github.io/bottom/>
+  - Desc.: Live process and resource viewer (Rust).
+  - Stat.: Maintained (latest release 2026-01-01).
+- htop
+  - run..: `htop`
+  - Repo.: <https://github.com/htop-dev/htop>
+  - Docs.: <https://htop.dev/>
+  - Desc.: Interactive process and resource viewer.
+  - Stat.: Maintained (latest release 2026-04-28).
+- bubblewrap
+  - run..: `bwrap --bind / / --dev /dev --proc /proc $cmd`
+  - Repo.: <https://github.com/containers/bubblewrap>
+  - Docs.: <https://github.com/containers/bubblewrap#readme>
+  - Desc.: Unprivileged sandboxing primitive used for analysis isolation.
+  - Stat.: Maintained (latest release 2025-04-23).
+- dmidecode
+  - run..: `dmidecode`
+  - Repo.: <https://git.savannah.nongnu.org/cgit/dmidecode.git>
+  - Docs.: <https://www.nongnu.org/dmidecode/>
+  - Desc.: SMBIOS hardware and firmware inventory.
+  - Stat.: Maintained (latest release 2025-12-18).
+- iotop
+  - run..: `iotop`
+  - Repo.: <https://repo.or.cz/w/iotop.git>
+  - Docs.: <http://guichaz.free.fr/iotop/>
+  - Desc.: Per-process IO accounting for live triage.
+  - Stat.: Deprecated (latest release 2023-04-03; no upstream activity in 3+ years; consider iotop-c fork).
+- lsof
+  - run..: `lsof -p $pid`
+  - Repo.: <https://github.com/lsof-org/lsof>
+  - Docs.: <https://github.com/lsof-org/lsof#readme>
+  - Desc.: Lists open files, sockets, and locks for incident triage.
+  - Stat.: Maintained (latest release 2025-03-04).
+- procps
+  - run..: `ps auxf`
+  - Repo.: <https://gitlab.com/procps-ng/procps>
+  - Docs.: <https://gitlab.com/procps-ng/procps#readme>
+  - Desc.: ps, top, free, and friends for process inspection.
+  - Stat.: Maintained (latest release 2026-01-29).
+- psmisc
+  - run..: `pstree -p`
+  - Repo.: <https://gitlab.com/psmisc/psmisc>
+  - Docs.: <https://gitlab.com/psmisc/psmisc#readme>
+  - Desc.: killall, pstree, and fuser.
+  - Stat.: Maintenance mode (latest release 2024-03-03; active upstream commits).
+- sysstat
+  - run..: `sar -A`
+  - Repo.: <https://github.com/sysstat/sysstat>
+  - Docs.: <https://sysstat.github.io/>
+  - Desc.: Historical CPU, IO, and network statistics (sar).
+  - Stat.: Maintained (latest release 2025-12-07).
+- usbutils
+  - run..: `lsusb -v`
+  - Repo.: <https://github.com/gregkh/usbutils>
+  - Docs.: <https://github.com/gregkh/usbutils#readme>
+  - Desc.: lsusb and friends for USB device inspection.
+  - Stat.: Maintained (latest release 2025-10-22).
+
+## Archive & Compression Analysis
+
+- bzip2
+  - run..: `bzip2 -d $file.bz2`
+  - Repo.: <https://gitlab.com/bzip2/bzip2>
+  - Docs.: <https://sourceware.org/bzip2/docs.html>
+  - Desc.: BZ2 compression utility used in CTF unpacking and malware triage.
+  - Stat.: Core utility (1.0.8, 2019-07-13).
+- gzip
+  - run..: `gzip -d $file.gz`
+  - Repo.: <https://git.savannah.gnu.org/cgit/gzip.git>
+  - Docs.: <https://www.gnu.org/software/gzip/manual/>
+  - Desc.: GZIP compression utility used in CTF unpacking and malware triage.
+  - Stat.: Maintained (latest release 2025-04-09).
+- xz
+  - run..: `xz -d $file.xz`
+  - Repo.: <https://github.com/tukaani-project/xz>
+  - Docs.: <https://tukaani.org/xz/>
+  - Desc.: XZ/LZMA compression utility used in CTF unpacking and malware triage.
+  - Stat.: Maintained (latest release 2026-03-31).
+- zstd
+  - run..: `zstd -d $file.zst`
+  - Repo.: <https://github.com/facebook/zstd>
+  - Docs.: <https://facebook.github.io/zstd/>
+  - Desc.: Zstandard compression utility used in CTF unpacking and malware triage.
+  - Stat.: Maintained (latest release 2025-02-19).
+- p7zip
+  - run..: `7z x $archive`
+  - Repo.: <https://github.com/p7zip-project/p7zip>
+  - Docs.: <https://github.com/p7zip-project/p7zip#readme>
+  - Desc.: 7-zip implementation for nested archive extraction.
+  - Stat.: Maintenance mode (latest release 2023-03-03; community fork actively patched).
+- p7zip-rar
+  - run..: `7z x $archive.rar`
+  - Repo.: <https://github.com/p7zip-project/p7zip>
+  - Docs.: <https://github.com/p7zip-project/p7zip#readme>
+  - Desc.: 7-zip with RAR codec for nested archive extraction.
+  - Stat.: Maintenance mode (latest release 2023-03-03; community fork actively patched).
+- rar
+  - run..: `rar a $archive.rar $files`
+  - Repo.: <https://www.rarlab.com/>
+  - Docs.: <https://www.rarlab.com/rar_archiver.htm>
+  - Desc.: RAR archive creation utility.
+  - Stat.: Maintained (latest release 2026-04-29).
+- unrar
+  - run..: `unrar x $archive.rar`
+  - Repo.: <https://www.rarlab.com/>
+  - Docs.: <https://www.rarlab.com/rar_archiver.htm>
+  - Desc.: RAR archive extraction utility.
+  - Stat.: Maintained (latest release 2026-04-29).
+- tar
+  - run..: `tar -xvf $archive.tar`
+  - Repo.: <https://git.savannah.gnu.org/cgit/tar.git>
+  - Docs.: <https://www.gnu.org/software/tar/manual/>
+  - Desc.: Tarball handling for evidence packaging and unpacking.
+  - Stat.: Core utility (GNU tar 1.35, 2023-07-18).
+- unzip
+  - run..: `unzip $archive.zip`
+  - Repo.: <https://infozip.sourceforge.net/UnZip.html>
+  - Docs.: <https://infozip.sourceforge.net/UnZip.html>
+  - Desc.: ZIP archive extraction utility.
+  - Stat.: Deprecated (latest release 2009-04-20; Info-ZIP project abandoned; prefer `bsdunzip` from libarchive or `7z x` from `p7zip` for new work).
+- zip
+  - run..: `zip -r $archive.zip $dir`
+  - Repo.: <https://infozip.sourceforge.net/Zip.html>
+  - Docs.: <https://infozip.sourceforge.net/Zip.html>
+  - Desc.: ZIP archive creation utility.
+  - Stat.: Deprecated (latest release 2008-07-07; Info-ZIP project abandoned; prefer `bsdtar --format zip` from libarchive or `7z a` from `p7zip` for new work).
+
+## QR & Encoded Payload Handling
+
+- qrencode
+  - run..: `qrencode -o out.png "$payload"`
+  - Repo.: <https://github.com/fukuchi/libqrencode>
+  - Docs.: <https://fukuchi.org/works/qrencode/>
+  - Desc.: Generates QR codes; useful for crafting CTF or MFA enrollment payloads.
+  - Stat.: Deprecated (latest release 2020-09-28; no upstream activity in 5+ years).
+- zbar
+  - run..: `zbarimg $image`
+  - Repo.: <https://github.com/mchehab/zbar>
+  - Docs.: <https://github.com/mchehab/zbar#readme>
+  - Desc.: Decodes QR and 1D barcodes from images and webcams.
+  - Stat.: Maintenance mode (latest release 2024-01-09; active maintainer, occasional commits).
+
+## Containers, Virtualization & Cloud Labs
+
+- azure-cli
+  - run..: `az login`
+  - Repo.: <https://github.com/Azure/azure-cli>
+  - Docs.: <https://learn.microsoft.com/en-us/cli/azure/>
+  - Desc.: Azure CLI for cloud audits.
+  - Stat.: Maintained (latest release 2025-04-07).
+- azd
+  - run..: `azd up`
+  - Repo.: <https://github.com/Azure/azure-dev>
+  - Docs.: <https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/>
+  - Desc.: Azure Developer CLI for application provisioning and audits.
+  - Stat.: Maintained (latest release 2026-05-02).
+- msgraph-cli
+  - run..: `mgc login`
+  - Repo.: <https://github.com/microsoftgraph/msgraph-cli>
+  - Docs.: <https://learn.microsoft.com/en-us/graph/cli/overview>
+  - Desc.: Microsoft Graph CLI for tenant inspection and audits.
+  - Stat.: Deprecated (latest release 2024-06-03; repository archived 2025-08-29 by Microsoft).
+- cf-terraforming
+  - run..: `cf-terraforming generate --resource-type cloudflare_zone`
+  - Repo.: <https://github.com/cloudflare/cf-terraforming>
+  - Docs.: <https://github.com/cloudflare/cf-terraforming#readme>
+  - Desc.: Cloudflare Terraform import helper.
+  - Stat.: Maintained (latest release 2026-05-01).
+- flarectl
+  - run..: `flarectl zone list`
+  - Repo.: <https://github.com/cloudflare/cloudflare-go>
+  - Docs.: <https://github.com/cloudflare/cloudflare-go/blob/main/cmd/flarectl/README.md>
+  - Desc.: Cloudflare API CLI bundled with the Go SDK.
+  - Stat.: Maintained (latest release 2026-04-30).
+- wrangler
+  - run..: `wrangler deploy`
+  - Repo.: <https://github.com/cloudflare/workers-sdk>
+  - Docs.: <https://developers.cloudflare.com/workers/wrangler/>
+  - Desc.: Cloudflare Workers control-plane CLI.
+  - Stat.: Maintained (latest release 2026-04-30).
+- docker
+  - run..: `docker run -it $image`
+  - Repo.: <https://github.com/moby/moby>
+  - Docs.: <https://docs.docker.com/>
+  - Desc.: Container runtime used for sandboxes and vulnerable labs.
+  - Stat.: Maintained (latest release 2025-05-01).
+- lazydocker
+  - run..: `lazydocker`
+  - Repo.: <https://github.com/jesseduffield/lazydocker>
+  - Docs.: <https://github.com/jesseduffield/lazydocker#readme>
+  - Desc.: TUI for docker used to inspect lab containers.
+  - Stat.: Maintained (latest release 2026-04-19).
+- terraform
+  - run..: `terraform plan`
+  - Repo.: <https://github.com/hashicorp/terraform>
+  - Docs.: <https://developer.hashicorp.com/terraform/docs>
+  - Desc.: IaC tool used in cloud audit and lab provisioning workflows.
+  - Stat.: Maintained (latest release 2026-05-01).
+- wine-tools
+  - run..: `wine $binary.exe`
+  - Repo.: <https://gitlab.winehq.org/wine/wine>
+  - Docs.: <https://wiki.winehq.org/>
+  - Desc.: Wine helpers used for triaging Windows binaries on Linux.
+  - Stat.: Maintained (latest release 2026-05-01).
+
+## Privacy-Focused & Research Browsers
+
+- brave
+  - run..: `brave`
+  - Repo.: <https://github.com/brave/brave-browser>
+  - Docs.: <https://brave.com/help/>
+  - Desc.: Chromium-based browser with built-in privacy hardening.
+  - Stat.: Maintained (latest release 2025-05-04).
+- brave-origin
+  - run..: `brave-origin`
+  - Repo.: <https://github.com/brave/brave-browser>
+  - Docs.: <https://brave.com/help/>
+  - Desc.: Brave variant packaged without telemetry hooks.
+  - Stat.: Maintained (latest release 2025-05-04).
+- firefox
+  - run..: `firefox`
+  - Repo.: <https://hg.mozilla.org/mozilla-central>
+  - Docs.: <https://support.mozilla.org/en-US/products/firefox>
+  - Desc.: Firefox browser with developer and security tooling.
+  - Stat.: Maintained (latest release 2026-04-21).
+- floorp
+  - run..: `floorp`
+  - Repo.: <https://github.com/Floorp-Projects/Floorp>
+  - Docs.: <https://docs.floorp.app/>
+  - Desc.: Firefox-derived browser with privacy presets.
+  - Stat.: Maintained (latest release 2026-05-02).
+- librewolf
+  - run..: `librewolf`
+  - Repo.: <https://gitlab.com/librewolf-community/browser/source>
+  - Docs.: <https://librewolf.net/docs/>
+  - Desc.: Privacy-focused Firefox derivative with telemetry stripped.
+  - Stat.: Maintained (latest release 2025-12-18).
+- mullvad-browser
+  - run..: `mullvad-browser`
+  - Repo.: <https://github.com/mullvad/mullvad-browser>
+  - Docs.: <https://mullvad.net/en/browser>
+  - Desc.: Mullvad-tuned hardened Firefox without a Tor circuit.
+  - Stat.: Maintained (latest release 2025-04-28).
+- ungoogled-chromium
+  - run..: `ungoogled-chromium`
+  - Repo.: <https://github.com/ungoogled-software/ungoogled-chromium>
+  - Docs.: <https://github.com/ungoogled-software/ungoogled-chromium#readme>
+  - Desc.: Chromium with Google integration removed.
+  - Stat.: Maintained (latest release 2025-04-30).
+
+## Browser & API Automation
+
+- playwright
+  - run..: `playwright codegen $url`
+  - Repo.: <https://github.com/microsoft/playwright>
+  - Docs.: <https://playwright.dev/docs/intro>
+  - Desc.: Cross-browser automation CLI (`playwright test`, `playwright open`, `playwright codegen`) backed by Chromium, Firefox, and WebKit; useful for fuzzing, headless recon, and recording interaction scripts.
+  - Stat.: Maintained (latest release 2025-04-01).
+- selenium
+  - run..: `selenium-side-runner $tests`
+  - Repo.: <https://github.com/SeleniumHQ/selenium>
+  - Docs.: <https://www.selenium.dev/documentation/>
+  - Desc.: Long-running browser automation framework.
+  - Stat.: Maintained (latest release 2025-04-10).
+- httpie
+  - run..: `http GET $url`
+  - Repo.: <https://github.com/httpie/cli>
+  - Docs.: <https://httpie.io/docs>
+  - Desc.: User-friendly HTTP CLI used in recon and exploitation.
+  - Stat.: Maintenance mode (latest release 2024-11-01; active upstream development).
+- curlie
+  - run..: `curlie $url`
+  - Repo.: <https://github.com/rs/curlie>
+  - Docs.: <https://github.com/rs/curlie#readme>
+  - Desc.: HTTPie-style frontend over curl.
+  - Stat.: Maintained (latest release 2025-03-07).
+- curl
+  - run..: `curl -sS $url`
+  - Repo.: <https://github.com/curl/curl>
+  - Docs.: <https://curl.se/docs/>
+  - Desc.: Universal HTTP client used everywhere in recon and exploitation.
+  - Stat.: Maintained (latest release 2026-04-29).
+- xh
+  - run..: `xh GET $url`
+  - Repo.: <https://github.com/ducaale/xh>
+  - Docs.: <https://github.com/ducaale/xh#readme>
+  - Desc.: Rust HTTPie clone for ergonomic HTTP requests.
+  - Stat.: Maintenance mode (latest release 2024-12-16; active upstream development).
+- wget
+  - run..: `wget $url`
+  - Repo.: <https://git.savannah.gnu.org/cgit/wget.git>
+  - Docs.: <https://www.gnu.org/software/wget/manual/>
+  - Desc.: Bulk HTTP downloader used in recon.
+  - Stat.: Maintenance mode (latest release 2024-11-10; GNU project, regular commits).
+- htmlq
+  - run..: `htmlq -f page.html '.selector'`
+  - Repo.: <https://github.com/mgdm/htmlq>
+  - Docs.: <https://github.com/mgdm/htmlq#readme>
+  - Desc.: CSS-selector HTML parser for scraping recon output.
+  - Stat.: Maintained (latest release 2025-01-03).
+- yaak
+  - run..: `yaak`
+  - Repo.: <https://github.com/mountain-loop/yaak>
+  - Docs.: <https://yaak.app/docs>
+  - Desc.: API client useful during web service testing.
+  - Stat.: Maintained (latest release 2026-03-12).
+
+## Remote Access
+
+- mosh
+  - run..: `mosh $user@$host`
+  - Repo.: <https://github.com/mobile-shell/mosh>
+  - Docs.: <https://mosh.org/>
+  - Desc.: Resilient mobile shell over UDP.
+  - Stat.: Maintenance mode (latest release 2024-10-27; active upstream commits).
+- openssh
+  - run..: `ssh $user@$host`
+  - Repo.: <https://github.com/openssh/openssh-portable>
+  - Docs.: <https://www.openssh.com/manual.html>
+  - Desc.: SSH client and server suite.
+  - Stat.: Maintained (latest release 2026-04-02).
+- remmina
+  - run..: `remmina`
+  - Repo.: <https://gitlab.com/Remmina/Remmina>
+  - Docs.: <https://gitlab.com/Remmina/Remmina/-/wikis/home>
+  - Desc.: Multi-protocol remote desktop client (RDP, VNC, SPICE, NX).
+  - Stat.: Maintained (latest release 2026-02-20).
+- sshfs
+  - run..: `sshfs $user@$host:$remote $local`
+  - Repo.: <https://github.com/libfuse/sshfs>
+  - Docs.: <https://github.com/libfuse/sshfs#readme>
+  - Desc.: Mount remote filesystems over SSH.
+  - Stat.: Maintained (latest release 2025-11-11).
+
+## Notes
+
+- Disabled-by-default reverse engineering and binary analysis tools (radare2, rizin, iaito, cutter, jadx, malimite, hopper) are present in the catalog with `enable = false`. Flip the flag in the relevant host's `apps-enable.nix` to bring them in.
+- This catalog is maintained by hand. After adding or removing entries in `modules/<host>/apps-enable.nix`, refresh the relevant section here.
