@@ -42,6 +42,8 @@
         lib.hm.dag.entryAfter [ "importPassGpgKey" ] ''
           if [ -r ${lib.escapeShellArg keyPath} ]; then
             ${lib.getExe passGpgBootstrap} init-store ${lib.escapeShellArg keyFingerprint}
+          else
+            echo "Skipping pass store init: secret not yet available at" ${lib.escapeShellArg keyPath} >&2
           fi
         ''
       );
