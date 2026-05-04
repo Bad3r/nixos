@@ -19,6 +19,7 @@ iterm2_with_bell = "iterm2_with_bell"
 Autorize = "Autorize"                 # Burp Suite extension
 Hashi = "Hashi"                       # HashiCorp (company name prefix)
 Laf = "Laf"                           # FlatLaf Java look-and-feel suffix
+gost = "gost"                         # GO Simple Tunnel (ginuerzh/gost)
 
 # NixOS/nixpkgs terms
 facter = "facter"             # nixos-facter-modules

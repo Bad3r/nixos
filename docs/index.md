@@ -80,6 +80,13 @@
 - [packaging/javascript-packages.md](packaging/javascript-packages.md)
   - Packaging npm, pnpm, and bun applications in NixOS including monorepos, native modules, and Electron apps.
 
+## Cybersecurity
+
+- [csec/toolkit.md](csec/toolkit.md)
+  - Catalog of cybersecurity-relevant apps managed by this configuration covering recon, web testing, credential attacks, RE, forensics, and dual-use utilities.
+- [csec/additional-tools-reference.md](csec/additional-tools-reference.md)
+  - Reference catalog of pentesting tools available via `nix run`/`nix shell` that complement the active toolkit, grouped by AD, recon, web testing, credential attacks, wireless, RE, forensics, stego, SAST, cloud, and pivoting.
+
 ## Reference
 
 - [reference/github-labels.md](reference/github-labels.md)

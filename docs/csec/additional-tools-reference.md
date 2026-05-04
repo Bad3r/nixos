@@ -1,0 +1,890 @@
+# Pentesting Tooling Reference
+
+Reference catalog of cybersecurity tools that complement the active toolkit in [`docs/csec/toolkit.md`](../../docs/csec/toolkit.md). Most can be invoked ad-hoc through `nix run`, dropped into a `nix shell`, or promoted to a host by authoring a `modules/apps/<name>.nix` module and flipping the corresponding flag in `apps-enable.nix`.
+
+Each entry lists a representative run command, upstream repository, official documentation, and a one-line description. Verified against `nixpkgs` rev pinned in `flake.lock` on 2026-05-04.
+
+`Stat.` classifies upstream health as of 2026-05-04: **Maintained** (tagged release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), or **Deprecated** (archived, abandoned, or officially superseded).
+
+## Active Directory & Windows
+
+- netexec
+  - run..: `nix run nixpkgs#netexec -- smb $target -u $user -p $pass`
+  - Repo.: <https://github.com/Pennyw0rth/NetExec>
+  - Docs.: <https://www.netexec.wiki/>
+  - Desc.: Maintained CrackMapExec fork for SMB/WinRM/MSSQL/LDAP/SSH/RDP/FTP exploitation and AD enumeration.
+  - Stat.: Maintained (v1.5.1, 2026-02-23).
+- impacket
+  - run..: `nix shell nixpkgs#python3Packages.impacket -c impacket-secretsdump -- $user:$pass@$target`
+    - ⚠️ Failed to run: the nixpkgs derivation ships scripts as `secretsdump.py`; the `impacket-secretsdump` alias does not exist. Use `nix shell nixpkgs#python3Packages.impacket -c secretsdump.py ...` instead.
+  - Repo.: <https://github.com/fortra/impacket>
+  - Docs.: <https://www.fortra.com/resources/tools/impacket>
+  - Desc.: Python class library plus CLI scripts (`secretsdump.py`, `psexec.py`, `wmiexec.py`, `GetUserSPNs.py`, `ntlmrelayx.py`) for protocol-level Windows attacks.
+  - Stat.: Maintained (0.13.0, 2025-10-22).
+- bloodhound
+  - run..: `nix run nixpkgs#bloodhound`
+  - Repo.: <https://github.com/SpecterOps/BloodHound-Legacy>
+  - Docs.: <https://bloodhound.readthedocs.io/>
+  - Desc.: Active Directory attack-path graph UI; visualizes relationships ingested from collectors.
+  - Stat.: Deprecated (v4.3.1, 2023-05-23; officially superseded by BloodHound Community Edition).
+- bloodhound-py
+  - run..: `nix run nixpkgs#bloodhound-py -- -c All -d $domain -u $user -p $pass -dc $dc`
+  - Repo.: <https://github.com/dirkjanm/BloodHound.py>
+  - Docs.: <https://github.com/dirkjanm/BloodHound.py#readme>
+  - Desc.: Python BloodHound ingestor (no Windows host required) built on impacket.
+  - Stat.: Maintenance mode (last release v1.0.1, 2020-02-18; active commits on bloodhound-ce branch through 2025-10-24).
+- responder
+  - run..: `nix run nixpkgs#responder -- -I $iface`
+  - Repo.: <https://github.com/lgandx/Responder>
+  - Docs.: <https://github.com/lgandx/Responder/wiki>
+  - Desc.: LLMNR/NBT-NS/MDNS poisoner with rogue HTTP/SMB/MSSQL/FTP/LDAP authentication servers for hash capture and relay setup.
+  - Stat.: Maintained (v3.2.2.0, 2026-01-26).
+- evil-winrm
+  - run..: `nix run nixpkgs#evil-winrm -- -i $ip -u $user -p $pass`
+    - ⚠️ Failed to run: Ruby 3.4 LoadError. The `csv` gem is missing and `winrm-fs` fails to load. Upstream nixpkgs build is currently broken.
+  - Repo.: <https://github.com/Hackplayers/evil-winrm>
+  - Docs.: <https://github.com/Hackplayers/evil-winrm#readme>
+  - Desc.: Interactive WinRM shell with built-in upload/download, AMSI bypass scaffolding, and PowerShell pass-through.
+  - Stat.: Maintained (v3.9, 2025-12-07).
+- kerbrute
+  - run..: `nix run nixpkgs#kerbrute -- userenum -d $domain users.txt`
+    - ⚠️ Failed to run: the nixpkgs `kerbrute` attribute resolves to impacket's Python AS-REP roasting tool, not ropnop's Go binary. The `userenum` subcommand belongs to ropnop's CLI and does not exist in the impacket version.
+  - Repo.: <https://github.com/ropnop/kerbrute>
+  - Docs.: <https://github.com/ropnop/kerbrute#readme>
+  - Desc.: Stealthy Kerberos username and password enumerator using AS-REQ pre-auth.
+  - Stat.: Deprecated (v1.0.3, 2019-12-15; no upstream activity in 5+ years).
+- certipy
+  - run..: `nix run nixpkgs#certipy -- find -u $user@$domain -p $pass`
+  - Repo.: <https://github.com/ly4k/Certipy>
+  - Docs.: <https://github.com/ly4k/Certipy/wiki>
+  - Desc.: Enumerate and abuse misconfigurations in Active Directory Certificate Services (ESC1-ESC11).
+  - Stat.: Maintained (5.0.4, 2025-11-22).
+- mitm6
+  - run..: `nix run nixpkgs#mitm6 -- -d $domain`
+    - ⚠️ Failed to run: Python 3.13 evaluation error. `future-1.0.0` is not supported on the active interpreter.
+  - Repo.: <https://github.com/dirkjanm/mitm6>
+  - Docs.: <https://blog.fox-it.com/2018/01/11/mitm6-compromising-ipv4-networks-via-ipv6/>
+  - Desc.: DHCPv6 spoofer for IPv6-based DNS takeover and NTLM relay setup.
+  - Stat.: Deprecated (v0.3.0, 2022-07-05; no commits in 4+ years).
+- enum4linux-ng
+  - run..: `nix run nixpkgs#enum4linux-ng -- -A $target`
+  - Repo.: <https://github.com/cddmp/enum4linux-ng>
+  - Docs.: <https://github.com/cddmp/enum4linux-ng#readme>
+  - Desc.: Modern Python rewrite of enum4linux for SMB/RPC enumeration (shares, users, OS, password policy).
+  - Stat.: Maintained (v1.3.10, 2026-02-20).
+- smbmap
+  - run..: `nix run nixpkgs#smbmap -- -H $target -u $user -p $pass`
+  - Repo.: <https://github.com/ShawnDEvans/smbmap>
+  - Docs.: <https://github.com/ShawnDEvans/smbmap#readme>
+  - Desc.: Enumerate SMB shares with permission mapping, recursive listing, and remote command execution.
+  - Stat.: Maintained (v1.10.8, 2026-01-06).
+- adidnsdump
+  - run..: `nix run nixpkgs#adidnsdump -- -u 'DOMAIN\user' $dc`
+  - Repo.: <https://github.com/dirkjanm/adidnsdump>
+  - Docs.: <https://dirkjanm.io/getting-in-the-zone-dumping-active-directory-dns-with-adidnsdump/>
+  - Desc.: Dump Active Directory-integrated DNS zones over LDAP, including hidden records that ordinary users cannot list.
+  - Stat.: Maintained (v1.4.0, 2025-04-04).
+- ldapdomaindump
+  - run..: `nix run nixpkgs#ldapdomaindump -- -u 'DOMAIN\user' -p $pass $dc`
+  - Repo.: <https://github.com/dirkjanm/ldapdomaindump>
+  - Docs.: <https://github.com/dirkjanm/ldapdomaindump#readme>
+  - Desc.: Authenticated LDAP enumeration of users, groups, computers, and policies into HTML/JSON/Greppable reports.
+  - Stat.: Maintained (v0.10.0, 2025-04-04).
+- donpapi
+  - run..: `nix run nixpkgs#donpapi -- -u $user -p $pass -d $domain $target`
+  - Repo.: <https://github.com/login-securite/DonPAPI>
+  - Docs.: <https://github.com/login-securite/DonPAPI#readme>
+  - Desc.: Mass DPAPI secret harvester (Wi-Fi keys, browser credentials, vaults, RDP saved sessions) over SMB and RPC.
+  - Stat.: Maintenance mode (last release v1.2.0, 2023-12-11; active upstream commits through 2025-03-24).
+- crackmapexec
+  - run..: Not in nixpkgs (project archived; use `netexec` instead).
+  - Repo.: <https://github.com/byt3bl33d3r/CrackMapExec>
+  - Docs.: <https://wiki.porchetta.industries/>
+  - Desc.: Predecessor to netexec; archived upstream.
+  - Stat.: Deprecated (archived 2023-12-06; last release v5.4.0 on 2022-11-14).
+
+## Network Reconnaissance & Enumeration
+
+- nikto
+  - run..: `nix run nixpkgs#nikto -- -h $url`
+  - Repo.: <https://github.com/sullo/nikto>
+  - Docs.: <https://github.com/sullo/nikto/wiki>
+  - Desc.: Long-running web server scanner with thousands of misconfiguration and dangerous-file checks.
+  - Stat.: Maintained (2.6.0, 2026-02-11).
+- wafw00f
+  - run..: `nix run nixpkgs#wafw00f -- $url`
+  - Repo.: <https://github.com/EnableSecurity/wafw00f>
+  - Docs.: <https://github.com/EnableSecurity/wafw00f#readme>
+  - Desc.: Fingerprints which Web Application Firewall (if any) sits in front of a target.
+  - Stat.: Maintained (v2.4.2, 2026-01-26).
+- rustscan
+  - run..: `nix run nixpkgs#rustscan -- -a $ip -- -A`
+  - Repo.: <https://github.com/RustScan/RustScan>
+  - Docs.: <https://rustscan.github.io/RustScan/>
+  - Desc.: Rust port scanner that funnels open ports straight into nmap NSE for service detection.
+  - Stat.: Maintained (2.4.1, 2025-02-23).
+- naabu
+  - run..: `nix run nixpkgs#naabu -- -host $target`
+  - Repo.: <https://github.com/projectdiscovery/naabu>
+  - Docs.: <https://docs.projectdiscovery.io/tools/naabu>
+  - Desc.: Fast SYN/CONNECT port scanner from ProjectDiscovery; pairs with httpx/dnsx pipelines.
+  - Stat.: Maintained (v2.6.0, 2026-04-23).
+- theharvester
+  - run..: `nix run nixpkgs#theharvester -- -d $domain -b all`
+  - Repo.: <https://github.com/laramies/theHarvester>
+  - Docs.: <https://github.com/laramies/theHarvester/wiki>
+  - Desc.: OSINT collector for emails, subdomains, hostnames, and employees from search engines and APIs.
+  - Stat.: Maintained (4.10.1, 2026-02-22).
+- sherlock
+  - run..: `nix run nixpkgs#sherlock -- $username`
+  - Repo.: <https://github.com/sherlock-project/sherlock>
+  - Docs.: <https://sherlockproject.xyz/>
+  - Desc.: Hunt usernames across hundreds of social platforms.
+  - Stat.: Maintained (v0.16.0, 2025-09-16).
+- bettercap
+  - run..: `nix run nixpkgs#bettercap -- -iface $iface`
+  - Repo.: <https://github.com/bettercap/bettercap>
+  - Docs.: <https://www.bettercap.org/>
+  - Desc.: Swiss army for LAN/Wi-Fi/BLE/HID/802.15.4 reconnaissance, MITM, and fuzzing.
+  - Stat.: Maintained (v2.41.5, 2025-12-15).
+- ettercap
+  - run..: `nix run nixpkgs#ettercap -- -G`
+  - Repo.: <https://github.com/Ettercap/ettercap>
+  - Docs.: <https://www.ettercap-project.org/>
+  - Desc.: Classic ARP/DHCP MITM suite with active filters and protocol dissectors.
+  - Stat.: Maintained (v0.8.4.1, 2026-04-07).
+- hping
+  - run..: `nix run nixpkgs#hping -- -S -p 80 $target`
+  - Repo.: <https://github.com/antirez/hping>
+  - Docs.: <http://www.hping.org/manpage.html>
+  - Desc.: Crafted-packet generator for firewall testing, traceroute alternatives, and TCP/IP probing (the `hping3` binary ships in this attribute).
+  - Stat.: Deprecated (no formal releases; last commit 2014-12-26; abandoned 11+ years).
+- interactsh
+  - run..: `nix shell nixpkgs#interactsh -c interactsh-client -- -v`
+  - Repo.: <https://github.com/projectdiscovery/interactsh>
+  - Docs.: <https://docs.projectdiscovery.io/tools/interactsh>
+  - Desc.: Out-of-band interaction collector for SSRF/blind XSS/blind SQLi/RCE testing.
+  - Stat.: Maintained (v1.3.1, 2026-03-10).
+- dnsrecon
+  - run..: `nix run nixpkgs#dnsrecon -- -d $domain -t std`
+  - Repo.: <https://github.com/darkoperator/dnsrecon>
+  - Docs.: <https://github.com/darkoperator/dnsrecon#readme>
+  - Desc.: DNS enumeration script for AXFR, brute force, reverse-lookup, and zone walking.
+  - Stat.: Maintained (1.6.0, 2026-02-28).
+- massdns
+  - run..: `nix run nixpkgs#massdns -- -r resolvers.txt subdomains.txt`
+  - Repo.: <https://github.com/blechschmidt/massdns>
+  - Docs.: <https://github.com/blechschmidt/massdns#readme>
+  - Desc.: Stub resolver for resolving very large hostname lists at line rate.
+  - Stat.: Maintenance mode (last release v1.1.0, 2024-03-09; active upstream commits through 2026-04-15).
+- shuffledns
+  - run..: `nix run nixpkgs#shuffledns -- -d $domain -w wordlist.txt -r resolvers.txt`
+  - Repo.: <https://github.com/projectdiscovery/shuffledns>
+  - Docs.: <https://docs.projectdiscovery.io/tools/shuffledns>
+  - Desc.: Wrapper around massdns with wildcard handling for subdomain brute-force.
+  - Stat.: Maintained (v1.2.1, 2025-12-09).
+- assetfinder
+  - run..: `nix run nixpkgs#assetfinder -- --subs-only $domain`
+  - Repo.: <https://github.com/tomnomnom/assetfinder>
+  - Docs.: <https://github.com/tomnomnom/assetfinder#readme>
+  - Desc.: Tomnomnom's lightweight subdomain finder pulling from multiple passive sources.
+  - Stat.: Deprecated (v0.1.1, 2021-01-26; no commits in 6+ years).
+- httprobe
+  - run..: `cat hosts.txt | nix run nixpkgs#httprobe`
+  - Repo.: <https://github.com/tomnomnom/httprobe>
+  - Docs.: <https://github.com/tomnomnom/httprobe#readme>
+  - Desc.: Probe a list of hosts for working HTTP/HTTPS endpoints (predecessor of `httpx`).
+  - Stat.: Deprecated (v0.2, 2022-06-09; no commits in nearly 4 years; superseded by httpx).
+- subjack
+  - run..: `go run github.com/haccer/subjack@latest -w subs.txt -ssl`
+    - ⚠️ Failed to run: `go run` reports `unknown GOEXPERIMENT synctest` on the system Go. The package is not in nixpkgs. Workaround: `nix shell nixpkgs#go_1_25` with `GOEXPERIMENT` unset before invoking `go run`.
+  - Repo.: <https://github.com/haccer/subjack>
+  - Docs.: <https://github.com/haccer/subjack#readme>
+  - Desc.: Subdomain-takeover scanner; matches DNS targets against a fingerprint list of vulnerable cloud services.
+  - Stat.: Maintained (v3.0.0, 2026-03-16).
+- subzy
+  - run..: `go run github.com/PentestPad/subzy@latest run --targets subs.txt`
+    - ⚠️ Failed to run: same `unknown GOEXPERIMENT synctest` failure as subjack. The package is not in nixpkgs.
+  - Repo.: <https://github.com/PentestPad/subzy>
+  - Docs.: <https://github.com/PentestPad/subzy#readme>
+  - Desc.: Concurrent subdomain-takeover scanner covering a broad provider fingerprint set.
+  - Stat.: Maintenance mode (last release v1.2.1, 2024-09-10; mature, occasional patches).
+- spiderfoot
+  - run..: `uvx --from spiderfoot sf -l 127.0.0.1:5001`
+    - ⚠️ Failed to run: `spiderfoot` is not on PyPI under that name (`spiderfoot-py` is also missing) and there is no `spiderfoot` attribute in nixpkgs. Pull from upstream git or install manually.
+  - Repo.: <https://github.com/smicallef/spiderfoot>
+  - Docs.: <https://www.spiderfoot.net/documentation/>
+  - Desc.: OSINT automation framework with 200+ modules across IPs, domains, emails, people, and wallets.
+  - Stat.: Maintenance mode (last release v4.0, 2022-04-07; active upstream repository, no recent tag).
+- cero
+  - run..: `nix run nixpkgs#cero -- $iprange`
+  - Repo.: <https://github.com/glebarez/cero>
+  - Docs.: <https://github.com/glebarez/cero#readme>
+  - Desc.: TLS-based subdomain harvester; scans IP/CIDR ranges and pulls SNI/SAN names out of certificate handshakes.
+  - Stat.: Deprecated (v1.3.0, 2021-12-03; no commits in 3+ years).
+- chaos
+  - run..: `nix run nixpkgs#chaos -- -d $domain`
+  - Repo.: <https://github.com/projectdiscovery/chaos-client>
+  - Docs.: <https://docs.projectdiscovery.io/tools/chaos>
+  - Desc.: ProjectDiscovery Chaos passive-DNS dataset client; alternative source alongside HackerTarget and SecurityTrails.
+  - Stat.: Maintenance mode (last release v0.5.2, 2024-04-22; active upstream commits through 2026-04-27).
+- dnstwist
+  - run..: `nix run nixpkgs#dnstwist -- $domain`
+  - Repo.: <https://github.com/elceef/dnstwist>
+  - Docs.: <https://github.com/elceef/dnstwist#readme>
+  - Desc.: Permutation engine that generates and resolves typosquat, homograph, and IDN variants of a domain.
+  - Stat.: Maintained (20250130, 2025-01-30).
+- shodan
+  - run..: `nix shell nixpkgs#python3Packages.shodan -c shodan host -- $ip`
+  - Repo.: <https://github.com/achillean/shodan-python>
+  - Docs.: <https://shodan.readthedocs.io/>
+  - Desc.: Shodan CLI and Python client for querying the internet-scan engine (banners, vulns, certificates, geolocation).
+  - Stat.: Maintenance mode (last release 1.28.0, 2022-07-09; official client, slow release cadence).
+- censys
+  - run..: `nix shell nixpkgs#python3Packages.censys -c censys search -- $query`
+  - Repo.: <https://github.com/censys/censys-python>
+  - Docs.: <https://censys-python.readthedocs.io/>
+  - Desc.: Censys CLI and Python client for the hosts/certificates search APIs.
+  - Stat.: Maintained (v2.2.19, 2025-12-11).
+- maigret
+  - run..: `nix run nixpkgs#maigret -- $username`
+    - ⚠️ Failed to run: blocked by the `python3.13-pypdf2-3.0.1` insecure marker. Requires a `permittedInsecurePackages` override.
+  - Repo.: <https://github.com/soxoj/maigret>
+  - Docs.: <https://maigret.readthedocs.io/>
+  - Desc.: Username enumerator across 3000+ sites with profile-data extraction; extended fork of sherlock.
+  - Stat.: Maintained (v0.6.0, 2026-04-10).
+- holehe
+  - run..: `nix run nixpkgs#holehe -- $email`
+  - Repo.: <https://github.com/megadose/holehe>
+  - Docs.: <https://github.com/megadose/holehe#readme>
+  - Desc.: Probe 100+ services for whether a given email address is registered (forgot-password style checks).
+  - Stat.: Deprecated (no formal releases; last commit 2024-09-10; no upstream activity in 2025+).
+- recon-ng
+  - run..: `nix run nixpkgs#recon-ng`
+  - Repo.: <https://github.com/lanmaster53/recon-ng>
+  - Docs.: <https://github.com/lanmaster53/recon-ng/wiki>
+  - Desc.: Modular OSINT framework with workspaces, marketplace modules, and pivot-friendly data tracking.
+  - Stat.: Maintenance mode (last release v5.1.2, 2021-08-25; active upstream commits through 2024-11-01).
+- maltego
+  - run..: `nix run nixpkgs#maltego`
+    - ⚠️ Failed to run: unfree license. Requires `allowUnfree = true` and an entry in `modules/meta/nixpkgs-allowed-unfree.nix`.
+  - Repo.: <https://www.maltego.com/>
+  - Docs.: <https://docs.maltego.com/>
+  - Desc.: Graph-based OSINT and link-analysis platform with transforms across public and commercial data sources (community edition usable from nixpkgs).
+  - Stat.: Maintained (4.11.3, 2026-05-04).
+- arp-scan
+  - run..: `sudo nix run nixpkgs#arp-scan -- --localnet`
+  - Repo.: <https://github.com/royhills/arp-scan>
+  - Docs.: <https://github.com/royhills/arp-scan/wiki>
+  - Desc.: Layer-2 ARP sweeper for fast host discovery on local Ethernet/Wi-Fi segments with vendor lookup.
+  - Stat.: Maintenance mode (last release 1.10.0, 2022-12-13; active upstream commits through 2025-03-08).
+- netdiscover
+  - run..: `sudo nix run nixpkgs#netdiscover -- -i $iface`
+  - Repo.: <https://github.com/netdiscover-scanner/netdiscover>
+  - Docs.: <https://github.com/netdiscover-scanner/netdiscover#readme>
+  - Desc.: Active and passive ARP reconnaissance tool aimed at switched networks.
+  - Stat.: Maintained (0.21, 2025-08-14).
+- fping
+  - run..: `nix run nixpkgs#fping -- -g 10.0.0.0/24`
+  - Repo.: <https://github.com/schweikert/fping>
+  - Docs.: <https://fping.org/fping.1.html>
+  - Desc.: Parallel ICMP echo sweeper for live-host discovery across CIDR ranges.
+  - Stat.: Maintained (v5.5, 2025-12-31).
+- onesixtyone
+  - run..: `nix run nixpkgs#onesixtyone -- -c communities.txt $target`
+  - Repo.: <https://github.com/trailofbits/onesixtyone>
+  - Docs.: <https://github.com/trailofbits/onesixtyone#readme>
+  - Desc.: Fast SNMPv1/v2c community-string brute-forcer.
+  - Stat.: Maintenance mode (last release v0.3.4, 2022-12-28; active upstream commits through 2025-08-30).
+- net-snmp
+  - run..: `nix shell nixpkgs#net-snmp -c snmpwalk -- -v2c -c $community $target`
+  - Repo.: <https://github.com/net-snmp/net-snmp>
+  - Docs.: <https://www.net-snmp.org/docs/man/>
+  - Desc.: SNMP toolkit (`snmpwalk`, `snmpget`, `snmpcheck`, `snmpset`, `snmptrap`) for service enumeration and configuration retrieval.
+  - Stat.: Maintained (v5.10.pre2, 2025-12-20).
+- ike-scan
+  - run..: `nix run nixpkgs#ike-scan -- -M $target`
+  - Repo.: <https://github.com/royhills/ike-scan>
+  - Docs.: <https://github.com/royhills/ike-scan/wiki>
+  - Desc.: IKE/IPsec VPN fingerprinter with aggressive-mode PSK harvesting for offline cracking.
+  - Stat.: Maintenance mode (last release 1.9, 2013-11-24; active upstream commits through 2024-09-15).
+- swaks
+  - run..: `nix run nixpkgs#swaks -- --to $rcpt --server $smtp`
+  - Repo.: <https://github.com/jetmore/swaks>
+  - Docs.: <https://www.jetmore.org/john/code/swaks/>
+  - Desc.: SMTP transaction tester for VRFY/EXPN/RCPT TO enumeration, relay testing, and TLS/auth probing.
+  - Stat.: Maintenance mode (last release v20240103.0, 2024-01-03; mature, occasional patches).
+- samba
+  - run..: `nix shell nixpkgs#samba -c smbclient -- -L $target -U $user`
+  - Repo.: <https://gitlab.com/samba-team/samba>
+  - Docs.: <https://www.samba.org/samba/docs/>
+  - Desc.: Provides `smbclient`, `rpcclient`, `nmblookup`, and `net` for SMB/CIFS share access and MS-RPC enumeration.
+  - Stat.: Maintained (4.24.1, 2026-04-17).
+
+## Web Application Testing
+
+- dalfox
+  - run..: `nix run nixpkgs#dalfox -- url $url`
+  - Repo.: <https://github.com/hahwul/dalfox>
+  - Docs.: <https://dalfox.hahwul.com/>
+  - Desc.: Parameter analysis and XSS scanner with DOM, blind, and OOB callback modes.
+  - Stat.: Maintained (v2.12.0, 2025-07-06).
+- arjun
+  - run..: `nix run nixpkgs#arjun -- -u $url`
+  - Repo.: <https://github.com/s0md3v/Arjun>
+  - Docs.: <https://github.com/s0md3v/Arjun/wiki>
+  - Desc.: HTTP parameter discovery suite using GET/POST/JSON/XML probing.
+  - Stat.: Maintenance mode (last release 2.2.7, 2024-11-03; active upstream commits through 2025-02-20).
+- katana
+  - run..: `nix run nixpkgs#katana -- -u $url`
+  - Repo.: <https://github.com/projectdiscovery/katana>
+  - Docs.: <https://docs.projectdiscovery.io/tools/katana>
+  - Desc.: JS-aware crawler with headless and standard modes for endpoint discovery.
+  - Stat.: Maintained (v1.6.0, 2026-05-04).
+- gau
+  - run..: `nix run nixpkgs#gau -- $domain`
+  - Repo.: <https://github.com/lc/gau>
+  - Docs.: <https://github.com/lc/gau#readme>
+  - Desc.: Pull known URLs from Wayback Machine, Common Crawl, OTX, and URLScan.
+  - Stat.: Maintenance mode (last release v2.2.4, 2024-10-28; active upstream commits through 2026-03-20).
+- waybackurls
+  - run..: `nix run nixpkgs#waybackurls -- $domain`
+    - ⚠️ Failed to run: marked unfree in nixpkgs. Refuses to evaluate without `NIXPKGS_ALLOW_UNFREE=1 --impure` (or an entry in `modules/meta/nixpkgs-allowed-unfree.nix`).
+  - Repo.: <https://github.com/tomnomnom/waybackurls>
+  - Docs.: <https://github.com/tomnomnom/waybackurls#readme>
+  - Desc.: Stream all URLs the Wayback Machine knows for a domain.
+  - Stat.: Deprecated (v0.1.0, 2022-04-05; no commits in 3+ years; superseded by gau).
+- gowitness
+  - run..: `nix run nixpkgs#gowitness -- single -u $url`
+  - Repo.: <https://github.com/sensepost/gowitness>
+  - Docs.: <https://github.com/sensepost/gowitness/wiki>
+  - Desc.: Headless-Chrome web screenshot utility with reporting UI.
+  - Stat.: Maintained (3.1.1, 2025-11-24).
+- eyewitness
+  - run..: `nix run nixpkgs#eyewitness -- --web -f urls.txt`
+    - ⚠️ Failed to run: the derivation builds but `bin/eye-witness` is missing inside the store path. `nix run` fails with `No such file or directory`.
+  - Repo.: <https://github.com/RedSiege/EyeWitness>
+  - Docs.: <https://www.redsiege.com/tools/eyewitness/>
+  - Desc.: Screenshot websites and identify default-credential admin panels.
+  - Stat.: Maintenance mode (last release v20230525.1, 2023-05-25; active upstream commits through 2026-01-05).
+- unfurl
+  - run..: `cat urls.txt | nix run nixpkgs#unfurl -- domains`
+  - Repo.: <https://github.com/tomnomnom/unfurl>
+  - Docs.: <https://github.com/tomnomnom/unfurl#readme>
+  - Desc.: Pull domains, paths, query keys, or values out of URLs piped on stdin.
+  - Stat.: Deprecated (v0.4.3, 2022-07-19; no commits in 3+ years).
+- qsreplace
+  - run..: `cat urls.txt | nix run nixpkgs#qsreplace -- '"><svg/onload=alert(1)>'`
+  - Repo.: <https://github.com/tomnomnom/qsreplace>
+  - Docs.: <https://github.com/tomnomnom/qsreplace#readme>
+  - Desc.: Substitute every query-string value in stdin URLs with a payload.
+  - Stat.: Deprecated (v0.0.3, 2022-06-23; no commits in 3+ years).
+- meg
+  - run..: `nix run nixpkgs#meg -- paths.txt hosts.txt`
+  - Repo.: <https://github.com/tomnomnom/meg>
+  - Docs.: <https://github.com/tomnomnom/meg#readme>
+  - Desc.: Fetch many paths against many hosts in parallel without flooding any single host.
+  - Stat.: Deprecated (v0.3.0, 2022-06-11; no commits in 3+ years).
+- wuzz
+  - run..: `nix run nixpkgs#wuzz -- $url`
+  - Repo.: <https://github.com/asciimoo/wuzz>
+  - Docs.: <https://github.com/asciimoo/wuzz#readme>
+  - Desc.: Interactive curses HTTP inspector for crafting and replaying requests.
+  - Stat.: Maintenance mode (last release v0.5.0, 2021-01-19; active upstream commits through 2025-10-27).
+- tlsx
+  - run..: `nix run nixpkgs#tlsx -- -u $target`
+  - Repo.: <https://github.com/projectdiscovery/tlsx>
+  - Docs.: <https://docs.projectdiscovery.io/tools/tlsx>
+  - Desc.: Fast TLS/SSL banner grabber and certificate intelligence collector.
+  - Stat.: Maintained (v1.2.2, 2025-11-17).
+- exploitdb (provides `searchsploit`)
+  - run..: `nix run nixpkgs#exploitdb -- $query`
+  - Repo.: <https://gitlab.com/exploit-database/exploitdb>
+  - Docs.: <https://www.exploit-db.com/searchsploit>
+  - Desc.: Local archive of public exploits with `searchsploit` CLI for offline lookup.
+  - Stat.: Maintained (database tagged 2026-05-01).
+- paramspider
+  - run..: `uvx --from git+https://github.com/devanshbatham/ParamSpider paramspider --domain $target`
+  - Repo.: <https://github.com/devanshbatham/ParamSpider>
+  - Docs.: <https://github.com/devanshbatham/ParamSpider#readme>
+  - Desc.: Mine parameters from web archives for fuzzing input. Not in nixpkgs.
+  - Stat.: Maintenance mode (last release v1.0.1, 2023-08-31; active upstream commits through 2026-03-07).
+- gf (tomnomnom)
+  - run..: Not in nixpkgs (the `gf` attribute resolves to an unrelated GDB frontend).
+  - Repo.: <https://github.com/tomnomnom/gf>
+  - Docs.: <https://github.com/tomnomnom/gf#readme>
+  - Desc.: Wrapper around grep with reusable regex patterns for common bug classes.
+  - Stat.: Deprecated (no formal releases; last commit 2020-06-18; no upstream activity in 5+ years).
+- anew
+  - run..: Not in nixpkgs (closest is the unrelated `anewer`).
+  - Repo.: <https://github.com/tomnomnom/anew>
+  - Docs.: <https://github.com/tomnomnom/anew#readme>
+  - Desc.: Append unique stdin lines to a file; the canonical pipeline deduplicator.
+  - Stat.: Maintenance mode (last release v0.1.1, 2022-03-15; stable single-purpose utility).
+- droopescan
+  - run..: `uvx droopescan scan drupal -u $url`
+    - ⚠️ Failed to run: runtime crash. `cement 2.6.2` imports the removed `imp` module on Python 3.12+.
+  - Repo.: <https://github.com/SamJoan/droopescan>
+  - Docs.: <https://github.com/SamJoan/droopescan#readme>
+  - Desc.: Plugin-based scanner for Drupal, SilverStripe, and similar CMS platforms.
+  - Stat.: Maintenance mode (last release 1.45.1, 2021-08-06; active upstream commits, PyPI-only releases).
+- cmseek
+  - run..: `git clone https://github.com/Tuhinshubhra/CMSeeK && cd CMSeeK && uv run python3 cmseek.py -u $url` (no PyPI entry point)
+  - Repo.: <https://github.com/Tuhinshubhra/CMSeeK>
+  - Docs.: <https://github.com/Tuhinshubhra/CMSeeK#readme>
+  - Desc.: CMS detection and exploitation suite covering WordPress, Joomla, Drupal, and 180+ others.
+  - Stat.: Maintenance mode (last release v1.1.3, 2020-07-24; active upstream commits through 2023-07-03).
+- xsstrike
+  - run..: `git clone https://github.com/s0md3v/XSStrike && cd XSStrike && uv run python xsstrike.py -u $url` (no PyPI entry point)
+  - Repo.: <https://github.com/s0md3v/XSStrike>
+  - Docs.: <https://github.com/s0md3v/XSStrike/wiki>
+  - Desc.: XSS detection suite with WAF fingerprinting, payload generation, and DOM/blind XSS modes.
+  - Stat.: Maintained (3.1.6, 2025-03-17).
+- commix
+  - run..: `nix run nixpkgs#commix -- --url=$url`
+  - Repo.: <https://github.com/commixproject/commix>
+  - Docs.: <https://github.com/commixproject/commix/wiki>
+  - Desc.: Automated command-injection exploitation toolkit; sqlmap-style flow but for OS-command flaws.
+  - Stat.: Maintained (v4.1, 2025-12-20).
+- joomscan
+  - run..: `nix run nixpkgs#joomscan -- -u $url`
+  - Repo.: <https://github.com/OWASP/joomscan>
+  - Docs.: <https://github.com/OWASP/joomscan/wiki>
+  - Desc.: OWASP Joomla vulnerability scanner with version detection, component fingerprinting, and CVE checks.
+  - Stat.: Maintenance mode (last release 0.0.7, 2018-09-24; OWASP project, active upstream commits through 2023-11-30).
+- gospider
+  - run..: `nix run nixpkgs#gospider -- -s $url`
+  - Repo.: <https://github.com/jaeles-project/gospider>
+  - Docs.: <https://github.com/jaeles-project/gospider#readme>
+  - Desc.: Fast Go web crawler with sitemap.xml/robots.txt parsing, JS link extraction, and third-party feed sources.
+  - Stat.: Maintenance mode (last release v1.1.6, 2021-06-27; active upstream commits through 2024-03-22).
+- hakrawler
+  - run..: `echo $url | nix run nixpkgs#hakrawler`
+  - Repo.: <https://github.com/hakluke/hakrawler>
+  - Docs.: <https://github.com/hakluke/hakrawler#readme>
+  - Desc.: Lightweight Go crawler that follows links, JS files, and form actions for endpoint discovery from stdin.
+  - Stat.: Maintenance mode (last release 2.1, 2022-05-23; active upstream commits through 2024-12-21).
+- photon
+  - run..: `nix run nixpkgs#photon -- -u $url`
+  - Repo.: <https://github.com/s0md3v/Photon>
+  - Docs.: <https://github.com/s0md3v/Photon/wiki>
+  - Desc.: Crawler that pulls URLs, emails, JS files, secrets, and intel from a target site with stealth-friendly knobs.
+  - Stat.: Maintenance mode (last release v1.3.0, 2019-04-05; active upstream commits through 2026-02-10).
+
+## Credential Attacks & Wordlists
+
+- medusa
+  - run..: `nix run nixpkgs#medusa -- -h $target -u $user -P passwords.txt -M ssh`
+  - Repo.: <https://github.com/jmk-foofus/medusa>
+  - Docs.: <https://foofus.net/?page_id=51>
+  - Desc.: Speedy parallel modular login brute-forcer (alternative to hydra).
+  - Stat.: Maintained (v2.3, 2025-05-14).
+- crunch
+  - run..: `nix run nixpkgs#crunch -- 8 8 -t Pass@%%%%`
+  - Repo.: <https://sourceforge.net/projects/crunch-wordlist/>
+  - Docs.: <https://tools.kali.org/password-attacks/crunch>
+  - Desc.: Pattern-based wordlist generator with charset and length controls.
+  - Stat.: Deprecated (3.6, 2014-05-17; SourceForge project dormant for 9+ years).
+- hashid
+  - run..: `nix run nixpkgs#hashid -- '$hash'`
+  - Repo.: <https://github.com/psypanda/hashID>
+  - Docs.: <https://psypanda.github.io/hashID/>
+  - Desc.: Identify hash format (MD5, NTLM, bcrypt, Argon2, etc.) before feeding into hashcat or john.
+  - Stat.: Deprecated (v3.1.4, 2015-03-09; no upstream activity in 10+ years).
+- hash-identifier
+  - run..: `nix run nixpkgs#hash-identifier`
+  - Repo.: <https://github.com/blackploit/hash-identifier>
+  - Docs.: <https://github.com/blackploit/hash-identifier#readme>
+  - Desc.: Older interactive hash type identifier (Python).
+  - Stat.: Deprecated (no formal releases; last commit 2018-03-14; Python 2 vintage, abandoned 7+ years).
+- patator
+  - run..: `uvx patator $module host=$target ...`
+    - ⚠️ Failed to run: build of the transitive `cx-oracle 8.3.0` dependency fails. The build backend depends on `pkg_resources` without declaring it.
+  - Repo.: <https://github.com/lanjelot/patator>
+  - Docs.: <https://github.com/lanjelot/patator/wiki>
+  - Desc.: Multi-purpose modular brute-forcer covering services hydra/medusa miss (Telnet, finger, MySQL, custom). Not in nixpkgs.
+  - Stat.: Maintained (v1.1.0, 2025-02-17).
+
+## Wireless Auditing
+
+- kismet
+  - run..: `nix run nixpkgs#kismet`
+  - Repo.: <https://github.com/kismetwireless/kismet>
+  - Docs.: <https://www.kismetwireless.net/docs/>
+  - Desc.: Passive Wi-Fi/Bluetooth/RF sniffer with web UI and remote-capture support.
+  - Stat.: Maintained (kismet-2025-09-R1, 2025-09-04).
+- wifite2
+  - run..: `nix run nixpkgs#wifite2 -- -i $iface`
+  - Repo.: <https://github.com/kimocoder/wifite2>
+  - Docs.: <https://github.com/kimocoder/wifite2/wiki>
+  - Desc.: Automation wrapper around aircrack-ng/reaver/bully/hashcat for WPA/WPS/WEP attacks.
+  - Stat.: Maintained (v2.8.2, 2025-10-25).
+- bully
+  - run..: `nix run nixpkgs#bully -- -b $bssid -c $channel $iface`
+  - Repo.: <https://github.com/kimocoder/bully>
+  - Docs.: <https://github.com/kimocoder/bully#readme>
+  - Desc.: WPS PIN brute-forcer; lighter alternative to reaver.
+  - Stat.: Maintenance mode (last release v1.4-00, 2020-02-01; active upstream commits through 2023-04-23).
+- wifite
+  - run..: Not in nixpkgs (Python 2 EOL; use `wifite2`).
+  - Repo.: <https://github.com/derv82/wifite>
+  - Docs.: <https://github.com/derv82/wifite#readme>
+  - Desc.: Original Python 2 wifite, end-of-life upstream.
+  - Stat.: Deprecated (v2.0.89, 2018-04-06; Python 2 EOL; superseded by wifite2).
+- reaver
+  - run..: Not in nixpkgs.
+  - Repo.: <https://github.com/t6x/reaver-wps-fork-t6x>
+  - Docs.: <https://github.com/t6x/reaver-wps-fork-t6x/wiki>
+  - Desc.: WPS Pixie-Dust and PIN attack tool driven by `wifite2`.
+  - Stat.: Maintenance mode (last release v1.6.6, 2020-03-16; active upstream commits through 2025-10-31).
+
+## Reverse Engineering & Dynamic Analysis
+
+- pwntools
+  - run..: `nix run nixpkgs#pwntools -- shellcraft amd64.linux.sh`
+    - ⚠️ Failed to run: `meta.mainProgram` is unset, so `nix run` cannot resolve the binary. The CLI is `pwn`. Use `nix shell nixpkgs#pwntools -c pwn ...` instead.
+  - Repo.: <https://github.com/Gallopsled/pwntools>
+  - Docs.: <https://docs.pwntools.com/>
+  - Desc.: CTF and exploit-development framework with shellcode helpers, ROP utilities, GDB integration.
+  - Stat.: Maintained (v4.15.0, 2025-10-12).
+- scapy
+  - run..: `nix run nixpkgs#python3Packages.scapy`
+  - Repo.: <https://github.com/secdev/scapy>
+  - Docs.: <https://scapy.readthedocs.io/>
+  - Desc.: Python packet manipulation library and interactive shell for crafting/sniffing/forging.
+  - Stat.: Maintained (v2.7.0, 2025-12-26).
+- binwalk
+  - run..: `nix run nixpkgs#binwalk -- -e $firmware`
+  - Repo.: <https://github.com/ReFirmLabs/binwalk>
+  - Docs.: <https://github.com/ReFirmLabs/binwalk/wiki>
+  - Desc.: Firmware analysis: signature scanning, entropy plotting, recursive extraction.
+  - Stat.: Maintenance mode (last release v3.1.0, 2024-10-31; active upstream commits through 2025-08-23).
+- apktool
+  - run..: `nix run nixpkgs#apktool -- d $apk`
+  - Repo.: <https://github.com/iBotPeaches/Apktool>
+  - Docs.: <https://ibotpeaches.github.io/Apktool/documentation/>
+  - Desc.: Decompile, modify, and rebuild Android APKs (smali/baksmali).
+  - Stat.: Maintained (v3.0.2, 2026-04-19).
+- chntpw
+  - run..: `nix run nixpkgs#chntpw -- -i SAM`
+  - Repo.: <https://github.com/joelgalindo01/chntpw>
+  - Docs.: <http://pogostick.net/~pnh/ntpasswd/>
+  - Desc.: Edit Windows SAM and registry hives offline; reset local passwords on a mounted disk.
+  - Stat.: Deprecated (upstream pogostick.net 1.00, 2014-02-01; the listed GitHub fork is unavailable).
+- ropper
+  - run..: `uvx ropper --file $bin --search 'pop rdi; ret'`
+  - Repo.: <https://github.com/sashs/Ropper>
+  - Docs.: <https://scoding.de/ropper/>
+  - Desc.: ROP/JOP gadget finder and binary inspector for x86, ARM, MIPS, PPC.
+  - Stat.: Maintained (v1.13.13, 2025-02-28).
+- pwndbg
+  - run..: Must create a custom nixpkg.
+  - Repo.: <https://github.com/pwndbg/pwndbg>
+  - Docs.: <https://pwndbg.re/>
+  - Desc.: GDB extension for exploit development and reverse engineering (heap viewer, ROP helpers, register/stack pretty-printer).
+  - Stat.: Maintained (2026.02.18, 2026-02-18).
+- angr
+  - run..: `nix shell nixpkgs#python3Packages.angr -c python3`
+    - ⚠️ Failed to run: nixpkgs build fails. `setuptools-rust` is missing from `nativeBuildInputs` during wheel preparation.
+  - Repo.: <https://github.com/angr/angr>
+  - Docs.: <https://docs.angr.io/>
+  - Desc.: Symbolic-execution and binary-analysis framework for CFG recovery, taint tracking, and concolic exploration.
+  - Stat.: Maintained (active development; last commit 2026-04-30; no GitHub releases but PyPI releases continue).
+- gef
+  - run..: `nix run nixpkgs#gef`
+  - Repo.: <https://github.com/hugsy/gef>
+  - Docs.: <https://hugsy.github.io/gef/>
+  - Desc.: GDB Enhanced Features extension; modern exploitation/reverse-engineering UI for GDB (alternative to pwndbg/peda).
+  - Stat.: Maintained (2026.01, 2026-02-02).
+- ropgadget
+  - run..: `nix run nixpkgs#python3Packages.ropgadget -- --binary $bin`
+  - Repo.: <https://github.com/JonathanSalwan/ROPgadget>
+  - Docs.: <https://github.com/JonathanSalwan/ROPgadget#readme>
+  - Desc.: ROP/JOP/COP gadget finder for exploit development across multiple architectures.
+  - Stat.: Maintained (v7.7, 2025-10-15).
+- upx
+  - run..: `nix run nixpkgs#upx -- -d $packed_binary`
+  - Repo.: <https://github.com/upx/upx>
+  - Docs.: <https://upx.github.io/>
+  - Desc.: Ultimate Packer for eXecutables; (un)packs PE/ELF/Mach-O binaries (commonly seen in malware analysis).
+  - Stat.: Maintained (v5.1.1, 2026-03-05).
+
+## Forensics, Recovery & Imaging
+
+- volatility3
+  - run..: `nix run nixpkgs#volatility3 -- -f $memdump windows.info`
+    - ⚠️ Failed to run: binaries are `vol` and `volshell`, not `volatility3`. The package is also unfree. Use `NIXPKGS_ALLOW_UNFREE=1 nix shell --impure nixpkgs#volatility3 -c vol ...` instead.
+  - Repo.: <https://github.com/volatilityfoundation/volatility3>
+  - Docs.: <https://volatility3.readthedocs.io/>
+  - Desc.: Memory forensics framework for Windows/Linux/macOS captures.
+  - Stat.: Maintained (v2.28.0, 2026-04-30).
+- sleuthkit
+  - run..: `nix shell nixpkgs#sleuthkit -c fls -- -r $image`
+  - Repo.: <https://github.com/sleuthkit/sleuthkit>
+  - Docs.: <https://www.sleuthkit.org/sleuthkit/>
+  - Desc.: CLI library/toolset (`fls`, `mmls`, `fsstat`, `blkls`, `tsk_recover`) for analyzing disk images and file systems.
+  - Stat.: Maintained (sleuthkit-4.15.0, 2026-04-15).
+- autopsy
+  - run..: `nix run nixpkgs#autopsy`
+    - ⚠️ Failed to run: 1.4 GiB closure (autopsy plus openjdk-21) did not finish downloading within a 20-minute smoke budget on the test connection. Functional, just slow.
+  - Repo.: <https://github.com/sleuthkit/autopsy>
+  - Docs.: <https://www.sleuthkit.org/autopsy/docs.php>
+  - Desc.: GUI digital forensics platform built on the Sleuth Kit.
+  - Stat.: Maintained (autopsy-4.23.0, 2026-04-15).
+- bulk_extractor
+  - run..: `nix run nixpkgs#bulk_extractor -- -o output/ $image`
+  - Repo.: <https://github.com/simsong/bulk_extractor>
+  - Docs.: <https://forensicswiki.xyz/wiki/index.php?title=Bulk_extractor>
+  - Desc.: Pull artifacts (emails, URLs, credit-card numbers, GPS coords) from disk images without parsing the filesystem.
+  - Stat.: Maintenance mode (last release v2.1.1, 2024-04-27; active upstream commits through 2026-01-29).
+- scalpel
+  - run..: `nix run nixpkgs#scalpel -- -c scalpel.conf -o output/ $image`
+  - Repo.: <https://github.com/sleuthkit/scalpel>
+  - Docs.: <https://github.com/sleuthkit/scalpel#readme>
+  - Desc.: Header/footer-based file carver derived from foremost.
+  - Stat.: Deprecated (no formal releases; last commit 2021-03-26; maintainers state effort abandoned).
+- dc3dd
+  - run..: `nix run nixpkgs#dc3dd -- if=$src hof=$dst hash=sha256`
+    - ⚠️ Failed to run: nixpkgs compile failure with modern gcc. `argmatch.c:63: too many arguments to function 'usage'` (legacy macro mismatch).
+  - Repo.: <https://sourceforge.net/projects/dc3dd/>
+  - Docs.: <https://sourceforge.net/projects/dc3dd/files/>
+  - Desc.: Forensic-focused dd patch with hashing-on-the-fly, progress reporting, and split output.
+  - Stat.: Maintenance mode (last release v7.3.1, 2023-04-25; mature, infrequent SourceForge updates).
+- dcfldd
+  - run..: `nix run nixpkgs#dcfldd -- if=$src of=$dst hash=sha256`
+  - Repo.: <https://github.com/resurrecting-open-source-projects/dcfldd>
+  - Docs.: <https://github.com/resurrecting-open-source-projects/dcfldd#readme>
+  - Desc.: Enhanced dd with hashing, multiple output, split files, and verification.
+  - Stat.: Maintained (v1.9.3, 2025-06-02).
+- safecopy
+  - run..: `nix run nixpkgs#safecopy -- $src $dst`
+  - Repo.: <https://safecopy.sourceforge.net/>
+  - Docs.: <https://safecopy.sourceforge.net/>
+  - Desc.: Imaging tool for damaged source media with finer error handling than ddrescue in some scenarios.
+  - Stat.: Deprecated (v1.7, 2012-03-10; upstream dormant for 13+ years).
+- velociraptor
+  - run..: Must create a custom nixpkg.
+  - Repo.: <https://github.com/Velocidex/velociraptor>
+  - Docs.: <https://docs.velociraptor.app/>
+  - Desc.: Endpoint visibility and DFIR collection at scale; uses VQL to interrogate hosts and pull artifacts.
+  - Stat.: Maintained (v0.76, 2026-03-26).
+- chainsaw
+  - run..: `nix run nixpkgs#chainsaw -- hunt $evtx_dir`
+  - Repo.: <https://github.com/WithSecureLabs/chainsaw>
+  - Docs.: <https://github.com/WithSecureLabs/chainsaw#readme>
+  - Desc.: Fast Sigma/Yara hunter over Windows event-log archives (EVTX) with bundled detection rule packs.
+  - Stat.: Maintained (v2.15.0, 2026-04-27).
+- hayabusa
+  - run..: `nix run nixpkgs#hayabusa -- csv-timeline -d $evtx_dir -o timeline.csv`
+    - ⚠️ Failed to run: the nixpkgs `hayabusa` attribute is the IPC daemon by `koutoftimer`, not the Yamato Security Windows EVTX Sigma scanner. The documented `csv-timeline` flags do not apply. The Yamato tool needs a custom package.
+  - Repo.: <https://github.com/Yamato-Security/hayabusa>
+  - Docs.: <https://github.com/Yamato-Security/hayabusa/wiki>
+  - Desc.: Windows event-log timeline generator and Sigma rule engine focused on incident-response triage.
+  - Stat.: Maintained (v3.9.0, 2026-04-29).
+
+## Cryptography, Stego & CTF
+
+- steghide
+  - run..: `nix run nixpkgs#steghide -- extract -sf $file`
+  - Repo.: <https://github.com/StefanoDeVuono/steghide>
+  - Docs.: <https://steghide.sourceforge.net/documentation.php>
+  - Desc.: Hide and extract data inside JPEG/BMP/WAV/AU files with passphrase encryption.
+  - Stat.: Deprecated (no releases on GitHub mirror; last commit 2024-02-20; upstream SourceForge dormant since 2003).
+- stegseek
+  - run..: `nix run nixpkgs#stegseek -- $file wordlist.txt`
+  - Repo.: <https://github.com/RickdeJager/stegseek>
+  - Docs.: <https://github.com/RickdeJager/stegseek/wiki>
+  - Desc.: Lightning-fast steghide passphrase cracker.
+  - Stat.: Maintenance mode (last release v0.6, 2021-04-18; not archived, releases stale).
+- zsteg
+  - run..: `nix run nixpkgs#zsteg -- $file`
+  - Repo.: <https://github.com/zed-0xff/zsteg>
+  - Docs.: <https://github.com/zed-0xff/zsteg#readme>
+  - Desc.: Detect LSB-encoded stego in PNG and BMP files.
+  - Stat.: Maintained (v0.2.14, 2026-01-28).
+- fcrackzip
+  - run..: `nix run nixpkgs#fcrackzip -- -D -p wordlist.txt $zipfile`
+  - Repo.: <https://github.com/hyc/fcrackzip>
+  - Docs.: <http://oldhome.schmorp.de/marc/fcrackzip.html>
+  - Desc.: Brute-force ZIP archive passwords.
+  - Stat.: Deprecated (repository archived 2025-05; last commit 2023-03-23).
+- pdfcrack
+  - run..: `nix run nixpkgs#pdfcrack -- -f $pdffile`
+  - Repo.: <https://sourceforge.net/projects/pdfcrack/>
+  - Docs.: <https://pdfcrack.sourceforge.net/>
+  - Desc.: Recover passwords and content from password-protected PDFs.
+  - Stat.: Maintained (v0.21, 2025-09-14).
+- outguess
+  - run..: `nix run nixpkgs#outguess -- -k "$key" -r $stego.jpg out.bin`
+  - Repo.: <https://github.com/resurrecting-open-source-projects/outguess>
+  - Docs.: <https://www.outguess.org/>
+  - Desc.: JPEG steganography tool with statistical resistance; pairs with steghide and zsteg.
+  - Stat.: Deprecated (v0.4, 2021-09-03; repository archived 2025-09).
+
+## Auditing, SAST & Vulnerability Assessment
+
+- semgrep
+  - run..: `nix run nixpkgs#semgrep -- --config auto $path`
+  - Repo.: <https://github.com/semgrep/semgrep>
+  - Docs.: <https://semgrep.dev/docs/>
+  - Desc.: Lightweight pattern-based static analysis for many languages with a community rule registry.
+  - Stat.: Maintained (v1.161.0, 2026-04-22).
+- bandit
+  - run..: `nix run nixpkgs#bandit -- -r $path`
+  - Repo.: <https://github.com/PyCQA/bandit>
+  - Docs.: <https://bandit.readthedocs.io/>
+  - Desc.: Security-focused Python AST linter (insecure subprocess, hardcoded secrets, weak crypto).
+  - Stat.: Maintained (1.9.4, 2026-02-25).
+
+## Cloud & Container Security
+
+- trivy
+  - run..: `nix run nixpkgs#trivy -- image $image`
+  - Repo.: <https://github.com/aquasecurity/trivy>
+  - Docs.: <https://aquasecurity.github.io/trivy/>
+  - Desc.: All-in-one image, IaC, filesystem, secret, and SBOM scanner from Aqua Security.
+  - Stat.: Maintained (v0.70.0, 2026-04-17).
+- grype
+  - run..: `nix run nixpkgs#grype -- $image`
+  - Repo.: <https://github.com/anchore/grype>
+  - Docs.: <https://github.com/anchore/grype#readme>
+  - Desc.: Vulnerability scanner for container images and filesystems with offline DB support.
+  - Stat.: Maintained (v0.112.0, 2026-05-01).
+- syft
+  - run..: `nix run nixpkgs#syft -- $image`
+  - Repo.: <https://github.com/anchore/syft>
+  - Docs.: <https://github.com/anchore/syft#readme>
+  - Desc.: Generate SBOMs (SPDX/CycloneDX) from container images, filesystems, and archives.
+  - Stat.: Maintained (v1.44.0, 2026-05-01).
+- gitleaks
+  - run..: `nix run nixpkgs#gitleaks -- detect`
+  - Repo.: <https://github.com/gitleaks/gitleaks>
+  - Docs.: <https://github.com/gitleaks/gitleaks#readme>
+  - Desc.: Scan git history and working trees for committed secrets.
+  - Stat.: Maintained (v8.30.1, 2026-03-21).
+- trufflehog
+  - run..: `nix run nixpkgs#trufflehog -- git $url`
+  - Repo.: <https://github.com/trufflesecurity/trufflehog>
+  - Docs.: <https://docs.trufflesecurity.com/>
+  - Desc.: Verified-secret scanner across git, GitHub, S3, GCS, Docker, and filesystem sources.
+  - Stat.: Maintained (v3.95.2, 2026-04-21).
+- prowler
+  - run..: `nix run nixpkgs#prowler -- aws`
+  - Repo.: <https://github.com/prowler-cloud/prowler>
+  - Docs.: <https://docs.prowler.com/>
+  - Desc.: Cloud security best-practice and compliance assessment for AWS/Azure/GCP/Kubernetes.
+  - Stat.: Maintained (5.25.1, 2026-04-29).
+- pacu
+  - run..: `nix run nixpkgs#pacu`
+  - Repo.: <https://github.com/RhinoSecurityLabs/pacu>
+  - Docs.: <https://github.com/RhinoSecurityLabs/pacu/wiki>
+  - Desc.: AWS exploitation framework with privilege escalation and persistence modules.
+  - Stat.: Maintained (v1.7.0, 2026-03-23).
+- kube-bench
+  - run..: `nix run nixpkgs#kube-bench`
+  - Repo.: <https://github.com/aquasecurity/kube-bench>
+  - Docs.: <https://github.com/aquasecurity/kube-bench#readme>
+  - Desc.: CIS Kubernetes Benchmark conformance checker.
+  - Stat.: Maintained (v0.15.4, 2026-05-01).
+- kube-hunter
+  - run..: `nix run nixpkgs#kube-hunter`
+  - Repo.: <https://github.com/aquasecurity/kube-hunter>
+  - Docs.: <https://github.com/aquasecurity/kube-hunter#readme>
+  - Desc.: Hunts security weaknesses in Kubernetes clusters from inside or outside.
+  - Stat.: Deprecated (v0.6.8, 2022-05-18; officially superseded by Trivy).
+- dive
+  - run..: `nix run nixpkgs#dive -- $image`
+  - Repo.: <https://github.com/wagoodman/dive>
+  - Docs.: <https://github.com/wagoodman/dive#readme>
+  - Desc.: Explore docker image layers, file changes, and wasted space.
+  - Stat.: Maintained (v0.13.1, 2025-03-29).
+- dockle
+  - run..: `nix run nixpkgs#dockle -- $image`
+  - Repo.: <https://github.com/goodwithtech/dockle>
+  - Docs.: <https://containers.goodwith.tech/>
+  - Desc.: Container image linter (CIS benchmarks, secret detection, best practices).
+  - Stat.: Maintained (v0.4.15, 2025-01-06).
+- clair
+  - run..: `nix run nixpkgs#clair`
+  - Repo.: <https://github.com/quay/clair>
+  - Docs.: <https://quay.github.io/clair/>
+  - Desc.: Static vulnerability analyzer for application containers (Quay/Red Hat).
+  - Stat.: Maintained (v4.9.0, 2025-12-10).
+- scoutsuite
+  - run..: `uvx scoutsuite $provider`
+    - ⚠️ Failed to run: the package's CLI entry point is `scout`, not `scoutsuite`. Use `uvx --from scoutsuite scout ...` instead.
+  - Repo.: <https://github.com/nccgroup/ScoutSuite>
+  - Docs.: <https://github.com/nccgroup/ScoutSuite/wiki>
+  - Desc.: Multi-cloud security auditing tool (AWS/Azure/GCP/AliCloud/OCI/Kubernetes). Not in nixpkgs.
+  - Stat.: Maintenance mode (last release v5.14.0, 2024-05-10; active upstream commits, no recent tag).
+- falco
+  - run..: Must create a custom nixpkg.
+  - Repo.: <https://github.com/falcosecurity/falco>
+  - Docs.: <https://falco.org/docs/>
+  - Desc.: Runtime security monitor; flags abnormal syscall, container, and Kubernetes activity.
+  - Stat.: Maintained (0.43.1, 2026-04-09).
+- checkov
+  - run..: `nix run nixpkgs#checkov -- -d $iac_dir`
+  - Repo.: <https://github.com/bridgecrewio/checkov>
+  - Docs.: <https://www.checkov.io/>
+  - Desc.: IaC and SBOM static analyzer for Terraform/CloudFormation/Kubernetes/ARM/Helm/Dockerfile with 1000+ policies.
+  - Stat.: Maintained (3.2.526, 2026-04-30).
+- tfsec
+  - run..: `nix run nixpkgs#tfsec -- $tf_dir`
+  - Repo.: <https://github.com/aquasecurity/tfsec>
+  - Docs.: <https://aquasecurity.github.io/tfsec/>
+  - Desc.: Terraform-focused IaC security scanner (now folded into Trivy but still distributed standalone).
+  - Stat.: Maintained (v1.28.14, 2025-05-02; folded into Trivy upstream).
+- kubescape
+  - run..: `nix run nixpkgs#kubescape -- scan $cluster_or_dir`
+  - Repo.: <https://github.com/kubescape/kubescape>
+  - Docs.: <https://kubescape.io/docs/>
+  - Desc.: Kubernetes/Helm/manifest scanner for NSA, MITRE, and CIS posture benchmarks plus misconfiguration analysis.
+  - Stat.: Maintained (v4.0.6, 2026-05-04).
+- steampipe
+  - run..: `nix run nixpkgs#steampipe -- query "select * from aws_iam_user"`
+  - Repo.: <https://github.com/turbot/steampipe>
+  - Docs.: <https://steampipe.io/docs>
+  - Desc.: SQL frontend over cloud APIs (AWS/Azure/GCP/GitHub/Kubernetes) for live posture queries and audit dashboards.
+  - Stat.: Maintained (v2.4.2, 2026-04-22).
+
+## Pivoting & Tunneling
+
+- chisel
+  - run..: `nix run nixpkgs#chisel -- server --port 8080 --reverse`
+  - Repo.: <https://github.com/jpillora/chisel>
+  - Docs.: <https://github.com/jpillora/chisel#readme>
+  - Desc.: TCP/UDP tunnel over HTTP/WebSockets; classic egress and pivot helper.
+  - Stat.: Maintained (v1.11.5, 2026-03-09).
+- ligolo-ng
+  - run..: `nix run nixpkgs#ligolo-ng -- -selfcert -laddr 0.0.0.0:11601`
+    - ⚠️ Failed to run: the package ships `ligolo-proxy` and `ligolo-agent`; no `ligolo-ng` binary. Use `nix shell nixpkgs#ligolo-ng -c ligolo-proxy ...` instead.
+  - Repo.: <https://github.com/nicocha30/ligolo-ng>
+  - Docs.: <https://github.com/nicocha30/ligolo-ng/wiki>
+  - Desc.: TUN-based pivoting that exposes the target network as a routable interface on the operator host.
+  - Stat.: Maintained (v0.8.3, 2026-02-15).
+- proxychains-ng
+  - run..: `nix run nixpkgs#proxychains-ng -- nmap -sT $target`
+  - Repo.: <https://github.com/rofl0r/proxychains-ng>
+  - Docs.: <https://github.com/rofl0r/proxychains-ng#readme>
+  - Desc.: Force arbitrary TCP through SOCKS/HTTP proxy chains via LD_PRELOAD.
+  - Stat.: Maintenance mode (last release v4.17, 2024-01-21; active upstream commits through 2026-04-26).
+- gost
+  - run..: `nix run nixpkgs#gost -- -L=:8080`
+  - Repo.: <https://github.com/ginuerzh/gost>
+  - Docs.: <https://gost.run/en/>
+  - Desc.: Multi-protocol tunneling/proxy daemon (HTTP/SOCKS5/SS/TLS/QUIC/KCP) for relays, pivots, and egress chaining.
+  - Stat.: Maintenance mode (last release v2.12.0, 2024-10-10; active development).
+- frp
+  - run..: `nix run nixpkgs#frp -- -c frpc.toml`
+  - Repo.: <https://github.com/fatedier/frp>
+  - Docs.: <https://gofrp.org/en/>
+  - Desc.: Fast reverse-proxy that exposes services behind NAT or firewalls over TCP/UDP/HTTP/HTTPS/STCP.
+  - Stat.: Maintained (v0.68.1, 2026-04-13).
+
+## Notes
+
+- Top-level nixpkgs attributes can be wired into a host with `lib.mkPackageOption pkgs "$image" { }`.
+- Python-namespaced attributes (e.g. `python3Packages.impacket`, `python3Packages.scapy`) use the list-path form documented in [`docs/guides/apps-module-style-guide.md`](../../docs/guides/apps-module-style-guide.md).
+- Entries marked **Not in nixpkgs** can be packaged locally under `packages/`, pulled via an external flake input, or substituted with the listed alternative.
+- Promoting a tool to permanent installation requires a matching `modules/apps/<name>.nix` module plus an entry in each host's `apps-enable.nix`.
