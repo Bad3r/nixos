@@ -51,6 +51,7 @@
       "burpsuite-loader".extended.enable = lib.mkOverride 1100 true;
       burpsuitepro.extended.enable = lib.mkOverride 1100 true;
       bzip2.extended.enable = lib.mkOverride 1100 true;
+      bzmenu.extended.enable = lib.mkOverride 1100 true;
       cachix.extended.enable = lib.mkOverride 1100 true;
       cargo.extended.enable = lib.mkOverride 1100 true;
       certbot.extended.enable = lib.mkOverride 1100 true;
