@@ -112,6 +112,7 @@
               config.packages."hook-mcp-docs-sync"
               config.packages."hook-vulnix"
               config.packages."hook-gitleaks"
+              config.packages."hook-luacheck"
 
               age
               sops
@@ -150,6 +151,14 @@
           nixfmt.enable = true;
           shfmt.enable = true;
           ruff-format.enable = true;
+          stylua = {
+            enable = true;
+            settings = {
+              indent_type = "Spaces";
+              indent_width = 2;
+              column_width = 120;
+            };
+          };
           dprint = {
             enable = true;
             includes = [
