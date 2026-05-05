@@ -25,6 +25,7 @@ _: {
   flake.homeManagerModules.apps.mpv =
     {
       osConfig,
+      config,
       lib,
       pkgs,
       ...
@@ -79,7 +80,7 @@ _: {
               script-opts = "playlist-filter-mode=block-images";
             };
             "img" = {
-              profile-desc = "image viewer: skip non-image files, hold each image until manual advance";
+              profile-desc = "image viewer: skip non-image files, hold each image until manual advance, loop playlist";
               script-opts = "playlist-filter-mode=images-only";
               image-display-duration = "inf";
               loop-playlist = "inf";
@@ -102,6 +103,19 @@ _: {
             ])
             ++ extraScripts;
         };
+
+        home.packages =
+          let
+            mpv = config.programs.mpv.finalPackage;
+          in
+          [
+            (pkgs.writeShellScriptBin "mpv-vid" ''
+              exec ${mpv}/bin/mpv --profile=vid "$@"
+            '')
+            (pkgs.writeShellScriptBin "mpv-img" ''
+              exec ${mpv}/bin/mpv --profile=img "$@"
+            '')
+          ];
 
         xdg.configFile = {
           "mpv/scripts/ytdlp-cookies.lua".source = ./scripts/ytdlp-cookies.lua;
