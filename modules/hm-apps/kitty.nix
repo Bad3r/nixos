@@ -176,6 +176,13 @@ _: {
             # Layout shortcuts
             "ctrl+alt+g" = "goto_layout grid";
             "ctrl+alt+s" = "goto_layout splits";
+            # Splits-layout spawning — goto_layout only switches the active layout, so
+            # explicit hsplit/vsplit chords are needed to actually carve the active window.
+            # kitty_mod+enter (new_window) still spawns on the layout's default axis.
+            "kitty_mod+apostrophe" = "launch --location=hsplit --cwd=current";
+            "kitty_mod+backslash" = "launch --location=vsplit --cwd=current";
+            # Rotate uses kitty_mod+alt+r so the default kitty_mod+r (start_resizing_window) survives.
+            "kitty_mod+alt+r" = "layout_action rotate";
             # Pane navigation — ctrl+alt avoids stealing shell word-movement (ctrl+arrow)
             "ctrl+alt+left" = "neighboring_window left";
             "ctrl+alt+right" = "neighboring_window right";
