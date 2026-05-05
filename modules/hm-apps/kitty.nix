@@ -143,7 +143,15 @@ _: {
             term = "xterm-kitty";
             kitty_mod = "ctrl+shift";
             # Grid first makes it the default layout; all built-in layouts remain reachable via next_layout
-            enabled_layouts = "grid,splits,tall,fat,horizontal,vertical,stack";
+            enabled_layouts = lib.concatStringsSep "," [
+              "grid"
+              "splits"
+              "tall"
+              "fat"
+              "horizontal"
+              "vertical"
+              "stack"
+            ];
           };
 
           keybindings = {
