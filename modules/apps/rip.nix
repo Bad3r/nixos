@@ -161,10 +161,15 @@ let
         systemd.tmpfiles.rules = [
           # Create the trash directory; clean entries older than 10 days.
           "d ${cfg.trashPath} 0700 ${owner} users 10d"
+          # Bootstrap the XDG data parent so the symlink below can be placed
+          # on freshly provisioned users. Without this, `L` is a no-op when
+          # `~/.local/share` does not yet exist and `trash-cli` later
+          # materialises `Trash` as a real directory.
+          "d /home/${owner}/.local/share 0755 ${owner} users -"
           # Point home-partition trash at the configured path. Use `L` (not
-          # `L+`) so an existing real `~/.local/share/Trash/` directory is
-          # preserved; users migrating from another trash implementation must
-          # move it aside before this symlink takes effect.
+          # `L+`) so any existing entry at that path is preserved; users
+          # migrating from another trash implementation must move it aside
+          # before this symlink takes effect.
           "L /home/${owner}/.local/share/Trash - - - - ${cfg.trashPath}"
         ];
       };
