@@ -57,7 +57,13 @@ let
                 TRASH_DIR_ARGS=(--trash-dir "''${2:?--graveyard requires an argument}")
                 shift 2 ;;
               --graveyard=*)
-                TRASH_DIR_ARGS=(--trash-dir "''${1#*=}"); shift ;;
+                graveyard_val="''${1#*=}"
+                if [[ -z "$graveyard_val" ]]; then
+                  echo "rip: --graveyard= requires a non-empty argument" >&2
+                  exit 1
+                fi
+                TRASH_DIR_ARGS=(--trash-dir "$graveyard_val")
+                shift ;;
               --) shift; FILES+=("$@"); break ;;
               -*) echo "rip: unknown option: $1" >&2; exit 1 ;;
               *) FILES+=("$1"); shift ;;
