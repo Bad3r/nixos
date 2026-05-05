@@ -1,0 +1,59 @@
+Subject: [PATCH] add basic AirPods Max 2 support (BLE id 0x2D20, model A3454)
+
+Backport of https://github.com/kavishdevar/librepods/pull/519 squashed against
+the v0.2.5 release tree. Recognises AirPods Max 2nd Gen so the Linux Qt client
+shows the Max icon and the single-headset battery layout instead of falling
+through to the unknown-model defaults. Drop this patch once upstream PR #519
+merges and a release containing it is pinned.
+
+Paths are rooted at `linux/` because the nixpkgs librepods derivation sets
+`sourceRoot = "source/linux"`. The upstream PR's `Proximity Pairing Message.md`
+docs change is intentionally omitted because it lives outside the build root
+and does not affect runtime behaviour.
+
+diff --git a/ble/blemanager.cpp b/ble/blemanager.cpp
+--- a/ble/blemanager.cpp
++++ b/ble/blemanager.cpp
+@@ -16,6 +16,7 @@ AirpodsTrayApp::Enums::AirPodsModel getModelName(quint16 modelId)
+         {0x1B20, AirPodsModel::AirPods4ANC},
+         {0x0A20, AirPodsModel::AirPodsMaxLightning},
+         {0x1F20, AirPodsModel::AirPodsMaxUSBC},
++        {0x2D20, AirPodsModel::AirPodsMax2},
+         {0x0E20, AirPodsModel::AirPodsPro},
+         {0x1420, AirPodsModel::AirPodsPro2Lightning},
+         {0x2420, AirPodsModel::AirPodsPro2USBC}
+diff --git a/enums.h b/enums.h
+--- a/enums.h
++++ b/enums.h
+@@ -32,6 +32,7 @@ namespace AirpodsTrayApp
+             AirPodsPro2USBC,
+             AirPodsMaxLightning,
+             AirPodsMaxUSBC,
++            AirPodsMax2,
+             AirPods4,
+             AirPods4ANC
+         };
+@@ -50,6 +51,7 @@ namespace AirpodsTrayApp
+                 {"A2083", AirPodsModel::AirPodsPro},
+                 {"A2096", AirPodsModel::AirPodsMaxLightning},
+                 {"A3184", AirPodsModel::AirPodsMaxUSBC},
++                {"A3454", AirPodsModel::AirPodsMax2},
+                 {"A2565", AirPodsModel::AirPods3},
+                 {"A2564", AirPodsModel::AirPods3},
+                 {"A3047", AirPodsModel::AirPodsPro2USBC},
+@@ -85,6 +87,7 @@ namespace AirpodsTrayApp
+                     return {"podpro.png", "podpro_case.png"};
+                 case AirPodsModel::AirPodsMaxLightning:
+                 case AirPodsModel::AirPodsMaxUSBC:
++                case AirPodsModel::AirPodsMax2:
+                     return {"podmax.png", "max_case.png"};
+                 default:
+                     return {"pod.png", "pod_case.png"}; // Default icon for unknown models
+@@ -97,6 +100,7 @@ namespace AirpodsTrayApp
+             switch (model) {
+                 case AirPodsModel::AirPodsMaxLightning:
+                 case AirPodsModel::AirPodsMaxUSBC:
++                case AirPodsModel::AirPodsMax2:
+                     return true;
+                 default:
+                     return false;
