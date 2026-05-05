@@ -148,8 +148,36 @@
         projectRootFile = "flake.nix";
         programs = {
           nixfmt.enable = true;
-          prettier.enable = true;
           shfmt.enable = true;
+          ruff-format.enable = true;
+          dprint = {
+            enable = true;
+            includes = [
+              "*.json"
+              "*.jsonc"
+              "*.md"
+              "*.markdown"
+              "*.toml"
+              "*.yaml"
+              "*.yml"
+              "*.xml"
+            ];
+            excludes = [
+              ".github/workflows/**"
+              ".github/ISSUE_TEMPLATE/**"
+            ];
+            settings = {
+              plugins = pkgs.dprint-plugins.getPluginList (
+                plugins: with plugins; [
+                  dprint-plugin-json
+                  dprint-plugin-markdown
+                  dprint-plugin-toml
+                  g-plane-pretty_yaml
+                  g-plane-markup_fmt
+                ]
+              );
+            };
+          };
         };
       };
     };

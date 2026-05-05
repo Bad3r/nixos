@@ -135,7 +135,7 @@ for arg in "${extra_args_raw[@]}"; do
   [[ -n $arg ]] && extra_args+=("$arg")
 done
 
-# shellcheck disable=SC1091
+# shellcheck source=/dev/null disable=SC1091
 . "$env_file"
 
 if [[ -z ${AWS_ACCESS_KEY_ID:-} || -z ${AWS_SECRET_ACCESS_KEY:-} ]]; then

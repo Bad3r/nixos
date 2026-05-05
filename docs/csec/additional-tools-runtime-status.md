@@ -9,9 +9,9 @@ Verified on 2026-05-04 against the active flake pin.
 
 ## Summary
 
-| Result                                                           | Count   |
-| ---------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                             | 104     |
+| Result                                                          | Count   |
+| --------------------------------------------------------------- | ------- |
+| ✅ Run as documented                                            | 104     |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
 | ⚠️ Build or evaluation error                                     | 9       |
 | ⚠️ Binary path mismatch in the documented attribute              | 5       |
@@ -20,7 +20,7 @@ Verified on 2026-05-04 against the active flake pin.
 | ⚠️ External (non-nixpkgs) toolchain blocked                      | 2       |
 | ⚠️ Closure too large for smoke budget                            | 1       |
 | ⚠️ Documented uvx / PyPI invocation broken                       | 2       |
-| **Total entries in the reference**                               | **137** |
+| **Total entries in the reference**                              | **137** |
 
 The reference doc flags each unavailable tool inline (the entry's `run..:`
 field carries text such as `Not in nixpkgs ...` or `Must create a custom

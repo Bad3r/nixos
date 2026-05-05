@@ -1,30 +1,30 @@
 [default]
 extend-ignore-re = [
-  "[A-Za-z0-9+/=]{32,}",     # base64/age blobs
-  "-[A-Za-z0-9]{1,4}",       # short CLI flags (e.g. -Pn)
-  "\\.[A-Za-z0-9]{1,4}",     # short file ext. (e.g. .edn)
-  "sig=[0-9a-f]{8,}",        # upstream-tracker sha1 signatures
-  "(?i)@[0-9a-f]{40}",       # full commit SHAs in URLs or notes
+  "[A-Za-z0-9+/=]{32,}", # base64/age blobs
+  "-[A-Za-z0-9]{1,4}", # short CLI flags (e.g. -Pn)
+  "\\.[A-Za-z0-9]{1,4}", # short file ext. (e.g. .edn)
+  "sig=[0-9a-f]{8,}", # upstream-tracker sha1 signatures
+  "(?i)@[0-9a-f]{40}", # full commit SHAs in URLs or notes
 ]
 
 [default.extend-words]
 # General terms
 example = "example"
-UE = "UE"           # minified JS variable name in docs
-fpt = "fpt"         # Intel Flash Programming Tool
-PN = "PN"           # Part Number
+UE = "UE" # minified JS variable name in docs
+fpt = "fpt" # Intel Flash Programming Tool
+PN = "PN" # Part Number
 
 # App/tool names
 iterm2_with_bell = "iterm2_with_bell"
-Autorize = "Autorize"                 # Burp Suite extension
-Hashi = "Hashi"                       # HashiCorp (company name prefix)
-Laf = "Laf"                           # FlatLaf Java look-and-feel suffix
-gost = "gost"                         # GO Simple Tunnel (ginuerzh/gost)
+Autorize = "Autorize" # Burp Suite extension
+Hashi = "Hashi" # HashiCorp (company name prefix)
+Laf = "Laf" # FlatLaf Java look-and-feel suffix
+gost = "gost" # GO Simple Tunnel (ginuerzh/gost)
 
 # NixOS/nixpkgs terms
-facter = "facter"             # nixos-facter-modules
-crypted = "crypted"           # LUKS device mapper name
-wdth = "wdth"                 # CSS font-variation-settings property
+facter = "facter" # nixos-facter-modules
+crypted = "crypted" # LUKS device mapper name
+wdth = "wdth" # CSS font-variation-settings property
 substituters = "substituters" # nix substituters
 ANC = "ANC"                   # Active Noise Cancellation (AirPods)
 # Hashes/keys (extend-ignore-re should catch most, but explicit for safety)

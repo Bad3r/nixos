@@ -6,7 +6,7 @@
   Repository: https://github.com/Bad3r/nixos
 
   Summary:
-    * Installs the project-standard formatter toolchain (e.g. `nixfmt`, `shfmt`, `prettier`) to ensure consistent styling across languages.
+    * Installs the project-standard formatter toolchain (e.g. `nixfmt`, `shfmt`, `dprint`, `ruff`) to ensure consistent styling across languages.
     * Intended for developers entering the repo's `nix develop` environment or running `nix fmt` locally.
 
   Options:
@@ -40,9 +40,9 @@ let
         packages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
           default = with pkgs; [
-            biome
+            dprint
             nixfmt
-            prettier
+            ruff
             shellcheck
             shfmt
             stylua
@@ -53,13 +53,13 @@ let
             Code formatters and linters for the development environment.
 
             Included formatters:
-            - biome: JavaScript/TypeScript/JSON
+            - dprint: JSON, Markdown, TOML, YAML, XML (via plugins)
             - nixfmt: Nix (RFC 166)
-            - prettier: Multi-language formatter (JS/TS/JSON/YAML/MD/HTML/CSS)
+            - ruff: Python formatter and linter
             - shellcheck: Shell script linter
             - shfmt: Shell script formatter
             - stylua: Lua formatter
-            - taplo: TOML formatter
+            - taplo: TOML linter / language server
             - treefmt: Format orchestrator
           '';
           example = lib.literalExpression "with pkgs; [ nixfmt shfmt ]";

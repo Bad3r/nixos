@@ -14,11 +14,23 @@ cve = "CVE-2021-43138"
 
 ["curl-0.4.49"]
 # Haskell curl binding (not curl 7.x/8.x C library)
-cve = [ "CVE-2022-27776", "CVE-2022-27781", "CVE-2022-27782", "CVE-2022-32206", "CVE-2022-32221", "CVE-2022-35252", "CVE-2022-43552", "CVE-2023-28319", "CVE-2023-28320", "CVE-2023-28321", "CVE-2023-28322" ]
+cve = [
+  "CVE-2022-27776",
+  "CVE-2022-27781",
+  "CVE-2022-27782",
+  "CVE-2022-32206",
+  "CVE-2022-32221",
+  "CVE-2022-35252",
+  "CVE-2022-43552",
+  "CVE-2023-28319",
+  "CVE-2023-28320",
+  "CVE-2023-28321",
+  "CVE-2023-28322",
+]
 
 ["dbus-0.9.7"]
 # Haskell dbus binding (not dbus-daemon/libdbus)
-cve = [ "CVE-2022-42010", "CVE-2022-42011", "CVE-2022-42012" ]
+cve = ["CVE-2022-42010", "CVE-2022-42011", "CVE-2022-42012"]
 
 ["Diff-1.0.2"]
 # Haskell Diff lib (CVE is for a WordPress plugin)
@@ -37,30 +49,106 @@ cve = "CVE-2021-4276"
 
 ["jose-0.11"]
 # Haskell jose lib (CVEs are for node-jose / panva/jose JS libs)
-cve = [ "CVE-2023-50967", "CVE-2024-28176" ]
+cve = ["CVE-2023-50967", "CVE-2024-28176"]
 
 ["network-3.2.8.0"]
 # Haskell network socket lib (CVEs are for router/appliance products)
-cve = [ "CVE-2021-35047", "CVE-2021-35048", "CVE-2021-35049", "CVE-2021-35050", "CVE-2022-0486", "CVE-2022-0997", "CVE-2022-24388", "CVE-2022-24389", "CVE-2022-24390", "CVE-2022-24391", "CVE-2022-24392", "CVE-2022-24393", "CVE-2022-24394" ]
+cve = [
+  "CVE-2021-35047",
+  "CVE-2021-35048",
+  "CVE-2021-35049",
+  "CVE-2021-35050",
+  "CVE-2022-0486",
+  "CVE-2022-0997",
+  "CVE-2022-24388",
+  "CVE-2022-24389",
+  "CVE-2022-24390",
+  "CVE-2022-24391",
+  "CVE-2022-24392",
+  "CVE-2022-24393",
+  "CVE-2022-24394",
+]
 
 ["safe-0.3.21"]
 # Haskell safe lib (CVEs are for F-Secure SAFE antivirus)
-cve = [ "CVE-2021-33594", "CVE-2021-33595", "CVE-2021-33596", "CVE-2021-40834", "CVE-2021-40835", "CVE-2021-44751", "CVE-2022-28868", "CVE-2022-28869", "CVE-2022-28870", "CVE-2022-28872", "CVE-2022-28873", "CVE-2022-38163", "CVE-2022-38164", "CVE-2022-47524" ]
+cve = [
+  "CVE-2021-33594",
+  "CVE-2021-33595",
+  "CVE-2021-33596",
+  "CVE-2021-40834",
+  "CVE-2021-40835",
+  "CVE-2021-44751",
+  "CVE-2022-28868",
+  "CVE-2022-28869",
+  "CVE-2022-28870",
+  "CVE-2022-28872",
+  "CVE-2022-28873",
+  "CVE-2022-38163",
+  "CVE-2022-38164",
+  "CVE-2022-47524",
+]
 
 ["safe-0.3.21-r1.cabal"]
-cve = [ "CVE-2021-33594", "CVE-2021-33595", "CVE-2021-33596", "CVE-2021-40834", "CVE-2021-40835", "CVE-2021-44751", "CVE-2022-28868", "CVE-2022-28869", "CVE-2022-28870", "CVE-2022-28872", "CVE-2022-28873", "CVE-2022-38163", "CVE-2022-38164", "CVE-2022-47524" ]
+cve = [
+  "CVE-2021-33594",
+  "CVE-2021-33595",
+  "CVE-2021-33596",
+  "CVE-2021-40834",
+  "CVE-2021-40835",
+  "CVE-2021-44751",
+  "CVE-2022-28868",
+  "CVE-2022-28869",
+  "CVE-2022-28870",
+  "CVE-2022-28872",
+  "CVE-2022-28873",
+  "CVE-2022-38163",
+  "CVE-2022-38164",
+  "CVE-2022-47524",
+]
 
 ["systemd-2.4.0"]
 # Haskell systemd binding (not systemd init system)
-cve = [ "CVE-2021-33910", "CVE-2022-3821", "CVE-2023-26604", "CVE-2025-4598" ]
+cve = ["CVE-2021-33910", "CVE-2022-3821", "CVE-2023-26604", "CVE-2025-4598"]
 
 ["vault-0.3.1.6"]
 # Haskell vault (type-safe persistent store, not HashiCorp Vault)
-cve = [ "CVE-2021-27400", "CVE-2021-3024", "CVE-2021-38554", "CVE-2021-41802", "CVE-2022-41316", "CVE-2023-0620", "CVE-2023-0665", "CVE-2023-2121", "CVE-2023-24999", "CVE-2023-25000", "CVE-2023-6337", "CVE-2024-2048", "CVE-2024-8365", "CVE-2025-4166", "CVE-2025-6011", "CVE-2025-6014", "CVE-2025-6037" ]
+cve = [
+  "CVE-2021-27400",
+  "CVE-2021-3024",
+  "CVE-2021-38554",
+  "CVE-2021-41802",
+  "CVE-2022-41316",
+  "CVE-2023-0620",
+  "CVE-2023-0665",
+  "CVE-2023-2121",
+  "CVE-2023-24999",
+  "CVE-2023-25000",
+  "CVE-2023-6337",
+  "CVE-2024-2048",
+  "CVE-2024-8365",
+  "CVE-2025-4166",
+  "CVE-2025-6011",
+  "CVE-2025-6014",
+  "CVE-2025-6037",
+]
 
 ["warp-3.4.9"]
 # Haskell warp WAI server (CVEs are for Cloudflare WARP VPN)
-cve = [ "CVE-2022-2145", "CVE-2022-2225", "CVE-2022-3320", "CVE-2022-3512", "CVE-2022-4428", "CVE-2022-4457", "CVE-2023-0238", "CVE-2023-0652", "CVE-2023-0654", "CVE-2023-1412", "CVE-2023-1862", "CVE-2023-2754", "CVE-2025-0651" ]
+cve = [
+  "CVE-2022-2145",
+  "CVE-2022-2225",
+  "CVE-2022-3320",
+  "CVE-2022-3512",
+  "CVE-2022-4428",
+  "CVE-2022-4457",
+  "CVE-2023-0238",
+  "CVE-2023-0652",
+  "CVE-2023-0654",
+  "CVE-2023-1412",
+  "CVE-2023-1862",
+  "CVE-2023-2754",
+  "CVE-2025-0651",
+]
 
 ["websockets-0.13.0.0"]
 # Haskell websockets lib (CVE is for npm websockets)
@@ -75,14 +163,14 @@ cve = "CVE-2023-26115"
 
 ["yaml-0.11.11.2"]
 # Haskell yaml (CVEs are for Go go-yaml)
-cve = [ "CVE-2021-4235", "CVE-2022-3064" ]
+cve = ["CVE-2021-4235", "CVE-2022-3064"]
 
 ["yaml-0.11.11.2-r2.cabal"]
-cve = [ "CVE-2021-4235", "CVE-2022-3064" ]
+cve = ["CVE-2021-4235", "CVE-2022-3064"]
 
 ["zlib-0.7.1.1"]
 # Haskell zlib binding (CVEs are for the C zlib, scanned separately)
-cve = [ "CVE-2022-37434", "CVE-2023-45853", "CVE-2023-6992", "CVE-2026-22184" ]
+cve = ["CVE-2022-37434", "CVE-2023-45853", "CVE-2023-6992", "CVE-2026-22184"]
 
 ["stringbuilder-0.5.1"]
 # Haskell stringbuilder (CVE is for npm stringbuilder)
@@ -110,11 +198,11 @@ cve = "CVE-2023-41940"
 
 ["git-2.52.0"]
 # CVEs are for Jenkins Git Plugin, not git itself
-cve = [ "CVE-2021-21684", "CVE-2022-30947", "CVE-2022-36882", "CVE-2022-36883", "CVE-2022-36884", "CVE-2022-38663" ]
+cve = ["CVE-2021-21684", "CVE-2022-30947", "CVE-2022-36882", "CVE-2022-36883", "CVE-2022-36884", "CVE-2022-38663"]
 
 ["subversion-1.14.5"]
 # CVEs are for Jenkins Subversion Plugin, not Apache Subversion
-cve = [ "CVE-2021-21698", "CVE-2022-29046", "CVE-2022-29048" ]
+cve = ["CVE-2021-21698", "CVE-2022-29046", "CVE-2022-29048"]
 
 ["mercurial-7.1"]
 # CVE is for Jenkins Mercurial Plugin, not Mercurial SCM
@@ -128,10 +216,10 @@ cve = "CVE-2022-43410"
 
 ["junit-4.13.2.jar"]
 # CVEs are for Jenkins JUnit Plugin, not JUnit framework
-cve = [ "CVE-2022-34176", "CVE-2022-45380", "CVE-2023-25761" ]
+cve = ["CVE-2022-34176", "CVE-2022-45380", "CVE-2023-25761"]
 
 ["junit-4.13.2.pom"]
-cve = [ "CVE-2022-34176", "CVE-2022-45380", "CVE-2023-25761" ]
+cve = ["CVE-2022-34176", "CVE-2022-45380", "CVE-2023-25761"]
 
 ["xunit-2.9.3"]
 # CVE is for Jenkins xUnit Plugin, not .NET xUnit
@@ -152,11 +240,11 @@ cve = "CVE-2024-9410"
 
 ["immer-0.9.1"]
 # C++ immer persistent data structures (CVEs are for JS immer npm)
-cve = [ "CVE-2021-23436", "CVE-2021-3757" ]
+cve = ["CVE-2021-23436", "CVE-2021-3757"]
 
 ["snappy-1.2.2"]
 # Google C++ Snappy compression (CVEs are for PHP/Java snappy)
-cve = [ "CVE-2023-28115", "CVE-2023-41330" ]
+cve = ["CVE-2023-28115", "CVE-2023-41330"]
 
 ["rubygems-3.7.2"]
 # CVE is for sigstore cosign, not RubyGems
@@ -195,10 +283,10 @@ cve = "CVE-2021-24028"
 
 ["image-viewer-1.2.3.jar"]
 # Generic name collision — CVEs are for a different image viewer product
-cve = [ "CVE-2021-26233", "CVE-2021-26234", "CVE-2021-26235", "CVE-2021-26236", "CVE-2021-26237", "CVE-2022-36947" ]
+cve = ["CVE-2021-26233", "CVE-2021-26234", "CVE-2021-26235", "CVE-2021-26236", "CVE-2021-26237", "CVE-2022-36947"]
 
 ["image-viewer-1.2.3.pom"]
-cve = [ "CVE-2021-26233", "CVE-2021-26234", "CVE-2021-26235", "CVE-2021-26236", "CVE-2021-26237", "CVE-2022-36947" ]
+cve = ["CVE-2021-26233", "CVE-2021-26234", "CVE-2021-26235", "CVE-2021-26236", "CVE-2021-26237", "CVE-2022-36947"]
 
 ["log4j-2.17.1.pom"]
 # Phantom CVE — does not correspond to a real Log4j vulnerability
@@ -209,11 +297,19 @@ cve = "CVE-2025-68161"
 
 ["nemo-6.6.3"]
 # Cinnamon Nemo file manager (CVEs are for NVIDIA Nemo AI framework)
-cve = [ "CVE-2025-23249", "CVE-2025-23250", "CVE-2025-23251", "CVE-2025-23360" ]
+cve = ["CVE-2025-23249", "CVE-2025-23250", "CVE-2025-23251", "CVE-2025-23360"]
 
 ["Minio-6.0.0"]
 # Haskell MinIO client library (CVEs are for MinIO server)
-cve = [ "CVE-2021-21287", "CVE-2021-21362", "CVE-2021-21390", "CVE-2021-43858", "CVE-2022-35919", "CVE-2023-28433", "CVE-2023-28434" ]
+cve = [
+  "CVE-2021-21287",
+  "CVE-2021-21362",
+  "CVE-2021-21390",
+  "CVE-2021-43858",
+  "CVE-2022-35919",
+  "CVE-2023-28433",
+  "CVE-2023-28434",
+]
 
 ["libmemcached-1.0.18"]
 # C libmemcached client lib (CVE is for memcachier Node.js client)
@@ -242,7 +338,7 @@ cve = "CVE-2021-4034"
 
 [dbus-1]
 # "1" is the D-Bus spec version. CVEs fixed in dbus 1.14.4+, nixpkgs is patched.
-cve = [ "CVE-2022-42010", "CVE-2022-42011", "CVE-2022-42012" ]
+cve = ["CVE-2022-42010", "CVE-2022-42011", "CVE-2022-42012"]
 
 ["cups-2.4.16"]
 # CVE fixed in CUPS 2.4.2; version 2.4.16 already includes the fix.
@@ -254,7 +350,7 @@ cve = "CVE-2023-24044"
 
 ["kitty-0.45.0"]
 # CVE-2024-23749/25003/25004 fixed in 0.31+. Terrapin is SSH protocol-level, mitigated.
-cve = [ "CVE-2023-48795", "CVE-2024-23749", "CVE-2024-25003", "CVE-2024-25004" ]
+cve = ["CVE-2023-48795", "CVE-2024-23749", "CVE-2024-25003", "CVE-2024-25004"]
 
 [lapack-3]
 # "3" is the major version; nixpkgs ships 3.12.x which includes the fix (3.10.1+).
@@ -274,12 +370,12 @@ cve = "CVE-2024-36600"
 
 ["libpng-1.2.59"]
 # Both CVEs target the simplified API introduced in libpng 1.6.0; not present in 1.2.x
-cve = [ "CVE-2025-66293", "CVE-2025-64505" ]
+cve = ["CVE-2025-66293", "CVE-2025-64505"]
 
 ["zlib-1.3.1"]
 # CVE-2026-22184 is in contrib/untgz utility, not installed by NixOS
 # CVE-2023-6992 affects Cloudflare's zlib fork only, not upstream zlib
-cve = [ "CVE-2026-22184", "CVE-2023-6992" ]
+cve = ["CVE-2026-22184", "CVE-2023-6992"]
 
 # --- Not applicable to this platform ---
 
@@ -297,17 +393,61 @@ cve = "CVE-2023-1004"
 
 ["capstone-5.0.1-py3-none-win_amd64.whl"]
 # Windows Python wheel; not applicable on Linux
-cve = [ "CVE-2025-67873", "CVE-2025-68114" ]
+cve = ["CVE-2025-67873", "CVE-2025-68114"]
 
 # --- Build-time only dependencies (not in runtime closure) ---
 
 ["go-1.22.12-linux-386-bootstrap"]
 # Bootstrap compiler, only used to build Go itself
-cve = [ "CVE-2023-49292", "CVE-2025-0913", "CVE-2025-4674", "CVE-2025-47906", "CVE-2025-47907", "CVE-2025-47912", "CVE-2025-58185", "CVE-2025-58187", "CVE-2025-58188", "CVE-2025-58189", "CVE-2025-61723", "CVE-2025-61724", "CVE-2025-61726", "CVE-2025-61727", "CVE-2025-61728", "CVE-2025-61729", "CVE-2025-61730", "CVE-2025-61731", "CVE-2025-61732", "CVE-2025-68119", "CVE-2025-68121" ]
+cve = [
+  "CVE-2023-49292",
+  "CVE-2025-0913",
+  "CVE-2025-4674",
+  "CVE-2025-47906",
+  "CVE-2025-47907",
+  "CVE-2025-47912",
+  "CVE-2025-58185",
+  "CVE-2025-58187",
+  "CVE-2025-58188",
+  "CVE-2025-58189",
+  "CVE-2025-61723",
+  "CVE-2025-61724",
+  "CVE-2025-61726",
+  "CVE-2025-61727",
+  "CVE-2025-61728",
+  "CVE-2025-61729",
+  "CVE-2025-61730",
+  "CVE-2025-61731",
+  "CVE-2025-61732",
+  "CVE-2025-68119",
+  "CVE-2025-68121",
+]
 
 ["go-1.22.12-linux-amd64-bootstrap"]
 # Bootstrap compiler, only used to build Go itself
-cve = [ "CVE-2023-49292", "CVE-2025-0913", "CVE-2025-4674", "CVE-2025-47906", "CVE-2025-47907", "CVE-2025-47912", "CVE-2025-58185", "CVE-2025-58187", "CVE-2025-58188", "CVE-2025-58189", "CVE-2025-61723", "CVE-2025-61724", "CVE-2025-61726", "CVE-2025-61727", "CVE-2025-61728", "CVE-2025-61729", "CVE-2025-61730", "CVE-2025-61731", "CVE-2025-61732", "CVE-2025-68119", "CVE-2025-68121" ]
+cve = [
+  "CVE-2023-49292",
+  "CVE-2025-0913",
+  "CVE-2025-4674",
+  "CVE-2025-47906",
+  "CVE-2025-47907",
+  "CVE-2025-47912",
+  "CVE-2025-58185",
+  "CVE-2025-58187",
+  "CVE-2025-58188",
+  "CVE-2025-58189",
+  "CVE-2025-61723",
+  "CVE-2025-61724",
+  "CVE-2025-61726",
+  "CVE-2025-61727",
+  "CVE-2025-61728",
+  "CVE-2025-61729",
+  "CVE-2025-61730",
+  "CVE-2025-61731",
+  "CVE-2025-61732",
+  "CVE-2025-68119",
+  "CVE-2025-68121",
+]
 
 ["go-1.24.13"]
 # CVE-2023-49292 is for ecies/go (third-party ECIES package), not the Go compiler
@@ -319,15 +459,38 @@ cve = "CVE-2023-49292"
 
 ["python-2.7.18.12"]
 # EOL Python 2.7, used only as build-time bootstrap dependency in nixpkgs
-cve = [ "CVE-2021-23336", "CVE-2021-3733", "CVE-2022-0391", "CVE-2022-26488", "CVE-2022-45061", "CVE-2022-48560", "CVE-2022-48564", "CVE-2022-48565", "CVE-2022-48566", "CVE-2023-24329", "CVE-2023-36632", "CVE-2023-40217", "CVE-2024-49050", "CVE-2024-6232", "CVE-2024-7592", "CVE-2024-9287", "CVE-2025-12084", "CVE-2025-12781", "CVE-2025-13836", "CVE-2025-13837", "CVE-2025-49714", "CVE-2025-6075" ]
+cve = [
+  "CVE-2021-23336",
+  "CVE-2021-3733",
+  "CVE-2022-0391",
+  "CVE-2022-26488",
+  "CVE-2022-45061",
+  "CVE-2022-48560",
+  "CVE-2022-48564",
+  "CVE-2022-48565",
+  "CVE-2022-48566",
+  "CVE-2023-24329",
+  "CVE-2023-36632",
+  "CVE-2023-40217",
+  "CVE-2024-49050",
+  "CVE-2024-6232",
+  "CVE-2024-7592",
+  "CVE-2024-9287",
+  "CVE-2025-12084",
+  "CVE-2025-12781",
+  "CVE-2025-13836",
+  "CVE-2025-13837",
+  "CVE-2025-49714",
+  "CVE-2025-6075",
+]
 
 ["pip-20.3.4-source"]
 # Bundled with Python 2.7 bootstrap, build-time only
-cve = [ "CVE-2021-3572", "CVE-2023-5752" ]
+cve = ["CVE-2021-3572", "CVE-2023-5752"]
 
 ["setuptools-44.0.0-source"]
 # Build-time Python packaging tool
-cve = [ "CVE-2022-40897", "CVE-2025-47273" ]
+cve = ["CVE-2022-40897", "CVE-2025-47273"]
 
 ["setuptools-68.0.0-py3-none-any.whl"]
 # Build-time Python packaging tool
@@ -343,11 +506,33 @@ cve = "CVE-2022-40898"
 
 ["binutils-2.44"]
 # Build-time linker/assembler, low-severity crash-on-malformed-input
-cve = [ "CVE-2025-1153", "CVE-2025-3198", "CVE-2025-8224", "CVE-2025-8225" ]
+cve = ["CVE-2025-1153", "CVE-2025-3198", "CVE-2025-8224", "CVE-2025-8225"]
 
 ["yasm-1.3.0"]
 # Build-time assembler, all CVEs are crash-on-crafted-input
-cve = [ "CVE-2021-33454", "CVE-2021-33455", "CVE-2021-33456", "CVE-2021-33457", "CVE-2021-33458", "CVE-2021-33459", "CVE-2021-33460", "CVE-2021-33461", "CVE-2021-33462", "CVE-2021-33463", "CVE-2021-33464", "CVE-2021-33465", "CVE-2021-33466", "CVE-2021-33467", "CVE-2021-33468", "CVE-2023-30402", "CVE-2023-31972", "CVE-2023-31973", "CVE-2023-31974", "CVE-2023-31975", "CVE-2023-51258" ]
+cve = [
+  "CVE-2021-33454",
+  "CVE-2021-33455",
+  "CVE-2021-33456",
+  "CVE-2021-33457",
+  "CVE-2021-33458",
+  "CVE-2021-33459",
+  "CVE-2021-33460",
+  "CVE-2021-33461",
+  "CVE-2021-33462",
+  "CVE-2021-33463",
+  "CVE-2021-33464",
+  "CVE-2021-33465",
+  "CVE-2021-33466",
+  "CVE-2021-33467",
+  "CVE-2021-33468",
+  "CVE-2023-30402",
+  "CVE-2023-31972",
+  "CVE-2023-31973",
+  "CVE-2023-31974",
+  "CVE-2023-31975",
+  "CVE-2023-51258",
+]
 
 ["sassc-3.6.2"]
 # Build-time Sass compiler
@@ -357,15 +542,45 @@ cve = "CVE-2022-43357"
 
 ["ffmpeg-6.1.4"]
 # Fixed in 6.1.3 (included in 6.1.4), git-master-only, or never affected a release
-cve = [ "CVE-2023-49502", "CVE-2023-50007", "CVE-2023-50008", "CVE-2023-50009", "CVE-2024-31578", "CVE-2024-31582", "CVE-2025-1373", "CVE-2025-25468", "CVE-2025-25469" ]
+cve = [
+  "CVE-2023-49502",
+  "CVE-2023-50007",
+  "CVE-2023-50008",
+  "CVE-2023-50009",
+  "CVE-2024-31578",
+  "CVE-2024-31582",
+  "CVE-2025-1373",
+  "CVE-2025-25468",
+  "CVE-2025-25469",
+]
 
 ["ffmpeg-7.1.3"]
 # CVE-2023-5179x series fixed in 7.0 (predates 7.1.x); git-master-only CVEs
-cve = [ "CVE-2023-51791", "CVE-2023-51793", "CVE-2023-51794", "CVE-2023-51795", "CVE-2023-51796", "CVE-2023-51797", "CVE-2023-51798", "CVE-2025-25468", "CVE-2025-25469" ]
+cve = [
+  "CVE-2023-51791",
+  "CVE-2023-51793",
+  "CVE-2023-51794",
+  "CVE-2023-51795",
+  "CVE-2023-51796",
+  "CVE-2023-51797",
+  "CVE-2023-51798",
+  "CVE-2025-25468",
+  "CVE-2025-25469",
+]
 
 ["ffmpeg-8.0.1"]
 # CVE-2023-5179x series fixed in 7.0 (predates 8.x); git-master-only CVEs
-cve = [ "CVE-2023-51791", "CVE-2023-51793", "CVE-2023-51794", "CVE-2023-51795", "CVE-2023-51796", "CVE-2023-51797", "CVE-2023-51798", "CVE-2025-25468", "CVE-2025-25469" ]
+cve = [
+  "CVE-2023-51791",
+  "CVE-2023-51793",
+  "CVE-2023-51794",
+  "CVE-2023-51795",
+  "CVE-2023-51796",
+  "CVE-2023-51797",
+  "CVE-2023-51798",
+  "CVE-2025-25468",
+  "CVE-2025-25469",
+]
 
 # --- Java/Maven build artifacts (fetched sources, not runtime services) ---
 
@@ -411,10 +626,10 @@ cve = "CVE-2023-2976"
 
 ["protobuf-java-3.17.3.jar"]
 # Maven artifact, build dependency
-cve = [ "CVE-2022-3171", "CVE-2024-7254" ]
+cve = ["CVE-2022-3171", "CVE-2024-7254"]
 
 ["protobuf-java-3.17.3.pom"]
-cve = [ "CVE-2022-3171", "CVE-2024-7254" ]
+cve = ["CVE-2022-3171", "CVE-2024-7254"]
 
 ["protobuf-java-3.25.3.jar"]
 cve = "CVE-2024-7254"
@@ -424,10 +639,26 @@ cve = "CVE-2024-7254"
 
 ["snakeyaml-1.23-android.jar"]
 # Maven artifact, build dependency
-cve = [ "CVE-2022-1471", "CVE-2022-25857", "CVE-2022-38749", "CVE-2022-38750", "CVE-2022-38751", "CVE-2022-38752", "CVE-2022-41854" ]
+cve = [
+  "CVE-2022-1471",
+  "CVE-2022-25857",
+  "CVE-2022-38749",
+  "CVE-2022-38750",
+  "CVE-2022-38751",
+  "CVE-2022-38752",
+  "CVE-2022-41854",
+]
 
 ["snakeyaml-1.23.pom"]
-cve = [ "CVE-2022-1471", "CVE-2022-25857", "CVE-2022-38749", "CVE-2022-38750", "CVE-2022-38751", "CVE-2022-38752", "CVE-2022-41854" ]
+cve = [
+  "CVE-2022-1471",
+  "CVE-2022-25857",
+  "CVE-2022-38749",
+  "CVE-2022-38750",
+  "CVE-2022-38751",
+  "CVE-2022-38752",
+  "CVE-2022-41854",
+]
 
 ["xz-1.9.jar"]
 # Maven artifact, build dependency

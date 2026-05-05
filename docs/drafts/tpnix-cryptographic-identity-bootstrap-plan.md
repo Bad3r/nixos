@@ -1,8 +1,8 @@
 # tpnix Cryptographic Identity Bootstrap Plan
 
-Status: draft  
-Host: `tpnix`  
-Owner user: `vx`  
+Status: draft\
+Host: `tpnix`\
+Owner user: `vx`\
 Scope: configure host-specific OpenPGP commit signing, SSH auth for GitHub, and SOPS host key provisioning.
 
 ## 1. Goal
@@ -224,30 +224,30 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
 ## 10. Primary Sources
 
-1. GitHub Docs: Generating a new GPG key  
+1. GitHub Docs: Generating a new GPG key\
    https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key
-2. GitHub Docs: Adding a GPG key to your GitHub account  
+2. GitHub Docs: Adding a GPG key to your GitHub account\
    https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account
-3. GitHub Docs: Telling Git about your signing key  
+3. GitHub Docs: Telling Git about your signing key\
    https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key
-4. GitHub Docs: Generating a new SSH key and adding it to the ssh-agent  
+4. GitHub Docs: Generating a new SSH key and adding it to the ssh-agent\
    https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-5. GitHub Docs: Adding a new SSH key to your GitHub account  
+5. GitHub Docs: Adding a new SSH key to your GitHub account\
    https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account
-6. GitHub CLI: `gh gpg-key add`  
+6. GitHub CLI: `gh gpg-key add`\
    https://cli.github.com/manual/gh_gpg-key_add
-7. GitHub CLI: `gh ssh-key add`  
+7. GitHub CLI: `gh ssh-key add`\
    https://cli.github.com/manual/gh_ssh-key_add
-8. Git upstream config docs  
-   https://raw.githubusercontent.com/git/git/master/Documentation/config/gpg.adoc  
-   https://raw.githubusercontent.com/git/git/master/Documentation/config/user.adoc  
-   https://raw.githubusercontent.com/git/git/master/Documentation/config/commit.adoc  
+8. Git upstream config docs\
+   https://raw.githubusercontent.com/git/git/master/Documentation/config/gpg.adoc\
+   https://raw.githubusercontent.com/git/git/master/Documentation/config/user.adoc\
+   https://raw.githubusercontent.com/git/git/master/Documentation/config/commit.adoc\
    https://raw.githubusercontent.com/git/git/master/Documentation/config/tag.adoc
-9. NixOS module sources  
-   https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/programs/gnupg.nix  
-   https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/services/networking/ssh/sshd.nix  
+9. NixOS module sources\
+   https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/programs/gnupg.nix\
+   https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/services/networking/ssh/sshd.nix\
    https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/programs/ssh.nix
-10. Local docs  
-    `docs/sops/README.md`  
-    `docs/index.md`  
+10. Local docs\
+    `docs/sops/README.md`\
+    `docs/index.md`\
     `nixos-manual/configuration/ssh.section.md`
