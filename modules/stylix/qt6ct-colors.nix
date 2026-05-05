@@ -12,14 +12,34 @@ let
   # mirroring `QPalette::ColorRole` 0..20; `Accent` is omitted -- qt6ct 0.11
   # does not yet include it).
   #
+  # Background and structural roles (`Window`, `Base`, `AlternateBase`,
+  # `Button`, `Midlight`, `Dark`, `Mid`, `ToolTipBase`, `Link`,
+  # `LinkVisited`, `WindowText`, `Text`, `ButtonText`, `ToolTipText`)
+  # mirror `kvconfig.mustache`'s `[GeneralColors]` block one-for-one so a
+  # Fusion-rendered Qt app sees the same palette Kvantum produces.
+  #
+  # The roles below intentionally diverge from kvconfig:
+  #
   # `BrightText` is Qt's high-contrast text role (used when `Text` would
   # render poorly on top of `Highlight`); it maps to `base07` (the brightest
-  # foreground in Base16) rather than an accent colour.
+  # foreground in Base16) rather than an accent colour. kvconfig has no
+  # equivalent binding because Kvantum draws SVG frames instead of bevels.
   #
   # `HighlightedText` maps to `base05` rather than `base00`: on Base16
   # schemes where `base0D` (Highlight) and `base00` (background) collapse
   # toward similar luminance, selected text becomes unreadable. `base05`
   # keeps high contrast against any Highlight choice.
+  #
+  # `Light` maps to `base04` rather than kvconfig's `base03`. Fusion uses
+  # `Light`/`Midlight`/`Mid`/`Dark` to draw 3D bevels, and Base16 luminance
+  # ordering is `base03 < base04`. Setting `Light = base03` would equate
+  # `Light` and `Midlight` and flatten the bright side of the bevel.
+  # Kvantum renders SVG frames so it does not depend on `Light != Midlight`.
+  #
+  # `Highlight` maps to `base0D` rather than kvconfig's `base0E`. `base0D`
+  # is the conventional Qt blue-ish selection colour; `base0E` (purple) is
+  # a Stylix design choice that conflicts with user expectations for
+  # selection highlight in Fusion-rendered apps.
   paletteRoles = c: [
     c.base05 # WindowText
     c.base02 # Button
