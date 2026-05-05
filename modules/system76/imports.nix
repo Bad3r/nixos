@@ -91,7 +91,7 @@ in
     # Gaming & performance
     programs = {
       steam.extended.enable = true;
-      rip2.extended.enable = true;
+      rip.extended.enable = true;
     };
 
     # Language support

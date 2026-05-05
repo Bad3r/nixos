@@ -69,9 +69,9 @@ let
       esac
     done
 
-    cmd=(${lib.getExe pkgs.rip2})
+    cmd=(${lib.getExe' pkgs.trash-cli "trash-put"})
     if [ "$force" -eq 1 ]; then
-      cmd+=(--force)
+      cmd+=(-f)
     fi
 
     if [ "''${#operands[@]}" -eq 0 ]; then
