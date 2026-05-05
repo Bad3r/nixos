@@ -50,6 +50,13 @@ _: {
     # so AirPods Max 2 (BLE 0x2D20 / model A3454) is recognised; without it
     # the device falls through to the unknown-model defaults. Drop the patch
     # once upstream merges PR #519 and a release pinning it ships.
+    #
+    # `QT_STYLE_OVERRIDE` is forced to `Fusion` because librepods is a pure
+    # QtQuick.Controls 2 app and Stylix sets the session-wide override to
+    # `kvantum`. Kvantum ships only a `QStyle`, not a QtQuick.Controls
+    # module, so QML loading fails with `module "kvantum" is not installed`.
+    # Fusion is palette-aware, so it picks up the Stylix Base16 colors via
+    # the qt6ct color scheme (see `modules/stylix/qt6ct-colors.nix`).
     librepods = prev.librepods.overrideAttrs (old: rec {
       version = "0.2.5";
       src = final.fetchFromGitHub {
@@ -68,6 +75,11 @@ _: {
         final.qt6.qtconnectivity
         final.qt6.qtdeclarative
         final.qt6.qttools
+      ];
+      qtWrapperArgs = (old.qtWrapperArgs or [ ]) ++ [
+        "--set"
+        "QT_STYLE_OVERRIDE"
+        "Fusion"
       ];
     });
 
