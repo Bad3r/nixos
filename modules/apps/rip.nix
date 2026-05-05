@@ -13,7 +13,7 @@ let
 
       ripWrapper = pkgs.writeShellApplication {
         name = "rip";
-        runtimeInputs = [ pkgs.trash-cli ];
+        runtimeInputs = [ cfg.package ];
         text = ''
           TRASH_DIR_ARGS=()
           FORCE=false
@@ -125,8 +125,10 @@ let
           description = "Whether to enable the rip trash wrapper backed by trash-cli.";
         };
 
+        package = lib.mkPackageOption pkgs "trash-cli" { };
+
         trashPath = lib.mkOption {
-          type = lib.types.str;
+          type = lib.types.path;
           default = "/tmp/Trash";
           description = ''
             Directory used as the home-partition trash store.
@@ -140,7 +142,7 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [
-          pkgs.trash-cli
+          cfg.package
           ripWrapper
         ];
 
