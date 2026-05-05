@@ -54,7 +54,8 @@ let
               -i|--inspect) INSPECT=true; shift ;;
               -f|--force) FORCE=true; shift ;;
               --graveyard)
-                TRASH_DIR_ARGS=(--trash-dir "$2"); shift 2 ;;
+                TRASH_DIR_ARGS=(--trash-dir "''${2:?--graveyard requires an argument}")
+                shift 2 ;;
               --graveyard=*)
                 TRASH_DIR_ARGS=(--trash-dir "''${1#*=}"); shift ;;
               --) shift; FILES+=("$@"); break ;;
