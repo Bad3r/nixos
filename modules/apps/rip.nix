@@ -3,11 +3,13 @@ let
     {
       config,
       lib,
+      metaOwner,
       pkgs,
       ...
     }:
     let
       cfg = config.programs.rip.extended;
+      owner = metaOwner.username;
 
       ripWrapper = pkgs.writeShellApplication {
         name = "rip";
@@ -132,9 +134,9 @@ let
 
         systemd.tmpfiles.rules = [
           # Create the trash directory; clean entries older than 10 days.
-          "d ${cfg.trashPath} 0700 vx users 10d"
+          "d ${cfg.trashPath} 0700 ${owner} users 10d"
           # Point home-partition trash at the configured path.
-          "L+ /home/vx/.local/share/Trash - - - - ${cfg.trashPath}"
+          "L+ /home/${owner}/.local/share/Trash - - - - ${cfg.trashPath}"
         ];
       };
     };
