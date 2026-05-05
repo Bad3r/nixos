@@ -49,6 +49,7 @@ in
     { config, ... }:
     let
       stylixEnabled = (config.stylix.enable or false) && (config.stylix.targets.qt.enable or false);
+      qtctActive = (config.qt.platformTheme.name or null) == "qtct";
       colours = config.lib.stylix.colors.withHashtag;
       relPath6 = "qt6ct/colors/stylix.conf";
       relPath5 = "qt5ct/colors/stylix.conf";
@@ -56,7 +57,7 @@ in
       absPath5 = "${config.xdg.configHome}/${relPath5}";
       schemeContents = schemeText (paletteRoles colours);
     in
-    lib.mkIf stylixEnabled {
+    lib.mkIf (stylixEnabled && qtctActive) {
       xdg.configFile.${relPath6}.text = schemeContents;
       xdg.configFile.${relPath5}.text = schemeContents;
 
