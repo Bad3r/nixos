@@ -5,7 +5,9 @@
 
 local function resolve_browser()
   local override = os.getenv("MPV_YTDLP_BROWSER")
-  if override ~= nil then return override end
+  if override ~= nil then
+    return override
+  end
   local xdg = os.getenv("BROWSER")
   if xdg and xdg ~= "" then
     return (xdg:match("^(%S+)") or xdg)

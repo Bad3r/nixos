@@ -56,6 +56,11 @@ _: {
               files = "\\.nix$";
             };
 
+            luacheck = {
+              enable = true;
+              entry = "${config.packages.hook-luacheck}/bin/hook-luacheck";
+            };
+
             typos = {
               enable = true;
               settings.configPath = ".typos.toml";
