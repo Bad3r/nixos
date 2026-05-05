@@ -51,10 +51,14 @@ let
             # mpvScripts.mpv-cheatsheet
           ];
           description = ''
-            mpv scripts to install.
+            mpv scripts to load at startup.
+
+            The HM app module reads this list via osConfig and passes it to
+            programs.mpv.scripts, which wraps the mpv binary with --script= flags
+            so the scripts are loaded at runtime.
 
             Included by default:
-            - thumbfast: Fast thumbnail preview
+            - thumbfast: Fast thumbnail preview on seek
           '';
           example = lib.literalExpression "with pkgs; [ mpvScripts.thumbfast ]";
         };
@@ -77,7 +81,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ] ++ cfg.extraScripts ++ cfg.extraPackages;
+        environment.systemPackages = [ cfg.package ] ++ cfg.extraPackages;
       };
     };
 in
