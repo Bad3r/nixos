@@ -67,8 +67,8 @@ _: {
             "m" = "cycle mute";
             "v" = "cycle video";
             "a" = "cycle audio";
-            "[" = "add speed 0.1";
-            "]" = "add speed -0.1";
+            "[" = "add speed -0.1";
+            "]" = "add speed 0.1";
           };
 
           includes = [ "~~/hwdec-codecs.conf" ];
