@@ -44,12 +44,12 @@ let
     c.base04 # PlaceholderText
   ];
 
-  # Disabled-state palette mutes the foreground/highlight roles so Fusion
-  # can render disabled controls with reduced contrast. qt6ct writes the
-  # `disabled_colors` row verbatim and Qt no longer auto-greys widgets
+  # Disabled-state palette mutes the foreground/highlight/link roles so
+  # Fusion can render disabled controls with reduced contrast. qt6ct writes
+  # the `disabled_colors` row verbatim and Qt no longer auto-greys widgets
   # under a custom palette, so identical active/disabled rows leave disabled
-  # buttons looking fully active. Background and accent roles match the
-  # active palette to preserve widget silhouettes.
+  # buttons (and rich-text labels with hyperlinks) looking fully active.
+  # Background roles match the active palette to preserve widget silhouettes.
   disabledPaletteRoles = c: [
     c.base04 # WindowText
     c.base02 # Button
@@ -65,8 +65,8 @@ let
     c.base00 # Shadow
     c.base02 # Highlight
     c.base04 # HighlightedText
-    c.base0D # Link
-    c.base0E # LinkVisited
+    c.base04 # Link
+    c.base04 # LinkVisited
     c.base01 # AlternateBase
     c.base00 # NoRole
     c.base01 # ToolTipBase
