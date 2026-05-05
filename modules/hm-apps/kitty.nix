@@ -188,6 +188,11 @@ _: {
             "ctrl+alt+right" = "neighboring_window right";
             "ctrl+alt+up" = "neighboring_window up";
             "ctrl+alt+down" = "neighboring_window down";
+            # Pane resize — kitty_mod+ctrl+arrow pairs with the navigation chord above.
+            "kitty_mod+ctrl+left" = "resize_window narrower";
+            "kitty_mod+ctrl+right" = "resize_window wider";
+            "kitty_mod+ctrl+up" = "resize_window taller";
+            "kitty_mod+ctrl+down" = "resize_window shorter";
           };
 
           extraConfig = ''
