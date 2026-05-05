@@ -19,9 +19,11 @@ Two related fixes squashed into one patch:
    slots at `podmax.png` silences the warning without inventing an asset and
    stays semantically Max-shaped if the visibility logic ever changes.
 
-Paths are rooted at `linux/` because the nixpkgs librepods derivation sets
-`sourceRoot = "source/linux"`. The upstream PR's `Proximity Pairing Message.md`
-docs change is omitted because it lives outside the build root.
+Patch paths are relative to the `linux/` build root because the nixpkgs
+librepods derivation sets `sourceRoot = "source/linux"`. Upstream paths like
+`linux/ble/blemanager.cpp` therefore become `ble/blemanager.cpp` here. The
+upstream PR's `Proximity Pairing Message.md` docs change is omitted because
+it lives outside the build root.
 
 Drop this patch once upstream PR #519 merges, a release pinning it ships, and
 upstream stops referencing `max_case.png` (or actually adds the asset).
