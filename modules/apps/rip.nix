@@ -77,7 +77,8 @@ let
           fi
 
           if $SEANCE; then
-            trash-list "''${TRASH_DIR_ARGS[@]}" 2>/dev/null | grep -F "$(pwd)" || true
+            seance_prefix="$(pwd)/"
+            trash-list "''${TRASH_DIR_ARGS[@]}" 2>/dev/null | grep -F " $seance_prefix" || true
             exit 0
           fi
 
