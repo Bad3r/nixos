@@ -273,6 +273,7 @@ Pause, summarize the issue, and ask for direction.
 ## Practices
 
 - Do what was asked, nothing more and nothing less.
+- Use `uv` and `uvx` for all Python work; use `uv run --with <pkg>` for inline/one-off dependencies.
 - Prefer editing existing files over creating new ones
 - If an issue is upstream, do not add a local wrapper or workaround unless the user explicitly asks for it or approves it.
 - IMPORTANT: For any task task, you **MUST** resolve it idiomatically and following best-practices.
