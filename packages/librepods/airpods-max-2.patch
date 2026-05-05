@@ -1,0 +1,78 @@
+Subject: [PATCH] add basic AirPods Max 2 support and stub max_case.png
+
+Two related fixes squashed into one patch:
+
+1. Backport https://github.com/kavishdevar/librepods/pull/519 onto v0.2.5 so
+   AirPods Max 2nd Gen (BLE 0x2D20, model A3454) is recognised. Without this
+   the device falls through to the Unknown enum branch.
+
+2. Replace the dangling `max_case.png` reference in `getModelIcon()` with the
+   existing `podmax.png` asset. Upstream never shipped `max_case.png`: it does
+   not exist on `main`, on `linux/rust`, or in the Android `res-apple`
+   drawables (which only carry case art for AirPods 1/2/3/4/Pro 1/2/3, never
+   Max). AirPods Max has no charging case, just a non-electronic Smart Case
+   sleeve, so there is no canonical Apple artwork for a "Max case battery".
+   The case PodColumn is hidden for Max anyway (`caseAvailable` stays false
+   because battery is reported via the Headset component), but QQuickImage
+   still resolves the source URL on creation, producing
+   `qrc:/icons/assets/max_case.png is not installed` warnings. Pointing both
+   slots at `podmax.png` silences the warning without inventing an asset and
+   stays semantically Max-shaped if the visibility logic ever changes.
+
+Patch paths are relative to the `linux/` build root because the nixpkgs
+librepods derivation sets `sourceRoot = "source/linux"`. Upstream paths like
+`linux/ble/blemanager.cpp` therefore become `ble/blemanager.cpp` here. The
+upstream PR's `Proximity Pairing Message.md` docs change is omitted because
+it lives outside the build root.
+
+Drop this patch once upstream PR #519 merges, a release pinning it ships, and
+upstream stops referencing `max_case.png` (or actually adds the asset).
+
+diff --git a/ble/blemanager.cpp b/ble/blemanager.cpp
+--- a/ble/blemanager.cpp
++++ b/ble/blemanager.cpp
+@@ -16,6 +16,7 @@ AirpodsTrayApp::Enums::AirPodsModel getModelName(quint16 modelId)
+         {0x1B20, AirPodsModel::AirPods4ANC},
+         {0x0A20, AirPodsModel::AirPodsMaxLightning},
+         {0x1F20, AirPodsModel::AirPodsMaxUSBC},
++        {0x2D20, AirPodsModel::AirPodsMax2},
+         {0x0E20, AirPodsModel::AirPodsPro},
+         {0x1420, AirPodsModel::AirPodsPro2Lightning},
+         {0x2420, AirPodsModel::AirPodsPro2USBC}
+diff --git a/enums.h b/enums.h
+--- a/enums.h
++++ b/enums.h
+@@ -32,6 +32,7 @@ namespace AirpodsTrayApp
+             AirPodsPro2USBC,
+             AirPodsMaxLightning,
+             AirPodsMaxUSBC,
++            AirPodsMax2,
+             AirPods4,
+             AirPods4ANC
+         };
+@@ -50,6 +51,7 @@ namespace AirpodsTrayApp
+                 {"A2083", AirPodsModel::AirPodsPro},
+                 {"A2096", AirPodsModel::AirPodsMaxLightning},
+                 {"A3184", AirPodsModel::AirPodsMaxUSBC},
++                {"A3454", AirPodsModel::AirPodsMax2},
+                 {"A2565", AirPodsModel::AirPods3},
+                 {"A2564", AirPodsModel::AirPods3},
+                 {"A3047", AirPodsModel::AirPodsPro2USBC},
+@@ -85,7 +87,8 @@ namespace AirpodsTrayApp
+                     return {"podpro.png", "podpro_case.png"};
+                 case AirPodsModel::AirPodsMaxLightning:
+                 case AirPodsModel::AirPodsMaxUSBC:
+-                    return {"podmax.png", "max_case.png"};
++                case AirPodsModel::AirPodsMax2:
++                    return {"podmax.png", "podmax.png"};
+                 default:
+                     return {"pod.png", "pod_case.png"}; // Default icon for unknown models
+             }
+@@ -97,6 +100,7 @@ namespace AirpodsTrayApp
+             switch (model) {
+                 case AirPodsModel::AirPodsMaxLightning:
+                 case AirPodsModel::AirPodsMaxUSBC:
++                case AirPodsModel::AirPodsMax2:
+                     return true;
+                 default:
+                     return false;

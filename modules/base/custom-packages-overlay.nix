@@ -46,7 +46,11 @@ _: {
     # qtquick3d for qtdeclarative + qttools and adds Widgets/DBus.
     # Dep lookups go through `final` so any later overlay (e.g. an `openssl`
     # CVE patch) feeds into this build instead of being silently bypassed.
-    librepods = prev.librepods.overrideAttrs (_old: rec {
+    # The Max-2 patch backports https://github.com/kavishdevar/librepods/pull/519
+    # so AirPods Max 2 (BLE 0x2D20 / model A3454) is recognised; without it
+    # the device falls through to the unknown-model defaults. Drop the patch
+    # once upstream merges PR #519 and a release pinning it ships.
+    librepods = prev.librepods.overrideAttrs (old: rec {
       version = "0.2.5";
       src = final.fetchFromGitHub {
         owner = "kavishdevar";
@@ -54,6 +58,9 @@ _: {
         tag = "v${version}";
         hash = "sha256-6l1WjwjDbv5e3tDaWo9+XSEjr9ge/hKysIkeUqyiO4U=";
       };
+      patches = (old.patches or [ ]) ++ [
+        ../../packages/librepods/airpods-max-2.patch
+      ];
       buildInputs = [
         final.libpulseaudio
         final.openssl
