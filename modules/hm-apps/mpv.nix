@@ -71,6 +71,8 @@ _: {
             "]" = "add speed -0.1";
           };
 
+          includes = [ "~~/hwdec-codecs.conf" ];
+
           scripts = with pkgs.mpvScripts; [
             # mpv-cheatsheet
             mpris # use standard media keys
@@ -78,6 +80,13 @@ _: {
             reload # reload streamed file when stuck buffering
           ];
         };
+
+        xdg.configFile."mpv/hwdec-codecs.conf".text = ''
+          hwdec-codecs-append=mpeg2video
+          hwdec-codecs-append=mpeg4
+          hwdec-codecs-append=msmpeg4v2
+          hwdec-codecs-append=msmpeg4v3
+        '';
 
         # Add Lua script to block images (store under XDG config)
         xdg.configFile."mpv/scripts/block-images.lua".text = ''
