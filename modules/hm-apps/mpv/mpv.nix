@@ -73,6 +73,17 @@ _: {
 
           includes = [ "~~/hwdec-codecs.conf" ];
 
+          profiles = {
+            "vid" = {
+              profile-desc = "skip image files in playlists";
+              script-opts = "playlist-filter-mode=block-images";
+            };
+            "img" = {
+              profile-desc = "skip non-image files in playlists";
+              script-opts = "playlist-filter-mode=images-only";
+            };
+          };
+
           scripts =
             (with pkgs.mpvScripts; [
               modernz # OSC replacement; works with thumbfast for seek previews
@@ -87,7 +98,7 @@ _: {
         xdg.configFile = {
           "mpv/scripts/ytdlp-cookies.lua".source = ./scripts/ytdlp-cookies.lua;
           "mpv/hwdec-codecs.conf".source = ./hwdec-codecs.conf;
-          "mpv/scripts/block-images.lua".source = ./scripts/block-images.lua;
+          "mpv/scripts/playlist-filter.lua".source = ./scripts/playlist-filter.lua;
         };
       };
     };
