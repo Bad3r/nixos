@@ -1,15 +1,30 @@
-Subject: [PATCH] add basic AirPods Max 2 support (BLE id 0x2D20, model A3454)
+Subject: [PATCH] add basic AirPods Max 2 support and stub max_case.png
 
-Backport of https://github.com/kavishdevar/librepods/pull/519 squashed against
-the v0.2.5 release tree. Recognises AirPods Max 2nd Gen so the Linux Qt client
-shows the Max icon and the single-headset battery layout instead of falling
-through to the unknown-model defaults. Drop this patch once upstream PR #519
-merges and a release containing it is pinned.
+Two related fixes squashed into one patch:
+
+1. Backport https://github.com/kavishdevar/librepods/pull/519 onto v0.2.5 so
+   AirPods Max 2nd Gen (BLE 0x2D20, model A3454) is recognised. Without this
+   the device falls through to the Unknown enum branch.
+
+2. Replace the dangling `max_case.png` reference in `getModelIcon()` with the
+   existing `podmax.png` asset. Upstream never shipped `max_case.png`: it does
+   not exist on `main`, on `linux/rust`, or in the Android `res-apple`
+   drawables (which only carry case art for AirPods 1/2/3/4/Pro 1/2/3, never
+   Max). AirPods Max has no charging case, just a non-electronic Smart Case
+   sleeve, so there is no canonical Apple artwork for a "Max case battery".
+   The case PodColumn is hidden for Max anyway (`caseAvailable` stays false
+   because battery is reported via the Headset component), but QQuickImage
+   still resolves the source URL on creation, producing
+   `qrc:/icons/assets/max_case.png is not installed` warnings. Pointing both
+   slots at `podmax.png` silences the warning without inventing an asset and
+   stays semantically Max-shaped if the visibility logic ever changes.
 
 Paths are rooted at `linux/` because the nixpkgs librepods derivation sets
 `sourceRoot = "source/linux"`. The upstream PR's `Proximity Pairing Message.md`
-docs change is intentionally omitted because it lives outside the build root
-and does not affect runtime behaviour.
+docs change is omitted because it lives outside the build root.
+
+Drop this patch once upstream PR #519 merges, a release pinning it ships, and
+upstream stops referencing `max_case.png` (or actually adds the asset).
 
 diff --git a/ble/blemanager.cpp b/ble/blemanager.cpp
 --- a/ble/blemanager.cpp
@@ -41,14 +56,16 @@ diff --git a/enums.h b/enums.h
                  {"A2565", AirPodsModel::AirPods3},
                  {"A2564", AirPodsModel::AirPods3},
                  {"A3047", AirPodsModel::AirPodsPro2USBC},
-@@ -85,6 +87,7 @@ namespace AirpodsTrayApp
+@@ -85,7 +87,8 @@ namespace AirpodsTrayApp
                      return {"podpro.png", "podpro_case.png"};
                  case AirPodsModel::AirPodsMaxLightning:
                  case AirPodsModel::AirPodsMaxUSBC:
+-                    return {"podmax.png", "max_case.png"};
 +                case AirPodsModel::AirPodsMax2:
-                     return {"podmax.png", "max_case.png"};
++                    return {"podmax.png", "podmax.png"};
                  default:
                      return {"pod.png", "pod_case.png"}; // Default icon for unknown models
+             }
 @@ -97,6 +100,7 @@ namespace AirpodsTrayApp
              switch (model) {
                  case AirPodsModel::AirPodsMaxLightning:
