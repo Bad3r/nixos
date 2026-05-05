@@ -39,7 +39,7 @@ let
     c.base0E # LinkVisited
     c.base01 # AlternateBase
     c.base00 # NoRole
-    c.base01 # ToolTipBase
+    c.base00 # ToolTipBase
     c.base05 # ToolTipText
     c.base04 # PlaceholderText
   ];
@@ -69,7 +69,7 @@ let
     c.base04 # LinkVisited
     c.base01 # AlternateBase
     c.base00 # NoRole
-    c.base01 # ToolTipBase
+    c.base00 # ToolTipBase
     c.base04 # ToolTipText
     c.base03 # PlaceholderText
   ];
