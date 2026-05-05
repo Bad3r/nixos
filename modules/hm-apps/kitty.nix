@@ -142,6 +142,8 @@ _: {
             clipboard_control = "write-clipboard write-primary";
             term = "xterm-kitty";
             kitty_mod = "ctrl+shift";
+            # Grid first makes it the default layout; all built-in layouts remain reachable via next_layout
+            enabled_layouts = "grid,splits,tall,fat,horizontal,vertical,stack";
           };
 
           keybindings = {
@@ -163,6 +165,9 @@ _: {
             "kitty_mod+a>1" = "set_background_opacity 1";
             "kitty_mod+a>d" = "set_background_opacity default";
             "kitty_mod+delete" = "clear_terminal reset active";
+            # Layout shortcuts
+            "ctrl+alt+g" = "goto_layout grid";
+            "ctrl+alt+s" = "goto_layout splits";
           };
 
           extraConfig = ''
