@@ -26,7 +26,7 @@ let
     c.base04 # Light
     c.base03 # Midlight
     c.base00 # Dark
-    c.base01 # Mid
+    c.base00 # Mid
     c.base05 # Text
     c.base07 # BrightText
     c.base05 # ButtonText
@@ -56,7 +56,7 @@ let
     c.base04 # Light
     c.base03 # Midlight
     c.base00 # Dark
-    c.base01 # Mid
+    c.base00 # Mid
     c.base04 # Text
     c.base04 # BrightText
     c.base04 # ButtonText
