@@ -13,9 +13,9 @@ _: {
               exit 0
             fi
 
-            # --std luajit: Checks code against the LuaJIT standard library.
-            #   mpv embeds LuaJIT, so this flag ensures luacheck validates
-            #   against the exact set of built-in globals and functions
+            # --std lua51: Validates against the Lua 5.1 standard library.
+            #   mpv embeds LuaJIT, which implements the Lua 5.1 spec, so
+            #   lua51 matches the exact set of built-in globals and functions
             #   available at runtime.
             # --globals mp: mp is the mpv Lua API entry point, a global
             #   table that exposes playback control, property access, event
@@ -24,9 +24,12 @@ _: {
             #   never declared in the source file. Without this flag,
             #   luacheck reports every mp.* call as an undefined global
             #   error.
+            # --: Terminates the variadic --globals list so the file paths
+            #   that follow are not consumed as additional global names.
             exec luacheck \
-              --std luajit \
+              --std lua51 \
               --globals mp \
+              -- \
               "$@"
           '';
       };

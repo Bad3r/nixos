@@ -31,6 +31,7 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "mpv" "extended" "enable" ] false osConfig;
+      extraScripts = lib.attrByPath [ "programs" "mpv" "extended" "extraScripts" ] [ ] osConfig;
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -72,12 +73,14 @@ _: {
 
           includes = [ "~~/hwdec-codecs.conf" ];
 
-          scripts = with pkgs.mpvScripts; [
-            # mpv-cheatsheet
-            mpris # use standard media keys
-            # autoload # auto load previous/next file in playlist
-            reload # reload streamed file when stuck buffering
-          ];
+          scripts =
+            (with pkgs.mpvScripts; [
+              # mpv-cheatsheet
+              mpris # use standard media keys
+              # autoload # auto load previous/next file in playlist
+              reload # reload streamed file when stuck buffering
+            ])
+            ++ extraScripts;
         };
 
         xdg.configFile = {
