@@ -12,7 +12,7 @@
   Options:
     --profile <name>: Apply a named profile from configuration.
     --hwdec <auto|vaapi|nvdec>: Select hardware decoding method.
-    --vo <gpu|drm>: Video output driver selection.
+    --vo <gpu-next|drm>: Video output driver selection.
     --ytdl-format <format>: Specify youtube-dl format preference.
 
   Example Usage:
