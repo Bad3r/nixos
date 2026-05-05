@@ -144,9 +144,14 @@ let
           default = "/tmp/Trash";
           description = ''
             Directory used as the home-partition trash store. A symlink is
-            created from `~/.local/share/Trash` to this path; if that path
-            already exists as a real directory it is preserved (the symlink
-            is skipped) and must be migrated manually.
+            created from `~/.local/share/Trash` to this path. The non-
+            replacing `L` form is used, so the symlink is skipped if
+            anything (real directory, file, or stale symlink with a
+            different target) already exists at that path; the operator is
+            responsible for migrating an existing entry. In particular,
+            changing this option in a later rebuild will not retarget an
+            existing symlink: remove `~/.local/share/Trash` manually, then
+            rebuild, to pick up the new value.
 
             Defaults to `/tmp/Trash`, which is cleared on reboot. Because
             `/tmp` is a tmpfs on this configuration, every cross-device
