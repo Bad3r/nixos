@@ -81,58 +81,9 @@ _: {
         };
 
         xdg.configFile = {
-          "mpv/scripts/ytdlp-cookies.lua".text = ''
-            -- Resolve which browser yt-dlp should read cookies from.
-            -- Priority: MPV_YTDLP_BROWSER env var > $BROWSER env var.
-            -- Set MPV_YTDLP_BROWSER="" to disable cookie passthrough entirely.
-            -- Skips silently if cookies-from-browser is already in ytdl-raw-options (CLI flag).
-
-            local function resolve_browser()
-              local override = os.getenv("MPV_YTDLP_BROWSER")
-              if override ~= nil then return override end
-              local xdg = os.getenv("BROWSER")
-              if xdg and xdg ~= "" then
-                return (xdg:match("^(%S+)") or xdg)
-              end
-              return ""
-            end
-
-            local existing = mp.get_property("ytdl-raw-options") or ""
-            if not existing:find("cookies%-from%-browser") then
-              local browser = resolve_browser()
-              if browser ~= "" then
-                mp.msg.info("ytdlp-cookies: cookies-from-browser=" .. browser)
-                mp.set_property("ytdl-raw-options-append", "cookies-from-browser=" .. browser)
-              else
-                mp.msg.verbose("ytdlp-cookies: no browser resolved, skipping cookie passthrough")
-              end
-            end
-          '';
-
-          "mpv/hwdec-codecs.conf".text = ''
-            hwdec-codecs-append=mpeg2video
-            hwdec-codecs-append=mpeg4
-            hwdec-codecs-append=msmpeg4v2
-            hwdec-codecs-append=msmpeg4v3
-          '';
-
-          # Lua hook to drop image files from mixed-content playlists before decoding
-          "mpv/scripts/block-images.lua".text = ''
-            local blocked_extensions = {
-              jpg = true, jpeg = true, png = true,
-              webp = true, bmp = true, tiff = true,
-              gif = true
-            }
-
-            mp.add_hook("on_preloaded", 10, function()
-              local path = mp.get_property("path") or ""
-              local ext = path:match("%.([^%.]+)$") or ""
-              if blocked_extensions[ext:lower()] then
-                mp.msg.warn("Blocking image file: " .. path)
-                mp.commandv("playlist-remove", "current")
-              end
-            end)
-          '';
+          "mpv/scripts/ytdlp-cookies.lua".source = ./scripts/ytdlp-cookies.lua;
+          "mpv/hwdec-codecs.conf".source = ./hwdec-codecs.conf;
+          "mpv/scripts/block-images.lua".source = ./scripts/block-images.lua;
         };
       };
     };
