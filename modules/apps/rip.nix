@@ -69,7 +69,9 @@ let
               trash-empty "''${TRASH_DIR_ARGS[@]}"
             else
               read -r -p "Permanently delete all trashed files? [y/N] " confirm
-              [[ "''${confirm,,}" == y ]] && trash-empty "''${TRASH_DIR_ARGS[@]}" || true
+              if [[ "''${confirm,,}" == y ]]; then
+                trash-empty "''${TRASH_DIR_ARGS[@]}"
+              fi
             fi
             exit 0
           fi
