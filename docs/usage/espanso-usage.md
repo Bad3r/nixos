@@ -29,6 +29,8 @@ This automatically enables espanso with:
 
 Once enabled, the following triggers are available:
 
+<!-- dprint-ignore-start -->
+
 | Trigger       | Output            | Example                                             |
 | ------------- | ----------------- | --------------------------------------------------- |
 | `:date`       | Current date      | `2025-10-08`                                        |
@@ -37,8 +39,10 @@ Once enabled, the following triggers are available:
 | `:isodate`    | ISO 8601 format   | `2025-10-08T14:30:00+0000`                          |
 | `:shebang`    | Bash shebang      | `#!/usr/bin/env bash`                               |
 | `:shebangnix` | Nix-shell shebang | `#!/usr/bin/env nix-shell`<br>`#!nix-shell -i bash` |
-| `:todo`       | TODO comment      | `# TODO:`                                           |
-| `:fixme`      | FIXME comment     | `# FIXME:`                                          |
+| `:todo`       | TODO comment      | `# TODO: `                                          |
+| `:fixme`      | FIXME comment     | `# FIXME: `                                         |
+
+<!-- dprint-ignore-end -->
 
 ## Customization
 
