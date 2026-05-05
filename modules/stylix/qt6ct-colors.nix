@@ -11,6 +11,15 @@ let
   # QPalette role order matches qt6ct's color scheme parser (21 entries,
   # mirroring `QPalette::ColorRole` 0..20; `Accent` is omitted -- qt6ct 0.11
   # does not yet include it).
+  #
+  # `BrightText` is Qt's high-contrast text role (used when `Text` would
+  # render poorly on top of `Highlight`); it maps to `base07` (the brightest
+  # foreground in Base16) rather than an accent colour.
+  #
+  # `HighlightedText` maps to `base05` rather than `base00`: on Base16
+  # schemes where `base0D` (Highlight) and `base00` (background) collapse
+  # toward similar luminance, selected text becomes unreadable. `base05`
+  # keeps high contrast against any Highlight choice.
   paletteRoles = c: [
     c.base05 # WindowText
     c.base02 # Button
@@ -19,13 +28,13 @@ let
     c.base00 # Dark
     c.base01 # Mid
     c.base05 # Text
-    c.base08 # BrightText
+    c.base07 # BrightText
     c.base05 # ButtonText
     c.base00 # Base
     c.base00 # Window
     c.base00 # Shadow
     c.base0D # Highlight
-    c.base00 # HighlightedText
+    c.base05 # HighlightedText
     c.base0D # Link
     c.base0E # LinkVisited
     c.base01 # AlternateBase
