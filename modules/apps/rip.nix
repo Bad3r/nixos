@@ -68,6 +68,10 @@ let
             if $FORCE; then
               trash-empty "''${TRASH_DIR_ARGS[@]}"
             else
+              if [[ ! -t 0 ]]; then
+                echo "rip: refusing to prompt with non-tty stdin; pass --force to confirm" >&2
+                exit 1
+              fi
               read -r -p "Permanently delete all trashed files? [y/N] " confirm
               if [[ "''${confirm,,}" == y ]]; then
                 trash-empty "''${TRASH_DIR_ARGS[@]}"
@@ -100,6 +104,10 @@ let
           if $INSPECT; then
             ls -la -- "''${FILES[@]}"
             if ! $FORCE; then
+              if [[ ! -t 0 ]]; then
+                echo "rip: refusing to prompt with non-tty stdin; pass --force to confirm" >&2
+                exit 1
+              fi
               read -r -p "Bury these files? [y/N] " confirm
               [[ "''${confirm,,}" == y ]] || exit 0
             fi
