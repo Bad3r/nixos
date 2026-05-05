@@ -59,7 +59,7 @@ let
             - shellcheck: Shell script linter
             - shfmt: Shell script formatter
             - stylua: Lua formatter
-            - taplo: TOML linter
+            - taplo: TOML linter / language server
             - treefmt: Format orchestrator
           '';
           example = lib.literalExpression "with pkgs; [ nixfmt shfmt ]";
