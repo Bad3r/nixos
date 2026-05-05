@@ -184,6 +184,9 @@ _: {
             # Rotate uses kitty_mod+alt+r so the default kitty_mod+r (start_resizing_window) survives.
             "kitty_mod+alt+r" = "layout_action rotate";
             # Pane navigation — ctrl+alt avoids stealing shell word-movement (ctrl+arrow)
+            # and the kitty_mod (ctrl+shift) chord space. Safe under i3, but ctrl+alt+arrow
+            # is the desktop-switch chord on GNOME / KDE / XFCE / Cinnamon — revisit before
+            # enabling this module on a host that runs a non-i3 desktop.
             "ctrl+alt+left" = "neighboring_window left";
             "ctrl+alt+right" = "neighboring_window right";
             "ctrl+alt+up" = "neighboring_window up";
