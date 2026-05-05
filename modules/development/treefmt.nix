@@ -1,9 +1,9 @@
 _: {
   perSystem = _: {
     treefmt.settings.global.excludes = [
-      "inputs/*"
+      "inputs/**"
       ".pre-commit-config.yaml"
-      "nixos-manual/*"
+      "nixos-manual/**"
       "secrets/**"
       "*.lock"
       "*.patch"
