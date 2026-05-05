@@ -168,6 +168,11 @@ _: {
             # Layout shortcuts
             "ctrl+alt+g" = "goto_layout grid";
             "ctrl+alt+s" = "goto_layout splits";
+            # Pane navigation — ctrl+alt avoids stealing shell word-movement (ctrl+arrow)
+            "ctrl+alt+left" = "neighboring_window left";
+            "ctrl+alt+right" = "neighboring_window right";
+            "ctrl+alt+up" = "neighboring_window up";
+            "ctrl+alt+down" = "neighboring_window down";
           };
 
           extraConfig = ''
