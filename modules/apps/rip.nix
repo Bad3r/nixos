@@ -95,12 +95,18 @@ let
           if $UNBURY; then
             if (( ''${#UNBURY_FILES[@]} == 0 )); then
               trash-restore "''${TRASH_DIR_ARGS[@]}"
-            else
-              for f in "''${UNBURY_FILES[@]}"; do
-                trash-restore "''${TRASH_DIR_ARGS[@]}" -- "$(realpath -m -- "$f")"
-              done
+              exit 0
             fi
-            exit 0
+            # `realpath -ms` mirrors `os.path.abspath` semantics used by
+            # `trash-put` when it records `original_location`: normalise `.`
+            # and `..` and tolerate missing components, but do not resolve
+            # symlinks in parent components (so `/home -> /mnt/home` style
+            # mounts still match the recorded path).
+            unbury_rc=0
+            for f in "''${UNBURY_FILES[@]}"; do
+              trash-restore "''${TRASH_DIR_ARGS[@]}" -- "$(realpath -ms -- "$f")" || unbury_rc=$?
+            done
+            exit "$unbury_rc"
           fi
 
           if [[ ''${#FILES[@]} -eq 0 ]]; then
