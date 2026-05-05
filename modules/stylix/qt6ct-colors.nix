@@ -12,26 +12,57 @@ let
   # mirroring `QPalette::ColorRole` 0..20; `Accent` is omitted -- qt6ct 0.11
   # does not yet include it).
   #
-  # `BrightText` is Qt's high-contrast text role (used when `Text` would
-  # render poorly on top of `Highlight`); it maps to `base07` (the brightest
-  # foreground in Base16) rather than an accent colour.
+  # Each role falls into one of three categories relative to Stylix's
+  # `kvconfig.mustache` (the source of truth for the Kvantum theme):
   #
-  # `HighlightedText` maps to `base05` rather than `base00`: on Base16
-  # schemes where `base0D` (Highlight) and `base00` (background) collapse
-  # toward similar luminance, selected text becomes unreadable. `base05`
-  # keeps high contrast against any Highlight choice.
+  # 1. Mirrors a kvconfig binding one-for-one. These roles produce the
+  #    same colour Kvantum-rendered Qt apps already see, so a Fusion or
+  #    Basic fallback inherits the same palette. Listed in source-file
+  #    order: `WindowText`, `Button`, `Midlight`, `Dark`, `Mid`, `Text`,
+  #    `ButtonText`, `Base`, `Window`, `Link`, `LinkVisited`,
+  #    `AlternateBase`, `ToolTipBase`, `ToolTipText`.
+  #
+  # 2. Has a kvconfig binding but intentionally diverges from it. The
+  #    rationale is documented per-role below in source-file order:
+  #    `Light`, `Highlight`, `HighlightedText`.
+  #
+  # 3. Has no equivalent kvconfig binding. qt6ct's scheme format requires
+  #    all 21 entries, so Stylix picks a Base16 token directly. Listed in
+  #    source-file order: `BrightText` (`base07`), `Shadow` (`base00`),
+  #    `NoRole` (`base00`), `PlaceholderText` (`base04` active / `base03`
+  #    disabled). Kvantum routes high-contrast text and shadow drawing
+  #    through SVG layers rather than separate `[GeneralColors]` keys, so
+  #    kvconfig has no `bright.text.color` / `shadow.color` to mirror.
+  #
+  # Per-role rationale for category 2 (source-file order):
+  #
+  # `Light` maps to `base04` rather than kvconfig's `base03`. Fusion uses
+  # `Light`/`Midlight`/`Mid`/`Dark` to draw 3D bevels, and Base16 luminance
+  # ordering is `base03 < base04`. Setting `Light = base03` would equate
+  # `Light` and `Midlight` and flatten the bright side of the bevel.
+  # Kvantum renders SVG frames so it does not depend on `Light != Midlight`.
+  #
+  # `Highlight` maps to `base0D` rather than kvconfig's `base0E`. `base0D`
+  # is the conventional Qt blue-ish selection colour; `base0E` (purple) is
+  # a Stylix design choice that conflicts with user expectations for
+  # selection highlight in Fusion-rendered apps.
+  #
+  # `HighlightedText` maps to `base05` rather than kvconfig's `base00`:
+  # on Base16 schemes where `base0D` (Highlight) and `base00` (background)
+  # collapse toward similar luminance, selected text becomes unreadable.
+  # `base05` keeps high contrast against any Highlight choice.
   paletteRoles = c: [
     c.base05 # WindowText
     c.base02 # Button
     c.base04 # Light
     c.base03 # Midlight
     c.base00 # Dark
-    c.base01 # Mid
+    c.base00 # Mid
     c.base05 # Text
     c.base07 # BrightText
     c.base05 # ButtonText
     c.base00 # Base
-    c.base00 # Window
+    c.base01 # Window
     c.base00 # Shadow
     c.base0D # Highlight
     c.base05 # HighlightedText
@@ -39,7 +70,7 @@ let
     c.base0E # LinkVisited
     c.base01 # AlternateBase
     c.base00 # NoRole
-    c.base01 # ToolTipBase
+    c.base00 # ToolTipBase
     c.base05 # ToolTipText
     c.base04 # PlaceholderText
   ];
@@ -56,12 +87,12 @@ let
     c.base04 # Light
     c.base03 # Midlight
     c.base00 # Dark
-    c.base01 # Mid
+    c.base00 # Mid
     c.base04 # Text
     c.base04 # BrightText
     c.base04 # ButtonText
     c.base00 # Base
-    c.base00 # Window
+    c.base01 # Window
     c.base00 # Shadow
     c.base02 # Highlight
     c.base04 # HighlightedText
@@ -69,7 +100,7 @@ let
     c.base04 # LinkVisited
     c.base01 # AlternateBase
     c.base00 # NoRole
-    c.base01 # ToolTipBase
+    c.base00 # ToolTipBase
     c.base04 # ToolTipText
     c.base03 # PlaceholderText
   ];
