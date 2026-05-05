@@ -12,23 +12,33 @@ let
   # mirroring `QPalette::ColorRole` 0..20; `Accent` is omitted -- qt6ct 0.11
   # does not yet include it).
   #
-  # Background and structural roles (`Window`, `Base`, `AlternateBase`,
-  # `Button`, `Midlight`, `Dark`, `Mid`, `ToolTipBase`, `Link`,
-  # `LinkVisited`, `WindowText`, `Text`, `ButtonText`, `ToolTipText`)
-  # mirror `kvconfig.mustache`'s `[GeneralColors]` block one-for-one so a
-  # Fusion-rendered Qt app sees the same palette Kvantum produces.
+  # Each role falls into one of three categories relative to Stylix's
+  # `kvconfig.mustache` (the source of truth for the Kvantum theme):
   #
-  # The roles below intentionally diverge from kvconfig:
+  # 1. Mirrors a kvconfig binding one-for-one. These roles produce the
+  #    same colour Kvantum-rendered Qt apps already see, so a Fusion or
+  #    Basic fallback inherits the same palette: `Window`, `Base`,
+  #    `AlternateBase`, `Button`, `Midlight`, `Dark`, `Mid`,
+  #    `ToolTipBase`, `Link`, `LinkVisited`, `WindowText`, `Text`,
+  #    `ButtonText`, `ToolTipText`.
   #
-  # `BrightText` is Qt's high-contrast text role (used when `Text` would
-  # render poorly on top of `Highlight`); it maps to `base07` (the brightest
-  # foreground in Base16) rather than an accent colour. kvconfig has no
-  # equivalent binding because Kvantum draws SVG frames instead of bevels.
+  # 2. Has a kvconfig binding but intentionally diverges from it. The
+  #    rationale is documented per-role below.
   #
-  # `HighlightedText` maps to `base05` rather than `base00`: on Base16
-  # schemes where `base0D` (Highlight) and `base00` (background) collapse
-  # toward similar luminance, selected text becomes unreadable. `base05`
-  # keeps high contrast against any Highlight choice.
+  # 3. Has no equivalent kvconfig binding. qt6ct's scheme format requires
+  #    all 21 entries, so Stylix picks a Base16 token directly: `Shadow`
+  #    (`base00`), `NoRole` (`base00`), `PlaceholderText` (`base04`
+  #    active / `base03` disabled), and `BrightText` (`base07`). Kvantum
+  #    routes high-contrast text and shadow drawing through SVG layers
+  #    rather than separate `[GeneralColors]` keys, so kvconfig has no
+  #    `bright.text.color` / `shadow.color` to mirror.
+  #
+  # Per-role rationale for category 2:
+  #
+  # `HighlightedText` maps to `base05` rather than kvconfig's `base00`:
+  # on Base16 schemes where `base0D` (Highlight) and `base00` (background)
+  # collapse toward similar luminance, selected text becomes unreadable.
+  # `base05` keeps high contrast against any Highlight choice.
   #
   # `Light` maps to `base04` rather than kvconfig's `base03`. Fusion uses
   # `Light`/`Midlight`/`Mid`/`Dark` to draw 3D bevels, and Base16 luminance
