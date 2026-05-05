@@ -87,7 +87,16 @@ let
           fi
 
           if $SEANCE; then
-            seance_prefix="$(pwd)/"
+            # When invoked from the filesystem root, `pwd` returns `/` and
+            # naive concatenation would search for `//` rather than `/`,
+            # silently hiding every entry. Treat `/` as the special case
+            # where the prefix is just one slash.
+            seance_pwd="$(pwd)"
+            if [[ "$seance_pwd" == "/" ]]; then
+              seance_prefix="/"
+            else
+              seance_prefix="$seance_pwd/"
+            fi
             trash-list "''${TRASH_DIR_ARGS[@]}" 2>/dev/null | grep -F " $seance_prefix" || true
             exit 0
           fi
