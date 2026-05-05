@@ -43,8 +43,7 @@ _: {
             ytdl-format = "best"; # Use the best format available
             ytdl-raw-options = "cookies-from-browser=floorp";
             profile = "high-quality"; # gpu-hq is deprecated
-            vo = "gpu";
-            gpu-api = "opengl"; # force stable interop; avoids NVDEC freeze with current NVIDIA stack
+            vo = "gpu-next";
             hwdec = "auto";
             gpu-context = "auto"; # let mpv pick a supported context (x11/wayland)
             save-position-on-quit = "no";
