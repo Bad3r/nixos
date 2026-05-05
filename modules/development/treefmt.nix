@@ -4,6 +4,7 @@ _: {
       "inputs/*"
       ".pre-commit-config.yaml"
       "nixos-manual/*"
+      "secrets/**"
       "*.lock"
       "*.patch"
       "package-lock.json"

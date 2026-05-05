@@ -162,7 +162,10 @@
               "*.yml"
               "*.xml"
             ];
-            excludes = [ ".github/workflows/**" ];
+            excludes = [
+              ".github/workflows/**"
+              ".github/ISSUE_TEMPLATE/**"
+            ];
             settings = {
               plugins = pkgs.dprint-plugins.getPluginList (
                 plugins: with plugins; [
