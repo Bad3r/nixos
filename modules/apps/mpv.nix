@@ -6,7 +6,7 @@
   Repository: https://github.com/mpv-player/mpv
 
   Summary:
-    * Installs mpv along with thumbnail preview (`thumbfast`), shader presets, cheat sheet overlay, `open-in-mpv`, and `jellyfin-mpv-shim` for streaming servers.
+    * Installs mpv along with thumbnail preview (`thumbfast`), shader presets, and `open-in-mpv` by default.
     * Supports advanced playback via GPU acceleration, scripting (Lua/Python), configurable keybindings, and remote control via JSON IPC or `mpv` sockets.
 
   Options:
@@ -14,7 +14,7 @@
     --profile=<name>: Apply predefined profiles (e.g. `--profile=high-quality`).
     --script=<path>: Load additional scripts at runtime.
     mpv --idle=yes --input-ipc-server=/tmp/mpvsocket: Expose a control socket for remote commands.
-    jellyfin-mpv-shim: Launch the Jellyfin controller for direct playback through mpv.
+    extras.jellyfinShim.enable = true: Install jellyfin-mpv-shim for casting from Jellyfin clients.
 
   Example Usage:
     * `mpv --hwdec=auto movie.mkv` -- Play a video with automatic hardware decoding.
@@ -63,25 +63,48 @@ let
           example = lib.literalExpression "with pkgs; [ mpvScripts.thumbfast ]";
         };
 
+        extras = {
+          defaultShaders = {
+            enable = lib.mkOption {
+              type = lib.types.bool;
+              default = true;
+              description = "Install mpv-shim-default-shaders shader presets.";
+            };
+          };
+          openInMpv = {
+            enable = lib.mkOption {
+              type = lib.types.bool;
+              default = true;
+              description = "Install open-in-mpv for browser-to-mpv integration.";
+            };
+          };
+          jellyfinShim = {
+            enable = lib.mkOption {
+              type = lib.types.bool;
+              default = false;
+              description = "Install jellyfin-mpv-shim for casting from Jellyfin clients.";
+            };
+          };
+        };
+
         extraPackages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
-          default = with pkgs; [
-            mpv-shim-default-shaders
-            open-in-mpv
-          ];
+          default = [ ];
           description = ''
-            Additional mpv-related tools.
-
-            Included by default:
-            - mpv-shim-default-shaders: Shader presets
-            - open-in-mpv: Browser integration
+            Additional mpv-related packages installed alongside the named extras.
+            Use this for packages not covered by `extras.*`.
           '';
-          example = lib.literalExpression "with pkgs; [ jellyfin-mpv-shim ]";
         };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ] ++ cfg.extraPackages;
+        environment.systemPackages = [
+          cfg.package
+        ]
+        ++ lib.optional cfg.extras.defaultShaders.enable pkgs.mpv-shim-default-shaders
+        ++ lib.optional cfg.extras.openInMpv.enable pkgs.open-in-mpv
+        ++ lib.optional cfg.extras.jellyfinShim.enable pkgs.jellyfin-mpv-shim
+        ++ cfg.extraPackages;
       };
     };
 in

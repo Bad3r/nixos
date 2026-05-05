@@ -84,13 +84,13 @@
 - [mpv/2. configuration.md](mpv/2. configuration.md)
   - Reference for every key the Home Manager mpv module writes to `mpv.conf` with rationale for non-default values.
 - [mpv/3. scripts-and-bindings.md](mpv/3. scripts-and-bindings.md)
-  - Script loading model (the `extraScripts` vs HM `scripts` distinction), bundled scripts, the inline Lua hook, and the keybindings table.
+  - Script loading model (the `extraScripts` vs HM `scripts` distinction), bundled scripts, the inline Lua hooks, and the keybindings table.
 - [mpv/4. integrations.md](mpv/4. integrations.md)
   - XDG MIME defaults, MPRIS via playerctl, the orthogonal `media-toolchain` bundle, the `open-in-mpv` browser bridge, and the `video-cache` helper.
 - [mpv/5. customizing.md](mpv/5. customizing.md)
   - Patterns for adding scripts, overriding configuration keys, replacing the package, layering personal overrides, and opting out per host.
 - [mpv/6. troubleshooting.md](mpv/6. troubleshooting.md)
-  - NVIDIA NVDEC freeze workaround, scripts that do not load, MIME default-assertion failures, codec gaps, and silent hwdec fallback.
+  - NVIDIA NVDEC freeze workaround, MIME default-assertion failures, codec gaps, and silent hwdec fallback.
 
 ## Packaging
 
