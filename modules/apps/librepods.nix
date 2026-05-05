@@ -41,10 +41,10 @@ let
         # AirPods Max 2 (model A3454) outputs left-channel-only audio when the
         # WirePlumber/BlueZ stack picks the non-standard SBC-XQ codec, which is
         # selected by default on Linux when both peers advertise it. Reported
-        # at https://github.com/kavishdevar/librepods/pull/519#issuecomment by
-        # the PR author after testing on Arch with the same WirePlumber build
-        # NixOS ships. `bluez5.enable-sbc-xq` is a daemon-wide property in
-        # WirePlumber's BlueZ monitor, so this disables SBC-XQ for every
+        # at https://github.com/kavishdevar/librepods/pull/519#issuecomment-4230312279
+        # by the PR author after testing on Arch with the same WirePlumber
+        # build NixOS ships. `bluez5.enable-sbc-xq` is a daemon-wide property
+        # in WirePlumber's BlueZ monitor, so this disables SBC-XQ for every
         # bluetooth sink rather than just the Max 2; it is the same scope the
         # upstream workaround uses. Other sinks negotiate plain SBC (or AAC if
         # both ends support it), which is the codec all non-Max AirPods and
