@@ -99,7 +99,7 @@ webcrack's browserify matcher is loose enough to partially match esbuild's outpu
 | --------- | ------ | ----------------------------------------------- |
 | webcrack  | ❌     | Detects as browserify, doesn't split modules    |
 | synchrony | ❌     | Doesn't support ESM (`ImportDeclaration` error) |
-| wakaru    | ⚠️     | Can process but unpacker produces single file   |
+| wakaru    | ⚠️      | Can process but unpacker produces single file   |
 | debundle  | ❌     | Abandoned (8+ years), webpack only              |
 
 ---

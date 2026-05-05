@@ -36,11 +36,17 @@ duplicati-r2:
 ```
 
 If your bucket enforces a jurisdiction-specific endpoint (for example,
-`https://<account>.eu.r2.cloudflarestorage.com`), add:
+`https://<account>.eu.r2.cloudflarestorage.com`), add the following entry
+under `duplicati-r2:` in the YAML above (matching the existing 2-space
+indent):
+
+<!-- dprint-ignore-start -->
 
 ```
   R2_REGION: eu
 ```
+
+<!-- dprint-ignore-end -->
 
 Setting `R2_REGION` ensures the helper exports `AWS_REGION=eu`/`AWS_DEFAULT_REGION=eu`
 and appends `s3-ext-region=eu` to the Duplicati destination, matching the Cloudflare

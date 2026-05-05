@@ -43,6 +43,7 @@ _: {
             .tmp/
             .code/
             **/__pycache__
+            *.pyc
             .vscode/
             .log/
             log/

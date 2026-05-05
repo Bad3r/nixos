@@ -1,11 +1,12 @@
-{ inputs, lib, ... }:
+{ lib, ... }:
 {
   perSystem =
     {
+      config,
       system,
       ...
     }:
     lib.mkIf (system == "x86_64-linux") {
-      formatter = inputs.nixpkgs.legacyPackages."x86_64-linux".nixfmt-tree;
+      formatter = config.treefmt.build.wrapper;
     };
 }
