@@ -1,7 +1,11 @@
 local blocked_extensions = {
-  jpg = true, jpeg = true, png = true,
-  webp = true, bmp = true, tiff = true,
-  gif = true
+  jpg = true,
+  jpeg = true,
+  png = true,
+  webp = true,
+  bmp = true,
+  tiff = true,
+  gif = true,
 }
 
 mp.msg.verbose("block-images: will drop jpg, jpeg, png, webp, bmp, tiff, gif from playlists")
