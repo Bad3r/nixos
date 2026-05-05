@@ -31,10 +31,10 @@ let
           Usage: rip [OPTIONS] [FILES]...
 
           Options:
-                --graveyard <PATH>   Trash directory (default: ~/.local/share/Trash)
+                --graveyard <PATH>   Override the default trash directory
             -d, --decompose          Permanently delete all trashed files
             -s, --seance             List files deleted from the current directory
-            -u, --unbury [<PATH>]    Restore files interactively (filtered to PATH directory)
+            -u, --unbury [<FILES>]   Restore listed files (interactive picker if none given)
             -i, --inspect            Show file info before trashing
             -f, --force              Skip confirmation prompts
             -h, --help               Show this help
@@ -131,10 +131,22 @@ let
           type = lib.types.path;
           default = "/tmp/Trash";
           description = ''
-            Directory used as the home-partition trash store.
-            A symlink is created from ~/.local/share/Trash to this path.
-            Defaults to /tmp/Trash which is cleared on reboot.
-            For persistent trash use a path outside /tmp.
+            Directory used as the home-partition trash store. A symlink is
+            created from `~/.local/share/Trash` to this path; if that path
+            already exists as a real directory it is preserved (the symlink
+            is skipped) and must be migrated manually.
+
+            Defaults to `/tmp/Trash`, which is cleared on reboot. Because
+            `/tmp` is a tmpfs on this configuration, every cross-device
+            trash from `/home` is copied into RAM; deleting a multi-GB tree
+            can therefore exhaust RAM (`ENOSPC`/OOM). Set this to a path on
+            a persistent disk-backed filesystem (for example
+            `/var/cache/Trash`) when storing large or long-lived deletions.
+
+            The directory is created via `systemd.tmpfiles.rules` with the
+            built-in `10d` age qualifier, so entries older than ten days are
+            cleaned up automatically. Drop or override that rule directly if
+            longer retention is required.
           '';
           example = "/var/cache/Trash";
         };
