@@ -38,7 +38,7 @@ _: {
         programs.mpv = {
           enable = true;
           config = {
-            osc = "yes"; # On Screen Controller
+            osc = "no"; # disabled; modernz provides the OSC
             pause = "no"; # Start the player in paused state
             ytdl = "yes"; # Enable youtube-dl
             ytdl-format = "best"; # Use the best format available
@@ -75,7 +75,8 @@ _: {
 
           scripts =
             (with pkgs.mpvScripts; [
-              # mpv-cheatsheet
+              modernz # OSC replacement; works with thumbfast for seek previews
+              mpv-cheatsheet-ng # overlay listing all active keybindings; open with ?
               mpris # use standard media keys
               # autoload # auto load previous/next file in playlist
               reload # reload streamed file when stuck buffering
