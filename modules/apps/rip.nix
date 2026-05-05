@@ -82,12 +82,12 @@ let
           fi
 
           if $UNBURY; then
-            if [[ ''${#UNBURY_FILES[@]} -eq 0 ]]; then
-              trash-restore
-            elif [[ ''${#UNBURY_FILES[@]} -eq 1 ]] && [[ "''${UNBURY_FILES[0]}" == /* ]]; then
-              trash-restore "$(dirname "''${UNBURY_FILES[0]}")"
+            if (( ''${#UNBURY_FILES[@]} == 0 )); then
+              trash-restore "''${TRASH_DIR_ARGS[@]}"
             else
-              trash-restore
+              for f in "''${UNBURY_FILES[@]}"; do
+                trash-restore "''${TRASH_DIR_ARGS[@]}" -- "$(realpath -m -- "$f")"
+              done
             fi
             exit 0
           fi
