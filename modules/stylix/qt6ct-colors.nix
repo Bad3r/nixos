@@ -31,7 +31,7 @@ let
     c.base07 # BrightText
     c.base05 # ButtonText
     c.base00 # Base
-    c.base00 # Window
+    c.base01 # Window
     c.base00 # Shadow
     c.base0D # Highlight
     c.base05 # HighlightedText
@@ -61,7 +61,7 @@ let
     c.base04 # BrightText
     c.base04 # ButtonText
     c.base00 # Base
-    c.base00 # Window
+    c.base01 # Window
     c.base00 # Shadow
     c.base02 # Highlight
     c.base04 # HighlightedText
