@@ -19,28 +19,26 @@ excludes = [
 command = "nixfmt"
 includes = ["*.nix"]
 
-[formatter.prettier]
-command = "prettier"
-excludes = ["README.md"]
+[formatter.biome]
+command = "biome"
+options = ["format", "--write"]
 includes = [
-  "*.cjs",
-  "*.css",
-  "*.html",
   "*.js",
-  "*.json",
-  "*.json5",
-  "*.jsx",
-  "*.md",
-  "*.mdx",
+  "*.cjs",
   "*.mjs",
-  "*.scss",
   "*.ts",
+  "*.jsx",
   "*.tsx",
+  "*.json",
+  "*.jsonc",
+  "*.css",
+  "*.graphql",
+  "*.gql",
+  "*.html",
   "*.vue",
-  "*.yaml",
-  "*.yml",
+  "*.svelte",
+  "*.astro",
 ]
-options = ["--write"]
 
 [formatter.shfmt]
 command = "shfmt"

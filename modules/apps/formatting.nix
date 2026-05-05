@@ -6,7 +6,7 @@
   Repository: https://github.com/Bad3r/nixos
 
   Summary:
-    * Installs the project-standard formatter toolchain (e.g. `nixfmt`, `shfmt`, `prettier`) to ensure consistent styling across languages.
+    * Installs the project-standard formatter toolchain (e.g. `nixfmt`, `shfmt`, `biome`) to ensure consistent styling across languages.
     * Intended for developers entering the repo's `nix develop` environment or running `nix fmt` locally.
 
   Options:
@@ -42,7 +42,6 @@ let
           default = with pkgs; [
             biome
             nixfmt
-            prettier
             shellcheck
             shfmt
             stylua
@@ -53,9 +52,8 @@ let
             Code formatters and linters for the development environment.
 
             Included formatters:
-            - biome: JavaScript/TypeScript/JSON
+            - biome: JS/TS/JSX/TSX/JSON/JSONC/CSS/GraphQL/HTML/Vue/Svelte/Astro
             - nixfmt: Nix (RFC 166)
-            - prettier: Multi-language formatter (JS/TS/JSON/YAML/MD/HTML/CSS)
             - shellcheck: Shell script linter
             - shfmt: Shell script formatter
             - stylua: Lua formatter
