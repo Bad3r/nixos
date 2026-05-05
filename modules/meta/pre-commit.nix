@@ -20,6 +20,12 @@ _: {
           hooks = {
             check-json.enable = true;
 
+            shellcheck.enable = true;
+
+            actionlint.enable = true;
+
+            ruff.enable = true;
+
             yamllint = {
               enable = true;
               settings.preset = "relaxed";

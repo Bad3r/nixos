@@ -81,7 +81,9 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         help="Full `usbguard list-devices` line (e.g. `28: block id ...`).",
     )
     parser.add_argument("--id", dest="device_id", help="Device USB id (vendor:product)")
-    parser.add_argument("--serial", default="", help="USB serial (empty string allowed).")
+    parser.add_argument(
+        "--serial", default="", help="USB serial (empty string allowed)."
+    )
     parser.add_argument("--name", help="Friendly device name.")
     parser.add_argument("--hash", help="usbguard hash for the device.")
     parser.add_argument("--parent-hash", help="usbguard parent device hash.")
@@ -102,7 +104,9 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         default=None,
         help="Insert after the first rule containing this substring (optional).",
     )
-    parser.add_argument("path", nargs="?", help="Path provided by sops when used as EDITOR.")
+    parser.add_argument(
+        "path", nargs="?", help="Path provided by sops when used as EDITOR."
+    )
     return parser.parse_args(argv)
 
 
@@ -201,7 +205,9 @@ def main(argv: List[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
 
     if not args.path:
-        raise SystemExit("Missing file argument. When used as EDITOR, sops supplies it.")
+        raise SystemExit(
+            "Missing file argument. When used as EDITOR, sops supplies it."
+        )
 
     target = Path(args.path)
     if not target.exists():

@@ -39,7 +39,7 @@ If your bucket enforces a jurisdiction-specific endpoint (for example,
 `https://<account>.eu.r2.cloudflarestorage.com`), add:
 
 ```
-  R2_REGION: eu
+R2_REGION: eu
 ```
 
 Setting `R2_REGION` ensures the helper exports `AWS_REGION=eu`/`AWS_DEFAULT_REGION=eu`

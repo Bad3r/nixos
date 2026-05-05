@@ -4,14 +4,14 @@ This directory explains how the Dendritic Pattern organizes this NixOS configura
 
 ## Reading Order
 
-| #   | Document                                   | Purpose                                                 |
-| --- | ------------------------------------------ | ------------------------------------------------------- |
-| 1   | [Pattern Overview](01-pattern-overview.md) | What is Dendritic, why it exists, auto-import mechanism |
-| 2   | [Module Authoring](02-module-authoring.md) | How to write modules, patterns, anti-patterns           |
-| 3   | [NixOS Modules](03-nixos-modules.md)       | System-level aggregators and app registry               |
-| 4   | [Home Manager](04-home-manager.md)         | User-level aggregators and app loading                  |
-| 5   | [Host Composition](05-host-composition.md) | How hosts are assembled from modules                    |
-| 6   | [Reference](06-reference.md)               | Validation, glossary, troubleshooting                   |
+| # | Document                                   | Purpose                                                 |
+| - | ------------------------------------------ | ------------------------------------------------------- |
+| 1 | [Pattern Overview](01-pattern-overview.md) | What is Dendritic, why it exists, auto-import mechanism |
+| 2 | [Module Authoring](02-module-authoring.md) | How to write modules, patterns, anti-patterns           |
+| 3 | [NixOS Modules](03-nixos-modules.md)       | System-level aggregators and app registry               |
+| 4 | [Home Manager](04-home-manager.md)         | User-level aggregators and app loading                  |
+| 5 | [Host Composition](05-host-composition.md) | How hosts are assembled from modules                    |
+| 6 | [Reference](06-reference.md)               | Validation, glossary, troubleshooting                   |
 
 ## Quick Links
 

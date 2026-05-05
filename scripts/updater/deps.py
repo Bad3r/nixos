@@ -44,9 +44,7 @@ def calculate_dependency_hash(
 
     """
     print(f"Calculating {hash_key}...")
-    original_content = (
-        hashes_file.read_text() if hashes_file.exists() else None
-    )
+    original_content = hashes_file.read_text() if hashes_file.exists() else None
 
     # Write dummy hash
     data[hash_key] = DUMMY_SHA256_HASH
