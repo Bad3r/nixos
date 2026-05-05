@@ -17,28 +17,24 @@ let
   #
   # 1. Mirrors a kvconfig binding one-for-one. These roles produce the
   #    same colour Kvantum-rendered Qt apps already see, so a Fusion or
-  #    Basic fallback inherits the same palette: `Window`, `Base`,
-  #    `AlternateBase`, `Button`, `Midlight`, `Dark`, `Mid`,
-  #    `ToolTipBase`, `Link`, `LinkVisited`, `WindowText`, `Text`,
-  #    `ButtonText`, `ToolTipText`.
+  #    Basic fallback inherits the same palette. Listed in source-file
+  #    order: `WindowText`, `Button`, `Midlight`, `Dark`, `Mid`, `Text`,
+  #    `ButtonText`, `Base`, `Window`, `Link`, `LinkVisited`,
+  #    `AlternateBase`, `ToolTipBase`, `ToolTipText`.
   #
   # 2. Has a kvconfig binding but intentionally diverges from it. The
-  #    rationale is documented per-role below.
+  #    rationale is documented per-role below in source-file order:
+  #    `Light`, `Highlight`, `HighlightedText`.
   #
   # 3. Has no equivalent kvconfig binding. qt6ct's scheme format requires
-  #    all 21 entries, so Stylix picks a Base16 token directly: `Shadow`
-  #    (`base00`), `NoRole` (`base00`), `PlaceholderText` (`base04`
-  #    active / `base03` disabled), and `BrightText` (`base07`). Kvantum
-  #    routes high-contrast text and shadow drawing through SVG layers
-  #    rather than separate `[GeneralColors]` keys, so kvconfig has no
-  #    `bright.text.color` / `shadow.color` to mirror.
+  #    all 21 entries, so Stylix picks a Base16 token directly. Listed in
+  #    source-file order: `BrightText` (`base07`), `Shadow` (`base00`),
+  #    `NoRole` (`base00`), `PlaceholderText` (`base04` active / `base03`
+  #    disabled). Kvantum routes high-contrast text and shadow drawing
+  #    through SVG layers rather than separate `[GeneralColors]` keys, so
+  #    kvconfig has no `bright.text.color` / `shadow.color` to mirror.
   #
-  # Per-role rationale for category 2:
-  #
-  # `HighlightedText` maps to `base05` rather than kvconfig's `base00`:
-  # on Base16 schemes where `base0D` (Highlight) and `base00` (background)
-  # collapse toward similar luminance, selected text becomes unreadable.
-  # `base05` keeps high contrast against any Highlight choice.
+  # Per-role rationale for category 2 (source-file order):
   #
   # `Light` maps to `base04` rather than kvconfig's `base03`. Fusion uses
   # `Light`/`Midlight`/`Mid`/`Dark` to draw 3D bevels, and Base16 luminance
@@ -50,6 +46,11 @@ let
   # is the conventional Qt blue-ish selection colour; `base0E` (purple) is
   # a Stylix design choice that conflicts with user expectations for
   # selection highlight in Fusion-rendered apps.
+  #
+  # `HighlightedText` maps to `base05` rather than kvconfig's `base00`:
+  # on Base16 schemes where `base0D` (Highlight) and `base00` (background)
+  # collapse toward similar luminance, selected text becomes unreadable.
+  # `base05` keeps high contrast against any Highlight choice.
   paletteRoles = c: [
     c.base05 # WindowText
     c.base02 # Button
