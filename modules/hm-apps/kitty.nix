@@ -142,6 +142,16 @@ _: {
             clipboard_control = "write-clipboard write-primary";
             term = "xterm-kitty";
             kitty_mod = "ctrl+shift";
+            # Grid first makes it the default layout; all built-in layouts remain reachable via next_layout
+            enabled_layouts = lib.concatStringsSep "," [
+              "grid"
+              "splits"
+              "tall"
+              "fat"
+              "horizontal"
+              "vertical"
+              "stack"
+            ];
           };
 
           keybindings = {
@@ -163,6 +173,31 @@ _: {
             "kitty_mod+a>1" = "set_background_opacity 1";
             "kitty_mod+a>d" = "set_background_opacity default";
             "kitty_mod+delete" = "clear_terminal reset active";
+            # Layout shortcuts
+            "ctrl+alt+g" = "goto_layout grid";
+            "ctrl+alt+s" = "goto_layout splits";
+            # Splits-layout spawning — goto_layout only switches the active layout, so
+            # explicit hsplit/vsplit chords are needed to actually carve the active window.
+            # kitty_mod+enter (new_window) still spawns on the layout's default axis.
+            "kitty_mod+apostrophe" = "launch --location=hsplit --cwd=current";
+            "kitty_mod+backslash" = "launch --location=vsplit --cwd=current";
+            # Rotate uses kitty_mod+alt+r so the default kitty_mod+r (start_resizing_window) survives.
+            "kitty_mod+alt+r" = "layout_action rotate";
+            # Pane navigation — ctrl+alt avoids stealing shell word-movement (ctrl+arrow)
+            # and the kitty_mod (ctrl+shift) chord space. Safe under i3, but ctrl+alt+arrow
+            # is the desktop-switch chord on GNOME / KDE / XFCE / Cinnamon — revisit before
+            # enabling this module on a host that runs a non-i3 desktop.
+            "ctrl+alt+left" = "neighboring_window left";
+            "ctrl+alt+right" = "neighboring_window right";
+            "ctrl+alt+up" = "neighboring_window up";
+            "ctrl+alt+down" = "neighboring_window down";
+            # Pane resize — kitty_mod+alt+arrow keeps a materially distinct chord. Adding
+            # ctrl on top of kitty_mod (ctrl+shift) would just deduplicate to kitty_mod+arrow
+            # in the GLFW modifier bitmask, leaving no headroom for a future kitty_mod+arrow.
+            "kitty_mod+alt+left" = "resize_window narrower";
+            "kitty_mod+alt+right" = "resize_window wider";
+            "kitty_mod+alt+up" = "resize_window taller";
+            "kitty_mod+alt+down" = "resize_window shorter";
           };
 
           extraConfig = ''
