@@ -204,13 +204,13 @@ BOOTSTRAP_SUBSTITUTERS=(
   "https://mirror.sjtu.edu.cn/nix-channels/store"
   #"https://mirrors.ustc.edu.cn/nix-channels/store"
   "https://cache.nixos.org"
-  "https://cache.garnix.io"
+  "https://cache.garnix.io?priority=38"
   "https://cache.numtide.com"
   "https://nixpkgs-unfree.cachix.org"
   "https://nix-logseq-git-flake.cachix.org"
   "https://nix-community.cachix.org"
   "https://doom-emacs-unstraightened.cachix.org"
-  "https://attic.xuyh0120.win/lantian"
+  "https://attic.xuyh0120.win/lantian?priority=39"
 )
 BOOTSTRAP_TRUSTED_KEYS=(
   "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
