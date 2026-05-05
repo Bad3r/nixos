@@ -44,14 +44,49 @@ let
     c.base04 # PlaceholderText
   ];
 
+  # Disabled-state palette mutes the foreground/highlight roles so Fusion
+  # can render disabled controls with reduced contrast. qt6ct writes the
+  # `disabled_colors` row verbatim and Qt no longer auto-greys widgets
+  # under a custom palette, so identical active/disabled rows leave disabled
+  # buttons looking fully active. Background and accent roles match the
+  # active palette to preserve widget silhouettes.
+  disabledPaletteRoles = c: [
+    c.base04 # WindowText
+    c.base02 # Button
+    c.base04 # Light
+    c.base03 # Midlight
+    c.base00 # Dark
+    c.base01 # Mid
+    c.base04 # Text
+    c.base04 # BrightText
+    c.base04 # ButtonText
+    c.base00 # Base
+    c.base00 # Window
+    c.base00 # Shadow
+    c.base02 # Highlight
+    c.base04 # HighlightedText
+    c.base0D # Link
+    c.base0E # LinkVisited
+    c.base01 # AlternateBase
+    c.base00 # NoRole
+    c.base01 # ToolTipBase
+    c.base04 # ToolTipText
+    c.base03 # PlaceholderText
+  ];
+
   toArgb = colour: "#ff${lib.removePrefix "#" colour}";
   formatRow = colours: lib.concatStringsSep ", " (map toArgb colours);
-  schemeText = colours: ''
-    [ColorScheme]
-    active_colors=${formatRow colours}
-    inactive_colors=${formatRow colours}
-    disabled_colors=${formatRow colours}
-  '';
+  schemeText =
+    {
+      active,
+      disabled,
+    }:
+    ''
+      [ColorScheme]
+      active_colors=${formatRow active}
+      inactive_colors=${formatRow active}
+      disabled_colors=${formatRow disabled}
+    '';
 in
 {
   flake.homeManagerModules.base =
@@ -64,7 +99,10 @@ in
       relPath5 = "qt5ct/colors/stylix.conf";
       absPath6 = "${config.xdg.configHome}/${relPath6}";
       absPath5 = "${config.xdg.configHome}/${relPath5}";
-      schemeContents = schemeText (paletteRoles colours);
+      schemeContents = schemeText {
+        active = paletteRoles colours;
+        disabled = disabledPaletteRoles colours;
+      };
     in
     lib.mkIf (stylixEnabled && qtctActive) {
       xdg.configFile.${relPath6}.text = schemeContents;
