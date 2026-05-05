@@ -79,8 +79,11 @@ _: {
               script-opts = "playlist-filter-mode=block-images";
             };
             "img" = {
-              profile-desc = "skip non-image files in playlists";
+              profile-desc = "image viewer: skip non-image files, hold each image until manual advance";
               script-opts = "playlist-filter-mode=images-only";
+              image-display-duration = "inf";
+              loop-playlist = "inf";
+              osd-level = 0;
             };
           };
 
@@ -91,6 +94,11 @@ _: {
               mpris # use standard media keys
               # autoload # auto load previous/next file in playlist
               reload # reload streamed file when stuck buffering
+            ])
+            ++ (with pkgs.mpvScripts.mpv-image-viewer; [
+              freeze-window # prevent window close after the last image
+              image-positioning # pan, zoom, and rotate controls for images
+              status-line # image dimensions and zoom level overlay
             ])
             ++ extraScripts;
         };
