@@ -6,7 +6,7 @@
   Repository: https://github.com/mpv-player/mpv
 
   Summary:
-    * Installs mpv along with thumbnail preview (`thumbfast`), shader presets, and `open-in-mpv` by default.
+    * Installs mpv with shader presets and `open-in-mpv` system-wide by default; the HM layer loads `thumbfast` (consumed by modernz for seek-bar previews) as an mpv script via `extraScripts`.
     * Supports advanced playback via GPU acceleration, scripting (Lua/Python), configurable keybindings, and remote control via JSON IPC or `mpv` sockets.
 
   Options:
@@ -48,7 +48,6 @@ let
           type = lib.types.listOf lib.types.package;
           default = with pkgs; [
             mpvScripts.thumbfast
-            # mpvScripts.mpv-cheatsheet
           ];
           description = ''
             mpv scripts to load at startup.

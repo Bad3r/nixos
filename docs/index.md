@@ -90,7 +90,7 @@
 - [mpv/5. customizing.md](mpv/5. customizing.md)
   - Patterns for adding scripts, overriding configuration keys, replacing the package, layering personal overrides, and opting out per host.
 - [mpv/6. troubleshooting.md](mpv/6. troubleshooting.md)
-  - NVIDIA NVDEC freeze workaround, MIME default-assertion failures, codec gaps, and silent hwdec fallback.
+  - MIME default-assertion failures, codec gaps, and silent hwdec fallback.
 
 ## Packaging
 
