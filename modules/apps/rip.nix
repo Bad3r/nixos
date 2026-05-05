@@ -149,8 +149,11 @@ let
         systemd.tmpfiles.rules = [
           # Create the trash directory; clean entries older than 10 days.
           "d ${cfg.trashPath} 0700 ${owner} users 10d"
-          # Point home-partition trash at the configured path.
-          "L+ /home/${owner}/.local/share/Trash - - - - ${cfg.trashPath}"
+          # Point home-partition trash at the configured path. Use `L` (not
+          # `L+`) so an existing real `~/.local/share/Trash/` directory is
+          # preserved; users migrating from another trash implementation must
+          # move it aside before this symlink takes effect.
+          "L /home/${owner}/.local/share/Trash - - - - ${cfg.trashPath}"
         ];
       };
     };
