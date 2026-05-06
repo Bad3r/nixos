@@ -113,7 +113,14 @@ let
             # mounts still match the recorded path).
             unbury_rc=0
             for f in "''${UNBURY_FILES[@]}"; do
-              trash-restore "''${TRASH_DIR_ARGS[@]}" -- "$(realpath -ms -- "$f")" || unbury_rc=$?
+              rc=0
+              trash-restore "''${TRASH_DIR_ARGS[@]}" -- "$(realpath -ms -- "$f")" || rc=$?
+              # Preserve the first non-zero rc so the eventual exit status
+              # matches the failure the operator is most likely debugging;
+              # later failures are often cascades from the same root cause.
+              if (( unbury_rc == 0 )); then
+                unbury_rc=$rc
+              fi
             done
             exit "$unbury_rc"
           fi
