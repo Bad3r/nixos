@@ -257,12 +257,21 @@ let
           # in sync with the case-statements in ripWrapper above.
 
           _rip_files() {
+            # `(#m)` and `$MATCH` require extendedglob; ensure it is set even
+            # when the caller's shell disables it. `localoptions` confines the
+            # change to this function.
+            setopt localoptions extendedglob
             # Mirror the escaping shim trash-cli uses in _trash_files (see
-            # _trash-put / _trash-restore on the same fpath). Without this,
-            # _files glob-expands metacharacters in already-typed args.
-            (( CURRENT > 0 )) && line[CURRENT]=()
-            line=( ''${line//(#m)[\[\]()\\*?#<>~\^\|]/\\$MATCH} )
-            _files -F line
+            # _trash-put / _trash-restore on the same fpath). Operate on a
+            # copy of `words` because `line` only holds positional args while
+            # `CURRENT` indexes `words`; mixing the two leaves the in-progress
+            # word in the exclusion set and silently breaks completion when a
+            # half-typed path contains a metachar.
+            local -a tmp_words
+            tmp_words=( "''${words[@]}" )
+            tmp_words[CURRENT]=()
+            tmp_words=( ''${tmp_words//(#m)[\[\]()\\*?#<>~\^\|]/\\$MATCH} )
+            _files -F tmp_words
           }
 
           _rip() {
