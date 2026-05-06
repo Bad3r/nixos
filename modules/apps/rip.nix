@@ -245,6 +245,45 @@ let
           trash-put "''${TRASH_PUT_ARGS[@]}" "''${TRASH_DIR_ARGS[@]}" -- "''${FILES[@]}"
         '';
       };
+
+      ripCompletion = pkgs.writeTextFile {
+        name = "rip-zsh-completion";
+        destination = "/share/zsh/site-functions/_rip";
+        text = ''
+          #compdef rip
+
+          # Hand-written completion for the rip wrapper. Source of truth lives
+          # alongside the wrapper in this same module; the flag list must stay
+          # in sync with the case-statements in ripWrapper above.
+
+          _rip_files() {
+            # Mirror the escaping shim trash-cli uses in _trash_files (see
+            # _trash-put / _trash-restore on the same fpath). Without this,
+            # _files glob-expands metacharacters in already-typed args.
+            (( CURRENT > 0 )) && line[CURRENT]=()
+            line=( ''${line//(#m)[\[\]()\\*?#<>~\^\|]/\\$MATCH} )
+            _files -F line
+          }
+
+          _rip() {
+            local context state line curcontext="$curcontext"
+            typeset -A opt_args
+
+            _arguments -C -s -S \
+              '(- *)'{-h,--help}'[print help and exit]' \
+              '(--empty-trash --seance -s --unbury -u *)--empty-trash[permanently empty the trash]' \
+              '(--empty-trash --seance -s --unbury -u *)'{-s,--seance}'[list files trashed from cwd]' \
+              '(--empty-trash --seance -s --unbury -u)'{-u,--unbury}'[restore trashed files (interactive picker if no PATH)]:*::path to restore:_rip_files' \
+              '(--empty-trash --seance -s --unbury -u)'{-i,--inspect}'[inspect (ls -la) and prompt before trashing]' \
+              {-f,--force}'[skip all confirmation prompts]' \
+              '--graveyard=[override trash directory for this invocation]:trash dir:_files -/' \
+              {-r,-R,-d}'[rm compat, no-op]' \
+              '*:files to trash:_rip_files'
+          }
+
+          _rip "$@"
+        '';
+      };
     in
     {
       options.programs.rip.extended = {
@@ -290,6 +329,7 @@ let
         environment.systemPackages = [
           cfg.package
           ripWrapper
+          ripCompletion
         ];
 
         systemd.tmpfiles.rules = [
