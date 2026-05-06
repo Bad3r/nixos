@@ -27,6 +27,8 @@ BOOTSTRAP_CACHES=false
 ACTION="switch" # default action after build: switch | boot
 BUILD_FLAGS=()
 NH_CMD=()
+LOG_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/nixos-build"
+LOG_FILE=""
 # Colors for output (readonly constants)
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
@@ -56,9 +58,12 @@ Options:
       --bootstrap        Use extra substituters for first build (e.g., Determinate Nix)
   -h, --help             Show this help message
 
+Logs:
+  Each run is recorded to %s/build-<timestamp>-<pid>.log
+
   Usage Example:
   ${0} --offline
-" "${0##*/}" "${PWD}" "$(hostname)"
+" "${0##*/}" "${PWD}" "$(hostname)" "${LOG_DIR}"
 }
 
 # Status messages with printf
@@ -89,7 +94,17 @@ trap_error() {
 }
 
 trap trap_error ERR
-trap 'true' EXIT # Cleanup hook (no-op; extend as needed)
+# Close redirected fds so tee subprocesses see EOF, then wait for them to flush.
+trap 'exec >&- 2>&-; wait' EXIT
+
+setup_logging() {
+  LOG_FILE="${LOG_DIR}/build-$(date +%Y%m%d-%H%M%S)-$$.log"
+  mkdir -p "${LOG_DIR}"
+  exec \
+    > >(tee >(sed -u 's/\x1b\[[0-9;]*m//g' >>"${LOG_FILE}")) \
+    2> >(tee >(sed -u 's/\x1b\[[0-9;]*m//g' >>"${LOG_FILE}") >&2)
+  status_msg "${GREEN}" "Logging to: ${LOG_FILE}"
+}
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -201,8 +216,8 @@ fi
 # Used for initial Determinate Nix setup or similar migrations
 BOOTSTRAP_SUBSTITUTERS=(
   "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
-  "https://mirror.sjtu.edu.cn/nix-channels/store"
-  #"https://mirrors.ustc.edu.cn/nix-channels/store"
+  #"https://mirror.sjtu.edu.cn/nix-channels/store"
+  "https://mirrors.ustc.edu.cn/nix-channels/store"
   "https://cache.nixos.org"
   "https://cache.garnix.io?priority=38"
   "https://cache.numtide.com"
@@ -423,6 +438,7 @@ run_firmware_updates() {
 }
 
 main() {
+  setup_logging
   configure_nix_config
   configure_build_flags
 
