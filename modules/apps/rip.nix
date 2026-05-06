@@ -245,6 +245,61 @@ let
           trash-put "''${TRASH_PUT_ARGS[@]}" "''${TRASH_DIR_ARGS[@]}" -- "''${FILES[@]}"
         '';
       };
+
+      ripCompletion = pkgs.writeTextFile {
+        name = "rip-zsh-completion";
+        destination = "/share/zsh/site-functions/_rip";
+        text = ''
+          #compdef rip
+
+          # Hand-written completion for the rip wrapper. Source of truth lives
+          # alongside the wrapper in this same module; the flag list must stay
+          # in sync with the case-statements in ripWrapper above.
+
+          _rip_files() {
+            # `(#m)` and `$MATCH` require extendedglob; ensure it is set even
+            # when the caller's shell disables it. `localoptions` confines the
+            # change to this function.
+            setopt localoptions extendedglob
+            # Mirror the escaping shim trash-cli uses in _trash_files (see
+            # _trash-put / _trash-restore on the same fpath). Operate on a
+            # copy of `words` because `line` only holds positional args while
+            # `CURRENT` indexes `words`; mixing the two leaves the in-progress
+            # word in the exclusion set and silently breaks completion when a
+            # half-typed path contains a metachar.
+            local -a tmp_words
+            tmp_words=( "''${words[@]}" )
+            tmp_words[CURRENT]=()
+            tmp_words=( ''${tmp_words//(#m)[\[\]()\\*?#<>~\^\|]/\\$MATCH} )
+            _files -F tmp_words
+          }
+
+          _rip() {
+            local context state line curcontext="$curcontext"
+            typeset -A opt_args
+
+            # Exclusion lists mirror the wrapper's mode_count check: the four
+            # mode flags (--empty-trash, -s/--seance, -u/--unbury, positional
+            # FILES) are mutually exclusive. -i/--inspect is a trash-mode
+            # modifier and is rejected by the wrapper alongside the mode
+            # flags, so list it symmetrically. -u/--unbury also excludes the
+            # global positional spec (`*`) so files-to-trash completion stops
+            # firing once the operator has committed to a restore.
+            _arguments -C -s -S \
+              '(- *)'{-h,--help}'[print help and exit]' \
+              '(--empty-trash --seance -s --unbury -u -i --inspect *)--empty-trash[permanently empty the trash]' \
+              '(--empty-trash --seance -s --unbury -u -i --inspect *)'{-s,--seance}'[list files trashed from cwd]' \
+              '(--empty-trash --seance -s --unbury -u -i --inspect *)'{-u,--unbury}'[restore trashed files (interactive picker if no PATH)]:*::path to restore:_rip_files' \
+              '(--empty-trash --seance -s --unbury -u)'{-i,--inspect}'[inspect (ls -la) and prompt before trashing]' \
+              {-f,--force}'[skip all confirmation prompts]' \
+              '--graveyard=[override trash directory for this invocation]:trash dir:_files -/' \
+              {-r,-R,-d}'[rm compat, no-op]' \
+              '*:files to trash:_rip_files'
+          }
+
+          _rip "$@"
+        '';
+      };
     in
     {
       options.programs.rip.extended = {
@@ -290,6 +345,7 @@ let
         environment.systemPackages = [
           cfg.package
           ripWrapper
+          ripCompletion
         ];
 
         systemd.tmpfiles.rules = [

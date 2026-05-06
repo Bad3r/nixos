@@ -100,9 +100,13 @@ trap 'exec >&- 2>&-; wait' EXIT
 setup_logging() {
   LOG_FILE="${LOG_DIR}/build-$(date +%Y%m%d-%H%M%S)-$$.log"
   mkdir -p "${LOG_DIR}"
-  exec \
-    > >(tee >(sed -u 's/\x1b\[[0-9;]*m//g' >>"${LOG_FILE}")) \
-    2> >(tee >(sed -u 's/\x1b\[[0-9;]*m//g' >>"${LOG_FILE}") >&2)
+  # Merge stderr into stdout before the tee so a single sed process
+  # appends to the log. POSIX guarantees atomic O_APPEND only up to
+  # PIPE_BUF (4096 bytes on Linux); separate stdout/stderr appenders
+  # would interleave at byte boundaries when verbose nix output emits
+  # long single lines (store-path arrays, dumped derivations). The
+  # outer tee preserves ANSI on the terminal; sed strips the file copy.
+  exec > >(tee >(sed -u 's/\x1b\[[0-9;]*m//g' >>"${LOG_FILE}")) 2>&1
   status_msg "${GREEN}" "Logging to: ${LOG_FILE}"
 }
 
