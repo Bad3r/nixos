@@ -18,7 +18,7 @@ let
           TRASH_DIR_ARGS=()
           FORCE=false
           UNBURY=false
-          DECOMPOSE=false
+          EMPTY_TRASH=false
           SEANCE=false
           INSPECT=false
           UNBURY_FILES=()
@@ -49,7 +49,7 @@ let
                   List files deleted from the current working directory, sourced
                   from trash-list filtered by the current path prefix.
 
-            -d, --decompose
+            --empty-trash
                   Permanently delete all files in the trash (trash-empty).
                   Prompts for confirmation unless --force is given. Requires a
                   TTY when prompting; non-interactive callers must pass --force.
@@ -67,16 +67,22 @@ let
                   Skip all confirmation prompts. Also silences nonexistent-file
                   errors from trash-put (equivalent to rm -f).
 
+            -r, -R, -d
+                  Accepted and ignored for rm compatibility. trash-put handles
+                  directories natively so recursive and empty-dir flags are
+                  redundant. Enables muscle-memory usage like: rip -rfd path/
+
             -h, --help
                   Print this help and exit.
 
           Examples:
             rip file.txt dir/              Move file.txt and dir/ to trash.
+            rip -rfd path/                 rm-compatible recursive force trash.
             rip -u                         Pick a file to restore from the current dir.
             rip -u /old/path/file.txt      Scope restore picker to /old/path/.
             rip -s                         List files trashed from the current dir.
-            rip -d                         Empty the trash (prompts for confirmation).
-            rip -d --force                 Empty the trash without prompting.
+            rip --empty-trash              Empty the trash (prompts for confirmation).
+            rip --empty-trash --force      Empty the trash without prompting.
             rip -i file.txt                Inspect, then confirm before trashing.
             rip --graveyard /mnt/usb/.Trash  Use a custom trash location.
 
@@ -84,18 +90,32 @@ let
           EOF
           }
 
+          # Parse a single short flag character. Called for each char in a
+          # combined flag like -rfd.
+          parse_short_flag() {
+            case "$1" in
+              h) usage; exit 0 ;;
+              r|R|d) ;; # no-op: rm compat; trash-put handles dirs natively
+              s) SEANCE=true ;;
+              i) INSPECT=true ;;
+              f) FORCE=true ;;
+              u) UNBURY=true ;;
+              *) echo "rip: unknown option: -$1" >&2; exit 1 ;;
+            esac
+          }
+
           while [[ $# -gt 0 ]]; do
             case "$1" in
-              -h|--help) usage; exit 0 ;;
-              -d|--decompose) DECOMPOSE=true; shift ;;
-              -s|--seance) SEANCE=true; shift ;;
-              -u|--unbury)
+              --help) usage; exit 0 ;;
+              --empty-trash) EMPTY_TRASH=true; shift ;;
+              --seance) SEANCE=true; shift ;;
+              --unbury)
                 UNBURY=true; shift
                 while [[ $# -gt 0 ]] && [[ "$1" != -* ]]; do
                   UNBURY_FILES+=("$1"); shift
                 done ;;
-              -i|--inspect) INSPECT=true; shift ;;
-              -f|--force) FORCE=true; shift ;;
+              --inspect) INSPECT=true; shift ;;
+              --force) FORCE=true; shift ;;
               --graveyard)
                 TRASH_DIR_ARGS=(--trash-dir "''${2:?--graveyard requires an argument}")
                 shift 2 ;;
@@ -108,12 +128,27 @@ let
                 TRASH_DIR_ARGS=(--trash-dir "$graveyard_val")
                 shift ;;
               --) shift; FILES+=("$@"); break ;;
-              -*) echo "rip: unknown option: $1" >&2; exit 1 ;;
+              --*) echo "rip: unknown option: $1" >&2; exit 1 ;;
+              -*)
+                # Combined short flags: parse each character in sequence.
+                combined="''${1#-}"
+                shift
+                while [[ -n "$combined" ]]; do
+                  flag="''${combined:0:1}"
+                  combined="''${combined:1}"
+                  parse_short_flag "$flag"
+                  # -u consumes remaining positional args as restore targets.
+                  if [[ "$flag" == u ]]; then
+                    while [[ $# -gt 0 ]] && [[ "$1" != -* ]]; do
+                      UNBURY_FILES+=("$1"); shift
+                    done
+                  fi
+                done ;;
               *) FILES+=("$1"); shift ;;
             esac
           done
 
-          if $DECOMPOSE; then
+          if $EMPTY_TRASH; then
             if $FORCE; then
               trash-empty "''${TRASH_DIR_ARGS[@]}"
             else
