@@ -8,11 +8,11 @@
 -- Set the startup mode via:
 --   mpv --profile=vid ... / mpv -p vid ... (named profile; see mpv.conf)
 --   mpv --profile=img ... / mpv -p img ...
---   mpv --script-opts=playlist-filter-mode=block-images ...
---   ~/.config/mpv/script-opts/playlist-filter.conf  (persistent default)
+--   mpv --script-opts=playlist_filter-mode=block-images ...
+--   ~/.config/mpv/script-opts/playlist_filter.conf  (persistent default)
 --
 -- Runtime keybinding: F3 cycles through all three modes.
--- Override with: F3 script-binding playlist-filter-cycle in input.conf
+-- Override with: F3 script-binding playlist_filter-cycle in input.conf
 
 local options = require("mp.options")
 
@@ -70,10 +70,10 @@ mp.add_hook("on_preloaded", 10, function()
   local ext = (path:match("%.([^%.]+)$") or ""):lower()
   local is_image = image_extensions[ext] == true
   if mode == MODE_BLOCK_IMAGES and is_image then
-    mp.msg.info("playlist-filter: blocking image: " .. path)
+    mp.msg.info("playlist-filter: Skipping Image: " .. path)
     mp.commandv("playlist-remove", "current")
   elseif mode == MODE_IMAGES_ONLY and not is_image then
-    mp.msg.info("playlist-filter: blocking non-image: " .. path)
+    mp.msg.info("playlist-filter: Skipping Video: " .. path)
     mp.commandv("playlist-remove", "current")
   end
 end)
@@ -85,4 +85,4 @@ local function cycle_mode()
   mp.msg.info("playlist-filter: mode -> " .. label)
 end
 
-mp.add_key_binding("F3", "playlist-filter-cycle", cycle_mode)
+mp.add_key_binding("F3", "playlist_filter-cycle", cycle_mode)
