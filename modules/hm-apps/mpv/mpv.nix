@@ -48,6 +48,8 @@ _: {
             hwdec = "auto";
             gpu-context = "auto"; # let mpv pick a supported context (x11/wayland)
             save-position-on-quit = "no";
+            # Drop sub-pos from persisted watch-later state; modernz manages it dynamically.
+            watch-later-options-remove = "sub-pos";
             video-sync = "display-resample";
             interpolation = "yes";
             tscale = "oversample";
