@@ -19,9 +19,9 @@ local existing = mp.get_property("ytdl-raw-options") or ""
 if not existing:find("cookies%-from%-browser") then
   local browser = resolve_browser()
   if browser ~= "" then
-    mp.msg.info("ytdlp-cookies: cookies-from-browser=" .. browser)
+    mp.msg.info("ytdlp_cookies: cookies-from-browser=" .. browser)
     mp.set_property("ytdl-raw-options-append", "cookies-from-browser=" .. browser)
   else
-    mp.msg.verbose("ytdlp-cookies: no browser resolved, skipping cookie passthrough")
+    mp.msg.verbose("ytdlp_cookies: no browser resolved, skipping cookie passthrough")
   end
 end
