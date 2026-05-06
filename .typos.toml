@@ -26,7 +26,7 @@ facter = "facter" # nixos-facter-modules
 crypted = "crypted" # LUKS device mapper name
 wdth = "wdth" # CSS font-variation-settings property
 substituters = "substituters" # nix substituters
-ANC = "ANC"                   # Active Noise Cancellation (AirPods)
+ANC = "ANC" # Active Noise Cancellation (AirPods)
 # Hashes/keys (extend-ignore-re should catch most, but explicit for safety)
 "981DE78A201C2B735FF0B545A3967CCA47D5275F" = "981DE78A201C2B735FF0B545A3967CCA47D5275F"
 
