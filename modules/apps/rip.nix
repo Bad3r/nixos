@@ -292,7 +292,7 @@ let
               '(--empty-trash --seance -s --unbury -u -i --inspect *)'{-u,--unbury}'[restore trashed files (interactive picker if no PATH)]:*::path to restore:_rip_files' \
               '(--empty-trash --seance -s --unbury -u)'{-i,--inspect}'[inspect (ls -la) and prompt before trashing]' \
               {-f,--force}'[skip all confirmation prompts]' \
-              '--graveyard[override trash directory for this invocation]:trash dir:_files -/' \
+              '--graveyard=[override trash directory for this invocation]:trash dir:_files -/' \
               {-r,-R,-d}'[rm compat, no-op]' \
               '*:files to trash:_rip_files'
           }
