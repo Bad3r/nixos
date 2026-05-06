@@ -259,22 +259,23 @@ Optional but recommended:
 
 ## Registering in the Overlay
 
-After creating the package, register it in `modules/system76/custom-packages-overlay.nix`:
+In-tree custom packages are exposed through the shared `customPackages` overlay at `modules/base/custom-packages-overlay.nix`. Add a single entry there for each new package:
 
 ```nix
 _: {
-  configurations.nixos.system76.module = {
-    nixpkgs.overlays = [
-      (final: _prev: {
-        # Existing packages...
-        my-new-package = final.callPackage ../../packages/my-new-package { };
-      })
-    ];
+  flake.lib.overlays.customPackages = final: prev: {
+    # Existing packages...
+    my-new-package = final.callPackage ../../packages/my-new-package { };
   };
 }
 ```
 
-This makes the package available as `pkgs.my-new-package` throughout the configuration.
+Hosts opt in by composing the shared overlay into `nixpkgs.overlays`. The wiring already exists for both managed hosts:
+
+- `modules/system76/custom-packages-overlay.nix` composes the shared overlay and layers host-specific patches on top (e.g., the `system76-power` patch).
+- `modules/tpnix/custom-packages-overlay.nix` composes the shared overlay alone.
+
+Use the per-host files only for host-only patches, version overrides, or hardware-specific tweaks; new in-tree packages belong in the shared overlay so every host that opts in sees them. After registration the package is available as `pkgs.my-new-package` on every host whose `custom-packages-overlay` module is loaded.
 
 ## Hash Fetching Workflow
 
@@ -286,11 +287,13 @@ This makes the package available as `pkgs.my-new-package` throughout the configu
    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
    ```
 
-2. Attempt to build:
+2. Attempt to build the package through the overlay-aware host `pkgs`:
 
    ```bash
-   nix build .#my-package
+   nix build .#nixosConfigurations.system76.pkgs.my-package
    ```
+
+   Overlay-backed packages are not exposed as top-level flake outputs, so `nix build .#my-package` will fail with `does not provide attribute packages.x86_64-linux.my-package`. Always go through `nixosConfigurations.<host>.pkgs.<name>` to apply the overlay.
 
 3. Copy the `got:` hash from the error message into your file.
 
@@ -352,12 +355,14 @@ Create a corresponding app module in `modules/apps/<name>.nix` when:
 - The package is a user-facing application
 - Users should be able to enable/disable it declaratively
 - The package needs unfree allowlisting or extra configuration
+- The package is host-visible tooling such as a shell helper or system-management script (e.g., `modules/apps/sss-pass-gpg-bootstrap.nix`, `modules/apps/sss-nix-repair.nix`)
 
 Skip the app module when:
 
-- The package is host-specific tooling
 - The package is only used in devshells
 - The package is a library or build tool
+
+The `apps-catalog-sync` pre-commit hook (`modules/meta/hooks/apps-catalog-sync.nix`) enforces that every app module under `modules/apps/` has a matching entry in each host's `apps-enable.nix`. After adding the app module, register it in `modules/system76/apps-enable.nix` and `modules/tpnix/apps-enable.nix`. Use `lib.mkOverride 1100 false` as the default and flip individual host catalogs to `true` only where the tool should be installed.
 
 See [Apps Module Style Guide](apps-module-style-guide.md) for the app module format.
 
@@ -367,10 +372,10 @@ Before committing a new package:
 
 - [ ] File exists at `packages/<name>/default.nix`
 - [ ] All required meta fields are present
-- [ ] Package is registered in `custom-packages-overlay.nix`
-- [ ] `nix build .#<name>` succeeds (or via overlay: test in config)
+- [ ] Package is registered in `modules/base/custom-packages-overlay.nix` (shared `customPackages` overlay)
+- [ ] `nix build .#nixosConfigurations.<host>.pkgs.<name>` succeeds (overlay-backed packages are not exposed as top-level flake outputs)
 - [ ] `nix flake check --accept-flake-config` passes
-- [ ] App module created if user-facing (see [Apps Module Style Guide](apps-module-style-guide.md))
+- [ ] App module created if user-facing or host-visible (see [Apps Module Style Guide](apps-module-style-guide.md)); `apps-catalog-sync` will fail the push if `modules/apps/<name>.nix` lacks a matching entry in every host's `apps-enable.nix`
 
 ## Reference Implementations
 
