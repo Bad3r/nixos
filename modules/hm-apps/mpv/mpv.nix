@@ -50,9 +50,6 @@ _: {
             save-position-on-quit = "no";
             # Drop sub-pos from persisted watch-later state; modernz manages it dynamically.
             watch-later-options-remove = "sub-pos";
-            video-sync = "display-resample";
-            interpolation = "yes";
-            tscale = "oversample";
             cache = "yes";
             volume = 60;
             border = "no";
