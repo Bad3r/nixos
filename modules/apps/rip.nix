@@ -60,8 +60,9 @@ let
 
             --graveyard <PATH>
                   Override the trash directory for this invocation. Passed as
-                  --trash-dir to trash-put, trash-list, and trash-empty.
-                  Does not affect trash-restore; use the PATH arg to --unbury.
+                  --trash-dir to trash-put, trash-list, trash-empty, and
+                  trash-restore. The --unbury PATH argument independently
+                  selects which entry to restore.
 
             -f, --force
                   Skip all confirmation prompts. Also silences nonexistent-file
