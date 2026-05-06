@@ -184,7 +184,9 @@ let
             fi
           fi
 
-          trash-put "''${TRASH_DIR_ARGS[@]}" -- "''${FILES[@]}"
+          TRASH_PUT_ARGS=()
+          $FORCE && TRASH_PUT_ARGS+=(-f)
+          trash-put "''${TRASH_PUT_ARGS[@]}" "''${TRASH_DIR_ARGS[@]}" -- "''${FILES[@]}"
         '';
       };
     in
