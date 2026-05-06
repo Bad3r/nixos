@@ -148,6 +148,21 @@ let
             esac
           done
 
+          # Modes are mutually exclusive: --empty-trash, -s/--seance,
+          # -u/--unbury, and positional FILES may not be combined.
+          mode_count=0
+          mode_names=()
+          $EMPTY_TRASH         && { mode_count=$(( mode_count + 1 )); mode_names+=(--empty-trash); }
+          $SEANCE              && { mode_count=$(( mode_count + 1 )); mode_names+=(-s/--seance); }
+          $UNBURY              && { mode_count=$(( mode_count + 1 )); mode_names+=(-u/--unbury); }
+          (( ''${#FILES[@]} )) && { mode_count=$(( mode_count + 1 )); mode_names+=(FILES); }
+
+          if (( mode_count > 1 )); then
+            echo "rip: conflicting modes: ''${mode_names[*]}" >&2
+            echo "rip: use exactly one operation per invocation; see rip --help" >&2
+            exit 1
+          fi
+
           if $EMPTY_TRASH; then
             if $FORCE; then
               trash-empty "''${TRASH_DIR_ARGS[@]}"
