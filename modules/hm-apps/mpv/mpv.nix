@@ -56,6 +56,11 @@ _: {
             keepaspect-window = "no"; # don't lock window size to video aspect ratio
           };
 
+          # Disable mpv-image-viewer's status-line by default. The script renders a
+          # persistent ASS overlay (filename, [N/M] playlist position, [WxH] dimensions)
+          # and never auto-hides. Only the img profile re-enables it for image viewing.
+          scriptOpts.status_line.enabled = "no";
+
           bindings = {
             "q" = "quit";
             "j" = "seek 5";
@@ -78,7 +83,7 @@ _: {
             };
             "img" = {
               profile-desc = "image viewer: skip non-image files, hold each image until manual advance, loop playlist";
-              script-opts = "playlist_filter-mode=images-only";
+              script-opts = "playlist_filter-mode=images-only,status_line-enabled=yes";
               image-display-duration = "inf";
               loop-playlist = "inf";
               osd-level = 0;
