@@ -77,11 +77,11 @@ _: {
           profiles = {
             "vid" = {
               profile-desc = "skip image files in playlists";
-              script-opts = "playlist-filter-mode=block-images";
+              script-opts = "playlist_filter-mode=block-images";
             };
             "img" = {
               profile-desc = "image viewer: skip non-image files, hold each image until manual advance, loop playlist";
-              script-opts = "playlist-filter-mode=images-only";
+              script-opts = "playlist_filter-mode=images-only";
               image-display-duration = "inf";
               loop-playlist = "inf";
               osd-level = 0;
@@ -118,9 +118,9 @@ _: {
           ];
 
         xdg.configFile = {
-          "mpv/scripts/ytdlp-cookies.lua".source = ./scripts/ytdlp-cookies.lua;
+          "mpv/scripts/ytdlp_cookies.lua".source = ./scripts/ytdlp_cookies.lua;
           "mpv/hwdec-codecs.conf".source = ./hwdec-codecs.conf;
-          "mpv/scripts/playlist-filter.lua".source = ./scripts/playlist-filter.lua;
+          "mpv/scripts/playlist_filter.lua".source = ./scripts/playlist_filter.lua;
         };
       };
     };
