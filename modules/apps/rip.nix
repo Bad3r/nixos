@@ -278,14 +278,21 @@ let
             local context state line curcontext="$curcontext"
             typeset -A opt_args
 
+            # Exclusion lists mirror the wrapper's mode_count check: the four
+            # mode flags (--empty-trash, -s/--seance, -u/--unbury, positional
+            # FILES) are mutually exclusive. -i/--inspect is a trash-mode
+            # modifier and is rejected by the wrapper alongside the mode
+            # flags, so list it symmetrically. -u/--unbury also excludes the
+            # global positional spec (`*`) so files-to-trash completion stops
+            # firing once the operator has committed to a restore.
             _arguments -C -s -S \
               '(- *)'{-h,--help}'[print help and exit]' \
-              '(--empty-trash --seance -s --unbury -u *)--empty-trash[permanently empty the trash]' \
-              '(--empty-trash --seance -s --unbury -u *)'{-s,--seance}'[list files trashed from cwd]' \
-              '(--empty-trash --seance -s --unbury -u)'{-u,--unbury}'[restore trashed files (interactive picker if no PATH)]:*::path to restore:_rip_files' \
+              '(--empty-trash --seance -s --unbury -u -i --inspect *)--empty-trash[permanently empty the trash]' \
+              '(--empty-trash --seance -s --unbury -u -i --inspect *)'{-s,--seance}'[list files trashed from cwd]' \
+              '(--empty-trash --seance -s --unbury -u -i --inspect *)'{-u,--unbury}'[restore trashed files (interactive picker if no PATH)]:*::path to restore:_rip_files' \
               '(--empty-trash --seance -s --unbury -u)'{-i,--inspect}'[inspect (ls -la) and prompt before trashing]' \
               {-f,--force}'[skip all confirmation prompts]' \
-              '--graveyard=[override trash directory for this invocation]:trash dir:_files -/' \
+              '--graveyard[override trash directory for this invocation]:trash dir:_files -/' \
               {-r,-R,-d}'[rm compat, no-op]' \
               '*:files to trash:_rip_files'
           }
