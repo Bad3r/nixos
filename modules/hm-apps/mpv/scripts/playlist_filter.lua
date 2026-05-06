@@ -52,14 +52,14 @@ local opts = { mode = "off" }
 options.read_options(opts, mp.get_script_name())
 
 if not string_to_mode[opts.mode] then
-  mp.msg.warn("playlist-filter: unknown mode '" .. opts.mode .. "', falling back to off")
+  mp.msg.warn("playlist_filter: unknown mode '" .. opts.mode .. "', falling back to off")
   opts.mode = "off"
 end
 
 local mode = string_to_mode[opts.mode]
 
 if mode ~= MODE_OFF then
-  mp.msg.info("playlist-filter: starting in mode: " .. opts.mode)
+  mp.msg.info("playlist_filter: starting in mode: " .. opts.mode)
 end
 
 mp.add_hook("on_preloaded", 10, function()
@@ -70,10 +70,10 @@ mp.add_hook("on_preloaded", 10, function()
   local ext = (path:match("%.([^%.]+)$") or ""):lower()
   local is_image = image_extensions[ext] == true
   if mode == MODE_BLOCK_IMAGES and is_image then
-    mp.msg.info("playlist-filter: Skipping Image: " .. path)
+    mp.msg.info("playlist_filter: Skipping Image: " .. path)
     mp.commandv("playlist-remove", "current")
   elseif mode == MODE_IMAGES_ONLY and not is_image then
-    mp.msg.info("playlist-filter: Skipping Video: " .. path)
+    mp.msg.info("playlist_filter: Skipping Video: " .. path)
     mp.commandv("playlist-remove", "current")
   end
 end)
@@ -82,7 +82,7 @@ local function cycle_mode()
   mode = (mode + 1) % 3
   local label = mode_strings[mode]
   mp.osd_message("playlist filter: " .. label, 2)
-  mp.msg.info("playlist-filter: mode -> " .. label)
+  mp.msg.info("playlist_filter: mode -> " .. label)
 end
 
 mp.add_key_binding("F3", "playlist_filter-cycle", cycle_mode)
