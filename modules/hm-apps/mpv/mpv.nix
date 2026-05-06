@@ -72,8 +72,6 @@ _: {
             "]" = "add speed 0.1";
           };
 
-          includes = [ "~~/hwdec-codecs.conf" ];
-
           profiles = {
             "vid" = {
               profile-desc = "skip image files in playlists";
@@ -119,7 +117,6 @@ _: {
 
         xdg.configFile = {
           "mpv/scripts/ytdlp_cookies.lua".source = ./scripts/ytdlp_cookies.lua;
-          "mpv/hwdec-codecs.conf".source = ./hwdec-codecs.conf;
           "mpv/scripts/playlist_filter.lua".source = ./scripts/playlist_filter.lua;
         };
       };
