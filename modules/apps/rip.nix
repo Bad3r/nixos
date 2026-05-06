@@ -40,10 +40,14 @@ let
 
           Options:
             -u, --unbury [<PATH>...]
-                  Restore trashed files interactively via trash-restore. Without
-                  arguments, shows files deleted from the current directory. With
-                  an absolute PATH, scopes the picker to that path's parent
-                  directory. Relative paths always use the current directory.
+                  Restore trashed files via trash-restore. Without arguments,
+                  opens the global interactive picker. With one or more PATHs,
+                  restores each file by exact original location (relative paths
+                  resolve against the current directory; symlinks in parent
+                  components are not followed, mirroring trash-cli's recorded
+                  path). Multi-arg invocations are best-effort: the exit code
+                  is the first non-zero rc seen, and remaining files are still
+                  attempted.
 
             -s, --seance
                   List files deleted from the current working directory, sourced
@@ -79,8 +83,9 @@ let
           Examples:
             rip file.txt dir/              Move file.txt and dir/ to trash.
             rip -rfd path/                 rm-compatible recursive force trash.
-            rip -u                         Pick a file to restore from the current dir.
-            rip -u /old/path/file.txt      Scope restore picker to /old/path/.
+            rip -u                         Pick a file to restore (interactive picker).
+            rip -u /old/path/file.txt      Restore /old/path/file.txt directly.
+            rip -u a b c                   Best-effort restore each path.
             rip -s                         List files trashed from the current dir.
             rip --empty-trash              Empty the trash (prompts for confirmation).
             rip --empty-trash --force      Empty the trash without prompting.
