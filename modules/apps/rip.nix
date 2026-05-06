@@ -26,18 +26,61 @@ let
 
           usage() {
             cat >&2 <<'EOF'
-          rip: safe rm alternative (trash-cli backend)
+          rip - safe rm alternative backed by trash-cli
+
+          Moves files and directories to the trash instead of deleting them
+          permanently. Cross-device moves (e.g. USB drives) are handled correctly
+          via per-device .Trash-<uid>/ directories following the FreeDesktop Trash
+          specification; the home-partition trash lives at ~/.local/share/Trash.
 
           Usage: rip [OPTIONS] [FILES]...
 
+          Arguments:
+            [FILES]...              Files or directories to move to trash.
+
           Options:
-                --graveyard <PATH>   Override the default trash directory
-            -d, --decompose          Permanently delete all trashed files
-            -s, --seance             List files deleted from the current directory
-            -u, --unbury [<FILES>]   Restore listed files (interactive picker if none given)
-            -i, --inspect            Show file info before trashing
-            -f, --force              Skip confirmation prompts
-            -h, --help               Show this help
+            -u, --unbury [<PATH>...]
+                  Restore trashed files interactively via trash-restore. Without
+                  arguments, shows files deleted from the current directory. With
+                  an absolute PATH, scopes the picker to that path's parent
+                  directory. Relative paths always use the current directory.
+
+            -s, --seance
+                  List files deleted from the current working directory, sourced
+                  from trash-list filtered by the current path prefix.
+
+            -d, --decompose
+                  Permanently delete all files in the trash (trash-empty).
+                  Prompts for confirmation unless --force is given. Requires a
+                  TTY when prompting; non-interactive callers must pass --force.
+
+            -i, --inspect
+                  Print file info (ls -la) before trashing and prompt for
+                  confirmation. Requires a TTY unless --force is given.
+
+            --graveyard <PATH>
+                  Override the trash directory for this invocation. Passed as
+                  --trash-dir to trash-put, trash-list, and trash-empty.
+                  Does not affect trash-restore; use the PATH arg to --unbury.
+
+            -f, --force
+                  Skip all confirmation prompts. Also silences nonexistent-file
+                  errors from trash-put (equivalent to rm -f).
+
+            -h, --help
+                  Print this help and exit.
+
+          Examples:
+            rip file.txt dir/              Move file.txt and dir/ to trash.
+            rip -u                         Pick a file to restore from the current dir.
+            rip -u /old/path/file.txt      Scope restore picker to /old/path/.
+            rip -s                         List files trashed from the current dir.
+            rip -d                         Empty the trash (prompts for confirmation).
+            rip -d --force                 Empty the trash without prompting.
+            rip -i file.txt                Inspect, then confirm before trashing.
+            rip --graveyard /mnt/usb/.Trash  Use a custom trash location.
+
+          Backend: trash-cli <https://github.com/andreafrancia/trash-cli>
           EOF
           }
 
