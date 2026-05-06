@@ -6,11 +6,11 @@ _: {
       # systemd.sysusers.enable = true;
       systemd.coredump = {
         enable = true;
-        extraConfig = ''
-          MaxUse=1G
-          KeepFree=2G
-          MaxRetentionSec=3d
-        '';
+        settings.Coredump = {
+          MaxUse = "1G";
+          KeepFree = "2G";
+          MaxRetentionSec = "3d";
+        };
       };
 
       # lock = logind signal -> xss-lock --transfer-sleep-lock (i3lock-stylix)
