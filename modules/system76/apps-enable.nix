@@ -321,7 +321,7 @@
       remmina.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
       rg-fzf.extended.enable = lib.mkOverride 1100 true;
-      rip2.extended.enable = lib.mkOverride 1100 true;
+      rip.extended.enable = lib.mkOverride 1100 true;
       ripgrep.extended.enable = lib.mkOverride 1100 true;
       rizin.extended.enable = lib.mkOverride 1100 false;
       rofi.extended.enable = lib.mkOverride 1100 true;
