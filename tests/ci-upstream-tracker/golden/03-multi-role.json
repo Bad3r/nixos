@@ -9,7 +9,6 @@
       "identifier": "500707",
       "kind": "pr",
       "label": "open",
-      "min_version": "",
       "note": "r-ryantm envfs bump",
       "owner": "NixOS",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "34f2c0c90595",
       "state": "open",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/NixOS/nixpkgs/pull/500707"
     },
     {
@@ -27,7 +28,6 @@
       "identifier": "216",
       "kind": "pr",
       "label": "merged",
-      "min_version": "",
       "note": "wait until filesystem is ready",
       "owner": "Mic92",
       "ref_type": "",
@@ -38,6 +38,8 @@
       "sig": "2ca326a2b8f3",
       "state": "merged",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/Mic92/envfs/pull/216"
     },
     {
@@ -45,7 +47,6 @@
       "identifier": "449551",
       "kind": "pr",
       "label": "closed without merge",
-      "min_version": "",
       "note": "original attempt",
       "owner": "NixOS",
       "ref_type": "",
@@ -56,6 +57,8 @@
       "sig": "b535a832bb63",
       "state": "closed-unmerged",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/NixOS/nixpkgs/pull/449551"
     },
     {
@@ -63,7 +66,6 @@
       "identifier": "206",
       "kind": "issue",
       "label": "closed",
-      "min_version": "",
       "note": "mount protocol warning",
       "owner": "Mic92",
       "ref_type": "",
@@ -74,6 +76,8 @@
       "sig": "bed4b0db7f3f",
       "state": "closed",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/Mic92/envfs/issues/206"
     },
     {
@@ -81,7 +85,6 @@
       "identifier": "1.2.0",
       "kind": "release-tag",
       "label": "released",
-      "min_version": "",
       "note": "envfs >= 1.2.0",
       "owner": "Mic92",
       "ref_type": "",
@@ -92,6 +95,8 @@
       "sig": "c371e226749f",
       "state": "released",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/Mic92/envfs/releases/tag/1.2.0"
     }
   ],

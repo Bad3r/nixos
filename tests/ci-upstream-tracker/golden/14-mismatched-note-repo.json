@@ -9,7 +9,6 @@
       "identifier": "",
       "kind": "release-stream-contains",
       "label": "missing",
-      "min_version": "",
       "note": "contains Other/Repo@000102030405060708090a0b0c0d0e0f10111213",
       "owner": "Mic92",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "0357317afc53",
       "state": "missing",
       "sub_kind": "contains",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/Mic92/envfs/releases"
     }
   ],
