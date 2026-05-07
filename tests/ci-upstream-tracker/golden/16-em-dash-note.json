@@ -9,7 +9,6 @@
       "identifier": "216",
       "kind": "pr",
       "label": "missing",
-      "min_version": "",
       "note": "wait until filesystem is ready",
       "owner": "Mic92",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "ae6b370529b5",
       "state": "missing",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/Mic92/envfs/pull/216"
     }
   ],

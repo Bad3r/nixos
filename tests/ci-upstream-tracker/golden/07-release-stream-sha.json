@@ -9,7 +9,6 @@
       "identifier": "",
       "kind": "release-stream-contains",
       "label": "contained in 1.2.0",
-      "min_version": "",
       "note": "contains Mic92/envfs@0123456789abcdef0123456789abcdef01234567",
       "owner": "Mic92",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "81db2472a9c0",
       "state": "contained-in:1.2.0",
       "sub_kind": "contains",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/Mic92/envfs/releases"
     }
   ],

@@ -9,7 +9,6 @@
       "identifier": "111",
       "kind": "pr",
       "label": "merged",
-      "min_version": "",
       "note": "merged",
       "owner": "NixOS",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "767efae42475",
       "state": "merged",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/NixOS/nixpkgs/pull/111"
     },
     {
@@ -27,7 +28,6 @@
       "identifier": "222",
       "kind": "pr",
       "label": "merged",
-      "min_version": "",
       "note": "also merged",
       "owner": "NixOS",
       "ref_type": "",
@@ -38,6 +38,8 @@
       "sig": "b2820fdee4bd",
       "state": "merged",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/NixOS/nixpkgs/pull/222"
     }
   ],

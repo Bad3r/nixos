@@ -200,9 +200,12 @@ body:
           `ref-type tag` note is **required** to disambiguate from the
           branch/channel kind below.
         - **Release stream** — `https://github.com/<owner>/<repo>/releases`
-          Use when the target tag is not yet known. A `target >= x.y.z` or
-          `contains <owner>/<repo>@<full-40-char-sha>` note is **required**
-          so automation has a concrete version floor to check against.
+          Use when the target tag is not yet known. A `target >= x.y.z`,
+          `target > x.y.z`, or `contains <owner>/<repo>@<full-40-char-sha>`
+          note is **required** so automation has a concrete version floor
+          to check against. Use `target >` when the named version itself
+          is the broken release and only a strictly-newer tag unblocks
+          the work.
         - **Branch or channel** —
           `https://github.com/<owner>/<repo>/tree/<branch>`
           A `contains <owner>/<repo>@<full-40-char-sha>` note is **required**
@@ -210,10 +213,13 @@ body:
 
         Use the role vocabulary from the Automation convention section above.
         Use `none` if none of the above applies.
+      # yamllint disable rule:line-length
       placeholder: |
         fix https://github.com/Mic92/envfs/releases/tag/1.2.0 - envfs >= 1.2.0
         fix https://github.com/FortAwesome/Font-Awesome/releases - target >= 7.0
+        fix https://github.com/anthropics/claude-code-action/releases - target > v1.0.113
         fix https://github.com/NixOS/nix/tree/master - contains NixOS/nix@<sha>
+      # yamllint enable rule:line-length
       value: none
     validations:
       required: true

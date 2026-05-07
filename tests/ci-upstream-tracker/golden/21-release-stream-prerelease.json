@@ -9,7 +9,6 @@
       "identifier": "",
       "kind": "release-stream-version",
       "label": "pending",
-      "min_version": "1.0.0",
       "note": "target >= 1.0.0",
       "owner": "example",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "5dbbcfd31185",
       "state": "pending",
       "sub_kind": "version",
+      "target_op": ">=",
+      "target_version": "1.0.0",
       "url": "https://github.com/example/proj/releases"
     }
   ],

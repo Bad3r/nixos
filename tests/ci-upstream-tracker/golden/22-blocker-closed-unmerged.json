@@ -9,7 +9,6 @@
       "identifier": "42",
       "kind": "pr",
       "label": "closed without merge",
-      "min_version": "",
       "note": "rejected: needs redesign",
       "owner": "example",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "c35a02c2fbb1",
       "state": "closed-unmerged",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/example/proj/pull/42"
     }
   ],
