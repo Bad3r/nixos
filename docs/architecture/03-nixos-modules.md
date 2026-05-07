@@ -71,16 +71,16 @@ in
 
 `flake.lib` exposes pure helper data and small utilities. All sub-namespaces are declared in `modules/meta/flake-output.nix` and populated by individual modules.
 
-| Namespace               | Type                   | Purpose                                                                                         |
-| ----------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| `flake.lib.meta`        | `anything`             | Repo metadata (owner identity, hostnames, surface for `metaOwner` arg).                         |
-| `flake.lib.nixos`       | `lazyAttrsOf anything` | App-registry helpers (`hasApp`, `getApp`, ...) and host-conditional flags under `hosts.<name>`. |
-| `flake.lib.homeManager` | submodule (freeform)   | Helpers and metadata used by Home Manager modules.                                              |
-| `flake.lib.security`    | `attrsOf anything`     | Shared SOPS helpers (e.g. `sopsInstallSecretsService`).                                         |
-| `flake.lib.nixvim`      | `attrsOf anything`     | Helpers for NixVim integrations and shared module shape.                                        |
-| `flake.lib.xdg`         | `attrsOf anything`     | Desktop file mappings, MIME helpers (consumed by `modules/meta/ci.nix`).                        |
-| `flake.lib.agents`      | submodule (freeform)   | Registry and compiled outputs for MCP servers and skills (`modules/agents/*.nix`).              |
-| `flake.lib.checks`      | `attrsOf anything`     | Lightweight evaluation-only checks (no derivation builds).                                      |
+| Namespace               | Type                               | Purpose                                                                                         |
+| ----------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `flake.lib.meta`        | `anything`                         | Repo metadata (owner identity, hostnames, surface for `metaOwner` arg).                         |
+| `flake.lib.nixos`       | `lazyAttrsOf anything`             | App-registry helpers (`hasApp`, `getApp`, ...) and host-conditional flags under `hosts.<name>`. |
+| `flake.lib.homeManager` | `attrsOf anything` (via submodule) | Helpers and metadata used by Home Manager modules.                                              |
+| `flake.lib.security`    | `attrsOf anything`                 | Shared SOPS helpers (e.g. `sopsInstallSecretsService`).                                         |
+| `flake.lib.nixvim`      | `attrsOf anything`                 | Helpers for NixVim integrations and shared module shape.                                        |
+| `flake.lib.xdg`         | `attrsOf anything`                 | Desktop file mappings, MIME helpers (consumed by `modules/meta/ci.nix`).                        |
+| `flake.lib.agents`      | `attrsOf anything` (via submodule) | Registry and compiled outputs for MCP servers and skills (`modules/agents/*.nix`).              |
+| `flake.lib.checks`      | `attrsOf anything`                 | Lightweight evaluation-only checks (no derivation builds).                                      |
 
 Helpers should stay pure and idempotent; anything that needs heavy evaluation belongs in a module rather than a `flake.lib.*` entry.
 
