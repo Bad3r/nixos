@@ -63,16 +63,19 @@ let
           cmd_str=$(printf '%q ' "$@")
           cmd_str=''${cmd_str% }
 
-          local tmp_dir
-          tmp_dir=$(mktemp -d --tmpdir cpc.XXXXXX) || return 1
-
           # Run the capture inside a subshell so an EXIT trap clears the
-          # temp directory even when the user interrupts the inner command
-          # with SIGINT, SIGTERM, or SIGHUP. The INT/TERM/HUP traps simply
-          # `exit`, which then fires EXIT and removes the directory.
+          # temp directory even when the user interrupts the function with
+          # SIGINT, SIGTERM, or SIGHUP. INT/TERM/HUP simply `exit`, which
+          # then fires EXIT and removes the directory. The trap is
+          # installed before `mktemp` and guarded with `[ -n "$tmp_dir" ]`
+          # so an early signal cannot leak the directory between mktemp's
+          # creation and assignment.
           (
-            trap 'rm -rf -- "$tmp_dir"' EXIT
+            tmp_dir=""
+            trap '[ -n "$tmp_dir" ] && rm -rf -- "$tmp_dir"' EXIT
             trap 'exit' INT TERM HUP
+
+            tmp_dir=$(mktemp -d --tmpdir cpc.XXXXXX) || exit 1
 
             # Inner subshell captures the command's exit code into rc; tee
             # mirrors combined stdout+stderr to the terminal (live) and
