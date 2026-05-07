@@ -21,7 +21,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -70,7 +69,7 @@ jobs:
             - Top-level comments only for cross-cutting findings that span multiple files or hunks.
             - Be terse. One finding per comment. No preamble. No sign-off.
             - When proposing a fix, embed a ```suggestion``` block with the exact replacement code only. No commentary inside the block. Preserve the exact leading whitespace of the replaced lines (spaces vs tabs, number of spaces). Do not introduce or remove outer indentation levels unless that is the actual fix.
-            - Keep each finding's line range as short as possible. Avoid ranges longer than 5-10 lines; pick the smallest subrange that pinpoints the problem.
+            - Keep each finding's line range as short as possible: pick the smallest subrange that pinpoints the problem.
 
             If nothing actionable is found, post a single top-level comment containing exactly: "No issues found." Do not pad.
 
