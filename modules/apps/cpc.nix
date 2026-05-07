@@ -45,7 +45,7 @@ let
     }:
     let
       cfg = config.programs.cpc.extended;
-      xselBin = "${cfg.package}/bin/xsel";
+      xselBin = lib.getExe' cfg.package "xsel";
 
       cpcFunction = ''
         # cpc: run a command, tee output to the terminal, and copy a tagged
