@@ -59,27 +59,36 @@ let
           cmd_str=$(printf '%q ' "$@")
           cmd_str=''${cmd_str% }
 
-          local tmp_out tmp_rc rc
-          tmp_out=$(mktemp -t cpc.out.XXXXXX) || return 1
-          tmp_rc=$(mktemp -t cpc.rc.XXXXXX) || { rm -f "$tmp_out"; return 1; }
+          local tmp_dir
+          tmp_dir=$(mktemp -d --tmpdir cpc.XXXXXX) || return 1
 
-          # Subshell captures the command's exit code into tmp_rc; tee
-          # mirrors combined stdout+stderr to the terminal (live) and into
-          # tmp_out (for the clipboard payload). Sudo password prompts go to
-          # /dev/tty and bypass this pipe, so they are never captured.
-          ( "$@" 2>&1; printf '%s\n' "$?" >"$tmp_rc" ) | tee "$tmp_out"
+          # Run the capture inside a subshell so an EXIT trap clears the
+          # temp directory even when the user interrupts the inner command
+          # with SIGINT, SIGTERM, or SIGHUP. The INT/TERM/HUP traps simply
+          # `exit`, which then fires EXIT and removes the directory.
+          (
+            trap 'rm -rf -- "$tmp_dir"' EXIT
+            trap 'exit' INT TERM HUP
 
-          rc=$(cat "$tmp_rc" 2>/dev/null)
-          : "''${rc:=1}"
+            # Inner subshell captures the command's exit code into rc; tee
+            # mirrors combined stdout+stderr to the terminal (live) and
+            # into out (for the clipboard payload). Sudo password prompts
+            # go to /dev/tty and bypass this pipe, so they are never
+            # captured.
+            ( "$@" 2>&1; printf '%s\n' "$?" >"$tmp_dir/rc" ) | tee "$tmp_dir/out"
 
-          {
-            printf '<command>%s</command>\n<output>\n' "$cmd_str"
-            cat "$tmp_out"
-            printf '</output>\n'
-          } | ${xselBin} --clipboard --input
+            local rc
+            rc=$(cat "$tmp_dir/rc" 2>/dev/null)
+            : "''${rc:=1}"
 
-          rm -f "$tmp_out" "$tmp_rc"
-          return "$rc"
+            {
+              printf '<command>%s</command>\n<output>\n' "$cmd_str"
+              cat "$tmp_dir/out"
+              printf '</output>\n'
+            } | ${xselBin} --clipboard --input
+
+            exit "$rc"
+          )
         }
       '';
     in
