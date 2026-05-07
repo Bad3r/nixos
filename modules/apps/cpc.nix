@@ -86,6 +86,11 @@ let
               cat "$tmp_dir/out"
               printf '</output>\n'
             } | ${xselBin} --clipboard --input
+            local xsel_rc=$?
+            if [ "$xsel_rc" -ne 0 ]; then
+              printf 'cpc: xsel exited %s; clipboard not updated\n' \
+                "$xsel_rc" >&2
+            fi
 
             exit "$rc"
           )
