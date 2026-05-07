@@ -186,8 +186,10 @@ parse_note() {
   fi
   shopt -s nocasematch
   # Alternation order matters: `>=` must precede `>` so the engine never
-  # matches the bare `>` and orphans the trailing `=`.
-  if [[ $note =~ target[[:space:]]*(\>=|\>)[[:space:]]*([vV]?[0-9][0-9a-zA-Z.+_-]*) ]]; then
+  # matches the bare `>` and orphans the trailing `=`. `>` is literal in
+  # POSIX ERE; `\>` would be a word-boundary anchor in some GNU regex
+  # flavors, so leave the operator unescaped.
+  if [[ $note =~ target[[:space:]]*(>=|>)[[:space:]]*([vV]?[0-9][0-9a-zA-Z.+_-]*) ]]; then
     sub_kind="version"
     target_op="${BASH_REMATCH[1]}"
     target_version="${BASH_REMATCH[2]}"
