@@ -16,9 +16,10 @@
     </output>
 
   Notes:
-    * Requires xsel on PATH (provided by `programs.xsel.extended` on both
-      hosts). The function falls back to a clear error message if xsel is
-      absent.
+    * The xsel binary is referenced by absolute store path through the
+      `programs.cpc.extended.package` option, so the function works
+      without xsel on the user's PATH and is independent of
+      `programs.xsel.extended.enable`.
     * stdout and stderr are merged so utilities that diagnose to stderr
       (rg, ip, systemctl) end up in the clipboard alongside their results.
     * Sudo password prompts go to /dev/tty and are not captured.
@@ -35,10 +36,12 @@ let
     {
       config,
       lib,
+      pkgs,
       ...
     }:
     let
       cfg = config.programs.cpc.extended;
+      xselBin = "${cfg.package}/bin/xsel";
 
       cpcFunction = ''
         # cpc: run a command, tee output to the terminal, and copy a tagged
@@ -47,10 +50,6 @@ let
           if [ "$#" -eq 0 ]; then
             printf 'cpc: usage: cpc <command> [args...]\n' >&2
             return 64
-          fi
-          if ! command -v xsel >/dev/null 2>&1; then
-            printf 'cpc: xsel not found on PATH\n' >&2
-            return 127
           fi
 
           # Reconstruct a shell-safe representation of the invocation so the
@@ -77,7 +76,7 @@ let
             printf '<command>%s</command>\n<output>\n' "$cmd_str"
             cat "$tmp_out"
             printf '</output>\n'
-          } | xsel --clipboard --input
+          } | ${xselBin} --clipboard --input
 
           rm -f "$tmp_out" "$tmp_rc"
           return "$rc"
@@ -91,10 +90,13 @@ let
           default = false;
           description = ''
             Whether to install the `cpc` interactive shell function in zsh
-            and bash. Requires xsel on PATH (provided by
-            `programs.xsel.extended.enable`).
+            and bash. The xsel dependency is pinned via
+            `programs.cpc.extended.package` and is not resolved from the
+            user's PATH.
           '';
         };
+
+        package = lib.mkPackageOption pkgs "xsel" { };
       };
 
       config = lib.mkIf cfg.enable {
