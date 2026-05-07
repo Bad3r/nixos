@@ -22,6 +22,10 @@
       `programs.xsel.extended.enable`.
     * stdout and stderr are merged so utilities that diagnose to stderr
       (rg, ip, systemctl) end up in the clipboard alongside their results.
+    * TTY-aware programs (`ls`, `git`, `grep --color=auto`, pagers) detect
+      a pipe on stdout and disable color, paging, and progress output
+      because the function captures via `tee`. Force colour with the
+      tool's flag if needed (e.g. `cpc git -c color.ui=always status`).
     * Sudo password prompts go to /dev/tty and are not captured.
     * Argv is reconstructed with `printf '%q '` so the recorded command
       round-trips through the shell. Both bash and zsh implement %q in
