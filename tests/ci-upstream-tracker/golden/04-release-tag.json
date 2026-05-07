@@ -9,7 +9,6 @@
       "identifier": "1.2.0",
       "kind": "release-tag",
       "label": "released",
-      "min_version": "",
       "note": "envfs >= 1.2.0",
       "owner": "Mic92",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "d79237fb00d4",
       "state": "released",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/Mic92/envfs/releases/tag/1.2.0"
     }
   ],

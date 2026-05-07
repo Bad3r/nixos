@@ -6,9 +6,9 @@
   "refs": [],
   "timestamp": "2026-04-20T18:17Z",
   "warnings": [
-    "Upstream releases and channels: releases URL `https://github.com/FortAwesome/Font-Awesome/releases` needs `target >= X.Y.Z` or `contains OWNER/REPO@<sha>`; skipping"
+    "Upstream releases and channels: releases URL `https://github.com/FortAwesome/Font-Awesome/releases` needs `target {>=,>} X.Y.Z` or `contains OWNER/REPO@<sha>`; skipping"
   ],
-  "warnings_body": "<!-- upstream-tracker v1 parse --> sig=6a89d9aedbf5\nTemplate drift detected on 2026-04-20T18:17Z:\n\n- Upstream releases and channels: releases URL `https://github.com/FortAwesome/Font-Awesome/releases` needs `target >= X.Y.Z` or `contains OWNER/REPO@<sha>`; skipping",
+  "warnings_body": "<!-- upstream-tracker v1 parse --> sig=c3195d760d2c\nTemplate drift detected on 2026-04-20T18:17Z:\n\n- Upstream releases and channels: releases URL `https://github.com/FortAwesome/Font-Awesome/releases` needs `target {>=,>} X.Y.Z` or `contains OWNER/REPO@<sha>`; skipping",
   "would_comment": false,
   "would_transition_label": false,
   "would_warn": true

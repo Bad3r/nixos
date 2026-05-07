@@ -9,7 +9,6 @@
       "identifier": "500707",
       "kind": "pr",
       "label": "merged",
-      "min_version": "",
       "note": "r-ryantm envfs bump",
       "owner": "NixOS",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "8363e687b107",
       "state": "merged",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/NixOS/nixpkgs/pull/500707"
     }
   ],

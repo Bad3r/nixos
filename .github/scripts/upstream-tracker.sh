@@ -174,21 +174,27 @@ classify_url() {
 }
 
 # parse_note inspects a free-form note and returns:
-#   sub_kind\tmin_version\tcontains_sha\tcontains_owner\tcontains_repo\tref_type
+#   sub_kind\ttarget_op\ttarget_version\tcontains_sha\tcontains_owner\tcontains_repo\tref_type
 # sub_kind ∈ { "", "version", "contains", "ref-type-tag" }.
+# target_op ∈ { "", ">=", ">" }.
 parse_note() {
   local note="$1"
-  local sub_kind="" min_version="" contains_sha="" contains_owner="" contains_repo="" ref_type=""
+  local sub_kind="" target_op="" target_version="" contains_sha="" contains_owner="" contains_repo="" ref_type=""
   local nocase_was_set=0
   if shopt -q nocasematch; then
     nocase_was_set=1
   fi
   shopt -s nocasematch
-  if [[ $note =~ target[[:space:]]*\>=[[:space:]]*([vV]?[0-9][0-9a-zA-Z.+_-]*) ]]; then
+  # Alternation order matters: `>=` must precede `>` so the engine never
+  # matches the bare `>` and orphans the trailing `=`. `>` is literal in
+  # POSIX ERE; `\>` would be a word-boundary anchor in some GNU regex
+  # flavors, so leave the operator unescaped.
+  if [[ $note =~ target[[:space:]]*(>=|>)[[:space:]]*([vV]?[0-9][0-9a-zA-Z.+_-]*) ]]; then
     sub_kind="version"
-    min_version="${BASH_REMATCH[1]}"
-    min_version="${min_version#v}"
-    min_version="${min_version#V}"
+    target_op="${BASH_REMATCH[1]}"
+    target_version="${BASH_REMATCH[2]}"
+    target_version="${target_version#v}"
+    target_version="${target_version#V}"
   fi
   if [[ $note =~ contains[[:space:]]+(([^[:space:]@]+)@)?([0-9a-fA-F]{40}) ]]; then
     local ownerrepo="${BASH_REMATCH[2]}"
@@ -211,8 +217,8 @@ parse_note() {
   if [[ $nocase_was_set -eq 0 ]]; then
     shopt -u nocasematch
   fi
-  printf '%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s' \
-    "$sub_kind" "$min_version" "$contains_sha" "$contains_owner" "$contains_repo" "$ref_type"
+  printf '%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s' \
+    "$sub_kind" "$target_op" "$target_version" "$contains_sha" "$contains_owner" "$contains_repo" "$ref_type"
 }
 
 # parse_issue_body consumes the issue body on stdin and emits two arrays on
@@ -282,8 +288,8 @@ parse_issue_body() {
         continue
       fi
 
-      local sub_kind min_version contains_sha contains_owner contains_repo ref_type
-      IFS=$'\x1f' read -r sub_kind min_version contains_sha contains_owner contains_repo ref_type \
+      local sub_kind target_op target_version contains_sha contains_owner contains_repo ref_type
+      IFS=$'\x1f' read -r sub_kind target_op target_version contains_sha contains_owner contains_repo ref_type \
         <<<"$(parse_note "$note")"
 
       local probe_kind=""
@@ -296,12 +302,12 @@ parse_issue_body() {
         version) probe_kind="release-stream-version" ;;
         contains) probe_kind="release-stream-contains" ;;
         *)
-          warnings+=("$section: releases URL \`$url\` needs \`target >= X.Y.Z\` or \`contains OWNER/REPO@<sha>\`; skipping")
+          warnings+=("$section: releases URL \`$url\` needs \`target {>=,>} X.Y.Z\` or \`contains OWNER/REPO@<sha>\`; skipping")
           continue
           ;;
         esac
         if [[ $sub_kind == "version" && -n $contains_sha ]]; then
-          warnings+=("$section: releases URL \`$url\` has both \`target >=\` and \`contains @sha\`; using \`target >=\`")
+          warnings+=("$section: releases URL \`$url\` has both \`target $target_op\` and \`contains @sha\`; using \`target $target_op\`")
         fi
         ;;
       tree-ref)
@@ -338,12 +344,13 @@ parse_issue_body() {
         --arg repo "$repo" \
         --arg identifier "$identifier" \
         --arg sub_kind "$sub_kind" \
-        --arg min_version "$min_version" \
+        --arg target_op "$target_op" \
+        --arg target_version "$target_version" \
         --arg contains_sha "$contains_sha" \
         --arg ref_type "$ref_type" \
         '{section:$section, role:$role, url:$url, note:$note, kind:$kind,
           owner:$owner, repo:$repo, identifier:$identifier,
-          sub_kind:$sub_kind, min_version:$min_version,
+          sub_kind:$sub_kind, target_op:$target_op, target_version:$target_version,
           contains_sha:$contains_sha, ref_type:$ref_type}')"
       refs_array+=("$rec")
     done
@@ -374,6 +381,23 @@ semver_ge() {
   local first
   first="$(printf '%s\n%s\n' "$a" "$b" | sort -V | head -n 1)"
   [[ $first == "$b" ]]
+}
+
+# semver_gt a b -> exit 0 if a > b (strict) by `sort -V`.
+semver_gt() {
+  local a="$1" b="$2"
+  [[ $a == "$b" ]] && return 1
+  semver_ge "$a" "$b"
+}
+
+# semver_satisfies op a b -> exit 0 if a OP b for op ∈ { ">=", ">" }.
+semver_satisfies() {
+  local op="$1" a="$2" b="$3"
+  case "$op" in
+  ">=") semver_ge "$a" "$b" ;;
+  ">") semver_gt "$a" "$b" ;;
+  *) return 1 ;;
+  esac
 }
 
 api_or_missing() {
@@ -432,7 +456,7 @@ probe_release_tag() {
 }
 
 probe_release_stream_version() {
-  local owner="$1" repo="$2" min="$3" out tag strip
+  local owner="$1" repo="$2" op="$3" target="$4" out tag strip
   out="$(api_or_missing "repos/$owner/$repo/releases?per_page=30")"
   if [[ $out == "__upstream_tracker_missing__" ]]; then
     printf 'missing\n'
@@ -440,17 +464,17 @@ probe_release_stream_version() {
   fi
   # SemVer says `1.0.0-rc1 < 1.0.0`, but `sort -V` sorts them as equal-ish
   # so a prerelease tag would falsely satisfy `target >= 1.0.0`. Skip
-  # prereleases unless the min itself is a prerelease (user opted in).
-  local min_is_prerelease=0
-  [[ $min == *-* ]] && min_is_prerelease=1
+  # prereleases unless the target itself is a prerelease (user opted in).
+  local target_is_prerelease=0
+  [[ $target == *-* ]] && target_is_prerelease=1
   while IFS= read -r tag; do
     [[ -z $tag ]] && continue
     strip="${tag#v}"
     strip="${strip#V}"
-    if ((min_is_prerelease == 0)) && [[ $strip == *-* ]]; then
+    if ((target_is_prerelease == 0)) && [[ $strip == *-* ]]; then
       continue
     fi
-    if semver_ge "$strip" "$min"; then
+    if semver_satisfies "$op" "$strip" "$target"; then
       printf 'released:%s\n' "$tag"
       return 0
     fi
@@ -510,12 +534,12 @@ probe_branch_sha() {
 
 probe_ref() {
   local kind="$1" owner="$2" repo="$3" identifier="$4"
-  local min_version="$5" contains_sha="$6"
+  local target_op="$5" target_version="$6" contains_sha="$7"
   case "$kind" in
   pr) probe_pr "$owner" "$repo" "$identifier" ;;
   issue) probe_issue "$owner" "$repo" "$identifier" ;;
   release-tag) probe_release_tag "$owner" "$repo" "$identifier" ;;
-  release-stream-version) probe_release_stream_version "$owner" "$repo" "$min_version" ;;
+  release-stream-version) probe_release_stream_version "$owner" "$repo" "$target_op" "$target_version" ;;
   release-stream-contains) probe_release_stream_contains "$owner" "$repo" "$contains_sha" ;;
   tree-tag) probe_plain_tag "$owner" "$repo" "$identifier" ;;
   tree-branch-sha) probe_branch_sha "$owner" "$repo" "$identifier" "$contains_sha" ;;
@@ -651,7 +675,7 @@ process_issue_body() {
   # probe every ref; enrich with state + sig + label.
   local -a enriched_recs=()
   local len i ref state resolved sig_val label
-  local role url kind owner repo identifier min_version contains_sha
+  local role url kind owner repo identifier target_op target_version contains_sha
   local -a fields
   len="$(jq 'length' <<<"$refs_json")"
   for ((i = 0; i < len; i++)); do
@@ -660,7 +684,7 @@ process_issue_body() {
     # survive (read -r with IFS=\t collapses empty fields because tab is
     # whitespace; mapfile -t preserves them).
     mapfile -t fields < <(jq -r '
-      .role, .url, .kind, .owner, .repo, .identifier, .min_version, .contains_sha
+      .role, .url, .kind, .owner, .repo, .identifier, .target_op, .target_version, .contains_sha
     ' <<<"$ref")
     role="${fields[0]}"
     url="${fields[1]}"
@@ -668,9 +692,10 @@ process_issue_body() {
     owner="${fields[3]}"
     repo="${fields[4]}"
     identifier="${fields[5]}"
-    min_version="${fields[6]}"
-    contains_sha="${fields[7]}"
-    state="$(probe_ref "$kind" "$owner" "$repo" "$identifier" "$min_version" "$contains_sha")"
+    target_op="${fields[6]}"
+    target_version="${fields[7]}"
+    contains_sha="${fields[8]}"
+    state="$(probe_ref "$kind" "$owner" "$repo" "$identifier" "$target_op" "$target_version" "$contains_sha")"
     if is_resolved_state "$state"; then resolved=true; else resolved=false; fi
     sig_val="$(sig "${role}|${url}|${kind}|${state}")"
     label="$(state_label "$state")"

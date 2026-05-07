@@ -9,7 +9,6 @@
       "identifier": "nixpkgs-unstable",
       "kind": "tree-branch-sha",
       "label": "contained",
-      "min_version": "",
       "note": "contains NixOS/nixpkgs@96360a0615ef425cc67d9b49db9794b91f644863",
       "owner": "NixOS",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "100f004a39c1",
       "state": "contained",
       "sub_kind": "contains",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable"
     }
   ],

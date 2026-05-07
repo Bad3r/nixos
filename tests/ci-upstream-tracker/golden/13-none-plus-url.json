@@ -9,7 +9,6 @@
       "identifier": "123",
       "kind": "pr",
       "label": "missing",
-      "min_version": "",
       "note": "",
       "owner": "NixOS",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "414d136eca22",
       "state": "missing",
       "sub_kind": "",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/NixOS/nixpkgs/pull/123"
     }
   ],

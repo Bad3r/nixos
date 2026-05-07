@@ -9,7 +9,6 @@
       "identifier": "",
       "kind": "release-stream-version",
       "label": "released (7.0.0)",
-      "min_version": "7.0.0",
       "note": "target >= 7.0.0",
       "owner": "FortAwesome",
       "ref_type": "",
@@ -20,6 +19,8 @@
       "sig": "04b9260de9b6",
       "state": "released:7.0.0",
       "sub_kind": "version",
+      "target_op": ">=",
+      "target_version": "7.0.0",
       "url": "https://github.com/FortAwesome/Font-Awesome/releases"
     }
   ],

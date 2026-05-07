@@ -9,7 +9,6 @@
       "identifier": "2.32.1",
       "kind": "tree-tag",
       "label": "released",
-      "min_version": "",
       "note": "ref-type tag",
       "owner": "NixOS",
       "ref_type": "tag",
@@ -20,6 +19,8 @@
       "sig": "6338e4def079",
       "state": "released",
       "sub_kind": "ref-type-tag",
+      "target_op": "",
+      "target_version": "",
       "url": "https://github.com/NixOS/nix/tree/2.32.1"
     }
   ],
