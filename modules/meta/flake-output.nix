@@ -72,7 +72,7 @@
           };
         };
         default = { };
-        description = "Aggregated Home Manager modules for the single System76 host";
+        description = "Aggregated Home Manager modules loaded into each NixOS host's `home-manager.users.<owner>.imports` via `modules/home-manager/nixos.nix`";
       };
 
       # Cybersecurity-tooling NixOS modules. Declared with attrsOf

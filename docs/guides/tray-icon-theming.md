@@ -1,11 +1,12 @@
 # Tray Icon Theming (i3/i3bar)
 
-This guide documents how tray icons are managed on this host and how to make
-them match the active theme.
+This guide documents how tray icons are managed on each i3-based host in this
+repo and how to make them match the active theme.
 
-Scope: single host (`system76`) and single user (`vx`).
+Scope: any host that enables `gui.i3` (currently `system76` and `tpnix`) and
+the `vx` user.
 
-## Runtime Model on This Host
+## Runtime Model
 
 Tray management is done by `i3bar`, not by `i3status-rust`:
 
@@ -87,9 +88,9 @@ Fix by either:
    (`overrideAttrs`, wrapper, patched resources), not direct `/nix/store` edits.
 5. Refresh icon caches and restart the tray app (or relogin/restart i3bar).
 
-For this host, keep XEmbed-compatible launch mode for native tray apps (for
-example plain `nm-applet`) and use the SNI bridge for apps that only publish
-StatusNotifierItem icons.
+On the i3-based hosts, keep XEmbed-compatible launch mode for native tray apps
+(for example plain `nm-applet`) and use the SNI bridge for apps that only
+publish StatusNotifierItem icons.
 
 ## Verification Commands
 

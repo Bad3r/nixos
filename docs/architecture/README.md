@@ -31,3 +31,10 @@ This directory explains how the Dendritic Pattern organizes this NixOS configura
 - [Custom Packages Style Guide](../guides/custom-packages-style-guide.md) -- building packages under `packages/`
 - [Stylix Integration](../guides/stylix-integration.md) -- theming constraints
 - [SOPS Usage](../sops/README.md) -- secrets management
+
+## Per-Host Notes
+
+Architecture docs describe shared patterns; host-specific notes live in their own directories:
+
+- [docs/system76/](../system76/) -- system76 hardware reference, configuration walk-through, troubleshooting
+- [docs/tpnix/](../tpnix/) -- tpnix implementation notes

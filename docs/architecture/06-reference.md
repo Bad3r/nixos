@@ -27,11 +27,13 @@ nix flake check --accept-flake-config --no-build --offline
 
 ### Build Commands
 
-| Command                                                                 | Purpose                          |
-| ----------------------------------------------------------------------- | -------------------------------- |
-| `nix build .#nixosConfigurations.system76.config.system.build.toplevel` | Build System76 host closure      |
-| `./build.sh`                                                            | Full validation + deployment     |
-| `./build.sh --skip-all`                                                 | Skip validation (emergency only) |
+| Command                                                                                  | Purpose                                               |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `nix build .#nixosConfigurations.<host>.config.system.build.toplevel`                    | Build any host closure (substitute `<host>`)          |
+| `nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames` | List the host names available in the current checkout |
+| `./build.sh`                                                                             | Full validation + deployment                          |
+| `./build.sh --host <name>`                                                               | Target a specific host                                |
+| `./build.sh --skip-all`                                                                  | Skip validation (emergency only)                      |
 
 ## Troubleshooting
 
@@ -55,9 +57,9 @@ nix eval --accept-flake-config --json .#nixosModules --apply builtins.attrNames
 nix eval --accept-flake-config --json .#homeManagerModules --apply builtins.attrNames
 nix eval --accept-flake-config --json .#homeManagerModules.apps --apply builtins.attrNames
 
-# Evaluate specific host options
-nix eval .#nixosConfigurations.system76.config.boot.loader
-nix eval .#nixosConfigurations.system76.config.system.build.toplevel
+# Evaluate specific host options (substitute the host name)
+nix eval .#nixosConfigurations.<host>.config.boot.loader
+nix eval .#nixosConfigurations.<host>.config.system.build.toplevel
 ```
 
 ## External Tooling
@@ -84,14 +86,15 @@ Available after `nix develop`:
 
 ## Glossary
 
-| Term                    | Definition                                                                                       |
-| ----------------------- | ------------------------------------------------------------------------------------------------ |
-| **Aggregator**          | Attribute subtree (e.g., `flake.nixosModules.apps`) that collects modules merged via flake-parts |
-| **Deferred module**     | Value of type `lib.types.deferredModule`, allowing later import into submodule fixpoints         |
-| **Dendritic Pattern**   | Repository pattern coupling import-tree auto-discovery with aggregator-based composition         |
-| **import-tree**         | Function that recursively imports all `.nix` files under a directory                             |
-| **perSystem**           | flake-parts construct yielding system-specific attrsets (packages, dev shells, checks)           |
-| **Two-Context Problem** | Issue where `config.flake.*` and `config.home.*` exist in different evaluation contexts          |
+| Term                    | Definition                                                                                                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Aggregator**          | Attribute subtree (e.g., `flake.nixosModules.apps`) that collects modules merged via flake-parts                                                                                 |
+| **Custom module args**  | Per-host arguments injected via `_module.args` (`metaOwner`, `secretsRoot`, `inputs`, `nixosAppHelpers`); see [Module Authoring](02-module-authoring.md#custom-module-arguments) |
+| **Deferred module**     | Value of type `lib.types.deferredModule`, allowing later import into submodule fixpoints                                                                                         |
+| **Dendritic Pattern**   | Repository pattern coupling import-tree auto-discovery with aggregator-based composition                                                                                         |
+| **import-tree**         | Function that recursively imports all `.nix` files under a directory                                                                                                             |
+| **perSystem**           | flake-parts construct yielding system-specific attrsets (packages, dev shells, checks)                                                                                           |
+| **Two-Context Problem** | Issue where `config.flake.*` and `config.home.*` exist in different evaluation contexts                                                                                          |
 
 ## Resource Links
 

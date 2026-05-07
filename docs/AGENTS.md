@@ -8,7 +8,7 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 - `guides/`, `usage/`, `reference/`: task-oriented instructions and reference material.
 - Domain folders (for example `cloudflare/`, `sops/`, `usbguard/`): product-specific docs.
 
-Prefer updating an existing page over adding a new one. Use clear, repo-relative links (for example `../architecture/index.md`) and keep host/user assumptions aligned to the single System76 host and `vx` user model.
+Prefer updating an existing page over adding a new one. Use clear, repo-relative links (for example `../architecture/index.md`) and keep host/user assumptions aligned to the per-host model under `modules/<host>/` and the `vx` user model. To enumerate the active hosts, run `nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames`.
 
 ## Build, Test, and Development Commands
 

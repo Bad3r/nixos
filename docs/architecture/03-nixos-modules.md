@@ -67,22 +67,40 @@ in
 }
 ```
 
+## `flake.lib` Namespaces
+
+`flake.lib` exposes pure helper data and small utilities. All sub-namespaces are declared in `modules/meta/flake-output.nix` and populated by individual modules.
+
+| Namespace               | Type                               | Purpose                                                                                         |
+| ----------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `flake.lib.meta`        | `anything`                         | Repo metadata (owner identity, hostnames, surface for `metaOwner` arg).                         |
+| `flake.lib.nixos`       | `lazyAttrsOf anything`             | App-registry helpers (`hasApp`, `getApp`, ...) and host-conditional flags under `hosts.<name>`. |
+| `flake.lib.homeManager` | `attrsOf anything` (via submodule) | Helpers and metadata used by Home Manager modules.                                              |
+| `flake.lib.security`    | `attrsOf anything`                 | Shared SOPS helpers (e.g. `sopsInstallSecretsService`).                                         |
+| `flake.lib.nixvim`      | `attrsOf anything`                 | Helpers for NixVim integrations and shared module shape.                                        |
+| `flake.lib.xdg`         | `attrsOf anything`                 | Desktop file mappings, MIME helpers (consumed by `modules/meta/ci.nix`).                        |
+| `flake.lib.agents`      | `attrsOf anything` (via submodule) | Registry and compiled outputs for MCP servers and skills (`modules/agents/*.nix`).              |
+| `flake.lib.checks`      | `attrsOf anything`                 | Lightweight evaluation-only checks (no derivation builds).                                      |
+
+Helpers should stay pure and idempotent; anything that needs heavy evaluation belongs in a module rather than a `flake.lib.*` entry.
+
 ## `perSystem` vs host overlays
 
 This repository uses both patterns, for different purposes:
 
-- `perSystem.packages` is used for flake-exposed tooling packages (for example, `generation-manager` and hook helpers).
-- Host app packages in `packages/<name>/default.nix` are injected through the System76 overlay in `modules/system76/custom-packages-overlay.nix`, then consumed as regular `pkgs.<name>` values by app modules.
+- `perSystem.packages` is used for flake-exposed tooling packages (for example, `generation-manager` and hook helpers in `modules/devshell.nix`).
+- Host app packages in `packages/<name>/default.nix` are injected through host-scoped overlays (e.g. `modules/system76/custom-packages-overlay.nix`), then consumed as regular `pkgs.<name>` values by app modules.
 
-This means many host-only packages are **not** available under `.#packages.<system>.<name>` directly; they are available inside the host evaluation (`nixosConfigurations.system76`) where the overlay is active.
+This means many host-only packages are **not** available under `.#packages.<system>.<name>` directly; they are available inside each `nixosConfigurations.<host>` evaluation where its overlay is active.
 
 ## Shared System Helpers
 
-| Module                                         | Export                                         | Purpose                           |
-| ---------------------------------------------- | ---------------------------------------------- | --------------------------------- |
-| `modules/system76/support.nix`                 | `flake.nixosModules."system76-support"`        | System76 kernel modules, firmware |
-| `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | Monitor profile                   |
-| `modules/system76/virtualization.nix`          | host options under `system76.virtualization.*` | Virtualization app toggles        |
+| Module                                         | Export                                         | Scope           | Purpose                                           |
+| ---------------------------------------------- | ---------------------------------------------- | --------------- | ------------------------------------------------- |
+| `modules/system76/support.nix`                 | `flake.nixosModules."system76-support"`        | system76 only   | System76 kernel modules, firmware                 |
+| `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | shared (opt-in) | Monitor profile                                   |
+| `modules/system76/virtualization.nix`          | host options under `system76.virtualization.*` | system76 only   | Virtualization app toggles                        |
+| `modules/tpnix/policy.nix`                     | `flake.lib.nixos.hosts.tpnix.*` flags          | tpnix only      | Host-conditional gating (e.g. `sopsRuntimeReady`) |
 
 ## The `flake.csec` Namespace
 

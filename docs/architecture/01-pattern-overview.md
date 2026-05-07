@@ -16,7 +16,9 @@ modules/
 │   ├── firefox.nix      ← Imported automatically
 │   └── _experimental.nix ← Ignored (underscore prefix)
 ├── system76/
-│   └── boot.nix         ← Imported automatically
+│   └── boot.nix         ← Imported automatically (system76 host)
+├── tpnix/
+│   └── boot.nix         ← Imported automatically (tpnix host)
 └── _scratch/            ← Entire directory ignored
 ```
 
@@ -49,12 +51,16 @@ The file:
 
 ## Aggregator Namespaces
 
-This flake exposes two primary aggregators:
+This flake exposes the following top-level aggregators (all declared in `modules/meta/flake-output.nix`):
 
-| Namespace                  | Purpose                    | Typical Exports                          |
-| -------------------------- | -------------------------- | ---------------------------------------- |
-| `flake.nixosModules`       | System-level configuration | `base`, hardware profiles, `apps.<name>` |
-| `flake.homeManagerModules` | Home Manager configuration | `base`, `gui`, `apps.<name>`             |
+| Namespace                  | Purpose                             | Typical Exports                                                                 |
+| -------------------------- | ----------------------------------- | ------------------------------------------------------------------------------- |
+| `flake.nixosModules`       | System-level configuration          | `base`, hardware profiles, `apps.<name>`                                        |
+| `flake.homeManagerModules` | Home Manager configuration          | `base`, `gui`, `apps.<name>`                                                    |
+| `flake.csec`               | Cybersecurity feature modules       | `wordlists` (per-feature, opt-in via host import + enable)                      |
+| `flake.lib.*`              | Helper functions and small metadata | `meta`, `nixos`, `homeManager`, `security`, `nixvim`, `xdg`, `agents`, `checks` |
+
+`flake.nixosModules` and `flake.homeManagerModules` collect modules that hosts compose by name. `flake.csec` is a separate `attrsOf deferredModule` so each feature is a first-class entry that hosts opt into individually. `flake.lib` holds pure helper data (see [NixOS Modules](03-nixos-modules.md#flakelib-namespaces) for the full breakdown).
 
 Modules register themselves under these namespaces. Consumers compose features by name rather than by file path.
 
