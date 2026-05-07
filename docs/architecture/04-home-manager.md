@@ -82,13 +82,13 @@ Each host appends to `home-manager.extraAppImports` and mirrors matching app mod
 
 The shared HM base is identical across hosts; per-host overrides live in each host's `imports.nix`. As a current snapshot:
 
-| HM toggle           | system76 default | tpnix default               | Notes                                                                                           |
-| ------------------- | ---------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
-| `context7Secrets`   | `mkDefault true` | `mkForce false`             | Context7 API key rendering.                                                                     |
-| `virustotalSecrets` | `mkDefault true` | `mkForce false`             | VirusTotal API key rendering.                                                                   |
-| `r2Secrets`         | `mkForce false`  | `mkForce false`             | NixOS-side `r2CloudSecrets` is also off in the current configuration.                           |
-| `repoGpg`           | `mkDefault true` | (not set, inherits)         | system76 also pulls `inputs.self.homeManagerModules.repoGpg` into `home-manager.sharedModules`. |
-| `services.espanso`  | Wayland defaults | `x11Support = mkForce true` | tpnix runs i3 on X11.                                                                           |
+| HM toggle           | system76 default       | tpnix default                          | Notes                                                                                                                                  |
+| ------------------- | ---------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `context7Secrets`   | `mkDefault true`       | `mkForce false`                        | Context7 API key rendering.                                                                                                            |
+| `virustotalSecrets` | `mkDefault true`       | `mkForce false`                        | VirusTotal API key rendering.                                                                                                          |
+| `r2Secrets`         | `mkForce false`        | `mkForce false`                        | NixOS-side `r2CloudSecrets` is also off in the current configuration.                                                                  |
+| `repoGpg`           | `mkDefault true`       | (not enabled, no shared module pulled) | system76 pulls `inputs.self.homeManagerModules.repoGpg` into `home-manager.sharedModules`; tpnix does not pull this shared module.     |
+| `services.espanso`  | (inherits HM upstream) | `x11Support = mkForce true`            | system76 leaves espanso's session-backend defaults alone; tpnix forces X11 via `home-manager.sharedModules` because it runs i3 on X11. |
 
 Authoritative source for any host: that host's `imports.nix` (`modules/<host>/imports.nix`). When adding a new secret module, set both NixOS- and HM-side defaults explicitly per host so behavior is obvious from `imports.nix` rather than implicit through `mkDefault` chains.
 
