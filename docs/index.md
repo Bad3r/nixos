@@ -13,7 +13,7 @@
 - [architecture/04-home-manager.md](architecture/04-home-manager.md)
   - Covers the flake.homeManagerModules namespace, app loading mechanism, and secrets integration for user configuration.
 - [architecture/05-host-composition.md](architecture/05-host-composition.md)
-  - Explains host definition under configurations.nixos, the System76 host structure, and how to add new hosts.
+  - Explains host definition under configurations.nixos, the per-host file structure under `modules/<host>/`, host-conditional helpers, and validation.
 - [architecture/06-reference.md](architecture/06-reference.md)
   - Quick reference for validation commands, troubleshooting common issues, introspection via REPL, and glossary of terms.
 
