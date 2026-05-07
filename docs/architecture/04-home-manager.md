@@ -61,7 +61,7 @@ loadAppModule = name:
 
 ### Default App Imports
 
-The following apps are loaded by default for `vx@system76`:
+The following apps are loaded by default for `vx` on each NixOS host (defined in `modules/home-manager/nixos.nix`):
 
 ```nix
 defaultAppImports = [
@@ -76,7 +76,21 @@ defaultAppImports = [
 
 ### Adding Extra Apps
 
-Hosts append to `home-manager.extraAppImports`. The System76 host also appends matching app modules to `home-manager.sharedModules` in `modules/system76/home-manager-apps.nix`.
+Each host appends to `home-manager.extraAppImports` and mirrors matching app modules into `home-manager.sharedModules` from its own `modules/<host>/home-manager-apps.nix`.
+
+### Per-Host Divergences
+
+The shared HM base is identical across hosts; per-host overrides live in each host's `imports.nix`. As a current snapshot:
+
+| HM toggle           | system76 default | tpnix default               | Notes                                                                                           |
+| ------------------- | ---------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `context7Secrets`   | `mkDefault true` | `mkForce false`             | Context7 API key rendering.                                                                     |
+| `virustotalSecrets` | `mkDefault true` | `mkForce false`             | VirusTotal API key rendering.                                                                   |
+| `r2Secrets`         | `mkForce false`  | `mkForce false`             | NixOS-side `r2CloudSecrets` is also off in the current configuration.                           |
+| `repoGpg`           | `mkDefault true` | (not set, inherits)         | system76 also pulls `inputs.self.homeManagerModules.repoGpg` into `home-manager.sharedModules`. |
+| `services.espanso`  | Wayland defaults | `x11Support = mkForce true` | tpnix runs i3 on X11.                                                                           |
+
+Authoritative source for any host: that host's `imports.nix` (`modules/<host>/imports.nix`). When adding a new secret module, set both NixOS- and HM-side defaults explicitly per host so behavior is obvious from `imports.nix` rather than implicit through `mkDefault` chains.
 
 ## Authoring Rules
 
@@ -109,13 +123,20 @@ This ensures evaluation succeeds even when secret files are absent.
 
 ## HM Diagnostics
 
-Home Manager CLI is not bundled by default. Run via:
+Home Manager runs as a NixOS module per host (no standalone HM configuration). To inspect or build a host's HM tree, substitute the host name:
 
 ```bash
-nix develop -c nix run nixpkgs#home-manager -- --flake .#vx switch --dry-run
+# Evaluate a host's HM users tree
+nix eval .#nixosConfigurations.<host>.config.home-manager.users.vx.home.packages --apply builtins.length
+
+# Build the host closure (HM activation runs on switch)
+nix build .#nixosConfigurations.<host>.config.system.build.toplevel
+
+# List the hosts available in the current checkout
+nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames
 ```
 
-Or add `home-manager` to `modules/devshell.nix` for a persistent binary.
+Add `home-manager` to `modules/devshell.nix` if a standalone CLI is needed for ad-hoc diagnostics.
 
 ## Next Steps
 

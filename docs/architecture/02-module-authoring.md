@@ -4,12 +4,12 @@ This document covers how to write modules correctly in this flake-parts + import
 
 ## File Placement
 
-| Location                     | Purpose               | Export Pattern                         |
-| ---------------------------- | --------------------- | -------------------------------------- |
-| `modules/apps/<name>.nix`    | Per-app modules       | `flake.nixosModules.apps.<name>`       |
-| `modules/hm-apps/<name>.nix` | Per-app HM modules    | `flake.homeManagerModules.apps.<name>` |
-| `modules/<domain>/`          | Higher-level features | `flake.nixosModules.<feature>`         |
-| `modules/system76/`          | Host-specific config  | `configurations.nixos.system76.module` |
+| Location                     | Purpose               | Export Pattern                                                                    |
+| ---------------------------- | --------------------- | --------------------------------------------------------------------------------- |
+| `modules/apps/<name>.nix`    | Per-app modules       | `flake.nixosModules.apps.<name>`                                                  |
+| `modules/hm-apps/<name>.nix` | Per-app HM modules    | `flake.homeManagerModules.apps.<name>`                                            |
+| `modules/<domain>/`          | Higher-level features | `flake.nixosModules.<feature>`                                                    |
+| `modules/<host>/`            | Host-specific config  | `configurations.nixos.<host>.module` (e.g. `modules/system76/`, `modules/tpnix/`) |
 
 **Rule:** If a module only installs packages, put it in `modules/apps/`. If it configures services or composes multiple apps, use a domain directory.
 
@@ -72,7 +72,7 @@ One file can populate both aggregators. Keep the scopes independent.
 { config, ... }:
 {
   config = {
-    nix.settings.experimental-features = [ "nix-command" "flakes" "pipe-operators" ];
+    nix.settings.experimental-features = [ "nix-command" "flakes" "pipe-operators" "recursive-nix" ];
 
     flake.nixosModules.base.nix = {
       inherit (config.nix) settings;
@@ -104,6 +104,36 @@ Use `lib.mkIf`, `lib.mkMerge`, and other option helpers to extend shared modules
 ```
 
 See [Host Composition](05-host-composition.md) for details.
+
+## Custom Module Arguments
+
+Hosts inject a small set of custom arguments via `_module.args` so that downstream modules can receive them as ordinary function parameters. Each host's `modules/<host>/imports.nix` sets them in two places: on the deferred `configurations.nixos.<host>.module` and on the wrapping `nixosSystem` call (so they are available to both flake-parts and the host evaluation).
+
+| Arg               | Type  | Source                               | Use                                                                           |
+| ----------------- | ----- | ------------------------------------ | ----------------------------------------------------------------------------- |
+| `metaOwner`       | attrs | `modules/meta/owner.nix`             | Owner identity (`username`, `sshKeys`); used by HM users, secret modules.     |
+| `secretsRoot`     | path  | Repo `secrets/` directory            | Base for `sopsFile` references; lets secrets modules guard with `pathExists`. |
+| `inputs`          | attrs | flake-parts `specialArgs`            | Flake inputs propagated into NixOS modules without re-importing the flake.    |
+| `nixosAppHelpers` | attrs | `modules/meta/nixos-app-helpers.nix` | Same helpers exposed at `config.flake.lib.nixos`; convenient inside hosts.    |
+
+```nix
+# modules/home/context7-secrets.nix
+{ lib, metaOwner, secretsRoot, ... }:
+let
+  ctxFile = "${secretsRoot}/context7.yaml";
+in
+{
+  config = lib.mkIf (builtins.pathExists ctxFile) {
+    sops.secrets."context7/api-key" = {
+      sopsFile = ctxFile;
+      owner = metaOwner.username;
+      # ...
+    };
+  };
+}
+```
+
+Treat custom args as the contract between hosts and downstream modules. Adding a new arg requires updating every `_module.args` block that sets it; missing args surface as evaluation-time errors that name the missing parameter.
 
 ## Common Pitfalls
 
@@ -192,8 +222,11 @@ in
 nix eval --accept-flake-config --json .#nixosModules --apply builtins.attrNames
 nix eval --accept-flake-config --json .#homeManagerModules.apps --apply builtins.attrNames
 
-# Evaluate specific host option
-nix eval .#nixosConfigurations.system76.config.boot.loader
+# Evaluate a specific host option (substitute the host name)
+nix eval .#nixosConfigurations.<host>.config.boot.loader
+
+# List the hosts available in the current checkout
+nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames
 ```
 
 ## Next Steps
