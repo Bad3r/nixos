@@ -107,14 +107,16 @@ See [Host Composition](05-host-composition.md) for details.
 
 ## Custom Module Arguments
 
-Hosts inject a small set of custom arguments via `_module.args` so that downstream modules can receive them as ordinary function parameters. Each host's `modules/<host>/imports.nix` sets them in two places: on the deferred `configurations.nixos.<host>.module` and on the wrapping `nixosSystem` call (so they are available to both flake-parts and the host evaluation).
+NixOS modules can receive a small set of repo-specific arguments as ordinary function parameters. They reach the host evaluation through two layers:
 
-| Arg               | Type  | Source                               | Use                                                                           |
-| ----------------- | ----- | ------------------------------------ | ----------------------------------------------------------------------------- |
-| `metaOwner`       | attrs | `modules/meta/owner.nix`             | Owner identity (`username`, `sshKeys`); used by HM users, secret modules.     |
-| `secretsRoot`     | path  | Repo `secrets/` directory            | Base for `sopsFile` references; lets secrets modules guard with `pathExists`. |
-| `inputs`          | attrs | flake-parts `specialArgs`            | Flake inputs propagated into NixOS modules without re-importing the flake.    |
-| `nixosAppHelpers` | attrs | `modules/meta/nixos-app-helpers.nix` | Same helpers exposed at `config.flake.lib.nixos`; convenient inside hosts.    |
+1. The shared host helper `modules/configurations/nixos.nix` injects `metaOwner` and `secretsRoot` into every deferred host module (`_module.args`) and into the wrapping `nixosSystem` `specialArgs`. New hosts get these for free.
+2. Each host's `modules/<host>/imports.nix` re-asserts `metaOwner` and `secretsRoot` and additionally propagates `inputs` on the wrapping `nixosSystem` call, so flake inputs are reachable from inside NixOS modules.
+
+| Arg           | Type  | Source                                                               | Available where                                                                                                                     |
+| ------------- | ----- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `metaOwner`   | attrs | `modules/meta/owner.nix` via shared helper + per-host `imports.nix`  | Every NixOS module (HM users, secrets); owner identity (`username`, `sshKeys`).                                                     |
+| `secretsRoot` | path  | Repo `secrets/` directory via shared helper + per-host `imports.nix` | Every NixOS module; base for `sopsFile` references and `pathExists` guards.                                                         |
+| `inputs`      | attrs | Per-host `imports.nix` wrapping `nixosSystem`                        | Every NixOS module reached through the host closure; lets modules use `inputs.<flake>.nixosModules` without re-importing the flake. |
 
 ```nix
 # modules/home/context7-secrets.nix
@@ -133,7 +135,9 @@ in
 }
 ```
 
-Treat custom args as the contract between hosts and downstream modules. Adding a new arg requires updating every `_module.args` block that sets it; missing args surface as evaluation-time errors that name the missing parameter.
+`config.flake.lib.nixos` (the `hasApp`, `getApp`, `getApps`, `getAllApps`, `getAppOr` helpers) is a separate flake-parts helper, not a NixOS module argument. Read it from the flake-parts outer scope when authoring host-side modules. The same helpers are also published as `_module.args.nixosAppHelpers` at flake-parts scope only, so a NixOS module that declares `{ nixosAppHelpers, ... }:` will fail to evaluate.
+
+Treat custom args as the contract between hosts and downstream modules. Adding a new arg requires updating either `modules/configurations/nixos.nix` (for shared args) or each host's `imports.nix` (for host-specific args), plus the wrapping `nixosSystem` block. Missing args surface as evaluation-time errors that name the missing parameter.
 
 ## Common Pitfalls
 
