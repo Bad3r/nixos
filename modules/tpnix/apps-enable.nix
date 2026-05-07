@@ -69,6 +69,7 @@
       codex.extended.enable = lib.mkOverride 1100 true;
       coreutils.extended.enable = lib.mkOverride 1100 true;
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
+      cpc.extended.enable = lib.mkOverride 1100 true;
       cryptsetup.extended.enable = lib.mkOverride 1100 true;
       "csharp-ls".extended.enable = lib.mkOverride 1100 false;
       curl.extended.enable = lib.mkOverride 1100 true;
