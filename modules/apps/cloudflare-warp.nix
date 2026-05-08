@@ -55,7 +55,10 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "cloudflare-warp-headless" ];
+  nixpkgs.allowedUnfreePackages = [
+    "cloudflare-warp"
+    "cloudflare-warp-headless"
+  ];
 
   flake.nixosModules.apps.cloudflare-warp = CloudflareWarpModule;
 }
