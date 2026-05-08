@@ -221,7 +221,7 @@ fi
 BOOTSTRAP_SUBSTITUTERS=(
   "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
   #"https://mirror.sjtu.edu.cn/nix-channels/store"
-  "https://mirrors.ustc.edu.cn/nix-channels/store"
+  #"https://mirrors.ustc.edu.cn/nix-channels/store"
   "https://cache.nixos.org"
   "https://cache.garnix.io?priority=38"
   "https://cache.numtide.com"
