@@ -109,11 +109,14 @@ defects in `src/proxyicon.vala`:
    4-byte buffer. The first pixel converts in place, then every later
    iteration overwrites the previous pixel's alpha with the next pixel's
    data. Fix: stride 4.
-2. `set_icon` falls through to the (now-broken) pixmap path whenever
-   `theme.has_icon(name)` returns false, replacing the IconName with the
-   corrupted pixmap before Gtk's own fallback machinery can render it.
-   Fix: trust IconName when set, fall back to pixmap only when IconName is
-   empty.
+2. `set_icon` falls through to the pixmap path whenever
+   `theme.has_icon(name)` returns false, even when the SNI item supplies no
+   `IconPixmap`. Without pixmap data the fall-through replaces the named
+   icon Gtk would render with `set_from_pixbuf(null)`. Fix: widen the
+   early-return guard to `theme.has_icon(name) || item.icon_pixmap == null
+   || item.icon_pixmap.length == 0`. The pixmap path stays reachable when
+   the theme misses AND the SNI item supplies real pixmap bytes, so apps
+   that depend on the bitmap fallback continue to work.
 
 Drop the override once upstream `~steef/snixembed` ships a release past
 0.3.3 with the equivalent fixes.

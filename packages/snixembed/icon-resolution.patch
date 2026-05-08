@@ -6,13 +6,15 @@ Fix two icon-resolution defects in src/proxyicon.vala (snixembed 0.3.3):
      pixel's alpha with the next pixel's data, producing garbled
      output for any pixmap larger than 1x1. Stride must be 4.
 
-  2. set_icon falls through to the (now-broken) pixmap path whenever
-     theme.has_icon(name) returns false. Gtk's set_from_icon_name has
-     its own fallback machinery and renders the named icon from the
-     active theme even when the upstream cache lookup misses. The
-     fall-through replaces a working named icon with the corrupted
-     pixmap. Trust IconName when set, and only fall back to pixmap
-     when the SNI item publishes no IconName.
+  2. set_icon falls through to the pixmap path whenever
+     theme.has_icon(name) returns false, even when the SNI item
+     supplies no IconPixmap data. In that case Gtk's
+     set_from_icon_name renders the named icon (or its own
+     missing-image fallback) and the pixmap branch corrupts that
+     output. Widen the early-return guard so we keep the named icon
+     when the theme resolves it OR when no pixmap data is available;
+     only fall through to set_icon_pixmap when the theme misses AND
+     the SNI item provides a real pixmap to render.
 
 Reported against snixembed running on i3bar with the StatusNotifierItem
 items advertised by flameshot ("flameshot-tray") and Remmina
@@ -23,18 +25,16 @@ Upstream: https://git.sr.ht/~steef/snixembed (patches sent / pending).
 
 --- a/src/proxyicon.vala
 +++ b/src/proxyicon.vala
-@@ -94,9 +94,7 @@
+@@ -94,7 +94,7 @@
              }
 
              set_icon_name(name);
 -            if (theme.has_icon(name)) {
--                return;
--            }
-+            return;
++            if (theme.has_icon(name) || item.icon_pixmap == null || item.icon_pixmap.length == 0) {
+                 return;
+             }
          }
-
-         var pixmaps = item.icon_pixmap;
-@@ -115,7 +113,7 @@
+@@ -115,7 +115,7 @@
          var pixmap = pixmaps[0]; // TODO: choose the best one
 
          // Convert from ARGB to RGBA

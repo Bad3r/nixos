@@ -102,10 +102,14 @@ _: {
     # `src/proxyicon.vala`:
     #   * `set_icon_pixmap` iterates the ARGB->RGBA conversion with
     #     `i += 3` over a 4-byte-per-pixel buffer, garbling every pixel
-    #     past the first.
+    #     past the first. Fix: stride 4.
     #   * `set_icon` falls through to that broken pixmap path whenever
-    #     `theme.has_icon(name)` returns false, so a valid IconName gets
-    #     replaced by the corrupted pixmap before Gtk can render it.
+    #     `theme.has_icon(name)` returns false, even for SNI items that
+    #     publish no `IconPixmap`, replacing the named icon Gtk would
+    #     render with a corrupted pixmap. Fix: widen the early-return
+    #     guard so it also covers the no-pixmap case, leaving the
+    #     pixmap path reachable only when the theme misses AND the
+    #     SNI item supplied real pixmap bytes.
     # PR #103 introduced this bridge to surface ProtonVPN's
     # StatusNotifierItem in `i3bar`. The same code path now renders
     # other SNI items such as flameshot ("flameshot-tray") and Remmina
