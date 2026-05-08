@@ -1,5 +1,6 @@
 /*
   Package: cloudflare-warp
+  Variant: headless (warp-cli + warp-svc; no GUI taskbar, no XDG autostart)
   Description: Cloudflare WARP client delivering encrypted consumer VPN and Zero Trust connectivity.
   Homepage: https://developers.cloudflare.com/warp-client/
   Documentation: https://developers.cloudflare.com/warp-client/get-started/linux/
@@ -34,7 +35,18 @@ let
           description = "Whether to enable cloudflare-warp.";
         };
 
-        package = lib.mkPackageOption pkgs "cloudflare-warp" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = pkgs.cloudflare-warp.override { headless = true; };
+          defaultText = lib.literalExpression "pkgs.cloudflare-warp.override { headless = true; }";
+          description = ''
+            Cloudflare WARP package. Defaults to the headless build, which
+            ships only `warp-cli` and `warp-svc` and omits the GUI taskbar,
+            `etc/xdg/autostart/com.cloudflare.WarpTaskbar.desktop`, and the
+            `share/systemd/user/warp-taskbar.service` user unit. Set to
+            `pkgs.cloudflare-warp` to install the GUI variant.
+          '';
+        };
       };
 
       config = lib.mkIf cfg.enable {
@@ -43,7 +55,7 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "cloudflare-warp" ];
+  nixpkgs.allowedUnfreePackages = [ "cloudflare-warp-headless" ];
 
   flake.nixosModules.apps.cloudflare-warp = CloudflareWarpModule;
 }
