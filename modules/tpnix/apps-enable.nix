@@ -160,6 +160,8 @@
       httpx.extended.enable = lib.mkOverride 1100 true;
       hydra.extended.enable = lib.mkOverride 1100 true;
       hyperfine.extended.enable = lib.mkOverride 1100 false;
+      "i3-focus-or-launch".extended.enable = lib.mkOverride 1100 false;
+      "i3-scratchpad-show-or-create".extended.enable = lib.mkOverride 1100 false;
       "i3lock-color".extended.enable = lib.mkOverride 1100 true;
       "i3status-rust".extended.enable = lib.mkOverride 1100 true;
       i7z.extended.enable = lib.mkOverride 1100 true;
@@ -218,6 +220,7 @@
       mitmproxy.extended.enable = lib.mkOverride 1100 true;
       mkcert.extended.enable = lib.mkOverride 1100 true;
       mlr.extended.enable = lib.mkOverride 1100 true;
+      "monitor-query".extended.enable = lib.mkOverride 1100 false;
       mosh.extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 false;
       "msgraph-cli".extended.enable = lib.mkOverride 1100 false;
@@ -325,6 +328,7 @@
       skim.extended.enable = lib.mkOverride 1100 false;
       slop.extended.enable = lib.mkOverride 1100 true;
       smartmontools.extended.enable = lib.mkOverride 1100 false;
+      snixembed.extended.enable = lib.mkOverride 1100 false;
       socat.extended.enable = lib.mkOverride 1100 true;
       sops.extended.enable = lib.mkOverride 1100 true;
       "source-map-explorer".extended.enable = lib.mkOverride 1100 true;
