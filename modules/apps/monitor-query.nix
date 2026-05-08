@@ -9,37 +9,22 @@
       modules/custom-overlays/monitor-query.nix.
     * Sourced by modules/apps/i3wm/scratchpad.nix as a path
       (`. "${pkgs.monitor-query}"`); it is a single file, not a derivation
-      with bin/share/ outputs, so it is never added to
-      `environment.systemPackages`. The app module exists solely to provide
-      the option that gates the overlay registration.
+      with bin/share/ outputs.
+    * The module declares only `extended.enable`. There is no `package`
+      option because no consumer reads `cfg.package`; callers use
+      `pkgs.monitor-query` directly. The module's sole job is to provide
+      the toggle that `modules/custom-overlays/monitor-query.nix` gates on.
 */
 _:
 let
   MonitorQueryModule =
+    { lib, ... }:
     {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
-    let
-      cfg = config.programs."monitor-query".extended;
-    in
-    {
-      options.programs."monitor-query".extended = {
-        enable = lib.mkOption {
-          type = lib.types.bool;
-          default = false;
-          description = "Whether to enable the monitor-query shell library overlay.";
-        };
-
-        package = lib.mkPackageOption pkgs "monitor-query" { };
+      options.programs."monitor-query".extended.enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Whether to enable the monitor-query shell library overlay.";
       };
-
-      # No environment.systemPackages: monitor-query is a writeText output
-      # consumed via `pkgs.monitor-query` at script-eval time, not installed
-      # into the user environment.
-      config = lib.mkIf cfg.enable { };
     };
 in
 {
