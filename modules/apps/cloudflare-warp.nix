@@ -41,7 +41,8 @@ let
           defaultText = lib.literalExpression "pkgs.cloudflare-warp.override { headless = true; }";
           description = ''
             Cloudflare WARP package. Defaults to the headless build, which
-            ships only `warp-cli` and `warp-svc` and omits the GUI taskbar,
+            ships `warp-cli`, `warp-svc`, `warp-dex`, and `warp-diag` and
+            omits the GUI taskbar,
             `etc/xdg/autostart/com.cloudflare.WarpTaskbar.desktop`, and the
             `share/systemd/user/warp-taskbar.service` user unit. Set to
             `pkgs.cloudflare-warp` to install the GUI variant.
