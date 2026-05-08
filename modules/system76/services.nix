@@ -30,11 +30,13 @@ _: {
           '';
         };
 
-        # Disable samples and network clients until configured on this host
-        cloudflared.enable = lib.mkForce false;
-        cloudflare-warp.enable = lib.mkForce false;
+        cloudflared.enable = true;
 
-        # Disable printing by default on this host; remove Samsung driver
+        cloudflare-warp = {
+          enable = true;
+          package = pkgs.cloudflare-warp.override { headless = true; };
+        };
+
         printing = {
           enable = lib.mkForce false;
           drivers = with pkgs; [
