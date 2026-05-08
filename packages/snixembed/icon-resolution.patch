@@ -1,0 +1,45 @@
+Fix two icon-resolution defects in src/proxyicon.vala (snixembed 0.3.3):
+
+  1. set_icon_pixmap iterates the ARGB->RGBA conversion with i += 3
+     over a 4-byte-per-pixel buffer. The first pixel converts in
+     place, then every subsequent iteration overwrites the previous
+     pixel's alpha with the next pixel's data, producing garbled
+     output for any pixmap larger than 1x1. Stride must be 4.
+
+  2. set_icon falls through to the pixmap path whenever
+     theme.has_icon(name) returns false, even when the SNI item
+     supplies no IconPixmap data. In that case Gtk's
+     set_from_icon_name renders the named icon (or its own
+     missing-image fallback) and the pixmap branch corrupts that
+     output. Widen the early-return guard so we keep the named icon
+     when the theme resolves it OR when no pixmap data is available;
+     only fall through to set_icon_pixmap when the theme misses AND
+     the SNI item provides a real pixmap to render.
+
+Reported against snixembed running on i3bar with the StatusNotifierItem
+items advertised by flameshot ("flameshot-tray") and Remmina
+("org.remmina.Remmina-status"): both rendered as identical blank squares
+before the patch.
+
+Upstream: https://git.sr.ht/~steef/snixembed (patches sent / pending).
+
+--- a/src/proxyicon.vala
++++ b/src/proxyicon.vala
+@@ -94,7 +94,7 @@
+             }
+
+             set_icon_name(name);
+-            if (theme.has_icon(name)) {
++            if (theme.has_icon(name) || item.icon_pixmap == null || item.icon_pixmap.length == 0) {
+                 return;
+             }
+         }
+@@ -115,7 +115,7 @@
+         var pixmap = pixmaps[0]; // TODO: choose the best one
+
+         // Convert from ARGB to RGBA
+-        for (int i = 0; i < pixmap.width * pixmap.height * 4; i += 3) {
++        for (int i = 0; i < pixmap.width * pixmap.height * 4; i += 4) {
+             var alpha = pixmap.data[i];
+             pixmap.data[i] = pixmap.data[i + 1];
+             pixmap.data[i + 1] = pixmap.data[i + 2];
