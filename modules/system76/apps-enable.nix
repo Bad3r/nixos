@@ -268,7 +268,7 @@
       "node-cloudflare-sdk".extended.enable = lib.mkOverride 1100 false;
       nodejs_22.extended.enable = lib.mkOverride 1100 true;
       nodejs_24.extended.enable = lib.mkOverride 1100 true;
-      "nomachine-client".extended.enable = lib.mkOverride 1100 false;
+      "nomachine-client".extended.enable = lib.mkOverride 1100 true;
       normcap.extended.enable = lib.mkOverride 1100 true;
       nrm.extended.enable = lib.mkOverride 1100 true;
       nsxiv.extended.enable = lib.mkOverride 1100 true;
