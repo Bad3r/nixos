@@ -89,7 +89,7 @@
       "csharp-ls".extended.enable = lib.mkOverride 1100 false;
       curl.extended.enable = lib.mkOverride 1100 true;
       curlie.extended.enable = lib.mkOverride 1100 true;
-      cutter.extended.enable = lib.mkOverride 1100 false; # Disabled — see https://github.com/Bad3r/nixos/issues/156
+      cutter.extended.enable = lib.mkOverride 1100 true;
       "czkawka-cli".extended.enable = lib.mkOverride 1100 true;
       "czkawka-gui".extended.enable = lib.mkOverride 1100 true;
       ddrescue.extended.enable = lib.mkOverride 1100 true;
