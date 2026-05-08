@@ -98,6 +98,26 @@ _: {
       NODE_GYP = "${final."node-gyp"}/bin/node-gyp";
     });
 
+    # snixembed 0.3.3 (nixpkgs pin) ships two icon-resolution defects in
+    # `src/proxyicon.vala`:
+    #   * `set_icon_pixmap` iterates the ARGB->RGBA conversion with
+    #     `i += 3` over a 4-byte-per-pixel buffer, garbling every pixel
+    #     past the first.
+    #   * `set_icon` falls through to that broken pixmap path whenever
+    #     `theme.has_icon(name)` returns false, so a valid IconName gets
+    #     replaced by the corrupted pixmap before Gtk can render it.
+    # PR #103 introduced this bridge to surface ProtonVPN's
+    # StatusNotifierItem in `i3bar`. The same code path now renders
+    # other SNI items such as flameshot ("flameshot-tray") and Remmina
+    # ("org.remmina.Remmina-status") as identical blank squares.
+    # Drop this override once upstream ships a release past 0.3.3 with the
+    # fix.
+    snixembed = prev.snixembed.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [
+        ../../packages/snixembed/icon-resolution.patch
+      ];
+    });
+
     # i3 window manager utilities
     i3-focus-or-launch = final.callPackage ../../packages/i3-focus-or-launch { };
     i3-scratchpad-show-or-create = final.callPackage ../../packages/i3-scratchpad-show-or-create { };

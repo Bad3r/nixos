@@ -30,17 +30,22 @@ The active tray remains XEmbed-based (hosted by `i3bar`). `snixembed` provides
 the SNI watcher bridge so apps that only export StatusNotifierItem icons can
 still show up in the `i3bar` tray.
 
-Live inspection of tray child windows under `i3bar` shows `_XEMBED_INFO` for
-native XEmbed tray apps such as:
+Live inspection of tray child windows under `i3bar` distinguishes two groups.
+
+Native XEmbed tray apps (own window, `_XEMBED_INFO` set on the application's
+window):
 
 - `nm-applet`
 - `udiskie`
-- `flameshot`
 - `steam`
 - `ktailctl`
 
-SNI-only apps such as ProtonVPN should expose `org.kde.StatusNotifierItem-*` on
-the user bus and be proxied into that same XEmbed tray by `snixembed`.
+SNI items proxied through `snixembed` (each has a `snixembed` child window
+under `i3bar` whose `WM_CLASS` is the SNI `Id`):
+
+- `flameshot` (`Id: flameshot`, `IconName: flameshot-tray`)
+- `Remmina` (`Id: remmina-icon`, `IconName: org.remmina.Remmina-status`)
+- `ProtonVPN`
 
 ## Multi-Monitor Behavior
 
@@ -50,14 +55,15 @@ across all connected outputs is not supported in a reliable way.
 
 ## Protocol/Themeability Classification
 
-| App       | Current Protocol | Themeability Risk | Notes                                                                                         |
-| --------- | ---------------- | ----------------- | --------------------------------------------------------------------------------------------- |
-| nm-applet | XEmbed           | Low-Medium        | Running without `--indicator`; links Ayatana indicator libs, but current tray item is XEmbed. |
-| udiskie   | XEmbed           | Low               | Uses icon theme name lookup (`Gtk.IconTheme`) and supports custom `icon_names`.               |
-| flameshot | XEmbed           | Medium            | Qt tray icon path supports theme lookup and also bundles fallback resources.                  |
-| steam     | XEmbed           | High              | Tray icon behavior is app-controlled and often not fully theme-driven.                        |
-| ktailctl  | XEmbed           | Medium            | Qt app; verify whether icon comes from theme name or bundled resource.                        |
-| ProtonVPN | SNI via bridge   | Medium            | Exports a StatusNotifierItem; `snixembed` proxies it into the XEmbed tray hosted by `i3bar`.  |
+| App       | Current Protocol | Themeability Risk | Notes                                                                                                         |
+| --------- | ---------------- | ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| nm-applet | XEmbed           | Low-Medium        | Running without `--indicator`; links Ayatana indicator libs, but current tray item is XEmbed.                 |
+| udiskie   | XEmbed           | Low               | Uses icon theme name lookup (`Gtk.IconTheme`) and supports custom `icon_names`.                               |
+| steam     | XEmbed           | High              | Tray icon behavior is app-controlled and often not fully theme-driven.                                        |
+| ktailctl  | XEmbed           | Medium            | Qt app; verify whether icon comes from theme name or bundled resource.                                        |
+| flameshot | SNI via bridge   | Medium            | Qt SNI; advertises IconName `flameshot-tray`. Resolved by `snixembed` against the active Gtk theme.           |
+| Remmina   | SNI via bridge   | Medium            | Ayatana SNI; advertises IconName `org.remmina.Remmina-status`. Icon files ship in `hicolor` (status context). |
+| ProtonVPN | SNI via bridge   | Medium            | Exports a StatusNotifierItem; `snixembed` proxies it into the XEmbed tray hosted by `i3bar`.                  |
 
 ## Broken Launcher Icons Found
 
@@ -91,6 +97,26 @@ Fix by either:
 On the i3-based hosts, keep XEmbed-compatible launch mode for native tray apps
 (for example plain `nm-applet`) and use the SNI bridge for apps that only
 publish StatusNotifierItem icons.
+
+## Bridge Patches
+
+`snixembed` is pinned to upstream 0.3.3 in nixpkgs. The `customPackages`
+overlay (`modules/base/custom-packages-overlay.nix`) layers
+`packages/snixembed/icon-resolution.patch` on top. The patch addresses two
+defects in `src/proxyicon.vala`:
+
+1. `set_icon_pixmap` iterates the ARGB->RGBA conversion with `i += 3` over a
+   4-byte buffer. The first pixel converts in place, then every later
+   iteration overwrites the previous pixel's alpha with the next pixel's
+   data. Fix: stride 4.
+2. `set_icon` falls through to the (now-broken) pixmap path whenever
+   `theme.has_icon(name)` returns false, replacing the IconName with the
+   corrupted pixmap before Gtk's own fallback machinery can render it.
+   Fix: trust IconName when set, fall back to pixmap only when IconName is
+   empty.
+
+Drop the override once upstream `~steef/snixembed` ships a release past
+0.3.3 with the equivalent fixes.
 
 ## Verification Commands
 
