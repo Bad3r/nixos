@@ -130,7 +130,8 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
 - Existing PDF, structural rewrite or validation: use `qpdf`.
 - Existing PDF, lightweight render or scriptable extraction: use `mupdf` (`mutool`).
 - Existing PDF, layout-aware CLI extraction or scripted parsing: use `pymupdf`.
-- Existing PDF, ML-driven Markdown/JSON for RAG pipelines: see [`additional-tools-reference.md`](additional-tools-reference.md) for `marker`, `docling`, and `pymupdf4llm`.
+- Existing PDF, ML-driven Markdown/JSON for RAG pipelines: see [`additional-tools-reference.md`](additional-tools-reference.md) for `marker` and `docling`.
+- Existing PDF, layout-aware Markdown for RAG pipelines without bundled ML models: see [`additional-tools-reference.md`](additional-tools-reference.md) for `pymupdf4llm`.
 - Scanned PDF needing a searchable text layer: use `ocrmypdf`.
 - Image OCR or OCR format debugging: use `tesseract`.
 - Full-featured GUI review with annotations: use `okular`.
