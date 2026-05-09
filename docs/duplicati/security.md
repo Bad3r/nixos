@@ -4,13 +4,13 @@ Threat model, secret layout, state-directory access controls, credential rotatio
 
 ## Threat model
 
-| Concern                                               | Mitigation                                                                                                                                                                      |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Plaintext credentials at rest in Git                  | All credentials are encrypted under SOPS with the host age key (`secrets/duplicati-r2.yaml`). Plaintext only materializes at runtime under `/etc/duplicati/r2.env` (mode 0400). |
-| Manifest exposes paths and schedules                  | Encrypted with SOPS in binary mode (`secrets/duplicati-config.json`). Plaintext only at runtime under `/run/duplicati-r2/config.json` (mode 0400, on tmpfs).                    |
-| Backup contents readable to anyone with R2 keys       | Duplicati encrypts every volume client-side with AES-256-GCM keyed off `DUPLICATI_PASSPHRASE`. R2 only ever holds ciphertext.                                                   |
-| Local DB metadata exposes file layout                 | `services.duplicati-r2.stateDir` defaults to `/var/lib/duplicati-r2`, mode 0700 root:root. Reader access is opt-in via `stateDirReadableBy` (POSIX ACLs, not mode broadening).  |
-| In-flight uploads orphaned by a crash get auto-pruned | The bucket-default lifecycle rule (abort-incomplete-multipart) is removed. See [Bucket lifecycle caveat](#bucket-lifecycle-caveat).                                             |
+| Concern                                               | Mitigation                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plaintext credentials at rest in Git                  | All credentials are encrypted under SOPS with the host age key (`secrets/duplicati-r2.yaml`). Plaintext only materializes at runtime under `/etc/duplicati/r2.env` (mode 0400).                                                                                                           |
+| Manifest exposes paths and schedules                  | Encrypted with SOPS in binary mode (`secrets/duplicati-config.json`). Plaintext only at runtime under `/run/duplicati-r2/config.json` (mode 0400, on tmpfs).                                                                                                                              |
+| Backup contents readable to anyone with R2 keys       | Duplicati encrypts every volume client-side with AES-256-CBC + HMAC-SHA256 (Encrypt-then-MAC, AES Crypt File Format v2; v3 with PBKDF2-HMAC-SHA512 KDF is opt-in via `DUPLICATI__AES_VERSION=3` on Duplicati 2.3.0.101+) keyed off `DUPLICATI_PASSPHRASE`. R2 only ever holds ciphertext. |
+| Local DB metadata exposes file layout                 | `services.duplicati-r2.stateDir` defaults to `/var/lib/duplicati-r2`, mode 0700 root:root. Reader access is opt-in via `stateDirReadableBy` (POSIX ACLs, not mode broadening).                                                                                                            |
+| In-flight uploads orphaned by a crash get auto-pruned | The bucket-default lifecycle rule (abort-incomplete-multipart) is removed. See [Bucket lifecycle caveat](#bucket-lifecycle-caveat).                                                                                                                                                       |
 
 ## SOPS layout
 
@@ -39,13 +39,31 @@ The `.sops.yaml` rule that selects the host age key keys off the secrets path. U
 
 The default mode for `services.duplicati-r2.stateDir` is 0700 root:root. The systemd-tmpfiles rule that creates it does not relax the base mode. Maintainer access is granted through `stateDirReadableBy`, which appends three POSIX ACL rules per listed user (the inline-mode layout nests SQLite databases at `<stateDir>/<target>/duplicati-r2-<slug>.sqlite`, so coverage is split by depth):
 
-| Rule                                                | Effect                                                                                                                                                       |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `A+ <stateDir> - - - - u:<user>:rX,d:u:<user>:rX`   | Grants `<user>` read+traverse on the state directory itself, and sets a default ACL so files and subdirectories created directly inside inherit read access. |
-| `A+ <stateDir>/* - - - - u:<user>:rX,d:u:<user>:rX` | Applies the same access ACL plus default ACL to existing per-target subdirectories so SQLite files duplicati creates inside them inherit read access.        |
-| `A+ <stateDir>/*/* - - - - u:<user>:rX`             | Applies the access ACL to SQLite files already present in per-target subdirectories at activation time.                                                      |
+| Rule                                                                | Effect                                                                                                                                                                   |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `A+ <stateDir> - - - - u:<user>:rX,m::r-x,d:u:<user>:rX,d:m::r-x`   | Grants `<user>` read+traverse on the state directory itself, and sets a default ACL (with mask) so files and subdirectories created directly inside inherit read access. |
+| `A+ <stateDir>/* - - - - u:<user>:rX,m::r-x,d:u:<user>:rX,d:m::r-x` | Applies the same access ACL plus default ACL to existing per-target subdirectories so SQLite files duplicati creates inside them inherit read access.                    |
+| `A+ <stateDir>/*/* - - - - u:<user>:rX,m::r-x`                      | Applies the access ACL plus mask to SQLite files already present in per-target subdirectories at activation time.                                                        |
 
-Result: the directory remains `drwx------` at the mode level; an `ls -l` shows a `+` indicator denoting the ACL extension. Duplicati continues to create the SQLite files as root, but listed users can `cat` them and open them read-only with `sqlite3 'file:<path>?mode=ro&immutable=1'`.
+Result: with the `m::r-x` mask applied, `ls -l` displays the directory as `drwxr-x---+` (POSIX-ACL semantics keep the file mode's group bits in sync with the ACL mask). The actual file group is still `root`, so unprivileged accounts not in `root` still cannot read backup metadata through the group class. Duplicati continues to create the SQLite files as root, but listed users can `cat` them and open them read-only with `sqlite3 'file:<path>?mode=ro&immutable=1'`.
+
+The explicit `m::r-x` (and `d:m::r-x` on the access rules that also seed a default ACL) is required, not cosmetic. Without it, the kernel computes the mask from the empty group-class bits on a 0700 directory, the mask collapses to `---`, and every named-user grant is filtered out (an earlier revision of this module shipped without the explicit mask and the named user could not read the SQLite databases despite the ACL appearing in `getfacl`). Verify the mask after deploy:
+
+```bash
+getfacl /var/lib/duplicati-r2/ | grep -E '^(user|mask)'
+# Expect: mask::r-x, and named-user effective r-x (no `#effective:---`).
+```
+
+If a state directory predates this commit and the verification still shows `mask::---` (e.g., the existing entries on disk diverged enough that the additive `A+` rule did not converge them), refresh the ACL in place without changing the 0700 mode bits:
+
+```bash
+sudo setfacl -m m::r-x /var/lib/duplicati-r2/
+sudo setfacl -d -m m::r-x /var/lib/duplicati-r2/
+sudo find /var/lib/duplicati-r2 -exec setfacl -m m::r-x {} +
+sudo find /var/lib/duplicati-r2 -type d -exec setfacl -d -m m::r-x {} +
+```
+
+Re-run the verification snippet above; `mask::r-x` and a non-`---` named-user effective should appear on the directory and every descendant.
 
 Reasons not to broaden the base mode:
 
