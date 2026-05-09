@@ -182,13 +182,10 @@ _: {
         "--no-usage-statistics"
       ];
       timeout = 240;
-      clients = [
-        "claude"
-        "codex"
-      ];
+      clients = [ "codex" ];
       docs = {
         primaryUse = "Control and inspect a live Chrome browser session.";
-        accessNotes = "Local wrapper auto-detects Chrome or Chromium, passes `--executablePath`, and keeps `--isolated --no-usage-statistics`.";
+        accessNotes = "Local wrapper auto-detects Chrome or Chromium, passes `--executablePath`, and keeps `--isolated --no-usage-statistics`. Claude Code consumes the same server via the `chrome-devtools-mcp@chrome-devtools-plugins` plugin instead, so this entry is scoped to codex to avoid double-registration.";
         example = "`npx -y chrome-devtools-mcp@latest --executablePath=\"$(command -v google-chrome-stable)\" --isolated --no-usage-statistics`";
       };
     };
