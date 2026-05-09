@@ -13,8 +13,6 @@ The output is a design decision, not an implementation. Recommendation is at the
 
 **Local-storage budget**: none of the three cuts requires downloading the full archive. Cut A is zero-byte-ingress (reads only the local SQLite that already exists on disk). Cut B and Cut C download exactly the dblocks needed to satisfy the active read; the encrypted-dblock cache is bounded and configurable (default 1 GiB). See [Section 9](#9-storage-budget).
 
-A documentation correction is also needed: local docs name the algorithm "AES-256-GCM"; the actual algorithm is AES-256-CBC + HMAC-SHA256 (Encrypt-then-MAC, AES Crypt File Format v2/v3). See [Documentation corrections](#documentation-corrections) below.
-
 ## Investigation scope
 
 The investigation answers six questions from issue #204:
@@ -45,7 +43,7 @@ No FUSE driver has been merged. The companion request for an in-browser file pre
 `Tools/Commandline/RestoreFromPython/restore_from_python.py` in the upstream repo is the closest precedent for an in-language reader. Properties:
 
 - Pure Python, no .NET dependency.
-- Dependencies: [`pyAesCrypt`](https://github.com/marcobellaccini/pyAesCrypt), `ijson`, `zipfile`, `sqlite3`, `hashlib`, plus stdlib helpers.
+- External dependencies: [`pycryptodome`](https://www.pycryptodome.org/) (`Crypto.Cipher.AES`, `Crypto.Hash.SHA256`, `Crypto.Hash.HMAC`); the rest is stdlib (`zipfile`, `sqlite3`, `hashlib`, `base64`, `argparse`). Vendored alongside the script: `pyaescrypt.py` (a header-stamped 2016 copy of [pyAesCrypt 0.1.2](https://github.com/marcobellaccini/pyAesCrypt) by Marco Bellaccini) and `ijson.py`. Cut B can either reuse the vendored bundle or substitute the maintained PyPI [`pyAesCrypt 6.x`](https://pypi.org/project/pyAesCrypt/) package.
 - Reads dlist, dindex, and dblock files directly from a local folder (no R2 fetcher).
 - Builds its own SQLite index (`py-restore-index.sqlite`) by parsing the dindex JSON files; does not consume Duplicati's local DB.
 - Streams JSON via `ijson` to avoid loading the full filelist for large archives.
@@ -65,12 +63,12 @@ This script proves three things at once: (a) the dblock/dindex/dlist parsing is 
 
 Duplicati's encryption wrapper is the public, specified [AES Crypt File Format](https://www.aescrypt.com/aes_stream_format.html). Multiple third-party readers exist:
 
-| Language | Library                                                                                     | Format versions | Maintained                                        |
-| -------- | ------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------- |
-| Python   | [`pyAesCrypt`](https://github.com/marcobellaccini/pyAesCrypt) (used by `RestoreFromPython`) | v2 only         | Inactive (no release in 12+ months as of writing) |
-| Rust     | [`aescrypt-rs`](https://crates.io/crates/aescrypt-rs)                                       | v0..v3          | Actively maintained                               |
-| Go       | [`andreacioni/aescrypt`](https://pkg.go.dev/github.com/andreacioni/aescrypt)                | v1, v2          | Light-touch                                       |
-| Dart     | [`alexgoussev/aes_crypt`](https://github.com/alexgoussev/aes_crypt)                         | v2              | Active                                            |
+| Language | Library                                                                                                                   | Format versions | Maintained                    |
+| -------- | ------------------------------------------------------------------------------------------------------------------------- | --------------- | ----------------------------- |
+| Python   | [`pyAesCrypt`](https://github.com/marcobellaccini/pyAesCrypt) (vendored 0.1.2 in `RestoreFromPython`; PyPI 6.x available) | v2 only         | Last release 6.1.1 (Nov 2023) |
+| Rust     | [`aescrypt-rs`](https://crates.io/crates/aescrypt-rs)                                                                     | v0..v3          | Actively maintained           |
+| Go       | [`andreacioni/aescrypt`](https://pkg.go.dev/github.com/andreacioni/aescrypt)                                              | v1, v2          | Light-touch                   |
+| Dart     | [`alexgoussev/aes_crypt`](https://github.com/alexgoussev/aes_crypt)                                                       | v2              | Active                        |
 
 `pyAesCrypt` covers the format produced by Duplicati today (v2 default). Duplicati 2.3.0.101 added optional v3 output behind `DUPLICATI__AES_VERSION=3`; if v3 is ever turned on, switching to `aescrypt-rs` (or contributing v3 support to `pyAesCrypt`) is the migration path.
 
@@ -79,7 +77,7 @@ Duplicati's encryption wrapper is the public, specified [AES Crypt File Format](
 - **Borg**: ships `borg mount` natively (FUSE).
 - **Restic**: `restic mount` is in stable releases.
 - **Duplicacy**: still requesting FUSE ([gilbertchen/duplicacy#7](https://github.com/gilbertchen/duplicacy/issues/7)).
-- **rclone mount**: cross-platform via WinFsp; not relevant because rclone exposes encrypted volumes, not the snapshot tree.
+- **rclone mount**: cross-platform via WinFsp; not relevant because rclone has no Duplicati-format awareness, so mounting the bucket exposes the raw `*.dblock.zip.aes` ciphertext objects rather than the snapshot tree.
 
 ### 1.6 Conclusion
 
@@ -145,9 +143,9 @@ ciphertext mod         # 1 byte = inner length mod 16 (only for v2; lives in the
 final HMAC             # 32 bytes (HMAC-SHA256 of all preceding ciphertext bytes)
 ```
 
-`SharpAESCrypt` adds a non-spec PKCS-style padding check before the modulo byte; the `AES_IGNORE_PADDING_BYTES=1` environment variable disables it for interoperability with strict-spec implementations. Any third-party reader must accept input with or without that check.
+`SharpAESCrypt` adds a non-spec PKCS-style padding check before the modulo byte; the `DUPLICATI__AES_IGNORE_PADDING_BYTES=1` environment variable (read by `Duplicati.Library.Encryption.AESEncryption.GetEnvValue`, which uppercases the option key `aes-ignore-padding-bytes` and prefixes it with `DUPLICATI__`) disables it for interoperability with strict-spec implementations. Any third-party reader must accept input with or without that check.
 
-**HMAC verification is non-optional**. `EncryptingStream.cs` requires the HMAC to match; on mismatch the implementation throws and aborts. The mount must surface mismatches loudly (out of scope: zero-fill or partial output).
+**HMAC verification is non-optional**. `DecryptingStream.cs` requires the HMAC to match; on mismatch the implementation throws `HashMismatchException("Content has been tampered with, do not trust content: invalid HMAC")` and aborts. The mount must surface mismatches loudly (out of scope: zero-fill or partial output).
 
 ### 2.3 Duplicati zip volumes (after AES decryption)
 
@@ -158,6 +156,7 @@ Every zip volume contains a `manifest` JSON entry at the root with at least:
 ```json
 {
   "Version": 2,
+  "Created": "20260509T120000Z",
   "Encoding": "utf8",
   "Blocksize": 102400,
   "BlockHash": "SHA256",
@@ -185,7 +184,7 @@ Every zip volume contains a `manifest` JSON entry at the root with at least:
 
 - `manifest`: same JSON header.
 - `filelist.json`: streaming JSON array of file entries. Per-entry fields: `path`, `type` (`File`, `Folder`, `Symlink`, etc.), `size`, `hash` (full-file hash), `time` (mtime), `metahash`, `metasize`, optionally `blocklists` (array of blocklist hashes for files larger than `Blocksize`) or `blocklisthash` (single hash for medium files).
-- `control/`: rare; control files attached to a snapshot.
+- `extra/` (folder constant `CONTROL_FILES_FOLDER` in `VolumeBase.cs`): rare; control files attached to a snapshot.
 
 **Files smaller than `Blocksize`**: `hash` references the single content block directly. **Files larger**: `blocklists[i]` references a blocklist entry that decompresses to the ordered concatenation of content-block hashes. Each block hash then resolves to a dblock entry.
 
@@ -227,7 +226,7 @@ FROM File f
   JOIN Remotevolume  rv ON rv.ID         = b.VolumeID
 WHERE f.Path = :path
   AND fse.FilesetID = :version_id
-  AND rv.State IN ('Verified', 'Uploaded')
+  AND rv.State IN ('Verified', 'Uploaded')  -- excludes Temporary, Uploading, Deleting, Deleted per Duplicati.Library.Main.Enums.cs:RemoteVolumeState (six-member enum: Temporary, Uploading, Uploaded, Verified, Deleting, Deleted); these two are the states that name a remote object the local database expects to be present, but an `Uploaded`-without-`Verified` row can still 404 on R2 (see §5.2 on multipart-orphaned dblocks)
 ORDER BY be.Index;
 ```
 
@@ -271,7 +270,7 @@ WHERE fse.FilesetID = :version_id
   AND INSTR(SUBSTR(f.Path, LENGTH(:parent) + 1), '/') = 0;
 ```
 
-The `GLOB` pattern uses the path-prefix index introduced in schema migration "9. Refactor Paths.sql"; the `File` view exposes the joined path while `FileLookup` retains the prefix-deduplicated storage, so directory listings remain index-served.
+The `GLOB` pattern shown above is convenient but does not generally hit the `FileLookupPath` index, because `File.Path` is the concatenation `PathPrefix.Prefix || FileLookup.Path` exposed by the `File` view and SQLite cannot push a GLOB on a concatenated column down to either underlying index. A production reader should instead resolve `:parent` to a `PathPrefix.ID` (or pair of IDs spanning the prefix) and query `FileLookup` directly with `PrefixID = ?`, then re-join `PathPrefix` only for the final display string. Schema migration "9. Refactor Paths.sql" introduced this prefix split; the lookup speedup is unlocked by querying `FileLookup`, not by the `File` view.
 
 ### 3.5 Read-only opener safety
 
@@ -338,10 +337,10 @@ Reuse `/etc/duplicati/r2.env` (the existing rendered dotenv, mode 0400 root:root
 
 Reasons not to issue a separate read-only Cloudflare key pair:
 
-- R2 credentials cannot be scoped to a prefix without a Worker.
 - The mount is read-only by tool design; the credential surface is identical to today's `duplicati-cli` usage.
+- Cloudflare R2 supports prefix-scoped credentials natively via the [Temporary Credentials API](https://developers.cloudflare.com/r2/api/s3/temporary-credentials/) (no Worker required): a parent token plus a locally signed JWT carrying `paths.prefixPaths` yields a read-only S3 credential bound to a single bucket and prefix. If a future workflow demands tighter blast-radius isolation, this is the path; it can be added without changing the mount tools because the credential plumbs into the same S3 endpoint as the parent token.
 
-The marginal benefit of a separate read-only pair is small. If desired, a follow-up issue can scope the mount to a prefix-bound Worker; this is independent of the present decision.
+The marginal benefit of a separate read-only pair is small. The mount tools should reuse `/etc/duplicati/r2.env` by default; a prefix-scoped Temporary Credential is an optional follow-up, independent of the present decision.
 
 ### 4.2 R2 fetcher with on-disk cache
 
@@ -353,7 +352,7 @@ The marginal benefit of a separate read-only pair is small. If desired, a follow
 ### 4.3 AES decryption layer
 
 - Cut A: not needed.
-- Cut B/C: prefer `pyAesCrypt` for v2-compatibility today. Bind a feature flag `MOUNT_AES_VERSION=3` to swap to `aescrypt-rs` (or a v3-extended Python module) when upstream defaults change. Match the `AES_IGNORE_PADDING_BYTES=1` environment variable so the implementation accepts files written by both SharpAESCrypt and strict-spec implementations.
+- Cut B/C: prefer `pyAesCrypt` for v2-compatibility today. Bind a feature flag `MOUNT_AES_VERSION=3` to swap to `aescrypt-rs` (or a v3-extended Python module) when upstream defaults change. Match the `DUPLICATI__AES_IGNORE_PADDING_BYTES=1` environment variable so the implementation accepts files written by both SharpAESCrypt and strict-spec implementations.
 - Surface every HMAC mismatch as a hard `EIO` (FUSE) or stderr error (CLI). Never zero-fill; never silently truncate.
 
 ### 4.4 Zip-entry seek
@@ -539,7 +538,7 @@ Plaintext is **never** written outside the explicit output target. Decryption an
 Assume `bankdata` (`blocksize=1 MiB`, configured `dblock-size=200 MiB`, observed average dblock ~49 MiB on existing pre-override volumes).
 
 - **10 MiB file**, fully contained in one dblock: peak fetch = 49..200 MiB encrypted (one dblock); output = 10 MiB; cache holds the single dblock. Total transient = 60..210 MiB.
-- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~107 dblocks at the legacy 49 MiB average. Bytes fetched is bounded by the file size itself (~5 GiB encrypted) regardless of dblock count, because the same 5 GiB of plaintext content sits inside 5 GiB of encrypted bytes plus a few percent zip + AES wrapper overhead. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds <= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
+- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~105 dblocks at the legacy 49 MiB average. Bytes fetched is bounded by the file size itself (~5 GiB encrypted) regardless of dblock count, because the same 5 GiB of plaintext content sits inside 5 GiB of encrypted bytes plus a few percent zip + AES wrapper overhead. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds <= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
 - **50 GiB file**, single archive: 50 GiB output + 1 GiB cache = 51 GiB. Fits.
 - **Full archive restore** (theoretical, not the use case): `bankdata` is 2.67 TiB encrypted. The 107 GiB free root cannot hold this and never could; even after subtracting Duplicati's compression and dedup, the plaintext is far above the local capacity. This is the structural reason Cut A and Cut B exist: they are the only practical interface to a multi-TiB archive on this host.
 
@@ -592,16 +591,7 @@ This was a prerequisite for Cut A, Cut B, and Cut C; all three depend on the ACL
 
 The "limited local storage" constraint is more than satisfied: it is the constraint that promotes Cut A and Cut B from "ergonomics" to "the only available interface". `bankdata` is 2.67 TiB encrypted on R2 (Section 9.1). Pulling the archive in full to inspect or recover a single file is not an option on this host and would not be on any reasonably sized scratch volume either. The decisive factor for deferring Cut C remains the FUSE-semantics maintenance cost and Cut B already covering the common workflow.
 
-## 10. Documentation corrections
-
-The following local-doc statements are incorrect and should be fixed before any of the cuts ship; the misnomer obscures the actual integrity property of the format:
-
-- `docs/duplicati/security.md`, threat-model row "Backup contents readable to anyone with R2 keys": claims "AES-256-GCM keyed off `DUPLICATI_PASSPHRASE`". Replace with: "AES-256-CBC + HMAC-SHA256 (Encrypt-then-MAC, AES Crypt File Format v2; Duplicati 2.3+ supports v3 behind `DUPLICATI__AES_VERSION=3` with PBKDF2-HMAC-SHA512 KDF) keyed off `DUPLICATI_PASSPHRASE`."
-- `docs/duplicati/recovery.md`, failure-modes row "AES-GCM tag failure on download": replace "AES-GCM tag failure" with "HMAC verification failure". The integrity check is HMAC-SHA256 over CBC ciphertext, not GCM authentication.
-
-These corrections are independent of the build/defer/reject decision and can ship as a documentation-only PR.
-
-## 11. References
+## 10. References
 
 ### Local
 
