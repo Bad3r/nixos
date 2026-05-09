@@ -13,8 +13,6 @@ The output is a design decision, not an implementation. Recommendation is at the
 
 **Local-storage budget**: none of the three cuts requires downloading the full archive. Cut A is zero-byte-ingress (reads only the local SQLite that already exists on disk). Cut B and Cut C download exactly the dblocks needed to satisfy the active read; the encrypted-dblock cache is bounded and configurable (default 1 GiB). See [Section 9](#9-storage-budget).
 
-A documentation correction is also needed: local docs name the algorithm "AES-256-GCM"; the actual algorithm is AES-256-CBC + HMAC-SHA256 (Encrypt-then-MAC, AES Crypt File Format v2/v3). See [Documentation corrections](#documentation-corrections) below.
-
 ## Investigation scope
 
 The investigation answers six questions from issue #204:
@@ -145,9 +143,9 @@ ciphertext mod         # 1 byte = inner length mod 16 (only for v2; lives in the
 final HMAC             # 32 bytes (HMAC-SHA256 of all preceding ciphertext bytes)
 ```
 
-`SharpAESCrypt` adds a non-spec PKCS-style padding check before the modulo byte; the `AES_IGNORE_PADDING_BYTES=1` environment variable disables it for interoperability with strict-spec implementations. Any third-party reader must accept input with or without that check.
+`SharpAESCrypt` adds a non-spec PKCS-style padding check before the modulo byte; the `DUPLICATI__AES_IGNORE_PADDING_BYTES=1` environment variable (read by `Duplicati.Library.Encryption.AESEncryption.GetEnvValue`, which uppercases the option key `aes-ignore-padding-bytes` and prefixes it with `DUPLICATI__`) disables it for interoperability with strict-spec implementations. Any third-party reader must accept input with or without that check.
 
-**HMAC verification is non-optional**. `EncryptingStream.cs` requires the HMAC to match; on mismatch the implementation throws and aborts. The mount must surface mismatches loudly (out of scope: zero-fill or partial output).
+**HMAC verification is non-optional**. `DecryptingStream.cs` requires the HMAC to match; on mismatch the implementation throws `HashMismatchException("Content has been tampered with, do not trust content: invalid HMAC")` and aborts. The mount must surface mismatches loudly (out of scope: zero-fill or partial output).
 
 ### 2.3 Duplicati zip volumes (after AES decryption)
 
@@ -185,7 +183,7 @@ Every zip volume contains a `manifest` JSON entry at the root with at least:
 
 - `manifest`: same JSON header.
 - `filelist.json`: streaming JSON array of file entries. Per-entry fields: `path`, `type` (`File`, `Folder`, `Symlink`, etc.), `size`, `hash` (full-file hash), `time` (mtime), `metahash`, `metasize`, optionally `blocklists` (array of blocklist hashes for files larger than `Blocksize`) or `blocklisthash` (single hash for medium files).
-- `control/`: rare; control files attached to a snapshot.
+- `extra/` (folder constant `CONTROL_FILES_FOLDER` in `VolumeBase.cs`): rare; control files attached to a snapshot.
 
 **Files smaller than `Blocksize`**: `hash` references the single content block directly. **Files larger**: `blocklists[i]` references a blocklist entry that decompresses to the ordered concatenation of content-block hashes. Each block hash then resolves to a dblock entry.
 
@@ -353,7 +351,7 @@ The marginal benefit of a separate read-only pair is small. If desired, a follow
 ### 4.3 AES decryption layer
 
 - Cut A: not needed.
-- Cut B/C: prefer `pyAesCrypt` for v2-compatibility today. Bind a feature flag `MOUNT_AES_VERSION=3` to swap to `aescrypt-rs` (or a v3-extended Python module) when upstream defaults change. Match the `AES_IGNORE_PADDING_BYTES=1` environment variable so the implementation accepts files written by both SharpAESCrypt and strict-spec implementations.
+- Cut B/C: prefer `pyAesCrypt` for v2-compatibility today. Bind a feature flag `MOUNT_AES_VERSION=3` to swap to `aescrypt-rs` (or a v3-extended Python module) when upstream defaults change. Match the `DUPLICATI__AES_IGNORE_PADDING_BYTES=1` environment variable so the implementation accepts files written by both SharpAESCrypt and strict-spec implementations.
 - Surface every HMAC mismatch as a hard `EIO` (FUSE) or stderr error (CLI). Never zero-fill; never silently truncate.
 
 ### 4.4 Zip-entry seek
@@ -592,16 +590,7 @@ This was a prerequisite for Cut A, Cut B, and Cut C; all three depend on the ACL
 
 The "limited local storage" constraint is more than satisfied: it is the constraint that promotes Cut A and Cut B from "ergonomics" to "the only available interface". `bankdata` is 2.67 TiB encrypted on R2 (Section 9.1). Pulling the archive in full to inspect or recover a single file is not an option on this host and would not be on any reasonably sized scratch volume either. The decisive factor for deferring Cut C remains the FUSE-semantics maintenance cost and Cut B already covering the common workflow.
 
-## 10. Documentation corrections
-
-The following local-doc statements are incorrect and should be fixed before any of the cuts ship; the misnomer obscures the actual integrity property of the format:
-
-- `docs/duplicati/security.md`, threat-model row "Backup contents readable to anyone with R2 keys": claims "AES-256-GCM keyed off `DUPLICATI_PASSPHRASE`". Replace with: "AES-256-CBC + HMAC-SHA256 (Encrypt-then-MAC, AES Crypt File Format v2; Duplicati 2.3+ supports v3 behind `DUPLICATI__AES_VERSION=3` with PBKDF2-HMAC-SHA512 KDF) keyed off `DUPLICATI_PASSPHRASE`."
-- `docs/duplicati/recovery.md`, failure-modes row "AES-GCM tag failure on download": replace "AES-GCM tag failure" with "HMAC verification failure". The integrity check is HMAC-SHA256 over CBC ciphertext, not GCM authentication.
-
-These corrections are independent of the build/defer/reject decision and can ship as a documentation-only PR.
-
-## 11. References
+## 10. References
 
 ### Local
 
