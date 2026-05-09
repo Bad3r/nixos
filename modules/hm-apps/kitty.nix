@@ -167,7 +167,8 @@ _: {
             # kitty_mod+backspace is free for future use
             "kitty_mod+0" = "change_font_size all 0";
             "kitty_mod+e" = "kitten hints";
-            "kitty_mod+p>l" = "kitten hints --type line --program @";
+            "kitty_mod+l" = "kitten hints --type line --program @";
+            "kitty_mod+p>l" = "next_layout";
             "kitty_mod+a>m" = "set_background_opacity +0.1";
             "kitty_mod+a>l" = "set_background_opacity -0.1";
             "kitty_mod+a>1" = "set_background_opacity 1";
