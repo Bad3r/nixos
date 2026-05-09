@@ -347,7 +347,7 @@ The marginal benefit of a separate read-only pair is small. If desired, a follow
 
 - Use the same s3 client knobs as `duplicati-cli` (see `modules/services/duplicati-r2.nix` for the destination URL parameters: `use-ssl=true`, `s3-ext-disablehostprefixinjection=true`, `s3-disable-chunk-encoding=true`, `s3-client=minio`). For Python, `boto3` plus an explicit `endpoint_url` is sufficient.
 - Cache encrypted dblocks on disk under `$XDG_CACHE_HOME/duplicati-r2-mount/<host>/<slug>/<volume_name>` with mode 0600. Decrypted bytes never touch disk; decryption happens streaming on each block read.
-- LRU eviction with a configurable cap (default 4 GiB, matching `duplicati-cli` defaults).
+- LRU eviction with a configurable cap (default 1 GiB).
 - TTL-cache the SQLite query results inside the process for the lifetime of the mount session; the DB is immutable for that session by construction (`immutable=1`).
 
 ### 4.3 AES decryption layer
