@@ -15,6 +15,14 @@
         };
       };
 
+      # Bluetooth radios: disable USB autosuspend. The kernel default of 2s
+      # autosuspend combined with wakeup=disabled on the Intel 8087:0a2b
+      # radio drops HID-over-GATT peripherals (symptom: MX Master 3
+      # disconnects after idle and only re-pairing restores it).
+      services.udev.extraRules = ''
+        ACTION=="add", SUBSYSTEM=="usb", ATTR{bDeviceClass}=="e0", ATTR{bDeviceSubClass}=="01", ATTR{bDeviceProtocol}=="01", TEST=="power/control", ATTR{power/control}="on"
+      '';
+
       environment.systemPackages = lib.mkAfter [ pkgs.bluetui ];
     };
 }
