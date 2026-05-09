@@ -135,8 +135,8 @@
 
 - [usage/README.md](usage/README.md)
   - Index of user-facing documentation for specific modules and features.
-- [usage/duplicati-r2-backups.md](usage/duplicati-r2-backups.md)
-  - Duplicati backup setup for Cloudflare R2 including SOPS secrets, schedules, verification, and restore.
+- [duplicati/README.md](duplicati/README.md)
+  - Maintainer reference for the duplicati-r2 service: architecture, options, runbooks, recovery, security.
 - [usage/espanso-usage.md](usage/espanso-usage.md)
   - Espanso text expander usage including default triggers, custom matches, and troubleshooting.
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)

@@ -2,11 +2,12 @@
 
 User-facing documentation for specific modules and features.
 
-| Document                                        | Description                                            |
-| ----------------------------------------------- | ------------------------------------------------------ |
-| [Duplicati R2 Backups](duplicati-r2-backups.md) | Cloudflare R2 backup setup, restore, troubleshooting   |
-| [Espanso Usage](espanso-usage.md)               | Text expander triggers, customization, troubleshooting |
-| [Pentesting Devshell](pentesting-devshell.md)   | Security tools devshell usage and customization        |
+| Document                                      | Description                                            |
+| --------------------------------------------- | ------------------------------------------------------ |
+| [Espanso Usage](espanso-usage.md)             | Text expander triggers, customization, troubleshooting |
+| [Pentesting Devshell](pentesting-devshell.md) | Security tools devshell usage and customization        |
+
+The duplicati-r2 backup pipeline now has its own maintainer reference under [../duplicati/](../duplicati/README.md).
 
 ## Related
 
