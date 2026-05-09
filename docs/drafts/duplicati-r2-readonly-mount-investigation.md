@@ -226,7 +226,7 @@ FROM File f
   JOIN Remotevolume  rv ON rv.ID         = b.VolumeID
 WHERE f.Path = :path
   AND fse.FilesetID = :version_id
-  AND rv.State IN ('Verified', 'Uploaded')  -- excludes Temporary, Verifying, Deleting, Deleted, DeletedRemote per Enums.cs:RemoteVolumeState; only these two are guaranteed to resolve to a present remote object
+  AND rv.State IN ('Verified', 'Uploaded')  -- excludes Temporary, Uploading, Deleting, Deleted per Duplicati.Library.Main.Enums.cs:RemoteVolumeState (six-member enum: Temporary, Uploading, Uploaded, Verified, Deleting, Deleted); only Verified and Uploaded are guaranteed to resolve to a present remote object
 ORDER BY be.Index;
 ```
 
