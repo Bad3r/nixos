@@ -77,7 +77,7 @@ Duplicati's encryption wrapper is the public, specified [AES Crypt File Format](
 - **Borg**: ships `borg mount` natively (FUSE).
 - **Restic**: `restic mount` is in stable releases.
 - **Duplicacy**: still requesting FUSE ([gilbertchen/duplicacy#7](https://github.com/gilbertchen/duplicacy/issues/7)).
-- **rclone mount**: cross-platform via WinFsp; not relevant because rclone exposes encrypted volumes, not the snapshot tree.
+- **rclone mount**: cross-platform via WinFsp; not relevant because rclone has no Duplicati-format awareness, so mounting the bucket exposes the raw `*.dblock.zip.aes` ciphertext objects rather than the snapshot tree.
 
 ### 1.6 Conclusion
 
@@ -226,7 +226,7 @@ FROM File f
   JOIN Remotevolume  rv ON rv.ID         = b.VolumeID
 WHERE f.Path = :path
   AND fse.FilesetID = :version_id
-  AND rv.State IN ('Verified', 'Uploaded')
+  AND rv.State IN ('Verified', 'Uploaded')  -- excludes Temporary, Verifying, Deleting, Deleted, DeletedRemote per Enums.cs:RemoteVolumeState; only these two are guaranteed to resolve to a present remote object
 ORDER BY be.Index;
 ```
 
@@ -270,7 +270,7 @@ WHERE fse.FilesetID = :version_id
   AND INSTR(SUBSTR(f.Path, LENGTH(:parent) + 1), '/') = 0;
 ```
 
-The `GLOB` pattern uses the path-prefix index introduced in schema migration "9. Refactor Paths.sql"; the `File` view exposes the joined path while `FileLookup` retains the prefix-deduplicated storage, so directory listings remain index-served.
+The `GLOB` pattern is convenient but does not generally hit the `FileLookupPath` index, because `File.Path` is the concatenation `PathPrefix.Prefix || FileLookup.Path` exposed by the `File` view and SQLite cannot push a GLOB on a concatenated column down to either underlying index. A production reader should resolve `:parent` to a `PathPrefix.ID` (or pair of IDs spanning the prefix) and query `FileLookup` directly with `PrefixID = ?`, then re-join `PathPrefix` only for the final display string. Schema migration "9. Refactor Paths.sql" introduced this prefix split; the lookup speedup is unlocked by querying `FileLookup`, not by the `File` view.
 
 ### 3.5 Read-only opener safety
 
@@ -538,7 +538,7 @@ Plaintext is **never** written outside the explicit output target. Decryption an
 Assume `bankdata` (`blocksize=1 MiB`, configured `dblock-size=200 MiB`, observed average dblock ~49 MiB on existing pre-override volumes).
 
 - **10 MiB file**, fully contained in one dblock: peak fetch = 49..200 MiB encrypted (one dblock); output = 10 MiB; cache holds the single dblock. Total transient = 60..210 MiB.
-- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~107 dblocks at the legacy 49 MiB average. Bytes fetched is bounded by the file size itself (~5 GiB encrypted) regardless of dblock count, because the same 5 GiB of plaintext content sits inside 5 GiB of encrypted bytes plus a few percent zip + AES wrapper overhead. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds <= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
+- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~105 dblocks at the legacy 49 MiB average. Bytes fetched is bounded by the file size itself (~5 GiB encrypted) regardless of dblock count, because the same 5 GiB of plaintext content sits inside 5 GiB of encrypted bytes plus a few percent zip + AES wrapper overhead. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds <= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
 - **50 GiB file**, single archive: 50 GiB output + 1 GiB cache = 51 GiB. Fits.
 - **Full archive restore** (theoretical, not the use case): `bankdata` is 2.67 TiB encrypted. The 107 GiB free root cannot hold this and never could; even after subtracting Duplicati's compression and dedup, the plaintext is far above the local capacity. This is the structural reason Cut A and Cut B exist: they are the only practical interface to a multi-TiB archive on this host.
 
