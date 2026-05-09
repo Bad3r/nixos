@@ -700,10 +700,11 @@ let
           example = literalExpression "[ metaOwner.username ]";
           description = ''
             Usernames granted read-only POSIX ACL access to the state
-            directory and the SQLite databases inside. Existing files are
-            covered via a glob rule and new files inherit access through a
-            default ACL on the directory. The base mode stays 0700
-            root:root.
+            directory and the SQLite databases inside (including those
+            nested under per-target subdirectories). Existing files are
+            covered via depth-aware glob rules; new files inherit access
+            through default ACLs on the state directory and on each
+            per-target subdirectory. The base mode stays 0700 root:root.
           '';
         };
 
@@ -873,11 +874,12 @@ let
           };
 
           systemd.tmpfiles.rules = [
-            "d ${cfg.stateDir} 0700 root root - -"
+            ''d "${cfg.stateDir}" 0700 root root - -''
           ]
           ++ lib.concatMap (user: [
-            "A+ ${cfg.stateDir} - - - - u:${user}:rX,d:u:${user}:rX"
-            "A+ ${cfg.stateDir}/* - - - - u:${user}:rX"
+            ''A+ "${cfg.stateDir}" - - - - u:${user}:rX,d:u:${user}:rX''
+            ''A+ "${cfg.stateDir}"/* - - - - u:${user}:rX,d:u:${user}:rX''
+            ''A+ "${cfg.stateDir}"/*/* - - - - u:${user}:rX''
           ]) cfg.stateDirReadableBy;
         }
       );
