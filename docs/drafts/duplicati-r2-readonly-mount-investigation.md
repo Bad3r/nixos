@@ -11,7 +11,7 @@ The output is a design decision, not an implementation. Recommendation is at the
 - **Defer Cut C** (read-only FUSE mount): real but bounded benefit; cost dominates because the FS-semantics layer (open/read/release lifecycle, partial-range reads, caching policy) is most of the work and Cut B already covers the common operator workflow.
 - **Reject** any approach that re-derives metadata from R2 instead of reusing the per-target SQLite databases. Recreate-from-remote is heavy (`repair` against a missing DB downloads every dindex) and the local DB is already exposed by the `stateDirReadableBy` ACL.
 
-**Local-storage budget**: none of the three cuts requires downloading the full archive. Cut A is zero-byte-ingress (reads only the local SQLite that already exists on disk). Cut B and Cut C download exactly the dblocks needed to satisfy the active read; the encrypted-dblock cache is bounded and configurable (default 1 GiB). See [Section 11](#11-storage-budget).
+**Local-storage budget**: none of the three cuts requires downloading the full archive. Cut A is zero-byte-ingress (reads only the local SQLite that already exists on disk). Cut B and Cut C download exactly the dblocks needed to satisfy the active read; the encrypted-dblock cache is bounded and configurable (default 1 GiB). See [Section 9](#9-storage-budget).
 
 A documentation correction is also needed: local docs name the algorithm "AES-256-GCM"; the actual algorithm is AES-256-CBC + HMAC-SHA256 (Encrypt-then-MAC, AES Crypt File Format v2/v3). See [Documentation corrections](#documentation-corrections) below.
 
@@ -482,20 +482,20 @@ Hard constraints from issue #204 carried through:
 - **GPG-encrypted archives**: not in production; the design above is AES-only by intent.
 - **Cross-platform**: not relevant; this repo manages NixOS hosts only.
 
-## 11. Storage budget
+## 9. Storage budget
 
 The user's host (`system76`) has 107 GiB free on root. The investigation must show none of the cuts requires more than a small fraction of that for a single-file workflow.
 
-### 11.1 Production parameters (from `secrets/duplicati-config.json`)
+### 9.1 Production parameters (from `secrets/duplicati-config.json`)
 
 | Target                  | `--blocksize`     | `--dblock-size`    | Source path              |
 | ----------------------- | ----------------- | ------------------ | ------------------------ |
 | `bankdata`              | 1 MiB (override)  | 200 MiB (override) | `/bankData`              |
 | `bankdata-jim-woodring` | 100 KiB (default) | 50 MiB (default)   | `/bankData/Jim Woodring` |
 
-Both targets use the same R2 bucket `duplicati-nixos-backups` under prefix `<host>/<slug>/`. Live archive sizing requires root access to either `/etc/duplicati/r2.env` (for an R2 `LIST` call) or the per-target SQLite (currently blocked, see Section 11.6).
+Both targets use the same R2 bucket `duplicati-nixos-backups` under prefix `<host>/<slug>/`. Live archive sizing requires root access to either `/etc/duplicati/r2.env` (for an R2 `LIST` call) or the per-target SQLite (currently blocked, see Section 9.6).
 
-### 11.2 Storage cost model
+### 9.2 Storage cost model
 
 For one read of a file of plaintext size `F`, backed by `N = ceil(F / blocksize)` content blocks plus optional blocklist blocks:
 
@@ -510,7 +510,7 @@ Encrypted dblocks fetched at runtime: at most `D = min(N, ceil(F / dblock-size))
 
 Plaintext is **never** written outside the explicit output target. Decryption and zip extraction stream block bytes through process memory only.
 
-### 11.3 Per-cut concrete numbers
+### 9.3 Per-cut concrete numbers
 
 | Quantity for one read of file `F` | Cut A (list) | Cut B (extract)                       | Cut C (FUSE read)                     |
 | --------------------------------- | ------------ | ------------------------------------- | ------------------------------------- |
@@ -522,7 +522,7 @@ Plaintext is **never** written outside the explicit output target. Decryption an
 
 `bankdata` worst-case dblock size is 200 MiB; `bankdata-jim-woodring` is 50 MiB. Either fits in process memory comfortably.
 
-### 11.4 Worked examples
+### 9.4 Worked examples
 
 Assume `bankdata` (`blocksize=1 MiB`, `dblock-size=200 MiB`).
 
@@ -531,7 +531,7 @@ Assume `bankdata` (`blocksize=1 MiB`, `dblock-size=200 MiB`).
 - **50 GiB file**, single archive: 50 GiB output + 1 GiB cache = 51 GiB. Fits.
 - **A single backup target's full restore** (theoretical, not the use case): would equal source size. With 107 GiB free, a target larger than 100 GiB cannot be fully restored locally; this is exactly why partial extract / FUSE matters and confirms the approach.
 
-### 11.5 Cache strategy
+### 9.5 Cache strategy
 
 The cache is an optimisation, never a requirement.
 
@@ -541,7 +541,7 @@ The cache is an optimisation, never a requirement.
 
 Cache lives at `$XDG_CACHE_HOME/duplicati-r2-mount/<host>/<slug>/`, mode 0700. Eviction policy is dblock-granular LRU; a partial dblock is never persisted (decrypts must complete before insertion to keep HMAC integrity meaningful).
 
-### 11.6 Side-finding: state-dir ACL was masked to `---` (fixed in this branch)
+### 9.6 Side-finding: state-dir ACL was masked to `---` (fixed in this branch)
 
 Pre-fix, the ACL on `/var/lib/duplicati-r2/` looked like this:
 
@@ -572,7 +572,7 @@ sudo find /var/lib/duplicati-r2 -type d -exec setfacl -d -m m::r-x {} +
 
 This was a prerequisite for Cut A, Cut B, and Cut C; all three depend on the ACL working.
 
-### 11.7 Conclusion: storage is not a blocker
+### 9.7 Conclusion: storage is not a blocker
 
 - Cut A: zero R2 download, zero plaintext on disk. Works today on 107 GiB free.
 - Cut B: per-file fetch ceiling = output file size + cache cap. With default 1 GiB cache, any single file up to ~100 GiB extracts comfortably.
@@ -580,7 +580,7 @@ This was a prerequisite for Cut A, Cut B, and Cut C; all three depend on the ACL
 
 The "limited local storage" constraint is satisfied by all three cuts. The earlier recommendation (build A, build B, defer C) stands; the storage budget is not the deciding factor between B and C. The decisive factor for deferring C remains the FUSE-semantics maintenance cost and Cut B already covering the common workflow.
 
-## 9. Documentation corrections
+## 10. Documentation corrections
 
 The following local-doc statements are incorrect and should be fixed before any of the cuts ship; the misnomer obscures the actual integrity property of the format:
 
@@ -589,7 +589,7 @@ The following local-doc statements are incorrect and should be fixed before any 
 
 These corrections are independent of the build/defer/reject decision and can ship as a documentation-only PR.
 
-## 10. References
+## 11. References
 
 ### Local
 
