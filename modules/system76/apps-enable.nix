@@ -29,7 +29,7 @@
       "ast-grep".extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
       "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
-      awscli2.extended.enable = lib.mkOverride 1100 false;
+      awscli2.extended.enable = lib.mkOverride 1100 true;
       azd.extended.enable = lib.mkOverride 1100 true;
       "azure-cli".extended.enable = lib.mkOverride 1100 true;
       b3sum.extended.enable = lib.mkOverride 1100 true;
