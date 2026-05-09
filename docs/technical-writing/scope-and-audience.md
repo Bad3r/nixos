@@ -12,7 +12,7 @@
 
 - Match content to user need: getting-started for discovery to first action, how-to for a specific task, reference for lookup, conceptual for understanding, troubleshooting for fixing.
 - Each document MUST serve exactly one type; mixed types signal that the document needs to be split.
-- A how-to MUST fit in ≤10 numbered steps; longer procedures indicate product complexity that should be questioned, not documented around.
+- A how-to MUST fit in 10 or fewer numbered steps; longer procedures indicate product complexity that should be questioned, not documented around.
 - Prerequisites MUST be stated upfront ("requires admin access", "requires Nix 2.18+"); they act as an early filter for the wrong audience.
 - Reference docs SHOULD be auto-generated from source (OpenAPI specs, doc comments, type signatures); hand-maintained reference decays faster than the code it describes.
 - Troubleshooting and error-message tables MUST be searchable by the exact error string; users paste error text into search, not paraphrases.
