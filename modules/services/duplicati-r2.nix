@@ -877,9 +877,14 @@ let
             ''d "${cfg.stateDir}" 0700 root root - -''
           ]
           ++ lib.concatMap (user: [
-            ''A+ "${cfg.stateDir}" - - - - u:${user}:rX,d:u:${user}:rX''
-            ''A+ "${cfg.stateDir}"/* - - - - u:${user}:rX,d:u:${user}:rX''
-            ''A+ "${cfg.stateDir}"/*/* - - - - u:${user}:rX''
+            # Each named-user grant must be paired with an explicit mask, otherwise
+            # the kernel computes mask::--- from the empty group bits on a 0700
+            # directory and the named user's effective permissions collapse to ---.
+            # Default-ACL entries inherit to children, so files duplicati creates
+            # mode 0600 root:root remain readable through the inherited u:<user>:r--.
+            ''A+ "${cfg.stateDir}" - - - - u:${user}:rX,m::r-x,d:u:${user}:rX,d:m::r-x''
+            ''A+ "${cfg.stateDir}"/* - - - - u:${user}:rX,m::r-x,d:u:${user}:rX,d:m::r-x''
+            ''A+ "${cfg.stateDir}"/*/* - - - - u:${user}:rX,m::r-x''
           ]) cfg.stateDirReadableBy;
         }
       );
