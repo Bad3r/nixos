@@ -15,7 +15,7 @@ Fast diagnosis for integration-specific failures between this repo and
 
 ## Not Covered
 
-- Duplicati-specific issues (`docs/usage/duplicati-r2-backups.md`)
+- Duplicati-specific issues (`docs/duplicati/`)
 - Producer-repo CI/workflow failures
 
 ## Symptom: Missing `r2` options during eval/build
