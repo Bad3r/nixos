@@ -37,12 +37,13 @@ The `.sops.yaml` rule that selects the host age key keys off the secrets path. U
 
 ## State directory access
 
-The default mode for `services.duplicati-r2.stateDir` is 0700 root:root. The systemd-tmpfiles rule that creates it does not relax the base mode. Maintainer access is granted through `stateDirReadableBy`, which appends two POSIX ACL rules:
+The default mode for `services.duplicati-r2.stateDir` is 0700 root:root. The systemd-tmpfiles rule that creates it does not relax the base mode. Maintainer access is granted through `stateDirReadableBy`, which appends three POSIX ACL rules per listed user (the inline-mode layout nests SQLite databases at `<stateDir>/<target>/duplicati-r2-<slug>.sqlite`, so coverage is split by depth):
 
-| Rule                                              | Effect                                                                                                                           |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `A+ <stateDir> - - - - u:<user>:rX,d:u:<user>:rX` | Grants `<user>` read+traverse on the directory itself, and sets a default ACL so newly created SQLite files inherit read access. |
-| `A+ <stateDir>/* - - - - u:<user>:rX`             | Applies the same read access to files already present at activation time.                                                        |
+| Rule                                                | Effect                                                                                                                                                       |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `A+ <stateDir> - - - - u:<user>:rX,d:u:<user>:rX`   | Grants `<user>` read+traverse on the state directory itself, and sets a default ACL so files and subdirectories created directly inside inherit read access. |
+| `A+ <stateDir>/* - - - - u:<user>:rX,d:u:<user>:rX` | Applies the same access ACL plus default ACL to existing per-target subdirectories so SQLite files duplicati creates inside them inherit read access.        |
+| `A+ <stateDir>/*/* - - - - u:<user>:rX`             | Applies the access ACL to SQLite files already present in per-target subdirectories at activation time.                                                      |
 
 Result: the directory remains `drwx------` at the mode level; an `ls -l` shows a `+` indicator denoting the ACL extension. Duplicati continues to create the SQLite files as root, but listed users can `cat` them and open them read-only with `sqlite3 'file:<path>?mode=ro&immutable=1'`.
 
