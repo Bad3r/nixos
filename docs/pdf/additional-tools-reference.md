@@ -36,7 +36,7 @@ Each entry lists a representative invocation, optional additional invocations, u
   - run..: `uv run --with pymupdf4llm python -c 'import pymupdf4llm; print(pymupdf4llm.to_markdown("report.pdf"))'`
   - More..:
     - chunks: `uv run --with pymupdf4llm python -c 'import pymupdf4llm; print(pymupdf4llm.to_markdown("report.pdf", page_chunks=True))'`
-    - llama: `uv run --with pymupdf4llm python -c 'import pymupdf4llm; pymupdf4llm.LlamaMarkdownReader().load_data("report.pdf")'`
+    - llama: `uv run --with pymupdf4llm --with llama-index python -c 'import pymupdf4llm; pymupdf4llm.LlamaMarkdownReader().load_data("report.pdf")'`
   - Repo.: <https://github.com/pymupdf/RAG>
   - Docs.: <https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/>
   - Desc.: Fast PDF-to-Markdown extraction built on `pymupdf` with helpers for LLaMA Index, LangChain, and page-level chunking. Python-only; no native CLI.
