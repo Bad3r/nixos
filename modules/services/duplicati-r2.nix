@@ -62,6 +62,16 @@ let
         { name, ... }:
         {
           options = {
+            enable = mkOption {
+              type = types.bool;
+              default = true;
+              description = ''
+                Whether target ${name} is active. When false, the generator
+                skips this target so no backup or verification units are
+                created for it. Existing remote backups are not touched.
+              '';
+            };
+
             source = mkOption {
               type = types.path;
               description = "Absolute path that Duplicati should back up for target ${name}.";
@@ -156,6 +166,7 @@ let
             targets = mapAttrs (name: target: {
               path = toString target.source;
               inherit (target)
+                enable
                 onCalendar
                 retention
                 extraArgs
@@ -537,6 +548,11 @@ let
           for encoded in "''${entries[@]}"; do
             entry=$(echo "$encoded" | base64 --decode)
             slug=$(echo "$entry" | jq -r '.key')
+            enable=$(echo "$entry" | jq -r '.value.enable')
+            if [ "$enable" = "false" ]; then
+              echo "duplicati-r2 generator: target $slug disabled, skipping" >&2
+              continue
+            fi
             schedule=$(echo "$entry" | jq -r '.value.onCalendar // .value.schedule // empty')
             [ -n "$schedule" ] || {
               echo "duplicati-r2 generator: target $slug missing onCalendar" >&2
@@ -676,6 +692,19 @@ let
           type = types.path;
           default = "/var/lib/duplicati-r2";
           description = "Root directory for Duplicati state (per-target SQLite databases).";
+        };
+
+        stateDirReadableBy = mkOption {
+          type = types.listOf types.str;
+          default = [ ];
+          example = literalExpression "[ metaOwner.username ]";
+          description = ''
+            Usernames granted read-only POSIX ACL access to the state
+            directory and the SQLite databases inside. Existing files are
+            covered via a glob rule and new files inherit access through a
+            default ACL on the directory. The base mode stays 0700
+            root:root.
+          '';
         };
 
         bucket = mkOption {
@@ -845,7 +874,11 @@ let
 
           systemd.tmpfiles.rules = [
             "d ${cfg.stateDir} 0700 root root - -"
-          ];
+          ]
+          ++ lib.concatMap (user: [
+            "A+ ${cfg.stateDir} - - - - u:${user}:rX,d:u:${user}:rX"
+            "A+ ${cfg.stateDir}/* - - - - u:${user}:rX"
+          ]) cfg.stateDirReadableBy;
         }
       );
     };

@@ -1,4 +1,9 @@
-{ lib, secretsRoot, ... }:
+{
+  lib,
+  metaOwner,
+  secretsRoot,
+  ...
+}:
 let
   manifestFile = "${secretsRoot}/duplicati-config.json";
   credentialsFile = "${secretsRoot}/duplicati-r2.yaml";
@@ -11,6 +16,7 @@ in
         services.duplicati-r2 = {
           enable = true; # Secrets are handled via sops-nix
           configFile = manifestFile;
+          stateDirReadableBy = [ metaOwner.username ];
         };
       })
       (lib.mkIf (!duplicatiSecretsReady) {
