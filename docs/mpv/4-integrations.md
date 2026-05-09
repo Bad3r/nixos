@@ -29,7 +29,7 @@ opus, flac, etc.). Updating the list in the helper updates every consumer.
 
 Setting `<host>.defaults.audioPlayer = "mpv"` or `videoPlayer = "mpv"` while
 `programs.mpv.extended.enable` is `false` fails the build with the assertion
-in `modules/<host>/default-apps.nix`; see [troubleshooting.md](6. troubleshooting.md)
+in `modules/<host>/default-apps.nix`; see [troubleshooting.md](6-troubleshooting.md)
 for the failure mode and the two resolutions.
 
 Only `videoPlayer` exports an environment variable (`VIDEO_PLAYER`), because
@@ -48,7 +48,7 @@ DBus MPRIS interface. Pairing it with the `playerctl` app module gives:
 
 `mpvScripts.mpris` is declared in the HM module's `programs.mpv.scripts` list,
 which wraps the mpv binary with `--script=` flags so the script loads at runtime.
-See [scripts-and-bindings.md](3. scripts-and-bindings.md) for the full script
+See [scripts-and-bindings.md](3-scripts-and-bindings.md) for the full script
 loading model.
 
 ## The `media-toolchain` Bundle
@@ -102,6 +102,6 @@ live under `<video_dir>/.cache/`.
 
 ## Where to Look Next
 
-- For the mpv configuration values themselves: [configuration.md](2. configuration.md).
+- For the mpv configuration values themselves: [configuration.md](2-configuration.md).
 - For extending or replacing any of these integrations on a single host:
-  [customizing.md](5. customizing.md).
+  [customizing.md](5-customizing.md).

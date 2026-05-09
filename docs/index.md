@@ -77,19 +77,19 @@
 
 ## mpv
 
-- [mpv/0. README.md](mpv/0. README.md)
+- [mpv/README.md](mpv/README.md)
   - Index for the mpv documentation set covering module composition, configuration, scripts, integrations, customization, and troubleshooting.
-- [mpv/1. architecture.md](mpv/1. architecture.md)
+- [mpv/1-architecture.md](mpv/1-architecture.md)
   - Module layering, aggregator namespaces, host gating, and the NixOS-to-Home-Manager activation contract.
-- [mpv/2. configuration.md](mpv/2. configuration.md)
+- [mpv/2-configuration.md](mpv/2-configuration.md)
   - Reference for every key the Home Manager mpv module writes to `mpv.conf` with rationale for non-default values.
-- [mpv/3. scripts-and-bindings.md](mpv/3. scripts-and-bindings.md)
+- [mpv/3-scripts-and-bindings.md](mpv/3-scripts-and-bindings.md)
   - Script loading model (the `extraScripts` vs HM `scripts` distinction), bundled scripts, the inline Lua hooks, and the keybindings table.
-- [mpv/4. integrations.md](mpv/4. integrations.md)
+- [mpv/4-integrations.md](mpv/4-integrations.md)
   - XDG MIME defaults, MPRIS via playerctl, the orthogonal `media-toolchain` bundle, the `open-in-mpv` browser bridge, and the `video-cache` helper.
-- [mpv/5. customizing.md](mpv/5. customizing.md)
+- [mpv/5-customizing.md](mpv/5-customizing.md)
   - Patterns for adding scripts, overriding configuration keys, replacing the package, layering personal overrides, and opting out per host.
-- [mpv/6. troubleshooting.md](mpv/6. troubleshooting.md)
+- [mpv/6-troubleshooting.md](mpv/6-troubleshooting.md)
   - MIME default-assertion failures, codec gaps, and silent hwdec fallback.
 
 ## Packaging

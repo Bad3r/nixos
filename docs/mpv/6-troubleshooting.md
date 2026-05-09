@@ -19,7 +19,7 @@ plugin sets) that fills most gaps.
 ### Resolution
 
 Enable the `media-toolchain` app module on the host. See
-[integrations.md](4. integrations.md). If the file still fails, it is likely a
+[integrations.md](4-integrations.md). If the file still fails, it is likely a
 codec that is not in nixpkgs at all and must be supplied via a custom build.
 
 ## MIME Default Assertion Fails
@@ -81,6 +81,6 @@ to confirm the relevant kernel module and userspace driver are present.
 
 ## Where to Look Next
 
-- For the keys that drive these behaviors: [configuration.md](2. configuration.md).
-- For overriding any of them on a single host: [customizing.md](5. customizing.md).
-- For the integration points that interact with mpv: [integrations.md](4. integrations.md).
+- For the keys that drive these behaviors: [configuration.md](2-configuration.md).
+- For overriding any of them on a single host: [customizing.md](5-customizing.md).
+- For the integration points that interact with mpv: [integrations.md](4-integrations.md).

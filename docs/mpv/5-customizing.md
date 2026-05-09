@@ -53,7 +53,7 @@ Packaged script via HM (per-host, additive):
 
 The list merges with the values set by the shared HM mpv module, so the
 scripts hardcoded by that module remain active alongside the additions; see
-[scripts-and-bindings.md](3. scripts-and-bindings.md) for the canonical
+[scripts-and-bindings.md](3-scripts-and-bindings.md) for the canonical
 list. Note that `modernz` is already an OSC replacement, so adding `uosc`
 would stack two OSC implementations; pick one or disable the other.
 
@@ -168,6 +168,6 @@ This is appropriate for taste-driven knobs (volume, OSC behavior).
 
 ## Where to Look Next
 
-- For the list of keys that can be overridden: [configuration.md](2. configuration.md).
-- For what scripts and bindings are active by default: [scripts-and-bindings.md](3. scripts-and-bindings.md).
-- For known issues that may require a customization: [troubleshooting.md](6. troubleshooting.md).
+- For the list of keys that can be overridden: [configuration.md](2-configuration.md).
+- For what scripts and bindings are active by default: [scripts-and-bindings.md](3-scripts-and-bindings.md).
+- For known issues that may require a customization: [troubleshooting.md](6-troubleshooting.md).

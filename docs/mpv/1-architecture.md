@@ -124,7 +124,7 @@ GStreamer plugin sets. It is enabled on hosts that want a broad codec
 toolchain. Because it adds `mpv` directly to `environment.systemPackages`, the
 mpv binary is present even on hosts where `programs.mpv.extended.enable` is
 `false`. In that scenario the user runs upstream-default mpv with no managed
-configuration files. See [integrations.md](4. integrations.md) for the
+configuration files. See [integrations.md](4-integrations.md) for the
 implications.
 
 The media bundle is being phased out in favor of independent modules; its
@@ -132,7 +132,7 @@ behavior here is documented as it stands today.
 
 ## Where to Look Next
 
-- For the full set of values written into `mpv.conf`: [configuration.md](2. configuration.md).
-- For how scripts are loaded and which ones ship enabled: [scripts-and-bindings.md](3. scripts-and-bindings.md).
+- For the full set of values written into `mpv.conf`: [configuration.md](2-configuration.md).
+- For how scripts are loaded and which ones ship enabled: [scripts-and-bindings.md](3-scripts-and-bindings.md).
 - For MIME wiring, MPRIS, browser integration, and the playlist helper:
-  [integrations.md](4. integrations.md).
+  [integrations.md](4-integrations.md).

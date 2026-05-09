@@ -25,7 +25,7 @@ knobs for script packages:
 - `xdg.configFile."mpv/scripts/<name>.lua"` (HM): Drops a raw Lua file into
   `~/.config/mpv/scripts/`. mpv loads it at startup.
 
-See [customizing.md](5. customizing.md) for usage patterns.
+See [customizing.md](5-customizing.md) for usage patterns.
 
 ## MPV Bundled Scripts
 
@@ -48,7 +48,7 @@ One package is listed in the HM `scripts` block but commented out pending
 follow-up evaluation: `mpvScripts.autoload` (auto-queue the next file in the
 directory). It does not load until the comment is removed.
 
-To enable or disable any of them or add more, see [customizing.md](5. customizing.md).
+To enable or disable any of them or add more, see [customizing.md](5-customizing.md).
 
 ## Inline Lua Hooks
 
@@ -143,6 +143,6 @@ The HM module writes the following entries to `~/.config/mpv/input.conf` via
 
 ## Where to Look Next
 
-- For settings written into `mpv.conf`: [configuration.md](2. configuration.md).
-- For MIME wiring, MPRIS, and the media bundle: [integrations.md](4. integrations.md).
-- For overriding scripts and bindings per host: [customizing.md](5. customizing.md).
+- For settings written into `mpv.conf`: [configuration.md](2-configuration.md).
+- For MIME wiring, MPRIS, and the media bundle: [integrations.md](4-integrations.md).
+- For overriding scripts and bindings per host: [customizing.md](5-customizing.md).
