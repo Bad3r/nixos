@@ -278,12 +278,12 @@ The `GLOB` pattern uses the path-prefix index introduced in schema migration "9.
 The `services.duplicati-r2.stateDirReadableBy` ACL appends three POSIX ACL rules (in `modules/services/duplicati-r2.nix`, `systemd.tmpfiles.rules` block):
 
 ```
-A+ <stateDir>      - - - - u:<user>:rX,d:u:<user>:rX
-A+ <stateDir>/*    - - - - u:<user>:rX,d:u:<user>:rX
-A+ <stateDir>/*/*  - - - - u:<user>:rX
+A+ <stateDir>      - - - - u:<user>:rX,m::r-x,d:u:<user>:rX,d:m::r-x
+A+ <stateDir>/*    - - - - u:<user>:rX,m::r-x,d:u:<user>:rX,d:m::r-x
+A+ <stateDir>/*/*  - - - - u:<user>:rX,m::r-x
 ```
 
-The maintainer gets read access to the SQLite file but **not** to the WAL/SHM sidecar files (which `duplicati-cli` may create when journaling). Consequences:
+The maintainer gets read access to the SQLite file and to the WAL/SHM sidecar files `duplicati-cli` may create alongside it. The default ACL propagates `u:<user>:rX` to descendants; the kernel's create-mode mask filter would otherwise collapse the inherited mask to `---` on every newly-created mode-0600 file, so the explicit `m::r-x` and the backup script's post-run `setfacl -R -m m::r-x` keep the named-user grant effective (see §9.6). Consequences:
 
 - `mode=ro` alone is insufficient: SQLite still wants to acquire a shared lock on the WAL, which requires write on the directory.
 - `mode=ro&immutable=1` is the correct choice. SQLite skips lock acquisition and WAL replay entirely; the database is treated as a frozen snapshot.
