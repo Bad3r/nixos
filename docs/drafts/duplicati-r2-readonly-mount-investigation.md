@@ -226,7 +226,7 @@ FROM File f
   JOIN Remotevolume  rv ON rv.ID         = b.VolumeID
 WHERE f.Path = :path
   AND fse.FilesetID = :version_id
-  AND rv.State IN ('Verified', 'Uploaded')  -- excludes Temporary, Uploading, Deleting, Deleted per Duplicati.Library.Main.Enums.cs:RemoteVolumeState (six-member enum: Temporary, Uploading, Uploaded, Verified, Deleting, Deleted); only Verified and Uploaded are guaranteed to resolve to a present remote object
+  AND rv.State IN ('Verified', 'Uploaded')  -- excludes Temporary, Uploading, Deleting, Deleted per Duplicati.Library.Main.Enums.cs:RemoteVolumeState (six-member enum: Temporary, Uploading, Uploaded, Verified, Deleting, Deleted); these two are the states that name a remote object the local database expects to be present, but an `Uploaded`-without-`Verified` row can still 404 on R2 (see §5.2 on multipart-orphaned dblocks)
 ORDER BY be.Index;
 ```
 
