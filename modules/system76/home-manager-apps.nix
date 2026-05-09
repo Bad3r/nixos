@@ -4,6 +4,7 @@ let
     "act"
     "atuin"
     "autorandr"
+    "awscli2"
     "bat"
     "bottom"
     "bun"
