@@ -31,6 +31,7 @@
           "vic/import-tree"
 
           # Documentation
+          "duplicati/documentation"
           "github/docs"
           "i3/i3.github.io"
 
