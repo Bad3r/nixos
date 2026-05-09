@@ -47,6 +47,8 @@ The generator is the only piece that runs at activation. After it exits, all bac
 
 Cross-reference: the host composition pattern that imports this module is described in [../architecture/05-host-composition.md](../architecture/05-host-composition.md).
 
+Upstream documentation: the [`duplicati/documentation`](https://github.com/duplicati/documentation) source is mirrored locally at `/data/git/duplicati-documentation` for offline lookup of `duplicati-cli` flags, manifest fields, and the backup format. Sync is managed per host via `programs.gitMirror.repos`; see [../reference/local-mirrors.md](../reference/local-mirrors.md).
+
 ## Operating invariants
 
 - One R2 bucket holds backups for every host. Per-host isolation is by prefix (`<host>/`), per-target isolation is by sub-prefix (`<slug>/`).
