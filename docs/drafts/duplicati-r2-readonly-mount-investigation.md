@@ -43,7 +43,7 @@ No FUSE driver has been merged. The companion request for an in-browser file pre
 `Tools/Commandline/RestoreFromPython/restore_from_python.py` in the upstream repo is the closest precedent for an in-language reader. Properties:
 
 - Pure Python, no .NET dependency.
-- Dependencies: [`pyAesCrypt`](https://github.com/marcobellaccini/pyAesCrypt), `ijson`, `zipfile`, `sqlite3`, `hashlib`, plus stdlib helpers.
+- External dependencies: [`pycryptodome`](https://www.pycryptodome.org/) (`Crypto.Cipher.AES`, `Crypto.Hash.SHA256`, `Crypto.Hash.HMAC`); the rest is stdlib (`zipfile`, `sqlite3`, `hashlib`, `base64`, `argparse`). Vendored alongside the script: `pyaescrypt.py` (a header-stamped 2016 copy of [pyAesCrypt 0.1.2](https://github.com/marcobellaccini/pyAesCrypt) by Marco Bellaccini) and `ijson.py`. Cut B can either reuse the vendored bundle or substitute the maintained PyPI [`pyAesCrypt 6.x`](https://pypi.org/project/pyAesCrypt/) package.
 - Reads dlist, dindex, and dblock files directly from a local folder (no R2 fetcher).
 - Builds its own SQLite index (`py-restore-index.sqlite`) by parsing the dindex JSON files; does not consume Duplicati's local DB.
 - Streams JSON via `ijson` to avoid loading the full filelist for large archives.
@@ -63,12 +63,12 @@ This script proves three things at once: (a) the dblock/dindex/dlist parsing is 
 
 Duplicati's encryption wrapper is the public, specified [AES Crypt File Format](https://www.aescrypt.com/aes_stream_format.html). Multiple third-party readers exist:
 
-| Language | Library                                                                                     | Format versions | Maintained                                        |
-| -------- | ------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------- |
-| Python   | [`pyAesCrypt`](https://github.com/marcobellaccini/pyAesCrypt) (used by `RestoreFromPython`) | v2 only         | Inactive (no release in 12+ months as of writing) |
-| Rust     | [`aescrypt-rs`](https://crates.io/crates/aescrypt-rs)                                       | v0..v3          | Actively maintained                               |
-| Go       | [`andreacioni/aescrypt`](https://pkg.go.dev/github.com/andreacioni/aescrypt)                | v1, v2          | Light-touch                                       |
-| Dart     | [`alexgoussev/aes_crypt`](https://github.com/alexgoussev/aes_crypt)                         | v2              | Active                                            |
+| Language | Library                                                                                                                   | Format versions | Maintained                    |
+| -------- | ------------------------------------------------------------------------------------------------------------------------- | --------------- | ----------------------------- |
+| Python   | [`pyAesCrypt`](https://github.com/marcobellaccini/pyAesCrypt) (vendored 0.1.2 in `RestoreFromPython`; PyPI 6.x available) | v2 only         | Last release 6.1.1 (Nov 2023) |
+| Rust     | [`aescrypt-rs`](https://crates.io/crates/aescrypt-rs)                                                                     | v0..v3          | Actively maintained           |
+| Go       | [`andreacioni/aescrypt`](https://pkg.go.dev/github.com/andreacioni/aescrypt)                                              | v1, v2          | Light-touch                   |
+| Dart     | [`alexgoussev/aes_crypt`](https://github.com/alexgoussev/aes_crypt)                                                       | v2              | Active                        |
 
 `pyAesCrypt` covers the format produced by Duplicati today (v2 default). Duplicati 2.3.0.101 added optional v3 output behind `DUPLICATI__AES_VERSION=3`; if v3 is ever turned on, switching to `aescrypt-rs` (or contributing v3 support to `pyAesCrypt`) is the migration path.
 
@@ -156,6 +156,7 @@ Every zip volume contains a `manifest` JSON entry at the root with at least:
 ```json
 {
   "Version": 2,
+  "Created": "20260509T120000Z",
   "Encoding": "utf8",
   "Blocksize": 102400,
   "BlockHash": "SHA256",
@@ -336,10 +337,10 @@ Reuse `/etc/duplicati/r2.env` (the existing rendered dotenv, mode 0400 root:root
 
 Reasons not to issue a separate read-only Cloudflare key pair:
 
-- R2 credentials cannot be scoped to a prefix without a Worker.
 - The mount is read-only by tool design; the credential surface is identical to today's `duplicati-cli` usage.
+- Cloudflare R2 supports prefix-scoped credentials natively via the [Temporary Credentials API](https://developers.cloudflare.com/r2/api/s3/temporary-credentials/) (no Worker required): a parent token plus a locally signed JWT carrying `paths.prefixPaths` yields a read-only S3 credential bound to a single bucket and prefix. If a future workflow demands tighter blast-radius isolation, this is the path; it can be added without changing the mount tools because the credential plumbs into the same S3 endpoint as the parent token.
 
-The marginal benefit of a separate read-only pair is small. If desired, a follow-up issue can scope the mount to a prefix-bound Worker; this is independent of the present decision.
+The marginal benefit of a separate read-only pair is small. The mount tools should reuse `/etc/duplicati/r2.env` by default; a prefix-scoped Temporary Credential is an optional follow-up, independent of the present decision.
 
 ### 4.2 R2 fetcher with on-disk cache
 
