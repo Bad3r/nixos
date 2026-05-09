@@ -4,13 +4,13 @@ Threat model, secret layout, state-directory access controls, credential rotatio
 
 ## Threat model
 
-| Concern                                               | Mitigation                                                                                                                                                                      |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Plaintext credentials at rest in Git                  | All credentials are encrypted under SOPS with the host age key (`secrets/duplicati-r2.yaml`). Plaintext only materializes at runtime under `/etc/duplicati/r2.env` (mode 0400). |
-| Manifest exposes paths and schedules                  | Encrypted with SOPS in binary mode (`secrets/duplicati-config.json`). Plaintext only at runtime under `/run/duplicati-r2/config.json` (mode 0400, on tmpfs).                    |
-| Backup contents readable to anyone with R2 keys       | Duplicati encrypts every volume client-side with AES-256-GCM keyed off `DUPLICATI_PASSPHRASE`. R2 only ever holds ciphertext.                                                   |
-| Local DB metadata exposes file layout                 | `services.duplicati-r2.stateDir` defaults to `/var/lib/duplicati-r2`, mode 0700 root:root. Reader access is opt-in via `stateDirReadableBy` (POSIX ACLs, not mode broadening).  |
-| In-flight uploads orphaned by a crash get auto-pruned | The bucket-default lifecycle rule (abort-incomplete-multipart) is removed. See [Bucket lifecycle caveat](#bucket-lifecycle-caveat).                                             |
+| Concern                                               | Mitigation                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plaintext credentials at rest in Git                  | All credentials are encrypted under SOPS with the host age key (`secrets/duplicati-r2.yaml`). Plaintext only materializes at runtime under `/etc/duplicati/r2.env` (mode 0400).                                                                                                           |
+| Manifest exposes paths and schedules                  | Encrypted with SOPS in binary mode (`secrets/duplicati-config.json`). Plaintext only at runtime under `/run/duplicati-r2/config.json` (mode 0400, on tmpfs).                                                                                                                              |
+| Backup contents readable to anyone with R2 keys       | Duplicati encrypts every volume client-side with AES-256-CBC + HMAC-SHA256 (Encrypt-then-MAC, AES Crypt File Format v2; v3 with PBKDF2-HMAC-SHA512 KDF is opt-in via `DUPLICATI__AES_VERSION=3` on Duplicati 2.3.0.101+) keyed off `DUPLICATI_PASSPHRASE`. R2 only ever holds ciphertext. |
+| Local DB metadata exposes file layout                 | `services.duplicati-r2.stateDir` defaults to `/var/lib/duplicati-r2`, mode 0700 root:root. Reader access is opt-in via `stateDirReadableBy` (POSIX ACLs, not mode broadening).                                                                                                            |
+| In-flight uploads orphaned by a crash get auto-pruned | The bucket-default lifecycle rule (abort-incomplete-multipart) is removed. See [Bucket lifecycle caveat](#bucket-lifecycle-caveat).                                                                                                                                                       |
 
 ## SOPS layout
 
