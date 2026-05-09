@@ -243,6 +243,7 @@ Pause, summarize the issue, and ask for direction.
 | Stylix         | `/data/git/nix-community-stylix`       | Inspect source or apply local patches.                         |
 | Home Manager   | `/data/git/nix-community-home-manager` | Review module behavior or backport fixes.                      |
 | i3 Docs        | `/data/git/i3-i3.github.io`            | Reference i3 documentation offline.                            |
+| Duplicati Docs | `/data/git/duplicati-documentation`    | Look up `duplicati-cli` commands, options, or backup format.   |
 | nixpkgs        | `/data/git/NixOS-nixpkgs`              | Inspect/patch upstream expressions.                            |
 | nixos-hardware | `/data/git/NixOS-nixos-hardware`       | Pull hardware profiles and troubleshoot host hardware options. |
 | nixvim         | `/data/git/nix-community-nixvim`       | Examine NixVim modules and options.                            |
