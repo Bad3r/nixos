@@ -131,6 +131,21 @@
 - [system76/system76-troubleshooting.md](system76/system76-troubleshooting.md)
   - Troubleshooting guide covering thermal management, crash diagnostics, fan issues, and stress testing.
 
+## Technical Writing
+
+- [technical-writing/scope-and-audience.md](technical-writing/scope-and-audience.md)
+  - Rules for audience definition, content type selection, and information architecture.
+- [technical-writing/drafting.md](technical-writing/drafting.md)
+  - Rules for titles, structure, voice, paragraphs, lists, and callouts.
+- [technical-writing/editing.md](technical-writing/editing.md)
+  - Rules for multi-pass editing, peer review, and feedback discipline.
+- [technical-writing/code-samples.md](technical-writing/code-samples.md)
+  - Rules for sample trustworthiness, conciseness, naming, and autogeneration.
+- [technical-writing/visual-content.md](technical-writing/visual-content.md)
+  - Rules for diagram comprehension, accessibility, screenshots, and video.
+- [technical-writing/lifecycle.md](technical-writing/lifecycle.md)
+  - Rules for publishing, feedback triage, measurement, maintenance, and deprecation.
+
 ## Usage
 
 - [usage/README.md](usage/README.md)
