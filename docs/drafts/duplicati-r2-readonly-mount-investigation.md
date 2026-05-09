@@ -493,7 +493,19 @@ The user's host (`system76`) has 107 GiB free on root. The investigation must sh
 | `bankdata`              | 1 MiB (override)  | 200 MiB (override) | `/bankData`              |
 | `bankdata-jim-woodring` | 100 KiB (default) | 50 MiB (default)   | `/bankData/Jim Woodring` |
 
-Both targets use the same R2 bucket `duplicati-nixos-backups` under prefix `<host>/<slug>/`. Live archive sizing requires root access to either `/etc/duplicati/r2.env` (for an R2 `LIST` call) or the per-target SQLite (currently blocked, see Section 9.6).
+Both targets use the same R2 bucket `duplicati-nixos-backups` under prefix `<host>/<slug>/`.
+
+Live archive sizes (queried `aws s3 ls --recursive --summarize` against R2):
+
+| Target                  | dblock count |                dblock total | dblock avg | dindex count | dindex total | dlist (snapshots) | dlist total |
+| ----------------------- | -----------: | --------------------------: | ---------: | -----------: | -----------: | ----------------: | ----------: |
+| `bankdata`              |       55,680 | 2,735,779.6 MiB (~2.67 TiB) |  49.13 MiB |       55,683 |   323.90 MiB |                 2 |   48.60 MiB |
+| `bankdata-jim-woodring` |            2 |                   62.50 MiB |  31.25 MiB |            2 |     0.01 MiB |                 1 |    0.01 MiB |
+
+Two observations from the live numbers:
+
+- The `bankdata` average dblock is ~49 MiB, well below the configured 200 MiB cap. The override (`--dblock-size=200MB`) only governs new dblock creation; the bulk of the archive predates the override and was written under the 50 MiB default. New writes will tend toward the 200 MiB cap as the archive grows.
+- `bankdata` is 2.67 TiB encrypted. A full local restore is impossible on the 107 GiB free root volume and would still exceed any reasonably sized scratch volume on this host. Browsing or single-file extraction is the only viable interactive workflow against this archive; this is the constraint that drives the "build Cut A and Cut B" recommendation rather than waiting for FUSE.
 
 ### 9.2 Storage cost model
 
@@ -514,22 +526,22 @@ Plaintext is **never** written outside the explicit output target. Decryption an
 
 | Quantity for one read of file `F` | Cut A (list) | Cut B (extract)                       | Cut C (FUSE read)                     |
 | --------------------------------- | ------------ | ------------------------------------- | ------------------------------------- |
-| R2 GET bytes                      | 0            | <= F + dlist (one-time, <100 MiB)     | <= F + dlist (one-time, <100 MiB)     |
+| R2 GET bytes                      | 0            | <= F + dlist (one-time, ~25 MiB)      | <= F + dlist (one-time, ~25 MiB)      |
 | Persistent local disk written     | 0            | F (output)                            | 0 (read served from memory + cache)   |
 | Encrypted-cache disk used         | 0            | <= cache_cap (default 1 GiB, tunable) | <= cache_cap (default 1 GiB, tunable) |
 | Process memory peak               | trivial      | one dblock-size (200 MiB worst case)  | one dblock-size (200 MiB worst case)  |
-| Cold start (first ever query)     | trivial      | + 1 dlist download (~10..100 MiB)     | + 1 dlist download (~10..100 MiB)     |
+| Cold start (first ever query)     | trivial      | + 1 dlist download (~25 MiB)          | + 1 dlist download (~25 MiB)          |
 
-`bankdata` worst-case dblock size is 200 MiB; `bankdata-jim-woodring` is 50 MiB. Either fits in process memory comfortably.
+`bankdata` worst-case dblock size is 200 MiB; live average is ~49 MiB (mostly pre-override volumes). `bankdata-jim-woodring` is 50 MiB worst case. Either fits in process memory comfortably. The dlist download size is sized from the live archive (`bankdata` has 2 dlists totalling 48.6 MiB encrypted, so the latest is ~25 MiB).
 
 ### 9.4 Worked examples
 
-Assume `bankdata` (`blocksize=1 MiB`, `dblock-size=200 MiB`).
+Assume `bankdata` (`blocksize=1 MiB`, configured `dblock-size=200 MiB`, observed average dblock ~49 MiB on existing pre-override volumes).
 
-- **10 MiB file**, fully contained in one dblock: peak fetch = 200 MiB encrypted; output = 10 MiB; cache holds the single dblock. Total transient = 210 MiB.
-- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks of 200 MiB each = ~5.2 GiB encrypted to fetch sequentially. With `cache_cap = 1 GiB`, the cache rotates: at any one time disk holds 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
+- **10 MiB file**, fully contained in one dblock: peak fetch = 49..200 MiB encrypted (one dblock); output = 10 MiB; cache holds the single dblock. Total transient = 60..210 MiB.
+- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~107 dblocks at the legacy 49 MiB average. Bytes fetched is bounded by the file size itself (~5 GiB encrypted) regardless of dblock count, because the same 5 GiB of plaintext content sits inside 5 GiB of encrypted bytes plus a few percent zip + AES wrapper overhead. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds <= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
 - **50 GiB file**, single archive: 50 GiB output + 1 GiB cache = 51 GiB. Fits.
-- **A single backup target's full restore** (theoretical, not the use case): would equal source size. With 107 GiB free, a target larger than 100 GiB cannot be fully restored locally; this is exactly why partial extract / FUSE matters and confirms the approach.
+- **Full archive restore** (theoretical, not the use case): `bankdata` is 2.67 TiB encrypted. The 107 GiB free root cannot hold this and never could; even after subtracting Duplicati's compression and dedup, the plaintext is far above the local capacity. This is the structural reason Cut A and Cut B exist: they are the only practical interface to a multi-TiB archive on this host.
 
 ### 9.5 Cache strategy
 
@@ -572,13 +584,13 @@ sudo find /var/lib/duplicati-r2 -type d -exec setfacl -d -m m::r-x {} +
 
 This was a prerequisite for Cut A, Cut B, and Cut C; all three depend on the ACL working.
 
-### 9.7 Conclusion: storage is not a blocker
+### 9.7 Conclusion: storage is not a blocker (and the archive scale makes the cuts mandatory)
 
 - Cut A: zero R2 download, zero plaintext on disk. Works today on 107 GiB free.
 - Cut B: per-file fetch ceiling = output file size + cache cap. With default 1 GiB cache, any single file up to ~100 GiB extracts comfortably.
 - Cut C: per-`read()` cost = same fetch ceiling, but plaintext stays in memory; persistent disk = cache cap only.
 
-The "limited local storage" constraint is satisfied by all three cuts. The earlier recommendation (build A, build B, defer C) stands; the storage budget is not the deciding factor between B and C. The decisive factor for deferring C remains the FUSE-semantics maintenance cost and Cut B already covering the common workflow.
+The "limited local storage" constraint is more than satisfied: it is the constraint that promotes Cut A and Cut B from "ergonomics" to "the only available interface". `bankdata` is 2.67 TiB encrypted on R2 (Section 9.1). Pulling the archive in full to inspect or recover a single file is not an option on this host and would not be on any reasonably sized scratch volume either. The decisive factor for deferring Cut C remains the FUSE-semantics maintenance cost and Cut B already covering the common workflow.
 
 ## 10. Documentation corrections
 
