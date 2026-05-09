@@ -8,7 +8,7 @@
 
 ## Conciseness
 
-- Source lines MUST NOT exceed 80 characters; horizontal scroll is friction on every device.
+- Source lines SHOULD NOT exceed 80 characters where the language's idiomatic style guide allows; horizontal scroll is friction on every device. When the language style guide mandates a wider limit (e.g. `rustfmt` 100), the language style guide wins.
 - Use `...` to elide regions that are not the subject of the sample; the omission MUST be obvious to the reader.
 - Each sample MUST be a minimal reproducible example; strip unrelated setup, error handling, and styling that does not bear on the lesson.
 
