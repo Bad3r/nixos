@@ -2,7 +2,7 @@
 
 ## Editing passes
 
-- Edit in distinct passes, in this order: technical accuracy, completeness, structure, clarity and brevity.
+- Edit in distinct passes, in this order: technical accuracy, completeness, structure, clarity, brevity.
 - One pass MUST focus on one aspect; combining passes causes all of them to suffer.
 - The technical-accuracy pass MUST involve executing every procedure and every code sample as a new user would, not as the author.
 - The structure pass MUST verify that title, headings, and section ordering signpost the document; if the outline reads like a maze, the document is too complex or contains multiple goals.
