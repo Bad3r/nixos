@@ -44,6 +44,7 @@ in
       config.flake.nixosModules.repoSecrets
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
+      config.flake.nixosModules.bluetooth
       config.flake.nixosModules."duplicati-r2"
       config.flake.nixosModules.mirror-root
 
