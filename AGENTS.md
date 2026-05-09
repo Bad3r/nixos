@@ -35,18 +35,6 @@ If something is accidentally deleted:
 2. Inform the user exactly what happened and what was recovered
 3. Never hide or minimize deletion mistakes
 
-## File Parsing and Search
-
-- JSON: `jq`
-- YAML/XML/TOML/CSV/INI/HCL: `yq` (use `-p` for non-YAML)
-- HTML: `htmlq -f file.html '.selector'`
-- SQLite: `sqlite3`
-- IMPORTANT: if file is large, sample with `rg`, `head`, `tail`, or `sed`, etc..
-
-## Error handling
-
-- Do not hide failures; fail loudly and report actionable diagnostics
-
 ## Repository Overview
 
 This is a NixOS configuration using the Dendritic Pattern (organic configuration growth with automatic module discovery). Files can be moved and nested freely without breaking imports.
@@ -210,13 +198,7 @@ PR body should include:
 | Imports    | Expose modules through namespace exports; avoid literal path imports.                                                                                 |
 | Validation | Keep `nix flake check --accept-flake-config` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules. |
 
-Skip full `nix flake check` only when the change cannot affect flake
-evaluation: non-Nix edits (docs, scripts not consumed by the flake build) and
-value-level edits (lists, attrset values) inside modules whose structure does
-not change. Any structural change, including new modules, new or removed
-imports, option declarations, type changes, or anything touching modules
-imported into a host closure, requires `nix flake check` unless the user
-explicitly asks to skip it.
+**Skip `nix flake check` after value-level edits**: For nix flakes, skip `nix flake check` after value-level edits to existing lists or attrsets (adding strings, toggling booleans, scalar changes). Reserve it for structural changes: new modules, options, imports, let-binding refactors, argument-shape changes. `treefmt` plus a parse pass is sufficient during iteration.
 
 ### Commit and PR Expectations
 
