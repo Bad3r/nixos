@@ -54,6 +54,17 @@ getfacl /var/lib/duplicati-r2/ | grep -E '^(user|mask)'
 # Expect: mask::r-x, and named-user effective r-x (no `#effective:---`).
 ```
 
+If a state directory predates this commit and the verification still shows `mask::---` (e.g., the existing entries on disk diverged enough that the additive `A+` rule did not converge them), refresh the ACL in place without changing the 0700 mode bits:
+
+```bash
+sudo setfacl -m m::r-x /var/lib/duplicati-r2/
+sudo setfacl -d -m m::r-x /var/lib/duplicati-r2/
+sudo find /var/lib/duplicati-r2 -exec setfacl -m m::r-x {} +
+sudo find /var/lib/duplicati-r2 -type d -exec setfacl -d -m m::r-x {} +
+```
+
+Re-run the verification snippet above; `mask::r-x` and a non-`---` named-user effective should appear on the directory and every descendant.
+
 Reasons not to broaden the base mode:
 
 - The default permission is what stops other unprivileged accounts on the host from reading backup metadata.
