@@ -1,4 +1,4 @@
-# Scope and audience
+# Defining scope and audience
 
 ## Audience and goals
 

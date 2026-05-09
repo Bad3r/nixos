@@ -1,4 +1,4 @@
-# Visual content
+# Creating visual content
 
 ## Comprehension
 

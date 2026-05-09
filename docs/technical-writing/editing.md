@@ -1,4 +1,4 @@
-# Editing
+# Editing documentation
 
 ## Editing passes
 

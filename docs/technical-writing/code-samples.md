@@ -1,4 +1,4 @@
-# Code samples
+# Writing code samples
 
 ## Trustworthiness
 

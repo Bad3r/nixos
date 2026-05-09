@@ -1,4 +1,4 @@
-# Lifecycle
+# Managing the documentation lifecycle
 
 ## Publishing
 
