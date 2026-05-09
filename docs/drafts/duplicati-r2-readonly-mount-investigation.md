@@ -270,7 +270,7 @@ WHERE fse.FilesetID = :version_id
   AND INSTR(SUBSTR(f.Path, LENGTH(:parent) + 1), '/') = 0;
 ```
 
-The `GLOB` pattern is convenient but does not generally hit the `FileLookupPath` index, because `File.Path` is the concatenation `PathPrefix.Prefix || FileLookup.Path` exposed by the `File` view and SQLite cannot push a GLOB on a concatenated column down to either underlying index. A production reader should resolve `:parent` to a `PathPrefix.ID` (or pair of IDs spanning the prefix) and query `FileLookup` directly with `PrefixID = ?`, then re-join `PathPrefix` only for the final display string. Schema migration "9. Refactor Paths.sql" introduced this prefix split; the lookup speedup is unlocked by querying `FileLookup`, not by the `File` view.
+The `GLOB` pattern shown above is convenient but does not generally hit the `FileLookupPath` index, because `File.Path` is the concatenation `PathPrefix.Prefix || FileLookup.Path` exposed by the `File` view and SQLite cannot push a GLOB on a concatenated column down to either underlying index. A production reader should instead resolve `:parent` to a `PathPrefix.ID` (or pair of IDs spanning the prefix) and query `FileLookup` directly with `PrefixID = ?`, then re-join `PathPrefix` only for the final display string. Schema migration "9. Refactor Paths.sql" introduced this prefix split; the lookup speedup is unlocked by querying `FileLookup`, not by the `File` view.
 
 ### 3.5 Read-only opener safety
 
