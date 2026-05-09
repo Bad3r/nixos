@@ -19,8 +19,11 @@
       # autosuspend combined with wakeup=disabled on the Intel 8087:0a2b
       # radio drops HID-over-GATT peripherals (symptom: MX Master 3
       # disconnects after idle and only re-pairing restores it).
+      # ACTION=="add|change" also catches udevadm trigger (nixos-rebuild
+      # switch) and resume-from-sleep events; DEVTYPE=="usb_device" scopes
+      # the match to device nodes so interface objects are not probed.
       services.udev.extraRules = ''
-        ACTION=="add", SUBSYSTEM=="usb", ATTR{bDeviceClass}=="e0", ATTR{bDeviceSubClass}=="01", ATTR{bDeviceProtocol}=="01", TEST=="power/control", ATTR{power/control}="on"
+        ACTION=="add|change", SUBSYSTEM=="usb", DEVTYPE=="usb_device", ATTR{bDeviceClass}=="e0", ATTR{bDeviceSubClass}=="01", ATTR{bDeviceProtocol}=="01", TEST=="power/control", ATTR{power/control}="on"
       '';
 
       environment.systemPackages = lib.mkAfter [ pkgs.bluetui ];
