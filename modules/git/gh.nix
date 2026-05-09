@@ -5,7 +5,7 @@
       settings = {
         git_protocol = "https";
         editor = "vim";
-        pager = "bat";
+        # pager = "bat"; # commented out: gh-cli reads $PAGER
         browser = "xdg-open";
         color_labels = "enabled";
         telemetry = "disabled";
