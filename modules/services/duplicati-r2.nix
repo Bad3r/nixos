@@ -191,6 +191,7 @@ let
       backupScript = pkgs.writeShellApplication {
         name = "duplicati-r2-backup";
         runtimeInputs = [
+          pkgs.acl
           pkgs.coreutils
           pkgs.hostname
           pkgs.jq
@@ -336,7 +337,23 @@ let
           done
 
           set -- "''${args[@]}"
-          exec ${cfg.package}/bin/duplicati-cli "$@"
+          rc=0
+          ${cfg.package}/bin/duplicati-cli "$@" || rc=$?
+
+          # If stateDirReadableBy is configured, the directory carries named-user
+          # ACL entries plus an explicit m::r-x mask. SQLite databases that
+          # duplicati-cli created or rotated during this run inherit the default
+          # ACL but the kernel filters the inherited mask through the file's
+          # create-mode group bits (0 for mode 0600), collapsing it to ---. The
+          # tmpfiles A+ rule on <stateDir>/*/* only fires at activation, so the
+          # gap is bridged here by reapplying m::r-x and the inherited
+          # u:<user>:rX whenever named-user grants are present.
+          if getfacl --omit-header -p "$state_dir" 2>/dev/null \
+            | grep -qE '^(default:)?user:[^:]+:'; then
+            setfacl -R -m m::r-x "$state_dir" || true
+          fi
+
+          exit "$rc"
         '';
       };
 
@@ -880,8 +897,13 @@ let
             # Each named-user grant must be paired with an explicit mask, otherwise
             # the kernel computes mask::--- from the empty group bits on a 0700
             # directory and the named user's effective permissions collapse to ---.
-            # Default-ACL entries inherit to children, so files duplicati creates
-            # mode 0600 root:root remain readable through the inherited u:<user>:r--.
+            # The default-ACL entries propagate u:<user>:rX to descendants, but
+            # POSIX-ACL inheritance filters the new file's mask through its
+            # create-mode group bits, so files duplicati creates with mode 0600
+            # land with mask::--- and the named-user grant is again filtered out.
+            # The third A+ rule fixes pre-existing files at activation; the
+            # backup script (above) reapplies m::r-x post-run to cover SQLite
+            # files duplicati creates between activations.
             ''A+ "${cfg.stateDir}" - - - - u:${user}:rX,m::r-x,d:u:${user}:rX,d:m::r-x''
             ''A+ "${cfg.stateDir}"/* - - - - u:${user}:rX,m::r-x,d:u:${user}:rX,d:m::r-x''
             ''A+ "${cfg.stateDir}"/*/* - - - - u:${user}:rX,m::r-x''
