@@ -9,11 +9,11 @@ at <https://mpv.io/manual/stable/> for option semantics.
 ## Files Produced
 
 - `~/.config/mpv/mpv.conf`: `programs.mpv.config` in the HM module
-- `~/.config/mpv/input.conf`: `programs.mpv.bindings` in the HM module (see [scripts-and-bindings.md](3. scripts-and-bindings.md))
-- `~/.config/mpv/scripts/playlist_filter.lua`: `xdg.configFile."mpv/scripts/playlist_filter.lua"` in the HM module (see [scripts-and-bindings.md](3. scripts-and-bindings.md))
-- `~/.config/mpv/scripts/ytdlp_cookies.lua`: `xdg.configFile."mpv/scripts/ytdlp_cookies.lua"` in the HM module (see [scripts-and-bindings.md](3. scripts-and-bindings.md))
+- `~/.config/mpv/input.conf`: `programs.mpv.bindings` in the HM module (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
+- `~/.config/mpv/scripts/playlist_filter.lua`: `xdg.configFile."mpv/scripts/playlist_filter.lua"` in the HM module (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
+- `~/.config/mpv/scripts/ytdlp_cookies.lua`: `xdg.configFile."mpv/scripts/ytdlp_cookies.lua"` in the HM module (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
 - `~/.config/mpv/script-opts/status_line.conf`: `programs.mpv.scriptOpts.status_line` in the HM module (see [Script Options](#script-options))
-- Loaded scripts under `~/.config/mpv/scripts/`: `programs.mpv.scripts` (see [scripts-and-bindings.md](3. scripts-and-bindings.md))
+- Loaded scripts under `~/.config/mpv/scripts/`: `programs.mpv.scripts` (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
 
 ## Settings Reference
 
@@ -65,7 +65,7 @@ key, regardless of the file-side key spelling).
 The HM module declares two named profiles via `programs.mpv.profiles`. They are
 inactive by default and activate with `--profile=<name>` (or the `-p` short
 form). For runtime mode cycling and the underlying `playlist_filter.lua`, see
-[scripts-and-bindings.md](3. scripts-and-bindings.md).
+[scripts-and-bindings.md](3-scripts-and-bindings.md).
 
 - `vid` (skip image files in playlists)
   - `script-opts = playlist_filter-mode=block-images`: Sets the `playlist_filter` script's startup mode to drop image entries from the playlist, leaving videos and audio.
@@ -82,12 +82,12 @@ comma-separated value; adding a third would extend the same string.
 
 The HM module also installs `mpv-vid` and `mpv-img` shell wrappers as a
 shorthand for the profile flags. See
-[scripts-and-bindings.md](3. scripts-and-bindings.md) for the full list of
+[scripts-and-bindings.md](3-scripts-and-bindings.md) for the full list of
 profile invocation paths.
 
 ## Where to Look Next
 
 - For the bindings written into `~/.config/mpv/input.conf`:
-  [scripts-and-bindings.md](3. scripts-and-bindings.md).
+  [scripts-and-bindings.md](3-scripts-and-bindings.md).
 - For overriding values per host or per user without touching the shared
-  module: [customizing.md](5. customizing.md).
+  module: [customizing.md](5-customizing.md).

@@ -16,12 +16,12 @@ semantics.
 
 ## Contents
 
-- [Architecture](1. architecture.md): Module layering, aggregator namespaces, host gating, NixOS-to-HM activation contract.
-- [Configuration](2. configuration.md): Every key the HM module writes, what it does, and why.
-- [Scripts and Bindings](3. scripts-and-bindings.md): Script loading model, bundled scripts, the Lua hooks, keybindings.
-- [Integrations](4. integrations.md): XDG MIME defaults, MPRIS/playerctl, the media bundle, browser bridge, video-cache.
-- [Customizing](5. customizing.md): Adding scripts, packages, Lua hooks, keybindings, opting out per host.
-- [Troubleshooting](6. troubleshooting.md): MIME default-assertion failures, codec gaps, silent hwdec fallback.
+- [Architecture](1-architecture.md): Module layering, aggregator namespaces, host gating, NixOS-to-HM activation contract.
+- [Configuration](2-configuration.md): Every key the HM module writes, what it does, and why.
+- [Scripts and Bindings](3-scripts-and-bindings.md): Script loading model, bundled scripts, the Lua hooks, keybindings.
+- [Integrations](4-integrations.md): XDG MIME defaults, MPRIS/playerctl, the media bundle, browser bridge, video-cache.
+- [Customizing](5-customizing.md): Adding scripts, packages, Lua hooks, keybindings, opting out per host.
+- [Troubleshooting](6-troubleshooting.md): MIME default-assertion failures, codec gaps, silent hwdec fallback.
 
 ## Navigation
 
