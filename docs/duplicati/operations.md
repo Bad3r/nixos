@@ -206,11 +206,42 @@ dest="s3://${R2_BUCKET}/$(hostname --short)/<slug>?use-ssl=true&s3-ext-disableho
 
 duplicati-cli restore "$dest" \
   --restore-path=/tmp/restore \
-  --passphrase="$DUPLICATI_PASSPHRASE"
+  --passphrase="$DUPLICATI_PASSPHRASE" \
+  --restore-volume-downloaders=8 \
+  --restore-volume-decryptors=8 \
+  --restore-volume-decompressors=8 \
+  --restore-channel-buffer-size=32
 RESTORE
 ```
 
 Adjust with `--version`, `--time`, or `--include` filters as needed. Wipe `/tmp/restore` once finished.
+
+### Concurrency tuning for R2
+
+Out-of-the-box defaults for `duplicati-cli restore` (six downloaders, six decryptors, six decompressors, channel buffer size twelve) under-perform against Cloudflare R2. A single-file restore from `bankdata` recovering 44 `*.torrent` paths (~10 MiB plaintext, fetch ceiling ~425 MiB across 8 dblocks) was observed at ~130 KiB/s through a single TCP connection to R2; every worker thread sat idle at 0% CPU, with the run on track for a ~30 minute completion. The four flags below keep the pipeline saturated when individual TCP streams to R2 are slow:
+
+| Option                           | Default | Recommended | Effect                                                                   |
+| -------------------------------- | ------- | ----------- | ------------------------------------------------------------------------ |
+| `--restore-volume-downloaders`   | 6       | 8           | Concurrent dblock fetches over distinct TCP connections.                 |
+| `--restore-volume-decryptors`    | 6       | 8           | Threads running the AES Crypt decrypt loop in parallel.                  |
+| `--restore-volume-decompressors` | 6       | 8           | Threads unzipping the inner dblock zip in parallel.                      |
+| `--restore-channel-buffer-size`  | 12      | 32          | Inter-stage queue depth between download / decrypt / decompress / write. |
+
+Verify the change took effect with `sudo ss -tnpo state established | grep cloudflarestorage` against the live duplicati pid: multiple connections to `*.r2.cloudflarestorage.com` should be visible. Pushing past 8/32 rarely helps further; R2 caps per-bucket concurrent requests and the duplicati pipeline becomes channel-buffer-bound past that point.
+
+### Memory vs on-disk cache
+
+duplicati holds each encrypted dblock in process RAM during restore; nothing in the pipeline requires staging dblocks to disk. With the 8-deep pipeline above the steady-state encrypted footprint is approximately `8 * dblock_size`: ~400 MiB on the 50 MiB-average legacy `bankdata` volumes, up to ~1.6 GiB on dblocks written under the current 200 MiB cap. Both fit comfortably in RAM on the hosts in this repo.
+
+`--restore-volume-cache-hint` is unset by default, which selects unlimited mode with disk-aware eviction (`--restore-volume-cache-min-free=1gb`). On a host with ample free RAM and `/tmp` on tmpfs, the cache effectively never spills; checking `/tmp` and `/var/tmp` for `*.dblock.zip*` during a live restore confirms duplicati is running in-memory.
+
+To explicitly bound the in-memory cache, set `--restore-volume-cache-hint=2gb` (or similar). Setting `--restore-volume-cache-hint=0` disables the encrypted-dblock cache entirely and re-downloads on every block read; the default mode is correct for these archive sizes.
+
+### Filtering and read amplification
+
+`--include='*.torrent'` (or any other glob) selects which file paths inside the snapshot are restored. The restore engine still has to fetch the dblocks that contain those files' content blocks: with default deduplication and 50 MiB to 200 MiB dblock packing, the bytes-on-the-wire ceiling is `(unique dblocks touched) * dblock_size`, not the plaintext output size. The example above (44 torrent files, ~10 MiB plaintext, 8 unique dblocks, ~400 MiB encrypted) is a 40x amplification: every dblock that contains at least one matching block must be downloaded in full because `duplicati-cli restore` does not perform HTTP range reads inside the dblock object.
+
+To compute the exact dblock fetch list before running a restore, query the per-target SQLite using the `Path -> Blockset -> Block -> Remotevolume` join from [recovery.md](recovery.md#db-driven-impact-analysis), substituting the path filter (e.g. `Path LIKE '%.torrent'`) for the missing-volume names. The result is the precise set of `*.dblock.zip.aes` objects the restore will fetch.
 
 ## Post-deploy checks
 

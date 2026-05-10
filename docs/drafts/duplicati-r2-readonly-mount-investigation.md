@@ -591,6 +591,15 @@ This was a prerequisite for Cut A, Cut B, and Cut C; all three depend on the ACL
 
 The "limited local storage" constraint is more than satisfied: it is the constraint that promotes Cut A and Cut B from "ergonomics" to "the only available interface". `bankdata` is 2.67 TiB encrypted on R2 (Section 9.1). Pulling the archive in full to inspect or recover a single file is not an option on this host and would not be on any reasonably sized scratch volume either. The decisive factor for deferring Cut C remains the FUSE-semantics maintenance cost and Cut B already covering the common workflow.
 
+### 9.8 Live validation against `duplicati-cli restore` (May 2026)
+
+A 44-path `*.torrent` restore from `bankdata` (~10 MiB plaintext) was performed in May 2026 to validate the read-amplification math against real artifacts. Findings:
+
+- The fetch list resolved to 8 unique dblocks (~400 MiB encrypted), matching the `(unique dblocks touched) * dblock_size` figure derived from the §3 SQL: every torrent file's content blocks lived inside one of those 8 dblocks. This is the same `Block.VolumeID -> Remotevolume` join Cut A and Cut B will use.
+- The run executed fully in-memory: `find /tmp /var/tmp -name '*.dblock.zip*'` returned nothing during the restore, confirming `duplicati-cli` does not stage encrypted dblocks to disk under default `--restore-volume-cache-hint`. This validates §4's design assumption that the future tools' on-disk cache is an optimisation, not a requirement.
+- Default `duplicati-cli restore` concurrency was the dominant bottleneck. Six downloaders / six decryptors / six decompressors / channel buffer 12 produced a single TCP connection to R2 and ~130 KiB/s sustained throughput, putting the ~425 MiB fetch on a 30-minute path. Setting `--restore-volume-downloaders=8`, `--restore-volume-decryptors=8`, `--restore-volume-decompressors=8`, and `--restore-channel-buffer-size=32` is needed to saturate R2's per-bucket concurrent-request envelope. Full recipe: [`../duplicati/operations.md`](../duplicati/operations.md#concurrency-tuning-for-r2).
+- `duplicati-cli restore` reads each dblock as a single object: it does not issue HTTP range requests into the inner zip to fetch only the needed entries. Cut B can drop the read-amplification from `8 * dblock_size` down to roughly `F + zip_central_directory + aes_overhead` by adding range reads, which is one of the operational wins that distinguishes Cut B from "just keep using `duplicati-cli restore`".
+
 ## 10. References
 
 ### Local
