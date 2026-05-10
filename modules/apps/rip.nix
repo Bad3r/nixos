@@ -342,6 +342,8 @@ let
       };
 
       config = lib.mkIf cfg.enable {
+        environment.shellAliases.rm = "rip";
+
         environment.systemPackages = [
           cfg.package
           ripWrapper

@@ -7,7 +7,6 @@
 
       environment = {
         binsh = "${pkgs.dash}/bin/dash";
-        shellAliases.rm = "rip";
         # Shell utility: nrun <pkg> [args...] → nix run nixpkgs#<pkg> -- [args...]
         systemPackages = [
           (pkgs.writeShellApplication {
