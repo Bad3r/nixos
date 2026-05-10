@@ -139,7 +139,8 @@ _: {
             listen_on = "none";
             update_check_interval = "24.0";
             startup_session = "none";
-            clipboard_control = "write-clipboard write-primary";
+            # Append -ask to read tokens to require permission prompts.
+            clipboard_control = "write-clipboard write-primary read-clipboard read-primary";
             term = "xterm-kitty";
             kitty_mod = "ctrl+shift";
             # Grid first makes it the default layout; all built-in layouts remain reachable via next_layout
