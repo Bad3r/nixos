@@ -236,16 +236,16 @@ DUP_PID=$(pgrep -nx Duplicati.Comma)
 echo "duplicati pid=$DUP_PID"
 ```
 
-Throughput sample (the most reliable check; `rchar` counts every byte the process has read, dominated during restore by socket reads):
+Throughput sample (the most reliable check; `rchar` counts every byte the process has read, dominated during restore by socket reads). Captures two `rchar` snapshots five seconds apart and prints the rate in KiB/s via `bc`:
 
 ```bash
-sudo cat /proc/$DUP_PID/io | awk '/^rchar:/ {print $2}'  # snapshot
+A=$(sudo awk '/^rchar:/ {print $2}' /proc/$DUP_PID/io)
 sleep 5
-sudo cat /proc/$DUP_PID/io | awk '/^rchar:/ {print $2}'  # snapshot 5s later
-# (second - first) / 5 is bytes/sec coming off the network into duplicati
+B=$(sudo awk '/^rchar:/ {print $2}' /proc/$DUP_PID/io)
+echo "scale=1; ($B - $A) / 5 / 1024" | bc   # KiB/s
 ```
 
-Sustained rates below ~1 MiB/s indicate the concurrency flags are not effective and the queue feeding the downloaders is empty; rates of 5 to 30 MiB/s are typical of a saturated R2 path.
+Sustained rates below ~1000 KiB/s indicate the concurrency flags are not effective and the queue feeding the downloaders is empty. Rates in the 5,000 to 30,000 KiB/s range are typical of a saturated R2 path.
 
 Optional secondary check, the count of established sockets owned by duplicati:
 
