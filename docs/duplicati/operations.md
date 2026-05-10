@@ -227,7 +227,20 @@ Out-of-the-box defaults for `duplicati-cli restore` (six downloaders, six decryp
 | `--restore-volume-decompressors` | 6       | 8           | Threads unzipping the inner dblock zip in parallel.                      |
 | `--restore-channel-buffer-size`  | 12      | 32          | Inter-stage queue depth between download / decrypt / decompress / write. |
 
-Verify the change took effect with `sudo ss -tnpo state established | grep cloudflarestorage` against the live duplicati pid: multiple connections to `*.r2.cloudflarestorage.com` should be visible. Pushing past 8/32 rarely helps further; R2 caps per-bucket concurrent requests and the duplicati pipeline becomes channel-buffer-bound past that point.
+Verify the change took effect by counting established sockets owned by the live duplicati pid:
+
+```bash
+DUP_PID=$(pgrep -nf 'duplicati-cli restore')
+sudo ss -tnpo state established | grep "pid=$DUP_PID" | wc -l
+```
+
+`ss` reports peer IPs, not hostnames, so filtering by `cloudflarestorage` does not work; the pid filter is the reliable check. With concurrency at 8 the count should be in the 6 to 8 range during the bulk of the fetch; a count of 1 means only one downloader thread is engaged and the flag did not take effect (or the queue feeding the downloaders is empty). Cross-check the peer IPs are in Cloudflare's announced ranges (typically `104.16.0.0/12`, `141.101.64.0/18`, `172.64.0.0/13`, `162.158.0.0/15`) if confirmation that traffic is going to R2 is needed:
+
+```bash
+sudo ss -tnpo state established | grep "pid=$DUP_PID" | awk '{print $5}' | sort -u
+```
+
+Pushing past 8/32 rarely helps further; R2 caps per-bucket concurrent requests and the duplicati pipeline becomes channel-buffer-bound past that point.
 
 ### Memory vs on-disk cache
 
