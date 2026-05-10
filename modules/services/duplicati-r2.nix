@@ -299,17 +299,12 @@ let
 
           encoded_subpath=$(jq -nr --arg s "$dest_subpath" '$s | @uri')
 
-          region_suffix=""
-          if [ -n "''${R2_REGION:-}" ]; then
-            region_suffix="&s3-ext-region=$R2_REGION"
-          fi
-
           server_param=""
           if [ -n "$endpoint_host" ]; then
             server_param="&s3-server-name=$endpoint_host"
           fi
 
-          dest="s3://$bucket/$hostname/$encoded_subpath?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio''${server_param}''${region_suffix}"
+          dest="s3://$bucket/$hostname/$encoded_subpath?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio''${server_param}"
 
           if [ -z "''${DUPLICATI_PASSPHRASE:-}" ]; then
             echo "Duplicati R2: DUPLICATI_PASSPHRASE missing from environment" >&2
@@ -451,12 +446,7 @@ let
             server_param="&s3-server-name=$server_host"
           fi
 
-          region_suffix=""
-          if [ -n "''${R2_REGION:-}" ]; then
-            region_suffix="&s3-ext-region=$R2_REGION"
-          fi
-
-          dest="s3://$bucket/$hostname/$encoded_subpath?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio''${server_param}''${region_suffix}"
+          dest="s3://$bucket/$hostname/$encoded_subpath?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio''${server_param}"
 
           exec ${cfg.package}/bin/duplicati-cli test "$dest" --samples="$samples"
         '';

@@ -181,12 +181,7 @@ elif [[ -n ${AWS_ENDPOINT_URL:-} ]]; then
   server_param="&s3-server-name=${server_host}"
 fi
 
-region_suffix=""
-if [[ -n ${R2_REGION:-} ]]; then
-  region_suffix="&s3-ext-region=${R2_REGION}"
-fi
-
-dest="s3://${bucket}/${hostname_value}/${encoded_subpath}?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio${server_param}${region_suffix}"
+dest="s3://${bucket}/${hostname_value}/${encoded_subpath}?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio${server_param}"
 
 echo "Target         : ${target}"
 echo "Config         : ${config_path}"
@@ -220,10 +215,6 @@ print_summary_if_present() {
     echo "$summary"
   fi
 }
-
-if [[ -n ${region_suffix} ]]; then
-  echo "warning: --s3-ext-region is not supported by duplicati-cli and will be ignored" >&2
-fi
 
 if "$list_broken"; then
   list_args=("${common_args[@]}" "--console-log-level=${log_level}")

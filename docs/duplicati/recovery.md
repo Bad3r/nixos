@@ -26,7 +26,12 @@ set -a
 . /etc/duplicati/r2.env
 set +a
 
-dest="s3://${R2_BUCKET}/$(hostname --short)/<slug>?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio&s3-server-name=${R2_S3_ENDPOINT}&s3-ext-region=${R2_REGION}"
+# duplicati's S3 backend reads credentials from AUTH_USERNAME / AUTH_PASSWORD.
+# Without these, the operation fails with `S3NoAmzUserID: No S3 userID given`.
+export AUTH_USERNAME="$AWS_ACCESS_KEY_ID"
+export AUTH_PASSWORD="$AWS_SECRET_ACCESS_KEY"
+
+dest="s3://${R2_BUCKET}/$(hostname --short)/<slug>?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio&s3-server-name=${R2_S3_ENDPOINT}"
 
 duplicati-cli repair "$dest" --passphrase="$DUPLICATI_PASSPHRASE"
 REPAIR
@@ -123,7 +128,12 @@ set -a
 . /etc/duplicati/r2.env
 set +a
 
-dest="s3://${R2_BUCKET}/$(hostname --short)/<slug>?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio&s3-server-name=${R2_S3_ENDPOINT}&s3-ext-region=${R2_REGION}"
+# duplicati's S3 backend reads credentials from AUTH_USERNAME / AUTH_PASSWORD.
+# Without these, the operation fails with `S3NoAmzUserID: No S3 userID given`.
+export AUTH_USERNAME="$AWS_ACCESS_KEY_ID"
+export AUTH_PASSWORD="$AWS_SECRET_ACCESS_KEY"
+
+dest="s3://${R2_BUCKET}/$(hostname --short)/<slug>?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio&s3-server-name=${R2_S3_ENDPOINT}"
 
 # Move the damaged DB aside (do not delete; useful for forensics).
 ts=$(date -u +%Y%m%d-%H%M%S)
