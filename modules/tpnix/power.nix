@@ -81,7 +81,7 @@
           HandlePowerKey = "lock";
           HandleLidSwitch = "suspend";
           HandleLidSwitchExternalPower = "suspend";
-          HandleLidSwitchDocked = "suspend";
+          HandleLidSwitchDocked = "ignore";
         };
 
         journald = {
