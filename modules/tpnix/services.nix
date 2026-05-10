@@ -17,7 +17,7 @@ _: {
         HandlePowerKey = lib.mkDefault "lock";
         HandleLidSwitch = lib.mkDefault "suspend"; # ignore, lock, suspend, poweroff, hibernate
         HandleLidSwitchExternalPower = lib.mkDefault "suspend"; # On AC power
-        HandleLidSwitchDocked = lib.mkDefault "suspend"; # External display connected
+        HandleLidSwitchDocked = lib.mkDefault "ignore"; # External display connected
       };
 
       services = {
