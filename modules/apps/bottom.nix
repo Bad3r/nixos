@@ -1,23 +1,20 @@
 /*
   Package: bottom
-  Description: Cross-platform TUI system monitor with charts for CPU, memory, disks, processes, and network usage.
+  Description: Cross-platform graphical process/system monitor with a customizable interface.
   Homepage: https://github.com/ClementTsang/bottom
-  Documentation: https://github.com/ClementTsang/bottom#readme
+  Documentation: https://clementtsang.github.io/bottom/
   Repository: https://github.com/ClementTsang/bottom
 
   Summary:
-    * Provides command-line dashboards similar to htop/btop with customizable layouts, visual charts, and filtering.
-    * Ships the `btm` binary supporting mouse interaction, process control, and exportable theming for both terminals and remote sessions.
+    * Provides an interactive TUI dashboard with charts for CPU, memory, disks, processes, network, and temperature.
+    * Ships the `btm` binary with support for custom layouts, theming, process management, and mouse interaction.
 
   Options:
-    btm: Launch the interactive dashboard (alias `bottom`).
-    btm -b: Start in basic mode without graphs for low-bandwidth terminals.
-    btm --config <file>: Load a specific configuration file overriding defaults.
-
-  Example Usage:
-    * `btm` -- Open the full TUI system monitor with charts and process controls.
-    * `btm -b -U 2` -- Run in basic mode, updating every two seconds for lightweight monitoring.
-    * `btm --config ~/.config/bottom/bottom.toml` -- Apply a custom layout and theme.
+    -b: Start in basic mode without graphs.
+    -C: Load a specific configuration file overriding the default.
+    -e: Expand the default widget on startup.
+    --network_use_bytes: Display network widget in bytes instead of bits.
+    --network_use_binary_prefix: Use binary prefixes (MiB, GiB) for the network widget.
 */
 _:
 let
