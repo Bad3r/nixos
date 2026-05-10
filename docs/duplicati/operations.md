@@ -227,18 +227,33 @@ Out-of-the-box defaults for `duplicati-cli restore` (six downloaders, six decryp
 | `--restore-volume-decompressors` | 6       | 8           | Threads unzipping the inner dblock zip in parallel.                      |
 | `--restore-channel-buffer-size`  | 12      | 32          | Inter-stage queue depth between download / decrypt / decompress / write. |
 
-Verify the change took effect by counting established sockets owned by the live duplicati pid:
+Two checks are useful: (1) confirm the pipeline is actually moving bytes, (2) measure achieved throughput. Connection count is a weaker signal because the AWS SDK / minio client may pool requests over a small number of long-lived TCP connections regardless of pipeline depth.
+
+Resolve the duplicati pid by process name (the kernel `comm` is `Duplicati.Comma`, truncated from `Duplicati.CommandLine`); avoid `pgrep -f` because it matches against the full command line and will catch the shell that invoked `pgrep` itself:
 
 ```bash
-DUP_PID=$(pgrep -nf 'duplicati-cli restore')
-sudo ss -tnpo state established | grep "pid=$DUP_PID" | wc -l
+DUP_PID=$(pgrep -nx Duplicati.Comma)
+echo "duplicati pid=$DUP_PID"
 ```
 
-`ss` reports peer IPs, not hostnames, so filtering by `cloudflarestorage` does not work; the pid filter is the reliable check. With concurrency at 8 the count should be in the 6 to 8 range during the bulk of the fetch; a count of 1 means only one downloader thread is engaged and the flag did not take effect (or the queue feeding the downloaders is empty). Cross-check the peer IPs are in Cloudflare's announced ranges (typically `104.16.0.0/12`, `141.101.64.0/18`, `172.64.0.0/13`, `162.158.0.0/15`) if confirmation that traffic is going to R2 is needed:
+Throughput sample (the most reliable check; `rchar` counts every byte the process has read, dominated during restore by socket reads):
 
 ```bash
-sudo ss -tnpo state established | grep "pid=$DUP_PID" | awk '{print $5}' | sort -u
+sudo cat /proc/$DUP_PID/io | awk '/^rchar:/ {print $2}'  # snapshot
+sleep 5
+sudo cat /proc/$DUP_PID/io | awk '/^rchar:/ {print $2}'  # snapshot 5s later
+# (second - first) / 5 is bytes/sec coming off the network into duplicati
 ```
+
+Sustained rates below ~1 MiB/s indicate the concurrency flags are not effective and the queue feeding the downloaders is empty; rates of 5 to 30 MiB/s are typical of a saturated R2 path.
+
+Optional secondary check, the count of established sockets owned by duplicati:
+
+```bash
+sudo ss -tnp state established | grep "pid=$DUP_PID," | wc -l
+```
+
+A count of 1 is not by itself a problem; HTTP keep-alive plus AWS-SDK connection pooling can serve many parallel requests over a single TCP socket. Throughput is the authoritative signal.
 
 Pushing past 8/32 rarely helps further; R2 caps per-bucket concurrent requests and the duplicati pipeline becomes channel-buffer-bound past that point.
 
