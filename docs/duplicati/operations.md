@@ -239,10 +239,10 @@ echo "duplicati pid=$DUP_PID"
 Throughput sample (the most reliable check; `rchar` counts every byte the process has read, dominated during restore by socket reads). Captures two `rchar` snapshots five seconds apart and prints the rate in KiB/s via `bc`:
 
 ```bash
-A=$(sudo awk '/^rchar:/ {print $2}' /proc/$DUP_PID/io)
+rchar_start=$(sudo awk '/^rchar:/ {print $2}' /proc/$DUP_PID/io)
 sleep 5
-B=$(sudo awk '/^rchar:/ {print $2}' /proc/$DUP_PID/io)
-echo "scale=1; print ($B - $A) / 5 / 1024, \" KiB/s\n\"" | bc
+rchar_end=$(sudo awk '/^rchar:/ {print $2}' /proc/$DUP_PID/io)
+echo "scale=1; print ($rchar_end - $rchar_start) / 5 / 1024, \" KiB/s\n\"" | bc
 ```
 
 Sustained rates below ~1000 KiB/s indicate the concurrency flags are not effective and the queue feeding the downloaders is empty. Rates in the 5,000 to 30,000 KiB/s range are typical of a saturated R2 path.
