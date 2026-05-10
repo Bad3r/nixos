@@ -31,7 +31,7 @@ _: {
       ...
     }:
     let
-      inherit (lib) mkDefault;
+      inherit (lib) mkDefault mkIf;
       nvimEnabled = lib.attrByPath [ "programs" "neovim" "extended" "enable" ] false osConfig;
       nvimPkg = lib.attrByPath [
         "programs"
@@ -40,6 +40,7 @@ _: {
         "package"
       ] pkgs.neovim-unwrapped osConfig;
       hostname = osConfig.networking.hostName;
+      kittyEnabled = lib.attrByPath [ "programs" "kitty" "extended" "enable" ] false osConfig;
     in
     {
       imports = lib.optionals nvimEnabled [ inputs.nixvim.homeModules.nixvim ];
@@ -64,9 +65,40 @@ _: {
               # plugins listed in `nixpkgs.allowedUnfreePackages` are honored.
               nixpkgs.config.allowUnfreePredicate = pkgs.config.allowUnfreePredicate;
 
-              # Leader key
-              globals.mapleader = mkDefault " ";
-              globals.maplocalleader = mkDefault " ";
+              # Leader keys, plus the kitten-backed `vim.g.clipboard` when kitty
+              # is enabled. The non-kitty fallback (xsel/wl-copy) lives in the
+              # `clipboard` block below.
+              globals = {
+                mapleader = mkDefault " ";
+                maplocalleader = mkDefault " ";
+                clipboard = mkIf kittyEnabled {
+                  name = "kitten";
+                  copy = {
+                    "+" = [
+                      "kitten"
+                      "clipboard"
+                    ];
+                    "*" = [
+                      "kitten"
+                      "clipboard"
+                      "--use-primary"
+                    ];
+                  };
+                  paste = {
+                    "+" = [
+                      "kitten"
+                      "clipboard"
+                      "--get-clipboard"
+                    ];
+                    "*" = [
+                      "kitten"
+                      "clipboard"
+                      "--get-clipboard"
+                      "--use-primary"
+                    ];
+                  };
+                };
+              };
 
               # Editor options
               opts = {
@@ -107,13 +139,17 @@ _: {
                 completeopt = "menu,menuone,noselect";
               };
 
-              # Clipboard integration
+              # Clipboard integration. `globals.clipboard` above routes through
+              # kitten when kitty is enabled (works over SSH and inside
+              # multiplexers without a separate X11/Wayland helper). When kitty
+              # is disabled, fall back to nixvim's wl-copy/xsel providers so
+              # plain `nvim` outside kitty keeps working.
               clipboard = {
-                providers = {
+                register = "unnamedplus,unnamed";
+                providers = mkIf (!kittyEnabled) {
                   xsel.enable = true;
                   wl-copy.enable = true;
                 };
-                register = "unnamedplus,unnamed";
               };
 
               # Diagnostic display configuration
