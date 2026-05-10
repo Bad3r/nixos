@@ -7,8 +7,10 @@ usage() {
 Usage: duplicati-r2-restore.sh [OPTIONS] <target-slug> <regex> [-- <duplicati-cli args>]
 
 Restore files from a duplicati-r2 target whose paths match a POSIX regex.
-The regex is auto-wrapped as duplicati's bracketed-regex filter form, so a
-plain pattern like '.*\.torrent$' becomes --include='[.*\.torrent$]'.
+The regex is auto-wrapped as duplicati's bracketed-regex filter form and
+paired with a catch-all --exclude=*, so '.*\.torrent$' becomes:
+  --include='[.*\.torrent$]' --exclude='*'
+Without the paired exclude, Duplicati includes non-matching files by default.
 
 Required positionals:
   <target-slug>            Target name as registered in the runtime manifest.
@@ -209,6 +211,11 @@ if [[ -n $version_arg && -n $time_arg ]]; then
   exit 64
 fi
 
+if [[ -n $version_arg && ! $version_arg =~ ^[0-9]+$ ]]; then
+  echo "--version must be a non-negative integer, got '$version_arg'" >&2
+  exit 64
+fi
+
 # Validate regex up front so we exit before any privileged action.
 regex_err=$(printf '' | grep -E -- "$user_regex" 2>&1 >/dev/null) || true
 if [[ -n $regex_err ]]; then
@@ -294,8 +301,8 @@ fi
 # the alias it fails with S3NoAmzUserID despite the AWS_* vars being set.
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 export AUTH_USERNAME="$AWS_ACCESS_KEY_ID" AUTH_PASSWORD="$AWS_SECRET_ACCESS_KEY"
-# duplicati-cli sources PASSPHRASE, not DUPLICATI_PASSPHRASE; the explicit
-# --passphrase flag is still required (env is only fallback per Program.cs).
+# duplicati-cli accepts --passphrase on the CLI or via the PASSPHRASE env var.
+# Use the env var: cmdline args are world-readable via /proc/<pid>/cmdline.
 export DUPLICATI_PASSPHRASE PASSPHRASE="$DUPLICATI_PASSPHRASE"
 
 if [[ -n ${R2_S3_ENDPOINT_URL:-} ]]; then
@@ -422,7 +429,7 @@ if "$dry_run"; then
     FROM File f
     JOIN FilesetEntry fse ON fse.FileID = f.ID
     WHERE fse.FilesetID = ${fileset_id};
-  " | awk -v re="$user_regex" -F'\t' '$2 ~ re { print $1 }' >"$ids_file"
+  " | awk -v re="$user_regex" -F'\t' '{ id=$1; sub(/^[^\t]*\t/, ""); if ($0 ~ re) print id }' >"$ids_file"
 
   match_count=$(wc -l <"$ids_file" | awk '{print $1}')
 
@@ -440,7 +447,7 @@ if "$dry_run"; then
 ATTACH DATABASE '${src_uri}' AS src;
 CREATE TEMP TABLE matching_ids (ID INTEGER PRIMARY KEY);
 .mode tabs
-.import ${ids_file} matching_ids
+.import "${ids_file}" matching_ids
 WITH matching_blocks AS (
   SELECT DISTINCT bk.VolumeID, rv.Name, rv.Size, rv.State
   FROM matching_ids m
@@ -493,7 +500,7 @@ declare -a restore_args=(
   "--dbpath=${db_path}"
   "--restore-path=${restore_path}"
   "--include=[${user_regex}]"
-  "--passphrase=${DUPLICATI_PASSPHRASE}"
+  "--exclude=*"
   "--console-log-level=${log_level}"
   "--overwrite=${overwrite}"
   "--restore-volume-downloaders=8"
@@ -537,7 +544,7 @@ fi
 # gates the unix-mode/uid/gid path. Re-grant owner rwX and strip group/other
 # so the tree is usable post-chown without widening exposure.
 echo "Resetting permissions to u+rwX,go-rwx under ${restore_path}..."
-chmod -R u+rwX,go-rwx "$restore_path"
+find "$restore_path" -mindepth 1 -exec chmod u+rwX,go-rwx {} +
 
 echo
 echo "Restored files under ${restore_path}:"
