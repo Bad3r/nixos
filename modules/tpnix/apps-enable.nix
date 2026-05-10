@@ -105,6 +105,7 @@
       "element-desktop".extended.enable = lib.mkOverride 1100 false;
       ent.extended.enable = lib.mkOverride 1100 false;
       exiftool.extended.enable = lib.mkOverride 1100 true;
+      exploitdb.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 false;
       feroxbuster.extended.enable = lib.mkOverride 1100 true;
       ffuf.extended.enable = lib.mkOverride 1100 true;
