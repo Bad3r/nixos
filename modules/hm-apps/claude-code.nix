@@ -173,16 +173,20 @@ _: {
     {
       config = lib.mkIf nixosEnabled {
         home = {
-          file.".claude/settings.json" = {
-            text = builtins.toJSON claudeSettings;
-            onChange = ''
-              # Ensure Claude Code picks up the new settings
-              echo "✢ Claude Code: settings updated"
-            '';
-          };
+          file = {
+            ".claude/settings.json" = {
+              text = builtins.toJSON claudeSettings;
+              onChange = ''
+                # Ensure Claude Code picks up the new settings
+                echo "✢ Claude Code: settings updated"
+              '';
+            };
 
-          file.".claude/skills/commit/SKILL.md" = {
-            text = commitSkillMd;
+            ".claude/CLAUDE.md".source = ./claude-code/CLAUDE.md;
+
+            ".claude/skills/commit/SKILL.md" = {
+              text = commitSkillMd;
+            };
           };
 
           # Configure Claude Code UI preferences and MCP servers in ~/.claude.json
