@@ -85,7 +85,7 @@ _: {
 
       systemd.services.tpnix-power-profile = {
         description = "Force power-profiles-daemon profile to performance";
-        wantedBy = [ "multi-user.target" ];
+        wantedBy = [ "graphical.target" ];
         wants = [ "power-profiles-daemon.service" ];
         after = [ "power-profiles-daemon.service" ];
         serviceConfig = {
