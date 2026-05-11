@@ -5,6 +5,7 @@
       act.extended.enable = lib.mkOverride 1100 false;
       actionlint.extended.enable = lib.mkOverride 1100 true;
       age.extended.enable = lib.mkOverride 1100 true;
+      "age-plugin-1p".extended.enable = lib.mkOverride 1100 true;
       "age-plugin-fido2prf".extended.enable = lib.mkOverride 1100 true;
       "aircrack-ng".extended.enable = lib.mkOverride 1100 true;
       amass.extended.enable = lib.mkOverride 1100 true;
