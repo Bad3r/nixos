@@ -335,7 +335,20 @@ def cmd_ls(args: argparse.Namespace) -> int:
             }
         )
     if args.json:
-        emit_rows(rows, [], True, stream=True)
+        emit_rows(
+            [
+                {
+                    "name": r["name"],
+                    "type": r["type"],
+                    "size": r["size"],
+                    "mtime": iso_utc(r["mtime"]) if r["mtime"] is not None else None,
+                }
+                for r in rows
+            ],
+            [],
+            True,
+            stream=True,
+        )
         return 0
     table_rows = [
         {
