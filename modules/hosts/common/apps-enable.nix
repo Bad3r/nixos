@@ -1,21 +1,25 @@
 /*
-  System76 App Catalog
+  App catalog (common baseline)
 
-  This module configures application defaults for the system76 configuration.
-  All app modules default to disabled, requiring explicit opt-in for better control.
+  Configures application defaults shared across hosts. All app modules default
+  to disabled, requiring explicit opt-in for better control. The body below
+  represents the system76 baseline; per-host files (e.g. modules/tpnix/apps-enable.nix)
+  layer overrides for entries that diverge.
 
   Uses lib.mkOverride 1100 (low priority) to allow user overrides and specialized
   modules to take precedence when needed.
 
   NOTE: Some apps are managed by specialized modules and excluded from this catalog:
-  - qemu, vmware-workstation, ovftool → modules/system76/virtualization.nix
+  - qemu, vmware-workstation, ovftool: managed in modules/system76/virtualization.nix
     (Virtualization tools are controlled via system76.virtualization.* options)
 
   This separation eliminates priority conflicts and provides clear domain boundaries.
 */
-{ lib, ... }:
-{
-  configurations.nixos.system76.module = {
+{ config, lib, ... }:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body = {
     programs = {
       "1password-cli".extended.enable = lib.mkOverride 1100 true;
       # Each of these tools has been initialised on this host with
@@ -475,4 +479,9 @@
       "protonmail-bridge".extended.enable = lib.mkOverride 1100 true;
     };
   };
+in
+{
+  flake.lib.nixos._commonAppsBaseline = body.programs or { };
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }
