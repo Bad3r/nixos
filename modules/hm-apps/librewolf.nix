@@ -30,40 +30,15 @@ _: {
     let
       nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
       cfg = config.home.librewolfPrivacy;
-      # Extend pkgs (which already carries allowUnfreePredicate from
-      # modules/meta/nixpkgs-allowed-unfree.nix) with the NUR overlay so
-      # unfree firefox-addons (languagetool, wappalyzer, etc.) evaluate.
-      firefox-addons = (pkgs.extend inputs.dedupe_nur.overlays.default).nur.repos.rycee.firefox-addons;
-      geckoPrefs = import ./_gecko-prefs.nix {
-        inherit lib;
-        fonts = if config.stylix.enable then config.stylix.fonts else null;
+      gecko = import ./_gecko-mk-profile.nix {
+        inherit
+          pkgs
+          inputs
+          lib
+          config
+          cfg
+          ;
       };
-      geckoSearch = import ./_gecko-search.nix { };
-      geckoContainers = import ./_gecko-containers.nix { };
-      geckoExtensions = import ./_gecko-extensions.nix { inherit firefox-addons; };
-
-      mediaSettings = {
-        "media.peerconnection.enabled" = cfg.enableWebRTC;
-        "media.eme.enabled" = cfg.enableDRM;
-        "media.gmp-widevinecdm.enabled" = cfg.enableDRM;
-      };
-
-      mkProfile =
-        {
-          id,
-          packages,
-        }:
-        {
-          inherit id;
-          settings = geckoPrefs.commonSettings // mediaSettings;
-          inherit (geckoSearch) search;
-          inherit (geckoContainers) containers containersForce;
-          extensions = {
-            force = true;
-            inherit packages;
-            settings = geckoExtensions.extensionStorage;
-          };
-        };
     in
     {
       options.home.librewolfPrivacy = {
@@ -108,22 +83,22 @@ _: {
             DisableFirefoxStudies = true;
             DisablePocket = true;
           }
-          // geckoExtensions.extensionPolicies;
+          // gecko.extensionPolicies;
 
           profiles = {
-            primary = mkProfile {
+            primary = gecko.mkProfile {
               id = 0;
-              packages = geckoExtensions.primaryPackages;
+              packages = gecko.primaryPackages;
             };
 
-            work = mkProfile {
+            work = gecko.mkProfile {
               id = 1;
-              packages = geckoExtensions.workPackages;
+              packages = gecko.workPackages;
             };
 
-            ephemeral = mkProfile {
+            ephemeral = gecko.mkProfile {
               id = 2;
-              packages = geckoExtensions.ephemeralPackages;
+              packages = gecko.ephemeralPackages;
             };
           };
         };
