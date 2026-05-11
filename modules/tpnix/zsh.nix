@@ -43,6 +43,43 @@ in
         # Mirror bash behavior: expose hostname through HOSTNAME in zsh.
         export HOSTNAME="$HOST"
 
+        # Edit the current command buffer in $VISUAL/$EDITOR.
+        autoload -Uz edit-command-line
+        zle -N edit-command-line
+        bindkey '^X^G' list-expand
+        bindkey '^G' edit-command-line
+        bindkey -M vicmd '^X^G' list-expand
+        bindkey -M vicmd '^G' edit-command-line
+        bindkey -M vicmd v edit-command-line
+
+        # Expand aliases on space; Don't expand globs (*.txt) or variable refs ($PWD)
+        globalias() {
+          zle _expand_alias
+
+          local current_word="''${LBUFFER##*[[:space:]]}"
+          if [[ $current_word != *[\*\$]* ]]; then
+            zle expand-word
+          fi
+
+          zle self-insert
+        }
+        globalias-expand-all() {
+          zle _expand_alias
+          zle expand-word
+          zle self-insert
+        }
+        zle -N globalias
+        zle -N globalias-expand-all
+        bindkey -M emacs " " globalias
+        bindkey -M viins " " globalias
+        # Ctrl-x Space forces alias, glob, and parameter expansion before inserting a space.
+        bindkey -M emacs "^X " globalias-expand-all
+        bindkey -M viins "^X " globalias-expand-all
+        # Ctrl-space inserts a plain space without alias, glob, or parameter expansion.
+        bindkey -M emacs "^ " magic-space
+        bindkey -M viins "^ " magic-space
+        bindkey -M isearch " " magic-space
+
         # Source kitty's shell integration when running inside kitty.
         # Why: HM's programs.kitty sets shell_integration=no-rc, but it only
         # auto-sources from HM-managed zsh; this zsh is NixOS-managed.
