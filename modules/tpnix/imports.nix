@@ -87,6 +87,7 @@ in
     home-manager.users.${metaOwner.username} = {
       home = {
         context7Secrets.enable = lib.mkForce false;
+        greptileSecrets.enable = lib.mkForce false;
         r2Secrets.enable = lib.mkForce false;
         virustotalSecrets.enable = lib.mkForce false;
       };

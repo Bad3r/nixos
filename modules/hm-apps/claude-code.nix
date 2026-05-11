@@ -9,6 +9,8 @@
     * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Agent skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
+    * Greptile plugin activation is resolved during Home Manager activation
+      from the SOPS-managed runtime API key file.
     * LSP plugin enablement and binary installation are governed by
       programs.claude-code.extended.lspPlugins in modules/apps/claude-code.nix.
     * Additional non-LSP plugins are governed by
@@ -47,17 +49,46 @@ _: {
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
 
+      greptilePluginKey = "greptile@claude-plugins-official";
+      greptileApiKeyPath = "${config.xdg.dataHome}/greptile/api-key";
+      greptileHeadersHelperPath = "${config.home.homeDirectory}/.local/bin/claude-greptile-mcp-headers";
+      greptilePluginRequested = lib.attrByPath [
+        "programs"
+        "claude-code"
+        "extended"
+        "extraPlugins"
+        greptilePluginKey
+      ] false osConfig;
+      greptilePluginRequestedShell = if greptilePluginRequested then "1" else "0";
+      nixInstallEnabled = lib.attrByPath [
+        "programs"
+        "claude-code"
+        "extended"
+        "installMethods"
+        "nix"
+        "enable"
+      ] false osConfig;
+
+      extraPlugins = lib.attrByPath [ "programs" "claude-code" "extended" "extraPlugins" ] { } osConfig;
+      gatedExtraPlugins =
+        extraPlugins
+        // lib.optionalAttrs (builtins.hasAttr greptilePluginKey extraPlugins) {
+          ${greptilePluginKey} = false;
+        };
+
       # enabledPlugins is composed of:
       #   1. LSP plugins derived from programs.claude-code.extended.lspPlugins
       #      (single source of truth for LSP-style plugins).
       #   2. Additional plugins from programs.claude-code.extended.extraPlugins,
       #      keyed by the "<plugin>@<marketplace>" identifier used by
-      #      Claude Code's settings.json.
+      #      Claude Code's settings.json. Greptile is forced off in the base
+      #      JSON and re-enabled by the activation script only when its
+      #      SOPS-managed runtime API key file is readable.
       enabledPlugins =
         (lib.mapAttrs' (
           pluginKey: enabled: lib.nameValuePair "${pluginKey}@claude-plugins-official" enabled
         ) (lib.attrByPath [ "programs" "claude-code" "extended" "lspPlugins" ] { } osConfig))
-        // (lib.attrByPath [ "programs" "claude-code" "extended" "extraPlugins" ] { } osConfig);
+        // gatedExtraPlugins;
 
       # Claude Code settings.json configuration
       claudeSettings = {
@@ -164,6 +195,7 @@ _: {
       };
 
       # Combined config as JSON for the activation script
+      claudeSettingsFile = pkgs.writeText "claude-settings.json" (builtins.toJSON claudeSettings);
       claudeJsonConfigFile = pkgs.writeText "claude-json-config.json" (builtins.toJSON claudeJsonConfig);
 
       # ── Commit Skill ──────────────────────────────────────────────────────
@@ -174,27 +206,122 @@ _: {
       config = lib.mkIf nixosEnabled {
         home = {
           file = {
-            ".claude/settings.json" = {
-              text = builtins.toJSON claudeSettings;
-              onChange = ''
-                # Ensure Claude Code picks up the new settings
-                echo "✢ Claude Code: settings updated"
-              '';
-            };
-
             ".claude/CLAUDE.md".source = ./claude-code/CLAUDE.md;
 
             ".claude/skills/commit/SKILL.md" = {
               text = commitSkillMd;
+            };
+
+            ".local/bin/claude-greptile-mcp-headers" = {
+              executable = true;
+              text = ''
+                #!${pkgs.bash}/bin/bash
+                set -euo pipefail
+
+                secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
+                if [ ! -r "$secret_path" ] || [ ! -s "$secret_path" ]; then
+                  echo "GREPTILE_API_KEY file is not readable: $secret_path" >&2
+                  exit 1
+                fi
+
+                secret_value="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret_path")"
+                if [ -z "$secret_value" ]; then
+                  echo "GREPTILE_API_KEY file is empty after normalization: $secret_path" >&2
+                  exit 1
+                fi
+
+                ${pkgs.jq}/bin/jq -n --arg authorization "Bearer $secret_value" '{
+                  Authorization: $authorization
+                }'
+              '';
+            };
+          }
+          // lib.optionalAttrs (!nixInstallEnabled) {
+            ".local/bin/claude" = {
+              executable = true;
+              text = ''
+                #!${pkgs.bash}/bin/bash
+                set -euo pipefail
+
+                secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
+                if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
+                  if secret_value="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret_path")" && [ -n "$secret_value" ]; then
+                    export GREPTILE_API_KEY="$secret_value"
+                  fi
+                fi
+
+                bun_claude="$HOME/.local/share/bun/bin/claude"
+                if [ -x "$bun_claude" ]; then
+                  exec "$bun_claude" "$@"
+                fi
+
+                echo "ERROR: Claude Code bun install not found at $bun_claude" >&2
+                exit 127
+              '';
             };
           };
 
           # Configure Claude Code UI preferences and MCP servers in ~/.claude.json
           activation = {
             claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+              CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+              CLAUDE_SETTINGS_TMP="$(mktemp)"
               CLAUDE_CONFIG="$HOME/.claude.json"
-              TMP_FILE="$(mktemp)"
-              trap 'rm -f "$TMP_FILE"' EXIT
+              CLAUDE_CONFIG_TMP="$(mktemp)"
+              trap 'rm -f "$CLAUDE_SETTINGS_TMP" "$CLAUDE_CONFIG_TMP"' EXIT
+
+              mkdir -p "$HOME/.claude"
+
+              if [ -r "$CLAUDE_SETTINGS" ]; then
+                existing_settings="$CLAUDE_SETTINGS"
+              else
+                existing_settings="${pkgs.writeText "empty-json.json" "{}"}"
+              fi
+
+              if [ "${greptilePluginRequestedShell}" = "1" ] && [ -r "${greptileApiKeyPath}" ] && [ -s "${greptileApiKeyPath}" ]; then
+                greptile_enabled=true
+              else
+                greptile_enabled=false
+              fi
+
+              if ! ${pkgs.jq}/bin/jq \
+                --slurpfile nixSettings ${claudeSettingsFile} \
+                --arg plugin "${greptilePluginKey}" \
+                --argjson greptileEnabled "$greptile_enabled" \
+                '. as $existing
+                | $nixSettings[0] as $nix
+                | ($existing * $nix)
+                | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
+                | .enabledPlugins[$plugin] = $greptileEnabled
+                | .env = ((($existing.env // {}) + ($nix.env // {})) | del(.GREPTILE_API_KEY))' \
+                "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
+                echo "ERROR: jq failed to merge Claude Code settings" >&2
+                exit 1
+              fi
+
+              if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_SETTINGS_TMP" 2>/dev/null; then
+                echo "ERROR: resulting Claude Code settings are not valid JSON" >&2
+                exit 1
+              fi
+
+              mv "$CLAUDE_SETTINGS_TMP" "$CLAUDE_SETTINGS"
+              chmod 600 "$CLAUDE_SETTINGS"
+
+              for greptile_mcp_config in \
+                "$HOME"/.claude/plugins/cache/claude-plugins-official/greptile/*/.mcp.json \
+                "$HOME"/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/greptile/.mcp.json
+              do
+                [ -f "$greptile_mcp_config" ] || continue
+                GREPTILE_MCP_TMP="$(mktemp)"
+                if ! ${pkgs.jq}/bin/jq --arg helper "${greptileHeadersHelperPath}" \
+                  '.greptile.headersHelper = $helper | del(.greptile.headers)' \
+                  "$greptile_mcp_config" > "$GREPTILE_MCP_TMP"; then
+                  echo "ERROR: jq failed to patch Greptile MCP config: $greptile_mcp_config" >&2
+                  exit 1
+                fi
+                mv "$GREPTILE_MCP_TMP" "$greptile_mcp_config"
+                chmod 644 "$greptile_mcp_config"
+              done
 
               # Ensure the file exists
               if [ ! -f "$CLAUDE_CONFIG" ]; then
@@ -209,18 +336,18 @@ _: {
                 | $nixConfig[0] as $nix
                 | ($existing * $nix)
                 | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))' \
-                "$CLAUDE_CONFIG" > "$TMP_FILE"; then
+                "$CLAUDE_CONFIG" > "$CLAUDE_CONFIG_TMP"; then
                 echo "ERROR: jq failed to merge config" >&2
                 exit 1
               fi
 
               # Validate result is valid JSON
-              if ! ${pkgs.jq}/bin/jq empty "$TMP_FILE" 2>/dev/null; then
+              if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_CONFIG_TMP" 2>/dev/null; then
                 echo "ERROR: resulting config is not valid JSON" >&2
                 exit 1
               fi
 
-              mv "$TMP_FILE" "$CLAUDE_CONFIG"
+              mv "$CLAUDE_CONFIG_TMP" "$CLAUDE_CONFIG"
               chmod 600 "$CLAUDE_CONFIG"
 
               echo "✢ Claude Code: config applied (MCP via agents.mcp)"
