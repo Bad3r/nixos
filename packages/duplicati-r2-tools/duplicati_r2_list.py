@@ -44,6 +44,30 @@ def sanitize_slug(slug: str) -> str:
     return SCHEMA_SLUG_RE.sub("-", slug)
 
 
+def normalize_query_path(value: str) -> str:
+    """Canonicalize a user-supplied path before SQL exact-match.
+
+    Duplicati's File.Path column stores canonical absolute paths. Inputs like
+    `/data//foo`, `/data/./foo`, or a bare `data/foo` would miss the match
+    without this step. POSIX preserves a leading `//` through
+    `os.path.normpath`; collapse it so it does not survive into the query.
+    `..` segments are rejected (rather than lexically resolved) so callers
+    do not silently get metadata for an ancestor directory.
+    """
+    if not value:
+        fail("path argument is empty", EXIT_USAGE)
+    if any(part == ".." for part in value.split("/")):
+        fail(
+            f"path '{value}' contains '..' segments; pass a canonical path", EXIT_USAGE
+        )
+    norm = os.path.normpath(value)
+    if norm.startswith("//") and not norm.startswith("///"):
+        norm = norm[1:]
+    if not norm.startswith("/"):
+        norm = "/" + norm
+    return norm
+
+
 def parse_snapshot(value: str | None) -> tuple[str, int | str] | None:
     """Translate --snapshot into a typed selector.
 
@@ -119,12 +143,26 @@ def resolve_db_path(args: argparse.Namespace) -> str:
             if isinstance(target.get("stateDir"), str):
                 target_state_dir = target["stateDir"]
 
-    if target_state_dir is None and manifest is None:
-        target_state_dir = os.path.join(state_dir, slug)
-
-    effective_state_dir = target_state_dir or state_dir
     db_slug = sanitize_slug(slug)
-    return os.path.join(effective_state_dir, f"duplicati-r2-{db_slug}.sqlite")
+    db_filename = f"duplicati-r2-{db_slug}.sqlite"
+
+    if manifest is not None:
+        effective_state_dir = target_state_dir or state_dir
+        return os.path.join(effective_state_dir, db_filename)
+
+    # Manifest unreadable (typically mode 0400 on /run/duplicati-r2/config.json).
+    # The backup script resolves db_path from the per-target .stateDir when the
+    # manifest provides one, otherwise from the top-level .stateDir, so probe
+    # both candidate locations rooted at the default state dir before failing.
+    candidates = [
+        os.path.join(state_dir, slug, db_filename),
+        os.path.join(state_dir, db_filename),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    warn(f"no database found at any fallback candidate: {', '.join(candidates)}")
+    return candidates[0]
 
 
 def open_db(db_path: str) -> sqlite3.Connection:
@@ -235,7 +273,7 @@ def cmd_ls(args: argparse.Namespace) -> int:
     snapshot = resolve_snapshot(conn, parse_snapshot(args.snapshot))
     if snapshot is None:
         fail("no snapshots present in database")
-    parent = args.path
+    parent = normalize_query_path(args.path)
     if not parent.endswith("/"):
         parent += "/"
     files = conn.execute(
@@ -334,7 +372,7 @@ def cmd_stat(args: argparse.Namespace) -> int:
         WHERE fse.FilesetID = ?
           AND f.Path = ?
         """,
-        (snapshot["ID"], args.path),
+        (snapshot["ID"], normalize_query_path(args.path)),
     ).fetchone()
     if row is None:
         fail(f"path '{args.path}' not in snapshot {snapshot['ID']}", EXIT_OPEN_ERR)
@@ -386,7 +424,7 @@ def cmd_history(args: argparse.Namespace) -> int:
             WHERE f.Path = ?
             ORDER BY fs.Timestamp DESC
             """,
-            (args.path,),
+            (normalize_query_path(args.path),),
         )
     ]
     if not rows:

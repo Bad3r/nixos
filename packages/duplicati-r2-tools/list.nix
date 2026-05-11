@@ -45,10 +45,15 @@ stdenvNoCC.mkDerivation {
     "$bin" --db "$db" ls --snapshot 1 test /data | grep -q '^dir.*sub/'
 
     "$bin" --db "$db" stat test /data/one.txt | grep -q '^size: 12$'
+    # Non-canonical input must normalize before exact-match on f.Path.
+    "$bin" --db "$db" stat test '//data/./one.txt' | grep -q '^size: 12$'
+    "$bin" --db "$db" ls test '//data/' | grep -q one.txt
 
     "$bin" --db "$db" history test /data/one.txt | grep -qE '^ID'
     history_rows=$( "$bin" --db "$db" --json history test /data/one.txt | wc -l )
     test "$history_rows" -eq 2
+    history_norm_rows=$( "$bin" --db "$db" --json history test '/data/./one.txt' | wc -l )
+    test "$history_norm_rows" -eq 2
 
     "$bin" --db "$db" grep test '*.txt' | grep -q /data/one.txt
     "$bin" --db "$db" grep test --regex '\.log$' | grep -q /data/two.log
@@ -58,10 +63,27 @@ stdenvNoCC.mkDerivation {
       exit 1
     fi
 
+    if "$bin" --db "$db" stat test "" 2>/dev/null; then
+      echo "stat on empty path should have failed" >&2
+      exit 1
+    fi
+
+    # Paths with .. segments must fail loudly rather than resolve to an ancestor.
+    if "$bin" --db "$db" stat test '/data/foo/..' 2>/dev/null; then
+      echo "stat on path with .. should have failed" >&2
+      exit 1
+    fi
+
     if "$bin" --db /dev/null versions test 2>/dev/null; then
       echo "open on /dev/null should have failed" >&2
       exit 1
     fi
+
+    # When the manifest is unreadable, the fallback probes the slug-subdir
+    # variant first; this is the path reported in the failure message.
+    fallback_err=$( "$bin" --config /nonexistent/manifest.json versions test 2>&1 || true )
+    echo "$fallback_err" \
+      | grep -q 'database not found: /var/lib/duplicati-r2/test/duplicati-r2-test.sqlite'
 
     rm -rf "$work"
     runHook postInstallCheck
