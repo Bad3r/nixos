@@ -60,14 +60,6 @@ _: {
         greptilePluginKey
       ] false osConfig;
       greptilePluginRequestedShell = if greptilePluginRequested then "1" else "0";
-      nixInstallEnabled = lib.attrByPath [
-        "programs"
-        "claude-code"
-        "extended"
-        "installMethods"
-        "nix"
-        "enable"
-      ] false osConfig;
 
       extraPlugins = lib.attrByPath [ "programs" "claude-code" "extended" "extraPlugins" ] { } osConfig;
       gatedExtraPlugins =
@@ -236,7 +228,7 @@ _: {
               '';
             };
           }
-          // lib.optionalAttrs (!nixInstallEnabled) {
+          // lib.optionalAttrs bunInstallEnabled {
             ".local/bin/claude" = {
               executable = true;
               text = ''
@@ -268,7 +260,8 @@ _: {
               CLAUDE_SETTINGS_TMP="$(mktemp)"
               CLAUDE_CONFIG="$HOME/.claude.json"
               CLAUDE_CONFIG_TMP="$(mktemp)"
-              trap 'rm -f "$CLAUDE_SETTINGS_TMP" "$CLAUDE_CONFIG_TMP"' EXIT
+              GREPTILE_MCP_TMP=""
+              trap 'rm -f "$CLAUDE_SETTINGS_TMP" "$CLAUDE_CONFIG_TMP" "$GREPTILE_MCP_TMP"' EXIT
 
               mkdir -p "$HOME/.claude"
 
