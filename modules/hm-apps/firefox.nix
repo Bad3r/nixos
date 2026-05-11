@@ -1,4 +1,6 @@
 _: {
+  nixpkgs.allowedUnfreePackages = [ "onepassword-password-manager" ];
+
   flake.homeManagerModules.apps.firefox =
     {
       osConfig,
@@ -11,8 +13,7 @@ _: {
     let
       nixosEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
       cfg = config.home.firefoxPrivacy;
-      inherit (pkgs.stdenv.hostPlatform) system;
-      inherit (inputs.dedupe_nur.legacyPackages.${system}.repos.rycee) firefox-addons;
+      firefox-addons = (pkgs.extend inputs.dedupe_nur.overlays.default).nur.repos.rycee.firefox-addons;
       geckoBrowser = import ./_gecko-browser-common.nix { inherit firefox-addons; };
     in
     {
