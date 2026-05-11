@@ -29,7 +29,7 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "floorp" "extended" "enable" ] false osConfig;
-      cfg = config.home.floorp;
+      cfg = config.home.floorpPrivacy;
       gecko = import ./_gecko-mk-profile.nix {
         inherit
           pkgs
@@ -69,7 +69,7 @@ _: {
       };
     in
     {
-      options.home.floorp = {
+      options.home.floorpPrivacy = {
         enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
           default = false;
         };
