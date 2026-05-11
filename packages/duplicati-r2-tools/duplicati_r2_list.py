@@ -11,7 +11,6 @@ version history. No R2 fetches, no AES decryption.
 from __future__ import annotations
 
 import argparse
-import fnmatch
 import json
 import os
 import re
@@ -499,10 +498,6 @@ def cmd_grep(args: argparse.Namespace) -> int:
                 {"path": row["path"], "size": row["size"], "mtime": row["mtime"]}
             )
     else:
-        try:
-            fnmatch.translate(args.pattern)
-        except re.error as exc:
-            fail(f"invalid glob {args.pattern!r}: {exc}", EXIT_USAGE)
         cursor = conn.execute(
             """
             SELECT f.Path AS path, bs.Length AS size, fse.Lastmodified AS mtime
