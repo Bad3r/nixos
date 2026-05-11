@@ -100,9 +100,13 @@ _: {
           languagePacks = [ "en-US" ];
 
           profiles = {
+            # Floorp rewrites containers.json at runtime, so let HM
+            # overwrite the file unconditionally; Firefox and LibreWolf
+            # leave containersForce at its mkProfile default of false.
             primary = gecko.mkProfile {
               id = 0;
               packages = gecko.primaryPackages;
+              containersForce = true;
               extraSettings = {
                 "floorp.workspaces.enabled" = true;
                 "floorp.workspaces.v4.store" = workspacesStore;
@@ -112,11 +116,13 @@ _: {
             work = gecko.mkProfile {
               id = 1;
               packages = gecko.workPackages;
+              containersForce = true;
             };
 
             ephemeral = gecko.mkProfile {
               id = 2;
               packages = gecko.ephemeralPackages;
+              containersForce = true;
             };
           };
         };

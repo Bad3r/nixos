@@ -46,12 +46,13 @@ let
       id,
       packages,
       extraSettings ? { },
+      containersForce ? false,
     }:
     {
-      inherit id;
+      inherit id containersForce;
       settings = geckoPrefs.commonSettings // mediaSettings // extraSettings;
       inherit (geckoSearch) search;
-      inherit (geckoContainers) containers containersForce;
+      inherit (geckoContainers) containers;
       extensions = {
         force = true;
         inherit packages;

@@ -3,15 +3,16 @@
   Description: Container declarations shared across Firefox/Floorp/LibreWolf.
 
   Notes:
-    * containersForce = true mirrors Floorp's runtime behavior of rewriting
-      containers.json on every launch; forcing the file means the declarative
-      list always wins.
-    * userContextId = 1 here matches the Floorp workspaces "Work" entry that
-      lives in floorp.nix.
+    * Forcing containers.json (via `containersForce = true`) is a
+      per-browser decision and lives in `_gecko-mk-profile.nix`. Floorp
+      rewrites containers.json at runtime, so its profiles opt into the
+      force; Firefox and LibreWolf leave it false so any UI-created
+      container survives HM activation.
+    * userContextId = 1 here matches the Floorp workspaces "Work" entry
+      that lives in floorp.nix.
 */
 
 _: {
-  containersForce = true;
   containers = {
     work = {
       id = 1;
