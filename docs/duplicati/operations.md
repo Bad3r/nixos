@@ -271,6 +271,52 @@ To explicitly bound the in-memory cache, set `--restore-volume-cache-hint=2gb` (
 
 To compute the exact dblock fetch list before running a restore, query the per-target SQLite using the `Path -> Blockset -> Block -> Remotevolume` join from [recovery.md](recovery.md#db-driven-impact-analysis), substituting the path filter (e.g. `Path LIKE '%.torrent'`) for the missing-volume names. The result is the precise set of `*.dblock.zip.aes` objects the restore will fetch.
 
+## Query the local SQLite (read-only)
+
+`duplicati-r2-list` (provided by `pkgs.duplicati-r2-tools.list`) answers snapshot, path, size, mtime, and version-history questions directly from the per-target SQLite at `/var/lib/duplicati-r2/<slug>/duplicati-r2-<slug>.sqlite`. It opens the database with `mode=ro&immutable=1`, performs no R2 fetches, and does not decrypt anything. Cut A of [`docs/drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md).
+
+The tool is auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty; usernames listed there can run it without `sudo` via the named-user POSIX ACL on the state directory. Other users see `permission denied` on the SQLite open, which is the expected loud failure.
+
+Subcommands (replace `<slug>` with the manifest target key, e.g. `bankdata`):
+
+```bash
+# List snapshots, newest first (Fileset.ID, ISO timestamp, full-backup flag).
+duplicati-r2-list versions <slug>
+
+# Directory listing at a snapshot (defaults to latest).
+duplicati-r2-list ls <slug> /abs/path
+duplicati-r2-list ls --snapshot 42 <slug> /abs/path
+duplicati-r2-list ls --snapshot 2026-04-01T00:00:00Z <slug> /abs/path
+
+# Size, hash, and mtime for a single file in a snapshot.
+duplicati-r2-list stat <slug> /abs/path/file.ext
+
+# Every snapshot that contains a path, with per-snapshot size and mtime.
+duplicati-r2-list history <slug> /abs/path/file.ext
+
+# Path-glob filter over a snapshot (NOT a content grep). Use --regex for re syntax.
+duplicati-r2-list grep <slug> '*.torrent'
+duplicati-r2-list grep <slug> --regex '\.torrent$'
+```
+
+Global flags:
+
+| Flag              | Effect                                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| `--json`          | Stream output as NDJSON (one row per line for streaming subcommands; one object for `stat`).        |
+| `--db <path>`     | Bypass manifest resolution and open the named SQLite file directly. Used for offline forensic work. |
+| `--config <path>` | Override `/run/duplicati-r2/config.json` for slug-to-stateDir resolution.                           |
+| `--snapshot <id>` | (`ls`, `stat`, `grep`) Fileset.ID integer or ISO-8601 timestamp; default is the latest snapshot.    |
+
+Exit codes mirror `duplicati-r2-restore.sh`:
+
+- `0` success
+- `64` usage error (bad args, invalid glob/regex, unresolved snapshot)
+- `65` schema-version mismatch (the tool refuses to operate against unsupported `Configuration.Version`)
+- `66` manifest/db unreadable, target missing, target disabled, snapshot id not found, path not in snapshot
+
+When `--config` and `--db` are both omitted and `/run/duplicati-r2/config.json` is not readable to the invoker, the tool falls back to the default state directory `/var/lib/duplicati-r2/<slug>` and proceeds; pass `--config` or `--db` explicitly when the manifest layout is non-default.
+
 ## Post-deploy checks
 
 ```bash

@@ -129,6 +129,18 @@ Slugs collide deterministically: `bank/data` and `bank-data` both normalize to `
 
 Every backup target writes under `s3://<bucket>/<hostname>/<destSubpath>/`. The default `destSubpath` is the target slug, so a manifest entry keyed `photos` on host `<host>` lands at `s3://<bucket>/<host>/photos/`. Inside that prefix duplicati maintains its own object set (`*.dblock.zip.aes`, `*.dindex.zip.aes`, `*.dlist.zip.aes`).
 
+## CLI tooling
+
+`pkgs.duplicati-r2-tools` is an attrset of operator-facing CLIs that consume the per-target SQLite without touching R2. The service module auto-enables every member through `programs.duplicati-r2-tools.extended.enable` whenever `services.duplicati-r2.stateDirReadableBy` is non-empty.
+
+| Attribute                      | Binary              | Read scope                                                                                  | Cut |
+| ------------------------------ | ------------------- | ------------------------------------------------------------------------------------------- | --- |
+| `pkgs.duplicati-r2-tools.list` | `duplicati-r2-list` | Per-target SQLite at `<stateDir>/duplicati-r2-<slug>.sqlite`, opened `mode=ro&immutable=1`. | A   |
+
+`duplicati-r2-list` accepts the slug as a positional argument, resolves `<stateDir>` via `/run/duplicati-r2/config.json` (overridable with `--config` or `--db`), and never opens an R2 connection or AES decryption path. Operator workflow and full subcommand surface live in [`operations.md`](operations.md#query-the-local-sqlite-read-only). Design rationale: [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md) Sections 3 (SQL schema) and 5.1 (Cut A scope).
+
+Cut B (single-file extract from R2) and Cut C (read-only FUSE mount) are not implemented; the namespace is reserved so they can land as `pkgs.duplicati-r2-tools.extract` / `pkgs.duplicati-r2-tools.mount` without renaming.
+
 ## Operation pipeline
 
 1. sops-nix decrypts `secrets/duplicati-r2.yaml` and (if `configFile` is set) `secrets/duplicati-config.json` during activation.

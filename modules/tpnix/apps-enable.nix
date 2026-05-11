@@ -99,6 +99,7 @@
       dua.extended.enable = lib.mkOverride 1100 true;
       duf.extended.enable = lib.mkOverride 1100 true;
       dunst.extended.enable = lib.mkOverride 1100 true;
+      "duplicati-r2-tools".extended.enable = lib.mkOverride 1100 false;
       dust.extended.enable = lib.mkOverride 1100 false;
       dwarfs.extended.enable = lib.mkOverride 1100 false; # Default dependency of steam extraTools
       "electron-mail".extended.enable = lib.mkOverride 1100 true;

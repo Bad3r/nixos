@@ -808,6 +808,11 @@ let
 
           environment.systemPackages = [ cfg.package ];
 
+          # Read-only path/snapshot CLI for maintainers granted the state-dir
+          # ACL. Implements Cut A of
+          # docs/drafts/duplicati-r2-readonly-mount-investigation.md.
+          programs.duplicati-r2-tools.extended.enable = mkIf (cfg.stateDirReadableBy != [ ]) true;
+
           sops.secrets = lib.mkMerge [
             secretsDeclared
             (mkIf usingSecret {
