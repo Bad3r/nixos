@@ -1,8 +1,15 @@
-# Local repository mirrors for tpnix host.
+# Local repository mirrors for system76 host.
 # Synced daily to /data/git/{owner}-{repo}
-{ metaOwner, ... }:
 {
-  configurations.nixos.tpnix.module = _: {
+  config,
+  lib,
+  metaOwner,
+  ...
+}:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body = _: {
     config = {
       localMirrors.enable = true;
 
@@ -52,4 +59,8 @@
       };
     };
   };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }

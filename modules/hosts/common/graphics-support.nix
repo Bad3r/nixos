@@ -1,6 +1,8 @@
-{ lib, ... }:
-{
-  configurations.nixos.system76.module =
+{ config, lib, ... }:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body =
     { pkgs, ... }:
     {
       hardware.graphics = {
@@ -22,4 +24,8 @@
 
       environment.systemPackages = lib.mkAfter [ pkgs.libva-utils ];
     };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }

@@ -1,5 +1,8 @@
-_: {
-  configurations.nixos.system76.module = _: {
+{ config, lib, ... }:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body = _: {
     security = {
       pam.sshAgentAuth.enable = true;
       polkit.enable = true;
@@ -30,4 +33,8 @@ _: {
       updater.enable = false;
     };
   };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }

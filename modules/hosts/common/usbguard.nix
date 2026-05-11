@@ -7,10 +7,12 @@
   ...
 }:
 let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
   inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   usbguardLib =
     let
-      libAttrs = import ../security/usbguard-lib.nix { inherit lib; };
+      libAttrs = import ../../security/usbguard-lib.nix { inherit lib; };
       flakeLib = libAttrs.flake or { };
       securityLib = (flakeLib.lib or { }).security or { };
     in
@@ -21,20 +23,20 @@ let
   moduleImports = lib.optional (defaultsModule != null) defaultsModule;
   ownerUsername = metaOwner.username;
 
-  hostSlug = "tpnix";
-  secretDir = "${secretsRoot}/usbguard";
-  secretFile = "${secretDir}/${hostSlug}.yaml";
-  secretName = "usbguard/${hostSlug}.rules";
-  secretRuntimePath = "/run/secrets/usbguard/${hostSlug}.rules";
-  secretExists = builtins.pathExists secretFile;
-
   runtimeRuleFile = "/var/lib/usbguard/rules.conf";
 
   # Set to false to disable USBGuard entirely
   enabled = false;
-in
-{
-  configurations.nixos.tpnix.module =
+
+  bodyFor =
+    hostSlug:
+    let
+      secretDir = "${secretsRoot}/usbguard";
+      secretFile = "${secretDir}/${hostSlug}.yaml";
+      secretName = "usbguard/${hostSlug}.rules";
+      secretRuntimePath = "/run/secrets/usbguard/${hostSlug}.rules";
+      secretExists = builtins.pathExists secretFile;
+    in
     { config, lib, ... }:
     let
       installSecretsDeps = sopsInstallSecretsDeps config;
@@ -125,4 +127,8 @@ in
         })
       ];
     };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share (bodyFor "system76");
+  configurations.nixos.tpnix.module = lib.mkIf tpShare (bodyFor "tpnix");
 }

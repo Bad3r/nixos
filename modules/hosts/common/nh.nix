@@ -5,9 +5,16 @@
   package-only app toggle. This module wires native NixOS and Home Manager
   `programs.nh` options with owner-derived paths.
 */
-{ lib, metaOwner, ... }:
 {
-  configurations.nixos.tpnix.module =
+  config,
+  lib,
+  metaOwner,
+  ...
+}:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body =
     { config, ... }:
     let
       ownerHome = config.users.users.${metaOwner.username}.home;
@@ -42,4 +49,8 @@
         )
       ];
     };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }
