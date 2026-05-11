@@ -37,6 +37,7 @@ in
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
       config.flake.nixosModules.bluetooth
+      config.flake.nixosModules.zshKeybindings
     ]
     ++ lib.optionals duplicatiModuleExists [ config.flake.nixosModules."duplicati-r2" ]
     ++ lib.optionals mirrorRootModuleExists [ config.flake.nixosModules.mirror-root ]

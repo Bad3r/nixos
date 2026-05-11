@@ -47,6 +47,7 @@ in
       config.flake.nixosModules.bluetooth
       config.flake.nixosModules."duplicati-r2"
       config.flake.nixosModules.mirror-root
+      config.flake.nixosModules.zshKeybindings
 
       # External hardware modules
       inputs.nixos-hardware.nixosModules.system76
