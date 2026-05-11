@@ -323,6 +323,7 @@
       raindrop.extended.enable = lib.mkOverride 1100 true;
       rar.extended.enable = lib.mkOverride 1100 true;
       rclone.extended.enable = lib.mkOverride 1100 true;
+      readpdf.extended.enable = lib.mkOverride 1100 true;
       remmina.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
       rg-fzf.extended.enable = lib.mkOverride 1100 true;
