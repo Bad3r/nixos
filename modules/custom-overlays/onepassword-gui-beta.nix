@@ -52,8 +52,14 @@ let
               install -m 444 "$asarRoot/tray.png" "$asarRoot/app/images/$trayIcon.png"
             done
 
+            # Asar's `*.node` glob matches every native addon at any depth,
+            # so a future 1Password release that ships additional native
+            # modules (e.g. a keytar binding) still lands in
+            # `.asar.unpacked/` and stays dlopen-able. Without that
+            # widening the bindings would silently repack inside the
+            # asar and crash on first use.
             ${final.asar}/bin/asar pack \
-              --unpack "{index.node,CREDITS.html}" \
+              --unpack "{*.node,CREDITS.html}" \
               "$asarRoot/app" \
               "$asarRoot/app.asar"
             cp "$asarRoot/app.asar" "$out/share/1password/resources/app.asar"
