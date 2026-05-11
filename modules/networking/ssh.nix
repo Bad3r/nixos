@@ -72,9 +72,17 @@ _: {
       }:
       let
         homeDirectory = "/home/${metaOwner.username}";
-        onePasswordSshAgentEnabled =
-          lib.attrByPath [ "programs" "1password-cli" "extended" "enable" ] false osConfig
-          || lib.attrByPath [ "programs" "1password-gui-beta" "extended" "enable" ] false osConfig;
+        # ~/.1password/agent.sock is created at runtime by the 1Password
+        # desktop app (GUI) when its SSH agent feature is enabled. The CLI
+        # alone never creates this socket, so gating on the CLI would point
+        # identityAgent at a path that never exists and silently break all
+        # SSH authentication on hosts that enable the CLI without the GUI.
+        onePasswordSshAgentEnabled = lib.attrByPath [
+          "programs"
+          "1password-gui-beta"
+          "extended"
+          "enable"
+        ] false osConfig;
       in
       {
         programs.ssh = {
