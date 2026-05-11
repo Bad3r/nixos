@@ -76,20 +76,43 @@ All Nix files are automatically imported as flake-parts modules. Files prefixed 
 
 Hosts compose modules from aggregator namespaces, not literal paths. Use `lib.hasAttrByPath` with `lib.getAttrFromPath` for optional modules to avoid ordering issues.
 
+### Shared Host Modules (`modules/hosts/common/`)
+
+Modules that apply to every host opted into the registry live under `modules/hosts/common/`. The registry is `flake.lib.nixos.hosts.<name>.shareCommon` (declared in `modules/hosts/common/registry.nix`). A common module dispatches per host via `lib.mkIf`:
+
+```nix
+{ config, lib, ... }:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body = {
+    networking.domain = "local";
+  };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
+}
+```
+
+Do NOT iterate over `flake.lib.nixos.hosts` with `lib.filterAttrs`/`lib.mapAttrs` from a module that contributes to `configurations.nixos`. The attrset-structure forcing required by `lib.mapAttrs` triggers infinite recursion in the flake-parts module evaluator (each module's contribution gets evaluated to determine whether it sets the option being read). Hardcode the host names and use direct attribute paths instead.
+
+`modules/hosts/common/apps-enable.nix` carries the default-on baseline at `lib.mkOverride 1100`; per-host override files (e.g. `modules/tpnix/apps-enable.nix`) layer overrides at `lib.mkOverride 1000` so the host value wins. User overrides at default priority 100 still win over both. `modules/hosts/common/checks.nix` adds a flake-level `nix flake check` assertion that fails when a per-host override duplicates the common baseline value (silent no-op detection).
+
 ### Flake Input Deduplication
 
 Inputs prefixed with `dedupe_` exist for dependency deduplication through `.follows`. If no `follows` references remain, remove the `dedupe_` input.
 
 ### Repository Layout
 
-| Domain              | Location                                          | Notes                                                                                                            |
-| ------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| NixOS modules       | `modules/`                                        | Auto-loaded. Host-specific logic under `modules/system76` and `modules/tpnix`; shared bundles grouped by domain. |
-| Shared derivations  | `packages/`                                       | Common build logic shared between modules.                                                                       |
-| Helper scripts      | `scripts/`                                        | Operational tooling.                                                                                             |
-| Documentation       | `docs/`, `nixos-manual/`                          | Long-form references and local workflows.                                                                        |
-| Secrets             | `secrets/`                                        | Encrypted payloads managed via `sops.secrets`.                                                                   |
-| Generated artifacts | `.actrc`, `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module. Update source definitions instead of editing generated output directly.               |
+| Domain              | Location                                          | Notes                                                                                                                                                            |
+| ------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NixOS modules       | `modules/`                                        | Auto-loaded. Per-host logic under `modules/system76` and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain. |
+| Shared derivations  | `packages/`                                       | Common build logic shared between modules.                                                                                                                       |
+| Helper scripts      | `scripts/`                                        | Operational tooling.                                                                                                                                             |
+| Documentation       | `docs/`, `nixos-manual/`                          | Long-form references and local workflows.                                                                                                                        |
+| Secrets             | `secrets/`                                        | Encrypted payloads managed via `sops.secrets`.                                                                                                                   |
+| Generated artifacts | `.actrc`, `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module. Update source definitions instead of editing generated output directly.                                                               |
 
 ### Module Authoring Guidelines (`modules/apps/*`)
 
