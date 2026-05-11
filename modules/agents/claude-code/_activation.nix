@@ -2,8 +2,13 @@
   Activation snippets for Claude Code.
 
   Produces:
-    - claudeCodeSetup: idempotent jq merge into ~/.claude.json, preserving
-      user keys while wholly replacing Nix-managed mcpServers entries.
+    - claudeCodeSetup: idempotent jq merge into ~/.claude/settings.json and
+      ~/.claude.json, preserving user keys while wholly replacing Nix-managed
+      mcpServers entries. The Greptile plugin is toggled at activation time
+      based on whether the SOPS-managed API key file is readable; the loop
+      that follows patches every cached Greptile MCP config to delegate
+      Authorization to the headers helper instead of relying on the
+      `GREPTILE_API_KEY` env var.
     - installClaudeCodeViaBun: optional, only when
       programs.claude-code.extended.installMethods.bun.enable is true.
 
@@ -17,7 +22,12 @@
   pkgs,
   osConfig,
   config,
+  claudeSettingsFile,
   claudeJsonConfigFile,
+  greptilePluginKey,
+  greptilePluginRequested,
+  greptileApiKeyPath,
+  greptileHeadersHelperPath,
 }:
 let
   bunInstallEnabled = lib.attrByPath [
@@ -30,13 +40,69 @@ let
   ] false osConfig;
   bunInstallDir = "${config.xdg.dataHome}/bun";
   bunBin = lib.getExe osConfig.programs.bun.extended.package;
+  greptilePluginRequestedShell = if greptilePluginRequested then "1" else "0";
 in
 {
-  # Configure Claude Code UI preferences and MCP servers in ~/.claude.json
   claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+    CLAUDE_SETTINGS_TMP="$(mktemp)"
     CLAUDE_CONFIG="$HOME/.claude.json"
-    TMP_FILE="$(mktemp)"
-    trap 'rm -f "$TMP_FILE"' EXIT
+    CLAUDE_CONFIG_TMP="$(mktemp)"
+    GREPTILE_MCP_TMP=""
+    trap 'rm -f "$CLAUDE_SETTINGS_TMP" "$CLAUDE_CONFIG_TMP" "$GREPTILE_MCP_TMP"' EXIT
+
+    mkdir -p "$HOME/.claude"
+
+    if [ -r "$CLAUDE_SETTINGS" ]; then
+      existing_settings="$CLAUDE_SETTINGS"
+    else
+      existing_settings="${pkgs.writeText "empty-json.json" "{}"}"
+    fi
+
+    if [ "${greptilePluginRequestedShell}" = "1" ] && [ -r "${greptileApiKeyPath}" ] && [ -s "${greptileApiKeyPath}" ]; then
+      greptile_enabled=true
+    else
+      greptile_enabled=false
+    fi
+
+    if ! ${pkgs.jq}/bin/jq \
+      --slurpfile nixSettings ${claudeSettingsFile} \
+      --arg plugin "${greptilePluginKey}" \
+      --argjson greptileEnabled "$greptile_enabled" \
+      '. as $existing
+      | $nixSettings[0] as $nix
+      | ($existing * $nix)
+      | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
+      | .enabledPlugins[$plugin] = $greptileEnabled
+      | .env = ((($existing.env // {}) + ($nix.env // {})) | del(.GREPTILE_API_KEY))' \
+      "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
+      echo "ERROR: jq failed to merge Claude Code settings" >&2
+      exit 1
+    fi
+
+    if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_SETTINGS_TMP" 2>/dev/null; then
+      echo "ERROR: resulting Claude Code settings are not valid JSON" >&2
+      exit 1
+    fi
+
+    mv "$CLAUDE_SETTINGS_TMP" "$CLAUDE_SETTINGS"
+    chmod 600 "$CLAUDE_SETTINGS"
+
+    for greptile_mcp_config in \
+      "$HOME"/.claude/plugins/cache/claude-plugins-official/greptile/*/.mcp.json \
+      "$HOME"/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/greptile/.mcp.json
+    do
+      [ -f "$greptile_mcp_config" ] || continue
+      GREPTILE_MCP_TMP="$(mktemp)"
+      if ! ${pkgs.jq}/bin/jq --arg helper "${greptileHeadersHelperPath}" \
+        '.greptile.headersHelper = $helper | del(.greptile.headers)' \
+        "$greptile_mcp_config" > "$GREPTILE_MCP_TMP"; then
+        echo "ERROR: jq failed to patch Greptile MCP config: $greptile_mcp_config" >&2
+        exit 1
+      fi
+      mv "$GREPTILE_MCP_TMP" "$greptile_mcp_config"
+      chmod 644 "$greptile_mcp_config"
+    done
 
     # Ensure the file exists
     if [ ! -f "$CLAUDE_CONFIG" ]; then
@@ -51,18 +117,18 @@ in
       | $nixConfig[0] as $nix
       | ($existing * $nix)
       | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))' \
-      "$CLAUDE_CONFIG" > "$TMP_FILE"; then
+      "$CLAUDE_CONFIG" > "$CLAUDE_CONFIG_TMP"; then
       echo "ERROR: jq failed to merge config" >&2
       exit 1
     fi
 
     # Validate result is valid JSON
-    if ! ${pkgs.jq}/bin/jq empty "$TMP_FILE" 2>/dev/null; then
+    if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_CONFIG_TMP" 2>/dev/null; then
       echo "ERROR: resulting config is not valid JSON" >&2
       exit 1
     fi
 
-    mv "$TMP_FILE" "$CLAUDE_CONFIG"
+    mv "$CLAUDE_CONFIG_TMP" "$CLAUDE_CONFIG"
     chmod 600 "$CLAUDE_CONFIG"
 
     echo "✢ Claude Code: config applied (MCP via agents.mcp)"

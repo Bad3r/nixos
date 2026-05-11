@@ -37,6 +37,7 @@ in
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
       config.flake.nixosModules.bluetooth
+      config.flake.nixosModules.zshKeybindings
     ]
     ++ lib.optionals duplicatiModuleExists [ config.flake.nixosModules."duplicati-r2" ]
     ++ lib.optionals mirrorRootModuleExists [ config.flake.nixosModules.mirror-root ]
@@ -87,6 +88,7 @@ in
     home-manager.users.${metaOwner.username} = {
       home = {
         context7Secrets.enable = lib.mkForce false;
+        greptileSecrets.enable = lib.mkForce false;
         r2Secrets.enable = lib.mkForce false;
         virustotalSecrets.enable = lib.mkForce false;
       };

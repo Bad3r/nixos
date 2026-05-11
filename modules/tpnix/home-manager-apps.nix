@@ -1,6 +1,7 @@
 { config, lib, ... }:
 let
   extraAppNames = [
+    "1password-gui-beta"
     "act"
     "atuin"
     "autorandr"

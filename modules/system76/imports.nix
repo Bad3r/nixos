@@ -47,6 +47,7 @@ in
       config.flake.nixosModules.bluetooth
       config.flake.nixosModules."duplicati-r2"
       config.flake.nixosModules.mirror-root
+      config.flake.nixosModules.zshKeybindings
 
       # External hardware modules
       inputs.nixos-hardware.nixosModules.system76
@@ -84,6 +85,7 @@ in
     };
     home-manager.users.${metaOwner.username}.home = {
       context7Secrets.enable = lib.mkDefault true;
+      greptileSecrets.enable = lib.mkDefault true;
       repoGpg.enable = lib.mkDefault true;
       r2Secrets.enable = lib.mkForce false;
       virustotalSecrets.enable = lib.mkDefault true;

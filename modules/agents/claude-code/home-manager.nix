@@ -9,6 +9,8 @@
     * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Agent skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
+    * Greptile plugin activation is resolved during Home Manager activation
+      from the SOPS-managed runtime API key file.
     * LSP plugin enablement and binary installation are governed by
       programs.claude-code.extended.lspPlugins in modules/apps/claude-code.nix.
     * Additional non-LSP plugins are governed by
@@ -49,15 +51,30 @@ _: {
         inherit (plugins) enabledPlugins;
       };
 
+      greptileApiKeyPath = "${config.xdg.dataHome}/greptile/api-key";
+      greptileHeadersHelperPath = "${config.home.homeDirectory}/.local/bin/claude-greptile-mcp-headers";
+
       activation = import ./_activation.nix {
         inherit
           lib
           pkgs
           osConfig
           config
+          greptileApiKeyPath
+          greptileHeadersHelperPath
           ;
-        inherit (settings) claudeJsonConfigFile;
+        inherit (settings) claudeSettingsFile claudeJsonConfigFile;
+        inherit (plugins) greptilePluginKey greptilePluginRequested;
       };
+
+      bunInstallEnabled = lib.attrByPath [
+        "programs"
+        "claude-code"
+        "extended"
+        "installMethods"
+        "bun"
+        "enable"
+      ] false osConfig;
 
       # ── Commit Skill ──────────────────────────────────────────────────────
       commitSkillMd = agents.skills.commit.claude;
@@ -66,18 +83,58 @@ _: {
       config = lib.mkIf nixosEnabled {
         home = {
           file = {
-            ".claude/settings.json" = {
-              text = builtins.toJSON settings.claudeSettings;
-              onChange = ''
-                # Ensure Claude Code picks up the new settings
-                echo "✢ Claude Code: settings updated"
-              '';
-            };
-
             ".claude/CLAUDE.md".source = ./CLAUDE.md;
 
             ".claude/skills/commit/SKILL.md" = {
               text = commitSkillMd;
+            };
+
+            ".local/bin/claude-greptile-mcp-headers" = {
+              executable = true;
+              text = ''
+                #!${pkgs.bash}/bin/bash
+                set -euo pipefail
+
+                secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
+                if [ ! -r "$secret_path" ] || [ ! -s "$secret_path" ]; then
+                  echo "GREPTILE_API_KEY file is not readable: $secret_path" >&2
+                  exit 1
+                fi
+
+                secret_value="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret_path")"
+                if [ -z "$secret_value" ]; then
+                  echo "GREPTILE_API_KEY file is empty after normalization: $secret_path" >&2
+                  exit 1
+                fi
+
+                ${pkgs.jq}/bin/jq -n --arg authorization "Bearer $secret_value" '{
+                  Authorization: $authorization
+                }'
+              '';
+            };
+          }
+          // lib.optionalAttrs bunInstallEnabled {
+            ".local/bin/claude" = {
+              executable = true;
+              text = ''
+                #!${pkgs.bash}/bin/bash
+                set -euo pipefail
+
+                secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
+                if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
+                  if secret_value="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret_path")" && [ -n "$secret_value" ]; then
+                    export GREPTILE_API_KEY="$secret_value"
+                  fi
+                fi
+
+                bun_claude="$HOME/.local/share/bun/bin/claude"
+                if [ -x "$bun_claude" ]; then
+                  exec "$bun_claude" "$@"
+                fi
+
+                echo "ERROR: Claude Code bun install not found at $bun_claude" >&2
+                exit 127
+              '';
             };
           };
 
