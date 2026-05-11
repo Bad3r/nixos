@@ -70,8 +70,13 @@
       "extensions.formautofill.addresses.enabled" = false;
       "extensions.formautofill.heuristics.enabled" = false;
 
-      # Clear offline data, form data, and history+downloads on every shutdown.
-      "privacy.clearOnShutdown.offlineApps" = true;
+      # Clear cookies+site data, form data, and history+downloads on every
+      # shutdown. `privacy.sanitize.sanitizeOnShutdown` is the master switch:
+      # without it the per-category `_v2` prefs below are inert because
+      # Firefox short-circuits the shutdown sanitizer. The `_v2.*` namespace
+      # is what modern Firefox (128+) reads; the legacy v1 keys are no-ops.
+      "privacy.sanitize.sanitizeOnShutdown" = true;
+      "privacy.clearOnShutdown_v2.cookiesAndStorage" = true;
       "privacy.clearOnShutdown_v2.formdata" = true;
       "privacy.clearOnShutdown_v2.historyFormDataAndDownloads" = true;
 
