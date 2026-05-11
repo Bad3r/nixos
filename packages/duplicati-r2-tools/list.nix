@@ -72,6 +72,9 @@ stdenvNoCC.mkDerivation {
     # cmd_ls --json must emit mtime as ISO-8601 (same schema as the other commands).
     "$bin" --db "$db" --json ls test /data | grep -q '"mtime":"2026-'
 
+    # Symlink rows (BlocksetID = -200) must be labelled as "symlink", not "file".
+    "$bin" --db "$db" --json ls test /data | grep -q '"name":"link.txt","type":"symlink"'
+
     if "$bin" --db "$db" stat test /missing.txt 2>/dev/null; then
       echo "stat on missing path should have failed" >&2
       exit 1

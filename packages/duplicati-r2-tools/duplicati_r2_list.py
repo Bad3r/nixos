@@ -24,6 +24,10 @@ DEFAULT_CONFIG = "/run/duplicati-r2/config.json"
 DEFAULT_STATE_DIR = "/var/lib/duplicati-r2"
 SCHEMA_SLUG_RE = re.compile(r"[^A-Za-z0-9_\-]")
 SUPPORTED_SCHEMA_VERSIONS = {"19"}
+# Sentinel BlocksetIDs from Duplicati's Library/Main/Database/LocalDatabase.cs.
+# Used to identify directory and symlink entries that have no row in Blockset.
+FOLDER_BLOCKSET_ID = -100
+SYMLINK_BLOCKSET_ID = -200
 
 EXIT_USAGE = 64
 EXIT_DATA_ERR = 65
@@ -284,7 +288,8 @@ def cmd_ls(args: argparse.Namespace) -> int:
         SELECT
           SUBSTR(f.Path, ?) AS name,
           bs.Length         AS size,
-          fse.Lastmodified  AS mtime
+          fse.Lastmodified  AS mtime,
+          f.BlocksetID      AS blockset_id
         FROM File f
           JOIN FilesetEntry fse ON fse.FileID = f.ID
           LEFT JOIN Blockset bs ON bs.ID = f.BlocksetID
@@ -332,7 +337,9 @@ def cmd_ls(args: argparse.Namespace) -> int:
         rows.append(
             {
                 "name": f["name"],
-                "type": "file",
+                "type": "symlink"
+                if f["blockset_id"] == SYMLINK_BLOCKSET_ID
+                else "file",
                 "size": f["size"],
                 "mtime": f["mtime"],
             }
