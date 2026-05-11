@@ -52,6 +52,9 @@ stdenvNoCC.mkDerivation {
     # LEFT JOIN to Blockset; INNER JOIN silently drops them.
     "$bin" --db "$db" stat test /data/sub/ | grep -q '^path: /data/sub/$'
     "$bin" --db "$db" stat test /data/link.txt | grep -q '^path: /data/link.txt$'
+    # Slashless directory inputs must still resolve (Duplicati stores the entry
+    # with a trailing slash, so the query has to probe both forms).
+    "$bin" --db "$db" stat test /data/sub | grep -q '^path: /data/sub/$'
 
     "$bin" --db "$db" history test /data/one.txt | grep -qE '^ID'
     history_rows=$( "$bin" --db "$db" --json history test /data/one.txt | wc -l )
@@ -60,6 +63,8 @@ stdenvNoCC.mkDerivation {
     test "$history_norm_rows" -eq 2
     history_dir_rows=$( "$bin" --db "$db" --json history test /data/sub/ | wc -l )
     test "$history_dir_rows" -eq 2
+    history_dir_noslash=$( "$bin" --db "$db" --json history test /data/sub | wc -l )
+    test "$history_dir_noslash" -eq 2
 
     "$bin" --db "$db" grep test '*.txt' | grep -q /data/one.txt
     "$bin" --db "$db" grep test --regex '\.log$' | grep -q /data/two.log

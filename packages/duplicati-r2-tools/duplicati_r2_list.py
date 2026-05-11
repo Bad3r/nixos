@@ -370,11 +370,25 @@ def cmd_ls(args: argparse.Namespace) -> int:
     return 0
 
 
+def _exact_match_variants(value: str) -> tuple[str, str]:
+    """Both forms an exact-match query should consider.
+
+    Duplicati stores directory entries in `File.Path` with a trailing `/`
+    (`/data/sub/`) and file entries without (`/data/one.txt`). An operator
+    typing `stat <slug> /data/sub` (no slash) should still resolve, so the
+    query probes both forms.
+    """
+    qpath = normalize_query_path(value)
+    qpath_alt = qpath[:-1] if qpath.endswith("/") and len(qpath) > 1 else qpath + "/"
+    return qpath, qpath_alt
+
+
 def cmd_stat(args: argparse.Namespace) -> int:
     conn = open_db(resolve_db_path(args))
     snapshot = resolve_snapshot(conn, parse_snapshot(args.snapshot))
     if snapshot is None:
         fail("no snapshots present in database")
+    qpath, qpath_alt = _exact_match_variants(args.path)
     row = conn.execute(
         """
         SELECT
@@ -386,9 +400,9 @@ def cmd_stat(args: argparse.Namespace) -> int:
           JOIN FilesetEntry fse ON fse.FileID = f.ID
           LEFT JOIN Blockset bs ON bs.ID = f.BlocksetID
         WHERE fse.FilesetID = ?
-          AND f.Path = ?
+          AND f.Path IN (?, ?)
         """,
-        (snapshot["ID"], normalize_query_path(args.path)),
+        (snapshot["ID"], qpath, qpath_alt),
     ).fetchone()
     if row is None:
         fail(f"path '{args.path}' not in snapshot {snapshot['ID']}", EXIT_OPEN_ERR)
@@ -417,6 +431,7 @@ def cmd_stat(args: argparse.Namespace) -> int:
 
 def cmd_history(args: argparse.Namespace) -> int:
     conn = open_db(resolve_db_path(args))
+    qpath, qpath_alt = _exact_match_variants(args.path)
     rows = [
         {
             "snapshot_id": r["ID"],
@@ -437,10 +452,10 @@ def cmd_history(args: argparse.Namespace) -> int:
               JOIN FilesetEntry fse ON fse.FilesetID = fs.ID
               JOIN File f           ON f.ID = fse.FileID
               LEFT JOIN Blockset bs ON bs.ID = f.BlocksetID
-            WHERE f.Path = ?
+            WHERE f.Path IN (?, ?)
             ORDER BY fs.Timestamp DESC
             """,
-            (normalize_query_path(args.path),),
+            (qpath, qpath_alt),
         )
     ]
     if not rows:
