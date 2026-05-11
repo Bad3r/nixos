@@ -96,7 +96,6 @@
       # Show the bookmarks toolbar only on the new-tab page.
       "browser.toolbars.bookmarks.visibility" = "newtab";
 
-      # Reader-mode font. Reader colors come from Stylix.
       "reader.font_type" = "monospace";
 
       # VA-API hardware decoding under Wayland/X11.

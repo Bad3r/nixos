@@ -9,7 +9,8 @@
 
   Arguments:
     pkgs, inputs, lib, config: standard module args from the caller.
-    cfg: the caller's privacy config (`enableWebRTC`, `enableDRM`).
+    cfg: the caller's privacy config (must define `enableWebRTC` and
+         `enableDRM`, both booleans).
 
   Returns:
     mkProfile, extensionPolicies, primaryPackages, workPackages,
@@ -28,7 +29,7 @@ let
 
   geckoPrefs = import ./_gecko-prefs.nix {
     inherit lib;
-    fonts = if config.stylix.enable then config.stylix.fonts else null;
+    fonts = if (config.stylix.enable or false) then config.stylix.fonts else null;
   };
   geckoSearch = import ./_gecko-search.nix { };
   geckoContainers = import ./_gecko-containers.nix { };
