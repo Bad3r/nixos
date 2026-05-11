@@ -15,7 +15,10 @@ _: {
       # modules/meta/nixpkgs-allowed-unfree.nix) with the NUR overlay so
       # unfree firefox-addons (languagetool, wappalyzer, etc.) evaluate.
       firefox-addons = (pkgs.extend inputs.dedupe_nur.overlays.default).nur.repos.rycee.firefox-addons;
-      geckoPrefs = import ./_gecko-prefs.nix { };
+      geckoPrefs = import ./_gecko-prefs.nix {
+        inherit lib;
+        fonts = if config.stylix.enable then config.stylix.fonts else null;
+      };
       geckoSearch = import ./_gecko-search.nix { };
       geckoContainers = import ./_gecko-containers.nix { };
       geckoExtensions = import ./_gecko-extensions.nix { inherit firefox-addons; };
