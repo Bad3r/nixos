@@ -30,7 +30,7 @@ let
     }:
     let
       cfg = config.programs."1password-gui-beta".extended;
-      owner = metaOwner.username or "vx";
+      owner = metaOwner.username;
       browserEnabled = name: lib.attrByPath [ "programs" name "extended" "enable" ] false config;
       customAllowedBrowsers =
         lib.optional (browserEnabled "floorp") "floorp"
@@ -74,7 +74,7 @@ let
 
         environment.etc."1password/custom_allowed_browsers" = lib.mkIf (customAllowedBrowsers != [ ]) {
           text = lib.concatStringsSep "\n" customAllowedBrowsers + "\n";
-          mode = "0755";
+          mode = "0644";
         };
       };
     };
