@@ -158,7 +158,7 @@ def resolve_db_path(args: argparse.Namespace) -> str:
     # manifest provides one, otherwise from the top-level .stateDir, so probe
     # both candidate locations rooted at the default state dir before failing.
     candidates = [
-        os.path.join(state_dir, slug, db_filename),
+        os.path.join(state_dir, db_slug, db_filename),
         os.path.join(state_dir, db_filename),
     ]
     for candidate in candidates:
