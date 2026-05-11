@@ -48,12 +48,18 @@ stdenvNoCC.mkDerivation {
     # Non-canonical input must normalize before exact-match on f.Path.
     "$bin" --db "$db" stat test '//data/./one.txt' | grep -q '^size: 12$'
     "$bin" --db "$db" ls test '//data/' | grep -q one.txt
+    # Directory and symlink entries (BlocksetID -100/-200) must surface via
+    # LEFT JOIN to Blockset; INNER JOIN silently drops them.
+    "$bin" --db "$db" stat test /data/sub/ | grep -q '^path: /data/sub/$'
+    "$bin" --db "$db" stat test /data/link.txt | grep -q '^path: /data/link.txt$'
 
     "$bin" --db "$db" history test /data/one.txt | grep -qE '^ID'
     history_rows=$( "$bin" --db "$db" --json history test /data/one.txt | wc -l )
     test "$history_rows" -eq 2
     history_norm_rows=$( "$bin" --db "$db" --json history test '/data/./one.txt' | wc -l )
     test "$history_norm_rows" -eq 2
+    history_dir_rows=$( "$bin" --db "$db" --json history test /data/sub/ | wc -l )
+    test "$history_dir_rows" -eq 2
 
     "$bin" --db "$db" grep test '*.txt' | grep -q /data/one.txt
     "$bin" --db "$db" grep test --regex '\.log$' | grep -q /data/two.log

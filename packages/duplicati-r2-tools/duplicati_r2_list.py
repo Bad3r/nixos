@@ -51,7 +51,9 @@ def normalize_query_path(value: str) -> str:
     without this step. POSIX preserves a leading `//` through
     `os.path.normpath`; collapse it so it does not survive into the query.
     `..` segments are rejected (rather than lexically resolved) so callers
-    do not silently get metadata for an ancestor directory.
+    do not silently get metadata for an ancestor directory. A trailing `/` in
+    the input is preserved, since Duplicati stores directory entries with a
+    trailing `/` in `File.Path` and dropping it would miss the exact match.
     """
     if not value:
         fail("path argument is empty", EXIT_USAGE)
@@ -64,6 +66,8 @@ def normalize_query_path(value: str) -> str:
         norm = norm[1:]
     if not norm.startswith("/"):
         norm = "/" + norm
+    if value.endswith("/") and not norm.endswith("/"):
+        norm += "/"
     return norm
 
 
@@ -283,7 +287,7 @@ def cmd_ls(args: argparse.Namespace) -> int:
           fse.Lastmodified  AS mtime
         FROM File f
           JOIN FilesetEntry fse ON fse.FileID = f.ID
-          JOIN Blockset bs      ON bs.ID = f.BlocksetID
+          LEFT JOIN Blockset bs ON bs.ID = f.BlocksetID
         WHERE fse.FilesetID = ?
           AND f.Path GLOB ?
           AND INSTR(SUBSTR(f.Path, ?), '/') = 0
@@ -380,7 +384,7 @@ def cmd_stat(args: argparse.Namespace) -> int:
           fse.Lastmodified AS mtime
         FROM File f
           JOIN FilesetEntry fse ON fse.FileID = f.ID
-          JOIN Blockset bs      ON bs.ID = f.BlocksetID
+          LEFT JOIN Blockset bs ON bs.ID = f.BlocksetID
         WHERE fse.FilesetID = ?
           AND f.Path = ?
         """,
@@ -432,7 +436,7 @@ def cmd_history(args: argparse.Namespace) -> int:
             FROM Fileset fs
               JOIN FilesetEntry fse ON fse.FilesetID = fs.ID
               JOIN File f           ON f.ID = fse.FileID
-              JOIN Blockset bs      ON bs.ID = f.BlocksetID
+              LEFT JOIN Blockset bs ON bs.ID = f.BlocksetID
             WHERE f.Path = ?
             ORDER BY fs.Timestamp DESC
             """,
@@ -485,7 +489,7 @@ def cmd_grep(args: argparse.Namespace) -> int:
             SELECT f.Path AS path, bs.Length AS size, fse.Lastmodified AS mtime
             FROM File f
               JOIN FilesetEntry fse ON fse.FileID = f.ID
-              JOIN Blockset bs      ON bs.ID = f.BlocksetID
+              LEFT JOIN Blockset bs ON bs.ID = f.BlocksetID
             WHERE fse.FilesetID = ?
             ORDER BY f.Path
             """,
@@ -503,7 +507,7 @@ def cmd_grep(args: argparse.Namespace) -> int:
             SELECT f.Path AS path, bs.Length AS size, fse.Lastmodified AS mtime
             FROM File f
               JOIN FilesetEntry fse ON fse.FileID = f.ID
-              JOIN Blockset bs      ON bs.ID = f.BlocksetID
+              LEFT JOIN Blockset bs ON bs.ID = f.BlocksetID
             WHERE fse.FilesetID = ?
               AND f.Path GLOB ?
             ORDER BY f.Path

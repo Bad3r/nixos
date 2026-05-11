@@ -23,10 +23,15 @@ CREATE TABLE FileLookup (
   BlocksetID INTEGER,
   MetadataID INTEGER
 );
+-- BlocksetID -100 is FOLDER_BLOCKSET_ID, -200 is SYMLINK_BLOCKSET_ID per
+-- Duplicati's LocalDatabase.cs. Neither value exists in Blockset, so the
+-- CLI's stat/history/grep/ls queries must LEFT JOIN to return these rows.
 INSERT INTO FileLookup VALUES
   (1, 1, 'one.txt',     101, 201),
   (2, 1, 'two.log',     102, 202),
-  (3, 2, 'three.txt',   103, 203);
+  (3, 2, 'three.txt',   103, 203),
+  (4, 2, '',           -100, 204),  -- /data/sub/ directory entry
+  (5, 1, 'link.txt',   -200, 205);  -- symlink at /data/link.txt
 
 CREATE VIEW File AS
   SELECT FileLookup.ID         AS ID,
@@ -75,6 +80,10 @@ INSERT INTO FilesetEntry VALUES
   (1, 1, 1767200000),
   (1, 2, 1767200100),
   (1, 3, 1767200200),
+  (1, 4, 1767200300),  -- /data/sub/ directory entry
+  (1, 5, 1767200400),  -- /data/link.txt symlink
   (2, 1, 1769900000),  -- one.txt appears in both snapshots
-  (2, 2, 1769900100);  -- two.log appears in both
+  (2, 2, 1769900100),  -- two.log appears in both
+  (2, 4, 1769900200),  -- /data/sub/ persists in snapshot 2
+  (2, 5, 1769900300);  -- /data/link.txt persists in snapshot 2
 -- three.txt only in snapshot 1; absent from snapshot 2 (deletion).
