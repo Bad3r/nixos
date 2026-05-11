@@ -51,10 +51,27 @@ _: {
               fs_map["$app"]=1
             done
 
+            # The common baseline at modules/hosts/common/apps-enable.nix is
+            # the canonical catalog and must list every app from modules/apps/.
+            # Per-host files (modules/<host>/apps-enable.nix) only carry
+            # overrides for entries that diverge from the baseline; they are
+            # not required to be complete and must only reference apps that
+            # exist on the filesystem (stale-only check).
+            common_catalog="modules/hosts/common/apps-enable.nix"
+
             add_all_catalog_files() {
               while IFS= read -r f; do
                 catalog_files_to_check["$f"]=1
-              done < <(find . -path "*/modules/*/apps-enable.nix" -printf "%P\n" | sort)
+              done < <(
+                {
+                  echo "$common_catalog"
+                  find . -path "*/modules/*/apps-enable.nix" -printf "%P\n"
+                } | sort -u
+              )
+            }
+
+            is_common_catalog() {
+              [ "$1" = "$common_catalog" ]
             }
 
             # Determine which apps-enable.nix files to check.
@@ -78,7 +95,7 @@ _: {
               fi
               app_modules_changed=0
               while IFS= read -r changed_file; do
-                if [[ "$changed_file" =~ ^modules/[^/]+/apps-enable\.nix$ ]]; then
+                if [[ "$changed_file" =~ ^modules/.+/apps-enable\.nix$ ]]; then
                   catalog_files_to_check["$changed_file"]=1
                 elif [[ "$changed_file" =~ ^modules/apps/[^_/][^/]*\.nix$ ]]; then
                   app_modules_changed=1
@@ -114,11 +131,13 @@ _: {
               done
 
               declare -a missing=()
-              for app in "''${filesystem_apps[@]}"; do
-                if [ -z "''${catalog_map[$app]:-}" ]; then
-                  missing+=("$app")
-                fi
-              done
+              if is_common_catalog "$catalog_file"; then
+                for app in "''${filesystem_apps[@]}"; do
+                  if [ -z "''${catalog_map[$app]:-}" ]; then
+                    missing+=("$app")
+                  fi
+                done
+              fi
 
               declare -a stale=()
               for app in "''${catalog_apps[@]}"; do
