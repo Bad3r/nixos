@@ -44,14 +44,17 @@ stdenvNoCC.mkDerivation {
     "$bin" --db "$db" ls test /data | grep -q one.txt
     "$bin" --db "$db" ls --snapshot 1 test /data | grep -q '^dir.*sub/'
 
-    "$bin" --db "$db" stat test /data/one.txt | grep -q '^size: 12$'
+    "$bin" --db "$db" stat test /data/one.txt | grep -q '^size: 12B$'
     # Non-canonical input must normalize before exact-match on f.Path.
-    "$bin" --db "$db" stat test '//data/./one.txt' | grep -q '^size: 12$'
+    "$bin" --db "$db" stat test '//data/./one.txt' | grep -q '^size: 12B$'
     "$bin" --db "$db" ls test '//data/' | grep -q one.txt
     # Directory and symlink entries (BlocksetID -100/-200) must surface via
     # LEFT JOIN to Blockset; INNER JOIN silently drops them.
     "$bin" --db "$db" stat test /data/sub/ | grep -q '^path: /data/sub/$'
     "$bin" --db "$db" stat test /data/link.txt | grep -q '^path: /data/link.txt$'
+    # Human-mode stat must render NULL size/hash as `-`, not Python's `None`.
+    "$bin" --db "$db" stat test /data/sub/ | grep -q '^size: -$'
+    "$bin" --db "$db" stat test /data/sub/ | grep -q '^hash: -$'
     # Slashless directory inputs must still resolve (Duplicati stores the entry
     # with a trailing slash, so the query has to probe both forms).
     "$bin" --db "$db" stat test /data/sub | grep -q '^path: /data/sub/$'

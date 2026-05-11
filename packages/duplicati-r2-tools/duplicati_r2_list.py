@@ -431,6 +431,11 @@ def cmd_stat(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(record, indent=2))
     else:
+        human = {
+            **record,
+            "size": human_size(record["size"]),
+            "hash": record["hash"] if record["hash"] is not None else "-",
+        }
         for key in (
             "path",
             "snapshot_id",
@@ -439,7 +444,7 @@ def cmd_stat(args: argparse.Namespace) -> int:
             "hash",
             "mtime",
         ):
-            print(f"{key}: {record[key]}")
+            print(f"{key}: {human[key]}")
     return 0
 
 
