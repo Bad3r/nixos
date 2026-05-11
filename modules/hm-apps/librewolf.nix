@@ -70,8 +70,13 @@ _: {
         enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
           default = false;
         };
+        # LibreWolf upstream ships `media.eme.enabled` and
+        # `media.gmp-widevinecdm.enabled` off by default as part of its
+        # privacy posture; defaulting `enableDRM` to false preserves that
+        # stance and leaves the opt-in to users who explicitly need
+        # Widevine/EME playback.
         enableDRM = lib.mkEnableOption "Allow DRM/Widevine (EME) playback" // {
-          default = true;
+          default = false;
         };
       };
 
