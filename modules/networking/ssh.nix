@@ -64,20 +64,43 @@ _: {
       };
 
     homeManagerModules.base =
-      { metaOwner, ... }:
+      {
+        lib,
+        metaOwner,
+        osConfig,
+        ...
+      }:
       let
         homeDirectory = "/home/${metaOwner.username}";
+        # ~/.1password/agent.sock is created at runtime by the 1Password
+        # desktop app (GUI) when its SSH agent feature is enabled. The CLI
+        # alone never creates this socket, so gating on the CLI would point
+        # identityAgent at a path that never exists and silently break all
+        # SSH authentication on hosts that enable the CLI without the GUI.
+        onePasswordSshAgentEnabled = lib.attrByPath [
+          "programs"
+          "1password-gui-beta"
+          "extended"
+          "enable"
+        ] false osConfig;
       in
       {
         programs.ssh = {
           enable = true;
           enableDefaultConfig = false;
           # Use metaOwner instead of config.home.homeDirectory
-          includes = [ "${homeDirectory}/.ssh/hosts/*" ];
+          includes = [
+            "${homeDirectory}/.ssh/hosts/*"
+          ]
+          ++ lib.optional onePasswordSshAgentEnabled "${homeDirectory}/.ssh/1Password/config";
           matchBlocks = {
             "*" = {
               identitiesOnly = true;
-              identityAgent = "${homeDirectory}/.gnupg/S.gpg-agent.ssh";
+              identityAgent =
+                if onePasswordSshAgentEnabled then
+                  "~/.1password/agent.sock"
+                else
+                  "${homeDirectory}/.gnupg/S.gpg-agent.ssh";
               addKeysToAgent = "yes";
               identityFile = [ "${homeDirectory}/.ssh/id_ed25519" ];
               setEnv.TERM = "xterm-256color";

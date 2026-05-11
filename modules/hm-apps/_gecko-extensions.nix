@@ -29,9 +29,9 @@ let
   ublockOriginSlug = "ublock-origin";
   ublockOriginInstallUrl = "${amoLatestBaseUrl}${ublockOriginSlug}/latest.xpi";
 
-  bitwardenId = "{446900e4-71c2-419f-a6a7-df9c091e268b}";
-  bitwardenSlug = "bitwarden-password-manager";
-  bitwardenInstallUrl = "${amoLatestBaseUrl}${bitwardenSlug}/latest.xpi";
+  onePasswordId = "{d634138d-c276-4fc8-924b-40a0ea21d284}";
+  onePasswordSlug = "1password-x-password-manager";
+  onePasswordInstallUrl = "${amoLatestBaseUrl}${onePasswordSlug}/latest.xpi";
 
   # SVG Gobbler is not packaged in the rycee NUR firefox-addons set, so it is
   # delivered via AMO force-install instead. The GUID below comes from the
@@ -165,9 +165,9 @@ let
       install_url = ublockOriginInstallUrl;
       private_browsing = true;
     };
-    "${bitwardenId}" = {
+    "${onePasswordId}" = {
       installation_mode = "force_installed";
-      install_url = bitwardenInstallUrl;
+      install_url = onePasswordInstallUrl;
     };
     "${svgGobblerId}" = {
       installation_mode = "force_installed";
@@ -179,7 +179,6 @@ let
   # programs.<browser>.profiles.<name>.extensions.packages.
   primaryPackages = with firefox-addons; [
     ublock-origin
-    bitwarden
     raindropio
     cookie-autodelete
     simplelogin

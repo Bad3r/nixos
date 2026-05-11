@@ -1,4 +1,6 @@
 _: {
+  nixpkgs.allowedUnfreePackages = [ "onepassword-password-manager" ];
+
   flake.homeManagerModules.apps.firefox =
     {
       osConfig,

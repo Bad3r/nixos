@@ -1,19 +1,25 @@
 # snixembed 0.3.3 (nixpkgs pin) renders SNI tray icons through GTK's
 # `Gtk.StatusIcon`, which delegates raster decoding to gdk-pixbuf.
-# Three defects compose into the symptom that flameshot
+# Four defects compose into the symptom that flameshot
 # ("flameshot-tray"), Remmina ("org.remmina.Remmina-status"), and
-# ProtonVPN render as identical blank squares in `i3bar`:
+# ProtonVPN render as identical blank squares or fail to register in
+# `i3bar`:
 #
 #   1. `src/proxyicon.vala` `set_icon_pixmap` iterates the
 #      ARGB->RGBA conversion with `i += 3` over a 4-byte-per-pixel
 #      buffer, garbling every pixel after the first. Fix: stride 4.
 #   2. Same file, `set_icon` falls through to that broken pixmap
-#      path whenever `theme.has_icon(name)` returns false, even for
-#      SNI items with no `IconPixmap`, replacing the named icon Gtk
-#      would render with a corrupted pixmap. Fix: widen the
-#      early-return guard so the pixmap path is reachable only when
-#      the theme misses AND the SNI item supplied real pixmap bytes.
-#   3. The upstream Nix package builds against gtk3 + libdbusmenu
+#      path whenever `theme.has_icon(name)` returns false. Some SNI
+#      items either omit `IconPixmap` or expose it with the wrong
+#      D-Bus type, and snixembed's generated Vala proxy can crash just
+#      by reading the property. Fix: only use the pixmap fallback when
+#      `IconPixmap` is already cached with the expected SNI array type.
+#   3. ProtonVPN starts with a missing theme icon name
+#      (`proton-vpn-sign`) and later switches to an absolute SVG path;
+#      the guarded pixmap fallback lets Gtk render the named/file icon
+#      instead of aborting while probing ProtonVPN's malformed
+#      `IconPixmap`.
+#   4. The upstream Nix package builds against gtk3 + libdbusmenu
 #      without `wrapGAppsHook3` and without `librsvg` in scope, so
 #      `GDK_PIXBUF_MODULE_FILE` is unset at runtime and gdk-pixbuf
 #      lacks the SVG loader. Modern icon themes (Qogir, Adwaita,
@@ -24,10 +30,10 @@
 #      the resulting `GDK_PIXBUF_MODULE_FILE` cache registers
 #      `libpixbufloader-svg.so`.
 #
-# PR #103 introduced this bridge for ProtonVPN; PR #193 added the
-# source patch for items 1 + 2; PR #195 added item 3. Drop the full
-# override once upstream ships a release past 0.3.3 with both the
-# source fixes and the librsvg dependency in place.
+# PR #103 introduced this bridge for ProtonVPN. The source patch covers
+# items 1-3; PR #195 added the librsvg wrapping in item 4. Drop the full
+# override once upstream ships a release past 0.3.3 with the source fixes
+# and the librsvg dependency in place.
 _:
 let
   Overlay =

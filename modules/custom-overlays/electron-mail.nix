@@ -9,7 +9,9 @@ let
       config = lib.mkIf cfg.enable {
         nixpkgs.overlays = [
           (final: _prev: {
-            "electron-mail" = final.callPackage ../../packages/electron-mail { };
+            "electron-mail" = final.callPackage ../../packages/electron-mail {
+              themedTrayIcon = ../stylix/icons/electron-mail-outline.svg;
+            };
           })
         ];
       };

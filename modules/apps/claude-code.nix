@@ -17,7 +17,7 @@
 
   Notes:
     * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
-    * Configuration managed by Home Manager module (modules/hm-apps/claude-code.nix).
+    * Configuration managed by Home Manager module (modules/agents/claude-code/home-manager.nix).
 */
 { inputs, ... }:
 let
