@@ -16,7 +16,8 @@
 
   Notes:
     * Wraps OCRmyPDF force mode because PDFs with bad embedded text layers need a fresh OCR pass.
-    * Sends OCRmyPDF's required searchable-PDF output to `/dev/null` for stdout mode.
+    * Sends OCRmyPDF's required searchable-PDF output to `/dev/null` in both modes so the
+      command works on any ocrmypdf release that supports `/dev/null` as the output PDF.
 */
 _:
 let
@@ -152,11 +153,10 @@ let
             exec ocrmypdf \
               -q \
               --force-ocr \
-              --output-type none \
               "''${page_args[@]}" \
               --sidecar "$output" \
               "$input" \
-              -
+              /dev/null
           fi
 
           exec ocrmypdf \
