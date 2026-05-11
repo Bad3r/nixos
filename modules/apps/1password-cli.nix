@@ -30,6 +30,9 @@ let
     }:
     let
       cfg = config.programs."1password-cli".extended;
+      pluginAliasLines = lib.concatMapStringsSep "\n" (
+        tool: ''alias ${tool}="op plugin run -- ${tool}"''
+      ) cfg.pluginAliases;
     in
     {
       options.programs."1password-cli".extended = {
@@ -40,6 +43,24 @@ let
         };
 
         package = lib.mkPackageOption pkgs "_1password-cli" { };
+
+        pluginAliases = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          example = [
+            "cachix"
+            "gh"
+            "glab"
+            "wrangler"
+          ];
+          description = ''
+            Tools to alias to `op plugin run -- <tool>`. Each entry must
+            have already been initialised on this host with
+            `op plugin init <tool>`; otherwise every invocation exits
+            non-zero with "no plugin configured". Default is empty so a
+            fresh checkout does not silently break interactive shells.
+          '';
+        };
       };
 
       config = lib.mkIf cfg.enable {
@@ -48,13 +69,12 @@ let
           inherit (cfg) package;
         };
 
-        environment.interactiveShellInit = lib.mkAfter ''
-          export OP_PLUGIN_ALIASES_SOURCED=1
-          alias cachix="op plugin run -- cachix"
-          alias gh="op plugin run -- gh"
-          alias glab="op plugin run -- glab"
-          alias wrangler="op plugin run -- wrangler"
-        '';
+        environment.interactiveShellInit = lib.mkIf (cfg.pluginAliases != [ ]) (
+          lib.mkAfter ''
+            export OP_PLUGIN_ALIASES_SOURCED=1
+            ${pluginAliasLines}
+          ''
+        );
       };
     };
 in
