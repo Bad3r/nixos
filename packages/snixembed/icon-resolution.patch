@@ -1,4 +1,4 @@
-Fix two icon-resolution defects in src/proxyicon.vala (snixembed 0.3.3):
+Fix three icon-resolution defects in src/proxyicon.vala (snixembed 0.3.3):
 
   1. set_icon_pixmap iterates the ARGB->RGBA conversion with i += 3
      over a 4-byte-per-pixel buffer. The first pixel converts in
@@ -10,16 +10,23 @@ Fix two icon-resolution defects in src/proxyicon.vala (snixembed 0.3.3):
      theme.has_icon(name) returns false, even when the SNI item
      supplies no IconPixmap data. In that case Gtk's
      set_from_icon_name renders the named icon (or its own
-     missing-image fallback) and the pixmap branch corrupts that
-     output. Widen the early-return guard so we keep the named icon
-     when the theme resolves it OR when no pixmap data is available;
-     only fall through to set_icon_pixmap when the theme misses AND
-     the SNI item provides a real pixmap to render.
+     missing-image fallback) and the pixmap branch corrupts or
+     crashes that output. Gate the pixmap fallback on a cached
+     IconPixmap property with the expected D-Bus type so malformed
+     providers do not get queried through the typed Vala getter.
+
+  3. ProtonVPN starts with a missing theme icon name
+     ("proton-vpn-sign") and later switches to an absolute SVG path.
+     Its unknown IconPixmap property returns an empty string variant
+     instead of the SNI pixmap type, which aborts GLib when snixembed's
+     generated D-Bus proxy tries to coerce it. The cached-property
+     guard prevents that crash while keeping valid pixmap fallbacks.
 
 Reported against snixembed running on i3bar with the StatusNotifierItem
-items advertised by flameshot ("flameshot-tray") and Remmina
-("org.remmina.Remmina-status"): both rendered as identical blank squares
-before the patch.
+items advertised by flameshot ("flameshot-tray"), Remmina
+("org.remmina.Remmina-status"), and ProtonVPN. Flameshot and Remmina
+rendered as identical blank squares before the patch; ProtonVPN could
+crash snixembed during tray registration.
 
 Upstream: https://git.sr.ht/~steef/snixembed (patches sent / pending).
 
@@ -30,11 +37,27 @@ Upstream: https://git.sr.ht/~steef/snixembed (patches sent / pending).
 
              set_icon_name(name);
 -            if (theme.has_icon(name)) {
-+            if (theme.has_icon(name) || item.icon_pixmap == null || item.icon_pixmap.length == 0) {
++            if (theme.has_icon(name) || !has_cached_icon_pixmap()) {
                  return;
              }
          }
-@@ -115,7 +115,7 @@
+@@ -108,6 +108,14 @@
+     void set_icon_name(string name) {
+         icon.set_from_icon_name(name);
+     }
++
++    bool has_cached_icon_pixmap() {
++        var proxy = item as DBusProxy;
++        if (proxy == null) return false;
++
++        var pixmap = proxy.get_cached_property("IconPixmap");
++        return pixmap != null && pixmap.get_type_string() == "a(iiay)";
++    }
+
+     void set_icon_pixmap(IconPixmap[] pixmaps) {
+         if (pixmaps.length == 0) return;
+@@ -115,8 +123,8 @@
+
          var pixmap = pixmaps[0]; // TODO: choose the best one
 
          // Convert from ARGB to RGBA

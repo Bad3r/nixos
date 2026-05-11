@@ -100,9 +100,9 @@ publish StatusNotifierItem icons.
 
 ## Bridge Patches
 
-`snixembed` is pinned to upstream 0.3.3 in nixpkgs. The `customPackages`
-overlay (`modules/base/custom-packages-overlay.nix`) layers
-`packages/snixembed/icon-resolution.patch` on top. The patch addresses two
+`snixembed` is pinned to upstream 0.3.3 in nixpkgs. The custom overlay
+(`modules/custom-overlays/snixembed.nix`) layers
+`packages/snixembed/icon-resolution.patch` on top. The patch addresses three
 defects in `src/proxyicon.vala`:
 
 1. `set_icon_pixmap` iterates the ARGB->RGBA conversion with `i += 3` over a
@@ -110,13 +110,14 @@ defects in `src/proxyicon.vala`:
    iteration overwrites the previous pixel's alpha with the next pixel's
    data. Fix: stride 4.
 2. `set_icon` falls through to the pixmap path whenever
-   `theme.has_icon(name)` returns false, even when the SNI item supplies no
-   `IconPixmap`. Without pixmap data the fall-through replaces the named
-   icon Gtk would render with `set_from_pixbuf(null)`. Fix: widen the
-   early-return guard to `theme.has_icon(name) || item.icon_pixmap == null
-   || item.icon_pixmap.length == 0`. The pixmap path stays reachable when
-   the theme misses AND the SNI item supplies real pixmap bytes, so apps
-   that depend on the bitmap fallback continue to work.
+   `theme.has_icon(name)` returns false. Some SNI items omit `IconPixmap` or
+   expose it with the wrong D-Bus type, and snixembed's generated Vala proxy
+   can crash just by reading the property. Fix: only use the pixmap fallback
+   when `IconPixmap` is already cached with the expected SNI array type.
+3. ProtonVPN starts with a missing theme icon name (`proton-vpn-sign`) and
+   later switches to an absolute SVG path. The guarded pixmap fallback lets Gtk
+   render the named/file icon instead of aborting while probing ProtonVPN's
+   malformed `IconPixmap`.
 
 Drop the override once upstream `~steef/snixembed` ships a release past
 0.3.3 with the equivalent fixes.
