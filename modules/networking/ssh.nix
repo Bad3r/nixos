@@ -64,20 +64,35 @@ _: {
       };
 
     homeManagerModules.base =
-      { metaOwner, ... }:
+      {
+        lib,
+        metaOwner,
+        osConfig,
+        ...
+      }:
       let
         homeDirectory = "/home/${metaOwner.username}";
+        onePasswordSshAgentEnabled =
+          lib.attrByPath [ "programs" "1password-cli" "extended" "enable" ] false osConfig
+          || lib.attrByPath [ "programs" "1password-gui-beta" "extended" "enable" ] false osConfig;
       in
       {
         programs.ssh = {
           enable = true;
           enableDefaultConfig = false;
           # Use metaOwner instead of config.home.homeDirectory
-          includes = [ "${homeDirectory}/.ssh/hosts/*" ];
+          includes = [
+            "${homeDirectory}/.ssh/hosts/*"
+          ]
+          ++ lib.optional onePasswordSshAgentEnabled "${homeDirectory}/.ssh/1Password/config";
           matchBlocks = {
             "*" = {
               identitiesOnly = true;
-              identityAgent = "${homeDirectory}/.gnupg/S.gpg-agent.ssh";
+              identityAgent =
+                if onePasswordSshAgentEnabled then
+                  "~/.1password/agent.sock"
+                else
+                  "${homeDirectory}/.gnupg/S.gpg-agent.ssh";
               addKeysToAgent = "yes";
               identityFile = [ "${homeDirectory}/.ssh/id_ed25519" ];
               setEnv.TERM = "xterm-256color";
