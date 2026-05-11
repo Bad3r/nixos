@@ -18,7 +18,14 @@
 */
 
 _: {
-  nixpkgs.allowedUnfreePackages = [ "onepassword-password-manager" ];
+  # Unfree extensions bundled by the shared gecko extension list in
+  # `_gecko-extensions.nix`. Names match `lib.getName` on each addon
+  # derivation.
+  nixpkgs.allowedUnfreePackages = [
+    "languagetool"
+    "onepassword-password-manager"
+    "wappalyzer"
+  ];
 
   flake.homeManagerModules.apps.floorp =
     {
