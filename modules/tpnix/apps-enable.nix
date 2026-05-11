@@ -2,6 +2,7 @@
 {
   configurations.nixos.tpnix.module = {
     programs = {
+      "1password-cli".extended.enable = lib.mkOverride 1100 true;
       act.extended.enable = lib.mkOverride 1100 false;
       actionlint.extended.enable = lib.mkOverride 1100 true;
       age.extended.enable = lib.mkOverride 1100 true;

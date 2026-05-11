@@ -17,6 +17,7 @@
 {
   configurations.nixos.system76.module = {
     programs = {
+      "1password-cli".extended.enable = lib.mkOverride 1100 true;
       act.extended.enable = lib.mkOverride 1100 true;
       actionlint.extended.enable = lib.mkOverride 1100 true;
       age.extended.enable = lib.mkOverride 1100 true;
