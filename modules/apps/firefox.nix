@@ -53,6 +53,12 @@ in
   nixpkgs.allowedUnfreePackages = [
     "firefox-bin"
     "firefox-bin-unwrapped"
+    # Unfree browser extensions bundled into the shared gecko extension list
+    # in modules/hm-apps/_gecko-extensions.nix. Names match `lib.getName` on
+    # each addon derivation.
+    "languagetool"
+    "onepassword-password-manager"
+    "wappalyzer"
   ];
 
   flake.nixosModules.apps.firefox = FirefoxModule;

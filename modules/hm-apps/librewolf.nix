@@ -23,17 +23,61 @@ _: {
       osConfig,
       lib,
       pkgs,
+      config,
       inputs,
       ...
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
-      inherit (pkgs.stdenv.hostPlatform) system;
-      inherit (inputs.dedupe_nur.legacyPackages.${system}.repos.rycee) firefox-addons;
-      geckoBrowser = import ./_gecko-browser-common.nix { inherit firefox-addons; };
+      cfg = config.home.librewolfPrivacy;
+      # Extend pkgs (which already carries allowUnfreePredicate from
+      # modules/meta/nixpkgs-allowed-unfree.nix) with the NUR overlay so
+      # unfree firefox-addons (languagetool, wappalyzer, etc.) evaluate.
+      firefox-addons = (pkgs.extend inputs.dedupe_nur.overlays.default).nur.repos.rycee.firefox-addons;
+      geckoPrefs = import ./_gecko-prefs.nix { };
+      geckoSearch = import ./_gecko-search.nix { };
+      geckoContainers = import ./_gecko-containers.nix { };
+      geckoExtensions = import ./_gecko-extensions.nix { inherit firefox-addons; };
+
+      mediaSettings = {
+        "media.peerconnection.enabled" = cfg.enableWebRTC;
+        "media.eme.enabled" = cfg.enableDRM;
+        "media.gmp-widevinecdm.enabled" = cfg.enableDRM;
+      };
+
+      mkProfile =
+        {
+          id,
+          packages,
+        }:
+        {
+          inherit id;
+          settings = geckoPrefs.commonSettings // mediaSettings;
+          inherit (geckoSearch) search;
+          inherit (geckoContainers) containers containersForce;
+          extensions = {
+            force = true;
+            inherit packages;
+            settings = geckoExtensions.extensionStorage;
+          };
+        };
     in
     {
+      options.home.librewolfPrivacy = {
+        enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
+          default = false;
+        };
+        enableDRM = lib.mkEnableOption "Allow DRM/Widevine (EME) playback" // {
+          default = true;
+        };
+      };
+
       config = lib.mkIf nixosEnabled {
+        # Tridactyl native messaging host. The manifest installs under
+        # $out/lib/mozilla/native-messaging-hosts/, which LibreWolf picks up
+        # via the standard Mozilla discovery path.
+        home.packages = [ pkgs.tridactyl-native ];
+
         programs.librewolf = {
           enable = true;
           # LibreWolf builds use the XDG-compliant profile root
@@ -47,36 +91,31 @@ _: {
           configPath = ".config/librewolf/librewolf";
           inherit (osConfig.programs.librewolf.extended) package;
 
-          # Core enterprise policies via the wrapped LibreWolf. DisableTelemetry
-          # and friends are already enforced by LibreWolf's built-in prefs; they
-          # are repeated here so the policy surface stays identical to
-          # firefox/floorp and the shared extension wiring composes cleanly.
+          # DisableTelemetry / DisableFirefoxStudies / DisablePocket are already
+          # enforced by LibreWolf's built-in prefs; repeated here so the policy
+          # surface stays identical to firefox/floorp and the shared extension
+          # wiring composes cleanly.
           policies = {
             DisableTelemetry = true;
             DisableFirefoxStudies = true;
             DisablePocket = true;
           }
-          // geckoBrowser.extensionPolicies;
+          // geckoExtensions.extensionPolicies;
 
-          profiles.primary = {
-            id = 0;
-
-            settings = {
-              # Auto-enable packaged extensions (e.g. Stylix's FirefoxColor add-on)
-              # on first profile load; without this, scope-masked XPIs land
-              # installed-but-disabled and the Stylix theme never applies.
-              "extensions.autoDisableScopes" = 0;
+          profiles = {
+            primary = mkProfile {
+              id = 0;
+              packages = geckoExtensions.primaryPackages;
             };
 
-            extensions = {
-              # Acknowledge that declarative settings override existing ones.
-              force = true;
+            work = mkProfile {
+              id = 1;
+              packages = geckoExtensions.workPackages;
+            };
 
-              # LibreWolf ships uBO bundled; installing it again from NUR pins
-              # the version declaratively and dedupes against the bundle by ID.
-              packages = geckoBrowser.extensionPackages;
-
-              settings = geckoBrowser.extensionStorage;
+            ephemeral = mkProfile {
+              id = 2;
+              packages = geckoExtensions.ephemeralPackages;
             };
           };
         };
