@@ -206,6 +206,7 @@
       leiningen.extended.enable = lib.mkOverride 1100 false;
       less.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
+      librsvg.extended.enable = lib.mkOverride 1100 true;
       libreoffice.extended.enable = lib.mkOverride 1100 true;
       librepods.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 true;
