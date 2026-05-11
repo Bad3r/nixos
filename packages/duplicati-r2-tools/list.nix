@@ -79,6 +79,22 @@ stdenvNoCC.mkDerivation {
       exit 1
     fi
 
+    # Exit code contract per docs/duplicati/operations.md:
+    #   66 = snapshot id not found (data-not-found family)
+    #   64 = timestamp didn't resolve to any snapshot (usage-error family)
+    rc=0
+    "$bin" --db "$db" ls --snapshot 9999 test /data 2>/dev/null || rc=$?
+    test "$rc" -eq 66 || {
+      echo "snapshot id not found should exit 66 per docs, got $rc" >&2
+      exit 1
+    }
+    rc=0
+    "$bin" --db "$db" ls --snapshot 1900-01-01T00:00:00Z test /data 2>/dev/null || rc=$?
+    test "$rc" -eq 64 || {
+      echo "timestamp with no matching snapshot should exit 64 per docs, got $rc" >&2
+      exit 1
+    }
+
     # When the manifest is unreadable, the fallback probes the slug-subdir
     # variant first; this is the path reported in the failure message.
     fallback_err=$( "$bin" --config /nonexistent/manifest.json versions test 2>&1 || true )

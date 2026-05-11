@@ -203,7 +203,7 @@ def resolve_snapshot(
             (value,),
         ).fetchone()
         if row is None:
-            fail(f"snapshot id {value} not found", EXIT_USAGE)
+            fail(f"snapshot id {value} not found", EXIT_OPEN_ERR)
         return row
     try:
         ts = int(datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp())
@@ -217,7 +217,7 @@ def resolve_snapshot(
         (ts,),
     ).fetchone()
     if row is None:
-        fail(f"no snapshot at or before {value!r}")
+        fail(f"no snapshot at or before {value!r}", EXIT_USAGE)
     return row
 
 
