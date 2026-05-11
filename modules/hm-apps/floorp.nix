@@ -88,14 +88,15 @@ _: {
       };
 
       config = lib.mkIf nixosEnabled {
-        # Tridactyl native messaging host. The manifest installs under
-        # $out/lib/mozilla/native-messaging-hosts/, which Floorp picks up via
-        # the standard Mozilla discovery path.
-        home.packages = [ pkgs.tridactyl-native ];
-
         programs.floorp = {
           enable = true;
-          inherit (osConfig.programs.floorp.extended) package;
+          # Bake the Tridactyl native messaging host into the Floorp
+          # wrapper. See modules/hm-apps/firefox.nix for the why; the
+          # short version is that HM's `home.packages` directory is not
+          # on Firefox's native-messaging discovery path.
+          package = osConfig.programs.floorp.extended.package.override {
+            nativeMessagingHosts = [ pkgs.tridactyl-native ];
+          };
 
           policies = {
             DisableTelemetry = true;

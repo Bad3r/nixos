@@ -65,11 +65,6 @@ _: {
       };
 
       config = lib.mkIf nixosEnabled {
-        # Tridactyl native messaging host. The manifest installs under
-        # $out/lib/mozilla/native-messaging-hosts/, which LibreWolf picks up
-        # via the standard Mozilla discovery path.
-        home.packages = [ pkgs.tridactyl-native ];
-
         programs.librewolf = {
           enable = true;
           # LibreWolf builds use the XDG-compliant profile root
@@ -81,7 +76,13 @@ _: {
           # settings to ~/.librewolf/librewolf.overrides.cfg regardless of
           # configPath.
           configPath = ".config/librewolf/librewolf";
-          inherit (osConfig.programs.librewolf.extended) package;
+          # Bake the Tridactyl native messaging host into the LibreWolf
+          # wrapper. See modules/hm-apps/firefox.nix for the rationale;
+          # HM's `home.packages` directory is not on the Mozilla
+          # native-messaging discovery path.
+          package = osConfig.programs.librewolf.extended.package.override {
+            nativeMessagingHosts = [ pkgs.tridactyl-native ];
+          };
 
           # DisableTelemetry / DisableFirefoxStudies / DisablePocket are already
           # enforced by LibreWolf's built-in prefs; repeated here so the policy

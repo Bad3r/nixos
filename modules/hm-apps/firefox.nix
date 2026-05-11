@@ -41,11 +41,6 @@ _: {
       };
 
       config = lib.mkIf nixosEnabled {
-        # Tridactyl native messaging host. The manifest installs under
-        # $out/lib/mozilla/native-messaging-hosts/, which Firefox picks up via
-        # the standard Mozilla discovery path.
-        home.packages = [ pkgs.tridactyl-native ];
-
         programs.firefox = {
           enable = true;
           # nixpkgs wraps Firefox with MOZ_LEGACY_PROFILES=1, which forces
@@ -54,7 +49,16 @@ _: {
           # Firefox ignores. Pin to the legacy path so HM writes where
           # Firefox reads.
           configPath = ".mozilla/firefox";
-          inherit (osConfig.programs.firefox.extended) package;
+          # Bake the Tridactyl native messaging host into the Firefox
+          # wrapper so its manifest lands under
+          # `$out/lib/mozilla/native-messaging-hosts/` (one of the
+          # directories Firefox actually searches). Installing
+          # `pkgs.tridactyl-native` via `home.packages` would put the
+          # manifest in `~/.nix-profile/...`, which Firefox does not
+          # discover.
+          package = osConfig.programs.firefox.extended.package.override {
+            nativeMessagingHosts = [ pkgs.tridactyl-native ];
+          };
 
           policies = {
             DisableTelemetry = true;
