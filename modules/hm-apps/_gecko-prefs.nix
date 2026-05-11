@@ -79,10 +79,11 @@
       # dismiss the menu before it appears (X11 quirk).
       "ui.context_menus.after_mouseup" = true;
 
-      # Hint sites to render in dark mode regardless of system color scheme.
-      # ui.systemUsesDarkTheme forces prefers-color-scheme: dark; the override
-      # value 0 means "force dark", 1 = light, 2 = system, 3 = browser theme.
+      # ui.systemUsesDarkTheme = 1 tells the browser the system is using
+      # a dark theme, forcing chrome and prefers-color-scheme to dark.
       "ui.systemUsesDarkTheme" = 1;
+      # layout.css.prefers-color-scheme.content-override:
+      #   0 = dark, 1 = light, 2 = system, 3 = browser theme.
       "layout.css.prefers-color-scheme.content-override" = 0;
 
       # Vertical tabs sidebar. sidebar.revamp is required on Firefox 131+ for
