@@ -2,15 +2,20 @@
   appimageTools,
   lib,
   fetchurl,
-  nix-update-script,
+  asar,
+  librsvg,
   stdenvNoCC,
   makeWrapper,
   undmg,
+  themedTrayIcon ? null,
 }:
 
 let
   pname = "electron-mail";
   version = "5.3.6";
+  passthru = {
+    updateScript = ./update.py;
+  };
 
   sources = {
     x86_64-linux = fetchurl {
@@ -29,8 +34,66 @@ let
 
   src = sources.${stdenvNoCC.hostPlatform.system};
 
+  linuxIconSizes = [
+    16
+    24
+    32
+    48
+    64
+    128
+    256
+    512
+    1024
+  ];
+
   appimageContents = appimageTools.extract {
     inherit src pname version;
+    postExtract = lib.optionalString (themedTrayIcon != null) ''
+      renderThemedIcon() {
+        local size="$1"
+        local output="$2"
+        local glyphSize="$((size * 11 / 16))"
+        local offset="$(((size - glyphSize) / 2))"
+
+        ${librsvg}/bin/rsvg-convert \
+          --page-width "$size" \
+          --page-height "$size" \
+          --width "$glyphSize" \
+          --height "$glyphSize" \
+          --left "$offset" \
+          --top "$offset" \
+          --keep-aspect-ratio \
+          ${themedTrayIcon} > "$output"
+      }
+
+      for size in ${lib.escapeShellArgs (map toString linuxIconSizes)}; do
+        iconDir="$out/usr/share/icons/hicolor/''${size}x''${size}/apps"
+        mkdir -p "$iconDir"
+        renderThemedIcon "$size" "$iconDir/${pname}.png"
+      done
+
+      asarRoot="$(mktemp -d)"
+      ${asar}/bin/asar extract "$out/resources/app.asar" "$asarRoot/app"
+
+      substituteInPlace "$asarRoot/app/app/electron-main/index.cjs" \
+        --replace-fail \
+          'const canvas = !disableNotLoggedInTrayIndication && hasLoggedOut ? state.loggedOutIcon : state.defaultIcon;' \
+          'const canvas = state.defaultIcon;' \
+        --replace-fail \
+          'if (unread > 0) {' \
+          'if (false && unread > 0) {'
+
+      renderThemedIcon 128 "$asarRoot/app/app/assets/icons/icon.png"
+      for size in ${lib.escapeShellArgs (map toString linuxIconSizes)}; do
+        renderThemedIcon "$size" "$asarRoot/app/app/assets/icons/png/''${size}x''${size}.png"
+      done
+
+      ${asar}/bin/asar pack \
+        --unpack-dir "{node_modules/sodium-native,node_modules/keytar}" \
+        "$asarRoot/app" \
+        "$asarRoot/app.asar"
+      cp "$asarRoot/app.asar" "$out/resources/app.asar"
+    '';
   };
 
   meta = {
@@ -50,13 +113,14 @@ let
     changelog = "https://github.com/vladimiry/ElectronMail/releases/tag/v${version}";
   };
 
-  linux = appimageTools.wrapType2 {
+  linux = appimageTools.wrapAppImage {
     inherit
-      src
       pname
       version
       meta
+      passthru
       ;
+    src = appimageContents;
 
     extraInstallCommands = ''
       install -m 444 -D ${appimageContents}/${pname}.desktop -t $out/share/applications
@@ -70,7 +134,6 @@ let
       pkgs.libappindicator-gtk3
     ];
 
-    passthru.updateScript = nix-update-script { };
   };
 
   darwin = stdenvNoCC.mkDerivation {
@@ -79,6 +142,7 @@ let
       pname
       version
       meta
+      passthru
       ;
 
     sourceRoot = ".";
