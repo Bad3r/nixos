@@ -4,7 +4,7 @@
   and uBlock Origin storage settings shared between Firefox, Floorp, and LibreWolf.
 
   Summary:
-    * Centralizes the AMO force-install entries (uBO, Bitwarden, SVG Gobbler)
+    * Centralizes the AMO force-install entries (uBO, 1Password, SVG Gobbler)
       so every Gecko browser receives the same policy surface. Firefox's
       `policies.json` is browser-wide rather than per-profile, so every
       entry below is force-installed into `primary`, `work`, and

@@ -1,6 +1,6 @@
 /*
   Internal: shared Gecko-browser search engines
-  Description: Declarative search engine list applied to every Firefox/Floorp/LibreWolf primary profile.
+  Description: Declarative search engine list applied to every Firefox/Floorp/LibreWolf profile.
 */
 
 _: {
