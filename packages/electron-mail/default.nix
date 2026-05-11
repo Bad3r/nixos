@@ -8,6 +8,12 @@
   makeWrapper,
   undmg,
   themedTrayIcon ? null,
+  # Strip the in-app logged-out indicator and the unread-mail counter
+  # overlay so the themed tray glyph renders cleanly. The two upstream
+  # behaviours print text and a coloured dot on top of the icon, which
+  # defeats a Stylix-driven outline glyph. Set to false to keep the
+  # upstream indicators when using a custom icon.
+  disableTrayIndicators ? true,
 }:
 
 let
@@ -48,52 +54,56 @@ let
 
   appimageContents = appimageTools.extract {
     inherit src pname version;
-    postExtract = lib.optionalString (themedTrayIcon != null) ''
-      renderThemedIcon() {
-        local size="$1"
-        local output="$2"
-        local glyphSize="$((size * 11 / 16))"
-        local offset="$(((size - glyphSize) / 2))"
+    postExtract = lib.optionalString (themedTrayIcon != null) (
+      ''
+        renderThemedIcon() {
+          local size="$1"
+          local output="$2"
+          local glyphSize="$((size * 11 / 16))"
+          local offset="$(((size - glyphSize) / 2))"
 
-        ${librsvg}/bin/rsvg-convert \
-          --page-width "$size" \
-          --page-height "$size" \
-          --width "$glyphSize" \
-          --height "$glyphSize" \
-          --left "$offset" \
-          --top "$offset" \
-          --keep-aspect-ratio \
-          ${themedTrayIcon} > "$output"
-      }
+          ${librsvg}/bin/rsvg-convert \
+            --page-width "$size" \
+            --page-height "$size" \
+            --width "$glyphSize" \
+            --height "$glyphSize" \
+            --left "$offset" \
+            --top "$offset" \
+            --keep-aspect-ratio \
+            ${themedTrayIcon} > "$output"
+        }
 
-      for size in ${lib.escapeShellArgs (map toString linuxIconSizes)}; do
-        iconDir="$out/usr/share/icons/hicolor/''${size}x''${size}/apps"
-        mkdir -p "$iconDir"
-        renderThemedIcon "$size" "$iconDir/${pname}.png"
-      done
+        for size in ${lib.escapeShellArgs (map toString linuxIconSizes)}; do
+          iconDir="$out/usr/share/icons/hicolor/''${size}x''${size}/apps"
+          mkdir -p "$iconDir"
+          renderThemedIcon "$size" "$iconDir/${pname}.png"
+        done
 
-      asarRoot="$(mktemp -d)"
-      ${asar}/bin/asar extract "$out/resources/app.asar" "$asarRoot/app"
+        asarRoot="$(mktemp -d)"
+        ${asar}/bin/asar extract "$out/resources/app.asar" "$asarRoot/app"
+      ''
+      + lib.optionalString disableTrayIndicators ''
+        substituteInPlace "$asarRoot/app/app/electron-main/index.cjs" \
+          --replace-fail \
+            'const canvas = !disableNotLoggedInTrayIndication && hasLoggedOut ? state.loggedOutIcon : state.defaultIcon;' \
+            'const canvas = state.defaultIcon;' \
+          --replace-fail \
+            'if (unread > 0) {' \
+            'if (false && unread > 0) {'
+      ''
+      + ''
+        renderThemedIcon 128 "$asarRoot/app/app/assets/icons/icon.png"
+        for size in ${lib.escapeShellArgs (map toString linuxIconSizes)}; do
+          renderThemedIcon "$size" "$asarRoot/app/app/assets/icons/png/''${size}x''${size}.png"
+        done
 
-      substituteInPlace "$asarRoot/app/app/electron-main/index.cjs" \
-        --replace-fail \
-          'const canvas = !disableNotLoggedInTrayIndication && hasLoggedOut ? state.loggedOutIcon : state.defaultIcon;' \
-          'const canvas = state.defaultIcon;' \
-        --replace-fail \
-          'if (unread > 0) {' \
-          'if (false && unread > 0) {'
-
-      renderThemedIcon 128 "$asarRoot/app/app/assets/icons/icon.png"
-      for size in ${lib.escapeShellArgs (map toString linuxIconSizes)}; do
-        renderThemedIcon "$size" "$asarRoot/app/app/assets/icons/png/''${size}x''${size}.png"
-      done
-
-      ${asar}/bin/asar pack \
-        --unpack-dir "{node_modules/sodium-native,node_modules/keytar}" \
-        "$asarRoot/app" \
-        "$asarRoot/app.asar"
-      cp "$asarRoot/app.asar" "$out/resources/app.asar"
-    '';
+        ${asar}/bin/asar pack \
+          --unpack-dir "{node_modules/sodium-native,node_modules/keytar}" \
+          "$asarRoot/app" \
+          "$asarRoot/app.asar"
+        cp "$asarRoot/app.asar" "$out/resources/app.asar"
+      ''
+    );
   };
 
   meta = {
