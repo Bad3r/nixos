@@ -40,7 +40,7 @@
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
-      "bitwarden-cli".extended.enable = lib.mkOverride 1100 true;
+      "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 true;

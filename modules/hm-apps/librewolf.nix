@@ -28,8 +28,7 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
-      inherit (pkgs.stdenv.hostPlatform) system;
-      inherit (inputs.dedupe_nur.legacyPackages.${system}.repos.rycee) firefox-addons;
+      firefox-addons = (pkgs.extend inputs.dedupe_nur.overlays.default).nur.repos.rycee.firefox-addons;
       geckoBrowser = import ./_gecko-browser-common.nix { inherit firefox-addons; };
     in
     {
