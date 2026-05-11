@@ -1,4 +1,4 @@
-# Local repository mirrors for system76 host.
+# Local repository mirrors (shared hosts).
 # Synced daily to /data/git/{owner}-{repo}
 {
   config,
