@@ -5,9 +5,13 @@
 
   Summary:
     * Centralizes the AMO force-install entries (uBO, Bitwarden, SVG Gobbler)
-      so every Gecko browser receives the same policy surface.
-    * Splits the per-profile package lists into primary / work / ephemeral.
-      Profile assignment is the consumer's responsibility.
+      so every Gecko browser receives the same policy surface. Firefox's
+      `policies.json` is browser-wide rather than per-profile, so every
+      entry below is force-installed into `primary`, `work`, and
+      `ephemeral` alike.
+    * Splits the per-profile NUR extension package lists into primary /
+      work / ephemeral. Profile assignment is the consumer's responsibility;
+      these lists layer on top of the browser-wide ExtensionSettings policy.
     * Mirrors LibreWolf's uBlock Origin default filter-list selection so the
       three browsers ship identical blocking out of the box.
     * Stays underscore-prefixed so automatic module discovery does not import it.
@@ -200,8 +204,6 @@ let
     ++ (with firefox-addons; [
       print-edit-we
       save-page-we
-      # SVG Gobbler is delivered via the ExtensionSettings force-install above
-      # because the rycee NUR set does not package it.
     ]);
 in
 {
