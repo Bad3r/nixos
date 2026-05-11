@@ -5,7 +5,7 @@
 
   Stage 1 ships `duplicati-r2-tools.list`, a read-only path/snapshot/history CLI
   that queries the per-target Duplicati SQLite at
-  /var/lib/duplicati-r2/<slug>/duplicati-r2-<slug>.sqlite with mode=ro&immutable=1.
+  /var/lib/duplicati-r2/<slug>/duplicati-r2-<slug>.sqlite with mode=ro.
   See docs/drafts/duplicati-r2-readonly-mount-investigation.md for the design.
 
   This module declares the standard programs.duplicati-r2-tools.extended.{enable,package}

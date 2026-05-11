@@ -133,9 +133,9 @@ Every backup target writes under `s3://<bucket>/<hostname>/<destSubpath>/`. The 
 
 `pkgs.duplicati-r2-tools` is an attrset of operator-facing CLIs that consume the per-target SQLite without touching R2. The service module auto-enables every member through `programs.duplicati-r2-tools.extended.enable` whenever `services.duplicati-r2.stateDirReadableBy` is non-empty.
 
-| Attribute                      | Binary              | Read scope                                                                                  | Cut |
-| ------------------------------ | ------------------- | ------------------------------------------------------------------------------------------- | --- |
-| `pkgs.duplicati-r2-tools.list` | `duplicati-r2-list` | Per-target SQLite at `<stateDir>/duplicati-r2-<slug>.sqlite`, opened `mode=ro&immutable=1`. | A   |
+| Attribute                      | Binary              | Read scope                                                                                                               | Cut |
+| ------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------ | --- |
+| `pkgs.duplicati-r2-tools.list` | `duplicati-r2-list` | Per-target SQLite at `<stateDir>/duplicati-r2-<slug>.sqlite`, opened `mode=ro` (concurrent reader; URI percent-encoded). | A   |
 
 `duplicati-r2-list` accepts the slug as a positional argument, resolves `<stateDir>` via `/run/duplicati-r2/config.json` (overridable with `--config` or `--db`), and never opens an R2 connection or AES decryption path. Operator workflow and full subcommand surface live in [`operations.md`](operations.md#query-the-local-sqlite-read-only). Design rationale: [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md) Sections 3 (SQL schema) and 5.1 (Cut A scope).
 

@@ -3,8 +3,8 @@
 
 Implements Cut A of the design recorded in
 docs/drafts/duplicati-r2-readonly-mount-investigation.md. Opens the per-target
-SQLite database at <stateDir>/duplicati-r2-<slug>.sqlite with mode=ro&immutable=1
-and answers questions about snapshots, paths, sizes, modification times, and
+SQLite database at <stateDir>/duplicati-r2-<slug>.sqlite with mode=ro and
+answers questions about snapshots, paths, sizes, modification times, and
 version history. No R2 fetches, no AES decryption.
 """
 
@@ -17,6 +17,7 @@ import os
 import re
 import sqlite3
 import sys
+import urllib.parse
 from datetime import datetime, timezone
 from typing import NoReturn
 
@@ -129,7 +130,8 @@ def resolve_db_path(args: argparse.Namespace) -> str:
 def open_db(db_path: str) -> sqlite3.Connection:
     if not os.path.exists(db_path):
         fail(f"database not found: {db_path}")
-    uri = f"file:{db_path}?mode=ro&immutable=1&nolock=1"
+    quoted = urllib.parse.quote(os.path.abspath(db_path))
+    uri = f"file:{quoted}?mode=ro"
     try:
         conn = sqlite3.connect(uri, uri=True, isolation_level=None)
     except sqlite3.Error as exc:

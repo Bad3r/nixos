@@ -273,7 +273,7 @@ To compute the exact dblock fetch list before running a restore, query the per-t
 
 ## Query the local SQLite (read-only)
 
-`duplicati-r2-list` (provided by `pkgs.duplicati-r2-tools.list`) answers snapshot, path, size, mtime, and version-history questions directly from the per-target SQLite at `/var/lib/duplicati-r2/<slug>/duplicati-r2-<slug>.sqlite`. It opens the database with `mode=ro&immutable=1`, performs no R2 fetches, and does not decrypt anything. Cut A of [`docs/drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md).
+`duplicati-r2-list` (provided by `pkgs.duplicati-r2-tools.list`) answers snapshot, path, size, mtime, and version-history questions directly from the per-target SQLite at `/var/lib/duplicati-r2/<slug>/duplicati-r2-<slug>.sqlite`. It opens the database with `mode=ro` (the URI path is percent-encoded so spaces or `?`/`#` in the state-dir survive), performs no R2 fetches, and does not decrypt anything. The `immutable=1` flag deliberately is not set: Duplicati keeps writing to the same database, and `immutable=1` would make SQLite ignore WAL replay and return stale or torn rows. Cut A of [`docs/drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md).
 
 The tool is auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty; usernames listed there can run it without `sudo` via the named-user POSIX ACL on the state directory. Other users see `permission denied` on the SQLite open, which is the expected loud failure.
 

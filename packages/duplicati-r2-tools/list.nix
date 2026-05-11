@@ -72,9 +72,9 @@ stdenvNoCC.mkDerivation {
     longDescription = ''
       duplicati-r2-list resolves snapshots, directory listings, single-file
       metadata, version history, and path-glob filters against the per-target
-      Duplicati SQLite database opened with mode=ro&immutable=1. No R2 fetches
-      and no AES decryption: the tool's blast radius is bounded to local SQL
-      reads against the live state directory.
+      Duplicati SQLite database opened with mode=ro. No R2 fetches and no AES
+      decryption: the tool's blast radius is bounded to local SQL reads against
+      the live state directory.
 
       This is Cut A of the design recorded in
       docs/drafts/duplicati-r2-readonly-mount-investigation.md.
