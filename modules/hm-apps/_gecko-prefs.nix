@@ -43,7 +43,10 @@
 
       # Always prompt for the download location.
       "browser.download.useDownloadDir" = false;
-      # Default the print dialog to the built-in PDF backend.
+      # Force the print dialog to default to the built-in PDF backend on
+      # every HM activation. Firefox writes the user's last selection back
+      # to this pref, so leaving it declared intentionally clobbers any
+      # other choice each rebuild.
       "print_printer" = "Mozilla Save to PDF";
 
       # Route xdg-open / `firefox <url>` invocations to a new tab in the
