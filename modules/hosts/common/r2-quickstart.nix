@@ -1,5 +1,8 @@
-{
-  configurations.nixos.tpnix.module = {
+{ config, lib, ... }:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body = {
     environment.etc = {
       "cloudflare-r2/README".text = ''
         Cloudflare R2 quickstart files (examples)
@@ -41,4 +44,8 @@
       '';
     };
   };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }
