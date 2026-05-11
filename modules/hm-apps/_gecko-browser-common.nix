@@ -18,10 +18,10 @@ let
   amoLatestBaseUrl = "https://addons.mozilla.org/firefox/downloads/latest/";
   ublockOriginId = "uBlock0@raymondhill.net";
   ublockOriginSlug = "ublock-origin";
-  bitwardenId = "{446900e4-71c2-419f-a6a7-df9c091e268b}";
-  bitwardenSlug = "bitwarden-password-manager";
+  onePasswordId = "{d634138d-c276-4fc8-924b-40a0ea21d284}";
+  onePasswordSlug = "1password-x-password-manager";
   ublockOriginInstallUrl = "${amoLatestBaseUrl}${ublockOriginSlug}/latest.xpi";
-  bitwardenInstallUrl = "${amoLatestBaseUrl}${bitwardenSlug}/latest.xpi";
+  onePasswordInstallUrl = "${amoLatestBaseUrl}${onePasswordSlug}/latest.xpi";
   librewolfUblockOriginListData = builtins.fromJSON (
     builtins.readFile ./_librewolf-ubo-default-lists.json
   );
@@ -146,9 +146,9 @@ let
       install_url = ublockOriginInstallUrl;
       private_browsing = true;
     };
-    "${bitwardenId}" = {
+    "${onePasswordId}" = {
       installation_mode = "force_installed";
-      install_url = bitwardenInstallUrl;
+      install_url = onePasswordInstallUrl;
     };
   };
 in
@@ -165,7 +165,7 @@ in
 
   extensionPackages = with firefox-addons; [
     ublock-origin
-    bitwarden
+    onepassword-password-manager
   ];
 
   extensionStorage."${ublockOriginId}".settings = {

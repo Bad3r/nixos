@@ -6,12 +6,12 @@ This document covers the Home Manager aggregator namespace and app loading mecha
 
 Home Manager modules feed into `flake.homeManagerModules` for user-level configuration:
 
-| Key                                                 | Type             | Description                                                           |
-| --------------------------------------------------- | ---------------- | --------------------------------------------------------------------- |
-| `base`                                              | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                 |
-| `gui`                                               | Deferred module  | Reserved GUI aggregation point (currently mostly an empty merge root) |
-| `apps.<name>`                                       | Deferred module  | Individual app modules loaded by key                                  |
-| `context7Secrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules                                  |
+| Key                                                                    | Type             | Description                                                           |
+| ---------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------- |
+| `base`                                                                 | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                 |
+| `gui`                                                                  | Deferred module  | Reserved GUI aggregation point (currently mostly an empty merge root) |
+| `apps.<name>`                                                          | Deferred module  | Individual app modules loaded by key                                  |
+| `context7Secrets`, `greptileSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules                                  |
 
 ## Contributing to Namespaces
 
@@ -85,6 +85,7 @@ The shared HM base is identical across hosts; per-host overrides live in each ho
 | HM toggle           | system76 default       | tpnix default                          | Notes                                                                                                                                  |
 | ------------------- | ---------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `context7Secrets`   | `mkDefault true`       | `mkForce false`                        | Context7 API key rendering.                                                                                                            |
+| `greptileSecrets`   | `mkDefault true`       | `mkForce false`                        | Greptile API key rendering for Claude Code plugin activation.                                                                          |
 | `virustotalSecrets` | `mkDefault true`       | `mkForce false`                        | VirusTotal API key rendering.                                                                                                          |
 | `r2Secrets`         | `mkForce false`        | `mkForce false`                        | NixOS-side `r2CloudSecrets` is also off in the current configuration.                                                                  |
 | `repoGpg`           | `mkDefault true`       | (not enabled, no shared module pulled) | system76 pulls `inputs.self.homeManagerModules.repoGpg` into `home-manager.sharedModules`; tpnix does not pull this shared module.     |

@@ -4,6 +4,8 @@
   Merges the static defaults from _default-settings.nix with runtime values
   (enabledPlugins, mcpServers) and produces:
     - claudeSettings: the value rendered to ~/.claude/settings.json.
+    - claudeSettingsFile: the store-path JSON file consumed by the jq merge
+      in _activation.nix.
     - claudeJsonConfig: the UI/MCP merge template for ~/.claude.json.
     - claudeJsonConfigFile: the store-path JSON file consumed by the jq merge
       in _activation.nix.
@@ -23,6 +25,8 @@ let
     inherit enabledPlugins;
   };
 
+  claudeSettingsFile = pkgs.writeText "claude-settings.json" (builtins.toJSON claudeSettings);
+
   claudeJsonConfig = defaults.claudeJsonConfigBase // {
     inherit mcpServers;
   };
@@ -30,5 +34,10 @@ let
   claudeJsonConfigFile = pkgs.writeText "claude-json-config.json" (builtins.toJSON claudeJsonConfig);
 in
 {
-  inherit claudeSettings claudeJsonConfig claudeJsonConfigFile;
+  inherit
+    claudeSettings
+    claudeSettingsFile
+    claudeJsonConfig
+    claudeJsonConfigFile
+    ;
 }

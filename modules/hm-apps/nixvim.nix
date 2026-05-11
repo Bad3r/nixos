@@ -65,13 +65,8 @@ _: {
               # plugins listed in `nixpkgs.allowedUnfreePackages` are honored.
               nixpkgs.config.allowUnfreePredicate = pkgs.config.allowUnfreePredicate;
 
-              # Leader keys, plus a runtime-gated kitten-backed
-              # `vim.g.clipboard` when kitty is enabled on the host. The
-              # IIFE checks `KITTY_WINDOW_ID` so a host with kitty enabled
-              # but a current Neovim session reached via SSH from a non-kitty
-              # terminal (or running in a TTY) falls through to nixvim's
-              # `clipboard.providers` block below instead of trying to drive
-              # an absent kitty controller.
+              # Leader keys, plus a runtime-gated OSC52 clipboard provider
+              # when Neovim is running in kitty.
               globals = {
                 mapleader = mkDefault " ";
                 maplocalleader = mkDefault " ";
@@ -81,18 +76,7 @@ _: {
                       if vim.env.KITTY_WINDOW_ID == nil then
                         return nil
                       end
-                      local kitten = "${lib.getExe' pkgs.kitty "kitten"}"
-                      return {
-                        name = "kitten",
-                        copy = {
-                          ["+"] = { kitten, "clipboard" },
-                          ["*"] = { kitten, "clipboard", "--use-primary" },
-                        },
-                        paste = {
-                          ["+"] = { kitten, "clipboard", "--get-clipboard" },
-                          ["*"] = { kitten, "clipboard", "--get-clipboard", "--use-primary" },
-                        },
-                      }
+                      return "osc52"
                     end)()
                   '';
                 };
@@ -137,12 +121,10 @@ _: {
                 completeopt = "menu,menuone,noselect";
               };
 
-              # Clipboard integration. `globals.clipboard` above sets the
-              # kitten provider only when Neovim is actually running inside
-              # kitty; outside kitty (TTY, SSH from a non-kitty terminal, or
-              # hosts with `programs.kitty.extended.enable = false`),
-              # `vim.g.clipboard` stays unset and Neovim picks one of the
-              # providers below via standard autodetection.
+              # Clipboard integration. `globals.clipboard` above forces
+              # Neovim's built-in OSC52 provider inside kitty; outside kitty,
+              # `vim.g.clipboard` stays unset and Neovim picks one of these
+              # providers via standard autodetection.
               clipboard = {
                 register = "unnamedplus,unnamed";
                 providers = {
@@ -740,7 +722,8 @@ _: {
                     disable_netrw = true;
                     hijack_netrw = true;
                     hijack_directories = {
-                      enable = false; # Don't auto-open when opening directories
+                      enable = true;
+                      auto_open = true;
                     };
                     actions = {
                       open_file = {

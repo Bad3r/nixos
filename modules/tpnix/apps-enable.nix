@@ -2,9 +2,22 @@
 {
   configurations.nixos.tpnix.module = {
     programs = {
+      "1password-cli".extended.enable = lib.mkOverride 1100 true;
+      # Each of these tools has been initialised on this host with
+      # `op plugin init <tool>`. Remove an entry if the corresponding
+      # plugin is uninstalled, or the alias will start exiting non-zero
+      # with "no plugin configured" on every invocation.
+      "1password-cli".extended.pluginAliases = lib.mkOverride 1100 [
+        "cachix"
+        "gh"
+        "glab"
+        "wrangler"
+      ];
+      "1password-gui-beta".extended.enable = lib.mkOverride 1100 true;
       act.extended.enable = lib.mkOverride 1100 false;
       actionlint.extended.enable = lib.mkOverride 1100 true;
       age.extended.enable = lib.mkOverride 1100 true;
+      "age-plugin-1p".extended.enable = lib.mkOverride 1100 true;
       "age-plugin-fido2prf".extended.enable = lib.mkOverride 1100 true;
       "aircrack-ng".extended.enable = lib.mkOverride 1100 true;
       amass.extended.enable = lib.mkOverride 1100 true;
@@ -22,7 +35,7 @@
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
-      "bitwarden-cli".extended.enable = lib.mkOverride 1100 true;
+      "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
       bottom.extended.enable = lib.mkOverride 1100 true;
       brave.extended.enable = lib.mkOverride 1100 false;
@@ -191,6 +204,7 @@
       leiningen.extended.enable = lib.mkOverride 1100 false;
       less.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
+      librsvg.extended.enable = lib.mkOverride 1100 false;
       libreoffice.extended.enable = lib.mkOverride 1100 true;
       librepods.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 false;
@@ -305,6 +319,7 @@
       raindrop.extended.enable = lib.mkOverride 1100 false;
       rar.extended.enable = lib.mkOverride 1100 true;
       rclone.extended.enable = lib.mkOverride 1100 true;
+      readpdf.extended.enable = lib.mkOverride 1100 true;
       remmina.extended.enable = lib.mkOverride 1100 false;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
       rg-fzf.extended.enable = lib.mkOverride 1100 true;
