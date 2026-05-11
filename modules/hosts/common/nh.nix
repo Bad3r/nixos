@@ -1,5 +1,5 @@
 /*
-  System76 NH Integration
+  NH Integration (shared hosts)
 
   NH is host workflow infrastructure (deployment + cleanup), not a generic
   package-only app toggle. This module wires native NixOS and Home Manager
