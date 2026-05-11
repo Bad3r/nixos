@@ -295,10 +295,17 @@ def cmd_ls(args: argparse.Namespace) -> int:
           LEFT JOIN Blockset bs ON bs.ID = f.BlocksetID
         WHERE fse.FilesetID = ?
           AND f.Path GLOB ?
+          AND f.Path != ?
           AND INSTR(SUBSTR(f.Path, ?), '/') = 0
         ORDER BY name
         """,
-        (len(parent) + 1, snapshot["ID"], parent + "*", len(parent) + 1),
+        (
+            len(parent) + 1,
+            snapshot["ID"],
+            parent + "*",
+            parent,
+            len(parent) + 1,
+        ),
     ).fetchall()
     dirs = conn.execute(
         """

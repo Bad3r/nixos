@@ -75,6 +75,15 @@ stdenvNoCC.mkDerivation {
     # Symlink rows (BlocksetID = -200) must be labelled as "symlink", not "file".
     "$bin" --db "$db" --json ls test /data | grep -q '"name":"link.txt","type":"symlink"'
 
+    # cmd_ls must not emit the listed directory's own entry as an empty-named row.
+    # snapshot 2 has no children under /data/sub/, so the listing should be empty.
+    sub_ls_rows=$( "$bin" --db "$db" --json ls test /data/sub/ | wc -l )
+    test "$sub_ls_rows" -eq 0
+    # snapshot 1 has /data/sub/three.txt; the listing must contain exactly that row.
+    sub_ls_s1=$( "$bin" --db "$db" --json ls --snapshot 1 test /data/sub/ | wc -l )
+    test "$sub_ls_s1" -eq 1
+    "$bin" --db "$db" --json ls --snapshot 1 test /data/sub/ | grep -q '"name":"three.txt"'
+
     if "$bin" --db "$db" stat test /missing.txt 2>/dev/null; then
       echo "stat on missing path should have failed" >&2
       exit 1
