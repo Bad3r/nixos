@@ -36,9 +36,11 @@ _: {
     # Default the print dialog to the built-in PDF backend.
     "print_printer" = "Mozilla Save to PDF";
 
-    # 1 = open links in the current tab/window. external=3 routes
-    # xdg-open / `firefox <url>` invocations to a new tab in the current window.
-    "browser.link.open_newwindow" = 1;
+    # Route xdg-open / `firefox <url>` invocations to a new tab in the
+    # current window (override.external=3). Leave the base
+    # `browser.link.open_newwindow` at its Firefox default of 3 so
+    # target="_blank" links and `window.open()` calls still spawn a new
+    # tab instead of replacing the current page.
     "browser.link.open_newwindow.override.external" = 3;
     # New tabs are brought to the foreground when opened.
     "browser.tabs.loadInBackground" = false;
