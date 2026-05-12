@@ -78,24 +78,23 @@ Hosts compose modules from aggregator namespaces, not literal paths. Use `lib.ha
 
 ### Shared Host Modules (`modules/hosts/common/`)
 
-Modules that apply to every host opted into the registry live under `modules/hosts/common/`. The registry is `flake.lib.nixos.hosts.<name>.shareCommon` (declared in `modules/hosts/common/registry.nix`). A common module dispatches per host via `lib.mkIf`:
+Modules that apply to every host opted into the registry live under `modules/hosts/common/`. The registry is `flake.lib.nixos.hosts.<name>.shareCommon` (declared in `modules/hosts/common/registry.nix`).
+
+Common modules contribute to the aggregate `flake.nixosModules.hosts-common` module. `modules/configurations/nixos.nix` imports that aggregate for each host whose registry entry has `shareCommon = true`, before importing the host-specific module so per-host overrides still win.
 
 ```nix
-{ config, lib, ... }:
+{ ... }:
 let
-  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
-  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
   body = {
     networking.domain = "local";
   };
 in
 {
-  configurations.nixos.system76.module = lib.mkIf s76Share body;
-  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
+  flake.nixosModules.hosts-common.imports = [ body ];
 }
 ```
 
-Do NOT iterate over `flake.lib.nixos.hosts` with `lib.filterAttrs`/`lib.mapAttrs` from a module that contributes to `configurations.nixos`. The attrset-structure forcing required by `lib.mapAttrs` triggers infinite recursion in the flake-parts module evaluator (each module's contribution gets evaluated to determine whether it sets the option being read). Hardcode the host names and use direct attribute paths instead.
+Do NOT iterate over `flake.lib.nixos.hosts` with `lib.filterAttrs`/`lib.mapAttrs` from `modules/hosts/common/*.nix`. Host iteration belongs in `modules/configurations/nixos.nix`, which already owns NixOS system construction. Iterating from a common module that contributes to host configuration can trigger infinite recursion in the flake-parts module evaluator.
 
 `modules/hosts/common/apps-enable.nix` carries the default-on baseline at `lib.mkOverride 1100`; per-host override files (e.g. `modules/tpnix/apps-enable.nix`) layer overrides at `lib.mkOverride 1000` so the host value wins. User overrides at default priority 100 still win over both. `modules/hosts/common/checks.nix` adds a flake-level `nix flake check` assertion that fails when a per-host override duplicates the common baseline value (silent no-op detection).
 

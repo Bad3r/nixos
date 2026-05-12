@@ -7,8 +7,6 @@
   ...
 }:
 let
-  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
-  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
   inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   usbguardLib =
     let
@@ -28,17 +26,19 @@ let
   # Set to false to disable USBGuard entirely
   enabled = false;
 
-  bodyFor =
-    hostSlug:
+  body =
+    {
+      config,
+      hostName,
+      lib,
+      ...
+    }:
     let
       secretDir = "${secretsRoot}/usbguard";
-      secretFile = "${secretDir}/${hostSlug}.yaml";
-      secretName = "usbguard/${hostSlug}.rules";
-      secretRuntimePath = "/run/secrets/usbguard/${hostSlug}.rules";
+      secretFile = "${secretDir}/${hostName}.yaml";
+      secretName = "usbguard/${hostName}.rules";
+      secretRuntimePath = "/run/secrets/usbguard/${hostName}.rules";
       secretExists = builtins.pathExists secretFile;
-    in
-    { config, lib, ... }:
-    let
       installSecretsDeps = sopsInstallSecretsDeps config;
     in
     {
@@ -129,6 +129,5 @@ let
     };
 in
 {
-  configurations.nixos.system76.module = lib.mkIf s76Share (bodyFor "system76");
-  configurations.nixos.tpnix.module = lib.mkIf tpShare (bodyFor "tpnix");
+  flake.nixosModules.hosts-common.imports = [ body ];
 }

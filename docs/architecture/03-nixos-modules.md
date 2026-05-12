@@ -45,8 +45,7 @@ let
   helpers = config._module.args.nixosAppHelpers;
 in
 {
-  configurations.nixos.system76.module.imports = helpers.getAllApps;
-  configurations.nixos.tpnix.module.imports = helpers.getAllApps;
+  flake.nixosModules.hosts-common.imports = helpers.getAllApps;
 }
 ```
 

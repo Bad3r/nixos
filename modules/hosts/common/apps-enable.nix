@@ -15,10 +15,8 @@
 
   This separation eliminates priority conflicts and provides clear domain boundaries.
 */
-{ config, lib, ... }:
+{ lib, ... }:
 let
-  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
-  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
   body = {
     programs = {
       "1password-cli".extended.enable = lib.mkOverride 1100 true;
@@ -485,6 +483,5 @@ in
     programs = body.programs or { };
     services = body.services or { };
   };
-  configurations.nixos.system76.module = lib.mkIf s76Share body;
-  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
+  flake.nixosModules.hosts-common.imports = [ body ];
 }

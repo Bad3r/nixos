@@ -8,19 +8,35 @@
 }:
 let
   nixosConfigs = lib.flip lib.mapAttrs config.configurations.nixos (
-    _name:
+    name:
     { module }:
+    let
+      hostName = name;
+      shareCommon = lib.attrByPath [ hostName "shareCommon" ] false (config.flake.lib.nixos.hosts or { });
+      commonModule =
+        config.flake.nixosModules.hosts-common
+          or (throw "Host ${hostName} has shareCommon enabled but flake.nixosModules.hosts-common is missing");
+    in
     inputs.nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
         {
-          _module.args.metaOwner = metaOwner;
-          _module.args.secretsRoot = secretsRoot;
+          _module.args = {
+            inherit
+              hostName
+              inputs
+              metaOwner
+              secretsRoot
+              ;
+          };
         }
-        module
-      ];
+      ]
+      ++ lib.optionals shareCommon [ commonModule ]
+      ++ [ module ];
       specialArgs = {
         inherit
+          inputs
+          hostName
           metaOwner
           secretsRoot
           ;
@@ -46,7 +62,7 @@ in
     );
   };
 
-  config.flake = lib.mkDefault {
+  config.flake = {
     nixosConfigurations = nixosConfigs;
     checks = lib.mkMerge checksMap;
   };
