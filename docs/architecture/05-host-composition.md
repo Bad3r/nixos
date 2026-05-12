@@ -47,41 +47,41 @@ Every host follows the same shape: each `modules/<host>/*.nix` file extends `con
 
 ### system76 (Oryx Pro laptop)
 
-| File                                           | Purpose                                                            |
-| ---------------------------------------------- | ------------------------------------------------------------------ |
-| `modules/system76/imports.nix`                 | Baseline module imports and hardware profile wiring                |
-| `modules/system76/home-manager-apps.nix`       | system76-only HM extras (awscli2, pentesting-devshell)             |
-| `modules/system76/nix-settings.nix`            | Hardware-tuned `max-jobs` and `min-free` overrides                 |
-| `modules/system76/nix-substituters.nix`        | Regional substituter mirror (ustc)                                 |
-| `modules/system76/ssh.nix`                     | system76 host public key + `services.openssh.enable` override      |
-| `modules/system76/packages.nix`                | system76-hardware packages (system76-power, firmware, etc.)        |
-| `modules/system76/custom-packages-overlay.nix` | Injects local `packages/*` into host `pkgs` overlay                |
-| `modules/system76/r2-runtime.nix`              | Host runtime bindings for external `r2-flake` modules              |
-| `modules/system76/hardware-config.nix`         | Filesystems, firmware, low-level hardware settings                 |
-| `modules/system76/host-id.nix`                 | `networking.hostId`                                                |
-| `modules/system76/support.nix`                 | system76 hardware-support enable (kernel modules, firmware-daemon) |
-| `modules/system76/nvidia-gpu.nix`              | NVIDIA PRIME (system76-only)                                       |
-| `modules/system76/pass-secret-service.nix`     | DBus secret-service for `pass` (system76-only)                     |
-| `modules/system76/services.nix`                | Service-level host behavior                                        |
+| File                                          | Purpose                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------ |
+| `modules/system76/imports.nix`                | Baseline module imports and hardware profile wiring                |
+| `modules/system76/home-manager-apps.nix`      | system76-only HM extras (awscli2, pentesting-devshell)             |
+| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs` and `min-free` overrides                 |
+| `modules/system76/nix-substituters.nix`       | Regional substituter mirror (ustc)                                 |
+| `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override      |
+| `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)        |
+| `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                     |
+| `modules/system76/r2-runtime.nix`             | Host runtime bindings for external `r2-flake` modules              |
+| `modules/system76/hardware-config.nix`        | Filesystems, firmware, low-level hardware settings                 |
+| `modules/system76/host-id.nix`                | `networking.hostId`                                                |
+| `modules/system76/support.nix`                | system76 hardware-support enable (kernel modules, firmware-daemon) |
+| `modules/system76/nvidia-gpu.nix`             | NVIDIA PRIME (system76-only)                                       |
+| `modules/system76/pass-secret-service.nix`    | DBus secret-service for `pass` (system76-only)                     |
+| `modules/system76/services.nix`               | Service-level host behavior                                        |
 
 ### tpnix (ThinkPad)
 
-| File                                        | Purpose                                                                  |
-| ------------------------------------------- | ------------------------------------------------------------------------ |
-| `modules/tpnix/imports.nix`                 | Baseline module imports, gated on `flake.lib.nixos.hosts.tpnix.*` flags  |
-| `modules/tpnix/apps-enable.nix`             | Per-host overrides over the common app baseline                          |
-| `modules/tpnix/home-manager-apps.nix`       | tpnix-only HM extras (libreoffice)                                       |
-| `modules/tpnix/default-apps.nix`            | Per-host overrides for `host.defaults` (audioPlayer, videoPlayer = null) |
-| `modules/tpnix/nix-settings.nix`            | Hardware-tuned `max-jobs` and `min-free` overrides                       |
-| `modules/tpnix/nix-substituters.nix`        | Regional substituter mirror (sjtu)                                       |
-| `modules/tpnix/custom-packages-overlay.nix` | Injects local `packages/*` into host `pkgs` overlay                      |
-| `modules/tpnix/r2-runtime.nix`              | Host runtime bindings for external `r2-flake` modules                    |
-| `modules/tpnix/hardware-config.nix`         | Filesystems, firmware, low-level hardware settings                       |
-| `modules/tpnix/host-id.nix`                 | `networking.hostId`                                                      |
-| `modules/tpnix/support.nix`                 | Stub for future tpnix hardware-support hooks                             |
-| `modules/tpnix/policy.nix`                  | Host-level policy flags exposed under `flake.lib.nixos.hosts.tpnix`      |
-| `modules/tpnix/power.nix`                   | tpnix power management (`powerprofilesctl` backend)                      |
-| `modules/tpnix/services.nix`                | Service-level host behavior                                              |
+| File                                     | Purpose                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------ |
+| `modules/tpnix/imports.nix`              | Baseline module imports, gated on `flake.lib.nixos.hosts.tpnix.*` flags  |
+| `modules/tpnix/apps-enable.nix`          | Per-host overrides over the common app baseline                          |
+| `modules/tpnix/home-manager-apps.nix`    | tpnix-only HM extras (libreoffice)                                       |
+| `modules/tpnix/default-apps.nix`         | Per-host overrides for `host.defaults` (audioPlayer, videoPlayer = null) |
+| `modules/tpnix/nix-settings.nix`         | Hardware-tuned `max-jobs` and `min-free` overrides                       |
+| `modules/tpnix/nix-substituters.nix`     | Regional substituter mirror (sjtu)                                       |
+| `modules/tpnix/firmware-manager-fix.nix` | tpnix-only `services.fwupd.enable = true;` override                      |
+| `modules/tpnix/r2-runtime.nix`           | Host runtime bindings for external `r2-flake` modules                    |
+| `modules/tpnix/hardware-config.nix`      | Filesystems, firmware, low-level hardware settings                       |
+| `modules/tpnix/host-id.nix`              | `networking.hostId`                                                      |
+| `modules/tpnix/support.nix`              | Stub for future tpnix hardware-support hooks                             |
+| `modules/tpnix/policy.nix`               | Host-level policy flags exposed under `flake.lib.nixos.hosts.tpnix`      |
+| `modules/tpnix/power.nix`                | tpnix power management (`powerprofilesctl` backend)                      |
+| `modules/tpnix/services.nix`             | Service-level host behavior                                              |
 
 Cross-host baselines (default-apps, nix-ld, sudo, zsh, ssh, nix-settings,
 nix-substituters, packages, home-manager-apps, virtualization, ...) live in
