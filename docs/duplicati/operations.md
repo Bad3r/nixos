@@ -363,9 +363,9 @@ Flags worth knowing:
 | `--cache-size <N[K\|M\|G]>`     | Cache size cap (default `1G`). `0` disables caching: every block re-fetches its dblock.                                                                                                                        |
 | `--db`, `--config`, `--json`    | Same semantics as `duplicati-r2-list`.                                                                                                                                                                         |
 
-Bucket layout resolution order (matches the backup script in `modules/services/duplicati-r2.nix`):
+Bucket layout resolution order:
 
-- **hostname** prefix: `DUPLICATI_R2_HOST` env override -> `manifest.hostname` -> `hostname --short` (Linux nodename truncated at first `.`).
+- **hostname** prefix: `duplicati-r2-extract` resolves `DUPLICATI_R2_HOST` env override -> `manifest.hostname` -> `hostname --short` (Linux nodename truncated at first `.`). The backup script does not read `DUPLICATI_R2_HOST`; it resolves `manifest.hostname` -> `DEFAULT_HOSTNAME` (set by the systemd unit generator from `manifest.hostname`) -> `hostname --short`. They agree when `manifest.hostname` is set or both runs use the same host identity.
 - **destSubpath** (per-target): `manifest.targets.<slug>.destSubpath` -> the slug. URL-encoded before being placed in the S3 key.
 - **bucket**: `manifest.bucket` -> `R2_BUCKET` from the env file -> `duplicati-nixos-backups`.
 - **endpoint URL**: `R2_S3_ENDPOINT_URL` from the env file -> `https://${R2_S3_ENDPOINT}` -> `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`.
