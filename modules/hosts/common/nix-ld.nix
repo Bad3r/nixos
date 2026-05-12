@@ -1,7 +1,14 @@
 { config, lib, ... }:
-{
-  configurations.nixos.system76.module =
-    { pkgs, ... }:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body =
+    {
+      config,
+      pkgs,
+      lib,
+      ...
+    }:
     {
       programs.nix-ld = {
         enable = true;
@@ -51,8 +58,7 @@
             libdrm
             libgbm
             alsa-lib
-            libpulseaudio # PulseAudio client library (works with pipewire-pulse)
-            # Android emulator dependencies (from nixpkgs/pkgs/development/mobile/androidenv/emulator.nix)
+            libpulseaudio
             libcxx
             libtiff
             libuuid
@@ -147,4 +153,8 @@
         };
       };
     };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }
