@@ -17,9 +17,12 @@ stdenvNoCC.mkDerivation {
 
   installPhase = ''
     runHook preInstall
-    install -Dm0755 $src/duplicati_r2_list.py $out/bin/duplicati-r2-list
-    substituteInPlace $out/bin/duplicati-r2-list \
+    install -d $out/libexec/duplicati-r2-tools $out/bin
+    install -Dm0644 $src/duplicati_r2_common.py $out/libexec/duplicati-r2-tools/duplicati_r2_common.py
+    install -Dm0755 $src/duplicati_r2_list.py $out/libexec/duplicati-r2-tools/duplicati_r2_list.py
+    substituteInPlace $out/libexec/duplicati-r2-tools/duplicati_r2_list.py \
       --replace-fail '#!/usr/bin/env python3' '#!${python3}/bin/python3'
+    ln -s $out/libexec/duplicati-r2-tools/duplicati_r2_list.py $out/bin/duplicati-r2-list
     runHook postInstall
   '';
 
