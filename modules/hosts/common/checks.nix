@@ -19,12 +19,18 @@ let
   baseline = config.flake.lib.nixos._commonAppsBaseline or { };
   tpnixOverrides = config.flake.lib.nixos._tpnixAppsOverrides or { };
 
+  # Baseline values come from `lib.mkOverride 1100 <bool>`, which wraps the
+  # boolean in `{ _type = "override"; priority = 1100; content = <bool>; }`.
+  # Per-host overrides are raw booleans, so the wrapper must be unpeeled
+  # before comparison or `==` is always false.
+  unwrapOverride = v: if lib.isAttrs v && (v._type or "") == "override" then v.content else v;
+
   baselineEnableOf =
     app:
     let
       entry = baseline.${app} or null;
     in
-    if entry == null then null else entry.extended.enable or null;
+    if entry == null then null else unwrapOverride (entry.extended.enable or null);
 
   isNoOp =
     app:
