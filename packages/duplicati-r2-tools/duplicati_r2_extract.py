@@ -60,6 +60,7 @@ DEFAULT_CACHE_DIR = (
     os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
     + "/duplicati-r2-tools"
 )
+MAX_OPEN_VOLUMES = 16
 
 set_program_name("duplicati-r2-extract")
 
@@ -124,6 +125,19 @@ class Source:
         raise NotImplementedError
 
 
+def validate_volume_name(volume_name: str) -> None:
+    if (
+        not volume_name
+        or volume_name in {".", ".."}
+        or "/" in volume_name
+        or "\\" in volume_name
+    ):
+        fail(
+            f"refusing volume name with path components: {volume_name!r}",
+            EXIT_DATA_ERR,
+        )
+
+
 class FileSource(Source):
     """Reads encrypted volumes from a local mirror directory.
 
@@ -141,6 +155,7 @@ class FileSource(Source):
         self.base = base
 
     def fetch(self, volume_name: str) -> bytes:
+        validate_volume_name(volume_name)
         target = self.base / volume_name
         try:
             return target.read_bytes()
@@ -186,6 +201,7 @@ class S3Source(Source):
     def fetch(self, volume_name: str) -> bytes:
         from botocore.exceptions import ClientError  # type: ignore
 
+        validate_volume_name(volume_name)
         key = f"{self._prefix}/{volume_name}" if self._prefix else volume_name
         try:
             resp = self._client.get_object(Bucket=self._bucket, Key=key)
@@ -383,27 +399,50 @@ class EncryptedCache:
         self.fetches = 0
         self._order: collections.OrderedDict[str, int] = collections.OrderedDict()
         if cap_bytes > 0:
-            self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
-            # mkdir(mode=...) only applies on creation; an existing cache
-            # root with looser bits stays loose. Re-chmod every activation
-            # so the documented 0700 invariant holds.
-            try:
-                os.chmod(self.root, 0o700)
-            except PermissionError:
-                # Cache root owned by someone else: surface the broken
-                # invariant, do not silently use a world-readable cache.
-                fail(
-                    f"cache root {self.root} not chmod-able to 0700 by uid={os.getuid()}",
-                    EXIT_OPEN_ERR,
-                )
+            self._ensure_root()
             self._scan_existing()
 
+    def _ensure_root(self) -> None:
+        self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # mkdir(mode=...) only applies on creation; an existing cache root with
+        # looser bits stays loose. Re-chmod every activation and after external
+        # deletion/recreation so the documented 0700 invariant holds.
+        try:
+            os.chmod(self.root, 0o700)
+        except PermissionError:
+            # Cache root owned by someone else: surface the broken invariant,
+            # do not silently use a world-readable cache.
+            fail(
+                f"cache root {self.root} not chmod-able to 0700 by uid={os.getuid()}",
+                EXIT_OPEN_ERR,
+            )
+
     def _scan_existing(self) -> None:
-        for entry in sorted(self.root.iterdir(), key=lambda p: p.stat().st_mtime):
-            if entry.is_file():
-                self._order[entry.name] = entry.stat().st_size
+        entries: list[tuple[float, str, int]] = []
+        for entry in self.root.iterdir():
+            try:
+                if not entry.is_file():
+                    continue
+                st = entry.stat()
+            except FileNotFoundError:
+                continue
+            entries.append((st.st_mtime, entry.name, st.st_size))
+        for _mtime, name, size in sorted(entries):
+            self._order[name] = size
+        self._evict_until_room(0)
+
+    def _evict_until_room(self, incoming_size: int) -> None:
+        used = sum(self._order.values())
+        while used + incoming_size > self.cap_bytes and self._order:
+            name, n = self._order.popitem(last=False)
+            try:
+                (self.root / name).unlink()
+            except FileNotFoundError:
+                pass
+            used -= n
 
     def get(self, volume_name: str, fetcher: Callable[[str], bytes]) -> bytes:
+        validate_volume_name(volume_name)
         if self.cap_bytes <= 0:
             data = fetcher(volume_name)
             self.bytes_fetched += len(data)
@@ -412,7 +451,15 @@ class EncryptedCache:
         if volume_name in self._order:
             # Touch: move to end (most recently used).
             self._order.move_to_end(volume_name)
-            return (self.root / volume_name).read_bytes()
+            try:
+                return (self.root / volume_name).read_bytes()
+            except FileNotFoundError:
+                self._order.pop(volume_name, None)
+            except OSError as exc:
+                fail(
+                    f"failed to read cached volume {self.root / volume_name}: {exc}",
+                    EXIT_OPEN_ERR,
+                )
         data = fetcher(volume_name)
         self.bytes_fetched += len(data)
         self.fetches += 1
@@ -421,14 +468,8 @@ class EncryptedCache:
         if size > self.cap_bytes:
             # Single object exceeds cache cap; bypass cache for it.
             return data
-        used = sum(self._order.values())
-        while used + size > self.cap_bytes and self._order:
-            name, n = self._order.popitem(last=False)
-            try:
-                (self.root / name).unlink()
-            except FileNotFoundError:
-                pass
-            used -= n
+        self._evict_until_room(size)
+        self._ensure_root()
         target = self.root / volume_name
         tmp = target.with_suffix(target.suffix + ".partial")
         # Atomic create at mode 0600. Avoids the brief umask-honoured window
@@ -554,9 +595,7 @@ class BlockRef:
 @dataclass
 class ExtractStats:
     plaintext_size: int = 0
-    dblocks_fetched: int = 0
     dblocks_touched: set[str] = field(default_factory=set)
-    bytes_fetched: int = 0
 
 
 class BlockResolver:
@@ -738,23 +777,49 @@ class Extractor:
         self.source = source
         self.cache = cache
         self.decrypter = decrypter
+        self.block_hash_algo = block_hash_algo.upper()
         self.file_hash_algo = file_hash_algo.upper()
-        self._open_volumes: dict[str, OpenedVolume] = {}
+        self._open_volumes: collections.OrderedDict[str, OpenedVolume] = (
+            collections.OrderedDict()
+        )
         self.resolver = BlockResolver(conn, block_hash_algo, self._fetch_block_bytes)
 
     def _open_volume(self, volume_name: str) -> OpenedVolume:
         cached = self._open_volumes.get(volume_name)
         if cached is not None:
+            self._open_volumes.move_to_end(volume_name)
             return cached
         encrypted = self.cache.get(volume_name, self.source.fetch)
         decrypted = self.decrypter.decrypt(encrypted, volume_name)
         vol = OpenedVolume(volume_name, decrypted)
         self._open_volumes[volume_name] = vol
+        while len(self._open_volumes) > MAX_OPEN_VOLUMES:
+            _name, evicted = self._open_volumes.popitem(last=False)
+            evicted.close()
         return vol
 
     def _fetch_block_bytes(self, volume_name: str, block_hash: bytes) -> bytes:
         vol = self._open_volume(volume_name)
-        return vol.block_bytes(block_hash)
+        block = vol.block_bytes(block_hash)
+        self._verify_block_hash(volume_name, block_hash, block)
+        return block
+
+    def _verify_block_hash(
+        self, volume_name: str, block_hash: bytes, block: bytes
+    ) -> None:
+        try:
+            digest = hashlib.new(self.block_hash_algo)
+        except ValueError as exc:
+            fail(
+                f"unsupported BlockHash algorithm: {self.block_hash_algo!r} ({exc})",
+                EXIT_DATA_ERR,
+            )
+        digest.update(block)
+        if digest.digest() != block_hash:
+            fail(
+                f"block hash mismatch for {base64url_name(block_hash)} from {volume_name}: computed {digest.hexdigest()}, expected {block_hash.hex()}",
+                EXIT_DATA_ERR,
+            )
 
     def extract_file(
         self,
@@ -816,8 +881,54 @@ class Extractor:
 # ---------------------------------------------------------------------------
 
 
+def _chmod_private_dir(path: Path) -> None:
+    try:
+        os.chmod(path, 0o700)
+    except PermissionError:
+        fail(
+            f"directory {path} not chmod-able to 0700 by uid={os.getuid()}",
+            EXIT_OPEN_ERR,
+        )
+
+
+def _ensure_private_dir(path: Path, *, chmod_existing: bool = False) -> None:
+    missing: list[Path] = []
+    cursor = path
+    while not cursor.exists():
+        missing.append(cursor)
+        parent = cursor.parent
+        if parent == cursor:
+            break
+        cursor = parent
+
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not path.is_dir():
+        fail(f"output parent {path} is not a directory", EXIT_USAGE)
+
+    for directory in missing:
+        if directory.is_dir():
+            _chmod_private_dir(directory)
+    if chmod_existing:
+        _chmod_private_dir(path)
+
+
+def _chmod_private_tree(path: Path, stop_at: Path) -> None:
+    stop = stop_at.resolve()
+    cursor = path.resolve()
+    while True:
+        try:
+            cursor.relative_to(stop)
+        except ValueError:
+            return
+        if cursor.is_dir():
+            _chmod_private_dir(cursor)
+        if cursor == stop:
+            return
+        cursor = cursor.parent
+
+
 @contextlib.contextmanager
-def _atomic_writer(dest: Path):
+def _atomic_writer(dest: Path, *, private_root: Path | None = None):
     """Yield a writer for ``dest``; commit-on-success, unlink-on-failure.
 
     Stages bytes through a sibling ``<dest>.partial`` file (mode 0600) and
@@ -826,7 +937,9 @@ def _atomic_writer(dest: Path):
     the partial file is closed and unlinked so a glob-mode operator does
     not have to clean up after a mid-batch failure.
     """
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    _ensure_private_dir(dest.parent)
+    if private_root is not None:
+        _chmod_private_tree(dest.parent, private_root)
     tmp = dest.with_suffix(dest.suffix + ".partial")
     # Atomic creation at mode 0600 (avoids the umask race window).
     fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -1135,7 +1248,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.include:
             output_dir = Path(args.output_dir)
-            output_dir.mkdir(parents=True, exist_ok=True)
+            _ensure_private_dir(output_dir, chmod_existing=True)
             paths = _glob_paths(conn, snapshot["ID"], args.include)
             if not paths:
                 fail(
@@ -1144,7 +1257,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             for src_path in paths:
                 target = _validate_output_dir_target(output_dir, src_path)
-                with _atomic_writer(target) as writer:
+                with _atomic_writer(target, private_root=output_dir) as writer:
                     extractor.extract_file(snapshot["ID"], src_path, writer, stats)
         else:
             assert args.path is not None  # validated by mode-validation block above

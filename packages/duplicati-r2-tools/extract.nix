@@ -63,6 +63,9 @@ stdenvNoCC.mkDerivation {
       --db "$db" \
       --passphrase "$FIX_PW"
 
+    ${pythonEnv}/bin/python3 $src/scripts/check_extract_regressions.py \
+      --work "$work"
+
     bin="$out/bin/duplicati-r2-extract"
 
     # Single-block file (50 bytes -> 1 content block, BlocksetEntry path).
@@ -102,6 +105,7 @@ stdenvNoCC.mkDerivation {
     # Glob mode mirrors the snapshot tree under --output-dir for every match.
     "$bin" --db "$db" --source "file://$fixture" --passphrase-env FIX_PW \
       --cache-dir "$work/cache" --include '*.bin' --output-dir "$work/include-out" test
+    test "$(stat -c %a "$work/include-out")" = 700
     test -f "$work/include-out/medium.bin"
     test -f "$work/include-out/single.bin"
     test -f "$work/include-out/big.bin"
