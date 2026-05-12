@@ -117,13 +117,29 @@ _: {
             for catalog_file in "''${sorted_catalog_files[@]}"; do
               [ -f "$catalog_file" ] || continue
 
-              mapfile -t catalog_apps < <(
-                grep -E '\.extended\.enable' "$catalog_file" \
-                  | grep -v '^\s*#' \
-                  | sed -E 's/^\s+//' \
-                  | sed -E "s/^([\"']?)([a-zA-Z0-9_-]+)\1\.extended\.enable.*/\2/" \
-                  | sort
-              )
+              # The common catalog enumerates entries as one
+              # `name.extended.enable = ...;` line per app; per-host override
+              # files express the same data as keys of a single `appEnable`
+              # attrset that is mapped to `programs` via `lib.mapAttrs`.
+              # Pick the parser that matches the file shape so the stale check
+              # actually runs for per-host files.
+              if is_common_catalog "$catalog_file"; then
+                mapfile -t catalog_apps < <(
+                  grep -E '\.extended\.enable' "$catalog_file" \
+                    | grep -v '^\s*#' \
+                    | sed -E 's/^\s+//' \
+                    | sed -E "s/^([\"']?)([a-zA-Z0-9_-]+)\1\.extended\.enable.*/\2/" \
+                    | sort
+                )
+              else
+                mapfile -t catalog_apps < <(
+                  awk '
+                    /^[[:space:]]*appEnable[[:space:]]*=[[:space:]]*\{/ { in_block=1; next }
+                    in_block && /^[[:space:]]*\}[[:space:]]*;[[:space:]]*$/ { in_block=0; next }
+                    in_block && match($0, /^[[:space:]]+"?([A-Za-z0-9_.-]+)"?[[:space:]]*=[[:space:]]*(true|false)/, m) { print m[1] }
+                  ' "$catalog_file" | sort
+                )
+              fi
 
               declare -A catalog_map=()
               for app in "''${catalog_apps[@]}"; do
@@ -171,10 +187,18 @@ _: {
                   echo "🗑️  Stale entries (remove these from $catalog_file):" >&2
                   echo "" >&2
                   for app in "''${stale[@]}"; do
-                    if [[ "$app" =~ - ]]; then
-                      line_num=$(grep -n "\"$app\"\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                    if is_common_catalog "$catalog_file"; then
+                      if [[ "$app" =~ - ]]; then
+                        line_num=$(grep -n "\"$app\"\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                      else
+                        line_num=$(grep -n "$app\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                      fi
                     else
-                      line_num=$(grep -n "$app\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                      if [[ "$app" =~ - ]]; then
+                        line_num=$(grep -nE "^[[:space:]]+\"''${app}\"[[:space:]]*=[[:space:]]*(true|false)" "$catalog_file" | cut -d: -f1 || echo "?")
+                      else
+                        line_num=$(grep -nE "^[[:space:]]+''${app}[[:space:]]*=[[:space:]]*(true|false)" "$catalog_file" | cut -d: -f1 || echo "?")
+                      fi
                     fi
                     echo "  $app (line $line_num)" >&2
                   done
