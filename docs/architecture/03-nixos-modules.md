@@ -39,14 +39,14 @@ The module `modules/meta/nixos-app-helpers.nix` exposes helpers via `config.flak
 ### Usage Example
 
 ```nix
-# modules/system76/apps-base.nix
+# modules/hosts/common/apps-base.nix
 { config, ... }:
 let
   helpers = config._module.args.nixosAppHelpers;
 in
 {
-  configurations.nixos.system76.module.imports =
-    helpers.getAllApps;
+  configurations.nixos.system76.module.imports = helpers.getAllApps;
+  configurations.nixos.tpnix.module.imports = helpers.getAllApps;
 }
 ```
 
