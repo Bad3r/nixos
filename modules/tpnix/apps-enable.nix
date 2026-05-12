@@ -6,9 +6,10 @@
 # the common baseline at evaluation time while still permitting normal
 # user overrides at default priority (100).
 #
-# The `appEnable` attrset below is exposed via `flake.lib.nixos._tpnixAppsOverrides`
-# so `modules/hosts/common/checks.nix` can detect no-op overrides (entries
-# that duplicate the common baseline) without re-evaluating module config.
+# The `appEnable` attrset below is exposed via
+# `flake.lib.nixos._hostAppsOverrides.tpnix` so `modules/hosts/common/checks.nix`
+# can detect no-op overrides (entries that duplicate the common baseline)
+# without re-evaluating module config.
 { lib, ... }:
 let
   appEnable = {
@@ -117,7 +118,7 @@ let
   };
 in
 {
-  flake.lib.nixos._tpnixAppsOverrides = appEnable;
+  flake.lib.nixos._hostAppsOverrides.tpnix = appEnable;
   configurations.nixos.tpnix.module = {
     programs = lib.mapAttrs (_name: value: {
       extended.enable = lib.mkOverride 1000 value;

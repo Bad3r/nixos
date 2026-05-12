@@ -11,13 +11,17 @@
 # emits a flake-level assertion that fails `nix flake check` when such
 # duplicates are found, prompting the author to delete the redundant entry.
 #
+# Hosts opt in by publishing their override attrset under
+# `flake.lib.nixos._hostAppsOverrides.<host>`. A `host-<host>-apps-no-noop`
+# check is emitted automatically for each opted-in host.
+#
 # The comparison is done at flake.lib level (no module evaluation) to avoid
-# the infinite recursion that arises when reading `config.configurations.nixos.<host>.module`
-# back from a flake-level check.
+# the infinite recursion that arises when reading
+# `config.configurations.nixos.<host>.module` back from a flake-level check.
 { config, lib, ... }:
 let
   baseline = config.flake.lib.nixos._commonAppsBaseline or { };
-  tpnixOverrides = config.flake.lib.nixos._tpnixAppsOverrides or { };
+  hostOverrides = config.flake.lib.nixos._hostAppsOverrides or { };
 
   # Baseline values come from `lib.mkOverride 1100 <bool>`, which wraps the
   # boolean in `{ _type = "override"; priority = 1100; content = <bool>; }`.
@@ -32,31 +36,41 @@ let
     in
     if entry == null then null else unwrapOverride (entry.extended.enable or null);
 
-  isNoOp =
-    app:
+  noOpsFor =
+    overrides:
     let
-      base = baselineEnableOf app;
-      over = tpnixOverrides.${app};
+      isNoOp =
+        app:
+        let
+          base = baselineEnableOf app;
+          over = overrides.${app};
+        in
+        base != null && base == over;
     in
-    base != null && base == over;
+    builtins.filter isNoOp (builtins.attrNames overrides);
 
-  noOps = builtins.filter isNoOp (builtins.attrNames tpnixOverrides);
+  noOpsByHost = lib.mapAttrs (_host: noOpsFor) hostOverrides;
 
-  message =
-    "FR-5: tpnix apps-enable override duplicates common baseline (no-op). "
-    + "Remove these entries from modules/tpnix/apps-enable.nix: "
+  messageFor =
+    host: noOps:
+    "FR-5: ${host} apps-enable override duplicates common baseline (no-op). "
+    + "Remove these entries from modules/${host}/apps-enable.nix: "
     + lib.concatStringsSep ", " noOps;
 in
 {
   perSystem =
     { pkgs, ... }:
     {
-      checks.host-tpnix-apps-no-noop =
-        if noOps == [ ] then
-          pkgs.runCommandLocal "host-tpnix-apps-no-noop-ok" { } ''
-            echo "ok: tpnix apps override file contains no no-op entries" > $out
-          ''
-        else
-          throw message;
+      checks = lib.mapAttrs' (
+        host: noOps:
+        lib.nameValuePair "host-${host}-apps-no-noop" (
+          if noOps == [ ] then
+            pkgs.runCommandLocal "host-${host}-apps-no-noop-ok" { } ''
+              echo "ok: ${host} apps override file contains no no-op entries" > $out
+            ''
+          else
+            throw (messageFor host noOps)
+        )
+      ) noOpsByHost;
     };
 }
