@@ -121,6 +121,13 @@ _: {
                 completeopt = "menu,menuone,noselect";
               };
 
+              # JSONL: route `.jsonl` and `.ndjson` onto the jsonl filetype so
+              # the treesitter alias and conform formatter below apply.
+              filetype.extension = {
+                jsonl = "jsonl";
+                ndjson = "jsonl";
+              };
+
               # Clipboard integration. `globals.clipboard` above forces
               # Neovim's built-in OSC52 provider inside kitty; outside kitty,
               # `vim.g.clipboard` stays unset and Neovim picks one of these
@@ -395,6 +402,12 @@ _: {
                 vim.api.nvim_create_user_command("DvStash", function()
                   vim.cmd("DiffviewFileHistory -g --range=stash")
                 end, { desc = "Inspect git stash via diffview" })
+
+                -- JSONL has no dedicated grammar, so reuse JSON's. The whole
+                -- file is not a single JSON document, but treesitter's error
+                -- recovery still highlights each object correctly across the
+                -- newline separators.
+                vim.treesitter.language.register("json", "jsonl")
               '';
 
               # plenary.nvim is added explicitly because the pinned nixvim/nixpkgs
@@ -1015,8 +1028,21 @@ _: {
                       yaml = [ "prettier" ];
                       markdown = [ "prettier" ];
                       html = [ "prettier" ];
+                      # JSONL: jq -c keeps one value per line
+                      jsonl = [ "jq_jsonl" ];
                       # Rust uses rustfmt via rust-analyzer (lsp_format fallback)
                       # Go uses gofmt via gopls (lsp_format fallback)
+                    };
+                    # jq's default mode pretty-prints, which would collapse
+                    # JSONL into one document. `-c` keeps each value compact
+                    # and on its own line so the file stays valid JSONL.
+                    formatters.jq_jsonl = {
+                      command = lib.getExe pkgs.jq;
+                      args = [
+                        "-c"
+                        "."
+                      ];
+                      stdin = true;
                     };
                   };
                 };
