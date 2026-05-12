@@ -225,7 +225,11 @@ in
 
               # Firefox profile theming (only if enabled)
               firefox = lib.mkIf firefoxEnabled {
-                profileNames = [ "primary" ];
+                profileNames = [
+                  "primary"
+                  "work"
+                  "ephemeral"
+                ];
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;
                 fonts.enable = false;
@@ -233,7 +237,11 @@ in
 
               # Floorp profile theming (only if enabled)
               floorp = lib.mkIf floorpEnabled {
-                profileNames = [ "primary" ];
+                profileNames = [
+                  "primary"
+                  "work"
+                  "ephemeral"
+                ];
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;
                 fonts.enable = false;
@@ -241,7 +249,11 @@ in
 
               # LibreWolf profile theming (only if enabled)
               librewolf = lib.mkIf librewolfEnabled {
-                profileNames = [ "primary" ];
+                profileNames = [
+                  "primary"
+                  "work"
+                  "ephemeral"
+                ];
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;
                 fonts.enable = false;
