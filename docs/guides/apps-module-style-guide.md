@@ -352,10 +352,24 @@ programs = {
 ```
 
 If a single host needs to diverge from the common baseline (e.g. tpnix
-disables a system76-only tool), add a per-host override in
-`modules/<host>/apps-enable.nix` at `lib.mkOverride 1000`. The FR-5 check in
-`modules/hosts/common/checks.nix` fails if a per-host override duplicates the
-common value (silent no-op).
+disables a system76-only tool), add the entry to the flat `appEnable` set in
+`modules/<host>/apps-enable.nix` (see `modules/tpnix/apps-enable.nix` for the
+canonical shape):
+
+```nix
+appEnable = {
+  # ...
+  <tool> = false;
+  # ...
+};
+```
+
+The host override module routes each entry to
+`programs.<name>.extended.enable` or `services.<name>.extended.enable` at
+`lib.mkOverride 1000` based on the namespace declared by the common baseline.
+It also re-exports the flat set as `flake.lib.nixos._hostAppsOverrides.<host>`
+so `modules/hosts/common/checks.nix` can flag values that duplicate the common
+baseline (silent no-op).
 
 ### 5. Check for Home Manager Integration
 
