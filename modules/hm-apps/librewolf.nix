@@ -18,22 +18,52 @@
 */
 
 _: {
-  nixpkgs.allowedUnfreePackages = [ "onepassword-password-manager" ];
+  # Unfree extensions bundled by the shared gecko extension list in
+  # `_gecko-extensions.nix`. Names match `lib.getName` on each addon
+  # derivation.
+  nixpkgs.allowedUnfreePackages = [
+    "languagetool"
+    "onepassword-password-manager"
+    "wappalyzer"
+  ];
 
   flake.homeManagerModules.apps.librewolf =
     {
       osConfig,
       lib,
       pkgs,
+      config,
       inputs,
       ...
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
-      firefox-addons = (pkgs.extend inputs.dedupe_nur.overlays.default).nur.repos.rycee.firefox-addons;
-      geckoBrowser = import ./_gecko-browser-common.nix { inherit firefox-addons; };
+      cfg = config.home.librewolfPrivacy;
+      gecko = import ./_gecko-mk-profile.nix {
+        inherit
+          pkgs
+          inputs
+          lib
+          config
+          cfg
+          ;
+      };
     in
     {
+      options.home.librewolfPrivacy = {
+        enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
+          default = false;
+        };
+        # LibreWolf upstream ships `media.eme.enabled` and
+        # `media.gmp-widevinecdm.enabled` off by default as part of its
+        # privacy posture; defaulting `enableDRM` to false preserves that
+        # stance and leaves the opt-in to users who explicitly need
+        # Widevine/EME playback.
+        enableDRM = lib.mkEnableOption "Allow DRM/Widevine (EME) playback" // {
+          default = false;
+        };
+      };
+
       config = lib.mkIf nixosEnabled {
         programs.librewolf = {
           enable = true;
@@ -46,38 +76,39 @@ _: {
           # settings to ~/.librewolf/librewolf.overrides.cfg regardless of
           # configPath.
           configPath = ".config/librewolf/librewolf";
-          inherit (osConfig.programs.librewolf.extended) package;
+          # Bake the Tridactyl native messaging host into the LibreWolf
+          # wrapper. See modules/hm-apps/firefox.nix for the rationale;
+          # HM's `home.packages` directory is not on the Mozilla
+          # native-messaging discovery path.
+          package = osConfig.programs.librewolf.extended.package.override {
+            nativeMessagingHosts = [ pkgs.tridactyl-native ];
+          };
 
-          # Core enterprise policies via the wrapped LibreWolf. DisableTelemetry
-          # and friends are already enforced by LibreWolf's built-in prefs; they
-          # are repeated here so the policy surface stays identical to
-          # firefox/floorp and the shared extension wiring composes cleanly.
+          # DisableTelemetry / DisableFirefoxStudies / DisablePocket are already
+          # enforced by LibreWolf's built-in prefs; repeated here so the policy
+          # surface stays identical to firefox/floorp and the shared extension
+          # wiring composes cleanly.
           policies = {
             DisableTelemetry = true;
             DisableFirefoxStudies = true;
             DisablePocket = true;
           }
-          // geckoBrowser.extensionPolicies;
+          // gecko.extensionPolicies;
 
-          profiles.primary = {
-            id = 0;
-
-            settings = {
-              # Auto-enable packaged extensions (e.g. Stylix's FirefoxColor add-on)
-              # on first profile load; without this, scope-masked XPIs land
-              # installed-but-disabled and the Stylix theme never applies.
-              "extensions.autoDisableScopes" = 0;
+          profiles = {
+            primary = gecko.mkProfile {
+              id = 0;
+              packages = gecko.primaryPackages;
             };
 
-            extensions = {
-              # Acknowledge that declarative settings override existing ones.
-              force = true;
+            work = gecko.mkProfile {
+              id = 1;
+              packages = gecko.workPackages;
+            };
 
-              # LibreWolf ships uBO bundled; installing it again from NUR pins
-              # the version declaratively and dedupes against the bundle by ID.
-              packages = geckoBrowser.extensionPackages;
-
-              settings = geckoBrowser.extensionStorage;
+            ephemeral = gecko.mkProfile {
+              id = 2;
+              packages = gecko.ephemeralPackages;
             };
           };
         };
