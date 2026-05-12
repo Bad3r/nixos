@@ -1,22 +1,8 @@
-{ lib, ... }:
-{
-  nixpkgs.allowedUnfreePackages = [
-    # NVIDIA drivers
-    "nvidia-settings"
-    "nvidia-x11"
-
-    # Development tools
-    "code"
-    "vscode"
-    "vscode-fhs"
-
-    # Archive utilities
-    "p7zip-rar"
-    "rar"
-    "unrar"
-  ];
-
-  configurations.nixos.tpnix.module =
+{ config, lib, ... }:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body =
     { pkgs, ... }:
     {
       environment.systemPackages = lib.mkAfter (
@@ -48,4 +34,26 @@
         ]
       );
     };
+in
+{
+  # Shared unfree allowlist (contributed at the flake-parts level so the
+  # allowUnfreePredicate sees them across both hosts).
+  nixpkgs.allowedUnfreePackages = [
+    # NVIDIA drivers
+    "nvidia-x11"
+    "nvidia-settings"
+
+    # Development tools
+    "code"
+    "vscode"
+    "vscode-fhs"
+
+    # Archive utilities
+    "p7zip-rar"
+    "rar"
+    "unrar"
+  ];
+
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }
