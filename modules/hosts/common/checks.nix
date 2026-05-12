@@ -22,6 +22,10 @@
 let
   baseline = config.flake.lib.nixos._commonAppsBaseline or { };
   hostOverrides = config.flake.lib.nixos._hostAppsOverrides or { };
+  baselineMissing = hostOverrides != { } && baseline == { };
+  baselineMissingMessage =
+    "FR-5 baseline snapshot missing: flake.lib.nixos._commonAppsBaseline is empty "
+    + "but host overrides are registered.";
 
   # Baseline values come from `lib.mkOverride 1100 <bool>`, which wraps the
   # boolean in `{ _type = "override"; priority = 1100; content = <bool>; }`.
@@ -61,7 +65,23 @@ in
   perSystem =
     { pkgs, ... }:
     {
-      checks = lib.mapAttrs' (
+      checks = {
+        host-apps-baseline-present =
+          if baselineMissing then
+            pkgs.runCommandLocal "host-apps-baseline-missing-fail"
+              {
+                message = baselineMissingMessage;
+              }
+              ''
+                printf '%s\n' "$message" >&2
+                exit 1
+              ''
+          else
+            pkgs.runCommandLocal "host-apps-baseline-present-ok" { } ''
+              echo "ok: common app baseline snapshot is present when host overrides are registered" > $out
+            '';
+      }
+      // lib.mapAttrs' (
         host: noOps:
         lib.nameValuePair "host-${host}-apps-no-noop" (
           if noOps == [ ] then
