@@ -1,11 +1,3 @@
-_:
-let
-  body = {
-    services.teamviewer.enable = false;
-  };
-in
-{
+_: {
   nixpkgs.allowedUnfreePackages = [ "teamviewer" ];
-
-  flake.nixosModules.hosts-common.imports = [ body ];
 }
