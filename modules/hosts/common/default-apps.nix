@@ -1,49 +1,45 @@
 /*
-  System76 Default Applications
+  Default Applications (common baseline)
 
-  Configures default applications for this host via XDG mimeapps.
-  App modules install applications; this module designates which are default.
+  Configures default applications via XDG mimeapps. App modules install
+  applications; this module designates which are the host's defaults.
 
   Usage:
-    system76.defaults.browser = "floorp";
-    system76.defaults.mailClient = "thunderbird";
-    system76.defaults.torrentClient = "qbittorrent";
-    system76.defaults.terminal = "kitty";
-    system76.defaults.fileManager = "nemo";
-    system76.defaults.archiveManager = "file-roller";
-    system76.defaults.imageViewer = "nsxiv";
-    system76.defaults.documentViewer = "zathura";
-    system76.defaults.audioPlayer = "mpv";
-    system76.defaults.videoPlayer = "mpv";
-    system76.defaults.editor = "nvim";
-    system76.defaults.pager = "less";
-    system76.defaults.diffProgram = "nvim -d";
-    system76.defaults.opener = "xdg-open";
-
-  To switch defaults, change these settings - no need to modify
-  individual app modules.
+    host.defaults.browser = "floorp";
+    host.defaults.mailClient = "thunderbird";
+    host.defaults.torrentClient = "qbittorrent";
+    host.defaults.terminal = "kitty";
+    host.defaults.fileManager = "nemo";
+    host.defaults.archiveManager = "file-roller";
+    host.defaults.imageViewer = "nsxiv";
+    host.defaults.documentViewer = "zathura";
+    host.defaults.audioPlayer = "mpv";
+    host.defaults.videoPlayer = "mpv";
+    host.defaults.editor = "nvim";
+    host.defaults.pager = "less";
+    host.defaults.diffProgram = "nvim -d";
+    host.defaults.opener = "xdg-open";
 
   IMPORTANT: The corresponding app module must be enabled in apps-enable.nix.
   An assertion will fail if a default is set but the app module is disabled.
-  (This does not apply to env-only categories like pager and diffProgram.)
+  (Env-only categories like pager and diffProgram are exempt.)
 */
 { config, lib, ... }:
 let
   inherit (config.flake.lib) xdg;
-
-  # Desktop file mappings from xdg.desktopFiles (single source of truth)
   inherit (xdg) desktopFiles;
 
   categoryMeta = xdg.defaultAppCategoryMeta;
   envOnlyMeta = xdg.defaultAppEnvOnlyMeta;
 
-  # Merge desktop files with category metadata
   defaultAppCategories = lib.mapAttrs (
     name: meta: meta // { desktopFiles = desktopFiles.${name}; }
   ) categoryMeta;
-in
-{
-  configurations.nixos.system76.module =
+
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+
+  body =
     {
       config,
       lib,
@@ -51,10 +47,9 @@ in
       ...
     }:
     let
-      cfg = config.system76.defaults;
+      cfg = config.host.defaults;
       hasHomeManager = options ? home-manager;
 
-      # Generate a NixOS option for a MIME category
       mkCategoryOption =
         _name: cat:
         lib.mkOption {
@@ -63,7 +58,6 @@ in
           inherit (cat) example description;
         };
 
-      # Generate a NixOS option for an env-only category
       mkEnvOnlyOption =
         _name: cat:
         lib.mkOption {
@@ -72,13 +66,11 @@ in
           inherit (cat) example description;
         };
 
-      # Generate config block for a MIME category (system + user-level XDG mimeapps)
       mkCategoryConfig =
         name: cat:
         lib.mkIf (cfg.${name} != null) (
           lib.mkMerge [
             { xdg.mime.defaultApplications = cat.mkMimeDefaults cat.desktopFiles.${cfg.${name}}.desktop; }
-            # Set user-level XDG mimeapps if home-manager is available
             (lib.optionalAttrs hasHomeManager {
               home-manager.sharedModules = [
                 {
@@ -93,10 +85,8 @@ in
           ]
         );
 
-      # Generate config block for an env-only category (just environment variables)
       mkEnvOnlyConfig = name: cat: lib.mkIf (cfg.${name} != null) (cat.extraConfig cfg.${name});
 
-      # Generate assertion for a category: if default is set, app module must be enabled
       mkCategoryAssertion =
         name: cat:
         let
@@ -104,10 +94,8 @@ in
         in
         lib.optional (value != null) (
           let
-            # value is constrained by enum type to valid keys in desktopFiles
             appInfo = cat.desktopFiles.${value};
             moduleName = appInfo.module;
-            # Check module existence and enablement separately for proper error messages
             moduleExists = config.programs ? ${moduleName};
             hasExtended = moduleExists && config.programs.${moduleName} ? extended;
             hasEnable = hasExtended && config.programs.${moduleName}.extended ? enable;
@@ -118,44 +106,44 @@ in
             message =
               if !moduleExists then
                 ''
-                  system76.defaults.${name} is set to "${value}" but the app module 'programs.${moduleName}' does not exist.
-                  Create the app module or set system76.defaults.${name} = null; to disable this default.
+                  host.defaults.${name} is set to "${value}" but the app module 'programs.${moduleName}' does not exist.
+                  Create the app module or set host.defaults.${name} = null; to disable this default.
                 ''
               else if !hasExtended then
                 ''
-                  system76.defaults.${name} is set to "${value}" but 'programs.${moduleName}.extended' does not exist.
+                  host.defaults.${name} is set to "${value}" but 'programs.${moduleName}.extended' does not exist.
                   The app module may not follow the expected pattern.
                 ''
               else if !hasEnable then
                 ''
-                  system76.defaults.${name} is set to "${value}" but 'programs.${moduleName}.extended.enable' does not exist.
+                  host.defaults.${name} is set to "${value}" but 'programs.${moduleName}.extended.enable' does not exist.
                   The app module may not follow the expected pattern.
                 ''
               else
                 ''
-                  system76.defaults.${name} is set to "${value}" but the app module is not enabled.
+                  host.defaults.${name} is set to "${value}" but the app module is not enabled.
                   Enable it with: programs.${moduleName}.extended.enable = true;
-                  Or set system76.defaults.${name} = null; to disable this default.
+                  Or set host.defaults.${name} = null; to disable this default.
                 '';
           }
         );
     in
     {
-      options.system76.defaults =
+      options.host.defaults =
         (lib.mapAttrs mkCategoryOption defaultAppCategories) // (lib.mapAttrs mkEnvOnlyOption envOnlyMeta);
 
       config = lib.mkMerge (
         [
-          # Assertions: verify app modules are enabled for configured defaults (MIME categories only)
           { assertions = lib.flatten (lib.mapAttrsToList mkCategoryAssertion defaultAppCategories); }
-          # Set sensible defaults for all categories (can be overridden by explicit user settings)
-          { system76.defaults = lib.mapAttrs (_: cat: lib.mkDefault cat.defaultValue) defaultAppCategories; }
-          { system76.defaults = lib.mapAttrs (_: cat: lib.mkDefault cat.defaultValue) envOnlyMeta; }
+          { host.defaults = lib.mapAttrs (_: cat: lib.mkDefault cat.defaultValue) defaultAppCategories; }
+          { host.defaults = lib.mapAttrs (_: cat: lib.mkDefault cat.defaultValue) envOnlyMeta; }
         ]
-        # Generate config blocks for MIME categories
         ++ lib.mapAttrsToList mkCategoryConfig defaultAppCategories
-        # Generate config blocks for env-only categories
         ++ lib.mapAttrsToList mkEnvOnlyConfig envOnlyMeta
       );
     };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }
