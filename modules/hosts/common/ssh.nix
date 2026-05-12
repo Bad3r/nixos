@@ -4,8 +4,11 @@ let
   tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
   body = {
     services.openssh.settings = {
-      PasswordAuthentication = lib.mkDefault true;
-      PermitRootLogin = lib.mkDefault "no";
+      # `flake.nixosModules.ssh` sets PasswordAuthentication to lib.mkDefault
+      # false; override at default priority to enable password auth on shared
+      # hosts (matches the prior per-host behavior).
+      PasswordAuthentication = true;
+      PermitRootLogin = "no";
     };
   };
 in
