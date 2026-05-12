@@ -1,7 +1,8 @@
 # FR-5: no-op override collision check for per-host apps-enable overrides.
 #
-# The common app catalog (modules/hosts/common/apps-enable.nix) sets each
-# `programs.<app>.extended.enable` at low priority (lib.mkOverride 1100).
+# The common app catalog (modules/hosts/common/apps-enable.nix) sets app
+# defaults under `programs.*.extended.enable` and `services.*.extended.enable`
+# at low priority (lib.mkOverride 1100).
 # Per-host override files such as modules/tpnix/apps-enable.nix layer a higher
 # priority value (lib.mkOverride 1000) for entries that diverge from the
 # common baseline.
@@ -21,8 +22,10 @@
 { config, lib, ... }:
 let
   baseline = config.flake.lib.nixos._commonAppsBaseline or { };
+  baselinePrograms = baseline.programs or { };
+  baselineServices = baseline.services or { };
   hostOverrides = config.flake.lib.nixos._hostAppsOverrides or { };
-  baselineMissing = hostOverrides != { } && baseline == { };
+  baselineMissing = hostOverrides != { } && baselinePrograms == { } && baselineServices == { };
   baselineMissingMessage =
     "FR-5 baseline snapshot missing: flake.lib.nixos._commonAppsBaseline is empty "
     + "but host overrides are registered.";
@@ -36,7 +39,9 @@ let
   baselineEnableOf =
     app:
     let
-      entry = baseline.${app} or null;
+      programEntry = baselinePrograms.${app} or null;
+      serviceEntry = baselineServices.${app} or null;
+      entry = if programEntry != null then programEntry else serviceEntry;
     in
     if entry == null then null else unwrapOverride (entry.extended.enable or null);
 
