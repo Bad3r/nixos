@@ -6,11 +6,11 @@ This runbook defines the default repair workflow for this host.
 
 Configured automation and store behavior:
 
-- `modules/system76/nh.nix`
+- `modules/hosts/common/nh.nix`
   - `programs.nh.clean.enable = true`
   - `programs.nh.clean.dates = "weekly"`
   - `programs.nh.clean.extraArgs = "--keep-since 14d --keep 3"`
-- `modules/system76/nix-settings.nix`
+- `modules/hosts/common/nix-settings.nix`
   - `nix.settings.auto-optimise-store = true`
 
 Because `auto-optimise-store` is enabled globally, this workflow does not include a separate `nix store optimise` step.
