@@ -9,6 +9,7 @@ import collections
 import hashlib
 import json
 import os
+import sqlite3
 import stat
 from collections.abc import Callable
 from pathlib import Path
@@ -20,6 +21,7 @@ from duplicati_r2_extract import (
     EXIT_USAGE,
     BucketLayout,
     BlockRef,
+    BlockResolver,
     EncryptedCache,
     ExtractStats,
     Extractor,
@@ -222,6 +224,80 @@ def check_block_hash_before_sink() -> None:
     assert written == []
 
 
+def check_blocklist_lookup_batches_sql_vars() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 999)
+    conn.executescript(
+        """
+        CREATE TABLE Remotevolume (
+          ID INTEGER PRIMARY KEY,
+          Name TEXT
+        );
+        CREATE TABLE Block (
+          ID INTEGER PRIMARY KEY,
+          Hash TEXT,
+          Size INTEGER,
+          VolumeID INTEGER
+        );
+        CREATE TABLE BlocksetEntry (
+          BlocksetID INTEGER,
+          BlockID INTEGER,
+          "Index" INTEGER
+        );
+        CREATE TABLE BlocklistHash (
+          BlocksetID INTEGER,
+          "Index" INTEGER,
+          Hash TEXT
+        );
+        """
+    )
+    conn.executemany(
+        "INSERT INTO Remotevolume VALUES (?, ?)",
+        [
+            (1, "list-vol.aes"),
+            (2, "content-vol.aes"),
+        ],
+    )
+
+    def b64(hash_bytes: bytes) -> str:
+        return base64.b64encode(hash_bytes).decode("ascii").rstrip("=")
+
+    content_hashes = [
+        hashlib.sha256(f"content-{index}".encode("ascii")).digest()
+        for index in range(600)
+    ]
+    blocklist_hash = hashlib.sha256(b"blocklist").digest()
+    blocklist_blob = b"".join(content_hashes)
+    conn.execute(
+        "INSERT INTO Block VALUES (?, ?, ?, ?)",
+        (1, b64(blocklist_hash), len(blocklist_blob), 1),
+    )
+    conn.executemany(
+        "INSERT INTO Block VALUES (?, ?, ?, ?)",
+        [
+            (index + 2, b64(hash_bytes), 1024, 2)
+            for index, hash_bytes in enumerate(content_hashes)
+        ],
+    )
+    conn.execute(
+        "INSERT INTO BlocklistHash VALUES (?, ?, ?)",
+        (777, 0, b64(blocklist_hash)),
+    )
+
+    def fetch_block(volume: str, block_hash: bytes) -> bytes:
+        assert volume == "list-vol.aes"
+        assert block_hash == blocklist_hash
+        return blocklist_blob
+
+    resolver = BlockResolver(conn, "SHA256", fetch_block)
+    refs = resolver.block_refs(777, len(content_hashes) * 1024)
+
+    assert [ref.block_hash for ref in refs] == content_hashes
+    assert {ref.volume_name for ref in refs} == {"content-vol.aes"}
+    assert {ref.block_size for ref in refs} == {1024}
+
+
 def check_open_volume_lru() -> None:
     class DummyCache:
         def get(self, name: str, _fetcher: object) -> bytes:
@@ -278,6 +354,7 @@ def main(argv: list[str] | None = None) -> int:
     check_sink_partial_cleanup_not_following_symlink(args.work)
     check_cache_partial_symlink_not_followed(args.work)
     check_block_hash_before_sink()
+    check_blocklist_lookup_batches_sql_vars()
     check_open_volume_lru()
     return 0
 

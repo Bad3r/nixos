@@ -60,6 +60,7 @@ DEFAULT_CACHE_DIR = (
     + "/duplicati-r2-tools"
 )
 MAX_OPEN_VOLUMES = 16
+SQLITE_BIND_SAFETY_MARGIN = 1
 
 set_program_name("duplicati-r2-extract")
 
@@ -648,6 +649,13 @@ class BlockResolver:
         self.hash_size: int = size
         self._fetch_block = fetch_block
 
+    def _block_lookup_hash_batch_size(self) -> int:
+        variable_limit = self.conn.getlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER)
+        # Each content-block hash is looked up in padded and unpadded base64
+        # forms, so split by raw hashes and keep both encodings under SQLite's
+        # per-statement bind-variable cap.
+        return max(1, (variable_limit - SQLITE_BIND_SAFETY_MARGIN) // 2)
+
     def lookup_file(self, snapshot_id: int, path: str) -> FileEntry:
         qpath, qpath_alt = exact_match_variants(path)
         row = self.conn.execute(
@@ -738,7 +746,7 @@ class BlockResolver:
                 f"blockset {blockset_id} has no BlocksetEntry and no BlocklistHash rows",
                 EXIT_DATA_ERR,
             )
-        # Look up each content block by hash. Build a temp table-style lookup.
+        # Look up each content block by hash.
         content_block_hashes: list[bytes] = []
         for lr in list_rows:
             list_hash_bytes = base64.b64decode(
@@ -758,26 +766,33 @@ class BlockResolver:
                 f"blockset {blockset_id} BlocklistHash rows produced no content hashes",
                 EXIT_DATA_ERR,
             )
-        b64_set = {
-            encoded
-            for h in content_block_hashes
-            for encoded in (
-                base64.b64encode(h).decode("ascii"),
-                base64.b64encode(h).decode("ascii").rstrip("="),
+        unique_hashes = list(dict.fromkeys(content_block_hashes))
+        block_rows: list[sqlite3.Row] = []
+        batch_size = self._block_lookup_hash_batch_size()
+        for offset in range(0, len(unique_hashes), batch_size):
+            hash_batch = unique_hashes[offset : offset + batch_size]
+            b64_set = {
+                encoded
+                for h in hash_batch
+                for encoded in (
+                    base64.b64encode(h).decode("ascii"),
+                    base64.b64encode(h).decode("ascii").rstrip("="),
+                )
+            }
+            placeholders = ",".join("?" for _ in b64_set)
+            block_rows.extend(
+                self.conn.execute(
+                    f"""
+                    SELECT b.ID AS block_id, b.Hash AS hash, b.Size AS size,
+                           rv.Name AS volume, rv.ID AS rv_id
+                    FROM Block b
+                      JOIN Remotevolume rv ON rv.ID = b.VolumeID
+                    WHERE b.Hash IN ({placeholders})
+                    ORDER BY rv.ID, b.ID
+                    """,
+                    tuple(sorted(b64_set)),
+                ).fetchall()
             )
-        }
-        placeholders = ",".join("?" for _ in b64_set)
-        block_rows = self.conn.execute(
-            f"""
-            SELECT b.ID AS block_id, b.Hash AS hash, b.Size AS size,
-                   rv.Name AS volume, rv.ID AS rv_id
-            FROM Block b
-              JOIN Remotevolume rv ON rv.ID = b.VolumeID
-            WHERE b.Hash IN ({placeholders})
-            ORDER BY rv.ID, b.ID
-            """,
-            tuple(sorted(b64_set)),
-        ).fetchall()
         block_index: dict[bytes, tuple[str, int]] = {}
         for row in block_rows:
             try:
