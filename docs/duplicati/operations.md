@@ -311,9 +311,9 @@ Global flags:
 Exit codes mirror `duplicati-r2-restore.sh`:
 
 - `0` success
-- `64` usage error (bad args, invalid glob/regex, unresolved snapshot)
+- `64` usage error (bad args, invalid glob/regex, unknown target, unresolved snapshot)
 - `65` schema-version mismatch (the tool refuses to operate against unsupported `Configuration.Version`)
-- `66` manifest/db unreadable, target missing, target disabled, snapshot id not found, path not in snapshot
+- `66` manifest/db unreadable, target disabled, snapshot id not found, path not in snapshot
 
 When `--config` and `--db` are both omitted and `/run/duplicati-r2/config.json` is not readable to the invoker, the tool falls back to the default state directory `/var/lib/duplicati-r2/<slug>` and proceeds; pass `--config` or `--db` explicitly when the manifest layout is non-default.
 

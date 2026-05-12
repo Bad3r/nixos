@@ -127,6 +127,16 @@ stdenvNoCC.mkDerivation {
       exit 1
     }
 
+    jq -n --arg state "$work" \
+      '{stateDir: $state, targets: {test: {stateDir: $state}}}' \
+      > "$work/manifest.json"
+    rc=0
+    "$bin" --config "$work/manifest.json" versions missing 2>/dev/null || rc=$?
+    test "$rc" -eq 64 || {
+      echo "unknown target should exit 64 per docs, got $rc" >&2
+      exit 1
+    }
+
     # When the manifest is unreadable, the fallback probes the slug-subdir
     # variant first; this is the path reported in the failure message.
     fallback_err=$( "$bin" --config /nonexistent/manifest.json versions test 2>&1 || true )

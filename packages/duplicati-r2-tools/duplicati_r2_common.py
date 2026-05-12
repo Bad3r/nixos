@@ -153,7 +153,7 @@ def resolve_db_path(args: argparse.Namespace) -> str:
             state_dir = manifest["stateDir"]
         targets = manifest.get("targets")
         if not isinstance(targets, dict) or slug not in targets:
-            fail(f"unknown target '{slug}' in {config_path}")
+            fail(f"unknown target '{slug}' in {config_path}", EXIT_USAGE)
         target = targets[slug]
         if isinstance(target, dict):
             if target.get("enable") is False:

@@ -963,6 +963,12 @@ def _atomic_writer(dest: Path):
     """
     _ensure_private_dir(dest.parent)
     tmp = dest.with_suffix(dest.suffix + ".partial")
+    try:
+        tmp.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        fail(f"failed to remove stale output partial {tmp}: {exc}", EXIT_OPEN_ERR)
     # Atomic creation at mode 0600. O_EXCL and O_NOFOLLOW refuse planted
     # partials and final-component symlinks instead of truncating through them.
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)

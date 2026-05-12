@@ -153,15 +153,19 @@ def check_private_output_dirs(work: Path) -> None:
     assert stat.S_IMODE(existing.stat().st_mode) == 0o750
 
 
-def check_sink_partial_symlink_not_followed(work: Path) -> None:
+def check_sink_partial_cleanup_not_following_symlink(work: Path) -> None:
     output = work / "sink-symlink" / "file.txt"
     output.parent.mkdir()
     victim = work / "sink-victim"
     victim.write_text("unchanged", encoding="utf-8")
-    os.symlink(victim, output.with_suffix(output.suffix + ".partial"))
+    partial = output.with_suffix(output.suffix + ".partial")
+    os.symlink(victim, partial)
 
-    expect_exit(EXIT_OPEN_ERR, _atomic_writer(output).__enter__)
+    with _atomic_writer(output) as write:
+        write(b"recovered")
     assert victim.read_text(encoding="utf-8") == "unchanged"
+    assert output.read_bytes() == b"recovered"
+    assert not partial.exists()
 
 
 def check_cache_partial_symlink_not_followed(work: Path) -> None:
@@ -271,7 +275,7 @@ def main(argv: list[str] | None = None) -> int:
     check_db_override_still_loads_layout_manifest(args.work)
     check_env_owner_mismatch_fails(args.work)
     check_private_output_dirs(args.work)
-    check_sink_partial_symlink_not_followed(args.work)
+    check_sink_partial_cleanup_not_following_symlink(args.work)
     check_cache_partial_symlink_not_followed(args.work)
     check_block_hash_before_sink()
     check_open_volume_lru()
