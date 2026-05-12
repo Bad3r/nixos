@@ -25,10 +25,32 @@ let
   baselinePrograms = baseline.programs or { };
   baselineServices = baseline.services or { };
   hostOverrides = config.flake.lib.nixos._hostAppsOverrides or { };
-  baselineMissing = hostOverrides != { } && baselinePrograms == { } && baselineServices == { };
+  baselineKeys = baselinePrograms // baselineServices;
+  unknownOverridesByHost = lib.mapAttrs (
+    _host: overrides:
+    builtins.filter (name: !(lib.hasAttr name baselineKeys)) (builtins.attrNames overrides)
+  ) hostOverrides;
+  unknownOverridesByHostNonEmpty = lib.filterAttrs (
+    _host: names: names != [ ]
+  ) unknownOverridesByHost;
+  anyUnknownOverrides = unknownOverridesByHostNonEmpty != { };
+  unknownOverridesSummary = lib.concatStringsSep "; " (
+    lib.mapAttrsToList (
+      host: names: "${host}: ${lib.concatStringsSep ", " names}"
+    ) unknownOverridesByHostNonEmpty
+  );
+  baselineMissing =
+    hostOverrides != { }
+    && ((baselinePrograms == { } && baselineServices == { }) || anyUnknownOverrides);
   baselineMissingMessage =
-    "FR-5 baseline snapshot missing: flake.lib.nixos._commonAppsBaseline is empty "
-    + "but host overrides are registered.";
+    if anyUnknownOverrides then
+      "FR-5 baseline snapshot missing or out of sync: "
+      + "flake.lib.nixos._commonAppsBaseline does not declare every entry in "
+      + "flake.lib.nixos._hostAppsOverrides.<host>: "
+      + unknownOverridesSummary
+    else
+      "FR-5 baseline snapshot missing: flake.lib.nixos._commonAppsBaseline is empty "
+      + "but host overrides are registered.";
 
   # Baseline values come from `lib.mkOverride 1100 <bool>`, which wraps the
   # boolean in `{ _type = "override"; priority = 1100; content = <bool>; }`.
