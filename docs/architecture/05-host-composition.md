@@ -50,7 +50,6 @@ Every host follows the same shape: each `modules/<host>/*.nix` file extends `con
 | File                                           | Purpose                                                            |
 | ---------------------------------------------- | ------------------------------------------------------------------ |
 | `modules/system76/imports.nix`                 | Baseline module imports and hardware profile wiring                |
-| `modules/system76/apps-enable.nix`             | Per-host overrides over the common app baseline                    |
 | `modules/system76/home-manager-apps.nix`       | system76-only HM extras (awscli2, pentesting-devshell)             |
 | `modules/system76/nix-settings.nix`            | Hardware-tuned `max-jobs` and `min-free` overrides                 |
 | `modules/system76/nix-substituters.nix`        | Regional substituter mirror (ustc)                                 |
@@ -84,10 +83,13 @@ Every host follows the same shape: each `modules/<host>/*.nix` file extends `con
 | `modules/tpnix/power.nix`                   | tpnix power management (`powerprofilesctl` backend)                      |
 | `modules/tpnix/services.nix`                | Service-level host behavior                                              |
 
-Cross-host baselines (apps-base, default-apps, nix-ld, sudo, zsh, ssh,
-nix-settings, nix-substituters, packages, home-manager-apps,
-virtualization) live in `modules/hosts/common/` and dispatch per host
-through `flake.lib.nixos.hosts.<host>.shareCommon`.
+Cross-host baselines (default-apps, nix-ld, sudo, zsh, ssh, nix-settings,
+nix-substituters, packages, home-manager-apps, virtualization, ...) live in
+`modules/hosts/common/` and dispatch per host through
+`flake.lib.nixos.hosts.<host>.shareCommon`. `apps-base.nix` is the exception:
+it imports app modules unconditionally because gating it would force
+`flake.lib.nixos` and trigger an eval-order cycle. See the comment at the top
+of that file before changing its dispatch pattern.
 
 ### Host-conditional helpers
 
@@ -105,11 +107,12 @@ Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<h
 Each host uses the same two-stage app model:
 
 1. `modules/hosts/common/apps-base.nix` imports all discovered NixOS app
-   modules (`getAllApps`) for every opted-in host.
+   modules (`getAllApps`) for the managed hosts. It intentionally does not
+   gate on `shareCommon`.
 2. `modules/hosts/common/apps-enable.nix` sets the per-app
    `programs.<name>.extended.enable` baseline at `lib.mkOverride 1100`.
-   `modules/<host>/apps-enable.nix` layers `lib.mkOverride 1000` overrides
-   for entries where a host diverges.
+   Host override files such as `modules/tpnix/apps-enable.nix` layer
+   `lib.mkOverride 1000` overrides for entries where a host diverges.
 
 Home Manager wiring follows the same shape:
 
