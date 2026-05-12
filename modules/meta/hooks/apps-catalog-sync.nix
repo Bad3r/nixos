@@ -119,9 +119,9 @@ _: {
 
               # The common catalog enumerates entries as one
               # `name.extended.enable = ...;` line per app; per-host override
-              # files express the same data as keys of `appEnable` and
-              # `serviceAppEnable` attrsets that are mapped to `programs` and
-              # `services` via `lib.mapAttrs`.
+              # files express the same data as keys of a flat `appEnable`
+              # attrset. The module routes entries to `programs` or `services`
+              # by reading the common baseline namespace.
               # Pick the parser that matches the file shape so the stale check
               # actually runs for per-host files.
               if is_common_catalog "$catalog_file"; then
@@ -135,7 +135,7 @@ _: {
               else
                 mapfile -t catalog_apps < <(
                   awk '
-                    /^[[:space:]]*(appEnable|serviceAppEnable)[[:space:]]*=[[:space:]]*\{/ { in_block=1; depth=1; next }
+                    /^[[:space:]]*appEnable[[:space:]]*=[[:space:]]*\{/ { in_block=1; depth=1; next }
                     in_block {
                       n_open = gsub(/\{/, "&")
                       n_close = gsub(/\}/, "&")

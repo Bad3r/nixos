@@ -6,11 +6,14 @@
 # the common baseline at evaluation time while still permitting normal
 # user overrides at default priority (100).
 #
-# `appEnable` is for `programs.<name>.extended.enable`; `serviceAppEnable` is
-# for `services.<name>.extended.enable`. Both are exposed via
-# `flake.lib.nixos._hostAppsOverrides.tpnix` so `modules/hosts/common/checks.nix`
-# can detect no-op overrides without re-evaluating module config.
-{ lib, ... }:
+# `appEnable` is a flat override list. Entries are routed to
+# `programs.<name>.extended.enable` or `services.<name>.extended.enable` based
+# on the namespace where the common baseline declares the app.
+#
+# The same flat set is exposed via `flake.lib.nixos._hostAppsOverrides.tpnix`
+# so `modules/hosts/common/checks.nix` can detect no-op overrides without
+# re-evaluating module config.
+{ config, lib, ... }:
 let
   appEnable = {
     act = false;
@@ -117,17 +120,23 @@ let
     yarn = false;
   };
 
-  serviceAppEnable = { };
+  baseline =
+    config.flake.lib.nixos._commonAppsBaseline or {
+      programs = { };
+      services = { };
+    };
+  baselineServices = baseline.services or { };
+  isService = name: lib.hasAttr name baselineServices;
+  programOverrides = lib.filterAttrs (name: _value: !(isService name)) appEnable;
+  serviceOverrides = lib.filterAttrs (name: _value: isService name) appEnable;
+  mkExtendedEnable = _name: value: {
+    extended.enable = lib.mkOverride 1000 value;
+  };
 in
 {
-  flake.lib.nixos._hostAppsOverrides.tpnix = appEnable // serviceAppEnable;
+  flake.lib.nixos._hostAppsOverrides.tpnix = appEnable;
   configurations.nixos.tpnix.module = {
-    programs = lib.mapAttrs (_name: value: {
-      extended.enable = lib.mkOverride 1000 value;
-    }) appEnable;
-
-    services = lib.mapAttrs (_name: value: {
-      extended.enable = lib.mkOverride 1000 value;
-    }) serviceAppEnable;
+    programs = lib.mapAttrs mkExtendedEnable programOverrides;
+    services = lib.mapAttrs mkExtendedEnable serviceOverrides;
   };
 }
