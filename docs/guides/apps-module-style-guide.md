@@ -435,7 +435,7 @@ the tool is host-specific, add it to `modules/<host>/home-manager-apps.nix`
 under the per-host `hostAppNames` list instead.
 
 ```nix
-extraAppNames = [
+sharedAppNames = [
   # ...
   "<tool>"
   # ...
