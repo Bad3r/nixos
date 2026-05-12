@@ -69,7 +69,14 @@ in
               echo "ok: ${host} apps override file contains no no-op entries" > $out
             ''
           else
-            throw (messageFor host noOps)
+            pkgs.runCommandLocal "host-${host}-apps-no-noop-fail"
+              {
+                message = messageFor host noOps;
+              }
+              ''
+                printf '%s\n' "$message" >&2
+                exit 1
+              ''
         )
       ) noOpsByHost;
     };
