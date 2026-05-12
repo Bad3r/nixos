@@ -99,7 +99,7 @@ This means many host-only packages are **not** available under `.#packages.<syst
 | ---------------------------------------------- | ---------------------------------------------- | --------------- | ------------------------------------------------- |
 | `modules/system76/support.nix`                 | `flake.nixosModules."system76-support"`        | system76 only   | System76 kernel modules, firmware                 |
 | `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | shared (opt-in) | Monitor profile                                   |
-| `modules/system76/virtualization.nix`          | host options under `system76.virtualization.*` | system76 only   | Virtualization app toggles                        |
+| `modules/hosts/common/virtualization.nix`      | host options under `host.virtualization.*`     | shared          | Virtualization app toggles                        |
 | `modules/tpnix/policy.nix`                     | `flake.lib.nixos.hosts.tpnix.*` flags          | tpnix only      | Host-conditional gating (e.g. `sopsRuntimeReady`) |
 
 ## The `flake.csec` Namespace

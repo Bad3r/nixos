@@ -1,26 +1,28 @@
-_: {
-  configurations.nixos.tpnix.module =
+{ config, lib, ... }:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body =
     {
       config,
       lib,
       ...
     }:
     let
-      virtCfg = config.tpnix.virtualization;
+      virtCfg = config.host.virtualization;
     in
     {
-      options.tpnix.virtualization = {
-        libvirt.enable = lib.mkEnableOption "Enable libvirt tooling on the tpnix host" // {
+      options.host.virtualization = {
+        libvirt.enable = lib.mkEnableOption "Enable libvirt tooling on this host" // {
           default = false;
         };
-        vmware.enable = lib.mkEnableOption "Enable VMware Workstation on the tpnix host";
+        vmware.enable = lib.mkEnableOption "Enable VMware Workstation on this host";
         ovftool.enable = lib.mkEnableOption "Install VMware OVF Tool" // {
           default = false;
         };
       };
 
       config = {
-        # Configure virtualization via app modules
         programs = {
           qemu.extended = {
             enable = lib.mkDefault virtCfg.libvirt.enable;
@@ -34,4 +36,8 @@ _: {
         };
       };
     };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }
