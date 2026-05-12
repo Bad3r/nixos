@@ -1,13 +1,9 @@
 {
-  config,
-  lib,
   metaOwner,
   ...
 }:
 let
   inherit (metaOwner) username;
-  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
-  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
   body = {
     programs.zsh = {
       enable = true;
@@ -75,6 +71,5 @@ let
   };
 in
 {
-  configurations.nixos.system76.module = lib.mkIf s76Share body;
-  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
+  flake.nixosModules.hosts-common.imports = [ body ];
 }

@@ -1,14 +1,10 @@
 # Local repository mirrors (shared hosts).
 # Synced daily to /data/git/{owner}-{repo}
 {
-  config,
-  lib,
   metaOwner,
   ...
 }:
 let
-  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
-  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
   body = _: {
     config = {
       localMirrors.enable = true;
@@ -61,6 +57,5 @@ let
   };
 in
 {
-  configurations.nixos.system76.module = lib.mkIf s76Share body;
-  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
+  flake.nixosModules.hosts-common.imports = [ body ];
 }
