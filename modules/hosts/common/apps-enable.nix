@@ -3,7 +3,7 @@
 
   Configures application defaults shared across hosts. All app modules default
   to disabled, requiring explicit opt-in for better control. The body below
-  represents the system76 baseline; per-host files (e.g. modules/tpnix/apps-enable.nix)
+  represents the common baseline; per-host files (e.g. modules/tpnix/apps-enable.nix)
   layer overrides for entries that diverge.
 
   Uses lib.mkOverride 1100 (low priority) to allow user overrides and specialized
