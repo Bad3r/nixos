@@ -366,7 +366,7 @@ Flags worth knowing:
 Bucket layout resolution order:
 
 - **hostname** prefix: `duplicati-r2-extract` resolves `DUPLICATI_R2_HOST` env override -> `manifest.hostname` -> `hostname --short` (Linux nodename truncated at first `.`). The backup script does not read `DUPLICATI_R2_HOST`; it resolves `manifest.hostname` -> `DEFAULT_HOSTNAME` (set by the systemd unit generator from `manifest.hostname`) -> `hostname --short`. They agree when `manifest.hostname` is set or both runs use the same host identity.
-- **destSubpath** (per-target): `manifest.targets.<slug>.destSubpath` -> the slug. URL-encoded before being placed in the S3 key.
+- **destSubpath** (per-target): `manifest.targets.<slug>.destSubpath` -> the slug. The backup script URL-encodes this inside the `s3://` URI; `duplicati-r2-extract` passes the raw decoded prefix to boto3 so both address the same R2 keys.
 - **bucket**: `manifest.bucket` -> `R2_BUCKET` from the env file -> `duplicati-nixos-backups`.
 - **endpoint URL**: `R2_S3_ENDPOINT_URL` from the env file -> `https://${R2_S3_ENDPOINT}` -> `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`.
 

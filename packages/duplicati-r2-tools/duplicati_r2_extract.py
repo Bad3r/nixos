@@ -51,7 +51,6 @@ from duplicati_r2_common import (  # noqa: E402
     resolve_snapshot,
     sanitize_slug,
     set_program_name,
-    warn,
 )
 
 DEFAULT_ENV_FILE = "/etc/duplicati/r2.env"
@@ -94,7 +93,10 @@ def load_env_file(path: str) -> dict[str, str]:
             EXIT_OPEN_ERR,
         )
     if st.st_uid not in (0, os.getuid()):
-        warn(f"env file {path} owned by uid={st.st_uid}, expected 0 or {os.getuid()}")
+        fail(
+            f"env file {path} owned by uid={st.st_uid}, expected 0 or {os.getuid()}; refusing",
+            EXIT_OPEN_ERR,
+        )
     env: dict[str, str] = {}
     with open(path, "r", encoding="utf-8") as fh:
         for raw in fh:
@@ -243,11 +245,10 @@ class BucketLayout:
 
     @property
     def key_prefix(self) -> str:
-        # destSubpath is URL-encoded by the backup script before being placed
-        # in the s3:// URL, so the on-the-wire object key carries percent
-        # escapes. Match that exactly.
-        encoded = urllib.parse.quote(self.subpath, safe="")
-        return f"{self.hostname}/{encoded}"
+        # The backup script URL-encodes destSubpath into the s3:// URI; the
+        # Duplicati S3 backend URL-decodes the path before issuing object keys.
+        # boto3 takes the key as-is, so pass the raw key prefix.
+        return f"{self.hostname}/{self.subpath}"
 
 
 def _short_hostname() -> str:
@@ -337,11 +338,16 @@ def build_source(
     parsed = urllib.parse.urlparse(arg)
     if parsed.scheme == "file":
         if parsed.netloc:
-            # file://relative/path -> netloc carries the first segment
-            root = parsed.netloc + parsed.path
-        else:
-            root = parsed.path
-        return FileSource(root)
+            fail(
+                f"--source file:// requires an absolute path (got {arg!r}; did you mean 'file:///{parsed.netloc}{parsed.path}'?)",
+                EXIT_USAGE,
+            )
+        if not os.path.isabs(parsed.path):
+            fail(
+                f"--source file:// requires an absolute path (got {arg!r})",
+                EXIT_USAGE,
+            )
+        return FileSource(parsed.path)
     if parsed.scheme in ("s3", ""):
         access = env.get("AWS_ACCESS_KEY_ID")
         secret = env.get("AWS_SECRET_ACCESS_KEY")
@@ -472,10 +478,22 @@ class EncryptedCache:
         self._ensure_root()
         target = self.root / volume_name
         tmp = target.with_suffix(target.suffix + ".partial")
-        # Atomic create at mode 0600. Avoids the brief umask-honoured window
-        # between open() and fchmod() that the simpler form has.
-        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        fd = os.open(str(tmp), flags, 0o600)
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            fail(f"failed to remove stale cache partial {tmp}: {exc}", EXIT_OPEN_ERR)
+        # Atomic create at mode 0600. O_EXCL and O_NOFOLLOW refuse planted
+        # partials and final-component symlinks instead of truncating through
+        # them.
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            fd = os.open(str(tmp), flags, 0o600)
+        except FileExistsError:
+            fail(f"cache partial already exists: {tmp}", EXIT_OPEN_ERR)
+        except OSError as exc:
+            fail(f"failed to create cache partial {tmp}: {exc}", EXIT_OPEN_ERR)
         with os.fdopen(fd, "wb") as fh:
             fh.write(data)
         os.replace(tmp, target)
@@ -735,29 +753,52 @@ class BlockResolver:
             for i in range(0, len(blob), self.hash_size):
                 content_block_hashes.append(blob[i : i + self.hash_size])
 
+        if not content_block_hashes:
+            fail(
+                f"blockset {blockset_id} BlocklistHash rows produced no content hashes",
+                EXIT_DATA_ERR,
+            )
+        b64_set = {
+            encoded
+            for h in content_block_hashes
+            for encoded in (
+                base64.b64encode(h).decode("ascii"),
+                base64.b64encode(h).decode("ascii").rstrip("="),
+            )
+        }
+        placeholders = ",".join("?" for _ in b64_set)
+        block_rows = self.conn.execute(
+            f"""
+            SELECT b.ID AS block_id, b.Hash AS hash, b.Size AS size,
+                   rv.Name AS volume, rv.ID AS rv_id
+            FROM Block b
+              JOIN Remotevolume rv ON rv.ID = b.VolumeID
+            WHERE b.Hash IN ({placeholders})
+            ORDER BY rv.ID, b.ID
+            """,
+            tuple(sorted(b64_set)),
+        ).fetchall()
+        block_index: dict[bytes, tuple[str, int]] = {}
+        for row in block_rows:
+            try:
+                raw_hash = base64.b64decode(row["hash"] + "=" * (-len(row["hash"]) % 4))
+            except binascii.Error as exc:
+                fail(
+                    f"Block.Hash {row['hash']!r} is not valid base64 ({exc}); DB likely corrupt",
+                    EXIT_DATA_ERR,
+                )
+            block_index.setdefault(raw_hash, (row["volume"], row["size"]))
+
         refs: list[BlockRef] = []
         for h in content_block_hashes:
-            b64_padded = base64.b64encode(h).decode("ascii")
-            b64_unpadded = b64_padded.rstrip("=")
-            row = self.conn.execute(
-                """
-                SELECT b.Size AS size, rv.Name AS volume
-                FROM Block b
-                  JOIN Remotevolume rv ON rv.ID = b.VolumeID
-                WHERE b.Hash IN (?, ?)
-                """,
-                (b64_padded, b64_unpadded),
-            ).fetchone()
-            if row is None:
+            hit = block_index.get(h)
+            if hit is None:
                 fail(
                     f"blocklist references hash {h.hex()} not present in Block table",
                     EXIT_DATA_ERR,
                 )
-            refs.append(
-                BlockRef(
-                    volume_name=row["volume"], block_hash=h, block_size=row["size"]
-                )
-            )
+            volume, size = hit
+            refs.append(BlockRef(volume_name=volume, block_hash=h, block_size=size))
         return refs
 
 
@@ -891,7 +932,7 @@ def _chmod_private_dir(path: Path) -> None:
         )
 
 
-def _ensure_private_dir(path: Path, *, chmod_existing: bool = False) -> None:
+def _ensure_private_dir(path: Path) -> None:
     missing: list[Path] = []
     cursor = path
     while not cursor.exists():
@@ -908,27 +949,10 @@ def _ensure_private_dir(path: Path, *, chmod_existing: bool = False) -> None:
     for directory in missing:
         if directory.is_dir():
             _chmod_private_dir(directory)
-    if chmod_existing:
-        _chmod_private_dir(path)
-
-
-def _chmod_private_tree(path: Path, stop_at: Path) -> None:
-    stop = stop_at.resolve()
-    cursor = path.resolve()
-    while True:
-        try:
-            cursor.relative_to(stop)
-        except ValueError:
-            return
-        if cursor.is_dir():
-            _chmod_private_dir(cursor)
-        if cursor == stop:
-            return
-        cursor = cursor.parent
 
 
 @contextlib.contextmanager
-def _atomic_writer(dest: Path, *, private_root: Path | None = None):
+def _atomic_writer(dest: Path):
     """Yield a writer for ``dest``; commit-on-success, unlink-on-failure.
 
     Stages bytes through a sibling ``<dest>.partial`` file (mode 0600) and
@@ -938,11 +962,16 @@ def _atomic_writer(dest: Path, *, private_root: Path | None = None):
     not have to clean up after a mid-batch failure.
     """
     _ensure_private_dir(dest.parent)
-    if private_root is not None:
-        _chmod_private_tree(dest.parent, private_root)
     tmp = dest.with_suffix(dest.suffix + ".partial")
-    # Atomic creation at mode 0600 (avoids the umask race window).
-    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    # Atomic creation at mode 0600. O_EXCL and O_NOFOLLOW refuse planted
+    # partials and final-component symlinks instead of truncating through them.
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(str(tmp), flags, 0o600)
+    except FileExistsError:
+        fail(f"temporary output path already exists: {tmp}", EXIT_OPEN_ERR)
+    except OSError as exc:
+        fail(f"failed to create temporary output path {tmp}: {exc}", EXIT_OPEN_ERR)
     fh = os.fdopen(fd, "wb")
     committed = False
     try:
@@ -1169,10 +1198,9 @@ def _load_manifest_for_layout(args: argparse.Namespace) -> dict | None:
 
     Used only for hostname / destSubpath / bucket resolution; if the
     manifest is unreadable, defaults still produce a working layout.
+    ``--db`` overrides the SQLite path only; it does not override the bucket
+    layout, so the manifest is still consulted here.
     """
-    if getattr(args, "db", None):
-        # Operator pointed at an explicit DB; no manifest assumption.
-        return None
     config_path = (
         getattr(args, "config", None)
         or os.environ.get("DUPLICATI_R2_CONFIG")
@@ -1248,7 +1276,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.include:
             output_dir = Path(args.output_dir)
-            _ensure_private_dir(output_dir, chmod_existing=True)
+            _ensure_private_dir(output_dir)
             paths = _glob_paths(conn, snapshot["ID"], args.include)
             if not paths:
                 fail(
@@ -1257,7 +1285,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             for src_path in paths:
                 target = _validate_output_dir_target(output_dir, src_path)
-                with _atomic_writer(target, private_root=output_dir) as writer:
+                with _atomic_writer(target) as writer:
                     extractor.extract_file(snapshot["ID"], src_path, writer, stats)
         else:
             assert args.path is not None  # validated by mode-validation block above

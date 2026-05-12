@@ -7,13 +7,18 @@ import argparse
 import base64
 import collections
 import hashlib
+import json
 import os
 import stat
+from collections.abc import Callable
 from pathlib import Path
 
 import duplicati_r2_extract as extract_mod
 from duplicati_r2_extract import (
     EXIT_DATA_ERR,
+    EXIT_OPEN_ERR,
+    EXIT_USAGE,
+    BucketLayout,
     BlockRef,
     EncryptedCache,
     ExtractStats,
@@ -21,7 +26,21 @@ from duplicati_r2_extract import (
     FileEntry,
     FileSource,
     _atomic_writer,
+    _ensure_private_dir,
+    _load_manifest_for_layout,
+    build_source,
+    load_env_file,
+    resolve_bucket_layout,
 )
+
+
+def expect_exit(code: int, fn: Callable[..., object], *args: object) -> None:
+    try:
+        fn(*args)
+    except SystemExit as exc:
+        assert exc.code == code
+    else:
+        raise AssertionError(f"expected SystemExit({code})")
 
 
 def check_cache_recovery(work: Path) -> None:
@@ -58,12 +77,64 @@ def check_cache_cap_on_startup(work: Path) -> None:
 def check_volume_name_rejection(work: Path) -> None:
     source_root = work / "source-root"
     source_root.mkdir()
+    expect_exit(EXIT_DATA_ERR, FileSource(str(source_root)).fetch, "../secret.aes")
+
+
+def check_file_source_requires_absolute_path(work: Path) -> None:
+    layout = BucketLayout("host", "slug", "bucket", None, "auto")
+    expect_exit(EXIT_USAGE, build_source, "file://relative/path", {}, layout)
+    expect_exit(EXIT_USAGE, build_source, "file:relative/path", {}, layout)
+
+
+def check_bucket_layout_uses_raw_subpath() -> None:
+    layout = BucketLayout("host", "weekly snapshots", "bucket", None, "auto")
+    assert layout.key_prefix == "host/weekly snapshots"
+
+
+def check_db_override_still_loads_layout_manifest(work: Path) -> None:
+    config = work / "layout-manifest.json"
+    config.write_text(
+        json.dumps(
+            {
+                "hostname": "manifest-host",
+                "bucket": "manifest-bucket",
+                "targets": {"test": {"destSubpath": "weekly snapshots"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    args = argparse.Namespace(
+        slug="test", db=str(work / "copy.sqlite"), config=str(config)
+    )
+
+    manifest = _load_manifest_for_layout(args)
+    layout = resolve_bucket_layout(args, {}, manifest)
+
+    assert layout.hostname == "manifest-host"
+    assert layout.subpath == "weekly snapshots"
+    assert layout.bucket == "manifest-bucket"
+
+
+def check_env_owner_mismatch_fails(work: Path) -> None:
+    env_file = work / "foreign.env"
+    env_file.write_text("DUPLICATI_PASSPHRASE=test\n", encoding="utf-8")
+    env_file.chmod(0o400)
+    real_stat = extract_mod.os.stat
+
+    class ForeignStat:
+        def __init__(self, wrapped: os.stat_result):
+            self._wrapped = wrapped
+            self.st_mode = wrapped.st_mode
+            self.st_uid = os.getuid() + 1
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(self._wrapped, name)
+
+    extract_mod.os.stat = lambda path: ForeignStat(real_stat(path))
     try:
-        FileSource(str(source_root)).fetch("../secret.aes")
-    except SystemExit as exc:
-        assert exc.code == EXIT_DATA_ERR
-    else:
-        raise AssertionError("path-shaped volume name should fail")
+        expect_exit(EXIT_OPEN_ERR, load_env_file, str(env_file))
+    finally:
+        extract_mod.os.stat = real_stat
 
 
 def check_private_output_dirs(work: Path) -> None:
@@ -74,6 +145,36 @@ def check_private_output_dirs(work: Path) -> None:
     for directory in (work / "private-out", work / "private-out" / "nested"):
         assert stat.S_IMODE(directory.stat().st_mode) == 0o700
     assert stat.S_IMODE(private_target.stat().st_mode) == 0o600
+
+    existing = work / "existing-output-root"
+    existing.mkdir()
+    existing.chmod(0o750)
+    _ensure_private_dir(existing)
+    assert stat.S_IMODE(existing.stat().st_mode) == 0o750
+
+
+def check_sink_partial_symlink_not_followed(work: Path) -> None:
+    output = work / "sink-symlink" / "file.txt"
+    output.parent.mkdir()
+    victim = work / "sink-victim"
+    victim.write_text("unchanged", encoding="utf-8")
+    os.symlink(victim, output.with_suffix(output.suffix + ".partial"))
+
+    expect_exit(EXIT_OPEN_ERR, _atomic_writer(output).__enter__)
+    assert victim.read_text(encoding="utf-8") == "unchanged"
+
+
+def check_cache_partial_symlink_not_followed(work: Path) -> None:
+    cache_root = work / "symlink-cache"
+    cache_root.mkdir()
+    victim = work / "cache-victim"
+    victim.write_text("unchanged", encoding="utf-8")
+    os.symlink(victim, cache_root / "vol1.aes.partial")
+
+    cache = EncryptedCache(str(cache_root), 1024)
+    assert cache.get("vol1.aes", lambda _name: b"encrypted") == b"encrypted"
+    assert victim.read_text(encoding="utf-8") == "unchanged"
+    assert (cache_root / "vol1.aes").read_bytes() == b"encrypted"
 
 
 def check_block_hash_before_sink() -> None:
@@ -165,7 +266,13 @@ def main(argv: list[str] | None = None) -> int:
     check_cache_recovery(args.work)
     check_cache_cap_on_startup(args.work)
     check_volume_name_rejection(args.work)
+    check_file_source_requires_absolute_path(args.work)
+    check_bucket_layout_uses_raw_subpath()
+    check_db_override_still_loads_layout_manifest(args.work)
+    check_env_owner_mismatch_fails(args.work)
     check_private_output_dirs(args.work)
+    check_sink_partial_symlink_not_followed(args.work)
+    check_cache_partial_symlink_not_followed(args.work)
     check_block_hash_before_sink()
     check_open_volume_lru()
     return 0
