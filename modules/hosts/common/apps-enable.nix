@@ -481,7 +481,10 @@ let
   };
 in
 {
-  flake.lib.nixos._commonAppsBaseline = body.programs or { };
+  flake.lib.nixos._commonAppsBaseline = {
+    programs = body.programs or { };
+    services = body.services or { };
+  };
   configurations.nixos.system76.module = lib.mkIf s76Share body;
   configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }
