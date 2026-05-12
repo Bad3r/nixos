@@ -51,6 +51,10 @@ stdenvNoCC.mkDerivation {
     # Non-canonical input must normalize before exact-match on f.Path.
     "$bin" --db "$db" stat test '//data/./one.txt' | grep -q '^size: 12B$'
     "$bin" --db "$db" ls test '//data/' | grep -q one.txt
+    # Parent prefixes are literal strings, not SQLite GLOB patterns.
+    special_ls=$( "$bin" --db "$db" --json ls test '/data/[1.0.0]/' )
+    printf '%s\n' "$special_ls" \
+      | jq -s -e 'length == 1 and .[0].name == "literal.txt"' >/dev/null
     # Directory and symlink entries (BlocksetID -100/-200) must surface via
     # LEFT JOIN to Blockset; INNER JOIN silently drops them.
     "$bin" --db "$db" stat test /data/sub/ | grep -q '^path: /data/sub/$'

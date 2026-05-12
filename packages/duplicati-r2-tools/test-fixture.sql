@@ -14,7 +14,9 @@ INSERT INTO Configuration VALUES
 CREATE TABLE PathPrefix (ID INTEGER PRIMARY KEY, Prefix TEXT NOT NULL UNIQUE);
 INSERT INTO PathPrefix VALUES
   (1, '/data/'),
-  (2, '/data/sub/');
+  (2, '/data/sub/'),
+  (3, '/data/[1.0.0]/'),
+  (4, '/data/1/');
 
 CREATE TABLE FileLookup (
   ID INTEGER PRIMARY KEY,
@@ -31,7 +33,9 @@ INSERT INTO FileLookup VALUES
   (2, 1, 'two.log',     102, 202),
   (3, 2, 'three.txt',   103, 203),
   (4, 2, '',           -100, 204),  -- /data/sub/ directory entry
-  (5, 1, 'link.txt',   -200, 205);  -- symlink at /data/link.txt
+  (5, 1, 'link.txt',   -200, 205),  -- symlink at /data/link.txt
+  (6, 3, 'literal.txt', 104, 206),
+  (7, 4, 'false.txt',   105, 207);
 
 CREATE VIEW File AS
   SELECT FileLookup.ID         AS ID,
@@ -48,7 +52,9 @@ CREATE TABLE Blockset (
 INSERT INTO Blockset VALUES
   (101, 12,        'hash-one'),
   (102, 4096,      'hash-two'),
-  (103, 1048576,   'hash-three');
+  (103, 1048576,   'hash-three'),
+  (104, 32,        'hash-literal'),
+  (105, 32,        'hash-false');
 
 CREATE TABLE Remotevolume (
   ID INTEGER PRIMARY KEY,
@@ -82,8 +88,12 @@ INSERT INTO FilesetEntry VALUES
   (1, 3, 1767200200),
   (1, 4, 1767200300),  -- /data/sub/ directory entry
   (1, 5, 1767200400),  -- /data/link.txt symlink
+  (1, 6, 1767200500),
+  (1, 7, 1767200600),
   (2, 1, 1769900000),  -- one.txt appears in both snapshots
   (2, 2, 1769900100),  -- two.log appears in both
   (2, 4, 1769900200),  -- /data/sub/ persists in snapshot 2
-  (2, 5, 1769900300);  -- /data/link.txt persists in snapshot 2
+  (2, 5, 1769900300),  -- /data/link.txt persists in snapshot 2
+  (2, 6, 1769900400),
+  (2, 7, 1769900500);
 -- three.txt only in snapshot 1; absent from snapshot 2 (deletion).

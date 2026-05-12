@@ -79,7 +79,7 @@ def cmd_ls(args: argparse.Namespace) -> int:
           JOIN FilesetEntry fse ON fse.FileID = f.ID
           LEFT JOIN Blockset bs ON bs.ID = f.BlocksetID
         WHERE fse.FilesetID = ?
-          AND f.Path GLOB ?
+          AND SUBSTR(f.Path, 1, ?) = ?
           AND f.Path != ?
           AND INSTR(SUBSTR(f.Path, ?), '/') = 0
         ORDER BY name
@@ -87,7 +87,8 @@ def cmd_ls(args: argparse.Namespace) -> int:
         (
             len(parent) + 1,
             snapshot["ID"],
-            parent + "*",
+            len(parent),
+            parent,
             parent,
             len(parent) + 1,
         ),
@@ -103,7 +104,7 @@ def cmd_ls(args: argparse.Namespace) -> int:
         FROM File f
           JOIN FilesetEntry fse ON fse.FileID = f.ID
         WHERE fse.FilesetID = ?
-          AND f.Path GLOB ?
+          AND SUBSTR(f.Path, 1, ?) = ?
           AND INSTR(SUBSTR(f.Path, ?), '/') > 0
         ORDER BY name
         """,
@@ -111,7 +112,8 @@ def cmd_ls(args: argparse.Namespace) -> int:
             len(parent) + 1,
             len(parent) + 1,
             snapshot["ID"],
-            parent + "*",
+            len(parent),
+            parent,
             len(parent) + 1,
         ),
     ).fetchall()

@@ -388,7 +388,7 @@ duplicati-r2-list history  <slug> <path>
 duplicati-r2-list grep     <slug> <pattern>           # path-glob, not content
 ```
 
-**Build cost**: ~1 day. Pure SQL queries, one Python or Bash script. Test surface is fully offline (use a synthetic SQLite DB seeded by `duplicati-cli backup` against `/tmp`).
+**Build cost**: ~1 day. Pure SQL queries, one Python or Bash script. Test surface is fully offline (use a synthetic SQLite DB seeded by `duplicati-cli backup` against `/tmp`); the shipped install check also covers literal directory prefixes containing SQLite `GLOB` metacharacters.
 
 **Risk**: zero crypto risk; no R2 dependency; tool is useless on a host with no local DB (acceptable, mirrors `duplicati-cli` behaviour).
 
