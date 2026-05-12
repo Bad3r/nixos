@@ -1,6 +1,13 @@
-{ metaOwner, ... }:
 {
-  configurations.nixos.tpnix.module =
+  config,
+  lib,
+  metaOwner,
+  ...
+}:
+let
+  s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
+  tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
+  body =
     { pkgs, ... }:
     {
       security.sudo-rs = {
@@ -9,6 +16,7 @@
         extraConfig = ''
           Defaults passwd_timeout=0
           Defaults timestamp_timeout=10
+          Defaults pwfeedback
           Defaults env_keep += "SSH_AUTH_SOCK"
         '';
         extraRules = [
@@ -34,4 +42,8 @@
 
       users.users.${metaOwner.username}.extraGroups = [ "wheel" ];
     };
+in
+{
+  configurations.nixos.system76.module = lib.mkIf s76Share body;
+  configurations.nixos.tpnix.module = lib.mkIf tpShare body;
 }
