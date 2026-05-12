@@ -51,10 +51,27 @@ _: {
               fs_map["$app"]=1
             done
 
+            # The common baseline at modules/hosts/common/apps-enable.nix is
+            # the canonical catalog and must list every app from modules/apps/.
+            # Per-host files (modules/<host>/apps-enable.nix) only carry
+            # overrides for entries that diverge from the baseline; they are
+            # not required to be complete and must only reference apps that
+            # exist on the filesystem (stale-only check).
+            common_catalog="modules/hosts/common/apps-enable.nix"
+
             add_all_catalog_files() {
               while IFS= read -r f; do
                 catalog_files_to_check["$f"]=1
-              done < <(find . -path "*/modules/*/apps-enable.nix" -printf "%P\n" | sort)
+              done < <(
+                {
+                  echo "$common_catalog"
+                  find . -path "*/modules/*/apps-enable.nix" -printf "%P\n"
+                } | sort -u
+              )
+            }
+
+            is_common_catalog() {
+              [ "$1" = "$common_catalog" ]
             }
 
             # Determine which apps-enable.nix files to check.
@@ -78,7 +95,7 @@ _: {
               fi
               app_modules_changed=0
               while IFS= read -r changed_file; do
-                if [[ "$changed_file" =~ ^modules/[^/]+/apps-enable\.nix$ ]]; then
+                if [[ "$changed_file" =~ ^modules/.+/apps-enable\.nix$ ]]; then
                   catalog_files_to_check["$changed_file"]=1
                 elif [[ "$changed_file" =~ ^modules/apps/[^_/][^/]*\.nix$ ]]; then
                   app_modules_changed=1
@@ -100,13 +117,35 @@ _: {
             for catalog_file in "''${sorted_catalog_files[@]}"; do
               [ -f "$catalog_file" ] || continue
 
-              mapfile -t catalog_apps < <(
-                grep -E '\.extended\.enable' "$catalog_file" \
-                  | grep -v '^\s*#' \
-                  | sed -E 's/^\s+//' \
-                  | sed -E "s/^([\"']?)([a-zA-Z0-9_-]+)\1\.extended\.enable.*/\2/" \
-                  | sort
-              )
+              # The common catalog enumerates entries as one
+              # `name.extended.enable = ...;` line per app; per-host override
+              # files express the same data as keys of a flat `appEnable`
+              # attrset. The module routes entries to `programs` or `services`
+              # by reading the common baseline namespace.
+              # Pick the parser that matches the file shape so the stale check
+              # actually runs for per-host files.
+              if is_common_catalog "$catalog_file"; then
+                mapfile -t catalog_apps < <(
+                  grep -E '\.extended\.enable' "$catalog_file" \
+                    | grep -v '^\s*#' \
+                    | sed -E 's/^\s+//' \
+                    | sed -E "s/^([\"']?)([a-zA-Z0-9_-]+)\1\.extended\.enable.*/\2/" \
+                    | sort
+                )
+              else
+                mapfile -t catalog_apps < <(
+                  awk '
+                    /^[[:space:]]*appEnable[[:space:]]*=[[:space:]]*\{/ { in_block=1; depth=1; next }
+                    in_block {
+                      n_open = gsub(/\{/, "&")
+                      n_close = gsub(/\}/, "&")
+                      depth += n_open - n_close
+                      if (depth <= 0) { in_block=0; next }
+                      if (depth == 1 && match($0, /^[[:space:]]+"?([A-Za-z0-9_.-]+)"?[[:space:]]*=[[:space:]]*(true|false)/, m)) { print m[1] }
+                    }
+                  ' "$catalog_file" | sort
+                )
+              fi
 
               declare -A catalog_map=()
               for app in "''${catalog_apps[@]}"; do
@@ -114,11 +153,13 @@ _: {
               done
 
               declare -a missing=()
-              for app in "''${filesystem_apps[@]}"; do
-                if [ -z "''${catalog_map[$app]:-}" ]; then
-                  missing+=("$app")
-                fi
-              done
+              if is_common_catalog "$catalog_file"; then
+                for app in "''${filesystem_apps[@]}"; do
+                  if [ -z "''${catalog_map[$app]:-}" ]; then
+                    missing+=("$app")
+                  fi
+                done
+              fi
 
               declare -a stale=()
               for app in "''${catalog_apps[@]}"; do
@@ -152,10 +193,18 @@ _: {
                   echo "🗑️  Stale entries (remove these from $catalog_file):" >&2
                   echo "" >&2
                   for app in "''${stale[@]}"; do
-                    if [[ "$app" =~ - ]]; then
-                      line_num=$(grep -n "\"$app\"\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                    if is_common_catalog "$catalog_file"; then
+                      if [[ "$app" =~ - ]]; then
+                        line_num=$(grep -n "\"$app\"\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                      else
+                        line_num=$(grep -n "$app\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                      fi
                     else
-                      line_num=$(grep -n "$app\.extended\.enable" "$catalog_file" | cut -d: -f1 || echo "?")
+                      if [[ "$app" =~ - ]]; then
+                        line_num=$(grep -nE "^[[:space:]]+\"''${app}\"[[:space:]]*=[[:space:]]*(true|false)" "$catalog_file" | cut -d: -f1 || echo "?")
+                      else
+                        line_num=$(grep -nE "^[[:space:]]+''${app}[[:space:]]*=[[:space:]]*(true|false)" "$catalog_file" | cut -d: -f1 || echo "?")
+                      fi
                     fi
                     echo "  $app (line $line_num)" >&2
                   done

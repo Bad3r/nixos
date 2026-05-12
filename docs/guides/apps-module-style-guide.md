@@ -340,7 +340,8 @@ git add modules/apps/<tool>.nix
 
 ### 4. Enable in apps-enable.nix
 
-Add to `modules/system76/apps-enable.nix` in alphabetical order:
+Add to `modules/hosts/common/apps-enable.nix` in alphabetical order so every
+opted-in host picks up the same baseline:
 
 ```nix
 programs = {
@@ -349,6 +350,26 @@ programs = {
   # ...
 };
 ```
+
+If a single host needs to diverge from the common baseline (e.g. tpnix
+disables a system76-only tool), add the entry to the flat `appEnable` set in
+`modules/<host>/apps-enable.nix` (see `modules/tpnix/apps-enable.nix` for the
+canonical shape):
+
+```nix
+appEnable = {
+  # ...
+  <tool> = false;
+  # ...
+};
+```
+
+The host override module routes each entry to
+`programs.<name>.extended.enable` or `services.<name>.extended.enable` at
+`lib.mkOverride 1000` based on the namespace declared by the common baseline.
+It also re-exports the flat set as `flake.lib.nixos._hostAppsOverrides.<host>`
+so `modules/hosts/common/checks.nix` can flag values that duplicate the common
+baseline (silent no-op).
 
 ### 5. Check for Home Manager Integration
 
@@ -422,10 +443,13 @@ _: {
 
 ### 7. Add to Home Manager Imports
 
-Add to `modules/system76/home-manager-apps.nix` in the `extraAppNames` list:
+Add to `modules/hosts/common/home-manager-apps.nix` (in the shared
+`sharedAppNames` list) so every opted-in host imports the HM module. If
+the tool is host-specific, add it to `modules/<host>/home-manager-apps.nix`
+under the per-host `hostAppNames` list instead.
 
 ```nix
-extraAppNames = [
+sharedAppNames = [
   # ...
   "<tool>"
   # ...
@@ -456,8 +480,8 @@ stylix.targets.<tool> = {
 
 ```bash
 git add modules/apps/<tool>.nix modules/hm-apps/<tool>.nix
-git add modules/system76/apps-enable.nix
-git add modules/system76/home-manager-apps.nix
+git add modules/hosts/common/apps-enable.nix
+git add modules/hosts/common/home-manager-apps.nix
 git add modules/style/stylix.nix
 
 nix fmt

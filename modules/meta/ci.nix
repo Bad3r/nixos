@@ -13,7 +13,7 @@ let
   mkHostDesktopFilesCheck =
     hostName: hostConfig: pkgs:
     let
-      defaults = lib.attrByPath [ hostName "defaults" ] null hostConfig.config;
+      defaults = lib.attrByPath [ "host" "defaults" ] null hostConfig.config;
 
       # Build check commands for each configured default
       checkCommands = lib.flatten (

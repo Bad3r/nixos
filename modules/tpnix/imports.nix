@@ -103,35 +103,4 @@ in
       }
     ];
   };
-
-  flake = lib.mkIf (lib.hasAttrByPath [ "configurations" "nixos" "tpnix" "module" ] config) {
-    nixosConfigurations.tpnix = inputs.nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        {
-          _module.args = {
-            inherit
-              metaOwner
-              inputs
-              secretsRoot
-              ;
-          };
-        }
-        (
-          { lib, ... }:
-          lib.mkIf (selfRevision != null) {
-            system.configurationRevision = lib.mkDefault selfRevision;
-          }
-        )
-        config.configurations.nixos.tpnix.module
-      ];
-      specialArgs = {
-        inherit
-          inputs
-          metaOwner
-          secretsRoot
-          ;
-      };
-    };
-  };
 }

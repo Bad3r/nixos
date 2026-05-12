@@ -92,5 +92,5 @@ let
     };
 in
 {
-  flake.nixosModules."window-manager".i3 = i3SessionModule;
+  flake.nixosModules.i3 = i3SessionModule;
 }

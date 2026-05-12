@@ -1,95 +1,21 @@
 { config, lib, ... }:
 let
-  extraAppNames = [
-    "1password-gui-beta"
-    "act"
-    "atuin"
-    "autorandr"
+  hostAppNames = [
     "awscli2"
-    "bat"
-    "bottom"
-    "bun"
-    "claude-code"
-    # "copyq"
-    "dive"
-    "docker-compose"
-    "doom-emacs"
-    "element-desktop"
-    "espanso"
-    # "evince"
-    "fd"
-    "feh"
-    "file-roller"
-    "firefox"
-    "flameshot"
-    "floorp"
-    "fzf"
-    "gcc"
-    "git"
-    "go"
-    "greenclip"
-    "google-chrome"
-    "gptfdisk"
-    "htop"
-    "i3-config"
-    "jq"
-    "keepassxc"
-    "kitty"
-    "lazydocker"
-    "lazygit"
-    "less"
-    # "libreoffice"
-    "librewolf"
-    "lutris"
-    "mpv"
-    "ncdu"
-    "nix-index"
-    "nixvim"
-    "onlyoffice-desktopeditors"
-    "obsidian"
-    "pandoc"
-    "pcmanfm"
     "pentesting-devshell"
-    "rclone"
-    "remmina"
-    "ripgrep"
-    "ripgrep-all"
-    "rofi"
-    "ruff"
-    "skim"
-    # "slack"
-    "starship"
-    "stylix-gui"
-    "tealdeer"
-    "thunderbird"
-    "tree"
-    "ungoogled-chromium"
-    "usbguard-notifier"
-    "uv"
-    # "vim" # Provided by nixvim (vimAlias = true)
-    "vscode"
-    "wezterm"
-    "yarn"
-    "zathura"
-    "zoxide"
   ];
-
-  # Access Home Manager app modules from the flake's registered modules
-  # This allows modules to be defined anywhere in the codebase
   flakeHmApps = config.flake.homeManagerModules.apps;
-
   getAppModule =
     name:
     flakeHmApps.${name}
       or (throw "Home Manager app module '${name}' not found in flake.homeManagerModules.apps");
-
-  extraAppModules = map getAppModule extraAppNames;
+  hostAppModules = map getAppModule hostAppNames;
 in
 {
   configurations.nixos.system76.module = _: {
     config = {
-      home-manager.extraAppImports = lib.mkAfter extraAppNames;
-      home-manager.sharedModules = lib.mkAfter extraAppModules;
+      home-manager.extraAppImports = lib.mkAfter hostAppNames;
+      home-manager.sharedModules = lib.mkAfter hostAppModules;
     };
   };
 }
