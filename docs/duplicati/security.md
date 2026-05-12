@@ -77,6 +77,8 @@ Reasons not to broaden the base mode:
 
 Implication for `stateDirReadableBy`: every name listed receives the same trust. A user in the list can read the SQLite metadata, the encrypted dblock files (after they fetch them via `duplicati-r2-extract`), and the R2 credentials + duplicati passphrase. That covers everything needed to enumerate or recover any path in the archive. Treat membership as the same trust boundary as full backup-operator access.
 
+`duplicati-r2-extract` treats the env-file path as hostile even after the ACL grants access: it opens the file with `O_NOFOLLOW`, validates the opened file descriptor with `fstat`, refuses non-regular files, and rejects group/world mode bits or an owner outside root/the invoking user before parsing any dotenv content. This closes the symlink-swap window between permission check and file read.
+
 ## Credential rotation
 
 Rotating R2 access pairs and most other entries is safe; the env file refreshes on the next deploy:

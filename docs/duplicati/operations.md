@@ -117,7 +117,7 @@ jq '.targets["<slug>"] = {
 sops -e --input-type binary --output-type binary \
   --filename-override secrets/duplicati-config.json \
   "$tmp/manifest.new.json" > secrets/duplicati-config.json
-rm -rf "$tmp"
+rip "$tmp"
 ```
 
 Validate the schedule before committing the change:
@@ -158,7 +158,7 @@ jq '.targets["<slug>"].enable = false' "$tmp/manifest.json" > "$tmp/manifest.new
 sops -e --input-type binary --output-type binary \
   --filename-override secrets/duplicati-config.json \
   "$tmp/manifest.new.json" > secrets/duplicati-config.json
-rm -rf "$tmp"
+rip "$tmp"
 ```
 
 To re-enable, set `enable: true` (or `del(.targets[<slug>].enable)`, since omitted means `true`) and redeploy.
@@ -350,18 +350,18 @@ duplicati-r2-extract --json <slug> /abs/path --output /tmp/out
 
 Flags worth knowing:
 
-| Flag                            | Effect                                                                                                                                                                                                         |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--snapshot <id\|timestamp>`    | Resolve `Fileset.ID` integer or ISO-8601 timestamp; default is the latest snapshot.                                                                                                                            |
-| `--output <path>` / `-o <path>` | Single-file destination. Use `-` for stdout. Required outside `--include` mode.                                                                                                                                |
-| `--include <glob>`              | Path glob (fnmatch) selecting multiple files. Requires `--output-dir`. Patterns containing `/` are matched against full paths (`/data/*.bin`); patterns without `/` match the basename at any depth (`*.bin`). |
-| `--output-dir <dir>`            | Mirror the snapshot tree under `<dir>` in glob mode. Snapshot paths containing `..` are refused.                                                                                                               |
-| `--source <url>`                | Object source. Default: R2 via env-file credentials. Use `file:///path` for an offline mirror.                                                                                                                 |
-| `--env-file <path>`             | Dotenv file with `R2_S3_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `R2_BUCKET`, `DUPLICATI_PASSPHRASE` (default: `/etc/duplicati/r2.env`).                                                   |
-| `--passphrase-env <VAR>`        | Read passphrase from named env var instead of `DUPLICATI_PASSPHRASE` in the env file. Skips env-file when paired with `--source file://`.                                                                      |
-| `--cache-dir <path>`            | Encrypted-dblock cache root (default: `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/`).                                                                                                                    |
-| `--cache-size <N[K\|M\|G]>`     | Cache size cap (default `1G`). `0` disables caching: every block re-fetches its dblock.                                                                                                                        |
-| `--db`, `--config`, `--json`    | Same semantics as `duplicati-r2-list`.                                                                                                                                                                         |
+| Flag                            | Effect                                                                                                                                                                                                                                                                                   |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--snapshot <id\|timestamp>`    | Resolve `Fileset.ID` integer or ISO-8601 timestamp; default is the latest snapshot.                                                                                                                                                                                                      |
+| `--output <path>` / `-o <path>` | Single-file destination. Use `-` for stdout. Required outside `--include` mode.                                                                                                                                                                                                          |
+| `--include <glob>`              | Path glob (fnmatch) selecting multiple files. Requires `--output-dir`. Patterns containing `/` are matched against full paths (`/data/*.bin`); a missing leading `/` is added (`data/*.bin` behaves like `/data/*.bin`). Patterns without `/` match the basename at any depth (`*.bin`). |
+| `--output-dir <dir>`            | Mirror the snapshot tree under `<dir>` in glob mode. Snapshot paths containing `..` are refused.                                                                                                                                                                                         |
+| `--source <url>`                | Object source. Default: R2 via env-file credentials. Use `file:///path` for an offline mirror.                                                                                                                                                                                           |
+| `--env-file <path>`             | Dotenv file with `R2_S3_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `R2_BUCKET`, `DUPLICATI_PASSPHRASE` (default: `/etc/duplicati/r2.env`).                                                                                                                             |
+| `--passphrase-env <VAR>`        | Read passphrase from named env var instead of `DUPLICATI_PASSPHRASE` in the env file. Skips env-file when paired with `--source file://`.                                                                                                                                                |
+| `--cache-dir <path>`            | Encrypted-dblock cache root (default: `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/`).                                                                                                                                                                                              |
+| `--cache-size <N[K\|M\|G]>`     | Cache size cap (default `1G`). `0` disables caching: every block re-fetches its dblock.                                                                                                                                                                                                  |
+| `--db`, `--config`, `--json`    | Same semantics as `duplicati-r2-list`.                                                                                                                                                                                                                                                   |
 
 Bucket layout resolution order:
 
@@ -392,6 +392,8 @@ getfacl /etc/duplicati/r2.env | grep -E '^(user|mask)'
 
 Other users still see `permission denied`. The grant is the same trust boundary that `stateDirReadableBy` already encodes for the SQLite databases.
 
+The CLI opens the env file with `O_NOFOLLOW`, then checks mode and owner with `fstat` on the opened descriptor before parsing. That keeps the ACL convenience path from becoming a symlink-swap or time-of-check/time-of-use issue.
+
 ### Cache footprint
 
 The encrypted-dblock cache is an optimisation, never a requirement.
@@ -402,14 +404,14 @@ ls -lh "$XDG_CACHE_HOME/duplicati-r2-tools/$(hostname)/<slug>/" \
   || ls -lh "$HOME/.cache/duplicati-r2-tools/$(hostname)/<slug>/"
 
 # Drop the cache (every future read re-downloads).
-rm -rf "$XDG_CACHE_HOME/duplicati-r2-tools/$(hostname)/<slug>"
+rip "$XDG_CACHE_HOME/duplicati-r2-tools/$(hostname)/<slug>"
 ```
 
 The cache stores only encrypted bytes (mode `0600`); plaintext is never written to disk by the cache. Eviction is dblock-granular LRU. With the default `--cache-size 1G`, the cache rotates as new dblocks are fetched and the resident set stays bounded.
 
 ### Worked example: 44 `*.torrent` files from `bankdata`
 
-Per [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md) §9.8, a 44-path `*.torrent` recovery resolves to ~8 unique dblocks (~400 MiB encrypted) at default settings; `duplicati-cli restore` downloads each dblock as a single object. `duplicati-r2-extract` issues exactly the same fetch list (the SQL join is identical), with two operational wins: cache rotation between blocks within one dblock, and stream-to-disk decryption that never stages 400 MiB of encrypted bytes outside the cache cap.
+Per [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md) §9.8, a 44-path `*.torrent` recovery resolves to ~8 unique dblocks (~400 MiB encrypted) at default settings; `duplicati-cli restore` downloads each dblock as a single object. `duplicati-r2-extract` issues the same whole-dblock fetch list (the SQL join is identical), with two operational wins: cache rotation between blocks within one dblock, and stream-to-disk decryption that never stages 400 MiB of encrypted bytes outside the cache cap.
 
 ```bash
 duplicati-r2-extract bankdata --include '*.torrent' \

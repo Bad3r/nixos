@@ -24,6 +24,7 @@ import json
 import os
 import re
 import sqlite3
+import stat
 import sys
 import time
 import urllib.parse
@@ -85,34 +86,49 @@ def load_env_file(path: str) -> dict[str, str]:
     and is refused loudly rather than silently sourced; the named-user grant
     travels through the ACL, not through the group class.
     """
-    if not path or not os.path.exists(path):
+    if not path:
         fail(f"env file not found: {path}", EXIT_OPEN_ERR)
-    st = os.stat(path)
-    if st.st_mode & 0o077:
-        fail(
-            f"env file {path} permits group or world access (mode {oct(st.st_mode & 0o7777)}); refusing",
-            EXIT_OPEN_ERR,
-        )
-    if st.st_uid not in (0, os.getuid()):
-        fail(
-            f"env file {path} owned by uid={st.st_uid}, expected 0 or {os.getuid()}; refusing",
-            EXIT_OPEN_ERR,
-        )
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    try:
+        fd = os.open(path, flags)
+    except FileNotFoundError:
+        fail(f"env file not found: {path}", EXIT_OPEN_ERR)
+    except OSError as exc:
+        fail(f"failed to open env file {path}: {exc}", EXIT_OPEN_ERR)
+
     env: dict[str, str] = {}
-    with open(path, "r", encoding="utf-8") as fh:
-        for raw in fh:
-            line = raw.strip()
-            if not line or line.startswith("#"):
-                continue
-            m = _DOTENV_RE.match(line)
-            if not m:
-                continue
-            key, value = m.group(1), m.group(2).strip()
-            if (value.startswith('"') and value.endswith('"')) or (
-                value.startswith("'") and value.endswith("'")
-            ):
-                value = value[1:-1]
-            env[key] = value
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            fail(f"env file {path} is not a regular file; refusing", EXIT_OPEN_ERR)
+        if st.st_mode & 0o077:
+            fail(
+                f"env file {path} permits group or world access (mode {oct(st.st_mode & 0o7777)}); refusing",
+                EXIT_OPEN_ERR,
+            )
+        if st.st_uid not in (0, os.getuid()):
+            fail(
+                f"env file {path} owned by uid={st.st_uid}, expected 0 or {os.getuid()}; refusing",
+                EXIT_OPEN_ERR,
+            )
+        with os.fdopen(fd, "r", encoding="utf-8") as fh:
+            fd = -1
+            for raw in fh:
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                m = _DOTENV_RE.match(line)
+                if not m:
+                    continue
+                key, value = m.group(1), m.group(2).strip()
+                if (value.startswith('"') and value.endswith('"')) or (
+                    value.startswith("'") and value.endswith("'")
+                ):
+                    value = value[1:-1]
+                env[key] = value
+    finally:
+        if fd != -1:
+            os.close(fd)
     return env
 
 
@@ -553,7 +569,14 @@ def base64url_name(hash_bytes: bytes) -> str:
 class OpenedVolume:
     """In-memory zip view of a decrypted dblock/dindex/dlist."""
 
-    def __init__(self, name: str, decrypted: bytes):
+    def __init__(
+        self,
+        name: str,
+        decrypted: bytes,
+        expected_blocksize: int | None,
+        expected_block_hash: str,
+        expected_file_hash: str,
+    ):
         self.name = name
         self._buf = io.BytesIO(decrypted)
         try:
@@ -567,6 +590,43 @@ class OpenedVolume:
             fail(f"{name}: missing manifest entry inside zip", EXIT_DATA_ERR)
         except json.JSONDecodeError as exc:
             fail(f"{name}: manifest is not valid JSON: {exc}", EXIT_DATA_ERR)
+        self._validate_manifest(
+            expected_blocksize,
+            expected_block_hash,
+            expected_file_hash,
+        )
+
+    def _validate_manifest(
+        self,
+        expected_blocksize: int | None,
+        expected_block_hash: str,
+        expected_file_hash: str,
+    ) -> None:
+        if not isinstance(self.manifest, dict):
+            fail(f"{self.name}: manifest is not a JSON object", EXIT_DATA_ERR)
+        if expected_blocksize is not None:
+            try:
+                actual_blocksize = int(self.manifest.get("Blocksize"))
+            except (TypeError, ValueError):
+                fail(
+                    f"{self.name}: manifest Blocksize {self.manifest.get('Blocksize')!r} is invalid",
+                    EXIT_DATA_ERR,
+                )
+            if actual_blocksize != expected_blocksize:
+                fail(
+                    f"{self.name}: manifest Blocksize {actual_blocksize} does not match DB blocksize {expected_blocksize}",
+                    EXIT_DATA_ERR,
+                )
+        for key, expected in (
+            ("BlockHash", expected_block_hash),
+            ("FileHash", expected_file_hash),
+        ):
+            actual = self.manifest.get(key)
+            if not isinstance(actual, str) or actual.upper() != expected.upper():
+                fail(
+                    f"{self.name}: manifest {key} {actual!r} does not match DB {key} {expected!r}",
+                    EXIT_DATA_ERR,
+                )
 
     def block_bytes(self, block_hash: bytes) -> bytes:
         entry = base64url_name(block_hash)
@@ -826,6 +886,7 @@ class Extractor:
         source: Source,
         cache: EncryptedCache,
         decrypter: AesDecrypter,
+        blocksize: int | None,
         block_hash_algo: str,
         file_hash_algo: str,
     ):
@@ -833,6 +894,7 @@ class Extractor:
         self.source = source
         self.cache = cache
         self.decrypter = decrypter
+        self.blocksize = blocksize
         self.block_hash_algo = block_hash_algo.upper()
         self.file_hash_algo = file_hash_algo.upper()
         self._open_volumes: collections.OrderedDict[str, OpenedVolume] = (
@@ -847,7 +909,13 @@ class Extractor:
             return cached
         encrypted = self.cache.get(volume_name, self.source.fetch)
         decrypted = self.decrypter.decrypt(encrypted, volume_name)
-        vol = OpenedVolume(volume_name, decrypted)
+        vol = OpenedVolume(
+            volume_name,
+            decrypted,
+            self.blocksize,
+            self.block_hash_algo,
+            self.file_hash_algo,
+        )
         self._open_volumes[volume_name] = vol
         while len(self._open_volumes) > MAX_OPEN_VOLUMES:
             _name, evicted = self._open_volumes.popitem(last=False)
@@ -1123,8 +1191,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--include",
         help=(
-            "Path glob filter (fnmatch syntax). Enables multi-file mode and "
-            "requires --output-dir."
+            "Path glob filter (fnmatch syntax). Patterns with '/' match full "
+            "paths; a missing leading '/' is added. Enables multi-file mode "
+            "and requires --output-dir."
         ),
     )
     parser.add_argument(
@@ -1287,6 +1356,7 @@ def main(argv: list[str] | None = None) -> int:
         source=source,
         cache=cache,
         decrypter=decrypter,
+        blocksize=blocksize,
         block_hash_algo=block_hash_algo,
         file_hash_algo=file_hash_algo,
     )
@@ -1298,10 +1368,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.include:
             output_dir = Path(args.output_dir)
             _ensure_private_dir(output_dir)
-            paths = _glob_paths(conn, snapshot["ID"], args.include)
+            include_pattern = _normalize_include_pattern(args.include)
+            paths = _glob_paths(conn, snapshot["ID"], include_pattern)
             if not paths:
+                suffix = ""
+                if include_pattern != args.include:
+                    suffix = f" (normalized to {include_pattern!r})"
                 fail(
-                    f"no paths in snapshot {snapshot['ID']} match {args.include!r}",
+                    f"no paths in snapshot {snapshot['ID']} match {args.include!r}{suffix}",
                     EXIT_OPEN_ERR,
                 )
             for src_path in paths:
@@ -1343,11 +1417,13 @@ def _glob_paths(conn: sqlite3.Connection, snapshot_id: int, pattern: str) -> lis
     """Return File.Path entries matching ``pattern`` in fnmatch syntax.
 
     Matching strategy: a pattern containing a ``/`` is interpreted as a
-    full-path glob (``/data/*.bin``); a pattern with no ``/`` is matched
-    against the file's basename (``*.bin`` matches every ``.bin`` file at
-    any depth). This mirrors how operators typically reach for `find -name`
-    without escaping every prefix.
+    full-path glob (``/data/*.bin``); a missing leading slash is added so
+    ``data/*.bin`` and ``/data/*.bin`` are equivalent. A pattern with no
+    ``/`` is matched against the file's basename (``*.bin`` matches every
+    ``.bin`` file at any depth). This mirrors how operators typically reach
+    for `find -name` without escaping every prefix.
     """
+    pattern = _normalize_include_pattern(pattern)
     is_basename_pattern = "/" not in pattern
     cursor = conn.execute(
         """
@@ -1371,6 +1447,12 @@ def _glob_paths(conn: sqlite3.Connection, snapshot_id: int, pattern: str) -> lis
         if fnmatch.fnmatchcase(target, pattern):
             matches.append(row["path"])
     return matches
+
+
+def _normalize_include_pattern(pattern: str) -> str:
+    if "/" in pattern and not pattern.startswith("/"):
+        return "/" + pattern
+    return pattern
 
 
 if __name__ == "__main__":

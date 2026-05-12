@@ -369,7 +369,7 @@ The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/d
 ### 4.6 Per-invocation lifecycle (Cut B)
 
 - `duplicati-r2-extract <slug> <path> --output <dest>`: opens the SQLite DB (`mode=ro`), checks `Configuration.Version` is in the supported set, reads `Configuration.blockhash` / `Configuration.filehash` for the BlockHash and FileHash algorithms, sources `/etc/duplicati/r2.env` (or the file specified by `--env-file`) for credentials and the passphrase, then plans + fetches + decrypts + writes in one pass and exits. No background daemon, no mount, no FUSE.
-- The encrypted-dblock cache persists between invocations under `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/`. Use `rm -rf` on that directory to drop it; subsequent runs re-fetch.
+- The encrypted-dblock cache persists between invocations under `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/`. Move that directory aside with `rip` to drop it; subsequent runs re-fetch.
 - Cut C lifecycle (long-running mount, `up`/`down` subcommands, per-user systemd unit) remains as sketched here for the eventual implementation.
 
 ## 5. The three cuts
@@ -411,12 +411,12 @@ duplicati-r2-extract <slug> ... --json                    # JSON summary on stde
 
 `--diff` is intentionally not implemented; the same effect is two `--output` extracts piped through `diff(1)`.
 
-**Build cost (actual)**: ~1 day. Reuses Cut A's resolver via `duplicati_r2_common.py`. Adds R2 fetcher (boto3) plus a `--source file://` fallback transport, AES decrypt (`pyAesCrypt`), zip seek, blocklist resolution, LRU on-disk cache. The `installCheckPhase` builds a synthetic Duplicati archive (3 files at 50 B / 4 KiB / 200 KiB exercising single-block, single-blocklist, and multi-blocklist paths) via `scripts/make_fixture.py` and round-trips every file plus exercises HMAC corruption, missing path, wrong passphrase, glob mode, stdout mode, and JSON summary.
+**Build cost (actual)**: ~1 day. Reuses Cut A's resolver via `duplicati_r2_common.py`. Adds R2 fetcher (boto3) plus a `--source file://` fallback transport, AES decrypt (`pyAesCrypt`), zip seek, blocklist resolution, LRU on-disk cache. The `installCheckPhase` builds a synthetic Duplicati archive (4 files at 50 B / 4 KiB / 32 KiB / 200 KiB exercising single-block, multi-block-without-blocklist, single-blocklist, and multi-blocklist paths) via `scripts/make_fixture.py` and round-trips every file plus exercises HMAC corruption, missing path, wrong passphrase, glob mode, stdout mode, JSON summary, cache recovery, symlink-safe partial handling, volume-manifest validation, and SQLite variable-limit batching.
 
 **Risk**:
 
 - Upstream format drift on AES v2 -> v3 default (currently opt-in). Mitigation: swap the local `pyaescrypt.nix` derivation when needed; the `AesDecrypter` is the only consumer.
-- Blocksize/BlockHash mismatch between the local DB and a re-imported archive. The shipped tool reads `Configuration.blockhash` and `Configuration.filehash` and uses them directly; the per-volume `manifest` JSON inside each dblock is parsed but the implementation does not currently cross-validate against `Configuration.blocksize` (a future hardening step is to refuse on mismatch in the first decrypted manifest).
+- Blocksize/BlockHash mismatch between the local DB and a re-imported archive. The shipped tool reads `Configuration.blocksize`, `Configuration.blockhash`, and `Configuration.filehash`; each decrypted dblock manifest is checked against those values before any block bytes are trusted.
 - Multipart-orphaned dblocks (`Remotevolume.State='Uploaded'` without `'Verified'`) will resolve to 404 on R2. The shipped tool surfaces this at fetch time as `EXIT_OPEN_ERR` (66) with the volume name in the error message; an upfront filter on `Remotevolume.State` is a possible follow-up but would also need to handle the state being `Uploaded` legitimately mid-cycle.
 
 **Value**: solves the original problem stated in #204. Most of the operational use case (browse, grep, single-file recovery) is covered without writing a kernel filesystem.
@@ -466,7 +466,7 @@ Hard constraints from issue #204 carried through:
 
 **Cut A is shipped** as `pkgs.duplicati-r2-tools.list`. Single-file Python implementation, no R2 access, no AES code. Auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty.
 
-**Cut B is implemented in this branch** as `pkgs.duplicati-r2-tools.extract`. Reuses Cut A's resolver via the shared `duplicati_r2_common.py` module. Adds a local `pyAesCrypt` derivation, `boto3` for the R2 transport, an `EncryptedCache` LRU on disk, a `BlockResolver` that handles both `BlocksetEntry`-backed and `BlocklistHash`-chain-backed files, and pluggable `S3Source`/`FileSource` transports (the latter enables offline/mirror operation and underpins the synthetic-fixture test). The `installCheckPhase` exercises single-block, single-blocklist, and multi-blocklist code paths plus HMAC-corruption, missing-path, and wrong-passphrase error contracts. The env-file ACL was widened in the same change so users in `stateDirReadableBy` can read `/etc/duplicati/r2.env` without sudo.
+**Cut B is implemented in this branch** as `pkgs.duplicati-r2-tools.extract`. Reuses Cut A's resolver via the shared `duplicati_r2_common.py` module. Adds a local `pyAesCrypt` derivation, `boto3` for the R2 transport, an `EncryptedCache` LRU on disk, a `BlockResolver` that handles both `BlocksetEntry`-backed and `BlocklistHash`-chain-backed files, and pluggable `S3Source`/`FileSource` transports (the latter enables offline/mirror operation and underpins the synthetic-fixture test). The `installCheckPhase` exercises single-block, multi-block-without-blocklist, single-blocklist, and multi-blocklist code paths plus HMAC-corruption, missing-path, wrong-passphrase, include-glob, env-file, cache, manifest-validation, and SQLite variable-limit contracts. The env-file ACL was widened in the same change so users in `stateDirReadableBy` can read `/etc/duplicati/r2.env` without sudo; the CLI opens that env file with `O_NOFOLLOW` and validates mode/owner via `fstat` on the opened descriptor.
 
 **Defer Cut C** to a future issue. Reasons: marginal value on top of Cut B is bounded; recurring maintenance against format drift is meaningful; FUSE expertise is not currently on this repo's bus. If a future workflow demonstrates Cut B is structurally inadequate (e.g., diffing terabyte snapshots with `diff -r`), revisit.
 
@@ -516,33 +516,33 @@ For one read of a file of plaintext size `F`, backed by `N = ceil(F / blocksize)
 
 ```
 peak_local_disk =
-    F                    # plaintext output (only if writing to a file; FUSE read() never persists)
+  F                    # plaintext output (only if writing to a file; FUSE read() never persists)
   + cache_cap            # encrypted dblock cache, bounded by config (default 1 GiB)
-  + tmp                  # SQLite tempspace + dlist working copy (small; <50 MiB)
+  + tmp                  # SQLite tempspace and atomic-write sidecars (small)
 ```
 
-Encrypted dblocks fetched at runtime: at most `D = min(N, ceil(F / dblock-size))` distinct dblocks, since every block lives in exactly one dblock and dblocks pack contiguous content. With dedup across snapshots, `D` is typically much smaller than the naive ceiling.
+Encrypted dblocks fetched at runtime: the unique `Remotevolume.Name` set resolved by the `Block.VolumeID -> Remotevolume.ID` join. Current Cut B fetches whole encrypted dblock objects; it does not issue HTTP range reads inside a dblock. For a newly written, mostly contiguous file, the practical estimate is `ceil(F / dblock-size)` dblocks. For highly deduplicated or fragmented files, the upper bound is one dblock per content block, and the exact count is the SQL-derived unique-volume set that `duplicati-r2-extract --json` reports as `dblocks_touched`.
 
 Plaintext is **never** written outside the explicit output target. Decryption and zip extraction stream block bytes through process memory only.
 
 ### 9.3 Per-cut concrete numbers
 
-| Quantity for one read of file `F` | Cut A (list) | Cut B (extract)                       | Cut C (FUSE read)                     |
-| --------------------------------- | ------------ | ------------------------------------- | ------------------------------------- |
-| R2 GET bytes                      | 0            | <= F + dlist (one-time, ~25 MiB)      | <= F + dlist (one-time, ~25 MiB)      |
-| Persistent local disk written     | 0            | F (output)                            | 0 (read served from memory + cache)   |
-| Encrypted-cache disk used         | 0            | <= cache_cap (default 1 GiB, tunable) | <= cache_cap (default 1 GiB, tunable) |
-| Process memory peak               | trivial      | one dblock-size (200 MiB worst case)  | one dblock-size (200 MiB worst case)  |
-| Cold start (first ever query)     | trivial      | + 1 dlist download (~25 MiB)          | + 1 dlist download (~25 MiB)          |
+| Quantity for one read of file `F` | Cut A (list) | Cut B (extract)                                              | Cut C (FUSE read)                                          |
+| --------------------------------- | ------------ | ------------------------------------------------------------ | ---------------------------------------------------------- |
+| R2 GET bytes                      | 0            | whole encrypted dblocks in the SQL-derived unique-volume set | same unless Cut C adds HTTP range reads inside dblocks     |
+| Persistent local disk written     | 0            | F (output)                                                   | 0 (read served from memory + cache)                        |
+| Encrypted-cache disk used         | 0            | <= cache_cap (default 1 GiB, tunable)                        | <= cache_cap (default 1 GiB, tunable)                      |
+| Process memory peak               | trivial      | one dblock-size (200 MiB worst case)                         | one dblock-size (200 MiB worst case)                       |
+| Cold start (first ever query)     | trivial      | no dlist GET; local SQLite is the planner                    | no dlist GET if Cut C reuses the same local-SQLite planner |
 
-`bankdata` worst-case dblock size is 200 MiB; live average is ~49 MiB (mostly pre-override volumes). `bankdata-jim-woodring` is 50 MiB worst case. Either fits in process memory comfortably. The dlist download size is sized from the live archive (`bankdata` has 2 dlists totalling 48.6 MiB encrypted, so the latest is ~25 MiB).
+`bankdata` worst-case dblock size is 200 MiB; live average is ~49 MiB (mostly pre-override volumes). `bankdata-jim-woodring` is 50 MiB worst case. Either fits in process memory comfortably. Neither Cut A nor the shipped Cut B fetches dlist objects from R2 because both plan reads from the local SQLite database.
 
 ### 9.4 Worked examples
 
 Assume `bankdata` (`blocksize=1 MiB`, configured `dblock-size=200 MiB`, observed average dblock ~49 MiB on existing pre-override volumes).
 
 - **10 MiB file**, fully contained in one dblock: peak fetch = 49..200 MiB encrypted (one dblock); output = 10 MiB; cache holds the single dblock. Total transient = 60..210 MiB.
-- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~105 dblocks at the legacy 49 MiB average. Bytes fetched is bounded by the file size itself (~5 GiB encrypted) regardless of dblock count, because the same 5 GiB of plaintext content sits inside 5 GiB of encrypted bytes plus a few percent zip + AES wrapper overhead. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds <= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
+- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~105 dblocks at the legacy 49 MiB average. For a contiguous file, bytes fetched are roughly the encrypted dblocks containing those 5 GiB of plaintext plus zip/AES overhead; fragmented or heavily deduplicated files can touch more volumes, and the exact number is the SQL-derived unique-volume set. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds <= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
 - **50 GiB file**, single archive: 50 GiB output + 1 GiB cache = 51 GiB. Fits.
 - **Full archive restore** (theoretical, not the use case): `bankdata` is 2.67 TiB encrypted. The 107 GiB free root cannot hold this and never could; even after subtracting Duplicati's compression and dedup, the plaintext is far above the local capacity. This is the structural reason Cut A and Cut B exist: they are the only practical interface to a multi-TiB archive on this host.
 
@@ -590,8 +590,8 @@ This was a prerequisite for Cut A, Cut B, and Cut C; all three depend on the ACL
 ### 9.7 Conclusion: storage is not a blocker (and the archive scale makes the cuts mandatory)
 
 - Cut A: zero R2 download, zero plaintext on disk. Works today on 107 GiB free.
-- Cut B: per-file fetch ceiling = output file size + cache cap. With default 1 GiB cache, any single file up to ~100 GiB extracts comfortably.
-- Cut C: per-`read()` cost = same fetch ceiling, but plaintext stays in memory; persistent disk = cache cap only.
+- Cut B: local disk ceiling = output file size + encrypted cache cap; R2 fetches are the whole dblocks in the SQL-derived unique-volume set. With default 1 GiB cache, any single file up to ~100 GiB extracts comfortably as long as the chosen output path has room for the plaintext.
+- Cut C: local disk ceiling remains the encrypted cache cap only; R2 fetch behavior starts the same as Cut B unless the mount implementation adds HTTP range reads inside dblocks.
 
 The "limited local storage" constraint is more than satisfied: it is the constraint that promotes Cut A and Cut B from "ergonomics" to "the only available interface". `bankdata` is 2.67 TiB encrypted on R2 (Section 9.1). Pulling the archive in full to inspect or recover a single file is not an option on this host and would not be on any reasonably sized scratch volume either. The decisive factor for deferring Cut C remains the FUSE-semantics maintenance cost and Cut B already covering the common workflow.
 
@@ -602,7 +602,7 @@ A 44-path `*.torrent` restore from `bankdata` (~10 MiB plaintext) was performed 
 - The fetch list resolved to 8 unique dblocks (~400 MiB encrypted), matching the `(unique dblocks touched) * dblock_size` figure derived from the §3 SQL: every torrent file's content blocks lived inside one of those 8 dblocks. This is the same `Block.VolumeID -> Remotevolume` join Cut A and Cut B will use.
 - The run executed fully in-memory: `find /tmp /var/tmp -name '*.dblock.zip*'` returned nothing during the restore, confirming `duplicati-cli` does not stage encrypted dblocks to disk under default `--restore-volume-cache-hint`. This validates §4's design assumption that the future tools' on-disk cache is an optimisation, not a requirement.
 - Default `duplicati-cli restore` concurrency was the dominant bottleneck. Six downloaders / six decryptors / six decompressors / channel buffer 12 produced a single TCP connection to R2 and ~130 KiB/s sustained throughput, putting the ~425 MiB fetch on a 30-minute path. Setting `--restore-volume-downloaders=8`, `--restore-volume-decryptors=8`, `--restore-volume-decompressors=8`, and `--restore-channel-buffer-size=32` is needed to saturate R2's per-bucket concurrent-request envelope. Full recipe: [`../duplicati/operations.md`](../duplicati/operations.md#concurrency-tuning-for-r2).
-- `duplicati-cli restore` reads each dblock as a single object: it does not issue HTTP range requests into the inner zip to fetch only the needed entries. Cut B can drop the read-amplification from `8 * dblock_size` down to roughly `F + zip_central_directory + aes_overhead` by adding range reads, which is one of the operational wins that distinguishes Cut B from "just keep using `duplicati-cli restore`".
+- `duplicati-cli restore` reads each dblock as a single object: it does not issue HTTP range requests into the inner zip to fetch only the needed entries. The shipped Cut B implementation follows the same whole-dblock fetch model, but narrows the workflow to one file or a glob set, keeps encrypted cache usage bounded, and never stages plaintext outside the chosen sink. HTTP range reads remain a possible Cut C or later Cut B optimisation, not a property of the current implementation.
 
 ## 10. References
 

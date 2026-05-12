@@ -7,10 +7,12 @@ import argparse
 import base64
 import collections
 import hashlib
+import io
 import json
 import os
 import sqlite3
 import stat
+import zipfile
 from collections.abc import Callable
 from pathlib import Path
 
@@ -27,8 +29,10 @@ from duplicati_r2_extract import (
     Extractor,
     FileEntry,
     FileSource,
+    OpenedVolume,
     _atomic_writer,
     _ensure_private_dir,
+    _glob_paths,
     _load_manifest_for_layout,
     build_source,
     load_env_file,
@@ -121,7 +125,7 @@ def check_env_owner_mismatch_fails(work: Path) -> None:
     env_file = work / "foreign.env"
     env_file.write_text("DUPLICATI_PASSPHRASE=test\n", encoding="utf-8")
     env_file.chmod(0o400)
-    real_stat = extract_mod.os.stat
+    real_fstat = extract_mod.os.fstat
 
     class ForeignStat:
         def __init__(self, wrapped: os.stat_result):
@@ -132,11 +136,21 @@ def check_env_owner_mismatch_fails(work: Path) -> None:
         def __getattr__(self, name: str) -> object:
             return getattr(self._wrapped, name)
 
-    extract_mod.os.stat = lambda path: ForeignStat(real_stat(path))
+    extract_mod.os.fstat = lambda fd: ForeignStat(real_fstat(fd))
     try:
         expect_exit(EXIT_OPEN_ERR, load_env_file, str(env_file))
     finally:
-        extract_mod.os.stat = real_stat
+        extract_mod.os.fstat = real_fstat
+
+
+def check_env_symlink_rejected(work: Path) -> None:
+    env_file = work / "real.env"
+    env_file.write_text("DUPLICATI_PASSPHRASE=test\n", encoding="utf-8")
+    env_file.chmod(0o400)
+    env_link = work / "link.env"
+    os.symlink(env_file, env_link)
+
+    expect_exit(EXIT_OPEN_ERR, load_env_file, str(env_link))
 
 
 def check_private_output_dirs(work: Path) -> None:
@@ -224,6 +238,39 @@ def check_block_hash_before_sink() -> None:
     assert written == []
 
 
+def check_volume_manifest_validation() -> None:
+    def zip_bytes(manifest: dict[str, object]) -> bytes:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("manifest", json.dumps(manifest).encode("utf-8"))
+        return buf.getvalue()
+
+    valid_manifest = {
+        "Blocksize": 1024,
+        "BlockHash": "SHA256",
+        "FileHash": "SHA256",
+    }
+    OpenedVolume(
+        "valid.dblock.zip.aes",
+        zip_bytes(valid_manifest),
+        1024,
+        "SHA256",
+        "SHA256",
+    ).close()
+
+    mismatch_manifest = dict(valid_manifest)
+    mismatch_manifest["Blocksize"] = 2048
+    expect_exit(
+        EXIT_DATA_ERR,
+        OpenedVolume,
+        "mismatch.dblock.zip.aes",
+        zip_bytes(mismatch_manifest),
+        1024,
+        "SHA256",
+        "SHA256",
+    )
+
+
 def check_blocklist_lookup_batches_sql_vars() -> None:
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
@@ -298,6 +345,36 @@ def check_blocklist_lookup_batches_sql_vars() -> None:
     assert {ref.block_size for ref in refs} == {1024}
 
 
+def check_include_pattern_normalization() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE File (
+          ID INTEGER PRIMARY KEY,
+          Path TEXT,
+          BlocksetID INTEGER
+        );
+        CREATE TABLE FilesetEntry (
+          FilesetID INTEGER,
+          FileID INTEGER
+        );
+        INSERT INTO File VALUES
+          (1, '/bankdata/sub/file.torrent', 101),
+          (2, '/bankdata/other.bin', 102),
+          (3, '/bankdata/sub/', -100);
+        INSERT INTO FilesetEntry VALUES
+          (7, 1),
+          (7, 2),
+          (7, 3);
+        """
+    )
+
+    assert _glob_paths(conn, 7, "*.torrent") == ["/bankdata/sub/file.torrent"]
+    assert _glob_paths(conn, 7, "/bankdata/*.torrent") == ["/bankdata/sub/file.torrent"]
+    assert _glob_paths(conn, 7, "bankdata/*.torrent") == ["/bankdata/sub/file.torrent"]
+
+
 def check_open_volume_lru() -> None:
     class DummyCache:
         def get(self, name: str, _fetcher: object) -> bytes:
@@ -314,7 +391,14 @@ def check_open_volume_lru() -> None:
     class DummyOpenedVolume:
         created: list[DummyOpenedVolume] = []
 
-        def __init__(self, name: str, _decrypted: bytes):
+        def __init__(
+            self,
+            name: str,
+            _decrypted: bytes,
+            _expected_blocksize: int | None,
+            _expected_block_hash: str,
+            _expected_file_hash: str,
+        ):
             self.name = name
             self.closed = False
             self.created.append(self)
@@ -329,6 +413,9 @@ def check_open_volume_lru() -> None:
         extractor.cache = DummyCache()
         extractor.source = DummySource()
         extractor.decrypter = DummyDecrypter()
+        extractor.blocksize = 1024
+        extractor.block_hash_algo = "SHA256"
+        extractor.file_hash_algo = "SHA256"
         extractor._open_volumes = collections.OrderedDict()
         for index in range(extract_mod.MAX_OPEN_VOLUMES + 1):
             extractor._open_volume(f"vol{index}.aes")
@@ -350,11 +437,14 @@ def main(argv: list[str] | None = None) -> int:
     check_bucket_layout_uses_raw_subpath()
     check_db_override_still_loads_layout_manifest(args.work)
     check_env_owner_mismatch_fails(args.work)
+    check_env_symlink_rejected(args.work)
     check_private_output_dirs(args.work)
     check_sink_partial_cleanup_not_following_symlink(args.work)
     check_cache_partial_symlink_not_followed(args.work)
     check_block_hash_before_sink()
+    check_volume_manifest_validation()
     check_blocklist_lookup_batches_sql_vars()
+    check_include_pattern_normalization()
     check_open_volume_lru()
     return 0
 
