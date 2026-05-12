@@ -1,5 +1,12 @@
 _: {
-  nixpkgs.allowedUnfreePackages = [ "onepassword-password-manager" ];
+  # Unfree extensions bundled by the shared gecko extension list in
+  # `_gecko-extensions.nix`. Names match `lib.getName` on each addon
+  # derivation.
+  nixpkgs.allowedUnfreePackages = [
+    "languagetool"
+    "onepassword-password-manager"
+    "wappalyzer"
+  ];
 
   flake.homeManagerModules.apps.firefox =
     {
@@ -13,8 +20,15 @@ _: {
     let
       nixosEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
       cfg = config.home.firefoxPrivacy;
-      firefox-addons = (pkgs.extend inputs.dedupe_nur.overlays.default).nur.repos.rycee.firefox-addons;
-      geckoBrowser = import ./_gecko-browser-common.nix { inherit firefox-addons; };
+      gecko = import ./_gecko-mk-profile.nix {
+        inherit
+          pkgs
+          inputs
+          lib
+          config
+          cfg
+          ;
+      };
     in
     {
       options.home.firefoxPrivacy = {
@@ -35,177 +49,40 @@ _: {
           # Firefox ignores. Pin to the legacy path so HM writes where
           # Firefox reads.
           configPath = ".mozilla/firefox";
-          inherit (osConfig.programs.firefox.extended) package;
+          # Bake the Tridactyl native messaging host into the Firefox
+          # wrapper so its manifest lands under
+          # `$out/lib/mozilla/native-messaging-hosts/` (one of the
+          # directories Firefox actually searches). Installing
+          # `pkgs.tridactyl-native` via `home.packages` would put the
+          # manifest in `~/.nix-profile/...`, which Firefox does not
+          # discover.
+          package = osConfig.programs.firefox.extended.package.override {
+            nativeMessagingHosts = [ pkgs.tridactyl-native ];
+          };
 
-          # Core enterprise policies via the wrapped Firefox
           policies = {
             DisableTelemetry = true;
             DisableFirefoxStudies = true;
             DisablePocket = true;
           }
-          // geckoBrowser.extensionPolicies;
+          // gecko.extensionPolicies;
 
-          # Language packs
           languagePacks = [ "en-US" ];
 
           profiles = {
-            primary = {
+            primary = gecko.mkProfile {
               id = 0;
-              settings = {
-                # Default fonts
-                "font.name.serif.x-western" = "MonoLisa";
-                "font.name.sans-serif.x-western" = "MonoLisa";
-                "font.name.monospace.x-western" = "MonoLisa";
+              packages = gecko.primaryPackages;
+            };
 
-                "browser.aboutConfig.showWarning" = false;
-                "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
-                "browser.ctrlTab.sortByRecentlyUsed" = true;
-                "browser.tabs.closeWindowWithLastTab" = false;
-                # Ensure extensions are enabled from Nix/HM sources
-                "extensions.autoDisableScopes" = 0;
-                # Enable Firefox vertical tabs sidebar (when supported)
-                "sidebar.verticalTabs" = true;
-                # Open Tabs sidebar by default on the left
-                "sidebar.open" = true;
-                "sidebar.position_start" = true;
-                "sidebar.command" = "viewTabsSidebar";
-                # Enable VA-API hardware decoding
-                "media.ffmpeg.vaapi.enabled" = true;
+            work = gecko.mkProfile {
+              id = 1;
+              packages = gecko.workPackages;
+            };
 
-                # Prefer portals for file picker and integration
-                "widget.use-xdg-desktop-portal.file-picker" = 1;
-                "widget.use-xdg-desktop-portal" = 1;
-
-                # Reduce sponsored/newtab noise
-                "browser.newtabpage.activity-stream.showSponsored" = false;
-                "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
-                "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
-
-                # Privacy-friendly defaults
-                "privacy.globalprivacycontrol.enabled" = true;
-                # Disable Firefox Suggest (quicksuggest), keep engine suggestions working
-                "browser.urlbar.quicksuggest.enabled" = false;
-                "browser.urlbar.suggest.quicksuggest.nonsponsored" = false;
-                "browser.urlbar.suggest.quicksuggest.sponsored" = false;
-                # Reduce prefetching/speculative connections
-                "network.prefetch-next" = false;
-                "network.dns.disablePrefetch" = true;
-                "network.predictor.enabled" = false;
-                "network.predictor.enable-prefetch" = false;
-                "network.http.speculative-parallel-limit" = 0;
-                "browser.urlbar.speculativeConnect.enabled" = false;
-                # Disable Beacon API pings
-                "beacon.enabled" = false;
-                # Ensure stripping of known tracking parameters
-                "privacy.query_stripping.enabled" = true;
-
-                # HTTPS-Only Mode and fingerprinting defenses
-                "dom.security.https_only_mode" = true;
-                "dom.security.https_only_mode_pbm" = true;
-                # FPI (privacy.firstparty.isolate) is deprecated, replaced by dFPI/TCP.
-                # Network partitioning (Firefox 85+) + dFPI provide modern isolation.
-                # Explicitly enabled for clarity. See: github.com/arkenfox/user.js/issues/1051
-                "privacy.partition.network_state" = true;
-                "network.cookie.cookieBehavior" = 5; # dFPI/TCP (Total Cookie Protection)
-                "privacy.resistFingerprinting" = true;
-                # Disable timer jitter to fix Claude AI infinite loop freeze
-                # https://codeberg.org/librewolf/issues/issues/1934
-                "privacy.resistFingerprinting.reduceTimerPrecision.jitter" = false;
-
-                # WebRTC/DRM toggles (optional via HM options)
-                "media.peerconnection.enabled" = cfg.enableWebRTC;
-                "media.eme.enabled" = cfg.enableDRM;
-                "media.gmp-widevinecdm.enabled" = cfg.enableDRM;
-
-                # Cookie banner handling: attempt to auto-reject
-                "cookiebanners.service.mode" = 1;
-                "cookiebanners.service.mode.privateBrowsing" = 1;
-                "cookiebanners.ui.desktop.enabled" = true;
-
-                # Open external links (xdg-open, etc.) in new tab instead of current tab
-                "browser.link.open_newwindow.override.external" = 3;
-              };
-
-              # Declarative search configuration
-              search = {
-                force = true;
-                default = "Google Custom";
-                engines = {
-                  "Google Custom" = {
-                    name = "Google Custom";
-                    urls = [
-                      {
-                        template = "https://www.google.com/search";
-                        params = [
-                          {
-                            name = "q";
-                            value = "{searchTerms}";
-                          }
-                          {
-                            name = "hl";
-                            value = "en";
-                          }
-                          {
-                            name = "gl";
-                            value = "US";
-                          }
-                          {
-                            name = "pws";
-                            value = "0";
-                          }
-                          {
-                            name = "safe";
-                            value = "off";
-                          }
-                        ];
-                      }
-                    ];
-                    icon = "https://www.google.com/favicon.ico";
-                    definedAliases = [ "@g" ];
-                  };
-
-                  Kagi = {
-                    name = "Kagi";
-                    icon = "https://kagi.com/favicon-32x32.png";
-                    urls = [
-                      { template = "https://kagi.com/search?q={searchTerms}"; }
-                      {
-                        template = "https://kagi.com/api/autosuggest?q={searchTerms}";
-                        type = "application/x-suggestions+json";
-                      }
-                    ];
-                    definedAliases = [ "@k" ];
-                  };
-
-                  "Nix Packages" = {
-                    name = "Nix Packages";
-                    urls = [
-                      { template = "https://search.nixos.org/packages?query={searchTerms}"; }
-                    ];
-                    definedAliases = [ "@nix" ];
-                  };
-                };
-              };
-
-              # Multi-Account Container(s)
-              containers = {
-                work = {
-                  id = 1;
-                  color = "blue";
-                  icon = "briefcase";
-                };
-              };
-
-              # Extensions and per-extension settings
-              extensions = {
-                # Acknowledge that declarative settings override existing ones
-                force = true;
-
-                # Install extensions from NUR
-                packages = geckoBrowser.extensionPackages;
-
-                settings = geckoBrowser.extensionStorage;
-              };
+            ephemeral = gecko.mkProfile {
+              id = 2;
+              packages = gecko.ephemeralPackages;
             };
           };
         };
