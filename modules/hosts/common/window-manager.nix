@@ -2,13 +2,7 @@
 let
   s76Share = config.flake.lib.nixos.hosts.system76.shareCommon;
   tpShare = config.flake.lib.nixos.hosts.tpnix.shareCommon;
-  exported = import ../../apps/i3wm/nixos.nix;
-  i3Module = lib.getAttrFromPath [
-    "flake"
-    "nixosModules"
-    "window-manager"
-    "i3"
-  ] exported;
+  i3Module = config.flake.nixosModules.i3 or null;
   body = {
     imports = lib.optional (i3Module != null) i3Module;
   };
