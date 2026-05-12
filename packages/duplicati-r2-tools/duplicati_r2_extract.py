@@ -17,6 +17,7 @@ import base64
 import binascii
 import collections
 import contextlib
+import errno
 import fnmatch
 import hashlib
 import io
@@ -29,6 +30,7 @@ import sys
 import time
 import urllib.parse
 import zipfile
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Callable
@@ -94,6 +96,12 @@ def load_env_file(path: str) -> dict[str, str]:
     except FileNotFoundError:
         fail(f"env file not found: {path}", EXIT_OPEN_ERR)
     except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            fail(
+                f"env file {path} is a symbolic link; O_NOFOLLOW refuses to follow it. "
+                "Pass --env-file with the resolved regular-file path.",
+                EXIT_OPEN_ERR,
+            )
         fail(f"failed to open env file {path}: {exc}", EXIT_OPEN_ERR)
 
     env: dict[str, str] = {}
@@ -566,6 +574,18 @@ def base64url_name(hash_bytes: bytes) -> str:
     return base64.urlsafe_b64encode(hash_bytes).rstrip(b"=").decode("ascii")
 
 
+def decode_db_hash(value: str | None, field: str) -> bytes:
+    if not value:
+        fail(f"{field} is empty; DB likely corrupt", EXIT_DATA_ERR)
+    try:
+        return base64.b64decode(value + "=" * (-len(value) % 4), validate=True)
+    except binascii.Error as exc:
+        fail(
+            f"{field} {value!r} is not valid base64 ({exc}); DB likely corrupt",
+            EXIT_DATA_ERR,
+        )
+
+
 class OpenedVolume:
     """In-memory zip view of a decrypted dblock/dindex/dlist."""
 
@@ -781,9 +801,7 @@ class BlockResolver:
             return [
                 BlockRef(
                     volume_name=r["volume"],
-                    block_hash=base64.b64decode(
-                        r["hash"] + "=" * (-len(r["hash"]) % 4)
-                    ),
+                    block_hash=decode_db_hash(r["hash"], "Block.Hash"),
                     block_size=r["size"],
                 )
                 for r in rows
@@ -809,9 +827,7 @@ class BlockResolver:
         # Look up each content block by hash.
         content_block_hashes: list[bytes] = []
         for lr in list_rows:
-            list_hash_bytes = base64.b64decode(
-                lr["list_hash"] + "=" * (-len(lr["list_hash"]) % 4)
-            )
+            list_hash_bytes = decode_db_hash(lr["list_hash"], "BlocklistHash.Hash")
             blob = self._fetch_block(lr["list_volume"], list_hash_bytes)
             if len(blob) % self.hash_size != 0:
                 fail(
@@ -855,13 +871,7 @@ class BlockResolver:
             )
         block_index: dict[bytes, tuple[str, int]] = {}
         for row in block_rows:
-            try:
-                raw_hash = base64.b64decode(row["hash"] + "=" * (-len(row["hash"]) % 4))
-            except binascii.Error as exc:
-                fail(
-                    f"Block.Hash {row['hash']!r} is not valid base64 ({exc}); DB likely corrupt",
-                    EXIT_DATA_ERR,
-                )
+            raw_hash = decode_db_hash(row["hash"], "Block.Hash")
             block_index.setdefault(raw_hash, (row["volume"], row["size"]))
 
         refs: list[BlockRef] = []
@@ -1375,8 +1385,13 @@ def main(argv: list[str] | None = None) -> int:
             output_dir = Path(args.output_dir)
             _ensure_private_dir(output_dir)
             include_pattern = _normalize_include_pattern(args.include)
-            paths = _glob_paths(conn, snapshot["ID"], include_pattern)
-            if not paths:
+            matched = False
+            for src_path in _glob_paths(conn, snapshot["ID"], include_pattern):
+                matched = True
+                target = _validate_output_dir_target(output_dir, src_path)
+                with _atomic_writer(target) as writer:
+                    extractor.extract_file(snapshot["ID"], src_path, writer, stats)
+            if not matched:
                 suffix = ""
                 if include_pattern != args.include:
                     suffix = f" (normalized to {include_pattern!r})"
@@ -1384,10 +1399,6 @@ def main(argv: list[str] | None = None) -> int:
                     f"no paths in snapshot {snapshot['ID']} match {args.include!r}{suffix}",
                     EXIT_OPEN_ERR,
                 )
-            for src_path in paths:
-                target = _validate_output_dir_target(output_dir, src_path)
-                with _atomic_writer(target) as writer:
-                    extractor.extract_file(snapshot["ID"], src_path, writer, stats)
         else:
             assert args.path is not None  # validated by mode-validation block above
             assert args.output is not None
@@ -1419,8 +1430,12 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _glob_paths(conn: sqlite3.Connection, snapshot_id: int, pattern: str) -> list[str]:
-    """Return File.Path entries matching ``pattern`` in fnmatch syntax.
+def _glob_paths(
+    conn: sqlite3.Connection,
+    snapshot_id: int,
+    pattern: str,
+) -> Iterator[str]:
+    """Yield File.Path entries matching ``pattern``.
 
     Matching strategy: a pattern containing a ``/`` is interpreted as a
     segment-aware full-path glob (``/data/*.bin`` matches direct children;
@@ -1442,7 +1457,6 @@ def _glob_paths(conn: sqlite3.Connection, snapshot_id: int, pattern: str) -> lis
         """,
         (snapshot_id,),
     )
-    matches: list[str] = []
     for row in cursor:
         if row["blockset_id"] is None or row["blockset_id"] < 0:
             continue  # skip dirs/symlinks
@@ -1454,8 +1468,7 @@ def _glob_paths(conn: sqlite3.Connection, snapshot_id: int, pattern: str) -> lis
         else:
             matches_pattern = PurePosixPath(row["path"]).match(pattern)
         if matches_pattern:
-            matches.append(row["path"])
-    return matches
+            yield row["path"]
 
 
 def _normalize_include_pattern(pattern: str) -> str:

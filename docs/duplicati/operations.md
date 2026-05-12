@@ -393,6 +393,7 @@ getfacl /etc/duplicati/r2.env | grep -E '^(user|mask)'
 Other users still see `permission denied`. The grant is the same trust boundary that `stateDirReadableBy` already encodes for the SQLite databases.
 
 The CLI opens the env file with `O_NOFOLLOW`, then checks mode and owner with `fstat` on the opened descriptor before parsing. That keeps the ACL convenience path from becoming a symlink-swap or time-of-check/time-of-use issue.
+If the configured env path is a symlink, pass `--env-file` with the resolved regular-file path.
 
 ### Cache footprint
 

@@ -345,6 +345,36 @@ def check_blocklist_lookup_batches_sql_vars() -> None:
     assert {ref.block_size for ref in refs} == {1024}
 
 
+def check_blocksetentry_invalid_hash_exit_code() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE Remotevolume (
+          ID INTEGER PRIMARY KEY,
+          Name TEXT
+        );
+        CREATE TABLE Block (
+          ID INTEGER PRIMARY KEY,
+          Hash TEXT,
+          Size INTEGER,
+          VolumeID INTEGER
+        );
+        CREATE TABLE BlocksetEntry (
+          BlocksetID INTEGER,
+          BlockID INTEGER,
+          "Index" INTEGER
+        );
+        INSERT INTO Remotevolume VALUES (1, 'content-vol.aes');
+        INSERT INTO Block VALUES (1, 'not valid base64!', 1024, 1);
+        INSERT INTO BlocksetEntry VALUES (777, 1, 0);
+        """
+    )
+
+    resolver = BlockResolver(conn, "SHA256", lambda _volume, _hash: b"")
+    expect_exit(EXIT_DATA_ERR, resolver.block_refs, 777, 1024)
+
+
 def check_include_pattern_normalization() -> None:
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
@@ -372,15 +402,18 @@ def check_include_pattern_normalization() -> None:
         """
     )
 
-    assert _glob_paths(conn, 7, "*.torrent") == [
+    def collect(pattern: str) -> list[str]:
+        matches = _glob_paths(conn, 7, pattern)
+        assert iter(matches) is matches
+        return list(matches)
+
+    assert collect("*.torrent") == [
         "/bankdata/file.torrent",
         "/bankdata/sub/file.torrent",
     ]
-    assert _glob_paths(conn, 7, "/bankdata/*.torrent") == ["/bankdata/file.torrent"]
-    assert _glob_paths(conn, 7, "bankdata/*.torrent") == ["/bankdata/file.torrent"]
-    assert _glob_paths(conn, 7, "/bankdata/**/*.torrent") == [
-        "/bankdata/sub/file.torrent"
-    ]
+    assert collect("/bankdata/*.torrent") == ["/bankdata/file.torrent"]
+    assert collect("bankdata/*.torrent") == ["/bankdata/file.torrent"]
+    assert collect("/bankdata/**/*.torrent") == ["/bankdata/sub/file.torrent"]
 
 
 def check_include_rejects_output_flag() -> None:
@@ -468,6 +501,7 @@ def main(argv: list[str] | None = None) -> int:
     check_block_hash_before_sink()
     check_volume_manifest_validation()
     check_blocklist_lookup_batches_sql_vars()
+    check_blocksetentry_invalid_hash_exit_code()
     check_include_pattern_normalization()
     check_include_rejects_output_flag()
     check_open_volume_lru()
