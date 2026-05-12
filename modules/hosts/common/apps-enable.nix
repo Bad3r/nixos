@@ -10,8 +10,8 @@
   modules to take precedence when needed.
 
   NOTE: Some apps are managed by specialized modules and excluded from this catalog:
-  - qemu, vmware-workstation, ovftool: managed in modules/system76/virtualization.nix
-    (Virtualization tools are controlled via system76.virtualization.* options)
+  - qemu, vmware-workstation, ovftool: managed in modules/hosts/common/virtualization.nix
+    (Virtualization tools are controlled via host.virtualization.* options)
 
   This separation eliminates priority conflicts and provides clear domain boundaries.
 */
