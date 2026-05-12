@@ -134,9 +134,14 @@ _: {
               else
                 mapfile -t catalog_apps < <(
                   awk '
-                    /^[[:space:]]*appEnable[[:space:]]*=[[:space:]]*\{/ { in_block=1; next }
-                    in_block && /^[[:space:]]*\}[[:space:]]*;[[:space:]]*$/ { in_block=0; next }
-                    in_block && match($0, /^[[:space:]]+"?([A-Za-z0-9_.-]+)"?[[:space:]]*=[[:space:]]*(true|false)/, m) { print m[1] }
+                    /^[[:space:]]*appEnable[[:space:]]*=[[:space:]]*\{/ { in_block=1; depth=1; next }
+                    in_block {
+                      n_open = gsub(/\{/, "&")
+                      n_close = gsub(/\}/, "&")
+                      depth += n_open - n_close
+                      if (depth <= 0) { in_block=0; next }
+                      if (depth == 1 && match($0, /^[[:space:]]+"?([A-Za-z0-9_.-]+)"?[[:space:]]*=[[:space:]]*(true|false)/, m)) { print m[1] }
+                    }
                   ' "$catalog_file" | sort
                 )
               fi
