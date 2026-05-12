@@ -361,18 +361,42 @@ def check_include_pattern_normalization() -> None:
         );
         INSERT INTO File VALUES
           (1, '/bankdata/sub/file.torrent', 101),
-          (2, '/bankdata/other.bin', 102),
-          (3, '/bankdata/sub/', -100);
+          (2, '/bankdata/file.torrent', 102),
+          (3, '/bankdata/other.bin', 103),
+          (4, '/bankdata/sub/', -100);
         INSERT INTO FilesetEntry VALUES
           (7, 1),
           (7, 2),
-          (7, 3);
+          (7, 3),
+          (7, 4);
         """
     )
 
-    assert _glob_paths(conn, 7, "*.torrent") == ["/bankdata/sub/file.torrent"]
-    assert _glob_paths(conn, 7, "/bankdata/*.torrent") == ["/bankdata/sub/file.torrent"]
-    assert _glob_paths(conn, 7, "bankdata/*.torrent") == ["/bankdata/sub/file.torrent"]
+    assert _glob_paths(conn, 7, "*.torrent") == [
+        "/bankdata/file.torrent",
+        "/bankdata/sub/file.torrent",
+    ]
+    assert _glob_paths(conn, 7, "/bankdata/*.torrent") == ["/bankdata/file.torrent"]
+    assert _glob_paths(conn, 7, "bankdata/*.torrent") == ["/bankdata/file.torrent"]
+    assert _glob_paths(conn, 7, "/bankdata/**/*.torrent") == [
+        "/bankdata/sub/file.torrent"
+    ]
+
+
+def check_include_rejects_output_flag() -> None:
+    expect_exit(
+        EXIT_USAGE,
+        extract_mod.main,
+        [
+            "test",
+            "--include",
+            "*.bin",
+            "--output",
+            "/tmp/out.bin",
+            "--output-dir",
+            "/tmp/out",
+        ],
+    )
 
 
 def check_open_volume_lru() -> None:
@@ -445,6 +469,7 @@ def main(argv: list[str] | None = None) -> int:
     check_volume_manifest_validation()
     check_blocklist_lookup_batches_sql_vars()
     check_include_pattern_normalization()
+    check_include_rejects_output_flag()
     check_open_volume_lru()
     return 0
 

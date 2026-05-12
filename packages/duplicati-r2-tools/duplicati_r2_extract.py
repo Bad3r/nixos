@@ -30,7 +30,7 @@ import time
 import urllib.parse
 import zipfile
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Callable
 
 # Self-bootstrap: import the sibling duplicati_r2_common module regardless of
@@ -1191,9 +1191,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--include",
         help=(
-            "Path glob filter (fnmatch syntax). Patterns with '/' match full "
-            "paths; a missing leading '/' is added. Enables multi-file mode "
-            "and requires --output-dir."
+            "Path glob filter. Patterns with '/' match full paths with "
+            "segment-aware globbing; a missing leading '/' is added. Patterns "
+            "without '/' match the basename at any depth. Enables multi-file "
+            "mode and requires --output-dir."
         ),
     )
     parser.add_argument(
@@ -1311,6 +1312,11 @@ def main(argv: list[str] | None = None) -> int:
             fail("pass either <path> or --include, not both", EXIT_USAGE)
         if not args.output_dir:
             fail("--include requires --output-dir", EXIT_USAGE)
+        if args.output:
+            fail(
+                "--output is not valid with --include; use --output-dir instead",
+                EXIT_USAGE,
+            )
     else:
         if not args.path:
             fail("missing positional <path> (or use --include)", EXIT_USAGE)
@@ -1417,8 +1423,9 @@ def _glob_paths(conn: sqlite3.Connection, snapshot_id: int, pattern: str) -> lis
     """Return File.Path entries matching ``pattern`` in fnmatch syntax.
 
     Matching strategy: a pattern containing a ``/`` is interpreted as a
-    full-path glob (``/data/*.bin``); a missing leading slash is added so
-    ``data/*.bin`` and ``/data/*.bin`` are equivalent. A pattern with no
+    segment-aware full-path glob (``/data/*.bin`` matches direct children;
+    ``/data/**/*.bin`` matches descendants). A missing leading slash is added
+    so ``data/*.bin`` and ``/data/*.bin`` are equivalent. A pattern with no
     ``/`` is matched against the file's basename (``*.bin`` matches every
     ``.bin`` file at any depth). This mirrors how operators typically reach
     for `find -name` without escaping every prefix.
@@ -1439,12 +1446,14 @@ def _glob_paths(conn: sqlite3.Connection, snapshot_id: int, pattern: str) -> lis
     for row in cursor:
         if row["blockset_id"] is None or row["blockset_id"] < 0:
             continue  # skip dirs/symlinks
-        target = (
-            os.path.basename(row["path"].rstrip("/"))
-            if is_basename_pattern
-            else row["path"]
-        )
-        if fnmatch.fnmatchcase(target, pattern):
+        if is_basename_pattern:
+            matches_pattern = fnmatch.fnmatchcase(
+                os.path.basename(row["path"].rstrip("/")),
+                pattern,
+            )
+        else:
+            matches_pattern = PurePosixPath(row["path"]).match(pattern)
+        if matches_pattern:
             matches.append(row["path"])
     return matches
 
