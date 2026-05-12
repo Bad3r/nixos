@@ -133,13 +133,16 @@ Every backup target writes under `s3://<bucket>/<hostname>/<destSubpath>/`. The 
 
 `pkgs.duplicati-r2-tools` is an attrset of operator-facing CLIs that consume the per-target SQLite without touching R2. The service module auto-enables every member through `programs.duplicati-r2-tools.extended.enable` whenever `services.duplicati-r2.stateDirReadableBy` is non-empty.
 
-| Attribute                      | Binary              | Read scope                                                                                                               | Cut |
-| ------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------ | --- |
-| `pkgs.duplicati-r2-tools.list` | `duplicati-r2-list` | Per-target SQLite at `<stateDir>/duplicati-r2-<slug>.sqlite`, opened `mode=ro` (concurrent reader; URI percent-encoded). | A   |
+| Attribute                         | Binary                 | Read scope                                                                                                                                                 | Cut |
+| --------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| `pkgs.duplicati-r2-tools.list`    | `duplicati-r2-list`    | Per-target SQLite at `<stateDir>/duplicati-r2-<slug>.sqlite`, opened `mode=ro` (concurrent reader; URI percent-encoded).                                   | A   |
+| `pkgs.duplicati-r2-tools.extract` | `duplicati-r2-extract` | Per-target SQLite (`mode=ro`), R2 GETs (read-only) for the dblocks the requested file needs, AES decrypt in process memory, on-disk encrypted-block cache. | B   |
 
 `duplicati-r2-list` accepts the slug as a positional argument, resolves `<stateDir>` via `/run/duplicati-r2/config.json` (overridable with `--config` or `--db`), and never opens an R2 connection or AES decryption path. Operator workflow and full subcommand surface live in [`operations.md`](operations.md#query-the-local-sqlite-read-only). Design rationale: [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md) Sections 3 (SQL schema) and 5.1 (Cut A scope).
 
-Cut B (single-file extract from R2) and Cut C (read-only FUSE mount) are not implemented; the namespace is reserved so they can land as `pkgs.duplicati-r2-tools.extract` / `pkgs.duplicati-r2-tools.mount` without renaming.
+`duplicati-r2-extract` resolves a single file (or a glob set) via the same SQLite resolver, fetches only the dblocks containing the file's content blocks from R2 (or a `file://` mirror), decrypts them through `pyAesCrypt`, and writes plaintext to a destination file, stdout, or an output directory. Plaintext never persists outside the operator-chosen sink. Operator workflow and full flag surface live in [`operations.md`](operations.md#extract-a-single-file-from-r2-cut-b). Design rationale: [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md) Sections 4 (end-to-end design) and 5.2 (Cut B scope).
+
+Cut C (read-only FUSE mount) is not implemented; the `pkgs.duplicati-r2-tools.mount` namespace is reserved so it can land without renaming.
 
 ## Operation pipeline
 

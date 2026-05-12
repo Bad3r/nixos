@@ -2,12 +2,12 @@
 
 Investigation closing GitHub issue [#204](https://github.com/Bad3r/nixos/issues/204): "investigate(duplicati): read-only mount for encrypted R2 backup archives".
 
-The output is a design decision, not an implementation. Recommendation is at the end.
+Originally a design decision; Cut A and Cut B are now implemented in this branch and the document is updated in place to record what was actually shipped versus the original sketch. Recommendation is at the end.
 
 ## TL;DR
 
-- **Build Cut A** (path-listing CLI from local SQLite, no decryption): low cost, no crypto dependency, immediate forensic value, reuses `services.duplicati-r2.stateDirReadableBy`.
-- **Build Cut B** (single-file extract by path with on-demand R2 fetch + decrypt): solves the original "read one file without a full restore" problem at a fraction of the implementation cost of FUSE.
+- **Cut A (shipped)** (path-listing CLI from local SQLite, no decryption): low cost, no crypto dependency, immediate forensic value, reuses `services.duplicati-r2.stateDirReadableBy`.
+- **Cut B (implemented in this branch)** (single-file extract by path with on-demand R2 fetch + decrypt): solves the original "read one file without a full restore" problem at a fraction of the implementation cost of FUSE.
 - **Defer Cut C** (read-only FUSE mount): real but bounded benefit; cost dominates because the FS-semantics layer (open/read/release lifecycle, partial-range reads, caching policy) is most of the work and Cut B already covers the common operator workflow.
 - **Reject** any approach that re-derives metadata from R2 instead of reusing the per-target SQLite databases. Recreate-from-remote is heavy (`repair` against a missing DB downloads every dindex) and the local DB is already exposed by the `stateDirReadableBy` ACL.
 
@@ -282,83 +282,82 @@ A+ <stateDir>/*    - - - - u:<user>:rX,m::r-x,d:u:<user>:rX,d:m::r-x
 A+ <stateDir>/*/*  - - - - u:<user>:rX,m::r-x
 ```
 
-The maintainer gets read access to the SQLite file and to the WAL/SHM sidecar files `duplicati-cli` may create alongside it. The default ACL propagates `u:<user>:rX` to descendants; the kernel's create-mode mask filter would otherwise collapse the inherited mask to `---` on every newly-created mode-0600 file, so the explicit `m::r-x` and the backup script's post-run `setfacl -R -m m::r-x` keep the named-user grant effective (see §9.6). Consequences:
+The maintainer gets read access to the SQLite file and to the WAL/SHM sidecar files `duplicati-cli` may create alongside it. The default ACL propagates `u:<user>:rX` to descendants; the kernel's create-mode mask filter would otherwise collapse the inherited mask to `---` on every newly-created mode-0600 file, so the explicit `m::r-x` and the backup script's post-run `setfacl -R -m m::r-x` keep the named-user grant effective (see §9.6).
 
-- `mode=ro` alone is insufficient: SQLite still wants to acquire a shared lock on the WAL, which requires write on the directory.
-- `mode=ro&immutable=1` is the correct choice. SQLite skips lock acquisition and WAL replay entirely; the database is treated as a frozen snapshot.
+**What was actually shipped**: Cut A and Cut B both open the database with `file:<percent-encoded path>?mode=ro` and apply `PRAGMA query_only = ON;` after open. `immutable=1` is deliberately not set. The reason is that Duplicati continues to write to the live database between operator queries, and `immutable=1` would make SQLite ignore WAL replay and return stale or torn rows. The trade-off:
 
-Safety properties of `immutable=1`:
+- `mode=ro` lets SQLite acquire shared locks and replay the WAL, so the reader sees the last durably-committed transaction (including WAL-resident changes).
+- The shared-lock acquisition needs write on the WAL/SHM sidecar files, which `stateDirReadableBy` grants via the per-target depth-2 ACL. Cut A's installCheckPhase confirms reads work concurrently against a writer.
+- `mode=ro` cannot corrupt the database (the engine refuses writes), and `PRAGMA query_only = ON` doubles up the guarantee at the connection level.
 
-- **Cannot corrupt the DB** under any circumstance. The SQLite engine refuses writes regardless of `query_only`.
-- **May read stale data** if a backup is mid-transaction. Specifically, if `duplicati-cli` is in the middle of writing a new fileset, the maintainer mount will see the pre-transaction state; rows added since the last checkpoint are invisible. This is acceptable for forensic browsing.
-- **Will not see WAL-only changes**. With WAL mode, durable but uncheckpointed changes live in the `-wal` file. `immutable=1` skips WAL replay, so the mount's view lags by up to one checkpoint interval.
-
-Recommendation: open with `file:<path>?mode=ro&immutable=1&nolock=1` and apply `PRAGMA query_only = ON;` immediately after open. Document in the operator runbook that the mount's view of the DB is the last-checkpointed state and that the mount should be unmounted before triggering a manual backup.
+`immutable=1` would still be the right choice for a pure forensic mode where the DB is known to be frozen (e.g., copied off the host for analysis); the tools accept `--db <path>` to point at such a snapshot, and a future operator-mode flag could opt into `immutable=1` if desired. The default targets the common case: querying live state alongside an active duplicati instance.
 
 ## 4. End-to-end design
 
 ```
 +-------------------------------------------------------------------+
-|             duplicati-r2-mount  (single binary or script)         |
+|             duplicati-r2-extract  (Cut B, this branch)            |
 +-------------------------------------------------------------------+
 |                                                                   |
 |  +---------------+   read-only   +---------------------------+    |
 |  | Path resolver |---------------|  per-target SQLite DB     |    |
-|  | (SQL queries) |   immutable=1 |  /var/lib/duplicati-r2/   |    |
+|  | (SQL queries) |   mode=ro     |  /var/lib/duplicati-r2/   |    |
 |  +-------+-------+               +---------------------------+    |
 |          | (volume_name, hash, size, range)                       |
 |          v                                                        |
 |  +---------------+    GetObject  +---------------------------+    |
 |  | R2 fetcher    |-------------->|  R2 (s3 endpoint)         |    |
-|  | (range reads) |   credentials |  via /etc/duplicati/r2.env|    |
-|  +-------+-------+   from env    +---------------------------+    |
+|  | (boto3, also  |   credentials |  via /etc/duplicati/r2.env|    |
+|  |  file://)     |   from env    +---------------------------+    |
+|  +-------+-------+                                                |
 |          | encrypted bytes                                        |
 |          v                                                        |
 |  +---------------+   AES decrypt +---------------------------+    |
-|  | Crypto layer  |<------------- |  pyAesCrypt / aescrypt-rs |    |
-|  +-------+-------+ DUPLICATI_PASSPHRASE                          |
+|  | Crypto layer  |<------------- |  pyAesCrypt (v2)          |    |
+|  +-------+-------+ DUPLICATI_PASSPHRASE                           |
 |          | inner zip bytes                                        |
 |          v                                                        |
 |  +---------------+   on-disk     +---------------------------+    |
 |  | dblock cache  |<------------> |  $XDG_CACHE_HOME/         |    |
-|  | (LRU)         |               |    duplicati-r2-mount/    |    |
+|  | (LRU)         |               |    duplicati-r2-tools/    |    |
 |  +-------+-------+               +---------------------------+    |
 |          | block bytes                                            |
 |          v                                                        |
 |  +-----------------------------+                                  |
-|  | Output: stdout / file / FUSE|                                  |
+|  | Output: stdout / file /     |                                  |
+|  |   --output-dir mirror tree  |                                  |
 |  +-----------------------------+                                  |
 +-------------------------------------------------------------------+
 ```
 
 ### 4.1 Credential sourcing
 
-Reuse `/etc/duplicati/r2.env` (the existing rendered dotenv, mode 0400 root:root). The env file already carries `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `R2_S3_ENDPOINT_URL`, `R2_REGION`, `DUPLICATI_PASSPHRASE`. The mount tool sources this file under `sudo -E` for an interactive session, or runs as a systemd unit with `EnvironmentFile=/etc/duplicati/r2.env` for an unattended mount.
+Reuse `/etc/duplicati/r2.env` (the existing rendered dotenv, base mode 0400 root:root). The env file already carries `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `R2_S3_ENDPOINT_URL`, `R2_REGION`, `R2_BUCKET`, `DUPLICATI_PASSPHRASE`. Cut B reads the env file directly (no `sudo -E`): the same `services.duplicati-r2.stateDirReadableBy` ACL that grants read on the state dir also grants `u:<user>:r--` on this file via a `systemd.tmpfiles` `A+` rule (see §9.6). Operator workflows on this repo's hosts therefore just run `duplicati-r2-extract <slug> ...`. Tests and offline forensics use `--source file:///mirror` plus `--passphrase-env <VAR>`, which skips the env file entirely.
 
 Reasons not to issue a separate read-only Cloudflare key pair:
 
-- The mount is read-only by tool design; the credential surface is identical to today's `duplicati-cli` usage.
-- Cloudflare R2 supports prefix-scoped credentials natively via the [Temporary Credentials API](https://developers.cloudflare.com/r2/api/s3/temporary-credentials/) (no Worker required): a parent token plus a locally signed JWT carrying `paths.prefixPaths` yields a read-only S3 credential bound to a single bucket and prefix. If a future workflow demands tighter blast-radius isolation, this is the path; it can be added without changing the mount tools because the credential plumbs into the same S3 endpoint as the parent token.
+- The Cut B tool is read-only by design; the credential surface is identical to today's `duplicati-cli` usage.
+- Cloudflare R2 supports prefix-scoped credentials natively via the [Temporary Credentials API](https://developers.cloudflare.com/r2/api/s3/temporary-credentials/) (no Worker required): a parent token plus a locally signed JWT carrying `paths.prefixPaths` yields a read-only S3 credential bound to a single bucket and prefix. If a future workflow demands tighter blast-radius isolation, this is the path; it can be added without changing the tool because the credential plumbs into the same S3 endpoint as the parent token.
 
-The marginal benefit of a separate read-only pair is small. The mount tools should reuse `/etc/duplicati/r2.env` by default; a prefix-scoped Temporary Credential is an optional follow-up, independent of the present decision.
+The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/duplicati/r2.env` by default; a prefix-scoped Temporary Credential is an optional follow-up, independent of the present decision.
 
 ### 4.2 R2 fetcher with on-disk cache
 
-- Use the same s3 client knobs as `duplicati-cli` (see `modules/services/duplicati-r2.nix` for the destination URL parameters: `use-ssl=true`, `s3-ext-disablehostprefixinjection=true`, `s3-disable-chunk-encoding=true`, `s3-client=minio`). For Python, `boto3` plus an explicit `endpoint_url` is sufficient.
-- Cache encrypted dblocks on disk under `$XDG_CACHE_HOME/duplicati-r2-mount/<host>/<slug>/<volume_name>` with mode 0600. Decrypted bytes never touch disk; decryption happens streaming on each block read.
-- LRU eviction with a configurable cap (default 1 GiB).
-- TTL-cache the SQLite query results inside the process for the lifetime of the mount session; the DB is immutable for that session by construction (`immutable=1`).
+- Cut B uses `boto3` with an explicit `endpoint_url` from `R2_S3_ENDPOINT_URL`. Region defaults to `auto` (R2 convention; the endpoint URL identifies the actual datacenter). The `duplicati-cli` minio-client knobs are not needed for plain `GetObject` calls.
+- Encrypted dblocks cache on disk under `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/<volume_name>` with mode 0600 (cache root mode 0700). Decrypted bytes never touch disk; decryption streams through `io.BytesIO` on each block read.
+- LRU eviction with a configurable cap via `--cache-size` (default 1 GiB; `0` disables caching entirely).
+- A `--source file:///path` transport is also supported for offline mirror / forensic workflows and is what the synthetic-fixture test uses.
 
 ### 4.3 AES decryption layer
 
 - Cut A: not needed.
-- Cut B/C: prefer `pyAesCrypt` for v2-compatibility today. Bind a feature flag `MOUNT_AES_VERSION=3` to swap to `aescrypt-rs` (or a v3-extended Python module) when upstream defaults change. Match the `DUPLICATI__AES_IGNORE_PADDING_BYTES=1` environment variable so the implementation accepts files written by both SharpAESCrypt and strict-spec implementations.
-- Surface every HMAC mismatch as a hard `EIO` (FUSE) or stderr error (CLI). Never zero-fill; never silently truncate.
+- Cut B (implemented): the local nix derivation `packages/duplicati-r2-tools/pyaescrypt.nix` packages PyPI [`pyAesCrypt 6.1.1`](https://pypi.org/project/pyAesCrypt/) (depends on `cryptography`). The extract tool calls `pyAesCrypt.decryptStream` with an `io.BytesIO` sink so plaintext stays in process memory. HMAC mismatch surfaces as a hard `EXIT_DATA_ERR` (65) with the offending volume name in the message; never zero-fills, never silently truncates. When upstream Duplicati flips the AES default from v2 to v3, swap the local derivation to a v3-capable library (`pyAesCrypt 7.x` if/when released, or `aescrypt-rs` via PyO3); the `AesDecrypter` boundary is the only code path that needs to change.
+- Cut C (deferred): same layer would be reused.
 
 ### 4.4 Zip-entry seek
 
-- After AES decryption, the inner bytes are a standard zip archive. Python `zipfile.ZipFile(io.BytesIO(...))` plus `.read(name)` is sufficient for Cut B; for Cut C, decode the central directory once per dblock and cache the byte ranges so subsequent block reads do not re-parse the directory.
-- Block-entry names are base64url of the block hash. Convert with `base64.urlsafe_b64encode(hash_bytes).rstrip(b'=').decode('ascii')` for Python; the rstrip is needed because Duplicati omits zip-name padding.
+- After AES decryption, the inner bytes are a standard zip archive. Cut B opens it with `zipfile.ZipFile(io.BytesIO(...))` and reads each block via `.open(name).read()`. The first read of any volume parses and validates the `manifest` JSON entry; future Cut C work can cache central-directory byte ranges to avoid re-parsing on every block read.
+- Block-entry names are base64url of the block hash. The implementation in `duplicati_r2_extract.py:base64url_name` does `base64.urlsafe_b64encode(hash_bytes).rstrip(b'=').decode('ascii')`; the rstrip is required because Duplicati omits zip-name padding.
 
 ### 4.5 FUSE bindings (Cut C only)
 
@@ -367,11 +366,11 @@ The marginal benefit of a separate read-only pair is small. The mount tools shou
 - One FUSE inode per `(snapshot_id, file_id)`. Inode 1 is the root; top-level directories are snapshot timestamps in `YYYYMMDDTHHMMSSZ` form.
 - Permissions: expose files mode 0400, directories 0500, owner = the maintainer that started the mount. Metadata (mtime, type) comes from `FilesetEntry.Lastmodified` and `Metadataset.Content`. Do not synthesise owner/group from the source mtime metadata; the maintainer started the mount and should own everything visible.
 
-### 4.6 Per-mount lifecycle
+### 4.6 Per-invocation lifecycle (Cut B)
 
-- `duplicati-r2-mount up <slug> <mountpoint>`: opens the SQLite DB (`mode=ro&immutable=1`), validates the `Configuration` table for matching block-hash algorithm, sources `/etc/duplicati/r2.env`, prefetches the latest dlist, mounts (Cut C) or enters interactive shell (Cut A/B).
-- `duplicati-r2-mount down <mountpoint>`: `fusermount -u`, evicts the cache by default (`--keep-cache` to retain).
-- Suggested unit ownership pattern: the user-level service `duplicati-r2-mount@<slug>.service` runs under `metaOwner`, mounts under `~/duplicati-mount/<slug>`, and is stopped on session logout. No system-level unit is required because the maintainer is the only consumer.
+- `duplicati-r2-extract <slug> <path> --output <dest>`: opens the SQLite DB (`mode=ro`), checks `Configuration.Version` is in the supported set, reads `Configuration.blockhash` / `Configuration.filehash` for the BlockHash and FileHash algorithms, sources `/etc/duplicati/r2.env` (or the file specified by `--env-file`) for credentials and the passphrase, then plans + fetches + decrypts + writes in one pass and exits. No background daemon, no mount, no FUSE.
+- The encrypted-dblock cache persists between invocations under `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/`. Use `rm -rf` on that directory to drop it; subsequent runs re-fetch.
+- Cut C lifecycle (long-running mount, `up`/`down` subcommands, per-user systemd unit) remains as sketched here for the eventual implementation.
 
 ## 5. The three cuts
 
@@ -397,23 +396,28 @@ duplicati-r2-list grep     <slug> <pattern>           # path-glob, not content
 
 ### 5.2 Cut B: single-file extract CLI (decrypts on demand)
 
+**Status**: implemented in this branch as `pkgs.duplicati-r2-tools.extract` (binary `duplicati-r2-extract`). Operator workflow: [`../duplicati/operations.md`](../duplicati/operations.md#extract-a-single-file-from-r2-cut-b).
+
 **Scope**: extract one file (or a glob) from a chosen snapshot to stdout, a path, or `-`. Downloads only the dblocks needed.
 
-**Interface sketch**:
+**Interface as shipped**:
 
 ```
-duplicati-r2-extract <slug> [--snapshot <id|timestamp>] <path> [--output <dest>]
-duplicati-r2-extract <slug> --include '<glob>' --output-dir <dest>
-duplicati-r2-extract <slug> --diff <path> <snapA> <snapB>     # uses extract twice
+duplicati-r2-extract <slug> <path> [--snapshot <id|timestamp>] --output <dest|->
+duplicati-r2-extract <slug> --include '<glob>' --output-dir <dest> [--snapshot ...]
+duplicati-r2-extract <slug> ... --source file:///mirror   # offline/forensic mode
+duplicati-r2-extract <slug> ... --json                    # JSON summary on stderr
 ```
 
-**Build cost**: 3..5 days. Reuses Cut A's resolver. Adds R2 fetcher (boto3), AES decrypt (`pyAesCrypt`), zip seek, blocklist resolution, on-disk cache. Tested end-to-end against a small fixture archive with at least one file > `Blocksize` to exercise the blocklist path.
+`--diff` is intentionally not implemented; the same effect is two `--output` extracts piped through `diff(1)`.
+
+**Build cost (actual)**: ~1 day. Reuses Cut A's resolver via `duplicati_r2_common.py`. Adds R2 fetcher (boto3) plus a `--source file://` fallback transport, AES decrypt (`pyAesCrypt`), zip seek, blocklist resolution, LRU on-disk cache. The `installCheckPhase` builds a synthetic Duplicati archive (3 files at 50 B / 4 KiB / 200 KiB exercising single-block, single-blocklist, and multi-blocklist paths) via `scripts/make_fixture.py` and round-trips every file plus exercises HMAC corruption, missing path, wrong passphrase, glob mode, stdout mode, and JSON summary.
 
 **Risk**:
 
-- Upstream format drift on AES v2 -> v3 default (currently opt-in). Mitigation: support both via the AES library swap.
-- Blocksize/BlockHash mismatch between the local DB and a re-imported archive. Mitigation: refuse to operate when `Configuration.blocksize` differs from the manifest in the first dlist read.
-- Multipart-orphaned dblocks (`Remotevolume.State='Uploaded'` without `'Verified'`) will resolve to 404 on R2; mitigation: detect upfront via state filter and surface a clear "missing volume" error before fetch.
+- Upstream format drift on AES v2 -> v3 default (currently opt-in). Mitigation: swap the local `pyaescrypt.nix` derivation when needed; the `AesDecrypter` is the only consumer.
+- Blocksize/BlockHash mismatch between the local DB and a re-imported archive. The shipped tool reads `Configuration.blockhash` and `Configuration.filehash` and uses them directly; the per-volume `manifest` JSON inside each dblock is parsed but the implementation does not currently cross-validate against `Configuration.blocksize` (a future hardening step is to refuse on mismatch in the first decrypted manifest).
+- Multipart-orphaned dblocks (`Remotevolume.State='Uploaded'` without `'Verified'`) will resolve to 404 on R2. The shipped tool surfaces this at fetch time as `EXIT_OPEN_ERR` (66) with the volume name in the error message; an upfront filter on `Remotevolume.State` is a possible follow-up but would also need to handle the state being `Uploaded` legitimately mid-cycle.
 
 **Value**: solves the original problem stated in #204. Most of the operational use case (browse, grep, single-file recovery) is covered without writing a kernel filesystem.
 
@@ -440,16 +444,16 @@ duplicati-r2-extract <slug> --diff <path> <snapA> <snapB>     # uses extract twi
 
 ## 6. Decision criteria
 
-| Criterion              | Weight | Cut A                            | Cut B                   | Cut C                          |
-| ---------------------- | ------ | -------------------------------- | ----------------------- | ------------------------------ |
-| Build cost             | high   | ~1 day                           | 3..5 days               | +7..14 days over B             |
-| Format-drift risk      | high   | nil (no crypto/zip)              | low (AES v2->v3 only)   | medium (zip + FS)              |
-| Maintenance over years | high   | trivial                          | small                   | recurring                      |
-| Crypto risk            | high   | nil                              | low (uses ref libs)     | low (same as B)                |
-| Operator value         | high   | medium (browse/grep)             | high (recover one file) | high (browse/cat)              |
-| Packaging              | med    | shell script + Nix               | Python + Nix            | Python+FUSE + Nix              |
-| ACL interaction        | med    | uses `stateDirReadableBy` only   | adds env-file read      | adds env-file read             |
-| Bus-factor protection  | med    | high (works without crypto code) | high                    | medium (FUSE expertise needed) |
+| Criterion              | Weight | Cut A (shipped)                  | Cut B (shipped)                                  | Cut C (deferred)                |
+| ---------------------- | ------ | -------------------------------- | ------------------------------------------------ | ------------------------------- |
+| Build cost (actual)    | high   | ~1 day                           | ~1 day on top of Cut A                           | est. 7..14 days additional      |
+| Format-drift risk      | high   | nil (no crypto/zip)              | low (AES v2->v3 only)                            | medium (zip + FS)               |
+| Maintenance over years | high   | trivial                          | small                                            | recurring                       |
+| Crypto risk            | high   | nil                              | low (PyPI pyAesCrypt 6.1.1, HMAC-verified)       | low (same as B)                 |
+| Operator value         | high   | medium (browse/grep)             | high (recover one file or glob)                  | high (browse/cat transparently) |
+| Packaging              | med    | Python + Nix (stdenvNoCC)        | Python + Nix (stdenvNoCC + python3.withPackages) | Python+FUSE + Nix               |
+| ACL interaction        | med    | uses `stateDirReadableBy` only   | extends `stateDirReadableBy` to env-file read    | extends env-file read           |
+| Bus-factor protection  | med    | high (works without crypto code) | high (synthetic-fixture test gates regressions)  | medium (FUSE expertise needed)  |
 
 Hard constraints from issue #204 carried through:
 
@@ -460,9 +464,9 @@ Hard constraints from issue #204 carried through:
 
 ## 7. Recommendation
 
-**Build Cut A** as a first PR. Single Python script (~150 lines) packaged as `pkgs.duplicati-r2-tools.list`, exposed through the existing `services.duplicati-r2` module. Wire it as `duplicati-r2-list <slug> ...` on `PATH` for users in `stateDirReadableBy`. No new secret surface; no R2 access; no AES code. Cut A should land before Cut B because it provides immediate ergonomic wins (snapshot-aware grep) and validates the SQLite query path against the production DBs in isolation.
+**Cut A is shipped** as `pkgs.duplicati-r2-tools.list`. Single-file Python implementation, no R2 access, no AES code. Auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty.
 
-**Build Cut B** as a follow-up PR after Cut A is in production for at least one verify cycle. Reuse the resolver. Add `boto3` plus `pyAesCrypt`. Package it as `pkgs.duplicati-r2-tools.extract` and reuse the env file. The crypto and fetch layers are well-trodden; the test fixture should include at least one snapshot with files at three sizes (single block, single blocklist, multi-blocklist) and one deliberately corrupted dblock to confirm the loud-failure contract.
+**Cut B is implemented in this branch** as `pkgs.duplicati-r2-tools.extract`. Reuses Cut A's resolver via the shared `duplicati_r2_common.py` module. Adds a local `pyAesCrypt` derivation, `boto3` for the R2 transport, an `EncryptedCache` LRU on disk, a `BlockResolver` that handles both `BlocksetEntry`-backed and `BlocklistHash`-chain-backed files, and pluggable `S3Source`/`FileSource` transports (the latter enables offline/mirror operation and underpins the synthetic-fixture test). The `installCheckPhase` exercises single-block, single-blocklist, and multi-blocklist code paths plus HMAC-corruption, missing-path, and wrong-passphrase error contracts. The env-file ACL was widened in the same change so users in `stateDirReadableBy` can read `/etc/duplicati/r2.env` without sudo.
 
 **Defer Cut C** to a future issue. Reasons: marginal value on top of Cut B is bounded; recurring maintenance against format drift is meaningful; FUSE expertise is not currently on this repo's bus. If a future workflow demonstrates Cut B is structurally inadequate (e.g., diffing terabyte snapshots with `diff -r`), revisit.
 
@@ -546,11 +550,11 @@ Assume `bankdata` (`blocksize=1 MiB`, configured `dblock-size=200 MiB`, observed
 
 The cache is an optimisation, never a requirement.
 
-- **No cache (`--cache=0`)**: every block read re-downloads its dblock. Slow, but disk usage is exactly `F` for an extract or zero for a FUSE read. Use this when local disk is critically tight.
-- **Default cache (`--cache=1G`)**: rotating LRU. Eliminates redundant fetches inside one file extract or one filesystem walk.
-- **Big cache (`--cache=20G`)**: useful when repeatedly browsing the same snapshot; the second pass is essentially free.
+- **No cache (`--cache-size 0`)**: every block read re-downloads its dblock. Slow, but disk usage is exactly `F` for an extract or zero for a FUSE read. Use this when local disk is critically tight.
+- **Default cache (`--cache-size 1G`)**: rotating LRU. Eliminates redundant fetches inside one file extract.
+- **Big cache (`--cache-size 20G`)**: useful when repeatedly extracting different files from the same snapshot; the second pass is essentially free.
 
-Cache lives at `$XDG_CACHE_HOME/duplicati-r2-mount/<host>/<slug>/`, mode 0700. Eviction policy is dblock-granular LRU; a partial dblock is never persisted (decrypts must complete before insertion to keep HMAC integrity meaningful).
+Cache lives at `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/`, mode 0700. Eviction policy is dblock-granular LRU; a partial dblock is never persisted (the encrypted bytes are only stored after a successful read, and the decrypter runs after the bytes are read back from cache).
 
 ### 9.6 Side-finding: state-dir ACL was masked to `---` (fixed in this branch)
 
