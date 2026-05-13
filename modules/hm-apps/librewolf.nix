@@ -53,7 +53,7 @@ _: {
           enable = true;
           # Point HM at the path LibreWolf reads so declarative profile
           # seeding reaches the running browser.
-          configPath = ".config/librewolf/librewolf";
+          # configPath = ".config/librewolf/librewolf";
           package = osConfig.programs.librewolf.extended.package;
           # See modules/hm-apps/firefox.nix for why this uses the browser
           # native-messaging option instead of `home.packages`.
