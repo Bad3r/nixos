@@ -142,7 +142,7 @@ Every backup target writes under `s3://<bucket>/<hostname>/<destSubpath>/`. The 
 
 `duplicati-r2-extract` resolves a single file (or a glob set) via the same SQLite resolver, fetches only the dblocks containing the file's content blocks from R2 (or a `file://` mirror), decrypts them through `pyAesCrypt`, and writes plaintext to a destination file, stdout, or an output directory. Plaintext never persists outside the operator-chosen sink. Operator workflow and full flag surface live in [`operations.md`](operations.md#extract-a-single-file-from-r2-cut-b). Design rationale: [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md) Sections 4 (end-to-end design) and 5.2 (Cut B scope).
 
-Cut C (read-only FUSE mount) is not implemented; the `pkgs.duplicati-r2-tools.mount` namespace is reserved so it can land without renaming.
+Cut C (read-only FUSE mount) is not implemented yet; the `pkgs.duplicati-r2-tools.mount` namespace is reserved for the next implementation step in this same branch/PR.
 
 ## Operation pipeline
 

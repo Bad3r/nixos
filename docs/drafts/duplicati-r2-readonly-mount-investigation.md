@@ -2,13 +2,13 @@
 
 Investigation closing GitHub issue [#204](https://github.com/Bad3r/nixos/issues/204): "investigate(duplicati): read-only mount for encrypted R2 backup archives".
 
-Originally a design decision; Cut A and Cut B are now implemented in this branch and the document is updated in place to record what was actually shipped versus the original sketch. Recommendation is at the end.
+Originally a design decision; Cut A and Cut B are now implemented in this branch, and Cut C is the next implementation step in the same branch/PR. This document is updated in place to record what has shipped so far and the remaining mount-specific work. Recommendation is at the end.
 
 ## TL;DR
 
 - **Cut A (shipped)** (path-listing CLI from local SQLite, no decryption): low cost, no crypto dependency, immediate forensic value, reuses `services.duplicati-r2.stateDirReadableBy`.
 - **Cut B (implemented in this branch)** (single-file extract by path with on-demand R2 fetch + decrypt): solves the original "read one file without a full restore" problem at a fraction of the implementation cost of FUSE.
-- **Defer Cut C** (read-only FUSE mount): real but bounded benefit; cost dominates because the FS-semantics layer (open/read/release lifecycle, partial-range reads, caching policy) is most of the work and Cut B already covers the common operator workflow.
+- **Cut C (next in this branch/PR)** (read-only FUSE mount): adds the filesystem surface on top of the Cut B resolver, fetcher, decryptor, and cache. The remaining work is the FS-semantics layer: mount lifecycle, `getattr`/`readdir`/`open`/`read`/`release`, partial-range reads, and mount hardening.
 - **Reject** any approach that re-derives metadata from R2 instead of reusing the per-target SQLite databases. Recreate-from-remote is heavy (`repair` against a missing DB downloads every dindex) and the local DB is already exposed by the `stateDirReadableBy` ACL.
 
 **Local-storage budget**: none of the three cuts requires downloading the full archive. Cut A is zero-byte-ingress (reads only the local SQLite that already exists on disk). Cut B and Cut C download exactly the dblocks needed to satisfy the active read; the encrypted-dblock cache is bounded and configurable (default 1 GiB). See [Section 9](#9-storage-budget).
@@ -22,7 +22,7 @@ The investigation answers six questions from issue #204:
 3. Which SQLite tables resolve `(path, snapshot)` to `(volume, offset, length)`, and is `mode=ro&immutable=1` against the live state directory safe?
 4. What does the end-to-end design look like (credentials, fetcher, decrypt, zip, FUSE, lifecycle)?
 5. What is the smallest useful cut?
-6. What are the build/defer/reject criteria?
+6. What are the build/sequence/reject criteria?
 
 Each section below cites upstream source by file and symbol; line numbers are deliberately omitted because they drift across releases.
 
@@ -352,11 +352,11 @@ The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/d
 
 - Cut A: not needed.
 - Cut B (implemented): the local nix derivation `packages/duplicati-r2-tools/pyaescrypt.nix` packages PyPI [`pyAesCrypt 6.1.1`](https://pypi.org/project/pyAesCrypt/) (depends on `cryptography`). The extract tool calls `pyAesCrypt.decryptStream` with an `io.BytesIO` sink so plaintext stays in process memory. HMAC mismatch surfaces as a hard `EXIT_DATA_ERR` (65) with the offending volume name in the message; never zero-fills, never silently truncates. When upstream Duplicati flips the AES default from v2 to v3, swap the local derivation to a v3-capable library (`pyAesCrypt 7.x` if/when released, or `aescrypt-rs` via PyO3); the `AesDecrypter` boundary is the only code path that needs to change.
-- Cut C (deferred): same layer would be reused.
+- Cut C (next in this branch/PR): same layer will be reused.
 
 ### 4.4 Zip-entry seek
 
-- After AES decryption, the inner bytes are a standard zip archive. Cut B opens it with `zipfile.ZipFile(io.BytesIO(...))` and reads each block via `.open(name).read()`. The first read of any volume parses and validates the `manifest` JSON entry; future Cut C work can cache central-directory byte ranges to avoid re-parsing on every block read.
+- After AES decryption, the inner bytes are a standard zip archive. Cut B opens it with `zipfile.ZipFile(io.BytesIO(...))` and reads each block via `.open(name).read()`. The first read of any volume parses and validates the `manifest` JSON entry; Cut C can cache central-directory byte ranges to avoid re-parsing on every block read.
 - Block-entry names are base64url of the block hash. The implementation in `duplicati_r2_extract.py:base64url_name` does `base64.urlsafe_b64encode(hash_bytes).rstrip(b'=').decode('ascii')`; the rstrip is required because Duplicati omits zip-name padding.
 
 ### 4.5 FUSE bindings (Cut C only)
@@ -370,7 +370,7 @@ The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/d
 
 - `duplicati-r2-extract <slug> <path> --output <dest>`: opens the SQLite DB (`mode=ro`), checks `Configuration.Version` is in the supported set, reads `Configuration.blockhash` / `Configuration.filehash` for the BlockHash and FileHash algorithms, sources `/etc/duplicati/r2.env` (or the file specified by `--env-file`) for credentials and the passphrase, then plans + fetches + decrypts + writes in one pass and exits. No background daemon, no mount, no FUSE.
 - The encrypted-dblock cache persists between invocations under `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/`. Move that directory aside with `rip` to drop it; subsequent runs re-fetch.
-- Cut C lifecycle (long-running mount, `up`/`down` subcommands, per-user systemd unit) remains as sketched here for the eventual implementation.
+- Cut C lifecycle (long-running mount, `up`/`down` subcommands, per-user systemd unit) remains as sketched here for the next implementation step.
 
 ## 5. The three cuts
 
@@ -444,7 +444,7 @@ duplicati-r2-extract <slug> ... --json                    # JSON summary on stde
 
 ## 6. Decision criteria
 
-| Criterion              | Weight | Cut A (shipped)                  | Cut B (shipped)                                  | Cut C (deferred)                |
+| Criterion              | Weight | Cut A (shipped)                  | Cut B (shipped)                                  | Cut C (next)                    |
 | ---------------------- | ------ | -------------------------------- | ------------------------------------------------ | ------------------------------- |
 | Build cost (actual)    | high   | ~1 day                           | ~1 day on top of Cut A                           | est. 7..14 days additional      |
 | Format-drift risk      | high   | nil (no crypto/zip)              | low (AES v2->v3 only)                            | medium (zip + FS)               |
@@ -468,7 +468,7 @@ Hard constraints from issue #204 carried through:
 
 **Cut B is implemented in this branch** as `pkgs.duplicati-r2-tools.extract`. Reuses Cut A's resolver via the shared `duplicati_r2_common.py` module. Adds a local `pyAesCrypt` derivation, `boto3` for the R2 transport, an `EncryptedCache` LRU on disk, a `BlockResolver` that handles both `BlocksetEntry`-backed and `BlocklistHash`-chain-backed files, and pluggable `S3Source`/`FileSource` transports (the latter enables offline/mirror operation and underpins the synthetic-fixture test). The `installCheckPhase` exercises single-block, multi-block-without-blocklist, single-blocklist, and multi-blocklist code paths plus HMAC-corruption, missing-path, wrong-passphrase, include-glob, env-file, cache, invalid DB hash, manifest-validation, segment-aware streaming path globbing, and SQLite variable-limit contracts. The env-file ACL was widened in the same change so users in `stateDirReadableBy` can read `/etc/duplicati/r2.env` without sudo; the CLI opens that env file with `O_NOFOLLOW` and validates mode/owner via `fstat` on the opened descriptor.
 
-**Defer Cut C** to a future issue. Reasons: marginal value on top of Cut B is bounded; recurring maintenance against format drift is meaningful; FUSE expertise is not currently on this repo's bus. If a future workflow demonstrates Cut B is structurally inadequate (e.g., diffing terabyte snapshots with `diff -r`), revisit.
+**Cut C is next in this same branch/PR**. It should reuse the Cut B resolver, R2/file source abstraction, AES decryption boundary, block verifier, and encrypted-dblock cache, then add the read-only FUSE surface on top. The key implementation risk is not backup-format parsing anymore; it is mount correctness under filesystem access patterns: lifecycle, stale handles, symlink/readlink behavior, partial reads, cache eviction, and safe unmount recovery.
 
 **Reject** any approach that:
 
@@ -593,7 +593,7 @@ This was a prerequisite for Cut A, Cut B, and Cut C; all three depend on the ACL
 - Cut B: local disk ceiling = output file size + encrypted cache cap; R2 fetches are the whole dblocks in the SQL-derived unique-volume set. With default 1 GiB cache, any single file up to ~100 GiB extracts comfortably as long as the chosen output path has room for the plaintext.
 - Cut C: local disk ceiling remains the encrypted cache cap only; R2 fetch behavior starts the same as Cut B unless the mount implementation adds HTTP range reads inside dblocks.
 
-The "limited local storage" constraint is more than satisfied: it is the constraint that promotes Cut A and Cut B from "ergonomics" to "the only available interface". `bankdata` is 2.67 TiB encrypted on R2 (Section 9.1). Pulling the archive in full to inspect or recover a single file is not an option on this host and would not be on any reasonably sized scratch volume either. The decisive factor for deferring Cut C remains the FUSE-semantics maintenance cost and Cut B already covering the common workflow.
+The "limited local storage" constraint is more than satisfied: it is the constraint that promotes Cut A and Cut B from "ergonomics" to "the only available interface". `bankdata` is 2.67 TiB encrypted on R2 (Section 9.1). Pulling the archive in full to inspect or recover a single file is not an option on this host and would not be on any reasonably sized scratch volume either. Cut C keeps the same storage ceiling and is sequenced after Cut B because the remaining work is FUSE-semantics correctness rather than backup-format discovery.
 
 ### 9.8 Live validation against `duplicati-cli restore` (May 2026)
 
