@@ -14,10 +14,13 @@
     nmap.lst, rockyou.txt at the time of writing) is exposed
     automatically.
   - Plus the entries declared in `csec.wordlists.manualLinks`, defaulting
-    to packages that ship their wordlists outside the meta-package:
-      * dirbuster   -> ${pkgs.dirbuster}/share/dirbuster
-      * metasploit  -> ${pkgs.metasploit}/share/msf/data/wordlists
-      * john.lst    -> ${pkgs.john}/share/john/password.lst (single file
+    to enabled packages that ship their wordlists outside the meta-package:
+      * dirbuster   -> ${pkgs.dirbuster}/share/dirbuster when
+                       programs.dirbuster.extended.enable is true
+      * metasploit  -> ${pkgs.metasploit}/share/msf/data/wordlists when
+                       programs.metasploit.extended.enable is true
+      * john.lst    -> ${pkgs.john}/share/john/password.lst when
+                       programs.john.extended.enable is true (single file
                        rather than a directory, intentional Kali parity)
 
   Hosts that do not need the heavier defaults (metasploit alone is
@@ -51,6 +54,24 @@
       wordlistsAutoLinks = lib.mapAttrs (name: _type: "${wordlistsRoot}/${name}") (
         builtins.readDir wordlistsRoot
       );
+      appEnabled =
+        name:
+        lib.attrByPath [
+          "programs"
+          name
+          "extended"
+          "enable"
+        ] false config;
+      defaultManualLinks =
+        lib.optionalAttrs (appEnabled "dirbuster") {
+          dirbuster = "${pkgs.dirbuster}/share/dirbuster";
+        }
+        // lib.optionalAttrs (appEnabled "metasploit") {
+          metasploit = "${pkgs.metasploit}/share/msf/data/wordlists";
+        }
+        // lib.optionalAttrs (appEnabled "john") {
+          "john.lst" = "${pkgs.john}/share/john/password.lst";
+        };
       links = wordlistsAutoLinks // cfg.manualLinks // cfg.extraLinks;
       dirEntry = {
         mode = "0755";
@@ -90,15 +111,13 @@
 
         manualLinks = lib.mkOption {
           type = lib.types.attrsOf (lib.types.either lib.types.path lib.types.str);
-          default = {
-            dirbuster = "${pkgs.dirbuster}/share/dirbuster";
-            metasploit = "${pkgs.metasploit}/share/msf/data/wordlists";
-            "john.lst" = "${pkgs.john}/share/john/password.lst";
-          };
+          default = defaultManualLinks;
           defaultText = lib.literalExpression ''
-            {
+            lib.optionalAttrs config.programs.dirbuster.extended.enable {
               dirbuster = "''${pkgs.dirbuster}/share/dirbuster";
+            } // lib.optionalAttrs config.programs.metasploit.extended.enable {
               metasploit = "''${pkgs.metasploit}/share/msf/data/wordlists";
+            } // lib.optionalAttrs config.programs.john.extended.enable {
               "john.lst" = "''${pkgs.john}/share/john/password.lst";
             }
           '';
@@ -106,9 +125,10 @@
             Manual name -> store-path mappings for tools whose wordlists
             live outside the `pkgs.wordlists` meta-package. Each target
             is checked with `builtins.pathExists` at evaluation time, so
-            upstream layout changes fail loudly. Set to `{ }` to opt
-            out of the default heavyweight packages (notably
-            `metasploit`, ~800 MB).
+            upstream layout changes fail loudly. Default package-specific links
+            are included only when their matching `programs.<name>.extended`
+            app is enabled. Set to `{ }` to opt out of the default heavyweight
+            packages (notably `metasploit`, ~800 MB).
           '';
         };
 
