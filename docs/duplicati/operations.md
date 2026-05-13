@@ -117,7 +117,7 @@ jq '.targets["<slug>"] = {
 sops -e --input-type binary --output-type binary \
   --filename-override secrets/duplicati-config.json \
   "$tmp/manifest.new.json" > secrets/duplicati-config.json
-rm -rf "$tmp"
+rip "$tmp"
 ```
 
 Validate the schedule before committing the change:
@@ -158,7 +158,7 @@ jq '.targets["<slug>"].enable = false' "$tmp/manifest.json" > "$tmp/manifest.new
 sops -e --input-type binary --output-type binary \
   --filename-override secrets/duplicati-config.json \
   "$tmp/manifest.new.json" > secrets/duplicati-config.json
-rm -rf "$tmp"
+rip "$tmp"
 ```
 
 To re-enable, set `enable: true` (or `del(.targets[<slug>].enable)`, since omitted means `true`) and redeploy.
@@ -270,6 +270,155 @@ To explicitly bound the in-memory cache, set `--restore-volume-cache-hint=2gb` (
 `--include='*.torrent'` (or any other glob) selects which file paths inside the snapshot are restored. The restore engine still has to fetch the dblocks that contain those files' content blocks: with default deduplication and 50 MiB to 200 MiB dblock packing, the bytes-on-the-wire ceiling is `(unique dblocks touched) * dblock_size`, not the plaintext output size. The example above (44 torrent files, ~10 MiB plaintext, 8 unique dblocks, ~400 MiB encrypted) is a 40x amplification: every dblock that contains at least one matching block must be downloaded in full because `duplicati-cli restore` does not perform HTTP range reads inside the dblock object.
 
 To compute the exact dblock fetch list before running a restore, query the per-target SQLite using the `Path -> Blockset -> Block -> Remotevolume` join from [recovery.md](recovery.md#db-driven-impact-analysis), substituting the path filter (e.g. `Path LIKE '%.torrent'`) for the missing-volume names. The result is the precise set of `*.dblock.zip.aes` objects the restore will fetch.
+
+## Query the local SQLite (read-only)
+
+`duplicati-r2-list` (provided by `pkgs.duplicati-r2-tools.list`) answers snapshot, path, size, mtime, and version-history questions directly from the per-target SQLite at `/var/lib/duplicati-r2/<slug>/duplicati-r2-<slug>.sqlite`. It opens the database with `mode=ro` (the URI path is percent-encoded so spaces or `?`/`#` in the state-dir survive), performs no R2 fetches, and does not decrypt anything. The `immutable=1` flag deliberately is not set: Duplicati keeps writing to the same database, and `immutable=1` would make SQLite ignore WAL replay and return stale or torn rows. Cut A of [`docs/drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md).
+
+The tool is auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty; usernames listed there can run it without `sudo` via the named-user POSIX ACL on the state directory. Other users see `permission denied` on the SQLite open, which is the expected loud failure.
+
+Subcommands (replace `<slug>` with the manifest target key, e.g. `bankdata`):
+
+```bash
+# List snapshots, newest first (Fileset.ID, ISO timestamp, full-backup flag).
+duplicati-r2-list versions <slug>
+
+# Directory listing at a snapshot (defaults to latest).
+duplicati-r2-list ls <slug> /abs/path
+duplicati-r2-list ls --snapshot 42 <slug> /abs/path
+duplicati-r2-list ls --snapshot 2026-04-01T00:00:00Z <slug> /abs/path
+
+# Size, hash, and mtime for a single file in a snapshot.
+duplicati-r2-list stat <slug> /abs/path/file.ext
+
+# Every snapshot that contains a path, with per-snapshot size and mtime.
+duplicati-r2-list history <slug> /abs/path/file.ext
+
+# Path-glob filter over a snapshot (NOT a content grep). Use --regex for re syntax.
+duplicati-r2-list grep <slug> '*.torrent'
+duplicati-r2-list grep <slug> --regex '\.torrent$'
+```
+
+Global flags:
+
+| Flag              | Effect                                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| `--json`          | Stream output as NDJSON (one row per line for streaming subcommands; one object for `stat`).        |
+| `--db <path>`     | Bypass manifest resolution and open the named SQLite file directly. Used for offline forensic work. |
+| `--config <path>` | Override `/run/duplicati-r2/config.json` for slug-to-stateDir resolution.                           |
+| `--snapshot <id>` | (`ls`, `stat`, `grep`) Fileset.ID integer or ISO-8601 timestamp; default is the latest snapshot.    |
+
+Exit codes mirror `duplicati-r2-restore.sh`:
+
+- `0` success
+- `64` usage error (bad args, invalid glob/regex, unknown target, unresolved snapshot)
+- `65` schema-version mismatch (the tool refuses to operate against unsupported `Configuration.Version`)
+- `66` manifest/db unreadable, target disabled, snapshot id not found, path not in snapshot
+
+When `--config` and `--db` are both omitted and `/run/duplicati-r2/config.json` is not readable to the invoker, the tool falls back to the default state directory `/var/lib/duplicati-r2/<slug>` and proceeds; pass `--config` or `--db` explicitly when the manifest layout is non-default.
+
+## Extract a single file from R2 (Cut B)
+
+`duplicati-r2-extract` (provided by `pkgs.duplicati-r2-tools.extract`) recovers a single file (or a glob set) from a chosen snapshot by fetching only the dblocks that contain the file's content blocks, decrypting them through the AES Crypt File Format wrapper, and writing the plaintext to a destination file, stdout, or an output directory in glob mode. Plaintext never persists outside the operator-chosen sink: the on-disk encrypted-block cache stores only ciphertext, and decryption streams through process memory.
+
+Use `duplicati-r2-extract` instead of `duplicati-cli restore` when:
+
+- the target is a single file (or a small glob), and
+- the archive is too large to ever fully restore on this host (e.g. `bankdata` is 2.67 TiB encrypted on R2; the host has ~107 GiB free).
+
+`duplicati-cli restore` remains the bulk-restore path documented above.
+
+```bash
+# Single-file extract to a path on disk (default snapshot = latest).
+duplicati-r2-extract <slug> /abs/path/to/file --output /tmp/recovered
+
+# Pipe to stdout for ad-hoc inspection.
+duplicati-r2-extract <slug> /abs/path/to/file --output - | head -200
+
+# Glob mode: mirror the snapshot tree under --output-dir.
+duplicati-r2-extract <slug> --include '*.torrent' --output-dir /tmp/torrents
+
+# Pin a specific snapshot.
+duplicati-r2-extract <slug> /abs/path --output /tmp/out --snapshot 42
+
+# Inspect an offline mirror (rsync of the bucket onto local NAS).
+duplicati-r2-extract <slug> /abs/path --output /tmp/out --source file:///mnt/r2-mirror
+
+# Print a JSON summary on stderr (plaintext still goes to the sink).
+duplicati-r2-extract --json <slug> /abs/path --output /tmp/out
+```
+
+Flags worth knowing:
+
+| Flag                            | Effect                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--snapshot <id\|timestamp>`    | Resolve `Fileset.ID` integer or ISO-8601 timestamp; default is the latest snapshot.                                                                                                                                                                                                                                                                   |
+| `--output <path>` / `-o <path>` | Single-file destination. Use `-` for stdout. Required outside `--include` mode.                                                                                                                                                                                                                                                                       |
+| `--include <glob>`              | Path glob selecting multiple files. Requires `--output-dir`. Patterns containing `/` use segment-aware full-path matching: `/data/*.bin` matches direct children, `/data/**/*.bin` matches descendants, and a missing leading `/` is added (`data/*.bin` behaves like `/data/*.bin`). Patterns without `/` match the basename at any depth (`*.bin`). |
+| `--output-dir <dir>`            | Mirror the snapshot tree under `<dir>` in glob mode. Snapshot paths containing `..` are refused.                                                                                                                                                                                                                                                      |
+| `--source <url>`                | Object source. Default: R2 via env-file credentials. Use `file:///path` for an offline mirror.                                                                                                                                                                                                                                                        |
+| `--env-file <path>`             | Dotenv file with `R2_S3_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `R2_BUCKET`, `DUPLICATI_PASSPHRASE` (default: `/etc/duplicati/r2.env`).                                                                                                                                                                                          |
+| `--passphrase-env <VAR>`        | Read passphrase from named env var instead of `DUPLICATI_PASSPHRASE` in the env file. Skips env-file when paired with `--source file://`.                                                                                                                                                                                                             |
+| `--cache-dir <path>`            | Encrypted-dblock cache root (default: `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/`).                                                                                                                                                                                                                                                           |
+| `--cache-size <N[K\|M\|G]>`     | Cache size cap (default `1G`). `0` disables caching: every block re-fetches its dblock.                                                                                                                                                                                                                                                               |
+| `--db`, `--config`, `--json`    | Same semantics as `duplicati-r2-list`.                                                                                                                                                                                                                                                                                                                |
+
+Bucket layout resolution order:
+
+- **hostname** prefix: `duplicati-r2-extract` resolves `DUPLICATI_R2_HOST` env override -> `manifest.hostname` -> `hostname --short` (Linux nodename truncated at first `.`). The backup script does not read `DUPLICATI_R2_HOST`; it resolves `manifest.hostname` -> `DEFAULT_HOSTNAME` (set by the systemd unit generator from `manifest.hostname`) -> `hostname --short`. They agree when `manifest.hostname` is set or both runs use the same host identity.
+- **destSubpath** (per-target): `manifest.targets.<slug>.destSubpath` -> the slug. The backup script URL-encodes this inside the `s3://` URI; `duplicati-r2-extract` passes the raw decoded prefix to boto3 so both address the same R2 keys.
+- **bucket**: `manifest.bucket` -> `R2_BUCKET` from the env file -> `duplicati-nixos-backups`.
+- **endpoint URL**: `R2_S3_ENDPOINT_URL` from the env file -> `https://${R2_S3_ENDPOINT}` -> `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`.
+
+Pass `--source file:///mirror` to bypass all of this (the file source maps `<root>/<volume_name>` directly).
+
+Exit codes:
+
+- `0` success
+- `64` usage error (bad args, missing positional, path traversal in glob mode)
+- `65` data error (HMAC mismatch on a dblock, manifest mismatch, FullHash mismatch, schema-version mismatch, wrong passphrase)
+- `66` open error (env file unreadable, R2 GET failed, missing volume, path not in snapshot)
+
+HMAC verification is non-optional: a corrupted dblock raises a loud `EXIT_DATA_ERR` with the offending volume name, never zero-fills or silently truncates.
+
+### Env-file ACL
+
+`/etc/duplicati/r2.env` carries the R2 access key pair and `DUPLICATI_PASSPHRASE`. The base mode stays `0400 root:root`. Each user listed in `services.duplicati-r2.stateDirReadableBy` is granted `u:<user>:r--` on the env file via a `systemd.tmpfiles` ACL rule, so `duplicati-r2-extract` can source credentials without sudo:
+
+```bash
+getfacl /etc/duplicati/r2.env | grep -E '^(user|mask)'
+# Expect: user::r--, user:vx:r--, mask::r--
+```
+
+Other users still see `permission denied`. The grant is the same trust boundary that `stateDirReadableBy` already encodes for the SQLite databases.
+
+The CLI opens the env file with `O_NOFOLLOW`, then checks mode and owner with `fstat` on the opened descriptor before parsing. That keeps the ACL convenience path from becoming a symlink-swap or time-of-check/time-of-use issue.
+If the configured env path is a symlink, pass `--env-file` with the resolved regular-file path.
+
+### Cache footprint
+
+The encrypted-dblock cache is an optimisation, never a requirement.
+
+```bash
+# Inspect the cache for a target.
+ls -lh "$XDG_CACHE_HOME/duplicati-r2-tools/$(hostname)/<slug>/" \
+  || ls -lh "$HOME/.cache/duplicati-r2-tools/$(hostname)/<slug>/"
+
+# Drop the cache (every future read re-downloads).
+rip "$XDG_CACHE_HOME/duplicati-r2-tools/$(hostname)/<slug>"
+```
+
+The cache stores only encrypted bytes (mode `0600`); plaintext is never written to disk by the cache. Eviction is dblock-granular LRU. With the default `--cache-size 1G`, the cache rotates as new dblocks are fetched and the resident set stays bounded.
+
+### Worked example: 44 `*.torrent` files from `bankdata`
+
+Per [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md) §9.8, a 44-path `*.torrent` recovery resolves to ~8 unique dblocks (~400 MiB encrypted) at default settings; `duplicati-cli restore` downloads each dblock as a single object. `duplicati-r2-extract` issues the same whole-dblock fetch list (the SQL join is identical), with two operational wins: cache rotation between blocks within one dblock, and stream-to-disk decryption that never stages 400 MiB of encrypted bytes outside the cache cap.
+
+```bash
+duplicati-r2-extract bankdata --include '*.torrent' \
+  --output-dir /tmp/torrent-recover --json
+# Stderr summary reports plaintext_bytes, dblocks_fetched, bytes_fetched.
+```
 
 ## Post-deploy checks
 

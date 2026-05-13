@@ -25,16 +25,25 @@ duplicati-cli backup|test  ->  s3://<bucket>/<host>/<slug>/
 
 The generator is the only piece that runs at activation. After it exits, all backup and verify execution flows through plain systemd timers calling `duplicati-cli` with credentials sourced from the env file. State (per-target SQLite metadata) lives under `services.duplicati-r2.stateDir` and is the canonical source of truth for what is on R2.
 
+Two operator-facing CLIs read this state without invoking `duplicati-cli`:
+
+- `duplicati-r2-list` (Cut A): read-only path/snapshot/history/grep queries directly against the per-target SQLite. No R2 access, no AES decryption. See [operations.md](operations.md#query-the-local-sqlite-read-only).
+- `duplicati-r2-extract` (Cut B): single-file or glob-mode extract that fetches only the dblocks the file needs from R2 (or a `file://` mirror), decrypts them in process memory through `pyAesCrypt`, and writes plaintext to a destination file, stdout, or an output directory. See [operations.md](operations.md#extract-a-single-file-from-r2-cut-b).
+
+Both are auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty. The full design lives in [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md); Cut C (read-only FUSE mount) is the next implementation step in this same branch/PR.
+
 ## Repository layout
 
-| Path                                | Role                                                                                                                                                                                               |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `modules/services/duplicati-r2.nix` | Service module: options, manifest handling, generator/backup/verify scripts, sops template wiring. Exported as `flake.nixosModules."duplicati-r2"` and `flake.nixosModules.services.duplicati-r2`. |
-| `modules/storage/duplicati-r2.nix`  | Re-export under the storage namespace (`flake.nixosModules.storage.duplicati-r2`).                                                                                                                 |
-| `modules/<host>/duplicati.nix`      | Per-host wiring: gates `services.duplicati-r2.enable` on the presence of both encrypted secrets, sets `stateDirReadableBy` from `metaOwner.username`.                                              |
-| `secrets/duplicati-r2.yaml`         | SOPS-encrypted credentials (R2 keys + duplicati passphrase).                                                                                                                                       |
-| `secrets/duplicati-config.json`     | SOPS-encrypted manifest in binary mode (the entire JSON manifest is the encrypted payload).                                                                                                        |
-| `scripts/validate-oncalendar.sh`    | Lints `OnCalendar` expressions via `systemd-analyze calendar`.                                                                                                                                     |
+| Path                                  | Role                                                                                                                                                                                               |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modules/services/duplicati-r2.nix`   | Service module: options, manifest handling, generator/backup/verify scripts, sops template wiring. Exported as `flake.nixosModules."duplicati-r2"` and `flake.nixosModules.services.duplicati-r2`. |
+| `modules/storage/duplicati-r2.nix`    | Re-export under the storage namespace (`flake.nixosModules.storage.duplicati-r2`).                                                                                                                 |
+| `modules/apps/duplicati-r2-tools.nix` | Apps module that installs `duplicati-r2-list` and `duplicati-r2-extract` on PATH; auto-enables when `services.duplicati-r2.stateDirReadableBy` is non-empty.                                       |
+| `modules/<host>/duplicati.nix`        | Per-host wiring: gates `services.duplicati-r2.enable` on the presence of both encrypted secrets, sets `stateDirReadableBy` from `metaOwner.username`.                                              |
+| `packages/duplicati-r2-tools/`        | Source for the operator-facing CLIs (`duplicati-r2-list`, `duplicati-r2-extract`) plus the local `pyAesCrypt` derivation and the synthetic AES test fixture generator.                             |
+| `secrets/duplicati-r2.yaml`           | SOPS-encrypted credentials (R2 keys + duplicati passphrase).                                                                                                                                       |
+| `secrets/duplicati-config.json`       | SOPS-encrypted manifest in binary mode (the entire JSON manifest is the encrypted payload).                                                                                                        |
+| `scripts/validate-oncalendar.sh`      | Lints `OnCalendar` expressions via `systemd-analyze calendar`.                                                                                                                                     |
 
 ## Documentation index
 
