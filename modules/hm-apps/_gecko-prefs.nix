@@ -32,6 +32,10 @@
       "browser.ctrlTab.sortByRecentlyUsed" = true;
       "browser.tabs.closeWindowWithLastTab" = false;
 
+      # Do not check or prompt to become the system default browser.
+      "browser.shell.checkDefaultBrowser" = false;
+      "browser.shell.didSkipDefaultBrowserCheckOnFirstRun" = true;
+
       # Pre-enable extensions delivered through the Nix scope (default 15 would
       # leave system-scope XPIs installed-but-disabled on first launch).
       "extensions.autoDisableScopes" = 0;
