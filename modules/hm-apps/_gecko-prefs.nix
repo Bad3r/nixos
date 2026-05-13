@@ -6,8 +6,8 @@
     * Reader-mode colors come from Stylix's own reader-mode wiring.
     * `fonts` is forwarded from `config.stylix.fonts`; pass `null` to let
       the browser use its built-in defaults.
-    * WebRTC/DRM toggles stay in each browser module because they depend on
-      per-browser HM options (enableWebRTC / enableDRM).
+    * WebRTC stays in each browser module because it depends on the
+      per-browser HM option (enableWebRTC).
     * Floorp workspaces stay in floorp.nix because they are Floorp-specific.
 */
 
@@ -26,6 +26,9 @@
       # about:config without the warning prompt.
       "browser.aboutConfig.showWarning" = false;
 
+      "accessibility.typeaheadfind" = false; # Conflicts with Tridactyl.
+      "accessibility.typeaheadfind.flashBar" = 0;
+
       # Allow userChrome.css / userContent.css to load.
       "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
 
@@ -39,6 +42,8 @@
       # Pre-enable extensions delivered through the Nix scope (default 15 would
       # leave system-scope XPIs installed-but-disabled on first launch).
       "extensions.autoDisableScopes" = 0;
+      "extensions.pictureinpicture.enable_picture_in_picture_overrides" = true;
+      "extensions.webcompat.perform_injections" = true;
 
       # Caret browsing always-on; disable F7 shortcut so it is not toggled off
       # accidentally.
@@ -52,12 +57,21 @@
       # to this pref, so leaving it declared intentionally clobbers any
       # other choice each rebuild.
       "print_printer" = "Mozilla Save to PDF";
+      "print.more-settings.open" = true;
+      "print.printer_Mozilla_Save_to_PDF.print_bgcolor" = false;
+      "print.printer_Mozilla_Save_to_PDF.print_bgimages" = false;
+      "print.printer_Mozilla_Save_to_PDF.print_footercenter" = "";
+      "print.printer_Mozilla_Save_to_PDF.print_footerleft" = "";
+      "print.printer_Mozilla_Save_to_PDF.print_footerright" = "";
+      "print.printer_Mozilla_Save_to_PDF.print_headercenter" = "";
+      "print.printer_Mozilla_Save_to_PDF.print_headerleft" = "";
+      "print.printer_Mozilla_Save_to_PDF.print_headerright" = "";
 
       # Route xdg-open / `firefox <url>` invocations to a new tab in the
-      # current window (override.external=3). Leave the base
-      # `browser.link.open_newwindow` at its Firefox default of 3 so
-      # target="_blank" links and `window.open()` calls still spawn a new
-      # tab instead of replacing the current page.
+      # current window (override.external=3). Also route target="_blank" links
+      # and `window.open()` calls to a new tab instead of replacing the current
+      # page or opening a separate window.
+      "browser.link.open_newwindow" = 3;
       "browser.link.open_newwindow.override.external" = 3;
       # New tabs are brought to the foreground when opened.
       "browser.tabs.loadInBackground" = false;
@@ -76,6 +90,7 @@
       "extensions.formautofill.creditCards.enabled" = false;
       "extensions.formautofill.addresses.enabled" = false;
       "extensions.formautofill.heuristics.enabled" = false;
+      "dom.forms.autocomplete.formautofill" = true;
 
       # Clear cookies+site data, form data, and history+downloads on every
       # shutdown. `privacy.sanitize.sanitizeOnShutdown` is the master switch:
@@ -83,6 +98,7 @@
       # Firefox short-circuits the shutdown sanitizer. The `_v2.*` namespace
       # is what modern Firefox (128+) reads; the legacy v1 keys are no-ops.
       "privacy.sanitize.sanitizeOnShutdown" = true;
+      "privacy.clearOnShutdown.offlineApps" = true;
       "privacy.clearOnShutdown_v2.cookiesAndStorage" = true;
       "privacy.clearOnShutdown_v2.formdata" = true;
       "privacy.clearOnShutdown_v2.historyFormDataAndDownloads" = true;
@@ -105,6 +121,7 @@
       "sidebar.open" = true;
       "sidebar.position_start" = true;
       "sidebar.command" = "viewTabsSidebar";
+      "sidebar.verticalTabs.dragToPinPromo.dismissed" = true;
 
       # Show the bookmarks toolbar only on the new-tab page.
       "browser.toolbars.bookmarks.visibility" = "newtab";
@@ -113,6 +130,8 @@
 
       # VA-API hardware decoding under Wayland/X11.
       "media.ffmpeg.vaapi.enabled" = true;
+      "media.eme.enabled" = true;
+      "media.gmp-widevinecdm.enabled" = true;
 
       # Prefer xdg-desktop-portal for file picker and integration.
       "widget.use-xdg-desktop-portal.file-picker" = 1;
@@ -122,12 +141,14 @@
       "browser.newtabpage.activity-stream.showSponsored" = false;
       "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
       "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
+      "browser.search.serpEventTelemetryCategorization.regionEnabled" = false;
 
       # Global Privacy Control header on all requests.
       "privacy.globalprivacycontrol.enabled" = true;
 
       # Disable Firefox Suggest (quicksuggest); keep engine suggestions working.
       "browser.urlbar.quicksuggest.enabled" = false;
+      "browser.urlbar.suggest.quicksuggest.all" = false;
       "browser.urlbar.suggest.quicksuggest.nonsponsored" = false;
       "browser.urlbar.suggest.quicksuggest.sponsored" = false;
 
@@ -162,5 +183,17 @@
       "cookiebanners.service.mode" = 1;
       "cookiebanners.service.mode.privateBrowsing" = 1;
       "cookiebanners.ui.desktop.enabled" = true;
+
+      # Keep Firefox Sync focused on extension/preferences state.
+      "services.sync.declinedEngines" = "passwords,addresses,forms,creditcards,history";
+      "services.sync.engine.history" = false;
+      "services.sync.engine.passwords" = false;
+      "services.sync.engine.prefs" = true;
+
+      # DevTools defaults.
+      "devtools.everOpened" = true;
+      "devtools.toolbox.host" = "window";
+      "devtools.toolbox.splitconsole.open" = true;
+      "devtools.webconsole.filter.netxhr" = true;
     };
 }

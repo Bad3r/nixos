@@ -33,6 +33,11 @@ let
   onePasswordSlug = "1password-x-password-manager";
   onePasswordInstallUrl = "${amoLatestBaseUrl}${onePasswordSlug}/latest.xpi";
 
+  raindropId = "jid0-adyhmvsP91nUO8pRv0Mn2VKeB84@jetpack";
+  stylusId = "{7a7a4a92-a2a0-41d1-9fd7-1e92480d612d}";
+  tabStashId = "tab-stash@condordes.net";
+  tridactylId = "tridactyl.vim@cmcaine.co.uk";
+
   # SVG Gobbler is not packaged in the rycee NUR firefox-addons set, so it is
   # delivered via AMO force-install instead. The GUID below comes from the
   # AMO API (services.addons.mozilla.org/api/v5/addons/addon/svg-gobbler/).
@@ -182,6 +187,7 @@ let
     raindropio
     cookie-autodelete
     simplelogin
+    stylus
     tab-stash
     languagetool
     web-archives
@@ -217,6 +223,27 @@ in
   };
 
   inherit primaryPackages workPackages ephemeralPackages;
+
+  sidebarSettings =
+    let
+      sidebarExtensionIds = [
+        raindropId
+        tabStashId
+        stylusId
+        tridactylId
+      ];
+      sidebarTools = [
+        raindropId
+        tabStashId
+        "aichat"
+        stylusId
+        tridactylId
+      ];
+    in
+    {
+      "sidebar.installed.extensions" = builtins.concatStringsSep "," sidebarExtensionIds;
+      "sidebar.main.tools" = builtins.concatStringsSep "," sidebarTools;
+    };
 
   extensionStorage."${ublockOriginId}".settings = {
     advancedUserEnabled = true;

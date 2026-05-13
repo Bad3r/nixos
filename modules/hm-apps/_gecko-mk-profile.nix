@@ -9,8 +9,7 @@
 
   Arguments:
     pkgs, inputs, lib, config: standard module args from the caller.
-    cfg: the caller's privacy config (must define `enableWebRTC` and
-         `enableDRM`, both booleans).
+    cfg: the caller's privacy config (must define `enableWebRTC`).
 
   Returns:
     mkProfile, extensionPolicies, primaryPackages, workPackages,
@@ -37,8 +36,6 @@ let
 
   mediaSettings = {
     "media.peerconnection.enabled" = cfg.enableWebRTC;
-    "media.eme.enabled" = cfg.enableDRM;
-    "media.gmp-widevinecdm.enabled" = cfg.enableDRM;
   };
 
   mkProfile =
@@ -50,7 +47,8 @@ let
     }:
     {
       inherit id containersForce;
-      settings = geckoPrefs.commonSettings // mediaSettings // extraSettings;
+      settings =
+        geckoPrefs.commonSettings // geckoExtensions.sidebarSettings // mediaSettings // extraSettings;
       inherit (geckoSearch) search;
       inherit (geckoContainers) containers;
       extensions = {

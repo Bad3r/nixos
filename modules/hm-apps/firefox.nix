@@ -35,9 +35,6 @@ _: {
         enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
           default = false;
         };
-        enableDRM = lib.mkEnableOption "Allow DRM/Widevine (EME) playback" // {
-          default = true;
-        };
       };
 
       config = lib.mkIf nixosEnabled {
