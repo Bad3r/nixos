@@ -9,8 +9,8 @@
     * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Agent skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
-    * Greptile plugin activation is resolved during Home Manager activation
-      from the SOPS-managed runtime API key file.
+    * Greptile plugin activation is optional and resolved during Home Manager
+      activation only when the plugin is explicitly enabled.
     * LSP plugin enablement and binary installation are governed by
       programs.claude-code.extended.lspPlugins in modules/apps/claude-code.nix.
     * Additional non-LSP plugins are governed by
@@ -42,6 +42,7 @@ _: {
 
       defaults = import ./_default-settings.nix;
       plugins = import ./_plugins.nix { inherit lib osConfig; };
+      inherit (plugins) greptilePluginRequested;
 
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
@@ -88,7 +89,8 @@ _: {
             ".claude/skills/commit/SKILL.md" = {
               text = commitSkillMd;
             };
-
+          }
+          // lib.optionalAttrs greptilePluginRequested {
             ".local/bin/claude-greptile-mcp-headers" = {
               executable = true;
               text = ''
@@ -120,12 +122,14 @@ _: {
                 #!${pkgs.bash}/bin/bash
                 set -euo pipefail
 
-                secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
-                if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
-                  if secret_value="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret_path")" && [ -n "$secret_value" ]; then
-                    export GREPTILE_API_KEY="$secret_value"
+                ${lib.optionalString greptilePluginRequested ''
+                  secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
+                  if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
+                    if secret_value="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret_path")" && [ -n "$secret_value" ]; then
+                      export GREPTILE_API_KEY="$secret_value"
+                    fi
                   fi
-                fi
+                ''}
 
                 bun_claude="$HOME/.local/share/bun/bin/claude"
                 if [ -x "$bun_claude" ]; then

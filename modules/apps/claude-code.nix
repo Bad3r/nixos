@@ -129,11 +129,11 @@ in
             "frontend-design@claude-plugins-official" = true;
             "chrome-devtools-mcp@chrome-devtools-plugins" = true;
             "code-review@claude-plugins-official" = true;
-            "greptile@claude-plugins-official" = true;
             "pr-review-toolkit@claude-plugins-official" = true;
             # Registered but disabled: keeps the key visible in settings.json so
             # toggling back on is a one-line Nix change without a reinstall.
             "claude-code-setup@claude-plugins-official" = false;
+            "greptile@claude-plugins-official" = false;
           };
           example = lib.literalExpression ''
             {

@@ -16,9 +16,9 @@
     The Greptile plugin requires a runtime API key file. To avoid writing a
     settings.json that flips the plugin on before the key is ready, the
     static Nix-rendered value is forced to `false`; the activation script
-    then re-enables it iff the SOPS-managed key file is readable at
-    activation time. `greptilePluginRequested` is the host opt-in flag
-    (true when extraPlugins lists greptile@claude-plugins-official).
+    then re-enables it iff the host explicitly enables the plugin and the
+    SOPS-managed key file is readable at activation time.
+    `greptilePluginRequested` is the host opt-in flag.
 */
 { lib, osConfig }:
 let

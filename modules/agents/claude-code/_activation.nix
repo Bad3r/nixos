@@ -5,10 +5,10 @@
     - claudeCodeSetup: idempotent jq merge into ~/.claude/settings.json and
       ~/.claude.json, preserving user keys while wholly replacing Nix-managed
       mcpServers entries. The Greptile plugin is toggled at activation time
-      based on whether the SOPS-managed API key file is readable; the loop
-      that follows patches every cached Greptile MCP config to delegate
-      Authorization to the headers helper instead of relying on the
-      `GREPTILE_API_KEY` env var.
+      based on explicit plugin opt-in and whether the SOPS-managed API key
+      file is readable. When enabled, the loop that follows patches cached
+      Greptile MCP configs to delegate Authorization to the headers helper
+      instead of relying on the `GREPTILE_API_KEY` env var.
     - installClaudeCodeViaBun: optional, only when
       programs.claude-code.extended.installMethods.bun.enable is true.
 
@@ -88,21 +88,23 @@ in
     mv "$CLAUDE_SETTINGS_TMP" "$CLAUDE_SETTINGS"
     chmod 600 "$CLAUDE_SETTINGS"
 
-    for greptile_mcp_config in \
-      "$HOME"/.claude/plugins/cache/claude-plugins-official/greptile/*/.mcp.json \
-      "$HOME"/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/greptile/.mcp.json
-    do
-      [ -f "$greptile_mcp_config" ] || continue
-      GREPTILE_MCP_TMP="$(mktemp)"
-      if ! ${pkgs.jq}/bin/jq --arg helper "${greptileHeadersHelperPath}" \
-        '.greptile.headersHelper = $helper | del(.greptile.headers)' \
-        "$greptile_mcp_config" > "$GREPTILE_MCP_TMP"; then
-        echo "ERROR: jq failed to patch Greptile MCP config: $greptile_mcp_config" >&2
-        exit 1
-      fi
-      mv "$GREPTILE_MCP_TMP" "$greptile_mcp_config"
-      chmod 644 "$greptile_mcp_config"
-    done
+    if [ "${greptilePluginRequestedShell}" = "1" ]; then
+      for greptile_mcp_config in \
+        "$HOME"/.claude/plugins/cache/claude-plugins-official/greptile/*/.mcp.json \
+        "$HOME"/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/greptile/.mcp.json
+      do
+        [ -f "$greptile_mcp_config" ] || continue
+        GREPTILE_MCP_TMP="$(mktemp)"
+        if ! ${pkgs.jq}/bin/jq --arg helper "${greptileHeadersHelperPath}" \
+          '.greptile.headersHelper = $helper | del(.greptile.headers)' \
+          "$greptile_mcp_config" > "$GREPTILE_MCP_TMP"; then
+          echo "ERROR: jq failed to patch Greptile MCP config: $greptile_mcp_config" >&2
+          exit 1
+        fi
+        mv "$GREPTILE_MCP_TMP" "$greptile_mcp_config"
+        chmod 644 "$greptile_mcp_config"
+      done
+    fi
 
     # Ensure the file exists
     if [ ! -f "$CLAUDE_CONFIG" ]; then
