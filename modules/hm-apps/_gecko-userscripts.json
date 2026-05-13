@@ -1,0 +1,26 @@
+{
+  "nixpkgs-review-gha": {
+    "repo": "Defelo/nixpkgs-review-gha",
+    "branch": "main",
+    "path": "shortcut.user.js",
+    "rev": "b63b6762cf354c468cb8deaf12ddea257053b36c",
+    "hash": "sha256-tdACiiyQW0OwYreM/MULycuL0QxX20kQwCCJpt5fgjg=",
+    "id": 1,
+    "uuid": "cb37dedd-9092-44f6-8073-8ab7c9431918",
+    "updatedAt": 1777345205000,
+    "installUrl": "https://raw.githubusercontent.com/Defelo/nixpkgs-review-gha/refs/heads/main/shortcut.user.js",
+    "meta": {
+      "include": [],
+      "exclude": [],
+      "match": [
+        "https://github.com/*"
+      ],
+      "excludeMatch": [],
+      "require": [],
+      "grant": [],
+      "resources": {},
+      "name": "nixpkgs-review-gha",
+      "runAt": "document-idle"
+    }
+  }
+}

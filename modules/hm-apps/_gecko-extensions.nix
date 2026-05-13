@@ -53,6 +53,7 @@ let
   stylusId = "{7a7a4a92-a2a0-41d1-9fd7-1e92480d612d}";
   tabStashId = "tab-stash@condordes.net";
   tridactylId = "tridactyl.vim@cmcaine.co.uk";
+  violentmonkeyId = "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}";
 
   # SVG Gobbler is not packaged in the rycee NUR firefox-addons set, so it is
   # delivered via AMO force-install instead. The GUID below comes from the
@@ -80,6 +81,38 @@ let
   librewolfUblockOriginLists = builtins.filter (
     list: !(builtins.elem list disabledLibrewolfLists)
   ) librewolfUblockOriginListData.lists;
+
+  userscripts = builtins.fromJSON (builtins.readFile ./_gecko-userscripts.json);
+  nixpkgsReviewGhaScript = userscripts."nixpkgs-review-gha";
+  nixpkgsReviewGhaScriptId = builtins.toString nixpkgsReviewGhaScript.id;
+  nixpkgsReviewGhaSource = pkgs.fetchurl {
+    name = "nixpkgs-review-gha.user.js";
+    url = "https://raw.githubusercontent.com/${nixpkgsReviewGhaScript.repo}/${nixpkgsReviewGhaScript.rev}/${nixpkgsReviewGhaScript.path}";
+    inherit (nixpkgsReviewGhaScript) hash;
+  };
+  nixpkgsReviewGhaRecord = {
+    config = {
+      enabled = 1;
+      removed = 0;
+      shouldUpdate = 0;
+    };
+    custom = {
+      origInclude = true;
+      origExclude = true;
+      origMatch = true;
+      origExcludeMatch = true;
+      origTag = true;
+      lastInstallURL = nixpkgsReviewGhaScript.installUrl;
+      pathMap = { };
+    };
+    inherit (nixpkgsReviewGhaScript) meta;
+    props = {
+      position = nixpkgsReviewGhaScript.id;
+      inherit (nixpkgsReviewGhaScript) uuid;
+      lastModified = nixpkgsReviewGhaScript.updatedAt;
+      lastUpdated = nixpkgsReviewGhaScript.updatedAt;
+    };
+  };
 
   # uBO "medium mode": block third-party scripts and frames by default.
   # Commonly-used sites are pre-whitelisted; other sites need interactive
@@ -206,6 +239,7 @@ let
     stylus
     tab-stash
     languagetool
+    violentmonkey
     web-archives
     tridactyl
     darkreader
@@ -216,7 +250,6 @@ let
     primaryPackages
     ++ (with firefox-addons; [
       foxyproxy-standard
-      violentmonkey
       wappalyzer
     ]);
 
@@ -291,5 +324,10 @@ in
       "adguard-popup-overlays"
       "adguard-widgets"
     ];
+  };
+
+  extensionStorage."${violentmonkeyId}".settings = {
+    "code:${nixpkgsReviewGhaScriptId}" = builtins.readFile nixpkgsReviewGhaSource;
+    "scr:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaRecord;
   };
 }
