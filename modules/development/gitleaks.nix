@@ -6,7 +6,7 @@ _: {
     {
       files.files = [
         {
-          path_ = ".gitleaks.toml";
+          path = ".gitleaks.toml";
           drv = pkgs.writeText ".gitleaks.toml" ''
             # Inherit the upstream default ruleset and extend with repo-local
             # allowlists for documentation-only directories that contain

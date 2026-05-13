@@ -6,7 +6,7 @@
   ...
 }:
 {
-  imports = [ inputs.files.flakeModules.default ];
+  imports = [ (inputs.files + "/flake-module.nix") ];
 
   options.text = lib.mkOption {
     default = { };
@@ -41,8 +41,8 @@
     text.readme.parts.files =
       let
         files = withSystem (builtins.head config.systems) (psArgs: psArgs.config.files.files);
-        filteredFiles = lib.filter (file: file.path_ != ".treefmt.toml") files;
-        fileList = map (file: "- `${file.path_}`") filteredFiles;
+        filteredFiles = lib.filter (file: file.path != ".treefmt.toml") files;
+        fileList = map (file: "- `${file.path}`") filteredFiles;
         sortedList = lib.naturalSort fileList;
         withHeader = lib.concat [
           # markdown
@@ -60,7 +60,7 @@
       { pkgs, config, ... }:
       let
         # Get the list of managed files for reporting
-        managedFiles = map (f: f.path_) config.files.files;
+        managedFiles = map (f: f.path) config.files.files;
         managedFilesList = builtins.concatStringsSep "\n" (map (f: "  - ${f}") managedFiles);
 
         # Wrap the original writer with verbose output

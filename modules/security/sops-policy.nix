@@ -5,7 +5,7 @@ _: {
     {
       files.files = [
         {
-          path_ = ".sops.yaml";
+          path = ".sops.yaml";
           drv = pkgs.writeText ".sops.yaml" ''
             keys:
               - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf

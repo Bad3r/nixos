@@ -6,7 +6,7 @@ _: {
     {
       files.files = [
         {
-          path_ = ".actrc";
+          path = ".actrc";
           drv = pkgs.writeText ".actrc" ''
             # Map ubuntu-latest to latest LTS (24.04) tag on GHCR
             -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04
