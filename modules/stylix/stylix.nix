@@ -105,9 +105,21 @@ in
             "32@2x/apps" = 64;
             "48@2x/apps" = 96;
           };
+          qogirDarkPanelFixedIconSizes = {
+            "16/panel" = 16;
+            "22/panel" = 22;
+            "24/panel" = 24;
+            "16@2x/panel" = 32;
+            "22@2x/panel" = 44;
+            "24@2x/panel" = 48;
+          };
           qogirDarkScalableIconDirs = [
             "scalable/apps"
             "scalable@2x/apps"
+          ];
+          qogirDarkPanelScalableIconDirs = [
+            "scalable/panel"
+            "scalable@2x/panel"
           ];
           qogirDarkIconDefinitions = [
             {
@@ -124,12 +136,28 @@ in
               source = ./icons/electron-mail-outline.svg;
               names = [ "electron-mail" ];
             }
+            {
+              id = "protonvpn-tray";
+              source = ./icons/protonvpn-tray.svg;
+              names = [ "protonvpn-tray" ];
+              fixedIconSizes = qogirDarkPanelFixedIconSizes;
+              scalableIconDirs = qogirDarkPanelScalableIconDirs;
+            }
+            {
+              id = "udiskie-tray";
+              source = ./icons/udiskie-tray.svg;
+              names = [ "drive-removable-media-usb-panel" ];
+              fixedIconSizes = qogirDarkPanelFixedIconSizes;
+              scalableIconDirs = qogirDarkPanelScalableIconDirs;
+            }
           ];
           qogirDarkIconSet =
             {
               id,
               source,
               names,
+              fixedIconSizes ? qogirDarkFixedIconSizes,
+              scalableIconDirs ? qogirDarkScalableIconDirs,
             }:
             pkgs.runCommand "qogir-dark-${id}-icons"
               {
@@ -158,13 +186,13 @@ in
                   ${lib.concatMapStringsSep "\n" (iconDir: ''
                     mkdir -p "$out/${iconDir}"
                     install -m 444 ${source} "$out/${iconDir}/$iconName.svg"
-                  '') qogirDarkScalableIconDirs}
+                  '') scalableIconDirs}
 
                   ${lib.concatStringsSep "\n" (
                     lib.mapAttrsToList (iconDir: size: ''
                       mkdir -p "$out/${iconDir}"
                       renderIcon ${toString size} ${source} "$out/${iconDir}/$iconName.png"
-                    '') qogirDarkFixedIconSizes
+                    '') fixedIconSizes
                   )}
                 done
               '';
@@ -173,24 +201,32 @@ in
               id,
               source,
               names,
+              fixedIconSizes ? qogirDarkFixedIconSizes,
+              scalableIconDirs ? qogirDarkScalableIconDirs,
             }:
             let
               renderedIcons = qogirDarkIconSet {
-                inherit id source names;
+                inherit
+                  fixedIconSizes
+                  id
+                  names
+                  scalableIconDirs
+                  source
+                  ;
               };
               scalableFiles = lib.concatMap (
                 iconName:
                 map (iconDir: {
                   name = "icons/Qogir-Dark/${iconDir}/${iconName}.svg";
                   value.source = "${renderedIcons}/${iconDir}/${iconName}.svg";
-                }) qogirDarkScalableIconDirs
+                }) scalableIconDirs
               ) names;
               fixedFiles = lib.concatMap (
                 iconName:
                 lib.mapAttrsToList (iconDir: _size: {
                   name = "icons/Qogir-Dark/${iconDir}/${iconName}.png";
                   value.source = "${renderedIcons}/${iconDir}/${iconName}.png";
-                }) qogirDarkFixedIconSizes
+                }) fixedIconSizes
               ) names;
             in
             scalableFiles ++ fixedFiles;

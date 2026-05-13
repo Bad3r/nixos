@@ -55,26 +55,26 @@ across all connected outputs is not supported in a reliable way.
 
 ## Protocol/Themeability Classification
 
-| App       | Current Protocol | Themeability Risk | Notes                                                                                                         |
-| --------- | ---------------- | ----------------- | ------------------------------------------------------------------------------------------------------------- |
-| nm-applet | XEmbed           | Low-Medium        | Running without `--indicator`; links Ayatana indicator libs, but current tray item is XEmbed.                 |
-| udiskie   | XEmbed           | Low               | Uses icon theme name lookup (`Gtk.IconTheme`) and supports custom `icon_names`.                               |
-| steam     | XEmbed           | High              | Tray icon behavior is app-controlled and often not fully theme-driven.                                        |
-| ktailctl  | XEmbed           | Medium            | Qt app; verify whether icon comes from theme name or bundled resource.                                        |
-| flameshot | SNI via bridge   | Medium            | Qt SNI; advertises IconName `flameshot-tray`. Resolved by `snixembed` against the active Gtk theme.           |
-| Remmina   | SNI via bridge   | Medium            | Ayatana SNI; advertises IconName `org.remmina.Remmina-status`. Icon files ship in `hicolor` (status context). |
-| ProtonVPN | SNI via bridge   | Medium            | Exports a StatusNotifierItem; `snixembed` proxies it into the XEmbed tray hosted by `i3bar`.                  |
+| App       | Current Protocol | Themeability Risk | Notes                                                                                                                |
+| --------- | ---------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
+| nm-applet | XEmbed           | Low-Medium        | Running without `--indicator`; links Ayatana indicator libs, but current tray item is XEmbed.                        |
+| udiskie   | XEmbed           | Low               | Uses icon theme name lookup (`Gtk.IconTheme`); local Qogir-Dark override provides `drive-removable-media-usb-panel`. |
+| steam     | XEmbed           | High              | Tray icon behavior is app-controlled and often not fully theme-driven.                                               |
+| ktailctl  | XEmbed           | Medium            | Qt app; verify whether icon comes from theme name or bundled resource.                                               |
+| flameshot | SNI via bridge   | Medium            | Qt SNI; advertises IconName `flameshot-tray`. Resolved by `snixembed` against the active Gtk theme.                  |
+| Remmina   | SNI via bridge   | Medium            | Ayatana SNI; advertises IconName `org.remmina.Remmina-status`. Icon files ship in `hicolor` (status context).        |
+| ProtonVPN | SNI via bridge   | Low-Medium        | Local overlay rewrites tray states to the theme-provided `protonvpn-tray` icon name before `snixembed` proxies it.   |
 
 ## Broken Launcher Icons Found
 
 Installed launcher audit found one broken icon reference:
 
 - Desktop file:
-  - `~/.local/share/applications/dev.heppen.webapps.NewQuickWebApp2293.desktop`
+  - `$XDG_DATA_HOME/applications/dev.heppen.webapps.NewQuickWebApp2293.desktop`
 - App name:
   - `GitHub Notifications`
 - Issue:
-  - `Icon=/home/vx/.local/share/icons/QuickWebApps/NewQuickWebApp2293.svg`
+  - `Icon=$XDG_DATA_HOME/icons/QuickWebApps/NewQuickWebApp2293.svg`
   - Referenced file does not exist.
 
 Fix by either:
@@ -89,7 +89,7 @@ Fix by either:
 2. For SNI-only apps, confirm `snixembed` owns `org.kde.StatusNotifierWatcher`
    before debugging the application itself.
 3. If app uses icon names, override icon names in theme directories (prefer
-   user-local `~/.local/share/icons`).
+   user-local `$XDG_DATA_HOME/icons`).
 4. If app uses bundled bitmap/pixmap assets, use package-level patching
    (`overrideAttrs`, wrapper, patched resources), not direct `/nix/store` edits.
 5. Refresh icon caches and restart the tray app (or relogin/restart i3bar).
@@ -98,12 +98,40 @@ On the i3-based hosts, keep XEmbed-compatible launch mode for native tray apps
 (for example plain `nm-applet`) and use the SNI bridge for apps that only
 publish StatusNotifierItem icons.
 
+## ProtonVPN Tray Icon
+
+Upstream ProtonVPN starts with `IconName = proton-vpn-sign`, then switches tray
+states to bundled absolute SVG paths such as `state-disconnected.svg`. Absolute
+paths bypass Gtk icon-theme lookup, so they do not pick up the Qogir-Dark panel
+style used by `flameshot-tray`.
+
+The local ProtonVPN overlay (`modules/custom-overlays/proton-vpn.nix`) rewrites
+the tray startup and connection-state icons to the theme-provided
+`protonvpn-tray` icon name. `snixembed` then resolves that name through the
+active Gtk icon theme, matching the same color/style path used by themed SNI
+icons such as Flameshot.
+
+The custom `protonvpn-tray` source lives at
+`modules/stylix/icons/protonvpn-tray.svg`.
+
+## udiskie Tray Icon
+
+udiskie looks up tray icons through `Gtk.IconTheme`. Its default `media` icon
+list starts with `drive-removable-media-usb-panel`, then falls back to the
+stock Qogir-Dark removable-device icons.
+
+The custom `drive-removable-media-usb-panel` source lives at
+`modules/stylix/icons/udiskie-tray.svg`. It is derived from
+`~/Downloads/usb.svg` and uses Qogir-Dark's panel text color (`#d3dae3`).
+Its stroke is thickened before rendering so antialiasing does not make the tray
+icon look dimmer than filled panel icons.
+
 ## Bridge Patches
 
 `snixembed` is pinned to upstream 0.3.3 in nixpkgs. The custom overlay
 (`modules/custom-overlays/snixembed.nix`) layers
-`packages/snixembed/icon-resolution.patch` on top. The patch addresses three
-defects in `src/proxyicon.vala`:
+`packages/snixembed/icon-resolution.patch` on top and wraps the binary with SVG
+pixbuf support. The override addresses five defects:
 
 1. `set_icon_pixmap` iterates the ARGB->RGBA conversion with `i += 3` over a
    4-byte buffer. The first pixel converts in place, then every later
@@ -118,6 +146,12 @@ defects in `src/proxyicon.vala`:
    later switches to an absolute SVG path. The guarded pixmap fallback lets Gtk
    render the named/file icon instead of aborting while probing ProtonVPN's
    malformed `IconPixmap`.
+4. ProtonVPN can expose `ToolTip` as an empty string variant instead of the SNI
+   tooltip tuple. The guarded tooltip read avoids aborting while the item is
+   proxied into `i3bar`.
+5. The upstream nixpkgs package is not wrapped with `librsvg`, so gdk-pixbuf
+   cannot decode SVG status icons. The overlay adds `wrapGAppsHook3` and
+   `librsvg`.
 
 Drop the override once upstream `~steef/snixembed` ships a release past
 0.3.3 with the equivalent fixes.

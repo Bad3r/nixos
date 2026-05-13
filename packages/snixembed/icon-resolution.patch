@@ -1,4 +1,4 @@
-Fix three icon-resolution defects in src/proxyicon.vala (snixembed 0.3.3):
+Fix four icon-resolution defects in src/proxyicon.vala (snixembed 0.3.3):
 
   1. set_icon_pixmap iterates the ARGB->RGBA conversion with i += 3
      over a 4-byte-per-pixel buffer. The first pixel converts in
@@ -21,6 +21,12 @@ Fix three icon-resolution defects in src/proxyicon.vala (snixembed 0.3.3):
      instead of the SNI pixmap type, which aborts GLib when snixembed's
      generated D-Bus proxy tries to coerce it. The cached-property
      guard prevents that crash while keeping valid pixmap fallbacks.
+
+  4. ProtonVPN can also publish ToolTip as an empty string variant
+     instead of the SNI tooltip tuple. Reading snixembed's generated
+     tool_tip getter then aborts in GLib's GVariant deserializer before
+     the item is proxied into i3bar. Gate tooltip reads on a cached
+     ToolTip property with the expected tuple type.
 
 Reported against snixembed running on i3bar with the StatusNotifierItem
 items advertised by flameshot ("flameshot-tray"), Remmina
@@ -56,13 +62,43 @@ Upstream: https://git.sr.ht/~steef/snixembed (patches sent / pending).
 
      void set_icon_pixmap(IconPixmap[] pixmaps) {
          if (pixmaps.length == 0) return;
-@@ -115,8 +123,8 @@
-
+@@ -115,10 +123,10 @@
          var pixmap = pixmaps[0]; // TODO: choose the best one
-
+-
++
          // Convert from ARGB to RGBA
 -        for (int i = 0; i < pixmap.width * pixmap.height * 4; i += 3) {
 +        for (int i = 0; i < pixmap.width * pixmap.height * 4; i += 4) {
              var alpha = pixmap.data[i];
              pixmap.data[i] = pixmap.data[i + 1];
              pixmap.data[i + 1] = pixmap.data[i + 2];
+             pixmap.data[i + 2] = pixmap.data[i + 3];
+             pixmap.data[i + 3] = alpha;
+         }
+@@ -127,14 +135,24 @@
+                 true, 8, pixmap.width, pixmap.height, pixmap.width * 4);
+         icon.set_from_pixbuf(pixbuf);
+     }
+-
++
++    bool has_cached_tooltip() {
++        var proxy = item as DBusProxy;
++        if (proxy == null) return false;
++
++        var tooltip = proxy.get_cached_property("ToolTip");
++        return tooltip != null && tooltip.get_type_string() == "(sa(iiay)ss)";
++    }
++
+     void set_tooltip() {
++        if (!has_cached_tooltip()) return;
++
+         var tooltip = item.tool_tip;
+         string title = tooltip.title;
+         string text = tooltip.text;
+-
++
+         if (text != null && text != "") {
+             title += @"\n$(tooltip.text)";
+         }
+         icon.set_tooltip_markup(title);
+     }

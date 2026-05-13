@@ -1,6 +1,6 @@
 # snixembed 0.3.3 (nixpkgs pin) renders SNI tray icons through GTK's
 # `Gtk.StatusIcon`, which delegates raster decoding to gdk-pixbuf.
-# Four defects compose into the symptom that flameshot
+# Five defects compose into the symptom that flameshot
 # ("flameshot-tray"), Remmina ("org.remmina.Remmina-status"), and
 # ProtonVPN render as identical blank squares or fail to register in
 # `i3bar`:
@@ -19,7 +19,10 @@
 #      the guarded pixmap fallback lets Gtk render the named/file icon
 #      instead of aborting while probing ProtonVPN's malformed
 #      `IconPixmap`.
-#   4. The upstream Nix package builds against gtk3 + libdbusmenu
+#   4. ProtonVPN can also expose `ToolTip` as an empty string variant
+#      instead of the SNI tooltip tuple; guard tooltip reads before the
+#      generated Vala proxy coerces that property.
+#   5. The upstream Nix package builds against gtk3 + libdbusmenu
 #      without `wrapGAppsHook3` and without `librsvg` in scope, so
 #      `GDK_PIXBUF_MODULE_FILE` is unset at runtime and gdk-pixbuf
 #      lacks the SVG loader. Modern icon themes (Qogir, Adwaita,
@@ -31,7 +34,7 @@
 #      `libpixbufloader-svg.so`.
 #
 # PR #103 introduced this bridge for ProtonVPN. The source patch covers
-# items 1-3; PR #195 added the librsvg wrapping in item 4. Drop the full
+# items 1-4; PR #195 added the librsvg wrapping in item 5. Drop the full
 # override once upstream ships a release past 0.3.3 with the source fixes
 # and the librsvg dependency in place.
 _:
