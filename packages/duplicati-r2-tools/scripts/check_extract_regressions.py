@@ -524,27 +524,37 @@ def check_include_pattern_normalization() -> None:
           (1, '/bankdata/sub/file.torrent', 101),
           (2, '/bankdata/file.torrent', 102),
           (3, '/bankdata/other.bin', 103),
-          (4, '/bankdata/sub/', -100);
+          (4, '/bankdata/sub/', -100),
+          (5, '/bankdata/sub/deep/file.torrent', 104);
         INSERT INTO FilesetEntry VALUES
           (7, 1),
           (7, 2),
           (7, 3),
-          (7, 4);
+          (7, 4),
+          (7, 5);
         """
     )
 
     def collect(pattern: str) -> list[str]:
+        pattern = extract_mod._normalize_include_pattern(pattern)
         matches = _glob_paths(conn, 7, pattern)
         assert iter(matches) is matches
         return list(matches)
 
     assert collect("*.torrent") == [
         "/bankdata/file.torrent",
+        "/bankdata/sub/deep/file.torrent",
         "/bankdata/sub/file.torrent",
     ]
     assert collect("/bankdata/*.torrent") == ["/bankdata/file.torrent"]
     assert collect("bankdata/*.torrent") == ["/bankdata/file.torrent"]
-    assert collect("/bankdata/**/*.torrent") == ["/bankdata/sub/file.torrent"]
+    assert collect("/bankdata/**/*.torrent") == [
+        "/bankdata/file.torrent",
+        "/bankdata/sub/deep/file.torrent",
+        "/bankdata/sub/file.torrent",
+    ]
+    assert extract_mod._segment_globmatch("/bankdata", "/bankdata/**")
+    assert extract_mod._segment_globmatch("/foo", "/**/foo")
 
 
 def check_include_rejects_output_flag() -> None:

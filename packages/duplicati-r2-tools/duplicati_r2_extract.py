@@ -33,7 +33,7 @@ import urllib.parse
 import zipfile
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Callable
 
 # Self-bootstrap: import the sibling duplicati_r2_common module regardless of
@@ -1595,6 +1595,39 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _segment_globmatch(path: str, pattern: str) -> bool:
+    path_parts = tuple(path.split("/"))
+    pattern_parts = tuple(pattern.split("/"))
+    memo: dict[tuple[int, int], bool] = {}
+
+    def match(pattern_index: int, path_index: int) -> bool:
+        state = (pattern_index, path_index)
+        cached = memo.get(state)
+        if cached is not None:
+            return cached
+        if pattern_index == len(pattern_parts):
+            result = path_index == len(path_parts)
+        elif pattern_parts[pattern_index] == "**":
+            if pattern_index == len(pattern_parts) - 1:
+                result = path_index <= len(path_parts)
+            else:
+                result = any(
+                    match(pattern_index + 1, next_path_index)
+                    for next_path_index in range(path_index, len(path_parts) + 1)
+                )
+        elif path_index == len(path_parts):
+            result = False
+        else:
+            result = fnmatch.fnmatchcase(
+                path_parts[path_index],
+                pattern_parts[pattern_index],
+            ) and match(pattern_index + 1, path_index + 1)
+        memo[state] = result
+        return result
+
+    return match(0, 0)
+
+
 def _glob_paths(
     conn: sqlite3.Connection,
     snapshot_id: int,
@@ -1602,15 +1635,14 @@ def _glob_paths(
 ) -> Iterator[str]:
     """Yield File.Path entries matching ``pattern``.
 
-    Matching strategy: a pattern containing a ``/`` is interpreted as a
-    segment-aware full-path glob (``/data/*.bin`` matches direct children;
-    ``/data/**/*.bin`` matches descendants). A missing leading slash is added
-    so ``data/*.bin`` and ``/data/*.bin`` are equivalent. A pattern with no
-    ``/`` is matched against the file's basename (``*.bin`` matches every
-    ``.bin`` file at any depth). This mirrors how operators typically reach
-    for `find -name` without escaping every prefix.
+    ``pattern`` is expected to be pre-normalized by
+    ``_normalize_include_pattern``. A pattern containing a ``/`` is interpreted
+    as a segment-aware full-path glob (``/data/*.bin`` matches direct children;
+    ``/data/**/*.bin`` matches descendants). A pattern with no ``/`` is matched
+    against the file's basename (``*.bin`` matches every ``.bin`` file at any
+    depth). This mirrors how operators typically reach for `find -name` without
+    escaping every prefix.
     """
-    pattern = _normalize_include_pattern(pattern)
     is_basename_pattern = "/" not in pattern
     cursor = conn.execute(
         """
@@ -1631,7 +1663,7 @@ def _glob_paths(
                 pattern,
             )
         else:
-            matches_pattern = PurePosixPath(row["path"]).match(pattern)
+            matches_pattern = _segment_globmatch(row["path"], pattern)
         if matches_pattern:
             yield row["path"]
 
