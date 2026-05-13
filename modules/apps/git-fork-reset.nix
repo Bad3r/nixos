@@ -13,7 +13,7 @@
     --no-push: Reset locally without force-with-lease pushing to origin.
     --yes: Confirm the destructive reset without an interactive prompt.
     --dry-run: Print the Git operations that would run without changing the repository.
-    --upstream <repo>: Add the upstream remote when missing, accepting owner/repo or GitHub HTTPS URLs.
+    --upstream <repo>: Add the upstream remote when missing, accepting owner/repo, GitHub URLs, or fully qualified Git remotes.
     --upstream-remote <name>: Use a remote name other than upstream.
     --origin-remote <name>: Use a push remote name other than origin.
     -h, --help: Print usage information.
@@ -61,8 +61,8 @@ let
             -y, --yes                 Confirm without an interactive prompt.
             --dry-run                 Print operations without changing state.
             --upstream REPO           Upstream repo to add when the remote is missing.
-                                      Accepts owner/repo, https://github.com/owner/repo,
-                                      or https://github.com/owner/repo.git.
+                                      Accepts owner/repo, GitHub URLs, or fully
+                                      qualified Git remotes.
             --upstream-remote NAME    Upstream remote name. Default: upstream.
             --origin-remote NAME      Push remote name. Default: origin.
             -h, --help                Print this help and exit.
@@ -133,7 +133,13 @@ let
               github.com/*)
                 printf 'https://%s.git\n' "''${input%.git}"
                 ;;
-              */*)
+              *://*|*@*:*)
+                printf '%s\n' "$input"
+                ;;
+              [!./]*/[!./]*)
+                if [[ "$input" == */*/* ]]; then
+                  return 1
+                fi
                 printf 'https://github.com/%s.git\n' "''${input%.git}"
                 ;;
               *)
