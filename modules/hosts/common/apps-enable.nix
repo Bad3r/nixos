@@ -25,10 +25,10 @@ let
       # plugin is uninstalled, or the alias will start exiting non-zero
       # with "no plugin configured" on every invocation.
       "1password-cli".extended.pluginAliases = lib.mkOverride 1100 [
-        "cachix"
-        "gh"
-        "glab"
-        "wrangler"
+        #"cachix"
+        #"gh"
+        #"glab"
+        #"wrangler"
       ];
       "1password-gui-beta".extended.enable = lib.mkOverride 1100 true;
       act.extended.enable = lib.mkOverride 1100 true;
