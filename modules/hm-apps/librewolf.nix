@@ -51,22 +51,13 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.librewolf = {
           enable = true;
-          # LibreWolf builds use the XDG-compliant profile root
-          # ~/.config/librewolf/librewolf regardless of MOZ_LEGACY_PROFILES,
-          # but Home Manager's LibreWolf module still defaults to ~/.librewolf.
-          # Point HM at the path LibreWolf actually reads so declarative
-          # profile seeding reaches the running browser.
-          # Keep prefs under profiles.*.settings: HM still writes top-level
-          # settings to ~/.librewolf/librewolf.overrides.cfg regardless of
-          # configPath.
+          # Point HM at the path LibreWolf reads so declarative profile
+          # seeding reaches the running browser.
           configPath = ".config/librewolf/librewolf";
-          # Bake the Tridactyl native messaging host into the LibreWolf
-          # wrapper. See modules/hm-apps/firefox.nix for the rationale;
-          # HM's `home.packages` directory is not on the Mozilla
-          # native-messaging discovery path.
-          package = osConfig.programs.librewolf.extended.package.override {
-            nativeMessagingHosts = [ pkgs.tridactyl-native ];
-          };
+          package = osConfig.programs.librewolf.extended.package;
+          # See modules/hm-apps/firefox.nix for why this uses the browser
+          # native-messaging option instead of `home.packages`.
+          nativeMessagingHosts = [ pkgs.tridactyl-native ] ++ gecko.nativeMessagingHosts;
 
           inherit (gecko) policies;
 

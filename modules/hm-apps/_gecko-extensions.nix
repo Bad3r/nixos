@@ -17,7 +17,10 @@
     * Stays underscore-prefixed so automatic module discovery does not import it.
 */
 
-{ firefox-addons }:
+{
+  firefox-addons,
+  pkgs,
+}:
 let
   # AMO's `/latest/<slug>/latest.xpi` endpoint accepts a URL-safe slug and
   # redirects to the current signed XPI. The extension ID (`uBlock0@...`,
@@ -32,6 +35,19 @@ let
   onePasswordId = "{d634138d-c276-4fc8-924b-40a0ea21d284}";
   onePasswordSlug = "1password-x-password-manager";
   onePasswordInstallUrl = "${amoLatestBaseUrl}${onePasswordSlug}/latest.xpi";
+  # Browser-side trust manifest for the managed 1Password extension. The
+  # 1Password GUI module owns the /run/wrappers/bin target.
+  onePasswordNativeMessagingHost =
+    pkgs.writeTextDir "lib/mozilla/native-messaging-hosts/com.1password.1password.json"
+      (
+        builtins.toJSON {
+          name = "com.1password.1password";
+          description = "1Password BrowserSupport";
+          path = "/run/wrappers/bin/1Password-BrowserSupport";
+          type = "stdio";
+          allowed_extensions = [ onePasswordId ];
+        }
+      );
 
   raindropId = "jid0-adyhmvsP91nUO8pRv0Mn2VKeB84@jetpack";
   stylusId = "{7a7a4a92-a2a0-41d1-9fd7-1e92480d612d}";
@@ -224,6 +240,8 @@ in
 
   inherit primaryPackages workPackages ephemeralPackages;
 
+  nativeMessagingHosts = [ onePasswordNativeMessagingHost ];
+
   sidebarSettings =
     let
       sidebarExtensionIds = [
@@ -235,8 +253,6 @@ in
       sidebarTools = [
         raindropId
         tabStashId
-        "aichat"
-        stylusId
         tridactylId
       ];
     in
