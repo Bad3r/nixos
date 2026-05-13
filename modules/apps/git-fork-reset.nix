@@ -201,6 +201,9 @@ let
                 ;;
               --upstream-remote=*)
                 upstream_remote="''${1#*=}"
+                if [[ -z "$upstream_remote" ]]; then
+                  die '--upstream-remote= requires a non-empty argument'
+                fi
                 shift
                 ;;
               --origin-remote)
@@ -212,6 +215,9 @@ let
                 ;;
               --origin-remote=*)
                 origin_remote="''${1#*=}"
+                if [[ -z "$origin_remote" ]]; then
+                  die '--origin-remote= requires a non-empty argument'
+                fi
                 shift
                 ;;
               -h|--help)
