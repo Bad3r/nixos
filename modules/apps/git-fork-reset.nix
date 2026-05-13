@@ -90,14 +90,6 @@ let
             printf '\n'
           }
 
-          run() {
-            if $dry_run; then
-              print_command "$@"
-            else
-              "$@"
-            fi
-          }
-
           confirm_reset() {
             if $assume_yes; then
               return 0
@@ -248,7 +240,10 @@ let
           branch="$(git symbolic-ref --quiet --short HEAD)" \
             || die 'not on a branch; refusing to reset detached HEAD'
 
+          upstream_missing=false
+          upstream_url=""
           if ! git remote get-url "$upstream_remote" >/dev/null 2>&1; then
+            upstream_missing=true
             if [[ -z "$upstream_input" ]]; then
               if [[ ! -t 0 ]]; then
                 die "no $upstream_remote remote found; pass --upstream"
@@ -260,7 +255,6 @@ let
 
             upstream_url="$(normalize_upstream_url "$upstream_input")" \
               || die "invalid upstream repo: $upstream_input"
-            run git remote add "$upstream_remote" "$upstream_url"
           elif [[ -n "$upstream_input" ]]; then
             printf 'git fork-reset: %s remote already exists; ignoring --upstream\n' "$upstream_remote" >&2
           fi
@@ -272,17 +266,10 @@ let
           fetch_ref="+refs/heads/$branch:refs/remotes/$upstream_remote/$branch"
           target_ref="refs/remotes/$upstream_remote/$branch"
 
-          run git fetch "$upstream_remote" "$fetch_ref"
-
-          if $dry_run; then
-            if git rev-parse --verify --quiet "$target_ref^{commit}" >/dev/null; then
-              target_commit="$(git rev-parse --short "$target_ref")"
-            else
-              target_commit='unknown until fetch'
-            fi
+          if git rev-parse --verify --quiet "$target_ref^{commit}" >/dev/null; then
+            target_commit="$(git rev-parse --short "$target_ref")"
           else
-            target_commit="$(git rev-parse --short "$target_ref")" \
-              || die "fetched branch was not available at $target_ref"
+            target_commit='unknown until fetch'
           fi
 
           dirty_output="$(git status --porcelain --untracked-files=all --ignored=matching)"
@@ -309,6 +296,10 @@ let
           stash_message="git-fork-reset backup: $branch $timestamp"
 
           if $dry_run; then
+            if $upstream_missing; then
+              print_command git remote add "$upstream_remote" "$upstream_url"
+            fi
+            print_command git fetch "$upstream_remote" "$fetch_ref"
             if $has_local_state; then
               print_command git stash push --all --message "$stash_message"
             fi
@@ -321,6 +312,15 @@ let
           fi
 
           confirm_reset
+
+          if $upstream_missing; then
+            git remote add "$upstream_remote" "$upstream_url"
+          fi
+
+          git fetch "$upstream_remote" "$fetch_ref"
+          target_commit="$(git rev-parse --short "$target_ref")" \
+            || die "fetched branch was not available at $target_ref"
+          printf 'Fetched target: %s (%s)\n' "$target_ref" "$target_commit"
 
           if $has_local_state; then
             stash_before="$(git rev-parse --verify --quiet refs/stash || true)"
