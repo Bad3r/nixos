@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import base64
 import collections
+import contextlib
 import hashlib
 import io
 import json
@@ -51,6 +52,15 @@ def expect_exit(code: int, fn: Callable[..., object], *args: object) -> None:
         raise AssertionError(f"expected SystemExit({code})")
 
 
+def expect_exit_stderr_contains(
+    code: int, needle: str, fn: Callable[..., object], *args: object
+) -> None:
+    stderr = io.StringIO()
+    with contextlib.redirect_stderr(stderr):
+        expect_exit(code, fn, *args)
+    assert needle in stderr.getvalue()
+
+
 def check_cache_recovery(work: Path) -> None:
     cache_root = work / "unit-cache"
     seen_fetches: list[str] = []
@@ -76,10 +86,36 @@ def check_cache_cap_on_startup(work: Path) -> None:
     os.utime(old, (1, 1))
     os.utime(new, (2, 2))
 
-    EncryptedCache(str(cap_root), 100)
+    cache = EncryptedCache(str(cap_root), 100)
 
     assert not old.exists()
     assert new.exists()
+    assert cache._used_bytes == 60
+
+
+def check_cache_partial_removal_failure_message(work: Path) -> None:
+    cache_root = work / "partial-remove-fail-cache"
+    cache_root.mkdir()
+    partial = cache_root / "vol1.aes.partial"
+    partial.write_bytes(b"stale")
+    real_unlink = Path.unlink
+
+    def fail_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        if os.fspath(self) == os.fspath(partial):
+            raise PermissionError("synthetic stale partial removal failure")
+        real_unlink(self, *args, **kwargs)
+
+    Path.unlink = fail_unlink
+    try:
+        expect_exit_stderr_contains(
+            EXIT_OPEN_ERR,
+            "failed to remove stale cache partial",
+            EncryptedCache,
+            str(cache_root),
+            1024,
+        )
+    finally:
+        Path.unlink = real_unlink
 
 
 def check_volume_name_rejection(work: Path) -> None:
@@ -288,6 +324,7 @@ def check_cache_partial_symlink_not_followed(work: Path) -> None:
     cache = EncryptedCache(str(cache_root), 1024)
     assert cache.get("vol1.aes", lambda _name: b"encrypted") == b"encrypted"
     assert victim.read_text(encoding="utf-8") == "unchanged"
+    assert not (cache_root / "vol1.aes.partial").exists()
     assert (cache_root / "vol1.aes").read_bytes() == b"encrypted"
 
 
@@ -528,8 +565,8 @@ def check_include_rejects_output_flag() -> None:
 
 def check_open_volume_lru() -> None:
     class DummyCache:
-        def get(self, name: str, _fetcher: object) -> bytes:
-            return b"encrypted-" + name.encode("ascii")
+        def get_with_status(self, name: str, _fetcher: object) -> tuple[bytes, bool]:
+            return b"encrypted-" + name.encode("ascii"), False
 
     class DummySource:
         def fetch(self, name: str) -> bytes:
@@ -576,6 +613,62 @@ def check_open_volume_lru() -> None:
         extract_mod.OpenedVolume = original_opened_volume
 
 
+def check_open_volume_evicts_corrupt_cache_hit(work: Path) -> None:
+    cache_root = work / "corrupt-hit-cache"
+    cache_root.mkdir()
+    (cache_root / "vol1.aes").write_bytes(b"bad")
+    cache = EncryptedCache(str(cache_root), 1024)
+    fetches: list[str] = []
+
+    class DummySource:
+        def fetch(self, name: str) -> bytes:
+            fetches.append(name)
+            return b"good"
+
+    class DummyDecrypter:
+        def decrypt(self, encrypted: bytes, name: str) -> bytes:
+            if encrypted == b"bad":
+                raise extract_mod.AesDecryptError(f"bad cache hit for {name}")
+            return encrypted
+
+    class DummyOpenedVolume:
+        def __init__(
+            self,
+            name: str,
+            decrypted: bytes,
+            _expected_blocksize: int | None,
+            _expected_block_hash: str,
+            _expected_file_hash: str,
+        ):
+            self.name = name
+            self.decrypted = decrypted
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    original_opened_volume = extract_mod.OpenedVolume
+    extract_mod.OpenedVolume = DummyOpenedVolume
+    try:
+        extractor = object.__new__(Extractor)
+        extractor.cache = cache
+        extractor.source = DummySource()
+        extractor.decrypter = DummyDecrypter()
+        extractor.blocksize = 1024
+        extractor.block_hash_algo = "SHA256"
+        extractor.file_hash_algo = "SHA256"
+        extractor._open_volumes = collections.OrderedDict()
+
+        opened = extractor._open_volume("vol1.aes")
+
+        assert opened.decrypted == b"good"
+        assert fetches == ["vol1.aes"]
+        assert (cache_root / "vol1.aes").read_bytes() == b"good"
+        assert cache._used_bytes == 4
+    finally:
+        extract_mod.OpenedVolume = original_opened_volume
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--work", required=True, type=Path)
@@ -583,6 +676,7 @@ def main(argv: list[str] | None = None) -> int:
 
     check_cache_recovery(args.work)
     check_cache_cap_on_startup(args.work)
+    check_cache_partial_removal_failure_message(args.work)
     check_volume_name_rejection(args.work)
     check_file_source_requires_absolute_path(args.work)
     check_bucket_layout_uses_raw_subpath()
@@ -603,6 +697,7 @@ def main(argv: list[str] | None = None) -> int:
     check_include_pattern_normalization()
     check_include_rejects_output_flag()
     check_open_volume_lru()
+    check_open_volume_evicts_corrupt_cache_hit(args.work)
     return 0
 
 

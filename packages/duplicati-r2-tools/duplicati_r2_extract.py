@@ -518,6 +518,7 @@ class EncryptedCache:
         self.bytes_fetched = 0
         self.fetches = 0
         self._order: collections.OrderedDict[str, int] = collections.OrderedDict()
+        self._used_bytes = 0
         if cap_bytes > 0:
             self._ensure_root()
             self._scan_existing()
@@ -541,40 +542,95 @@ class EncryptedCache:
         entries: list[tuple[float, str, int]] = []
         for entry in self.root.iterdir():
             try:
+                if entry.name.endswith(".partial"):
+                    try:
+                        entry.unlink()
+                    except FileNotFoundError:
+                        pass
+                    except OSError as exc:
+                        fail(
+                            f"failed to remove stale cache partial {entry}: {exc}",
+                            EXIT_OPEN_ERR,
+                        )
+                    continue
                 if not entry.is_file():
                     continue
                 st = entry.stat()
             except FileNotFoundError:
                 continue
+            except OSError as exc:
+                fail(f"failed to inspect cache entry {entry}: {exc}", EXIT_OPEN_ERR)
             entries.append((st.st_mtime, entry.name, st.st_size))
         for _mtime, name, size in sorted(entries):
-            self._order[name] = size
+            self._remember(name, size)
         self._evict_until_room(0)
 
+    def _remember(self, volume_name: str, size: int) -> None:
+        previous = self._order.get(volume_name)
+        if previous is not None:
+            self._used_bytes -= previous
+        self._order[volume_name] = size
+        self._used_bytes += size
+
+    def _forget(self, volume_name: str) -> bool:
+        size = self._order.pop(volume_name, None)
+        if size is None:
+            return False
+        self._used_bytes -= size
+        return True
+
     def _evict_until_room(self, incoming_size: int) -> None:
-        used = sum(self._order.values())
-        while used + incoming_size > self.cap_bytes and self._order:
+        while self._used_bytes + incoming_size > self.cap_bytes and self._order:
             name, n = self._order.popitem(last=False)
             try:
                 (self.root / name).unlink()
             except FileNotFoundError:
                 pass
-            used -= n
+            except OSError as exc:
+                fail(
+                    f"failed to evict cached volume {self.root / name}: {exc}",
+                    EXIT_OPEN_ERR,
+                )
+            self._used_bytes -= n
+
+    def evict(self, volume_name: str) -> bool:
+        validate_volume_name(volume_name)
+        known = self._forget(volume_name)
+        removed = False
+        try:
+            (self.root / volume_name).unlink()
+            removed = True
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            fail(
+                f"failed to evict cached volume {self.root / volume_name}: {exc}",
+                EXIT_OPEN_ERR,
+            )
+        return known or removed
 
     def get(self, volume_name: str, fetcher: Callable[[str], bytes]) -> bytes:
+        data, _cache_hit = self.get_with_status(volume_name, fetcher)
+        return data
+
+    def get_with_status(
+        self,
+        volume_name: str,
+        fetcher: Callable[[str], bytes],
+    ) -> tuple[bytes, bool]:
         validate_volume_name(volume_name)
         if self.cap_bytes <= 0:
             data = fetcher(volume_name)
             self.bytes_fetched += len(data)
             self.fetches += 1
-            return data
+            return data, False
         if volume_name in self._order:
             # Touch: move to end (most recently used).
             self._order.move_to_end(volume_name)
             try:
-                return (self.root / volume_name).read_bytes()
+                return (self.root / volume_name).read_bytes(), True
             except FileNotFoundError:
-                self._order.pop(volume_name, None)
+                self._forget(volume_name)
             except OSError as exc:
                 fail(
                     f"failed to read cached volume {self.root / volume_name}: {exc}",
@@ -587,7 +643,7 @@ class EncryptedCache:
         size = len(data)
         if size > self.cap_bytes:
             # Single object exceeds cache cap; bypass cache for it.
-            return data
+            return data, False
         self._evict_until_room(size)
         self._ensure_root()
         target = self.root / volume_name
@@ -611,13 +667,17 @@ class EncryptedCache:
         with os.fdopen(fd, "wb") as fh:
             fh.write(data)
         os.replace(tmp, target)
-        self._order[volume_name] = size
-        return data
+        self._remember(volume_name, size)
+        return data, False
 
 
 # ---------------------------------------------------------------------------
 # AES decrypter
 # ---------------------------------------------------------------------------
+
+
+class AesDecryptError(Exception):
+    pass
 
 
 class AesDecrypter:
@@ -642,7 +702,9 @@ class AesDecrypter:
             # or any "corrupted" failure mode; all of those are data errors,
             # not user errors. Surface the message verbatim alongside the
             # offending volume name (loud-failure contract per docs).
-            fail(f"AES decrypt failed for {volume_name}: {exc}", EXIT_DATA_ERR)
+            raise AesDecryptError(
+                f"AES decrypt failed for {volume_name}: {exc}"
+            ) from exc
         return plain.getvalue()
 
 
@@ -1006,8 +1068,22 @@ class Extractor:
         if cached is not None:
             self._open_volumes.move_to_end(volume_name)
             return cached
-        encrypted = self.cache.get(volume_name, self.source.fetch)
-        decrypted = self.decrypter.decrypt(encrypted, volume_name)
+        encrypted, cache_hit = self.cache.get_with_status(
+            volume_name, self.source.fetch
+        )
+        try:
+            decrypted = self.decrypter.decrypt(encrypted, volume_name)
+        except AesDecryptError as exc:
+            if not cache_hit or not self.cache.evict(volume_name):
+                fail(str(exc), EXIT_DATA_ERR)
+            encrypted, _cache_hit = self.cache.get_with_status(
+                volume_name,
+                self.source.fetch,
+            )
+            try:
+                decrypted = self.decrypter.decrypt(encrypted, volume_name)
+            except AesDecryptError as retry_exc:
+                fail(str(retry_exc), EXIT_DATA_ERR)
         vol = OpenedVolume(
             volume_name,
             decrypted,
