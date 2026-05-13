@@ -28,7 +28,9 @@ let
   };
   geckoSearch = import ./_gecko-search.nix { };
   geckoContainers = import ./_gecko-containers.nix { };
-  geckoExtensions = import ./_gecko-extensions.nix { inherit firefox-addons; };
+  geckoExtensions = import ./_gecko-extensions.nix {
+    inherit firefox-addons pkgs;
+  };
   geckoPolicies = import ./_gecko-policies.nix { };
 
   policies = lib.recursiveUpdate geckoPolicies.policies geckoExtensions.extensionPolicies;
@@ -55,6 +57,7 @@ in
 {
   inherit mkProfile policies;
   inherit (geckoExtensions)
+    nativeMessagingHosts
     primaryPackages
     workPackages
     ephemeralPackages

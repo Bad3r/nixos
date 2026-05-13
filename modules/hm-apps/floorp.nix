@@ -79,13 +79,10 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.floorp = {
           enable = true;
-          # Bake the Tridactyl native messaging host into the Floorp
-          # wrapper. See modules/hm-apps/firefox.nix for the why; the
-          # short version is that HM's `home.packages` directory is not
-          # on Firefox's native-messaging discovery path.
-          package = osConfig.programs.floorp.extended.package.override {
-            nativeMessagingHosts = [ pkgs.tridactyl-native ];
-          };
+          package = osConfig.programs.floorp.extended.package;
+          # See modules/hm-apps/firefox.nix for why this uses the browser
+          # native-messaging option instead of `home.packages`.
+          nativeMessagingHosts = [ pkgs.tridactyl-native ] ++ gecko.nativeMessagingHosts;
 
           inherit (gecko) policies;
 

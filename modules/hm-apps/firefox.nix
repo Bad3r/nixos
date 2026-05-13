@@ -38,16 +38,11 @@ _: {
           # Firefox ignores. Pin to the legacy path so HM writes where
           # Firefox reads.
           configPath = ".mozilla/firefox";
-          # Bake the Tridactyl native messaging host into the Firefox
-          # wrapper so its manifest lands under
-          # `$out/lib/mozilla/native-messaging-hosts/` (one of the
-          # directories Firefox actually searches). Installing
-          # `pkgs.tridactyl-native` via `home.packages` would put the
-          # manifest in `~/.nix-profile/...`, which Firefox does not
-          # discover.
-          package = osConfig.programs.firefox.extended.package.override {
-            nativeMessagingHosts = [ pkgs.tridactyl-native ];
-          };
+          package = osConfig.programs.firefox.extended.package;
+          # `home.packages` is not on Firefox's native-messaging discovery
+          # path. Use HM's browser-native option so manifests land in
+          # ~/.mozilla/native-messaging-hosts.
+          nativeMessagingHosts = [ pkgs.tridactyl-native ] ++ gecko.nativeMessagingHosts;
 
           inherit (gecko) policies;
 
