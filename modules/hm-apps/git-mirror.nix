@@ -1,5 +1,7 @@
 /*
-  Syncs GitHub repositories to a flat /data/git/{owner}-{repo} structure.
+  Syncs Git repositories to a flat /data/git structure.
+  GitHub owner/repo specs use /data/git/{owner}-{repo}; URL specs include
+  the normalized host prefix, e.g. /data/git/codeberg-librewolf-settings.
   Preserves local work via stash/backup before resetting to upstream.
 */
 {
@@ -25,11 +27,45 @@
         text = ''
           set -eu
           spec="$1"
-          dir="$GIT_MIRROR_ROOT/$(printf '%s' "$spec" | tr '/' '-')"
-          url="https://github.com/$spec.git"
           max_backups="$GIT_MIRROR_MAX_BACKUPS"
 
           log() { printf '%s %s\n' "$(date -Is)" "$*" >&2; }
+
+          url_to_dir_name() {
+            printf '%s\n' "$1" | awk '
+              {
+                value = $0
+                sub(/^[[:alpha:]][[:alnum:].+-]*:\/\//, "", value)
+                sub(/[?#].*$/, "", value)
+                sub(/\/$/, "", value)
+                sub(/\.git$/, "", value)
+                count = split(value, parts, "/")
+                host = parts[1]
+                sub(/^www\./, "", host)
+                sub(/\.(com|org|net)$/, "", host)
+                output = host
+                for (i = 2; i <= count; i++) {
+                  if (parts[i] != "") {
+                    output = output "-" parts[i]
+                  }
+                }
+                gsub(/[^[:alnum:]._-]/, "-", output)
+                gsub(/-+/, "-", output)
+                gsub(/^-|-$/, "", output)
+                print output
+              }'
+          }
+
+          case "$spec" in
+            http://*|https://*)
+              url="$spec"
+              dir="$GIT_MIRROR_ROOT/$(url_to_dir_name "$spec")"
+              ;;
+            *)
+              url="https://github.com/$spec.git"
+              dir="$GIT_MIRROR_ROOT/$(printf '%s' "$spec" | tr '/' '-')"
+              ;;
+          esac
 
           log "$spec: syncing"
 
@@ -103,7 +139,7 @@
         root = lib.mkOption {
           type = lib.types.str;
           default = "/data/git";
-          description = "Directory for mirrored repos (flat {owner}-{repo} structure).";
+          description = "Directory for mirrored repositories.";
         };
 
         repos = lib.mkOption {
@@ -117,8 +153,9 @@
             "better-auth/better-auth"
             "openai/codex"
             "cachix/git-hooks.nix"
+            "https://codeberg.org/librewolf/settings.git"
           ];
-          description = "GitHub repos to mirror (owner/repo format).";
+          description = "Repositories to mirror as GitHub owner/repo shorthand or full HTTP(S) Git URLs.";
         };
 
         maxBackups = lib.mkOption {

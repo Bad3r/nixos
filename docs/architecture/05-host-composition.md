@@ -83,7 +83,7 @@ Every host follows the same shape: each `modules/<host>/*.nix` file extends `con
 | `modules/tpnix/power.nix`                | tpnix power management (`powerprofilesctl` backend)                      |
 | `modules/tpnix/services.nix`             | Service-level host behavior                                              |
 
-Cross-host baselines (default-apps, nix-ld, sudo, zsh, ssh, nix-settings,
+Cross-host baselines (default-apps, mirrors, nix-ld, sudo, zsh, ssh, nix-settings,
 nix-substituters, packages, home-manager-apps, virtualization, ...) live in
 `modules/hosts/common/` and contribute to `flake.nixosModules.hosts-common`.
 The host constructor imports that aggregate before each host-specific module

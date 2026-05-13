@@ -43,6 +43,7 @@ let
           "i3/i3.github.io"
 
           # Applications
+          "https://codeberg.org/librewolf/settings.git"
           "better-auth/better-auth"
           "cloudflare/workers-sdk"
           "duplicati/duplicati"

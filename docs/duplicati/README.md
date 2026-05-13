@@ -56,7 +56,7 @@ Both are auto-installed on every host where `services.duplicati-r2.stateDirReada
 
 Cross-reference: the host composition pattern that imports this module is described in [../architecture/05-host-composition.md](../architecture/05-host-composition.md).
 
-Upstream documentation: the [`duplicati/documentation`](https://github.com/duplicati/documentation) source is mirrored locally at `/data/git/duplicati-documentation` for offline lookup of `duplicati-cli` flags, manifest fields, and the backup format. Sync is managed per host via `programs.gitMirror.repos`; see [../reference/local-mirrors.md](../reference/local-mirrors.md).
+Upstream documentation: the [`duplicati/documentation`](https://github.com/duplicati/documentation) source is mirrored locally at `/data/git/duplicati-documentation` for offline lookup of `duplicati-cli` flags, manifest fields, and the backup format. Sync is managed through the shared `programs.gitMirror.repos` list; see [../reference/local-mirrors.md](../reference/local-mirrors.md).
 
 ## Operating invariants
 
