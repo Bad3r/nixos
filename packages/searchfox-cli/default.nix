@@ -51,6 +51,6 @@ rustPlatform.buildRustPackage rec {
       mit
     ];
     mainProgram = "searchfox-cli";
-    platforms = lib.platforms.unix;
+    platforms = lib.platforms.linux;
   };
 }

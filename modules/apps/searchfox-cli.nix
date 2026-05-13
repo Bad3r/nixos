@@ -1,7 +1,7 @@
 /*
   Package: searchfox-cli
   Description: Command-line interface for searching Mozilla codebases through searchfox.org.
-  Homepage: nil
+  Homepage: https://github.com/padenot/searchfox-cli
   Documentation: https://github.com/padenot/searchfox-cli#readme
   Repository: https://github.com/padenot/searchfox-cli
 
