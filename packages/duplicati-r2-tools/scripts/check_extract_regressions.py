@@ -573,7 +573,6 @@ def check_include_pattern_normalization() -> None:
     )
 
     def collect(pattern: str) -> list[str]:
-        pattern = extract_mod._normalize_include_pattern(pattern)
         matches = _glob_paths(conn, 7, pattern)
         assert iter(matches) is matches
         return list(matches)
@@ -584,7 +583,6 @@ def check_include_pattern_normalization() -> None:
         "/bankdata/sub/file.torrent",
     ]
     assert collect("/bankdata/*.torrent") == ["/bankdata/file.torrent"]
-    assert collect("bankdata/*.torrent") == ["/bankdata/file.torrent"]
     assert collect("/bankdata/**/*.torrent") == [
         "/bankdata/file.torrent",
         "/bankdata/sub/deep/file.torrent",
@@ -592,6 +590,82 @@ def check_include_pattern_normalization() -> None:
     ]
     assert extract_mod._segment_globmatch("/bankdata", "/bankdata/**")
     assert extract_mod._segment_globmatch("/foo", "/**/foo")
+
+
+def check_main_normalizes_include_pattern(work: Path) -> None:
+    db = work / "main-normalizes-include.sqlite"
+    conn = sqlite3.connect(db)
+    conn.executescript(
+        """
+        CREATE TABLE Configuration (
+          Key TEXT,
+          Value TEXT
+        );
+        CREATE TABLE Fileset (
+          ID INTEGER PRIMARY KEY,
+          Timestamp INTEGER,
+          IsFullBackup INTEGER
+        );
+        INSERT INTO Configuration VALUES ('Version', '19');
+        INSERT INTO Fileset VALUES (7, 1700000000, 1);
+        """
+    )
+    conn.close()
+
+    source_root = work / "main-normalizes-source"
+    output_dir = work / "main-normalizes-out"
+    cache_root = work / "main-normalizes-cache"
+    source_root.mkdir()
+    passphrase_env = "DUPLICATI_R2_TEST_PASSPHRASE"
+    old_passphrase = os.environ.get(passphrase_env)
+    captured: list[tuple[int, str]] = []
+    real_aes_decrypter = extract_mod.AesDecrypter
+    real_glob_paths = extract_mod._glob_paths
+
+    class DummyAesDecrypter:
+        def __init__(self, _passphrase: str):
+            pass
+
+    def capture_glob_paths(
+        _conn: sqlite3.Connection,
+        snapshot_id: int,
+        pattern: str,
+    ) -> list[str]:
+        captured.append((snapshot_id, pattern))
+        return []
+
+    os.environ[passphrase_env] = "test-passphrase"
+    extract_mod.AesDecrypter = DummyAesDecrypter
+    extract_mod._glob_paths = capture_glob_paths
+    try:
+        expect_exit_stderr_contains(
+            EXIT_OPEN_ERR,
+            "normalized to '/bankdata/*.torrent'",
+            extract_mod.main,
+            [
+                "test",
+                "--db",
+                str(db),
+                "--source",
+                f"file://{source_root}",
+                "--passphrase-env",
+                passphrase_env,
+                "--cache-dir",
+                str(cache_root),
+                "--include",
+                "bankdata/*.torrent",
+                "--output-dir",
+                str(output_dir),
+            ],
+        )
+        assert captured == [(7, "/bankdata/*.torrent")]
+    finally:
+        extract_mod.AesDecrypter = real_aes_decrypter
+        extract_mod._glob_paths = real_glob_paths
+        if old_passphrase is None:
+            os.environ.pop(passphrase_env, None)
+        else:
+            os.environ[passphrase_env] = old_passphrase
 
 
 def check_include_rejects_output_flag() -> None:
@@ -743,6 +817,7 @@ def main(argv: list[str] | None = None) -> int:
     check_blocklist_lookup_batches_sql_vars()
     check_blocksetentry_invalid_hash_exit_code()
     check_include_pattern_normalization()
+    check_main_normalizes_include_pattern(args.work)
     check_include_rejects_output_flag()
     check_open_volume_lru()
     check_open_volume_evicts_corrupt_cache_hit(args.work)
