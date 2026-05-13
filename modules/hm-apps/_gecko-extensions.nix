@@ -85,11 +85,7 @@ let
   userscripts = builtins.fromJSON (builtins.readFile ./_gecko-userscripts.json);
   nixpkgsReviewGhaScript = userscripts."nixpkgs-review-gha";
   nixpkgsReviewGhaScriptId = builtins.toString nixpkgsReviewGhaScript.id;
-  nixpkgsReviewGhaSource = pkgs.fetchurl {
-    name = "nixpkgs-review-gha.user.js";
-    url = "https://raw.githubusercontent.com/${nixpkgsReviewGhaScript.repo}/${nixpkgsReviewGhaScript.rev}/${nixpkgsReviewGhaScript.path}";
-    inherit (nixpkgsReviewGhaScript) hash;
-  };
+  nixpkgsReviewGhaCode = builtins.readFile (./. + "/${nixpkgsReviewGhaScript.sourceFile}");
   nixpkgsReviewGhaRecord = {
     config = {
       enabled = 1;
@@ -327,7 +323,7 @@ in
   };
 
   extensionStorage."${violentmonkeyId}".settings = {
-    "code:${nixpkgsReviewGhaScriptId}" = builtins.readFile nixpkgsReviewGhaSource;
+    "code:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaCode;
     "scr:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaRecord;
   };
 }

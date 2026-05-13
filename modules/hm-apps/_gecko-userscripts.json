@@ -3,6 +3,7 @@
     "repo": "Defelo/nixpkgs-review-gha",
     "branch": "main",
     "path": "shortcut.user.js",
+    "sourceFile": "_gecko-nixpkgs-review-gha.user.js",
     "rev": "b63b6762cf354c468cb8deaf12ddea257053b36c",
     "hash": "sha256-tdACiiyQW0OwYreM/MULycuL0QxX20kQwCCJpt5fgjg=",
     "id": 1,

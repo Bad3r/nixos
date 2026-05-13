@@ -117,11 +117,21 @@ def date_to_epoch_ms(value: str) -> int:
     return int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() * 1000)
 
 
+def save_script_source(path: Path, code: str) -> bool:
+    """Write a vendored userscript source file when its content changed."""
+    if path.exists() and path.read_text() == code:
+        return False
+
+    path.write_text(code)
+    return True
+
+
 def update_pin(name: str, pin: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     """Refresh one userscript pin."""
     repo = cast("str", pin["repo"])
     branch = cast("str", pin["branch"])
     path = cast("str", pin["path"])
+    source_file = cast("str", pin["sourceFile"])
     current_rev = cast("str", pin["rev"])
 
     commit = github_path_commit(repo, branch, path)
@@ -136,6 +146,7 @@ def update_pin(name: str, pin: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     print(f"  Current: {current_rev[:12]} {pin['hash']}")
     print(f"  Latest:  {latest_rev[:12]} {latest_hash}")
 
+    source_changed = save_script_source(PINS_FILE.parent / source_file, code)
     new_pin = {
         **pin,
         "rev": latest_rev,
@@ -143,7 +154,7 @@ def update_pin(name: str, pin: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         "updatedAt": date_to_epoch_ms(commit_date),
         "meta": latest_meta,
     }
-    changed = new_pin != pin
+    changed = new_pin != pin or source_changed
     print("  Updated" if changed else "  Already up to date")
     return new_pin, changed
 
