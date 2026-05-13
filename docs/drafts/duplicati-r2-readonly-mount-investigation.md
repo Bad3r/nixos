@@ -8,7 +8,7 @@ Originally a design decision; Cut A and Cut B are now implemented in this branch
 
 - **Cut A (shipped)** (path-listing CLI from local SQLite, no decryption): low cost, no crypto dependency, immediate forensic value, reuses `services.duplicati-r2.stateDirReadableBy`.
 - **Cut B (implemented in this branch)** (single-file extract by path with on-demand R2 fetch + decrypt): solves the original "read one file without a full restore" problem at a fraction of the implementation cost of FUSE.
-- **Cut C (next in this branch/PR)** (read-only FUSE mount): adds the filesystem surface on top of the Cut B resolver, fetcher, decryptor, and cache. The remaining work is the FS-semantics layer: mount lifecycle, `getattr`/`readdir`/`open`/`read`/`release`, partial-range reads, and mount hardening.
+- **Cut C (next in this branch/PR)** (read-only FUSE mount): adds the filesystem surface on top of the Cut B resolver, fetcher, decryptor, and cache. The remaining work is the FS-semantics layer: `pyfuse3` packaging, Linux-only service wiring, foreground mount lifecycle, `getattr`/`readdir`/`open`/`read`/`release`, partial-range reads, mount hardening, and explicit FUSE `allow_other` gating.
 - **Reject** any approach that re-derives metadata from R2 instead of reusing the per-target SQLite databases. Recreate-from-remote is heavy (`repair` against a missing DB downloads every dindex) and the local DB is already exposed by the `stateDirReadableBy` ACL.
 
 **Local-storage budget**: none of the three cuts requires downloading the full archive. Cut A is zero-byte-ingress (reads only the local SQLite that already exists on disk). Cut B and Cut C download exactly the dblocks needed to satisfy the active read; the encrypted-dblock cache is bounded and configurable (default 1 GiB). See [Section 9](#9-storage-budget).
@@ -359,18 +359,43 @@ The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/d
 - After AES decryption, the inner bytes are a standard zip archive. Cut B opens it with `zipfile.ZipFile(io.BytesIO(...))` and reads each block via `.open(name).read()`. The first read of any volume parses and validates the `manifest` JSON entry; Cut C can cache central-directory byte ranges to avoid re-parsing on every block read.
 - Block-entry names are base64url of the block hash. The implementation in `duplicati_r2_extract.py:base64url_name` does `base64.urlsafe_b64encode(hash_bytes).rstrip(b'=').decode('ascii')`; the rstrip is required because Duplicati omits zip-name padding.
 
-### 4.5 FUSE bindings (Cut C only)
+### 4.5 FUSE mount runtime (Cut C only)
 
-- Linux only; macOS/FreeBSD parity is not a goal for this repo.
-- `fusepy` (Python) or `fuser` (Rust) both support read-only mounts with a small surface: `getattr`, `readdir`, `open`, `read`, `release`, `readlink` for symlinks.
-- One FUSE inode per `(snapshot_id, file_id)`. Inode 1 is the root; top-level directories are snapshot timestamps in `YYYYMMDDTHHMMSSZ` form.
-- Permissions: expose files mode 0400, directories 0500, owner = the maintainer that started the mount. Metadata (mtime, type) comes from `FilesetEntry.Lastmodified` and `Metadataset.Content`. Do not synthesise owner/group from the source mtime metadata; the maintainer started the mount and should own everything visible.
+- Use `pyfuse3` as the binding. Cut C is Linux-only for this repo; macOS/FreeBSD parity is not a goal.
+- `duplicati-r2-mount mount <slug> <mountpoint>` runs in the foreground by default. The NixOS service must run the same foreground process under systemd (`Type=simple`), so systemd owns restart, stop, and logging semantics.
+- `duplicati-r2-mount unmount <mountpoint>` performs the unmount operation. If unmounting requires the system helper, the command shells out to the packaged `${pkgs.fuse3}/bin/fusermount3 -u <mountpoint>` rather than requiring sudo.
+- `--debug` enables verbose lifecycle diagnostics for startup, open handles, read planning, cache hits/misses, busy unmounts, and stale-mount cleanup. Debug output must redact sensitive values: tokens, API keys, passphrases, env-file values, and signed request material.
+- Do not enable FUSE `allow_other` by default. Duplicati restore data is sensitive, and the default mount is visible only to the mounting user. `--allow-other` is an explicit CLI flag that adds the `allow_other` FUSE option only when present.
+- With `allow_other` enabled, the filesystem reports deliberate read-only attrs for cross-user access (for example directories 0550 and files 0440 for the configured mount group). `pyfuse3.default_options` includes `default_permissions`, so these attrs are the kernel-enforced access contract.
+- One FUSE inode is assigned per `(snapshot_id, file_id)`. Inode 1 is the root; top-level directories are snapshot timestamps in `YYYYMMDDTHHMMSSZ` form.
+- Metadata comes from `FilesetEntry.Lastmodified` and `Metadataset.Content`; do not synthesise owner/group from source metadata. The mounter owns private mounts; configured service user/group own managed mounts.
+- Plaintext exposure stays bounded by mount permissions and FUSE read responses. The mount may reuse the Cut B encrypted-dblock cache, but it must never write plaintext cache files.
 
-### 4.6 Per-invocation lifecycle (Cut B)
+### 4.6 Cut C NixOS/runtime packaging policy
+
+- Add `packages/duplicati-r2-tools/mount.nix` and expose it as `pkgs.duplicati-r2-tools.mount`. The binary name is `duplicati-r2-mount`.
+- The mount derivation includes `pyfuse3`, the existing R2/AES dependencies, and `fuse3` for the unmount helper. Mark it Linux-only with package metadata such as `meta.platforms = lib.platforms.linux`; list/extract remain mostly portable Python.
+- Add flake output `.#duplicati-r2-mount`.
+- Add `pkgs.duplicati-r2-tools.mount` to the default `programs.duplicati-r2-tools.extended.packages` list so enabling the tools installs list, extract, and mount.
+- `modules/apps/duplicati-r2-tools.nix` only installs binaries on `PATH`; it must not set host-wide FUSE policy merely because the package is installed.
+- `modules/services/duplicati-r2.nix` owns the mount runtime options and host policy. Add `services.duplicati-r2.mount.{enable,user,group,mountPoint,allowOther,debug}`.
+- `services.duplicati-r2.mount.allowOther` defaults to `false`. Only when `cfg.mount.enable && cfg.mount.allowOther` should the service module set `programs.fuse.userAllowOther = true;` and pass `--allow-other` to the mount command.
+- The service passes `--debug` only when `services.duplicati-r2.mount.debug = true`. Debug mode improves busy-unmount and dead-mount diagnostics, but still redacts credentials and passphrases.
+- Add an assertion that `services.duplicati-r2.mount.user` is listed in `services.duplicati-r2.stateDirReadableBy`; the mounting user must already have read ACLs for the SQLite state and env file. Normal mount use should not require sudo.
+- Create the mountpoint with `systemd.tmpfiles` using the configured user/group and restrictive mode. The service should stop via `duplicati-r2-mount unmount <mountpoint>` or `fusermount3 -u`, and should avoid leaving stale mountpoints or confusing dead mounts after stop/restart.
+- Enable the managed mount service on `system76` only. `tpnix` should not enable it unless that host later grants `stateDirReadableBy` and explicitly opts into the mount runtime.
+
+### 4.7 Cut C validation boundaries
+
+- A Nix build sandbox cannot perform a real FUSE mount here: a sandboxed `runCommand` check for `/dev/fuse` returned `missing`. Therefore `mount.nix` must not require `/dev/fuse` or a real mount during `installCheckPhase`.
+- In-package checks should cover import/compile, fake filesystem object tests, `getattr`/`readdir`/`read`/`readlink` behavior over fixture data, and reuse of the existing resolver/decrypt/cache code paths.
+- Host or VM validation on `system76` covers the real FUSE path: service foreground startup, `ls`, `stat`, `cat`, `readlink`, `grep`, partial reads, unmount, busy-unmount diagnostics with `--debug`, and recovery from dead/stale mount state.
+
+### 4.8 Per-invocation lifecycle (Cut B)
 
 - `duplicati-r2-extract <slug> <path> --output <dest>`: opens the SQLite DB (`mode=ro`), checks `Configuration.Version` is in the supported set, reads `Configuration.blockhash` / `Configuration.filehash` for the BlockHash and FileHash algorithms, sources `/etc/duplicati/r2.env` (or the file specified by `--env-file`) for credentials and the passphrase, then plans + fetches + decrypts + writes in one pass and exits. No background daemon, no mount, no FUSE.
 - The encrypted-dblock cache persists between invocations under `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/`. Move that directory aside with `rip` to drop it; subsequent runs re-fetch.
-- Cut C lifecycle (long-running mount, `up`/`down` subcommands, per-user systemd unit) remains as sketched here for the next implementation step.
+- Cut C lifecycle is the foreground `duplicati-r2-mount mount ...` process plus `duplicati-r2-mount unmount <mountpoint>`, optionally supervised by the NixOS systemd service described above. If `--allow-other` is passed, it must be visible in the CLI invocation and backed by the NixOS `services.duplicati-r2.mount.allowOther` gate.
 
 ## 5. The three cuts
 
@@ -423,37 +448,51 @@ duplicati-r2-extract <slug> ... --json                    # JSON summary on stde
 
 ### 5.3 Cut C: read-only FUSE mount
 
-**Scope**: `mount` the archive at a path; standard `ls`, `cat`, `grep`, `diff` work transparently.
+**Scope**: mount the archive at a path; standard `ls`, `cat`, `grep`, `diff` work transparently against a read-only snapshot tree.
 
-**Build cost**: 7..14 days additional on top of Cut B. Real cost is in the FUSE semantics layer:
+**Implementation sequence**:
 
+- Extract a mount package as `pkgs.duplicati-r2-tools.mount` with binary `duplicati-r2-mount`, using `pyfuse3` and Linux-only metadata (`meta.platforms = lib.platforms.linux`).
+- Reuse the Cut B resolver, R2/file source abstraction, AES decryptor, per-block verifier, and encrypted-dblock cache. Do not add a plaintext cache.
+- Implement `duplicati-r2-mount mount <slug> <mountpoint>` as a foreground process by default. The NixOS systemd service runs this same foreground process.
+- Implement `duplicati-r2-mount unmount <mountpoint>` and shell out to `${pkgs.fuse3}/bin/fusermount3 -u <mountpoint>` when that is the required unmount primitive.
+- Implement `--debug` for lifecycle/read/cache/unmount diagnostics, with mandatory redaction for tokens, API keys, passphrases, env-file values, and signed request material.
+- Implement `--allow-other` as a CLI opt-in. The NixOS service passes it only when `services.duplicati-r2.mount.allowOther = true`, and that same option is the only path that sets `programs.fuse.userAllowOther = true;`.
+- Add `services.duplicati-r2.mount.{enable,user,group,mountPoint,allowOther,debug}` and a `systemd` service in `modules/services/duplicati-r2.nix`. Assert the mount user is included in `stateDirReadableBy`, create the mountpoint via `systemd.tmpfiles`, and keep sudo out of normal operation by using the existing SQLite/env-file ACLs.
+- Add `pkgs.duplicati-r2-tools.mount` to the app module's default package list and expose flake output `.#duplicati-r2-mount`.
+- Enable the managed mount service from `modules/system76/duplicati.nix` only; `tpnix` should remain off unless it later gets matching state/env-file ACL access and explicitly opts in.
+
+**FUSE semantics work**:
+
+- `getattr`, `readdir`, `open`, `read`, `release`, and `readlink` for symlinks.
 - Range reads (`read(offset, len)` mid-block) require partial decompression of one zip entry plus a streaming concatenation across multiple blocks.
 - Caching policy decisions: per-block (small, granular) vs per-dblock (large, simple) vs hybrid.
 - Race conditions between `release` and active `read` calls.
 - Symlink loops, hard-link representation, special files.
 - `getxattr`/`listxattr` if the metadata blob is to be exposed.
-- Test plan: `fio` random reads, `find | xargs grep` over a non-trivial archive, kernel-level `mmap` on a large file.
+- Stale/dead mount handling: foreground process ownership, explicit unmount, systemd stop behavior, and debug diagnostics for busy mounts.
 
-**Risk**:
+**Test plan**:
 
-- FUSE-on-Linux is stable; FUSE-on-macOS via macFUSE is a moving target. Linux-only is acceptable per this repo's constraints.
-- A misbehaving mount can wedge a maintainer's terminal; need a `fusermount -uz` escape hatch and a clear systemd unit boundary.
-- Maintenance: every Duplicati format change risks breaking the mount silently. Cut B fails loudly on the first command; Cut C fails inside a FUSE handler under load.
+- In `installCheckPhase`: import/compile, fake filesystem object tests, `getattr`/`readdir`/`read`/`readlink` fixture tests, and resolver/decrypt/cache reuse tests. Do not perform a real FUSE mount in the Nix build sandbox because `/dev/fuse` is absent there.
+- On `system76`: service startup, foreground logging, `ls`, `stat`, `cat`, `readlink`, `grep`, partial reads, clean unmount, busy-unmount diagnostics under `--debug`, and restart after a stale/dead mount.
+
+**Risk**: FUSE-on-Linux is stable and acceptable for this repo, but the mount can fail inside kernel callbacks under load rather than at command startup. Cross-user exposure through `allow_other` is security-sensitive and must remain behind the two explicit gates above.
 
 **Value**: matches the Borg/Restic experience. For a single-host repo with two backup targets, the marginal value over Cut B is small.
 
 ## 6. Decision criteria
 
-| Criterion              | Weight | Cut A (shipped)                  | Cut B (shipped)                                  | Cut C (next)                    |
-| ---------------------- | ------ | -------------------------------- | ------------------------------------------------ | ------------------------------- |
-| Build cost (actual)    | high   | ~1 day                           | ~1 day on top of Cut A                           | est. 7..14 days additional      |
-| Format-drift risk      | high   | nil (no crypto/zip)              | low (AES v2->v3 only)                            | medium (zip + FS)               |
-| Maintenance over years | high   | trivial                          | small                                            | recurring                       |
-| Crypto risk            | high   | nil                              | low (PyPI pyAesCrypt 6.1.1, HMAC-verified)       | low (same as B)                 |
-| Operator value         | high   | medium (browse/grep)             | high (recover one file or glob)                  | high (browse/cat transparently) |
-| Packaging              | med    | Python + Nix (stdenvNoCC)        | Python + Nix (stdenvNoCC + python3.withPackages) | Python+FUSE + Nix               |
-| ACL interaction        | med    | uses `stateDirReadableBy` only   | extends `stateDirReadableBy` to env-file read    | extends env-file read           |
-| Bus-factor protection  | med    | high (works without crypto code) | high (synthetic-fixture test gates regressions)  | medium (FUSE expertise needed)  |
+| Criterion              | Weight | Cut A (shipped)                  | Cut B (shipped)                                  | Cut C (next)                                          |
+| ---------------------- | ------ | -------------------------------- | ------------------------------------------------ | ----------------------------------------------------- |
+| Build cost (actual)    | high   | ~1 day                           | ~1 day on top of Cut A                           | est. 7..14 days additional                            |
+| Format-drift risk      | high   | nil (no crypto/zip)              | low (AES v2->v3 only)                            | medium (zip + FS)                                     |
+| Maintenance over years | high   | trivial                          | small                                            | recurring                                             |
+| Crypto risk            | high   | nil                              | low (PyPI pyAesCrypt 6.1.1, HMAC-verified)       | low (same as B)                                       |
+| Operator value         | high   | medium (browse/grep)             | high (recover one file or glob)                  | high (browse/cat transparently)                       |
+| Packaging              | med    | Python + Nix (stdenvNoCC)        | Python + Nix (stdenvNoCC + python3.withPackages) | Python + `pyfuse3` + Nix; Linux-only                  |
+| ACL interaction        | med    | uses `stateDirReadableBy` only   | extends `stateDirReadableBy` to env-file read    | uses state/env-file ACLs; explicit `allow_other` gate |
+| Bus-factor protection  | med    | high (works without crypto code) | high (synthetic-fixture test gates regressions)  | medium (FUSE expertise needed)                        |
 
 Hard constraints from issue #204 carried through:
 
@@ -468,7 +507,9 @@ Hard constraints from issue #204 carried through:
 
 **Cut B is implemented in this branch** as `pkgs.duplicati-r2-tools.extract`. Reuses Cut A's resolver via the shared `duplicati_r2_common.py` module. Adds a local `pyAesCrypt` derivation, `boto3` for the R2 transport, an `EncryptedCache` LRU on disk, a `BlockResolver` that handles both `BlocksetEntry`-backed and `BlocklistHash`-chain-backed files, and pluggable `S3Source`/`FileSource` transports (the latter enables offline/mirror operation and underpins the synthetic-fixture test). The `installCheckPhase` exercises single-block, multi-block-without-blocklist, single-blocklist, and multi-blocklist code paths plus HMAC-corruption, missing-path, wrong-passphrase, include-glob, env-file, cache, invalid DB hash, manifest-validation, segment-aware streaming path globbing, and SQLite variable-limit contracts. The env-file ACL was widened in the same change so users in `stateDirReadableBy` can read `/etc/duplicati/r2.env` without sudo; the CLI opens that env file with `O_NOFOLLOW` and validates mode/owner via `fstat` on the opened descriptor.
 
-**Cut C is next in this same branch/PR**. It should reuse the Cut B resolver, R2/file source abstraction, AES decryption boundary, block verifier, and encrypted-dblock cache, then add the read-only FUSE surface on top. The key implementation risk is not backup-format parsing anymore; it is mount correctness under filesystem access patterns: lifecycle, stale handles, symlink/readlink behavior, partial reads, cache eviction, and safe unmount recovery.
+**Cut C is next in this same branch/PR**. It should reuse the Cut B resolver, R2/file source abstraction, AES decryption boundary, block verifier, and encrypted-dblock cache, then add the read-only `pyfuse3` surface on top. The key implementation risk is not backup-format parsing anymore; it is mount correctness under filesystem access patterns: lifecycle, stale handles, symlink/readlink behavior, partial reads, cache eviction, safe unmount recovery, and keeping cross-user mount exposure behind an explicit `allow_other` opt-in.
+
+Cut C's implementation should keep FUSE permissions private by default. Add `duplicati-r2-mount mount` as a foreground process, `duplicati-r2-mount unmount` backed by `fusermount3 -u`, and a `--debug` mode that improves diagnostics without leaking credentials. Add a CLI `--allow-other` flag, but only have the NixOS service path pass that flag when `services.duplicati-r2.mount.allowOther = true`. The same service option is the only place that should set `programs.fuse.userAllowOther = true;`; package installation and `programs.duplicati-r2-tools.extended.enable` must not change global FUSE policy.
 
 **Reject** any approach that:
 
@@ -644,4 +685,5 @@ A 44-path `*.torrent` restore from `bankdata` (~10 MiB plaintext) was performed 
 - Upstream FUSE feature request: <https://github.com/duplicati/duplicati/issues/3081>
 - `pyAesCrypt`: <https://github.com/marcobellaccini/pyAesCrypt>
 - `aescrypt-rs`: <https://crates.io/crates/aescrypt-rs>
+- `pyfuse3`: <https://github.com/libfuse/pyfuse3>
 - Comparable mount: `borg mount` <https://borgbackup.readthedocs.io/en/stable/usage/mount.html>; `restic mount` documentation in the restic project.

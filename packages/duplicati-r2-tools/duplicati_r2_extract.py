@@ -26,13 +26,14 @@ import os
 import re
 import sqlite3
 import stat
+import struct
 import sys
 import time
 import urllib.parse
 import zipfile
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Callable
 
 # Self-bootstrap: import the sibling duplicati_r2_common module regardless of
@@ -74,6 +75,123 @@ set_program_name("duplicati-r2-extract")
 
 
 _DOTENV_RE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
+_POSIX_ACL_XATTR = "system.posix_acl_access"
+_POSIX_ACL_XATTR_VERSION = 0x0002
+_ACL_USER_OBJ = 0x01
+_ACL_USER = 0x02
+_ACL_GROUP_OBJ = 0x04
+_ACL_GROUP = 0x08
+_ACL_MASK = 0x10
+_ACL_OTHER = 0x20
+_ACL_EXECUTE = 0x01
+_ACL_WRITE = 0x02
+_ACL_READ = 0x04
+_ACL_UNDEFINED_ID = 0xFFFFFFFF
+_ACL_XATTR_HEADER = struct.Struct("<I")
+_ACL_XATTR_ENTRY = struct.Struct("<HHI")
+_ACL_TAG_LABELS = {
+    _ACL_USER_OBJ: "owner",
+    _ACL_USER: "named user",
+    _ACL_GROUP_OBJ: "group-object",
+    _ACL_GROUP: "named group",
+    _ACL_OTHER: "other",
+}
+_NO_ACL_XATTR_ERRNOS = {
+    code
+    for code in (
+        getattr(errno, "ENODATA", None),
+        getattr(errno, "ENOATTR", None),
+        getattr(errno, "ENOTSUP", None),
+        getattr(errno, "EOPNOTSUPP", None),
+    )
+    if code is not None
+}
+
+
+def _acl_perm_string(perm: int) -> str:
+    return "".join(
+        label if perm & bit else "-"
+        for bit, label in (
+            (_ACL_READ, "r"),
+            (_ACL_WRITE, "w"),
+            (_ACL_EXECUTE, "x"),
+        )
+    )
+
+
+def _acl_entry_label(tag: int, entry_id: int) -> str:
+    label = _ACL_TAG_LABELS[tag]
+    if tag in {_ACL_USER, _ACL_GROUP}:
+        return f"{label} {entry_id}"
+    return label
+
+
+def _posix_acl_insecure_access_reason(acl_data: bytes, path: str) -> str | None:
+    if (
+        len(acl_data) < _ACL_XATTR_HEADER.size
+        or (len(acl_data) - _ACL_XATTR_HEADER.size) % _ACL_XATTR_ENTRY.size
+    ):
+        fail(f"env file {path} has malformed POSIX ACL data; refusing", EXIT_OPEN_ERR)
+
+    (version,) = _ACL_XATTR_HEADER.unpack_from(acl_data)
+    if version != _POSIX_ACL_XATTR_VERSION:
+        fail(
+            f"env file {path} has unsupported POSIX ACL version {version}; refusing",
+            EXIT_OPEN_ERR,
+        )
+
+    entries: list[tuple[int, int, int]] = []
+    mask_perm: int | None = None
+    for offset in range(
+        _ACL_XATTR_HEADER.size,
+        len(acl_data),
+        _ACL_XATTR_ENTRY.size,
+    ):
+        tag, perm, _entry_id = _ACL_XATTR_ENTRY.unpack_from(acl_data, offset)
+        if tag == _ACL_MASK:
+            mask_perm = perm
+            continue
+        elif tag not in {
+            _ACL_USER_OBJ,
+            _ACL_USER,
+            _ACL_GROUP_OBJ,
+            _ACL_GROUP,
+            _ACL_OTHER,
+        }:
+            fail(
+                f"env file {path} has unknown POSIX ACL tag {tag}; refusing",
+                EXIT_OPEN_ERR,
+            )
+        entries.append((tag, perm, _entry_id))
+
+    for tag, perm, entry_id in entries:
+        effective = perm
+        if tag in {_ACL_USER, _ACL_GROUP_OBJ, _ACL_GROUP} and mask_perm is not None:
+            effective &= mask_perm
+        if tag in {_ACL_GROUP_OBJ, _ACL_GROUP, _ACL_OTHER} and effective:
+            return (
+                f"POSIX ACL {_acl_entry_label(tag, entry_id)} entry grants "
+                f"{_acl_perm_string(effective)}"
+            )
+        if tag == _ACL_USER and effective & (_ACL_WRITE | _ACL_EXECUTE):
+            return (
+                f"POSIX ACL {_acl_entry_label(tag, entry_id)} entry grants "
+                f"{_acl_perm_string(effective)}"
+            )
+    return None
+
+
+def _env_file_insecure_access_reason(fd: int, path: str, st_mode: int) -> str | None:
+    try:
+        acl_data = os.getxattr(fd, _POSIX_ACL_XATTR)
+    except OSError as exc:
+        if exc.errno in _NO_ACL_XATTR_ERRNOS:
+            if st_mode & 0o077:
+                return f"mode {oct(st_mode & 0o7777)} permits group or world access"
+            return None
+        fail(f"failed to inspect env file ACL for {path}: {exc}", EXIT_OPEN_ERR)
+
+    return _posix_acl_insecure_access_reason(acl_data, path)
 
 
 def load_env_file(path: str) -> dict[str, str]:
@@ -109,9 +227,10 @@ def load_env_file(path: str) -> dict[str, str]:
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode):
             fail(f"env file {path} is not a regular file; refusing", EXIT_OPEN_ERR)
-        if st.st_mode & 0o077:
+        insecure_reason = _env_file_insecure_access_reason(fd, path, st.st_mode)
+        if insecure_reason is not None:
             fail(
-                f"env file {path} permits group or world access (mode {oct(st.st_mode & 0o7777)}); refusing",
+                f"env file {path} grants insecure access: {insecure_reason}; refusing",
                 EXIT_OPEN_ERR,
             )
         if st.st_uid not in (0, os.getuid()):
@@ -122,17 +241,21 @@ def load_env_file(path: str) -> dict[str, str]:
         with os.fdopen(fd, "r", encoding="utf-8") as fh:
             fd = -1
             for raw in fh:
-                line = raw.strip()
-                if not line or line.startswith("#"):
+                line = raw.rstrip("\r\n")
+                stripped_line = line.strip()
+                if not stripped_line or stripped_line.startswith("#"):
                     continue
                 m = _DOTENV_RE.match(line)
                 if not m:
                     continue
-                key, value = m.group(1), m.group(2).strip()
-                if (value.startswith('"') and value.endswith('"')) or (
-                    value.startswith("'") and value.endswith("'")
-                ):
-                    value = value[1:-1]
+                key, raw_value = m.group(1), m.group(2)
+                stripped_value = raw_value.strip()
+                if (
+                    stripped_value.startswith('"') and stripped_value.endswith('"')
+                ) or (stripped_value.startswith("'") and stripped_value.endswith("'")):
+                    value = stripped_value[1:-1]
+                else:
+                    value = stripped_value
                 env[key] = value
     finally:
         if fd != -1:
@@ -295,6 +418,7 @@ def _resolve_endpoint_url(env: dict[str, str]) -> str | None:
         return url
     host = env.get("R2_S3_ENDPOINT")
     if host:
+        host = re.sub(r"^https?://", "", host.strip(), flags=re.IGNORECASE).rstrip("/")
         return f"https://{host}"
     account = env.get("R2_ACCOUNT_ID")
     if account:
@@ -429,6 +553,7 @@ class EncryptedCache:
         self.bytes_fetched = 0
         self.fetches = 0
         self._order: collections.OrderedDict[str, int] = collections.OrderedDict()
+        self._used_bytes = 0
         if cap_bytes > 0:
             self._ensure_root()
             self._scan_existing()
@@ -452,40 +577,95 @@ class EncryptedCache:
         entries: list[tuple[float, str, int]] = []
         for entry in self.root.iterdir():
             try:
+                if entry.name.endswith(".partial"):
+                    try:
+                        entry.unlink()
+                    except FileNotFoundError:
+                        pass
+                    except OSError as exc:
+                        fail(
+                            f"failed to remove stale cache partial {entry}: {exc}",
+                            EXIT_OPEN_ERR,
+                        )
+                    continue
                 if not entry.is_file():
                     continue
                 st = entry.stat()
             except FileNotFoundError:
                 continue
+            except OSError as exc:
+                fail(f"failed to inspect cache entry {entry}: {exc}", EXIT_OPEN_ERR)
             entries.append((st.st_mtime, entry.name, st.st_size))
         for _mtime, name, size in sorted(entries):
-            self._order[name] = size
+            self._remember(name, size)
         self._evict_until_room(0)
 
+    def _remember(self, volume_name: str, size: int) -> None:
+        previous = self._order.get(volume_name)
+        if previous is not None:
+            self._used_bytes -= previous
+        self._order[volume_name] = size
+        self._used_bytes += size
+
+    def _forget(self, volume_name: str) -> bool:
+        size = self._order.pop(volume_name, None)
+        if size is None:
+            return False
+        self._used_bytes -= size
+        return True
+
     def _evict_until_room(self, incoming_size: int) -> None:
-        used = sum(self._order.values())
-        while used + incoming_size > self.cap_bytes and self._order:
+        while self._used_bytes + incoming_size > self.cap_bytes and self._order:
             name, n = self._order.popitem(last=False)
             try:
                 (self.root / name).unlink()
             except FileNotFoundError:
                 pass
-            used -= n
+            except OSError as exc:
+                fail(
+                    f"failed to evict cached volume {self.root / name}: {exc}",
+                    EXIT_OPEN_ERR,
+                )
+            self._used_bytes -= n
+
+    def evict(self, volume_name: str) -> bool:
+        validate_volume_name(volume_name)
+        known = self._forget(volume_name)
+        removed = False
+        try:
+            (self.root / volume_name).unlink()
+            removed = True
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            fail(
+                f"failed to evict cached volume {self.root / volume_name}: {exc}",
+                EXIT_OPEN_ERR,
+            )
+        return known or removed
 
     def get(self, volume_name: str, fetcher: Callable[[str], bytes]) -> bytes:
+        data, _cache_hit = self.get_with_status(volume_name, fetcher)
+        return data
+
+    def get_with_status(
+        self,
+        volume_name: str,
+        fetcher: Callable[[str], bytes],
+    ) -> tuple[bytes, bool]:
         validate_volume_name(volume_name)
         if self.cap_bytes <= 0:
             data = fetcher(volume_name)
             self.bytes_fetched += len(data)
             self.fetches += 1
-            return data
+            return data, False
         if volume_name in self._order:
             # Touch: move to end (most recently used).
             self._order.move_to_end(volume_name)
             try:
-                return (self.root / volume_name).read_bytes()
+                return (self.root / volume_name).read_bytes(), True
             except FileNotFoundError:
-                self._order.pop(volume_name, None)
+                self._forget(volume_name)
             except OSError as exc:
                 fail(
                     f"failed to read cached volume {self.root / volume_name}: {exc}",
@@ -498,7 +678,7 @@ class EncryptedCache:
         size = len(data)
         if size > self.cap_bytes:
             # Single object exceeds cache cap; bypass cache for it.
-            return data
+            return data, False
         self._evict_until_room(size)
         self._ensure_root()
         target = self.root / volume_name
@@ -522,13 +702,17 @@ class EncryptedCache:
         with os.fdopen(fd, "wb") as fh:
             fh.write(data)
         os.replace(tmp, target)
-        self._order[volume_name] = size
-        return data
+        self._remember(volume_name, size)
+        return data, False
 
 
 # ---------------------------------------------------------------------------
 # AES decrypter
 # ---------------------------------------------------------------------------
+
+
+class AesDecryptError(Exception):
+    pass
 
 
 class AesDecrypter:
@@ -553,7 +737,9 @@ class AesDecrypter:
             # or any "corrupted" failure mode; all of those are data errors,
             # not user errors. Surface the message verbatim alongside the
             # offending volume name (loud-failure contract per docs).
-            fail(f"AES decrypt failed for {volume_name}: {exc}", EXIT_DATA_ERR)
+            raise AesDecryptError(
+                f"AES decrypt failed for {volume_name}: {exc}"
+            ) from exc
         return plain.getvalue()
 
 
@@ -917,8 +1103,22 @@ class Extractor:
         if cached is not None:
             self._open_volumes.move_to_end(volume_name)
             return cached
-        encrypted = self.cache.get(volume_name, self.source.fetch)
-        decrypted = self.decrypter.decrypt(encrypted, volume_name)
+        encrypted, cache_hit = self.cache.get_with_status(
+            volume_name, self.source.fetch
+        )
+        try:
+            decrypted = self.decrypter.decrypt(encrypted, volume_name)
+        except AesDecryptError as exc:
+            if not cache_hit or not self.cache.evict(volume_name):
+                fail(str(exc), EXIT_DATA_ERR)
+            encrypted, _cache_hit = self.cache.get_with_status(
+                volume_name,
+                self.source.fetch,
+            )
+            try:
+                decrypted = self.decrypter.decrypt(encrypted, volume_name)
+            except AesDecryptError as retry_exc:
+                fail(str(retry_exc), EXIT_DATA_ERR)
         vol = OpenedVolume(
             volume_name,
             decrypted,
@@ -1430,6 +1630,39 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _segment_globmatch(path: str, pattern: str) -> bool:
+    path_parts = tuple(path.split("/"))
+    pattern_parts = tuple(pattern.split("/"))
+    memo: dict[tuple[int, int], bool] = {}
+
+    def match(pattern_index: int, path_index: int) -> bool:
+        state = (pattern_index, path_index)
+        cached = memo.get(state)
+        if cached is not None:
+            return cached
+        if pattern_index == len(pattern_parts):
+            result = path_index == len(path_parts)
+        elif pattern_parts[pattern_index] == "**":
+            if pattern_index == len(pattern_parts) - 1:
+                result = path_index <= len(path_parts)
+            else:
+                result = any(
+                    match(pattern_index + 1, next_path_index)
+                    for next_path_index in range(path_index, len(path_parts) + 1)
+                )
+        elif path_index == len(path_parts):
+            result = False
+        else:
+            result = fnmatch.fnmatchcase(
+                path_parts[path_index],
+                pattern_parts[pattern_index],
+            ) and match(pattern_index + 1, path_index + 1)
+        memo[state] = result
+        return result
+
+    return match(0, 0)
+
+
 def _glob_paths(
     conn: sqlite3.Connection,
     snapshot_id: int,
@@ -1437,15 +1670,14 @@ def _glob_paths(
 ) -> Iterator[str]:
     """Yield File.Path entries matching ``pattern``.
 
-    Matching strategy: a pattern containing a ``/`` is interpreted as a
-    segment-aware full-path glob (``/data/*.bin`` matches direct children;
-    ``/data/**/*.bin`` matches descendants). A missing leading slash is added
-    so ``data/*.bin`` and ``/data/*.bin`` are equivalent. A pattern with no
-    ``/`` is matched against the file's basename (``*.bin`` matches every
-    ``.bin`` file at any depth). This mirrors how operators typically reach
-    for `find -name` without escaping every prefix.
+    ``pattern`` is expected to be pre-normalized by
+    ``_normalize_include_pattern``. A pattern containing a ``/`` is interpreted
+    as a segment-aware full-path glob (``/data/*.bin`` matches direct children;
+    ``/data/**/*.bin`` matches descendants). A pattern with no ``/`` is matched
+    against the file's basename (``*.bin`` matches every ``.bin`` file at any
+    depth). This mirrors how operators typically reach for `find -name` without
+    escaping every prefix.
     """
-    pattern = _normalize_include_pattern(pattern)
     is_basename_pattern = "/" not in pattern
     cursor = conn.execute(
         """
@@ -1466,7 +1698,7 @@ def _glob_paths(
                 pattern,
             )
         else:
-            matches_pattern = PurePosixPath(row["path"]).match(pattern)
+            matches_pattern = _segment_globmatch(row["path"], pattern)
         if matches_pattern:
             yield row["path"]
 

@@ -6,12 +6,15 @@ from __future__ import annotations
 import argparse
 import base64
 import collections
+import contextlib
+import errno
 import hashlib
 import io
 import json
 import os
 import sqlite3
 import stat
+import struct
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -34,6 +37,7 @@ from duplicati_r2_extract import (
     _ensure_private_dir,
     _glob_paths,
     _load_manifest_for_layout,
+    _resolve_endpoint_url,
     build_source,
     load_env_file,
     resolve_bucket_layout,
@@ -47,6 +51,15 @@ def expect_exit(code: int, fn: Callable[..., object], *args: object) -> None:
         assert exc.code == code
     else:
         raise AssertionError(f"expected SystemExit({code})")
+
+
+def expect_exit_stderr_contains(
+    code: int, needle: str, fn: Callable[..., object], *args: object
+) -> None:
+    stderr = io.StringIO()
+    with contextlib.redirect_stderr(stderr):
+        expect_exit(code, fn, *args)
+    assert needle in stderr.getvalue()
 
 
 def check_cache_recovery(work: Path) -> None:
@@ -74,10 +87,36 @@ def check_cache_cap_on_startup(work: Path) -> None:
     os.utime(old, (1, 1))
     os.utime(new, (2, 2))
 
-    EncryptedCache(str(cap_root), 100)
+    cache = EncryptedCache(str(cap_root), 100)
 
     assert not old.exists()
     assert new.exists()
+    assert cache._used_bytes == 60
+
+
+def check_cache_partial_removal_failure_message(work: Path) -> None:
+    cache_root = work / "partial-remove-fail-cache"
+    cache_root.mkdir()
+    partial = cache_root / "vol1.aes.partial"
+    partial.write_bytes(b"stale")
+    real_unlink = Path.unlink
+
+    def fail_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        if os.fspath(self) == os.fspath(partial):
+            raise PermissionError("synthetic stale partial removal failure")
+        real_unlink(self, *args, **kwargs)
+
+    Path.unlink = fail_unlink
+    try:
+        expect_exit_stderr_contains(
+            EXIT_OPEN_ERR,
+            "failed to remove stale cache partial",
+            EncryptedCache,
+            str(cache_root),
+            1024,
+        )
+    finally:
+        Path.unlink = real_unlink
 
 
 def check_volume_name_rejection(work: Path) -> None:
@@ -153,6 +192,134 @@ def check_env_symlink_rejected(work: Path) -> None:
     expect_exit(EXIT_OPEN_ERR, load_env_file, str(env_link))
 
 
+def _acl_data(entries: list[tuple[int, int, int]]) -> bytes:
+    return struct.pack("<I", extract_mod._POSIX_ACL_XATTR_VERSION) + b"".join(
+        struct.pack("<HHI", tag, perm, entry_id) for tag, perm, entry_id in entries
+    )
+
+
+def check_env_mode_group_grant_rejected(work: Path) -> None:
+    env_file = work / "mode-group.env"
+    env_file.write_text("DUPLICATI_PASSPHRASE=test\n", encoding="utf-8")
+    env_file.chmod(0o440)
+    no_acl_errno = getattr(errno, "ENODATA", None)
+    if no_acl_errno is None:
+        no_acl_errno = next(iter(extract_mod._NO_ACL_XATTR_ERRNOS))
+    real_getxattr = extract_mod.os.getxattr
+
+    def missing_acl(_fd: int, _name: str) -> bytes:
+        raise OSError(no_acl_errno, "synthetic missing ACL")
+
+    extract_mod.os.getxattr = missing_acl
+    try:
+        expect_exit_stderr_contains(
+            EXIT_OPEN_ERR,
+            "mode 0o440 permits group or world access",
+            load_env_file,
+            str(env_file),
+        )
+    finally:
+        extract_mod.os.getxattr = real_getxattr
+
+
+def check_env_acl_mask_allows_named_user_read(work: Path) -> None:
+    env_file = work / "acl-readable.env"
+    env_file.write_text("DUPLICATI_PASSPHRASE=test\n", encoding="utf-8")
+    env_file.chmod(0o440)
+    acl = _acl_data(
+        [
+            (
+                extract_mod._ACL_USER_OBJ,
+                extract_mod._ACL_READ,
+                extract_mod._ACL_UNDEFINED_ID,
+            ),
+            (extract_mod._ACL_USER, extract_mod._ACL_READ, os.getuid()),
+            (extract_mod._ACL_GROUP_OBJ, 0, extract_mod._ACL_UNDEFINED_ID),
+            (
+                extract_mod._ACL_MASK,
+                extract_mod._ACL_READ,
+                extract_mod._ACL_UNDEFINED_ID,
+            ),
+            (extract_mod._ACL_OTHER, 0, extract_mod._ACL_UNDEFINED_ID),
+        ]
+    )
+    real_getxattr = extract_mod.os.getxattr
+    extract_mod.os.getxattr = lambda _fd, _name: acl
+    try:
+        assert load_env_file(str(env_file))["DUPLICATI_PASSPHRASE"] == "test"
+    finally:
+        extract_mod.os.getxattr = real_getxattr
+
+
+def check_env_acl_group_grant_rejected(work: Path) -> None:
+    env_file = work / "acl-group.env"
+    env_file.write_text("DUPLICATI_PASSPHRASE=test\n", encoding="utf-8")
+    env_file.chmod(0o440)
+    acl = _acl_data(
+        [
+            (
+                extract_mod._ACL_USER_OBJ,
+                extract_mod._ACL_READ,
+                extract_mod._ACL_UNDEFINED_ID,
+            ),
+            (
+                extract_mod._ACL_GROUP_OBJ,
+                extract_mod._ACL_READ,
+                extract_mod._ACL_UNDEFINED_ID,
+            ),
+            (
+                extract_mod._ACL_MASK,
+                extract_mod._ACL_READ,
+                extract_mod._ACL_UNDEFINED_ID,
+            ),
+            (extract_mod._ACL_OTHER, 0, extract_mod._ACL_UNDEFINED_ID),
+        ]
+    )
+    real_getxattr = extract_mod.os.getxattr
+    extract_mod.os.getxattr = lambda _fd, _name: acl
+    try:
+        expect_exit_stderr_contains(
+            EXIT_OPEN_ERR,
+            "POSIX ACL group-object entry grants r--",
+            load_env_file,
+            str(env_file),
+        )
+    finally:
+        extract_mod.os.getxattr = real_getxattr
+
+
+def check_env_unquoted_values_strip_padding(work: Path) -> None:
+    env_file = work / "whitespace.env"
+    env_file.write_text(
+        (
+            "DUPLICATI_PASSPHRASE=secret   \n"
+            "R2_S3_ENDPOINT_URL=https://abc.r2.example.com   \n"
+            'DOUBLE_QUOTED=" spaced "\n'
+            "SINGLE_QUOTED=' padded '\n"
+        ),
+        encoding="utf-8",
+    )
+    env_file.chmod(0o400)
+
+    env = load_env_file(str(env_file))
+
+    assert env["DUPLICATI_PASSPHRASE"] == "secret"
+    assert env["R2_S3_ENDPOINT_URL"] == "https://abc.r2.example.com"
+    assert env["DOUBLE_QUOTED"] == " spaced "
+    assert env["SINGLE_QUOTED"] == " padded "
+
+
+def check_endpoint_host_strips_pasted_scheme() -> None:
+    assert (
+        _resolve_endpoint_url({"R2_S3_ENDPOINT": "https://abc.r2.example.com/"})
+        == "https://abc.r2.example.com"
+    )
+    assert (
+        _resolve_endpoint_url({"R2_S3_ENDPOINT": "HTTPS://abc.r2.example.com/"})
+        == "https://abc.r2.example.com"
+    )
+
+
 def check_private_output_dirs(work: Path) -> None:
     private_target = work / "private-out" / "nested" / "file.txt"
     with _atomic_writer(private_target) as write:
@@ -194,6 +361,7 @@ def check_cache_partial_symlink_not_followed(work: Path) -> None:
     cache = EncryptedCache(str(cache_root), 1024)
     assert cache.get("vol1.aes", lambda _name: b"encrypted") == b"encrypted"
     assert victim.read_text(encoding="utf-8") == "unchanged"
+    assert not (cache_root / "vol1.aes.partial").exists()
     assert (cache_root / "vol1.aes").read_bytes() == b"encrypted"
 
 
@@ -393,12 +561,14 @@ def check_include_pattern_normalization() -> None:
           (1, '/bankdata/sub/file.torrent', 101),
           (2, '/bankdata/file.torrent', 102),
           (3, '/bankdata/other.bin', 103),
-          (4, '/bankdata/sub/', -100);
+          (4, '/bankdata/sub/', -100),
+          (5, '/bankdata/sub/deep/file.torrent', 104);
         INSERT INTO FilesetEntry VALUES
           (7, 1),
           (7, 2),
           (7, 3),
-          (7, 4);
+          (7, 4),
+          (7, 5);
         """
     )
 
@@ -409,11 +579,93 @@ def check_include_pattern_normalization() -> None:
 
     assert collect("*.torrent") == [
         "/bankdata/file.torrent",
+        "/bankdata/sub/deep/file.torrent",
         "/bankdata/sub/file.torrent",
     ]
     assert collect("/bankdata/*.torrent") == ["/bankdata/file.torrent"]
-    assert collect("bankdata/*.torrent") == ["/bankdata/file.torrent"]
-    assert collect("/bankdata/**/*.torrent") == ["/bankdata/sub/file.torrent"]
+    assert collect("/bankdata/**/*.torrent") == [
+        "/bankdata/file.torrent",
+        "/bankdata/sub/deep/file.torrent",
+        "/bankdata/sub/file.torrent",
+    ]
+    assert extract_mod._segment_globmatch("/bankdata", "/bankdata/**")
+    assert extract_mod._segment_globmatch("/foo", "/**/foo")
+
+
+def check_main_normalizes_include_pattern(work: Path) -> None:
+    db = work / "main-normalizes-include.sqlite"
+    conn = sqlite3.connect(db)
+    conn.executescript(
+        """
+        CREATE TABLE Configuration (
+          Key TEXT,
+          Value TEXT
+        );
+        CREATE TABLE Fileset (
+          ID INTEGER PRIMARY KEY,
+          Timestamp INTEGER,
+          IsFullBackup INTEGER
+        );
+        INSERT INTO Configuration VALUES ('Version', '19');
+        INSERT INTO Fileset VALUES (7, 1700000000, 1);
+        """
+    )
+    conn.close()
+
+    source_root = work / "main-normalizes-source"
+    output_dir = work / "main-normalizes-out"
+    cache_root = work / "main-normalizes-cache"
+    source_root.mkdir()
+    passphrase_env = "DUPLICATI_R2_TEST_PASSPHRASE"
+    old_passphrase = os.environ.get(passphrase_env)
+    captured: list[tuple[int, str]] = []
+    real_aes_decrypter = extract_mod.AesDecrypter
+    real_glob_paths = extract_mod._glob_paths
+
+    class DummyAesDecrypter:
+        def __init__(self, _passphrase: str):
+            pass
+
+    def capture_glob_paths(
+        _conn: sqlite3.Connection,
+        snapshot_id: int,
+        pattern: str,
+    ) -> list[str]:
+        captured.append((snapshot_id, pattern))
+        return []
+
+    os.environ[passphrase_env] = "test-passphrase"
+    extract_mod.AesDecrypter = DummyAesDecrypter
+    extract_mod._glob_paths = capture_glob_paths
+    try:
+        expect_exit_stderr_contains(
+            EXIT_OPEN_ERR,
+            "normalized to '/bankdata/*.torrent'",
+            extract_mod.main,
+            [
+                "test",
+                "--db",
+                str(db),
+                "--source",
+                f"file://{source_root}",
+                "--passphrase-env",
+                passphrase_env,
+                "--cache-dir",
+                str(cache_root),
+                "--include",
+                "bankdata/*.torrent",
+                "--output-dir",
+                str(output_dir),
+            ],
+        )
+        assert captured == [(7, "/bankdata/*.torrent")]
+    finally:
+        extract_mod.AesDecrypter = real_aes_decrypter
+        extract_mod._glob_paths = real_glob_paths
+        if old_passphrase is None:
+            os.environ.pop(passphrase_env, None)
+        else:
+            os.environ[passphrase_env] = old_passphrase
 
 
 def check_include_rejects_output_flag() -> None:
@@ -434,8 +686,8 @@ def check_include_rejects_output_flag() -> None:
 
 def check_open_volume_lru() -> None:
     class DummyCache:
-        def get(self, name: str, _fetcher: object) -> bytes:
-            return b"encrypted-" + name.encode("ascii")
+        def get_with_status(self, name: str, _fetcher: object) -> tuple[bytes, bool]:
+            return b"encrypted-" + name.encode("ascii"), False
 
     class DummySource:
         def fetch(self, name: str) -> bytes:
@@ -482,6 +734,62 @@ def check_open_volume_lru() -> None:
         extract_mod.OpenedVolume = original_opened_volume
 
 
+def check_open_volume_evicts_corrupt_cache_hit(work: Path) -> None:
+    cache_root = work / "corrupt-hit-cache"
+    cache_root.mkdir()
+    (cache_root / "vol1.aes").write_bytes(b"bad")
+    cache = EncryptedCache(str(cache_root), 1024)
+    fetches: list[str] = []
+
+    class DummySource:
+        def fetch(self, name: str) -> bytes:
+            fetches.append(name)
+            return b"good"
+
+    class DummyDecrypter:
+        def decrypt(self, encrypted: bytes, name: str) -> bytes:
+            if encrypted == b"bad":
+                raise extract_mod.AesDecryptError(f"bad cache hit for {name}")
+            return encrypted
+
+    class DummyOpenedVolume:
+        def __init__(
+            self,
+            name: str,
+            decrypted: bytes,
+            _expected_blocksize: int | None,
+            _expected_block_hash: str,
+            _expected_file_hash: str,
+        ):
+            self.name = name
+            self.decrypted = decrypted
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    original_opened_volume = extract_mod.OpenedVolume
+    extract_mod.OpenedVolume = DummyOpenedVolume
+    try:
+        extractor = object.__new__(Extractor)
+        extractor.cache = cache
+        extractor.source = DummySource()
+        extractor.decrypter = DummyDecrypter()
+        extractor.blocksize = 1024
+        extractor.block_hash_algo = "SHA256"
+        extractor.file_hash_algo = "SHA256"
+        extractor._open_volumes = collections.OrderedDict()
+
+        opened = extractor._open_volume("vol1.aes")
+
+        assert opened.decrypted == b"good"
+        assert fetches == ["vol1.aes"]
+        assert (cache_root / "vol1.aes").read_bytes() == b"good"
+        assert cache._used_bytes == 4
+    finally:
+        extract_mod.OpenedVolume = original_opened_volume
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--work", required=True, type=Path)
@@ -489,12 +797,18 @@ def main(argv: list[str] | None = None) -> int:
 
     check_cache_recovery(args.work)
     check_cache_cap_on_startup(args.work)
+    check_cache_partial_removal_failure_message(args.work)
     check_volume_name_rejection(args.work)
     check_file_source_requires_absolute_path(args.work)
     check_bucket_layout_uses_raw_subpath()
     check_db_override_still_loads_layout_manifest(args.work)
     check_env_owner_mismatch_fails(args.work)
     check_env_symlink_rejected(args.work)
+    check_env_mode_group_grant_rejected(args.work)
+    check_env_acl_mask_allows_named_user_read(args.work)
+    check_env_acl_group_grant_rejected(args.work)
+    check_env_unquoted_values_strip_padding(args.work)
+    check_endpoint_host_strips_pasted_scheme()
     check_private_output_dirs(args.work)
     check_sink_partial_cleanup_not_following_symlink(args.work)
     check_cache_partial_symlink_not_followed(args.work)
@@ -503,8 +817,10 @@ def main(argv: list[str] | None = None) -> int:
     check_blocklist_lookup_batches_sql_vars()
     check_blocksetentry_invalid_hash_exit_code()
     check_include_pattern_normalization()
+    check_main_normalizes_include_pattern(args.work)
     check_include_rejects_output_flag()
     check_open_volume_lru()
+    check_open_volume_evicts_corrupt_cache_hit(args.work)
     return 0
 
 
