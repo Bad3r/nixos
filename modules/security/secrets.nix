@@ -24,6 +24,7 @@
         (lib.mkIf (cfg.enable && actSecretExists) {
           sops.secrets."act/github_token" = {
             sopsFile = actSecretFile;
+            key = "github_token";
             mode = "0400";
             owner = ownerName;
           };
