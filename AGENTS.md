@@ -43,25 +43,35 @@ Canonical documentation lives under `docs/architecture/`.
 
 ## Nix Configuration
 
-| Setting                        | Value                  | Purpose                                                                                     |
-| ------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------- |
-| `abort-on-warn`                | `false`                | Disabled due to upstream nixpkgs warning (issue `#485682`)                                  |
-| `extra-experimental-features`  | `[ "pipe-operators" ]` | Enable pipe operator syntax in Nix expressions                                              |
-| `allow-import-from-derivation` | `true`                 | Required by IFD consumers: `nix-doom-emacs-unstraightened` and `modules/csec/wordlists.nix` |
-| `experimental-features`        | `nix-command flakes`   | Enable flakes and new Nix CLI                                                               |
+- `abort-on-warn`
+  - Value: `false`
+  - Purpose: Don't abort on warnings
+- `extra-experimental-features`
+  - Value: `[ "pipe-operators" ]`
+  - Purpose: Enable pipe operator syntax in Nix expressions
+- `allow-import-from-derivation`
+  - Value: `true`
+  - Purpose: Required by IFD consumers: `nix-doom-emacs-unstraightened` and `modules/csec/wordlists.nix`
+- `experimental-features`
+  - Value: `nix-command flakes`
+  - Purpose: Enable flakes and new Nix CLI
 
 These settings are mirrored in `build.sh` via `NIX_CONFIGURATION`.
 
 ## Quick-Start Checklist
 
-| Status | Step                                                                              |
-| ------ | --------------------------------------------------------------------------------- |
-| OK     | Sync working tree (`git status -sb`) and review outstanding changes before edits. |
-| OK     | Enter dev shell when running commands (`nix develop`).                            |
-| OK     | Use execution playbooks below; confirm prerequisites and post-checks.             |
-| OK     | Record validation commands in commit messages and PR descriptions.                |
-| WARN   | Never run forbidden commands or modify generated artifacts directly.              |
-| WARN   | If workflow is missing or ambiguous, escalate to maintainer.                      |
+- Sync working tree (`git status -sb`) and review outstanding changes before edits.
+  - Status: OK
+- Enter dev shell when running commands (`nix develop`).
+  - Status: OK
+- Use execution playbooks below; confirm prerequisites and post-checks.
+  - Status: OK
+- Record validation commands in commit messages and PR descriptions.
+  - Status: OK
+- Never run forbidden commands or modify generated artifacts directly.
+  - Status: WARN
+- If workflow is missing or ambiguous, escalate to maintainer.
+  - Status: WARN
 
 ## Architecture and Module System
 
@@ -104,14 +114,24 @@ Inputs prefixed with `dedupe_` exist for dependency deduplication through `.foll
 
 ### Repository Layout
 
-| Domain              | Location                                          | Notes                                                                                                                                                            |
-| ------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NixOS modules       | `modules/`                                        | Auto-loaded. Per-host logic under `modules/system76` and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain. |
-| Shared derivations  | `packages/`                                       | Common build logic shared between modules.                                                                                                                       |
-| Helper scripts      | `scripts/`                                        | Operational tooling.                                                                                                                                             |
-| Documentation       | `docs/`, `nixos-manual/`                          | Long-form references and local workflows.                                                                                                                        |
-| Secrets             | `secrets/`                                        | Encrypted payloads managed via `sops.secrets`.                                                                                                                   |
-| Generated artifacts | `.actrc`, `.gitignore`, `.sops.yaml`, `README.md` | Owned by the files module. Update source definitions instead of editing generated output directly.                                                               |
+- NixOS modules
+  - Location: `modules/`
+  - Notes: Auto-loaded. Per-host logic under `modules/system76` and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain.
+- Shared derivations
+  - Location: `packages/`
+  - Notes: Common build logic shared between modules.
+- Helper scripts
+  - Location: `scripts/`
+  - Notes: Operational tooling.
+- Documentation
+  - Location: `docs/`, `nixos-manual/`
+  - Notes: Long-form references and local workflows.
+- Secrets
+  - Location: `secrets/`
+  - Notes: Encrypted payloads managed via `sops.secrets`.
+- Generated artifacts
+  - Location: `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`
+  - Notes: Owned by the files module. Update source definitions instead of editing generated output directly.
 
 ### Module Authoring Guidelines (`modules/apps/*`)
 
@@ -148,11 +168,12 @@ in
 
 Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `main` unless explicitly approved.
 
-| Step   | Command                                                             |
-| ------ | ------------------------------------------------------------------- |
-| Create | `git worktree add $HOME/trees/nixos/<type>-<name> -b <type>/<name>` |
-| Work   | `cd $HOME/trees/nixos/<type>-<name>` then commit changes            |
-| PR     | `gh pr create --title "<type>(scope): summary" --body "..."`        |
+- Create
+  - Command: `git worktree add $HOME/trees/nixos/<type>-<name> -b <type>/<name>`
+- Work
+  - Command: `cd $HOME/trees/nixos/<type>-<name>` then commit changes
+- PR
+  - Command: `gh pr create --title "<type>(scope): summary" --body "..."`
 
 Branch type should follow Conventional Commits prefixes.
 
@@ -163,62 +184,70 @@ PR body should include:
 
 ### Development Environment
 
-| Trigger            | Command                                                         | Preconditions                                   | Post-check                                                         |
-| ------------------ | --------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
-| Start work         | `nix develop`                                                   | Clean tree; network available for substituters. | Dev tools available (`treefmt`, `pre-commit`, etc.).               |
-| Format sources     | `nix fmt`                                                       | Run at repo root.                               | No remaining formatting diffs in `git status`.                     |
-| Run hooks          | `nix develop -c pre-commit run --all-files --hook-stage manual` | Dev shell ready; workspace writable.            | Exit code 0; review reported TODOs/failures.                       |
-| Generate artifacts | `nix develop -c write-files`                                    | Dev shell ready; managed files may update.      | Review diffs in `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`. |
+- Start work
+  - Command: `nix develop`
+  - Preconditions: Clean tree; network available for substituters.
+  - Post-check: Dev tools available (`treefmt`, `pre-commit`, etc.).
+- Format sources
+  - Command: `nix fmt`
+  - Preconditions: Run at repo root.
+  - Post-check: No remaining formatting diffs in `git status`.
+- Run hooks
+  - Command: `nix develop -c pre-commit run --all-files --hook-stage manual`
+  - Preconditions: Dev shell ready; workspace writable.
+  - Post-check: Exit code 0; review reported TODOs/failures.
+- Generate artifacts
+  - Command: `nix develop -c write-files`
+  - Preconditions: Dev shell ready; managed files may update.
+  - Post-check: Review diffs in `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`.
 
 ### Validation and Builds
 
-| Trigger             | Command                                                               | Preconditions                                                   | Post-check                                     |
-| ------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------- |
-| Verify flake health | `nix flake check --accept-flake-config --no-build --offline`          | Dev shell recommended.                                          | Exit code 0; resolve reported failures.        |
-| Build host          | `nix build .#nixosConfigurations.<host>.config.system.build.toplevel` | Replace `<host>`. Do not use `--allow-dirty` unless instructed. | Build completes; capture resulting store path. |
-| Validate/deploy     | `./build.sh [OPTIONS]`                                                | Clean tree unless `--allow-dirty` is explicitly required.       | Script exits 0; capture logs on failure.       |
-| Update inputs       | `./build.sh --update`                                                 | Clean tree recommended.                                         | Review `flake.lock` changes.                   |
-
-#### `build.sh` options
-
-| Flag            | Purpose                                   | Use When                                         |
-| --------------- | ----------------------------------------- | ------------------------------------------------ |
-| `--host <name>` | Target specific hostname                  | Deploying to non-current host                    |
-| `--boot`        | Install for next boot                     | Testing before activation                        |
-| `--offline`     | Build without network access              | Working offline/testing substituter independence |
-| `--allow-dirty` | Override clean tree requirement           | Emergency fix only                               |
-| `--update`      | Run `nix flake update` before build       | Updating all inputs                              |
-| `--skip-fmt`    | Skip formatting step                      | Debugging known-good formatting                  |
-| `--skip-hooks`  | Skip pre-commit hooks                     | Debugging known-good hooks                       |
-| `--skip-check`  | Skip `nix flake check`                    | Debugging known-good checks                      |
-| `--skip-all`    | Skip all validation                       | Emergency deployment only                        |
-| `--keep-going`  | Continue despite failures                 | Building with known-broken packages              |
-| `--repair`      | Repair corrupted store paths during build | Recovering from store corruption                 |
-| `--verbose`     | Enable verbose Nix output                 | Debugging build issues                           |
+- Verify flake health
+  - Command: `nix flake check --accept-flake-config --no-build --offline`
+  - Preconditions: Dev shell recommended.
+  - Post-check: Exit code 0; resolve reported failures.
+- Build host
+  - Command: `nix build .#nixosConfigurations.<host>.config.system.build.toplevel`
+  - Preconditions: Replace `<host>`.
+  - Post-check: Build completes; capture resulting store path.
+- Update inputs
+  - Command: `nix flake metadata --refresh && nix flake update && nix fmt flake.lock`
+  - Preconditions: Clean tree recommended.
+  - Post-check: inputs in `flake.lock` are updated.
 
 ### GitHub Actions (Local)
 
-| Trigger   | Command                            | Preconditions   | Post-check                     |
-| --------- | ---------------------------------- | --------------- | ------------------------------ |
-| List jobs | `nix develop -c gh-actions-list`   | Dev shell ready | Lists available workflow jobs  |
-| Run jobs  | `nix develop -c gh-actions-run`    | Dev shell ready | Runs actions locally via `act` |
-| Dry run   | `nix develop -c gh-actions-run -n` | Dev shell ready | Shows planned execution        |
+- List jobs
+  - Command: `nix develop -c gh-actions-list`
+  - Preconditions: Dev shell ready
+  - Post-check: Lists available workflow jobs
+- Run jobs
+  - Command: `nix develop -c gh-actions-run`
+  - Preconditions: Dev shell ready
+  - Post-check: Runs actions locally via `act`
+- Dry run
+  - Command: `nix develop -c gh-actions-run -n`
+  - Preconditions: Dev shell ready
+  - Post-check: Shows planned execution
 
 ### Troubleshooting
 
-| Scenario               | Resolution                                                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------------------------- |
-| Unfree package blocked | Add package to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`.     |
-| Missing app reference  | Ensure that the file is tracked by git.                                                                 |
-| Explore config in repl | `nix develop --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports. |
+- Unfree package blocked
+  - Resolution: Add package to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`.
+- Missing app reference
+  - Resolution: Ensure that the file is tracked by git.
+- Explore config in repl
+  - Resolution: `nix develop --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
 
 ## Coding Style and Verification
 
-| Topic      | Guidance                                                                                                                                              |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Naming     | Prefer lowercase, hyphenated identifiers. Prefix experiments with `_` to avoid auto-discovery.                                                        |
-| Imports    | Expose modules through namespace exports; avoid literal path imports.                                                                                 |
-| Validation | Keep `nix flake check --accept-flake-config` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules. |
+- Naming
+  - Guidance: Prefer lowercase, hyphenated identifiers. Prefix experiments with `_` to avoid auto-discovery.
+- Imports
+  - Guidance: Expose modules through namespace exports; avoid literal path imports.
+- Validation
+  - Guidance: Keep `nix flake check --accept-flake-config` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules.
 
 **Skip `nix flake check` after value-level edits**: For nix flakes, skip `nix flake check` after value-level edits to existing lists or attrsets (adding strings, toggling booleans, scalar changes). Reserve it for structural changes: new modules, options, imports, let-binding refactors, argument-shape changes. `treefmt` plus a parse pass is sufficient during iteration.
 
@@ -260,21 +289,45 @@ Pause, summarize the issue, and ask for direction.
 
 ## Local Mirrors
 
-| Name               | Path                                    | Use When                                                       |
-| ------------------ | --------------------------------------- | -------------------------------------------------------------- |
-| Stylix             | `/data/git/nix-community-stylix`        | Inspect source or apply local patches.                         |
-| Home Manager       | `/data/git/nix-community-home-manager`  | Review module behavior or backport fixes.                      |
-| LibreWolf settings | `/data/git/codeberg-librewolf-settings` | Inspect upstream LibreWolf default settings and uBO assets.    |
-| i3 Docs            | `/data/git/i3-i3.github.io`             | Reference i3 documentation offline.                            |
-| Duplicati Docs     | `/data/git/duplicati-documentation`     | Look up `duplicati-cli` commands, options, or backup format.   |
-| nixpkgs            | `/data/git/NixOS-nixpkgs`               | Inspect/patch upstream expressions.                            |
-| nixos-hardware     | `/data/git/NixOS-nixos-hardware`        | Pull hardware profiles and troubleshoot host hardware options. |
-| nixvim             | `/data/git/nix-community-nixvim`        | Examine NixVim modules and options.                            |
-| treefmt-nix        | `/data/git/numtide-treefmt-nix`         | Adjust formatter behavior or pinning.                          |
-| git-hooks.nix      | `/data/git/cachix-git-hooks.nix`        | Update hook definitions or debug pre-commit failures.          |
-| sops-nix           | `/data/git/Mic92-sops-nix`              | Manage encrypted secret integrations.                          |
-| import-tree        | `/data/git/vic-import-tree`             | Review/extend auto-loading behavior.                           |
-| files module       | `/data/git/mightyiam-files`             | Update generated artifact sources (e.g., `.gitignore`).        |
+- Stylix
+  - Path: `/data/git/nix-community-stylix`
+  - Use when: Inspect source or apply local patches.
+- Home Manager
+  - Path: `/data/git/nix-community-home-manager`
+  - Use when: Review module behavior or backport fixes.
+- LibreWolf settings
+  - Path: `/data/git/codeberg-librewolf-settings`
+  - Use when: Inspect upstream LibreWolf default settings and uBO assets.
+- i3 Docs
+  - Path: `/data/git/i3-i3.github.io`
+  - Use when: Reference i3 documentation offline.
+- Duplicati Docs
+  - Path: `/data/git/duplicati-documentation`
+  - Use when: Look up `duplicati-cli` commands, options, or backup format.
+- nixpkgs
+  - Path: `/data/git/NixOS-nixpkgs`
+  - Use when: Inspect/patch upstream expressions.
+- nixos-hardware
+  - Path: `/data/git/NixOS-nixos-hardware`
+  - Use when: Pull hardware profiles and troubleshoot host hardware options.
+- nixvim
+  - Path: `/data/git/nix-community-nixvim`
+  - Use when: Examine NixVim modules and options.
+- treefmt-nix
+  - Path: `/data/git/numtide-treefmt-nix`
+  - Use when: Adjust formatter behavior or pinning.
+- git-hooks.nix
+  - Path: `/data/git/cachix-git-hooks.nix`
+  - Use when: Update hook definitions or debug pre-commit failures.
+- sops-nix
+  - Path: `/data/git/Mic92-sops-nix`
+  - Use when: Manage encrypted secret integrations.
+- import-tree
+  - Path: `/data/git/vic-import-tree`
+  - Use when: Review/extend auto-loading behavior.
+- files module
+  - Path: `/data/git/mightyiam-files`
+  - Use when: Update generated artifact sources (e.g., `.gitignore`).
 
 ## Practices
 
@@ -282,5 +335,3 @@ Pause, summarize the issue, and ask for direction.
 - Use `uv` and `uvx` for all Python work; use `uv run --with <pkg>` for inline/one-off dependencies.
 - Prefer editing existing files over creating new ones
 - If an issue is upstream, do not add a local wrapper or workaround unless the user explicitly asks for it or approves it.
-- IMPORTANT: For any task task, you **MUST** resolve it idiomatically and following best-practices.
-- IMPORTANT: DO NOT BE LAZY OR TAKE SHORTCUTS
