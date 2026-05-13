@@ -12,6 +12,7 @@ import json
 import os
 import sqlite3
 import stat
+import struct
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -34,6 +35,7 @@ from duplicati_r2_extract import (
     _ensure_private_dir,
     _glob_paths,
     _load_manifest_for_layout,
+    _resolve_endpoint_url,
     build_source,
     load_env_file,
     resolve_bucket_layout,
@@ -151,6 +153,98 @@ def check_env_symlink_rejected(work: Path) -> None:
     os.symlink(env_file, env_link)
 
     expect_exit(EXIT_OPEN_ERR, load_env_file, str(env_link))
+
+
+def _acl_data(entries: list[tuple[int, int, int]]) -> bytes:
+    return struct.pack("<I", extract_mod._POSIX_ACL_XATTR_VERSION) + b"".join(
+        struct.pack("<HHI", tag, perm, entry_id) for tag, perm, entry_id in entries
+    )
+
+
+def check_env_acl_mask_allows_named_user_read(work: Path) -> None:
+    env_file = work / "acl-readable.env"
+    env_file.write_text("DUPLICATI_PASSPHRASE=test\n", encoding="utf-8")
+    env_file.chmod(0o440)
+    acl = _acl_data(
+        [
+            (
+                extract_mod._ACL_USER_OBJ,
+                extract_mod._ACL_READ,
+                extract_mod._ACL_UNDEFINED_ID,
+            ),
+            (extract_mod._ACL_USER, extract_mod._ACL_READ, os.getuid()),
+            (extract_mod._ACL_GROUP_OBJ, 0, extract_mod._ACL_UNDEFINED_ID),
+            (
+                extract_mod._ACL_MASK,
+                extract_mod._ACL_READ,
+                extract_mod._ACL_UNDEFINED_ID,
+            ),
+            (extract_mod._ACL_OTHER, 0, extract_mod._ACL_UNDEFINED_ID),
+        ]
+    )
+    real_getxattr = extract_mod.os.getxattr
+    extract_mod.os.getxattr = lambda _fd, _name: acl
+    try:
+        assert load_env_file(str(env_file))["DUPLICATI_PASSPHRASE"] == "test"
+    finally:
+        extract_mod.os.getxattr = real_getxattr
+
+
+def check_env_acl_group_grant_rejected(work: Path) -> None:
+    env_file = work / "acl-group.env"
+    env_file.write_text("DUPLICATI_PASSPHRASE=test\n", encoding="utf-8")
+    env_file.chmod(0o440)
+    acl = _acl_data(
+        [
+            (
+                extract_mod._ACL_USER_OBJ,
+                extract_mod._ACL_READ,
+                extract_mod._ACL_UNDEFINED_ID,
+            ),
+            (
+                extract_mod._ACL_GROUP_OBJ,
+                extract_mod._ACL_READ,
+                extract_mod._ACL_UNDEFINED_ID,
+            ),
+            (
+                extract_mod._ACL_MASK,
+                extract_mod._ACL_READ,
+                extract_mod._ACL_UNDEFINED_ID,
+            ),
+            (extract_mod._ACL_OTHER, 0, extract_mod._ACL_UNDEFINED_ID),
+        ]
+    )
+    real_getxattr = extract_mod.os.getxattr
+    extract_mod.os.getxattr = lambda _fd, _name: acl
+    try:
+        expect_exit(EXIT_OPEN_ERR, load_env_file, str(env_file))
+    finally:
+        extract_mod.os.getxattr = real_getxattr
+
+
+def check_env_unquoted_values_preserve_whitespace(work: Path) -> None:
+    env_file = work / "whitespace.env"
+    env_file.write_text(
+        'DUPLICATI_PASSPHRASE=secret   \nQUOTED=" spaced "\n',
+        encoding="utf-8",
+    )
+    env_file.chmod(0o400)
+
+    env = load_env_file(str(env_file))
+
+    assert env["DUPLICATI_PASSPHRASE"] == "secret   "
+    assert env["QUOTED"] == " spaced "
+
+
+def check_endpoint_host_strips_pasted_scheme() -> None:
+    assert (
+        _resolve_endpoint_url({"R2_S3_ENDPOINT": "https://abc.r2.example.com/"})
+        == "https://abc.r2.example.com"
+    )
+    assert (
+        _resolve_endpoint_url({"R2_S3_ENDPOINT": "HTTPS://abc.r2.example.com/"})
+        == "https://abc.r2.example.com"
+    )
 
 
 def check_private_output_dirs(work: Path) -> None:
@@ -495,6 +589,10 @@ def main(argv: list[str] | None = None) -> int:
     check_db_override_still_loads_layout_manifest(args.work)
     check_env_owner_mismatch_fails(args.work)
     check_env_symlink_rejected(args.work)
+    check_env_acl_mask_allows_named_user_read(args.work)
+    check_env_acl_group_grant_rejected(args.work)
+    check_env_unquoted_values_preserve_whitespace(args.work)
+    check_endpoint_host_strips_pasted_scheme()
     check_private_output_dirs(args.work)
     check_sink_partial_cleanup_not_following_symlink(args.work)
     check_cache_partial_symlink_not_followed(args.work)

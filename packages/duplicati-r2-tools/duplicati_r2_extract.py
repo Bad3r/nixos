@@ -26,6 +26,7 @@ import os
 import re
 import sqlite3
 import stat
+import struct
 import sys
 import time
 import urllib.parse
@@ -74,6 +75,89 @@ set_program_name("duplicati-r2-extract")
 
 
 _DOTENV_RE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
+_POSIX_ACL_XATTR = "system.posix_acl_access"
+_POSIX_ACL_XATTR_VERSION = 0x0002
+_ACL_USER_OBJ = 0x01
+_ACL_USER = 0x02
+_ACL_GROUP_OBJ = 0x04
+_ACL_GROUP = 0x08
+_ACL_MASK = 0x10
+_ACL_OTHER = 0x20
+_ACL_EXECUTE = 0x01
+_ACL_WRITE = 0x02
+_ACL_READ = 0x04
+_ACL_UNDEFINED_ID = 0xFFFFFFFF
+_ACL_XATTR_HEADER = struct.Struct("<I")
+_ACL_XATTR_ENTRY = struct.Struct("<HHI")
+_NO_ACL_XATTR_ERRNOS = {
+    code
+    for code in (
+        getattr(errno, "ENODATA", None),
+        getattr(errno, "ENOATTR", None),
+        getattr(errno, "ENOTSUP", None),
+        getattr(errno, "EOPNOTSUPP", None),
+    )
+    if code is not None
+}
+
+
+def _posix_acl_insecure_access(acl_data: bytes, path: str) -> bool:
+    if (
+        len(acl_data) < _ACL_XATTR_HEADER.size
+        or (len(acl_data) - _ACL_XATTR_HEADER.size) % _ACL_XATTR_ENTRY.size
+    ):
+        fail(f"env file {path} has malformed POSIX ACL data; refusing", EXIT_OPEN_ERR)
+
+    (version,) = _ACL_XATTR_HEADER.unpack_from(acl_data)
+    if version != _POSIX_ACL_XATTR_VERSION:
+        fail(
+            f"env file {path} has unsupported POSIX ACL version {version}; refusing",
+            EXIT_OPEN_ERR,
+        )
+
+    entries: list[tuple[int, int]] = []
+    mask_perm: int | None = None
+    for offset in range(
+        _ACL_XATTR_HEADER.size,
+        len(acl_data),
+        _ACL_XATTR_ENTRY.size,
+    ):
+        tag, perm, _entry_id = _ACL_XATTR_ENTRY.unpack_from(acl_data, offset)
+        if tag == _ACL_MASK:
+            mask_perm = perm
+        elif tag not in {
+            _ACL_USER_OBJ,
+            _ACL_USER,
+            _ACL_GROUP_OBJ,
+            _ACL_GROUP,
+            _ACL_OTHER,
+        }:
+            fail(
+                f"env file {path} has unknown POSIX ACL tag {tag}; refusing",
+                EXIT_OPEN_ERR,
+            )
+        entries.append((tag, perm))
+
+    for tag, perm in entries:
+        effective = perm
+        if tag in {_ACL_USER, _ACL_GROUP_OBJ, _ACL_GROUP} and mask_perm is not None:
+            effective &= mask_perm
+        if tag in {_ACL_GROUP_OBJ, _ACL_GROUP, _ACL_OTHER} and effective:
+            return True
+        if tag == _ACL_USER and effective & (_ACL_WRITE | _ACL_EXECUTE):
+            return True
+    return False
+
+
+def _env_file_has_insecure_access(fd: int, path: str, st_mode: int) -> bool:
+    try:
+        acl_data = os.getxattr(fd, _POSIX_ACL_XATTR)
+    except OSError as exc:
+        if exc.errno in _NO_ACL_XATTR_ERRNOS:
+            return bool(st_mode & 0o077)
+        fail(f"failed to inspect env file ACL for {path}: {exc}", EXIT_OPEN_ERR)
+
+    return _posix_acl_insecure_access(acl_data, path)
 
 
 def load_env_file(path: str) -> dict[str, str]:
@@ -109,9 +193,9 @@ def load_env_file(path: str) -> dict[str, str]:
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode):
             fail(f"env file {path} is not a regular file; refusing", EXIT_OPEN_ERR)
-        if st.st_mode & 0o077:
+        if _env_file_has_insecure_access(fd, path, st.st_mode):
             fail(
-                f"env file {path} permits group or world access (mode {oct(st.st_mode & 0o7777)}); refusing",
+                f"env file {path} grants group, world, or write/execute ACL access (mode {oct(st.st_mode & 0o7777)}); refusing",
                 EXIT_OPEN_ERR,
             )
         if st.st_uid not in (0, os.getuid()):
@@ -122,17 +206,21 @@ def load_env_file(path: str) -> dict[str, str]:
         with os.fdopen(fd, "r", encoding="utf-8") as fh:
             fd = -1
             for raw in fh:
-                line = raw.strip()
-                if not line or line.startswith("#"):
+                line = raw.rstrip("\r\n")
+                stripped_line = line.strip()
+                if not stripped_line or stripped_line.startswith("#"):
                     continue
                 m = _DOTENV_RE.match(line)
                 if not m:
                     continue
-                key, value = m.group(1), m.group(2).strip()
-                if (value.startswith('"') and value.endswith('"')) or (
-                    value.startswith("'") and value.endswith("'")
-                ):
-                    value = value[1:-1]
+                key, raw_value = m.group(1), m.group(2)
+                stripped_value = raw_value.strip()
+                if (
+                    stripped_value.startswith('"') and stripped_value.endswith('"')
+                ) or (stripped_value.startswith("'") and stripped_value.endswith("'")):
+                    value = stripped_value[1:-1]
+                else:
+                    value = raw_value
                 env[key] = value
     finally:
         if fd != -1:
@@ -295,6 +383,7 @@ def _resolve_endpoint_url(env: dict[str, str]) -> str | None:
         return url
     host = env.get("R2_S3_ENDPOINT")
     if host:
+        host = re.sub(r"^https?://", "", host.strip(), flags=re.IGNORECASE).rstrip("/")
         return f"https://{host}"
     account = env.get("R2_ACCOUNT_ID")
     if account:
