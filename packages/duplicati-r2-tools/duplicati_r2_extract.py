@@ -89,6 +89,13 @@ _ACL_READ = 0x04
 _ACL_UNDEFINED_ID = 0xFFFFFFFF
 _ACL_XATTR_HEADER = struct.Struct("<I")
 _ACL_XATTR_ENTRY = struct.Struct("<HHI")
+_ACL_TAG_LABELS = {
+    _ACL_USER_OBJ: "owner",
+    _ACL_USER: "named user",
+    _ACL_GROUP_OBJ: "group-object",
+    _ACL_GROUP: "named group",
+    _ACL_OTHER: "other",
+}
 _NO_ACL_XATTR_ERRNOS = {
     code
     for code in (
@@ -101,7 +108,25 @@ _NO_ACL_XATTR_ERRNOS = {
 }
 
 
-def _posix_acl_insecure_access(acl_data: bytes, path: str) -> bool:
+def _acl_perm_string(perm: int) -> str:
+    return "".join(
+        label if perm & bit else "-"
+        for bit, label in (
+            (_ACL_READ, "r"),
+            (_ACL_WRITE, "w"),
+            (_ACL_EXECUTE, "x"),
+        )
+    )
+
+
+def _acl_entry_label(tag: int, entry_id: int) -> str:
+    label = _ACL_TAG_LABELS[tag]
+    if tag in {_ACL_USER, _ACL_GROUP}:
+        return f"{label} {entry_id}"
+    return label
+
+
+def _posix_acl_insecure_access_reason(acl_data: bytes, path: str) -> str | None:
     if (
         len(acl_data) < _ACL_XATTR_HEADER.size
         or (len(acl_data) - _ACL_XATTR_HEADER.size) % _ACL_XATTR_ENTRY.size
@@ -115,7 +140,7 @@ def _posix_acl_insecure_access(acl_data: bytes, path: str) -> bool:
             EXIT_OPEN_ERR,
         )
 
-    entries: list[tuple[int, int]] = []
+    entries: list[tuple[int, int, int]] = []
     mask_perm: int | None = None
     for offset in range(
         _ACL_XATTR_HEADER.size,
@@ -125,6 +150,7 @@ def _posix_acl_insecure_access(acl_data: bytes, path: str) -> bool:
         tag, perm, _entry_id = _ACL_XATTR_ENTRY.unpack_from(acl_data, offset)
         if tag == _ACL_MASK:
             mask_perm = perm
+            continue
         elif tag not in {
             _ACL_USER_OBJ,
             _ACL_USER,
@@ -136,28 +162,36 @@ def _posix_acl_insecure_access(acl_data: bytes, path: str) -> bool:
                 f"env file {path} has unknown POSIX ACL tag {tag}; refusing",
                 EXIT_OPEN_ERR,
             )
-        entries.append((tag, perm))
+        entries.append((tag, perm, _entry_id))
 
-    for tag, perm in entries:
+    for tag, perm, entry_id in entries:
         effective = perm
         if tag in {_ACL_USER, _ACL_GROUP_OBJ, _ACL_GROUP} and mask_perm is not None:
             effective &= mask_perm
         if tag in {_ACL_GROUP_OBJ, _ACL_GROUP, _ACL_OTHER} and effective:
-            return True
+            return (
+                f"POSIX ACL {_acl_entry_label(tag, entry_id)} entry grants "
+                f"{_acl_perm_string(effective)}"
+            )
         if tag == _ACL_USER and effective & (_ACL_WRITE | _ACL_EXECUTE):
-            return True
-    return False
+            return (
+                f"POSIX ACL {_acl_entry_label(tag, entry_id)} entry grants "
+                f"{_acl_perm_string(effective)}"
+            )
+    return None
 
 
-def _env_file_has_insecure_access(fd: int, path: str, st_mode: int) -> bool:
+def _env_file_insecure_access_reason(fd: int, path: str, st_mode: int) -> str | None:
     try:
         acl_data = os.getxattr(fd, _POSIX_ACL_XATTR)
     except OSError as exc:
         if exc.errno in _NO_ACL_XATTR_ERRNOS:
-            return bool(st_mode & 0o077)
+            if st_mode & 0o077:
+                return f"mode {oct(st_mode & 0o7777)} permits group or world access"
+            return None
         fail(f"failed to inspect env file ACL for {path}: {exc}", EXIT_OPEN_ERR)
 
-    return _posix_acl_insecure_access(acl_data, path)
+    return _posix_acl_insecure_access_reason(acl_data, path)
 
 
 def load_env_file(path: str) -> dict[str, str]:
@@ -193,9 +227,10 @@ def load_env_file(path: str) -> dict[str, str]:
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode):
             fail(f"env file {path} is not a regular file; refusing", EXIT_OPEN_ERR)
-        if _env_file_has_insecure_access(fd, path, st.st_mode):
+        insecure_reason = _env_file_insecure_access_reason(fd, path, st.st_mode)
+        if insecure_reason is not None:
             fail(
-                f"env file {path} grants group, world, or write/execute ACL access (mode {oct(st.st_mode & 0o7777)}); refusing",
+                f"env file {path} grants insecure access: {insecure_reason}; refusing",
                 EXIT_OPEN_ERR,
             )
         if st.st_uid not in (0, os.getuid()):

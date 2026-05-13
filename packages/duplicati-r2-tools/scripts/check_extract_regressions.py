@@ -7,6 +7,7 @@ import argparse
 import base64
 import collections
 import contextlib
+import errno
 import hashlib
 import io
 import json
@@ -197,6 +198,30 @@ def _acl_data(entries: list[tuple[int, int, int]]) -> bytes:
     )
 
 
+def check_env_mode_group_grant_rejected(work: Path) -> None:
+    env_file = work / "mode-group.env"
+    env_file.write_text("DUPLICATI_PASSPHRASE=test\n", encoding="utf-8")
+    env_file.chmod(0o440)
+    no_acl_errno = getattr(errno, "ENODATA", None)
+    if no_acl_errno is None:
+        no_acl_errno = next(iter(extract_mod._NO_ACL_XATTR_ERRNOS))
+    real_getxattr = extract_mod.os.getxattr
+
+    def missing_acl(_fd: int, _name: str) -> bytes:
+        raise OSError(no_acl_errno, "synthetic missing ACL")
+
+    extract_mod.os.getxattr = missing_acl
+    try:
+        expect_exit_stderr_contains(
+            EXIT_OPEN_ERR,
+            "mode 0o440 permits group or world access",
+            load_env_file,
+            str(env_file),
+        )
+    finally:
+        extract_mod.os.getxattr = real_getxattr
+
+
 def check_env_acl_mask_allows_named_user_read(work: Path) -> None:
     env_file = work / "acl-readable.env"
     env_file.write_text("DUPLICATI_PASSPHRASE=test\n", encoding="utf-8")
@@ -253,7 +278,12 @@ def check_env_acl_group_grant_rejected(work: Path) -> None:
     real_getxattr = extract_mod.os.getxattr
     extract_mod.os.getxattr = lambda _fd, _name: acl
     try:
-        expect_exit(EXIT_OPEN_ERR, load_env_file, str(env_file))
+        expect_exit_stderr_contains(
+            EXIT_OPEN_ERR,
+            "POSIX ACL group-object entry grants r--",
+            load_env_file,
+            str(env_file),
+        )
     finally:
         extract_mod.os.getxattr = real_getxattr
 
@@ -700,6 +730,7 @@ def main(argv: list[str] | None = None) -> int:
     check_db_override_still_loads_layout_manifest(args.work)
     check_env_owner_mismatch_fails(args.work)
     check_env_symlink_rejected(args.work)
+    check_env_mode_group_grant_rejected(args.work)
     check_env_acl_mask_allows_named_user_read(args.work)
     check_env_acl_group_grant_rejected(args.work)
     check_env_unquoted_values_strip_padding(args.work)
