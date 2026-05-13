@@ -6,8 +6,6 @@
     * Reader-mode colors come from Stylix's own reader-mode wiring.
     * `fonts` is forwarded from `config.stylix.fonts`; pass `null` to let
       the browser use its built-in defaults.
-    * WebRTC stays in each browser module because it depends on the
-      per-browser HM option (enableWebRTC).
     * Floorp workspaces stay in floorp.nix because they are Floorp-specific.
 */
 
@@ -58,14 +56,6 @@
       # other choice each rebuild.
       "print_printer" = "Mozilla Save to PDF";
       "print.more-settings.open" = true;
-      "print.printer_Mozilla_Save_to_PDF.print_bgcolor" = false;
-      "print.printer_Mozilla_Save_to_PDF.print_bgimages" = false;
-      "print.printer_Mozilla_Save_to_PDF.print_footercenter" = "";
-      "print.printer_Mozilla_Save_to_PDF.print_footerleft" = "";
-      "print.printer_Mozilla_Save_to_PDF.print_footerright" = "";
-      "print.printer_Mozilla_Save_to_PDF.print_headercenter" = "";
-      "print.printer_Mozilla_Save_to_PDF.print_headerleft" = "";
-      "print.printer_Mozilla_Save_to_PDF.print_headerright" = "";
 
       # Route xdg-open / `firefox <url>` invocations to a new tab in the
       # current window (override.external=3). Also route target="_blank" links
@@ -98,10 +88,9 @@
       # Firefox short-circuits the shutdown sanitizer. The `_v2.*` namespace
       # is what modern Firefox (128+) reads; the legacy v1 keys are no-ops.
       "privacy.sanitize.sanitizeOnShutdown" = true;
-      "privacy.clearOnShutdown.offlineApps" = true;
       "privacy.clearOnShutdown_v2.cookiesAndStorage" = true;
       "privacy.clearOnShutdown_v2.formdata" = true;
-      "privacy.clearOnShutdown_v2.historyFormDataAndDownloads" = true;
+      "privacy.clearOnShutdown_v2.browsingHistoryAndDownloads" = true;
 
       # Open context menus on mouseup so a quick right-click-drag does not
       # dismiss the menu before it appears (X11 quirk).
@@ -130,8 +119,6 @@
 
       # VA-API hardware decoding under Wayland/X11.
       "media.ffmpeg.vaapi.enabled" = true;
-      "media.eme.enabled" = true;
-      "media.gmp-widevinecdm.enabled" = true;
 
       # Prefer xdg-desktop-portal for file picker and integration.
       "widget.use-xdg-desktop-portal.file-picker" = 1;
@@ -185,9 +172,11 @@
       "cookiebanners.ui.desktop.enabled" = true;
 
       # Keep Firefox Sync focused on extension/preferences state.
-      "services.sync.declinedEngines" = "passwords,addresses,forms,creditcards,history";
-      "services.sync.engine.history" = false;
       "services.sync.engine.passwords" = false;
+      "services.sync.engine.addresses" = false;
+      "services.sync.engine.forms" = false;
+      "services.sync.engine.creditcards" = false;
+      "services.sync.engine.history" = false;
       "services.sync.engine.prefs" = true;
 
       # DevTools defaults.

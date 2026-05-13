@@ -9,11 +9,8 @@
 
   Arguments:
     pkgs, inputs, lib, config: standard module args from the caller.
-    cfg: the caller's privacy config (must define `enableWebRTC`).
-
   Returns:
-    mkProfile, extensionPolicies, primaryPackages, workPackages,
-    ephemeralPackages.
+    mkProfile, policies, primaryPackages, workPackages, ephemeralPackages.
 */
 
 {
@@ -21,7 +18,6 @@
   inputs,
   lib,
   config,
-  cfg,
 }:
 let
   firefox-addons = (pkgs.extend inputs.dedupe_nur.overlays.default).nur.repos.rycee.firefox-addons;
@@ -33,10 +29,9 @@ let
   geckoSearch = import ./_gecko-search.nix { };
   geckoContainers = import ./_gecko-containers.nix { };
   geckoExtensions = import ./_gecko-extensions.nix { inherit firefox-addons; };
+  geckoPolicies = import ./_gecko-policies.nix { };
 
-  mediaSettings = {
-    "media.peerconnection.enabled" = cfg.enableWebRTC;
-  };
+  policies = lib.recursiveUpdate geckoPolicies.policies geckoExtensions.extensionPolicies;
 
   mkProfile =
     {
@@ -47,8 +42,7 @@ let
     }:
     {
       inherit id containersForce;
-      settings =
-        geckoPrefs.commonSettings // geckoExtensions.sidebarSettings // mediaSettings // extraSettings;
+      settings = geckoPrefs.commonSettings // geckoExtensions.sidebarSettings // extraSettings;
       inherit (geckoSearch) search;
       inherit (geckoContainers) containers;
       extensions = {
@@ -59,11 +53,10 @@ let
     };
 in
 {
-  inherit mkProfile;
+  inherit mkProfile policies;
   inherit (geckoExtensions)
     primaryPackages
     workPackages
     ephemeralPackages
-    extensionPolicies
     ;
 }

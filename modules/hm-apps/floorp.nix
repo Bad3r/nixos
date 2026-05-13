@@ -38,14 +38,12 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "floorp" "extended" "enable" ] false osConfig;
-      cfg = config.home.floorpPrivacy;
       gecko = import ./_gecko-mk-profile.nix {
         inherit
           pkgs
           inputs
           lib
           config
-          cfg
           ;
       };
 
@@ -78,12 +76,6 @@ _: {
       };
     in
     {
-      options.home.floorpPrivacy = {
-        enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
-          default = false;
-        };
-      };
-
       config = lib.mkIf nixosEnabled {
         programs.floorp = {
           enable = true;
@@ -95,12 +87,7 @@ _: {
             nativeMessagingHosts = [ pkgs.tridactyl-native ];
           };
 
-          policies = {
-            DisableTelemetry = true;
-            DisableFirefoxStudies = true;
-            DisablePocket = true;
-          }
-          // gecko.extensionPolicies;
+          inherit (gecko) policies;
 
           languagePacks = [ "en-US" ];
 
