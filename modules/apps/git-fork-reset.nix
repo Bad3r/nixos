@@ -303,7 +303,6 @@ let
             if $has_local_state; then
               print_command git stash push --all --message "$stash_message"
             fi
-            print_command git switch "$branch"
             print_command git reset --hard "$target_ref"
             if $push; then
               print_command git push --force-with-lease "$origin_remote" "$branch:$branch"
@@ -334,7 +333,6 @@ let
             fi
           fi
 
-          git switch "$branch"
           git reset --hard "$target_ref"
 
           if $push; then
