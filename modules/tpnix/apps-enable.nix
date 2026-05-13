@@ -62,7 +62,6 @@ let
     "kiro-fhs" = false;
     lazydocker = false;
     librsvg = false;
-    librewolf = false;
     "logseq-cli" = false;
     lxsession = false;
     maestral = false;

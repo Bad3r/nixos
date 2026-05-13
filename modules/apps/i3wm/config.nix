@@ -196,7 +196,7 @@
       commandsDefault = {
         launcher = "${lib.getExe pkgs.rofi} -config ~/.config/rofi/rofidmenu.rasi -modi drun -show drun";
         terminal = lib.getExe pkgs.kitty;
-        browser = lib.getExe config.programs.floorp.finalPackage;
+        browser = lib.getExe config.programs.librewolf.finalPackage;
         emoji = "${lib.getExe pkgs.rofimoji} --selector rofi";
         bluetoothMenu = "${lib.getExe pkgs.bzmenu} --launcher rofi";
         playerctl = lib.getExe pkgs.playerctl;
@@ -369,7 +369,7 @@
         browserClass = lib.mkOption {
           description = "Window class of the default browser for focus-or-launch and assigns.";
           type = lib.types.str;
-          default = "floorp";
+          default = "librewolf";
           example = "firefox";
         };
 

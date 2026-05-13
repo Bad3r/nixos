@@ -5,7 +5,7 @@
   applications; this module designates which are the host's defaults.
 
   Usage:
-    host.defaults.browser = "floorp";
+    host.defaults.browser = "librewolf";
     host.defaults.mailClient = "thunderbird";
     host.defaults.torrentClient = "qbittorrent";
     host.defaults.terminal = "kitty";
