@@ -29,7 +29,12 @@ let
   geckoSearch = import ./_gecko-search.nix { };
   geckoContainers = import ./_gecko-containers.nix { };
   geckoExtensions = import ./_gecko-extensions.nix {
-    inherit firefox-addons pkgs;
+    inherit
+      config
+      firefox-addons
+      lib
+      pkgs
+      ;
   };
   geckoPolicies = import ./_gecko-policies.nix { };
 

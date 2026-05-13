@@ -18,7 +18,9 @@
 */
 
 {
+  config,
   firefox-addons,
+  lib,
   pkgs,
 }:
 let
@@ -31,6 +33,31 @@ let
   ublockOriginId = "uBlock0@raymondhill.net";
   ublockOriginSlug = "ublock-origin";
   ublockOriginInstallUrl = "${amoLatestBaseUrl}${ublockOriginSlug}/latest.xpi";
+  stylixEnabled = config.stylix.enable or false;
+  stylixPolarity = config.stylix.polarity or "auto";
+  stylixColors = lib.attrByPath [ "lib" "stylix" "colors" ] { } config;
+  stylixColorsWithHash = lib.attrByPath [ "withHashtag" ] { } stylixColors;
+  colorWithHash = color: if builtins.substring 0 1 color == "#" then color else "#${color}";
+  getStylixColor =
+    name: fallback:
+    if lib.hasAttr name stylixColorsWithHash then
+      stylixColorsWithHash.${name}
+    else if lib.hasAttr name stylixColors then
+      colorWithHash stylixColors.${name}
+    else
+      fallback;
+  ublockOriginUiTheme =
+    if
+      stylixEnabled
+      && builtins.elem stylixPolarity [
+        "dark"
+        "light"
+      ]
+    then
+      stylixPolarity
+    else
+      "auto";
+  ublockOriginAccentColor = getStylixColor "base0D" "#aca0f7";
 
   onePasswordId = "{d634138d-c276-4fc8-924b-40a0ea21d284}";
   onePasswordSlug = "1password-x-password-manager";
@@ -293,13 +320,20 @@ in
   extensionStorage."${ublockOriginId}".settings = {
     advancedUserEnabled = true;
     cloudStorageEnabled = true;
+    colorBlindFriendly = false;
     showIconBadge = false;
+    uiAccentCustom = stylixEnabled;
+    uiAccentCustom0 = ublockOriginAccentColor;
+    uiTheme = ublockOriginUiTheme;
     hostnameSwitchesString = builtins.concatStringsSep "\n" [
       "no-csp-reports: * true"
       "no-large-media: behind-the-scene false"
     ];
     dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
     selectedFilterLists = librewolfUblockOriginLists ++ [
+      # Keep "My filters" enabled; uBO hides the element picker without it.
+      "user-filters"
+
       # Additional regional lists
       "ara-0"
 
