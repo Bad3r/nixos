@@ -38,24 +38,16 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
-      cfg = config.home.librewolfPrivacy;
       gecko = import ./_gecko-mk-profile.nix {
         inherit
           pkgs
           inputs
           lib
           config
-          cfg
           ;
       };
     in
     {
-      options.home.librewolfPrivacy = {
-        enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
-          default = false;
-        };
-      };
-
       config = lib.mkIf nixosEnabled {
         programs.librewolf = {
           enable = true;
@@ -76,16 +68,7 @@ _: {
             nativeMessagingHosts = [ pkgs.tridactyl-native ];
           };
 
-          # DisableTelemetry / DisableFirefoxStudies / DisablePocket are already
-          # enforced by LibreWolf's built-in prefs; repeated here so the policy
-          # surface stays identical to firefox/floorp and the shared extension
-          # wiring composes cleanly.
-          policies = {
-            DisableTelemetry = true;
-            DisableFirefoxStudies = true;
-            DisablePocket = true;
-          }
-          // gecko.extensionPolicies;
+          inherit (gecko) policies;
 
           profiles = {
             primary = gecko.mkProfile {

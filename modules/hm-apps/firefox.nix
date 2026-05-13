@@ -19,24 +19,16 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
-      cfg = config.home.firefoxPrivacy;
       gecko = import ./_gecko-mk-profile.nix {
         inherit
           pkgs
           inputs
           lib
           config
-          cfg
           ;
       };
     in
     {
-      options.home.firefoxPrivacy = {
-        enableWebRTC = lib.mkEnableOption "Allow WebRTC (media.peerconnection)" // {
-          default = false;
-        };
-      };
-
       config = lib.mkIf nixosEnabled {
         programs.firefox = {
           enable = true;
@@ -57,12 +49,7 @@ _: {
             nativeMessagingHosts = [ pkgs.tridactyl-native ];
           };
 
-          policies = {
-            DisableTelemetry = true;
-            DisableFirefoxStudies = true;
-            DisablePocket = true;
-          }
-          // gecko.extensionPolicies;
+          inherit (gecko) policies;
 
           languagePacks = [ "en-US" ];
 
