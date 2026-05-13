@@ -220,7 +220,7 @@ def load_env_file(path: str) -> dict[str, str]:
                 ) or (stripped_value.startswith("'") and stripped_value.endswith("'")):
                     value = stripped_value[1:-1]
                 else:
-                    value = raw_value
+                    value = stripped_value
                 env[key] = value
     finally:
         if fd != -1:

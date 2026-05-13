@@ -258,18 +258,25 @@ def check_env_acl_group_grant_rejected(work: Path) -> None:
         extract_mod.os.getxattr = real_getxattr
 
 
-def check_env_unquoted_values_preserve_whitespace(work: Path) -> None:
+def check_env_unquoted_values_strip_padding(work: Path) -> None:
     env_file = work / "whitespace.env"
     env_file.write_text(
-        'DUPLICATI_PASSPHRASE=secret   \nQUOTED=" spaced "\n',
+        (
+            "DUPLICATI_PASSPHRASE=secret   \n"
+            "R2_S3_ENDPOINT_URL=https://abc.r2.example.com   \n"
+            'DOUBLE_QUOTED=" spaced "\n'
+            "SINGLE_QUOTED=' padded '\n"
+        ),
         encoding="utf-8",
     )
     env_file.chmod(0o400)
 
     env = load_env_file(str(env_file))
 
-    assert env["DUPLICATI_PASSPHRASE"] == "secret   "
-    assert env["QUOTED"] == " spaced "
+    assert env["DUPLICATI_PASSPHRASE"] == "secret"
+    assert env["R2_S3_ENDPOINT_URL"] == "https://abc.r2.example.com"
+    assert env["DOUBLE_QUOTED"] == " spaced "
+    assert env["SINGLE_QUOTED"] == " padded "
 
 
 def check_endpoint_host_strips_pasted_scheme() -> None:
@@ -695,7 +702,7 @@ def main(argv: list[str] | None = None) -> int:
     check_env_symlink_rejected(args.work)
     check_env_acl_mask_allows_named_user_read(args.work)
     check_env_acl_group_grant_rejected(args.work)
-    check_env_unquoted_values_preserve_whitespace(args.work)
+    check_env_unquoted_values_strip_padding(args.work)
     check_endpoint_host_strips_pasted_scheme()
     check_private_output_dirs(args.work)
     check_sink_partial_cleanup_not_following_symlink(args.work)
