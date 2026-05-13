@@ -1,5 +1,5 @@
 #!/usr/bin/env nix
-#! nix shell nixpkgs#python3 nixpkgs#nix --command python3
+#! nix shell --inputs-from .# nixpkgs#python3 --command python3
 """Update script for searchfox-cli."""
 
 from __future__ import annotations
@@ -67,7 +67,11 @@ def latest_crate_version() -> str:
         raise TypeError(msg)
 
     crate = cast("dict[str, Any]", data["crate"])
-    return cast("str", crate["max_version"])
+    version = crate.get("max_stable_version") or crate["max_version"]
+    if not isinstance(version, str):
+        msg = f"Expected string version from crates.io API, got {type(version)}"
+        raise TypeError(msg)
+    return version
 
 
 def parse_args() -> argparse.Namespace:
