@@ -10,7 +10,7 @@ Create a custom package when:
 - The nixpkgs version is outdated or broken and upstream hasn't merged a fix
 - You need custom build flags, patches, or configuration not suitable for upstream
 
-When a package becomes available in nixpkgs, deprecate the custom package by prefixing the file with `_` (e.g., `_default.nix`) and adding a deprecation comment.
+When a package becomes available in nixpkgs, switch the app module to the nixpkgs package, remove or disable its `modules/custom-overlays/<name>.nix` entry, and deprecate the old package file by prefixing it with `_` (e.g., `_default.nix`) plus a short deprecation comment.
 
 ## File Structure
 
@@ -26,10 +26,16 @@ Use lowercase, hyphenated names matching the package's `pname`. Keep the directo
 packages/
 ├── age-plugin-fido2prf/
 │   └── default.nix
+├── searchfox-cli/
+│   ├── default.nix
+│   ├── hashes.json
+│   └── update.py
 └── malimite/
     ├── default.nix
     └── fix-classpath.patch
 ```
+
+Use `hashes.json` when a package has multiple update-managed pins, such as `version`, `srcHash`, and `cargoHash`. Add `update.py` when the package can be updated mechanically from upstream release metadata. Expose it from the derivation with `passthru.updateScript = ./update.py;`.
 
 ## Package Template
 
@@ -46,21 +52,26 @@ Use the appropriate builder for your package type. All packages must include a `
   openssl,
 }:
 
+let
+  pin = lib.importJSON ./hashes.json;
+in
 rustPlatform.buildRustPackage rec {
   pname = "example-tool";
-  version = "1.0.0";
+  inherit (pin) version;
 
   src = fetchFromGitHub {
     owner = "example";
     repo = "example-tool";
     rev = "v${version}";
-    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    hash = pin.srcHash;
   };
 
-  cargoHash = "sha256-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=";
+  cargoHash = pin.cargoHash;
 
   nativeBuildInputs = [ pkg-config ];
   buildInputs = [ openssl ];
+
+  passthru.updateScript = ./update.py;
 
   meta = {
     description = "Short one-line description";
@@ -257,25 +268,55 @@ Optional but recommended:
 | `longDescription` | Multi-line description for complex packages |
 | `maintainers`     | Upstream nixpkgs maintainers if applicable  |
 
-## Registering in the Overlay
+## Registering in an Overlay
 
-In-tree custom packages are exposed through the shared `customPackages` overlay at `modules/base/custom-packages-overlay.nix`. Add a single entry there for each new package:
+User-facing in-tree packages are exposed through one overlay module per package under `modules/custom-overlays/`. Add a file named after the package:
 
 ```nix
-_: {
-  flake.lib.overlays.customPackages = final: prev: {
-    # Existing packages...
-    my-new-package = final.callPackage ../../packages/my-new-package { };
-  };
+_:
+let
+  Overlay =
+    { config, lib, ... }:
+    let
+      cfg = config.programs."my-new-package".extended;
+    in
+    {
+      config = lib.mkIf cfg.enable {
+        nixpkgs.overlays = [
+          (final: _prev: {
+            "my-new-package" = final.callPackage ../../packages/my-new-package { };
+          })
+        ];
+      };
+    };
+in
+{
+  flake.customOverlays."my-new-package" = Overlay;
 }
 ```
 
-Hosts opt in by composing the shared overlay into `nixpkgs.overlays`. The wiring already exists for both managed hosts:
+`modules/hosts/common/custom-overlays-base.nix` imports every module registered under `flake.customOverlays.*`. Each overlay gates itself on the matching app option, so the package is added to `pkgs` only when the app is enabled:
 
-- `modules/system76/custom-packages-overlay.nix` composes the shared overlay and layers host-specific patches on top (e.g., the `system76-power` patch).
-- `modules/tpnix/custom-packages-overlay.nix` composes the shared overlay alone.
+```nix
+programs."my-new-package".extended.enable = true;
+```
 
-Use the per-host files only for host-only patches, version overrides, or hardware-specific tweaks; new in-tree packages belong in the shared overlay so every host that opts in sees them. After registration the package is available as `pkgs.my-new-package` on every host whose `custom-packages-overlay` module is loaded.
+Use a custom overlay only for packages that must exist in `pkgs` for host builds or app modules. If a custom package is used only inside one module and does not need a reusable `pkgs.<name>` attribute, a local `pkgs.callPackage ../../packages/<name> { }` inside that module may be enough.
+
+After registration the package is available as `pkgs.my-new-package` on every host where the app is enabled. For the managed hosts, the common baseline lives in `modules/hosts/common/apps-enable.nix`, and host-specific divergences live in `modules/<host>/apps-enable.nix`.
+
+For non-user-facing derivations exposed as flake outputs, register them through a `perSystem` module under `modules/packages/` instead:
+
+```nix
+{ ... }:
+{
+  perSystem =
+    { pkgs, ... }:
+    {
+      packages.my-tool = pkgs.callPackage ../../packages/my-tool { };
+    };
+}
+```
 
 ## Hash Fetching Workflow
 
@@ -287,13 +328,17 @@ Use the per-host files only for host-only patches, version overrides, or hardwar
    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
    ```
 
-2. Attempt to build the package through the overlay-aware host `pkgs`:
+2. Attempt to build the package through an overlay-aware host `pkgs`:
 
    ```bash
-   nix build .#nixosConfigurations.system76.pkgs.my-package
+   nix build .#nixosConfigurations.<host>.pkgs.my-package
    ```
 
-   Overlay-backed packages are not exposed as top-level flake outputs, so `nix build .#my-package` will fail with `does not provide attribute packages.x86_64-linux.my-package`. Always go through `nixosConfigurations.<host>.pkgs.<name>` to apply the overlay.
+   Overlay-backed packages are not exposed as top-level flake outputs, so `nix build .#my-package` will fail with `does not provide attribute packages.x86_64-linux.my-package`. Always go through `nixosConfigurations.<host>.pkgs.<name>` to apply host overlays. If this is a new app module or overlay module, mark the new files as tracked first:
+
+   ```bash
+   git add -N packages/my-package/default.nix modules/apps/my-package.nix modules/custom-overlays/my-package.nix
+   ```
 
 3. Copy the `got:` hash from the error message into your file.
 
@@ -314,6 +359,15 @@ nix-prefetch-github owner repo --rev v1.0.0
 2. Attempt to build and copy the `got:` hash from the error.
 
 **Important:** Do not use `cargoLock.lockFile` with a path inside `${src}` as this requires the source to be fetched during evaluation, breaking offline/pure evaluation. Always use `cargoHash`.
+
+For packages with `passthru.updateScript`, prefer implementing the cargo hash update with `scripts/updater.calculate_dependency_hash`. The usual flow is:
+
+1. Load `packages/<name>/hashes.json`
+2. Fetch the latest upstream version
+3. Recalculate `srcHash`
+4. Write a temporary dummy `cargoHash`
+5. Build `.#nixosConfigurations.system76.pkgs.<name>` and extract the `got:` hash
+6. Save the final `hashes.json`
 
 ### Vendor Hash (Go packages)
 
@@ -362,7 +416,7 @@ Skip the app module when:
 - The package is only used in devshells
 - The package is a library or build tool
 
-The `apps-catalog-sync` pre-commit hook (`modules/meta/hooks/apps-catalog-sync.nix`) enforces that every app module under `modules/apps/` has a matching entry in each host's `apps-enable.nix`. After adding the app module, register it in `modules/system76/apps-enable.nix` and `modules/tpnix/apps-enable.nix`. Use `lib.mkOverride 1100 false` as the default and flip individual host catalogs to `true` only where the tool should be installed.
+The `apps-catalog-sync` pre-commit hook (`modules/meta/hooks/apps-catalog-sync.nix`) enforces that every app module under `modules/apps/` is represented in the app catalog. Add the shared default to `modules/hosts/common/apps-enable.nix` with `lib.mkOverride 1100`, then add entries to `modules/<host>/apps-enable.nix` only when a host must diverge from the common baseline.
 
 See [Apps Module Style Guide](apps-module-style-guide.md) for the app module format.
 
@@ -371,11 +425,17 @@ See [Apps Module Style Guide](apps-module-style-guide.md) for the app module for
 Before committing a new package:
 
 - [ ] File exists at `packages/<name>/default.nix`
+- [ ] `passthru.updateScript = ./update.py;` is present when the package has a mechanical updater
 - [ ] All required meta fields are present
-- [ ] Package is registered in `modules/base/custom-packages-overlay.nix` (shared `customPackages` overlay)
-- [ ] `nix build .#nixosConfigurations.<host>.pkgs.<name>` succeeds (overlay-backed packages are not exposed as top-level flake outputs)
-- [ ] `nix flake check --accept-flake-config` passes
-- [ ] App module created if user-facing or host-visible (see [Apps Module Style Guide](apps-module-style-guide.md)); `apps-catalog-sync` will fail the push if `modules/apps/<name>.nix` lacks a matching entry in every host's `apps-enable.nix`
+- [ ] Package is registered in `modules/custom-overlays/<name>.nix` when it must be exposed as `pkgs.<name>`
+- [ ] New files are staged or intent-to-added before flake/import-tree evaluation
+- [ ] App module created if user-facing or host-visible (see [Apps Module Style Guide](apps-module-style-guide.md))
+- [ ] App catalog default added to `modules/hosts/common/apps-enable.nix`, with host override entries only for real divergences
+- [ ] `nix build .#nixosConfigurations.<host>.pkgs.<name>` succeeds for overlay-backed packages
+- [ ] `./packages/<name>/update.py --force` succeeds when an updater is present
+- [ ] `script=$(nix eval --accept-flake-config --raw .#nixosConfigurations.system76.pkgs.<name>.passthru.updateScript); "$script" --force` succeeds when an updater is present
+- [ ] `nix develop --no-write-lock-file -c hook-apps-catalog-sync` passes when app catalog files changed
+- [ ] `nix flake check --accept-flake-config` passes for structural package/module changes
 
 ## Reference Implementations
 
@@ -383,6 +443,7 @@ Before committing a new package:
 | ---------------- | ------------------------------------------ |
 | Go               | `packages/age-plugin-fido2prf/default.nix` |
 | Python           | `packages/wappalyzer-next/default.nix`     |
+| Rust             | `packages/searchfox-cli/default.nix`       |
 | Binary download  | `packages/charles/default.nix`             |
 | Shell wrapper    | `packages/dnsleak/default.nix`             |
 | Complex Java     | `packages/malimite/default.nix`            |
