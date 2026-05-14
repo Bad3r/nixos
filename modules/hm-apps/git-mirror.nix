@@ -232,6 +232,12 @@
             description = "Directory where generated Firefox source docs are published.";
           };
 
+          maxRevisions = lib.mkOption {
+            type = lib.types.ints.positive;
+            default = 2;
+            description = "Maximum generated Firefox documentation revisions and linkcheck outputs to keep.";
+          };
+
           format = lib.mkOption {
             type = lib.types.str;
             default = "html";

@@ -26,9 +26,27 @@ pkgs.writeShellApplication {
     repo_path=${lib.escapeShellArg firefoxDocs.repoPath}
     output_root=${lib.escapeShellArg firefoxDocs.outputRoot}
     format_name=${lib.escapeShellArg firefoxDocs.format}
+    max_revisions=${lib.escapeShellArg (toString firefoxDocs.maxRevisions)}
     lock_file=${lib.escapeShellArg firefoxDocs.lockPath}
 
     log() { printf '%s firefox-docs: %s\n' "$(date -Is)" "$*" >&2; }
+
+    prune_artifacts() {
+      prune_root="$1"
+      label="$2"
+
+      [ -d "$prune_root" ] || return 0
+
+      find "$prune_root" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\0' |
+        sort -z -nr |
+        tail -z -n +"$((max_revisions + 1))" |
+        while IFS= read -r -d "" entry; do
+          old_path=''${entry#* }
+          log "pruning old Firefox docs $label: $old_path"
+          find "$old_path" -depth -mindepth 1 -delete
+          rmdir "$old_path"
+        done
+    }
 
     mkdir -p "$(dirname "$lock_file")"
     exec 9>"$lock_file"
@@ -145,6 +163,14 @@ pkgs.writeShellApplication {
 
     printf '%s\n' "$sha" > "$marker.tmp"
     mv -Tf "$marker.tmp" "$marker"
+
+    touch "$revision_root"
+    ${lib.optionalString firefoxDocs.linkcheck ''
+      touch "$linkcheck_root"
+    ''}
+    prune_artifacts "$output_root/revisions" "revision"
+    prune_artifacts "$output_root/linkcheck" "linkcheck"
+
     log "published $output_root/current"
   '';
 }

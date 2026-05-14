@@ -86,6 +86,8 @@ checkout so `git-mirror` can keep the source tree clean.
 - Built docs: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/current`
 - Revision builds: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/revisions/<sha>`
 - State marker: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/last-built-revision`
+- Retention: `programs.gitMirror.firefoxDocs.maxRevisions` keeps the newest
+  revision and linkcheck output directories, defaulting to `2`
 
 Run or inspect the docs service directly:
 
@@ -96,7 +98,8 @@ test -f /data/git/mozilla-firefox-firefox-docs/current/index.html
 ```
 
 The service skips incomplete mirrors, dirty Firefox checkouts, and revisions
-that already have a successful generated docs tree.
+that already have a successful generated docs tree. After publishing a new
+`current` symlink, it prunes old revision and linkcheck output directories.
 
 ## Adding Repositories
 
