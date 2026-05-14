@@ -19,6 +19,12 @@ Repositories sync to flat paths under `/data/git`.
   `git-mirror-firefox-docs.service` with `OnSuccess=` after sync when
   `programs.gitMirror.firefoxDocs.enable = true;`, so the docs build is not
   part of the mirror sync start transaction
+- **Switch behavior**: The mirror sync and Firefox docs build services use
+  `X-SwitchMethod=keep-old`; rebuilds update the unit files without starting
+  or restarting long-running mirror jobs during Home Manager activation
+- **Failure recovery**: `git-mirror.service` restarts on failure after 5
+  minutes so transient Git or network failures retry without manual
+  intervention
 
 ## Enable On Hosts
 
