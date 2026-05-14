@@ -145,6 +145,7 @@ let
       filezilla.extended.enable = lib.mkOverride 1100 true;
       findutils.extended.enable = lib.mkOverride 1100 true;
       firefox.extended.enable = lib.mkOverride 1100 true;
+      "flake-checker".extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 true;
       fonttools.extended.enable = lib.mkOverride 1100 true;
       foremost.extended.enable = lib.mkOverride 1100 true;

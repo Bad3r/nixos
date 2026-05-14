@@ -599,11 +599,11 @@ This pattern aligns with CLAUDE.md guidance: "Use `lib.hasAttrByPath` + `lib.get
 
 ### Stylix
 
-| Check                    | Command                                                     |
-| ------------------------ | ----------------------------------------------------------- |
-| General support          | `grep -r "<tool>" /data/git/nix-community-stylix/modules/`  |
-| Firefox/LibreWolf        | `cat /data/git/nix-community-stylix/modules/firefox/hm.nix` |
-| Available options        | `cat /data/git/nix-community-stylix/modules/<tool>/`        |
+| Check             | Command                                                     |
+| ----------------- | ----------------------------------------------------------- |
+| General support   | `grep -r "<tool>" /data/git/nix-community-stylix/modules/`  |
+| Firefox/LibreWolf | `cat /data/git/nix-community-stylix/modules/firefox/hm.nix` |
+| Available options | `cat /data/git/nix-community-stylix/modules/<tool>/`        |
 
 ### NUR Firefox Addons
 
