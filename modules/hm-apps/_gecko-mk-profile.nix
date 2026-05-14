@@ -3,14 +3,13 @@
   Description: Composes commonSettings/containers/extensions/bookmarks into a
   Home Manager `programs.<browser>.profiles.<name>` value so firefox.nix,
   floorp.nix, and librewolf.nix can stay symmetric. The NUR overlay is
-  extended here once per browser module so the unfree firefox-addons
-  (languagetool, wappalyzer, etc.) inherit the project-wide
-  `allowUnfreePredicate`.
+  extended here once per browser module for the remaining profile-scoped
+  extension packages.
 
   Arguments:
     pkgs, inputs, lib, config: standard module args from the caller.
   Returns:
-    mkProfile, policies, primaryPackages, workPackages, ephemeralPackages.
+    mkProfile, policies, nativeMessagingHosts, profile packages, and helpers.
 */
 
 {
@@ -37,6 +36,7 @@ let
       ;
   };
   geckoPolicies = import ./_gecko-policies.nix { };
+  geckoShortcuts = import ./_gecko-mk-shortcuts.nix { inherit lib; };
 
   bookmarksFile = lib.attrByPath [
     "sops"
@@ -72,10 +72,11 @@ let
 in
 {
   inherit mkProfile policies;
+  inherit (geckoShortcuts) mkCustomKeysFiles;
   inherit (geckoExtensions)
     nativeMessagingHosts
     primaryPackages
+    pentestingPackages
     workPackages
-    ephemeralPackages
     ;
 }

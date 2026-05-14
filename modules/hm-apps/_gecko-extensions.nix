@@ -1,20 +1,6 @@
 /*
   Internal: shared Gecko-browser extensions
-  Description: ExtensionSettings policy, per-profile extension package lists,
-  and uBlock Origin storage settings shared between Firefox, Floorp, and LibreWolf.
-
-  Summary:
-    * Centralizes the AMO force-install entries (uBO, 1Password, SVG Gobbler)
-      so every Gecko browser receives the same policy surface. Firefox's
-      `policies.json` is browser-wide rather than per-profile, so every
-      entry below is force-installed into `primary`, `work`, and
-      `ephemeral` alike.
-    * Splits the per-profile NUR extension package lists into primary /
-      work / ephemeral. Profile assignment is the consumer's responsibility;
-      these lists layer on top of the browser-wide ExtensionSettings policy.
-    * Mirrors LibreWolf's uBlock Origin default filter-list selection so the
-      three browsers ship identical blocking out of the box.
-    * Stays underscore-prefixed so automatic module discovery does not import it.
+  Description: ExtensionSettings policy, and per-profile extension package lists,
 */
 
 {
@@ -24,15 +10,15 @@
   pkgs,
 }:
 let
-  # AMO's `/latest/<slug>/latest.xpi` endpoint accepts a URL-safe slug and
-  # redirects to the current signed XPI. The extension ID (`uBlock0@...`,
-  # `{GUID}`) must be used as the ExtensionSettings policy key; slugs are
-  # used only for the install URL so the path stays URL-safe.
+  # Use AMO's extension-ID URL form so the install URL matches the
+  # ExtensionSettings policy key.
   amoLatestBaseUrl = "https://addons.mozilla.org/firefox/downloads/latest/";
+  mkAmoInstallUrl =
+    extensionId:
+    "${amoLatestBaseUrl}${lib.replaceStrings [ "{" "}" ] [ "%7B" "%7D" ] extensionId}/latest.xpi";
 
   ublockOriginId = "uBlock0@raymondhill.net";
-  ublockOriginSlug = "ublock-origin";
-  ublockOriginInstallUrl = "${amoLatestBaseUrl}${ublockOriginSlug}/latest.xpi";
+  ublockOriginInstallUrl = mkAmoInstallUrl ublockOriginId;
   stylixEnabled = config.stylix.enable or false;
   stylixPolarity = config.stylix.polarity or "auto";
   stylixColors = lib.attrByPath [ "lib" "stylix" "colors" ] { } config;
@@ -60,8 +46,6 @@ let
   ublockOriginAccentColor = getStylixColor "base0D" "#aca0f7";
 
   onePasswordId = "{d634138d-c276-4fc8-924b-40a0ea21d284}";
-  onePasswordSlug = "1password-x-password-manager";
-  onePasswordInstallUrl = "${amoLatestBaseUrl}${onePasswordSlug}/latest.xpi";
   # Browser-side trust manifest for the managed 1Password extension. The
   # 1Password GUI module owns the /run/wrappers/bin target.
   onePasswordNativeMessagingHost =
@@ -76,18 +60,48 @@ let
         }
       );
 
+  arabicDictionaryId = "ar@dictionaries.addons.mozilla.org";
+  cookieAutoDeleteId = "CookieAutoDelete@kennydo.com";
+  darkreaderId = "addon@darkreader.org";
+  foxyproxyId = "foxyproxy@eric.h.jung";
+  languageToolId = "languagetool-webextension@languagetool.org";
+  multiAccountContainersId = "@testpilot-containers";
+  printEditId = "printedit-we@DW-dev";
   raindropId = "jid0-adyhmvsP91nUO8pRv0Mn2VKeB84@jetpack";
+  savePageId = "savepage-we@DW-dev";
+  simpleLoginId = "addon@simplelogin";
   stylusId = "{7a7a4a92-a2a0-41d1-9fd7-1e92480d612d}";
+  svgGobblerId = "{7962ff4a-5985-4cf2-9777-4bb642ad05b8}";
   tabStashId = "tab-stash@condordes.net";
   tridactylId = "tridactyl.vim@cmcaine.co.uk";
   violentmonkeyId = "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}";
+  wappalyzerId = "wappalyzer@crunchlabz.com";
+  webArchivesId = "{d07ccf11-c0cd-4938-a265-2a4d6ad01189}";
 
-  # SVG Gobbler is not packaged in the rycee NUR firefox-addons set, so it is
-  # delivered via AMO force-install instead. The GUID below comes from the
-  # AMO API (services.addons.mozilla.org/api/v5/addons/addon/svg-gobbler/).
-  svgGobblerId = "{7962ff4a-5985-4cf2-9777-4bb642ad05b8}";
-  svgGobblerSlug = "svg-gobbler";
-  svgGobblerInstallUrl = "${amoLatestBaseUrl}${svgGobblerSlug}/latest.xpi";
+  policyExtensionIds = [
+    arabicDictionaryId
+    cookieAutoDeleteId
+    darkreaderId
+    foxyproxyId
+    languageToolId
+    multiAccountContainersId
+    onePasswordId
+    printEditId
+    raindropId
+    savePageId
+    simpleLoginId
+    svgGobblerId
+    tabStashId
+    tridactylId
+    violentmonkeyId
+    wappalyzerId
+    webArchivesId
+  ];
+
+  mkNormalInstalledPolicy = extensionId: {
+    installation_mode = "normal_installed";
+    install_url = mkAmoInstallUrl extensionId;
+  };
 
   widgetIds = {
     cookieAutoDelete = "cookieautodelete_kennydo_com-browser-action";
@@ -195,11 +209,6 @@ let
     builtins.readFile ./_librewolf-ubo-default-lists.json
   );
   # Filtered from LibreWolf upstream defaults:
-  # - adguard-spyware-url
-  # - ublock-badware
-  # - easylist
-  # - urlhaus-1
-  # - curben-phishing
   disabledLibrewolfLists = [
     "adguard-spyware-url"
     "ublock-badware"
@@ -213,7 +222,7 @@ let
 
   userscripts = builtins.fromJSON (builtins.readFile ./_gecko-userscripts.json);
   nixpkgsReviewGhaScript = userscripts."nixpkgs-review-gha";
-  nixpkgsReviewGhaScriptId = builtins.toString nixpkgsReviewGhaScript.id;
+  nixpkgsReviewGhaScriptId = toString nixpkgsReviewGhaScript.id;
   nixpkgsReviewGhaCode = builtins.readFile (./. + "/${nixpkgsReviewGhaScript.sourceFile}");
   nixpkgsReviewGhaRecord = {
     config = {
@@ -338,53 +347,25 @@ let
     "addons.mozilla.org * 3p-frame noop"
   ];
 
-  extensionSettings = {
+  extensionSettings = (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy) // {
     "${ublockOriginId}" = {
       installation_mode = "force_installed";
       install_url = ublockOriginInstallUrl;
       private_browsing = true;
     };
-    "${onePasswordId}" = {
-      installation_mode = "force_installed";
-      install_url = onePasswordInstallUrl;
-    };
-    "${svgGobblerId}" = {
-      installation_mode = "force_installed";
-      install_url = svgGobblerInstallUrl;
-    };
   };
 
   # Per-profile package lists. Consumers wire these into
   # programs.<browser>.profiles.<name>.extensions.packages.
-  primaryPackages = with firefox-addons; [
-    ublock-origin
-    multi-account-containers
-    raindropio
-    cookie-autodelete
-    simplelogin
+  primaryPackages = [ ];
+
+  profileScopedPackages = with firefox-addons; [
     stylus
-    tab-stash
-    languagetool
-    violentmonkey
-    web-archives
-    tridactyl
-    darkreader
-    onepassword-password-manager
   ];
 
-  workPackages =
-    primaryPackages
-    ++ (with firefox-addons; [
-      foxyproxy-standard
-      wappalyzer
-    ]);
+  pentestingPackages = primaryPackages ++ profileScopedPackages;
 
-  ephemeralPackages =
-    primaryPackages
-    ++ (with firefox-addons; [
-      print-edit-we
-      save-page-we
-    ]);
+  workPackages = primaryPackages ++ profileScopedPackages;
 in
 {
   extensionPolicies = {
@@ -397,7 +378,7 @@ in
     };
   };
 
-  inherit primaryPackages workPackages ephemeralPackages;
+  inherit primaryPackages pentestingPackages workPackages;
 
   nativeMessagingHosts = [ onePasswordNativeMessagingHost ];
 

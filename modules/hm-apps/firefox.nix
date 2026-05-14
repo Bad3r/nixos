@@ -1,13 +1,4 @@
 _: {
-  # Unfree extensions bundled by the shared gecko extension list in
-  # `_gecko-extensions.nix`. Names match `lib.getName` on each addon
-  # derivation.
-  nixpkgs.allowedUnfreePackages = [
-    "languagetool"
-    "onepassword-password-manager"
-    "wappalyzer"
-  ];
-
   flake.homeManagerModules.apps.firefox =
     {
       osConfig,
@@ -30,6 +21,8 @@ _: {
     in
     {
       config = lib.mkIf nixosEnabled {
+        home.file = gecko.mkCustomKeysFiles config.programs.firefox;
+
         programs.firefox = {
           enable = true;
           # nixpkgs wraps Firefox with MOZ_LEGACY_PROFILES=1, which forces
@@ -54,14 +47,14 @@ _: {
               packages = gecko.primaryPackages;
             };
 
-            work = gecko.mkProfile {
+            pentesting = gecko.mkProfile {
               id = 1;
-              packages = gecko.workPackages;
+              packages = gecko.pentestingPackages;
             };
 
-            ephemeral = gecko.mkProfile {
+            work = gecko.mkProfile {
               id = 2;
-              packages = gecko.ephemeralPackages;
+              packages = gecko.workPackages;
             };
           };
         };

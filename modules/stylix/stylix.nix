@@ -263,8 +263,8 @@ in
               firefox = lib.mkIf firefoxEnabled {
                 profileNames = [
                   "primary"
+                  "pentesting"
                   "work"
-                  "ephemeral"
                 ];
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;
@@ -275,8 +275,8 @@ in
               floorp = lib.mkIf floorpEnabled {
                 profileNames = [
                   "primary"
+                  "pentesting"
                   "work"
-                  "ephemeral"
                 ];
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;
@@ -287,8 +287,8 @@ in
               librewolf = lib.mkIf librewolfEnabled {
                 profileNames = [
                   "primary"
+                  "pentesting"
                   "work"
-                  "ephemeral"
                 ];
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;

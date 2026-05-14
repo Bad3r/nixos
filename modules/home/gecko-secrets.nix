@@ -71,8 +71,8 @@
 
       profileNames = [
         "primary"
+        "pentesting"
         "work"
-        "ephemeral"
       ];
 
       browsers = [
