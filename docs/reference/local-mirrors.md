@@ -15,6 +15,9 @@ Repositories sync to flat paths under `/data/git`.
 - **Environment variable**: `$LOCAL_MIRRORS` points to `/data/git`
 - **Sync schedule**: Daily via systemd timer
 - **Manual sync**: `systemctl --user start git-mirror.service`
+- **Firefox source docs**: `git-mirror.service` queues
+  `git-mirror-firefox-docs.service` after sync when
+  `programs.gitMirror.firefoxDocs.enable = true;`
 
 ## Enable On Hosts
 
@@ -25,6 +28,7 @@ localMirrors.enable = true;
 
 home-manager.users.${metaOwner.username}.programs.gitMirror = {
   enable = true;
+  firefoxDocs.enable = true;
   repos = [
     "owner/repo"
     # ...
@@ -67,9 +71,37 @@ Full URLs include a normalized host prefix and strip common host suffixes such a
 | `mdn/content`                                 | `$LOCAL_MIRRORS/mdn-content`                        |
 | `mozilla/enterprise-admin-reference`          | `$LOCAL_MIRRORS/mozilla-enterprise-admin-reference` |
 | `mozilla-firefox/firefox`                     | `$LOCAL_MIRRORS/mozilla-firefox-firefox`            |
+| Firefox built docs                            | `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs`       |
 | `mozilla/policy-templates`                    | `$LOCAL_MIRRORS/mozilla-policy-templates`           |
 | `openai/codex`                                | `$LOCAL_MIRRORS/openai-codex`                       |
 | `https://codeberg.org/librewolf/settings.git` | `$LOCAL_MIRRORS/codeberg-librewolf-settings`        |
+
+## Firefox Source Docs
+
+The Firefox mirror can build source documentation with `./mach doc` after the
+mirror updates. Generated docs are intentionally published outside the Firefox
+checkout so `git-mirror` can keep the source tree clean.
+
+- Source checkout: `$LOCAL_MIRRORS/mozilla-firefox-firefox`
+- Built docs: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/current`
+- Revision builds: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/revisions/<sha>`
+- State marker: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/last-built-revision`
+  records the revision plus selected `mach doc` options that affect generated
+  output
+- Retention: `programs.gitMirror.firefoxDocs.maxRevisions` keeps the newest
+  revision and linkcheck output directories, defaulting to `2`
+
+Run or inspect the docs service directly:
+
+```bash
+systemctl --user start git-mirror-firefox-docs.service
+journalctl --user -u git-mirror-firefox-docs.service -n 100 --no-pager
+test -f /data/git/mozilla-firefox-firefox-docs/current/index.html
+```
+
+The service skips incomplete mirrors, dirty Firefox checkouts, and revisions
+that already have a successful generated docs tree. After publishing a new
+`current` symlink, it prunes old revision and linkcheck output directories.
 
 ## Adding Repositories
 

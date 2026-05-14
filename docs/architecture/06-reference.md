@@ -101,6 +101,7 @@ Available after `nix develop`:
 | Resource                   | Location                                            |
 | -------------------------- | --------------------------------------------------- |
 | Firefox source/docs        | `/data/git/mozilla-firefox-firefox`                 |
+| Firefox built docs         | `/data/git/mozilla-firefox-firefox-docs/current`    |
 | MDN Web Docs               | `/data/git/mdn-content`                             |
 | NixOS manual mirror        | `nixos-manual/`                                     |
 | Home Manager manual        | `/data/git/nix-community-home-manager/docs/manual/` |
