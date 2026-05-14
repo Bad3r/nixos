@@ -135,9 +135,8 @@ pkgs.writeShellApplication {
 
     dirty_after=$(git -C "$repo_path" status --porcelain --untracked-files=all)
     if [ -n "$dirty_after" ]; then
-      log "Firefox checkout became dirty while building docs"
+      log "warning: Firefox checkout became dirty while building docs; git-mirror will clean it during the next sync"
       printf '%s\n' "$dirty_after" >&2
-      exit 1
     fi
 
     tmp_link="$output_root/current.tmp"
