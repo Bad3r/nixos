@@ -4,8 +4,6 @@ This file provides guidance to coding agents working in this repository.
 
 > IMPORTANT: Never consider backward compatibility. Eliminate legacy support by default.
 
-> IMPORTANT: This repo currently manages only the `system76` and `tpnix` NixOS hosts for the owner user `vx`. Keep host-specific behavior in the matching `modules/<host>/` tree.
-
 ## Critical Safety Rules (Read First)
 
 These rules override all other instructions. Violations are unacceptable.
@@ -57,21 +55,6 @@ Canonical documentation lives under `docs/architecture/`.
   - Purpose: Enable flakes and new Nix CLI
 
 These settings are mirrored in `build.sh` via `NIX_CONFIGURATION`.
-
-## Quick-Start Checklist
-
-- Sync working tree (`git status -sb`) and review outstanding changes before edits.
-  - Status: OK
-- Enter dev shell when running commands (`nix develop`).
-  - Status: OK
-- Use execution playbooks below; confirm prerequisites and post-checks.
-  - Status: OK
-- Record validation commands in commit messages and PR descriptions.
-  - Status: OK
-- Never run forbidden commands or modify generated artifacts directly.
-  - Status: WARN
-- If workflow is missing or ambiguous, escalate to maintainer.
-  - Status: WARN
 
 ## Architecture and Module System
 
@@ -133,35 +116,6 @@ Inputs prefixed with `dedupe_` exist for dependency deduplication through `.foll
   - Location: `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`
   - Notes: Owned by the files module. Update source definitions instead of editing generated output directly.
 
-### Module Authoring Guidelines (`modules/apps/*`)
-
-Use the standard options namespace and explicit opt-in:
-
-```nix
-{ config, lib, pkgs, ... }:
-let
-  cfg = config.programs.<package-name>.extended;
-  packageModule = {
-    options.programs.<package-name>.extended = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Whether to enable <package-name>.";
-      };
-
-      package = lib.mkPackageOption pkgs "<package-name>" { };
-    };
-
-    config = lib.mkIf cfg.enable {
-      environment.systemPackages = [ cfg.package ];
-    };
-  };
-in
-{
-  flake.nixosModules.apps.<package-name> = packageModule;
-}
-```
-
 ## Execution Playbooks
 
 ### Branch Workflow
@@ -173,7 +127,7 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
 - Work
   - Command: `cd $HOME/trees/nixos/<type>-<name>` then commit changes
 - PR
-  - Command: `gh pr create --title "<type>(scope): summary" --body "..."`
+  - Command: `gh pr create --title "<type>(scope): summary" --body "..."` (Assign labels)
 
 Branch type should follow Conventional Commits prefixes.
 
@@ -197,7 +151,7 @@ PR body should include:
   - Preconditions: Dev shell ready; workspace writable.
   - Post-check: Exit code 0; review reported TODOs/failures.
 - Generate artifacts
-  - Command: `nix develop -c write-files`
+  - Command: `nix develop --accept-flake-config -c write-files --offline`
   - Preconditions: Dev shell ready; managed files may update.
   - Post-check: Review diffs in `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`.
 
@@ -208,13 +162,10 @@ PR body should include:
   - Preconditions: Dev shell recommended.
   - Post-check: Exit code 0; resolve reported failures.
 - Build host
-  - Command: `nix build .#nixosConfigurations.<host>.config.system.build.toplevel`
-  - Preconditions: Replace `<host>`.
+  - Command: `nix build .#nixosConfigurations.$HOSTNAME.config.system.build.toplevel`
   - Post-check: Build completes; capture resulting store path.
 - Update inputs
   - Command: `nix flake metadata --refresh && nix flake update && nix fmt flake.lock`
-  - Preconditions: Clean tree recommended.
-  - Post-check: inputs in `flake.lock` are updated.
 
 ### GitHub Actions (Local)
 
@@ -235,7 +186,7 @@ PR body should include:
 
 - Unfree package blocked
   - Resolution: Add package to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`.
-- Missing app reference
+- Missing reference
   - Resolution: Ensure that the file is tracked by git.
 - Explore config in repl
   - Resolution: `nix develop --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
@@ -247,17 +198,9 @@ PR body should include:
 - Imports
   - Guidance: Expose modules through namespace exports; avoid literal path imports.
 - Validation
-  - Guidance: Keep `nix flake check --accept-flake-config` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules.
+  - Guidance: Keep `nix flake check --accept-flake-config --no-build --offline` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules.
 
 **Skip `nix flake check` after value-level edits**: For nix flakes, skip `nix flake check` after value-level edits to existing lists or attrsets (adding strings, toggling booleans, scalar changes). Reserve it for structural changes: new modules, options, imports, let-binding refactors, argument-shape changes. `treefmt` plus a parse pass is sufficient during iteration.
-
-### Commit and PR Expectations
-
-- Use Conventional Commits: `type(scope): summary`
-- Keep one logical concern per commit
-- Record validation commands run
-- Include screenshots only for user-facing changes
-- Stage only files you directly modified
 
 ## Secret Management
 
@@ -286,67 +229,3 @@ Escalate when:
 2. A command fails and remediation is unclear
 
 Pause, summarize the issue, and ask for direction.
-
-## Local Mirrors
-
-- Stylix
-  - Path: `/data/git/nix-community-stylix`
-  - Use when: Inspect source or apply local patches.
-- Home Manager
-  - Path: `/data/git/nix-community-home-manager`
-  - Use when: Review module behavior or backport fixes.
-- Firefox source/docs
-  - Path: `/data/git/mozilla-firefox-firefox`
-  - Use when: Inspect Firefox source behavior, Gecko internals, or preferences.
-- Firefox built docs
-  - Path: `/data/git/mozilla-firefox-firefox-docs/current`
-  - Use when: Browse generated Firefox source docs built by `git-mirror-firefox-docs.service`.
-- MDN Web Docs
-  - Path: `/data/git/mdn-content`
-  - Use when: Reference MDN Web/API documentation offline.
-- Firefox policies
-  - Path: `/data/git/mozilla-policy-templates`
-  - Use when: Inspect supported Firefox managed-policy templates and schema.
-- Enterprise admin reference
-  - Path: `/data/git/mozilla-enterprise-admin-reference`
-  - Use when: Check Firefox enterprise policy behavior and syntax documentation.
-- LibreWolf settings
-  - Path: `/data/git/codeberg-librewolf-settings`
-  - Use when: Inspect upstream LibreWolf default settings and uBO assets.
-- i3 Docs
-  - Path: `/data/git/i3-i3.github.io`
-  - Use when: Reference i3 documentation offline.
-- Duplicati Docs
-  - Path: `/data/git/duplicati-documentation`
-  - Use when: Look up `duplicati-cli` commands, options, or backup format.
-- nixpkgs
-  - Path: `/data/git/NixOS-nixpkgs`
-  - Use when: Inspect/patch upstream expressions.
-- nixos-hardware
-  - Path: `/data/git/NixOS-nixos-hardware`
-  - Use when: Pull hardware profiles and troubleshoot host hardware options.
-- nixvim
-  - Path: `/data/git/nix-community-nixvim`
-  - Use when: Examine NixVim modules and options.
-- treefmt-nix
-  - Path: `/data/git/numtide-treefmt-nix`
-  - Use when: Adjust formatter behavior or pinning.
-- git-hooks.nix
-  - Path: `/data/git/cachix-git-hooks.nix`
-  - Use when: Update hook definitions or debug pre-commit failures.
-- sops-nix
-  - Path: `/data/git/Mic92-sops-nix`
-  - Use when: Manage encrypted secret integrations.
-- import-tree
-  - Path: `/data/git/vic-import-tree`
-  - Use when: Review/extend auto-loading behavior.
-- files module
-  - Path: `/data/git/mightyiam-files`
-  - Use when: Update generated artifact sources (e.g., `.gitignore`).
-
-## Practices
-
-- Do what was asked, nothing more and nothing less.
-- Use `uv` and `uvx` for all Python work; use `uv run --with <pkg>` for inline/one-off dependencies.
-- Prefer editing existing files over creating new ones
-- If an issue is upstream, do not add a local wrapper or workaround unless the user explicitly asks for it or approves it.
