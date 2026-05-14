@@ -329,7 +329,7 @@
                 Description = "Sync git mirrors";
               }
               // lib.optionalAttrs firefoxDocs.enable {
-                Wants = [ "git-mirror-firefox-docs.service" ];
+                OnSuccess = [ "git-mirror-firefox-docs.service" ];
               };
               Service = {
                 Type = "oneshot";

@@ -16,8 +16,9 @@ Repositories sync to flat paths under `/data/git`.
 - **Sync schedule**: Daily via systemd timer
 - **Manual sync**: `systemctl --user start git-mirror.service`
 - **Firefox source docs**: `git-mirror.service` queues
-  `git-mirror-firefox-docs.service` after sync when
-  `programs.gitMirror.firefoxDocs.enable = true;`
+  `git-mirror-firefox-docs.service` with `OnSuccess=` after sync when
+  `programs.gitMirror.firefoxDocs.enable = true;`, so the docs build is not
+  part of the mirror sync start transaction
 
 ## Enable On Hosts
 
