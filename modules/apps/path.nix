@@ -56,17 +56,7 @@ let
           fi
 
           local clipboard_payload
-          clipboard_payload=$(
-            first=1
-            printf '%s\n' "$resolved_paths" | while IFS= read -r resolved_path; do
-              if [ "$first" -eq 1 ]; then
-                printf '%s' "$resolved_path"
-                first=0
-              else
-                printf ', %s' "$resolved_path"
-              fi
-            done
-          )
+          clipboard_payload="''${resolved_paths//$'\n'/, }"
 
           printf '%s' "$clipboard_payload" | ${xselBin} --clipboard --input
           local xsel_rc=$?
