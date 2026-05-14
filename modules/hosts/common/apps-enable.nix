@@ -146,7 +146,6 @@ let
       findutils.extended.enable = lib.mkOverride 1100 true;
       firefox.extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 true;
-      floorp.extended.enable = lib.mkOverride 1100 false;
       fonttools.extended.enable = lib.mkOverride 1100 true;
       foremost.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;

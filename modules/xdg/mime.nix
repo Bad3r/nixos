@@ -221,10 +221,6 @@ let
         desktop = "firefox.desktop";
         module = "firefox";
       };
-      floorp = {
-        desktop = "floorp.desktop";
-        module = "floorp";
-      };
       librewolf = {
         desktop = "librewolf.desktop";
         module = "librewolf";
