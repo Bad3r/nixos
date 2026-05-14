@@ -1,5 +1,6 @@
 # Local repository mirrors (shared hosts).
-# Synced daily to /data/git/{owner}-{repo}
+# GitHub shorthand syncs daily to /data/git/{owner}-{repo}; full URLs use
+# a normalized host-prefixed path.
 {
   metaOwner,
   ...
@@ -41,6 +42,10 @@ let
           "duplicati/documentation"
           "github/docs"
           "i3/i3.github.io"
+          "mozilla-firefox/firefox"
+          "mdn/content" # https://developer.mozilla.org
+          "mozilla/policy-templates"
+          "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
 
           # Applications
           "https://codeberg.org/librewolf/settings.git"

@@ -295,6 +295,18 @@ Pause, summarize the issue, and ask for direction.
 - Home Manager
   - Path: `/data/git/nix-community-home-manager`
   - Use when: Review module behavior or backport fixes.
+- Firefox source/docs
+  - Path: `/data/git/mozilla-firefox-firefox`
+  - Use when: Inspect Firefox source behavior, Gecko internals, preferences, or generated source docs.
+- MDN Web Docs
+  - Path: `/data/git/mdn-content`
+  - Use when: Reference MDN Web/API documentation offline.
+- Firefox policies
+  - Path: `/data/git/mozilla-policy-templates`
+  - Use when: Inspect supported Firefox managed-policy templates and schema.
+- Enterprise admin reference
+  - Path: `/data/git/mozilla-enterprise-admin-reference`
+  - Use when: Check Firefox enterprise policy behavior and syntax documentation.
 - LibreWolf settings
   - Path: `/data/git/codeberg-librewolf-settings`
   - Use when: Inspect upstream LibreWolf default settings and uBO assets.

@@ -61,11 +61,15 @@ full HTTP(S) Git URLs.
 GitHub shorthand keeps the historical `{owner}-{repo}` local path.
 Full URLs include a normalized host prefix and strip common host suffixes such as `.org`.
 
-| Repository spec                               | Local path                                   |
-| --------------------------------------------- | -------------------------------------------- |
-| `owner/repo`                                  | `$LOCAL_MIRRORS/owner-repo`                  |
-| `openai/codex`                                | `$LOCAL_MIRRORS/openai-codex`                |
-| `https://codeberg.org/librewolf/settings.git` | `$LOCAL_MIRRORS/codeberg-librewolf-settings` |
+| Repository spec                               | Local path                                          |
+| --------------------------------------------- | --------------------------------------------------- |
+| `owner/repo`                                  | `$LOCAL_MIRRORS/owner-repo`                         |
+| `mdn/content`                                 | `$LOCAL_MIRRORS/mdn-content`                        |
+| `mozilla/enterprise-admin-reference`          | `$LOCAL_MIRRORS/mozilla-enterprise-admin-reference` |
+| `mozilla-firefox/firefox`                     | `$LOCAL_MIRRORS/mozilla-firefox-firefox`            |
+| `mozilla/policy-templates`                    | `$LOCAL_MIRRORS/mozilla-policy-templates`           |
+| `openai/codex`                                | `$LOCAL_MIRRORS/openai-codex`                       |
+| `https://codeberg.org/librewolf/settings.git` | `$LOCAL_MIRRORS/codeberg-librewolf-settings`        |
 
 ## Adding Repositories
 
@@ -75,6 +79,10 @@ mirrors that should exist on every managed host:
 ```nix
 programs.gitMirror.repos = [
   "owner/repo"
+  "mozilla-firefox/firefox"
+  "mdn/content" # https://developer.mozilla.org
+  "mozilla/policy-templates"
+  "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
   "https://codeberg.org/librewolf/settings.git"
   # ...
 ];
