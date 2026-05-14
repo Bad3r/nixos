@@ -23,6 +23,8 @@ let
     }:
     let
       cfg = config.programs.normcap.extended;
+      normcapTrayIcon = ../stylix/icons/normcap-tray.svg;
+      normcapTrayDoneIcon = ../stylix/icons/normcap-tray-done.svg;
 
       # normcap's Python code derives tessdata_path as $TESSDATA_PREFIX/tessdata, so
       # TESSDATA_PREFIX must point to the *parent* of the tessdata/ directory.  The
@@ -42,6 +44,50 @@ let
       ];
 
       finalPackage = cfg.package.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
+          pkgs.librsvg
+          pkgs.qt6.qtbase
+        ];
+
+        postInstall = (old.postInstall or "") + ''
+          renderNormcapTrayIcon() {
+            local size="$1"
+            local source="$2"
+            local output="$3"
+            local glyphSize="$((size * 11 / 16))"
+            local offset="$(((size - glyphSize) / 2))"
+
+            ${pkgs.librsvg}/bin/rsvg-convert \
+              --page-width "$size" \
+              --page-height "$size" \
+              --width "$glyphSize" \
+              --height "$glyphSize" \
+              --left "$offset" \
+              --top "$offset" \
+              --keep-aspect-ratio \
+              "$source" > "$output"
+          }
+
+          resourceDirs=("$out"/lib/python*/site-packages/normcap/resources/icons)
+          guiDirs=("$out"/lib/python*/site-packages/normcap/gui)
+          resourceDir="''${resourceDirs[0]}"
+          guiDir="''${guiDirs[0]}"
+
+          if [ ! -d "$resourceDir" ] || [ ! -d "$guiDir" ]; then
+            echo "NormCap resource directories were not found under $out" >&2
+            exit 1
+          fi
+
+          renderNormcapTrayIcon 256 ${normcapTrayIcon} "$resourceDir/tray.png"
+          renderNormcapTrayIcon 256 ${normcapTrayDoneIcon} "$resourceDir/tray_done.png"
+
+          (
+            cd "$resourceDir"
+            ${pkgs.qt6.qtbase}/libexec/rcc -g python resources.qrc -o "$guiDir/resources.py"
+          )
+          sed -i '1i # ruff: noqa' "$guiDir/resources.py"
+        '';
+
         postFixup = (old.postFixup or "") + ''
           wrapProgram $out/bin/normcap ${lib.escapeShellArgs wrapperArgs}
         '';

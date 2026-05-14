@@ -63,6 +63,7 @@ across all connected outputs is not supported in a reliable way.
 | steam     | XEmbed           | High              | Tray icon behavior is app-controlled and often not fully theme-driven.                                               |
 | ktailctl  | XEmbed           | Medium            | Qt app; verify whether icon comes from theme name or bundled resource.                                               |
 | flameshot | SNI via bridge   | Medium            | Qt SNI; advertises IconName `flameshot-tray`. Resolved by `snixembed` against the active Gtk theme.                  |
+| NormCap   | Qt tray          | Low-Medium        | Qt resource aliases `:tray` and `:tray_done` are embedded in `resources.py`; the local module regenerates them.      |
 | Remmina   | SNI via bridge   | Medium            | Ayatana SNI; advertises IconName `org.remmina.Remmina-status`. Icon files ship in `hicolor` (status context).        |
 | ProtonVPN | SNI via bridge   | Low-Medium        | Local overlay rewrites tray states to the theme-provided `protonvpn-tray` icon name before `snixembed` proxies it.   |
 | Teams     | SNI via bridge   | Low-Medium        | Electron tray image is bundled in `app.asar`; the local package override replaces those PNG assets directly.         |
@@ -115,6 +116,26 @@ icons such as Flameshot.
 
 The custom `protonvpn-tray` source lives at
 `modules/stylix/icons/protonvpn-tray.svg`.
+
+## NormCap Tray Icon
+
+NormCap uses Qt resource aliases for the tray:
+
+- `:tray`
+- `:tray_done`
+
+Those aliases are generated from `normcap/resources/icons/resources.qrc` into
+`normcap/gui/resources.py`. Replacing the loose PNG files alone is not enough
+because `QIcon(":tray")` and `QIcon(":tray_done")` read from the compiled Qt
+resource data.
+
+The local NormCap module (`modules/apps/normcap.nix`) renders the OneDark
+sources from `modules/stylix/icons/normcap-tray.svg` and
+`modules/stylix/icons/normcap-tray-done.svg` into the installed
+`tray.png`/`tray_done.png` files, then regenerates `resources.py` with Qt's
+resource compiler. The PNG render uses the same `11/16` glyph scale as the
+Qogir-Dark panel icon generation so the tray glyph does not fill the entire
+icon frame.
 
 ## Teams for Linux Tray Icon
 
