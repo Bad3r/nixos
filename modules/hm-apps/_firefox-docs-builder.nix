@@ -7,13 +7,18 @@
 pkgs.writeShellApplication {
   name = "git-mirror-build-firefox-docs";
   runtimeInputs = with pkgs; [
+    bash
+    binutils
     coreutils
     findutils
     git
     gnugrep
+    gnused
     nodejs
+    patch
     python3
     util-linux
+    which
   ];
   text = ''
     set -euo pipefail
