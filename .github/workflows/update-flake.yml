@@ -58,6 +58,15 @@ jobs:
             echo "Flake inputs updated (excluding secrets)"
           fi
 
+      - name: Check Nixpkgs lock health
+        uses: DeterminateSystems/flake-checker-action@v12
+        with:
+          send-statistics: false
+          fail-mode: true
+          condition: >-
+            supportedRefs.contains(gitRef) && has(numDaysOld)
+            && numDaysOld < 30 && owner == 'NixOS'
+
       - name: Run flake check
         if: steps.update.outputs.changed == 'true'
         run: nix flake check --accept-flake-config
