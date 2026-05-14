@@ -12,6 +12,7 @@ let
 
       home-manager.users.${metaOwner.username}.programs.gitMirror = {
         enable = true;
+        firefoxDocs.enable = true;
         repos = [
           # NixOS
           "NixOS/nixos-hardware"

@@ -14,6 +14,46 @@
     }:
     let
       cfg = config.programs.gitMirror;
+      inherit (cfg) firefoxDocs;
+      allowedUrlDirChars = lib.stringToCharacters "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-";
+      stripAfter = separator: value: builtins.head (lib.splitString separator value);
+      sanitizeUrlDirName =
+        value:
+        lib.concatMapStrings (char: if builtins.elem char allowedUrlDirChars then char else "-") (
+          lib.stringToCharacters value
+        );
+      collapseDashes =
+        value:
+        let
+          next = builtins.replaceStrings [ "--" ] [ "-" ] value;
+        in
+        if next == value then value else collapseDashes next;
+      trimDashes = value: lib.removePrefix "-" (lib.removeSuffix "-" value);
+      urlToDirName =
+        spec:
+        let
+          withoutScheme = lib.removePrefix "http://" (lib.removePrefix "https://" spec);
+          withoutQuery = stripAfter "#" (stripAfter "?" withoutScheme);
+          normalized = lib.removeSuffix ".git" (lib.removeSuffix "/" withoutQuery);
+          parts = lib.filter (part: part != "") (lib.splitString "/" normalized);
+          host = if parts == [ ] then "" else builtins.head parts;
+          hostName =
+            host
+            |> lib.removePrefix "www."
+            |> lib.removeSuffix ".com"
+            |> lib.removeSuffix ".org"
+            |> lib.removeSuffix ".net";
+          pathParts = if parts == [ ] then [ ] else builtins.tail parts;
+          rawName = lib.concatStringsSep "-" ([ hostName ] ++ pathParts);
+        in
+        rawName |> sanitizeUrlDirName |> collapseDashes |> trimDashes;
+      mirrorDirName =
+        spec:
+        if lib.hasPrefix "http://" spec || lib.hasPrefix "https://" spec then
+          urlToDirName spec
+        else
+          builtins.replaceStrings [ "/" ] [ "-" ] spec;
+      firefoxDocsLockPath = "${firefoxDocs.repoPath}.git-mirror.lock";
       reposFile = pkgs.writeText "repos.txt" (lib.concatStringsSep "\n" cfg.repos);
 
       # Helper script for syncing a single repo (called by parallel)
@@ -23,6 +63,7 @@
           git
           coreutils
           gawk
+          util-linux
         ];
         text = ''
           set -eu
@@ -66,6 +107,13 @@
               dir="$GIT_MIRROR_ROOT/$(printf '%s' "$spec" | tr '/' '-')"
               ;;
           esac
+
+          if [ "''${GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC:-}" = "$spec" ] && [ -n "''${GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH:-}" ]; then
+            lock_file="$GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH"
+            mkdir -p "$(dirname "$lock_file")"
+            exec 9>"$lock_file"
+            flock 9
+          fi
 
           log "$spec: syncing"
 
@@ -113,6 +161,13 @@
         '';
       };
 
+      firefoxDocsScript = import ./_firefox-docs-builder.nix {
+        inherit lib pkgs;
+        firefoxDocs = firefoxDocs // {
+          lockPath = firefoxDocsLockPath;
+        };
+      };
+
       # Main entry point
       mirrorScript = pkgs.writeShellApplication {
         name = "git-mirror";
@@ -127,6 +182,10 @@
           umask 002
           export GIT_MIRROR_ROOT="${cfg.root}"
           export GIT_MIRROR_MAX_BACKUPS=${toString cfg.maxBackups}
+          ${lib.optionalString firefoxDocs.enable ''
+            export GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC=${lib.escapeShellArg firefoxDocs.repoSpec}
+            export GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH=${lib.escapeShellArg firefoxDocsLockPath}
+          ''}
           grep -vE '^[[:space:]]*(#|$)' "${reposFile}" | \
             parallel --line-buffer -j${toString cfg.jobs} ${syncRepoScript}/bin/git-mirror-sync-repo
         '';
@@ -158,6 +217,82 @@
           description = "Repositories to mirror as GitHub owner/repo shorthand or full HTTP(S) Git URLs.";
         };
 
+        firefoxDocs = {
+          enable = lib.mkEnableOption "building Firefox source documentation after mirror sync";
+
+          repoSpec = lib.mkOption {
+            type = lib.types.str;
+            default = "mozilla-firefox/firefox";
+            description = "Repository spec from programs.gitMirror.repos that provides Firefox source docs.";
+          };
+
+          repoPath = lib.mkOption {
+            type = lib.types.str;
+            default = "${cfg.root}/${mirrorDirName firefoxDocs.repoSpec}";
+            description = "Local Firefox checkout used as the mach doc source tree. Defaults to the mirror path derived from repoSpec.";
+          };
+
+          outputRoot = lib.mkOption {
+            type = lib.types.str;
+            default = "${cfg.root}/${mirrorDirName firefoxDocs.repoSpec}-docs";
+            description = "Directory where generated Firefox source docs are published. Defaults to the mirror path derived from repoSpec with a -docs suffix.";
+          };
+
+          maxRevisions = lib.mkOption {
+            type = lib.types.ints.positive;
+            default = 2;
+            description = "Maximum generated Firefox documentation revisions and linkcheck outputs to keep.";
+          };
+
+          format = lib.mkOption {
+            type = lib.types.str;
+            default = "html";
+            description = "Sphinx builder format passed to mach doc.";
+          };
+
+          path = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "Optional Firefox documentation path passed to mach doc.";
+          };
+
+          jobs = lib.mkOption {
+            type = lib.types.nullOr lib.types.ints.positive;
+            default = null;
+            description = "Optional parallelism value passed to mach doc with -j.";
+          };
+
+          archive = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Whether to ask mach doc to write a tarball of the generated docs.";
+          };
+
+          linkcheck = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Whether to run a second mach doc linkcheck pass after generating HTML docs.";
+          };
+
+          noAutodoc = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Whether to pass --no-autodoc to mach doc.";
+          };
+
+          disableWarningsCheck = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Whether to pass --disable-warnings-check to mach doc.";
+          };
+
+          verbose = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Whether to pass --verbose to mach doc.";
+          };
+        };
+
         maxBackups = lib.mkOption {
           type = lib.types.ints.positive;
           default = 5;
@@ -178,24 +313,55 @@
       };
 
       config = lib.mkIf cfg.enable {
-        home.packages = [ mirrorScript ];
+        assertions = [
+          {
+            assertion = !firefoxDocs.enable || builtins.elem firefoxDocs.repoSpec cfg.repos;
+            message = "programs.gitMirror.firefoxDocs.repoSpec must be present in programs.gitMirror.repos.";
+          }
+        ];
 
-        systemd.user.services.git-mirror = {
-          Unit.Description = "Sync git mirrors";
-          Service = {
-            Type = "oneshot";
-            ExecStart = "${mirrorScript}/bin/git-mirror";
-            Environment = [ "GIT_TERMINAL_PROMPT=0" ];
-          };
-        };
+        home.packages = [ mirrorScript ] ++ lib.optional firefoxDocs.enable firefoxDocsScript;
 
-        systemd.user.timers.git-mirror = {
-          Unit.Description = "Git mirror sync timer";
-          Timer = {
-            OnCalendar = cfg.timer;
-            Persistent = true;
+        systemd.user = {
+          services = {
+            git-mirror = {
+              Unit = {
+                Description = "Sync git mirrors";
+              }
+              // lib.optionalAttrs firefoxDocs.enable {
+                Wants = [ "git-mirror-firefox-docs.service" ];
+              };
+              Service = {
+                Type = "oneshot";
+                ExecStart = "${mirrorScript}/bin/git-mirror";
+                Environment = [ "GIT_TERMINAL_PROMPT=0" ];
+              };
+            };
+
+            git-mirror-firefox-docs = lib.mkIf firefoxDocs.enable {
+              Unit = {
+                Description = "Build Firefox source docs";
+                After = [ "git-mirror.service" ];
+              };
+              Service = {
+                Type = "oneshot";
+                ExecStart = "${firefoxDocsScript}/bin/git-mirror-build-firefox-docs";
+                Environment = [ "GIT_TERMINAL_PROMPT=0" ];
+                TimeoutStartSec = "6h";
+                Nice = 10;
+                IOSchedulingClass = "idle";
+              };
+            };
           };
-          Install.WantedBy = [ "timers.target" ];
+
+          timers.git-mirror = {
+            Unit.Description = "Git mirror sync timer";
+            Timer = {
+              OnCalendar = cfg.timer;
+              Persistent = true;
+            };
+            Install.WantedBy = [ "timers.target" ];
+          };
         };
       };
     };
