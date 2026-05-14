@@ -13,6 +13,9 @@
   lib,
   fonts ? null,
 }:
+let
+  geckoSearch = import ./_gecko-search.nix { };
+in
 {
   commonSettings =
     (lib.optionalAttrs (fonts != null) {
@@ -20,22 +23,28 @@
       "font.name.sans-serif.x-western" = fonts.sansSerif.name;
       "font.name.monospace.x-western" = fonts.monospace.name;
     })
+    // geckoSearch.settings
     // {
       # about:config without the warning prompt.
       "browser.aboutConfig.showWarning" = false;
-
-      "accessibility.typeaheadfind" = false; # Conflicts with Tridactyl.
-      "accessibility.typeaheadfind.flashBar" = 0;
 
       # Allow userChrome.css / userContent.css to load.
       "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
 
       "browser.ctrlTab.sortByRecentlyUsed" = true;
+      "browser.startup.page" = 3;
       "browser.tabs.closeWindowWithLastTab" = false;
+      "browser.tabs.warnOnClose" = true;
+      "browser.tabs.insertAfterCurrentExceptPinned" = true;
+      "browser.tabs.splitview.hasUsed" = true;
+      "browser.sessionstore.restore_pinned_tabs_on_demand" = true;
 
       # Do not check or prompt to become the system default browser.
       "browser.shell.checkDefaultBrowser" = false;
       "browser.shell.didSkipDefaultBrowserCheckOnFirstRun" = true;
+
+      # Keep Arabic out of automatic translation prompts.
+      "browser.translations.neverTranslateLanguages" = "ar";
 
       # Pre-enable extensions delivered through the Nix scope (default 15 would
       # leave system-scope XPIs installed-but-disabled on first launch).
@@ -50,6 +59,7 @@
 
       # Always prompt for the download location.
       "browser.download.useDownloadDir" = false;
+      "browser.download.always_ask_before_handling_new_types" = true;
       # Force the print dialog to default to the built-in PDF backend on
       # every HM activation. Firefox writes the user's last selection back
       # to this pref, so leaving it declared intentionally clobbers any
@@ -90,7 +100,7 @@
       "privacy.sanitize.sanitizeOnShutdown" = true;
       "privacy.clearOnShutdown_v2.cookiesAndStorage" = true;
       "privacy.clearOnShutdown_v2.formdata" = true;
-      "privacy.clearOnShutdown_v2.browsingHistoryAndDownloads" = true;
+      "privacy.clearOnShutdown_v2.browsingHistoryAndDownloads" = false;
 
       # Open context menus on mouseup so a quick right-click-drag does not
       # dismiss the menu before it appears (X11 quirk).
@@ -125,19 +135,13 @@
       "widget.use-xdg-desktop-portal" = 1;
 
       # Mute sponsored new-tab content.
+      "browser.newtabpage.activity-stream.feeds.topsites" = true;
       "browser.newtabpage.activity-stream.showSponsored" = false;
       "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
       "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
-      "browser.search.serpEventTelemetryCategorization.regionEnabled" = false;
 
       # Global Privacy Control header on all requests.
       "privacy.globalprivacycontrol.enabled" = true;
-
-      # Disable Firefox Suggest (quicksuggest); keep engine suggestions working.
-      "browser.urlbar.quicksuggest.enabled" = false;
-      "browser.urlbar.suggest.quicksuggest.all" = false;
-      "browser.urlbar.suggest.quicksuggest.nonsponsored" = false;
-      "browser.urlbar.suggest.quicksuggest.sponsored" = false;
 
       # Reduce prefetching / speculative connections.
       "network.prefetch-next" = false;
@@ -165,6 +169,7 @@
       # Disabling timer jitter dodges a Claude AI infinite-loop freeze.
       # See codeberg.org/librewolf/issues/issues/1934
       "privacy.resistFingerprinting.reduceTimerPrecision.jitter" = false;
+      "network.http.referer.XOriginTrimmingPolicy" = 2;
 
       # Cookie banner handling: attempt to auto-reject.
       "cookiebanners.service.mode" = 1;
@@ -184,5 +189,11 @@
       "devtools.toolbox.host" = "window";
       "devtools.toolbox.splitconsole.open" = true;
       "devtools.webconsole.filter.netxhr" = true;
+
+      # Keep Picture-in-Picture playback active when switching tabs.
+      "media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled" = true;
+
+      # Disable IPv6 address lookups.
+      "network.dns.disableIPv6" = true;
     };
 }

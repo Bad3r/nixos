@@ -1,6 +1,6 @@
 /*
   Internal: shared per-profile builder for Gecko browsers
-  Description: Composes commonSettings/search/containers/extensions into a
+  Description: Composes commonSettings/containers/extensions/bookmarks into a
   Home Manager `programs.<browser>.profiles.<name>` value so firefox.nix,
   floorp.nix, and librewolf.nix can stay symmetric. The NUR overlay is
   extended here once per browser module so the unfree firefox-addons
@@ -26,7 +26,6 @@ let
     inherit lib;
     fonts = if (config.stylix.enable or false) then config.stylix.fonts else null;
   };
-  geckoSearch = import ./_gecko-search.nix { };
   geckoContainers = import ./_gecko-containers.nix { };
   geckoBookmarks = import ./_gecko-bookmarks.nix { inherit lib; };
   geckoExtensions = import ./_gecko-extensions.nix {
@@ -63,7 +62,6 @@ let
         // geckoExtensions.toolbarSettings
         // (geckoBookmarks.settings bookmarksFile)
         // extraSettings;
-      inherit (geckoSearch) search;
       inherit (geckoContainers) containers;
       extensions = {
         force = true;

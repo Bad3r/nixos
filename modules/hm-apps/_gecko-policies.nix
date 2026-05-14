@@ -9,10 +9,13 @@
   Notes:
     * Includes only upstream policy entries that set a non-default value.
     * Omits LibreWolf's inert localhost WebsiteFilter sentinel.
-    * Omits SearchEngines.PreventInstalls=false because it is the default.
 */
 
-_: {
+_:
+let
+  geckoSearch = import ./_gecko-search.nix { };
+in
+{
   policies = {
     AppUpdateURL = "https://localhost";
     DisableAppUpdate = true;
@@ -26,7 +29,7 @@ _: {
     NoDefaultBookmarks = true;
     ExtensionSettings = {
       "*" = {
-        blocked_install_message = "Language Packs are managed through Nix and cannot be installed from the browser.";
+        blocked_install_message = "Extensions are managed through Nix and cannot be installed from the browser.";
         installation_mode = "allowed";
         allowed_types = [
           "dictionary"
@@ -35,193 +38,23 @@ _: {
           "theme"
         ];
       };
-      "uBlock0@raymondhill.net" = {
-        install_url = "https://addons.mozilla.org/firefox/downloads/latest/uBlock0@raymondhill.net/latest.xpi";
-        installation_mode = "normal_installed";
-        private_browsing = true;
-      };
-      "google@search.mozilla.org" = {
-        installation_mode = "blocked";
-      };
-      "bing@search.mozilla.org" = {
-        installation_mode = "blocked";
-      };
-      "amazondotcom@search.mozilla.org" = {
-        installation_mode = "blocked";
-      };
-      "ebay@search.mozilla.org" = {
-        installation_mode = "blocked";
-      };
-      "twitter@search.mozilla.org" = {
-        installation_mode = "blocked";
-      };
+    }
+    // geckoSearch.policies.ExtensionSettings;
+
+    EnableTrackingProtection = {
+      Value = true;
+      Category = "strict";
+      BaselineExceptions = true;
+      ConvenienceExceptions = false;
     };
-    SearchEngines = {
-      Remove = [
-        "Google"
-        "Bing"
-        "Amazon.com"
-        "eBay"
-        "Twitter"
-        "Perplexity"
-      ];
-      Default = "DuckDuckGo";
-      Add = [
-        {
-          Name = "DuckDuckGo Lite";
-          Description = "Minimal, ad-free version of DuckDuckGo";
-          Alias = "";
-          Method = "POST";
-          URLTemplate = "https://start.duckduckgo.com/lite/";
-          PostData = "q={searchTerms}";
-          SuggestURLTemplate = "https://ac.duckduckgo.com/ac/?q={searchTerms}&type=list";
-          IconURL = builtins.concatStringsSep "" [
-            "data:image/x-icon;base64,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"
-            "b/Ut5vFj+B4mSK5j/ya9iAAAAAElFTkSuQmCC"
-          ];
-        }
-        {
-          Name = "Searx Belgium";
-          Description = "A privacy-respecting, open metasearch engine";
-          Alias = "";
-          Method = "POST";
-          URLTemplate = "https://searx.be/search";
-          PostData = "q={searchTerms}&category_general=on";
-          SuggestURLTemplate = "https://searx.be/autocompleter?q={searchTerms}";
-          IconURL = builtins.concatStringsSep "" [
-            "data:image/x-icon;base64,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"
-            "sR/gAAAAASUVORK5CYII="
-          ];
-        }
-        {
-          Name = "MetaGer";
-          Description = "Search safely while having your privacy respected";
-          Alias = "";
-          Method = "GET";
-          URLTemplate = "https://metager.org/meta/meta.ger3?eingabe={searchTerms}";
-          SuggestURLTemplate = "https://metager.org/suggest?query={searchTerms}";
-          IconURL = builtins.concatStringsSep "" [
-            "data:image/x-icon;base64,AAABAAIAEBAAAAEAIACpAQAAJgAAACAgAAABACAAQwMAAM8BAACJUE5HDQoaCgAAAA1JSERSAAAAEAAAABAIBgAAAB/z/2E"
-            "AAAFwSURBVDiNhdO9jw1RGAbw3xnHx9pL1kcmSIiIiMZWGhGNSjR6tU7lqiT8ARJZkdCKloJmo1JYIugIW/lsJLINsbe4m7X3KObMNZm9w5NMMnPe53nOeZ/"
-            "zThj0y/14giP+jYQB3uAOHmI1tkhD/O4w2IBpnMIxTAvhbtNghKt4kcltxCy8iKO4LKWnTYM1vMer3tzSOvXgUkmwgI+4j8M4UeS+HuAWFjuOr3dzbPoaH7A"
-            "JB2NvbukHrnUJJ2CIX/l9S4TlfgkBO7C5S5lIgSlszEsh1kpVSNdxWnUTAUWlGz/y2r7aNA765S7sxAyO41CureBbNt6be16HAhewgMeYbdQWcQYncburrQL"
-            "b8g6783eNVcn3fIpnJg9Yqnv8H9Y6eMN6DiYVg1DnqzDOeowVfI14h2VsbxEOqDL4grOqMJv4hJcRzzGP8y3CHtxT9b61VfuJG8UofI559yuq6TqH0t+faao"
-            "hSpn7VnUrj0ZF8geL31hEmGrLBAAAAABJRU5ErkJggolQTkcNChoKAAAADUlIRFIAAAAgAAAAIAgGAAAAc3p69AAAAwpJREFUWIXF109oXFUUx/HPeTOt/TP"
-            "FRtOpqPhn4ULEP3tFUSriQncuFEUQdKFumiB058KNiI0rC65cKFgXLgRFkCIR2q6kCiIiCP6hapuSVuOkTZrMHBcvkw6TzGQmf+oXLrw37557fu/eM7/7bsy"
-            "O74fRzJzEXTaHRfyLP3EKn+FYZut8VAq1t6eWOxablLCbKkaUL/Qc3sfRiOJANrNoHNy35QK62YVH8UFEPFMsiraIfgISrXW2XtyAN1vb4n4RKKeqF5/ikzV"
-            "ErkYF1+JOPIQ7usa4CQdxqjFWv9hPwHf4sDYx1afL6jTG68hCxq0Yx4vY3tHlYdyHk1tSA7XDU2qHz7WkX3AIH3d1GcED9J/e5oaFvDMFDRzBdNfju4VKW0D"
-            "iMhYwr/z/frNRAR38sNQ6uVnmjmommElexZ4oxZwVKwLWRSVDiMZitH7Fgx2PdhM7qrWJs5RvfnIzEnbTjLT0UjPd2sKVJdhSUrLSH0KIq+WEPVnhAzPj+xS"
-            "tQkbuUlpobiTBUnAGOwYSULSCct2exyv6W+swOm4cSAAIpP02b3vuycoaiOVp273VyaF6cbxezXQ7diITkW7D433i/sHvHfd7lFO8ffXufQQkI8l7ys2hvd4"
-            "7lQXYi8nkJUt2HdTwFF5XXg9MsdT2KjeI65dav+RwOZqmI03vmZiaxm/kEUwOk7wtYH3ElctKVCQX8dPVE9DBzsN/iVLR5SHCUsr/0wmbSbPI0qg35HbrZJa"
-            "cK7LcCReGDt+45NPEXBHykpVfK2tRUbFciHOv7W3/3u8bs5vvlUtQzOHHIQXcguvaN4vN7ZRmNKh1X8BxqEYkfI2XlQY0CPfiLXzRGKsv4BocwCMDxn+FbyE"
-            "aY3VKIzqKxwYcoM2ishoK5XlgEE7jaRyvTUwp5uZnEH/jDfw8pIAqtg2R/AwORTZPtKu4GH13Tmq5sHDuBF5QTs/8kELWYhZf4tlCfCSqWZs4hw5DnR0fla0"
-            "q0arjSTyBe1BX1kasGLY37eP5H8rj+ec4ltE6H1lVmziz3PE/sLDwSHn2B2cAAAAASUVORK5CYII="
-          ];
-        }
-        {
-          Name = "Startpage";
-          Description = "Search and browse the internet without being tracked or targeted";
-          Alias = "";
-          Method = "GET";
-          URLTemplate = "https://www.startpage.com/sp/search?query={searchTerms}&cat=web&pl=opensearch";
-          SuggestURLTemplate = "https://www.startpage.com/osuggestions?q={searchTerms}";
-          IconURL = builtins.concatStringsSep "" [
-            "data:image/x-icon;base64,AAABAAIAEBAAAAEAIAAwAgAAJgAAACAgAAABACAAnAQAAFYCAACJUE5HDQoaCgAAAA1JSERSAAAAEAAAABAIBgAAAB/z/2E"
-            "AAAH3SURBVDiNhdJdaI5hGAfw3/08z2vlc4WZRq1NPuqVyEdJpkTyeUSOnNCKzIlCy4mPQnOklHYonCmpLVFEIRzMwRKFtnqxlG0xy77ex8H77PUW5Tq57/9"
-            "1X9e///W/7tB8ckxFrMBRbMM8DKML7biNUegrdLt7cyVIKpp34TIWV+RmYRNWYxXOYKh2Qb5cMEmwFlexEON4hTeYjQ2Yg+P4nqbOhyCdJIiQQ0vWPIKz2I5"
-            "D2It9eIuAwyHIQ/OJsTJBYyYT7qMNgxkexyNcRIr52FxpWoRq9BKehBBdT9Pir4mJEe2XciCOE0mSdMZx0hpFSVsUJR+TJCnpQVIsjneNjg7uKfR2+vL58Wg"
-            "U5fwcKqjPb3W/Y4dicRxpjC8YCCH6lKZFy/JHQFi4bOPUKKpqDUET4ZvSGgtljSmCczidoQO4MTY25NO7Z5I4rhom5DK3IcYFvMcMwX4cy9668BByuWmTawx"
-            "wBevQhJ0ZWR+mo055YvfwuXQtpeLqmkb4gaeoRQNmKO1+ZtZYzAyvU/ojBaiuaSwTQD868CIr6MFzXMNrrM9Il2djDJR11Oe3+keEzDSYovTNWzJ8BwfRH8P"
-            "g1w8Gv35QPbeBEP5iwgReYimWZGcVHv+zujLq81v88dAi3MKabITd0f8IerofVML3OKW0iR70/QZSjolxsmCYAAAAAABJRU5ErkJggolQTkcNChoKAAAADUl"
-            "IRFIAAAAgAAAAIAgGAAAAc3p69AAABGNJREFUWIWt12uIVVUUB/DfvnNnUvNFja+0umjYQwdSAi2CHuSoFT2oyPpUH1IIKiJqetAni1KKICpTK6WIgqikskC"
-            "RiiAtEcyEgtTGLMt8lznqnbmnD/ue8c6Zc69J/r/cc+5ea6//Xq+9TpDBvI6ypO9fozET12IKRqEFXfgV3+BjfImDqVJQsXjBadnt+yHUvsztKNe+DsEczEU"
-            "bGu12CGvxEj5FNyQJSxc2/zcCczvKkkCIxz8Pz+ImNJ3wGMfxD5bgKeyDShK8trBYV6EQjXdHNtH4RXgLt5ykcTgdD+JltEIhJA0VCvGnV2iM6MbpDXTKOIK"
-            "eBjJzRC8MoF9o+6A4r6NHopKSeQhX5cgl2ICP8J0Y8zMwDTdgYo7O3WKCLqtU6jMNNeym4xOcmZH5G89hEXbn7DEej+EuZIO9CbOxM8HSBf0TsgCzC0W4M8f"
-            "4UTxZSZL52N1UDVhPEh+qgduG+7E4h1wbrus1lIMifFbpHoWrc9Y/xKuFEDNp0TN9TzD3kXJaR11izKfhkhqRIPaP5UnMnX5IiU3AuZm1w1gmesGSHPctWdi"
-            "s3NKUeuIPvJ1jow0j84zXEjgHgzNrv4kxbIhl8wu13ewrbBFzZS8OiF2ztZ5+mjRlrMOeqvI+bK7+5p6+FksWNJv3aAW+J5lVNdpU3b+YJMm2UEc3JbASq3B"
-            "kaFIs768ccvTIPju2r9TSMqyhcSi1zfTm0sG69h4+hu2ahKpbgm6JamvOQ5hx6zsGDhyhc+v7urp26ek5qlIpB7H3d6fKnZtX1ScwuT19bBc7YVEMb5OYGw9"
-            "gV94exZ9+XAbNuBwXivkwDmdhBeFFKkqTZ+jcvLqR8Rbx4pqVEVkrJnQu0hAE3IebM+sTSb4lrEuNpacotV1D0qe6bxebThZrxGaWi3SHY/hA/1iNxSu4NK2"
-            "10uT2eOrUeFDAbeLtOSijvxsr6hmHpuEjJ6TPv4iNZHxGZgxmCYaKZXVU9NwwTEUHnsCInP3fkCTLhZDUy6GQnqqKK/GuOPXkYY84BR2uEjgbQ+vIbsKN6KR"
-            "+EmdadPgCj+OvOpu24mJchkkNjBMP13s5lSa15wo1wYE/t+oNRZJsFMLvYjiGNDBwIoxCCavRJUQ7uQT6kAgBNoqdcbRYlvVnqsY4X5yS1qBn+MgJ/Uj0Gbn"
-            "6eIId4rS7Ubx5BzneYgMq4mCyBe+J2T4VAzMkpuCQkKwlyJLIbdGlSe3ZlaJYDSXRtQPEAXQnOlV6dikUkTyMp8XGVouDuKdKFMeTst4dEYlMnnEikSwG4Hn"
-            "cm7O2XRx6vq4lcVK7N0JNKbeKc8T1OWLrcQd6Y3CyY3ddDG8tEQrEHrFBvFvGZMTGikkdK+NUEjiw+2fDR4xPSezFD5ihf6+4QEzUz9FzyghEEttqq2g7dol"
-            "XdPazrk28JbedUgJkSznZXG0sV+jbdZvFb4b19abl/4XjfT8keAGvZ0T2q86bp9wDKWo80S1m/zjxo/cAFog9ofIv+QJJIq3ZVN4AAAAASUVORK5CYII="
-          ];
-        }
-        {
-          Name = "Mojeek";
-          Description = "A web search engine that provides unbiased, fast, and relevant search results combined with a no tracking privacy policy";
-          Alias = "";
-          Method = "GET";
-          URLTemplate = "https://www.mojeek.com/search?q={searchTerms}";
-          IconURL = builtins.concatStringsSep "" [
-            "data:image/x-icon;base64,AAABAAIAEBAAAAEAIACRAQAAJgAAACAgAAABACAAaQMAALcBAACJUE5HDQoaCgAAAA1JSERSAAAAEAAAABAIBgAAAB/z/2E"
-            "AAAFYSURBVDiNpdJPS1RxFMbxzx2HkUKnnP4QBC5bBEH7JBKE/ryG1i1cBa2S6A1E9QKqjSu37YpAIkhFRGjXPo1SkizBScppMc8vLjItygOXc+73d85zHn7"
-            "3csio7r66pNqv/mu4h0aGW+hguAjjOEYPzLTD/zQ1MY0bGMd7PMVVTKKLJ3iDW7iSmed4hJ0mbuIihnAB1zCCvTg6j884F9ZK/zqeNXAbU5iNsybuR2gRx+L"
-            "uHq5jCQ1cRtXAMhawE4HXeJC8FDYfNo+3YfuiVPKZ1Cv4kbpc2LvYhxPJ6+gVgRZOp16rsSL6cQD7UHdwNMo9/QuDIziV+lONnUzfWl1gFGPYxWaNdfQ/5UZ"
-            "NoB2BsxgvAmN5utgK62RbF1/CdvE1ix9jrpmDPbzIcHHwM2y75mAbD3En76vVzMsJ+n/lUKz9yuEgVqKd/L046GVjPQaxEt/+wv89fgPfOlBhjwLBfgAAAAB"
-            "JRU5ErkJggolQTkcNChoKAAAADUlIRFIAAAAgAAAAIAgGAAAAc3p69AAAAzBJREFUWIXt1k1oHVUUB/DfvPfyYYMRa2NfoVXqx0JwoyiChGIQjejG0u4Ul67"
-            "EFuvGIrpQW9y5cCO6EKHoym5soQs3tkoVEnGhK0VFqKlN0qb5aprkjYs783rfnfeaLNyZPwwz99z/PfM/955zZtjC/x0ZHD0zelPSsfFzm+Lc1FeWkedtXts"
-            "cL8iQc0vxuByGFdQxUMwt9xKU55ksywcL/jWsdxNcCrgbYxjFPcWiP/AlTmMVu/E89qGJNfyME3nmfHZD6giexhPYW4i9gFM4iXmo1WrefeobDRzHAdxXRF5"
-            "iHw7iLfyC9/BQEugYDma5I/gcz+FNPFIEEeMAnsRrmGm1WqCBx3B/t23ENrxdRHt7D04T7+NRvIgdPXh1vIQ/i6BADR9iqRhfUT3XW5OXr6tiNw4nL+/GU4j"
-            "cWw4a+Bon8JdwTg/jAwwlC2fwKb7DHrwq5EuKmHcvXsFdidgH8Ts0VmsDc32tlUNuRD6Dy4mABeHsPotsV/GxzrOex6EioBKz+Cji9WFnOVnra63Que3DQin"
-            "G+EpIshiTmEtsJ/FFYjtfBBRjtS3g2Pg55VXgDiH5SqwXjlcR8+pCDsW8U8U95jUS3goutgWUD6+fHisfR4TaLTErlGGK7RiMxvP4tQtvJAloEVMVAf319q7"
-            "sTBRfxjSVlnxnInROyJ+UtyvhXSn9dQiI0EzG00ISptils3HNCom5Ee9SzNuMgEtCL+/mOOUtbYI3FfNSAX3C1qYL1hJb1sXxRVxPbDXVgC7E/lIBg0LSpAL"
-            "knR/GAVEtR7z069mv2pr/ThXGGFLt+VOQdRyjbRs5joSm/tr5dPTMaEXAMG6LxmuKmq0vLae82HGrFJrnHUL7VZva43gA49jTSCa362zBK0JyeWf/RMobjsb"
-            "XS6HHnzkrsS8m79gvfOqH8Ea6Azt0NpdFobxSjOiMbEnRAxJcxURiqwuJPoRnUwFNoRJKLKj2e6rNZUFoMClyfILfesw10yOYxJFiMsM/ukf2U8KbVhxVF0z"
-            "gBbws/PisCL973+JsNwGTPRzF+LG4eiJpx9/jB+HYWpn8Wl5UVdZ9+X+HjX7nt7CFfwHgod+nXh1W3gAAAABJRU5ErkJggg=="
-          ];
-        }
-      ];
+    Cookies.Allow = [ "https://github.com" ];
+
+    DNSOverHTTPS = {
+      Enabled = true;
+      ProviderURL = "https://adblock.dns.mullvad.net/dns-query";
+      Fallback = false;
     };
     SkipTermsOfUse = true;
-  };
+  }
+  // builtins.removeAttrs geckoSearch.policies [ "ExtensionSettings" ];
 }
