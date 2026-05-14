@@ -297,7 +297,10 @@ Pause, summarize the issue, and ask for direction.
   - Use when: Review module behavior or backport fixes.
 - Firefox source/docs
   - Path: `/data/git/mozilla-firefox-firefox`
-  - Use when: Inspect Firefox source behavior, Gecko internals, preferences, or generated source docs.
+  - Use when: Inspect Firefox source behavior, Gecko internals, or preferences.
+- Firefox built docs
+  - Path: `/data/git/mozilla-firefox-firefox-docs/current`
+  - Use when: Browse generated Firefox source docs built by `git-mirror-firefox-docs.service`.
 - MDN Web Docs
   - Path: `/data/git/mdn-content`
   - Use when: Reference MDN Web/API documentation offline.
