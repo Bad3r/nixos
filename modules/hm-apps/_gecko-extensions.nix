@@ -422,6 +422,13 @@ in
       "no-large-media: behind-the-scene false"
     ];
     dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
+    userFilters = ''
+      ! https://octobox.io
+      octobox.io##.btn-outline-light.btn-sm.btn
+
+      ! https://web.webex.com
+      web.webex.com##.cookie-banner-body
+    '';
     selectedFilterLists = librewolfUblockOriginLists ++ [
       # Keep "My filters" enabled; uBO hides the element picker without it.
       "user-filters"
