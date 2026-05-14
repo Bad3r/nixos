@@ -35,6 +35,10 @@ Before reading any file, check its **size** and extension. Use structured tools 
 
 Failures must surface, not swallow. Concretely: do not replace `raise`/`throw` with a no-op `pass`/`catch`, do not return placeholder data on exception, and do not add `--no-verify` or `|| true` to silence a failing step. If suppression is genuinely intended, log the cause first.
 
+## Root cause fixes
+
+Fix the producer of bad output, not downstream consumers. If the current codebase controls the producer of a bad generated artifact, package, build output, API response, fixture, cache, lockfile, release asset, or similar output, repair that producer and add a regression check that would fail on the bad output. If the producer is external or cannot be changed in the current task, surface that constraint instead of masking it. Do not add compatibility shims, fallback paths, post-processing steps, or artifact rewrites unless the user explicitly approves a temporary mitigation. Label any mitigation as temporary, explain what blocks the source fix, and state the removal condition.
+
 ## Python
 
 Use `uv` and `uvx` for all Python work. No `pip`, no `venv`, no direct `python` invocations. For inline or one-off dependencies, use `uv run --with <pkg> <script>`.
