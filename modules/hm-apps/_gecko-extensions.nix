@@ -89,6 +89,108 @@ let
   svgGobblerSlug = "svg-gobbler";
   svgGobblerInstallUrl = "${amoLatestBaseUrl}${svgGobblerSlug}/latest.xpi";
 
+  widgetIds = {
+    cookieAutoDelete = "cookieautodelete_kennydo_com-browser-action";
+    darkreader = "addon_darkreader_org-browser-action";
+    firefoxColor = "firefoxcolor_mozilla_com-browser-action";
+    languageTool = "languagetool-webextension_languagetool_org-browser-action";
+    onePassword = "_d634138d-c276-4fc8-924b-40a0ea21d284_-browser-action";
+    raindrop = "jid0-adyhmvsp91nuo8prv0mn2vkeb84_jetpack-browser-action";
+    simpleLogin = "addon_simplelogin-browser-action";
+    stylus = "_7a7a4a92-a2a0-41d1-9fd7-1e92480d612d_-browser-action";
+    svgGobbler = "_7962ff4a-5985-4cf2-9777-4bb642ad05b8_-browser-action";
+    tabStash = "tab-stash_condordes_net-browser-action";
+    tridactyl = "tridactyl_vim_cmcaine_co_uk-browser-action";
+    ublockOrigin = "ublock0_raymondhill_net-browser-action";
+    violentmonkey = "_aecec67f-0d10-4fa7-b7c7-609a2db280cf_-browser-action";
+    webArchives = "_d07ccf11-c0cd-4938-a265-2a4d6ad01189_-browser-action";
+  };
+
+  unifiedExtensionsArea = with widgetIds; [
+    raindrop
+    firefoxColor
+    tabStash
+    simpleLogin
+    cookieAutoDelete
+    darkreader
+    webArchives
+    languageTool
+    stylus
+    violentmonkey
+    svgGobbler
+  ];
+
+  navBarWidgets = with widgetIds; [
+    "firefox-view-button"
+    "back-button"
+    "stop-reload-button"
+    "forward-button"
+    "urlbar-container"
+    "vertical-spacer"
+    onePassword
+    ublockOrigin
+    "unified-extensions-button"
+  ];
+
+  toolbarPlacements = {
+    "widget-overflow-fixed-list" = [ ];
+    "unified-extensions-area" = unifiedExtensionsArea;
+    "nav-bar" = navBarWidgets;
+    "toolbar-menubar" = [ "menubar-items" ];
+    TabsToolbar = [ ];
+    "vertical-tabs" = [ "tabbrowser-tabs" ];
+    PersonalToolbar = [ "personal-bookmarks" ];
+  };
+
+  toolbarSeen =
+    unifiedExtensionsArea
+    ++ (with widgetIds; [
+      onePassword
+      ublockOrigin
+      "developer-button"
+      "screenshot-button"
+    ]);
+
+  toolbarState = {
+    placements = toolbarPlacements;
+    seen = toolbarSeen;
+    dirtyAreaCache = [
+      "unified-extensions-area"
+      "nav-bar"
+      "TabsToolbar"
+      "vertical-tabs"
+      "toolbar-menubar"
+      "PersonalToolbar"
+    ];
+    currentVersion = 23;
+    newElementCount = 4;
+  };
+
+  horizontalTabsBackup = toolbarState // {
+    placements = toolbarPlacements // {
+      TabsToolbar = [
+        "tabbrowser-tabs"
+        "new-tab-button"
+      ];
+      "vertical-tabs" = [ ];
+    };
+  };
+
+  pageActionsPersistedActions = {
+    ids = [
+      "bookmark"
+      "tab-stash_condordes_net"
+      "_d07ccf11-c0cd-4938-a265-2a4d6ad01189_"
+    ];
+    idsInUrlbar = [
+      "tab-stash_condordes_net"
+      "_d07ccf11-c0cd-4938-a265-2a4d6ad01189_"
+      "bookmark"
+    ];
+    idsInUrlbarPreProton = [ ];
+    version = 1;
+  };
+
   librewolfUblockOriginListData = builtins.fromJSON (
     builtins.readFile ./_librewolf-ubo-default-lists.json
   );
@@ -256,6 +358,7 @@ let
   # programs.<browser>.profiles.<name>.extensions.packages.
   primaryPackages = with firefox-addons; [
     ublock-origin
+    multi-account-containers
     raindropio
     cookie-autodelete
     simplelogin
@@ -310,12 +413,20 @@ in
         raindropId
         tabStashId
         tridactylId
+        "history"
       ];
     in
     {
       "sidebar.installed.extensions" = builtins.concatStringsSep "," sidebarExtensionIds;
       "sidebar.main.tools" = builtins.concatStringsSep "," sidebarTools;
     };
+
+  toolbarSettings = {
+    "browser.pageActions.persistedActions" = builtins.toJSON pageActionsPersistedActions;
+    "browser.uiCustomization.horizontalTabsBackup" = builtins.toJSON horizontalTabsBackup;
+    "browser.uiCustomization.navBarWhenVerticalTabs" = builtins.toJSON navBarWidgets;
+    "browser.uiCustomization.state" = builtins.toJSON toolbarState;
+  };
 
   extensionStorage."${ublockOriginId}".settings = {
     advancedUserEnabled = true;

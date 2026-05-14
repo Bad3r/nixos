@@ -28,6 +28,7 @@ let
   };
   geckoSearch = import ./_gecko-search.nix { };
   geckoContainers = import ./_gecko-containers.nix { };
+  geckoBookmarks = import ./_gecko-bookmarks.nix { inherit lib; };
   geckoExtensions = import ./_gecko-extensions.nix {
     inherit
       config
@@ -38,6 +39,13 @@ let
   };
   geckoPolicies = import ./_gecko-policies.nix { };
 
+  bookmarksFile = lib.attrByPath [
+    "sops"
+    "templates"
+    "gecko/bookmarks"
+    "path"
+  ] null config;
+
   policies = lib.recursiveUpdate geckoPolicies.policies geckoExtensions.extensionPolicies;
 
   mkProfile =
@@ -45,11 +53,16 @@ let
       id,
       packages,
       extraSettings ? { },
-      containersForce ? false,
+      containersForce ? true,
     }:
     {
       inherit id containersForce;
-      settings = geckoPrefs.commonSettings // geckoExtensions.sidebarSettings // extraSettings;
+      settings =
+        geckoPrefs.commonSettings
+        // geckoExtensions.sidebarSettings
+        // geckoExtensions.toolbarSettings
+        // (geckoBookmarks.settings bookmarksFile)
+        // extraSettings;
       inherit (geckoSearch) search;
       inherit (geckoContainers) containers;
       extensions = {

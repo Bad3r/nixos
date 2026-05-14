@@ -89,9 +89,9 @@ _: {
           languagePacks = [ "en-US" ];
 
           profiles = {
-            # Floorp rewrites containers.json at runtime, so let HM
-            # overwrite the file unconditionally; Firefox and LibreWolf
-            # leave containersForce at its mkProfile default of false.
+            # Floorp rewrites containers.json at runtime, so keep the
+            # explicit force here even though the shared Gecko profile
+            # builder now defaults to authoritative container files.
             primary = gecko.mkProfile {
               id = 0;
               packages = gecko.primaryPackages;
