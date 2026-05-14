@@ -234,8 +234,8 @@
 
           outputRoot = lib.mkOption {
             type = lib.types.str;
-            default = "${cfg.root}/mozilla-firefox-firefox-docs";
-            description = "Directory where generated Firefox source docs are published.";
+            default = "${cfg.root}/${mirrorDirName firefoxDocs.repoSpec}-docs";
+            description = "Directory where generated Firefox source docs are published. Defaults to the mirror path derived from repoSpec with a -docs suffix.";
           };
 
           maxRevisions = lib.mkOption {
