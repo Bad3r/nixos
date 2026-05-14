@@ -15,6 +15,44 @@
     let
       cfg = config.programs.gitMirror;
       inherit (cfg) firefoxDocs;
+      allowedUrlDirChars = lib.stringToCharacters "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-";
+      stripAfter = separator: value: builtins.head (lib.splitString separator value);
+      sanitizeUrlDirName =
+        value:
+        lib.concatMapStrings (char: if builtins.elem char allowedUrlDirChars then char else "-") (
+          lib.stringToCharacters value
+        );
+      collapseDashes =
+        value:
+        let
+          next = builtins.replaceStrings [ "--" ] [ "-" ] value;
+        in
+        if next == value then value else collapseDashes next;
+      trimDashes = value: lib.removePrefix "-" (lib.removeSuffix "-" value);
+      urlToDirName =
+        spec:
+        let
+          withoutScheme = lib.removePrefix "http://" (lib.removePrefix "https://" spec);
+          withoutQuery = stripAfter "#" (stripAfter "?" withoutScheme);
+          normalized = lib.removeSuffix ".git" (lib.removeSuffix "/" withoutQuery);
+          parts = lib.filter (part: part != "") (lib.splitString "/" normalized);
+          host = if parts == [ ] then "" else builtins.head parts;
+          hostName =
+            host
+            |> lib.removePrefix "www."
+            |> lib.removeSuffix ".com"
+            |> lib.removeSuffix ".org"
+            |> lib.removeSuffix ".net";
+          pathParts = if parts == [ ] then [ ] else builtins.tail parts;
+          rawName = lib.concatStringsSep "-" ([ hostName ] ++ pathParts);
+        in
+        rawName |> sanitizeUrlDirName |> collapseDashes |> trimDashes;
+      mirrorDirName =
+        spec:
+        if lib.hasPrefix "http://" spec || lib.hasPrefix "https://" spec then
+          urlToDirName spec
+        else
+          builtins.replaceStrings [ "/" ] [ "-" ] spec;
       reposFile = pkgs.writeText "repos.txt" (lib.concatStringsSep "\n" cfg.repos);
 
       # Helper script for syncing a single repo (called by parallel)
@@ -174,8 +212,8 @@
 
           repoPath = lib.mkOption {
             type = lib.types.str;
-            default = "${cfg.root}/mozilla-firefox-firefox";
-            description = "Local Firefox checkout used as the mach doc source tree.";
+            default = "${cfg.root}/${mirrorDirName firefoxDocs.repoSpec}";
+            description = "Local Firefox checkout used as the mach doc source tree. Defaults to the mirror path derived from repoSpec.";
           };
 
           outputRoot = lib.mkOption {
