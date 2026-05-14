@@ -24,6 +24,100 @@ let
     }:
     let
       cfg = config.programs.teams-for-linux.extended;
+      teamsIcon = ../stylix/icons/teams-for-linux.svg;
+      teamsTrayIcon = ../stylix/icons/teams-for-linux-tray.svg;
+      appIconSizes = [
+        16
+        24
+        32
+        48
+        64
+        96
+        128
+        256
+        512
+        1024
+      ];
+      trayIconSizes = [
+        16
+        96
+      ];
+      themedPackage = cfg.package.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
+          pkgs.asar
+          pkgs.librsvg
+        ];
+
+        postInstall = (old.postInstall or "") + ''
+          renderTeamsIcon() {
+            local size="$1"
+            local source="$2"
+            local output="$3"
+
+            mkdir -p "$(dirname "$output")"
+            ${pkgs.librsvg}/bin/rsvg-convert \
+              --page-width "$size" \
+              --page-height "$size" \
+              --width "$size" \
+              --height "$size" \
+              --keep-aspect-ratio \
+              "$source" > "$output"
+          }
+
+          renderTeamsTrayIcon() {
+            local size="$1"
+            local source="$2"
+            local output="$3"
+            local glyphSize="$((size * 11 / 16))"
+            local offset="$(((size - glyphSize) / 2))"
+
+            mkdir -p "$(dirname "$output")"
+            ${pkgs.librsvg}/bin/rsvg-convert \
+              --page-width "$size" \
+              --page-height "$size" \
+              --width "$glyphSize" \
+              --height "$glyphSize" \
+              --left "$offset" \
+              --top "$offset" \
+              --keep-aspect-ratio \
+              "$source" > "$output"
+          }
+
+          install -Dm444 ${teamsIcon} \
+            "$out/share/icons/hicolor/scalable/apps/teams-for-linux.svg"
+
+          for size in ${lib.escapeShellArgs (map toString appIconSizes)}; do
+            renderTeamsIcon \
+              "$size" \
+              ${teamsIcon} \
+              "$out/share/icons/hicolor/''${size}x''${size}/apps/teams-for-linux.png"
+          done
+
+          asarRoot="$(mktemp -d)"
+          ${pkgs.asar}/bin/asar extract \
+            "$out/share/teams-for-linux/app.asar" \
+            "$asarRoot"
+
+          for size in ${lib.escapeShellArgs (map toString trayIconSizes)}; do
+            renderTeamsTrayIcon \
+              "$size" \
+              ${teamsTrayIcon} \
+              "$asarRoot/app/assets/icons/icon-''${size}x''${size}.png"
+
+            for variant in dark light; do
+              renderTeamsTrayIcon \
+                "$size" \
+                ${teamsTrayIcon} \
+                "$asarRoot/app/assets/icons/icon-monochrome-''${variant}-''${size}x''${size}.png"
+            done
+          done
+
+          ${pkgs.asar}/bin/asar pack \
+            "$asarRoot" \
+            "$asarRoot/app.asar"
+          cp "$asarRoot/app.asar" "$out/share/teams-for-linux/app.asar"
+        '';
+      });
     in
     {
       options.programs.teams-for-linux.extended = {
@@ -37,7 +131,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ themedPackage ];
       };
     };
 in

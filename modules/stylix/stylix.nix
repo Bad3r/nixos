@@ -143,6 +143,11 @@ in
               scalableIconDirs = qogirDarkPanelScalableIconDirs;
             }
             {
+              id = "teams-for-linux";
+              source = ./icons/teams-for-linux.svg;
+              names = [ "teams-for-linux" ];
+            }
+            {
               id = "udiskie-tray";
               source = ./icons/udiskie-tray.svg;
               names = [ "drive-removable-media-usb-panel" ];

@@ -46,6 +46,7 @@ under `i3bar` whose `WM_CLASS` is the SNI `Id`):
 - `flameshot` (`Id: flameshot`, `IconName: flameshot-tray`)
 - `Remmina` (`Id: remmina-icon`, `IconName: org.remmina.Remmina-status`)
 - `ProtonVPN`
+- `teams-for-linux`
 
 ## Multi-Monitor Behavior
 
@@ -64,6 +65,7 @@ across all connected outputs is not supported in a reliable way.
 | flameshot | SNI via bridge   | Medium            | Qt SNI; advertises IconName `flameshot-tray`. Resolved by `snixembed` against the active Gtk theme.                  |
 | Remmina   | SNI via bridge   | Medium            | Ayatana SNI; advertises IconName `org.remmina.Remmina-status`. Icon files ship in `hicolor` (status context).        |
 | ProtonVPN | SNI via bridge   | Low-Medium        | Local overlay rewrites tray states to the theme-provided `protonvpn-tray` icon name before `snixembed` proxies it.   |
+| Teams     | SNI via bridge   | Low-Medium        | Electron tray image is bundled in `app.asar`; the local package override replaces those PNG assets directly.         |
 
 ## Broken Launcher Icons Found
 
@@ -113,6 +115,33 @@ icons such as Flameshot.
 
 The custom `protonvpn-tray` source lives at
 `modules/stylix/icons/protonvpn-tray.svg`.
+
+## Teams for Linux Tray Icon
+
+teams-for-linux has two icon surfaces:
+
+- Launcher/window icons use the desktop icon name `teams-for-linux`. nixpkgs
+  installs PNGs under `$out/share/icons/hicolor/<size>/apps/teams-for-linux.png`.
+- Tray icons are selected by the Electron app from bundled files under
+  `app/assets/icons/`. On Linux the default tray path uses `icon-96x96.png`;
+  `appIconType = "light"` and `appIconType = "dark"` use the matching
+  `icon-monochrome-*-96x96.png` files. The 16px variants are kept for the same
+  selector on macOS and for completeness when upstream code paths change.
+
+The local teams-for-linux module (`modules/apps/teams-for-linux.nix`) patches
+the configured package after install. It renders the OneDark-adjusted source
+logo from `modules/stylix/icons/teams-for-linux.svg` into hicolor launcher
+sizes `16`, `24`, `32`, `48`, `64`, `96`, `128`, `256`, `512`, and `1024`,
+and installs the scalable SVG variant.
+
+The same override extracts and repacks `app.asar`, replacing all bundled tray
+base icons with the panel-oriented OneDark source at
+`modules/stylix/icons/teams-for-linux-tray.svg`. That tray source uses
+OneDark `base05` (`#abb2bf`) for the glyph and `base00` (`#282c34`) for the
+front tile letter, so it stays legible against the dark i3bar panel while
+still matching the active palette. The tray PNG render uses the same `11/16`
+glyph scale as the Qogir-Dark panel icon generation so the Electron tray image
+does not fill the entire icon frame.
 
 ## udiskie Tray Icon
 
