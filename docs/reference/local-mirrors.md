@@ -23,8 +23,8 @@ Repositories sync to flat paths under `/data/git`.
   `X-SwitchMethod=keep-old`; rebuilds update the unit files without starting
   or restarting long-running mirror jobs during Home Manager activation
 - **Failure recovery**: `git-mirror.service` restarts on failure after 5
-  minutes so transient Git or network failures retry without manual
-  intervention
+  minutes, bounded to three attempts per hour, so transient Git or network
+  failures retry without churning forever
 
 ## Enable On Hosts
 

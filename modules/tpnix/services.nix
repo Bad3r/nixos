@@ -88,6 +88,8 @@ _: {
         wantedBy = [ "graphical.target" ];
         wants = [ "power-profiles-daemon.service" ];
         after = [ "power-profiles-daemon.service" ];
+        startLimitBurst = 3;
+        startLimitIntervalSec = 3600;
         serviceConfig = {
           Type = "oneshot";
           ExecStart = "${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance";

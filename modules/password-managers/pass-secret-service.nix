@@ -18,6 +18,8 @@ let
         Unit = {
           After = [ "graphical-session.target" ];
           PartOf = lib.mkForce [ "graphical-session.target" ];
+          StartLimitBurst = 3;
+          StartLimitIntervalSec = "1h";
         };
         Install = {
           Alias = [ "dbus-org.freedesktop.secrets.service" ];

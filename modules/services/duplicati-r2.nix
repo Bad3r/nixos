@@ -882,6 +882,8 @@ let
               backupScript
               verifyScript
             ];
+            startLimitBurst = 3;
+            startLimitIntervalSec = 3600;
             environment = {
               DUPLICATI_R2_CONFIG_SOURCE = manifestSource;
               DUPLICATI_R2_CONFIG_DEST = manifestDest;

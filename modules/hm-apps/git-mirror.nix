@@ -328,6 +328,8 @@
               Unit = {
                 Description = "Sync git mirrors";
                 X-SwitchMethod = "keep-old";
+                StartLimitBurst = 3;
+                StartLimitIntervalSec = "1h";
               }
               // lib.optionalAttrs firefoxDocs.enable {
                 OnSuccess = [ "git-mirror-firefox-docs.service" ];
