@@ -362,7 +362,7 @@ The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/d
 ### 4.5 FUSE mount runtime (Cut C only)
 
 - Use `pyfuse3` as the binding. Cut C is Linux-only for this repo; macOS/FreeBSD parity is not a goal.
-- `duplicati-r2-mount mount <slug> <mountpoint>` runs in the foreground by default. The NixOS service must run the same foreground process under systemd (`Type=simple`), so systemd owns restart, stop, and logging semantics.
+- `duplicati-r2-mount mount <slug> <mountpoint>` runs in the foreground by default. The NixOS service must run the same foreground process under systemd (`Type=simple`), so systemd owns stop, logging, and failure-recovery semantics. The managed unit must set `restartIfChanged = false;` and `stopIfChanged = false;` so configuration activation does not restart or stop an active mount, and `Restart = "on-failure";` so unexpected FUSE/process failures are supervised.
 - `duplicati-r2-mount unmount <mountpoint>` performs the unmount operation. If unmounting requires the system helper, the command shells out to the packaged `${pkgs.fuse3}/bin/fusermount3 -u <mountpoint>` rather than requiring sudo.
 - `--debug` enables verbose lifecycle diagnostics for startup, open handles, read planning, cache hits/misses, busy unmounts, and stale-mount cleanup. Debug output must redact sensitive values: tokens, API keys, passphrases, env-file values, and signed request material.
 - Do not enable FUSE `allow_other` by default. Duplicati restore data is sensitive, and the default mount is visible only to the mounting user. `--allow-other` is an explicit CLI flag that adds the `allow_other` FUSE option only when present.
@@ -381,6 +381,7 @@ The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/d
 - `modules/services/duplicati-r2.nix` owns the mount runtime options and host policy. Add `services.duplicati-r2.mount.{enable,user,group,mountPoint,allowOther,debug}`.
 - `services.duplicati-r2.mount.allowOther` defaults to `false`. Only when `cfg.mount.enable && cfg.mount.allowOther` should the service module set `programs.fuse.userAllowOther = true;` and pass `--allow-other` to the mount command.
 - The service passes `--debug` only when `services.duplicati-r2.mount.debug = true`. Debug mode improves busy-unmount and dead-mount diagnostics, but still redacts credentials and passphrases.
+- The managed mount unit sets `restartIfChanged = false;`, `stopIfChanged = false;`, and `serviceConfig.Restart = "on-failure";`. The switch flags prevent rebuilds from tearing down or restarting a live mount during activation; `Restart=on-failure` restarts only after unexpected process failure, not after an operator-initiated stop/unmount.
 - Add an assertion that `services.duplicati-r2.mount.user` is listed in `services.duplicati-r2.stateDirReadableBy`; the mounting user must already have read ACLs for the SQLite state and env file. Normal mount use should not require sudo.
 - Create the mountpoint with `systemd.tmpfiles` using the configured user/group and restrictive mode. The service should stop via `duplicati-r2-mount unmount <mountpoint>` or `fusermount3 -u`, and should avoid leaving stale mountpoints or confusing dead mounts after stop/restart.
 - Enable the managed mount service on `system76` only. `tpnix` should not enable it unless that host later grants `stateDirReadableBy` and explicitly opts into the mount runtime.
@@ -389,13 +390,13 @@ The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/d
 
 - A Nix build sandbox cannot perform a real FUSE mount here: a sandboxed `runCommand` check for `/dev/fuse` returned `missing`. Therefore `mount.nix` must not require `/dev/fuse` or a real mount during `installCheckPhase`.
 - In-package checks should cover import/compile, fake filesystem object tests, `getattr`/`readdir`/`read`/`readlink` behavior over fixture data, and reuse of the existing resolver/decrypt/cache code paths.
-- Host or VM validation on `system76` covers the real FUSE path: service foreground startup, `ls`, `stat`, `cat`, `readlink`, `grep`, partial reads, unmount, busy-unmount diagnostics with `--debug`, and recovery from dead/stale mount state.
+- Host or VM validation on `system76` covers the real FUSE path: service foreground startup, no activation-time stop/restart due to `restartIfChanged=false` and `stopIfChanged=false`, `ls`, `stat`, `cat`, `readlink`, `grep`, partial reads, unmount, busy-unmount diagnostics with `--debug`, and recovery from dead/stale mount state through `Restart=on-failure`.
 
 ### 4.8 Per-invocation lifecycle (Cut B)
 
 - `duplicati-r2-extract <slug> <path> --output <dest>`: opens the SQLite DB (`mode=ro`), checks `Configuration.Version` is in the supported set, reads `Configuration.blockhash` / `Configuration.filehash` for the BlockHash and FileHash algorithms, sources `/etc/duplicati/r2.env` (or the file specified by `--env-file`) for credentials and the passphrase, then plans + fetches + decrypts + writes in one pass and exits. No background daemon, no mount, no FUSE.
 - The encrypted-dblock cache persists between invocations under `$XDG_CACHE_HOME/duplicati-r2-tools/<host>/<slug>/`. Move that directory aside with `rip` to drop it; subsequent runs re-fetch.
-- Cut C lifecycle is the foreground `duplicati-r2-mount mount ...` process plus `duplicati-r2-mount unmount <mountpoint>`, optionally supervised by the NixOS systemd service described above. If `--allow-other` is passed, it must be visible in the CLI invocation and backed by the NixOS `services.duplicati-r2.mount.allowOther` gate.
+- Cut C lifecycle is the foreground `duplicati-r2-mount mount ...` process plus `duplicati-r2-mount unmount <mountpoint>`, optionally supervised by the NixOS systemd service described above. The managed service keeps existing mounts across activation with `restartIfChanged=false` and `stopIfChanged=false`, and restarts after unexpected failures with `Restart=on-failure`. If `--allow-other` is passed, it must be visible in the CLI invocation and backed by the NixOS `services.duplicati-r2.mount.allowOther` gate.
 
 ## 5. The three cuts
 
@@ -454,11 +455,11 @@ duplicati-r2-extract <slug> ... --json                    # JSON summary on stde
 
 - Extract a mount package as `pkgs.duplicati-r2-tools.mount` with binary `duplicati-r2-mount`, using `pyfuse3` and Linux-only metadata (`meta.platforms = lib.platforms.linux`).
 - Reuse the Cut B resolver, R2/file source abstraction, AES decryptor, per-block verifier, and encrypted-dblock cache. Do not add a plaintext cache.
-- Implement `duplicati-r2-mount mount <slug> <mountpoint>` as a foreground process by default. The NixOS systemd service runs this same foreground process.
+- Implement `duplicati-r2-mount mount <slug> <mountpoint>` as a foreground process by default. The NixOS systemd service runs this same foreground process with `restartIfChanged = false;`, `stopIfChanged = false;`, and `Restart = "on-failure";`.
 - Implement `duplicati-r2-mount unmount <mountpoint>` and shell out to `${pkgs.fuse3}/bin/fusermount3 -u <mountpoint>` when that is the required unmount primitive.
 - Implement `--debug` for lifecycle/read/cache/unmount diagnostics, with mandatory redaction for tokens, API keys, passphrases, env-file values, and signed request material.
 - Implement `--allow-other` as a CLI opt-in. The NixOS service passes it only when `services.duplicati-r2.mount.allowOther = true`, and that same option is the only path that sets `programs.fuse.userAllowOther = true;`.
-- Add `services.duplicati-r2.mount.{enable,user,group,mountPoint,allowOther,debug}` and a `systemd` service in `modules/services/duplicati-r2.nix`. Assert the mount user is included in `stateDirReadableBy`, create the mountpoint via `systemd.tmpfiles`, and keep sudo out of normal operation by using the existing SQLite/env-file ACLs.
+- Add `services.duplicati-r2.mount.{enable,user,group,mountPoint,allowOther,debug}` and a `systemd` service in `modules/services/duplicati-r2.nix`. Assert the mount user is included in `stateDirReadableBy`, create the mountpoint via `systemd.tmpfiles`, set `restartIfChanged = false;`, `stopIfChanged = false;`, and `serviceConfig.Restart = "on-failure";`, and keep sudo out of normal operation by using the existing SQLite/env-file ACLs.
 - Add `pkgs.duplicati-r2-tools.mount` to the app module's default package list and expose flake output `.#duplicati-r2-mount`.
 - Enable the managed mount service from `modules/system76/duplicati.nix` only; `tpnix` should remain off unless it later gets matching state/env-file ACL access and explicitly opts in.
 
@@ -470,12 +471,12 @@ duplicati-r2-extract <slug> ... --json                    # JSON summary on stde
 - Race conditions between `release` and active `read` calls.
 - Symlink loops, hard-link representation, special files.
 - `getxattr`/`listxattr` if the metadata blob is to be exposed.
-- Stale/dead mount handling: foreground process ownership, explicit unmount, systemd stop behavior, and debug diagnostics for busy mounts.
+- Stale/dead mount handling: foreground process ownership, explicit unmount, `restartIfChanged=false` and `stopIfChanged=false` activation behavior, `Restart=on-failure` recovery, systemd stop behavior, and debug diagnostics for busy mounts.
 
 **Test plan**:
 
 - In `installCheckPhase`: import/compile, fake filesystem object tests, `getattr`/`readdir`/`read`/`readlink` fixture tests, and resolver/decrypt/cache reuse tests. Do not perform a real FUSE mount in the Nix build sandbox because `/dev/fuse` is absent there.
-- On `system76`: service startup, foreground logging, `ls`, `stat`, `cat`, `readlink`, `grep`, partial reads, clean unmount, busy-unmount diagnostics under `--debug`, and restart after a stale/dead mount.
+- On `system76`: service startup, foreground logging, activation that leaves a running mount alone, `ls`, `stat`, `cat`, `readlink`, `grep`, partial reads, clean unmount, busy-unmount diagnostics under `--debug`, and restart after a stale/dead mount.
 
 **Risk**: FUSE-on-Linux is stable and acceptable for this repo, but the mount can fail inside kernel callbacks under load rather than at command startup. Cross-user exposure through `allow_other` is security-sensitive and must remain behind the two explicit gates above.
 
@@ -509,7 +510,7 @@ Hard constraints from issue #204 carried through:
 
 **Cut C is next in this same branch/PR**. It should reuse the Cut B resolver, R2/file source abstraction, AES decryption boundary, block verifier, and encrypted-dblock cache, then add the read-only `pyfuse3` surface on top. The key implementation risk is not backup-format parsing anymore; it is mount correctness under filesystem access patterns: lifecycle, stale handles, symlink/readlink behavior, partial reads, cache eviction, safe unmount recovery, and keeping cross-user mount exposure behind an explicit `allow_other` opt-in.
 
-Cut C's implementation should keep FUSE permissions private by default. Add `duplicati-r2-mount mount` as a foreground process, `duplicati-r2-mount unmount` backed by `fusermount3 -u`, and a `--debug` mode that improves diagnostics without leaking credentials. Add a CLI `--allow-other` flag, but only have the NixOS service path pass that flag when `services.duplicati-r2.mount.allowOther = true`. The same service option is the only place that should set `programs.fuse.userAllowOther = true;`; package installation and `programs.duplicati-r2-tools.extended.enable` must not change global FUSE policy.
+Cut C's implementation should keep FUSE permissions private by default. Add `duplicati-r2-mount mount` as a foreground process, `duplicati-r2-mount unmount` backed by `fusermount3 -u`, and a `--debug` mode that improves diagnostics without leaking credentials. The managed service should set `restartIfChanged = false;` and `stopIfChanged = false;` so config activation does not bounce live mounts, and `Restart = "on-failure";` so failed foreground mount processes are restarted by systemd. Add a CLI `--allow-other` flag, but only have the NixOS service path pass that flag when `services.duplicati-r2.mount.allowOther = true`. The same service option is the only place that should set `programs.fuse.userAllowOther = true;`; package installation and `programs.duplicati-r2-tools.extended.enable` must not change global FUSE policy.
 
 **Reject** any approach that:
 
