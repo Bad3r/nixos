@@ -55,6 +55,7 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 | `area(agents)`        | Use for Codex, Claude Code, agent wrappers, prompts, or agent-facing tooling.                                    |
 | `area(automation)`    | Use for scheduled jobs, sync jobs, or workflow-driven operational behavior; not for bot origin.                  |
 | `area(backup)`        | Use for backup pipelines, schedules, retention, restore flows, or archive integrity.                             |
+| `area(browsers)`      | Use for browser modules, policies, profiles, extensions, or default-browser integrations.                        |
 | `area(ci)`            | Use for GitHub Actions, checks, or CI/CD execution logic.                                                        |
 | `area(cloudflare)`    | Use for Cloudflare services, APIs, deployments, or R2/Workers integrations.                                      |
 | `area(docs)`          | Use when repository documentation is a significant affected surface; not for docs-only classification.           |
