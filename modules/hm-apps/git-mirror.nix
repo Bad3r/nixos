@@ -258,10 +258,6 @@
             assertion = !firefoxDocs.enable || builtins.elem firefoxDocs.repoSpec cfg.repos;
             message = "programs.gitMirror.firefoxDocs.repoSpec must be present in programs.gitMirror.repos.";
           }
-          {
-            assertion = !(firefoxDocs.noAutodoc && firefoxDocs.disableWarningsCheck);
-            message = "programs.gitMirror.firefoxDocs.noAutodoc cannot be combined with disableWarningsCheck.";
-          }
         ];
 
         home.packages = [ mirrorScript ] ++ lib.optional firefoxDocs.enable firefoxDocsScript;
