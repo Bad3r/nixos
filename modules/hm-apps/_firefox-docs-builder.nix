@@ -75,14 +75,52 @@ pkgs.writeShellApplication {
     fi
 
     marker="$output_root/last-built-revision"
-    current_index="$output_root/current/index.html"
-    if [ -r "$marker" ] && [ "$(cat "$marker")" = "$sha" ] && [ -f "$current_index" ]; then
-      log "skipping; docs for $sha are already current"
+    revision_root="$output_root/revisions/$sha"
+    savedir="$revision_root/$format_name"
+    ${lib.optionalString firefoxDocs.linkcheck ''
+      linkcheck_root="$output_root/linkcheck/$sha"
+    ''}
+    build_inputs=${
+      lib.escapeShellArg (
+        builtins.toJSON {
+          inherit (firefoxDocs)
+            archive
+            disableWarningsCheck
+            format
+            jobs
+            linkcheck
+            noAutodoc
+            path
+            verbose
+            ;
+        }
+      )
+    }
+    build_marker="$sha $build_inputs"
+    current_target=$(readlink "$output_root/current" 2>/dev/null || true)
+    already_current=false
+    if [ -r "$marker" ] &&
+      [ "$(cat "$marker")" = "$build_marker" ] &&
+      [ "$current_target" = "$savedir" ] &&
+      [ -f "$savedir/index.html" ]; then
+      already_current=true
+    fi
+    ${lib.optionalString firefoxDocs.linkcheck ''
+      if [ "$already_current" = true ] && [ ! -d "$linkcheck_root" ]; then
+        already_current=false
+      fi
+    ''}
+    if [ "$already_current" = true ]; then
+      touch "$revision_root"
+      ${lib.optionalString firefoxDocs.linkcheck ''
+        touch "$linkcheck_root"
+      ''}
+      prune_artifacts "$output_root/revisions" "revision"
+      prune_artifacts "$output_root/linkcheck" "linkcheck"
+      log "skipping; docs for $sha ($format_name) are already current"
       exit 0
     fi
 
-    revision_root="$output_root/revisions/$sha"
-    savedir="$revision_root/$format_name"
     mkdir -p "$output_root/revisions" "$output_root/state" "$output_root/cache"
 
     args=(
@@ -121,7 +159,6 @@ pkgs.writeShellApplication {
     )
 
     ${lib.optionalString firefoxDocs.linkcheck ''
-      linkcheck_root="$output_root/linkcheck/$sha"
       linkcheck_args=(
         doc
         --outdir "$linkcheck_root"
@@ -161,7 +198,7 @@ pkgs.writeShellApplication {
     ln -sfnT "$savedir" "$tmp_link"
     mv -Tf "$tmp_link" "$output_root/current"
 
-    printf '%s\n' "$sha" > "$marker.tmp"
+    printf '%s\n' "$build_marker" > "$marker.tmp"
     mv -Tf "$marker.tmp" "$marker"
 
     touch "$revision_root"

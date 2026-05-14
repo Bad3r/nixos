@@ -86,6 +86,8 @@ checkout so `git-mirror` can keep the source tree clean.
 - Built docs: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/current`
 - Revision builds: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/revisions/<sha>`
 - State marker: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/last-built-revision`
+  records the revision plus selected `mach doc` options that affect generated
+  output
 - Retention: `programs.gitMirror.firefoxDocs.maxRevisions` keeps the newest
   revision and linkcheck output directories, defaulting to `2`
 
