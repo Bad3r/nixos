@@ -92,6 +92,8 @@ _: {
           Type = "oneshot";
           ExecStart = "${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance";
           RemainAfterExit = true;
+          Restart = "on-failure";
+          RestartSec = 3;
         };
       };
 

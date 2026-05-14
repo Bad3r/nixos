@@ -581,9 +581,13 @@ let
           Description=Duplicati R2 backup ($slug)
           After=${generatedUnitAfter}${generatedUnitRequiresLine}
           Wants=network-online.target
+          StartLimitBurst=3
+          StartLimitIntervalSec=1h
 
           [Service]
           Type=oneshot
+          Restart=on-failure
+          RestartSec=10m
           Environment=DUPLICATI_R2_CONFIG=$config_dest
           Environment=DUPLICATI_R2_TARGET=$slug
           Environment=DUPLICATI_R2_DEFAULT_BUCKET=$bucket
@@ -617,9 +621,13 @@ let
           Description=Duplicati R2 verification ($slug)
           After=${generatedUnitAfter}${generatedUnitRequiresLine}
           Wants=network-online.target
+          StartLimitBurst=3
+          StartLimitIntervalSec=1h
 
           [Service]
           Type=oneshot
+          Restart=on-failure
+          RestartSec=10m
           Environment=DUPLICATI_R2_CONFIG=$config_dest
           Environment=DUPLICATI_R2_TARGET=$slug
           Environment=DUPLICATI_R2_DEFAULT_BUCKET=$bucket
@@ -888,6 +896,8 @@ let
             serviceConfig = {
               Type = "oneshot";
               ExecStart = "${generatorScript}/bin/duplicati-r2-generate-units";
+              Restart = "on-failure";
+              RestartSec = "30s";
             };
           };
 

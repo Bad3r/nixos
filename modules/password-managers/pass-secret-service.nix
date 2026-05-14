@@ -23,6 +23,10 @@ let
           Alias = [ "dbus-org.freedesktop.secrets.service" ];
           WantedBy = lib.mkForce [ "graphical-session.target" ];
         };
+        Service = {
+          Restart = "on-failure";
+          RestartSec = 3;
+        };
       };
     };
 in

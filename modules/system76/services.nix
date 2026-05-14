@@ -117,6 +117,8 @@ _: {
         serviceConfig = {
           Type = "oneshot";
           ExecStart = "${pkgs.system76-power}/bin/system76-power profile performance";
+          Restart = "on-failure";
+          RestartSec = 3;
         };
       };
 
