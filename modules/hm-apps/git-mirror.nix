@@ -53,7 +53,7 @@
           urlToDirName spec
         else
           builtins.replaceStrings [ "/" ] [ "-" ] spec;
-      mirrorLockPath = "${cfg.root}/.git-mirror.lock";
+      firefoxDocsLockPath = "${firefoxDocs.repoPath}.git-mirror.lock";
       reposFile = pkgs.writeText "repos.txt" (lib.concatStringsSep "\n" cfg.repos);
 
       # Helper script for syncing a single repo (called by parallel)
@@ -63,6 +63,7 @@
           git
           coreutils
           gawk
+          util-linux
         ];
         text = ''
           set -eu
@@ -106,6 +107,13 @@
               dir="$GIT_MIRROR_ROOT/$(printf '%s' "$spec" | tr '/' '-')"
               ;;
           esac
+
+          if [ "''${GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC:-}" = "$spec" ] && [ -n "''${GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH:-}" ]; then
+            lock_file="$GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH"
+            mkdir -p "$(dirname "$lock_file")"
+            exec 9>"$lock_file"
+            flock 9
+          fi
 
           log "$spec: syncing"
 
@@ -156,7 +164,7 @@
       firefoxDocsScript = import ./_firefox-docs-builder.nix {
         inherit lib pkgs;
         firefoxDocs = firefoxDocs // {
-          lockPath = mirrorLockPath;
+          lockPath = firefoxDocsLockPath;
         };
       };
 
@@ -168,18 +176,16 @@
           gnugrep
           parallel
           syncRepoScript
-          util-linux
         ];
         text = ''
           set -eu
           umask 002
-          lock_file=${lib.escapeShellArg mirrorLockPath}
-          mkdir -p "$(dirname "$lock_file")"
-          exec 9>"$lock_file"
-          flock 9
-
           export GIT_MIRROR_ROOT="${cfg.root}"
           export GIT_MIRROR_MAX_BACKUPS=${toString cfg.maxBackups}
+          ${lib.optionalString firefoxDocs.enable ''
+            export GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC=${lib.escapeShellArg firefoxDocs.repoSpec}
+            export GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH=${lib.escapeShellArg firefoxDocsLockPath}
+          ''}
           grep -vE '^[[:space:]]*(#|$)' "${reposFile}" | \
             parallel --line-buffer -j${toString cfg.jobs} ${syncRepoScript}/bin/git-mirror-sync-repo
         '';
