@@ -46,7 +46,6 @@ let
       finalPackage = cfg.package.overrideAttrs (old: {
         nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
           pkgs.librsvg
-          pkgs.qt6.qtbase
         ];
 
         postInstall = (old.postInstall or "") + ''
@@ -54,7 +53,7 @@ let
             local size="$1"
             local source="$2"
             local output="$3"
-            local glyphSize="$((size * 11 / 16))"
+            local glyphSize="$((size * 3 / 4))"
             local offset="$(((size - glyphSize) / 2))"
 
             ${pkgs.librsvg}/bin/rsvg-convert \
