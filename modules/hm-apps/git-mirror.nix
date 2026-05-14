@@ -327,6 +327,9 @@
             git-mirror = {
               Unit = {
                 Description = "Sync git mirrors";
+                X-SwitchMethod = "keep-old";
+                StartLimitBurst = 3;
+                StartLimitIntervalSec = "1h";
               }
               // lib.optionalAttrs firefoxDocs.enable {
                 OnSuccess = [ "git-mirror-firefox-docs.service" ];
@@ -335,6 +338,8 @@
                 Type = "oneshot";
                 ExecStart = "${mirrorScript}/bin/git-mirror";
                 Environment = [ "GIT_TERMINAL_PROMPT=0" ];
+                Restart = "on-failure";
+                RestartSec = "5m";
               };
             };
 
@@ -342,6 +347,7 @@
               Unit = {
                 Description = "Build Firefox source docs";
                 After = [ "git-mirror.service" ];
+                X-SwitchMethod = "keep-old";
               };
               Service = {
                 Type = "oneshot";
