@@ -1,7 +1,7 @@
 /*
   Internal: shared Gecko-browser search configuration
   Description: Search-related enterprise policies and preferences applied to
-    Firefox, Floorp, and LibreWolf.
+    Firefox and LibreWolf.
 
   Notes:
     * Omits SearchEngines.PreventInstalls=false because it is the default.

@@ -323,8 +323,6 @@ nix eval github:org/repo#packages.x86_64-linux.<name>.meta.description --raw
 nix eval github:org/repo#packages.x86_64-linux.<name>.meta.homepage --raw
 ```
 
-Some packages have different names (e.g., `floorp` is deprecated → use `floorp-bin`).
-
 ### 2. Create NixOS Module
 
 - Create `modules/apps/<tool>.nix` following the skeleton above.
@@ -604,7 +602,7 @@ This pattern aligns with CLAUDE.md guidance: "Use `lib.hasAttrByPath` + `lib.get
 | Check                    | Command                                                     |
 | ------------------------ | ----------------------------------------------------------- |
 | General support          | `grep -r "<tool>" /data/git/nix-community-stylix/modules/`  |
-| Firefox/Floorp/LibreWolf | `cat /data/git/nix-community-stylix/modules/firefox/hm.nix` |
+| Firefox/LibreWolf        | `cat /data/git/nix-community-stylix/modules/firefox/hm.nix` |
 | Available options        | `cat /data/git/nix-community-stylix/modules/<tool>/`        |
 
 ### NUR Firefox Addons

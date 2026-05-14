@@ -1,7 +1,7 @@
 /*
   Internal: shared Gecko-browser enterprise policies
   Description: Non-default LibreWolf distribution policies applied to
-    Firefox, Floorp, and LibreWolf.
+    Firefox and LibreWolf.
 
   Source:
     https://codeberg.org/librewolf/settings/src/branch/master/distribution/policies.json
@@ -38,8 +38,7 @@ in
           "theme"
         ];
       };
-    }
-    // geckoSearch.policies.ExtensionSettings;
+    };
 
     EnableTrackingProtection = {
       Value = true;
@@ -56,5 +55,5 @@ in
     };
     SkipTermsOfUse = true;
   }
-  // builtins.removeAttrs geckoSearch.policies [ "ExtensionSettings" ];
+  // geckoSearch.policies;
 }

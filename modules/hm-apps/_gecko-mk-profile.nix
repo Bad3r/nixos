@@ -1,8 +1,8 @@
 /*
   Internal: shared per-profile builder for Gecko browsers
   Description: Composes commonSettings/containers/extensions/bookmarks into a
-  Home Manager `programs.<browser>.profiles.<name>` value so firefox.nix,
-  floorp.nix, and librewolf.nix can stay symmetric. The NUR overlay is
+  Home Manager `programs.<browser>.profiles.<name>` value so firefox.nix and
+  librewolf.nix can stay symmetric. The NUR overlay is
   extended here once per browser module for the remaining profile-scoped
   extension packages.
 

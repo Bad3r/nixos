@@ -20,7 +20,6 @@ let
     "file-roller"
     "firefox"
     "flameshot"
-    "floorp"
     "fzf"
     "gcc"
     "git"

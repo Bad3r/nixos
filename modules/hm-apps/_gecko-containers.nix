@@ -1,10 +1,9 @@
 /*
   Internal: shared Gecko-browser Multi-Account Containers
-  Description: Container declarations shared across Firefox/Floorp/LibreWolf.
+  Description: Container declarations shared across Firefox and LibreWolf.
 
   Notes:
-    * userContextId = 1 here matches the Floorp workspaces "Work" entry
-      that lives in floorp.nix.
+    * userContextId = 1 here maps to the managed Work container.
 */
 
 _: {

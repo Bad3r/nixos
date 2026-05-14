@@ -1,12 +1,11 @@
 /*
   Internal: shared Gecko-browser preferences
-  Description: user_pref values applied to every Firefox/Floorp/LibreWolf profile.
+  Description: user_pref values applied to every Firefox/LibreWolf profile.
 
   Notes:
     * Reader-mode colors come from Stylix's own reader-mode wiring.
     * `fonts` is forwarded from `config.stylix.fonts`; pass `null` to let
       the browser use its built-in defaults.
-    * Floorp workspaces stay in floorp.nix because they are Floorp-specific.
 */
 
 {

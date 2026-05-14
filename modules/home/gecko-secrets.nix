@@ -3,7 +3,6 @@
     {
       lib,
       config,
-      metaOwner,
       secretsRoot,
       ...
     }:
@@ -11,7 +10,7 @@
       cfg = config.home.geckoSecrets;
       geckoFile = "${secretsRoot}/gecko.yaml";
       geckoFileExists = builtins.pathExists geckoFile;
-      homeDirectory = "/home/${metaOwner.username}";
+      homeDirectory = config.home.homeDirectory;
 
       geckoBookmarks = import ../hm-apps/_gecko-bookmarks.nix { inherit lib; };
 
@@ -77,7 +76,6 @@
 
       browsers = [
         "firefox"
-        "floorp"
         "librewolf"
       ];
 

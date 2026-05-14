@@ -33,8 +33,7 @@ let
       owner = metaOwner.username;
       browserEnabled = name: lib.attrByPath [ "programs" name "extended" "enable" ] false config;
       customAllowedBrowsers =
-        lib.optional (browserEnabled "floorp") "floorp"
-        ++ lib.optional (browserEnabled "librewolf") "librewolf"
+        lib.optional (browserEnabled "librewolf") "librewolf"
         ++ lib.optional (browserEnabled "firefox") "firefox"
         ++ lib.optional (browserEnabled "mullvad-browser") "mullvad-browser";
     in
