@@ -31,6 +31,10 @@ pkgs.writeShellApplication {
 
     log() { printf '%s firefox-docs: %s\n' "$(date -Is)" "$*" >&2; }
 
+    has_docs_output() {
+      [ -d "$1" ] && [ -n "$(find "$1" -mindepth 1 -maxdepth 1 -print -quit)" ]
+    }
+
     prune_artifacts() {
       prune_root="$1"
       label="$2"
@@ -102,7 +106,7 @@ pkgs.writeShellApplication {
     if [ -r "$marker" ] &&
       [ "$(cat "$marker")" = "$build_marker" ] &&
       [ "$current_target" = "$savedir" ] &&
-      [ -f "$savedir/index.html" ]; then
+      has_docs_output "$savedir"; then
       already_current=true
     fi
     ${lib.optionalString firefoxDocs.linkcheck ''
@@ -183,8 +187,8 @@ pkgs.writeShellApplication {
       )
     ''}
 
-    if [ ! -f "$savedir/index.html" ]; then
-      log "expected $savedir/index.html after docs build"
+    if ! has_docs_output "$savedir"; then
+      log "expected $savedir to contain generated docs"
       exit 1
     fi
 
