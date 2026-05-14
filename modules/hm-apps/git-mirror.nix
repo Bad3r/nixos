@@ -53,6 +53,7 @@
           urlToDirName spec
         else
           builtins.replaceStrings [ "/" ] [ "-" ] spec;
+      mirrorLockPath = "${cfg.root}/.git-mirror.lock";
       reposFile = pkgs.writeText "repos.txt" (lib.concatStringsSep "\n" cfg.repos);
 
       # Helper script for syncing a single repo (called by parallel)
@@ -153,7 +154,10 @@
       };
 
       firefoxDocsScript = import ./_firefox-docs-builder.nix {
-        inherit lib pkgs firefoxDocs;
+        inherit lib pkgs;
+        firefoxDocs = firefoxDocs // {
+          lockPath = mirrorLockPath;
+        };
       };
 
       # Main entry point
@@ -164,10 +168,16 @@
           gnugrep
           parallel
           syncRepoScript
+          util-linux
         ];
         text = ''
           set -eu
           umask 002
+          lock_file=${lib.escapeShellArg mirrorLockPath}
+          mkdir -p "$(dirname "$lock_file")"
+          exec 9>"$lock_file"
+          flock 9
+
           export GIT_MIRROR_ROOT="${cfg.root}"
           export GIT_MIRROR_MAX_BACKUPS=${toString cfg.maxBackups}
           grep -vE '^[[:space:]]*(#|$)' "${reposFile}" | \
@@ -303,14 +313,16 @@
         systemd.user = {
           services = {
             git-mirror = {
-              Unit.Description = "Sync git mirrors";
+              Unit = {
+                Description = "Sync git mirrors";
+              }
+              // lib.optionalAttrs firefoxDocs.enable {
+                Wants = [ "git-mirror-firefox-docs.service" ];
+              };
               Service = {
                 Type = "oneshot";
                 ExecStart = "${mirrorScript}/bin/git-mirror";
                 Environment = [ "GIT_TERMINAL_PROMPT=0" ];
-              }
-              // lib.optionalAttrs firefoxDocs.enable {
-                ExecStartPost = "${pkgs.systemd}/bin/systemctl --user --no-block start git-mirror-firefox-docs.service";
               };
             };
 

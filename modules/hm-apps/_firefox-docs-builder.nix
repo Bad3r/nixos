@@ -13,6 +13,7 @@ pkgs.writeShellApplication {
     gnugrep
     nodejs
     python3
+    util-linux
   ];
   text = ''
     set -euo pipefail
@@ -20,8 +21,13 @@ pkgs.writeShellApplication {
     repo_path=${lib.escapeShellArg firefoxDocs.repoPath}
     output_root=${lib.escapeShellArg firefoxDocs.outputRoot}
     format_name=${lib.escapeShellArg firefoxDocs.format}
+    lock_file=${lib.escapeShellArg firefoxDocs.lockPath}
 
     log() { printf '%s firefox-docs: %s\n' "$(date -Is)" "$*" >&2; }
+
+    mkdir -p "$(dirname "$lock_file")"
+    exec 9>"$lock_file"
+    flock 9
 
     if [ ! -d "$repo_path/.git" ]; then
       log "skipping; $repo_path is not a git checkout"
