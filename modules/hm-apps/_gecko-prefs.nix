@@ -75,6 +75,12 @@ in
       # New tabs are brought to the foreground when opened.
       "browser.tabs.loadInBackground" = false;
 
+      # Declare container UI state here so browsers do not depend on extension
+      # side effects or LibreWolf package defaults.
+      "privacy.userContext.enabled" = true;
+      "privacy.userContext.ui.enabled" = true;
+      "privacy.userContext.newTabContainerOnLeftClick.enabled" = true;
+
       # Keep cookie / certificate management buttons enabled in preferences.
       "pref.privacy.disable_button.cookie_exceptions" = false;
       "pref.privacy.disable_button.view_cookies" = false;
