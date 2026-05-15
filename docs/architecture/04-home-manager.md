@@ -137,6 +137,25 @@ nix build .#nixosConfigurations.<host>.config.system.build.toplevel
 nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames
 ```
 
+For NixOS-managed Home Manager, inspect the active generation through
+`~/.local/state/home-manager/gcroots/current-home/home-files`. The standalone
+`~/.local/state/nix/profiles/home-manager` profile can be stale and should not
+be used as the source of truth for NixOS module activation.
+
+If a Home Manager-managed file or directory is removed but the system
+generation does not change, `nh os switch` / `switch-to-configuration` may not
+rerun `home-manager-<user>.service`. Restart the system service directly to
+relink the active generation:
+
+```bash
+sudo systemctl restart home-manager-$USER.service
+```
+
+Gecko browser profiles are intentionally managed only at `~/.mozilla/firefox`
+and `~/.librewolf`. Runtime-generated XDG profiles under `~/.config/mozilla` or
+`~/.config/librewolf` are unmanaged drift; remove them recoverably with `rip`
+before relinking the Home Manager generation.
+
 Add `home-manager` to `modules/devshell.nix` if a standalone CLI is needed for ad-hoc diagnostics.
 
 ## Next Steps

@@ -40,13 +40,22 @@ _: {
     in
     {
       config = lib.mkIf nixosEnabled {
+        assertions = [
+          {
+            assertion = config.programs.librewolf.profilesPath == ".librewolf";
+            message = "LibreWolf Home Manager profiles must stay under ~/.librewolf; XDG profile roots are unsupported.";
+          }
+        ];
+
         home.file = gecko.mkCustomKeysFiles config.programs.librewolf;
 
         programs.librewolf = {
           enable = true;
-          # Point HM at the path LibreWolf reads so declarative profile
-          # seeding reaches the running browser.
-          # configPath = ".config/librewolf/librewolf";
+          # This repo intentionally keeps LibreWolf on the legacy profile root.
+          # The XDG path would split policy-applied browser state from
+          # Home Manager's declarative user.js, customKeys.json, extension
+          # storage, and profile-scoped packages.
+          configPath = ".librewolf";
           package = osConfig.programs.librewolf.extended.package;
           # See modules/hm-apps/firefox.nix for why this uses the browser
           # native-messaging option instead of `home.packages`.

@@ -168,13 +168,13 @@ error: cannot coerce null to a string: null
 ### 4.1 Activation Issues
 
 - Run `home-manager switch --show-trace` to expand evaluation backtraces for option type or dependency errors before activation aborts.
-- Inspect the systemd user unit with `systemctl --user status home-manager-$USER.service` and stream logs via `journalctl --user -fu home-manager-$USER.service` on NixOS installations that manage activation as a service.
+- Inspect the NixOS Home Manager service with `systemctl status home-manager-$USER.service` and stream logs via `journalctl -fu home-manager-$USER.service` on NixOS installations that manage activation as a system service.
 - Use `home-manager switch --dry-run` (or `--activation-trace`) to preview file links without touching the live home directory, then rerun with `--show-trace` if validation fails.
 
 ```bash
 home-manager switch --show-trace
-systemctl --user status "home-manager-$USER.service"
-journalctl --user -fu "home-manager-$USER.service"
+systemctl status "home-manager-$USER.service"
+journalctl -fu "home-manager-$USER.service"
 ```
 
 ### 4.2 Inspecting Generated Files
@@ -182,6 +182,9 @@ journalctl --user -fu "home-manager-$USER.service"
 - Build without activating using `home-manager build` and inspect the `result` symlink for rendered dotfiles under `result/home-files` or scripts via `result/activate`.
 - Diff generations with `home-manager generations` followed by `nix store diff-closures $oldGen $newGen` to understand configuration drift before promoting an update.
 - When conflicts arise (e.g., existing files), the activation check lists blocking paths; resolve by moving or adopting them into `home.file.*.source`.
+- On this NixOS repo, inspect `~/.local/state/home-manager/gcroots/current-home/home-files` for the active Home Manager files. The standalone `~/.local/state/nix/profiles/home-manager` profile can be stale.
+- If managed files were deleted and the NixOS generation did not change, rerun `sudo systemctl restart home-manager-$USER.service`; a same-generation switch may only run NixOS activation units and leave deleted Home Manager links absent.
+- Firefox and LibreWolf profiles are managed only under `~/.mozilla/firefox` and `~/.librewolf`; XDG profiles under `~/.config/mozilla` or `~/.config/librewolf` are unmanaged drift and should be removed recoverably with `rip` before relinking.
 
 ### 4.3 Debugging Modules
 
