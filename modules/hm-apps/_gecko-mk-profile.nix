@@ -77,7 +77,7 @@ let
     let
       legacyProfilesRoot = "${config.home.homeDirectory}/${legacyProfilesPath}";
       xdgProfilesRoot = "${config.home.homeDirectory}/${xdgProfilesPath}";
-      readlink = "${pkgs.coreutils}/bin/readlink";
+      readlink = lib.getExe' pkgs.coreutils "readlink";
     in
     {
       activation = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
