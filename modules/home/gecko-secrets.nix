@@ -3,6 +3,7 @@
     {
       lib,
       config,
+      pkgs,
       secretsRoot,
       ...
     }:
@@ -108,13 +109,16 @@
       storageDir =
         target:
         "${homeDirectory}/${target.profilesPath}/${target.path}/browser-extension-data/@testpilot-containers";
-      storagePath = target: "${storageDir target}/storage.js";
 
-      storageTemplates = builtins.listToAttrs (
+      assignmentRoot = "${homeDirectory}/.local/share/gecko/container-assignments";
+      assignmentDir = target: "${assignmentRoot}/${target.browser}";
+      assignmentPath = target: "${assignmentDir target}/${target.profile}.json";
+
+      assignmentTemplates = builtins.listToAttrs (
         map (
           target:
           lib.nameValuePair "gecko/${target.browser}/${target.profile}/multi-account-containers" {
-            path = storagePath target;
+            path = assignmentPath target;
             content = multiAccountContainersStorage;
             mode = "0600";
           }
@@ -144,14 +148,68 @@
               mode = "0600";
             };
           }
-          // storageTemplates;
+          // assignmentTemplates;
 
           home.activation.ensureGeckoSecretDirs =
             lib.hm.dag.entryBetween [ "sops-nix" ] [ "writeBoundary" ]
               ''
                 install -d -m 700 '${homeDirectory}/.local/share/gecko'
-                ${lib.concatMapStringsSep "\n" (target: "install -d -m 700 '${storageDir target}'") enabledTargets}
+                ${lib.concatMapStringsSep "\n" (target: ''
+                  install -d -m 700 '${assignmentDir target}'
+                  install -d -m 700 '${storageDir target}'
+                '') enabledTargets}
               '';
+
+          # Multi-Account Containers rewrites storage.js at runtime, so keep
+          # the secret source outside the profile and merge declared assignments
+          # into the browser-owned file after sops-nix renders templates.
+          home.activation.applyGeckoContainerAssignments = lib.hm.dag.entryAfter [ "sops-nix" ] ''
+            merge_gecko_container_assignments() {
+              assignment_path="$1"
+              storage_dir="$2"
+              storage_path="$storage_dir/storage.js"
+
+              if [ ! -r "$assignment_path" ]; then
+                echo "Skipping Gecko container assignment merge; assignment file is not readable yet: $assignment_path" >&2
+                return 0
+              fi
+
+              install -d -m 700 "$storage_dir"
+              tmp_merged="$(mktemp -p "$storage_dir" ".storage.js.tmp.XXXXXXXXXX")"
+
+              if [ -e "$storage_path" ]; then
+                existing_path="$storage_path"
+              else
+                existing_path="/dev/null"
+              fi
+
+              if ! ${pkgs.jq}/bin/jq -S -n \
+                --slurpfile existing "$existing_path" \
+                --slurpfile declared "$assignment_path" \
+                '
+                ($existing[0] // {}) as $ex |
+                ($declared[0] // {}) as $dec |
+                if ($ex | type) != "object" then
+                  error("existing Gecko container storage is not a JSON object")
+                elif ($dec | type) != "object" then
+                  error("declared Gecko container assignments are not a JSON object")
+                else
+                  $ex * $dec
+                end
+              ' > "$tmp_merged"; then
+                echo "ERROR: failed to merge Gecko container assignments into $storage_path" >&2
+                rm -f "$tmp_merged"
+                exit 1
+              fi
+
+              mv -f "$tmp_merged" "$storage_path"
+              chmod 600 "$storage_path"
+            }
+
+            ${lib.concatMapStringsSep "\n" (
+              target: "merge_gecko_container_assignments '${assignmentPath target}' '${storageDir target}'"
+            ) enabledTargets}
+          '';
         })
 
         (lib.mkIf (cfg.enable && !geckoFileExists) {

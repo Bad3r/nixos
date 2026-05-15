@@ -180,6 +180,14 @@ let
     newElementCount = 4;
   };
 
+  onePasswordToolbarIcon = ../stylix/icons/1password-outline.svg;
+  userChrome = ''
+    #${widgetIds.onePassword} > .toolbarbutton-icon,
+    #${widgetIds.onePassword} > .toolbarbutton-badge-stack > .toolbarbutton-icon {
+      list-style-image: url("file://${onePasswordToolbarIcon}") !important;
+    }
+  '';
+
   horizontalTabsBackup = toolbarState // {
     placements = toolbarPlacements // {
       TabsToolbar = [
@@ -408,6 +416,8 @@ in
     "browser.uiCustomization.navBarWhenVerticalTabs" = builtins.toJSON navBarWidgets;
     "browser.uiCustomization.state" = builtins.toJSON toolbarState;
   };
+
+  inherit userChrome;
 
   extensionStorage."${ublockOriginId}".settings = {
     advancedUserEnabled = true;
