@@ -63,6 +63,7 @@ let
         // (geckoBookmarks.settings bookmarksFile)
         // extraSettings;
       inherit (geckoContainers) containers;
+      inherit (geckoExtensions) userChrome;
       extensions = {
         force = true;
         inherit packages;

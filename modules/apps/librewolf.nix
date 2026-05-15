@@ -20,15 +20,13 @@ _:
 let
   LibrewolfModule =
     {
-      config,
       lib,
       pkgs,
       ...
     }:
-    let
-      cfg = config.programs.librewolf.extended;
-    in
     {
+      # Home Manager owns installation for LibreWolf so the launched package is
+      # the wrapped finalPackage carrying enterprise policies and profile files.
       options.programs.librewolf.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
@@ -37,10 +35,6 @@ let
         };
 
         package = lib.mkPackageOption pkgs "librewolf" { };
-      };
-
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
       };
     };
 in
