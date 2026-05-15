@@ -3,7 +3,6 @@
     {
       lib,
       config,
-      pkgs,
       secretsRoot,
       ...
     }:
@@ -19,14 +18,6 @@
         "gecko/work/bookmark/url-1" = "gecko_work_bookmark_url_1";
         "gecko/work/bookmark/url-2" = "gecko_work_bookmark_url_2";
         "gecko/work/bookmark/url-3" = "gecko_work_bookmark_url_3";
-        "gecko/work/assignment/host-1" = "gecko_work_assignment_host_1";
-        "gecko/work/assignment/host-2" = "gecko_work_assignment_host_2";
-        "gecko/work/assignment/host-3" = "gecko_work_assignment_host_3";
-        "gecko/work/assignment/host-4" = "gecko_work_assignment_host_4";
-        "gecko/work/assignment/host-5" = "gecko_work_assignment_host_5";
-        "gecko/work/assignment/host-6" = "gecko_work_assignment_host_6";
-        "gecko/work/assignment/host-7" = "gecko_work_assignment_host_7";
-        "gecko/work/assignment/host-8" = "gecko_work_assignment_host_8";
       };
 
       placeholder = name: config.sops.placeholder.${name};
@@ -37,94 +28,6 @@
         teams = placeholder "gecko/work/bookmark/url-3";
       };
 
-      siteAssignment = userContextId: {
-        inherit userContextId;
-        neverAsk = false;
-      };
-
-      nonWorkSiteAssignments = {
-        "siteContainerMap@@_github.com" = siteAssignment "5";
-        "siteContainerMap@@_octobox.io" = siteAssignment "5";
-        "siteContainerMap@@_accounts.google.com" = siteAssignment "2";
-        "siteContainerMap@@_music.youtube.com" = siteAssignment "2";
-        "siteContainerMap@@_notebooklm.google.com" = siteAssignment "2";
-        "siteContainerMap@@_www.google.com" = siteAssignment "2";
-        "siteContainerMap@@_www.youtube.com" = siteAssignment "2";
-        "siteContainerMap@@_web.whatsapp.com" = siteAssignment "4";
-        "siteContainerMap@@_webtp.whatsapp.net" = siteAssignment "4";
-      };
-
-      workSiteAssignments = builtins.listToAttrs (
-        map (name: lib.nameValuePair "siteContainerMap@@_${placeholder name}" (siteAssignment "1")) [
-          "gecko/work/assignment/host-1"
-          "gecko/work/assignment/host-2"
-          "gecko/work/assignment/host-3"
-          "gecko/work/assignment/host-4"
-          "gecko/work/assignment/host-5"
-          "gecko/work/assignment/host-6"
-          "gecko/work/assignment/host-7"
-          "gecko/work/assignment/host-8"
-        ]
-      );
-
-      multiAccountContainersStorage = builtins.toJSON (nonWorkSiteAssignments // workSiteAssignments);
-
-      profileNames = [
-        "primary"
-        "pentesting"
-        "work"
-      ];
-
-      browsers = [
-        "firefox"
-        "librewolf"
-      ];
-
-      browserEnabled = browser: lib.attrByPath [ "programs" browser "enable" ] false config;
-      browserProfilesPath =
-        browser: lib.attrByPath [ "programs" browser "profilesPath" ] ".${browser}" config;
-      profilePath =
-        browser: profile:
-        lib.attrByPath [
-          "programs"
-          browser
-          "profiles"
-          profile
-          "path"
-        ] profile config;
-
-      enabledTargets = lib.flatten (
-        map (
-          browser:
-          lib.optionals (browserEnabled browser) (
-            map (profile: {
-              inherit browser profile;
-              profilesPath = browserProfilesPath browser;
-              path = profilePath browser profile;
-            }) profileNames
-          )
-        ) browsers
-      );
-
-      storageDir =
-        target:
-        "${homeDirectory}/${target.profilesPath}/${target.path}/browser-extension-data/@testpilot-containers";
-
-      assignmentRoot = "${homeDirectory}/.local/share/gecko/container-assignments";
-      assignmentDir = target: "${assignmentRoot}/${target.browser}";
-      assignmentPath = target: "${assignmentDir target}/${target.profile}.json";
-
-      assignmentTemplates = builtins.listToAttrs (
-        map (
-          target:
-          lib.nameValuePair "gecko/${target.browser}/${target.profile}/multi-account-containers" {
-            path = assignmentPath target;
-            content = multiAccountContainersStorage;
-            mode = "0600";
-          }
-        ) enabledTargets
-      );
-
       secretDeclarations = lib.mapAttrs (_: key: {
         sopsFile = geckoFile;
         inherit key;
@@ -134,87 +37,29 @@
       options.home.geckoSecrets.enable = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Whether to provision shared Gecko browser bookmarks and container assignment secrets.";
+        description = "Whether to provision shared Gecko browser bookmark secrets.";
       };
 
       config = lib.mkMerge [
         (lib.mkIf (cfg.enable && geckoFileExists) {
           sops.secrets = secretDeclarations;
 
-          sops.templates = {
-            "gecko/bookmarks" = {
-              path = "${homeDirectory}/.local/share/gecko/bookmarks.html";
-              content = geckoBookmarks.html workBookmarkUrls;
-              mode = "0600";
-            };
-          }
-          // assignmentTemplates;
+          sops.templates."gecko/bookmarks" = {
+            path = "${homeDirectory}/.local/share/gecko/bookmarks.html";
+            content = geckoBookmarks.html workBookmarkUrls;
+            mode = "0600";
+          };
 
           home.activation.ensureGeckoSecretDirs =
             lib.hm.dag.entryBetween [ "sops-nix" ] [ "writeBoundary" ]
               ''
                 install -d -m 700 '${homeDirectory}/.local/share/gecko'
-                ${lib.concatMapStringsSep "\n" (target: ''
-                  install -d -m 700 '${assignmentDir target}'
-                  install -d -m 700 '${storageDir target}'
-                '') enabledTargets}
               '';
-
-          # Multi-Account Containers rewrites storage.js at runtime, so keep
-          # the secret source outside the profile and merge declared assignments
-          # into the browser-owned file after sops-nix renders templates.
-          home.activation.applyGeckoContainerAssignments = lib.hm.dag.entryAfter [ "sops-nix" ] ''
-            merge_gecko_container_assignments() {
-              assignment_path="$1"
-              storage_dir="$2"
-              storage_path="$storage_dir/storage.js"
-
-              if [ ! -r "$assignment_path" ]; then
-                echo "Skipping Gecko container assignment merge; assignment file is not readable yet: $assignment_path" >&2
-                return 0
-              fi
-
-              install -d -m 700 "$storage_dir"
-              tmp_merged="$(mktemp -p "$storage_dir" ".storage.js.tmp.XXXXXXXXXX")"
-
-              if [ -e "$storage_path" ]; then
-                existing_path="$storage_path"
-              else
-                existing_path="/dev/null"
-              fi
-
-              if ! ${pkgs.jq}/bin/jq -S -n \
-                --slurpfile existing "$existing_path" \
-                --slurpfile declared "$assignment_path" \
-                '
-                ($existing[0] // {}) as $ex |
-                ($declared[0] // {}) as $dec |
-                if ($ex | type) != "object" then
-                  error("existing Gecko container storage is not a JSON object")
-                elif ($dec | type) != "object" then
-                  error("declared Gecko container assignments are not a JSON object")
-                else
-                  $ex * $dec
-                end
-              ' > "$tmp_merged"; then
-                echo "ERROR: failed to merge Gecko container assignments into $storage_path" >&2
-                rm -f "$tmp_merged"
-                exit 1
-              fi
-
-              mv -f "$tmp_merged" "$storage_path"
-              chmod 600 "$storage_path"
-            }
-
-            ${lib.concatMapStringsSep "\n" (
-              target: "merge_gecko_container_assignments '${assignmentPath target}' '${storageDir target}'"
-            ) enabledTargets}
-          '';
         })
 
         (lib.mkIf (cfg.enable && !geckoFileExists) {
           warnings = [
-            "home.geckoSecrets.enable is true but ${geckoFile} is missing; skipping Gecko bookmark and container-assignment secrets."
+            "home.geckoSecrets.enable is true but ${geckoFile} is missing; skipping Gecko bookmark secrets."
           ];
         })
       ];

@@ -6,7 +6,7 @@
   Repository: https://hg.mozilla.org/mozilla-central/
 
   Summary:
-    * Delivers a multi-process web browser with tracking protection, container tabs, integrated devtools, and broad web standards support.
+    * Delivers a multi-process web browser with tracking protection, integrated devtools, and broad web standards support.
     * Supports headless automation, dedicated profiles, and enterprise policies for tailored deployments.
 
   Options:

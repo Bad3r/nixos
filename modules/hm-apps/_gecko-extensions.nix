@@ -65,7 +65,6 @@ let
   darkreaderId = "addon@darkreader.org";
   foxyproxyId = "foxyproxy@eric.h.jung";
   languageToolId = "languagetool-webextension@languagetool.org";
-  multiAccountContainersId = "@testpilot-containers";
   printEditId = "printedit-we@DW-dev";
   raindropId = "jid0-adyhmvsP91nUO8pRv0Mn2VKeB84@jetpack";
   savePageId = "savepage-we@DW-dev";
@@ -84,7 +83,6 @@ let
     darkreaderId
     foxyproxyId
     languageToolId
-    multiAccountContainersId
     onePasswordId
     printEditId
     raindropId
