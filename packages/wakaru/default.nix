@@ -41,7 +41,7 @@ stdenv.mkDerivation (finalAttrs: {
       pnpmWorkspaces
       ;
     pnpm = pnpm_9;
-    fetcherVersion = 2;
+    fetcherVersion = 3;
     hash = "sha256-+A8NL6+FyJ1Cjgc+8JiFwdYKCnmICzbtMD5mKgWPw28=";
   };
 
