@@ -148,7 +148,7 @@ rerun `home-manager-<user>.service`. Restart the system service directly to
 relink the active generation:
 
 ```bash
-sudo systemctl restart home-manager-vx.service
+sudo systemctl restart home-manager-$USER.service
 ```
 
 Gecko browser profiles are intentionally managed only at `~/.mozilla/firefox`
