@@ -67,9 +67,51 @@ let
         settings = geckoExtensions.extensionStorage;
       };
     };
+
+  mkXdgProfileRoot =
+    {
+      browserName,
+      legacyProfilesPath,
+      xdgProfilesPath,
+    }:
+    let
+      legacyProfilesRoot = "${config.home.homeDirectory}/${legacyProfilesPath}";
+      xdgProfilesRoot = "${config.home.homeDirectory}/${xdgProfilesPath}";
+      readlink = lib.getExe' pkgs.coreutils "readlink";
+    in
+    {
+      activation = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
+        browser_name=${lib.escapeShellArg browserName}
+        xdg_root=${lib.escapeShellArg xdgProfilesRoot}
+        legacy_root=${lib.escapeShellArg legacyProfilesRoot}
+
+        if [ -e "$xdg_root" ] || [ -L "$xdg_root" ]; then
+          if [ ! -L "$xdg_root" ]; then
+            echo "$browser_name XDG profile root must be a symlink to $legacy_root: $xdg_root" >&2
+            echo "Move the existing path recoverably with: rip $xdg_root" >&2
+            exit 1
+          fi
+
+          xdg_resolved="$(${readlink} -m "$xdg_root")"
+          legacy_resolved="$(${readlink} -m "$legacy_root")"
+
+          if [ "$xdg_resolved" != "$legacy_resolved" ]; then
+            echo "$browser_name XDG profile root resolves to $xdg_resolved, expected $legacy_resolved" >&2
+            echo "Move or relink $xdg_root so it points at $legacy_root" >&2
+            exit 1
+          fi
+        fi
+      '';
+      file = {
+        "${xdgProfilesPath}" = {
+          source = config.lib.file.mkOutOfStoreSymlink legacyProfilesRoot;
+          force = true;
+        };
+      };
+    };
 in
 {
-  inherit mkProfile policies;
+  inherit mkProfile mkXdgProfileRoot policies;
   inherit (geckoShortcuts) mkCustomKeysFiles;
   inherit (geckoExtensions)
     nativeMessagingHosts

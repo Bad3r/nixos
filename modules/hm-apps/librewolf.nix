@@ -28,6 +28,8 @@ _: {
       ...
     }:
     let
+      legacyProfilesPath = ".librewolf";
+      xdgProfilesPath = ".config/librewolf/librewolf";
       nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
       gecko = import ./_gecko-mk-profile.nix {
         inherit
@@ -37,25 +39,31 @@ _: {
           config
           ;
       };
+      xdgProfileRoot = gecko.mkXdgProfileRoot {
+        browserName = "LibreWolf";
+        inherit legacyProfilesPath xdgProfilesPath;
+      };
     in
     {
       config = lib.mkIf nixosEnabled {
         assertions = [
           {
-            assertion = config.programs.librewolf.profilesPath == ".librewolf";
-            message = "LibreWolf Home Manager profiles must stay under ~/.librewolf; XDG profile roots are unsupported.";
+            assertion = config.programs.librewolf.profilesPath == legacyProfilesPath;
+            message = "LibreWolf Home Manager profiles must stay under ~/.librewolf; the XDG profile root is only a compatibility symlink.";
           }
         ];
 
-        home.file = gecko.mkCustomKeysFiles config.programs.librewolf;
+        home.activation.checkLibreWolfXdgProfileRoot = xdgProfileRoot.activation;
+
+        home.file = gecko.mkCustomKeysFiles config.programs.librewolf // xdgProfileRoot.file;
 
         programs.librewolf = {
           enable = true;
           # This repo intentionally keeps LibreWolf on the legacy profile root.
-          # The XDG path would split policy-applied browser state from
+          # A real XDG profile root would split policy-applied browser state from
           # Home Manager's declarative user.js, customKeys.json, extension
-          # storage, and profile-scoped packages.
-          configPath = ".librewolf";
+          # storage, and profile-scoped packages, so the XDG leaf is a symlink.
+          configPath = legacyProfilesPath;
           package = osConfig.programs.librewolf.extended.package;
           # See modules/hm-apps/firefox.nix for why this uses the browser
           # native-messaging option instead of `home.packages`.
