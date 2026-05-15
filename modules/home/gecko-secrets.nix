@@ -168,41 +168,42 @@
               assignment_path="$1"
               storage_dir="$2"
               storage_path="$storage_dir/storage.js"
-              tmp_existing="$(mktemp)"
-              tmp_merged="$(mktemp)"
 
               if [ ! -r "$assignment_path" ]; then
-                echo "ERROR: missing Gecko container assignment file: $assignment_path" >&2
-                rm -f "$tmp_existing" "$tmp_merged"
-                exit 1
+                echo "Skipping Gecko container assignment merge; assignment file is not readable yet: $assignment_path" >&2
+                return 0
               fi
 
               install -d -m 700 "$storage_dir"
+              tmp_merged="$(mktemp -p "$storage_dir" ".storage.js.tmp.XXXXXXXXXX")"
 
               if [ -e "$storage_path" ]; then
                 existing_path="$storage_path"
               else
-                printf '{}\n' > "$tmp_existing"
-                existing_path="$tmp_existing"
+                existing_path="/dev/null"
               fi
 
-              if ! ${pkgs.jq}/bin/jq -S -s '
-                if (.[0] | type) != "object" then
+              if ! ${pkgs.jq}/bin/jq -S -n \
+                --slurpfile existing "$existing_path" \
+                --slurpfile declared "$assignment_path" \
+                '
+                ($existing[0] // {}) as $ex |
+                ($declared[0] // {}) as $dec |
+                if ($ex | type) != "object" then
                   error("existing Gecko container storage is not a JSON object")
-                elif (.[1] | type) != "object" then
+                elif ($dec | type) != "object" then
                   error("declared Gecko container assignments are not a JSON object")
                 else
-                  .[0] * .[1]
+                  $ex * $dec
                 end
-              ' "$existing_path" "$assignment_path" > "$tmp_merged"; then
+              ' > "$tmp_merged"; then
                 echo "ERROR: failed to merge Gecko container assignments into $storage_path" >&2
-                rm -f "$tmp_existing" "$tmp_merged"
+                rm -f "$tmp_merged"
                 exit 1
               fi
 
-              mv "$tmp_merged" "$storage_path"
+              mv -f "$tmp_merged" "$storage_path"
               chmod 600 "$storage_path"
-              rm -f "$tmp_existing"
             }
 
             ${lib.concatMapStringsSep "\n" (
