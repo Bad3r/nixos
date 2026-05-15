@@ -9,6 +9,8 @@
   Notes:
     * Includes only upstream policy entries that set a non-default value.
     * Omits LibreWolf's inert localhost WebsiteFilter sentinel.
+    * Omits NoDefaultBookmarks because it disables the same defaultBookmarks
+      feature used by browser.bookmarks.file imports.
 */
 
 _:
@@ -26,7 +28,6 @@ in
     DisableTelemetry = true;
     DisableFeedbackCommands = true;
     DisablePocket = true;
-    NoDefaultBookmarks = true;
     ExtensionSettings = {
       "*" = {
         blocked_install_message = "Extensions are managed through Nix and cannot be installed from the browser.";

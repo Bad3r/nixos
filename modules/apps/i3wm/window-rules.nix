@@ -15,12 +15,11 @@
       qHeight = toString ((cfg.screenHeight / 2) - (cfg.fontSize * 2) - 1);
       xPos = toString ((cfg.screenWidth / 2) + cfg.borderWidth);
       yPos = toString cfg.barHeight;
-      borderWidth = toString cfg.borderWidth;
 
       # Quarter-screen top-right corner with exact pixel positioning
       topRight = "resize set ${qWidth} px ${qHeight} px, move position ${xPos} px ${yPos} px";
 
-      onePassword = "resize set 949 px 765 px, move position center, border pixel ${borderWidth}";
+      onePassword = "resize set 949 px 765 px, move position center";
 
       # ProtonVPN window positioning (known size: 408x600)
       protonvpnX = toString (cfg.screenWidth - 408 - (cfg.borderWidth * 2) - 1);
@@ -110,7 +109,7 @@
           # Default styling for all windows
           {
             criteria.all = true;
-            command = ''border pixel ${borderWidth}, title_format "<b>%title</b>", title_window_icon padding 3px'';
+            command = ''border pixel ${toString cfg.borderWidth}, title_format "<b>%title</b>", title_window_icon padding 3px'';
           }
         ];
       };
