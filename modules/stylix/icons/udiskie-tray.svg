@@ -1,12 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-labelledby="title"
-aria-describedby="desc" role="img" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="-13 0 500 500" aria-labelledby="title" role="img">
   <title>USB</title>
-  <desc>A line styled icon from Orion Icon Library.</desc>
-  <path data-name="layer2"
-  fill="none" stroke="#d3dae3" stroke-linecap="round" stroke-linejoin="round"
-  stroke-width="4" d="M18 32V2h28v30"></path>
-  <path data-name="layer2" fill="none" stroke="#d3dae3" stroke-linecap="round"
-  stroke-linejoin="round" stroke-width="4" d="M30 18h-4v-8h4m10 8h-4v-8h4"></path>
-  <path data-name="layer1" fill="none" stroke="#d3dae3" stroke-linecap="round"
-  stroke-linejoin="round" stroke-width="4" d="M14 32h36v30H14z"></path>
+  <defs>
+    <style id="current-color-scheme" type="text/css">
+      .ColorScheme-Text { color:#d3dae3; }
+    </style>
+  </defs>
+  <g transform="translate(-13 0) scale(.559597)">
+    <path
+      class="ColorScheme-Text"
+      fill="currentColor"
+      opacity=".72"
+      d="M81.25 20v489.5h731V20c0-11.046-8.954-20-20-20h-691c-11.046 0-20 8.954-20 20zM515.461 107.894c0-11.045 8.954-20 20-20h157.215c11.046 0 20 8.955 20 20v91.212c0 11.045-8.954 20-20 20H535.461c-11.046 0-20-8.955-20-20v-91.212zM180.824 107.894c0-11.045 8.954-20 20-20h157.215c11.046 0 20 8.955 20 20v91.212c0 11.045-8.954 20-20 20H200.824c-11.046 0-20-8.955-20-20v-91.212z"
+    />
+    <path
+      class="ColorScheme-Text"
+      fill="currentColor"
+      d="M858.75 529.5h-824c-11.046 0-20 8.954-20 20v324c0 11.046 8.954 20 20 20h824c11.046 0 20-8.954 20-20v-324c0-11.046-8.954-20-20-20z"
+    />
+  </g>
 </svg>

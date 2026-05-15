@@ -133,9 +133,9 @@ The local NormCap module (`modules/apps/normcap.nix`) renders the OneDark
 sources from `modules/stylix/icons/normcap-tray.svg` and
 `modules/stylix/icons/normcap-tray-done.svg` into the installed
 `tray.png`/`tray_done.png` files, then regenerates `resources.py` with Qt's
-resource compiler. The local SVG source shortens the diagonal stem before
-rendering at `3/4` scale, which keeps the tray frame padding while making the
-recognizable cap/sparkle shape larger.
+resource compiler. The PNG render uses the same `11/16` glyph scale as the
+Qogir-Dark panel icon generation so the tray glyph fits the rest of the custom
+tray icon set.
 
 ## Teams for Linux Tray Icon
 

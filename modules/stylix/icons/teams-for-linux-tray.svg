@@ -1,8 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="-13 0 500 500">
-  <path fill="#abb2bf" opacity=".46" d="M237 210.53h158c43.63 0 79 35.35 79 78.95v131.58c0 43.6-35.37 78.95-79 78.95s-79-35.35-79-78.95V289.48c0-43.6-35.37-78.95-79-78.95"/>
-  <path fill="#abb2bf" opacity=".72" d="M52.67 263.16c0-43.6 35.37-78.95 79-78.95H237c43.63 0 79 35.35 79 78.95v157.89c0 43.6 35.37 78.95 79 78.95H184.33c-72.72 0-131.67-58.91-131.67-131.58V263.16Z"/>
-  <path fill="#abb2bf" opacity=".58" d="M381.83 184.21c36.36 0 65.83-29.46 65.83-65.79s-29.48-65.79-65.83-65.79S316 82.09 316 118.42s29.47 65.79 65.83 65.79"/>
-  <path fill="#abb2bf" opacity=".74" d="M184.33 157.89c43.63 0 79-35.35 79-78.95S227.96 0 184.33 0s-79 35.35-79 78.95 35.37 78.95 79 78.95Z"/>
-  <rect width="210.67" height="210.53" y="250" rx="42.78" ry="42.78" fill="#abb2bf"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="-13 0 500 500">
+  <defs>
+    <style id="current-color-scheme" type="text/css">
+      .ColorScheme-Text { color:#d3dae3; }
+    </style>
+  </defs>
+  <path class="ColorScheme-Text" fill="currentColor" opacity=".46" d="M237 210.53h158c43.63 0 79 35.35 79 78.95v131.58c0 43.6-35.37 78.95-79 78.95s-79-35.35-79-78.95V289.48c0-43.6-35.37-78.95-79-78.95"/>
+  <path class="ColorScheme-Text" fill="currentColor" opacity=".72" d="M52.67 263.16c0-43.6 35.37-78.95 79-78.95H237c43.63 0 79 35.35 79 78.95v157.89c0 43.6 35.37 78.95 79 78.95H184.33c-72.72 0-131.67-58.91-131.67-131.58V263.16Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" opacity=".58" d="M381.83 184.21c36.36 0 65.83-29.46 65.83-65.79s-29.48-65.79-65.83-65.79S316 82.09 316 118.42s29.47 65.79 65.83 65.79"/>
+  <path class="ColorScheme-Text" fill="currentColor" opacity=".74" d="M184.33 157.89c43.63 0 79-35.35 79-78.95S227.96 0 184.33 0s-79 35.35-79 78.95 35.37 78.95 79 78.95Z"/>
+  <rect class="ColorScheme-Text" width="210.67" height="210.53" y="250" rx="42.78" ry="42.78" fill="currentColor"/>
   <path d="M151.14 317.18h-32.22v98.24H91.73v-98.24H59.51v-22.06h91.63z" fill="#282c34"/>
 </svg>
