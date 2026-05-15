@@ -9,6 +9,8 @@ _: {
       ...
     }:
     let
+      legacyProfilesPath = ".mozilla/firefox";
+      xdgProfilesPath = ".config/mozilla/firefox";
       nixosEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
       gecko = import ./_gecko-mk-profile.nix {
         inherit
@@ -18,25 +20,31 @@ _: {
           config
           ;
       };
+      xdgProfileRoot = gecko.mkXdgProfileRoot {
+        browserName = "Firefox";
+        inherit legacyProfilesPath xdgProfilesPath;
+      };
     in
     {
       config = lib.mkIf nixosEnabled {
         assertions = [
           {
-            assertion = config.programs.firefox.profilesPath == ".mozilla/firefox";
-            message = "Firefox Home Manager profiles must stay under ~/.mozilla/firefox; XDG profile roots are unsupported.";
+            assertion = config.programs.firefox.profilesPath == legacyProfilesPath;
+            message = "Firefox Home Manager profiles must stay under ~/.mozilla/firefox; the XDG profile root is only a compatibility symlink.";
           }
         ];
 
-        home.file = gecko.mkCustomKeysFiles config.programs.firefox;
+        home.activation.checkFirefoxXdgProfileRoot = xdgProfileRoot.activation;
+
+        home.file = gecko.mkCustomKeysFiles config.programs.firefox // xdgProfileRoot.file;
 
         programs.firefox = {
           enable = true;
           # This repo intentionally keeps Firefox on the legacy profile root.
-          # The XDG path would split policy-applied browser state from
+          # A real XDG profile root would split policy-applied browser state from
           # Home Manager's declarative user.js, customKeys.json, extension
-          # storage, and profile-scoped packages.
-          configPath = ".mozilla/firefox";
+          # storage, and profile-scoped packages, so the XDG leaf is a symlink.
+          configPath = legacyProfilesPath;
           package = osConfig.programs.firefox.extended.package;
           # `home.packages` is not on Firefox's native-messaging discovery
           # path. Use HM's browser-native option so manifests land in

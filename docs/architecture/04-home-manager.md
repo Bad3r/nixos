@@ -151,10 +151,12 @@ relink the active generation:
 sudo systemctl restart home-manager-$USER.service
 ```
 
-Gecko browser profiles are intentionally managed only at `~/.mozilla/firefox`
-and `~/.librewolf`. Runtime-generated XDG profiles under `~/.config/mozilla` or
-`~/.config/librewolf` are unmanaged drift; remove them recoverably with `rip`
-before relinking the Home Manager generation.
+Gecko browser profiles are intentionally rooted at `~/.mozilla/firefox` and
+`~/.librewolf`. Home Manager also manages compatibility symlinks from
+`~/.config/mozilla/firefox` to `~/.mozilla/firefox` and from
+`~/.config/librewolf/librewolf` to `~/.librewolf`. Real directories at those XDG
+leaves are unmanaged drift; activation refuses them so they can be moved
+recoverably with `rip` before relinking the Home Manager generation.
 
 Add `home-manager` to `modules/devshell.nix` if a standalone CLI is needed for ad-hoc diagnostics.
 

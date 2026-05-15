@@ -184,7 +184,7 @@ journalctl -fu "home-manager-$USER.service"
 - When conflicts arise (e.g., existing files), the activation check lists blocking paths; resolve by moving or adopting them into `home.file.*.source`.
 - On this NixOS repo, inspect `~/.local/state/home-manager/gcroots/current-home/home-files` for the active Home Manager files. The standalone `~/.local/state/nix/profiles/home-manager` profile can be stale.
 - If managed files were deleted and the NixOS generation did not change, rerun `sudo systemctl restart home-manager-$USER.service`; a same-generation switch may only run NixOS activation units and leave deleted Home Manager links absent.
-- Firefox and LibreWolf profiles are managed only under `~/.mozilla/firefox` and `~/.librewolf`; XDG profiles under `~/.config/mozilla` or `~/.config/librewolf` are unmanaged drift and should be removed recoverably with `rip` before relinking.
+- Firefox and LibreWolf profiles are rooted under `~/.mozilla/firefox` and `~/.librewolf`; `~/.config/mozilla/firefox` and `~/.config/librewolf/librewolf` are managed compatibility symlinks. Real directories at those XDG leaves are unmanaged drift and should be moved recoverably with `rip` before relinking.
 
 ### 4.3 Debugging Modules
 
