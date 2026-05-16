@@ -41,34 +41,30 @@ let
       ++ [ ")" ]
     );
 
-  nixdNixosOptionsExpr = ''
-    let
-      flake = builtins.getFlake (toString ./.);
-      hosts = flake.nixosConfigurations or {};
-      hostName = builtins.getEnv "HOSTNAME";
-      host =
-        if hostName != "" && builtins.hasAttr hostName hosts then builtins.getAttr hostName hosts
-        else if hosts != {} then builtins.head (builtins.attrValues hosts)
-        else null;
-    in
-      if host != null then host.options else {}
-  '';
+  nixdHostLetBindings = [
+    "  flake = builtins.getFlake (toString ./.);"
+    "  hosts = flake.nixosConfigurations or {};"
+    "  hostName = builtins.getEnv \"HOSTNAME\";"
+    "  host ="
+    "    if hostName != \"\" && builtins.hasAttr hostName hosts then builtins.getAttr hostName hosts"
+    "    else if hosts != {} then builtins.head (builtins.attrValues hosts)"
+    "    else null;"
+  ];
 
-  nixdHomeManagerOptionsExpr = ''
-    let
-      flake = builtins.getFlake (toString ./.);
-      hosts = flake.nixosConfigurations or {};
-      hostName = builtins.getEnv "HOSTNAME";
-      host =
-        if hostName != "" && builtins.hasAttr hostName hosts then builtins.getAttr hostName hosts
-        else if hosts != {} then builtins.head (builtins.attrValues hosts)
-        else null;
-      hmUsers = if host != null then host.options.home-manager.users or null else null;
-    in
-      if hmUsers != null && hmUsers ? type && hmUsers.type ? getSubOptions
-      then hmUsers.type.getSubOptions []
-      else {}
-  '';
+  nixdOptionsExpr =
+    extraLetBindings: body:
+    concatStringsSep "\n" ([ "let" ] ++ nixdHostLetBindings ++ extraLetBindings ++ [ "in" ] ++ body);
+
+  nixdNixosOptionsExpr = nixdOptionsExpr [ ] [ "  if host != null then host.options else {}" ];
+
+  nixdHomeManagerOptionsExpr =
+    nixdOptionsExpr
+      [ "  hmUsers = if host != null then host.options.home-manager.users or null else null;" ]
+      [
+        "  if hmUsers != null && hmUsers ? type && hmUsers.type ? getSubOptions"
+        "  then hmUsers.type.getSubOptions []"
+        "  else {}"
+      ];
 
   modules = {
     completion = {
