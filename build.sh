@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Validation and build helper for this flake
 # Common Usage:
-#   ./build.sh [--offline] [--verbose]
+#   ./build.sh [--offline] [--fallback] [--verbose]
 ##
 ## This script performs validation (git hooks and flake checks),
 ## then deploys via `nh os` after validation succeeds. It never disables the
@@ -23,6 +23,7 @@ SKIP_SCORE=false
 SKIP_FIRMWARE=false
 KEEP_GOING=false
 REPAIR=false
+FALLBACK=false
 BOOTSTRAP_CACHES=false
 ACTION="switch" # default action after build: switch | boot
 BUILD_FLAGS=()
@@ -55,6 +56,7 @@ Options:
       --skip-firmware    Skip firmware refresh/check/apply after successful switch
       --keep-going       Continue building despite failures
       --repair           Repair corrupted store paths during build
+      --fallback         Build from source if binary substitutes fail
       --bootstrap        Use extra substituters for first build (e.g., Determinate Nix)
   -h, --help             Show this help message
 
@@ -175,6 +177,10 @@ while [[ $# -gt 0 ]]; do
     REPAIR=true
     shift
     ;;
+  --fallback)
+    FALLBACK=true
+    shift
+    ;;
   --bootstrap)
     BOOTSTRAP_CACHES=true
     shift
@@ -221,7 +227,7 @@ fi
 BOOTSTRAP_SUBSTITUTERS=(
   "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
   #"https://mirror.sjtu.edu.cn/nix-channels/store"
-  "https://mirrors.ustc.edu.cn/nix-channels/store"
+  # "https://mirrors.ustc.edu.cn/nix-channels/store"
   "https://cache.nixos.org"
   "https://cache.garnix.io?priority=38"
   "https://cache.numtide.com"
@@ -274,6 +280,11 @@ configure_build_flags() {
   if [[ ${REPAIR} == "true" ]]; then
     BUILD_FLAGS+=("--repair")
   fi
+
+  # Fall back to local builds when substituters cannot provide a path
+  if [[ ${FALLBACK} == "true" ]]; then
+    BUILD_FLAGS+=("--fallback")
+  fi
 }
 
 configure_nix_config() {
@@ -292,7 +303,7 @@ configure_nix_config() {
 
   append_nix_config_line "warn-dirty = false"
   append_nix_config_line "download-attempts = 1"
-  append_nix_config_line "connect-timeout = 1"
+  append_nix_config_line "connect-timeout = 5"
 
   if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
     append_nix_config_line "substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"
