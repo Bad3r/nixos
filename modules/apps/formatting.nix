@@ -54,7 +54,7 @@ let
             - taplo: TOML formatter
             - yamlfmt: YAML formatter
           '';
-          example = lib.literalExpression "config.flake.lib.formatting.formatterPackages pkgs";
+          example = lib.literalExpression "with pkgs; [ nixfmt shfmt ]";
         };
       };
 
