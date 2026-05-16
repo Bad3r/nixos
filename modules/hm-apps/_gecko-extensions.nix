@@ -394,12 +394,12 @@ in
         raindropId
         tabStashId
         stylusId
-        tridactylId
+        onePasswordId
       ];
       sidebarTools = [
         raindropId
         tabStashId
-        tridactylId
+        onePasswordId
         "history"
       ];
     in
