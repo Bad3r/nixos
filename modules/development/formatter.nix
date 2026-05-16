@@ -4,6 +4,8 @@
   ...
 }:
 let
+  mdformatPlugins = ps: [ ps.mdformat-gfm ];
+
   formatterPackages =
     pkgs: with pkgs; [
       nixfmt
@@ -11,7 +13,7 @@ let
       stylua
       ruff
       biome
-      (mdformat.withPlugins (ps: [ ps.mdformat-gfm ]))
+      (mdformat.withPlugins mdformatPlugins)
       taplo
       yamlfmt
     ];
@@ -110,7 +112,7 @@ in
               "*.md"
               "*.markdown"
             ];
-            plugins = ps: [ ps.mdformat-gfm ];
+            plugins = mdformatPlugins;
             settings = {
               wrap = "keep";
               number = false;
