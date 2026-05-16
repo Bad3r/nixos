@@ -56,6 +56,7 @@ let
     "stylix-gui"
     "tealdeer"
     "thunderbird"
+    "tridactyl"
     "tree"
     "ungoogled-chromium"
     "usbguard-notifier"

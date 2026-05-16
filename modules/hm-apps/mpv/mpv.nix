@@ -21,7 +21,11 @@
     * `mpv --profile=high-quality movie.mkv` -- Apply high-quality profile for playback.
 */
 
-_: {
+{ config, ... }:
+let
+  mpvScripts = config.flake.lib.homeManager.mpvScripts;
+in
+{
   flake.homeManagerModules.apps.mpv =
     {
       osConfig,
@@ -33,6 +37,7 @@ _: {
     let
       nixosEnabled = lib.attrByPath [ "programs" "mpv" "extended" "enable" ] false osConfig;
       extraScripts = lib.attrByPath [ "programs" "mpv" "extended" "extraScripts" ] [ ] osConfig;
+      localScripts = mpvScripts { inherit lib pkgs; };
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -103,6 +108,10 @@ _: {
               image-positioning # pan, zoom, and rotate controls for images
               status-line # image dimensions and zoom level overlay
             ])
+            ++ [
+              localScripts.scripts.playlistFilter
+              localScripts.scripts.ytdlpCookies
+            ]
             ++ extraScripts;
         };
 
@@ -118,11 +127,6 @@ _: {
               exec ${mpv}/bin/mpv --profile=img "$@"
             '')
           ];
-
-        xdg.configFile = {
-          "mpv/scripts/ytdlp_cookies.lua".source = ./scripts/ytdlp_cookies.lua;
-          "mpv/scripts/playlist_filter.lua".source = ./scripts/playlist_filter.lua;
-        };
       };
     };
 }

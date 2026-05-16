@@ -399,7 +399,6 @@ in
       sidebarTools = [
         raindropId
         tabStashId
-        tridactylId
         "history"
       ];
     in
