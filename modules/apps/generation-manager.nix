@@ -45,6 +45,7 @@ let
       ];
       text = /* bash */ ''
                 set -euo pipefail
+                export LC_ALL=C
 
                 # Dry run support
                 DRY_RUN="''${DRY_RUN:-false}"
@@ -60,11 +61,12 @@ let
                 NC='\033[0m' # No Color
 
                 execute_cmd() {
-                  local cmd="$1"
                   if [ "$DRY_RUN" = "true" ]; then
-                    echo -e "''${YELLOW}[DRY RUN]''${NC} Would execute: $cmd"
+                    printf "%b[DRY RUN]%b Would execute:" "$YELLOW" "$NC"
+                    printf " %q" "$@"
+                    printf "\n"
                   else
-                    eval "$cmd"
+                    "$@"
                   fi
                 }
 
@@ -112,9 +114,11 @@ let
 
                   current)
                     echo -e "''${BLUE}Current generation:''${NC}"
-                    current_gen=$(readlink /nix/var/nix/profiles/system | sed 's/.*-\([0-9]*\)-link/\1/')
+                    current_path=$(readlink /nix/var/nix/profiles/system)
+                    current_gen="''${current_path%-link}"
+                    current_gen="''${current_gen##*-}"
                     echo "Generation: $current_gen"
-                    echo "Profile: $(readlink /nix/var/nix/profiles/system)"
+                    echo "Profile: $current_path"
                     echo "Date: $(stat -c %y /nix/var/nix/profiles/system | cut -d' ' -f1,2)"
                     ;;
 
@@ -138,18 +142,14 @@ let
                   clean)
                     keep="''${2:-5}"
                     echo -e "''${YELLOW}Keeping $keep most recent generations...''${NC}"
-                    execute_cmd "nix-env --delete-generations +$keep -p /nix/var/nix/profiles/system"
+                    execute_cmd nix-env --delete-generations "+$keep" -p /nix/var/nix/profiles/system
                     ;;
 
                   gc)
                     echo -e "''${YELLOW}Running garbage collection...''${NC}"
-                    execute_cmd "nix-collect-garbage -d"
-                    if [ "$DRY_RUN" = "false" ]; then
-                      echo -e "''${YELLOW}Running system garbage collection...''${NC}"
-                      sudo nix-collect-garbage -d
-                    else
-                      echo -e "''${YELLOW}[DRY RUN]''${NC} Would execute: sudo nix-collect-garbage -d"
-                    fi
+                    execute_cmd nix-collect-garbage -d
+                    echo -e "''${YELLOW}Running system garbage collection...''${NC}"
+                    execute_cmd sudo nix-collect-garbage -d
                     ;;
 
                   switch)
@@ -158,14 +158,14 @@ let
                       exit 1
                     fi
                     echo -e "''${YELLOW}Switching to configuration for host: $2''${NC}"
-                    execute_cmd "nixos-rebuild switch --flake .#$2"
+                    execute_cmd nixos-rebuild switch --flake ".#$2"
                     ;;
 
                   rollback)
                     gens="''${2:-1}"
                     echo -e "''${YELLOW}Rolling back $gens generation(s)...''${NC}"
                     for _ in $(seq 1 "$gens"); do
-                      execute_cmd "nixos-rebuild switch --rollback"
+                      execute_cmd nixos-rebuild switch --rollback
                     done
                     ;;
 
@@ -198,7 +198,7 @@ let
                   score)
                     echo -e "''${BLUE}Calculating Dendritic Pattern compliance score...''${NC}"
                     SCORE=0
-                    MAX_SCORE=35
+                    MAX_SCORE=20
 
                     echo -e "\n''${YELLOW}Checking compliance metrics:''${NC}"
 
@@ -253,8 +253,6 @@ let
                         done
                       fi
                     fi
-
-                    SCORE=$((SCORE + 15))
 
                     echo -e "\n''${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━''${NC}"
                     echo -e "''${BLUE}Dendritic Pattern Compliance:''${NC} ''${YELLOW}''${SCORE}/''${MAX_SCORE}''${NC}"
