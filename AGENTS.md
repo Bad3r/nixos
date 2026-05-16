@@ -136,6 +136,14 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
   - Command: `cd $HOME/trees/nixos/<type>-<name>` then commit changes
 - PR
   - Command: `gh pr create --title "<type>(scope): summary" --body "..."` (Assign labels)
+- Cleanup after merge
+  - Command: `scripts/git-worktree-remove-safe.sh $HOME/trees/nixos/<type>-<name>`
+  - Follow-up: `git branch -d <type>/<name> && git worktree prune`
+  - Why: the repository has the initialized `secrets/` submodule. Plain
+    `git worktree remove` can fail on clean worktrees with
+    `working trees containing submodules cannot be moved or removed`; the helper
+    refuses dirty, ignored, or locked worktrees before using `--force` for that
+    Git guard.
 
 Branch type should follow Conventional Commits prefixes.
 
