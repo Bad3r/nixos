@@ -119,9 +119,9 @@ in
           description = ''
             Whether to add tree-sitter grammars plus language servers and
             formatters to Doom's runtime path. Enable this when `doomDir`
-            activates the matching Doom modules; the bundled starter doomdir
-            keeps those modules disabled, so the default avoids pulling in an
-            unused language-tool closure.
+            activates the matching Doom modules. The bundled starter doomdir
+            enables Nix tree-sitter syntax only, so the default avoids pulling
+            in the broader language-tool closure.
           '';
         };
 
