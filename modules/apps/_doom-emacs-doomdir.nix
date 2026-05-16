@@ -384,11 +384,6 @@ let
       command = "kill-current-buffer";
     }
     {
-      key = "g n";
-      desc = "Magit status";
-      command = "magit-status";
-    }
-    {
       key = "g s";
       desc = "Magit status";
       command = "magit-status";
