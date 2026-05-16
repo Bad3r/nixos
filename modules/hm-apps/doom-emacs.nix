@@ -54,32 +54,36 @@ _: {
           # this repo opts those Home Manager wrappers out (`package = null`),
           # so the upstream default would inject null entries that fail
           # `types.listOf types.package`. Source the binaries directly from pkgs.
-          extraPackages =
-            epkgs:
-            lib.optionals enableLanguageTooling [
-              (epkgs.treesit-grammars.with-grammars (
-                grammars: with grammars; [
-                  tree-sitter-bash
-                  tree-sitter-c
-                  tree-sitter-css
-                  tree-sitter-go
-                  tree-sitter-html
-                  tree-sitter-javascript
-                  tree-sitter-jsdoc
-                  tree-sitter-json
-                  tree-sitter-lua
-                  tree-sitter-markdown
-                  tree-sitter-markdown-inline
-                  tree-sitter-nix
-                  tree-sitter-python
-                  tree-sitter-rust
-                  tree-sitter-toml
-                  tree-sitter-tsx
-                  tree-sitter-typescript
-                  tree-sitter-yaml
-                ]
-              ))
-            ];
+          extraPackages = epkgs: [
+            # The bundled doomdir enables tree-sitter syntax for Nix, so keep
+            # that grammar available even when broader language tooling is off.
+            (epkgs.treesit-grammars.with-grammars (
+              grammars:
+              with grammars;
+              [
+                tree-sitter-nix
+              ]
+              ++ lib.optionals enableLanguageTooling [
+                tree-sitter-bash
+                tree-sitter-c
+                tree-sitter-css
+                tree-sitter-go
+                tree-sitter-html
+                tree-sitter-javascript
+                tree-sitter-jsdoc
+                tree-sitter-json
+                tree-sitter-lua
+                tree-sitter-markdown
+                tree-sitter-markdown-inline
+                tree-sitter-python
+                tree-sitter-rust
+                tree-sitter-toml
+                tree-sitter-tsx
+                tree-sitter-typescript
+                tree-sitter-yaml
+              ]
+            ))
+          ];
           extraBinPackages =
             with pkgs;
             [
