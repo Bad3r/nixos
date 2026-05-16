@@ -119,8 +119,8 @@ let
 
             printf '%s\n' "$unit"
             if $verbose; then
-              printf 'systemctl --user status "%s"\n' "$unit"
-              printf 'journalctl --user-unit "%s"\n' "$unit"
+              printf 'systemctl --user status "%s"\n' "$unit" >&2
+              printf 'journalctl --user-unit "%s"\n' "$unit" >&2
             fi
             exit 0
           fi
