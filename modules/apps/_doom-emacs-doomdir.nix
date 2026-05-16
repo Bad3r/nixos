@@ -31,7 +31,7 @@ let
             moduleName: value:
             if value == true then
               moduleName
-            else if lib.isList value then
+            else if isList value then
               "(${moduleName} ${concatStringsSep " " value})"
             else
               abort "Unsupported Doom module value for ${category}.${moduleName}: ${generators.toPretty { } value}"
