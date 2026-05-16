@@ -97,14 +97,20 @@ let
                 }
 
                 # Handle verbose flag
-                for arg in "$@"; do
-                  case "$arg" in
+                args=()
+                while [ $# -gt 0 ]; do
+                  case "$1" in
                     -v|--verbose)
                       VERBOSE="true"
                       shift
                       ;;
+                    *)
+                      args+=("$1")
+                      shift
+                      ;;
                   esac
                 done
+                set -- "''${args[@]}"
 
                 case "''${1:-help}" in
                   list)
@@ -142,7 +148,7 @@ let
                   clean)
                     keep="''${2:-5}"
                     echo -e "''${YELLOW}Keeping $keep most recent generations...''${NC}"
-                    execute_cmd nix-env --delete-generations "+$keep" -p /nix/var/nix/profiles/system
+                    execute_cmd sudo nix-env --delete-generations "+$keep" -p /nix/var/nix/profiles/system
                     ;;
 
                   gc)
