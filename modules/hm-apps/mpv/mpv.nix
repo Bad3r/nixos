@@ -33,6 +33,7 @@ _: {
     let
       nixosEnabled = lib.attrByPath [ "programs" "mpv" "extended" "enable" ] false osConfig;
       extraScripts = lib.attrByPath [ "programs" "mpv" "extended" "extraScripts" ] [ ] osConfig;
+      localScripts = import ../_mpv-scripts.nix { inherit lib pkgs; };
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -103,6 +104,10 @@ _: {
               image-positioning # pan, zoom, and rotate controls for images
               status-line # image dimensions and zoom level overlay
             ])
+            ++ [
+              localScripts.scripts.playlistFilter
+              localScripts.scripts.ytdlpCookies
+            ]
             ++ extraScripts;
         };
 
@@ -118,11 +123,6 @@ _: {
               exec ${mpv}/bin/mpv --profile=img "$@"
             '')
           ];
-
-        xdg.configFile = {
-          "mpv/scripts/ytdlp_cookies.lua".source = ./scripts/ytdlp_cookies.lua;
-          "mpv/scripts/playlist_filter.lua".source = ./scripts/playlist_filter.lua;
-        };
       };
     };
 }
