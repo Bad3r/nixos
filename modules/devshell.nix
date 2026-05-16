@@ -1,7 +1,6 @@
 { inputs, ... }:
 {
   imports = [
-    inputs.treefmt-nix.flakeModule
     inputs.make-shell.flakeModules.default
     ./devshell/pentesting.nix
   ];
@@ -87,7 +86,7 @@
           in
           lib.unique (
             (with pkgs; [
-              nixfmt
+              config.packages.formatter-toolchain
               nixd # Nix LSP
               nix-tree
               nix-diff
@@ -121,7 +120,6 @@
               ghActionsRun
               ghActionsList
               config.packages.generation-manager
-              config.treefmt.build.wrapper
             ])
             ++ config.pre-commit.settings.enabledPackages
           );
@@ -142,52 +140,6 @@
             "''${repo_root}/scripts/hooks/install-git-hooks.sh"
           fi
         '';
-      };
-
-      # Configure treefmt
-      treefmt = {
-        projectRootFile = "flake.nix";
-        programs = {
-          nixfmt.enable = true;
-          shfmt.enable = true;
-          ruff-format.enable = true;
-          stylua = {
-            enable = true;
-            settings = {
-              indent_type = "Spaces";
-              indent_width = 2;
-              column_width = 120;
-            };
-          };
-          dprint = {
-            enable = true;
-            includes = [
-              "*.json"
-              "*.jsonc"
-              "*.md"
-              "*.markdown"
-              "*.toml"
-              "*.yaml"
-              "*.yml"
-              "*.xml"
-            ];
-            excludes = [
-              ".github/workflows/**"
-              ".github/ISSUE_TEMPLATE/**"
-            ];
-            settings = {
-              plugins = pkgs.dprint-plugins.getPluginList (
-                plugins: with plugins; [
-                  dprint-plugin-json
-                  dprint-plugin-markdown
-                  dprint-plugin-toml
-                  g-plane-pretty_yaml
-                  g-plane-markup_fmt
-                ]
-              );
-            };
-          };
-        };
       };
     };
 }
