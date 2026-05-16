@@ -1,5 +1,6 @@
 # Creates and manages the shared /data/git mirror root
-# (e.g. /data/git/openai-codex or /data/git/codeberg-librewolf-settings).
+# (e.g. /data/git/openai-codex, /data/git/tridactyl-tridactyl,
+# or /data/git/codeberg-librewolf-settings).
 {
   flake.nixosModules.mirror-root =
     {

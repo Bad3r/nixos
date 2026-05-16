@@ -58,6 +58,7 @@ let
           "rclone/rclone"
           "restic/restic"
           "s0md3v/wappalyzer-next"
+          "tridactyl/tridactyl"
         ];
       };
     };

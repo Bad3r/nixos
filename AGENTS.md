@@ -116,6 +116,14 @@ Inputs prefixed with `dedupe_` exist for dependency deduplication through `.foll
   - Location: `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`
   - Notes: Owned by the files module. Update source definitions instead of editing generated output directly.
 
+### Local Mirrors
+
+The shared mirror root is managed in `modules/git/mirror-root.nix`, and the
+common-host mirror list is managed in `modules/hosts/common/mirrors.nix`.
+Prefer GitHub `owner/repo` shorthand for GitHub repositories, even when the
+input is a `https://github.com/owner/repo/` URL. For example,
+`tridactyl/tridactyl` maps to `/data/git/tridactyl-tridactyl`.
+
 ## Execution Playbooks
 
 ### Branch Workflow

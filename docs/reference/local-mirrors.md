@@ -70,6 +70,8 @@ journalctl --user -u git-mirror.service -n 50 --no-pager
 `programs.gitMirror.repos` accepts either GitHub `owner/repo` shorthand or
 full HTTP(S) Git URLs.
 GitHub shorthand keeps the historical `{owner}-{repo}` local path.
+Prefer shorthand for GitHub repositories even when the source is given as a
+`https://github.com/owner/repo/` URL.
 Full URLs include a normalized host prefix and strip common host suffixes such as `.org`.
 
 | Repository spec                               | Local path                                          |
@@ -81,6 +83,7 @@ Full URLs include a normalized host prefix and strip common host suffixes such a
 | Firefox built docs                            | `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs`       |
 | `mozilla/policy-templates`                    | `$LOCAL_MIRRORS/mozilla-policy-templates`           |
 | `openai/codex`                                | `$LOCAL_MIRRORS/openai-codex`                       |
+| `tridactyl/tridactyl`                         | `$LOCAL_MIRRORS/tridactyl-tridactyl`                |
 | `https://codeberg.org/librewolf/settings.git` | `$LOCAL_MIRRORS/codeberg-librewolf-settings`        |
 
 ## Firefox Source Docs
@@ -122,6 +125,7 @@ programs.gitMirror.repos = [
   "mdn/content" # https://developer.mozilla.org
   "mozilla/policy-templates"
   "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
+  "tridactyl/tridactyl"
   "https://codeberg.org/librewolf/settings.git"
   # ...
 ];
