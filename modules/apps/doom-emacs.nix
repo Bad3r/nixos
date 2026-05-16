@@ -13,6 +13,7 @@
     enable: Toggle the doom-emacs integration; the actual package is installed by the Home Manager module.
     package: Emacs derivation passed to Unstraightened (defaults to pkgs.emacs from the emacs-overlay).
     doomDir: Path to the doomdir bundled into the build (defaults to the existing static starter doomdir).
+    enableLanguageTooling: Add language servers, formatters, and tree-sitter grammars for an active programming doomdir.
     enableService: Enable the Home Manager `services.emacs` user daemon backed by Doom.
 
   Notes:
@@ -83,6 +84,18 @@
             contents requires that intermediate output to be realized before
             no-build flake validation can pass. Override to layer in a personal
             doomdir.
+          '';
+        };
+
+        enableLanguageTooling = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = ''
+            Whether to add tree-sitter grammars plus language servers and
+            formatters to Doom's runtime path. Enable this when `doomDir`
+            activates the matching Doom modules; the bundled starter doomdir
+            keeps those modules disabled, so the default avoids pulling in an
+            unused language-tool closure.
           '';
         };
 
