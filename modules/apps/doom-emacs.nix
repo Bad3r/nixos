@@ -28,12 +28,38 @@
       keys are mirrored in `extra-trusted-public-keys`.
     * Installs the unfree `symbola` font system-wide; Doom uses it as the Unicode
       fallback face and `doom doctor` warns when it is missing.
+    * The structured renderer in _doom-emacs-doomdir.nix is validated by the
+      doom-emacs-rendered-doomdir flake check. It is not the default doomDir
+      because nix-doom-emacs-unstraightened imports generated intermediates
+      during evaluation.
     * Configuration and install delegated to Home Manager (modules/hm-apps/doom-emacs.nix).
     * Override doomDir to point at a real Doom configuration for a personalised setup.
 */
-{ inputs, ... }:
+{ inputs, lib, ... }:
+let
+  renderedDoom = import ./_doom-emacs-doomdir.nix { inherit lib; };
+
+  mkRenderedDoomDir =
+    pkgs:
+    pkgs.runCommandLocal "doom-emacs-rendered-doomdir" { } (
+      ''
+        mkdir -p "$out"
+      ''
+      + lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (name: text: ''
+          install -Dm0444 ${pkgs.writeText "doom-emacs-${name}" text} "$out/${name}"
+        '') renderedDoom.generatedFiles
+      )
+    );
+in
 {
   nixpkgs.allowedUnfreePackages = [ "symbola" ];
+
+  perSystem =
+    { pkgs, ... }:
+    {
+      checks.doom-emacs-rendered-doomdir = mkRenderedDoomDir pkgs;
+    };
 
   flake.nixosModules.apps.doom-emacs =
     {
