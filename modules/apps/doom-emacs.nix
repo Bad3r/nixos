@@ -12,7 +12,7 @@
   Options:
     enable: Toggle the doom-emacs integration; the actual package is installed by the Home Manager module.
     package: Emacs derivation passed to Unstraightened (defaults to pkgs.emacs from the emacs-overlay).
-    doomDir: Path to the doomdir bundled into the build (defaults to the upstream Doom starter templates).
+    doomDir: Path to the doomdir bundled into the build (defaults to the rendered repo Doom config).
     enableService: Enable the Home Manager `services.emacs` user daemon backed by Doom.
 
   Notes:
@@ -27,8 +27,10 @@
       keys are mirrored in `extra-trusted-public-keys`.
     * Installs the unfree `symbola` font system-wide; Doom uses it as the Unicode
       fallback face and `doom doctor` warns when it is missing.
+    * Configuration rendering lives in _doom-emacs-doomdir.nix and is
+      materialized into a store doomdir before Home Manager consumes it.
     * Configuration and install delegated to Home Manager (modules/hm-apps/doom-emacs.nix).
-    * Override doomDir to point at a real Doom configuration for a personalised setup.
+    * Override doomDir to replace the rendered default with a personalised setup.
 */
 { inputs, ... }:
 {
@@ -47,6 +49,17 @@
       cachePublicKey = "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=";
       doomCacheSubstituter = "https://doom-emacs-unstraightened.cachix.org";
       doomCachePublicKey = "doom-emacs-unstraightened.cachix.org-1:O5oOlRPnmQEvVaFyuMTmthCEooHbrg54WgSLR07tmg4=";
+      renderedDoom = import ./_doom-emacs-doomdir.nix { inherit lib; };
+      renderedDoomDir = pkgs.runCommandLocal "doom-emacs-rendered-doomdir" { } (
+        ''
+          mkdir -p "$out"
+        ''
+        + lib.concatStringsSep "\n" (
+          lib.mapAttrsToList (name: text: ''
+            install -Dm0444 ${pkgs.writeText "doom-emacs-${name}" text} "$out/${name}"
+          '') renderedDoom.generatedFiles
+        )
+      );
     in
     {
       options.programs.doom-emacs.extended = {
@@ -73,14 +86,14 @@
 
         doomDir = lib.mkOption {
           type = lib.types.path;
-          default = ./doom-emacs-doomdir;
-          defaultText = lib.literalExpression "./doom-emacs-doomdir";
+          default = renderedDoomDir;
+          defaultText = lib.literalExpression "renderedDoomDir";
           description = ''
             Path to the Doom configuration directory (init.el / packages.el / config.el)
-            bundled into the build. The default ships the upstream Doom starter
-            templates (static/{init,packages,config}.example.el) and gives a working
-            evil/vertico/corfu/magit setup out of the box. Override to layer in a
-            personal doomdir.
+            bundled into the build. The default materializes the structured
+            renderer in `_doom-emacs-doomdir.nix` and gives a working
+            evil/vertico/corfu/magit setup out of the box. Override it to
+            layer in a personal doomdir.
           '';
         };
 
