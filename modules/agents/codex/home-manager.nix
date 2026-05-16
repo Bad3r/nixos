@@ -18,8 +18,8 @@
   Notes:
     * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
-    * User-level instructions generated via flake.lib.agents.instructions
-      (modules/agents/instructions.nix)
+    * User-level instructions generated via flake.lib.agents.systemPrompt
+      (modules/agents/system-prompt.nix)
     * Config is split across private helpers in modules/agents/codex/
     * Package installation handled by NixOS module (modules/apps/codex.nix) via llm-agents.nix.
     * Config is split into three TOML files merged at launch by the codex wrapper:
@@ -77,8 +77,18 @@ _: {
           ;
       };
 
+      codexShellRules = [
+        ''
+          - Set `timeout_ms` explicitly for shell commands to `60000` ms,
+          and increase it further for builds, installs, tests, or other long-running commands.
+        ''
+      ];
+
       commitSkillDir = (agents.skills.commit.codex pkgs).dir;
-      codexInstructions = agents.instructions.codex;
+      codexInstructions = agents.systemPrompt.render {
+        vars.questionTool = "request_user_input";
+        vars.shellRules = codexShellRules;
+      };
     in
     {
       config = lib.mkIf nixosEnabled {

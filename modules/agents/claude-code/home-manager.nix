@@ -8,8 +8,8 @@
   Notes:
     * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Agent skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
-    * User-level instructions generated via flake.lib.agents.instructions
-      (modules/agents/instructions.nix)
+    * User-level instructions generated via flake.lib.agents.systemPrompt
+      (modules/agents/system-prompt.nix)
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
     * Greptile plugin activation is optional and resolved during Home Manager
       activation only when the plugin is explicitly enabled.
@@ -80,7 +80,9 @@ _: {
       ] false osConfig;
 
       # ── Commit Skill ──────────────────────────────────────────────────────
-      claudeInstructions = agents.instructions.claude;
+      claudeInstructions = agents.systemPrompt.render {
+        vars.questionTool = "AskUserQuestion";
+      };
       commitSkillMd = agents.skills.commit.claude;
     in
     {
