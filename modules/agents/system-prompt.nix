@@ -1,4 +1,4 @@
-{ metaOwner, ... }:
+{ lib, metaOwner, ... }:
 let
   defaultQuestionTool = "the runtime question tool";
 
@@ -339,7 +339,13 @@ let
     builtins.concatStringsSep "\n" ((map renderSection order) ++ extraSections);
 in
 {
-  flake.lib.agents.systemPrompt = {
+  options.flake.lib.agents.systemPrompt = lib.mkOption {
+    type = lib.types.attrsOf lib.types.anything;
+    default = { };
+    description = "Shared agent system-prompt renderer with sections, order, render, and default.";
+  };
+
+  config.flake.lib.agents.systemPrompt = {
     inherit
       sections
       order
