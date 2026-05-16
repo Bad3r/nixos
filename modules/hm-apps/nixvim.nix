@@ -20,7 +20,10 @@ _: {
   # Upstream akinsho/git-conflict.nvim ships no LICENSE file, so nixpkgs flags
   # the plugin as unfree. The allowlist entry is required for evaluation until
   # upstream publishes a license.
-  nixpkgs.allowedUnfreePackages = [ "git-conflict.nvim" ];
+  nixpkgs.allowedUnfreePackages = [
+    "cheatsheet.nvim"
+    "git-conflict.nvim"
+  ];
 
   flake.homeManagerModules.apps.nixvim =
     {
@@ -408,12 +411,15 @@ _: {
                 -- recovery still highlights each object correctly across the
                 -- newline separators.
                 vim.treesitter.language.register("json", "jsonl")
+
+                require("cheatsheet").setup({})
               '';
 
               # plenary.nvim is added explicitly because the pinned nixvim/nixpkgs
               # combination does not currently pull telescope's runtime dependency
               # onto the packpath.
               extraPlugins = [
+                pkgs.vimPlugins.cheatsheet-nvim
                 pkgs.vimPlugins.plenary-nvim
               ];
 
@@ -1102,6 +1108,44 @@ _: {
                   key = "<leader>K";
                   action = "<cmd>WhichKey<CR>";
                   options.desc = "WhichKey menu";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>?";
+                  action = "<cmd>Cheatsheet<CR>";
+                  options.desc = "Search cheatsheet";
+                }
+
+                # Visual selections
+                {
+                  mode = "n";
+                  key = "<leader>vG";
+                  action = "VG";
+                  options.desc = "Select lines to end of file";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>vg";
+                  action = "Vgg";
+                  options.desc = "Select lines to start of file";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>vj";
+                  action = "V2j";
+                  options.desc = "Select next 3 lines";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>vk";
+                  action = "V2k";
+                  options.desc = "Select previous 3 lines";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>va";
+                  action = "ggVG";
+                  options.desc = "Select entire file";
                 }
 
                 # Buffer navigation
