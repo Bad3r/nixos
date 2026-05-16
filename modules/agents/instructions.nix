@@ -1,5 +1,31 @@
-_:
+{ lib, metaOwner, ... }:
 let
+  ownerName = metaOwner.name or metaOwner.username;
+  claudeToCodexTerms = [
+    {
+      from = "AskUserQuestion";
+      to = "request_user_input";
+    }
+    {
+      from = ''
+        - Use `rg` or `rg --files` first for search.
+      '';
+      to = ''
+        - Use `rg` or `rg --files` first for search.
+        - Always set `timeout_ms` explicitly for shell commands because sandboxed
+          commands can hit a short default timeout. Use `60000` ms when no
+          command-specific timeout is obvious, and increase it further for builds,
+          installs, tests, or other long-running commands.
+      '';
+    }
+  ];
+  translateClaudeForCodex =
+    text:
+    assert lib.all (term: lib.hasInfix term.from text) claudeToCodexTerms;
+    builtins.replaceStrings (map (term: term.from) claudeToCodexTerms) (map (
+      term: term.to
+    ) claudeToCodexTerms) text;
+
   claude = ''
     ## Agent Contract
 
@@ -121,7 +147,7 @@ let
     ## Root Cause Fixes
 
     Fix the producer of bad output, not downstream consumers. If the current
-    codebase or the user Bad3r (`gh api user --jq .login`) controls the producer of
+    codebase or the user ${ownerName} (`gh api user --jq .login`) controls the producer of
     a bad generated artifact, package, build output, API response, fixture, cache,
     lockfile, release asset, or similar output, repair that producer and add a
     regression check that would fail on the bad output.
@@ -256,6 +282,6 @@ in
 {
   flake.lib.agents.instructions = {
     inherit claude;
-    codex = builtins.replaceStrings [ "AskUserQuestion" ] [ "request_user_input" ] claude;
+    codex = translateClaudeForCodex claude;
   };
 }
