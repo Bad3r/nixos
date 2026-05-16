@@ -12,7 +12,7 @@
   Options:
     enable: Toggle the doom-emacs integration; the actual package is installed by the Home Manager module.
     package: Emacs derivation passed to Unstraightened (defaults to pkgs.emacs from the emacs-overlay).
-    doomDir: Path to the doomdir bundled into the build (defaults to the upstream Doom starter templates).
+    doomDir: Path to the doomdir bundled into the build (defaults to the existing static starter doomdir).
     enableService: Enable the Home Manager `services.emacs` user daemon backed by Doom.
 
   Notes:
@@ -77,10 +77,12 @@
           defaultText = lib.literalExpression "./doom-emacs-doomdir";
           description = ''
             Path to the Doom configuration directory (init.el / packages.el / config.el)
-            bundled into the build. The default ships the upstream Doom starter
-            templates (static/{init,packages,config}.example.el) and gives a working
-            evil/vertico/corfu/magit setup out of the box. Override to layer in a
-            personal doomdir.
+            bundled into the build. The default stays on the committed static
+            starter doomdir because nix-doom-emacs-unstraightened imports
+            generated intermediates during evaluation; changing the default
+            contents requires that intermediate output to be realized before
+            no-build flake validation can pass. Override to layer in a personal
+            doomdir.
           '';
         };
 

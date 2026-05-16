@@ -54,10 +54,55 @@ _: {
           # this repo opts those Home Manager wrappers out (`package = null`),
           # so the upstream default would inject null entries that fail
           # `types.listOf types.package`. Source the binaries directly from pkgs.
+          extraPackages = epkgs: [
+            (epkgs.treesit-grammars.with-grammars (
+              grammars: with grammars; [
+                tree-sitter-bash
+                tree-sitter-c
+                tree-sitter-css
+                tree-sitter-go
+                tree-sitter-html
+                tree-sitter-javascript
+                tree-sitter-jsdoc
+                tree-sitter-json
+                tree-sitter-lua
+                tree-sitter-markdown
+                tree-sitter-markdown-inline
+                tree-sitter-nix
+                tree-sitter-python
+                tree-sitter-rust
+                tree-sitter-toml
+                tree-sitter-tsx
+                tree-sitter-typescript
+                tree-sitter-yaml
+              ]
+            ))
+          ];
           extraBinPackages = with pkgs; [
-            git
-            ripgrep
+            bash-language-server
+            biome
             fd
+            git
+            glow
+            go
+            gopls
+            jq
+            lua-language-server
+            marksman
+            nixd
+            nixfmt
+            pyright
+            ripgrep
+            ruff
+            rust-analyzer
+            rustfmt
+            shfmt
+            stylua
+            taplo
+            typescript-language-server
+            uv
+            vscode-langservers-extracted
+            yaml-language-server
           ];
         };
 
