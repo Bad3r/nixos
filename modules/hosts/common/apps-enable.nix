@@ -158,6 +158,7 @@ let
       gawk.extended.enable = lib.mkOverride 1100 true;
       gcc.extended.enable = lib.mkOverride 1100 true;
       gdb.extended.enable = lib.mkOverride 1100 true;
+      "generation-manager".extended.enable = lib.mkOverride 1100 true;
       ghidra.extended.enable = lib.mkOverride 1100 true;
       gimp.extended.enable = lib.mkOverride 1100 false;
       git.extended.enable = lib.mkOverride 1100 true;
@@ -289,6 +290,7 @@ let
       "nomachine-client".extended.enable = lib.mkOverride 1100 true;
       normcap.extended.enable = lib.mkOverride 1100 true;
       nrm.extended.enable = lib.mkOverride 1100 true;
+      nrun.extended.enable = lib.mkOverride 1100 true;
       nsxiv.extended.enable = lib.mkOverride 1100 true;
       ntfs3g.extended.enable = lib.mkOverride 1100 true;
       nuclei.extended.enable = lib.mkOverride 1100 true;
@@ -374,6 +376,7 @@ let
       sourcemapper.extended.enable = lib.mkOverride 1100 true;
       "spec-kit".extended.enable = lib.mkOverride 1100 true;
       spectacle.extended.enable = lib.mkOverride 1100 false;
+      spwn.extended.enable = lib.mkOverride 1100 true;
       sqlite.extended.enable = lib.mkOverride 1100 true;
       sqlmap.extended.enable = lib.mkOverride 1100 true;
       "ssh-audit".extended.enable = lib.mkOverride 1100 true;
