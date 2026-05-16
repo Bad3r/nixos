@@ -643,7 +643,7 @@ _: {
                   enable = true;
                   setupLspCapabilities = false;
                   settings = {
-                    enabled.__raw = "function() return false end";
+                    enabled.__raw = "function() return vim.fn.getcmdtype() == ':' end";
 
                     completion.ghost_text = {
                       show_without_selection = true;
