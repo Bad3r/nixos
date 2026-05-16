@@ -177,6 +177,71 @@ _: {
 
               dependencies.glow.enable = true;
 
+              extraConfigLuaPre = ''
+                package.preload["nixvim.cmdline_history_source"] = function()
+                  local source = {}
+
+                  function source.new(opts)
+                    local self = setmetatable({}, { __index = source })
+                    self.opts = opts or {}
+                    self.limit = self.opts.limit or 200
+                    return self
+                  end
+
+                  function source:enabled()
+                    return vim.fn.getcmdtype() == ":"
+                  end
+
+                  local function starts_with(value, prefix)
+                    return value:sub(1, #prefix) == prefix
+                  end
+
+                  function source:get_completions(ctx, callback)
+                    local line = ctx.line or (ctx.get_line and ctx.get_line()) or vim.fn.getcmdline()
+                    local latest = vim.fn.histnr(":")
+                    local floor = math.max(1, latest - self.limit + 1)
+                    local seen = {}
+                    local items = {}
+                    local line_pos = ctx.cursor and (ctx.cursor[1] - 1) or 0
+
+                    for index = latest, floor, -1 do
+                      local command = vim.fn.histget(":", index)
+                      if
+                        command ~= nil
+                        and command ~= ""
+                        and command ~= line
+                        and starts_with(command, line)
+                        and not seen[command]
+                      then
+                        seen[command] = true
+                        items[#items + 1] = {
+                          label = command,
+                          filterText = command,
+                          sortText = string.format("%06d", latest - index),
+                          textEdit = {
+                            newText = command,
+                            range = {
+                              start = { line = line_pos, character = 0 },
+                              ["end"] = { line = line_pos, character = #line },
+                            },
+                          },
+                          insertTextFormat = vim.lsp.protocol.InsertTextFormat.PlainText,
+                          kind = require("blink.cmp.types").CompletionItemKind.Text,
+                        }
+                      end
+                    end
+
+                    callback({
+                      items = items,
+                      is_incomplete_backward = true,
+                      is_incomplete_forward = true,
+                    })
+                  end
+
+                  return source
+                end
+              '';
+
               # Otter configuration:
               # 1. Deferred activation - prevents blocking UI while otter creates buffers/attaches LSPs
               # 2. Automatic activation is limited to buffers that actually contain injected languages,
@@ -543,6 +608,92 @@ _: {
                       "<leader>rn" = "rename";
                       "<leader>ca" = "code_action";
                       "<leader>f" = "format";
+                    };
+                  };
+                };
+
+                noice = {
+                  enable = true;
+                  settings = {
+                    cmdline = {
+                      enabled = true;
+                      view = "cmdline";
+                    };
+                    messages.enabled = false;
+                    popupmenu.enabled = false;
+                    notify.enabled = false;
+                    lsp = {
+                      progress.enabled = false;
+                      hover.enabled = false;
+                      signature.enabled = false;
+                      message.enabled = false;
+                    };
+                    smart_move.enabled = false;
+                    presets = {
+                      bottom_search = false;
+                      command_palette = false;
+                      long_message_to_split = false;
+                      inc_rename = false;
+                      lsp_doc_border = false;
+                    };
+                  };
+                };
+
+                blink-cmp = {
+                  enable = true;
+                  setupLspCapabilities = false;
+                  settings = {
+                    enabled.__raw = "function() return false end";
+
+                    completion.ghost_text = {
+                      show_without_selection = true;
+                      show_without_menu = true;
+                    };
+
+                    cmdline = {
+                      enabled = true;
+                      keymap = {
+                        preset = "cmdline";
+                        "<CR>" = [
+                          "select_accept_and_enter"
+                          "fallback"
+                        ];
+                        "<Right>" = [
+                          "select_and_accept"
+                          "fallback"
+                        ];
+                        "<C-y>" = [
+                          "select_and_accept"
+                          "fallback"
+                        ];
+                      };
+                      sources.__raw = ''
+                        function()
+                          if vim.fn.getcmdtype() == ":" then
+                            return { "cmdline_history", "cmdline" }
+                          end
+                          return {}
+                        end
+                      '';
+                      completion = {
+                        menu.auto_show = false;
+                        ghost_text = {
+                          enabled.__raw = ''
+                            function()
+                              local ghost_text = package.loaded["blink.cmp.completion.windows.ghost_text"]
+                              local item = ghost_text and ghost_text.selected_item
+                              return item ~= nil and item.source_id == "cmdline_history"
+                            end
+                          '';
+                        };
+                      };
+                    };
+
+                    sources.providers.cmdline_history = {
+                      name = "Cmdline History";
+                      module = "nixvim.cmdline_history_source";
+                      score_offset = 100;
+                      opts.limit = 200;
                     };
                   };
                 };
