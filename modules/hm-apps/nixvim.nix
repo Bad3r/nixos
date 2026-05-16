@@ -60,7 +60,15 @@ _: {
               viAlias = true;
               vimAlias = true;
               defaultEditor = true;
-              extraPackages = [ pkgs.biome ];
+              extraPackages = with pkgs; [
+                biome
+                nixfmt
+                prettier
+                ruff
+                shfmt
+                stylua
+                taplo
+              ];
 
               colorschemes.onedark.enable = true;
 
@@ -1023,6 +1031,7 @@ _: {
                       nix = [ "nixfmt" ];
                       lua = [ "stylua" ];
                       toml = [ "taplo" ];
+                      # Biome: JS/TS/JSON/CSS/HTML
                       javascript = [ "biome" ];
                       typescript = [ "biome" ];
                       javascriptreact = [ "biome" ];
@@ -1031,6 +1040,9 @@ _: {
                       jsonc = [ "biome" ];
                       css = [ "biome" ];
                       html = [ "biome" ];
+                      # Prettier: formats Biome does not cover here
+                      yaml = [ "prettier" ];
+                      markdown = [ "prettier" ];
                       # JSONL: jq -c keeps one value per line
                       jsonl = [ "jq_jsonl" ];
                       # Rust uses rustfmt via rust-analyzer (lsp_format fallback)
