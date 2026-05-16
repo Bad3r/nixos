@@ -44,7 +44,7 @@ let
     "path"
   ] null config;
 
-  policies = lib.recursiveUpdate geckoPolicies.policies geckoExtensions.extensionPolicies;
+  policies = lib.recursiveUpdate (lib.recursiveUpdate geckoPolicies.policies geckoBookmarks.policies) geckoExtensions.extensionPolicies;
 
   mkProfile =
     {

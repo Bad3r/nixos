@@ -128,6 +128,10 @@ in
 {
   inherit plaintextUrls;
 
+  policies = {
+    NoDefaultBookmarks = false;
+  };
+
   settings =
     bookmarksFile:
     lib.optionalAttrs (bookmarksFile != null) {
