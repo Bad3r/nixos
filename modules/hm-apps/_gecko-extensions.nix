@@ -394,6 +394,7 @@ in
         raindropId
         tabStashId
         stylusId
+        tridactylId
         onePasswordId
       ];
       sidebarTools = [
