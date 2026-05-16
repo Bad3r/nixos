@@ -185,8 +185,6 @@ in
           '';
     in
     {
-      inherit playlistFilter ytdlpCookies;
-
       scripts = {
         playlistFilter = mkLuaScript {
           name = playlistFilter.scriptName;
