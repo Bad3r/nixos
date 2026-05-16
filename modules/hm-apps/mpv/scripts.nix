@@ -1,10 +1,4 @@
-/*
-  Internal: shared mpv scripts
-  Description: Local mpv scripts rendered from Nix data and installed through
-  Home Manager's programs.mpv.scripts option.
-*/
-
-{ lib, pkgs }:
+{ lib, ... }:
 let
   luaString = value: builtins.toJSON value;
 
@@ -13,19 +7,6 @@ let
     ${lib.concatMapStringsSep "\n" (value: "  [${luaString value}] = true,") values}
     }
   '';
-
-  mkLuaScript =
-    {
-      name,
-      text,
-    }:
-    pkgs.runCommand "mpv-${name}"
-      {
-        passthru.scriptName = "${name}.lua";
-      }
-      ''
-        install -Dm444 ${pkgs.writeText "${name}.lua" text} "$out/share/mpv/scripts/${name}.lua"
-      '';
 
   ytdlpCookies = {
     optionName = "cookies-from-browser";
@@ -187,17 +168,35 @@ let
   '';
 in
 {
-  inherit playlistFilter ytdlpCookies;
+  flake.lib.homeManager.mpvScripts =
+    { pkgs, ... }:
+    let
+      mkLuaScript =
+        {
+          name,
+          text,
+        }:
+        pkgs.runCommand "mpv-${name}"
+          {
+            passthru.scriptName = "${name}.lua";
+          }
+          ''
+            install -Dm444 ${pkgs.writeText "${name}.lua" text} "$out/share/mpv/scripts/${name}.lua"
+          '';
+    in
+    {
+      inherit playlistFilter ytdlpCookies;
 
-  scripts = {
-    playlistFilter = mkLuaScript {
-      name = playlistFilter.scriptName;
-      text = playlistFilterLua;
-    };
+      scripts = {
+        playlistFilter = mkLuaScript {
+          name = playlistFilter.scriptName;
+          text = playlistFilterLua;
+        };
 
-    ytdlpCookies = mkLuaScript {
-      name = "ytdlp_cookies";
-      text = ytdlpCookiesLua;
+        ytdlpCookies = mkLuaScript {
+          name = "ytdlp_cookies";
+          text = ytdlpCookiesLua;
+        };
+      };
     };
-  };
 }

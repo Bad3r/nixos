@@ -21,7 +21,11 @@
     * `mpv --profile=high-quality movie.mkv` -- Apply high-quality profile for playback.
 */
 
-_: {
+{ config, ... }:
+let
+  mpvScripts = config.flake.lib.homeManager.mpvScripts;
+in
+{
   flake.homeManagerModules.apps.mpv =
     {
       osConfig,
@@ -33,7 +37,7 @@ _: {
     let
       nixosEnabled = lib.attrByPath [ "programs" "mpv" "extended" "enable" ] false osConfig;
       extraScripts = lib.attrByPath [ "programs" "mpv" "extended" "extraScripts" ] [ ] osConfig;
-      localScripts = import ../_mpv-scripts.nix { inherit lib pkgs; };
+      localScripts = mpvScripts { inherit lib pkgs; };
     in
     {
       config = lib.mkIf nixosEnabled {
