@@ -158,6 +158,7 @@ let
       gawk.extended.enable = lib.mkOverride 1100 true;
       gcc.extended.enable = lib.mkOverride 1100 true;
       gdb.extended.enable = lib.mkOverride 1100 true;
+      "generation-manager".extended.enable = lib.mkOverride 1100 true;
       ghidra.extended.enable = lib.mkOverride 1100 true;
       gimp.extended.enable = lib.mkOverride 1100 false;
       git.extended.enable = lib.mkOverride 1100 true;
