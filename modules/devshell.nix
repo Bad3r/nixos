@@ -88,7 +88,7 @@
           lib.unique (
             (with pkgs; [
               nixfmt
-              nil # Nix LSP
+              nixd # Nix LSP
               nix-tree
               nix-diff
               zsh

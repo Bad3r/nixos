@@ -270,7 +270,7 @@ let
       networkmanagerapplet.extended.enable = lib.mkOverride 1100 true;
       nftables.extended.enable = lib.mkOverride 1100 true;
       nicotine.extended.enable = lib.mkOverride 1100 true;
-      nil.extended.enable = lib.mkOverride 1100 true;
+      nixd.extended.enable = lib.mkOverride 1100 true;
       niv.extended.enable = lib.mkOverride 1100 true;
       "nix-diff".extended.enable = lib.mkOverride 1100 true;
       "nix-direnv".extended.enable = lib.mkOverride 1100 true;
