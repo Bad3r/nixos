@@ -68,6 +68,11 @@ let
                 exit 2
               fi
               ;;
+            -*)
+              echo "nrun: unknown option: $1" >&2
+              usage >&2
+              exit 2
+              ;;
           esac
 
           pkg="$1"
