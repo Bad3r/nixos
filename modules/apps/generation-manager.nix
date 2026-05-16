@@ -164,14 +164,14 @@ let
                       exit 1
                     fi
                     echo -e "''${YELLOW}Switching to configuration for host: $2''${NC}"
-                    execute_cmd nixos-rebuild switch --flake ".#$2"
+                    execute_cmd sudo nixos-rebuild switch --flake ".#$2"
                     ;;
 
                   rollback)
                     gens="''${2:-1}"
                     echo -e "''${YELLOW}Rolling back $gens generation(s)...''${NC}"
                     for _ in $(seq 1 "$gens"); do
-                      execute_cmd nixos-rebuild switch --rollback
+                      execute_cmd sudo nixos-rebuild switch --rollback
                     done
                     ;;
 
@@ -212,10 +212,11 @@ let
                     echo -n "1. No literal path imports: "
                     if [ -d modules ]; then
                       # Enhanced pattern to catch actual file path imports
-                      # Matches: ./file, ../file, /absolute/path
+                      # Matches: ./file and ../file
                       literal_imports=$(grep -Hn -E '^[[:space:]]*imports[[:space:]]*=' modules/ -r 2>/dev/null | \
+                        sed -E 's/[[:space:]]#.*$//' | \
                         grep -E '\./|\.\./' | \
-                        grep -v '# ' | grep -v '//' || true)
+                        grep -v -E '^[^:]+:[0-9]+:[[:space:]]*#' || true)
                       if [ -z "$literal_imports" ]; then
                         import_count=0
                       else
@@ -241,7 +242,7 @@ let
                     # Check TODOs (warning only, no points)
                     echo -n "2. TODO Comments: "
                     if [ -d modules ]; then
-                      todo_list=$(grep -Hn "TODO" modules/ -r 2>/dev/null | grep -v "generation-manager.nix" || true)
+                      todo_list=$(grep -Hn -r --exclude=generation-manager.nix "TODO" modules/ 2>/dev/null || true)
                       if [ -z "$todo_list" ]; then
                         todo_count=0
                       else
@@ -265,10 +266,6 @@ let
 
                     if [ $SCORE -eq $MAX_SCORE ]; then
                       echo -e "''${GREEN}✅ PERFECT COMPLIANCE!''${NC}"
-                    elif [ $((SCORE * 100 / MAX_SCORE)) -ge 90 ]; then
-                      echo -e "''${GREEN}✅ Excellent compliance!''${NC}"
-                    elif [ $((SCORE * 100 / MAX_SCORE)) -ge 70 ]; then
-                      echo -e "''${YELLOW}⚠ Good progress, improvements needed''${NC}"
                     else
                       echo -e "''${RED}❌ Significant improvements required''${NC}"
                     fi
