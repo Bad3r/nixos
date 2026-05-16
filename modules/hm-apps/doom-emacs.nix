@@ -39,7 +39,7 @@ _: {
       ] { } osConfig;
 
       doomPackage = doomCfg.package;
-      inherit (doomCfg) doomDir enableService;
+      inherit (doomCfg) doomDir enableLanguageTooling enableService;
     in
     {
       imports = [ inputs.nix-doom-emacs-unstraightened.homeModule ];
@@ -54,11 +54,63 @@ _: {
           # this repo opts those Home Manager wrappers out (`package = null`),
           # so the upstream default would inject null entries that fail
           # `types.listOf types.package`. Source the binaries directly from pkgs.
-          extraBinPackages = with pkgs; [
-            git
-            ripgrep
-            fd
-          ];
+          extraPackages =
+            epkgs:
+            lib.optionals enableLanguageTooling [
+              (epkgs.treesit-grammars.with-grammars (
+                grammars: with grammars; [
+                  tree-sitter-bash
+                  tree-sitter-c
+                  tree-sitter-css
+                  tree-sitter-go
+                  tree-sitter-html
+                  tree-sitter-javascript
+                  tree-sitter-jsdoc
+                  tree-sitter-json
+                  tree-sitter-lua
+                  tree-sitter-markdown
+                  tree-sitter-markdown-inline
+                  tree-sitter-nix
+                  tree-sitter-python
+                  tree-sitter-rust
+                  tree-sitter-toml
+                  tree-sitter-tsx
+                  tree-sitter-typescript
+                  tree-sitter-yaml
+                ]
+              ))
+            ];
+          extraBinPackages =
+            with pkgs;
+            [
+              fd
+              git
+              ripgrep
+            ]
+            ++ lib.optionals enableLanguageTooling [
+              bash-language-server
+              biome
+              clang-tools
+              glow
+              go
+              gopls
+              jq
+              lua-language-server
+              marksman
+              nixd
+              nixfmt
+              pyright
+              ruff
+              rust-analyzer
+              rustfmt
+              shfmt
+              stylua
+              taplo
+              typescript-language-server
+              uv
+              vscode-langservers-extracted
+              yaml-language-server
+            ];
         };
 
         services.emacs.enable = lib.mkDefault enableService;
