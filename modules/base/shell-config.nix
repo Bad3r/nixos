@@ -5,21 +5,7 @@
     {
       imports = [ inputs.nix-index-database.nixosModules.nix-index ];
 
-      environment = {
-        binsh = "${pkgs.dash}/bin/dash";
-        # Shell utility: nrun <pkg> [args...] → nix run nixpkgs#<pkg> -- [args...]
-        systemPackages = [
-          (pkgs.writeShellApplication {
-            name = "nrun";
-            runtimeInputs = [ pkgs.nix ];
-            text = /* bash */ ''
-              pkg="$1"
-              shift
-              nix run "nixpkgs#$pkg" -- "$@"
-            '';
-          })
-        ];
-      };
+      environment.binsh = "${pkgs.dash}/bin/dash";
 
       programs = {
         zsh.enable = true;

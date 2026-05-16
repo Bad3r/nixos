@@ -290,6 +290,7 @@ let
       "nomachine-client".extended.enable = lib.mkOverride 1100 true;
       normcap.extended.enable = lib.mkOverride 1100 true;
       nrm.extended.enable = lib.mkOverride 1100 true;
+      nrun.extended.enable = lib.mkOverride 1100 true;
       nsxiv.extended.enable = lib.mkOverride 1100 true;
       ntfs3g.extended.enable = lib.mkOverride 1100 true;
       nuclei.extended.enable = lib.mkOverride 1100 true;
