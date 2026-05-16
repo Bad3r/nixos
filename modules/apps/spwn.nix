@@ -110,7 +110,7 @@ let
 
           if $detached; then
             unit="''${unit_base}.service"
-            if ! run_output="$(systemd-run --user --collect --unit "$unit_base" -- "$@" 2>&1)"; then
+            if ! run_output="$(systemd-run --user --collect --same-dir --service-type=exec --unit "$unit_base" -- "$@" 2>&1)"; then
               if [[ -n "$run_output" ]]; then
                 printf '%s\n' "$run_output" >&2
               fi
