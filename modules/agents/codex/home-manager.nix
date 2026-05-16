@@ -18,6 +18,8 @@
   Notes:
     * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
+    * User-level instructions generated via flake.lib.agents.instructions
+      (modules/agents/instructions.nix)
     * Config is split across private helpers in modules/agents/codex/
     * Package installation handled by NixOS module (modules/apps/codex.nix) via llm-agents.nix.
     * Config is split into three TOML files merged at launch by the codex wrapper:
@@ -76,6 +78,7 @@ _: {
       };
 
       commitSkillDir = (agents.skills.commit.codex pkgs).dir;
+      codexInstructions = agents.instructions.codex;
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -184,11 +187,7 @@ _: {
           "codex/rules/20-managed.rules".source = execPolicy.execPolicyManagedRulesFile;
 
           # User-level Codex instructions under XDG config home
-          "codex/AGENTS.md".text = ''
-            If you are unsure how to do something, use `gh_grep` to search code examples from GitHub.
-            Always set `timeout_ms` explicitly for shell commands because sandboxed commands can hit a short default timeout.
-            Use `60000` ms when no command-specific timeout is obvious, and increase it further for builds, installs, tests, or other long-running commands.
-          '';
+          "codex/AGENTS.md".text = codexInstructions;
 
           # Commit skill (user-scoped, discovered by SkillsManager at ~/.agents/skills/)
           "agents/skills/commit".source = commitSkillDir;
