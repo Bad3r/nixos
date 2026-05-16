@@ -134,6 +134,20 @@ Work in that tree, then create a PR:
 gh pr create --title "<type>(scope): summary" --body "..."
 ```
 
+After the PR merges, remove the finished worktree through the safe helper:
+
+```sh
+scripts/git-worktree-remove-safe.sh "$HOME/trees/nixos/<type>-<name>"
+git branch -d "<type>/<name>"
+git worktree prune
+```
+
+This repo has an initialized `secrets/` submodule, so plain
+`git worktree remove` can fail on clean worktrees with
+`working trees containing submodules cannot be moved or removed`. The helper
+checks for dirty and locked worktrees first, then uses `--force` only for that
+Git submodule guard.
+
 Branch type should follow Conventional Commits prefixes. PR bodies should
 include:
 
