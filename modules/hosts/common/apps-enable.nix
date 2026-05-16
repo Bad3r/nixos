@@ -376,6 +376,7 @@ let
       sourcemapper.extended.enable = lib.mkOverride 1100 true;
       "spec-kit".extended.enable = lib.mkOverride 1100 true;
       spectacle.extended.enable = lib.mkOverride 1100 false;
+      spwn.extended.enable = lib.mkOverride 1100 true;
       sqlite.extended.enable = lib.mkOverride 1100 true;
       sqlmap.extended.enable = lib.mkOverride 1100 true;
       "ssh-audit".extended.enable = lib.mkOverride 1100 true;
