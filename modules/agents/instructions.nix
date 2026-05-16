@@ -1,32 +1,8 @@
-{ lib, metaOwner, ... }:
+{ metaOwner, ... }:
 let
   ownerName = metaOwner.name or metaOwner.username;
-  claudeToCodexTerms = [
-    {
-      from = "AskUserQuestion";
-      to = "request_user_input";
-    }
-    {
-      from = ''
-        - Use `rg` or `rg --files` first for search.
-      '';
-      to = ''
-        - Use `rg` or `rg --files` first for search.
-        - Always set `timeout_ms` explicitly for shell commands because sandboxed
-          commands can hit a short default timeout. Use `60000` ms when no
-          command-specific timeout is obvious, and increase it further for builds,
-          installs, tests, or other long-running commands.
-      '';
-    }
-  ];
-  translateClaudeForCodex =
-    text:
-    assert lib.all (term: lib.hasInfix term.from text) claudeToCodexTerms;
-    builtins.replaceStrings (map (term: term.from) claudeToCodexTerms) (map (
-      term: term.to
-    ) claudeToCodexTerms) text;
 
-  claude = ''
+  beforeToolUse = ''
     ## Agent Contract
 
     Act as a repository-aware engineering agent. Prefer local truth over memory:
@@ -55,42 +31,63 @@ let
 
     Do not restart from scratch after interruptions or compacted context. Continue
     from the latest user request and current workspace state.
+  '';
 
-    ## Tool Use
+  codexShellRules = [
+    ''
+      - Always set `timeout_ms` explicitly for shell commands because sandboxed
+        commands can hit a short default timeout. Use `60000` ms when no
+        command-specific timeout is obvious, and increase it further for builds,
+        installs, tests, or other long-running commands.
+    ''
+  ];
 
-    - Use `rg` or `rg --files` first for search.
-    - Before reading a known plain-text file, check its size and extension. If the
-      file is larger than 50 KB, search or sample the needed region instead of
-      dumping it.
-    - Use structured tools for structured files: `jq` for JSON, `yq` for YAML,
-      TOML, XML, CSV, INI, and HCL, `htmlq -f` for HTML, and `sqlite3` for SQLite.
-    - Read files before editing them.
-    - Prefer non-interactive commands. Avoid commands that wait for a TTY unless the
-      user explicitly asks for an interactive session.
-    - Keep command output bounded. Filter large output with specific searches or
-      targeted ranges.
-    - When a command is missing, try `nix run nixpkgs#<pkg> -- <flags>` before
-      asking the user to install software. Use `nix search nixpkgs <term>` when the
-      package attribute is unclear.
+  toolUse =
+    {
+      questionTool,
+      extraShellRules ? [ ],
+    }:
+    ''
+      ## Tool Use
 
-    Use `AskUserQuestion` only when progress is blocked by information or approval
-    that cannot be recovered from local context. Good uses include choosing between
-    materially different implementations, approving a destructive or irreversible
-    operation, selecting a credential or account the agent cannot infer, confirming
-    an externally controlled deployment target, or resolving a direct conflict
-    between active instructions. Ask one concise question when possible. Include the
-    tradeoff or risk that makes the answer necessary.
+      - Use `rg` or `rg --files` first for search.
+    ''
+    + builtins.concatStringsSep "" extraShellRules
+    + ''
+      - Before reading a known plain-text file, check its size and extension. If the
+        file is larger than 50 KB, search or sample the needed region instead of
+        dumping it.
+      - Use structured tools for structured files: `jq` for JSON, `yq` for YAML,
+        TOML, XML, CSV, INI, and HCL, `htmlq -f` for HTML, and `sqlite3` for SQLite.
+      - Read files before editing them.
+      - Prefer non-interactive commands. Avoid commands that wait for a TTY unless the
+        user explicitly asks for an interactive session.
+      - Keep command output bounded. Filter large output with specific searches or
+        targeted ranges.
+      - When a command is missing, try `nix run nixpkgs#<pkg> -- <flags>` before
+        asking the user to install software. Use `nix search nixpkgs <term>` when the
+        package attribute is unclear.
 
-    Do not use `AskUserQuestion` for facts that can be discovered by reading the
-    repo, generated files, logs, local mirrors, or command output. Do not ask for
-    permission to perform routine read-only inspection, formatting, targeted
-    validation, or clearly requested edits. When a safe assumption is available,
-    state the assumption and continue.
+      Use `${questionTool}` only when progress is blocked by information or approval
+      that cannot be recovered from local context. Good uses include choosing between
+      materially different implementations, approving a destructive or irreversible
+      operation, selecting a credential or account the agent cannot infer, confirming
+      an externally controlled deployment target, or resolving a direct conflict
+      between active instructions. Ask one concise question when possible. Include the
+      tradeoff or risk that makes the answer necessary.
 
-    Use skills for repeatable multi-step workflows. If the user invokes a named
-    skill, read and follow that skill before improvising. Keep always-active
-    conventions in this file, not inside ad hoc task plans.
+      Do not use `${questionTool}` for facts that can be discovered by reading the
+      repo, generated files, logs, local mirrors, or command output. Do not ask for
+      permission to perform routine read-only inspection, formatting, targeted
+      validation, or clearly requested edits. When a safe assumption is available,
+      state the assumption and continue.
 
+      Use skills for repeatable multi-step workflows. If the user invokes a named
+      skill, read and follow that skill before improvising. Keep always-active
+      conventions in this file, not inside ad hoc task plans.
+    '';
+
+  afterToolUse = ''
     ## Editing Rules
 
     - Preserve unrelated dirty state. Never revert or overwrite changes that are not
@@ -278,10 +275,22 @@ let
     - files module: `/data/git/mightyiam-files`
       Update generated NixOS artifact sources such as `.gitignore`.
   '';
+
+  mkInstructions =
+    {
+      questionTool,
+      extraShellRules ? [ ],
+    }:
+    beforeToolUse + "\n" + toolUse { inherit questionTool extraShellRules; } + "\n" + afterToolUse;
+
+  claude = mkInstructions { questionTool = "AskUserQuestion"; };
+  codex = mkInstructions {
+    questionTool = "request_user_input";
+    extraShellRules = codexShellRules;
+  };
 in
 {
   flake.lib.agents.instructions = {
-    inherit claude;
-    codex = translateClaudeForCodex claude;
+    inherit claude codex;
   };
 }
