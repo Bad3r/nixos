@@ -55,7 +55,7 @@ let
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
       bottom.extended.enable = lib.mkOverride 1100 true;
-      brave.extended.enable = lib.mkOverride 1100 true;
+      brave.extended.enable = lib.mkOverride 1100 false;
       "brave-origin".extended.enable = lib.mkOverride 1100 true;
       brightnessctl.extended.enable = lib.mkOverride 1100 true;
       bubblewrap.extended.enable = lib.mkOverride 1100 true;
