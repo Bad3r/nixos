@@ -145,8 +145,8 @@ git worktree prune
 This repo has an initialized `secrets/` submodule, so plain
 `git worktree remove` can fail on clean worktrees with
 `working trees containing submodules cannot be moved or removed`. The helper
-checks for dirty and locked worktrees first, then uses `--force` only for that
-Git submodule guard.
+checks for dirty, ignored, and locked worktrees first, then uses `--force` only
+for that Git submodule guard.
 
 Branch type should follow Conventional Commits prefixes. PR bodies should
 include:

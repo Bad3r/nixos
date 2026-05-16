@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+export LC_ALL=C
 
 prog_name="${0##*/}"
 
@@ -77,9 +78,9 @@ require_clean_worktree() {
   local worktree_path status submodule_status
   worktree_path="$1"
 
-  status="$(git -C "${worktree_path}" status --porcelain=v1 --untracked-files=all)"
+  status="$(git -C "${worktree_path}" status --porcelain=v1 --untracked-files=all --ignored=matching)"
   if [[ -n ${status} ]]; then
-    error_msg "refusing to remove dirty worktree: ${worktree_path}"
+    error_msg "refusing to remove worktree with dirty, untracked, or ignored local state: ${worktree_path}"
     printf '%s\n' "${status}" >&2
     exit 1
   fi
@@ -87,7 +88,7 @@ require_clean_worktree() {
   # shellcheck disable=SC2016 # This body runs inside git-submodule foreach.
   if ! submodule_status="$(
     git -C "${worktree_path}" submodule foreach --quiet --recursive '
-      status="$(git status --porcelain=v1 --untracked-files=all)"
+      status="$(git status --porcelain=v1 --untracked-files=all --ignored=matching)"
       if test -n "${status}"; then
         printf "%s\n%s\n" "${displaypath}" "${status}"
         exit 1
@@ -137,8 +138,9 @@ main() {
       printf '%s\n' "${remove_output}" >&2
     fi
     exit 0
+  else
+    remove_status="$?"
   fi
-  remove_status="$?"
 
   if [[ ${remove_output} == *"working trees containing submodules cannot be moved or removed"* ]]; then
     error_msg "worktree contains submodules; retrying with --force after clean checks: ${worktree_path}"

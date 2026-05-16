@@ -142,7 +142,8 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
   - Why: the repository has the initialized `secrets/` submodule. Plain
     `git worktree remove` can fail on clean worktrees with
     `working trees containing submodules cannot be moved or removed`; the helper
-    refuses dirty or locked worktrees before using `--force` for that Git guard.
+    refuses dirty, ignored, or locked worktrees before using `--force` for that
+    Git guard.
 
 Branch type should follow Conventional Commits prefixes.
 
