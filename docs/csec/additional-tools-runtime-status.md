@@ -9,9 +9,9 @@ Verified on 2026-05-04 against the active flake pin.
 
 ## Summary
 
-| Result                                                          | Count   |
-| --------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                            | 104     |
+| Result                                                           | Count   |
+| ---------------------------------------------------------------- | ------- |
+| ✅ Run as documented                                             | 101     |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
 | ⚠️ Build or evaluation error                                     | 9       |
 | ⚠️ Binary path mismatch in the documented attribute              | 5       |
@@ -20,11 +20,10 @@ Verified on 2026-05-04 against the active flake pin.
 | ⚠️ External (non-nixpkgs) toolchain blocked                      | 2       |
 | ⚠️ Closure too large for smoke budget                            | 1       |
 | ⚠️ Documented uvx / PyPI invocation broken                       | 2       |
-| **Total entries in the reference**                              | **137** |
+| **Total entries in the reference**                               | **134** |
 
 The reference doc flags each unavailable tool inline (the entry's `run..:`
-field carries text such as `Not in nixpkgs ...` or `Must create a custom
-nixpkg`); there is no dedicated section for them. The groupings below are
+field carries text such as `Not in nixpkgs ...` or `Must create a custom nixpkg`); there is no dedicated section for them. The groupings below are
 this report's, collected by the underlying reason for the failure.
 
 ## ✅ Tools that run as documented
@@ -47,7 +46,6 @@ this report's, collected by the underlying reason for the failure.
 - ✅ nikto
 - ✅ wafw00f
 - ✅ rustscan
-- ✅ naabu
 - ✅ theharvester
 - ✅ sherlock
 - ✅ bettercap
@@ -57,7 +55,6 @@ this report's, collected by the underlying reason for the failure.
 - ✅ dnsrecon
 - ✅ massdns
 - ✅ shuffledns
-- ✅ assetfinder
 - ✅ httprobe
 - ✅ cero
 - ✅ chaos
@@ -86,7 +83,6 @@ this report's, collected by the underlying reason for the failure.
 - ✅ qsreplace
 - ✅ meg
 - ✅ wuzz
-- ✅ tlsx
 - ✅ exploitdb (`searchsploit`)
 - ✅ paramspider (uvx)
 - ✅ commix
@@ -224,8 +220,7 @@ exist (or `meta.mainProgram` is wrong).
   `nix shell --impure nixpkgs#volatility3 -c vol --help`.
 - ⚠️ ligolo-ng: package contains `ligolo-proxy` and `ligolo-agent`; no
   `ligolo-ng` binary. Use `nix shell nixpkgs#ligolo-ng -c ligolo-proxy --help`.
-- ⚠️ pwntools: `meta.mainProgram` is unset, the binary is `pwn`. `nix run
-nixpkgs#pwntools` fails. Use `nix shell nixpkgs#pwntools -c pwn --help`.
+- ⚠️ pwntools: `meta.mainProgram` is unset, the binary is `pwn`. `nix run nixpkgs#pwntools` fails. Use `nix shell nixpkgs#pwntools -c pwn --help`.
 
 ### Documented attribute resolves to a different upstream project
 
@@ -292,5 +287,4 @@ regressing on these entries:
   package ropnop's Go tool to match the documented command form.
 - `hayabusa`: nixpkgs `hayabusa` is a different project; document the
   Yamato Security EVTX Sigma scanner as needing a custom package.
-- `frp`: the package has no default app; document it as `nix shell
-nixpkgs#frp -c frpc -c frpc.toml` (or `frps`).
+- `frp`: the package has no default app; document it as `nix shell nixpkgs#frp -c frpc -c frpc.toml` (or `frps`).
