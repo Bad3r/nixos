@@ -9,15 +9,23 @@
   ghidra ? null,
 }:
 
-stdenv.mkDerivation rec {
-  pname = "malimite";
+let
   version = "1.2";
+  archiveName = "Malimite-${lib.replaceStrings [ "." ] [ "-" ] version}.zip";
+  jarName = "Malimite-${lib.replaceStrings [ "." ] [ "-" ] version}.jar";
+  archives = {
+    linux = {
+      url = "https://github.com/LaurieWired/Malimite/releases/download/${version}/${archiveName}";
+      hash = "sha256-ne0/gOZPsGkjhJlWjhbcUTOu2SR34/lBFhQDKh4yNoc=";
+    };
+  };
+in
+stdenv.mkDerivation {
+  pname = "malimite";
+  inherit version;
 
   src = fetchzip {
-    url = "https://github.com/LaurieWired/Malimite/releases/download/${version}/Malimite-${
-      lib.replaceStrings [ "." ] [ "-" ] version
-    }.zip";
-    hash = "sha256-ne0/gOZPsGkjhJlWjhbcUTOu2SR34/lBFhQDKh4yNoc=";
+    inherit (archives.linux) url hash;
     stripRoot = false;
   };
 
@@ -68,7 +76,7 @@ stdenv.mkDerivation rec {
       --add-flags "-Dsun.java2d.xrender=true" \
       --add-flags "-Dswing.defaultlaf=com.formdev.flatlaf.FlatDarkLaf" \
       --add-flags "-Dflatlaf.defaultFont=MonoLisa" \
-      --add-flags "-jar $out/share/malimite/Malimite-1-2.jar" \
+      --add-flags "-jar $out/share/malimite/${jarName}" \
       --run 'MALIMITE_HOME="$HOME/.local/share/malimite" && \
              mkdir -p "$MALIMITE_HOME" && \
              if [ ! -e "$MALIMITE_HOME/DecompilerBridge" ]; then \
@@ -81,7 +89,7 @@ stdenv.mkDerivation rec {
 
     # Extract icon from JAR if needed (JAR files are ZIP files)
     mkdir -p $out/share/icons/hicolor/256x256/apps
-    ${temurin-bin-21}/bin/jar xf $out/share/malimite/Malimite-1-2.jar icons/app-icon.png 2>/dev/null || true
+    ${temurin-bin-21}/bin/jar xf $out/share/malimite/${jarName} icons/app-icon.png 2>/dev/null || true
     if [ -f icons/app-icon.png ]; then
       cp icons/app-icon.png $out/share/icons/hicolor/256x256/apps/malimite.png
       rm -rf icons
@@ -131,4 +139,6 @@ stdenv.mkDerivation rec {
     platforms = lib.platforms.linux;
     mainProgram = "malimite";
   };
+
+  passthru.updateScript = ./update.py;
 }
