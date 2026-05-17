@@ -32,7 +32,12 @@
 
 _: {
   flake.homeManagerModules.apps.bat =
-    { osConfig, lib, ... }:
+    {
+      osConfig,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       enabled = lib.attrByPath [ "programs" "bat" "extended" "enable" ] false osConfig;
     in
@@ -54,6 +59,9 @@ _: {
             # never: always print to stdout
             # always: always use pager
             paging = "auto";
+
+            # Keep bat from recursively consulting PAGER when PAGER points at bat.
+            pager = "less --RAW-CONTROL-CHARS --quit-if-one-screen";
 
             # Wrap long lines
             # auto: wrap if terminal is narrow
@@ -97,13 +105,12 @@ _: {
           #   };
           # };
 
-          # Extra packages that provide syntax highlighting
-          # extraPackages = with pkgs.bat-extras; [
-          #   batdiff  # diff with bat
-          #   batman   # man pages with bat
-          #   batgrep  # grep with bat
-          #   batwatch # watch with bat
-          # ];
+          extraPackages = with pkgs.bat-extras; [
+            batdiff
+            batman
+            batgrep
+            batwatch
+          ];
         };
       };
     };
