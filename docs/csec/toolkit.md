@@ -11,7 +11,7 @@ consult the host catalog to confirm availability before relying on a specific bi
 
 Each entry below lists a representative invocation, upstream repository, official documentation, and a one-line description.
 
-`Stat.` classifies upstream health as of 2026-05-04: **Maintained** (release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), **Core utility** (foundational POSIX/GNU tooling whose release cadence does not map to the other categories), or **Deprecated** (archived, abandoned, or superseded).
+`Stat.` classifies upstream health at the time each entry was last verified: **Maintained** (release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), **Core utility** (foundational POSIX/GNU tooling whose release cadence does not map to the other categories), or **Deprecated** (archived, abandoned, or superseded).
 
 ## Network Reconnaissance & Enumeration
 
@@ -21,12 +21,30 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://github.com/owasp-amass/amass/blob/master/doc/user_guide.md>
   - Desc.: OWASP attack-surface mapping and subdomain enumeration.
   - Stat.: Maintained (latest release 2025-04-07).
+- assetfinder
+  - run..: `assetfinder --subs-only $domain`
+  - Repo.: <https://github.com/tomnomnom/assetfinder>
+  - Docs.: <https://github.com/tomnomnom/assetfinder#readme>
+  - Desc.: Lightweight passive subdomain finder that emits pipeline-friendly domain lists.
+  - Stat.: Deprecated (latest tag v0.1.1; no upstream commits since 2020-04-15).
+- cdncheck
+  - run..: `cdncheck -i $host -silent`
+  - Repo.: <https://github.com/projectdiscovery/cdncheck>
+  - Docs.: <https://github.com/projectdiscovery/cdncheck#readme>
+  - Desc.: Identifies CDN, cloud, and WAF providers for DNS names or IP addresses.
+  - Stat.: Maintained (latest release v1.2.36, 2026-05-17).
 - dnsx
   - run..: `dnsx -l hosts.txt -resp`
   - Repo.: <https://github.com/projectdiscovery/dnsx>
   - Docs.: <https://docs.projectdiscovery.io/tools/dnsx>
   - Desc.: Concurrent DNS toolkit for resolving and probing host lists.
   - Stat.: Maintained (latest release 2025-12-10).
+- findomain
+  - run..: `findomain -t $domain`
+  - Repo.: <https://github.com/Findomain/Findomain>
+  - Docs.: <https://github.com/Findomain/Findomain/tree/master/docs>
+  - Desc.: Fast subdomain enumerator backed by Certificate Transparency logs and public APIs.
+  - Stat.: Maintained (latest release 10.0.1, 2025-07-28).
 - httpx
   - run..: `httpx -l hosts.txt`
   - Repo.: <https://github.com/projectdiscovery/httpx>
@@ -39,6 +57,12 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://github.com/robertdavidgraham/masscan#readme>
   - Desc.: Asynchronous Internet-scale TCP port scanner.
   - Stat.: Maintenance mode (latest release 2021-01-31; active upstream commits, no recent tag).
+- naabu
+  - run..: `naabu -host $target`
+  - Repo.: <https://github.com/projectdiscovery/naabu>
+  - Docs.: <https://docs.projectdiscovery.io/tools/naabu>
+  - Desc.: Fast SYN, CONNECT, and UDP port scanner that streams into httpx/dnsx-style recon pipelines.
+  - Stat.: Maintained (latest release v2.6.1, 2026-05-05).
 - nmap
   - run..: `nmap -sV -sC $target`
   - Repo.: <https://github.com/nmap/nmap>
@@ -57,6 +81,18 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://docs.projectdiscovery.io/tools/subfinder>
   - Desc.: Passive subdomain discovery aggregator.
   - Stat.: Maintained (latest release 2026-04-25).
+- subjack
+  - run..: `subjack -w subs.txt -ssl`
+  - Repo.: <https://github.com/haccer/subjack>
+  - Docs.: <https://github.com/haccer/subjack#usage>
+  - Desc.: DNS takeover scanner for dangling CNAME, stale cloud record, NS, AXFR, and mail-related findings.
+  - Stat.: Maintained (latest release v3.0.0, 2026-03-16).
+- tlsx
+  - run..: `tlsx -u $target -san -cn`
+  - Repo.: <https://github.com/projectdiscovery/tlsx>
+  - Docs.: <https://docs.projectdiscovery.io/tools/tlsx>
+  - Desc.: TLS certificate, handshake, cipher, and fingerprint data collector for host triage.
+  - Stat.: Maintained (latest release v1.2.2, 2025-11-17).
 - wappalyzer-next
   - run..: `wappalyzer -i $url`
   - Repo.: <https://github.com/s0md3v/wappalyzer-next>
