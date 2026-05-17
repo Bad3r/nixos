@@ -97,14 +97,14 @@ def release_asset_names(release: dict[str, Any]) -> set[str]:
     return names
 
 
-def required_assets(version: str) -> dict[str, str]:
+def required_assets() -> dict[str, str]:
     """Return expected GitHub asset names by Nix platform."""
     return ASSET_NAMES.copy()
 
 
 def check_assets(version: str, release_assets: set[str]) -> dict[str, str]:
     """Ensure all required release assets are present."""
-    expected = required_assets(version)
+    expected = required_assets()
     missing_assets = sorted(set(expected.values()) - release_assets)
     if missing_assets:
         missing = "\n  - ".join(missing_assets)
@@ -183,12 +183,14 @@ def render_downloads(hashes: dict[str, str]) -> str:
     lines = ["  downloads = {"]
     entries = list(ASSET_NAMES.items())
     for index, (platform, asset_name) in enumerate(entries):
+        nix_url = URL_TEMPLATE.replace("{version}", "${version}").replace(
+            "{platform}",
+            asset_name,
+        )
         lines.extend(
             [
                 f"    {platform} = {{",
-                "      url = "
-                '"https://github.com/Azure/azure-dev/releases/download/'
-                f'azure-dev-cli_${{version}}/{asset_name}";',
+                f'      url = "{nix_url}";',
                 f'      hash = "{hashes[platform]}";',
                 f'      binary = "{BINARY_NAMES[platform]}";',
                 "    };",

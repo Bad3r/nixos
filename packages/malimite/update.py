@@ -177,13 +177,15 @@ def replace_once(
 
 def render_archives(hash_value: str) -> str:
     """Render the archives attrset."""
+    nix_url = URL_TEMPLATE.replace("{version}", "${version}").replace(
+        "{platform}",
+        "${archiveName}",
+    )
     return "\n".join(
         [
             "  archives = {",
             "    linux = {",
-            "      url = "
-            '"https://github.com/LaurieWired/Malimite/releases/download/'
-            '${version}/${archiveName}";',
+            f'      url = "{nix_url}";',
             f'      hash = "{hash_value}";',
             "    };",
             "  };",

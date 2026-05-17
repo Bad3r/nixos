@@ -187,12 +187,14 @@ def render_downloads(hashes: dict[str, str]) -> str:
     lines = ["  downloads = {"]
     platforms = list(ASSET_TEMPLATES)
     for index, platform in enumerate(platforms):
+        nix_url = URL_TEMPLATE.replace("{version}", "${version}").replace(
+            "{platform}",
+            nix_asset_name(platform),
+        )
         lines.extend(
             [
                 f"    {platform} = {{",
-                "      url = "
-                '"https://github.com/KoalaBear84/OpenDirectoryDownloader/'
-                f'releases/download/v${{version}}/{nix_asset_name(platform)}";',
+                f'      url = "{nix_url}";',
                 f'      sha256 = "{hashes[platform]}";',
                 "    };",
             ],

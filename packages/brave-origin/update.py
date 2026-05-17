@@ -174,11 +174,14 @@ def render_default_nix(
     for platform in PLATFORM_ORDER:
         if platform not in archives:
             continue
+        nix_url = RELEASE_URL_TEMPLATE.replace("{version}", "${version}").replace(
+            "{platform}",
+            nix_asset_name(platform),
+        )
         lines.extend(
             [
                 f"    {platform} = {{",
-                "      url = "
-                f'"https://github.com/brave/brave-browser/releases/download/v${{version}}/{nix_asset_name(platform)}";',
+                f'      url = "{nix_url}";',
                 f'      hash = "{hashes[platform]}";',
                 "    };",
             ],
