@@ -1,0 +1,253 @@
+#!/usr/bin/env nix
+#! nix shell nixpkgs#python3 nixpkgs#nix --command python3
+"""Update script for brave-origin."""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+from typing import Any, cast
+
+
+PACKAGE_NAME = "brave-origin"
+REPO = "brave/brave-browser"
+RELEASES_URL = f"https://api.github.com/repos/{REPO}/releases?per_page=100"
+RELEASE_URL_TEMPLATE = (
+    "https://github.com/brave/brave-browser/releases/download/v{version}/{platform}"
+)
+REQUIRED_PLATFORM = "x86_64-linux"
+PLATFORM_ORDER = [
+    "aarch64-linux",
+    "x86_64-linux",
+    "aarch64-darwin",
+    "x86_64-darwin",
+]
+ASSET_TEMPLATES = {
+    "aarch64-linux": "brave-origin-nightly_{version}_arm64.deb",
+    "x86_64-linux": "brave-origin-nightly_{version}_amd64.deb",
+    "aarch64-darwin": "brave-origin-v{version}-darwin-arm64.zip",
+    "x86_64-darwin": "brave-origin-v{version}-darwin-x64.zip",
+}
+
+
+def _flake_root(start: Path) -> Path | None:
+    """Walk up from ``start`` until this checkout's flake root is found."""
+    for parent in [start, *start.parents]:
+        if (
+            (parent / "flake.nix").is_file()
+            and (parent / "scripts" / "updater").is_dir()
+            and (parent / "packages" / PACKAGE_NAME / "default.nix").is_file()
+        ):
+            return parent
+    return None
+
+
+def _checkout_root() -> Path:
+    """Find the editable checkout from either cwd or the script path."""
+    starts = [
+        Path.cwd().resolve(),
+        Path(__file__).resolve().parent,
+    ]
+    for start in starts:
+        root = _flake_root(start)
+        if root is not None:
+            return root
+
+    msg = (
+        "Could not find the nixos checkout root. Run this updater from the "
+        "repository checkout, or execute the checkout copy under "
+        f"packages/{PACKAGE_NAME}/."
+    )
+    raise RuntimeError(msg)
+
+
+FLAKE_ROOT = _checkout_root()
+PACKAGE_FILE = FLAKE_ROOT / "packages" / PACKAGE_NAME / "default.nix"
+sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
+
+from updater import calculate_platform_hashes, fetch_json  # noqa: E402
+
+
+def current_version(text: str) -> str:
+    """Read the packaged version from default.nix."""
+    match = re.search(r'^  version = "([^"]+)";$', text, flags=re.MULTILINE)
+    if match is None:
+        msg = f"Could not find {PACKAGE_NAME} version in {PACKAGE_FILE}"
+        raise RuntimeError(msg)
+    return match.group(1)
+
+
+def release_asset_name(platform: str, version: str) -> str:
+    """Return the GitHub release asset name for ``platform``."""
+    return ASSET_TEMPLATES[platform].format(version=version)
+
+
+def nix_asset_name(platform: str) -> str:
+    """Return the Nix-interpolated release asset name for ``platform``."""
+    return ASSET_TEMPLATES[platform].replace("{version}", "${version}")
+
+
+def release_asset_names(release: dict[str, Any]) -> set[str]:
+    """Return the asset names attached to a GitHub release object."""
+    assets = release.get("assets")
+    if not isinstance(assets, list):
+        msg = f"Expected list of release assets, got {type(assets)}"
+        raise TypeError(msg)
+
+    names: set[str] = set()
+    for asset in assets:
+        if not isinstance(asset, dict):
+            continue
+        name = asset.get("name")
+        if isinstance(name, str):
+            names.add(name)
+    return names
+
+
+def latest_release() -> tuple[str, set[str]]:
+    """Fetch the latest prerelease that includes the required Linux asset."""
+    data = fetch_json(RELEASES_URL)
+    if not isinstance(data, list):
+        msg = f"Expected list from GitHub API, got {type(data)}"
+        raise TypeError(msg)
+
+    for release in data:
+        if not isinstance(release, dict):
+            continue
+        if not release.get("prerelease"):
+            continue
+
+        tag = release.get("tag_name")
+        if not isinstance(tag, str):
+            continue
+
+        version = tag.removeprefix("v")
+        assets = release_asset_names(cast("dict[str, Any]", release))
+        if release_asset_name(REQUIRED_PLATFORM, version) in assets:
+            return version, assets
+
+    msg = (
+        "Could not determine latest brave-origin version with "
+        f"{REQUIRED_PLATFORM} release asset."
+    )
+    raise RuntimeError(msg)
+
+
+def available_archive_assets(version: str, release_assets: set[str]) -> dict[str, str]:
+    """Return available archive asset names by Nix platform."""
+    archives = {
+        platform: asset
+        for platform in PLATFORM_ORDER
+        if (asset := release_asset_name(platform, version)) in release_assets
+    }
+    if REQUIRED_PLATFORM not in archives:
+        msg = (
+            f"Missing expected asset: {release_asset_name(REQUIRED_PLATFORM, version)}"
+        )
+        raise RuntimeError(msg)
+    return archives
+
+
+def render_default_nix(
+    version: str,
+    archives: dict[str, str],
+    hashes: dict[str, str],
+) -> str:
+    """Render packages/brave-origin/default.nix."""
+    lines = [
+        "# Expression generated by update.py; do not edit it by hand!",
+        "# NOTE: Local copy of the upstream PR https://github.com/NixOS/nixpkgs/pull/511131",
+        "# When that PR lands, replace this directory with `pkgs.brave-origin` in the",
+        "# overlay and rename this file to `_default.nix` per the custom-packages style",
+        "# guide.",
+        "{ callPackage, ... }@args:",
+        "",
+        "let",
+        '  pname = "brave-origin";',
+        f'  version = "{version}";',
+        "",
+        "  allArchives = {",
+    ]
+
+    for platform in PLATFORM_ORDER:
+        if platform not in archives:
+            continue
+        lines.extend(
+            [
+                f"    {platform} = {{",
+                "      url = "
+                f'"https://github.com/brave/brave-browser/releases/download/v${{version}}/{nix_asset_name(platform)}";',
+                f'      hash = "{hashes[platform]}";',
+                "    };",
+            ],
+        )
+
+    lines.extend(
+        [
+            "  };",
+            "",
+            "in",
+            'callPackage ./make-brave.nix (removeAttrs args [ "callPackage" ]) {',
+            "  inherit pname version;",
+            "  archives = allArchives;",
+            "}",
+        ],
+    )
+    return "\n".join(lines) + "\n"
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="calculate the update without writing default.nix",
+    )
+    parser.add_argument(
+        "--check-release",
+        action="store_true",
+        help="validate release metadata without fetching archive hashes",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    """Update brave-origin to the latest GitHub prerelease."""
+    args = parse_args()
+    package_text = PACKAGE_FILE.read_text(encoding="utf-8")
+    current = current_version(package_text)
+    latest, release_assets = latest_release()
+    archives = available_archive_assets(latest, release_assets)
+
+    print(f"Current: {current}")
+    print(f"Latest:  {latest}")
+    print(f"Archives: {', '.join(archives)}")
+
+    if args.check_release:
+        print("Release metadata is valid")
+        return
+
+    hashes = calculate_platform_hashes(
+        RELEASE_URL_TEMPLATE,
+        archives,
+        version=latest,
+    )
+    updated = render_default_nix(latest, archives, hashes)
+
+    if updated == package_text:
+        print(f"{PACKAGE_FILE.relative_to(FLAKE_ROOT)} already matches {latest}")
+        return
+
+    if args.dry_run:
+        print(f"Would update {PACKAGE_FILE.relative_to(FLAKE_ROOT)} to {latest}")
+        return
+
+    PACKAGE_FILE.write_text(updated, encoding="utf-8")
+    print(f"Updated {PACKAGE_FILE.relative_to(FLAKE_ROOT)} to {latest}")
+
+
+if __name__ == "__main__":
+    main()

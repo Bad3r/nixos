@@ -292,7 +292,7 @@ stdenv.mkDerivation {
     $out/opt/brave.com/${packagePath}/brave --version
   '';
 
-  passthru.updateScript = ./update.sh;
+  passthru.updateScript = ./update.py;
 
   meta = {
     homepage = "https://brave.com/";
