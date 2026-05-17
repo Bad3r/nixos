@@ -44,6 +44,7 @@ let
       "ast-grep".extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
       "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
+      assetfinder.extended.enable = lib.mkOverride 1100 true;
       awscli2.extended.enable = lib.mkOverride 1100 true;
       azd.extended.enable = lib.mkOverride 1100 true;
       "azure-cli".extended.enable = lib.mkOverride 1100 true;
@@ -70,6 +71,7 @@ let
       cargo.extended.enable = lib.mkOverride 1100 true;
       certbot.extended.enable = lib.mkOverride 1100 true;
       cewl.extended.enable = lib.mkOverride 1100 true;
+      cdncheck.extended.enable = lib.mkOverride 1100 true;
       "cf-terraforming".extended.enable = lib.mkOverride 1100 true;
       charles.extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
@@ -143,6 +145,7 @@ let
       file.extended.enable = lib.mkOverride 1100 true;
       "filen-desktop".extended.enable = lib.mkOverride 1100 true;
       filezilla.extended.enable = lib.mkOverride 1100 true;
+      findomain.extended.enable = lib.mkOverride 1100 true;
       findutils.extended.enable = lib.mkOverride 1100 true;
       firefox.extended.enable = lib.mkOverride 1100 true;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
@@ -263,6 +266,7 @@ let
       "mullvad-browser".extended.enable = lib.mkOverride 1100 true;
       mupdf.extended.enable = lib.mkOverride 1100 true;
       mysql.extended.enable = lib.mkOverride 1100 true;
+      naabu.extended.enable = lib.mkOverride 1100 true;
       nemo.extended.enable = lib.mkOverride 1100 true;
       neovim.extended.enable = lib.mkOverride 1100 true;
       netcat.extended.enable = lib.mkOverride 1100 true;
@@ -408,6 +412,7 @@ let
       tor.extended.enable = lib.mkOverride 1100 true;
       "tor-browser".extended.enable = lib.mkOverride 1100 true;
       torsocks.extended.enable = lib.mkOverride 1100 true;
+      tlsx.extended.enable = lib.mkOverride 1100 true;
       tweakcc.extended.enable = lib.mkOverride 1100 true;
       "typescript-language-server".extended.enable = lib.mkOverride 1100 false;
       udiskie.extended.enable = lib.mkOverride 1100 true;

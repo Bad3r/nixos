@@ -250,7 +250,7 @@ BOOTSTRAP_TRUSTED_KEYS=(
 
 configure_build_flags() {
   local build_cores="$(($(nproc --all) - 1))" # Nix default = 0 (all cores per build job)
-  local build_max_jobs="1"                    # Nix default = 1
+  local build_max_jobs="2"                    # Nix default = 1
   local nix_experimental_features="nix-command flakes pipe-operators"
 
   BUILD_FLAGS=(
@@ -308,10 +308,13 @@ configure_nix_config() {
   if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
     append_nix_config_line "substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"
     append_nix_config_line "trusted-public-keys = ${BOOTSTRAP_TRUSTED_KEYS[*]}"
-    append_nix_config_line "narinfo-cache-negative-ttl = 10800"
+
+    append_nix_config_line "max-substitution-jobs = 32"
     append_nix_config_line "http-connections = 0"
     append_nix_config_line "http2 = true"
+    append_nix_config_line "narinfo-cache-negative-ttl = 10800"
     append_nix_config_line "stalled-download-timeout = 900"
+
   fi
 
   export NIX_CONFIG
