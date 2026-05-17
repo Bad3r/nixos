@@ -44,6 +44,11 @@ _: {
             .code/
             **/__pycache__
             *.pyc
+            .ruff_cache/
+            .pytest_cache/
+            .mypy_cache/
+            .tox/
+            .nox/
             .vscode/
             .log/
             log/
