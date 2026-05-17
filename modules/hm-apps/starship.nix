@@ -14,7 +14,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.starship = {
           enable = true;
-          enableZshIntegration = true;
+          enableZshIntegration = false;
         };
       };
     };
