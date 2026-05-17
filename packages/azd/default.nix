@@ -56,4 +56,6 @@ stdenvNoCC.mkDerivation {
     mainProgram = "azd";
     platforms = builtins.attrNames downloads;
   };
+
+  passthru.updateScript = ./update.py;
 }
