@@ -78,7 +78,10 @@ require_clean_worktree() {
   local worktree_path status submodule_status
   worktree_path="$1"
 
-  status="$(git -C "${worktree_path}" status --porcelain=v1 --untracked-files=all --ignored=matching)"
+  status="$(
+    git -C "${worktree_path}" status --porcelain=v1 --untracked-files=all --ignored=matching |
+      sed '/^.. \.pre-commit-config\.yaml$/d'
+  )"
   if [[ -n ${status} ]]; then
     error_msg "refusing to remove worktree with dirty, untracked, or ignored local state: ${worktree_path}"
     printf '%s\n' "${status}" >&2
