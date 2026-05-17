@@ -39,6 +39,8 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.kitty = {
           enable = true;
+          # NixOS-managed zsh sources kitty integration in hosts/common/zsh.nix.
+          shellIntegration.enableZshIntegration = false;
           # Ensure kitty is set as default terminal in user session
           settings = {
             # Font and glyph handling

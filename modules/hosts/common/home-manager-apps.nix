@@ -39,7 +39,6 @@ let
     "lutris"
     "mpv"
     "ncdu"
-    "nix-index"
     "nixvim"
     "onlyoffice-desktopeditors"
     "obsidian"
