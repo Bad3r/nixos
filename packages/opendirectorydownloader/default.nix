@@ -73,4 +73,6 @@ stdenvNoCC.mkDerivation {
     platforms = builtins.attrNames downloads;
     maintainers = [ ];
   };
+
+  passthru.updateScript = ./update.py;
 }
