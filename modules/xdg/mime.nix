@@ -543,28 +543,76 @@ let
     };
 
     pager = {
-      defaultValue = "less";
-      example = "bat";
-      description = ''
-        Default pager for this host.
-        Sets PAGER, MANPAGER, and MANWIDTH environment variables.
-      '';
-      extraConfig = value: {
-        environment.variables = {
-          PAGER = value;
-          MANPAGER = value;
-          MANWIDTH = "120";
-        };
-        home-manager.sharedModules = [
-          {
-            home.sessionVariables = {
-              PAGER = value;
-              MANPAGER = value;
-              MANWIDTH = "120";
+      nullable = false;
+      type = lib.types.submodule {
+        options = {
+          command = lib.mkOption {
+            type = lib.types.str;
+            default = "less";
+            example = "bat --plain --paging=always";
+            description = "Command exported as PAGER.";
+          };
+
+          man = {
+            pager = lib.mkOption {
+              type = lib.types.str;
+              default = "less";
+              example = "batman";
+              description = "Command exported as MANPAGER.";
             };
-          }
-        ];
+
+            roffopt = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              example = "-c";
+              description = "Optional value exported as MANROFFOPT.";
+            };
+
+            width = lib.mkOption {
+              type = lib.types.str;
+              default = "120";
+              example = "120";
+              description = "Value exported as MANWIDTH.";
+            };
+          };
+        };
       };
+      defaultValue = {
+        command = "less";
+        man = {
+          pager = "less";
+          roffopt = null;
+          width = "120";
+        };
+      };
+      example = {
+        command = "bat --plain --paging=always";
+        man = {
+          pager = "batman";
+          roffopt = "-c";
+          width = "120";
+        };
+      };
+      description = ''
+        Default terminal pagers for this host.
+        Sets PAGER, MANPAGER, MANROFFOPT, and MANWIDTH environment variables.
+      '';
+      extraConfig =
+        value:
+        let
+          env = {
+            PAGER = value.command;
+            MANPAGER = value.man.pager;
+            MANWIDTH = value.man.width;
+          }
+          // lib.optionalAttrs (value.man.roffopt != null) {
+            MANROFFOPT = value.man.roffopt;
+          };
+        in
+        {
+          environment.variables = env;
+          home-manager.sharedModules = [ { home.sessionVariables = env; } ];
+        };
     };
 
     diffProgram = {

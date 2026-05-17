@@ -16,13 +16,16 @@
     host.defaults.audioPlayer = "mpv";
     host.defaults.videoPlayer = "mpv";
     host.defaults.editor = "nvim";
-    host.defaults.pager = "less";
-    host.defaults.diffProgram = "nvim -d";
+    host.defaults.pager.command = "bat --plain --paging=always";
+    host.defaults.pager.man.pager = "batman";
+    host.defaults.pager.man.roffopt = "-c";
+    host.defaults.pager.man.width = "120";
     host.defaults.opener = "xdg-open";
+    host.defaults.diffProgram = "nvim -d";
 
   IMPORTANT: The corresponding app module must be enabled in apps-enable.nix.
   An assertion will fail if a default is set but the app module is disabled.
-  (Env-only categories like pager and diffProgram are exempt.)
+  (Env-only categories like editor, pager, and diffProgram are exempt.)
 */
 { config, lib, ... }:
 let
@@ -57,9 +60,13 @@ let
 
       mkEnvOnlyOption =
         _name: cat:
+        let
+          valueType = cat.type or lib.types.str;
+          nullable = cat.nullable or true;
+        in
         lib.mkOption {
-          type = lib.types.nullOr lib.types.str;
-          default = null;
+          type = if nullable then lib.types.nullOr valueType else valueType;
+          default = if nullable then null else cat.defaultValue;
           inherit (cat) example description;
         };
 

@@ -15,13 +15,33 @@
 _:
 let
   BatModule =
-    { lib, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.programs.bat.extended;
+      batman = pkgs.bat-extras.batman;
+    in
     {
       options.programs.bat.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
           description = "Whether to enable bat.";
+        };
+      };
+
+      config = lib.mkIf cfg.enable {
+        host.defaults.pager = {
+          command = lib.mkOverride 900 "bat --plain --paging=always";
+          man = {
+            pager = lib.mkOverride 900 "env BATMAN_IS_BEING_MANPAGER=yes ${lib.getExe pkgs.bash} ${lib.getExe batman}";
+            roffopt = lib.mkOverride 900 "-c";
+            width = lib.mkOverride 900 "120";
+          };
         };
       };
     };
