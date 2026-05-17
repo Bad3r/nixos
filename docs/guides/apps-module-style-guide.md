@@ -323,8 +323,6 @@ nix eval github:org/repo#packages.x86_64-linux.<name>.meta.description --raw
 nix eval github:org/repo#packages.x86_64-linux.<name>.meta.homepage --raw
 ```
 
-Some packages have different names (e.g., `floorp` is deprecated → use `floorp-bin`).
-
 ### 2. Create NixOS Module
 
 - Create `modules/apps/<tool>.nix` following the skeleton above.
@@ -340,7 +338,8 @@ git add modules/apps/<tool>.nix
 
 ### 4. Enable in apps-enable.nix
 
-Add to `modules/system76/apps-enable.nix` in alphabetical order:
+Add to `modules/hosts/common/apps-enable.nix` in alphabetical order so every
+opted-in host picks up the same baseline:
 
 ```nix
 programs = {
@@ -349,6 +348,26 @@ programs = {
   # ...
 };
 ```
+
+If a single host needs to diverge from the common baseline (e.g. tpnix
+disables a system76-only tool), add the entry to the flat `appEnable` set in
+`modules/<host>/apps-enable.nix` (see `modules/tpnix/apps-enable.nix` for the
+canonical shape):
+
+```nix
+appEnable = {
+  # ...
+  <tool> = false;
+  # ...
+};
+```
+
+The host override module routes each entry to
+`programs.<name>.extended.enable` or `services.<name>.extended.enable` at
+`lib.mkOverride 1000` based on the namespace declared by the common baseline.
+It also re-exports the flat set as `flake.lib.nixos._hostAppsOverrides.<host>`
+so `modules/hosts/common/checks.nix` can flag values that duplicate the common
+baseline (silent no-op).
 
 ### 5. Check for Home Manager Integration
 
@@ -422,10 +441,13 @@ _: {
 
 ### 7. Add to Home Manager Imports
 
-Add to `modules/system76/home-manager-apps.nix` in the `extraAppNames` list:
+Add to `modules/hosts/common/home-manager-apps.nix` (in the shared
+`sharedAppNames` list) so every opted-in host imports the HM module. If
+the tool is host-specific, add it to `modules/<host>/home-manager-apps.nix`
+under the per-host `hostAppNames` list instead.
 
 ```nix
-extraAppNames = [
+sharedAppNames = [
   # ...
   "<tool>"
   # ...
@@ -456,8 +478,8 @@ stylix.targets.<tool> = {
 
 ```bash
 git add modules/apps/<tool>.nix modules/hm-apps/<tool>.nix
-git add modules/system76/apps-enable.nix
-git add modules/system76/home-manager-apps.nix
+git add modules/hosts/common/apps-enable.nix
+git add modules/hosts/common/home-manager-apps.nix
 git add modules/style/stylix.nix
 
 nix fmt
@@ -577,11 +599,11 @@ This pattern aligns with CLAUDE.md guidance: "Use `lib.hasAttrByPath` + `lib.get
 
 ### Stylix
 
-| Check                    | Command                                                     |
-| ------------------------ | ----------------------------------------------------------- |
-| General support          | `grep -r "<tool>" /data/git/nix-community-stylix/modules/`  |
-| Firefox/Floorp/LibreWolf | `cat /data/git/nix-community-stylix/modules/firefox/hm.nix` |
-| Available options        | `cat /data/git/nix-community-stylix/modules/<tool>/`        |
+| Check             | Command                                                     |
+| ----------------- | ----------------------------------------------------------- |
+| General support   | `grep -r "<tool>" /data/git/nix-community-stylix/modules/`  |
+| Firefox/LibreWolf | `cat /data/git/nix-community-stylix/modules/firefox/hm.nix` |
+| Available options | `cat /data/git/nix-community-stylix/modules/<tool>/`        |
 
 ### NUR Firefox Addons
 

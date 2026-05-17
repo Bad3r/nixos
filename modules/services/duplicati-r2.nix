@@ -581,9 +581,13 @@ let
           Description=Duplicati R2 backup ($slug)
           After=${generatedUnitAfter}${generatedUnitRequiresLine}
           Wants=network-online.target
+          StartLimitBurst=3
+          StartLimitIntervalSec=1h
 
           [Service]
           Type=oneshot
+          Restart=on-failure
+          RestartSec=10m
           Environment=DUPLICATI_R2_CONFIG=$config_dest
           Environment=DUPLICATI_R2_TARGET=$slug
           Environment=DUPLICATI_R2_DEFAULT_BUCKET=$bucket
@@ -617,9 +621,13 @@ let
           Description=Duplicati R2 verification ($slug)
           After=${generatedUnitAfter}${generatedUnitRequiresLine}
           Wants=network-online.target
+          StartLimitBurst=3
+          StartLimitIntervalSec=1h
 
           [Service]
           Type=oneshot
+          Restart=on-failure
+          RestartSec=10m
           Environment=DUPLICATI_R2_CONFIG=$config_dest
           Environment=DUPLICATI_R2_TARGET=$slug
           Environment=DUPLICATI_R2_DEFAULT_BUCKET=$bucket
@@ -712,6 +720,12 @@ let
             covered via depth-aware glob rules; new files inherit access
             through default ACLs on the state directory and on each
             per-target subdirectory. The base mode stays 0700 root:root.
+
+            The same usernames are also granted `u:<user>:r--` on
+            `services.duplicati-r2.environmentFile` so `duplicati-r2-extract`
+            (Cut B) can read R2 credentials and the AES passphrase without
+            sudo. The env file's base mode stays 0400 root:root and other
+            users still see `permission denied`.
           '';
         };
 
@@ -808,6 +822,11 @@ let
 
           environment.systemPackages = [ cfg.package ];
 
+          # Read-only path/snapshot CLI for maintainers granted the state-dir
+          # ACL. Implements Cut A of
+          # docs/drafts/duplicati-r2-readonly-mount-investigation.md.
+          programs.duplicati-r2-tools.extended.enable = mkIf (cfg.stateDirReadableBy != [ ]) true;
+
           sops.secrets = lib.mkMerge [
             secretsDeclared
             (mkIf usingSecret {
@@ -863,6 +882,8 @@ let
               backupScript
               verifyScript
             ];
+            startLimitBurst = 3;
+            startLimitIntervalSec = 3600;
             environment = {
               DUPLICATI_R2_CONFIG_SOURCE = manifestSource;
               DUPLICATI_R2_CONFIG_DEST = manifestDest;
@@ -877,6 +898,8 @@ let
             serviceConfig = {
               Type = "oneshot";
               ExecStart = "${generatorScript}/bin/duplicati-r2-generate-units";
+              Restart = "on-failure";
+              RestartSec = "30s";
             };
           };
 
@@ -897,6 +920,10 @@ let
             ''A+ "${cfg.stateDir}" - - - - u:${user}:rX,m::r-x,d:u:${user}:rX,d:m::r-x''
             ''A+ "${cfg.stateDir}"/* - - - - u:${user}:rX,m::r-x,d:u:${user}:rX,d:m::r-x''
             ''A+ "${cfg.stateDir}"/*/* - - - - u:${user}:rX,m::r-x''
+            # Cut B: grant read on the env-file so duplicati-r2-extract can
+            # source R2 credentials and DUPLICATI_PASSPHRASE without sudo.
+            # Same mask requirement as above applies to the mode-0400 file.
+            ''A+ "${cfg.environmentFile}" - - - - u:${user}:r--,m::r--''
           ]) cfg.stateDirReadableBy;
         }
       );

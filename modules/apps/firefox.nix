@@ -6,7 +6,7 @@
   Repository: https://hg.mozilla.org/mozilla-central/
 
   Summary:
-    * Delivers a multi-process web browser with tracking protection, container tabs, integrated devtools, and broad web standards support.
+    * Delivers a multi-process web browser with tracking protection, integrated devtools, and broad web standards support.
     * Supports headless automation, dedicated profiles, and enterprise policies for tailored deployments.
 
   Options:
@@ -25,15 +25,13 @@ _:
 let
   FirefoxModule =
     {
-      config,
       lib,
       pkgs,
       ...
     }:
-    let
-      cfg = config.programs.firefox.extended;
-    in
     {
+      # Home Manager owns installation for Firefox so the launched package is
+      # the wrapped finalPackage carrying enterprise policies and profile files.
       options.programs.firefox.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
@@ -42,10 +40,6 @@ let
         };
 
         package = lib.mkPackageOption pkgs "firefox" { };
-      };
-
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
       };
     };
 in

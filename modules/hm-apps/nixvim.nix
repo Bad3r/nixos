@@ -20,7 +20,10 @@ _: {
   # Upstream akinsho/git-conflict.nvim ships no LICENSE file, so nixpkgs flags
   # the plugin as unfree. The allowlist entry is required for evaluation until
   # upstream publishes a license.
-  nixpkgs.allowedUnfreePackages = [ "git-conflict.nvim" ];
+  nixpkgs.allowedUnfreePackages = [
+    "cheatsheet.nvim"
+    "git-conflict.nvim"
+  ];
 
   flake.homeManagerModules.apps.nixvim =
     {
@@ -31,7 +34,7 @@ _: {
       ...
     }:
     let
-      inherit (lib) mkDefault;
+      inherit (lib) mkDefault mkIf;
       nvimEnabled = lib.attrByPath [ "programs" "neovim" "extended" "enable" ] false osConfig;
       nvimPkg = lib.attrByPath [
         "programs"
@@ -40,6 +43,7 @@ _: {
         "package"
       ] pkgs.neovim-unwrapped osConfig;
       hostname = osConfig.networking.hostName;
+      kittyEnabled = lib.attrByPath [ "programs" "kitty" "extended" "enable" ] false osConfig;
     in
     {
       imports = lib.optionals nvimEnabled [ inputs.nixvim.homeModules.nixvim ];
@@ -56,6 +60,15 @@ _: {
               viAlias = true;
               vimAlias = true;
               defaultEditor = true;
+              extraPackages = with pkgs; [
+                biome
+                nixfmt
+                prettier
+                ruff
+                shfmt
+                stylua
+                taplo
+              ];
 
               colorschemes.onedark.enable = true;
 
@@ -64,9 +77,22 @@ _: {
               # plugins listed in `nixpkgs.allowedUnfreePackages` are honored.
               nixpkgs.config.allowUnfreePredicate = pkgs.config.allowUnfreePredicate;
 
-              # Leader key
-              globals.mapleader = mkDefault " ";
-              globals.maplocalleader = mkDefault " ";
+              # Leader keys, plus a runtime-gated OSC52 clipboard provider
+              # when Neovim is running in kitty.
+              globals = {
+                mapleader = mkDefault " ";
+                maplocalleader = mkDefault " ";
+                clipboard = mkIf kittyEnabled {
+                  __raw = ''
+                    (function()
+                      if vim.env.KITTY_WINDOW_ID == nil then
+                        return nil
+                      end
+                      return "osc52"
+                    end)()
+                  '';
+                };
+              };
 
               # Editor options
               opts = {
@@ -107,13 +133,23 @@ _: {
                 completeopt = "menu,menuone,noselect";
               };
 
-              # Clipboard integration
+              # JSONL: route `.jsonl` and `.ndjson` onto the jsonl filetype so
+              # the treesitter alias and conform formatter below apply.
+              filetype.extension = {
+                jsonl = "jsonl";
+                ndjson = "jsonl";
+              };
+
+              # Clipboard integration. `globals.clipboard` above forces
+              # Neovim's built-in OSC52 provider inside kitty; outside kitty,
+              # `vim.g.clipboard` stays unset and Neovim picks one of these
+              # providers via standard autodetection.
               clipboard = {
+                register = "unnamedplus,unnamed";
                 providers = {
                   xsel.enable = true;
                   wl-copy.enable = true;
                 };
-                register = "unnamedplus,unnamed";
               };
 
               # Diagnostic display configuration
@@ -140,6 +176,71 @@ _: {
               };
 
               dependencies.glow.enable = true;
+
+              extraConfigLuaPre = ''
+                package.preload["nixvim.cmdline_history_source"] = function()
+                  local source = {}
+
+                  function source.new(opts)
+                    local self = setmetatable({}, { __index = source })
+                    self.opts = opts or {}
+                    self.limit = self.opts.limit or 200
+                    return self
+                  end
+
+                  function source:enabled()
+                    return vim.fn.getcmdtype() == ":"
+                  end
+
+                  local function starts_with(value, prefix)
+                    return value:sub(1, #prefix) == prefix
+                  end
+
+                  function source:get_completions(ctx, callback)
+                    local line = ctx.line or (ctx.get_line and ctx.get_line()) or vim.fn.getcmdline()
+                    local latest = vim.fn.histnr(":")
+                    local floor = math.max(1, latest - self.limit + 1)
+                    local seen = {}
+                    local items = {}
+                    local line_pos = ctx.cursor and (ctx.cursor[1] - 1) or 0
+
+                    for index = latest, floor, -1 do
+                      local command = vim.fn.histget(":", index)
+                      if
+                        command ~= nil
+                        and command ~= ""
+                        and command ~= line
+                        and starts_with(command, line)
+                        and not seen[command]
+                      then
+                        seen[command] = true
+                        items[#items + 1] = {
+                          label = command,
+                          filterText = command,
+                          sortText = string.format("%06d", latest - index),
+                          textEdit = {
+                            newText = command,
+                            range = {
+                              start = { line = line_pos, character = 0 },
+                              ["end"] = { line = line_pos, character = #line },
+                            },
+                          },
+                          insertTextFormat = vim.lsp.protocol.InsertTextFormat.PlainText,
+                          kind = require("blink.cmp.types").CompletionItemKind.Text,
+                        }
+                      end
+                    end
+
+                    callback({
+                      items = items,
+                      is_incomplete_backward = true,
+                      is_incomplete_forward = true,
+                    })
+                  end
+
+                  return source
+                end
+              '';
 
               # Otter configuration:
               # 1. Deferred activation - prevents blocking UI while otter creates buffers/attaches LSPs
@@ -378,12 +479,21 @@ _: {
                 vim.api.nvim_create_user_command("DvStash", function()
                   vim.cmd("DiffviewFileHistory -g --range=stash")
                 end, { desc = "Inspect git stash via diffview" })
+
+                -- JSONL has no dedicated grammar, so reuse JSON's. The whole
+                -- file is not a single JSON document, but treesitter's error
+                -- recovery still highlights each object correctly across the
+                -- newline separators.
+                vim.treesitter.language.register("json", "jsonl")
+
+                require("cheatsheet").setup({})
               '';
 
               # plenary.nvim is added explicitly because the pinned nixvim/nixpkgs
               # combination does not currently pull telescope's runtime dependency
               # onto the packpath.
               extraPlugins = [
+                pkgs.vimPlugins.cheatsheet-nvim
                 pkgs.vimPlugins.plenary-nvim
               ];
 
@@ -498,6 +608,92 @@ _: {
                       "<leader>rn" = "rename";
                       "<leader>ca" = "code_action";
                       "<leader>f" = "format";
+                    };
+                  };
+                };
+
+                noice = {
+                  enable = true;
+                  settings = {
+                    cmdline = {
+                      enabled = true;
+                      view = "cmdline";
+                    };
+                    messages.enabled = false;
+                    popupmenu.enabled = false;
+                    notify.enabled = false;
+                    lsp = {
+                      progress.enabled = false;
+                      hover.enabled = false;
+                      signature.enabled = false;
+                      message.enabled = false;
+                    };
+                    smart_move.enabled = false;
+                    presets = {
+                      bottom_search = false;
+                      command_palette = false;
+                      long_message_to_split = false;
+                      inc_rename = false;
+                      lsp_doc_border = false;
+                    };
+                  };
+                };
+
+                blink-cmp = {
+                  enable = true;
+                  setupLspCapabilities = false;
+                  settings = {
+                    enabled.__raw = "function() return vim.fn.getcmdtype() == ':' end";
+
+                    completion.ghost_text = {
+                      show_without_selection = true;
+                      show_without_menu = true;
+                    };
+
+                    cmdline = {
+                      enabled = true;
+                      keymap = {
+                        preset = "cmdline";
+                        "<CR>" = [
+                          "select_accept_and_enter"
+                          "fallback"
+                        ];
+                        "<Right>" = [
+                          "select_and_accept"
+                          "fallback"
+                        ];
+                        "<C-y>" = [
+                          "select_and_accept"
+                          "fallback"
+                        ];
+                      };
+                      sources.__raw = ''
+                        function()
+                          if vim.fn.getcmdtype() == ":" then
+                            return { "cmdline_history", "cmdline" }
+                          end
+                          return {}
+                        end
+                      '';
+                      completion = {
+                        menu.auto_show = false;
+                        ghost_text = {
+                          enabled.__raw = ''
+                            function()
+                              local ghost_text = package.loaded["blink.cmp.completion.windows.ghost_text"]
+                              local item = ghost_text and ghost_text.selected_item
+                              return item ~= nil and item.source_id == "cmdline_history"
+                            end
+                          '';
+                        };
+                      };
+                    };
+
+                    sources.providers.cmdline_history = {
+                      name = "Cmdline History";
+                      module = "nixvim.cmdline_history_source";
+                      score_offset = 100;
+                      opts.limit = 200;
                     };
                   };
                 };
@@ -705,7 +901,8 @@ _: {
                     disable_netrw = true;
                     hijack_netrw = true;
                     hijack_directories = {
-                      enable = false; # Don't auto-open when opening directories
+                      enable = true;
+                      auto_open = true;
                     };
                     actions = {
                       open_file = {
@@ -985,7 +1182,7 @@ _: {
                       nix = [ "nixfmt" ];
                       lua = [ "stylua" ];
                       toml = [ "taplo" ];
-                      # Biome: JS/TS/JSON/CSS (faster than prettier)
+                      # Biome: JS/TS/JSON/CSS/HTML
                       javascript = [ "biome" ];
                       typescript = [ "biome" ];
                       javascriptreact = [ "biome" ];
@@ -993,13 +1190,27 @@ _: {
                       json = [ "biome" ];
                       jsonc = [ "biome" ];
                       css = [ "biome" ];
-                      # Prettier: languages biome doesn't support
+                      html = [ "biome" ];
+                      # Prettier: formats Biome does not cover here
                       yaml = [ "prettier" ];
                       markdown = [ "prettier" ];
-                      html = [ "prettier" ];
+                      # JSONL: jq -c keeps one value per line
+                      jsonl = [ "jq_jsonl" ];
                       # Rust uses rustfmt via rust-analyzer (lsp_format fallback)
                       # Go uses gofmt via gopls (lsp_format fallback)
                     };
+                    # jq's default mode pretty-prints, which would collapse
+                    # JSONL into one document. `-c` keeps each value compact
+                    # and on its own line so the file stays valid JSONL.
+                    formatters.jq_jsonl = {
+                      command = lib.getExe pkgs.jq;
+                      args = [
+                        "-c"
+                        "."
+                      ];
+                      stdin = true;
+                    };
+                    formatters.biome.append_args = [ "--html-formatter-enabled=true" ];
                   };
                 };
 
@@ -1058,6 +1269,44 @@ _: {
                   key = "<leader>K";
                   action = "<cmd>WhichKey<CR>";
                   options.desc = "WhichKey menu";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>?";
+                  action = "<cmd>Cheatsheet<CR>";
+                  options.desc = "Search cheatsheet";
+                }
+
+                # Visual selections
+                {
+                  mode = "n";
+                  key = "<leader>vG";
+                  action = "VG";
+                  options.desc = "Select lines to end of file";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>vg";
+                  action = "Vgg";
+                  options.desc = "Select lines to start of file";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>vj";
+                  action = "V2j";
+                  options.desc = "Select next 3 lines";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>vk";
+                  action = "V2k";
+                  options.desc = "Select previous 3 lines";
+                }
+                {
+                  mode = "n";
+                  key = "<leader>va";
+                  action = "ggVG";
+                  options.desc = "Select entire file";
                 }
 
                 # Buffer navigation

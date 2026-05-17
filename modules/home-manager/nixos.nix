@@ -137,6 +137,16 @@ let
     "homeManagerModules"
     "context7Secrets"
   ];
+  greptileModule = loadHomeModule ../home/greptile-secrets.nix [
+    "flake"
+    "homeManagerModules"
+    "greptileSecrets"
+  ];
+  geckoSecretsModule = loadHomeModule ../home/gecko-secrets.nix [
+    "flake"
+    "homeManagerModules"
+    "geckoSecrets"
+  ];
   r2Module = loadHomeModule ../home/r2-secrets.nix [
     "flake"
     "homeManagerModules"
@@ -164,6 +174,8 @@ let
     baseModule
     sopsRuntimeModule
     context7Module
+    greptileModule
+    geckoSecretsModule
     r2Module
     virustotalModule
   ];

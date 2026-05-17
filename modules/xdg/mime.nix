@@ -14,10 +14,10 @@
 #   let
 #     inherit (config.flake.lib) xdg;
 #   in
-#   { ... xdg.mime.mkBrowserDefaults "floorp.desktop" ... }
+#   { ... xdg.mime.mkBrowserDefaults "librewolf.desktop" ... }
 #
 # Desktop file mappings are also exported for CI validation:
-#   xdg.desktopFiles.browser.floorp = { desktop = "floorp.desktop"; module = "floorp"; };
+#   xdg.desktopFiles.browser.librewolf = { desktop = "librewolf.desktop"; module = "librewolf"; };
 #
 { lib, ... }:
 let
@@ -221,10 +221,6 @@ let
         desktop = "firefox.desktop";
         module = "firefox";
       };
-      floorp = {
-        desktop = "floorp.desktop";
-        module = "floorp";
-      };
       librewolf = {
         desktop = "librewolf.desktop";
         module = "librewolf";
@@ -387,8 +383,8 @@ let
   defaultAppCategoryMeta = {
     browser = {
       mkMimeDefaults = mime.mkBrowserDefaults;
-      defaultValue = "floorp";
-      example = "floorp";
+      defaultValue = "librewolf";
+      example = "librewolf";
       description = ''
         Default web browser for this host.
         Set to null to not configure a default browser via XDG mimeapps.

@@ -4,7 +4,7 @@ _: {
     {
       files.files = [
         {
-          path_ = ".githooks/post-checkout";
+          path = ".githooks/post-checkout";
           drv = pkgs.writeText "post-checkout" ''
             #!/usr/bin/env bash
             # Managed by Nix. Edit modules/development/git-hooks-post-checkout.nix

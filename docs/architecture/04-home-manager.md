@@ -6,12 +6,12 @@ This document covers the Home Manager aggregator namespace and app loading mecha
 
 Home Manager modules feed into `flake.homeManagerModules` for user-level configuration:
 
-| Key                                                 | Type             | Description                                                           |
-| --------------------------------------------------- | ---------------- | --------------------------------------------------------------------- |
-| `base`                                              | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                 |
-| `gui`                                               | Deferred module  | Reserved GUI aggregation point (currently mostly an empty merge root) |
-| `apps.<name>`                                       | Deferred module  | Individual app modules loaded by key                                  |
-| `context7Secrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules                                  |
+| Key                                                                    | Type             | Description                                                           |
+| ---------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------- |
+| `base`                                                                 | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                 |
+| `gui`                                                                  | Deferred module  | Reserved GUI aggregation point (currently mostly an empty merge root) |
+| `apps.<name>`                                                          | Deferred module  | Individual app modules loaded by key                                  |
+| `context7Secrets`, `greptileSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules                                  |
 
 ## Contributing to Namespaces
 
@@ -85,6 +85,7 @@ The shared HM base is identical across hosts; per-host overrides live in each ho
 | HM toggle           | system76 default       | tpnix default                          | Notes                                                                                                                                  |
 | ------------------- | ---------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `context7Secrets`   | `mkDefault true`       | `mkForce false`                        | Context7 API key rendering.                                                                                                            |
+| `greptileSecrets`   | `mkForce false`        | `mkForce false`                        | Disabled with the Greptile Claude Code plugin/MCP integration; re-enable only when that plugin is explicitly enabled.                  |
 | `virustotalSecrets` | `mkDefault true`       | `mkForce false`                        | VirusTotal API key rendering.                                                                                                          |
 | `r2Secrets`         | `mkForce false`        | `mkForce false`                        | NixOS-side `r2CloudSecrets` is also off in the current configuration.                                                                  |
 | `repoGpg`           | `mkDefault true`       | (not enabled, no shared module pulled) | system76 pulls `inputs.self.homeManagerModules.repoGpg` into `home-manager.sharedModules`; tpnix does not pull this shared module.     |
@@ -135,6 +136,27 @@ nix build .#nixosConfigurations.<host>.config.system.build.toplevel
 # List the hosts available in the current checkout
 nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames
 ```
+
+For NixOS-managed Home Manager, inspect the active generation through
+`~/.local/state/home-manager/gcroots/current-home/home-files`. The standalone
+`~/.local/state/nix/profiles/home-manager` profile can be stale and should not
+be used as the source of truth for NixOS module activation.
+
+If a Home Manager-managed file or directory is removed but the system
+generation does not change, `nh os switch` / `switch-to-configuration` may not
+rerun `home-manager-<user>.service`. Restart the system service directly to
+relink the active generation:
+
+```bash
+sudo systemctl restart home-manager-$USER.service
+```
+
+Gecko browser profiles are intentionally rooted at `~/.mozilla/firefox` and
+`~/.librewolf`. Home Manager also manages compatibility symlinks from
+`~/.config/mozilla/firefox` to `~/.mozilla/firefox` and from
+`~/.config/librewolf/librewolf` to `~/.librewolf`. Real directories at those XDG
+leaves are unmanaged drift; activation refuses them so they can be moved
+recoverably with `rip` before relinking the Home Manager generation.
 
 Add `home-manager` to `modules/devshell.nix` if a standalone CLI is needed for ad-hoc diagnostics.
 

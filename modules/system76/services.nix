@@ -114,9 +114,13 @@ _: {
           "dbus.service"
         ];
         wants = [ "system76-power.service" ];
+        startLimitBurst = 3;
+        startLimitIntervalSec = 3600;
         serviceConfig = {
           Type = "oneshot";
           ExecStart = "${pkgs.system76-power}/bin/system76-power profile performance";
+          Restart = "on-failure";
+          RestartSec = 3;
         };
       };
 

@@ -59,7 +59,9 @@ The remote archive remains usable. The damaged paths are simply removed from the
 
 When a `MissingRemoteFiles` error names specific volumes, the per-target SQLite database can map them back to the affected source paths without needing to run repair. This is the same procedure that identified the two lost dblocks documented in [security.md](security.md#bucket-lifecycle-caveat).
 
-Per-target databases live at `<services.duplicati-r2.stateDir>/duplicati-r2-<slug>.sqlite`. Open them read-only with the `immutable=1` URI flag to avoid any WAL writes against the 0700 directory:
+Per-target databases live at `<services.duplicati-r2.stateDir>/duplicati-r2-<slug>.sqlite`. For ad-hoc impact analysis (where there is no concurrent writer because backups are paused or the host is in recovery mode), open them with `immutable=1` to skip lock acquisition and WAL replay entirely:
+
+> Note: this differs from `duplicati-r2-list` and `duplicati-r2-extract`, which use `mode=ro` only (no `immutable=1`) so they can read live state alongside an active duplicati instance. `immutable=1` is correct for forensic snapshots, not for the live DB.
 
 ```bash
 DB="file:/var/lib/duplicati-r2/duplicati-r2-<slug>.sqlite?mode=ro&immutable=1"
@@ -145,3 +147,17 @@ RECREATE
 ```
 
 `repair` against a missing DB rebuilds it from the dlist and dindex files on R2. This is the heaviest recovery path and downloads every index file in the archive, plan accordingly.
+
+## Single-file recovery from R2
+
+For ad-hoc recovery of one file (or a small glob set) against a multi-TiB archive that cannot be fully restored on the host, use `duplicati-r2-extract` instead of `duplicati-cli restore`. It fetches only the dblocks containing the file's content blocks and decrypts them in process memory; plaintext goes only to the operator-chosen sink. Full surface and worked example: [`operations.md`](operations.md#extract-a-single-file-from-r2-cut-b).
+
+```bash
+# Recover one path to a local file.
+duplicati-r2-extract <slug> /abs/path --output /tmp/recovered
+
+# Recover by glob (mirrors snapshot tree under --output-dir).
+duplicati-r2-extract <slug> --include '*.torrent' --output-dir /tmp/torrents
+```
+
+`duplicati-cli restore` remains the bulk-restore path.

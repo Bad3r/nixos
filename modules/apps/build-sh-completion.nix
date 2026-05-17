@@ -98,6 +98,7 @@ let
                   '--skip-firmware[skip firmware refresh/check/apply after switch]' \
                   '--keep-going[continue building despite failures]' \
                   '--repair[repair corrupted store paths during build]' \
+                  '--fallback[build from source if binary substitutes fail]' \
                   '--bootstrap[use extra substituters for first build]' \
                   '(-h --help)'{-h,--help}'[show help message]'
               }

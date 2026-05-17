@@ -6,8 +6,8 @@
   Repository: https://github.com/Bad3r/nixos
 
   Summary:
-    * Installs the project-standard formatter toolchain (e.g. `nixfmt`, `shfmt`, `dprint`, `ruff`) to ensure consistent styling across languages.
-    * Intended for developers entering the repo's `nix develop` environment or running `nix fmt` locally.
+    * Installs the split formatter providers used by the central treefmt module.
+    * Exposes host packages only. Formatter behavior is configured in `modules/development/formatter.nix`.
 
   Options:
     formatting bundle: Provides formatter binaries; individual tools expose their own flags (see respective man pages).
@@ -17,8 +17,9 @@
     * `nix develop` -- Enter the development shell with all formatters available on `$PATH`.
 */
 
-_:
+{ config, ... }:
 let
+  flakeConfig = config;
   FormattingModule =
     {
       config,
@@ -39,28 +40,19 @@ let
 
         packages = lib.mkOption {
           type = lib.types.listOf lib.types.package;
-          default = with pkgs; [
-            dprint
-            nixfmt
-            ruff
-            shellcheck
-            shfmt
-            stylua
-            taplo
-            treefmt
-          ];
+          default = flakeConfig.flake.lib.formatting.formatterPackages pkgs;
           description = ''
-            Code formatters and linters for the development environment.
+            Code formatter providers exposed to host environments.
 
             Included formatters:
-            - dprint: JSON, Markdown, TOML, YAML, XML (via plugins)
+            - biome: JavaScript, TypeScript, JSON, JSONC, CSS, and HTML formatter
+            - mdformat with mdformat-gfm: Markdown formatter
             - nixfmt: Nix (RFC 166)
-            - ruff: Python formatter and linter
-            - shellcheck: Shell script linter
+            - ruff: Python formatter provider
             - shfmt: Shell script formatter
             - stylua: Lua formatter
-            - taplo: TOML linter / language server
-            - treefmt: Format orchestrator
+            - taplo: TOML formatter
+            - yamlfmt: YAML formatter
           '';
           example = lib.literalExpression "with pkgs; [ nixfmt shfmt ]";
         };

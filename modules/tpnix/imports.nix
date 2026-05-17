@@ -37,6 +37,7 @@ in
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
       config.flake.nixosModules.bluetooth
+      config.flake.nixosModules.zshKeybindings
     ]
     ++ lib.optionals duplicatiModuleExists [ config.flake.nixosModules."duplicati-r2" ]
     ++ lib.optionals mirrorRootModuleExists [ config.flake.nixosModules.mirror-root ]
@@ -87,6 +88,7 @@ in
     home-manager.users.${metaOwner.username} = {
       home = {
         context7Secrets.enable = lib.mkForce false;
+        greptileSecrets.enable = lib.mkForce false;
         r2Secrets.enable = lib.mkForce false;
         virustotalSecrets.enable = lib.mkForce false;
       };
@@ -100,36 +102,5 @@ in
         };
       }
     ];
-  };
-
-  flake = lib.mkIf (lib.hasAttrByPath [ "configurations" "nixos" "tpnix" "module" ] config) {
-    nixosConfigurations.tpnix = inputs.nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        {
-          _module.args = {
-            inherit
-              metaOwner
-              inputs
-              secretsRoot
-              ;
-          };
-        }
-        (
-          { lib, ... }:
-          lib.mkIf (selfRevision != null) {
-            system.configurationRevision = lib.mkDefault selfRevision;
-          }
-        )
-        config.configurations.nixos.tpnix.module
-      ];
-      specialArgs = {
-        inherit
-          inputs
-          metaOwner
-          secretsRoot
-          ;
-      };
-    };
   };
 }

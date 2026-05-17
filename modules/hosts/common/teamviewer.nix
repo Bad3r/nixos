@@ -1,0 +1,3 @@
+_: {
+  nixpkgs.allowedUnfreePackages = [ "teamviewer" ];
+}

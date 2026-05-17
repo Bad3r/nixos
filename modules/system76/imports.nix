@@ -47,13 +47,22 @@ in
       config.flake.nixosModules.bluetooth
       config.flake.nixosModules."duplicati-r2"
       config.flake.nixosModules.mirror-root
+      config.flake.nixosModules.zshKeybindings
 
       # External hardware modules
       inputs.nixos-hardware.nixosModules.system76
     ]
     # Optional modules (graceful degradation)
     ++ lib.optionals system76SupportExists [ config.flake.nixosModules.system76-support ]
-    ++ lib.optionals lenovyMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ];
+    ++ lib.optionals lenovyMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ]
+    ++ [
+      (
+        { lib, ... }:
+        lib.mkIf (selfRevision != null) {
+          system.configurationRevision = lib.mkDefault selfRevision;
+        }
+      )
+    ];
 
     # Pass shared module args to all imported modules
     _module.args = {
@@ -84,6 +93,7 @@ in
     };
     home-manager.users.${metaOwner.username}.home = {
       context7Secrets.enable = lib.mkDefault true;
+      greptileSecrets.enable = lib.mkForce false;
       repoGpg.enable = lib.mkDefault true;
       r2Secrets.enable = lib.mkForce false;
       virustotalSecrets.enable = lib.mkDefault true;
@@ -109,50 +119,5 @@ in
         (lib.getAttrFromPath [ "self" "homeManagerModules" "repoGpg" ] inputs)
       ]
     );
-  };
-
-  # Export the System76 configuration so the flake exposes it under nixosConfigurations
-  flake = lib.mkIf (lib.hasAttrByPath [ "configurations" "nixos" "system76" "module" ] config) {
-    nixosConfigurations.system76 = inputs.nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        {
-          # Dependency Injection via _module.args
-          #
-          # This propagates metaOwner and inputs to all modules in the configuration tree
-          # using flake-parts' _module.args mechanism. Modules receive these as function
-          # parameters: { metaOwner, inputs, ... }:
-          #
-          # Benefits:
-          # - Eliminates hardcoded path imports (e.g., import ../../lib/meta-owner-profile.nix)
-          # - Enables proper testing and composition
-          # - Makes dependencies explicit in function signatures
-          # - Provides consistent parameter passing across the module hierarchy
-          #
-          # See also: modules/meta/owner.nix for the receiving side pattern
-          _module.args = {
-            inherit
-              metaOwner
-              inputs
-              secretsRoot
-              ;
-          };
-        }
-        (
-          { lib, ... }:
-          lib.mkIf (selfRevision != null) {
-            system.configurationRevision = lib.mkDefault selfRevision;
-          }
-        )
-        config.configurations.nixos.system76.module
-      ];
-      specialArgs = {
-        inherit
-          inputs
-          metaOwner
-          secretsRoot
-          ;
-      };
-    };
   };
 }

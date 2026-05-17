@@ -23,60 +23,68 @@ _: {
       osConfig,
       lib,
       pkgs,
+      config,
       inputs,
       ...
     }:
     let
+      legacyProfilesPath = ".librewolf";
+      xdgProfilesPath = ".config/librewolf/librewolf";
       nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
-      inherit (pkgs.stdenv.hostPlatform) system;
-      inherit (inputs.dedupe_nur.legacyPackages.${system}.repos.rycee) firefox-addons;
-      geckoBrowser = import ./_gecko-browser-common.nix { inherit firefox-addons; };
+      gecko = import ./_gecko-mk-profile.nix {
+        inherit
+          pkgs
+          inputs
+          lib
+          config
+          ;
+      };
+      xdgProfileRoot = gecko.mkXdgProfileRoot {
+        browserName = "LibreWolf";
+        inherit legacyProfilesPath xdgProfilesPath;
+      };
     in
     {
       config = lib.mkIf nixosEnabled {
+        assertions = [
+          {
+            assertion = config.programs.librewolf.profilesPath == legacyProfilesPath;
+            message = "LibreWolf Home Manager profiles must stay under ~/.librewolf; the XDG profile root is only a compatibility symlink.";
+          }
+        ];
+
+        home.activation.checkLibreWolfXdgProfileRoot = xdgProfileRoot.activation;
+
+        home.file = gecko.mkCustomKeysFiles config.programs.librewolf // xdgProfileRoot.file;
+
         programs.librewolf = {
           enable = true;
-          # LibreWolf builds use the XDG-compliant profile root
-          # ~/.config/librewolf/librewolf regardless of MOZ_LEGACY_PROFILES,
-          # but Home Manager's LibreWolf module still defaults to ~/.librewolf.
-          # Point HM at the path LibreWolf actually reads so declarative
-          # profile seeding reaches the running browser.
-          # Keep prefs under profiles.*.settings: HM still writes top-level
-          # settings to ~/.librewolf/librewolf.overrides.cfg regardless of
-          # configPath.
-          configPath = ".config/librewolf/librewolf";
-          inherit (osConfig.programs.librewolf.extended) package;
+          # This repo intentionally keeps LibreWolf on the legacy profile root.
+          # A real XDG profile root would split policy-applied browser state from
+          # Home Manager's declarative user.js, customKeys.json, extension
+          # storage, and profile-scoped packages, so the XDG leaf is a symlink.
+          configPath = legacyProfilesPath;
+          package = osConfig.programs.librewolf.extended.package;
+          # See modules/hm-apps/firefox.nix for why this uses the browser
+          # native-messaging option instead of `home.packages`.
+          nativeMessagingHosts = [ pkgs.tridactyl-native ] ++ gecko.nativeMessagingHosts;
 
-          # Core enterprise policies via the wrapped LibreWolf. DisableTelemetry
-          # and friends are already enforced by LibreWolf's built-in prefs; they
-          # are repeated here so the policy surface stays identical to
-          # firefox/floorp and the shared extension wiring composes cleanly.
-          policies = {
-            DisableTelemetry = true;
-            DisableFirefoxStudies = true;
-            DisablePocket = true;
-          }
-          // geckoBrowser.extensionPolicies;
+          inherit (gecko) policies;
 
-          profiles.primary = {
-            id = 0;
-
-            settings = {
-              # Auto-enable packaged extensions (e.g. Stylix's FirefoxColor add-on)
-              # on first profile load; without this, scope-masked XPIs land
-              # installed-but-disabled and the Stylix theme never applies.
-              "extensions.autoDisableScopes" = 0;
+          profiles = {
+            primary = gecko.mkProfile {
+              id = 0;
+              packages = gecko.primaryPackages;
             };
 
-            extensions = {
-              # Acknowledge that declarative settings override existing ones.
-              force = true;
+            pentesting = gecko.mkProfile {
+              id = 1;
+              packages = gecko.pentestingPackages;
+            };
 
-              # LibreWolf ships uBO bundled; installing it again from NUR pins
-              # the version declaratively and dedupes against the bundle by ID.
-              packages = geckoBrowser.extensionPackages;
-
-              settings = geckoBrowser.extensionStorage;
+            work = gecko.mkProfile {
+              id = 2;
+              packages = gecko.workPackages;
             };
           };
         };
