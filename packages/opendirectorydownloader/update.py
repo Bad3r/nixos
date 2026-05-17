@@ -22,7 +22,6 @@ URL_TEMPLATE = (
 TAG_PATTERN = re.compile(r"^v(?P<version>[0-9][^/]+)$")
 ASSET_TEMPLATES = {
     "x86_64-linux": "OpenDirectoryDownloader-{version}-linux-x64-self-contained.zip",
-    "aarch64-linux": "OpenDirectoryDownloader-{version}-linux-arm64-self-contained.zip",
 }
 
 
