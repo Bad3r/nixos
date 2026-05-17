@@ -102,7 +102,7 @@ def required_assets() -> dict[str, str]:
     return ASSET_NAMES.copy()
 
 
-def check_assets(version: str, release_assets: set[str]) -> dict[str, str]:
+def check_assets(release_assets: set[str]) -> dict[str, str]:
     """Ensure all required release assets are present."""
     expected = required_assets()
     missing_assets = sorted(set(expected.values()) - release_assets)
@@ -147,7 +147,7 @@ def latest_release() -> tuple[str, set[str]]:
 
         version = match.group("version")
         assets = release_asset_names(cast("dict[str, Any]", release))
-        check_assets(version, assets)
+        check_assets(assets)
         return version, assets
 
     msg = (
@@ -261,7 +261,7 @@ def main() -> None:
     package_text = PACKAGE_FILE.read_text(encoding="utf-8")
     current = current_version(package_text)
     latest, release_assets = latest_release()
-    assets = check_assets(latest, release_assets)
+    assets = check_assets(release_assets)
 
     print(f"Current: {current}")
     print(f"Latest:  {latest}")
