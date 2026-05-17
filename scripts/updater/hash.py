@@ -3,7 +3,7 @@
 import base64
 import re
 
-from .nix import nix_store_prefetch_file
+from .nix import nix_prefetch_url, nix_store_prefetch_file
 
 # Dummy hash used to trigger Nix build errors to extract correct hash
 DUMMY_SHA256_HASH = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -14,14 +14,17 @@ def calculate_url_hash(url: str, *, unpack: bool = False) -> str:
 
     Args:
         url: URL to calculate hash for
-        unpack: Whether to unpack the archive (use True for fetchzip /
-            fetchFromGitHub-style packages)
+        unpack: Whether to unpack the archive (use True for fetchzip packages)
 
     Returns:
         Hash in SRI format (sha256-...)
 
     """
-    return nix_store_prefetch_file(url, unpack=unpack)
+    if unpack:
+        # Use nix-prefetch-url --unpack for fetchzip packages
+        return nix_prefetch_url(url, unpack=True)
+    # Use nix store prefetch-file for regular fetchurl packages
+    return nix_store_prefetch_file(url)
 
 
 def extract_hash_from_build_error(error_output: str) -> str | None:

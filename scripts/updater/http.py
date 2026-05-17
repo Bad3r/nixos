@@ -19,12 +19,19 @@ def _github_request(url: str) -> urllib.request.Request:
     return req
 
 
-def fetch_text(url: str, *, timeout: int = 30) -> str:
+# Default user-agent avoids 403s from servers that block Python's default.
+DEFAULT_USER_AGENT = "llm-agents-updater"
+
+
+def fetch_text(
+    url: str, *, timeout: int = 30, user_agent: str = DEFAULT_USER_AGENT
+) -> str:
     """Fetch text content from a URL.
 
     Args:
         url: URL to fetch
         timeout: Request timeout in seconds
+        user_agent: User-Agent header value
 
     Returns:
         Response body as text
@@ -33,10 +40,12 @@ def fetch_text(url: str, *, timeout: int = 30) -> str:
         urllib.error.URLError: If the request fails
 
     """
-    target: str | urllib.request.Request = url
     if "api.github.com" in url:
-        target = _github_request(url)
-    with urllib.request.urlopen(target, timeout=timeout) as response:
+        req = _github_request(url)
+    else:
+        req = urllib.request.Request(url)
+    req.add_header("User-Agent", user_agent)
+    with urllib.request.urlopen(req, timeout=timeout) as response:
         data: bytes = response.read()
         return data.decode("utf-8")
 

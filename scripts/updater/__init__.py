@@ -5,7 +5,11 @@ including version fetching, hash calculation, and file modification.
 """
 
 # Bun package utilities
-from .bun import clone_and_generate_bun_nix, regenerate_bun_nix
+from .bun import (
+    clone_and_generate_bun_nix,
+    regenerate_bun_nix,
+    strip_workspace_entries,
+)
 
 # Dependency hash calculation
 from .deps import calculate_dependency_hash
@@ -58,4 +62,5 @@ __all__ = [
     "regenerate_bun_nix",
     "save_hashes",
     "should_update",
+    "strip_workspace_entries",
 ]
