@@ -61,7 +61,7 @@ FLAKE_ROOT = _checkout_root()
 PACKAGE_FILE = FLAKE_ROOT / "packages" / PACKAGE_NAME / "default.nix"
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
-from updater import calculate_url_hash, fetch_json  # noqa: E402
+from updater import calculate_platform_hashes, fetch_json  # noqa: E402
 
 
 def current_version(text: str) -> str:
@@ -224,16 +224,6 @@ def updated_package_text(version: str, hashes: dict[str, str]) -> str:
     )
 
 
-def calculate_fetchzip_hashes(version: str, assets: dict[str, str]) -> dict[str, str]:
-    """Calculate unpacked fetchzip hashes for release assets."""
-    hashes = {}
-    for platform, asset_name in assets.items():
-        url = URL_TEMPLATE.format(platform=asset_name, version=version)
-        hashes[platform] = calculate_url_hash(url, unpack=True)
-        print(f"Fetched hash for {platform}")
-    return hashes
-
-
 def print_diff(before: str, after: str) -> None:
     """Print a unified diff for a dry run."""
     package_path = str(PACKAGE_FILE.relative_to(FLAKE_ROOT))
@@ -288,7 +278,12 @@ def main() -> None:
         print("Already up to date")
         return
 
-    hashes = calculate_fetchzip_hashes(latest, assets)
+    hashes = calculate_platform_hashes(
+        URL_TEMPLATE,
+        assets,
+        unpack=True,
+        version=latest,
+    )
     updated = updated_package_text(latest, hashes)
 
     if updated == package_text:
