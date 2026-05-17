@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import re
 import sys
 from pathlib import Path
@@ -201,6 +202,19 @@ def render_default_nix(
     return "\n".join(lines) + "\n"
 
 
+def print_diff(before: str, after: str) -> None:
+    """Print a unified diff for a dry run."""
+    package_path = str(PACKAGE_FILE.relative_to(FLAKE_ROOT))
+    for line in difflib.unified_diff(
+        before.splitlines(),
+        after.splitlines(),
+        fromfile=package_path,
+        tofile=package_path,
+        lineterm="",
+    ):
+        print(line)
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser()
@@ -213,6 +227,11 @@ def parse_args() -> argparse.Namespace:
         "--check-release",
         action="store_true",
         help="validate release metadata without fetching archive hashes",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="recalculate source hashes even when the version is unchanged",
     )
     return parser.parse_args()
 
@@ -233,6 +252,10 @@ def main() -> None:
         print("Release metadata is valid")
         return
 
+    if current == latest and not args.force:
+        print("Already up to date")
+        return
+
     hashes = calculate_platform_hashes(
         RELEASE_URL_TEMPLATE,
         archives,
@@ -245,7 +268,7 @@ def main() -> None:
         return
 
     if args.dry_run:
-        print(f"Would update {PACKAGE_FILE.relative_to(FLAKE_ROOT)} to {latest}")
+        print_diff(package_text, updated)
         return
 
     PACKAGE_FILE.write_text(updated, encoding="utf-8")
