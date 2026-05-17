@@ -353,8 +353,8 @@ let
     "addons.mozilla.org * 3p-frame noop"
 
     # Raindrop.io
-    "https://app.raindrop.io * 3p-script noop"
-    "https://app.raindrop.io * 3p-frame noop"
+    "app.raindrop.io * 3p-script noop"
+    "app.raindrop.io * 3p-frame noop"
   ];
 
   extensionSettings = (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy) // {
