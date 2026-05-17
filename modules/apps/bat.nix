@@ -36,9 +36,9 @@ let
 
       config = lib.mkIf cfg.enable {
         host.defaults.pager = {
-          command = lib.mkOverride 900 "bat --plain --paging=always";
+          command = lib.mkOverride 900 "${lib.getExe pkgs.bat} --plain --paging=always";
           man = {
-            pager = lib.mkOverride 900 "env BATMAN_IS_BEING_MANPAGER=yes ${lib.getExe pkgs.bash} ${lib.getExe batman}";
+            pager = lib.mkOverride 900 "env BATMAN_IS_BEING_MANPAGER=yes ${lib.getExe batman}";
             roffopt = lib.mkOverride 900 "-c";
             width = lib.mkOverride 900 "120";
           };
