@@ -41,6 +41,7 @@ _: {
       config = lib.mkIf enabled {
         programs.lazygit = {
           enable = true;
+          enableZshIntegration = true;
           package = null;
 
           # Custom settings can be added here

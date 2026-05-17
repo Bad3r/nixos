@@ -39,6 +39,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.kitty = {
           enable = true;
+          shellIntegration.enableZshIntegration = true;
           # Ensure kitty is set as default terminal in user session
           settings = {
             # Font and glyph handling

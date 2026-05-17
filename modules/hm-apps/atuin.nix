@@ -14,6 +14,8 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.atuin = {
           enable = true;
+          enableZshIntegration = true;
+          flags = [ "--disable-up-arrow" ];
         };
       };
     };
