@@ -5,18 +5,18 @@
 }:
 
 let
-  version = "1.23.7";
+  version = "1.25.1";
 
   downloads = {
     x86_64-linux = {
       url = "https://github.com/Azure/azure-dev/releases/download/azure-dev-cli_${version}/azd-linux-amd64.tar.gz";
-      hash = "sha256-HaDpJzzcyOxgUzVTYG8Hr4daM1QuP5CGc9Noajt95Bk=";
+      hash = "sha256-Yf/nl0ULOJDvd22QS/ftDrIu+1nvyXMEeVJw5Ris3P0=";
       binary = "azd-linux-amd64";
     };
 
     aarch64-linux = {
       url = "https://github.com/Azure/azure-dev/releases/download/azure-dev-cli_${version}/azd-linux-arm64.tar.gz";
-      hash = "sha256-Bq6duUGTJ2Za8sYocoCXc+twR+mW1JiQ9DfuM2ZGymY=";
+      hash = "sha256-vHhp2kUTCwdaxBIsfnr1m3haKwsEAlvpeZ5apOn4OxM=";
       binary = "azd-linux-arm64";
     };
   };
@@ -56,4 +56,6 @@ stdenvNoCC.mkDerivation {
     mainProgram = "azd";
     platforms = builtins.attrNames downloads;
   };
+
+  passthru.updateScript = ./update.py;
 }

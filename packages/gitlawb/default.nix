@@ -11,10 +11,16 @@
 
 let
   version = "0.3.8";
-  releaseTag = "v${version}";
-  archiveName = "gitlawb-${releaseTag}-x86_64-unknown-linux-musl.tar.gz";
-  releaseUrl = "https://github.com/Gitlawb/releases/releases/tag/${releaseTag}";
-  archiveUrl = "https://github.com/Gitlawb/releases/releases/download/${releaseTag}/${archiveName}";
+  archives = {
+    x86_64-linux = {
+      url = "https://github.com/Gitlawb/releases/releases/download/v${version}/gitlawb-v${version}-x86_64-unknown-linux-musl.tar.gz";
+      hash = "sha256-GW4jeXx+qR7aL5HRf8rtf+W2mttDuHFXJ70Q42JnXP8=";
+    };
+  };
+  platform =
+    archives.${stdenvNoCC.hostPlatform.system}
+      or (throw "gitlawb: unsupported system ${stdenvNoCC.hostPlatform.system}");
+  releaseUrl = "https://github.com/Gitlawb/releases/releases/tag/v${version}";
   sandboxPath = lib.makeBinPath [
     git
     coreutils
@@ -26,8 +32,7 @@ stdenvNoCC.mkDerivation {
   inherit version;
 
   src = fetchurl {
-    url = archiveUrl;
-    hash = "sha256-GW4jeXx+qR7aL5HRf8rtf+W2mttDuHFXJ70Q42JnXP8=";
+    inherit (platform) url hash;
   };
 
   dontUnpack = true;
@@ -187,8 +192,10 @@ stdenvNoCC.mkDerivation {
     changelog = releaseUrl;
     license = lib.licenses.unfree;
     mainProgram = "gl";
-    platforms = [ "x86_64-linux" ];
+    platforms = builtins.attrNames archives;
     sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
     maintainers = [ ];
   };
+
+  passthru.updateScript = ./update.py;
 }

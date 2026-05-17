@@ -35,8 +35,17 @@ stdenv.mkDerivation (finalAttrs: {
   # libstdc++ for node-lief native addon
   buildInputs = [ stdenv.cc.cc.lib ];
 
+  postPatch = ''
+    rm -f pnpm-workspace.yaml
+  '';
+
   pnpmDeps = fetchPnpmDeps {
-    inherit (finalAttrs) pname version src;
+    inherit (finalAttrs)
+      pname
+      version
+      src
+      postPatch
+      ;
     pnpm = pnpm_9;
     fetcherVersion = 3;
     hash = pin.pnpmDepsHash;

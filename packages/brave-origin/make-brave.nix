@@ -292,7 +292,7 @@ stdenv.mkDerivation {
     $out/opt/brave.com/${packagePath}/brave --version
   '';
 
-  passthru.updateScript = ./update.sh;
+  passthru.updateScript = ./update.py;
 
   meta = {
     homepage = "https://brave.com/";
@@ -307,9 +307,6 @@ stdenv.mkDerivation {
     '';
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     license = lib.licenses.mpl20;
-    # Upstream maintainer (WitteShadovv) is added by the same PR that introduces
-    # this package; the pinned nixpkgs doesn't know them yet, so leave the list
-    # empty in this local test copy.
     maintainers = [ ];
     platforms = builtins.attrNames archives;
     mainProgram = "brave-origin";

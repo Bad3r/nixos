@@ -13,11 +13,6 @@ let
       url = "https://github.com/KoalaBear84/OpenDirectoryDownloader/releases/download/v${version}/OpenDirectoryDownloader-${version}-linux-x64-self-contained.zip";
       sha256 = "sha256-dKPes3Dex+k4Rzzw9iHj8rs0YyxZj2kgbvWkBkjVhvE=";
     };
-
-    aarch64-linux = {
-      url = "https://github.com/KoalaBear84/OpenDirectoryDownloader/releases/download/v${version}/OpenDirectoryDownloader-${version}-linux-arm64-self-contained.zip";
-      sha256 = "sha256-64eibmsHe9DIX1zir/q+NFfQnDnSr3c3JIhltX8q7bw=";
-    };
   };
 
   platform =
@@ -73,4 +68,6 @@ stdenvNoCC.mkDerivation {
     platforms = builtins.attrNames downloads;
     maintainers = [ ];
   };
+
+  passthru.updateScript = ./update.py;
 }
