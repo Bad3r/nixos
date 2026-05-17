@@ -20,16 +20,12 @@ RELEASE_URL_TEMPLATE = (
 )
 REQUIRED_PLATFORM = "x86_64-linux"
 PLATFORM_ORDER = [
-    "aarch64-linux",
     "x86_64-linux",
     "aarch64-darwin",
-    "x86_64-darwin",
 ]
 ASSET_TEMPLATES = {
-    "aarch64-linux": "brave-origin-nightly_{version}_arm64.deb",
     "x86_64-linux": "brave-origin-nightly_{version}_amd64.deb",
     "aarch64-darwin": "brave-origin-v{version}-darwin-arm64.zip",
-    "x86_64-darwin": "brave-origin-v{version}-darwin-x64.zip",
 }
 
 
