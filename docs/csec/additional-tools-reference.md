@@ -187,16 +187,9 @@ Each entry lists a representative run command, upstream repository, official doc
   - Docs.: <https://github.com/tomnomnom/httprobe#readme>
   - Desc.: Probe a list of hosts for working HTTP/HTTPS endpoints (predecessor of `httpx`).
   - Stat.: Deprecated (v0.2, 2022-06-09; no commits in nearly 4 years; superseded by httpx).
-- subjack
-  - run..: `go run github.com/haccer/subjack@latest -w subs.txt -ssl`
-    - ⚠️ Failed to run: `go run` reports `unknown GOEXPERIMENT synctest` on the system Go. The package is not in nixpkgs. Workaround: `nix shell nixpkgs#go_1_25` with `GOEXPERIMENT` unset before invoking `go run`.
-  - Repo.: <https://github.com/haccer/subjack>
-  - Docs.: <https://github.com/haccer/subjack#readme>
-  - Desc.: Subdomain-takeover scanner; matches DNS targets against a fingerprint list of vulnerable cloud services.
-  - Stat.: Maintained (v3.0.0, 2026-03-16).
 - subzy
   - run..: `go run github.com/PentestPad/subzy@latest run --targets subs.txt`
-    - ⚠️ Failed to run: same `unknown GOEXPERIMENT synctest` failure as subjack. The package is not in nixpkgs.
+    - ⚠️ Failed to run: `go run` reports `unknown GOEXPERIMENT synctest` on the system Go. The package is not in nixpkgs.
   - Repo.: <https://github.com/PentestPad/subzy>
   - Docs.: <https://github.com/PentestPad/subzy#readme>
   - Desc.: Concurrent subdomain-takeover scanner covering a broad provider fingerprint set.

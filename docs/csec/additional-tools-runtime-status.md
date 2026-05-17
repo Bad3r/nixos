@@ -17,10 +17,10 @@ Verified on 2026-05-04 against the active flake pin.
 | ⚠️ Binary path mismatch in the documented attribute              | 5       |
 | ⚠️ Documented attribute resolves to a different upstream project | 2       |
 | ⚠️ Documented smoke flag incompatible with the binary            | 2       |
-| ⚠️ External (non-nixpkgs) toolchain blocked                      | 2       |
+| ⚠️ External (non-nixpkgs) toolchain blocked                      | 1       |
 | ⚠️ Closure too large for smoke budget                            | 1       |
 | ⚠️ Documented uvx / PyPI invocation broken                       | 2       |
-| **Total entries in the reference**                               | **134** |
+| **Total entries in the reference**                               | **133** |
 
 The reference doc flags each unavailable tool inline (the entry's `run..:`
 field carries text such as `Not in nixpkgs ...` or `Must create a custom nixpkg`); there is no dedicated section for them. The groupings below are
@@ -244,12 +244,9 @@ exist (or `meta.mainProgram` is wrong).
 
 ### External (non-nixpkgs) toolchain blocked
 
-- ⚠️ subjack: `go run github.com/haccer/subjack@latest` fails with
-  `unknown GOEXPERIMENT synctest` against the system `go`. Works only when
-  invoked through `nix shell nixpkgs#go_1_25` with `GOEXPERIMENT` unset.
-  Not packaged in nixpkgs.
-- ⚠️ subzy: same `unknown GOEXPERIMENT synctest` failure as subjack. Not
-  packaged in nixpkgs.
+- ⚠️ subzy: `go run github.com/PentestPad/subzy@latest` fails with
+  `unknown GOEXPERIMENT synctest` against the system `go`. Not packaged in
+  nixpkgs.
 
 ### Documented uvx / PyPI invocation broken
 
