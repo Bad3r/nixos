@@ -395,6 +395,7 @@ let
       steam.extended.enable = lib.mkOverride 1100 true;
       strace.extended.enable = lib.mkOverride 1100 true;
       subfinder.extended.enable = lib.mkOverride 1100 true;
+      subjack.extended.enable = lib.mkOverride 1100 true;
       synchrony.extended.enable = lib.mkOverride 1100 true;
       sysstat.extended.enable = lib.mkOverride 1100 true;
       tailscale.extended.enable = lib.mkOverride 1100 true;
