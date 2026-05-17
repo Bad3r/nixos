@@ -14,6 +14,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.zoxide = {
           enable = true;
+          enableZshIntegration = false;
         };
       };
     };

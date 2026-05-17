@@ -1,8 +1,28 @@
 { lib, metaOwner, ... }:
 {
   flake.homeManagerModules.base =
-    { config, ... }:
     {
+      config,
+      osConfig ? { },
+      pkgs,
+      ...
+    }:
+    let
+      onePasswordPackage = lib.attrByPath [
+        "programs"
+        "1password-gui-beta"
+        "extended"
+        "package"
+      ] pkgs._1password-gui osConfig;
+      githubUnsignedEmail = "github@unsigned.sh";
+      githubUnsignedSigningKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJDNTENPappbhPz4AqjvRmWBO0m2oS/mkej/pgN0F6fM";
+      gitAllowedSignersPath = "${config.xdg.configHome}/git/allowed_signers";
+    in
+    {
+      xdg.configFile."git/allowed_signers".text = ''
+        ${githubUnsignedEmail} ${githubUnsignedSigningKey}
+      '';
+
       programs = {
         git = lib.mkMerge [
           # Base git configuration
@@ -141,37 +161,21 @@
           # User identity from owner profile
           {
             settings.user = {
-              inherit (metaOwner.git) name email;
+              inherit (metaOwner.git) name;
+              email = githubUnsignedEmail;
             };
           }
 
-          # GPG commit signing
-          (
-            let
-              repoGpg = lib.attrByPath [ "home" "repoGpg" ] { } config;
-              keyFingerprint = repoGpg.fingerprint or null;
-            in
-            if (repoGpg.signingReady or false) && keyFingerprint != null then
-              {
-                signing = {
-                  key = keyFingerprint; # pragma: allowlist secret
-                  signByDefault = true;
-                  format = "openpgp";
-                };
-                settings = {
-                  commit.gpgSign = true;
-                  tag.gpgSign = true;
-                };
-              }
-            else
-              {
-                signing.signByDefault = false;
-                settings = {
-                  commit.gpgSign = false;
-                  tag.gpgSign = false;
-                };
-              }
-          )
+          # SSH commit and tag signing through 1Password.
+          {
+            signing = {
+              key = githubUnsignedSigningKey;
+              signByDefault = true;
+              format = "ssh";
+              signer = lib.getExe' onePasswordPackage "op-ssh-sign";
+            };
+            settings.gpg.ssh.allowedSignersFile = gitAllowedSignersPath;
+          }
         ];
 
         # Delta diff viewer (moved from programs.git.delta to programs.delta)
