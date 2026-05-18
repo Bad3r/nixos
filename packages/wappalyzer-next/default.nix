@@ -20,7 +20,7 @@ python3Packages.buildPythonApplication rec {
   propagatedBuildInputs = with python3Packages; [
     requests
     huepy
-    selenium
+    playwright
     tldextract
     beautifulsoup4
     dnspython
