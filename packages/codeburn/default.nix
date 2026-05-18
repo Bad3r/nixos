@@ -5,32 +5,36 @@
   nodejs_22,
 }:
 
+let
+  pin = lib.importJSON ./hashes.json;
+in
 buildNpmPackage rec {
   pname = "codeburn";
-  version = "0.9.5";
+  inherit (pin) version;
 
   src = fetchFromGitHub {
     owner = "getagentseal";
     repo = "codeburn";
     rev = "v${version}";
-    hash = "sha256-54NWcnVXQIDz2JzzFW8SJ+I2Ff6KyumrO3DdrvzuHUE=";
+    hash = pin.srcHash;
   };
 
   nodejs = nodejs_22;
 
-  npmDepsHash = "sha256-vcChnFLiuiymqZb4ojvv7a7Cdg4BYYT+ZraTVELEsQ0=";
+  inherit (pin) npmDepsHash;
 
   # The upstream `build` script invokes scripts/bundle-litellm.mjs, which
   # downloads the LiteLLM price table from the network. The snapshot it would
   # produce is already committed to src/data/litellm-snapshot.json, so drop
-  # the script and run tsup directly. Re-verify the substituted text on the
-  # next version bump.
+  # that network step and keep the rest of the build script intact.
   postPatch = ''
     substituteInPlace package.json \
-      --replace-fail '"build": "node scripts/bundle-litellm.mjs && tsup"' \
-                     '"build": "tsup"'
+      --replace-fail 'node scripts/bundle-litellm.mjs && ' \
+                     ""
     rm scripts/bundle-litellm.mjs
   '';
+
+  passthru.updateScript = ./update.py;
 
   meta = {
     description = "Interactive TUI dashboard for AI coding token cost observability";
