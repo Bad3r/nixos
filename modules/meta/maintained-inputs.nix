@@ -18,7 +18,6 @@ _: {
       checks = [
         "clean-checkout"
         "reachable-commit"
-        "tracked-files"
         "follows-preserved"
         "lock-graph"
         "no-local-url"

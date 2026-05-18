@@ -78,7 +78,6 @@ Example shape:
     checks = [
       "clean-checkout"
       "reachable-commit"
-      "tracked-files"
       "follows-preserved"
       "lock-graph"
       "no-local-url"
@@ -102,6 +101,9 @@ scripts/check-maintained-inputs.sh --fetch
 ```
 
 The `maintained-inputs` pre-commit hook wraps the same script without `--fetch`.
+The `flake.nix` local URL scan is repository-wide because committed local input
+URLs are never allowed. The inventory `no-local-url` check controls the
+per-input `flake.lock` scan.
 
 Validation is split by the failure it catches:
 

@@ -46,11 +46,17 @@ error_msg() {
   fail=1
 }
 
+# Committed flake inputs must not use local URLs anywhere in flake.nix.
+# Inventory no-local-url checks add per-input flake.lock validation below.
 local_url_hits="$tmp_root/local-url-hits.txt"
 if grep -nE 'url[[:space:]]*=[[:space:]]*"((path|git\+file|file):|/|\.\.?/)' flake.nix >"$local_url_hits"; then
   error_msg "flake.nix contains a local input URL"
   sed 's/^/  flake.nix:/' "$local_url_hits" >&2
 fi
+
+is_local_flake_ref() {
+  [[ $1 =~ ^(path:|git\+file:|file:|/|\.\.?/) ]]
+}
 
 has_check() {
   local item check
@@ -117,13 +123,19 @@ while IFS= read -r encoded; do
   if has_check "$item" no-local-url; then
     for section in locked original; do
       input_type=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].type // empty' flake.lock)
-      if [ "$input_type" = "path" ]; then
+      input_url=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].url // empty' flake.lock)
+      input_path=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].path // empty' flake.lock)
+      if [ "$input_type" = "path" ] || [ -n "$input_path" ] || is_local_flake_ref "$input_url"; then
         error_msg "$id: flake.lock $section source for $flake_input is a local path"
       fi
     done
   fi
 
   if has_check "$item" follows-preserved; then
+    expected_follows=$(jq -c '.follows // {}' <<<"$item")
+    if [ "$expected_follows" = "{}" ]; then
+      error_msg "$id: follows-preserved check declared but follows is empty or missing"
+    fi
     while IFS= read -r follow_record; do
       follow_name=$(jq -r '.key' <<<"$follow_record")
       expected=$(jq -r '.value' <<<"$follow_record")
@@ -137,7 +149,9 @@ while IFS= read -r encoded; do
 
   if has_check "$item" lock-graph; then
     expected_inputs=$(jq -c '.lockGraph.inputNames // [] | sort' <<<"$item")
-    if [ "$expected_inputs" != "[]" ]; then
+    if [ "$expected_inputs" = "[]" ]; then
+      error_msg "$id: lock-graph check declared but lockGraph.inputNames is empty or missing"
+    else
       actual_inputs=$(jq -c --arg node "$node" '.nodes[$node].inputs // {} | keys | sort' flake.lock)
       if [ "$actual_inputs" != "$expected_inputs" ]; then
         error_msg "$id: lock graph input names expected $expected_inputs but flake.lock has $actual_inputs"
