@@ -53,12 +53,31 @@
         }
       ];
 
-      services.libinput = {
-        enable = true;
-        touchpad = {
-          tapping = true;
-          middleEmulation = true;
-          naturalScrolling = true;
+      services = {
+        libinput = {
+          enable = true;
+          touchpad = {
+            tapping = true;
+            middleEmulation = true;
+            naturalScrolling = true;
+          };
+        };
+
+        thinkfan = {
+          fans = [
+            {
+              type = "tpacpi";
+              query = "/proc/acpi/ibm/fan";
+            }
+          ];
+
+          levels = [
+            [
+              "level full-speed"
+              0
+              32767
+            ]
+          ];
         };
       };
     };

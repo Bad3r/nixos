@@ -102,6 +102,7 @@ let
     "telegram-desktop" = false;
     terraform = false;
     tesseract = false;
+    thinkfan = true;
     tokei = false;
     udiskie = false;
     upscayl = false;
