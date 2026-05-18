@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+fetch=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+  --fetch)
+    fetch=1
+    ;;
+  --no-fetch)
+    fetch=0
+    ;;
+  *)
+    echo "usage: check-maintained-inputs.sh [--fetch|--no-fetch]" >&2
+    exit 2
+    ;;
+  esac
+  shift
+done
+
+if [ "${MAINTAINED_INPUTS_FETCH:-0}" = "1" ]; then
+  fetch=1
+fi
+
+tmp_root=$(mktemp -d)
+inventory_json="$tmp_root/inventory.json"
+trap 'rm -rf "$tmp_root"' EXIT
+
+inventory_expr='(import ./modules/meta/maintained-inputs.nix {}).flake.lib.meta.maintainedInputs'
+if ! nix eval --impure --json --expr "$inventory_expr" >"$inventory_json"; then
+  echo "maintained-inputs: failed to evaluate modules/meta/maintained-inputs.nix" >&2
+  exit 1
+fi
+
+if [ "$(jq 'length' "$inventory_json")" -eq 0 ]; then
+  exit 0
+fi
+
+fail=0
+
+error_msg() {
+  printf 'maintained-inputs: %s\n' "$*" >&2
+  fail=1
+}
+
+local_url_hits="$tmp_root/local-url-hits.txt"
+if grep -nE 'url[[:space:]]*=[[:space:]]*"((path|git\+file|file):|/|\.\.?/)' flake.nix >"$local_url_hits"; then
+  error_msg "flake.nix contains a local input URL"
+  sed 's/^/  flake.nix:/' "$local_url_hits" >&2
+fi
+
+has_check() {
+  local item check
+  item="$1"
+  check="$2"
+  jq -e --arg check "$check" '.checks // [] | index($check)' <<<"$item" >/dev/null
+}
+
+valid_check_name() {
+  case "$1" in
+  clean-checkout | reachable-commit | tracked-files | follows-preserved | lock-graph | no-local-url)
+    return 0
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
+json_string() {
+  jq -r "$1 // empty" <<<"$2"
+}
+
+while IFS= read -r encoded; do
+  record=$(printf '%s' "$encoded" | base64 -d)
+  id=$(jq -r '.key' <<<"$record")
+  item=$(jq -c '.value' <<<"$record")
+
+  flake_input=$(json_string '.flakeInput' "$item")
+  upstream_url=$(json_string '.upstream.url' "$item")
+  upstream_ref=$(json_string '.upstream.ref' "$item")
+  source_mode=$(json_string '.sourceMode' "$item")
+  path_env=$(json_string '.local.pathEnv' "$item")
+
+  [ -n "$flake_input" ] || error_msg "$id: missing flakeInput"
+  [ -n "$upstream_url" ] || error_msg "$id: missing upstream.url"
+  [ -n "$upstream_ref" ] || error_msg "$id: missing upstream.ref"
+  [ -n "$source_mode" ] || error_msg "$id: missing sourceMode"
+
+  case "$source_mode" in
+  remote-locked | local-override | submodule)
+    ;;
+  *)
+    error_msg "$id: unknown sourceMode: $source_mode"
+    ;;
+  esac
+
+  while IFS= read -r check_name; do
+    if ! valid_check_name "$check_name"; then
+      error_msg "$id: unknown check: $check_name"
+    fi
+  done < <(jq -r '.checks[]?' <<<"$item")
+
+  if [ -z "$flake_input" ]; then
+    continue
+  fi
+
+  node=$(jq -r --arg input "$flake_input" '.nodes.root.inputs[$input] // empty' flake.lock)
+  if [ -z "$node" ]; then
+    error_msg "$id: flake input $flake_input is not in flake.lock root inputs"
+    continue
+  fi
+
+  if has_check "$item" no-local-url; then
+    for section in locked original; do
+      input_type=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].type // empty' flake.lock)
+      if [ "$input_type" = "path" ]; then
+        error_msg "$id: flake.lock $section source for $flake_input is a local path"
+      fi
+    done
+  fi
+
+  if has_check "$item" follows-preserved; then
+    while IFS= read -r follow_record; do
+      follow_name=$(jq -r '.key' <<<"$follow_record")
+      expected=$(jq -r '.value' <<<"$follow_record")
+      expected_json=$(jq -cn --arg expected "$expected" '$expected | split("/")')
+      actual_json=$(jq -c --arg node "$node" --arg follow "$follow_name" '.nodes[$node].inputs[$follow] // null' flake.lock)
+      if [ "$actual_json" != "$expected_json" ]; then
+        error_msg "$id: follows.$follow_name expected $expected_json but flake.lock has $actual_json"
+      fi
+    done < <(jq -c '.follows // {} | to_entries[]' <<<"$item")
+  fi
+
+  if has_check "$item" lock-graph; then
+    expected_inputs=$(jq -c '.lockGraph.inputNames // [] | sort' <<<"$item")
+    if [ "$expected_inputs" != "[]" ]; then
+      actual_inputs=$(jq -c --arg node "$node" '.nodes[$node].inputs // {} | keys | sort' flake.lock)
+      if [ "$actual_inputs" != "$expected_inputs" ]; then
+        error_msg "$id: lock graph input names expected $expected_inputs but flake.lock has $actual_inputs"
+      fi
+    fi
+  fi
+
+  if [ -n "$path_env" ]; then
+    checkout="${!path_env:-}"
+    if [ -n "$checkout" ]; then
+      if ! git -C "$checkout" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        error_msg "$id: $path_env does not point at a git checkout: $checkout"
+      else
+        status=$(git -C "$checkout" status --porcelain=v1 --untracked-files=all)
+        if [ -n "$status" ] && has_check "$item" clean-checkout; then
+          error_msg "$id: checkout from $path_env is dirty or has untracked files"
+          printf '%s\n' "$status" | sed "s/^/  $id: /" >&2
+        elif [ -n "$status" ] && has_check "$item" tracked-files && grep -q '^?? ' <<<"$status"; then
+          error_msg "$id: checkout from $path_env has untracked files"
+          printf '%s\n' "$status" | sed "s/^/  $id: /" >&2
+        fi
+      fi
+    fi
+  fi
+
+  if [ "$fetch" -eq 1 ] && has_check "$item" reachable-commit; then
+    locked_rev=$(jq -r --arg node "$node" '.nodes[$node].locked.rev // empty' flake.lock)
+    if [ -z "$locked_rev" ]; then
+      error_msg "$id: flake.lock has no locked rev for $flake_input"
+    else
+      remote_check_dir=$(mktemp -d "$tmp_root/$id.reachability.XXXXXX")
+      git -C "$remote_check_dir" init --quiet
+      git -C "$remote_check_dir" remote add origin "$upstream_url"
+      if git -C "$remote_check_dir" fetch --filter=blob:none --quiet origin "$upstream_ref"; then
+        if ! git -C "$remote_check_dir" merge-base --is-ancestor "$locked_rev" FETCH_HEAD; then
+          error_msg "$id: locked rev $locked_rev is not reachable from $upstream_url $upstream_ref"
+        fi
+      else
+        error_msg "$id: failed to fetch $upstream_url $upstream_ref"
+      fi
+    fi
+  fi
+done < <(jq -r 'to_entries[] | @base64' "$inventory_json")
+
+exit "$fail"

@@ -106,6 +106,7 @@
               config.packages."hook-statix"
               config.packages."hook-nix-parse"
               config.packages."hook-managed-files-drift"
+              config.packages."hook-maintained-inputs"
               config.packages."hook-apps-catalog-sync"
               config.packages."hook-build-sh-completion-sync"
               config.packages."hook-mcp-docs-sync"

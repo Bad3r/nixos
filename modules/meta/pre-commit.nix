@@ -124,6 +124,19 @@ _: {
               ];
             };
 
+            maintained-inputs = {
+              enable = true;
+              name = "maintained-inputs";
+              description = "Validate maintained flake input inventory and lock metadata.";
+              entry = "${config.packages.hook-maintained-inputs}/bin/hook-maintained-inputs";
+              pass_filenames = false;
+              files = "^(flake\\.nix|flake\\.lock|modules/meta/(hooks/)?maintained-inputs\\.nix)$";
+              stages = [
+                "pre-push"
+                "manual"
+              ];
+            };
+
             apps-catalog-sync = {
               enable = true;
               name = "apps-catalog-sync";

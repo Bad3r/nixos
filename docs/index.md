@@ -63,6 +63,8 @@
   - Conventions for packages/ directory including templates for Rust, Go, Python, and binary downloads.
 - [guides/github-deployments.md](guides/github-deployments.md)
   - Using GitHub's Deployments API via gh CLI for tracking deployments (metadata only, not actual deployment).
+- [guides/maintained-flake-inputs.md](guides/maintained-flake-inputs.md)
+  - Policy, inventory, validation, and workflow for maintaining selected upstream flake inputs through local patchable checkouts and reproducible remote-locked states.
 - [guides/nix-debugging-manual.md](guides/nix-debugging-manual.md)
   - Debugging techniques for Nix expressions, NixOS modules, and Home Manager including REPL, tracing, and common errors.
 - [guides/stylix-integration.md](guides/stylix-integration.md)
