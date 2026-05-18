@@ -4,6 +4,7 @@ import base64
 import re
 import shutil
 import tempfile
+import urllib.parse
 import urllib.request
 from collections.abc import Mapping
 from pathlib import Path
@@ -12,6 +13,14 @@ from .nix import nix_hash_file, nix_prefetch_url, nix_store_prefetch_file
 
 # Dummy hash used to trigger Nix build errors to extract correct hash
 DUMMY_SHA256_HASH = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
+
+def _require_http_url(url: str, context: str) -> None:
+    """Reject URL schemes that Nix fetchers should not hash as artifacts."""
+    scheme = urllib.parse.urlparse(url).scheme.lower()
+    if scheme not in {"http", "https"}:
+        msg = f"Refusing to download from non-HTTP(S) {context} URL: {url}"
+        raise ValueError(msg)
 
 
 def calculate_downloaded_url_hash(
@@ -29,6 +38,8 @@ def calculate_downloaded_url_hash(
         Hash in SRI format
 
     """
+    _require_http_url(url, "source")
+
     request = urllib.request.Request(url)
     for name, value in headers.items():
         request.add_header(name, value)
@@ -37,6 +48,7 @@ def calculate_downloaded_url_hash(
         urllib.request.urlopen(request, timeout=60) as response,
         tempfile.NamedTemporaryFile() as tmp,
     ):
+        _require_http_url(response.geturl(), "redirect")
         shutil.copyfileobj(response, tmp)
         tmp.flush()
         return nix_hash_file(Path(tmp.name))
