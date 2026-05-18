@@ -64,19 +64,28 @@
         };
 
         thinkfan = {
+          sensors = [
+            {
+              type = "tpacpi";
+              query = "/proc/acpi/ibm/thermal";
+            }
+            {
+              type = "hwmon";
+              query = "/sys/class/hwmon";
+              name = "coretemp";
+            }
+            {
+              type = "hwmon";
+              query = "/sys/class/hwmon";
+              name = "nvme";
+            }
+          ];
+
           fans = [
             {
               type = "tpacpi";
               query = "/proc/acpi/ibm/fan";
             }
-          ];
-
-          levels = [
-            [
-              "level full-speed"
-              0
-              32767
-            ]
           ];
         };
       };
