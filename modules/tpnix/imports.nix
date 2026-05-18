@@ -38,6 +38,9 @@ in
       config.flake.nixosModules.ssh
       config.flake.nixosModules.bluetooth
       config.flake.nixosModules.zshKeybindings
+
+      # External hardware modules
+      inputs.nixos-hardware.nixosModules.common-cpu-intel-cpu-only
     ]
     ++ lib.optionals duplicatiModuleExists [ config.flake.nixosModules."duplicati-r2" ]
     ++ lib.optionals mirrorRootModuleExists [ config.flake.nixosModules.mirror-root ]

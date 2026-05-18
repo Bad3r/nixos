@@ -50,6 +50,7 @@ in
       config.flake.nixosModules.zshKeybindings
 
       # External hardware modules
+      inputs.nixos-hardware.nixosModules.common-cpu-intel-cpu-only
       inputs.nixos-hardware.nixosModules.system76
     ]
     # Optional modules (graceful degradation)

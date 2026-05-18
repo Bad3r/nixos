@@ -29,7 +29,7 @@
       enableAllFirmware = false;
     };
 
-    # CPU microcode is set per-host in hardware-config.nix
+    # CPU microcode is provided by explicit CPU-family hardware modules.
 
     # Permit insecure packages that are required but marked as insecure
     nixpkgs.config.permittedInsecurePackages = [
