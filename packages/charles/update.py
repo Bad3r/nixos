@@ -15,40 +15,12 @@ PACKAGE_NAME = "charles"
 VERSION_HISTORY_URL = "https://www.charlesproxy.com/documentation/version-history/"
 USER_AGENT = "Mozilla/5.0"
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-def _flake_root(start: Path) -> Path | None:
-    """Walk up from ``start`` until this checkout's flake root is found."""
-    for parent in [start, *start.parents]:
-        if (
-            (parent / "flake.nix").is_file()
-            and (parent / "scripts" / "updater").is_dir()
-            and (parent / "packages" / PACKAGE_NAME / "default.nix").is_file()
-        ):
-            return parent
-    return None
+from updater_bootstrap import bootstrap  # noqa: E402
 
-
-def _checkout_root() -> Path:
-    """Find the editable checkout from either cwd or the script path."""
-    starts = [
-        Path.cwd().resolve(),
-        Path(__file__).resolve().parent,
-    ]
-    for start in starts:
-        root = _flake_root(start)
-        if root is not None:
-            return root
-
-    msg = (
-        "Could not find the nixos checkout root. Run this updater from the "
-        "repository checkout, or execute the checkout copy under "
-        f"packages/{PACKAGE_NAME}/."
-    )
-    raise RuntimeError(msg)
-
-
-FLAKE_ROOT = _checkout_root()
-PACKAGE_FILE = FLAKE_ROOT / "packages" / PACKAGE_NAME / "default.nix"
+FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
+PACKAGE_FILE = PACKAGE_DIR / "default.nix"
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
 from updater import calculate_url_hash, fetch_text  # noqa: E402
@@ -65,10 +37,16 @@ def release_url(version: str) -> str:
 def latest_stable_version() -> str:
     """Fetch the newest non-beta Charles version from the version history."""
     text = fetch_text(VERSION_HISTORY_URL, user_agent=USER_AGENT)
+    versions: list[str] = []
     for match in re.finditer(r"<h4>Version ([^<]+)</h4>", text):
         version = match.group(1).strip()
         if re.fullmatch(r"\d+(?:\.\d+)*", version):
-            return version
+            versions.append(version)
+
+    if versions:
+        return max(
+            versions, key=lambda version: tuple(int(x) for x in version.split("."))
+        )
 
     msg = f"Could not find a stable Charles version in {VERSION_HISTORY_URL}"
     raise RuntimeError(msg)
@@ -158,18 +136,19 @@ def main() -> None:
     package_text = PACKAGE_FILE.read_text(encoding="utf-8")
     current = current_version(package_text)
     latest = latest_stable_version()
-    check_release_url(latest)
 
     print(f"Current: {current}")
     print(f"Latest:  {latest}")
     print(f"Archive: {release_url(latest)}")
 
-    if args.check_release:
-        print("Release metadata is valid")
+    if current == latest and not args.force and not args.check_release:
+        print("Already up to date")
         return
 
-    if current == latest and not args.force:
-        print("Already up to date")
+    check_release_url(latest)
+
+    if args.check_release:
+        print("Release metadata is valid")
         return
 
     print("Calculating source hash...")
