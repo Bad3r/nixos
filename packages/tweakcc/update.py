@@ -14,16 +14,21 @@ from pathlib import Path
 from typing import Any, cast
 
 
-def _flake_root(start: Path) -> Path:
-    """Walk up from directory ``start`` until ``flake.nix`` is found."""
-    for parent in [start, *start.parents]:
-        if (parent / "flake.nix").is_file():
-            return parent
-    msg = f"Could not find flake.nix above {start}"
-    raise RuntimeError(msg)
+PACKAGE_NAME = "tweakcc"
+REPO = "Piebald-AI/tweakcc"
+BRANCH = "main"
 
 
-FLAKE_ROOT = _flake_root(Path(__file__).resolve().parent)
+_CWD = Path.cwd().resolve()
+sys.path[:0] = [
+    str(root / "scripts")
+    for root in [_CWD, *_CWD.parents]
+    if (root / "scripts" / "updater_bootstrap.py").is_file()
+]
+
+from updater_bootstrap import bootstrap  # noqa: E402
+
+FLAKE_ROOT, PACKAGE_DIR = bootstrap(PACKAGE_NAME)
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
 from updater import (  # noqa: E402
@@ -34,9 +39,7 @@ from updater import (  # noqa: E402
     save_hashes,
 )
 
-REPO = "Piebald-AI/tweakcc"
-BRANCH = "main"
-HASHES_FILE = Path(__file__).parent / "hashes.json"
+HASHES_FILE = PACKAGE_DIR / "hashes.json"
 
 
 def latest_main_commit() -> dict[str, Any]:

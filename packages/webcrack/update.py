@@ -19,44 +19,16 @@ REPO = "webcrack"
 TAG_PATTERN = r"^v(?P<version>\d+\.\d+\.\d+)$"
 
 
-def _find_scripts_dir(start: Path) -> Path | None:
-    """Walk up from ``start`` until this checkout's scripts dir is found."""
-    for parent in [start, *start.parents]:
-        scripts_dir = parent / "scripts"
-        if (
-            (parent / "flake.nix").is_file()
-            and (scripts_dir / "updater_bootstrap.py").is_file()
-            and (parent / "packages" / PACKAGE_NAME / "default.nix").is_file()
-        ):
-            return scripts_dir
-    return None
-
-
-def _add_bootstrap_import_path() -> None:
-    """Make updater_bootstrap importable from cwd or the checkout script path."""
-    starts = [
-        Path.cwd().resolve(),
-        Path(__file__).resolve().parent,
-    ]
-    for start in starts:
-        scripts_dir = _find_scripts_dir(start)
-        if scripts_dir is not None:
-            sys.path.insert(0, str(scripts_dir))
-            return
-
-    msg = (
-        "Could not find the nixos checkout scripts directory. Run this updater "
-        "from the repository checkout, or execute the checkout copy under "
-        f"packages/{PACKAGE_NAME}/."
-    )
-    raise RuntimeError(msg)
-
-
-_add_bootstrap_import_path()
+_CWD = Path.cwd().resolve()
+sys.path[:0] = [
+    str(root / "scripts")
+    for root in [_CWD, *_CWD.parents]
+    if (root / "scripts" / "updater_bootstrap.py").is_file()
+]
 
 from updater_bootstrap import bootstrap, host_package_attr  # noqa: E402
 
-FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
+FLAKE_ROOT, PACKAGE_DIR = bootstrap(PACKAGE_NAME)
 HASHES_FILE = PACKAGE_DIR / "hashes.json"
 PACKAGE_ATTR = host_package_attr(FLAKE_ROOT, PACKAGE_NAME)
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))

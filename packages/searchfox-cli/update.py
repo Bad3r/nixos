@@ -14,39 +14,17 @@ PACKAGE_NAME = "searchfox-cli"
 REPO = "padenot/searchfox-cli"
 
 
-def _flake_root(start: Path) -> Path | None:
-    """Walk up from ``start`` until this checkout's flake root is found."""
-    for parent in [start, *start.parents]:
-        if (
-            (parent / "flake.nix").is_file()
-            and (parent / "scripts" / "updater").is_dir()
-            and (parent / "packages" / PACKAGE_NAME / "default.nix").is_file()
-        ):
-            return parent
-    return None
+_CWD = Path.cwd().resolve()
+sys.path[:0] = [
+    str(root / "scripts")
+    for root in [_CWD, *_CWD.parents]
+    if (root / "scripts" / "updater_bootstrap.py").is_file()
+]
 
+from updater_bootstrap import bootstrap  # noqa: E402
 
-def _checkout_root() -> Path:
-    """Find the editable checkout from either cwd or the script path."""
-    starts = [
-        Path.cwd().resolve(),
-        Path(__file__).resolve().parent,
-    ]
-    for start in starts:
-        root = _flake_root(start)
-        if root is not None:
-            return root
-
-    msg = (
-        "Could not find the nixos checkout root. Run this updater from the "
-        "repository checkout, or execute the checkout copy under "
-        f"packages/{PACKAGE_NAME}/."
-    )
-    raise RuntimeError(msg)
-
-
-FLAKE_ROOT = _checkout_root()
-HASHES_FILE = FLAKE_ROOT / "packages" / PACKAGE_NAME / "hashes.json"
+FLAKE_ROOT, PACKAGE_DIR = bootstrap(PACKAGE_NAME)
+HASHES_FILE = PACKAGE_DIR / "hashes.json"
 PACKAGE_ATTR = f"{FLAKE_ROOT}#nixosConfigurations.system76.pkgs.{PACKAGE_NAME}"
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 

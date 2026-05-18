@@ -24,39 +24,17 @@ URL_TEMPLATE = (
 )
 
 
-def _flake_root(start: Path) -> Path | None:
-    """Walk up from ``start`` until this checkout's flake root is found."""
-    for parent in [start, *start.parents]:
-        if (
-            (parent / "flake.nix").is_file()
-            and (parent / "scripts" / "updater").is_dir()
-            and (parent / "packages" / PACKAGE_NAME / "default.nix").is_file()
-        ):
-            return parent
-    return None
+_CWD = Path.cwd().resolve()
+sys.path[:0] = [
+    str(root / "scripts")
+    for root in [_CWD, *_CWD.parents]
+    if (root / "scripts" / "updater_bootstrap.py").is_file()
+]
 
+from updater_bootstrap import bootstrap  # noqa: E402
 
-def _checkout_root() -> Path:
-    """Find the editable checkout from either cwd or the script path."""
-    starts = [
-        Path.cwd().resolve(),
-        Path(__file__).resolve().parent,
-    ]
-    for start in starts:
-        root = _flake_root(start)
-        if root is not None:
-            return root
-
-    msg = (
-        "Could not find the nixos checkout root. Run this updater from the "
-        "repository checkout, or execute the checkout copy under "
-        "packages/electron-mail/."
-    )
-    raise RuntimeError(msg)
-
-
-FLAKE_ROOT = _checkout_root()
-PACKAGE_FILE = FLAKE_ROOT / "packages" / PACKAGE_NAME / "default.nix"
+FLAKE_ROOT, PACKAGE_DIR = bootstrap(PACKAGE_NAME)
+PACKAGE_FILE = PACKAGE_DIR / "default.nix"
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
 from updater import calculate_platform_hashes, fetch_json  # noqa: E402

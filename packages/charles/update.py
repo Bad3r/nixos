@@ -15,11 +15,17 @@ PACKAGE_NAME = "charles"
 VERSION_HISTORY_URL = "https://www.charlesproxy.com/documentation/version-history/"
 USER_AGENT = "Mozilla/5.0"
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+
+_CWD = Path.cwd().resolve()
+sys.path[:0] = [
+    str(root / "scripts")
+    for root in [_CWD, *_CWD.parents]
+    if (root / "scripts" / "updater_bootstrap.py").is_file()
+]
 
 from updater_bootstrap import bootstrap  # noqa: E402
 
-FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
+FLAKE_ROOT, PACKAGE_DIR = bootstrap(PACKAGE_NAME)
 PACKAGE_FILE = PACKAGE_DIR / "default.nix"
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 

@@ -14,11 +14,17 @@ PACKAGE_NAME = "wfuzz"
 OWNER = "xmendez"
 REPO = "wfuzz"
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+
+_CWD = Path.cwd().resolve()
+sys.path[:0] = [
+    str(root / "scripts")
+    for root in [_CWD, *_CWD.parents]
+    if (root / "scripts" / "updater_bootstrap.py").is_file()
+]
 
 from updater_bootstrap import bootstrap, host_package_attr  # noqa: E402
 
-FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
+FLAKE_ROOT, PACKAGE_DIR = bootstrap(PACKAGE_NAME)
 PACKAGE_FILE = PACKAGE_DIR / "default.nix"
 PACKAGE_ATTR = host_package_attr(FLAKE_ROOT, PACKAGE_NAME)
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
