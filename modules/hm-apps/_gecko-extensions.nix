@@ -5,7 +5,6 @@
 
 {
   config,
-  firefox-addons,
   lib,
   pkgs,
 }:
@@ -88,6 +87,7 @@ let
     raindropId
     savePageId
     simpleLoginId
+    stylusId
     svgGobblerId
     tabStashId
     tridactylId
@@ -365,17 +365,11 @@ let
     };
   };
 
-  # Per-profile package lists. Consumers wire these into
-  # programs.<browser>.profiles.<name>.extensions.packages.
   primaryPackages = [ ];
 
-  profileScopedPackages = with firefox-addons; [
-    stylus
-  ];
+  pentestingPackages = primaryPackages;
 
-  pentestingPackages = primaryPackages ++ profileScopedPackages;
-
-  workPackages = primaryPackages ++ profileScopedPackages;
+  workPackages = primaryPackages;
 in
 {
   extensionPolicies = {

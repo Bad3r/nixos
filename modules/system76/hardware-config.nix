@@ -19,9 +19,6 @@ _: {
 
       # Hardware configuration
       hardware = {
-        # CPU microcode updates
-        cpu.intel.updateMicrocode = lib.mkDefault true;
-
         # Enable Bluetooth
         bluetooth = {
           enable = true;

@@ -2,25 +2,20 @@
   Internal: shared per-profile builder for Gecko browsers
   Description: Composes commonSettings/extensions/bookmarks into a
   Home Manager `programs.<browser>.profiles.<name>` value so firefox.nix and
-  librewolf.nix can stay symmetric. The NUR overlay is
-  extended here once per browser module for the remaining profile-scoped
-  extension packages.
+  librewolf.nix can stay symmetric.
 
   Arguments:
-    pkgs, inputs, lib, config: standard module args from the caller.
+    pkgs, lib, config: standard module args from the caller.
   Returns:
     mkProfile, policies, nativeMessagingHosts, profile packages, and helpers.
 */
 
 {
   pkgs,
-  inputs,
   lib,
   config,
 }:
 let
-  firefox-addons = (pkgs.extend inputs.dedupe_nur.overlays.default).nur.repos.rycee.firefox-addons;
-
   geckoPrefs = import ./_gecko-prefs.nix {
     inherit lib;
     fonts = if (config.stylix.enable or false) then config.stylix.fonts else null;
@@ -29,7 +24,6 @@ let
   geckoExtensions = import ./_gecko-extensions.nix {
     inherit
       config
-      firefox-addons
       lib
       pkgs
       ;
