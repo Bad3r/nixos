@@ -18,39 +18,45 @@ DEFAULT_NODE_ABI = "node-v127"
 DEFAULT_PLATFORM = "linux-x64"
 
 
-def _flake_root(start: Path) -> Path | None:
-    """Walk up from ``start`` until this checkout's flake root is found."""
+def _find_scripts_dir(start: Path) -> Path | None:
+    """Walk up from ``start`` until this checkout's scripts dir is found."""
     for parent in [start, *start.parents]:
+        scripts_dir = parent / "scripts"
         if (
             (parent / "flake.nix").is_file()
-            and (parent / "scripts" / "updater").is_dir()
+            and (scripts_dir / "updater_bootstrap.py").is_file()
             and (parent / "packages" / PACKAGE_NAME / "default.nix").is_file()
         ):
-            return parent
+            return scripts_dir
     return None
 
 
-def _checkout_root() -> Path:
-    """Find the editable checkout from either cwd or the script path."""
+def _add_bootstrap_import_path() -> None:
+    """Make updater_bootstrap importable from cwd or the checkout script path."""
     starts = [
         Path.cwd().resolve(),
         Path(__file__).resolve().parent,
     ]
     for start in starts:
-        root = _flake_root(start)
-        if root is not None:
-            return root
+        scripts_dir = _find_scripts_dir(start)
+        if scripts_dir is not None:
+            sys.path.insert(0, str(scripts_dir))
+            return
 
     msg = (
-        "Could not find the nixos checkout root. Run this updater from the "
-        "repository checkout, or execute the checkout copy under "
+        "Could not find the nixos checkout scripts directory. Run this updater "
+        "from the repository checkout, or execute the checkout copy under "
         f"packages/{PACKAGE_NAME}/."
     )
     raise RuntimeError(msg)
 
 
-FLAKE_ROOT = _checkout_root()
-HASHES_FILE = FLAKE_ROOT / "packages" / PACKAGE_NAME / "hashes.json"
+_add_bootstrap_import_path()
+
+from updater_bootstrap import bootstrap  # noqa: E402
+
+FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
+HASHES_FILE = PACKAGE_DIR / "hashes.json"
 PACKAGE_ATTR = f"{FLAKE_ROOT}#restringer"
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
