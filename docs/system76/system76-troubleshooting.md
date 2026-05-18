@@ -9,7 +9,7 @@
 - CoolerControl causes system instability - **keep disabled**
 - Only manual control: Fn+1 for max speed
 
----
+______________________________________________________________________
 
 ## Thermal Management
 
@@ -61,7 +61,7 @@ sensors system76-isa-0000 | grep fan
 | PCH         | 45-65C    | >80C           |
 | Fan RPM     | 2000-4500 | 0 or erratic   |
 
----
+______________________________________________________________________
 
 ## Crash Diagnostics
 
@@ -173,7 +173,7 @@ diff <(journalctl -b -1 -p err) <(journalctl -b 0 -p err)
 | Crash only in OS, specific app | Software issue |
 | Random crash, low activity     | Hardware issue |
 
----
+______________________________________________________________________
 
 ## Fan Replacement
 
@@ -231,7 +231,7 @@ sensors system76-isa-0000
 # Should show both fans with RPM readings
 ```
 
----
+______________________________________________________________________
 
 ## Stress Testing
 
@@ -268,7 +268,7 @@ else
 fi
 ```
 
----
+______________________________________________________________________
 
 ## Quick Reference
 

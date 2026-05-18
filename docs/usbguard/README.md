@@ -19,6 +19,7 @@ This repository uses [USBGuard](https://usbguard.github.io/) to control USB devi
 3. Copy the **exact** rule output and add it to the sops-encrypted rules file (see [sops docs](../sops/README.md#programmatic--scripted-editing) for safe editing procedures).
 
 4. Deploy the configuration:
+
    ```bash
    ./build.sh
    ```

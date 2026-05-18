@@ -106,6 +106,6 @@ Don’t:
 - `chore(inputs): bump nixpkgs pointer to <sha>`
 - `docs(agents): document agent behavior and repo knowledge`
 
----
+______________________________________________________________________
 
 By following this prompt, you replicate the working style, constraints, and hard-won knowledge used in this repository’s day-to-day automation.

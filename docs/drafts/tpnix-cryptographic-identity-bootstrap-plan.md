@@ -58,16 +58,19 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 ## 5.1 Module Changes
 
 1. `modules/git/git.nix`
+
    - Keep:
      - `signing.signByDefault = true`
      - `signing.format = "openpgp"`
    - Remove hard-coded shared `signing.key`.
 
 2. `modules/system76/imports.nix`
+
    - Add explicit host signing key:
      - `home-manager.users.${metaOwner.username}.programs.git.signing.key = lib.mkForce "<SYSTEM76_GPG_FINGERPRINT>";`
 
 3. `modules/tpnix/imports.nix`
+
    - Do not rely on `security.repoSecrets` for OpenPGP material; that module is ACT-only.
    - Add explicit host signing key:
      - `home-manager.users.${metaOwner.username}.programs.git.signing.key = lib.mkForce "<TPNIX_GPG_FINGERPRINT>";`
@@ -75,6 +78,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
      - `home-manager.users.${metaOwner.username}.programs.ssh.matchBlocks."*".identityFile = lib.mkForce [ "/run/secrets/ssh/vx-auth-key" ];`
 
 4. `modules/security/secrets.nix`
+
    - Resolve host slug from `config.networking.hostName`.
    - Add host-scoped SSH secret source:
      - `secrets/ssh/${host}/id_ed25519.asc`
@@ -83,6 +87,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
      - `sops.secrets."ssh/vx-auth-key"` (`format = "binary"`, owner `vx`, mode `0400`, path `/run/secrets/ssh/vx-auth-key`)
 
 5. `modules/home/pass-secret-service.nix`
+
    - Replace static fingerprint with dynamic source:
      - `config.programs.git.signing.key`
    - Read secret path from Home Manager config:
@@ -90,6 +95,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
    - Keep guarded activation (import only when both fingerprint and secret path exist).
 
 6. `modules/tpnix/ssh.nix`
+
    - Set actual `tpnix` host SSH public key:
      - `services.openssh.publicKey = "ssh-ed25519 ... root@tpnix";`
    - Keep hardening:
@@ -97,6 +103,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
      - `PermitRootLogin = "no"`
 
 7. `modules/security/sops-policy.nix`
+
    - Expand recipients to include:
      - owner/editor key
      - `system76` host key
@@ -224,29 +231,29 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
 ## 10. Primary Sources
 
-1. GitHub Docs: Generating a new GPG key\
-   https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key
-2. GitHub Docs: Adding a GPG key to your GitHub account\
-   https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account
-3. GitHub Docs: Telling Git about your signing key\
-   https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key
-4. GitHub Docs: Generating a new SSH key and adding it to the ssh-agent\
-   https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-5. GitHub Docs: Adding a new SSH key to your GitHub account\
-   https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account
-6. GitHub CLI: `gh gpg-key add`\
-   https://cli.github.com/manual/gh_gpg-key_add
-7. GitHub CLI: `gh ssh-key add`\
-   https://cli.github.com/manual/gh_ssh-key_add
-8. Git upstream config docs\
-   https://raw.githubusercontent.com/git/git/master/Documentation/config/gpg.adoc\
-   https://raw.githubusercontent.com/git/git/master/Documentation/config/user.adoc\
-   https://raw.githubusercontent.com/git/git/master/Documentation/config/commit.adoc\
-   https://raw.githubusercontent.com/git/git/master/Documentation/config/tag.adoc
-9. NixOS module sources\
-   https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/programs/gnupg.nix\
-   https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/services/networking/ssh/sshd.nix\
-   https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/programs/ssh.nix
+01. GitHub Docs: Generating a new GPG key\
+    https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key
+02. GitHub Docs: Adding a GPG key to your GitHub account\
+    https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account
+03. GitHub Docs: Telling Git about your signing key\
+    https://docs.github.com/en/authentication/managing-commit-signature-verification/telling-git-about-your-signing-key
+04. GitHub Docs: Generating a new SSH key and adding it to the ssh-agent\
+    https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
+05. GitHub Docs: Adding a new SSH key to your GitHub account\
+    https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account
+06. GitHub CLI: `gh gpg-key add`\
+    https://cli.github.com/manual/gh_gpg-key_add
+07. GitHub CLI: `gh ssh-key add`\
+    https://cli.github.com/manual/gh_ssh-key_add
+08. Git upstream config docs\
+    https://raw.githubusercontent.com/git/git/master/Documentation/config/gpg.adoc\
+    https://raw.githubusercontent.com/git/git/master/Documentation/config/user.adoc\
+    https://raw.githubusercontent.com/git/git/master/Documentation/config/commit.adoc\
+    https://raw.githubusercontent.com/git/git/master/Documentation/config/tag.adoc
+09. NixOS module sources\
+    https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/programs/gnupg.nix\
+    https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/services/networking/ssh/sshd.nix\
+    https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/programs/ssh.nix
 10. Local docs\
     `docs/sops/README.md`\
     `docs/index.md`\
