@@ -423,6 +423,7 @@ export default {
 ### Storage
 
 1. **Use appropriate storage for each use case**
+
    - Ephemeral disk: temp files, caches
    - DO Storage: app state, session data
    - R2: large files, shared data
@@ -438,6 +439,7 @@ export default {
    ```
 
 3. **Initialize DO storage on first run**
+
    ```typescript
    async onStart() {
      await this.initStorage();
@@ -469,6 +471,7 @@ export default {
    ```
 
 3. **Use connection pooling for database connections**
+
    ```javascript
    // Inside container
    const pool = new Pool({ max: 10 });

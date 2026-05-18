@@ -373,6 +373,14 @@ For packages with `passthru.updateScript`, prefer implementing the cargo hash up
 
 Same workflow as cargoHash--use placeholder, build, copy the correct hash.
 
+### Header-Aware Source Hashes
+
+For vendor downloads that require browser-like request headers, call
+`scripts/updater.calculate_url_hash` with an explicit `headers` mapping instead
+of `nix store prefetch-file`. The helper downloads the file with those headers
+and hashes the local file with `nix hash file --sri`, which matches `fetchurl`
+file-hash semantics.
+
 ### Troubleshooting Hash Mismatches
 
 If you see `No such file or directory` for a vendor staging path (e.g., `<name>-vendor-staging`), the hash in your file doesn't match what Nix computed. The correct vendor tree still exists in the store:

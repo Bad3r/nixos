@@ -76,6 +76,8 @@ buildPythonPackage (finalAttrs: {
     cp -R -T "wordlist" "$out/share/wordlists/wfuzz"
   '';
 
+  passthru.updateScript = ./update.py;
+
   meta = {
     changelog = "https://github.com/xmendez/wfuzz/releases/tag/v${finalAttrs.version}";
     description = "Web content fuzzer to facilitate web applications assessments";
