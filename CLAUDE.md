@@ -88,7 +88,9 @@ value.
 ### Flake Input Deduplication
 
 Inputs prefixed with `dedupe_` exist for dependency deduplication through
-`.follows`. If no `follows` references remain, remove the `dedupe_` input.
+`.follows`. If no `follows` references remain, remove the `dedupe_` input. Keep
+the root `systems` input unprefixed because that is the canonical `nix-systems`
+input name, even when dependency inputs follow it.
 
 ## Ownership Map
 
@@ -248,8 +250,8 @@ instead of creating a new docs surface by default.
 To add a secret with `sops-nix`:
 
 1. Encrypt the payload: `sops secrets/<name>.yaml`.
-2. Declare it in Nix under `sops.secrets."<namespace>/<name>"`.
-3. Consume it via `config.sops.secrets."<namespace>/<name>".path`.
+1. Declare it in Nix under `sops.secrets."<namespace>/<name>"`.
+1. Consume it via `config.sops.secrets."<namespace>/<name>".path`.
 
 Example:
 

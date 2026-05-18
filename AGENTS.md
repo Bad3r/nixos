@@ -30,8 +30,8 @@ Required practices:
 If something is accidentally deleted:
 
 1. Immediately attempt recovery (stash hash, reflog, `rip` graveyard, etc.)
-2. Inform the user exactly what happened and what was recovered
-3. Never hide or minimize deletion mistakes
+1. Inform the user exactly what happened and what was recovered
+1. Never hide or minimize deletion mistakes
 
 ## Repository Overview
 
@@ -93,7 +93,7 @@ Do NOT iterate over `flake.lib.nixos.hosts` with `lib.filterAttrs`/`lib.mapAttrs
 
 ### Flake Input Deduplication
 
-Inputs prefixed with `dedupe_` exist for dependency deduplication through `.follows`. If no `follows` references remain, remove the `dedupe_` input.
+Inputs prefixed with `dedupe_` exist for dependency deduplication through `.follows`. If no `follows` references remain, remove the `dedupe_` input. Keep the root `systems` input unprefixed because that is the canonical `nix-systems` input name, even when dependency inputs follow it.
 
 ### Repository Layout
 
@@ -223,8 +223,8 @@ PR body should include:
 ### Adding a secret with `sops-nix`
 
 1. Encrypt payload: `sops secrets/<name>.yaml`
-2. Declare in Nix under `sops.secrets."<namespace>/<name>"`
-3. Consume via `config.sops.secrets."<namespace>/<name>".path`
+1. Declare in Nix under `sops.secrets."<namespace>/<name>"`
+1. Consume via `config.sops.secrets."<namespace>/<name>".path`
 
 Example:
 
@@ -242,6 +242,6 @@ sops.secrets."context7/api-key" = {
 Escalate when:
 
 1. A needed workflow is not documented
-2. A command fails and remediation is unclear
+1. A command fails and remediation is unclear
 
 Pause, summarize the issue, and ask for direction.
