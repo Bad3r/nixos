@@ -24,7 +24,6 @@ _: {
       lib,
       pkgs,
       config,
-      inputs,
       ...
     }:
     let
@@ -34,7 +33,6 @@ _: {
       gecko = import ./_gecko-mk-profile.nix {
         inherit
           pkgs
-          inputs
           lib
           config
           ;
