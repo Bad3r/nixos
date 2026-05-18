@@ -5,20 +5,25 @@
   nodejs_22,
 }:
 
+let
+  pin = lib.importJSON ./hashes.json;
+in
 buildNpmPackage rec {
   pname = "source-map-explorer";
-  version = "2.5.3";
+  inherit (pin) version;
 
   src = fetchFromGitHub {
     owner = "danvk";
     repo = "source-map-explorer";
     rev = "v${version}";
-    hash = "sha256-IcGhRkU+Mqx1rfOu1p3HDNeozPunNzgW/L+JrYVatvc=";
+    hash = pin.srcHash;
   };
 
   nodejs = nodejs_22;
 
-  npmDepsHash = "sha256-1yZrv1pe82r8GuJT/EXBB5NH+htezN4BJN8dX7v9zKE=";
+  inherit (pin) npmDepsHash;
+
+  passthru.updateScript = ./update.py;
 
   meta = {
     description = "Analyze and debug space usage through source maps";

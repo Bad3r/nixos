@@ -28,6 +28,7 @@ from .nix import (
     NixCommandError,
     nix_build,
     nix_eval,
+    nix_hash_file,
 )
 
 # NPM utilities
@@ -39,6 +40,7 @@ from .platforms import calculate_platform_hashes
 # Version fetching
 from .version import (
     fetch_github_latest_release,
+    fetch_github_latest_tag_version,
     fetch_npm_version,
     fetch_version_from_text,
     should_update,
@@ -52,6 +54,7 @@ __all__ = [
     "clone_and_generate_bun_nix",
     "extract_or_generate_lockfile",
     "fetch_github_latest_release",
+    "fetch_github_latest_tag_version",
     "fetch_json",
     "fetch_npm_version",
     "fetch_text",
@@ -59,6 +62,7 @@ __all__ = [
     "load_hashes",
     "nix_build",
     "nix_eval",
+    "nix_hash_file",
     "regenerate_bun_nix",
     "save_hashes",
     "should_update",

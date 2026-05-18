@@ -106,19 +106,46 @@ def nix_build(
     attr: str,
     *,
     check: bool = True,
+    no_link: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Build a Nix package.
 
     Args:
         attr: Flake attribute to build (e.g., ".#package")
         check: Whether to raise exception on build failure
+        no_link: Whether to avoid creating a result symlink
 
     Returns:
         CompletedProcess with build results
 
     """
     args = ["build", "--log-format", "bar-with-logs", attr]
+    if no_link:
+        args.append("--no-link")
     return nix_command(args, check=check)
+
+
+def nix_hash_file(path: Path, hash_type: str = "sha256") -> str:
+    """Hash a file with Nix and return an SRI hash.
+
+    Args:
+        path: File path to hash
+        hash_type: Hash algorithm to use
+
+    Returns:
+        Hash in SRI format
+
+    """
+    args = [
+        "hash",
+        "file",
+        "--type",
+        hash_type,
+        "--sri",
+        str(path),
+    ]
+    result = nix_command(args)
+    return result.stdout.strip()
 
 
 def nix_store_prefetch_file(url: str, hash_type: str = "sha256") -> str:

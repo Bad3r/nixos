@@ -2,24 +2,69 @@
 
 import base64
 import re
+import shutil
+import tempfile
+import urllib.request
+from collections.abc import Mapping
+from pathlib import Path
 
-from .nix import nix_prefetch_url, nix_store_prefetch_file
+from .nix import nix_hash_file, nix_prefetch_url, nix_store_prefetch_file
 
 # Dummy hash used to trigger Nix build errors to extract correct hash
 DUMMY_SHA256_HASH = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 
-def calculate_url_hash(url: str, *, unpack: bool = False) -> str:
+def calculate_downloaded_url_hash(
+    url: str,
+    *,
+    headers: Mapping[str, str],
+) -> str:
+    """Download a URL with headers and hash the resulting file.
+
+    Args:
+        url: URL to download
+        headers: HTTP headers to send with the request
+
+    Returns:
+        Hash in SRI format
+
+    """
+    request = urllib.request.Request(url)
+    for name, value in headers.items():
+        request.add_header(name, value)
+
+    with (
+        urllib.request.urlopen(request, timeout=60) as response,
+        tempfile.NamedTemporaryFile() as tmp,
+    ):
+        shutil.copyfileobj(response, tmp)
+        tmp.flush()
+        return nix_hash_file(Path(tmp.name))
+
+
+def calculate_url_hash(
+    url: str,
+    *,
+    unpack: bool = False,
+    headers: Mapping[str, str] | None = None,
+) -> str:
     """Calculate hash for a URL.
 
     Args:
         url: URL to calculate hash for
         unpack: Whether to unpack the archive (use True for fetchzip packages)
+        headers: Optional HTTP headers for servers that reject bare prefetches
 
     Returns:
         Hash in SRI format (sha256-...)
 
     """
+    if headers is not None:
+        if unpack:
+            msg = "Header-aware unpacked URL hashes are not supported"
+            raise ValueError(msg)
+        return calculate_downloaded_url_hash(url, headers=headers)
+
     if unpack:
         # Use nix-prefetch-url --unpack for fetchzip packages
         return nix_prefetch_url(url, unpack=True)
