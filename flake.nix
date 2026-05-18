@@ -195,7 +195,8 @@
       url = "github:MichaelAquilina/zsh-auto-notify";
     };
 
-    # _additional_ `inputs` only for deduplication
+    # Shared dependency pins consumed through `follows`. Generic pins use the
+    # `dedupe_` prefix; `systems` keeps the canonical `nix-systems` input name.
     dedupe_flake-compat.url = "github:edolstra/flake-compat";
 
     dedupe_flake-utils = {
