@@ -26,4 +26,4 @@ def save_hashes(path: Path, data: dict[str, Any]) -> None:
         data: Dictionary to save
 
     """
-    path.write_text(json.dumps(data, indent=2) + "\n")
+    path.write_text(json.dumps(data, indent="\t") + "\n")

@@ -1,5 +1,6 @@
 """Version fetching from various sources (GitHub, npm, custom APIs)."""
 
+from functools import cmp_to_key
 import re
 from typing import cast
 
@@ -27,6 +28,73 @@ def fetch_github_latest_release(owner: str, repo: str) -> str:
 
     # Strip 'v' prefix if present (also handled in parse_version for defensive comparison)
     return tag.lstrip("v")
+
+
+def is_stable_numeric_version(version: str) -> bool:
+    """Return whether a version is numeric and has no prerelease suffix."""
+    numeric, suffix = parse_version(version)
+    return (
+        bool(numeric)
+        and not suffix
+        and re.fullmatch(r"\d+(?:\.\d+)*", version) is not None
+    )
+
+
+def fetch_github_latest_tag_version(
+    owner: str,
+    repo: str,
+    *,
+    prefix: str = "v",
+    max_pages: int = 10,
+) -> str:
+    """Fetch the newest stable version from GitHub tags.
+
+    Args:
+        owner: Repository owner
+        repo: Repository name
+        prefix: Tag prefix to strip before comparing versions
+        max_pages: Maximum number of GitHub tag pages to scan
+
+    Returns:
+        Latest stable version string without the configured prefix
+
+    """
+    versions: list[str] = []
+    for page in range(1, max_pages + 1):
+        url = (
+            f"https://api.github.com/repos/{owner}/{repo}/tags?per_page=100&page={page}"
+        )
+        data = fetch_json(url)
+        if not isinstance(data, list):
+            msg = f"Expected list from GitHub API, got {type(data)}"
+            raise TypeError(msg)
+        if not data:
+            break
+
+        for item in data:
+            if not isinstance(item, dict):
+                msg = f"Expected tag object dict, got {type(item)}"
+                raise TypeError(msg)
+
+            name = item.get("name")
+            if not isinstance(name, str):
+                msg = f"Expected tag name string, got {type(name)}"
+                raise TypeError(msg)
+            if prefix and not name.startswith(prefix):
+                continue
+
+            version = name.removeprefix(prefix) if prefix else name
+            if is_stable_numeric_version(version):
+                versions.append(version)
+
+        if len(data) < 100:
+            break
+
+    if not versions:
+        msg = f"Could not find stable tags for {owner}/{repo}"
+        raise RuntimeError(msg)
+
+    return max(versions, key=cmp_to_key(compare_versions))
 
 
 def fetch_npm_version(package: str) -> str:
