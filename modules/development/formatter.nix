@@ -115,7 +115,7 @@ in
             plugins = mdformatPlugins;
             settings = {
               wrap = "keep";
-              number = false;
+              number = true;
               end-of-line = "lf";
             };
           };
