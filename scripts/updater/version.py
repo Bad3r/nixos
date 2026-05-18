@@ -32,12 +32,7 @@ def fetch_github_latest_release(owner: str, repo: str) -> str:
 
 def is_stable_numeric_version(version: str) -> bool:
     """Return whether a version is numeric and has no prerelease suffix."""
-    numeric, suffix = parse_version(version)
-    return (
-        bool(numeric)
-        and not suffix
-        and re.fullmatch(r"\d+(?:\.\d+)*", version) is not None
-    )
+    return re.fullmatch(r"\d+(?:\.\d+)*", version) is not None
 
 
 def fetch_github_latest_tag_version(
