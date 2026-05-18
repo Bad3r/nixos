@@ -16,6 +16,7 @@ Scope:
 ## Groups Assigned To Owner In Baseline Profile
 
 - `wheel`:
+
   - access:
     - full `sudo` access (password required by default)
     - passwordless `sudo` for:
@@ -34,6 +35,7 @@ Scope:
     - also grants non-root packet capture through capability-wrapped binaries; `airmon-ng` monitor-mode setup is still outside that wrapper surface.
 
 - `networkmanager`:
+
   - access:
     - polkit wildcard allow for:
       - `org.freedesktop.NetworkManager.*`
@@ -43,12 +45,14 @@ Scope:
     - network tampering, DNS/profile changes, network DoS, and modem control if modem hardware exists.
 
 - `systemd-journal`:
+
   - access:
     - read system journal via `journalctl` without sudo.
   - security impact:
     - logs may contain secrets, tokens, internal URLs, and sensitive error output.
 
 - `adm`:
+
   - access:
     - traditional `/var/log` file read path (when files are group-readable by `adm`).
   - security impact:
@@ -57,12 +61,14 @@ Scope:
     - most active logs are in `systemd-journal`; `adm` surface is smaller right now but can expand with service changes.
 
 - `render`:
+
   - access:
     - GPU render nodes such as `/dev/dri/renderD*`.
   - security impact:
     - unprivileged GPU compute/acceleration surface.
 
 - `lp`:
+
   - access:
     - printer/print-spool related paths (for example CUPS spool/cache files with `lp` group ownership).
   - security impact:
@@ -71,6 +77,7 @@ Scope:
 ## Additional Owner Groups Added By Other Modules
 
 - `wireshark` (when Wireshark app module is enabled):
+
   - source:
     - `modules/apps/wireshark.nix`
   - access:
@@ -79,6 +86,7 @@ Scope:
     - limited direct impact in this repo because packet capture itself is granted through wheel-based capability wrappers.
 
 - `docker` (when Docker daemon module is enabled):
+
   - source:
     - `modules/apps/docker.nix`
   - access:
@@ -100,24 +108,28 @@ Scope:
 ## Common Optional Device Groups (Not In Baseline)
 
 - `input`:
+
   - typical use:
     - low-level input automation, remapping, and event inspection via `/dev/input/event*`.
   - security impact:
     - keylogging/input capture and possible synthetic input abuse with emulation paths.
 
 - `video`:
+
   - typical use:
     - direct webcam and DRM primary node access for low-level tooling.
   - security impact:
     - camera/device access outside stricter desktop portal mediation paths.
 
 - `audio`:
+
   - typical use:
     - raw ALSA/JACK workflows that access `/dev/snd/*` directly.
   - security impact:
     - direct microphone/audio capture surface.
 
 - `dialout`:
+
   - typical use:
     - serial and modem operations on `/dev/ttyS*` and USB serial adapters.
   - security impact:

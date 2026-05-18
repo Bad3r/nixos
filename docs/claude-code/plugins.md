@@ -358,35 +358,35 @@ Command: `claude-plugins install <plugin-identifier>`
 
 **Step-by-Step Execution** (`packages/cli/src/commands/install.ts:18-121`):
 
-1. **Parse Input**: Extract plugin name from identifier (URL or short-form)
-2. **Resolve Plugin**:
-   - Call `POST https://api.claude-plugins.dev/api/resolve/<identifier>`
-   - Receive `{ gitUrl: "..." }`
-   - Error if resolution fails (404 → plugin not in registry)
-3. **Clone Repository**:
-   - Create temp directory: `~/.claude/plugins/cache/<uuid>`
-   - Execute `git clone <gitUrl> <temp-dir>`
-   - Error if clone fails (network, permissions, invalid repo)
-4. **Validate Structure**:
-   - Check for `.claude-plugin/marketplace.json` or `.claude-plugin/plugin.json`
-   - Parse JSON and validate schema
-   - Error if neither exists or JSON is invalid
-5. **Detect Type**:
-   - If `marketplace.json` has `plugins` array → marketplace
-   - Otherwise → single plugin
-6. **Install to Marketplaces Directory**:
-   - Move from cache to `~/.claude/plugins/marketplaces/<name>/`
-   - Set `source.path` to absolute path for each plugin
-7. **Register Marketplace**:
-   - Load `~/.claude/plugins/known_marketplaces.json`
-   - Add marketplace entry with plugin metadata
-   - Write atomically (temp file + rename)
-8. **Enable Plugins**:
-   - Load `~/.claude/settings.json`
-   - Add `enabledPlugins["plugin-name@marketplace-name"] = true` for each plugin
-   - Write atomically
-9. **Cleanup**:
-   - Remove temp directory from cache
+01. **Parse Input**: Extract plugin name from identifier (URL or short-form)
+02. **Resolve Plugin**:
+    - Call `POST https://api.claude-plugins.dev/api/resolve/<identifier>`
+    - Receive `{ gitUrl: "..." }`
+    - Error if resolution fails (404 → plugin not in registry)
+03. **Clone Repository**:
+    - Create temp directory: `~/.claude/plugins/cache/<uuid>`
+    - Execute `git clone <gitUrl> <temp-dir>`
+    - Error if clone fails (network, permissions, invalid repo)
+04. **Validate Structure**:
+    - Check for `.claude-plugin/marketplace.json` or `.claude-plugin/plugin.json`
+    - Parse JSON and validate schema
+    - Error if neither exists or JSON is invalid
+05. **Detect Type**:
+    - If `marketplace.json` has `plugins` array → marketplace
+    - Otherwise → single plugin
+06. **Install to Marketplaces Directory**:
+    - Move from cache to `~/.claude/plugins/marketplaces/<name>/`
+    - Set `source.path` to absolute path for each plugin
+07. **Register Marketplace**:
+    - Load `~/.claude/plugins/known_marketplaces.json`
+    - Add marketplace entry with plugin metadata
+    - Write atomically (temp file + rename)
+08. **Enable Plugins**:
+    - Load `~/.claude/settings.json`
+    - Add `enabledPlugins["plugin-name@marketplace-name"] = true` for each plugin
+    - Write atomically
+09. **Cleanup**:
+    - Remove temp directory from cache
 10. **Success**: Display installed plugins and paths
 
 **Error Handling**:
@@ -402,40 +402,40 @@ Command: `skills-installer install <skill-identifier> [--client <name>] [--proje
 
 **Step-by-Step Execution** (`packages/skills-installer/src/commands/install.ts:47-186`):
 
-1. **Parse Input**: Extract owner/repo/skill components from identifier
-2. **Resolve Skill**:
-   - Call `POST https://api.claude-plugins.dev/api/v2/skills/resolve`
-   - Body: `{ target: "<identifier>", limit: 10, offset: 0 }`
-   - Receive: `{ skills: [...], page: { total, ... } }`
-   - Error if no skills found
-3. **Select Skill** (if multiple found):
-   - Display interactive prompt with skill names, descriptions
-   - User selects one skill from list
-   - Support pagination if more than 10 results
-4. **Validate Client and Scope**:
-   - If `--client` flag: validate against `CLIENT_CONFIGS`, error if unknown
-   - If `--project` flag: set scope = `local`
-   - If client lacks `globalDir` and scope is `global`: warn and switch to `local`
-5. **Select Scope and Clients** (if not specified by flags):
-   - Prompt: "Select installation scope: Global / Project"
-   - Filter clients by scope (remove global-only clients if local selected)
-   - Multi-select prompt: "Select client(s) to install for"
-   - User can select multiple clients for batch installation
-6. **Download Skill** (for each selected client):
-   - Normalize GitHub path (strip `/tree/<branch>/`, trailing `/SKILL.md`)
-   - Call `giget` with retry logic (3 attempts, exponential backoff)
-   - Template: `gh:owner/repo/path` or `gh:owner/repo/path#branch`
-   - Download to temp directory
-7. **Validate SKILL.md**:
-   - Check `SKILL.md` exists in downloaded directory
-   - Check file has content (not empty)
-   - Error if missing or empty
-8. **Install to Target Path**:
-   - Compute install path: `<globalDir or localDir>/<skill-name>/`
-   - Move from temp to target (overwrite if exists, set `force: true`)
-9. **Track Installation** (fire-and-forget):
-   - `POST https://api.claude-plugins.dev/api/skills/<owner>/<repo>/<skill>/install`
-   - Async, errors logged but not blocking
+01. **Parse Input**: Extract owner/repo/skill components from identifier
+02. **Resolve Skill**:
+    - Call `POST https://api.claude-plugins.dev/api/v2/skills/resolve`
+    - Body: `{ target: "<identifier>", limit: 10, offset: 0 }`
+    - Receive: `{ skills: [...], page: { total, ... } }`
+    - Error if no skills found
+03. **Select Skill** (if multiple found):
+    - Display interactive prompt with skill names, descriptions
+    - User selects one skill from list
+    - Support pagination if more than 10 results
+04. **Validate Client and Scope**:
+    - If `--client` flag: validate against `CLIENT_CONFIGS`, error if unknown
+    - If `--project` flag: set scope = `local`
+    - If client lacks `globalDir` and scope is `global`: warn and switch to `local`
+05. **Select Scope and Clients** (if not specified by flags):
+    - Prompt: "Select installation scope: Global / Project"
+    - Filter clients by scope (remove global-only clients if local selected)
+    - Multi-select prompt: "Select client(s) to install for"
+    - User can select multiple clients for batch installation
+06. **Download Skill** (for each selected client):
+    - Normalize GitHub path (strip `/tree/<branch>/`, trailing `/SKILL.md`)
+    - Call `giget` with retry logic (3 attempts, exponential backoff)
+    - Template: `gh:owner/repo/path` or `gh:owner/repo/path#branch`
+    - Download to temp directory
+07. **Validate SKILL.md**:
+    - Check `SKILL.md` exists in downloaded directory
+    - Check file has content (not empty)
+    - Error if missing or empty
+08. **Install to Target Path**:
+    - Compute install path: `<globalDir or localDir>/<skill-name>/`
+    - Move from temp to target (overwrite if exists, set `force: true`)
+09. **Track Installation** (fire-and-forget):
+    - `POST https://api.claude-plugins.dev/api/skills/<owner>/<repo>/<skill>/install`
+    - Async, errors logged but not blocking
 10. **Success**: Display installed paths and availability scope
 
 **Multi-Client Installation**:

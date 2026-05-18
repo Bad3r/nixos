@@ -91,13 +91,17 @@ exec emulator @"$AVD_NAME" \
 ```
 
 - `-http-proxy` forces every TCP request through the host proxy.
+
 - `-tcpdump` produces libpcap captures for Wireshark or Zeek review.
 
 - Run mitmproxy alongside the emulator to intercept and modify requests, taking advantage of its full HTTP/3 and QUIC handling for 2025-era apps: `mitmproxy --mode wireguard --listen-port 8080`.
+
 - For apps that ship certificate pinning, plan on:
+
   1. `adb root && adb remount` (AOSP images only) to mount `/system` read/write.
   2. Push the team CA into `/system/etc/security/cacerts/` and run `update-ca-certificates`.
   3. Use Frida/Magisk tools from the pentesting dev shell for dynamic bypasses (documented separately).
+
 - Maintain clean routing: emulator sees host loopback as 10.0.2.2--proxy tooling must listen on 127.0.0.1.
 
 ## Phase 4 – Validation & Observability

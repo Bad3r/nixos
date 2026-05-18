@@ -28,7 +28,7 @@ Key signatures:
 
 Looks for webpack's runtime with `__webpack_require__` and module array/object.
 
----
+______________________________________________________________________
 
 ## NOT Supported: esbuild/bun ESM Bundles
 
@@ -81,7 +81,7 @@ var UE1 = C(() => {
 
 **4. No numeric module IDs** - uses variable names instead of `1`, `2`, `3`
 
----
+______________________________________________________________________
 
 ## Why webcrack Misdetects esbuild as Browserify
 
@@ -91,7 +91,7 @@ webcrack's browserify matcher is loose enough to partially match esbuild's outpu
 - Only extracting ~4 modules instead of hundreds
 - Leaving 99%+ of code in `deobfuscated.js`
 
----
+______________________________________________________________________
 
 ## Tools That Might Work for esbuild Bundles
 
@@ -99,19 +99,21 @@ webcrack's browserify matcher is loose enough to partially match esbuild's outpu
 | --------- | ------ | ----------------------------------------------- |
 | webcrack  | ❌     | Detects as browserify, doesn't split modules    |
 | synchrony | ❌     | Doesn't support ESM (`ImportDeclaration` error) |
-| wakaru    | ⚠️      | Can process but unpacker produces single file   |
+| wakaru    | ⚠️     | Can process but unpacker produces single file   |
 | debundle  | ❌     | Abandoned (8+ years), webpack only              |
 
----
+______________________________________________________________________
 
 ## Alternative Approaches
 
 1. **Cleanroom reverse engineering** - Document behavior, rewrite from scratch
+
    - Example: https://github.com/ghuntley/claude-code-source-code-deobfuscation
 
 2. **Manual analysis** - Use custom tailor-made pattern extraction scripts
 
 3. **AST-based extraction** - Write custom babel transforms to:
+
    - Identify esbuild's lazy module wrappers (`var X = C(() => {...})`)
    - Extract and split into separate files
    - Would require significant custom work

@@ -183,6 +183,7 @@ Prevent node-gyp from downloading headers:
   ```
 
 - **Electron apps**: Point to Electron headers (ABI differs from Node)
+
   ```nix
   export npm_config_nodedir=${electron.headers}
   ```

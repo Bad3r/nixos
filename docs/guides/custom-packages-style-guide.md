@@ -328,7 +328,7 @@ For non-user-facing derivations exposed as flake outputs, register them through 
    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
    ```
 
-1. Attempt to build the package through an overlay-aware host `pkgs`:
+2. Attempt to build the package through an overlay-aware host `pkgs`:
 
    ```bash
    nix build .#nixosConfigurations.<host>.pkgs.my-package
@@ -340,7 +340,7 @@ For non-user-facing derivations exposed as flake outputs, register them through 
    git add -N packages/my-package/default.nix modules/apps/my-package.nix modules/custom-overlays/my-package.nix
    ```
 
-1. Copy the `got:` hash from the error message into your file.
+3. Copy the `got:` hash from the error message into your file.
 
 Alternatively, use `nix-prefetch-github`:
 
@@ -356,18 +356,18 @@ nix-prefetch-github owner repo --rev v1.0.0
    cargoHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
    ```
 
-1. Attempt to build and copy the `got:` hash from the error.
+2. Attempt to build and copy the `got:` hash from the error.
 
 **Important:** Do not use `cargoLock.lockFile` with a path inside `${src}` as this requires the source to be fetched during evaluation, breaking offline/pure evaluation. Always use `cargoHash`.
 
 For packages with `passthru.updateScript`, prefer implementing the cargo hash update with `scripts/updater.calculate_dependency_hash`. The usual flow is:
 
 1. Load `packages/<name>/hashes.json`
-1. Fetch the latest upstream version
-1. Recalculate `srcHash`
-1. Write a temporary dummy `cargoHash`
-1. Build `.#nixosConfigurations.system76.pkgs.<name>` and extract the `got:` hash
-1. Save the final `hashes.json`
+2. Fetch the latest upstream version
+3. Recalculate `srcHash`
+4. Write a temporary dummy `cargoHash`
+5. Build `.#nixosConfigurations.system76.pkgs.<name>` and extract the `got:` hash
+6. Save the final `hashes.json`
 
 ### Vendor Hash (Go packages)
 

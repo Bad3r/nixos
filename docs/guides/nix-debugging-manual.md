@@ -4,7 +4,7 @@
 
 Debugging in the Nix ecosystem spans expression evaluation, reproducible builds, and declarative user environments. This manual summarizes practical techniques drawn from official manuals, community knowledge, and established tooling so you can triage issues systematically across Nix, NixOS, and Home Manager.
 
----
+______________________________________________________________________
 
 ## 2. Debugging Nix Language Expressions
 
@@ -99,8 +99,11 @@ error: cannot coerce null to a string: null
    ```
 
 3. **Use Trace vs Or-Fallbacks**:
+
    - **Use `builtins.trace`** to debug evaluation order and see what values exist at different points
+
    - **Avoid `or` fallbacks** during initial debugging - they mask the actual problem
+
    - Once you've identified the issue, `or` fallbacks can provide graceful degradation:
 
      ```nix
@@ -112,6 +115,7 @@ error: cannot coerce null to a string: null
      ```
 
 4. **Check Module Context**:
+
    - Verify you're accessing `config.flake.*` in flake-parts context (outer scope)
    - Verify you're accessing `config.home.*` or `config.services.*` in module context (inner scope)
    - See [`docs/architecture/02-module-authoring.md`](../architecture/02-module-authoring.md) for the two-context pattern
@@ -131,7 +135,7 @@ error: cannot coerce null to a string: null
 - Analyze why a package depends on another via `nix why-depends` to trace a single chain of references through the store.
 - For ad hoc profiling, combine `nix build --keep-failed` with standard Unix tools inside the retained build directory, then refresh caches using `nix log` to review build output.
 
----
+______________________________________________________________________
 
 ## 3. Debugging NixOS Systems
 
@@ -161,7 +165,7 @@ error: cannot coerce null to a string: null
 - Trace dependency chains with `nix why-depends <a> <b>` to justify closures or detect hidden references.
 - Verify binary provenance by reading store logs (`nix log <installable>`) or listing remote cache metadata with `nix store ls --store https://cache.nixos.org --long <path>`.
 
----
+______________________________________________________________________
 
 ## 4. Debugging Home Manager
 
@@ -192,7 +196,7 @@ journalctl -fu "home-manager-$USER.service"
 - Custom activation scripts defined under `home.activation.*` should respect `DRY_RUN` and can emit verbose output by checking the `VERBOSE` environment variable set during activation.
 - Use `home-manager --override-input` or `--flake` overrides to test module patches against alternate Home Manager revisions without disturbing the system profile.
 
----
+______________________________________________________________________
 
 ## 5. Useful Third-Party Debugging Tools
 
@@ -200,7 +204,7 @@ journalctl -fu "home-manager-$USER.service"
 - `nh`: wrapper around common `nixos-rebuild` and `nix` invocations that surfaces switch failures and generation history with readable output.
 - `nvd`: compare Nix store closures or generations to highlight file-level differences after rebuilds, helping confirm whether a change affects runtime artifacts.
 
----
+______________________________________________________________________
 
 ## 6. Conclusion
 

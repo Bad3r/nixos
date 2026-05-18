@@ -202,7 +202,7 @@ Schema source: `Duplicati/Library/Main/Database/Database schema/Schema.sql` (cur
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Remotevolume`                                      | One row per remote object. `Name`, `Type` (`Files`/`Blocks`/`Index`), `Size`, `Hash`, `State`. Foreign-key target for `Block.VolumeID` and `Fileset.VolumeID`.            |
 | `Fileset`                                           | One row per snapshot (one dlist). `VolumeID` -> `Remotevolume.ID`, `Timestamp`, `IsFullBackup`.                                                                           |
-| `FilesetEntry`                                      | Many-to-many `Fileset` <-> `File`. `Lastmodified` is the file mtime at scan.                                                                                              |
+| `FilesetEntry`                                      | Many-to-many `Fileset` \<-> `File`. `Lastmodified` is the file mtime at scan.                                                                                             |
 | `PathPrefix` + `FileLookup` (joined as `File` view) | Path lookup. `File.BlocksetID` is the file's content blockset; `File.MetadataID` -> `Metadataset`. The view rewrites paths as `Prefix \|\| Path` to deduplicate prefixes. |
 | `Blockset`                                          | One row per unique content stream. `Length` = full-file size (or metadata blob size); `FullHash` = file hash.                                                             |
 | `BlocksetEntry`                                     | Ordered block list inside a blockset; `(BlocksetID, Index, BlockID)`.                                                                                                     |
@@ -573,7 +573,7 @@ Plaintext is **never** written outside the explicit output target. Decryption an
 | --------------------------------- | ------------ | ------------------------------------------------------------ | ---------------------------------------------------------- |
 | R2 GET bytes                      | 0            | whole encrypted dblocks in the SQL-derived unique-volume set | same unless Cut C adds HTTP range reads inside dblocks     |
 | Persistent local disk written     | 0            | F (output)                                                   | 0 (read served from memory + cache)                        |
-| Encrypted-cache disk used         | 0            | <= cache_cap (default 1 GiB, tunable)                        | <= cache_cap (default 1 GiB, tunable)                      |
+| Encrypted-cache disk used         | 0            | \<= cache_cap (default 1 GiB, tunable)                       | \<= cache_cap (default 1 GiB, tunable)                     |
 | Process memory peak               | trivial      | one dblock-size (200 MiB worst case)                         | one dblock-size (200 MiB worst case)                       |
 | Cold start (first ever query)     | trivial      | no dlist GET; local SQLite is the planner                    | no dlist GET if Cut C reuses the same local-SQLite planner |
 
@@ -584,7 +584,7 @@ Plaintext is **never** written outside the explicit output target. Decryption an
 Assume `bankdata` (`blocksize=1 MiB`, configured `dblock-size=200 MiB`, observed average dblock ~49 MiB on existing pre-override volumes).
 
 - **10 MiB file**, fully contained in one dblock: peak fetch = 49..200 MiB encrypted (one dblock); output = 10 MiB; cache holds the single dblock. Total transient = 60..210 MiB.
-- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~105 dblocks at the legacy 49 MiB average. For a contiguous file, bytes fetched are roughly the encrypted dblocks containing those 5 GiB of plaintext plus zip/AES overhead; fragmented or heavily deduplicated files can touch more volumes, and the exact number is the SQL-derived unique-volume set. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds <= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
+- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~105 dblocks at the legacy 49 MiB average. For a contiguous file, bytes fetched are roughly the encrypted dblocks containing those 5 GiB of plaintext plus zip/AES overhead; fragmented or heavily deduplicated files can touch more volumes, and the exact number is the SQL-derived unique-volume set. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds \<= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
 - **50 GiB file**, single archive: 50 GiB output + 1 GiB cache = 51 GiB. Fits.
 - **Full archive restore** (theoretical, not the use case): `bankdata` is 2.67 TiB encrypted. The 107 GiB free root cannot hold this and never could; even after subtracting Duplicati's compression and dedup, the plaintext is far above the local capacity. This is the structural reason Cut A and Cut B exist: they are the only practical interface to a multi-TiB archive on this host.
 
