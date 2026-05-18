@@ -87,6 +87,15 @@
               query = "/proc/acpi/ibm/fan";
             }
           ];
+
+          # tpnix intentionally runs the TPACPI fan at full speed.
+          levels = [
+            [
+              "level full-speed"
+              0
+              32767
+            ]
+          ];
         };
       };
     };
