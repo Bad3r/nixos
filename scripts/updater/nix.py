@@ -71,7 +71,15 @@ def nix_command(
         CompletedProcess with command results
 
     """
-    cmd = ["nix", "--experimental-features", "nix-command flakes", *args]
+    cmd = [
+        "nix",
+        "--experimental-features",
+        "nix-command flakes",
+    ]
+    if args and args[0] in {"build", "eval"}:
+        cmd.extend([args[0], "--no-write-lock-file", *args[1:]])
+    else:
+        cmd.extend(args)
     return run_command(cmd, check=check, capture_output=capture_output, cwd=cwd)
 
 
