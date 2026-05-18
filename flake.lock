@@ -1059,11 +1059,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1779509302,
-        "narHash": "sha256-eVqgm88FDC7OdNeTmVJ3VwT1s721WGCoVlqGSZ16Aqc=",
+        "lastModified": 1779530852,
+        "narHash": "sha256-yie/nfl0QuG+Pw2GR1FgrKBymh6DnlHKuhrYDJhhnTA=",
         "owner": "Bad3r",
         "repo": "nix-logseq-git-flake",
-        "rev": "0b76950d4fffe719d86f3259c782498c8a81c29a",
+        "rev": "e761bb3205d12ab41bd8069d8cd7306088fa0499",
         "type": "github"
       },
       "original": {
