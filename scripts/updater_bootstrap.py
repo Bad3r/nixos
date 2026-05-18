@@ -18,22 +18,22 @@ def _flake_root(start: Path, package_name: str) -> Path | None:
     return None
 
 
-def checkout_root(package_name: str) -> Path:
-    """Find the editable checkout from the current working directory."""
-    root = _flake_root(Path.cwd().resolve(), package_name)
+def checkout_root(script_file: str | Path, package_name: str) -> Path:
+    """Find the checkout root from an updater file path."""
+    root = _flake_root(Path(script_file).resolve().parent, package_name)
     if root is not None:
         return root
 
     msg = (
-        "Could not find the nixos checkout root from the current working "
-        f"directory. Run this updater from the repository checkout for {package_name}."
+        "Could not find the nixos checkout root from update script path for "
+        f"{package_name}."
     )
     raise RuntimeError(msg)
 
 
-def bootstrap(package_name: str) -> tuple[Path, Path]:
+def bootstrap(script_file: str | Path, package_name: str) -> tuple[Path, Path]:
     """Return the checkout root and package directory for an update script."""
-    flake_root = checkout_root(package_name)
+    flake_root = checkout_root(script_file, package_name)
     return flake_root, flake_root / "packages" / package_name
 
 

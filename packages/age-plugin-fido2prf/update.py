@@ -15,16 +15,12 @@ OWNER = "FiloSottile"
 REPO = "typage"
 
 
-_CWD = Path.cwd().resolve()
-sys.path[:0] = [
-    str(root / "scripts")
-    for root in [_CWD, *_CWD.parents]
-    if (root / "scripts" / "updater_bootstrap.py").is_file()
-]
+SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
 
 from updater_bootstrap import bootstrap, host_package_attr  # noqa: E402
 
-FLAKE_ROOT, PACKAGE_DIR = bootstrap(PACKAGE_NAME)
+FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
 HASHES_FILE = PACKAGE_DIR / "hashes.json"
 PACKAGE_ATTR = host_package_attr(FLAKE_ROOT, PACKAGE_NAME)
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
