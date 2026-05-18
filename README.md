@@ -34,11 +34,11 @@ It refuses to run on a dirty worktree by default; use `--allow-dirty` to overrid
 
 **Development commands:**
 
-| Command | Description |
-|---------|-------------|
-| `nix develop` | Enter dev shell |
-| `nix fmt` | Format files |
-| `pre-commit run --all-files --hook-stage manual` | Run all hooks |
+| Command                                                         | Description     |
+| --------------------------------------------------------------- | --------------- |
+| `nix develop`                                                   | Enter dev shell |
+| `nix fmt`                                                       | Format files    |
+| `nix develop -c pre-commit run --all-files --hook-stage manual` | Run all hooks   |
 
 ## Home Manager Package Pattern
 
@@ -54,14 +54,14 @@ See the [sops documentation](docs/sops/README.md) for usage instructions.
 
 ## Flake Input Deduplication
 
-Inputs prefixed with `dedupe_` exist solely for deduplication via `.follows` declarations.
+These root inputs pin shared dependencies used through `.follows` declarations.
 
-| Input | Followed By |
-|-------|-------------|
-| `dedupe_flake-compat` | make-shell |
-| `dedupe_flake-utils` | (internal) |
-| `dedupe_nur` | stylix |
-| `dedupe_systems` | stylix, dedupe_flake-utils |
+| Input                 | Followed By                                                  |
+| --------------------- | ------------------------------------------------------------ |
+| `dedupe_flake-compat` | `make-shell.inputs.flake-compat`                             |
+| `dedupe_flake-utils`  | `claude-desktop-linux-flake.inputs.flake-utils`              |
+| `dedupe_nur`          | `stylix.inputs.nur`                                          |
+| `systems`             | `dedupe_flake-utils.inputs.systems`, `stylix.inputs.systems` |
 
 ## Generated Files
 
