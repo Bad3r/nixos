@@ -16,11 +16,15 @@ let
         "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
         "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
       ];
-      narinfo-cache-negative-ttl = lib.mkDefault 10800; # 3 hours
+
+      download-attempts = lib.mkDefault 1;
+      connect-timeout = lib.mkDefault 5;
+      max-substitution-jobs = lib.mkDefault 32;
       http-connections = lib.mkForce 0; # unlimited
       http2 = lib.mkDefault true;
-      download-attempts = lib.mkDefault 1;
-      connect-timeout = lib.mkDefault 1;
+      narinfo-cache-negative-ttl = lib.mkDefault 10800; # 3 hours
+      stalled-download-timeout = lib.mkDefault 900;
+
     };
   };
 in
