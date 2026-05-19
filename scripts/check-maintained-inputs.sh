@@ -36,10 +36,6 @@ if ! nix eval --impure --json --expr "$inventory_expr" >"$inventory_json"; then
   exit 1
 fi
 
-if [ "$(jq 'length' "$inventory_json")" -eq 0 ]; then
-  exit 0
-fi
-
 fail=0
 
 error_msg() {
@@ -53,6 +49,10 @@ local_url_hits="$tmp_root/local-url-hits.txt"
 if grep -nE 'url[[:space:]]*=[[:space:]]*"((path|git\+file|file):|/|\.\.?/)' flake.nix >"$local_url_hits"; then
   error_msg "flake.nix contains a local input URL"
   sed 's/^/  flake.nix:/' "$local_url_hits" >&2
+fi
+
+if [ "$(jq 'length' "$inventory_json")" -eq 0 ]; then
+  exit "$fail"
 fi
 
 is_local_flake_ref() {
