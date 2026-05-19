@@ -1,15 +1,15 @@
 {
-  "blockers_resolved": 0,
-  "blockers_total": 0,
-  "comment_body": null,
-  "issue": null,
-  "refs": [],
-  "timestamp": "2026-04-20T18:17Z",
-  "warnings": [
-    "Upstream releases and channels: releases URL `https://github.com/anthropics/claude-code-action/releases` needs `target {>=,>} X.Y.Z` or `contains OWNER/REPO@<sha>`; skipping"
-  ],
-  "warnings_body": "<!-- upstream-tracker v1 parse --> sig=e8dbce16b540\nTemplate drift detected on 2026-04-20T18:17Z:\n\n- Upstream releases and channels: releases URL `https://github.com/anthropics/claude-code-action/releases` needs `target {>=,>} X.Y.Z` or `contains OWNER/REPO@<sha>`; skipping",
-  "would_comment": false,
-  "would_transition_label": false,
-  "would_warn": true
+	"blockers_resolved": 0,
+	"blockers_total": 0,
+	"comment_body": null,
+	"issue": null,
+	"refs": [],
+	"timestamp": "2026-04-20T18:17Z",
+	"warnings": [
+		"Upstream releases and channels: releases URL `https://github.com/anthropics/claude-code-action/releases` needs `target {>=,>} X.Y.Z` or `contains OWNER/REPO@<sha>`; skipping"
+	],
+	"warnings_body": "<!-- upstream-tracker v1 parse --> sig=e8dbce16b540\nTemplate drift detected on 2026-04-20T18:17Z:\n\n- Upstream releases and channels: releases URL `https://github.com/anthropics/claude-code-action/releases` needs `target {>=,>} X.Y.Z` or `contains OWNER/REPO@<sha>`; skipping",
+	"would_comment": false,
+	"would_transition_label": false,
+	"would_warn": true
 }

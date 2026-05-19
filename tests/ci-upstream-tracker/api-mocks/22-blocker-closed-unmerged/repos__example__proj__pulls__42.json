@@ -1,4 +1,4 @@
 {
-  "status": 200,
-  "body": { "number": 42, "state": "closed", "merged": false }
+	"status": 200,
+	"body": { "number": 42, "state": "closed", "merged": false }
 }

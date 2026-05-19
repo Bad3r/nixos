@@ -1,4 +1,4 @@
 {
-  "status": 200,
-  "body": { "ref": "refs/tags/2.32.1", "object": { "sha": "abc123" } }
+	"status": 200,
+	"body": { "ref": "refs/tags/2.32.1", "object": { "sha": "abc123" } }
 }

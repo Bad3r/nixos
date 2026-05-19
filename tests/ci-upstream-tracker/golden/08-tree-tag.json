@@ -1,33 +1,33 @@
 {
-  "blockers_resolved": 1,
-  "blockers_total": 1,
-  "comment_body": "<!-- upstream-tracker v1 --> sig=6338e4def079\n<!-- refs: sig=6338e4def079 -->\nUpstream state changes detected on 2026-04-20T18:17Z:\n\n- blocker **released** https://github.com/NixOS/nix/tree/2.32.1\n\nLabel swapped: `status(blocked-upstream)` → `status(ready-to-unblock)`.\n(1 of 1 `blocker` references resolved.)",
-  "issue": null,
-  "refs": [
-    {
-      "contains_sha": "",
-      "identifier": "2.32.1",
-      "kind": "tree-tag",
-      "label": "released",
-      "note": "ref-type tag",
-      "owner": "NixOS",
-      "ref_type": "tag",
-      "repo": "nix",
-      "resolved": true,
-      "role": "blocker",
-      "section": "Upstream releases and channels",
-      "sig": "6338e4def079",
-      "state": "released",
-      "sub_kind": "ref-type-tag",
-      "target_op": "",
-      "target_version": "",
-      "url": "https://github.com/NixOS/nix/tree/2.32.1"
-    }
-  ],
-  "timestamp": "2026-04-20T18:17Z",
-  "warnings": [],
-  "warnings_body": null,
-  "would_comment": true,
-  "would_transition_label": true,
-  "would_warn": false
+	"blockers_resolved": 1,
+	"blockers_total": 1,
+	"comment_body": "<!-- upstream-tracker v1 --> sig=6338e4def079\n<!-- refs: sig=6338e4def079 -->\nUpstream state changes detected on 2026-04-20T18:17Z:\n\n- blocker **released** https://github.com/NixOS/nix/tree/2.32.1\n\nLabel swapped: `status(blocked-upstream)` → `status(ready-to-unblock)`.\n(1 of 1 `blocker` references resolved.)",
+	"issue": null,
+	"refs": [
+		{
+			"contains_sha": "",
+			"identifier": "2.32.1",
+			"kind": "tree-tag",
+			"label": "released",
+			"note": "ref-type tag",
+			"owner": "NixOS",
+			"ref_type": "tag",
+			"repo": "nix",
+			"resolved": true,
+			"role": "blocker",
+			"section": "Upstream releases and channels",
+			"sig": "6338e4def079",
+			"state": "released",
+			"sub_kind": "ref-type-tag",
+			"target_op": "",
+			"target_version": "",
+			"url": "https://github.com/NixOS/nix/tree/2.32.1"
+		}
+	],
+	"timestamp": "2026-04-20T18:17Z",
+	"warnings": [],
+	"warnings_body": null,
+	"would_comment": true,
+	"would_transition_label": true,
+	"would_warn": false
 }

@@ -1,13 +1,13 @@
 {
-  "blockers_resolved": 0,
-  "blockers_total": 0,
-  "comment_body": null,
-  "issue": null,
-  "refs": [],
-  "timestamp": "2026-04-20T18:17Z",
-  "warnings": [],
-  "warnings_body": null,
-  "would_comment": false,
-  "would_transition_label": false,
-  "would_warn": false
+	"blockers_resolved": 0,
+	"blockers_total": 0,
+	"comment_body": null,
+	"issue": null,
+	"refs": [],
+	"timestamp": "2026-04-20T18:17Z",
+	"warnings": [],
+	"warnings_body": null,
+	"would_comment": false,
+	"would_transition_label": false,
+	"would_warn": false
 }

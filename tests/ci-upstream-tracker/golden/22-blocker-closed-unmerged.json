@@ -1,33 +1,33 @@
 {
-  "blockers_resolved": 0,
-  "blockers_total": 1,
-  "comment_body": "<!-- upstream-tracker v1 --> sig=c35a02c2fbb1\n<!-- refs: sig=c35a02c2fbb1 -->\nUpstream state changes detected on 2026-04-20T18:17Z:\n\n- blocker **closed without merge** https://github.com/example/proj/pull/42\n\n`blocker` progress: 0 of 1 resolved — label unchanged.",
-  "issue": null,
-  "refs": [
-    {
-      "contains_sha": "",
-      "identifier": "42",
-      "kind": "pr",
-      "label": "closed without merge",
-      "note": "rejected: needs redesign",
-      "owner": "example",
-      "ref_type": "",
-      "repo": "proj",
-      "resolved": true,
-      "role": "blocker",
-      "section": "Upstream pull requests",
-      "sig": "c35a02c2fbb1",
-      "state": "closed-unmerged",
-      "sub_kind": "",
-      "target_op": "",
-      "target_version": "",
-      "url": "https://github.com/example/proj/pull/42"
-    }
-  ],
-  "timestamp": "2026-04-20T18:17Z",
-  "warnings": [],
-  "warnings_body": null,
-  "would_comment": true,
-  "would_transition_label": false,
-  "would_warn": false
+	"blockers_resolved": 0,
+	"blockers_total": 1,
+	"comment_body": "<!-- upstream-tracker v1 --> sig=c35a02c2fbb1\n<!-- refs: sig=c35a02c2fbb1 -->\nUpstream state changes detected on 2026-04-20T18:17Z:\n\n- blocker **closed without merge** https://github.com/example/proj/pull/42\n\n`blocker` progress: 0 of 1 resolved — label unchanged.",
+	"issue": null,
+	"refs": [
+		{
+			"contains_sha": "",
+			"identifier": "42",
+			"kind": "pr",
+			"label": "closed without merge",
+			"note": "rejected: needs redesign",
+			"owner": "example",
+			"ref_type": "",
+			"repo": "proj",
+			"resolved": true,
+			"role": "blocker",
+			"section": "Upstream pull requests",
+			"sig": "c35a02c2fbb1",
+			"state": "closed-unmerged",
+			"sub_kind": "",
+			"target_op": "",
+			"target_version": "",
+			"url": "https://github.com/example/proj/pull/42"
+		}
+	],
+	"timestamp": "2026-04-20T18:17Z",
+	"warnings": [],
+	"warnings_body": null,
+	"would_comment": true,
+	"would_transition_label": false,
+	"would_warn": false
 }

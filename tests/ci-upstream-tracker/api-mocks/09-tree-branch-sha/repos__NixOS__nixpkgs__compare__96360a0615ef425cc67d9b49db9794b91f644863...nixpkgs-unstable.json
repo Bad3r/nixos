@@ -1,4 +1,4 @@
 {
-  "status": 200,
-  "body": { "status": "ahead", "ahead_by": 128, "behind_by": 0 }
+	"status": 200,
+	"body": { "status": "ahead", "ahead_by": 128, "behind_by": 0 }
 }

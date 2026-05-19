@@ -1,35 +1,35 @@
 {
-  "blockers_resolved": 0,
-  "blockers_total": 1,
-  "comment_body": null,
-  "issue": null,
-  "refs": [
-    {
-      "contains_sha": "",
-      "identifier": "123",
-      "kind": "pr",
-      "label": "missing",
-      "note": "",
-      "owner": "NixOS",
-      "ref_type": "",
-      "repo": "nixpkgs",
-      "resolved": false,
-      "role": "blocker",
-      "section": "Upstream pull requests",
-      "sig": "414d136eca22",
-      "state": "missing",
-      "sub_kind": "",
-      "target_op": "",
-      "target_version": "",
-      "url": "https://github.com/NixOS/nixpkgs/pull/123"
-    }
-  ],
-  "timestamp": "2026-04-20T18:17Z",
-  "warnings": [
-    "Upstream pull requests: `none` appears alongside URLs; URLs will still be parsed"
-  ],
-  "warnings_body": "<!-- upstream-tracker v1 parse --> sig=c12a24172894\nTemplate drift detected on 2026-04-20T18:17Z:\n\n- Upstream pull requests: `none` appears alongside URLs; URLs will still be parsed",
-  "would_comment": false,
-  "would_transition_label": false,
-  "would_warn": true
+	"blockers_resolved": 0,
+	"blockers_total": 1,
+	"comment_body": null,
+	"issue": null,
+	"refs": [
+		{
+			"contains_sha": "",
+			"identifier": "123",
+			"kind": "pr",
+			"label": "missing",
+			"note": "",
+			"owner": "NixOS",
+			"ref_type": "",
+			"repo": "nixpkgs",
+			"resolved": false,
+			"role": "blocker",
+			"section": "Upstream pull requests",
+			"sig": "414d136eca22",
+			"state": "missing",
+			"sub_kind": "",
+			"target_op": "",
+			"target_version": "",
+			"url": "https://github.com/NixOS/nixpkgs/pull/123"
+		}
+	],
+	"timestamp": "2026-04-20T18:17Z",
+	"warnings": [
+		"Upstream pull requests: `none` appears alongside URLs; URLs will still be parsed"
+	],
+	"warnings_body": "<!-- upstream-tracker v1 parse --> sig=c12a24172894\nTemplate drift detected on 2026-04-20T18:17Z:\n\n- Upstream pull requests: `none` appears alongside URLs; URLs will still be parsed",
+	"would_comment": false,
+	"would_transition_label": false,
+	"would_warn": true
 }

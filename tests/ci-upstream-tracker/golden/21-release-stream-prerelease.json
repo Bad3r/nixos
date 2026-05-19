@@ -1,33 +1,33 @@
 {
-  "blockers_resolved": 0,
-  "blockers_total": 1,
-  "comment_body": null,
-  "issue": null,
-  "refs": [
-    {
-      "contains_sha": "",
-      "identifier": "",
-      "kind": "release-stream-version",
-      "label": "pending",
-      "note": "target >= 1.0.0",
-      "owner": "example",
-      "ref_type": "",
-      "repo": "proj",
-      "resolved": false,
-      "role": "blocker",
-      "section": "Upstream releases and channels",
-      "sig": "5dbbcfd31185",
-      "state": "pending",
-      "sub_kind": "version",
-      "target_op": ">=",
-      "target_version": "1.0.0",
-      "url": "https://github.com/example/proj/releases"
-    }
-  ],
-  "timestamp": "2026-04-20T18:17Z",
-  "warnings": [],
-  "warnings_body": null,
-  "would_comment": false,
-  "would_transition_label": false,
-  "would_warn": false
+	"blockers_resolved": 0,
+	"blockers_total": 1,
+	"comment_body": null,
+	"issue": null,
+	"refs": [
+		{
+			"contains_sha": "",
+			"identifier": "",
+			"kind": "release-stream-version",
+			"label": "pending",
+			"note": "target >= 1.0.0",
+			"owner": "example",
+			"ref_type": "",
+			"repo": "proj",
+			"resolved": false,
+			"role": "blocker",
+			"section": "Upstream releases and channels",
+			"sig": "5dbbcfd31185",
+			"state": "pending",
+			"sub_kind": "version",
+			"target_op": ">=",
+			"target_version": "1.0.0",
+			"url": "https://github.com/example/proj/releases"
+		}
+	],
+	"timestamp": "2026-04-20T18:17Z",
+	"warnings": [],
+	"warnings_body": null,
+	"would_comment": false,
+	"would_transition_label": false,
+	"would_warn": false
 }

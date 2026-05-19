@@ -1,33 +1,33 @@
 {
-  "blockers_resolved": 1,
-  "blockers_total": 1,
-  "comment_body": "<!-- upstream-tracker v1 --> sig=d79237fb00d4\n<!-- refs: sig=d79237fb00d4 -->\nUpstream state changes detected on 2026-04-20T18:17Z:\n\n- blocker **released** https://github.com/Mic92/envfs/releases/tag/1.2.0\n\nLabel swapped: `status(blocked-upstream)` → `status(ready-to-unblock)`.\n(1 of 1 `blocker` references resolved.)",
-  "issue": null,
-  "refs": [
-    {
-      "contains_sha": "",
-      "identifier": "1.2.0",
-      "kind": "release-tag",
-      "label": "released",
-      "note": "envfs >= 1.2.0",
-      "owner": "Mic92",
-      "ref_type": "",
-      "repo": "envfs",
-      "resolved": true,
-      "role": "blocker",
-      "section": "Upstream releases and channels",
-      "sig": "d79237fb00d4",
-      "state": "released",
-      "sub_kind": "",
-      "target_op": "",
-      "target_version": "",
-      "url": "https://github.com/Mic92/envfs/releases/tag/1.2.0"
-    }
-  ],
-  "timestamp": "2026-04-20T18:17Z",
-  "warnings": [],
-  "warnings_body": null,
-  "would_comment": true,
-  "would_transition_label": true,
-  "would_warn": false
+	"blockers_resolved": 1,
+	"blockers_total": 1,
+	"comment_body": "<!-- upstream-tracker v1 --> sig=d79237fb00d4\n<!-- refs: sig=d79237fb00d4 -->\nUpstream state changes detected on 2026-04-20T18:17Z:\n\n- blocker **released** https://github.com/Mic92/envfs/releases/tag/1.2.0\n\nLabel swapped: `status(blocked-upstream)` → `status(ready-to-unblock)`.\n(1 of 1 `blocker` references resolved.)",
+	"issue": null,
+	"refs": [
+		{
+			"contains_sha": "",
+			"identifier": "1.2.0",
+			"kind": "release-tag",
+			"label": "released",
+			"note": "envfs >= 1.2.0",
+			"owner": "Mic92",
+			"ref_type": "",
+			"repo": "envfs",
+			"resolved": true,
+			"role": "blocker",
+			"section": "Upstream releases and channels",
+			"sig": "d79237fb00d4",
+			"state": "released",
+			"sub_kind": "",
+			"target_op": "",
+			"target_version": "",
+			"url": "https://github.com/Mic92/envfs/releases/tag/1.2.0"
+		}
+	],
+	"timestamp": "2026-04-20T18:17Z",
+	"warnings": [],
+	"warnings_body": null,
+	"would_comment": true,
+	"would_transition_label": true,
+	"would_warn": false
 }

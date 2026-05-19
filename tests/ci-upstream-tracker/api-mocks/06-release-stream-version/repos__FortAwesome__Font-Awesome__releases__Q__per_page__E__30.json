@@ -1,8 +1,8 @@
 {
-  "status": 200,
-  "body": [
-    { "tag_name": "7.0.0", "name": "Font Awesome 7.0.0" },
-    { "tag_name": "6.5.2", "name": "Font Awesome 6.5.2" },
-    { "tag_name": "6.5.1", "name": "Font Awesome 6.5.1" }
-  ]
+	"status": 200,
+	"body": [
+		{ "tag_name": "7.0.0", "name": "Font Awesome 7.0.0" },
+		{ "tag_name": "6.5.2", "name": "Font Awesome 6.5.2" },
+		{ "tag_name": "6.5.1", "name": "Font Awesome 6.5.1" }
+	]
 }

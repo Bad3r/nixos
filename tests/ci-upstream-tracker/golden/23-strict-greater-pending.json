@@ -1,33 +1,33 @@
 {
-  "blockers_resolved": 0,
-  "blockers_total": 1,
-  "comment_body": null,
-  "issue": null,
-  "refs": [
-    {
-      "contains_sha": "",
-      "identifier": "",
-      "kind": "release-stream-version",
-      "label": "pending",
-      "note": "target > v1.0.113",
-      "owner": "anthropics",
-      "ref_type": "",
-      "repo": "claude-code-action",
-      "resolved": false,
-      "role": "blocker",
-      "section": "Upstream releases and channels",
-      "sig": "b070d89dc5b4",
-      "state": "pending",
-      "sub_kind": "version",
-      "target_op": ">",
-      "target_version": "1.0.113",
-      "url": "https://github.com/anthropics/claude-code-action/releases"
-    }
-  ],
-  "timestamp": "2026-04-20T18:17Z",
-  "warnings": [],
-  "warnings_body": null,
-  "would_comment": false,
-  "would_transition_label": false,
-  "would_warn": false
+	"blockers_resolved": 0,
+	"blockers_total": 1,
+	"comment_body": null,
+	"issue": null,
+	"refs": [
+		{
+			"contains_sha": "",
+			"identifier": "",
+			"kind": "release-stream-version",
+			"label": "pending",
+			"note": "target > v1.0.113",
+			"owner": "anthropics",
+			"ref_type": "",
+			"repo": "claude-code-action",
+			"resolved": false,
+			"role": "blocker",
+			"section": "Upstream releases and channels",
+			"sig": "b070d89dc5b4",
+			"state": "pending",
+			"sub_kind": "version",
+			"target_op": ">",
+			"target_version": "1.0.113",
+			"url": "https://github.com/anthropics/claude-code-action/releases"
+		}
+	],
+	"timestamp": "2026-04-20T18:17Z",
+	"warnings": [],
+	"warnings_body": null,
+	"would_comment": false,
+	"would_transition_label": false,
+	"would_warn": false
 }
