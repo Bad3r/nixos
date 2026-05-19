@@ -93,7 +93,9 @@ Do NOT iterate over `flake.lib.nixos.hosts` with `lib.filterAttrs`/`lib.mapAttrs
 
 ### Flake Input Deduplication
 
-Inputs prefixed with `dedupe_` exist for dependency deduplication through `.follows`. If no `follows` references remain, remove the `dedupe_` input. Keep the root `systems` input unprefixed because that is the canonical `nix-systems` input name, even when dependency inputs follow it.
+Use the generated README's "Flake Input Deduplication" section as the canonical
+source for local flake input naming and follower relationships. Its source text
+is `modules/readme.nix`.
 
 ### Repository Layout
 
