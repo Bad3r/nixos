@@ -111,18 +111,6 @@ _: {
               ];
             };
 
-            vulnix = {
-              enable = true;
-              name = "vulnix";
-              description = "Scan flake dependencies for known vulnerabilities.";
-              entry = "${config.packages.hook-vulnix}/bin/hook-vulnix";
-              pass_filenames = false;
-              always_run = true;
-              stages = [
-                "manual"
-              ];
-            };
-
             managed-files-drift = {
               enable = true;
               name = "managed-files-drift";

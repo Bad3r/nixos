@@ -109,7 +109,6 @@
               config.packages."hook-apps-catalog-sync"
               config.packages."hook-build-sh-completion-sync"
               config.packages."hook-mcp-docs-sync"
-              config.packages."hook-vulnix"
               config.packages."hook-gitleaks"
               config.packages."hook-luacheck"
 
