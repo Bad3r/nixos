@@ -54,7 +54,7 @@ See the [sops documentation](docs/sops/README.md) for usage instructions.
 
 ## Flake Input Deduplication
 
-These root inputs pin shared dependencies used through `.follows` declarations. `systems` keeps the canonical `nix-systems` input name even though dependency inputs also follow it.
+These root inputs pin shared dependencies used through `.follows` declarations. `systems` keeps the canonical `nix-systems` input name even though dependency inputs also follow it. Remove any `dedupe_*` input once no `.follows` declaration references it.
 
 | Input                 | Followed By                                                  |
 | --------------------- | ------------------------------------------------------------ |
