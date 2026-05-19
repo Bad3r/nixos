@@ -311,6 +311,8 @@ let
     "mail.google.com * 3p-frame noop"
     "accounts.google.com * 3p-script noop"
     "accounts.google.com * 3p-frame noop"
+    "myaccount.google.com * 3p-script noop"
+    "myaccount.google.com * 3p-frame noop"
 
     # Microsoft 365
     "teams.cloud.microsoft * 3p-script noop"
