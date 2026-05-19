@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import urllib.error
 from pathlib import Path
 from typing import Any, cast
 
@@ -63,7 +64,7 @@ def package_json_isolated_vm_version(version: str) -> str:
     if not isinstance(isolated_vm, str):
         msg = "Could not find isolated-vm in package.json"
         raise RuntimeError(msg)
-    if not isolated_vm[0].isdigit():
+    if not isolated_vm or not isolated_vm[0].isdigit():
         msg = f"package.json isolated-vm dependency is not exact: {isolated_vm}"
         raise RuntimeError(msg)
     return isolated_vm
@@ -71,7 +72,12 @@ def package_json_isolated_vm_version(version: str) -> str:
 
 def lockfile_isolated_vm_version(version: str) -> str | None:
     """Read the exact isolated-vm dependency from package-lock.json."""
-    data = fetch_json(upstream_url(version, "package-lock.json"))
+    try:
+        data = fetch_json(upstream_url(version, "package-lock.json"))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
     if not isinstance(data, dict):
         msg = f"Expected package-lock.json dict, got {type(data)}"
         raise TypeError(msg)

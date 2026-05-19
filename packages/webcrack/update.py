@@ -8,7 +8,6 @@ import argparse
 import json
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any, cast
 
@@ -52,15 +51,13 @@ def upstream_url(version: str, path: str) -> str:
 
 def parse_pnpm_lock(lock_text: str) -> dict[str, Any]:
     """Parse pnpm-lock.yaml with yq."""
-    with tempfile.NamedTemporaryFile("w", suffix=".yaml") as lock_file:
-        lock_file.write(lock_text)
-        lock_file.flush()
-        result = subprocess.run(
-            ["yq", "-o=json", ".", lock_file.name],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+    result = subprocess.run(
+        ["yq", "-o=json", "."],
+        check=True,
+        capture_output=True,
+        text=True,
+        input=lock_text,
+    )
     data = json.loads(result.stdout)
     if not isinstance(data, dict):
         msg = f"Expected dict from pnpm lock, got {type(data)}"
@@ -121,10 +118,17 @@ def upstream_isolated_vm_pin(version: str) -> tuple[str, str]:
     if not isinstance(packages, dict):
         msg = f"Expected packages dict, got {type(packages)}"
         raise TypeError(msg)
-    package_entry = packages.get(f"isolated-vm@{lock_version}")
-    if not isinstance(package_entry, dict):
+    package_key_suffix = f"isolated-vm@{lock_version}"
+    package_entry = next(
+        (entry for key, entry in packages.items() if key.endswith(package_key_suffix)),
+        None,
+    )
+    if package_entry is None:
         msg = f"Could not find isolated-vm@{lock_version} in pnpm-lock.yaml"
         raise RuntimeError(msg)
+    if not isinstance(package_entry, dict):
+        msg = f"Expected isolated-vm package entry dict, got {type(package_entry)}"
+        raise TypeError(msg)
     resolution = package_entry.get("resolution")
     if not isinstance(resolution, dict):
         msg = f"Expected isolated-vm resolution dict, got {type(resolution)}"
