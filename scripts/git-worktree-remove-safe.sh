@@ -12,6 +12,24 @@ error_msg() {
   printf '%s: %s\n' "${prog_name}" "$1" >&2
 }
 
+# Keep untracked state, ignored secrets, and local config visible; drop only ignored cleanup noise.
+readonly disposable_status_sed_script='/^!! \.pre-commit-config\.yaml$/d
+\#^!! result([.-][^/]*)?(/.*)?/?$#d
+\#^!! (.*/)?[^/]*\.log$#d
+\#^!! (.*/)?\.?log(/.*)?/?$#d
+\#^!! (.*/)?[^/]*[cC][aA][cC][hH][eE][^/]*/.*$#d
+\#^!! (.*/)?(\.clj-kondo|\.lsp|\.specify|\.direnv|\.kiro|tmp|\.tmp|\.code|\.tox|\.nox|\.vscode|\.idea|node_modules|\.wrangler)(/.*)?/?$#d
+\#^!! (.*/)?[^/]*\.pyc$#d
+\#^!! (.*/)?(\.DS_Store|Thumbs\.db)$#d
+\#^!! (.*/)?[^/]*\.(swp|swo|tgz)$#d
+\#^!! (.*/)?[^/]*~$#d
+\#^!! \.nixos-manual-update\.[^/]*(/.*)?/?$#d'
+export disposable_status_sed_script
+
+filter_disposable_status() {
+  sed -E "${disposable_status_sed_script}"
+}
+
 git_common_dir() {
   local repo_root common_dir
   repo_root="$1"
@@ -80,7 +98,7 @@ require_clean_worktree() {
 
   status="$(
     git -C "${worktree_path}" status --porcelain=v1 --untracked-files=all --ignored=matching |
-      sed '/^!! \.pre-commit-config\.yaml$/d'
+      filter_disposable_status
   )"
   if [[ -n ${status} ]]; then
     error_msg "refusing to remove worktree with dirty, untracked, or ignored local state: ${worktree_path}"
@@ -92,7 +110,7 @@ require_clean_worktree() {
   if ! submodule_status="$(
     git -C "${worktree_path}" submodule foreach --quiet --recursive '
       status="$(git status --porcelain=v1 --untracked-files=all --ignored=matching |
-        sed "/^!! \.pre-commit-config\.yaml$/d")"
+        sed -E "${disposable_status_sed_script}")"
       if test -n "${status}"; then
         printf "%s\n%s\n" "${displaypath}" "${status}"
         exit 1
