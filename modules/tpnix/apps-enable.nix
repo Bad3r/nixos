@@ -55,6 +55,7 @@ let
     "spec-kit" = false;
     steam = false;
     terraform = false;
+    thinkfan = true;
     upscayl = false;
     valgrind = false;
     "ventoy-full" = false;
