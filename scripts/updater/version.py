@@ -102,6 +102,7 @@ def _version_group_pattern(pattern: str, version_group: str) -> str | None:
     index = start + len(marker)
     depth = 1
     escaped = False
+    in_char_class = False
     group_chars: list[str] = []
     while index < len(pattern):
         char = pattern[index]
@@ -111,10 +112,16 @@ def _version_group_pattern(pattern: str, version_group: str) -> str | None:
         elif char == "\\":
             group_chars.append(char)
             escaped = True
-        elif char == "(":
+        elif char == "[" and not in_char_class:
+            in_char_class = True
+            group_chars.append(char)
+        elif char == "]" and in_char_class:
+            in_char_class = False
+            group_chars.append(char)
+        elif char == "(" and not in_char_class:
             group_chars.append(char)
             depth += 1
-        elif char == ")":
+        elif char == ")" and not in_char_class:
             depth -= 1
             if depth == 0:
                 return "".join(group_chars)
