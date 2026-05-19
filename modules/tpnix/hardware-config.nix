@@ -49,50 +49,49 @@
       }
     ];
 
-      services = {
-        libinput = {
-          enable = true;
-          touchpad = {
-            tapping = true;
-            middleEmulation = true;
-            naturalScrolling = true;
-          };
+    services = {
+      libinput = {
+        enable = true;
+        touchpad = {
+          tapping = true;
+          middleEmulation = true;
+          naturalScrolling = true;
         };
+      };
 
-        thinkfan = {
-          sensors = [
-            {
-              type = "tpacpi";
-              query = "/proc/acpi/ibm/thermal";
-            }
-            {
-              type = "hwmon";
-              query = "/sys/class/hwmon";
-              name = "coretemp";
-            }
-            {
-              type = "hwmon";
-              query = "/sys/class/hwmon";
-              name = "nvme";
-            }
-          ];
+      thinkfan = {
+        sensors = [
+          {
+            type = "tpacpi";
+            query = "/proc/acpi/ibm/thermal";
+          }
+          {
+            type = "hwmon";
+            query = "/sys/class/hwmon";
+            name = "coretemp";
+          }
+          {
+            type = "hwmon";
+            query = "/sys/class/hwmon";
+            name = "nvme";
+          }
+        ];
 
-          fans = [
-            {
-              type = "tpacpi";
-              query = "/proc/acpi/ibm/fan";
-            }
-          ];
+        fans = [
+          {
+            type = "tpacpi";
+            query = "/proc/acpi/ibm/fan";
+          }
+        ];
 
-          # tpnix intentionally runs the TPACPI fan at full speed.
-          levels = [
-            [
-              "level full-speed"
-              0
-              32767
-            ]
-          ];
-        };
+        # tpnix intentionally runs the TPACPI fan at full speed.
+        levels = [
+          [
+            "level full-speed"
+            0
+            32767
+          ]
+        ];
       };
     };
   };
