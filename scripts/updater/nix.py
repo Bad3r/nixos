@@ -77,7 +77,18 @@ def nix_command(
         "nix-command flakes",
     ]
     flake_aware = {"build", "eval", "run", "develop", "shell", "flake"}
-    if args and args[0] in flake_aware and "--no-write-lock-file" not in args:
+    flake_mutating = (
+        bool(args)
+        and args[0] == "flake"
+        and len(args) > 1
+        and args[1] in {"update", "lock"}
+    )
+    if (
+        args
+        and args[0] in flake_aware
+        and "--no-write-lock-file" not in args
+        and not flake_mutating
+    ):
         insert_at = 2 if args[0] == "flake" and len(args) > 1 else 1
         cmd.extend([*args[:insert_at], "--no-write-lock-file", *args[insert_at:]])
     else:
