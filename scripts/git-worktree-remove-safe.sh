@@ -12,18 +12,18 @@ error_msg() {
   printf '%s: %s\n' "${prog_name}" "$1" >&2
 }
 
-# Keep ignored secrets and local config visible; drop only generated cleanup noise.
-readonly disposable_status_sed_script='/^(!!|\?\?) \.pre-commit-config\.yaml$/d
-\#^(!!|\?\?) result([.-][^/]*)?(/.*)?/?$#d
-\#^(!!|\?\?) (.*/)?[^/]*\.log$#d
-\#^(!!|\?\?) (.*/)?\.?log(/.*)?/?$#d
-\#^(!!|\?\?) (.*/)?[^/]*[cC][aA][cC][hH][eE][^/]*/.*$#d
-\#^(!!|\?\?) (.*/)?(\.clj-kondo|\.lsp|\.specify|\.direnv|\.kiro|tmp|\.tmp|\.code|\.tox|\.nox|\.vscode|\.idea|node_modules|\.wrangler)(/.*)?/?$#d
-\#^(!!|\?\?) (.*/)?[^/]*\.pyc$#d
-\#^(!!|\?\?) (.*/)?(\.DS_Store|Thumbs\.db)$#d
-\#^(!!|\?\?) (.*/)?[^/]*\.(swp|swo|tgz)$#d
-\#^(!!|\?\?) (.*/)?[^/]*~$#d
-\#^(!!|\?\?) \.nixos-manual-update\.[^/]*(/.*)?/?$#d'
+# Keep untracked state, ignored secrets, and local config visible; drop only ignored cleanup noise.
+readonly disposable_status_sed_script='/^!! \.pre-commit-config\.yaml$/d
+\#^!! result([.-][^/]*)?(/.*)?/?$#d
+\#^!! (.*/)?[^/]*\.log$#d
+\#^!! (.*/)?\.?log(/.*)?/?$#d
+\#^!! (.*/)?[^/]*[cC][aA][cC][hH][eE][^/]*/.*$#d
+\#^!! (.*/)?(\.clj-kondo|\.lsp|\.specify|\.direnv|\.kiro|tmp|\.tmp|\.code|\.tox|\.nox|\.vscode|\.idea|node_modules|\.wrangler)(/.*)?/?$#d
+\#^!! (.*/)?[^/]*\.pyc$#d
+\#^!! (.*/)?(\.DS_Store|Thumbs\.db)$#d
+\#^!! (.*/)?[^/]*\.(swp|swo|tgz)$#d
+\#^!! (.*/)?[^/]*~$#d
+\#^!! \.nixos-manual-update\.[^/]*(/.*)?/?$#d'
 export disposable_status_sed_script
 
 filter_disposable_status() {
