@@ -8,7 +8,7 @@
       "build"
       "hm-package-pattern"
       "secrets"
-      "flake-inputs-dedupe-prefix"
+      "flake-input-deduplication"
       "files"
     ];
 
@@ -97,19 +97,19 @@
 
         '';
 
-      flake-inputs-dedupe-prefix =
+      flake-input-deduplication =
         # markdown
         ''
           ## Flake Input Deduplication
 
-          Inputs prefixed with `dedupe_` exist solely for deduplication via `.follows` declarations.
+          These root inputs pin shared dependencies used through `.follows` declarations. `systems` keeps the canonical `nix-systems` input name even though dependency inputs also follow it.
 
-          | Input | Followed By |
-          |-------|-------------|
-          | `dedupe_flake-compat` | make-shell |
-          | `dedupe_flake-utils` | (internal) |
-          | `dedupe_nur` | stylix |
-          | `dedupe_systems` | stylix, dedupe_flake-utils |
+          | Input                 | Followed By                                                  |
+          | --------------------- | ------------------------------------------------------------ |
+          | `dedupe_flake-compat` | `make-shell.inputs.flake-compat`                             |
+          | `dedupe_flake-utils`  | `claude-desktop-linux-flake.inputs.flake-utils`              |
+          | `dedupe_nur`          | `stylix.inputs.nur`                                          |
+          | `systems`             | `dedupe_flake-utils.inputs.systems`, `stylix.inputs.systems` |
 
         '';
 
