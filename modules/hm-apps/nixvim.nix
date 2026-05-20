@@ -34,7 +34,7 @@ _: {
       ...
     }:
     let
-      inherit (lib) mkDefault mkIf;
+      inherit (lib) mkDefault;
       nvimEnabled = lib.attrByPath [ "programs" "neovim" "extended" "enable" ] false osConfig;
       nvimPkg = lib.attrByPath [
         "programs"
@@ -43,7 +43,6 @@ _: {
         "package"
       ] pkgs.neovim-unwrapped osConfig;
       hostname = osConfig.networking.hostName;
-      kittyEnabled = lib.attrByPath [ "programs" "kitty" "extended" "enable" ] false osConfig;
     in
     {
       imports = lib.optionals nvimEnabled [ inputs.nixvim.homeModules.nixvim ];
@@ -77,21 +76,10 @@ _: {
               # plugins listed in `nixpkgs.allowedUnfreePackages` are honored.
               nixpkgs.config.allowUnfreePredicate = pkgs.config.allowUnfreePredicate;
 
-              # Leader keys, plus a runtime-gated OSC52 clipboard provider
-              # when Neovim is running in kitty.
+              # Leader keys.
               globals = {
                 mapleader = mkDefault " ";
                 maplocalleader = mkDefault " ";
-                clipboard = mkIf kittyEnabled {
-                  __raw = ''
-                    (function()
-                      if vim.env.KITTY_WINDOW_ID == nil then
-                        return nil
-                      end
-                      return "osc52"
-                    end)()
-                  '';
-                };
               };
 
               # Editor options
@@ -140,10 +128,9 @@ _: {
                 ndjson = "jsonl";
               };
 
-              # Clipboard integration. `globals.clipboard` above forces
-              # Neovim's built-in OSC52 provider inside kitty; outside kitty,
-              # `vim.g.clipboard` stays unset and Neovim picks one of these
-              # providers via standard autodetection.
+              # Clipboard integration. Keep `vim.g.clipboard` unset so local
+              # X11 sessions use xsel and Greenclip can observe yanks through
+              # the same CLIPBOARD/PRIMARY selections it records.
               clipboard = {
                 register = "unnamedplus,unnamed";
                 providers = {
