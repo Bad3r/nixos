@@ -34,11 +34,11 @@ It refuses to run on a dirty worktree by default; use `--allow-dirty` to overrid
 
 **Development commands:**
 
-| Command | Description |
-|---------|-------------|
-| `nix develop` | Enter dev shell |
-| `nix fmt` | Format files |
-| `pre-commit run --all-files --hook-stage manual` | Run all hooks |
+| Command                                                         | Description     |
+| --------------------------------------------------------------- | --------------- |
+| `nix develop`                                                   | Enter dev shell |
+| `nix fmt`                                                       | Format files    |
+| `nix develop -c pre-commit run --all-files --hook-stage manual` | Run all hooks   |
 
 ## Home Manager Package Pattern
 
