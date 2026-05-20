@@ -53,6 +53,7 @@ let
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
+      biome.extended.enable = lib.mkOverride 1100 true;
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
       bottom.extended.enable = lib.mkOverride 1100 true;
@@ -153,7 +154,6 @@ let
       fonttools.extended.enable = lib.mkOverride 1100 true;
       foremost.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;
-      formatting.extended.enable = lib.mkOverride 1100 true;
       "frida-tools".extended.enable = lib.mkOverride 1100 true;
       "fuse-overlayfs".extended.enable = lib.mkOverride 1100 true;
       fzf.extended.enable = lib.mkOverride 1100 true;
@@ -254,6 +254,7 @@ let
       marktext.extended.enable = lib.mkOverride 1100 true;
       masscan.extended.enable = lib.mkOverride 1100 true;
       mattermost.extended.enable = lib.mkOverride 1100 false;
+      mdformat.extended.enable = lib.mkOverride 1100 true;
       "media-toolchain".extended.enable = lib.mkOverride 1100 true;
       metasploit.extended.enable = lib.mkOverride 1100 true;
       "minio-client".extended.enable = lib.mkOverride 1100 true;
@@ -277,6 +278,7 @@ let
       nftables.extended.enable = lib.mkOverride 1100 true;
       nicotine.extended.enable = lib.mkOverride 1100 true;
       nixd.extended.enable = lib.mkOverride 1100 true;
+      nixfmt.extended.enable = lib.mkOverride 1100 true;
       niv.extended.enable = lib.mkOverride 1100 true;
       "nix-diff".extended.enable = lib.mkOverride 1100 true;
       "nix-direnv".extended.enable = lib.mkOverride 1100 true;
@@ -369,6 +371,7 @@ let
       seclists.extended.enable = lib.mkOverride 1100 true;
       selenium.extended.enable = lib.mkOverride 1100 true;
       shellcheck.extended.enable = lib.mkOverride 1100 true;
+      shfmt.extended.enable = lib.mkOverride 1100 true;
       "signal-desktop".extended.enable = lib.mkOverride 1100 true;
       simplescreenrecorder.extended.enable = lib.mkOverride 1100 true;
       skim.extended.enable = lib.mkOverride 1100 false;
@@ -396,11 +399,13 @@ let
       statix.extended.enable = lib.mkOverride 1100 true;
       steam.extended.enable = lib.mkOverride 1100 true;
       strace.extended.enable = lib.mkOverride 1100 true;
+      stylua.extended.enable = lib.mkOverride 1100 true;
       subfinder.extended.enable = lib.mkOverride 1100 true;
       subjack.extended.enable = lib.mkOverride 1100 true;
       synchrony.extended.enable = lib.mkOverride 1100 true;
       sysstat.extended.enable = lib.mkOverride 1100 true;
       tailscale.extended.enable = lib.mkOverride 1100 true;
+      taplo.extended.enable = lib.mkOverride 1100 true;
       tar.extended.enable = lib.mkOverride 1100 true;
       tcpdump.extended.enable = lib.mkOverride 1100 true;
       tealdeer.extended.enable = lib.mkOverride 1100 true;
@@ -468,6 +473,7 @@ let
       xxd.extended.enable = lib.mkOverride 1100 true;
       xz.extended.enable = lib.mkOverride 1100 true;
       yaak.extended.enable = lib.mkOverride 1100 true;
+      yamlfmt.extended.enable = lib.mkOverride 1100 true;
       yarn.extended.enable = lib.mkOverride 1100 true;
       "yq-go".extended.enable = lib.mkOverride 1100 true;
       "yubico-piv-tool".extended.enable = lib.mkOverride 1100 true;
