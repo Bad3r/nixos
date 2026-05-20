@@ -45,8 +45,10 @@ error_msg() {
 
 # Committed flake inputs must not use local URLs anywhere in flake.nix.
 # Inventory no-local-url checks add per-input flake.lock validation below.
+# The second grep drops comment-only matches (line content starting with `#`).
 local_url_hits="$tmp_root/local-url-hits.txt"
-if grep -nE 'url[[:space:]]*=[[:space:]]*"((path|git\+file|file):|/|\.\.?/)' flake.nix >"$local_url_hits"; then
+if grep -nE 'url[[:space:]]*=[[:space:]]*"((path|git\+file|file):|/|\.\.?/)' flake.nix |
+  grep -vE '^[0-9]+:[[:space:]]*#' >"$local_url_hits"; then
   error_msg "flake.nix contains a local input URL"
   sed 's/^/  flake.nix:/' "$local_url_hits" >&2
 fi
