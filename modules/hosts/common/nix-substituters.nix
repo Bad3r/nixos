@@ -17,12 +17,12 @@ let
         "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
       ];
 
-      download-attempts = lib.mkDefault 1;
-      connect-timeout = lib.mkDefault 5;
+      download-attempts = lib.mkDefault 5;
+      connect-timeout = lib.mkDefault 30;
       max-substitution-jobs = lib.mkDefault 32;
       http-connections = lib.mkForce 0; # unlimited
       http2 = lib.mkDefault true;
-      narinfo-cache-negative-ttl = lib.mkDefault 10800; # 3 hours
+      narinfo-cache-negative-ttl = lib.mkDefault 60;
       stalled-download-timeout = lib.mkDefault 900;
 
     };
