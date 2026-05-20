@@ -7,7 +7,7 @@
 
   Summary:
     * Installs the split formatter providers used by the central treefmt module.
-    * Exposes host packages only. Formatter behavior is configured in `modules/development/formatter.nix`.
+    * Exposes host packages only. Formatter behavior is configured in `modules/meta/treefmt.nix`.
 
   Options:
     formatting bundle: Provides formatter binaries; individual tools expose their own flags (see respective man pages).
