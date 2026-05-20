@@ -224,6 +224,7 @@ let
       ktailctl.extended.enable = lib.mkOverride 1100 true;
       lazydocker.extended.enable = lib.mkOverride 1100 true;
       lazygit.extended.enable = lib.mkOverride 1100 true;
+      lazyjournal.extended.enable = lib.mkOverride 1100 true;
       leiningen.extended.enable = lib.mkOverride 1100 false;
       less.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
