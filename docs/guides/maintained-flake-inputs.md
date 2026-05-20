@@ -100,10 +100,11 @@ publishing a root repository change that depends on a maintained input revision:
 scripts/check-maintained-inputs.sh --fetch
 ```
 
-The `maintained-inputs` pre-commit hook wraps the same script without `--fetch`.
-The `flake.nix` local URL scan is repository-wide because committed local input
-URLs are never allowed. The inventory `no-local-url` check controls the
-per-input `flake.lock` scan.
+The `maintained-inputs` hook runs at the `pre-push` and `manual` stages of the
+pre-commit framework and wraps the same script without `--fetch`. The
+`flake.nix` local URL scan is repository-wide because committed local input URLs
+are never allowed. The inventory `no-local-url` check controls the per-input
+`flake.lock` scan.
 
 Validation is split by the failure it catches:
 
@@ -117,6 +118,14 @@ Validation is split by the failure it catches:
 | Reachable commit  | The locked revision is not reachable from the configured remote/ref.               | `git fetch` plus ancestry check.                                    |
 | Follows preserved | Nested input deduplication changed without a reviewed inventory update.            | Inventory `follows` plus flake input declarations or lock metadata. |
 | Lock graph drift  | An input update changed dependency edges beyond the intended input revision.       | Inventory `lockGraph.inputNames` and `flake.lock`.                  |
+
+`clean-checkout` and `tracked-files` encode different policies. `clean-checkout`
+rejects any unstaged, staged, or untracked content because `git status` uses
+`--untracked-files=all`. `tracked-files` rejects only untracked entries, which
+allows iterating on dirty tracked edits while still requiring new files to be
+added before evaluation can depend on them. Declare both for the strictest
+publish gate, or `tracked-files` alone for a softer policy during active
+maintenance.
 
 Local dirty input checkouts are acceptable only for local test commands. They
 must fail pre-publish validation. This prevents a successful rebuild from hiding
@@ -175,7 +184,7 @@ Then update the root flake to the reachable revision and review only the intende
 lock changes:
 
 ```bash
-nix flake lock --update-input example-input
+nix flake update example-input
 git diff -- flake.lock
 ```
 
