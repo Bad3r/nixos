@@ -332,6 +332,35 @@ test_fail_lock_graph_drift() {
     'lock graph input names expected'
 }
 
+test_fail_lock_graph_missing_inputnames() {
+  local fixture exit_code inventory_without_inputnames
+  fixture="$(init_fixture fail-lock-graph-missing)"
+  inventory_without_inputnames='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/example.git";
+        ref = "main";
+      };
+      sourceMode = "local-override";
+      follows.nixpkgs = "nixpkgs";
+      checks = [
+        "no-local-url"
+        "follows-preserved"
+        "lock-graph"
+      ];
+    };
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inventory_without_inputnames}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-lock-graph-missing" "${fixture}" "${exit_code}" \
+    'lock-graph check declared but lockGraph\.inputNames is empty or missing'
+}
+
 test_fail_follows_drift() {
   local fixture exit_code lock_wrong_follows
   fixture="$(init_fixture fail-follows)"
@@ -395,6 +424,35 @@ test_fail_follows_drift() {
   exit_code=$(run_sut "${fixture}" --no-fetch)
   assert_fail "fail-follows" "${fixture}" "${exit_code}" \
     'follows\.nixpkgs expected'
+}
+
+test_fail_follows_preserved_missing_follows() {
+  local fixture exit_code inventory_without_follows
+  fixture="$(init_fixture fail-follows-missing)"
+  inventory_without_follows='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/example.git";
+        ref = "main";
+      };
+      sourceMode = "local-override";
+      lockGraph.inputNames = [ "nixpkgs" ];
+      checks = [
+        "no-local-url"
+        "follows-preserved"
+        "lock-graph"
+      ];
+    };
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inventory_without_follows}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-follows-missing" "${fixture}" "${exit_code}" \
+    'follows-preserved check declared but follows is empty or missing'
 }
 
 test_fail_clean_and_tracked_both_fire() {
@@ -478,8 +536,10 @@ test_fail_local_url_in_flake_nix_with_empty_inventory
 test_pass_local_url_in_comment
 test_fail_local_url_in_flake_lock
 test_fail_lock_graph_drift
+test_fail_lock_graph_missing_inputnames
 test_fail_follows_drift
+test_fail_follows_preserved_missing_follows
 test_fail_clean_and_tracked_both_fire
 test_fail_unknown_check_name
 
-printf '9 passed\n'
+printf '11 passed\n'
