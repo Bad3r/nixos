@@ -208,7 +208,6 @@ let
   disabledLibrewolfLists = [
     "adguard-spyware-url"
     "ublock-badware"
-    "easylist"
     "urlhaus-1"
     "curben-phishing"
   ];
@@ -405,19 +404,31 @@ in
 
   inherit userChrome;
 
+  # uBO
   extensionStorage."${ublockOrigin}".settings = {
     advancedUserEnabled = true;
-    cloudStorageEnabled = true;
-    colorBlindFriendly = false;
+    cloudStorageEnabled = false;
+
+    hiddenSettings = { };
+    importedLists = [ ];
+
     showIconBadge = false;
     uiAccentCustom = stylixEnabled;
     uiAccentCustom0 = ublockOriginAccentColor;
     uiTheme = ublockOriginUiTheme;
+
     hostnameSwitchesString = builtins.concatStringsSep "\n" [
       "no-csp-reports: * true"
       "no-large-media: behind-the-scene false"
     ];
+
     dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
+
+    netWhitelist = [
+      "chrome-extension-scheme"
+      "moz-extension-scheme"
+    ];
+    urlFilteringString = "";
     userFilters = ''
       ! https://octobox.io
       octobox.io##.btn-outline-light.btn-sm.btn
@@ -425,32 +436,46 @@ in
       ! https://web.webex.com
       web.webex.com##.cookie-banner-body
     '';
+
     selectedFilterLists = librewolfUblockOriginLists ++ [
       # Keep "My filters" enabled; uBO hides the element picker without it.
       "user-filters"
 
-      # Additional regional lists
-      "ara-0"
+      # uBO Lists
+      "ublock-filters"
+      "ublock-privacy"
+      "ublock-quick-fixes"
+      "ublock-unbreak"
 
-      # Additional generic ad blocking
+      # Ads Lists
+      "easylist"
       "adguard-generic"
 
-      # Network / LAN protection
+      # Privacy Lists
+      "easyprivacy"
+      "LegitimateURLShortener"
+      "adguard-spyware-url" # AdGuard/uBO - URL Tracking Protection
       "block-lan"
 
-      # Additional lists to suppress cookie banners/annoyances
-      "ublock-annoyances"
+      # Multipurpose
+      "plowe-0"
+
+      # Cookie notices
       "adguard-cookies"
-      "ublock-cookies-adguard"
-      # "fanboy-cookiemonster"
-      # "ublock-cookies-easylist"
-      "fanboy-thirdparty_social"
+      "ublock-cookies-adguard" # Fanboy - Anti-Facebook
+
+      # Annoyances
       "adguard-other-annoyances"
       "adguard-popup-overlays"
       "adguard-widgets"
+      "ublock-annoyances"
+
+      # Additional regional lists
+      "ara-0"
     ];
   };
 
+  # ViolentMonkey
   extensionStorage."${violentmonkey}".settings = {
     "code:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaCode;
     "scr:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaRecord;
