@@ -41,7 +41,7 @@ let
 
     ## Enforce Non-Negotiable Safety Rules
 
-    Apply these rules in every mode:
+    Apply these rules in every mode, unless the user overwrites it:
 
     - Never run `git stash drop` or `git stash clear`.
     - Never run `git reset --hard` unless the user explicitly requests it.
