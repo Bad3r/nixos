@@ -13,11 +13,18 @@ let
   # ExtensionSettings policy key.
   amoLatestBaseUrl = "https://addons.mozilla.org/firefox/downloads/latest/";
   mkAmoInstallUrl =
-    extensionId:
-    "${amoLatestBaseUrl}${lib.replaceStrings [ "{" "}" ] [ "%7B" "%7D" ] extensionId}/latest.xpi";
+    extension:
+    "${amoLatestBaseUrl}${lib.replaceStrings [ "{" "}" ] [ "%7B" "%7D" ] extension}/latest.xpi";
+  allowedWidgetChars = lib.stringToCharacters "abcdefghijklmnopqrstuvwxyz0123456789_-";
+  toWidgetId =
+    extension:
+    let
+      sanitizeChar = char: if builtins.elem char allowedWidgetChars then char else "_";
+    in
+    "${lib.stringAsChars sanitizeChar (lib.toLower extension)}-browser-action";
 
-  ublockOriginId = "uBlock0@raymondhill.net";
-  ublockOriginInstallUrl = mkAmoInstallUrl ublockOriginId;
+  ublockOrigin = "uBlock0@raymondhill.net";
+  ublockOriginInstallUrl = mkAmoInstallUrl ublockOrigin;
   stylixEnabled = config.stylix.enable or false;
   stylixPolarity = config.stylix.polarity or "auto";
   stylixColors = lib.attrByPath [ "lib" "stylix" "colors" ] { } config;
@@ -44,7 +51,7 @@ let
       "auto";
   ublockOriginAccentColor = getStylixColor "base0D" "#aca0f7";
 
-  onePasswordId = "{d634138d-c276-4fc8-924b-40a0ea21d284}";
+  onePassword = "{d634138d-c276-4fc8-924b-40a0ea21d284}";
   # Browser-side trust manifest for the managed 1Password extension. The
   # 1Password GUI module owns the /run/wrappers/bin target.
   onePasswordNativeMessagingHost =
@@ -55,93 +62,76 @@ let
           description = "1Password BrowserSupport";
           path = "/run/wrappers/bin/1Password-BrowserSupport";
           type = "stdio";
-          allowed_extensions = [ onePasswordId ];
+          allowed_extensions = [ onePassword ];
         }
       );
 
-  arabicDictionaryId = "ar@dictionaries.addons.mozilla.org";
-  cookieAutoDeleteId = "CookieAutoDelete@kennydo.com";
-  darkreaderId = "addon@darkreader.org";
-  foxyproxyId = "foxyproxy@eric.h.jung";
-  languageToolId = "languagetool-webextension@languagetool.org";
-  printEditId = "printedit-we@DW-dev";
-  raindropId = "jid0-adyhmvsP91nUO8pRv0Mn2VKeB84@jetpack";
-  savePageId = "savepage-we@DW-dev";
-  simpleLoginId = "addon@simplelogin";
-  stylusId = "{7a7a4a92-a2a0-41d1-9fd7-1e92480d612d}";
-  svgGobblerId = "{7962ff4a-5985-4cf2-9777-4bb642ad05b8}";
-  tabStashId = "tab-stash@condordes.net";
-  tridactylId = "tridactyl.vim@cmcaine.co.uk";
-  violentmonkeyId = "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}";
-  wappalyzerId = "wappalyzer@crunchlabz.com";
-  webArchivesId = "{d07ccf11-c0cd-4938-a265-2a4d6ad01189}";
+  arabicDictionary = "ar@dictionaries.addons.mozilla.org";
+  cookieAutoDelete = "CookieAutoDelete@kennydo.com";
+  darkreader = "addon@darkreader.org";
+  foxyproxy = "foxyproxy@eric.h.jung";
+  languageTool = "languagetool-webextension@languagetool.org";
+  printEdit = "printedit-we@DW-dev";
+  raindrop = "jid0-adyhmvsP91nUO8pRv0Mn2VKeB84@jetpack";
+  savePage = "savepage-we@DW-dev";
+  svgGobbler = "{7962ff4a-5985-4cf2-9777-4bb642ad05b8}";
+  tabStash = "tab-stash@condordes.net";
+  tridactyl = "tridactyl.vim@cmcaine.co.uk";
+  violentmonkey = "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}";
+  wappalyzer = "wappalyzer@crunchlabz.com";
+  webArchives = "{d07ccf11-c0cd-4938-a265-2a4d6ad01189}";
 
   policyExtensionIds = [
-    arabicDictionaryId
-    cookieAutoDeleteId
-    darkreaderId
-    foxyproxyId
-    languageToolId
-    onePasswordId
-    printEditId
-    raindropId
-    savePageId
-    simpleLoginId
-    stylusId
-    svgGobblerId
-    tabStashId
-    tridactylId
-    violentmonkeyId
-    wappalyzerId
-    webArchivesId
-  ];
-
-  mkNormalInstalledPolicy = extensionId: {
-    installation_mode = "normal_installed";
-    install_url = mkAmoInstallUrl extensionId;
-  };
-
-  widgetIds = {
-    cookieAutoDelete = "cookieautodelete_kennydo_com-browser-action";
-    darkreader = "addon_darkreader_org-browser-action";
-    firefoxColor = "firefoxcolor_mozilla_com-browser-action";
-    languageTool = "languagetool-webextension_languagetool_org-browser-action";
-    onePassword = "_d634138d-c276-4fc8-924b-40a0ea21d284_-browser-action";
-    raindrop = "jid0-adyhmvsp91nuo8prv0mn2vkeb84_jetpack-browser-action";
-    simpleLogin = "addon_simplelogin-browser-action";
-    stylus = "_7a7a4a92-a2a0-41d1-9fd7-1e92480d612d_-browser-action";
-    svgGobbler = "_7962ff4a-5985-4cf2-9777-4bb642ad05b8_-browser-action";
-    tabStash = "tab-stash_condordes_net-browser-action";
-    tridactyl = "tridactyl_vim_cmcaine_co_uk-browser-action";
-    ublockOrigin = "ublock0_raymondhill_net-browser-action";
-    violentmonkey = "_aecec67f-0d10-4fa7-b7c7-609a2db280cf_-browser-action";
-    webArchives = "_d07ccf11-c0cd-4938-a265-2a4d6ad01189_-browser-action";
-  };
-
-  unifiedExtensionsArea = with widgetIds; [
-    raindrop
-    firefoxColor
-    tabStash
-    simpleLogin
+    arabicDictionary
     cookieAutoDelete
     darkreader
-    webArchives
+    foxyproxy
     languageTool
-    stylus
-    violentmonkey
+    onePassword
+    printEdit
+    raindrop
+    savePage
     svgGobbler
+    tabStash
+    tridactyl
+    violentmonkey
+    wappalyzer
+    webArchives
   ];
 
-  navBarWidgets = with widgetIds; [
-    "firefox-view-button"
+  mkNormalInstalledPolicy = extension: {
+    installation_mode = "normal_installed";
+    install_url = mkAmoInstallUrl extension;
+  };
+
+  unifiedExtensionsArea = [
+    (toWidgetId cookieAutoDelete)
+    (toWidgetId darkreader)
+    (toWidgetId webArchives)
+    (toWidgetId languageTool)
+    (toWidgetId violentmonkey)
+    (toWidgetId svgGobbler)
+    (toWidgetId printEdit)
+    (toWidgetId savePage)
+    (toWidgetId foxyproxy)
+  ];
+
+  navBarWidgets = [
     "back-button"
     "stop-reload-button"
     "forward-button"
+    "customizableui-special-spring1"
+    "customizableui-special-spring2"
+    "firefox-view-button"
+    "developer-button"
+    (toWidgetId ublockOrigin)
     "urlbar-container"
-    "vertical-spacer"
-    onePassword
-    ublockOrigin
+    (toWidgetId raindrop)
+    (toWidgetId onePassword)
     "unified-extensions-button"
+    "customizableui-special-spring3"
+    "customizableui-special-spring4"
+    "vertical-spacer"
   ];
 
   toolbarPlacements = {
@@ -154,14 +144,13 @@ let
     PersonalToolbar = [ "personal-bookmarks" ];
   };
 
-  toolbarSeen =
-    unifiedExtensionsArea
-    ++ (with widgetIds; [
-      onePassword
-      ublockOrigin
-      "developer-button"
-      "screenshot-button"
-    ]);
+  toolbarSeen = unifiedExtensionsArea ++ [
+    (toWidgetId onePassword)
+    (toWidgetId raindrop)
+    (toWidgetId ublockOrigin)
+    "developer-button"
+    "screenshot-button"
+  ];
 
   toolbarState = {
     placements = toolbarPlacements;
@@ -180,8 +169,8 @@ let
 
   onePasswordToolbarIcon = ../stylix/icons/1password-outline.svg;
   userChrome = ''
-    #${widgetIds.onePassword} > .toolbarbutton-icon,
-    #${widgetIds.onePassword} > .toolbarbutton-badge-stack > .toolbarbutton-icon {
+    #${toWidgetId onePassword} > .toolbarbutton-icon,
+    #${toWidgetId onePassword} > .toolbarbutton-badge-stack > .toolbarbutton-icon {
       list-style-image: url("file://${onePasswordToolbarIcon}") !important;
     }
   '';
@@ -218,7 +207,6 @@ let
   disabledLibrewolfLists = [
     "adguard-spyware-url"
     "ublock-badware"
-    "easylist"
     "urlhaus-1"
     "curben-phishing"
   ];
@@ -360,7 +348,7 @@ let
   ];
 
   extensionSettings = (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy) // {
-    "${ublockOriginId}" = {
+    "${ublockOrigin}" = {
       installation_mode = "force_installed";
       install_url = ublockOriginInstallUrl;
       private_browsing = true;
@@ -377,7 +365,7 @@ in
   extensionPolicies = {
     ExtensionSettings = extensionSettings;
 
-    "3rdparty".Extensions."${ublockOriginId}" = {
+    "3rdparty".Extensions."${ublockOrigin}" = {
       adminSettings = builtins.toJSON {
         assetsBootstrapLocation = librewolfUblockOriginListData.source;
       };
@@ -391,14 +379,13 @@ in
   sidebarSettings =
     let
       sidebarExtensionIds = [
-        raindropId
-        tabStashId
-        stylusId
-        tridactylId
+        raindrop
+        tabStash
+        tridactyl
       ];
       sidebarTools = [
-        raindropId
-        tabStashId
+        raindrop
+        tabStash
         "history"
       ];
     in
@@ -416,19 +403,33 @@ in
 
   inherit userChrome;
 
-  extensionStorage."${ublockOriginId}".settings = {
+  # uBO
+  extensionStorage."${ublockOrigin}".settings = {
     advancedUserEnabled = true;
-    cloudStorageEnabled = true;
-    colorBlindFriendly = false;
+    cloudStorageEnabled = false;
+
+    hiddenSettings = { };
+    importedLists = [ ];
+
     showIconBadge = false;
     uiAccentCustom = stylixEnabled;
     uiAccentCustom0 = ublockOriginAccentColor;
     uiTheme = ublockOriginUiTheme;
+
     hostnameSwitchesString = builtins.concatStringsSep "\n" [
       "no-csp-reports: * true"
       "no-large-media: behind-the-scene false"
     ];
+
     dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
+
+    netWhitelist = [
+      "chrome-extension-scheme"
+      "moz-extension-scheme"
+    ];
+
+    urlFilteringString = "";
+
     userFilters = ''
       ! https://octobox.io
       octobox.io##.btn-outline-light.btn-sm.btn
@@ -436,33 +437,50 @@ in
       ! https://web.webex.com
       web.webex.com##.cookie-banner-body
     '';
-    selectedFilterLists = librewolfUblockOriginLists ++ [
-      # Keep "My filters" enabled; uBO hides the element picker without it.
-      "user-filters"
 
-      # Additional regional lists
-      "ara-0"
+    selectedFilterLists = lib.unique (
+      librewolfUblockOriginLists
+      ++ [
+        # Keep "My filters" enabled; uBO hides the element picker without it.
+        "user-filters"
 
-      # Additional generic ad blocking
-      "adguard-generic"
+        # uBO Lists
+        "ublock-filters"
+        "ublock-privacy"
+        "ublock-quick-fixes"
+        "ublock-unbreak"
 
-      # Network / LAN protection
-      "block-lan"
+        # Ads Lists
+        "easylist"
+        "adguard-generic"
 
-      # Additional lists to suppress cookie banners/annoyances
-      "ublock-annoyances"
-      "adguard-cookies"
-      "ublock-cookies-adguard"
-      # "fanboy-cookiemonster"
-      # "ublock-cookies-easylist"
-      "fanboy-thirdparty_social"
-      "adguard-other-annoyances"
-      "adguard-popup-overlays"
-      "adguard-widgets"
-    ];
+        # Privacy Lists
+        "easyprivacy"
+        "LegitimateURLShortener"
+        "adguard-spyware-url" # AdGuard/uBO - URL Tracking Protection
+        "block-lan"
+
+        # Multipurpose
+        "plowe-0"
+
+        # Cookie notices
+        "adguard-cookies"
+        "ublock-cookies-adguard" # Fanboy - Anti-Facebook
+
+        # Annoyances
+        "adguard-other-annoyances"
+        "adguard-popup-overlays"
+        "adguard-widgets"
+        "ublock-annoyances"
+
+        # Additional regional lists
+        "ara-0"
+      ]
+    );
   };
 
-  extensionStorage."${violentmonkeyId}".settings = {
+  # ViolentMonkey
+  extensionStorage."${violentmonkey}".settings = {
     "code:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaCode;
     "scr:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaRecord;
   };
