@@ -8,15 +8,43 @@ let
 
   formatterPackages =
     pkgs: with pkgs; [
-      nixfmt
-      shfmt
-      stylua
-      ruff
       biome
       (mdformat.withPlugins mdformatPlugins)
+      nixfmt
+      ruff
+      shfmt
+      stylua
       taplo
       yamlfmt
     ];
+
+  treefmtGlobalExcludes =
+    (map (directory: "${directory}/**") [
+      "inputs"
+      "nixos-manual"
+      "secrets"
+    ])
+    ++ [
+      "*.lock"
+      "**/*.lock"
+      "*.patch"
+      "go.mod"
+      "go.sum"
+      "package-lock.json"
+      "LICENSE"
+      "README.md"
+    ]
+    ++ (map (file: ".${file}") [
+      "actrc"
+      "gitattributes"
+      "gitignore"
+      "gitmodules"
+      "gitleaks.toml"
+      "hgignore"
+      "pre-commit-config.yaml"
+      "sops.yaml"
+      "svnignore"
+    ]);
 in
 {
   imports = [ inputs.treefmt-nix.flakeModule ];
@@ -42,27 +70,7 @@ in
       treefmt = {
         projectRootFile = "flake.nix";
 
-        settings.global.excludes = [
-          "inputs/**"
-          ".pre-commit-config.yaml"
-          "nixos-manual/**"
-          "secrets/**"
-          "*.lock"
-          "*.patch"
-          "package-lock.json"
-          "go.mod"
-          "go.sum"
-          ".gitattributes"
-          ".gitignore"
-          ".gitmodules"
-          ".hgignore"
-          ".svnignore"
-          "LICENSE"
-          "README.md"
-          ".actrc"
-          ".gitleaks.toml"
-          ".sops.yaml"
-        ];
+        settings.global.excludes = treefmtGlobalExcludes;
 
         programs = {
           nixfmt.enable = true;
