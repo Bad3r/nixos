@@ -139,9 +139,10 @@
     stylix = {
       url = "github:nix-community/stylix";
       inputs = {
+        flake-parts.follows = "flake-parts";
         nixpkgs.follows = "nixpkgs";
         nur.follows = "dedupe_nur";
-        systems.follows = "dedupe_systems";
+        systems.follows = "systems";
         tinted-schemes.follows = "tinted-schemes";
       };
     };
@@ -194,12 +195,13 @@
       url = "github:MichaelAquilina/zsh-auto-notify";
     };
 
-    # _additional_ `inputs` only for deduplication
+    # Shared dependency pins consumed through `follows`. Generic pins use the
+    # `dedupe_` prefix; `systems` keeps the canonical `nix-systems` input name.
     dedupe_flake-compat.url = "github:edolstra/flake-compat";
 
     dedupe_flake-utils = {
       url = "github:numtide/flake-utils";
-      inputs.systems.follows = "dedupe_systems";
+      inputs.systems.follows = "systems";
     };
 
     dedupe_nur = {
@@ -210,7 +212,7 @@
       };
     };
 
-    dedupe_systems.url = "github:nix-systems/default";
+    systems.url = "github:nix-systems/default";
 
     git-hooks = {
       url = "github:cachix/git-hooks.nix";
@@ -230,10 +232,6 @@
       imports = [
         inputs."git-hooks".flakeModule
         (inputs.import-tree ./modules)
-      ];
-
-      systems = [
-        "x86_64-linux"
       ];
 
       _module.args = {

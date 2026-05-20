@@ -87,8 +87,10 @@ value.
 
 ### Flake Input Deduplication
 
-Inputs prefixed with `dedupe_` exist for dependency deduplication through
-`.follows`. If no `follows` references remain, remove the `dedupe_` input.
+Do not restate the local flake input naming table here. Read the generated
+README's "Flake Input Deduplication" section, whose source is
+`modules/readme.nix`, before changing root input names or follower
+relationships.
 
 ## Ownership Map
 
