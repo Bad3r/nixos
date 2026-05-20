@@ -15,14 +15,13 @@ let
   mkAmoInstallUrl =
     extension:
     "${amoLatestBaseUrl}${lib.replaceStrings [ "{" "}" ] [ "%7B" "%7D" ] extension}/latest.xpi";
+  allowedWidgetChars = lib.stringToCharacters "abcdefghijklmnopqrstuvwxyz0123456789_-";
   toWidgetId =
     extension:
     let
-      allowed = lib.stringToCharacters "abcdefghijklmnopqrstuvwxyz0123456789_-";
-      sanitizeChar = char: if builtins.elem char allowed then char else "_";
-      sanitized = lib.concatMapStrings sanitizeChar (lib.stringToCharacters (lib.toLower extension));
+      sanitizeChar = char: if builtins.elem char allowedWidgetChars then char else "_";
     in
-    "${sanitized}-browser-action";
+    "${lib.stringAsChars sanitizeChar (lib.toLower extension)}-browser-action";
 
   ublockOrigin = "uBlock0@raymondhill.net";
   ublockOriginInstallUrl = mkAmoInstallUrl ublockOrigin;
