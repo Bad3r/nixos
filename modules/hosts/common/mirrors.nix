@@ -59,6 +59,18 @@ let
           "restic/restic"
           "s0md3v/wappalyzer-next"
           "tridactyl/tridactyl"
+
+          # Zap (Zed Attack Proxy)
+          "zaproxy/zaproxy"
+          "zaproxy/zap-extensions"
+          "zaproxy/zap-extensions"
+          "zaproxy/zaproxy.github.io"
+          "zaproxy/zap-api-python"
+          "zaproxy/community-scripts"
+          "zaproxy/action-mcp-scan"
+          "fuzzdb-project/fuzzdb"
+          "dtkmn/mcp-zap-server"
+
         ];
       };
     };
