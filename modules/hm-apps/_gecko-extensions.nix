@@ -427,7 +427,9 @@ in
       "chrome-extension-scheme"
       "moz-extension-scheme"
     ];
+
     urlFilteringString = "";
+
     userFilters = ''
       ! https://octobox.io
       octobox.io##.btn-outline-light.btn-sm.btn
@@ -436,42 +438,45 @@ in
       web.webex.com##.cookie-banner-body
     '';
 
-    selectedFilterLists = librewolfUblockOriginLists ++ [
-      # Keep "My filters" enabled; uBO hides the element picker without it.
-      "user-filters"
+    selectedFilterLists = lib.unique (
+      librewolfUblockOriginLists
+      ++ [
+        # Keep "My filters" enabled; uBO hides the element picker without it.
+        "user-filters"
 
-      # uBO Lists
-      "ublock-filters"
-      "ublock-privacy"
-      "ublock-quick-fixes"
-      "ublock-unbreak"
+        # uBO Lists
+        "ublock-filters"
+        "ublock-privacy"
+        "ublock-quick-fixes"
+        "ublock-unbreak"
 
-      # Ads Lists
-      "easylist"
-      "adguard-generic"
+        # Ads Lists
+        "easylist"
+        "adguard-generic"
 
-      # Privacy Lists
-      "easyprivacy"
-      "LegitimateURLShortener"
-      "adguard-spyware-url" # AdGuard/uBO - URL Tracking Protection
-      "block-lan"
+        # Privacy Lists
+        "easyprivacy"
+        "LegitimateURLShortener"
+        "adguard-spyware-url" # AdGuard/uBO - URL Tracking Protection
+        "block-lan"
 
-      # Multipurpose
-      "plowe-0"
+        # Multipurpose
+        "plowe-0"
 
-      # Cookie notices
-      "adguard-cookies"
-      "ublock-cookies-adguard" # Fanboy - Anti-Facebook
+        # Cookie notices
+        "adguard-cookies"
+        "ublock-cookies-adguard" # Fanboy - Anti-Facebook
 
-      # Annoyances
-      "adguard-other-annoyances"
-      "adguard-popup-overlays"
-      "adguard-widgets"
-      "ublock-annoyances"
+        # Annoyances
+        "adguard-other-annoyances"
+        "adguard-popup-overlays"
+        "adguard-widgets"
+        "ublock-annoyances"
 
-      # Additional regional lists
-      "ara-0"
-    ];
+        # Additional regional lists
+        "ara-0"
+      ]
+    );
   };
 
   # ViolentMonkey
