@@ -70,14 +70,11 @@ let
   arabicDictionary = "ar@dictionaries.addons.mozilla.org";
   cookieAutoDelete = "CookieAutoDelete@kennydo.com";
   darkreader = "addon@darkreader.org";
-  firefoxColor = "FirefoxColor@mozilla.com";
   foxyproxy = "foxyproxy@eric.h.jung";
   languageTool = "languagetool-webextension@languagetool.org";
   printEdit = "printedit-we@DW-dev";
   raindrop = "jid0-adyhmvsP91nUO8pRv0Mn2VKeB84@jetpack";
   savePage = "savepage-we@DW-dev";
-  simpleLogin = "addon@simplelogin";
-  stylus = "{7a7a4a92-a2a0-41d1-9fd7-1e92480d612d}";
   svgGobbler = "{7962ff4a-5985-4cf2-9777-4bb642ad05b8}";
   tabStash = "tab-stash@condordes.net";
   tridactyl = "tridactyl.vim@cmcaine.co.uk";
@@ -95,8 +92,6 @@ let
     printEdit
     raindrop
     savePage
-    simpleLogin
-    stylus
     svgGobbler
     tabStash
     tridactyl
@@ -111,29 +106,33 @@ let
   };
 
   unifiedExtensionsArea = [
-    (toWidgetId raindrop)
-    (toWidgetId firefoxColor)
-    (toWidgetId tabStash)
-    (toWidgetId simpleLogin)
     (toWidgetId cookieAutoDelete)
     (toWidgetId darkreader)
     (toWidgetId webArchives)
     (toWidgetId languageTool)
-    (toWidgetId stylus)
     (toWidgetId violentmonkey)
     (toWidgetId svgGobbler)
+    (toWidgetId printEdit)
+    (toWidgetId savePage)
+    (toWidgetId foxyproxy)
   ];
 
   navBarWidgets = [
-    "firefox-view-button"
     "back-button"
     "stop-reload-button"
     "forward-button"
-    "urlbar-container"
-    "vertical-spacer"
-    (toWidgetId onePassword)
+    "customizableui-special-spring1"
+    "customizableui-special-spring2"
+    "firefox-view-button"
+    "developer-button"
     (toWidgetId ublockOrigin)
+    "urlbar-container"
+    (toWidgetId raindrop)
+    (toWidgetId onePassword)
     "unified-extensions-button"
+    "customizableui-special-spring3"
+    "customizableui-special-spring4"
+    "vertical-spacer"
   ];
 
   toolbarPlacements = {
@@ -148,6 +147,7 @@ let
 
   toolbarSeen = unifiedExtensionsArea ++ [
     (toWidgetId onePassword)
+    (toWidgetId raindrop)
     (toWidgetId ublockOrigin)
     "developer-button"
     "screenshot-button"
@@ -383,7 +383,6 @@ in
       sidebarExtensionIds = [
         raindrop
         tabStash
-        stylus
         tridactyl
       ];
       sidebarTools = [

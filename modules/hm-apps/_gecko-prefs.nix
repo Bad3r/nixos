@@ -121,8 +121,8 @@ in
       "sidebar.command" = "viewTabsSidebar";
       "sidebar.verticalTabs.dragToPinPromo.dismissed" = true;
 
-      # Show the bookmarks toolbar only on the new-tab page.
-      "browser.toolbars.bookmarks.visibility" = "newtab";
+      # Keep the bookmarks toolbar hidden.
+      "browser.toolbars.bookmarks.visibility" = "never";
 
       "reader.font_type" = "monospace";
 
