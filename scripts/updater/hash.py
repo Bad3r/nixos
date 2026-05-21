@@ -40,12 +40,12 @@ def calculate_downloaded_url_hash(
     """
     _require_http_url(url, "source")
 
-    request = urllib.request.Request(url)
+    request = urllib.request.Request(url)  # noqa: S310
     for name, value in headers.items():
         request.add_header(name, value)
 
     with (
-        urllib.request.urlopen(request, timeout=60) as response,
+        urllib.request.urlopen(request, timeout=60) as response,  # noqa: S310
         tempfile.NamedTemporaryFile() as tmp,
     ):
         _require_http_url(response.geturl(), "redirect")

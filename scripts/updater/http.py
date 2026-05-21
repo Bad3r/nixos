@@ -2,17 +2,31 @@
 
 import json
 import os
+import urllib.parse
 import urllib.request
-from typing import Any
+from typing import cast
+
+type JsonValue = None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
+type JsonObject = dict[str, JsonValue]
+type JsonArray = list[JsonValue]
+
+
+def _require_http_url(url: str) -> None:
+    """Reject non-HTTP(S) URLs before handing them to urllib."""
+    scheme = urllib.parse.urlparse(url).scheme.lower()
+    if scheme not in {"http", "https"}:
+        msg = f"Refusing to fetch non-HTTP(S) URL: {url}"
+        raise ValueError(msg)
 
 
 def _github_request(url: str) -> urllib.request.Request:
     """Build an authenticated GitHub API request.
 
     Uses the GITHUB_TOKEN environment variable so that CI jobs don't hit
-    the unauthenticated rate limit (60 req/h → 5 000 req/h).
+    the unauthenticated rate limit (60 req/h to 5 000 req/h).
     """
-    req = urllib.request.Request(url)
+    _require_http_url(url)
+    req = urllib.request.Request(url)  # noqa: S310
     token = os.environ.get("GITHUB_TOKEN", "")
     if token:
         req.add_header("Authorization", f"token {token}")
@@ -23,9 +37,7 @@ def _github_request(url: str) -> urllib.request.Request:
 DEFAULT_USER_AGENT = "llm-agents-updater"
 
 
-def fetch_text(
-    url: str, *, timeout: int = 30, user_agent: str = DEFAULT_USER_AGENT
-) -> str:
+def fetch_text(url: str, *, timeout: int = 30, user_agent: str = DEFAULT_USER_AGENT) -> str:
     """Fetch text content from a URL.
 
     Args:
@@ -40,17 +52,17 @@ def fetch_text(
         urllib.error.URLError: If the request fails
 
     """
-    if "api.github.com" in url:
-        req = _github_request(url)
-    else:
-        req = urllib.request.Request(url)
+    _require_http_url(url)
+    req = (
+        _github_request(url) if "api.github.com" in url else urllib.request.Request(url)  # noqa: S310
+    )
     req.add_header("User-Agent", user_agent)
-    with urllib.request.urlopen(req, timeout=timeout) as response:
+    with urllib.request.urlopen(req, timeout=timeout) as response:  # noqa: S310
         data: bytes = response.read()
         return data.decode("utf-8")
 
 
-def fetch_json(url: str, *, timeout: int = 30) -> dict[str, Any] | list[Any]:
+def fetch_json(url: str, *, timeout: int = 30) -> JsonObject | JsonArray:
     """Fetch and parse JSON from a URL.
 
     Args:
@@ -66,5 +78,4 @@ def fetch_json(url: str, *, timeout: int = 30) -> dict[str, Any] | list[Any]:
 
     """
     text = fetch_text(url, timeout=timeout)
-    result: dict[str, Any] | list[Any] = json.loads(text)
-    return result
+    return cast("JsonObject | JsonArray", json.loads(text))

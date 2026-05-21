@@ -47,7 +47,7 @@ def calculate_platform_hashes(
         return nix_platform, hash_value
 
     print(f"Fetching hashes for {len(platforms)} platforms in parallel...")
-    hashes = {}
+    hashes: dict[str, str] = {}
     with ThreadPoolExecutor(max_workers=len(platforms)) as executor:
         futures = {
             executor.submit(fetch_hash, nix_platform, platform_value): nix_platform

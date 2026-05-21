@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import cast
 
-
 PACKAGE_NAME = "source-map-explorer"
 OWNER = "danvk"
 REPO = "source-map-explorer"

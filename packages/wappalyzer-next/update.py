@@ -9,7 +9,6 @@ import re
 import sys
 from pathlib import Path
 
-
 PACKAGE_NAME = "wappalyzer-next"
 OWNER = "s0md3v"
 REPO = "wappalyzer-next"

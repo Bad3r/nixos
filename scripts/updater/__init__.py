@@ -21,7 +21,7 @@ from .hash import calculate_url_hash
 from .hashes_file import load_hashes, save_hashes
 
 # HTTP utilities
-from .http import fetch_json, fetch_text
+from .http import JsonArray, JsonObject, JsonValue, fetch_json, fetch_text
 
 # Nix commands
 from .nix import (
@@ -47,6 +47,9 @@ from .version import (
 )
 
 __all__ = [
+    "JsonArray",
+    "JsonObject",
+    "JsonValue",
     "NixCommandError",
     "calculate_dependency_hash",
     "calculate_platform_hashes",

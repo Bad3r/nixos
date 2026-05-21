@@ -7,9 +7,9 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import urllib.parse
 import urllib.request
 from pathlib import Path
-
 
 PACKAGE_NAME = "charles"
 VERSION_HISTORY_URL = "https://www.charlesproxy.com/documentation/version-history/"
@@ -34,6 +34,14 @@ def release_url(version: str) -> str:
     )
 
 
+def require_https_url(url: str) -> None:
+    """Reject unexpected archive URL schemes before a HEAD request."""
+    scheme = urllib.parse.urlparse(url).scheme.lower()
+    if scheme != "https":
+        msg = f"Refusing to check non-HTTPS archive URL: {url}"
+        raise ValueError(msg)
+
+
 def latest_stable_version() -> str:
     """Fetch the newest non-beta Charles version from the version history."""
     text = fetch_text(VERSION_HISTORY_URL, user_agent=USER_AGENT)
@@ -44,9 +52,7 @@ def latest_stable_version() -> str:
             versions.append(version)
 
     if versions:
-        return max(
-            versions, key=lambda version: tuple(int(x) for x in version.split("."))
-        )
+        return max(versions, key=lambda version: tuple(int(x) for x in version.split(".")))
 
     msg = f"Could not find a stable Charles version in {VERSION_HISTORY_URL}"
     raise RuntimeError(msg)
@@ -63,9 +69,11 @@ def current_version(text: str) -> str:
 
 def check_release_url(version: str) -> None:
     """Check that the expected Linux x64 archive exists."""
-    request = urllib.request.Request(release_url(version), method="HEAD")
+    url = release_url(version)
+    require_https_url(url)
+    request = urllib.request.Request(url, method="HEAD")  # noqa: S310
     request.add_header("User-Agent", USER_AGENT)
-    with urllib.request.urlopen(request, timeout=30):
+    with urllib.request.urlopen(request, timeout=30):  # noqa: S310
         return
 
 

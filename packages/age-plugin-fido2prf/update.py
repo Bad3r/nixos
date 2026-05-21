@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import cast
 
-
 PACKAGE_NAME = "age-plugin-fido2prf"
 OWNER = "FiloSottile"
 REPO = "typage"

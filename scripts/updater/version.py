@@ -1,11 +1,13 @@
 """Version fetching from various sources (GitHub, npm, custom APIs)."""
 
-from functools import cmp_to_key
 import re
+from functools import cmp_to_key
 from typing import cast
 
-from .http import fetch_json, fetch_text
+from .http import JsonArray, fetch_json, fetch_text
 from .nix import run_command
+
+GITHUB_TAGS_PAGE_SIZE = 100
 
 
 def fetch_github_latest_release(owner: str, repo: str) -> str:
@@ -35,6 +37,27 @@ def is_stable_numeric_version(version: str) -> bool:
     return re.fullmatch(r"\d+(?:\.\d+)*", version) is not None
 
 
+def _stable_tag_versions(data: JsonArray, prefix: str) -> list[str]:
+    """Return stable numeric tag versions from one GitHub tag page."""
+    versions: list[str] = []
+    for item in data:
+        if not isinstance(item, dict):
+            msg = f"Expected tag object dict, got {type(item)}"
+            raise TypeError(msg)
+
+        name = item.get("name")
+        if not isinstance(name, str):
+            msg = f"Expected tag name string, got {type(name)}"
+            raise TypeError(msg)
+        if prefix and not name.startswith(prefix):
+            continue
+
+        version = name.removeprefix(prefix) if prefix else name
+        if is_stable_numeric_version(version):
+            versions.append(version)
+    return versions
+
+
 def fetch_github_latest_tag_version(
     owner: str,
     repo: str,
@@ -57,7 +80,8 @@ def fetch_github_latest_tag_version(
     versions: list[str] = []
     for page in range(1, max_pages + 1):
         url = (
-            f"https://api.github.com/repos/{owner}/{repo}/tags?per_page=100&page={page}"
+            f"https://api.github.com/repos/{owner}/{repo}/tags?"
+            f"per_page={GITHUB_TAGS_PAGE_SIZE}&page={page}"
         )
         data = fetch_json(url)
         if not isinstance(data, list):
@@ -66,23 +90,9 @@ def fetch_github_latest_tag_version(
         if not data:
             break
 
-        for item in data:
-            if not isinstance(item, dict):
-                msg = f"Expected tag object dict, got {type(item)}"
-                raise TypeError(msg)
+        versions.extend(_stable_tag_versions(data, prefix))
 
-            name = item.get("name")
-            if not isinstance(name, str):
-                msg = f"Expected tag name string, got {type(name)}"
-                raise TypeError(msg)
-            if prefix and not name.startswith(prefix):
-                continue
-
-            version = name.removeprefix(prefix) if prefix else name
-            if is_stable_numeric_version(version):
-                versions.append(version)
-
-        if len(data) < 100:
+        if len(data) < GITHUB_TAGS_PAGE_SIZE:
             break
 
     if not versions:
@@ -139,6 +149,27 @@ def parse_version(v: str) -> tuple[list[int], str]:
     return (numeric, suffix)
 
 
+def _compare_strings(left: str, right: str) -> int:
+    """Return the comparison value for strings."""
+    return (left > right) - (left < right)
+
+
+def _compare_ints(left: int, right: int) -> int:
+    """Return the comparison value for integers."""
+    return (left > right) - (left < right)
+
+
+def _compare_suffixes(v1_suffix: str, v2_suffix: str) -> int:
+    """Compare semantic version suffixes after numeric components match."""
+    if v1_suffix == v2_suffix:
+        return 0
+    if not v1_suffix:
+        return 1
+    if not v2_suffix:
+        return -1
+    return _compare_strings(v1_suffix, v2_suffix)
+
+
 def compare_versions(v1: str, v2: str) -> int:
     """Compare two semantic versions.
 
@@ -158,26 +189,19 @@ def compare_versions(v1: str, v2: str) -> int:
 
     # If parsing failed for either, fall back to lexicographic
     if not v1_numeric or not v2_numeric:
-        return -1 if v1 < v2 else 1
+        return _compare_strings(v1, v2)
 
     # Compare numeric components
     for i in range(max(len(v1_numeric), len(v2_numeric))):
         n1 = v1_numeric[i] if i < len(v1_numeric) else 0
         n2 = v2_numeric[i] if i < len(v2_numeric) else 0
-        if n1 < n2:
-            return -1
-        if n1 > n2:
-            return 1
+        result = _compare_ints(n1, n2)
+        if result != 0:
+            return result
 
     # Numeric parts are equal, compare suffix lexicographically
     # No suffix is considered "greater" than having a suffix (1.0.0 > 1.0.0-beta)
-    if v1_suffix == v2_suffix:
-        return 0
-    if not v1_suffix:
-        return 1
-    if not v2_suffix:
-        return -1
-    return -1 if v1_suffix < v2_suffix else 1
+    return _compare_suffixes(v1_suffix, v2_suffix)
 
 
 def should_update(current: str, latest: str) -> bool:

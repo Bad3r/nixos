@@ -9,7 +9,6 @@ import re
 import sys
 from pathlib import Path
 
-
 PACKAGE_NAME = "wfuzz"
 OWNER = "xmendez"
 REPO = "wfuzz"

@@ -9,15 +9,12 @@ import difflib
 import re
 import sys
 from pathlib import Path
-from typing import Any, cast
-
 
 PACKAGE_NAME = "opendirectorydownloader"
 REPO = "KoalaBear84/OpenDirectoryDownloader"
 RELEASES_URL = f"https://api.github.com/repos/{REPO}/releases?per_page=100"
 URL_TEMPLATE = (
-    "https://github.com/KoalaBear84/OpenDirectoryDownloader/releases/download/"
-    "v{version}/{platform}"
+    "https://github.com/KoalaBear84/OpenDirectoryDownloader/releases/download/v{version}/{platform}"
 )
 TAG_PATTERN = re.compile(r"^v(?P<version>[0-9][^/]+)$")
 ASSET_TEMPLATES = {
@@ -60,7 +57,7 @@ FLAKE_ROOT = _checkout_root()
 PACKAGE_FILE = FLAKE_ROOT / "packages" / PACKAGE_NAME / "default.nix"
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
-from updater import calculate_platform_hashes, fetch_json  # noqa: E402
+from updater import JsonObject, calculate_platform_hashes, fetch_json  # noqa: E402
 
 
 def current_version(text: str) -> str:
@@ -72,7 +69,7 @@ def current_version(text: str) -> str:
     return match.group(1)
 
 
-def release_asset_names(release: dict[str, Any]) -> set[str]:
+def release_asset_names(release: JsonObject) -> set[str]:
     """Return the asset names attached to a GitHub release object."""
     assets = release.get("assets")
     if not isinstance(assets, list):
@@ -95,8 +92,7 @@ def release_asset_names(release: dict[str, Any]) -> set[str]:
 def required_assets(version: str) -> dict[str, str]:
     """Return expected GitHub asset names by Nix platform."""
     return {
-        platform: template.format(version=version)
-        for platform, template in ASSET_TEMPLATES.items()
+        platform: template.format(version=version) for platform, template in ASSET_TEMPLATES.items()
     }
 
 
@@ -149,13 +145,11 @@ def latest_release() -> tuple[str, set[str]]:
             continue
 
         version = match.group("version")
-        assets = release_asset_names(cast("dict[str, Any]", release))
+        assets = release_asset_names(release)
         check_assets(version, assets)
         return version, assets
 
-    msg = (
-        f"Could not find a stable {PACKAGE_NAME} release matching {TAG_PATTERN.pattern}"
-    )
+    msg = f"Could not find a stable {PACKAGE_NAME} release matching {TAG_PATTERN.pattern}"
     raise RuntimeError(msg)
 
 

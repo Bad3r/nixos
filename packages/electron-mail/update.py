@@ -8,8 +8,6 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from typing import Any, cast
-
 
 REPO = "vladimiry/ElectronMail"
 PACKAGE_NAME = "electron-mail"
@@ -69,9 +67,28 @@ def latest_release() -> tuple[str, set[str]]:
         msg = f"Expected dict from GitHub API, got {type(data)}"
         raise TypeError(msg)
 
-    tag = cast("str", data["tag_name"])
-    assets = cast("list[dict[str, Any]]", data["assets"])
-    return tag.removeprefix("v"), {cast("str", asset["name"]) for asset in assets}
+    tag = data.get("tag_name")
+    if not isinstance(tag, str):
+        msg = f"Expected release tag string, got {type(tag)}"
+        raise TypeError(msg)
+
+    assets = data.get("assets")
+    if not isinstance(assets, list):
+        msg = f"Expected list of release assets, got {type(assets)}"
+        raise TypeError(msg)
+
+    names: set[str] = set()
+    for asset in assets:
+        if not isinstance(asset, dict):
+            msg = f"Expected release asset dict, got {type(asset)}"
+            raise TypeError(msg)
+        name = asset.get("name")
+        if not isinstance(name, str):
+            msg = f"Expected release asset name string, got {type(name)}"
+            raise TypeError(msg)
+        names.add(name)
+
+    return tag.removeprefix("v"), names
 
 
 def current_version(text: str) -> str:
@@ -86,8 +103,7 @@ def current_version(text: str) -> str:
 def required_assets(version: str) -> dict[str, str]:
     """Return expected GitHub asset names by Nix platform."""
     return {
-        platform: f"electron-mail-{version}-{suffix}"
-        for platform, suffix in ASSET_SUFFIXES.items()
+        platform: f"electron-mail-{version}-{suffix}" for platform, suffix in ASSET_SUFFIXES.items()
     }
 
 
