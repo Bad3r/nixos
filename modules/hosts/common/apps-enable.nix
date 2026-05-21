@@ -245,6 +245,7 @@ let
       "lua-language-server".extended.enable = lib.mkOverride 1100 false;
       lutris.extended.enable = lib.mkOverride 1100 false;
       lxsession.extended.enable = lib.mkOverride 1100 true;
+      lychee.extended.enable = lib.mkOverride 1100 true;
       lynis.extended.enable = lib.mkOverride 1100 true;
       maestral.extended.enable = lib.mkOverride 1100 true;
       "maestral-gui".extended.enable = lib.mkOverride 1100 true;
