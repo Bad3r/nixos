@@ -17,6 +17,7 @@
   Notes:
     * Declarative add-ons are pinned in Nix and copied into the installation plugin directory.
     * Add-on dependencies must be declared explicitly; this module does not resolve Marketplace metadata.
+    * The package uses a JavaFX-enabled JDK so Browser View can render HTML responses.
 */
 _:
 let
@@ -31,6 +32,10 @@ let
       cfg = config.programs.zap.extended;
       addOnFileNamePattern = "[A-Za-z0-9._+-]+\\.zap";
       addOnFileName = id: addOn: if addOn.file != null then addOn.file else "${id}.zap";
+      jreWithJavaFX = pkgs.jdk21.override {
+        enableJavaFX = true;
+        openjfx_jdk = pkgs.openjfx21.override { withWebKit = true; };
+      };
       fetchedAddOns = lib.mapAttrsToList (
         id: addOn:
         let
@@ -44,11 +49,13 @@ let
           };
         }
       ) cfg.addOns;
+      basePackage =
+        if cfg.package ? override then cfg.package.override { jre = jreWithJavaFX; } else cfg.package;
       package =
         if cfg.addOns == { } then
-          cfg.package
-        else
-          cfg.package.overrideAttrs (oldAttrs: {
+          basePackage
+        else if basePackage ? overrideAttrs then
+          basePackage.overrideAttrs (oldAttrs: {
             postInstall =
               (oldAttrs.postInstall or "")
               + ''
@@ -57,7 +64,9 @@ let
               + lib.concatMapStringsSep "\n" (addOn: ''
                 install -Dm444 ${addOn.source} "$out/share/zap/plugin/"${lib.escapeShellArg addOn.fileName}
               '') fetchedAddOns;
-          });
+          })
+        else
+          basePackage;
     in
     {
       options.programs.zap.extended = {
@@ -108,7 +117,11 @@ let
       config = lib.mkIf cfg.enable {
         assertions = [
           {
-            assertion = cfg.addOns == { } || cfg.package ? overrideAttrs;
+            assertion = cfg.package ? override;
+            message = "programs.zap.extended.package must support override to select a JavaFX-enabled JRE.";
+          }
+          {
+            assertion = cfg.addOns == { } || basePackage ? overrideAttrs;
             message = "programs.zap.extended.addOns requires a package that supports overrideAttrs.";
           }
         ]
