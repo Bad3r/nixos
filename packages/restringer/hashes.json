@@ -1,0 +1,9 @@
+{
+	"version": "2.1.0",
+	"srcHash": "sha256-wUiYrQJVETMnwZ0gPcrcmGTSV/g6S2ZqP8RMJ+QPCDQ=",
+	"npmDepsHash": "sha256-mr+S9odeC59BlHprCWOchlAKjbvg0g/IR7Ec9u1A8iE=",
+	"isolatedVmVersion": "5.0.4",
+	"isolatedVmNodeAbi": "node-v127",
+	"isolatedVmPlatform": "linux-x64",
+	"isolatedVmPrebuildHash": "sha256-1HrBJ9xGroKS7Jttx4F+dE+JMsS1t8cU4cUO9yAOvbI="
+}

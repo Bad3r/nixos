@@ -15,7 +15,9 @@ PACKAGE_NAME = "charles"
 VERSION_HISTORY_URL = "https://www.charlesproxy.com/documentation/version-history/"
 USER_AGENT = "Mozilla/5.0"
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+
+SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
 
 from updater_bootstrap import bootstrap  # noqa: E402
 

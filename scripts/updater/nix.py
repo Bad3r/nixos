@@ -71,7 +71,28 @@ def nix_command(
         CompletedProcess with command results
 
     """
-    cmd = ["nix", "--experimental-features", "nix-command flakes", *args]
+    cmd = [
+        "nix",
+        "--experimental-features",
+        "nix-command flakes",
+    ]
+    flake_aware = {"build", "eval", "run", "develop", "shell", "flake"}
+    flake_mutating = (
+        bool(args)
+        and args[0] == "flake"
+        and len(args) > 1
+        and args[1] in {"update", "lock"}
+    )
+    if (
+        args
+        and args[0] in flake_aware
+        and "--no-write-lock-file" not in args
+        and not flake_mutating
+    ):
+        insert_at = 2 if args[0] == "flake" and len(args) > 1 else 1
+        cmd.extend([*args[:insert_at], "--no-write-lock-file", *args[insert_at:]])
+    else:
+        cmd.extend(args)
     return run_command(cmd, check=check, capture_output=capture_output, cwd=cwd)
 
 

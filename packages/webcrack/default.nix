@@ -32,14 +32,14 @@
 }:
 
 let
-  version = "2.15.1";
+  pin = lib.importJSON ./hashes.json;
   simdutf_6 = simdutf.overrideAttrs {
-    version = "6.5.0";
+    version = pin.simdutfVersion;
     src = fetchFromGitHub {
       owner = "simdutf";
       repo = "simdutf";
-      rev = "v6.5.0";
-      hash = "sha256-bZ4r62GMz2Dkd3fKTJhelitaA8jUBaDjG6jOysEg8Nk=";
+      rev = "v${pin.simdutfVersion}";
+      hash = pin.simdutfHash;
     };
   };
 
@@ -50,8 +50,8 @@ let
     src = fetchFromGitHub {
       owner = "j4k0xb";
       repo = "webcrack";
-      rev = "v${version}";
-      hash = "sha256-9xCndYtGXnVGV6gXdqjLM4ruSIHi7JRXPHRBom7K7Ds=";
+      rev = "v${pin.version}";
+      hash = pin.srcHash;
     };
 
     nativeBuildInputs = [
@@ -68,26 +68,23 @@ let
       mv $out/package.json.tmp $out/package.json
       ${lib.getExe yq-go} -i 'del(.patchedDependencies)' $out/pnpm-lock.yaml
 
-      # Upgrade isolated-vm 5.0.1 -> 6.0.2 (5.0.1 fails to compile with current GCC)
-      # Update packages/webcrack/package.json dependency
-      ${lib.getExe jq} '.dependencies["isolated-vm"] = "^6.0.2"' \
+      # Keep isolated-vm pinned to the updater-owned lock metadata.
+      ${lib.getExe jq} '.dependencies["isolated-vm"] = "^${pin.isolatedVmVersion}"' \
         $out/packages/webcrack/package.json > $out/packages/webcrack/package.json.tmp
       mv $out/packages/webcrack/package.json.tmp $out/packages/webcrack/package.json
 
-      # Update pnpm-lock.yaml for isolated-vm 5.0.1 -> 6.0.2
       ${lib.getExe yq-go} -i '
-        .importers."packages/webcrack".dependencies."isolated-vm".specifier = "^6.0.2" |
-        .importers."packages/webcrack".dependencies."isolated-vm".version = "6.0.2" |
-        .packages."isolated-vm@6.0.2".resolution.integrity = "sha512-Qw6AJuagG/VJuh2AIcSWmQPsAArti/L+lKhjXU+lyhYkbt3J57XZr+ZjgfTnOr4NJcY1r3f8f0eePS7MRGp+pg==" |
-        .packages."isolated-vm@6.0.2".engines.node = ">=22.0.0" |
-        .snapshots."isolated-vm@6.0.2".dependencies."prebuild-install" = "7.1.2"
+        .importers."packages/webcrack".dependencies."isolated-vm".specifier = "^${pin.isolatedVmVersion}" |
+        .importers."packages/webcrack".dependencies."isolated-vm".version = "${pin.isolatedVmVersion}" |
+        .packages."isolated-vm@${pin.isolatedVmVersion}".resolution.integrity = "${pin.isolatedVmIntegrity}" |
+        .packages."isolated-vm@${pin.isolatedVmVersion}".engines.node = ">=22.0.0"
       ' $out/pnpm-lock.yaml
     '';
   };
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "webcrack";
-  inherit version;
+  inherit (pin) version;
   src = patchedSrc;
 
   nativeBuildInputs = [
@@ -127,14 +124,14 @@ stdenv.mkDerivation (finalAttrs: {
     inherit (finalAttrs) pname version src;
     pnpm = pnpm_9;
     fetcherVersion = 3;
-    hash = "sha256-WuLdIcbN9MI3baerKZtHcY5KbG/AFImhafufiX8mHHI=";
+    hash = pin.pnpmDepsHash;
   };
 
   buildPhase = ''
     runHook preBuild
 
     # Build isolated-vm native module (pnpmConfigHook skips install scripts)
-    cd node_modules/.pnpm/isolated-vm@6.0.2/node_modules/isolated-vm
+    cd node_modules/.pnpm/isolated-vm@${pin.isolatedVmVersion}/node_modules/isolated-vm
     npm run rebuild
     cd -
 
@@ -149,7 +146,7 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   # NOTE: Copies pnpm workspace to preserve symlink structure for runtime.
-  # Uses isolated-vm 6.0.2 (patched from 5.0.1) for VM-based deobfuscation.
+  # Uses the updater-pinned isolated-vm for VM-based deobfuscation.
   installPhase = ''
     runHook preInstall
 
@@ -177,6 +174,8 @@ stdenv.mkDerivation (finalAttrs: {
 
     runHook postInstall
   '';
+
+  passthru.updateScript = ./update.py;
 
   meta = {
     description = "Deobfuscate obfuscator.io, unminify and unpack bundled javascript";
