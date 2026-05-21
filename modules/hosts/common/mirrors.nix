@@ -13,6 +13,7 @@ let
       home-manager.users.${metaOwner.username}.programs.gitMirror = {
         enable = true;
         firefoxDocs.enable = true;
+        jobs = 2;
         repos = [
           # NixOS
           "NixOS/nixos-hardware"
@@ -63,11 +64,8 @@ let
           # Zap (Zed Attack Proxy)
           "zaproxy/zaproxy"
           "zaproxy/zap-extensions"
-          "zaproxy/zap-extensions"
-          "zaproxy/zaproxy.github.io"
           "zaproxy/zap-api-python"
           "zaproxy/community-scripts"
-          "zaproxy/action-mcp-scan"
           "fuzzdb-project/fuzzdb"
           "dtkmn/mcp-zap-server"
 

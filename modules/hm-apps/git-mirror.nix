@@ -72,6 +72,30 @@
 
           log() { printf '%s %s\n' "$(date -Is)" "$*" >&2; }
 
+          retry_git() {
+            label="$1"
+            shift
+            attempt=1
+            delay=15
+
+            while true; do
+              if "$@"; then
+                return 0
+              else
+                status="$?"
+              fi
+              if [ "$attempt" -ge 3 ]; then
+                log "$spec: $label failed after $attempt attempts"
+                return "$status"
+              fi
+
+              log "$spec: $label failed (attempt $attempt/3), retrying in ''${delay}s"
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+
           url_to_dir_name() {
             printf '%s\n' "$1" | awk '
               {
@@ -119,14 +143,15 @@
 
           # Clone if missing
           if [ ! -d "$dir" ]; then
-            git clone "$url" "$dir" && chmod g+s "$dir"
+            retry_git "clone" git clone "$url" "$dir" || exit 1
+            chmod g+s "$dir" || { log "$spec: chmod failed"; exit 1; }
             log "$spec: cloned"
             exit 0
           fi
 
           [ -d "$dir/.git" ] || { log "$spec: not a git repo"; exit 1; }
 
-          git -C "$dir" remote update --prune || { log "$spec: fetch failed"; exit 1; }
+          retry_git "fetch" git -C "$dir" remote update --prune || exit 1
 
           # Stash dirty work
           if [ -n "$(git -C "$dir" status -s)" ]; then
@@ -314,6 +339,10 @@
 
       config = lib.mkIf cfg.enable {
         assertions = [
+          {
+            assertion = builtins.length cfg.repos == builtins.length (lib.unique cfg.repos);
+            message = "programs.gitMirror.repos must not contain duplicate entries.";
+          }
           {
             assertion = !firefoxDocs.enable || builtins.elem firefoxDocs.repoSpec cfg.repos;
             message = "programs.gitMirror.firefoxDocs.repoSpec must be present in programs.gitMirror.repos.";
