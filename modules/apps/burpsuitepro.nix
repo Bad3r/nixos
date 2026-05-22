@@ -13,6 +13,7 @@
     burpsuitepro: Launch Burp Suite Professional with the packaged runtime.
     BURP_JVM_ARGS=...: Override JVM sizing for large engagements.
     JAVA_TOOL_OPTIONS=...: Pass additional Java flags to the packaged launcher.
+    python.moduleDirectory: Directory Burp uses for loading Jython modules.
 
   Example Usage:
     * `burpsuitepro` -- Start the Professional edition and configure the browser proxy to intercept traffic.
@@ -21,6 +22,8 @@
 
   Notes:
     * Package sourced from `inputs."burpsuite-pro-flake"`; the overlay below is the single place that ties the flake input to `pkgs.burpsuitepro`.
+    * The upstream launcher writes a Jython defaults file to `$XDG_CACHE_HOME/burpsuitepro/jython-defaults.json` on every launch (containing the Nix-store `jython.jar` path and python module directory) and seeds an empty `$HOME/.BurpSuite/UserConfigPro.json` if absent.
+    * Both files are passed via `--user-config-file`, defaults last, so the Nix-managed Jython paths always override GUI-edited values.
 */
 { inputs, ... }:
 let
@@ -30,11 +33,19 @@ let
     {
       config,
       lib,
+      metaOwner,
       pkgs,
       ...
     }:
     let
       cfg = config.programs.burpsuitepro.extended;
+      configuredPackage =
+        if cfg.python.moduleDirectory == null then
+          cfg.package
+        else if cfg.package ? override then
+          cfg.package.override { pythonModuleDir = cfg.python.moduleDirectory; }
+        else
+          throw "programs.burpsuitepro.extended.python.moduleDirectory requires a package with override support";
     in
     {
       options.programs.burpsuitepro.extended = {
@@ -45,6 +56,17 @@ let
         };
 
         package = lib.mkPackageOption pkgs "burpsuitepro" { };
+
+        python.moduleDirectory = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "/home/${metaOwner.username}/.local/share/burpsuitepro/python-modules";
+          description = ''
+            Directory Burp Suite Professional uses for loading Jython modules.
+            The default null value keeps the package launcher default under
+            XDG_DATA_HOME at runtime.
+          '';
+        };
       };
 
       config = {
@@ -57,7 +79,7 @@ let
           })
         ];
 
-        environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
+        environment.systemPackages = lib.mkIf cfg.enable [ configuredPackage ];
       };
     };
 in
