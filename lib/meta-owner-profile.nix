@@ -11,6 +11,6 @@
   };
 
   sshKeys = [
-    "sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29tAAAAIBBzWtUqOIpeaT+X+BvXKLZmhfevYbGDc0CLsuI3MfUdAAAABHNzaDo= bad3r@unsigned.sh"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAlBCQzhqKBSRIVkh1p1QNN6IXzGQr91LgQl4FU9vtZx ssh@unsigned.sh"
   ];
 }
