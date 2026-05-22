@@ -9,10 +9,10 @@
   Built-in links (matching Kali Linux paths under /usr/share/wordlists/):
 
   - Every top-level entry under ${pkgs.wordlists}/share/wordlists/ is
-    discovered at evaluation time via builtins.readDir, so anything the
-    upstream nixpkgs `wordlists` meta-package adds (e.g. seclists, wfuzz,
-    nmap.lst, rockyou.txt at the time of writing) is exposed
-    automatically.
+    linked at activation time, so anything the upstream nixpkgs `wordlists`
+    meta-package adds (e.g. seclists, wfuzz, nmap.lst, rockyou.txt at the
+    time of writing) is exposed automatically without realizing the package
+    during evaluation.
   - Plus the entries declared in `csec.wordlists.manualLinks`, defaulting
     to enabled packages that ship their wordlists outside the meta-package:
       * dirbuster   -> ${pkgs.dirbuster}/share/dirbuster when
@@ -27,18 +27,16 @@
   ~800 MB) can drop them with `csec.wordlists.manualLinks = { }` or
   override individual entries by name. Add unrelated symlinks via
   `csec.wordlists.extraLinks`; entries in `extraLinks` win over both
-  auto-discovered and manual links when names collide. Hosts opt in by
+  package-provided and manual links when names collide. Hosts opt in by
   importing flake.csec.wordlists and setting csec.wordlists.enable = true.
 
   Future csec feature modules should export their own
   flake.csec.<name> entry (declared in modules/meta/flake-output.nix as
   attrsOf deferredModule) so each is opt-in independently.
 
-  Note: this module relies on import-from-derivation. `builtins.readDir`
-  realises the `pkgs.wordlists` store path during evaluation, and each
-  declared `manualLinks` target is checked with `builtins.pathExists` so
-  upstream layout drift surfaces as an assertion failure rather than a
-  silent dangling symlink.
+  Note: the package layout checks live in `system.checks`. Upstream layout
+  drift fails the system build without forcing package outputs during
+  evaluation.
 */
 {
   flake.csec.wordlists =
@@ -51,9 +49,6 @@
     let
       cfg = config.csec.wordlists;
       wordlistsRoot = "${pkgs.wordlists}/share/wordlists";
-      wordlistsAutoLinks = lib.mapAttrs (name: _type: "${wordlistsRoot}/${name}") (
-        builtins.readDir wordlistsRoot
-      );
       appEnabled =
         name:
         lib.attrByPath [
@@ -72,15 +67,42 @@
         // lib.optionalAttrs (appEnabled "john") {
           "john.lst" = "${pkgs.john}/share/john/password.lst";
         };
-      links = wordlistsAutoLinks // cfg.manualLinks // cfg.extraLinks;
-      dirEntry = {
-        mode = "0755";
-        user = "root";
-        group = "root";
-      };
-      missingManualEntries = lib.filterAttrs (
-        _name: target: !builtins.pathExists (toString target)
-      ) cfg.manualLinks;
+      linkActivationEntry =
+        name: target:
+        let
+          renderedTarget = toString target;
+        in
+        ''
+          link_name=${lib.escapeShellArg name}
+          link_target=${lib.escapeShellArg renderedTarget}
+          ln -sfnT "$link_target" "$target_root/$link_name"
+        '';
+      linksCheck =
+        let
+          checkEntry =
+            name: target:
+            let
+              renderedTarget = toString target;
+            in
+            ''
+              if [ ! -e ${lib.escapeShellArg renderedTarget} ]; then
+                printf '%s\n' ${lib.escapeShellArg "csec.wordlists.manualLinks target does not exist: ${name} -> ${renderedTarget}"} >&2
+                missing=1
+              fi
+            '';
+        in
+        pkgs.runCommandLocal "csec-wordlists-links-check" { } ''
+          missing=0
+          if [ ! -d ${lib.escapeShellArg wordlistsRoot} ]; then
+            printf '%s\n' ${lib.escapeShellArg "csec.wordlists expected pkgs.wordlists to expose ${wordlistsRoot}"} >&2
+            missing=1
+          fi
+          ${lib.concatStringsSep "\n" (lib.mapAttrsToList checkEntry cfg.manualLinks)}
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          touch "$out"
+        '';
     in
     {
       options.csec.wordlists = {
@@ -99,12 +121,10 @@
               never adjusts permissions of anything outside `cfg.path`
               itself.
             - The directory at `cfg.path` is enforced as
-              `0755 root:root` on every boot via the systemd-tmpfiles
-              `d` rule, so pointing this option at a user-owned path
-              such as `/home/<user>/wordlists` will have ownership
-              reclaimed by root on each activation. Use a
-              system-managed location (the default
-              `/usr/share/wordlists`, `/var/lib/wordlists`, etc.)
+              `0755 root:root` on every activation, so pointing this option
+              at a user-owned path such as `/home/<user>/wordlists` will have
+              ownership reclaimed by root. Use a system-managed location
+              (the default `/usr/share/wordlists`, `/var/lib/wordlists`, etc.)
               unless that behaviour is acceptable.
           '';
         };
@@ -123,12 +143,13 @@
           '';
           description = ''
             Manual name -> store-path mappings for tools whose wordlists
-            live outside the `pkgs.wordlists` meta-package. Each target
-            is checked with `builtins.pathExists` at evaluation time, so
-            upstream layout changes fail loudly. Default package-specific links
-            are included only when their matching `programs.<name>.extended`
-            app is enabled. Set to `{ }` to opt out of the default heavyweight
-            packages (notably `metasploit`, ~800 MB).
+            live outside the `pkgs.wordlists` meta-package. Each target is
+            checked by a `system.checks` derivation, so upstream layout changes
+            fail when the system is built without forcing package outputs
+            during evaluation. Default package-specific links are included only
+            when their matching `programs.<name>.extended` app is enabled. Set
+            to `{ }` to opt out of the default heavyweight packages (notably
+            `metasploit`, ~800 MB).
           '';
         };
 
@@ -142,44 +163,55 @@
           '';
           description = ''
             Extra name -> source mappings layered on top of the
-            auto-discovered and manual links. Each entry creates
-            `<path>/<name>` as a symlink to the given target. Names
-            already provided by `manualLinks` or auto-discovery are
-            overridden by entries here.
+            automatically linked wordlists and manual links. Each entry creates
+            `<path>/<name>` as a symlink to the given target. Names already
+            provided by `manualLinks` or the `wordlists` package are overridden
+            by entries here.
           '';
         };
       };
 
-      # Use systemd.tmpfiles.settings (structured interface) so paths and
-      # symlink targets containing spaces or special characters are quoted
-      # and C-escaped by NixOS rather than interpolated into a space-delimited
-      # rule string.
       config = lib.mkIf cfg.enable {
-        assertions = [
-          {
-            assertion = missingManualEntries == { };
-            message = ''
-              csec.wordlists.manualLinks references targets that do not
-              exist in the Nix store:
-              ${lib.concatStringsSep "\n" (
-                lib.mapAttrsToList (name: target: "  - ${name} -> ${toString target}") missingManualEntries
-              )}
-              An upstream package layout likely changed; update the
-              affected entries (or remove them) in
-              `csec.wordlists.manualLinks`.
-            '';
-          }
-        ];
+        system.checks = [ linksCheck ];
 
-        systemd.tmpfiles.settings."10-csec-wordlists" = {
-          "${cfg.path}".d = dirEntry;
-        }
-        // lib.mapAttrs' (
-          name: target:
-          lib.nameValuePair "${cfg.path}/${name}" {
-            "L+".argument = toString target;
-          }
-        ) links;
+        system.activationScripts."csec-wordlists" = {
+          supportsDryActivation = true;
+          text = ''
+            if [ "''${NIXOS_ACTION:-}" != dry-activate ]; then
+              target_root=${lib.escapeShellArg (toString cfg.path)}
+              wordlists_root=${lib.escapeShellArg wordlistsRoot}
+              target_parent="''${target_root%/*}"
+              if [ -z "$target_parent" ]; then
+                target_parent=/
+              fi
+
+              if [ ! -d "$target_parent" ]; then
+                printf '%s\n' "csec.wordlists parent directory does not exist: $target_parent" >&2
+                exit 1
+              fi
+
+              if [ -e "$target_root" ] && [ ! -d "$target_root" ]; then
+                printf '%s\n' "csec.wordlists path exists but is not a directory: $target_root" >&2
+                exit 1
+              fi
+
+              if [ ! -e "$target_root" ]; then
+                mkdir "$target_root"
+              fi
+              chown root:root "$target_root"
+              chmod 0755 "$target_root"
+
+              for source in "$wordlists_root"/*; do
+                [ -e "$source" ] || continue
+                link_name="''${source##*/}"
+                ln -sfnT "$source" "$target_root/$link_name"
+              done
+
+              ${lib.concatStringsSep "\n" (lib.mapAttrsToList linkActivationEntry cfg.manualLinks)}
+              ${lib.concatStringsSep "\n" (lib.mapAttrsToList linkActivationEntry cfg.extraLinks)}
+            fi
+          '';
+        };
       };
     };
 }
