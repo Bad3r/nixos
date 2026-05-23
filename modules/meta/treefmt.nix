@@ -49,8 +49,6 @@ in
 {
   imports = [ inputs.treefmt-nix.flakeModule ];
 
-  flake.lib.formatting.formatterPackages = formatterPackages;
-
   perSystem =
     {
       config,
