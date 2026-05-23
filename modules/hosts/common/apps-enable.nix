@@ -39,7 +39,7 @@ let
       "aircrack-ng".extended.enable = lib.mkOverride 1100 true;
       amass.extended.enable = lib.mkOverride 1100 true;
       "android-studio".extended.enable = lib.mkOverride 1100 false;
-      "antigravity-fhs".extended.enable = lib.mkOverride 1100 true;
+      antigravity.extended.enable = lib.mkOverride 1100 true;
       arandr.extended.enable = lib.mkOverride 1100 true;
       "ast-grep".extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
@@ -161,6 +161,7 @@ let
       gawk.extended.enable = lib.mkOverride 1100 true;
       gcc.extended.enable = lib.mkOverride 1100 true;
       gdb.extended.enable = lib.mkOverride 1100 true;
+      "gemini-cli".extended.enable = lib.mkOverride 1100 false;
       "generation-manager".extended.enable = lib.mkOverride 1100 true;
       ghidra.extended.enable = lib.mkOverride 1100 true;
       gimp.extended.enable = lib.mkOverride 1100 false;

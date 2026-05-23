@@ -16,7 +16,6 @@
 { config, lib, ... }:
 let
   appEnable = {
-    "antigravity-fhs" = false;
     azd = false;
     "azure-cli" = false;
     "cf-terraforming" = false;
