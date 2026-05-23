@@ -1018,6 +1018,12 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
   - Docs.: <https://github.com/mgdm/htmlq#readme>
   - Desc.: CSS-selector HTML parser for scraping recon output.
   - Stat.: Maintained (latest release 2025-01-03).
+- lychee
+  - run..: `lychee --no-progress $url`
+  - Repo.: <https://github.com/lycheeverse/lychee>
+  - Docs.: <https://lychee.cli.rs/guides/cli/>
+  - Desc.: Fast asynchronous link checker for URLs, mail addresses, local files, and website content.
+  - Stat.: Maintained (latest release v0.24.2, 2026-05-01).
 - yaak
   - run..: `yaak`
   - Repo.: <https://github.com/mountain-loop/yaak>

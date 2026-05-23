@@ -8,6 +8,7 @@
   Summary:
     * Provides a focused `readpdf` command for text extraction from image-based or broken-text-layer PDFs.
     * Defaults to stdout while still allowing explicit sidecar text files.
+    * Adds `pdf-cat` and `cat-pdf` aliases when the wrapper is enabled.
 
   Options:
     -p, --pages <pages>: Limit OCR to pages, ranges, or comma-separated selectors such as `3`, `2-5`, or `1,3,7-10`.
@@ -182,6 +183,10 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ readpdfWrapper ];
+        environment.shellAliases = {
+          "pdf-cat" = "readpdf";
+          "cat-pdf" = "readpdf";
+        };
       };
     };
 in

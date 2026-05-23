@@ -13,6 +13,7 @@ let
       home-manager.users.${metaOwner.username}.programs.gitMirror = {
         enable = true;
         firefoxDocs.enable = true;
+        jobs = 2;
         repos = [
           # NixOS
           "NixOS/nixos-hardware"
@@ -59,6 +60,15 @@ let
           "restic/restic"
           "s0md3v/wappalyzer-next"
           "tridactyl/tridactyl"
+
+          # Zap (Zed Attack Proxy)
+          "zaproxy/zaproxy"
+          "zaproxy/zap-extensions"
+          "zaproxy/zap-api-python"
+          "zaproxy/community-scripts"
+          "fuzzdb-project/fuzzdb"
+          "dtkmn/mcp-zap-server"
+
         ];
       };
     };

@@ -24,6 +24,9 @@ _: {
             # Hooks are synced to reference the resolved absolute config path.
             /.pre-commit-config.yaml
 
+            # Gemini/Antigravity 
+            .antigravitycli/
+
             # claude code testing
             .mcp.json
             .specify/

@@ -49,7 +49,7 @@ Canonical documentation lives under `docs/architecture/`.
   - Purpose: Enable pipe operator syntax in Nix expressions
 - `allow-import-from-derivation`
   - Value: `true`
-  - Purpose: Required by IFD consumers: `nix-doom-emacs-unstraightened` and `modules/csec/wordlists.nix`
+  - Purpose: Required by IFD consumer `nix-doom-emacs-unstraightened`
 - `experimental-features`
   - Value: `nix-command flakes`
   - Purpose: Enable flakes and new Nix CLI

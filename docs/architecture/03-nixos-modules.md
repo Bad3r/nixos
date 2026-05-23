@@ -125,9 +125,9 @@ configurations.nixos.system76.module = {
 };
 ```
 
-| Module                       | Export                 | Purpose                                                                                |
-| ---------------------------- | ---------------------- | -------------------------------------------------------------------------------------- |
-| `modules/csec/wordlists.nix` | `flake.csec.wordlists` | Kali-style wordlist symlinks (auto-discovered via IFD, see `flake.nix#nixConfig` note) |
+| Module                       | Export                 | Purpose                                                                                               |
+| ---------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| `modules/csec/wordlists.nix` | `flake.csec.wordlists` | Kali-style wordlist symlinks populated at activation from `pkgs.wordlists` and app-owned manual links |
 
 ## System-Level Utilities
 

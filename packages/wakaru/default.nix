@@ -10,17 +10,17 @@
 }:
 
 let
-  version = "0.0.10";
+  pin = lib.importJSON ./hashes.json;
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "wakaru";
-  inherit version;
+  inherit (pin) version;
 
   src = fetchFromGitHub {
     owner = "pionxzh";
     repo = "wakaru";
-    rev = "cli-v${version}";
-    hash = "sha256-bWApVN11HZy88xHbB2fQdk4quiyKsn6oyHa91Unxjds=";
+    rev = "cli-v${pin.version}";
+    hash = pin.srcHash;
   };
 
   nativeBuildInputs = [
@@ -42,7 +42,7 @@ stdenv.mkDerivation (finalAttrs: {
       ;
     pnpm = pnpm_9;
     fetcherVersion = 3;
-    hash = "sha256-y8I+nudfmsecpou9f6C23x6DVre9YXgybhMchILcBmo=";
+    hash = pin.pnpmDepsHash;
   };
 
   buildPhase = ''
@@ -70,6 +70,8 @@ stdenv.mkDerivation (finalAttrs: {
 
     runHook postInstall
   '';
+
+  passthru.updateScript = ./update.py;
 
   meta = {
     description = "Javascript decompiler for modern frontend";

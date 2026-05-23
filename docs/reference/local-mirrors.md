@@ -15,6 +15,9 @@ Repositories sync to flat paths under `/data/git`.
 - **Environment variable**: `$LOCAL_MIRRORS` points to `/data/git`
 - **Sync schedule**: Daily via systemd timer
 - **Manual sync**: `systemctl --user start git-mirror.service`
+- **Sync concurrency**: Common hosts run two repo sync jobs at a time, and
+  each repo clone or fetch gets three attempts with backoff before the service
+  run fails
 - **Firefox source docs**: `git-mirror.service` queues
   `git-mirror-firefox-docs.service` with `OnSuccess=` after sync when
   `programs.gitMirror.firefoxDocs.enable = true;`, so the docs build is not
