@@ -224,6 +224,43 @@ test_fail_local_url_in_flake_nix_with_empty_inventory() {
     'flake\.nix contains a local input URL'
 }
 
+test_fail_unquoted_local_url_in_flake_nix() {
+  local fixture exit_code flake_with_unquoted
+  fixture="$(init_fixture fail-local-url-unquoted)"
+  flake_with_unquoted='{
+  inputs = {
+    bad.url = ./bad;
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${INVENTORY_EMPTY}"
+  write_file "${fixture}/flake.nix" "${flake_with_unquoted}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-local-url-unquoted" "${fixture}" "${exit_code}" \
+    'flake\.nix contains a local input URL'
+}
+
+test_fail_unquoted_local_path_attrset_in_flake_nix() {
+  local fixture exit_code flake_with_attrset
+  fixture="$(init_fixture fail-local-path-attrset)"
+  flake_with_attrset='{
+  inputs = {
+    bad = {
+      type = "path";
+      path = ./bad;
+    };
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${INVENTORY_EMPTY}"
+  write_file "${fixture}/flake.nix" "${flake_with_attrset}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-local-path-attrset" "${fixture}" "${exit_code}" \
+    'flake\.nix contains a local input URL'
+}
+
 test_pass_local_url_in_comment() {
   local fixture exit_code flake_with_comment
   fixture="$(init_fixture pass-local-url-comment)"
@@ -835,6 +872,8 @@ test_pass_clean_state
 test_pass_empty_inventory
 test_fail_input_missing_from_flake_nix
 test_fail_local_url_in_flake_nix_with_empty_inventory
+test_fail_unquoted_local_url_in_flake_nix
+test_fail_unquoted_local_path_attrset_in_flake_nix
 test_pass_local_url_in_comment
 test_fail_local_url_in_flake_lock
 test_fail_path_type_in_flake_lock
@@ -851,4 +890,4 @@ test_fail_reachable_commit_unreachable
 test_fail_reachable_commit_bad_ref
 test_fail_reachable_commit_missing_rev
 
-printf '19 passed\n'
+printf '21 passed\n'

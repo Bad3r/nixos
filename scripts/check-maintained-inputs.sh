@@ -51,10 +51,14 @@ error_msg() {
 }
 
 # Committed flake inputs must not use local URLs anywhere in flake.nix.
-# Inventory no-local-url checks add per-input flake.lock validation below.
+# The optional opening quote (`"?`) catches both quoted local refs
+# (`url = "git+file:///..."`) and bare Nix path literals
+# (`url = ./foo;`, `path = ./foo;`, attrset form
+# `inputs.foo = { type = "path"; path = ./foo; };`). Inventory no-local-url
+# checks add per-input flake.lock validation below.
 # The second grep drops comment-only matches (line content starting with `#`).
 local_url_hits="$tmp_root/local-url-hits.txt"
-if grep -nE '(url|path)[[:space:]]*=[[:space:]]*"((path|git\+file|file):|/|\.\.?/)' flake.nix |
+if grep -nE '(url|path)[[:space:]]*=[[:space:]]*"?((path|git\+file|file):|/|\.\.?/)' flake.nix |
   grep -vE '^[0-9]+:[[:space:]]*#' >"$local_url_hits"; then
   error_msg "flake.nix contains a local input URL"
   sed 's/^/  flake.nix:/' "$local_url_hits" >&2
