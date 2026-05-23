@@ -89,10 +89,11 @@ inventory_export_failed=0
 # --accept-flake-config is required so the flake's nixConfig
 # (pipe-operators, allow-import-from-derivation) loads. Without it, import-tree
 # fails to parse modules that use pipe-operator syntax and the eval drops into
-# the fallback path. --no-write-lock-file keeps the hook read-only: a stale
-# flake.lock fails loudly instead of being silently rewritten (which can also
-# trigger network access during the pre-push).
-if ! nix eval --accept-flake-config --no-write-lock-file "${nix_eval_flags[@]}" --json '.#lib.meta.maintainedInputs' >"$inventory_json" 2>"$inventory_eval_stderr"; then
+# the fallback path. --no-update-lock-file makes Nix error out when flake.lock
+# is stale relative to flake.nix instead of silently resolving the missing
+# inputs in memory (which would also reach the network during the pre-push).
+# --no-update-lock-file implies no write, so the hook also stays read-only.
+if ! nix eval --accept-flake-config --no-update-lock-file "${nix_eval_flags[@]}" --json '.#lib.meta.maintainedInputs' >"$inventory_json" 2>"$inventory_eval_stderr"; then
   # Keep validating with raw inventory data so lock-source diagnostics are not masked.
   inventory_export_failed=1
   inventory_expr='(import ./modules/meta/maintained-inputs.nix {}).flake.lib.meta.maintainedInputs'
