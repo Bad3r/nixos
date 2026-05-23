@@ -118,25 +118,28 @@ fi
 # inputs are governed by their explicit `no-local-url` check (see the per
 # input loop below), which keeps support for offline reachable-commit fixtures
 # that legitimately use `file://` upstream URLs.
+# Single jq pass: emits `name<TAB>section` for each offending entry. Skips
+# root-level follows arrays (`select((.value | type) == "string")`) and
+# inventory-declared inputs via the slurped exemption set.
 inventory_flake_inputs_json="$tmp_root/inventory-flake-inputs.json"
 jq '[.[] | .flakeInput // empty]' "$inventory_json" >"$inventory_flake_inputs_json"
-while IFS= read -r root_input; do
-  if jq -e --arg input "$root_input" 'index($input)' "$inventory_flake_inputs_json" >/dev/null; then
-    continue
-  fi
-  node=$(jq -r --arg input "$root_input" '.nodes.root.inputs[$input] // empty' flake.lock)
-  if [ -z "$node" ]; then
-    continue
-  fi
-  for section in locked original; do
-    input_type=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].type // empty' flake.lock)
-    input_url=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].url // empty' flake.lock)
-    input_path=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].path // empty' flake.lock)
-    if [ "$input_type" = "path" ] || [ -n "$input_path" ] || is_local_flake_ref "$input_url"; then
-      error_msg "flake.lock $section source for $root_input is a local path"
-    fi
-  done
-done < <(jq -r '.nodes.root.inputs | keys[]' flake.lock)
+while IFS=$'\t' read -r root_input section; do
+  error_msg "flake.lock $section source for $root_input is a local path"
+done < <(jq -r --slurpfile inv "$inventory_flake_inputs_json" '
+  ($inv[0] // []) as $exempt
+  | . as $root
+  | $root.nodes.root.inputs
+  | to_entries[]
+  | select((.value | type) == "string")
+  | .key as $name
+  | .value as $node_name
+  | select(($exempt | index($name)) | not)
+  | $root.nodes[$node_name] as $node
+  | ("locked", "original") as $section
+  | ($node[$section] // {})
+  | select((.type == "path") or ((.path // "") != "") or ((.url // "") | test("^(path:|git\\+file:|file:|/|\\.\\.?/)")))
+  | "\($name)\t\($section)"
+' flake.lock)
 
 if [ "$(jq 'length' "$inventory_json")" -eq 0 ]; then
   if [ "$inventory_export_failed" -eq 1 ]; then
