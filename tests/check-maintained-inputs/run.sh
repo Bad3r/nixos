@@ -121,6 +121,7 @@ run_sut() {
   local fixture exit_code
   fixture="$1"
   shift
+  git -C "${fixture}" add .
   set +e
   (cd "${fixture}" && "${SUT}" "$@") >"${fixture}/stdout" 2>"${fixture}/stderr"
   exit_code=$?
