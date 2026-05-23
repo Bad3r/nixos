@@ -556,7 +556,7 @@ test_fail_checkout_check_missing_pathenv() {
   write_file "${fixture}/flake.lock" "${LOCK_BASE}"
   exit_code=$(run_sut "${fixture}" --no-fetch)
   assert_fail "fail-checkout-missing-pathenv" "${fixture}" "${exit_code}" \
-    'checkout check declared but local\.pathEnv is empty or missing'
+    'clean-checkout or tracked-files declared but local\.pathEnv is missing'
 }
 
 test_fail_unknown_check_name() {
@@ -585,12 +585,80 @@ test_fail_unknown_check_name() {
     'unknown check: bogus'
 }
 
+test_fail_path_type_in_flake_lock() {
+  local fixture exit_code path_lock
+  fixture="$(init_fixture fail-path-type-lock)"
+  path_lock='{
+  "nodes": {
+    "root": {
+      "inputs": {
+        "example": "example",
+        "nixpkgs": "nixpkgs"
+      }
+    },
+    "example": {
+      "inputs": {
+        "nixpkgs": ["nixpkgs"]
+      },
+      "locked": {
+        "path": "/tmp/example",
+        "type": "path"
+      },
+      "original": {
+        "path": "/tmp/example",
+        "type": "path"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "rev": "0000000000000000000000000000000000000000",
+        "type": "github",
+        "owner": "NixOS",
+        "repo": "nixpkgs"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${INVENTORY_FULL}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${path_lock}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-path-type-lock" "${fixture}" "${exit_code}" \
+    'source for example is a local path'
+}
+
+test_fail_inventory_export() {
+  local fixture exit_code flake_no_lib
+  fixture="$(init_fixture fail-inventory-export)"
+  flake_no_lib='{
+  inputs = {
+    example.url = "github:example/example";
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${INVENTORY_FULL}"
+  write_file "${fixture}/flake.nix" "${flake_no_lib}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-inventory-export" "${fixture}" "${exit_code}" \
+    'failed to evaluate \.#lib\.meta\.maintainedInputs'
+}
+
 test_pass_clean_state
 test_pass_empty_inventory
 test_fail_input_missing_from_flake_nix
 test_fail_local_url_in_flake_nix_with_empty_inventory
 test_pass_local_url_in_comment
 test_fail_local_url_in_flake_lock
+test_fail_path_type_in_flake_lock
 test_fail_lock_graph_drift
 test_fail_lock_graph_missing_inputnames
 test_fail_follows_drift
@@ -598,5 +666,6 @@ test_fail_follows_preserved_missing_follows
 test_fail_clean_and_tracked_both_fire
 test_fail_checkout_check_missing_pathenv
 test_fail_unknown_check_name
+test_fail_inventory_export
 
-printf '13 passed\n'
+printf '15 passed\n'
