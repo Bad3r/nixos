@@ -180,24 +180,12 @@
             if [ "''${NIXOS_ACTION:-}" != dry-activate ]; then
               target_root=${lib.escapeShellArg (toString cfg.path)}
               wordlists_root=${lib.escapeShellArg wordlistsRoot}
-              target_parent="''${target_root%/*}"
-              if [ -z "$target_parent" ]; then
-                target_parent=/
-              fi
-
-              if [ ! -d "$target_parent" ]; then
-                printf '%s\n' "csec.wordlists parent directory does not exist: $target_parent" >&2
-                exit 1
-              fi
-
               if [ -e "$target_root" ] && [ ! -d "$target_root" ]; then
                 printf '%s\n' "csec.wordlists path exists but is not a directory: $target_root" >&2
                 exit 1
               fi
 
-              if [ ! -e "$target_root" ]; then
-                mkdir "$target_root"
-              fi
+              mkdir -p "$target_root"
               chown root:root "$target_root"
               chmod 0755 "$target_root"
 
