@@ -652,6 +652,185 @@ test_fail_inventory_export() {
     'failed to evaluate \.#lib\.meta\.maintainedInputs'
 }
 
+test_pass_reachable_commit() {
+  local fixture exit_code upstream lock inv
+  fixture="$(init_fixture pass-reachable)"
+  upstream="${tmpdir}/upstream-pass.git"
+  git init -q --bare "${upstream}"
+
+  local clone_dir="${tmpdir}/upstream-pass-clone"
+  git clone -q "${upstream}" "${clone_dir}"
+  git -C "${clone_dir}" config user.email "test@example.com"
+  git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" commit -q --allow-empty -m "init"
+  git -C "${clone_dir}" push -q origin HEAD:main
+  local locked_sha
+  locked_sha=$(git -C "${clone_dir}" rev-parse HEAD)
+
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "file://'"${upstream}"'"; ref = "main"; };
+    sourceMode = "remote-locked";
+    checks = [ "reachable-commit" ];
+  };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example" } },
+    "example": {
+      "locked": {
+        "rev": "'"${locked_sha}"'",
+        "type": "git",
+        "url": "file://'"${upstream}"'"
+      },
+      "original": {
+        "type": "git",
+        "url": "file://'"${upstream}"'"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  exit_code=$(run_sut "${fixture}" --fetch)
+  assert_pass "pass-reachable" "${fixture}" "${exit_code}"
+}
+
+test_fail_reachable_commit_unreachable() {
+  local fixture exit_code upstream lock inv
+  fixture="$(init_fixture fail-reachable)"
+  upstream="${tmpdir}/upstream-fail.git"
+  git init -q --bare "${upstream}"
+
+  local clone_dir="${tmpdir}/upstream-fail-clone"
+  git clone -q "${upstream}" "${clone_dir}"
+  git -C "${clone_dir}" config user.email "test@example.com"
+  git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" commit -q --allow-empty -m "init"
+  git -C "${clone_dir}" push -q origin HEAD:main
+
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "file://'"${upstream}"'"; ref = "main"; };
+    sourceMode = "remote-locked";
+    checks = [ "reachable-commit" ];
+  };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example" } },
+    "example": {
+      "locked": {
+        "rev": "0000000000000000000000000000000000000000",
+        "type": "git",
+        "url": "file://'"${upstream}"'"
+      },
+      "original": {
+        "type": "git",
+        "url": "file://'"${upstream}"'"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  exit_code=$(run_sut "${fixture}" --fetch)
+  assert_fail "fail-reachable" "${fixture}" "${exit_code}" \
+    'is not reachable from'
+}
+
+test_fail_reachable_commit_bad_ref() {
+  local fixture exit_code upstream lock inv
+  fixture="$(init_fixture fail-reachable-bad-ref)"
+  upstream="${tmpdir}/upstream-bad-ref.git"
+  git init -q --bare "${upstream}"
+
+  local clone_dir="${tmpdir}/upstream-bad-ref-clone"
+  git clone -q "${upstream}" "${clone_dir}"
+  git -C "${clone_dir}" config user.email "test@example.com"
+  git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" commit -q --allow-empty -m "init"
+  git -C "${clone_dir}" push -q origin HEAD:main
+
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "file://'"${upstream}"'"; ref = "nonexistent"; };
+    sourceMode = "remote-locked";
+    checks = [ "reachable-commit" ];
+  };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example" } },
+    "example": {
+      "locked": {
+        "rev": "0000000000000000000000000000000000000000",
+        "type": "git",
+        "url": "file://'"${upstream}"'"
+      },
+      "original": {
+        "type": "git",
+        "url": "file://'"${upstream}"'"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  exit_code=$(run_sut "${fixture}" --fetch)
+  assert_fail "fail-reachable-bad-ref" "${fixture}" "${exit_code}" \
+    'failed to fetch'
+}
+
+test_fail_reachable_commit_missing_rev() {
+  local fixture exit_code lock inv
+  fixture="$(init_fixture fail-reachable-missing-rev)"
+
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "https://example.invalid"; ref = "main"; };
+    sourceMode = "remote-locked";
+    checks = [ "reachable-commit" ];
+  };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example" } },
+    "example": {
+      "locked": {
+        "type": "git",
+        "url": "https://example.invalid"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://example.invalid"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  exit_code=$(run_sut "${fixture}" --fetch)
+  assert_fail "fail-reachable-missing-rev" "${fixture}" "${exit_code}" \
+    'has no locked rev for'
+}
+
 test_pass_clean_state
 test_pass_empty_inventory
 test_fail_input_missing_from_flake_nix
@@ -667,5 +846,9 @@ test_fail_clean_and_tracked_both_fire
 test_fail_checkout_check_missing_pathenv
 test_fail_unknown_check_name
 test_fail_inventory_export
+test_pass_reachable_commit
+test_fail_reachable_commit_unreachable
+test_fail_reachable_commit_bad_ref
+test_fail_reachable_commit_missing_rev
 
-printf '15 passed\n'
+printf '19 passed\n'
