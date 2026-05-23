@@ -4,8 +4,17 @@ import os
 import subprocess
 import tarfile
 import tempfile
+import urllib.parse
 from pathlib import Path
 from urllib.request import urlretrieve
+
+
+def _require_http_url(url: str) -> None:
+    """Reject non-HTTP(S) npm tarball URLs before downloading."""
+    scheme = urllib.parse.urlparse(url).scheme.lower()
+    if scheme not in {"http", "https"}:
+        msg = f"Refusing to download non-HTTP(S) tarball URL: {url}"
+        raise ValueError(msg)
 
 
 def extract_or_generate_lockfile(
@@ -33,7 +42,8 @@ def extract_or_generate_lockfile(
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         tarball_path = tmpdir_path / "package.tgz"
-        urlretrieve(tarball_url, tarball_path)
+        _require_http_url(tarball_url)
+        urlretrieve(tarball_url, tarball_path)  # noqa: S310
 
         with tarfile.open(tarball_path, "r:gz") as tar:
             tar.extractall(tmpdir_path, filter="data")

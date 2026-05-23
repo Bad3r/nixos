@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import cast
 
-
 PACKAGE_NAME = "codeburn"
 OWNER = "getagentseal"
 REPO = "codeburn"

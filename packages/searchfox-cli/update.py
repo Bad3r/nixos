@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-
 PACKAGE_NAME = "searchfox-cli"
 REPO = "padenot/searchfox-cli"
 

@@ -34,6 +34,16 @@ _: {
 
             ruff.enable = true;
 
+            pyright = {
+              enable = true;
+              files = "\\.py$";
+              pass_filenames = false;
+              stages = [
+                "pre-push"
+                "manual"
+              ];
+            };
+
             yamllint = {
               enable = true;
               settings.preset = "relaxed";
