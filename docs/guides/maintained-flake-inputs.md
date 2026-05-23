@@ -100,6 +100,11 @@ publishing a root repository change that depends on a maintained input revision:
 scripts/check-maintained-inputs.sh --fetch
 ```
 
+Set `MAINTAINED_INPUTS_FETCH=1` to force the same fetch mode from a wrapper,
+hook, or CI job without changing the script arguments. The environment override
+is read after CLI flags, so it forces fetch validation even when the wrapper
+passes `--no-fetch`.
+
 The `maintained-inputs` hook runs at the `pre-push` and `manual` stages of the
 pre-commit framework and wraps the same script without `--fetch`. The
 `flake.nix` local URL scan is repository-wide because committed local input URLs

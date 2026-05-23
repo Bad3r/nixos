@@ -76,6 +76,7 @@ INVENTORY_FULL='_: {
         ref = "main";
       };
       sourceMode = "local-override";
+      local.pathEnv = "EXAMPLE_CHECKOUT";
       follows.nixpkgs = "nixpkgs";
       lockGraph.inputNames = [ "nixpkgs" ];
       checks = [
@@ -97,7 +98,7 @@ FLAKE_NIX_CLEAN='{
     example.url = "github:example/example";
     nixpkgs.url = "github:NixOS/nixpkgs";
   };
-  outputs = _: { };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
 }'
 
 init_fixture() {
@@ -183,6 +184,23 @@ test_pass_empty_inventory() {
   write_file "${fixture}/flake.lock" "${LOCK_BASE}"
   exit_code=$(run_sut "${fixture}" --no-fetch)
   assert_pass "pass-empty" "${fixture}" "${exit_code}"
+}
+
+test_fail_input_missing_from_flake_nix() {
+  local fixture exit_code flake_without_example
+  fixture="$(init_fixture fail-missing-flake-input)"
+  flake_without_example='{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${INVENTORY_FULL}"
+  write_file "${fixture}/flake.nix" "${flake_without_example}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-missing-flake-input" "${fixture}" "${exit_code}" \
+    'flake input example is not in flake\.nix inputs'
 }
 
 test_fail_local_url_in_flake_nix_with_empty_inventory() {
@@ -504,6 +522,37 @@ test_fail_clean_and_tracked_both_fire() {
   fi
 }
 
+test_fail_checkout_check_missing_pathenv() {
+  local fixture exit_code inventory_without_pathenv
+  fixture="$(init_fixture fail-checkout-missing-pathenv)"
+  inventory_without_pathenv='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/example.git";
+        ref = "main";
+      };
+      sourceMode = "local-override";
+      follows.nixpkgs = "nixpkgs";
+      lockGraph.inputNames = [ "nixpkgs" ];
+      checks = [
+        "clean-checkout"
+        "no-local-url"
+        "follows-preserved"
+        "lock-graph"
+      ];
+    };
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inventory_without_pathenv}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-checkout-missing-pathenv" "${fixture}" "${exit_code}" \
+    'checkout check declared but local\.pathEnv is empty or missing'
+}
+
 test_fail_unknown_check_name() {
   local fixture exit_code bad_inventory
   fixture="$(init_fixture fail-unknown-check)"
@@ -532,6 +581,7 @@ test_fail_unknown_check_name() {
 
 test_pass_clean_state
 test_pass_empty_inventory
+test_fail_input_missing_from_flake_nix
 test_fail_local_url_in_flake_nix_with_empty_inventory
 test_pass_local_url_in_comment
 test_fail_local_url_in_flake_lock
@@ -540,6 +590,7 @@ test_fail_lock_graph_missing_inputnames
 test_fail_follows_drift
 test_fail_follows_preserved_missing_follows
 test_fail_clean_and_tracked_both_fire
+test_fail_checkout_check_missing_pathenv
 test_fail_unknown_check_name
 
-printf '11 passed\n'
+printf '13 passed\n'

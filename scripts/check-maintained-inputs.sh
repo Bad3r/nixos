@@ -28,11 +28,18 @@ fi
 
 tmp_root=$(mktemp -d)
 inventory_json="$tmp_root/inventory.json"
+flake_inputs_json="$tmp_root/flake-inputs.json"
 trap 'rm -rf "$tmp_root"' EXIT
 
 inventory_expr='(import ./modules/meta/maintained-inputs.nix {}).flake.lib.meta.maintainedInputs'
 if ! nix eval --impure --json --expr "$inventory_expr" >"$inventory_json"; then
   echo "maintained-inputs: failed to evaluate modules/meta/maintained-inputs.nix" >&2
+  exit 1
+fi
+
+flake_inputs_expr='builtins.attrNames ((import ./flake.nix).inputs or {})'
+if ! nix eval --impure --json --expr "$flake_inputs_expr" >"$flake_inputs_json"; then
+  echo "maintained-inputs: failed to evaluate flake.nix inputs" >&2
   exit 1
 fi
 
@@ -117,6 +124,11 @@ while IFS= read -r encoded; do
     continue
   fi
 
+  if ! jq -e --arg input "$flake_input" 'index($input)' "$flake_inputs_json" >/dev/null; then
+    error_msg "$id: flake input $flake_input is not in flake.nix inputs"
+    continue
+  fi
+
   node=$(jq -r --arg input "$flake_input" '.nodes.root.inputs[$input] // empty' flake.lock)
   if [ -z "$node" ]; then
     error_msg "$id: flake input $flake_input is not in flake.lock root inputs"
@@ -159,6 +171,12 @@ while IFS= read -r encoded; do
       if [ "$actual_inputs" != "$expected_inputs" ]; then
         error_msg "$id: lock graph input names expected $expected_inputs but flake.lock has $actual_inputs"
       fi
+    fi
+  fi
+
+  if has_check "$item" clean-checkout || has_check "$item" tracked-files; then
+    if [ -z "$path_env" ]; then
+      error_msg "$id: checkout check declared but local.pathEnv is empty or missing"
     fi
   fi
 
