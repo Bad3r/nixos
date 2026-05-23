@@ -52,7 +52,7 @@ def _stable_tag_versions(data: JsonArray, prefix: str) -> list[str]:
         if prefix and not name.startswith(prefix):
             continue
 
-        version = name.removeprefix(prefix) if prefix else name
+        version = name.removeprefix(prefix)
         if is_stable_numeric_version(version):
             versions.append(version)
     return versions
