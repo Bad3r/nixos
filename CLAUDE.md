@@ -25,8 +25,7 @@ These settings are mirrored in `build.sh` via `NIX_CONFIGURATION`:
 - `extra-experimental-features = [ "pipe-operators" ]`
   Enable pipe operator syntax in Nix expressions.
 - `allow-import-from-derivation = true`
-  Required by IFD consumers: `nix-doom-emacs-unstraightened` and
-  `modules/csec/wordlists.nix`.
+  Required by IFD consumer `nix-doom-emacs-unstraightened`.
 - `experimental-features = nix-command flakes`
   Enable flakes and the new Nix CLI.
 

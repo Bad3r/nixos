@@ -93,19 +93,19 @@ _: {
             "${homeDirectory}/.ssh/hosts/*"
           ]
           ++ lib.optional onePasswordSshAgentEnabled "${homeDirectory}/.ssh/1Password/config";
-          matchBlocks = {
+          settings = {
             "*" = {
-              identitiesOnly = true;
-              identityAgent =
+              IdentitiesOnly = true;
+              IdentityAgent =
                 if onePasswordSshAgentEnabled then
                   "~/.1password/agent.sock"
                 else
                   "${homeDirectory}/.gnupg/S.gpg-agent.ssh";
-              addKeysToAgent = "yes";
-              identityFile = [ "${homeDirectory}/.ssh/id_ed25519" ];
-              setEnv.TERM = "xterm-256color";
-              compression = false;
-              hashKnownHosts = false;
+              AddKeysToAgent = "yes";
+              IdentityFile = [ "${homeDirectory}/.ssh/id_ed25519" ];
+              SetEnv.TERM = "xterm-256color";
+              Compression = false;
+              HashKnownHosts = false;
             };
           };
         };

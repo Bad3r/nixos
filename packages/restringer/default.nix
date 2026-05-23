@@ -10,21 +10,23 @@
 }:
 
 let
+  pin = lib.importJSON ./hashes.json;
+
   # Fetch prebuilt isolated-vm binary for Node 22 (ABI v127)
   isolatedVmPrebuild = fetchurl {
-    url = "https://github.com/laverdet/isolated-vm/releases/download/v5.0.4/isolated-vm-v5.0.4-node-v127-linux-x64.tar.gz";
-    hash = "sha256-1HrBJ9xGroKS7Jttx4F+dE+JMsS1t8cU4cUO9yAOvbI=";
+    url = "https://github.com/laverdet/isolated-vm/releases/download/v${pin.isolatedVmVersion}/isolated-vm-v${pin.isolatedVmVersion}-${pin.isolatedVmNodeAbi}-${pin.isolatedVmPlatform}.tar.gz";
+    hash = pin.isolatedVmPrebuildHash;
   };
 in
 buildNpmPackage rec {
   pname = "restringer";
-  version = "2.1.0";
+  inherit (pin) version;
 
   src = fetchFromGitHub {
     owner = "HumanSecurity";
     repo = "restringer";
     rev = "v${version}";
-    hash = "sha256-wUiYrQJVETMnwZ0gPcrcmGTSV/g6S2ZqP8RMJ+QPCDQ=";
+    hash = pin.srcHash;
   };
 
   nodejs = nodejs_22;
@@ -32,7 +34,7 @@ buildNpmPackage rec {
   # python3 needed for node-gyp (isolated-vm native module)
   nativeBuildInputs = [ python3 ];
 
-  npmDepsHash = "sha256-mr+S9odeC59BlHprCWOchlAKjbvg0g/IR7Ec9u1A8iE=";
+  inherit (pin) npmDepsHash;
 
   # Provide Node headers for node-gyp
   env.npm_config_nodedir = nodejs_22;
@@ -48,6 +50,8 @@ buildNpmPackage rec {
 
   # No build step needed - restringer is plain JS with native deps
   dontNpmBuild = true;
+
+  passthru.updateScript = ./update.py;
 
   meta = {
     description = "Deobfuscate Javascript with emphasis on reconstructing strings";

@@ -102,6 +102,142 @@ def fetch_github_latest_tag_version(
     return max(versions, key=cmp_to_key(compare_versions))
 
 
+def _version_group_pattern(pattern: str, version_group: str) -> str | None:
+    """Extract the source pattern for a named regex group."""
+    marker = f"(?P<{version_group}>"
+    start = pattern.find(marker)
+    if start == -1:
+        return None
+
+    index = start + len(marker)
+    depth = 1
+    escaped = False
+    in_char_class = False
+    group_chars: list[str] = []
+    while index < len(pattern):
+        char = pattern[index]
+        if escaped:
+            group_chars.append(char)
+            escaped = False
+        elif char == "\\":
+            group_chars.append(char)
+            escaped = True
+        elif char == "[" and not in_char_class:
+            in_char_class = True
+            group_chars.append(char)
+        elif char == "]" and in_char_class:
+            in_char_class = False
+            group_chars.append(char)
+        elif char == "(" and not in_char_class:
+            group_chars.append(char)
+            depth += 1
+        elif char == ")" and not in_char_class:
+            depth -= 1
+            if depth == 0:
+                return "".join(group_chars)
+            group_chars.append(char)
+        else:
+            group_chars.append(char)
+        index += 1
+
+    return None
+
+
+def _pattern_explicitly_accepts_prerelease(
+    pattern: str,
+    version_group: str,
+) -> bool:
+    """Return true when the version capture visibly allows prerelease suffixes."""
+    group_pattern = _version_group_pattern(pattern, version_group)
+    if group_pattern is None:
+        return False
+
+    prerelease_markers = [
+        "-",
+        "alpha",
+        "beta",
+        "canary",
+        "dev",
+        "next",
+        "pre",
+        "preview",
+        "rc",
+    ]
+    return any(marker in group_pattern.lower() for marker in prerelease_markers)
+
+
+def _looks_like_prerelease(version: str) -> bool:
+    """Return true when a captured version has a prerelease-looking suffix."""
+    _numeric, suffix = parse_version(version)
+    return bool(suffix)
+
+
+def fetch_github_latest_tag(
+    owner: str,
+    repo: str,
+    pattern: str,
+    version_group: str = "version",
+) -> str:
+    """Fetch the highest matching stable tag version from GitHub.
+
+    Args:
+        owner: Repository owner
+        repo: Repository name
+        pattern: Full tag regex with a named version capture group
+        version_group: Named regex group containing the comparable version
+
+    Returns:
+        Highest matching version captured from the tag
+
+    Raises:
+        ValueError: If no matching tag is found
+
+    """
+    tag_pattern = re.compile(pattern)
+    allow_prerelease = _pattern_explicitly_accepts_prerelease(pattern, version_group)
+    latest: str | None = None
+    page = 1
+
+    while True:
+        url = (
+            f"https://api.github.com/repos/{owner}/{repo}/tags?per_page=100&page={page}"
+        )
+        data = fetch_json(url)
+        if not isinstance(data, list):
+            msg = f"Expected list from GitHub tags API, got {type(data)}"
+            raise TypeError(msg)
+        if not data:
+            break
+
+        for tag in data:
+            if not isinstance(tag, dict):
+                msg = f"Expected tag dict from GitHub API, got {type(tag)}"
+                raise TypeError(msg)
+            name = tag.get("name")
+            if not isinstance(name, str):
+                msg = f"Expected tag name string, got {type(name)}"
+                raise TypeError(msg)
+
+            match = tag_pattern.fullmatch(name)
+            if match is None:
+                continue
+
+            version = match.group(version_group)
+            if not allow_prerelease and _looks_like_prerelease(version):
+                continue
+            if latest is None or compare_versions(latest, version) < 0:
+                latest = version
+
+        if len(data) < 100:
+            break
+        page += 1
+
+    if latest is None:
+        msg = f"Could not find a matching stable tag for {owner}/{repo}"
+        raise ValueError(msg)
+    return latest
+
+
 def fetch_npm_version(package: str) -> str:
     """Fetch the latest version from npm registry.
 

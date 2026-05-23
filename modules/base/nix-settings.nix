@@ -13,8 +13,6 @@
       # IFD consumers in this repo (mirrors flake.nix#nixConfig):
       #   * nix-doom-emacs-unstraightened: evaluates a JSON manifest produced
       #     by a build derivation.
-      #   * modules/csec/wordlists.nix: reads the wordlists store path with
-      #     builtins.readDir to auto-discover top-level entries.
       # Update both this comment and flake.nix when adding or removing IFD
       # consumers.
       allow-import-from-derivation = true;

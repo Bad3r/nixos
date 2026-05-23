@@ -1,17 +1,19 @@
 #!/usr/bin/env nix
 #! nix shell nixpkgs#python3 nixpkgs#nix --command python3
-"""Update script for source-map-explorer."""
+"""Update script for wakaru."""
 
 from __future__ import annotations
 
 import argparse
 import sys
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
-PACKAGE_NAME = "source-map-explorer"
-OWNER = "danvk"
-REPO = "source-map-explorer"
+
+PACKAGE_NAME = "wakaru"
+OWNER = "pionxzh"
+REPO = "wakaru"
+TAG_PATTERN = r"^cli-v(?P<version>\d+\.\d+\.\d+)$"
 
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
@@ -27,10 +29,15 @@ sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 from updater import (  # noqa: E402
     calculate_dependency_hash,
     calculate_url_hash,
-    fetch_github_latest_tag_version,
+    fetch_github_latest_tag,
     load_hashes,
     save_hashes,
 )
+
+
+def latest_version() -> str:
+    """Fetch the highest stable wakaru CLI tag."""
+    return fetch_github_latest_tag(OWNER, REPO, TAG_PATTERN)
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,7 +46,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--check-release",
         action="store_true",
-        help="validate release metadata without fetching archive hashes",
+        help="validate release metadata without fetching hashes",
     )
     parser.add_argument(
         "--force",
@@ -50,14 +57,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """Update source-map-explorer to the latest stable GitHub tag."""
+    """Update wakaru to the latest CLI tag."""
     args = parse_args()
     data = load_hashes(HASHES_FILE)
     current = cast("str", data["version"])
-    latest = fetch_github_latest_tag_version(OWNER, REPO)
+    latest = latest_version()
 
     print(f"Current: {current}")
     print(f"Latest:  {latest}")
+    print(f"Tag:     cli-v{latest}")
 
     if args.check_release:
         print("Release metadata is valid")
@@ -69,19 +77,18 @@ def main() -> None:
 
     print("Calculating source hash...")
     src_hash = calculate_url_hash(
-        f"https://github.com/{OWNER}/{REPO}/archive/refs/tags/v{latest}.tar.gz",
+        f"https://github.com/{OWNER}/{REPO}/archive/refs/tags/cli-v{latest}.tar.gz",
         unpack=True,
     )
 
-    new_data = {
+    new_data: dict[str, Any] = {
         "version": latest,
         "srcHash": src_hash,
-        "npmDepsHash": data.get("npmDepsHash", ""),
+        "pnpmDepsHash": data.get("pnpmDepsHash", ""),
     }
-
-    new_data["npmDepsHash"] = calculate_dependency_hash(
+    new_data["pnpmDepsHash"] = calculate_dependency_hash(
         PACKAGE_ATTR,
-        "npmDepsHash",
+        "pnpmDepsHash",
         HASHES_FILE,
         new_data,
     )

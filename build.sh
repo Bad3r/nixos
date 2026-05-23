@@ -249,8 +249,8 @@ BOOTSTRAP_TRUSTED_KEYS=(
 )
 
 configure_build_flags() {
-  local build_cores="$(($(nproc --all) - 1))" # Nix default = 0 (all cores per build job)
-  local build_max_jobs="2"                    # Nix default = 1
+  local build_cores="0"    # "$(($(nproc --all) - 1))" # Nix default = 0 (all cores per build job)
+  local build_max_jobs="2" # Nix default = 1
   local nix_experimental_features="nix-command flakes pipe-operators"
 
   BUILD_FLAGS=(

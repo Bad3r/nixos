@@ -13,7 +13,9 @@ PACKAGE_NAME = "age-plugin-fido2prf"
 OWNER = "FiloSottile"
 REPO = "typage"
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+
+SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
+sys.path.insert(0, str(SCRIPTS_DIR))
 
 from updater_bootstrap import bootstrap, host_package_attr  # noqa: E402
 
