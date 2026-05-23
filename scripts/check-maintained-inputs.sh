@@ -54,7 +54,7 @@ error_msg() {
 # Inventory no-local-url checks add per-input flake.lock validation below.
 # The second grep drops comment-only matches (line content starting with `#`).
 local_url_hits="$tmp_root/local-url-hits.txt"
-if grep -nE 'url[[:space:]]*=[[:space:]]*"((path|git\+file|file):|/|\.\.?/)' flake.nix |
+if grep -nE '(url|path)[[:space:]]*=[[:space:]]*"((path|git\+file|file):|/|\.\.?/)' flake.nix |
   grep -vE '^[0-9]+:[[:space:]]*#' >"$local_url_hits"; then
   error_msg "flake.nix contains a local input URL"
   sed 's/^/  flake.nix:/' "$local_url_hits" >&2
@@ -69,13 +69,15 @@ if [ -n "${CHECK_MAINTAINED_INPUTS_NIX_EVAL_FLAGS:-}" ]; then
   read -r -a nix_eval_flags <<<"$CHECK_MAINTAINED_INPUTS_NIX_EVAL_FLAGS"
 fi
 
+inventory_eval_stderr="$tmp_root/inventory-eval.stderr"
 inventory_export_failed=0
-if ! nix eval "${nix_eval_flags[@]}" --json '.#lib.meta.maintainedInputs' >"$inventory_json" 2>/dev/null; then
+if ! nix eval "${nix_eval_flags[@]}" --json '.#lib.meta.maintainedInputs' >"$inventory_json" 2>"$inventory_eval_stderr"; then
   # Keep validating with raw inventory data so lock-source diagnostics are not masked.
   inventory_export_failed=1
   inventory_expr='(import ./modules/meta/maintained-inputs.nix {}).flake.lib.meta.maintainedInputs'
   if ! nix eval --impure --json --expr "$inventory_expr" >"$inventory_json"; then
     echo "maintained-inputs: failed to evaluate .#lib.meta.maintainedInputs" >&2
+    sed 's/^/  /' "$inventory_eval_stderr" >&2
     exit 1
   fi
 fi
@@ -203,10 +205,8 @@ while IFS= read -r encoded; do
     fi
   fi
 
-  if has_check "$item" clean-checkout || has_check "$item" tracked-files; then
-    if [ -z "$path_env" ]; then
-      error_msg "$id: checkout check declared but local.pathEnv is empty or missing"
-    fi
+  if { has_check "$item" clean-checkout || has_check "$item" tracked-files; } && [ -z "$path_env" ]; then
+    error_msg "$id: clean-checkout or tracked-files declared but local.pathEnv is missing"
   fi
 
   if [ -n "$path_env" ]; then
@@ -249,6 +249,7 @@ done < <(jq -r 'to_entries[] | @base64' "$inventory_json")
 
 if [ "$inventory_export_failed" -eq 1 ]; then
   error_msg "failed to evaluate .#lib.meta.maintainedInputs"
+  sed 's/^/  /' "$inventory_eval_stderr" >&2
 fi
 
 exit "$fail"
