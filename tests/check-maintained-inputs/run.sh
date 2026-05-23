@@ -786,6 +786,99 @@ test_fail_checkout_check_missing_pathenv() {
     'clean-checkout or tracked-files declared but local\.pathEnv is missing'
 }
 
+test_fail_missing_upstream_url() {
+  local fixture exit_code bad_inventory
+  fixture="$(init_fixture fail-missing-upstream-url)"
+  bad_inventory='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        ref = "main";
+      };
+      sourceMode = "remote-locked";
+      checks = [ "follows-preserved" ];
+    };
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${bad_inventory}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-missing-upstream-url" "${fixture}" "${exit_code}" \
+    'example: missing upstream\.url'
+}
+
+test_fail_missing_upstream_ref() {
+  local fixture exit_code bad_inventory
+  fixture="$(init_fixture fail-missing-upstream-ref)"
+  bad_inventory='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/example.git";
+      };
+      sourceMode = "remote-locked";
+      checks = [ "follows-preserved" ];
+    };
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${bad_inventory}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-missing-upstream-ref" "${fixture}" "${exit_code}" \
+    'example: missing upstream\.ref'
+}
+
+test_fail_missing_source_mode() {
+  local fixture exit_code bad_inventory
+  fixture="$(init_fixture fail-missing-source-mode)"
+  bad_inventory='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/example.git";
+        ref = "main";
+      };
+      checks = [ "follows-preserved" ];
+    };
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${bad_inventory}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-missing-source-mode" "${fixture}" "${exit_code}" \
+    'example: missing sourceMode'
+}
+
+test_fail_unknown_source_mode() {
+  local fixture exit_code bad_inventory
+  fixture="$(init_fixture fail-unknown-source-mode)"
+  bad_inventory='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/example.git";
+        ref = "main";
+      };
+      sourceMode = "bogus";
+      checks = [ "follows-preserved" ];
+    };
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${bad_inventory}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-unknown-source-mode" "${fixture}" "${exit_code}" \
+    'example: unknown sourceMode: bogus'
+}
+
 test_fail_unknown_check_name() {
   local fixture exit_code bad_inventory
   fixture="$(init_fixture fail-unknown-check)"
@@ -1078,6 +1171,10 @@ test_fail_follows_preserved_missing_follows
 test_pass_tracked_files_modified_tracked
 test_fail_clean_and_tracked_both_fire
 test_fail_checkout_check_missing_pathenv
+test_fail_missing_upstream_url
+test_fail_missing_upstream_ref
+test_fail_missing_source_mode
+test_fail_unknown_source_mode
 test_fail_unknown_check_name
 test_fail_inventory_export
 test_pass_reachable_commit
@@ -1085,4 +1182,4 @@ test_fail_reachable_commit_unreachable
 test_fail_reachable_commit_bad_ref
 test_fail_reachable_commit_missing_rev
 
-printf '26 passed\n'
+printf '30 passed\n'
