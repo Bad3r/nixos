@@ -14,6 +14,7 @@ _: {
           pkgs.nix
           pkgs.jq
           pkgs.coreutils
+          pkgs.gawk
           pkgs.gnugrep
           pkgs.gnused
         ];
