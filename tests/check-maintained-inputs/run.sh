@@ -516,6 +516,47 @@ test_fail_follows_preserved_missing_follows() {
     'follows-preserved check declared but follows is empty or missing'
 }
 
+test_pass_tracked_files_modified_tracked() {
+  local fixture checkout exit_code inventory_tracked
+  fixture="$(init_fixture pass-tracked-files)"
+  checkout="${fixture}/external"
+  git init -q "${checkout}"
+  git -C "${checkout}" config user.email "tests@example.invalid"
+  git -C "${checkout}" config user.name "check-maintained-inputs tests"
+  printf 'init' >"${checkout}/README"
+  git -C "${checkout}" add README
+  git -C "${checkout}" commit -q -m init
+  printf 'changed' >"${checkout}/README"
+  inventory_tracked='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/example.git";
+        ref = "main";
+      };
+      sourceMode = "local-override";
+      local.pathEnv = "EXAMPLE_CHECKOUT";
+      follows.nixpkgs = "nixpkgs";
+      lockGraph.inputNames = [ "nixpkgs" ];
+      checks = [
+        "tracked-files"
+        "no-local-url"
+        "follows-preserved"
+        "lock-graph"
+      ];
+    };
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inventory_tracked}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  export EXAMPLE_CHECKOUT="${checkout}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  unset EXAMPLE_CHECKOUT
+  assert_pass "pass-tracked-files" "${fixture}" "${exit_code}"
+}
+
 test_fail_clean_and_tracked_both_fire() {
   local fixture checkout exit_code inventory_with_path
   fixture="$(init_fixture fail-clean-tracked)"
@@ -881,6 +922,7 @@ test_fail_lock_graph_drift
 test_fail_lock_graph_missing_inputnames
 test_fail_follows_drift
 test_fail_follows_preserved_missing_follows
+test_pass_tracked_files_modified_tracked
 test_fail_clean_and_tracked_both_fire
 test_fail_checkout_check_missing_pathenv
 test_fail_unknown_check_name
@@ -890,4 +932,4 @@ test_fail_reachable_commit_unreachable
 test_fail_reachable_commit_bad_ref
 test_fail_reachable_commit_missing_rev
 
-printf '21 passed\n'
+printf '22 passed\n'
