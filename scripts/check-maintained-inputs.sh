@@ -71,7 +71,11 @@ fi
 
 inventory_eval_stderr="$tmp_root/inventory-eval.stderr"
 inventory_export_failed=0
-if ! nix eval "${nix_eval_flags[@]}" --json '.#lib.meta.maintainedInputs' >"$inventory_json" 2>"$inventory_eval_stderr"; then
+# --accept-flake-config is required so the flake's nixConfig
+# (pipe-operators, allow-import-from-derivation) loads. Without it, import-tree
+# fails to parse modules that use pipe-operator syntax and the eval drops into
+# the fallback path.
+if ! nix eval --accept-flake-config "${nix_eval_flags[@]}" --json '.#lib.meta.maintainedInputs' >"$inventory_json" 2>"$inventory_eval_stderr"; then
   # Keep validating with raw inventory data so lock-source diagnostics are not masked.
   inventory_export_failed=1
   inventory_expr='(import ./modules/meta/maintained-inputs.nix {}).flake.lib.meta.maintainedInputs'
