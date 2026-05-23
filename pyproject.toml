@@ -1,0 +1,56 @@
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "COM812",
+  "COM819",
+  "D203",
+  "D206",
+  "D213",
+  "D300",
+  "E111",
+  "E114",
+  "E117",
+  "INP001",
+  "ISC001",
+  "ISC002",
+  "Q000",
+  "Q001",
+  "Q002",
+  "Q003",
+  "S603",
+  "S607",
+  "T201",
+  "W191",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"packages/*/update.py" = ["EXE003", "EXE005"]
+# TODO: Remove each temporary quarantine in its own cleanup commit:
+# 1. packages/duplicati-r2-tools/**
+# 2. scripts/url-catalog-add.py
+# 3. scripts/usbguard-ensure-allow.py
+# Each commit must remove one ["ALL"] ignore and leave Ruff and Pyright passing
+# for that path.
+"packages/duplicati-r2-tools/**" = ["ALL"]
+"scripts/url-catalog-add.py" = ["ALL"]
+"scripts/usbguard-ensure-allow.py" = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.13"
+pythonPlatform = "Linux"
+include = ["packages", "scripts"]
+exclude = ["packages/duplicati-r2-tools", "scripts/url-catalog-add.py", "scripts/usbguard-ensure-allow.py"]
+extraPaths = ["scripts"]

@@ -22,7 +22,13 @@ def _flake_root(start: Path) -> Path:
 FLAKE_ROOT = _flake_root(Path(__file__).resolve().parent)
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
-from updater import calculate_url_hash, fetch_json, fetch_text, load_hashes, save_hashes  # noqa: E402
+from updater import (  # noqa: E402
+    calculate_url_hash,
+    fetch_json,
+    fetch_text,
+    load_hashes,
+    save_hashes,
+)
 
 PINS_FILE = FLAKE_ROOT / "modules" / "hm-apps" / "_gecko-userscripts.json"
 META_BLOCK_RE = re.compile(
@@ -83,7 +89,7 @@ def parse_userscript_meta(code: str) -> dict[str, Any]:
         if key in meta:
             current = meta[key]
             if isinstance(current, list):
-                current.append(value)
+                cast("list[str]", current).append(value)
             continue
 
         meta[key] = value
@@ -114,7 +120,7 @@ def raw_github_url(repo: str, rev: str, path: str) -> str:
 
 def date_to_epoch_ms(value: str) -> int:
     """Convert a GitHub ISO timestamp to epoch milliseconds."""
-    return int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() * 1000)
+    return int(datetime.fromisoformat(value).timestamp() * 1000)
 
 
 def save_script_source(path: Path, code: str) -> bool:

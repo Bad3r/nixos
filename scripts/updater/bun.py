@@ -63,7 +63,7 @@ def regenerate_bun_nix(
         raise RuntimeError(msg) from e
 
 
-def clone_and_generate_bun_nix(
+def clone_and_generate_bun_nix(  # noqa: PLR0913
     owner: str,
     repo: str,
     version: str,
@@ -121,7 +121,7 @@ def clone_and_generate_bun_nix(
         lockfile_was_stale = False
 
         if not bun_lock.exists():
-            # No lockfile shipped — generate one from scratch.
+            # No lockfile shipped, generate one from scratch.
             print("No bun.lock found, generating lockfile...")
             subprocess.run(
                 ["bun", "install", "--lockfile-only"],
@@ -142,10 +142,7 @@ def clone_and_generate_bun_nix(
             )
             if result.returncode != 0:
                 lockfile_was_stale = True
-                print(
-                    "⚠️  Upstream bun.lock is out of sync with package.json, "
-                    "refreshing..."
-                )
+                print("WARNING: Upstream bun.lock is out of sync with package.json, refreshing...")
                 subprocess.run(
                     ["bun", "install", "--lockfile-only"],
                     cwd=repo_dir,
@@ -166,9 +163,7 @@ def clone_and_generate_bun_nix(
                 # Generate the diff and save it so the Nix build can apply it.
                 diff_result = run_command(["git", "diff", "bun.lock"], cwd=repo_dir)
                 patch_file.write_text(diff_result.stdout)
-                print(
-                    f"⚠️  Upstream bun.lock was stale — wrote patch to {patch_file.name}"
-                )
+                print(f"WARNING: Upstream bun.lock was stale, wrote patch to {patch_file.name}")
             else:
                 msg = (
                     f"Upstream {owner}/{repo} {ref} has a stale bun.lock "
@@ -181,14 +176,15 @@ def clone_and_generate_bun_nix(
                     f"\n"
                     f"To generate the patch:\n"
                     f"  git clone --depth=1 --branch={ref} "
-                    f"https://github.com/{owner}/{repo}.git /tmp/{repo}\n"
-                    f"  cd /tmp/{repo}\n"
+                    f"https://github.com/{owner}/{repo}.git "
+                    f"<workdir>/{repo}\n"
+                    f"  cd <workdir>/{repo}\n"
                     f"  bun install --lockfile-only\n"
                     f"  git diff bun.lock > fix-stale-bun-lock.patch\n"
                 )
                 raise RuntimeError(msg)
         elif patch_file is not None:
-            # Upstream lockfile is now fresh — clear the patch so it's a no-op.
+            # Upstream lockfile is now fresh, clear the patch so it's a no-op.
             patch_file.write_text("")
 
 
