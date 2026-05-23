@@ -50,6 +50,10 @@ error_msg() {
   fail=1
 }
 
+is_local_flake_ref() {
+  [[ $1 =~ ^(path:|git\+file:|file:|/|\.\.?/) ]]
+}
+
 # Committed flake inputs must not use local URLs anywhere in flake.nix.
 # The optional opening quote (`"?`) catches both quoted local refs
 # (`url = "git+file:///..."`) and bare Nix path literals
@@ -96,6 +100,34 @@ if ! nix eval --impure --json --expr "$flake_inputs_expr" >"$flake_inputs_json";
   exit 1
 fi
 
+# Authoritative repo-wide policy for non-inventory root inputs: every flake
+# input not declared in the inventory must resolve to a non-local source in
+# flake.lock. flake.lock normalizes every input to JSON, so this iteration is
+# immune to formatting issues that affect the line-based flake.nix grep
+# above (nixfmt-wrapped values, inline trailing comments). Inventory-declared
+# inputs are governed by their explicit `no-local-url` check (see the per
+# input loop below), which keeps support for offline reachable-commit fixtures
+# that legitimately use `file://` upstream URLs.
+inventory_flake_inputs_json="$tmp_root/inventory-flake-inputs.json"
+jq '[.[] | .flakeInput // empty]' "$inventory_json" >"$inventory_flake_inputs_json"
+while IFS= read -r root_input; do
+  if jq -e --arg input "$root_input" 'index($input)' "$inventory_flake_inputs_json" >/dev/null; then
+    continue
+  fi
+  node=$(jq -r --arg input "$root_input" '.nodes.root.inputs[$input] // empty' flake.lock)
+  if [ -z "$node" ]; then
+    continue
+  fi
+  for section in locked original; do
+    input_type=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].type // empty' flake.lock)
+    input_url=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].url // empty' flake.lock)
+    input_path=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].path // empty' flake.lock)
+    if [ "$input_type" = "path" ] || [ -n "$input_path" ] || is_local_flake_ref "$input_url"; then
+      error_msg "flake.lock $section source for $root_input is a local path"
+    fi
+  done
+done < <(jq -r '.nodes.root.inputs | keys[]' flake.lock)
+
 if [ "$(jq 'length' "$inventory_json")" -eq 0 ]; then
   if [ "$inventory_export_failed" -eq 1 ]; then
     error_msg "failed to evaluate .#lib.meta.maintainedInputs"
@@ -103,10 +135,6 @@ if [ "$(jq 'length' "$inventory_json")" -eq 0 ]; then
   fi
   exit "$fail"
 fi
-
-is_local_flake_ref() {
-  [[ $1 =~ ^(path:|git\+file:|file:|/|\.\.?/) ]]
-}
 
 has_check() {
   local item check

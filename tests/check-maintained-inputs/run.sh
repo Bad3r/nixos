@@ -278,6 +278,59 @@ test_pass_local_url_in_comment() {
   assert_pass "pass-local-url-comment" "${fixture}" "${exit_code}"
 }
 
+test_fail_local_url_in_flake_lock_non_inventory() {
+  local fixture exit_code stale_lock flake_with_clean_bad
+  fixture="$(init_fixture fail-local-url-lock-non-inventory)"
+  flake_with_clean_bad='{
+  inputs = {
+    bad.url = "github:example/bad";
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
+}'
+  stale_lock='{
+  "nodes": {
+    "root": {
+      "inputs": {
+        "bad": "bad",
+        "nixpkgs": "nixpkgs"
+      }
+    },
+    "bad": {
+      "locked": {
+        "url": "git+file:///tmp/bad",
+        "type": "git"
+      },
+      "original": {
+        "url": "git+file:///tmp/bad",
+        "type": "git"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "rev": "0000000000000000000000000000000000000000",
+        "type": "github",
+        "owner": "NixOS",
+        "repo": "nixpkgs"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${INVENTORY_EMPTY}"
+  write_file "${fixture}/flake.nix" "${flake_with_clean_bad}"
+  write_file "${fixture}/flake.lock" "${stale_lock}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-local-url-lock-non-inventory" "${fixture}" "${exit_code}" \
+    'flake\.lock locked source for bad is a local path'
+}
+
 test_fail_local_url_in_flake_lock() {
   local fixture exit_code local_lock
   fixture="$(init_fixture fail-local-url-lock)"
@@ -916,6 +969,7 @@ test_fail_local_url_in_flake_nix_with_empty_inventory
 test_fail_unquoted_local_url_in_flake_nix
 test_fail_unquoted_local_path_attrset_in_flake_nix
 test_pass_local_url_in_comment
+test_fail_local_url_in_flake_lock_non_inventory
 test_fail_local_url_in_flake_lock
 test_fail_path_type_in_flake_lock
 test_fail_lock_graph_drift
@@ -932,4 +986,4 @@ test_fail_reachable_commit_unreachable
 test_fail_reachable_commit_bad_ref
 test_fail_reachable_commit_missing_rev
 
-printf '22 passed\n'
+printf '23 passed\n'
