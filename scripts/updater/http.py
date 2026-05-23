@@ -53,8 +53,9 @@ def fetch_text(url: str, *, timeout: int = 30, user_agent: str = DEFAULT_USER_AG
 
     """
     _require_http_url(url)
+    host = urllib.parse.urlparse(url).hostname
     req = (
-        _github_request(url) if "api.github.com" in url else urllib.request.Request(url)  # noqa: S310
+        _github_request(url) if host == "api.github.com" else urllib.request.Request(url)  # noqa: S310
     )
     req.add_header("User-Agent", user_agent)
     with urllib.request.urlopen(req, timeout=timeout) as response:  # noqa: S310
