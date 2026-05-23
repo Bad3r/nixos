@@ -29,19 +29,19 @@ fi
 tmp_root=$(mktemp -d)
 inventory_json="$tmp_root/inventory.json"
 flake_inputs_json="$tmp_root/flake-inputs.json"
-trap 'rm -rf "$tmp_root"' EXIT
 
-inventory_expr='(import ./modules/meta/maintained-inputs.nix {}).flake.lib.meta.maintainedInputs'
-if ! nix eval --impure --json --expr "$inventory_expr" >"$inventory_json"; then
-  echo "maintained-inputs: failed to evaluate modules/meta/maintained-inputs.nix" >&2
-  exit 1
-fi
-
-flake_inputs_expr='builtins.attrNames ((import ./flake.nix).inputs or {})'
-if ! nix eval --impure --json --expr "$flake_inputs_expr" >"$flake_inputs_json"; then
-  echo "maintained-inputs: failed to evaluate flake.nix inputs" >&2
-  exit 1
-fi
+# shellcheck disable=SC2329
+cleanup_tmp_root() {
+  local status=$?
+  if [ -d "$tmp_root" ]; then
+    chmod -R u+w "$tmp_root" 2>/dev/null || true
+    if ! rm -r "$tmp_root"; then
+      printf 'maintained-inputs: warning: failed to remove temporary directory %s\n' "$tmp_root" >&2
+    fi
+  fi
+  exit "$status"
+}
+trap cleanup_tmp_root EXIT
 
 fail=0
 
@@ -60,7 +60,36 @@ if grep -nE 'url[[:space:]]*=[[:space:]]*"((path|git\+file|file):|/|\.\.?/)' fla
   sed 's/^/  flake.nix:/' "$local_url_hits" >&2
 fi
 
+if [ "$fail" -ne 0 ]; then
+  exit "$fail"
+fi
+
+nix_eval_flags=()
+if [ -n "${CHECK_MAINTAINED_INPUTS_NIX_EVAL_FLAGS:-}" ]; then
+  read -r -a nix_eval_flags <<<"$CHECK_MAINTAINED_INPUTS_NIX_EVAL_FLAGS"
+fi
+
+inventory_export_failed=0
+if ! nix eval "${nix_eval_flags[@]}" --json '.#lib.meta.maintainedInputs' >"$inventory_json" 2>/dev/null; then
+  # Keep validating with raw inventory data so lock-source diagnostics are not masked.
+  inventory_export_failed=1
+  inventory_expr='(import ./modules/meta/maintained-inputs.nix {}).flake.lib.meta.maintainedInputs'
+  if ! nix eval --impure --json --expr "$inventory_expr" >"$inventory_json"; then
+    echo "maintained-inputs: failed to evaluate .#lib.meta.maintainedInputs" >&2
+    exit 1
+  fi
+fi
+
+flake_inputs_expr='builtins.attrNames ((import ./flake.nix).inputs or {})'
+if ! nix eval --impure --json --expr "$flake_inputs_expr" >"$flake_inputs_json"; then
+  echo "maintained-inputs: failed to evaluate flake.nix inputs" >&2
+  exit 1
+fi
+
 if [ "$(jq 'length' "$inventory_json")" -eq 0 ]; then
+  if [ "$inventory_export_failed" -eq 1 ]; then
+    error_msg "failed to evaluate .#lib.meta.maintainedInputs"
+  fi
   exit "$fail"
 fi
 
@@ -217,5 +246,9 @@ while IFS= read -r encoded; do
     fi
   fi
 done < <(jq -r 'to_entries[] | @base64' "$inventory_json")
+
+if [ "$inventory_export_failed" -eq 1 ]; then
+  error_msg "failed to evaluate .#lib.meta.maintainedInputs"
+fi
 
 exit "$fail"

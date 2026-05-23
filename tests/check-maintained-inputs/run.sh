@@ -5,6 +5,7 @@ export LC_ALL=C
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUT="${SCRIPT_DIR}/../../scripts/check-maintained-inputs.sh"
+export CHECK_MAINTAINED_INPUTS_NIX_EVAL_FLAGS="--override-input example path:./example --override-input nixpkgs path:./nixpkgs"
 
 if [[ ! -x ${SUT} ]]; then
   printf 'run.sh: SUT not executable at %s\n' "${SUT}" >&2
@@ -106,6 +107,9 @@ init_fixture() {
   name="$1"
   fixture="${tmpdir}/${name}"
   mkdir -p "${fixture}/modules/meta"
+  mkdir -p "${fixture}/example" "${fixture}/nixpkgs"
+  echo "{ outputs = _: {}; }" >"${fixture}/example/flake.nix"
+  echo "{ outputs = _: {}; }" >"${fixture}/nixpkgs/flake.nix"
   git init -q "${fixture}"
   git -C "${fixture}" config user.email "tests@example.invalid"
   git -C "${fixture}" config user.name "check-maintained-inputs tests"
@@ -121,7 +125,7 @@ run_sut() {
   local fixture exit_code
   fixture="$1"
   shift
-  git -C "${fixture}" add .
+  git -C "${fixture}" add flake.nix flake.lock modules/meta/maintained-inputs.nix example/flake.nix nixpkgs/flake.nix
   set +e
   (cd "${fixture}" && "${SUT}" "$@") >"${fixture}/stdout" 2>"${fixture}/stderr"
   exit_code=$?
@@ -228,6 +232,7 @@ test_pass_local_url_in_comment() {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs";
   };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
 }'
   write_file "${fixture}/modules/meta/maintained-inputs.nix" "${INVENTORY_EMPTY}"
   write_file "${fixture}/flake.nix" "${flake_with_comment}"
