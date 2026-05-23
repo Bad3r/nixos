@@ -91,6 +91,7 @@ fi
 if [ "$(jq 'length' "$inventory_json")" -eq 0 ]; then
   if [ "$inventory_export_failed" -eq 1 ]; then
     error_msg "failed to evaluate .#lib.meta.maintainedInputs"
+    sed 's/^/  /' "$inventory_eval_stderr" >&2
   fi
   exit "$fail"
 fi
