@@ -54,15 +54,19 @@ is_local_flake_ref() {
   [[ $1 =~ ^(path:|git\+file:|file:|/|\.\.?/) ]]
 }
 
-# Committed flake inputs must not use local URLs anywhere in flake.nix.
-# The optional opening quote (`"?`) catches both quoted local refs
-# (`url = "git+file:///..."`) and bare Nix path literals
+# Best-effort pre-check on flake.nix; the lock-based scan below is the
+# authoritative policy. The optional opening quote (`"?`) catches both
+# quoted local refs (`url = "git+file:///..."`) and bare Nix path literals
 # (`url = ./foo;`, `path = ./foo;`, attrset form
-# `inputs.foo = { type = "path"; path = ./foo; };`). Inventory no-local-url
-# checks add per-input flake.lock validation below.
-# The second grep drops comment-only matches (line content starting with `#`).
+# `inputs.foo = { type = "path"; path = ./foo; };`). awk strips end-of-line
+# comments (`<whitespace>#...`) so a trailing comment that mentions a local
+# URL (`url = "github:foo"; # was path = ./local`) does not produce a false
+# positive that would block the push before the authoritative lock scan
+# runs. The follow-up grep still drops any whole-line `#` comment that
+# starts at column 0. Block comments (`/* ... */`) are not handled.
 local_url_hits="$tmp_root/local-url-hits.txt"
-if grep -nE '(url|path)[[:space:]]*=[[:space:]]*"?((path|git\+file|file):|/|\.\.?/)' flake.nix |
+if awk '{sub(/[[:space:]]+#.*$/, ""); print NR":" $0}' flake.nix |
+  grep -E '(url|path)[[:space:]]*=[[:space:]]*"?((path|git\+file|file):|/|\.\.?/)' |
   grep -vE '^[0-9]+:[[:space:]]*#' >"$local_url_hits"; then
   error_msg "flake.nix contains a local input URL"
   sed 's/^/  flake.nix:/' "$local_url_hits" >&2
