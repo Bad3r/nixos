@@ -55,9 +55,12 @@ is_local_flake_ref() {
 }
 
 # Best-effort pre-check on flake.nix; the lock-based scan below is the
-# authoritative policy. The optional opening quote (`"?`) catches both
-# quoted local refs (`url = "git+file:///..."`) and bare Nix path literals
-# (`url = ./foo;`, `path = ./foo;`, attrset form
+# authoritative policy. The leading `[^[:alnum:]_]` anchors `(url|path)` to a
+# non-identifier boundary so unrelated identifiers like `my_path` or
+# `local_url` cannot substring-match (the awk `N:` prefix guarantees a
+# preceding char even at column 0). The optional opening quote (`"?`) catches
+# both quoted local refs (`url = "git+file:///..."`) and bare Nix path
+# literals (`url = ./foo;`, `path = ./foo;`, attrset form
 # `inputs.foo = { type = "path"; path = ./foo; };`). awk strips end-of-line
 # comments (`<whitespace>#...`) so a trailing comment that mentions a local
 # URL (`url = "github:foo"; # was path = ./local`) does not produce a false
@@ -66,7 +69,7 @@ is_local_flake_ref() {
 # starts at column 0. Block comments (`/* ... */`) are not handled.
 local_url_hits="$tmp_root/local-url-hits.txt"
 if awk '{sub(/[[:space:]]+#.*$/, ""); print NR":" $0}' flake.nix |
-  grep -E '(url|path)[[:space:]]*=[[:space:]]*"?((path|git\+file|file):|/|\.\.?/)' |
+  grep -E '[^[:alnum:]_](url|path)[[:space:]]*=[[:space:]]*"?((path|git\+file|file):|/|\.\.?/)' |
   grep -vE '^[0-9]+:[[:space:]]*#' >"$local_url_hits"; then
   error_msg "flake.nix contains a local input URL"
   sed 's/^/  flake.nix:/' "$local_url_hits" >&2

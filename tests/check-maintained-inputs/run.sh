@@ -261,6 +261,32 @@ test_fail_unquoted_local_path_attrset_in_flake_nix() {
     'flake\.nix contains a local input URL'
 }
 
+test_pass_local_path_in_unrelated_identifier() {
+  local fixture exit_code flake_with_unrelated
+  fixture="$(init_fixture pass-unrelated-identifier)"
+  flake_with_unrelated='{
+  inputs = {
+    example.url = "github:example/example";
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs =
+    _:
+    let
+      my_path = ./scripts;
+      local_url = "/srv/example";
+    in
+    {
+      lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib;
+      inherit my_path local_url;
+    };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${INVENTORY_EMPTY}"
+  write_file "${fixture}/flake.nix" "${flake_with_unrelated}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_pass "pass-unrelated-identifier" "${fixture}" "${exit_code}"
+}
+
 test_pass_local_url_in_trailing_comment() {
   local fixture exit_code flake_with_trailing_comment
   fixture="$(init_fixture pass-local-url-trailing-comment)"
@@ -985,6 +1011,7 @@ test_fail_input_missing_from_flake_nix
 test_fail_local_url_in_flake_nix_with_empty_inventory
 test_fail_unquoted_local_url_in_flake_nix
 test_fail_unquoted_local_path_attrset_in_flake_nix
+test_pass_local_path_in_unrelated_identifier
 test_pass_local_url_in_trailing_comment
 test_pass_local_url_in_comment
 test_fail_local_url_in_flake_lock_non_inventory
@@ -1004,4 +1031,4 @@ test_fail_reachable_commit_unreachable
 test_fail_reachable_commit_bad_ref
 test_fail_reachable_commit_missing_rev
 
-printf '24 passed\n'
+printf '25 passed\n'
