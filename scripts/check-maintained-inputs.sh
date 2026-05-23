@@ -227,11 +227,11 @@ while IFS= read -r encoded; do
         status=$(git -C "$checkout" status --porcelain=v1 --untracked-files=all)
         if [ -n "$status" ] && has_check "$item" clean-checkout; then
           error_msg "$id: checkout from $path_env is dirty or has untracked files"
-          printf '%s\n' "$status" | sed "s/^/  $id: /" >&2
+          printf -- '%s\n' "$status" | sed "s/^/  $id: /" >&2
         fi
         if [ -n "$status" ] && has_check "$item" tracked-files && grep -q '^?? ' <<<"$status"; then
           error_msg "$id: checkout from $path_env has untracked files"
-          printf '%s\n' "$status" | sed "s/^/  $id: /" >&2
+          printf -- '%s\n' "$status" | sed "s/^/  $id: /" >&2
         fi
       fi
     fi
