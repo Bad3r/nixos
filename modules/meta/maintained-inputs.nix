@@ -1,19 +1,35 @@
 _: {
   flake.lib.meta.maintainedInputs = {
-    nix-logseq-git-flake = {
-      flakeInput = "nix-logseq-git-flake";
+    stylix = {
+      flakeInput = "stylix";
       upstream = {
-        url = "https://github.com/Bad3r/nix-logseq-git-flake.git";
-        ref = "main";
+        url = "https://github.com/nix-community/stylix.git";
+        ref = "master";
       };
       sourceMode = "local-override";
-      local.pathEnv = "NIX_LOGSEQ_GIT_FLAKE_CHECKOUT";
-      follows.nixpkgs = "nixpkgs";
+      local.pathEnv = "STYLIX_CHECKOUT";
+      follows = {
+        flake-parts = "flake-parts";
+        nixpkgs = "nixpkgs";
+        nur = "dedupe_nur";
+        systems = "systems";
+        tinted-schemes = "tinted-schemes";
+      };
       lockGraph.inputNames = [
+        "base16"
+        "base16-fish"
+        "base16-helix"
+        "base16-vim"
+        "firefox-gnome-theme"
         "flake-parts"
-        "git-hooks"
-        "import-tree"
+        "gnome-shell"
         "nixpkgs"
+        "nur"
+        "systems"
+        "tinted-kitty"
+        "tinted-schemes"
+        "tinted-tmux"
+        "tinted-zed"
       ];
       checks = [
         "clean-checkout"
@@ -21,7 +37,7 @@ _: {
         "follows-preserved"
         "lock-graph"
       ];
-      notes = "Pilot input for local upstream patching through temporary --override-input evaluation.";
+      notes = "Theming framework maintained against an external checkout when patching upstream modules before publishing.";
     };
   };
 }

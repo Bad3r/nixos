@@ -49,7 +49,7 @@ Required fields:
 
 | Field                  | Purpose                                                                                                       |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `flakeInput`           | Root flake input name, for example `nixpkgs` or `nix-logseq-git-flake`.                                       |
+| `flakeInput`           | Root flake input name, for example `nixpkgs` or `stylix`.                                                     |
 | `upstream.url`         | Canonical fetch and reachability remote.                                                                      |
 | `upstream.ref`         | Preferred publish ref or branch, recorded as data instead of hard-coded in scripts.                           |
 | `sourceMode`           | One of `remote-locked`, `local-override`, or `submodule`.                                                     |
@@ -232,15 +232,19 @@ ignoring dirty input state.
 
 ## Pilot Recommendation
 
-`nix-logseq-git-flake` is the first pilot because `flake.nix` already keeps the
-committed URL portable and documents `--override-input` for local development.
-It also has a small `nixpkgs.follows = "nixpkgs"` edge, which is enough to
-exercise follows-preservation checks without starting with a large nested graph.
+`stylix` is the pilot because the repository already maintains a local checkout
+under `/data/git/nix-community-stylix` for upstream patching, and the input
+declares five active follows (`flake-parts`, `nixpkgs`, `nur` via `dedupe_nur`,
+`systems`, `tinted-schemes`) plus a nested lock graph of fourteen entries.
+That surface exercises every validation class on a representative input,
+follows-preservation and lock-graph drift included, without starting from a
+toy graph.
 
 The pilot should prove this sequence:
 
-1. Keep the inventory entry for `nix-logseq-git-flake`.
-2. Patch an external checkout and test with `--override-input`.
+1. Keep the inventory entry for `stylix`.
+2. Export `STYLIX_CHECKOUT` and patch the external checkout, then test with
+   `--override-input stylix "path:$STYLIX_CHECKOUT"`.
 3. Track any new upstream files before evaluation depends on them.
 4. Push the input commit to the configured remote/ref.
 5. Refresh only that input in `flake.lock`.
@@ -259,4 +263,4 @@ The pilot should prove this sequence:
 | Nested input relationships are preserved.                                               | `follows` is explicit inventory data and a validation target.                                     |
 | Validation catches dirty inputs, untracked files, unreachable commits, and graph drift. | `scripts/check-maintained-inputs.sh` validates these conditions, with `--fetch` for reachability. |
 | Documentation covers workflows.                                                         | This guide covers patching, sync, conflict handling, publishing, and rollback.                    |
-| Pilot input can be maintained.                                                          | `nix-logseq-git-flake` is the initial inventory entry.                                            |
+| Pilot input can be maintained.                                                          | `stylix` is the initial inventory entry.                                                          |
