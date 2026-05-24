@@ -1273,6 +1273,85 @@ test_fail_upstream_fresh_stale() {
     'freshness threshold is'
 }
 
+test_pass_upstream_fresh_wip_commit() {
+  # Submodule gitlink points at a fresh WIP commit that lives only on the fork
+  # (upstream.url), not yet merged to canonical (forkOf.url). upstream-fresh must
+  # pass on the gitlink's own commit timestamp; non-reachability from canonical
+  # is a note, not an error, matching the guide's fork-and-PR WIP workflow.
+  local fixture exit_code canonical fork inv lock flake_with_submodule wip_sha
+  fixture="$(init_fixture pass-upstream-fresh-wip)"
+  canonical="${tmpdir}/pass-upstream-fresh-wip.canonical.git"
+  fork="${tmpdir}/pass-upstream-fresh-wip.fork.git"
+  git init -q --bare "${canonical}"
+  git init -q --bare "${fork}"
+
+  local clone_dir="${tmpdir}/pass-upstream-fresh-wip.clone"
+  git clone -q "${canonical}" "${clone_dir}"
+  git -C "${clone_dir}" config user.email "test@example.com"
+  git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" config commit.gpgsign false
+  printf '{ outputs = _: {}; }' >"${clone_dir}/flake.nix"
+  git -C "${clone_dir}" add flake.nix
+  git -C "${clone_dir}" commit -q -m "base"
+  git -C "${clone_dir}" push -q origin HEAD:master
+  # fork master starts at the canonical base, then gains an un-upstreamed commit.
+  git -C "${clone_dir}" push -q "${fork}" HEAD:master
+  git -C "${clone_dir}" commit -q --allow-empty -m "wip: un-upstreamed patch"
+  git -C "${clone_dir}" push -q "${fork}" HEAD:master
+  wip_sha=$(git -C "${clone_dir}" rev-parse HEAD)
+
+  git -C "${canonical}" symbolic-ref HEAD refs/heads/master
+  git -C "${fork}" symbolic-ref HEAD refs/heads/master
+  git -C "${fixture}" -c protocol.file.allow=always submodule add -b master -q "file://${fork}" inputs/example
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "file://'"${fork}"'"; ref = "master"; };
+    forkOf = { url = "file://'"${canonical}"'"; ref = "master"; };
+    sourceMode = "submodule";
+    checks = [ "reachable-commit" "upstream-fresh" ];
+  };
+}'
+  flake_with_submodule='{
+  inputs = {
+    example.url = "./inputs/example";
+    example.flake = true;
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example", "nixpkgs": "nixpkgs" } },
+    "example": {
+      "locked": { "path": "./inputs/example", "type": "path" },
+      "original": { "path": "./inputs/example", "type": "path" }
+    },
+    "nixpkgs": {
+      "locked": { "rev": "0000000000000000000000000000000000000000", "type": "github", "owner": "NixOS", "repo": "nixpkgs" },
+      "original": { "owner": "NixOS", "repo": "nixpkgs", "type": "github" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${flake_with_submodule}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  git -C "${fixture}" add .gitmodules inputs/example
+  if [ "$(git -C "${fixture}" ls-files -s inputs/example | awk '{print $2}')" != "${wip_sha}" ]; then
+    printf 'FAIL: pass-upstream-fresh-wip gitlink is not the WIP commit\n' >&2
+    exit 1
+  fi
+  exit_code=$(run_sut "${fixture}" --fetch)
+  assert_pass "pass-upstream-fresh-wip" "${fixture}" "${exit_code}"
+  if ! grep -qE 'not yet reachable from canonical' "${fixture}/stderr"; then
+    printf 'FAIL: pass-upstream-fresh-wip expected the canonical-ancestry note on stderr\n' >&2
+    dump_stderr "pass-upstream-fresh-wip" "${fixture}"
+    exit 1
+  fi
+}
+
 test_fail_reachable_commit_missing_rev() {
   local fixture exit_code lock inv
   fixture="$(init_fixture fail-reachable-missing-rev)"
@@ -1555,9 +1634,9 @@ test_fail_submodule_upstream_url_drift() {
     "upstream\\.url 'https://example.invalid/divergent\\.git' does not match \\.gitmodules url 'file://"
 }
 
-test_fail_submodule_checkout_missing() {
+test_pass_submodule_checkout_missing() {
   local fixture exit_code inv flake_with_submodule lock
-  fixture="$(init_fixture fail-submodule-missing)"
+  fixture="$(init_fixture pass-submodule-missing)"
   inv='_: {
   flake.lib.meta.maintainedInputs.example = {
     flakeInput = "example";
@@ -1596,8 +1675,12 @@ test_fail_submodule_checkout_missing() {
   write_file "${fixture}/flake.nix" "${flake_with_submodule}"
   write_file "${fixture}/flake.lock" "${lock}"
   exit_code=$(run_sut "${fixture}" --no-fetch)
-  assert_fail "fail-submodule-missing" "${fixture}" "${exit_code}" \
-    'submodule directory missing at inputs/example'
+  assert_pass "pass-submodule-missing" "${fixture}" "${exit_code}"
+  if ! grep -qE 'submodule not initialized at inputs/example' "${fixture}/stderr"; then
+    printf 'FAIL: pass-submodule-missing did not warn about the uninitialized submodule\n' >&2
+    dump_stderr "pass-submodule-missing" "${fixture}"
+    exit 1
+  fi
 }
 
 test_fail_forkof_missing_url() {
@@ -1744,14 +1827,15 @@ test_fail_reachable_commit_bad_ref
 test_fail_reachable_commit_missing_rev
 test_pass_upstream_fresh
 test_fail_upstream_fresh_stale
+test_pass_upstream_fresh_wip_commit
 test_pass_submodule_clean
 test_fail_submodule_lock_path_mismatch
 test_fail_submodule_lock_type_mismatch
 test_fail_submodule_upstream_url_drift
-test_fail_submodule_checkout_missing
+test_pass_submodule_checkout_missing
 test_pass_inputs_subdir_url_in_flake_nix
 test_fail_forkof_missing_url
 test_fail_forkof_missing_ref
 test_pass_forkof_full
 
-printf '41 passed\n'
+printf '42 passed\n'

@@ -342,7 +342,11 @@ while IFS= read -r encoded; do
     if [ "$source_mode" = "submodule" ]; then
       # Submodule mode resolution is split into three states:
       #   1. Directory missing entirely: the gitlink was never materialized
-      #      (no submodule update). Error out so operators initialize it.
+      #      (no submodule update). Warn and skip checkout-level checks; the
+      #      gitlink is still validated by the lock path/type and
+      #      reachable-commit checks, which read the index, not the worktree.
+      #      Hard-failing here would block every push now that the hook runs
+      #      always_run at pre-push.
       #   2. Directory present but no submodule worktree at this path:
       #      pre-commit's pre-push checkout creates empty placeholders for
       #      gitlinks without recursing submodules, so a plain
@@ -357,7 +361,7 @@ while IFS= read -r encoded; do
       # which differentiates (2) from (3) without false positives from
       # git's upward auto-discovery.
       if [ ! -d "$checkout" ]; then
-        error_msg "$id: submodule directory missing at $checkout; run 'git submodule update --init --recursive'"
+        printf 'maintained-inputs: %s\n' "$id: submodule not initialized at $checkout; skipping checkout-level checks (run 'git submodule update --init --recursive' to enable clean-checkout/tracked-files)" >&2
       else
         superproject=$(git -C "$checkout" rev-parse --show-superproject-working-tree 2>/dev/null || true)
         if [ -n "$superproject" ]; then
@@ -443,15 +447,26 @@ while IFS= read -r encoded; do
       git -C "$canonical_dir" init --quiet
       git -C "$canonical_dir" remote add canonical "$fork_of_url"
       if git -C "$canonical_dir" fetch --filter=blob:none --quiet canonical "$fork_of_ref"; then
+        # Canonical reachability is informational, not a gate: the fork
+        # legitimately carries WIP commits not yet merged upstream (see the
+        # guide's fork-and-PR section), and reachable-commit already proves the
+        # gitlink is reachable from upstream.url (the fork). Emit a note so the
+        # un-upstreamed state stays visible without failing the documented
+        # WIP workflow.
         if ! git -C "$canonical_dir" merge-base --is-ancestor "$fresh_rev" FETCH_HEAD; then
-          error_msg "$id: locked rev $fresh_rev is not reachable from canonical $fork_of_url $fork_of_ref"
+          printf 'maintained-inputs: %s\n' "$id: note: locked rev $fresh_rev is not yet reachable from canonical $fork_of_url $fork_of_ref (un-upstreamed fork commit)" >&2
         fi
-        # Commit timestamp lookup. For submodule mode the gitlinked commit is
-        # in the submodule checkout; for other modes it is in the canonical
-        # clone (we fetched it). Either way the SHA resolves through the
-        # canonical clone because we filter by blob and need only the tree
-        # metadata.
-        commit_ts=$(git -C "$canonical_dir" log -1 --format=%ct "$fresh_rev" 2>/dev/null || true)
+        # Freshness gates on the gitlinked commit's own timestamp. A WIP commit
+        # exists only on the fork, so read it from the materialized submodule
+        # when present; fall back to the canonical clone for non-submodule
+        # modes and for commits already merged upstream.
+        commit_ts=""
+        if [ "$source_mode" = "submodule" ] && [ -d "inputs/$flake_input" ]; then
+          commit_ts=$(git -C "inputs/$flake_input" log -1 --format=%ct "$fresh_rev" 2>/dev/null || true)
+        fi
+        if [ -z "$commit_ts" ]; then
+          commit_ts=$(git -C "$canonical_dir" log -1 --format=%ct "$fresh_rev" 2>/dev/null || true)
+        fi
         if [ -n "$commit_ts" ]; then
           now_ts=$(date +%s)
           age_seconds=$((now_ts - commit_ts))
@@ -461,7 +476,7 @@ while IFS= read -r encoded; do
             error_msg "$id: locked rev $fresh_rev is $age_days days old; freshness threshold is $freshness_days days"
           fi
         else
-          error_msg "$id: failed to resolve commit timestamp for $fresh_rev in canonical $fork_of_url"
+          error_msg "$id: failed to resolve commit timestamp for $fresh_rev"
         fi
       else
         error_msg "$id: failed to fetch canonical $fork_of_url $fork_of_ref"
