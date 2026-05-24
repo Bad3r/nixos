@@ -42,6 +42,7 @@ let
     "mpv"
     "ncdu"
     "nixvim"
+    "nushell"
     "onlyoffice-desktopeditors"
     "obsidian"
     "pandoc"

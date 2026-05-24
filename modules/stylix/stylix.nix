@@ -103,6 +103,7 @@ in
           firefoxEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
           librewolfEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
           mpvEnabled = lib.attrByPath [ "programs" "mpv" "extended" "enable" ] false osConfig;
+          nushellEnabled = lib.attrByPath [ "programs" "nushell" "extended" "enable" ] false osConfig;
           zathuraEnabled = lib.attrByPath [ "programs" "zathura" "extended" "enable" ] false osConfig;
           qogirDarkFixedIconSizes = {
             "16/apps" = 16;
@@ -299,6 +300,9 @@ in
 
               # Zathura PDF viewer theming (only if enabled)
               zathura.enable = zathuraEnabled;
+
+              # Nushell theming (only if enabled)
+              nushell.enable = nushellEnabled;
             };
           };
 
@@ -333,6 +337,7 @@ in
           home.packages = [
             pkgs.google-fonts
             pkgs.gucharmap
+            pkgs.maple-mono.NF
           ];
 
           # Set dark mode preference for GNOME/libadwaita apps

@@ -264,6 +264,7 @@ let
       mkcert.extended.enable = lib.mkOverride 1100 true;
       mlr.extended.enable = lib.mkOverride 1100 true;
       "monitor-query".extended.enable = lib.mkOverride 1100 false;
+      moreutils.extended.enable = lib.mkOverride 1100 true;
       mosh.extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 true;
       "msgraph-cli".extended.enable = lib.mkOverride 1100 true;
@@ -304,6 +305,7 @@ let
       ntfs3g.extended.enable = lib.mkOverride 1100 true;
       nuclei.extended.enable = lib.mkOverride 1100 true;
       "nuclei-templates".extended.enable = lib.mkOverride 1100 true;
+      nushell.extended.enable = lib.mkOverride 1100 true;
       nvd.extended.enable = lib.mkOverride 1100 true;
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 true;
