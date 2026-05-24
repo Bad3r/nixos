@@ -92,9 +92,7 @@ def slugify(value: str) -> str:
     return re.sub(r"-{2,}", "-", slug)
 
 
-def prompt_text(
-    label: str, *, default: str | None = None, required: bool = False
-) -> str:
+def prompt_text(label: str, *, default: str | None = None, required: bool = False) -> str:
     suffix = styled(f" [{default}]", "hint") if default not in (None, "") else ""
     while True:
         value = input(f"{styled(label, 'prompt')}{suffix}: ").strip()
@@ -110,11 +108,7 @@ def prompt_text(
 def prompt_bool(label: str, *, default: bool) -> bool:
     hint = "Y/n" if default else "y/N"
     while True:
-        value = (
-            input(f"{styled(label, 'prompt')} {styled(f'[{hint}]', 'hint')}: ")
-            .strip()
-            .lower()
-        )
+        value = input(f"{styled(label, 'prompt')} {styled(f'[{hint}]', 'hint')}: ").strip().lower()
         if not value:
             return default
         if value in {"y", "yes", "true", "1"}:
@@ -265,9 +259,7 @@ def prompt_entry(catalog: CommentedMap) -> CommentedMap:
 
     verification = CommentedMap()
     status = prompt_choice("Verification status", STATUSES, default="active")
-    verification["last_checked"] = (
-        None if status == "unknown" else q(date.today().isoformat())
-    )
+    verification["last_checked"] = None if status == "unknown" else q(date.today().isoformat())
     verification["status"] = status
     verification["notes"] = prompt_text("Verification notes", default="")
     entry["verification"] = verification
@@ -279,9 +271,7 @@ def is_non_decrypted_secret_path(path: Path) -> bool:
     try:
         resolved = path.resolve()
         secrets_dir = Path("secrets").resolve()
-        return resolved.is_relative_to(secrets_dir) and not path.name.startswith(
-            "decrypted_"
-        )
+        return resolved.is_relative_to(secrets_dir) and not path.name.startswith("decrypted_")
     except OSError as err:
         raise SystemExit(f"Cannot resolve target path: {path}: {err}") from err
 
@@ -352,9 +342,7 @@ def main(argv: list[str] | None = None) -> int:
     entries.append(entry)
     catalog["updated_at"] = q(date.today().isoformat())
     write_catalog(path, catalog, yaml)
-    print(
-        f"{styled('Added entry', 'success')} `{entry['id']}` to {styled(path, 'path')}"
-    )
+    print(f"{styled('Added entry', 'success')} `{entry['id']}` to {styled(path, 'path')}")
     return 0
 
 

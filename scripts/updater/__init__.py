@@ -39,8 +39,8 @@ from .platforms import calculate_platform_hashes
 
 # Version fetching
 from .version import (
-    fetch_github_latest_tag,
     fetch_github_latest_release,
+    fetch_github_latest_tag,
     fetch_github_latest_tag_version,
     fetch_npm_version,
     fetch_version_from_text,

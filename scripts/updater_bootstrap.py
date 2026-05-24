@@ -24,10 +24,7 @@ def checkout_root(script_file: str | Path, package_name: str) -> Path:
     if root is not None:
         return root
 
-    msg = (
-        "Could not find the nixos checkout root from update script path for "
-        f"{package_name}."
-    )
+    msg = f"Could not find the nixos checkout root from update script path for {package_name}."
     raise RuntimeError(msg)
 
 

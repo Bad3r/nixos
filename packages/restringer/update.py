@@ -10,13 +10,13 @@ import urllib.error
 from pathlib import Path
 from typing import Any, cast
 
-
 PACKAGE_NAME = "restringer"
 OWNER = "HumanSecurity"
 REPO = "restringer"
 TAG_PATTERN = r"^v(?P<version>\d+\.\d+\.\d+)$"
 DEFAULT_NODE_ABI = "node-v127"
 DEFAULT_PLATFORM = "linux-x64"
+HTTP_NOT_FOUND = 404
 
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
@@ -63,7 +63,7 @@ def package_json_isolated_vm_version(version: str) -> str:
     isolated_vm = dependencies.get("isolated-vm")
     if not isinstance(isolated_vm, str):
         msg = "Could not find isolated-vm in package.json"
-        raise RuntimeError(msg)
+        raise TypeError(msg)
     if not isolated_vm or not isolated_vm[0].isdigit():
         msg = f"package.json isolated-vm dependency is not exact: {isolated_vm}"
         raise RuntimeError(msg)
@@ -75,7 +75,7 @@ def lockfile_isolated_vm_version(version: str) -> str | None:
     try:
         data = fetch_json(upstream_url(version, "package-lock.json"))
     except urllib.error.HTTPError as exc:
-        if exc.code == 404:
+        if exc.code == HTTP_NOT_FOUND:
             return None
         raise
     if not isinstance(data, dict):

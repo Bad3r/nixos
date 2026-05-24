@@ -78,10 +78,7 @@ def nix_command(
     ]
     flake_aware = {"build", "eval", "run", "develop", "shell", "flake"}
     flake_mutating = (
-        bool(args)
-        and args[0] == "flake"
-        and len(args) > 1
-        and args[1] in {"update", "lock"}
+        bool(args) and args[0] == "flake" and len(args) > 1 and args[1] in {"update", "lock"}
     )
     if (
         args

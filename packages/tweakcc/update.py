@@ -13,7 +13,6 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-
 PACKAGE_NAME = "tweakcc"
 REPO = "Piebald-AI/tweakcc"
 BRANCH = "main"
