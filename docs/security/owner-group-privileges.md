@@ -74,6 +74,13 @@ Scope:
   - security impact:
     - read/modify queued print jobs and printer-facing data.
 
+- `disk`:
+
+  - access:
+    - raw block devices (e.g. `/dev/sda`, `/dev/nvme0n1`).
+  - security impact:
+    - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
+
 ## Additional Owner Groups Added By Other Modules
 
 - `wireshark` (when Wireshark app module is enabled):
@@ -148,4 +155,5 @@ Scope:
   - `find /dev -xdev -group input | head`
   - `find /dev -xdev -group video | head`
   - `find /dev -xdev -group audio | head`
+  - `find /dev -xdev -group disk | head`
   - `find /var -xdev -group systemd-journal | head`

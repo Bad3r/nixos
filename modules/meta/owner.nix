@@ -35,6 +35,7 @@
             "lp" # Printers and USB devices
             "systemd-journal" # Read journalctl without sudo
             "adm" # Read /var/log files without sudo
+            "disk" # Access disk devices without sudo (e.g., fdisk)
           ];
 
           # SSH authorized keys for remote access
