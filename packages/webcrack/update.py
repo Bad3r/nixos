@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-
 PACKAGE_NAME = "webcrack"
 OWNER = "j4k0xb"
 REPO = "webcrack"
@@ -39,6 +38,22 @@ from updater import (  # noqa: E402
 )
 
 
+def require_dict(value: object, description: str) -> dict[str, Any]:
+    """Return a JSON object or raise a typed error."""
+    if not isinstance(value, dict):
+        msg = f"Expected {description} dict, got {type(value)}"
+        raise TypeError(msg)
+    return cast("dict[str, Any]", value)
+
+
+def require_str(value: object, description: str) -> str:
+    """Return a JSON string or raise a typed error."""
+    if not isinstance(value, str):
+        msg = f"Expected {description} string, got {type(value)}"
+        raise TypeError(msg)
+    return value
+
+
 def latest_version() -> str:
     """Fetch the highest stable webcrack tag."""
     return fetch_github_latest_tag(OWNER, REPO, TAG_PATTERN)
@@ -59,65 +74,38 @@ def parse_pnpm_lock(lock_text: str) -> dict[str, Any]:
         input=lock_text,
     )
     data = json.loads(result.stdout)
-    if not isinstance(data, dict):
-        msg = f"Expected dict from pnpm lock, got {type(data)}"
-        raise TypeError(msg)
-    return cast("dict[str, Any]", data)
+    return require_dict(data, "pnpm lock")
 
 
-def upstream_isolated_vm_pin(version: str) -> tuple[str, str]:
-    """Read the exact isolated-vm version and integrity from upstream."""
-    package_json = fetch_json(upstream_url(version, "packages/webcrack/package.json"))
-    if not isinstance(package_json, dict):
-        msg = f"Expected package.json dict, got {type(package_json)}"
-        raise TypeError(msg)
+def package_json_isolated_vm_specifier(version: str) -> str:
+    """Read the isolated-vm specifier from upstream package.json."""
+    package_json = require_dict(
+        fetch_json(upstream_url(version, "packages/webcrack/package.json")),
+        "package.json",
+    )
+    dependencies = require_dict(package_json.get("dependencies"), "dependencies")
+    return require_str(
+        dependencies.get("isolated-vm"),
+        "isolated-vm dependency in packages/webcrack/package.json",
+    )
 
-    dependencies = package_json.get("dependencies")
-    if not isinstance(dependencies, dict):
-        msg = f"Expected dependencies dict, got {type(dependencies)}"
-        raise TypeError(msg)
-    package_specifier = dependencies.get("isolated-vm")
-    if not isinstance(package_specifier, str):
-        msg = "Could not find isolated-vm in packages/webcrack/package.json"
-        raise RuntimeError(msg)
 
-    lock_text = fetch_text(upstream_url(version, "pnpm-lock.yaml"))
-    lock_data = parse_pnpm_lock(lock_text)
-    importers = lock_data.get("importers")
-    if not isinstance(importers, dict):
-        msg = f"Expected importers dict, got {type(importers)}"
-        raise TypeError(msg)
+def importer_isolated_vm_entry(lock_data: dict[str, Any]) -> dict[str, Any]:
+    """Read the isolated-vm importer entry from pnpm-lock.yaml."""
+    importers = require_dict(lock_data.get("importers"), "importers")
+    webcrack_importer = require_dict(
+        importers.get("packages/webcrack"),
+        "packages/webcrack importer",
+    )
+    importer_deps = require_dict(webcrack_importer.get("dependencies"), "importer dependencies")
+    return require_dict(importer_deps.get("isolated-vm"), "isolated-vm importer entry")
 
-    webcrack_importer = importers.get("packages/webcrack")
-    if not isinstance(webcrack_importer, dict):
-        msg = "Could not find packages/webcrack importer in pnpm-lock.yaml"
-        raise RuntimeError(msg)
-    importer_deps = webcrack_importer.get("dependencies")
-    if not isinstance(importer_deps, dict):
-        msg = f"Expected importer dependencies dict, got {type(importer_deps)}"
-        raise TypeError(msg)
 
-    isolated_vm = importer_deps.get("isolated-vm")
-    if not isinstance(isolated_vm, dict):
-        msg = "Could not find isolated-vm importer entry in pnpm-lock.yaml"
-        raise RuntimeError(msg)
-
-    lock_specifier = isolated_vm.get("specifier")
-    lock_version = isolated_vm.get("version")
-    if lock_specifier != package_specifier:
-        msg = (
-            "isolated-vm package.json specifier does not match pnpm lock: "
-            f"{package_specifier} != {lock_specifier}"
-        )
-        raise RuntimeError(msg)
-    if not isinstance(lock_version, str):
-        msg = f"Expected isolated-vm version string, got {type(lock_version)}"
-        raise TypeError(msg)
-
-    packages = lock_data.get("packages")
-    if not isinstance(packages, dict):
-        msg = f"Expected packages dict, got {type(packages)}"
-        raise TypeError(msg)
+def package_entry_for_isolated_vm(
+    packages: dict[str, Any],
+    lock_version: str,
+) -> dict[str, Any]:
+    """Read the isolated-vm package entry from pnpm-lock.yaml packages."""
     package_key_suffix = f"isolated-vm@{lock_version}"
     package_entry = next(
         (entry for key, entry in packages.items() if key.endswith(package_key_suffix)),
@@ -126,19 +114,32 @@ def upstream_isolated_vm_pin(version: str) -> tuple[str, str]:
     if package_entry is None:
         msg = f"Could not find isolated-vm@{lock_version} in pnpm-lock.yaml"
         raise RuntimeError(msg)
-    if not isinstance(package_entry, dict):
-        msg = f"Expected isolated-vm package entry dict, got {type(package_entry)}"
-        raise TypeError(msg)
-    resolution = package_entry.get("resolution")
-    if not isinstance(resolution, dict):
-        msg = f"Expected isolated-vm resolution dict, got {type(resolution)}"
-        raise TypeError(msg)
-    integrity = resolution.get("integrity")
-    if not isinstance(integrity, str):
-        msg = f"Expected isolated-vm integrity string, got {type(integrity)}"
-        raise TypeError(msg)
+    return require_dict(package_entry, "isolated-vm package entry")
 
-    return lock_version, integrity
+
+def lockfile_isolated_vm_integrity(lock_data: dict[str, Any], lock_version: str) -> str:
+    """Read the isolated-vm package integrity from pnpm-lock.yaml."""
+    packages = require_dict(lock_data.get("packages"), "packages")
+    package_entry = package_entry_for_isolated_vm(packages, lock_version)
+    resolution = require_dict(package_entry.get("resolution"), "isolated-vm resolution")
+    return require_str(resolution.get("integrity"), "isolated-vm integrity")
+
+
+def upstream_isolated_vm_pin(version: str) -> tuple[str, str]:
+    """Read the exact isolated-vm version and integrity from upstream."""
+    package_specifier = package_json_isolated_vm_specifier(version)
+    lock_text = fetch_text(upstream_url(version, "pnpm-lock.yaml"))
+    lock_data = parse_pnpm_lock(lock_text)
+    isolated_vm = importer_isolated_vm_entry(lock_data)
+    lock_specifier = require_str(isolated_vm.get("specifier"), "isolated-vm specifier")
+    lock_version = require_str(isolated_vm.get("version"), "isolated-vm version")
+    if lock_specifier != package_specifier:
+        msg = (
+            "isolated-vm package.json specifier does not match pnpm lock: "
+            f"{package_specifier} != {lock_specifier}"
+        )
+        raise RuntimeError(msg)
+    return lock_version, lockfile_isolated_vm_integrity(lock_data, lock_version)
 
 
 def parse_args() -> argparse.Namespace:

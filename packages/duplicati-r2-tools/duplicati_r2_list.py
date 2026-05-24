@@ -131,9 +131,7 @@ def cmd_ls(args: argparse.Namespace) -> int:
         rows.append(
             {
                 "name": f["name"],
-                "type": "symlink"
-                if f["blockset_id"] == SYMLINK_BLOCKSET_ID
-                else "file",
+                "type": "symlink" if f["blockset_id"] == SYMLINK_BLOCKSET_ID else "file",
                 "size": f["size"],
                 "mtime": f["mtime"],
             }
@@ -306,9 +304,7 @@ def cmd_grep(args: argparse.Namespace) -> int:
         for row in cursor:
             if pattern.search(row["path"]) is None:
                 continue
-            rows.append(
-                {"path": row["path"], "size": row["size"], "mtime": row["mtime"]}
-            )
+            rows.append({"path": row["path"], "size": row["size"], "mtime": row["mtime"]})
     else:
         cursor = conn.execute(
             """
@@ -323,16 +319,11 @@ def cmd_grep(args: argparse.Namespace) -> int:
             (snapshot["ID"], args.pattern),
         )
         for row in cursor:
-            rows.append(
-                {"path": row["path"], "size": row["size"], "mtime": row["mtime"]}
-            )
+            rows.append({"path": row["path"], "size": row["size"], "mtime": row["mtime"]})
 
     if args.json:
         emit_rows(
-            [
-                {"path": r["path"], "size": r["size"], "mtime": iso_utc(r["mtime"])}
-                for r in rows
-            ],
+            [{"path": r["path"], "size": r["size"], "mtime": iso_utc(r["mtime"])} for r in rows],
             [],
             True,
             stream=True,
@@ -382,17 +373,13 @@ def build_parser() -> argparse.ArgumentParser:
     ls = sub.add_parser("ls", help="List directory children at a snapshot.")
     ls.add_argument("slug")
     ls.add_argument("path", help="Directory path (with or without trailing slash).")
-    ls.add_argument(
-        "--snapshot", help="Fileset.ID or ISO-8601 timestamp (default: latest)."
-    )
+    ls.add_argument("--snapshot", help="Fileset.ID or ISO-8601 timestamp (default: latest).")
     ls.set_defaults(func=cmd_ls)
 
     stat = sub.add_parser("stat", help="Print metadata for a single file.")
     stat.add_argument("slug")
     stat.add_argument("path")
-    stat.add_argument(
-        "--snapshot", help="Fileset.ID or ISO-8601 timestamp (default: latest)."
-    )
+    stat.add_argument("--snapshot", help="Fileset.ID or ISO-8601 timestamp (default: latest).")
     stat.set_defaults(func=cmd_stat)
 
     history = sub.add_parser("history", help="List every snapshot containing a path.")
@@ -400,19 +387,11 @@ def build_parser() -> argparse.ArgumentParser:
     history.add_argument("path")
     history.set_defaults(func=cmd_history)
 
-    grep = sub.add_parser(
-        "grep", help="Path-glob (or regex) over file paths at a snapshot."
-    )
+    grep = sub.add_parser("grep", help="Path-glob (or regex) over file paths at a snapshot.")
     grep.add_argument("slug")
-    grep.add_argument(
-        "pattern", help="Glob like '*.txt' (default) or regex with --regex."
-    )
-    grep.add_argument(
-        "--regex", action="store_true", help="Interpret pattern as a Python regex."
-    )
-    grep.add_argument(
-        "--snapshot", help="Fileset.ID or ISO-8601 timestamp (default: latest)."
-    )
+    grep.add_argument("pattern", help="Glob like '*.txt' (default) or regex with --regex.")
+    grep.add_argument("--regex", action="store_true", help="Interpret pattern as a Python regex.")
+    grep.add_argument("--snapshot", help="Fileset.ID or ISO-8601 timestamp (default: latest).")
     grep.set_defaults(func=cmd_grep)
 
     return parser

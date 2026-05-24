@@ -69,9 +69,7 @@ def normalize_query_path(value: str) -> str:
     if not value:
         fail("path argument is empty", EXIT_USAGE)
     if any(part == ".." for part in value.split("/")):
-        fail(
-            f"path '{value}' contains '..' segments; pass a canonical path", EXIT_USAGE
-        )
+        fail(f"path '{value}' contains '..' segments; pass a canonical path", EXIT_USAGE)
     norm = os.path.normpath(value)
     if norm.startswith("//") and not norm.startswith("///"):
         norm = norm[1:]
@@ -123,9 +121,7 @@ def load_manifest(config_path: str) -> dict | None:
         warn(f"manifest {config_path} not found; using default stateDir")
         return None
     except PermissionError:
-        warn(
-            f"manifest {config_path} not readable by uid={os.getuid()}; using default stateDir"
-        )
+        warn(f"manifest {config_path} not readable by uid={os.getuid()}; using default stateDir")
         return None
     except (OSError, json.JSONDecodeError) as exc:
         fail(f"failed to read {config_path}: {exc}")
@@ -140,9 +136,7 @@ def resolve_db_path(args: argparse.Namespace) -> str:
 
     slug = args.slug
     config_path = (
-        getattr(args, "config", None)
-        or os.environ.get("DUPLICATI_R2_CONFIG")
-        or DEFAULT_CONFIG
+        getattr(args, "config", None) or os.environ.get("DUPLICATI_R2_CONFIG") or DEFAULT_CONFIG
     )
     manifest = load_manifest(config_path)
 
@@ -194,9 +188,7 @@ def open_db(db_path: str) -> sqlite3.Connection:
         fail(f"sqlite open failed for {db_path}: {exc}")
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA query_only = ON")
-    version_row = conn.execute(
-        "SELECT Value FROM Configuration WHERE Key = 'Version'"
-    ).fetchone()
+    version_row = conn.execute("SELECT Value FROM Configuration WHERE Key = 'Version'").fetchone()
     if version_row is None:
         fail(f"{db_path} missing Configuration.Version row", EXIT_DATA_ERR)
     if str(version_row["Value"]) not in SUPPORTED_SCHEMA_VERSIONS:

@@ -172,6 +172,39 @@ def _looks_like_prerelease(version: str) -> bool:
     return bool(suffix)
 
 
+def _github_tag_name(tag: object) -> str:
+    """Return the tag name from a GitHub tag API object."""
+    if not isinstance(tag, dict):
+        msg = f"Expected tag dict from GitHub API, got {type(tag)}"
+        raise TypeError(msg)
+    tag_data = cast("dict[str, object]", tag)
+    name = tag_data.get("name")
+    if not isinstance(name, str):
+        msg = f"Expected tag name string, got {type(name)}"
+        raise TypeError(msg)
+    return name
+
+
+def _matching_tag_versions(
+    data: JsonArray,
+    tag_pattern: re.Pattern[str],
+    version_group: str,
+    *,
+    allow_prerelease: bool,
+) -> list[str]:
+    """Return matching versions from one GitHub tags API page."""
+    versions: list[str] = []
+    for tag in data:
+        match = tag_pattern.fullmatch(_github_tag_name(tag))
+        if match is None:
+            continue
+
+        version = match.group(version_group)
+        if allow_prerelease or not _looks_like_prerelease(version):
+            versions.append(version)
+    return versions
+
+
 def fetch_github_latest_tag(
     owner: str,
     repo: str,
@@ -200,7 +233,8 @@ def fetch_github_latest_tag(
 
     while True:
         url = (
-            f"https://api.github.com/repos/{owner}/{repo}/tags?per_page=100&page={page}"
+            f"https://api.github.com/repos/{owner}/{repo}/tags?"
+            f"per_page={GITHUB_TAGS_PAGE_SIZE}&page={page}"
         )
         data = fetch_json(url)
         if not isinstance(data, list):
@@ -209,26 +243,16 @@ def fetch_github_latest_tag(
         if not data:
             break
 
-        for tag in data:
-            if not isinstance(tag, dict):
-                msg = f"Expected tag dict from GitHub API, got {type(tag)}"
-                raise TypeError(msg)
-            name = tag.get("name")
-            if not isinstance(name, str):
-                msg = f"Expected tag name string, got {type(name)}"
-                raise TypeError(msg)
-
-            match = tag_pattern.fullmatch(name)
-            if match is None:
-                continue
-
-            version = match.group(version_group)
-            if not allow_prerelease and _looks_like_prerelease(version):
-                continue
+        for version in _matching_tag_versions(
+            data,
+            tag_pattern,
+            version_group,
+            allow_prerelease=allow_prerelease,
+        ):
             if latest is None or compare_versions(latest, version) < 0:
                 latest = version
 
-        if len(data) < 100:
+        if len(data) < GITHUB_TAGS_PAGE_SIZE:
             break
         page += 1
 

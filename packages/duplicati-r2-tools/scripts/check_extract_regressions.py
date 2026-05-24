@@ -148,9 +148,7 @@ def check_db_override_still_loads_layout_manifest(work: Path) -> None:
         ),
         encoding="utf-8",
     )
-    args = argparse.Namespace(
-        slug="test", db=str(work / "copy.sqlite"), config=str(config)
-    )
+    args = argparse.Namespace(slug="test", db=str(work / "copy.sqlite"), config=str(config))
 
     manifest = _load_manifest_for_layout(args)
     layout = resolve_bucket_layout(args, {}, manifest)
@@ -375,14 +373,10 @@ def check_block_hash_before_sink() -> None:
                 path="/bad.bin",
                 blockset_id=1,
                 full_size=3,
-                full_hash=base64.b64encode(hashlib.sha256(b"bad").digest()).decode(
-                    "ascii"
-                ),
+                full_hash=base64.b64encode(hashlib.sha256(b"bad").digest()).decode("ascii"),
             )
 
-        def block_refs(
-            self, _blockset_id: int, _expected_size: int | None
-        ) -> list[BlockRef]:
+        def block_refs(self, _blockset_id: int, _expected_size: int | None) -> list[BlockRef]:
             return [BlockRef("vol1.aes", expected_hash, 3)]
 
     extractor = object.__new__(Extractor)
@@ -479,8 +473,7 @@ def check_blocklist_lookup_batches_sql_vars() -> None:
         return base64.b64encode(hash_bytes).decode("ascii").rstrip("=")
 
     content_hashes = [
-        hashlib.sha256(f"content-{index}".encode("ascii")).digest()
-        for index in range(600)
+        hashlib.sha256(f"content-{index}".encode("ascii")).digest() for index in range(600)
     ]
     blocklist_hash = hashlib.sha256(b"blocklist").digest()
     blocklist_blob = b"".join(content_hashes)
@@ -490,10 +483,7 @@ def check_blocklist_lookup_batches_sql_vars() -> None:
     )
     conn.executemany(
         "INSERT INTO Block VALUES (?, ?, ?, ?)",
-        [
-            (index + 2, b64(hash_bytes), 1024, 2)
-            for index, hash_bytes in enumerate(content_hashes)
-        ],
+        [(index + 2, b64(hash_bytes), 1024, 2) for index, hash_bytes in enumerate(content_hashes)],
     )
     conn.execute(
         "INSERT INTO BlocklistHash VALUES (?, ?, ?)",

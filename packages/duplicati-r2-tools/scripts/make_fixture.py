@@ -162,12 +162,8 @@ def main() -> int:
     # Plan blocks per file.
     # block_pool: map raw_hash -> Block (deduplicated across files).
     block_pool: dict[bytes, Block] = {}
-    blocks_for_file: dict[
-        int, list[Block]
-    ] = {}  # blockset_id -> ordered content blocks
-    blocklists_for_file: dict[
-        int, list[Block]
-    ] = {}  # blockset_id -> ordered blocklist blocks
+    blocks_for_file: dict[int, list[Block]] = {}  # blockset_id -> ordered content blocks
+    blocklists_for_file: dict[int, list[Block]] = {}  # blockset_id -> ordered blocklist blocks
 
     next_block_id = 1
 
@@ -203,9 +199,7 @@ def main() -> int:
             # Concatenate raw hashes, split into BLOCK_SIZE chunks.
             concat = b"".join(b.raw_hash for b in content_blocks)
             list_payloads = split_blocks(concat)
-            blocklist_blocks = [
-                intern_block(p, is_blocklist=True) for p in list_payloads
-            ]
+            blocklist_blocks = [intern_block(p, is_blocklist=True) for p in list_payloads]
             blocklists_for_file[spec.blockset_id] = blocklist_blocks
             # Sentinel: BlocksetEntry empty -> extract.py falls back to BlocklistHash.
 
@@ -287,9 +281,7 @@ def main() -> int:
                 "time": "20260101T000000Z",
                 "metahash": b64(hashlib.sha256(b"meta").digest()),
                 "metasize": 0,
-                "blocklists": [
-                    b64(b.raw_hash) for b in blocklists_for_file[spec.blockset_id]
-                ],
+                "blocklists": [b64(b.raw_hash) for b in blocklists_for_file[spec.blockset_id]],
             }
         elif len(blocks_for_file[spec.blockset_id]) == 1:
             entry = {

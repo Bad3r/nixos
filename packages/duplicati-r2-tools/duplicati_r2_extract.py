@@ -60,8 +60,7 @@ from duplicati_r2_common import (  # noqa: E402
 DEFAULT_ENV_FILE = "/etc/duplicati/r2.env"
 DEFAULT_CACHE_BYTES = 1 * 1024 * 1024 * 1024  # 1 GiB
 DEFAULT_CACHE_DIR = (
-    os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
-    + "/duplicati-r2-tools"
+    os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")) + "/duplicati-r2-tools"
 )
 MAX_OPEN_VOLUMES = 16
 SQLITE_BIND_SAFETY_MARGIN = 1
@@ -250,9 +249,9 @@ def load_env_file(path: str) -> dict[str, str]:
                     continue
                 key, raw_value = m.group(1), m.group(2)
                 stripped_value = raw_value.strip()
-                if (
-                    stripped_value.startswith('"') and stripped_value.endswith('"')
-                ) or (stripped_value.startswith("'") and stripped_value.endswith("'")):
+                if (stripped_value.startswith('"') and stripped_value.endswith('"')) or (
+                    stripped_value.startswith("'") and stripped_value.endswith("'")
+                ):
                     value = stripped_value[1:-1]
                 else:
                     value = stripped_value
@@ -276,12 +275,7 @@ class Source:
 
 
 def validate_volume_name(volume_name: str) -> None:
-    if (
-        not volume_name
-        or volume_name in {".", ".."}
-        or "/" in volume_name
-        or "\\" in volume_name
-    ):
+    if not volume_name or volume_name in {".", ".."} or "/" in volume_name or "\\" in volume_name:
         fail(
             f"refusing volume name with path components: {volume_name!r}",
             EXIT_DATA_ERR,
@@ -729,17 +723,13 @@ class AesDecrypter:
     def decrypt(self, encrypted: bytes, volume_name: str) -> bytes:
         plain = io.BytesIO()
         try:
-            self._mod.decryptStream(
-                io.BytesIO(encrypted), plain, self.passphrase, 64 * 1024
-            )
+            self._mod.decryptStream(io.BytesIO(encrypted), plain, self.passphrase, 64 * 1024)
         except ValueError as exc:
             # pyAesCrypt raises ValueError for HMAC mismatch, wrong password,
             # or any "corrupted" failure mode; all of those are data errors,
             # not user errors. Surface the message verbatim alongside the
             # offending volume name (loud-failure contract per docs).
-            raise AesDecryptError(
-                f"AES decrypt failed for {volume_name}: {exc}"
-            ) from exc
+            raise AesDecryptError(f"AES decrypt failed for {volume_name}: {exc}") from exc
         return plain.getvalue()
 
 
@@ -958,9 +948,7 @@ class BlockResolver:
             full_hash=row["full_hash"],
         )
 
-    def block_refs(
-        self, blockset_id: int, expected_size: int | None = None
-    ) -> list[BlockRef]:
+    def block_refs(self, blockset_id: int, expected_size: int | None = None) -> list[BlockRef]:
         """Resolve a blockset's content blocks in stream order.
 
         ``expected_size`` is the file's plaintext length from
@@ -1093,9 +1081,7 @@ class Extractor:
         self.blocksize = blocksize
         self.block_hash_algo = block_hash_algo.upper()
         self.file_hash_algo = file_hash_algo.upper()
-        self._open_volumes: collections.OrderedDict[str, OpenedVolume] = (
-            collections.OrderedDict()
-        )
+        self._open_volumes: collections.OrderedDict[str, OpenedVolume] = collections.OrderedDict()
         self.resolver = BlockResolver(conn, block_hash_algo, self._fetch_block_bytes)
 
     def _open_volume(self, volume_name: str) -> OpenedVolume:
@@ -1103,9 +1089,7 @@ class Extractor:
         if cached is not None:
             self._open_volumes.move_to_end(volume_name)
             return cached
-        encrypted, cache_hit = self.cache.get_with_status(
-            volume_name, self.source.fetch
-        )
+        encrypted, cache_hit = self.cache.get_with_status(volume_name, self.source.fetch)
         try:
             decrypted = self.decrypter.decrypt(encrypted, volume_name)
         except AesDecryptError as exc:
@@ -1138,9 +1122,7 @@ class Extractor:
         self._verify_block_hash(volume_name, block_hash, block)
         return block
 
-    def _verify_block_hash(
-        self, volume_name: str, block_hash: bytes, block: bytes
-    ) -> None:
+    def _verify_block_hash(self, volume_name: str, block_hash: bytes, block: bytes) -> None:
         try:
             digest = hashlib.new(self.block_hash_algo)
         except ValueError as exc:
@@ -1189,9 +1171,7 @@ class Extractor:
             )
         if digest is not None and entry.full_hash:
             try:
-                expected = base64.b64decode(
-                    entry.full_hash + "=" * (-len(entry.full_hash) % 4)
-                )
+                expected = base64.b64decode(entry.full_hash + "=" * (-len(entry.full_hash) % 4))
             except binascii.Error as exc:
                 fail(
                     f"Blockset.FullHash for {abs_path} is not valid base64 ({exc}); DB likely corrupt",
@@ -1331,9 +1311,7 @@ def _validate_output_dir_target(output_dir: Path, src_path: str) -> Path:
 
 
 def configuration_value(conn: sqlite3.Connection, key: str) -> str | None:
-    row = conn.execute(
-        "SELECT Value FROM Configuration WHERE Key = ?", (key,)
-    ).fetchone()
+    row = conn.execute("SELECT Value FROM Configuration WHERE Key = ?", (key,)).fetchone()
     return row["Value"] if row is not None else None
 
 
@@ -1503,9 +1481,7 @@ def _load_manifest_for_layout(args: argparse.Namespace) -> dict | None:
     layout, so the manifest is still consulted here.
     """
     config_path = (
-        getattr(args, "config", None)
-        or os.environ.get("DUPLICATI_R2_CONFIG")
-        or DEFAULT_CONFIG
+        getattr(args, "config", None) or os.environ.get("DUPLICATI_R2_CONFIG") or DEFAULT_CONFIG
     )
     if not os.path.exists(config_path) or not os.access(config_path, os.R_OK):
         return None
