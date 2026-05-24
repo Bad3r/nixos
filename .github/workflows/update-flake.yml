@@ -15,6 +15,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # self.submodules = true makes the nixpkgs/home-manager/stylix path
+          # inputs resolve through the inputs/<name> submodule trees, so the
+          # nix flake metadata/check steps below need them materialized.
+          submodules: true
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
@@ -35,10 +40,20 @@ jobs:
       - name: Update flake inputs
         id: update
         run: |
-          # Update all inputs except secrets (requires private SSH access)
-          # Get all inputs except 'secrets' and 'self'
+          # Update all inputs except secrets (requires private SSH access) and
+          # the submodule-backed maintained inputs. Path-type lock entries
+          # (inputs/<name> submodules) cannot be re-locked with --update-input;
+          # they are bumped by moving the submodule gitlink (see
+          # docs/guides/maintained-flake-inputs.md), so skip them here.
           inputs=$(nix flake metadata --json \
-            | jq -r '.locks.nodes.root.inputs | keys[]' \
+            | jq -r '
+                .locks.nodes as $nodes
+                | $nodes.root.inputs
+                | to_entries[]
+                | select((.value | type) == "string")
+                | select($nodes[.value].locked.type != "path")
+                | .key
+              ' \
             | grep -v "^secrets$" || true)
 
           if [ -n "$inputs" ]; then
@@ -94,6 +109,8 @@ jobs:
 
             ### Excluded Inputs
             - `secrets` - Requires private authentication, updated manually
+            - Submodule-backed maintained inputs (`type = "path"`) are bumped
+              via submodule gitlink updates, not `--update-input`
 
             ### Changed Inputs
             See the commit diff for detailed changes to `flake.lock`.
