@@ -1394,6 +1394,97 @@ test_fail_submodule_checkout_missing() {
     'submodule directory missing at inputs/example'
 }
 
+test_fail_forkof_missing_url() {
+  local fixture exit_code bad_inventory
+  fixture="$(init_fixture fail-forkof-missing-url)"
+  bad_inventory='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/example.git";
+        ref = "main";
+      };
+      forkOf = {
+        ref = "main";
+      };
+      sourceMode = "remote-locked";
+      checks = [ "follows-preserved" ];
+    };
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${bad_inventory}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-forkof-missing-url" "${fixture}" "${exit_code}" \
+    'forkOf is set but forkOf\.url is missing'
+}
+
+test_fail_forkof_missing_ref() {
+  local fixture exit_code bad_inventory
+  fixture="$(init_fixture fail-forkof-missing-ref)"
+  bad_inventory='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/example.git";
+        ref = "main";
+      };
+      forkOf = {
+        url = "https://example.invalid/canonical.git";
+      };
+      sourceMode = "remote-locked";
+      checks = [ "follows-preserved" ];
+    };
+  };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${bad_inventory}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-forkof-missing-ref" "${fixture}" "${exit_code}" \
+    'forkOf is set but forkOf\.ref is missing'
+}
+
+test_pass_forkof_full() {
+  local fixture exit_code good_inventory flake_with_example
+  fixture="$(init_fixture pass-forkof-full)"
+  good_inventory='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/fork.git";
+        ref = "main";
+      };
+      forkOf = {
+        url = "https://example.invalid/canonical.git";
+        ref = "main";
+      };
+      sourceMode = "remote-locked";
+      allowLocalSource = true;
+      follows.nixpkgs = "nixpkgs";
+      lockGraph.inputNames = [ "nixpkgs" ];
+      checks = [ "follows-preserved" "lock-graph" ];
+    };
+  };
+}'
+  flake_with_example='{
+  inputs = {
+    example.url = "github:example/example";
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${good_inventory}"
+  write_file "${fixture}/flake.nix" "${flake_with_example}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_pass "pass-forkof-full" "${fixture}" "${exit_code}"
+}
+
 test_pass_inputs_subdir_url_in_flake_nix() {
   # Asserts the flake.nix pre-check excludes ./inputs/<name> path URLs; the
   # override-input flags supplied by run.sh redirect eval to ./example so the
@@ -1450,5 +1541,8 @@ test_pass_submodule_clean
 test_fail_submodule_lock_path_mismatch
 test_fail_submodule_checkout_missing
 test_pass_inputs_subdir_url_in_flake_nix
+test_fail_forkof_missing_url
+test_fail_forkof_missing_ref
+test_pass_forkof_full
 
-printf '35 passed\n'
+printf '38 passed\n'

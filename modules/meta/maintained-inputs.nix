@@ -3,6 +3,10 @@ _: {
     stylix = {
       flakeInput = "stylix";
       upstream = {
+        url = "https://github.com/Bad3r/stylix.git";
+        ref = "master";
+      };
+      forkOf = {
         url = "https://github.com/nix-community/stylix.git";
         ref = "master";
       };
@@ -36,7 +40,7 @@ _: {
         "follows-preserved"
         "lock-graph"
       ];
-      notes = "Theming framework tracked as a git submodule under inputs/stylix; the committed gitlink pins a reachable upstream revision and operators patch the submodule in-tree.";
+      notes = "Theming framework tracked as a git submodule under inputs/stylix. .gitmodules points at the Bad3r/stylix fork (submodule origin) so the committed gitlink stays reachable even for WIP patches; the local upstream remote points at the nix-community/stylix canonical source for fetching new upstream master commits and opening PRs.";
     };
   };
 }

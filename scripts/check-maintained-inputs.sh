@@ -202,6 +202,16 @@ while IFS= read -r encoded; do
   [ -n "$upstream_ref" ] || error_msg "$id: missing upstream.ref"
   [ -n "$source_mode" ] || error_msg "$id: missing sourceMode"
 
+  # forkOf is optional, but when present must carry both url and ref so
+  # the docs/tooling layer can render unambiguous "fork of <url> @ <ref>"
+  # statements without falling back to upstream.* values.
+  if jq -e 'has("forkOf")' <<<"$item" >/dev/null; then
+    fork_of_url=$(json_string '.forkOf.url' "$item")
+    fork_of_ref=$(json_string '.forkOf.ref' "$item")
+    [ -n "$fork_of_url" ] || error_msg "$id: forkOf is set but forkOf.url is missing"
+    [ -n "$fork_of_ref" ] || error_msg "$id: forkOf is set but forkOf.ref is missing"
+  fi
+
   case "$source_mode" in
   remote-locked | local-override | submodule)
     ;;

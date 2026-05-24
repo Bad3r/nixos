@@ -4,5 +4,5 @@
 	branch = main
 [submodule "inputs/stylix"]
 	path = inputs/stylix
-	url = https://github.com/nix-community/stylix.git
+	url = https://github.com/Bad3r/stylix.git
 	branch = master

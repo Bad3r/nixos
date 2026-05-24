@@ -37,11 +37,26 @@ The repo-level `inputs.self.submodules = true;` declaration in `flake.nix`
 makes submodule contents visible to flake evaluation. The repo's secrets
 submodule already relies on the same setting.
 
+Submodule remote convention (fork-and-PR workflow):
+
+- The `.gitmodules` `url` for a maintained input points at the operator's
+  fork (e.g. `Bad3r/stylix`), not the canonical upstream. This guarantees
+  that fresh clones (`git clone --recurse-submodules`) can always fetch the
+  gitlinked commit, including WIP commits that have not yet merged
+  upstream. Hosting the fork is a maintenance responsibility: every
+  gitlinked SHA must be reachable from the configured branch on the fork.
+- Inside the submodule, `origin` is the fork (set automatically from
+  `.gitmodules`) and `upstream` is the canonical source the fork tracks.
+  The `upstream` remote is operator-managed and must be added after init:
+  `git -C inputs/<flakeInput> remote add upstream <canonical-url>`.
+- The inventory's `upstream.url` field is the reachability target and
+  matches `.gitmodules` (the fork). The optional `forkOf.url` field
+  records the canonical source for documentation and tooling.
+
 Machine-local paths, host names, and per-operator checkout roots belong in
 operator environment data, not in committed flake input definitions. The
 submodule mode keeps the local input path repository-relative
-(`./inputs/<flakeInput>`) and reachable across clones; only the submodule URL
-in `.gitmodules` should reference the upstream remote.
+(`./inputs/<flakeInput>`) and reachable across clones.
 
 ## Inventory Design
 
@@ -53,31 +68,40 @@ hard-coded input names.
 
 Required fields:
 
-| Field                  | Purpose                                                                                                                                                |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `flakeInput`           | Root flake input name, for example `nixpkgs` or `stylix`. Also names the submodule directory `inputs/<flakeInput>` in `submodule` mode.                |
-| `upstream.url`         | Canonical fetch and reachability remote. Must match the URL recorded for the matching submodule in `.gitmodules` when `sourceMode = "submodule"`.      |
-| `upstream.ref`         | Preferred publish ref or branch, recorded as data instead of hard-coded in scripts.                                                                    |
-| `sourceMode`           | One of `remote-locked`, `local-override`, or `submodule`.                                                                                              |
-| `local.pathEnv`        | Optional environment variable that names a local checkout path. Required for `clean-checkout` / `tracked-files` checks under non-submodule modes only. |
-| `follows`              | Expected nested input follows relationships that must be preserved.                                                                                    |
-| `lockGraph.inputNames` | Expected nested input names for graph-drift detection.                                                                                                 |
-| `checks`               | Validation classes required before publishing.                                                                                                         |
-| `allowLocalSource`     | Optional `true` opt-out from the local-source check. Use only for offline reachability fixtures in non-submodule modes.                                |
-| `notes`                | Short rationale and upstreaming expectations.                                                                                                          |
+| Field                  | Purpose                                                                                                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flakeInput`           | Root flake input name, for example `nixpkgs` or `stylix`. Also names the submodule directory `inputs/<flakeInput>` in `submodule` mode.                                                              |
+| `upstream.url`         | Reachability target. For `submodule` mode, matches the URL recorded in `.gitmodules` (the fork, in a fork-and-PR layout). The gitlinked SHA must be reachable from this URL on the configured `ref`. |
+| `upstream.ref`         | Preferred publish ref or branch, recorded as data instead of hard-coded in scripts.                                                                                                                  |
+| `forkOf.url`           | Optional canonical source the fork tracks. Informational; documents where upstream PRs land and which remote the `upstream` local remote should point at.                                            |
+| `forkOf.ref`           | Optional canonical-source branch the fork is based on. Required when `forkOf.url` is set.                                                                                                            |
+| `sourceMode`           | One of `remote-locked`, `local-override`, or `submodule`.                                                                                                                                            |
+| `local.pathEnv`        | Optional environment variable that names a local checkout path. Required for `clean-checkout` / `tracked-files` checks under non-submodule modes only.                                               |
+| `follows`              | Expected nested input follows relationships that must be preserved.                                                                                                                                  |
+| `lockGraph.inputNames` | Expected nested input names for graph-drift detection.                                                                                                                                               |
+| `checks`               | Validation classes required before publishing.                                                                                                                                                       |
+| `allowLocalSource`     | Optional `true` opt-out from the local-source check. Use only for offline reachability fixtures in non-submodule modes.                                                                              |
+| `notes`                | Short rationale and upstreaming expectations.                                                                                                                                                        |
 
 Submodule mode skips `local.pathEnv` and `allowLocalSource`: the checkout path
 is derived from the convention `inputs/<flakeInput>` and the lock entry is
 expected to carry `type = "path"` with `path = "./inputs/<flakeInput>"`. The
 validator rejects any other path or type for a submodule-mode entry.
 
-Example shape (submodule):
+Example shape (submodule, fork-and-PR layout):
 
 ```nix
 {
   example-input = {
     flakeInput = "example-input";
     upstream = {
+      # Fork URL; matches .gitmodules and is the reachability target.
+      url = "https://github.com/<operator>/project.git";
+      ref = "main";
+    };
+    forkOf = {
+      # Canonical source the fork tracks; the local `upstream` remote
+      # in the submodule should be added pointing at this URL.
       url = "https://github.com/example/project.git";
       ref = "main";
     };
@@ -181,16 +205,26 @@ an unpublished local-only fix.
 ### Submodule mode
 
 Initialize the submodule (a one-time operation after a fresh clone or after a
-new maintained input is added to `.gitmodules`):
+new maintained input is added to `.gitmodules`) and add the canonical upstream
+as a second remote so fetches and merges target the right place:
 
 ```bash
 git submodule update --init --recursive inputs/<flakeInput>
+git -C inputs/<flakeInput> remote add upstream <forkOf.url>
 ```
 
-Add a new maintained input to the inventory as a submodule:
+`origin` is set automatically from `.gitmodules` and points at the fork.
+`upstream` is added locally and is not committed (it lives in the submodule's
+local config). Operators who clone the parent repo run the same
+`git remote add upstream <forkOf.url>` once.
+
+Add a new maintained input to the inventory as a submodule. Use the fork URL
+in `.gitmodules` so the gitlinked commit is always reachable from a fresh
+clone:
 
 ```bash
-git submodule add -b <branch> <upstream-url> inputs/<flakeInput>
+git submodule add -b <branch> <fork-url> inputs/<flakeInput>
+git -C inputs/<flakeInput> remote add upstream <canonical-url>
 ```
 
 Patch and test in the submodule directory. The repo-level
@@ -205,12 +239,12 @@ nix eval --accept-flake-config --no-write-lock-file \
   .#nixosConfigurations.<host>.config.networking.hostName
 ```
 
-Publish the submodule branch upstream so the gitlink is reachable from the
-configured remote:
+Publish the submodule branch to the fork so the gitlink is reachable from
+`origin` (which matches `.gitmodules`):
 
 ```bash
 git -C inputs/<flakeInput> commit -m "<change>"
-git -C inputs/<flakeInput> push <remote> HEAD:<publish-ref>
+git -C inputs/<flakeInput> push origin HEAD:<publish-ref>
 ```
 
 Stage the updated gitlink in the parent repository, refresh the lock if needed,
@@ -230,7 +264,8 @@ scripts/check-maintained-inputs.sh --fetch
 
 The check must fail if the submodule gitlink is missing, its checkout is dirty,
 its locked path differs from `./inputs/<flakeInput>`, the upstream commit is
-unreachable, or the nested input graph drifted unexpectedly.
+unreachable from `origin` (the fork), or the nested input graph drifted
+unexpectedly.
 
 ### Local override (ephemeral, non-submodule)
 
@@ -251,25 +286,28 @@ only valid for the current command.
 
 ### Sync with upstream
 
-In submodule mode, fetch and merge inside the submodule directory according to
-the upstream project's normal workflow, then commit the gitlink update in the
-parent repository:
+In submodule mode, fetch from the canonical source (the `upstream` remote
+added during init), merge into your fork branch, push to `origin`, then
+update the parent gitlink:
 
 ```bash
-git -C inputs/<flakeInput> fetch <remote>
-git -C inputs/<flakeInput> merge <remote>/<branch>
+git -C inputs/<flakeInput> fetch upstream
+git -C inputs/<flakeInput> merge upstream/<forkOf.ref>
+git -C inputs/<flakeInput> push origin HEAD
 git add inputs/<flakeInput>
 ```
 
 ### Drop local patches
 
-When upstream includes the fix, set the submodule back to the upstream branch
-tip, stage the gitlink, and remove any temporary inventory notes that referenced
-the work-in-progress branch:
+When upstream includes the fix, set the submodule's tracked branch to the
+canonical tip, push that state to the fork so the gitlink stays reachable
+from `origin`, stage the parent gitlink, and remove any temporary inventory
+notes that referenced the work-in-progress branch:
 
 ```bash
-git -C inputs/<flakeInput> fetch <remote>
-git -C inputs/<flakeInput> checkout <remote>/<branch>
+git -C inputs/<flakeInput> fetch upstream
+git -C inputs/<flakeInput> checkout upstream/<forkOf.ref>
+git -C inputs/<flakeInput> push origin HEAD:<branch>
 git add inputs/<flakeInput>
 ```
 
@@ -293,23 +331,31 @@ Do not mask the failure by setting the inventory entry to `allowLocalSource = tr
 (theming framework with five active follows: `flake-parts`, `nixpkgs`,
 `nur` via `dedupe_nur`, `systems`, `tinted-schemes`, and a nested lock graph
 of fourteen entries). The committed `inputs/stylix` git submodule pins a
-reachable upstream commit; the repo-level `inputs.self.submodules = true;`
-declaration makes the submodule content visible to flake evaluation without
+reachable revision on the `Bad3r/stylix` fork; the canonical source it
+tracks is `nix-community/stylix` (recorded in the inventory as
+`forkOf`). The repo-level `inputs.self.submodules = true;` declaration
+makes the submodule content visible to flake evaluation without
 per-command overrides.
 
 The pilot should prove this sequence:
 
-1. Keep the inventory entry for `stylix` with `sourceMode = "submodule"`.
-2. Patch the upstream code in `inputs/stylix/` and evaluate without flags:
+1. Keep the inventory entry for `stylix` with `sourceMode = "submodule"`,
+   `upstream.url` pointing at the fork (`Bad3r/stylix`), and `forkOf.url`
+   pointing at the canonical source (`nix-community/stylix`).
+2. Initialize the submodule and add the canonical upstream remote:
+   `git submodule update --init --recursive inputs/stylix` then
+   `git -C inputs/stylix remote add upstream https://github.com/nix-community/stylix.git`.
+3. Patch the upstream code in `inputs/stylix/` and evaluate without flags:
    `nix eval --accept-flake-config --no-write-lock-file .#nixosConfigurations.<host>.config.system.build.toplevel.drvPath`.
-3. Track any new upstream files before evaluation depends on them.
-4. Push the submodule commit to `https://github.com/nix-community/stylix.git`
-   (or a fork) on a reachable branch.
-5. Stage the updated gitlink (`git add inputs/stylix`) in the parent repo.
-6. Run `scripts/check-maintained-inputs.sh --fetch` to check clean submodule
-   state, reachable commit, locked path matches the convention, preserved
-   follows, and intended lock graph changes.
-7. Document the result in the issue before expanding the workflow to more
+4. Track any new upstream files before evaluation depends on them.
+5. Push the submodule commit to `origin` (the fork) on a reachable branch.
+6. Stage the updated gitlink (`git add inputs/stylix`) in the parent repo.
+7. Run `scripts/check-maintained-inputs.sh --fetch` to check clean submodule
+   state, reachable commit (against the fork URL), locked path matches the
+   convention, preserved follows, and intended lock graph changes.
+8. When the change is ready, open a PR upstream against
+   `nix-community/stylix` from the fork branch.
+9. Document the result in the issue before expanding the workflow to more
    inputs.
 
 ## Acceptance Mapping For Issue 258
