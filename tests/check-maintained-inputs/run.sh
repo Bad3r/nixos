@@ -1349,6 +1349,65 @@ test_fail_submodule_lock_path_mismatch() {
     'expected \./inputs/example but got'
 }
 
+test_fail_submodule_upstream_url_drift() {
+  local fixture exit_code upstream inv lock flake_with_submodule
+  fixture="$(init_fixture fail-submodule-upstream-url-drift)"
+  upstream="${tmpdir}/fail-submodule-upstream-url-drift.upstream.git"
+  git init -q --bare "${upstream}"
+
+  local clone_dir="${tmpdir}/fail-submodule-upstream-url-drift.clone"
+  git clone -q "${upstream}" "${clone_dir}"
+  git -C "${clone_dir}" config user.email "test@example.com"
+  git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" config commit.gpgsign false
+  git -C "${clone_dir}" commit -q --allow-empty -m "init"
+  git -C "${clone_dir}" push -q origin HEAD:master
+
+  git -C "${upstream}" symbolic-ref HEAD refs/heads/master
+  git -C "${fixture}" -c protocol.file.allow=always submodule add -b master -q "file://${upstream}" inputs/example
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "https://example.invalid/divergent.git"; ref = "master"; };
+    sourceMode = "submodule";
+    follows.nixpkgs = "nixpkgs";
+    lockGraph.inputNames = [ "nixpkgs" ];
+    checks = [ "follows-preserved" "lock-graph" ];
+  };
+}'
+  flake_with_submodule='{
+  inputs = {
+    example.url = "./inputs/example";
+    example.flake = true;
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example", "nixpkgs": "nixpkgs" } },
+    "example": {
+      "inputs": { "nixpkgs": ["nixpkgs"] },
+      "locked": { "path": "./inputs/example", "type": "path" },
+      "original": { "path": "./inputs/example", "type": "path" }
+    },
+    "nixpkgs": {
+      "locked": { "rev": "0000000000000000000000000000000000000000", "type": "github", "owner": "NixOS", "repo": "nixpkgs" },
+      "original": { "owner": "NixOS", "repo": "nixpkgs", "type": "github" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${flake_with_submodule}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  git -C "${fixture}" add .gitmodules inputs/example
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-submodule-upstream-url-drift" "${fixture}" "${exit_code}" \
+    "upstream\\.url 'https://example.invalid/divergent\\.git' does not match \\.gitmodules url 'file://"
+}
+
 test_fail_submodule_checkout_missing() {
   local fixture exit_code inv flake_with_submodule lock
   fixture="$(init_fixture fail-submodule-missing)"
@@ -1539,6 +1598,7 @@ test_fail_reachable_commit_bad_ref
 test_fail_reachable_commit_missing_rev
 test_pass_submodule_clean
 test_fail_submodule_lock_path_mismatch
+test_fail_submodule_upstream_url_drift
 test_fail_submodule_checkout_missing
 test_pass_inputs_subdir_url_in_flake_nix
 test_fail_forkof_missing_url

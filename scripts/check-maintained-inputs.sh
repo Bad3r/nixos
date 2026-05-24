@@ -257,6 +257,28 @@ while IFS= read -r encoded; do
         error_msg "$id: flake.lock $section.path for $flake_input expected $expected_path but got '$input_path'"
       fi
     done
+    # Enforce the documented invariant that upstream.url for sourceMode =
+    # "submodule" matches the URL recorded in .gitmodules for inputs/<name>.
+    # If the two drift, `reachable-commit --fetch` queries a remote that fresh
+    # `git clone --recurse-submodules` never uses: a gitlink commit reachable
+    # from upstream.url but absent from the .gitmodules remote would pass the
+    # fetch check yet break fresh clones. The .gitmodules section name can
+    # differ from the path (e.g. `submodule "stylix"` for `path = inputs/stylix`),
+    # so the section name is recovered by matching the .path field. The
+    # existence guard keeps the lookup quiet when .gitmodules is absent
+    # entirely (fail-submodule-missing test path); the directory-missing check
+    # later in this loop is the diagnostic that drives the operator to
+    # initialize the submodule.
+    if [ -f .gitmodules ]; then
+      gitmodules_name=$(git config -f .gitmodules --get-regexp '\.path$' 2>/dev/null |
+        awk -v p="inputs/$flake_input" '$2 == p { name = $1; sub(/^submodule\./, "", name); sub(/\.path$/, "", name); print name; exit }')
+      if [ -n "$gitmodules_name" ]; then
+        gitmodules_url=$(git config -f .gitmodules --get "submodule.$gitmodules_name.url" || true)
+        if [ -n "$gitmodules_url" ] && [ "$gitmodules_url" != "$upstream_url" ]; then
+          error_msg "$id: upstream.url '$upstream_url' does not match .gitmodules url '$gitmodules_url' for inputs/$flake_input"
+        fi
+      fi
+    fi
     ;;
   *)
     if [ "$allow_local_source" != "true" ]; then

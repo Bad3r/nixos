@@ -175,7 +175,11 @@ repo-wide `flake.lock` scan then runs against every root input, exempts
 inventory-declared inputs from the global rejection, and inside the per-input
 loop reapplies a per-entry policy: submodule-mode entries must carry
 `type = "path"` with `path = "./inputs/<flakeInput>"`, while other modes must
-avoid local paths unless `allowLocalSource = true`.
+avoid local paths unless `allowLocalSource = true`. For `submodule` mode, the
+validator also enforces that `upstream.url` matches the URL recorded in
+`.gitmodules` for `inputs/<flakeInput>`, so the `reachable-commit --fetch`
+check queries the same remote that fresh `git clone --recurse-submodules`
+uses.
 
 Validation is split by the failure it catches:
 
