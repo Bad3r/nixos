@@ -2,3 +2,7 @@
 	path = secrets
 	url = https://github.com/Bad3r/secrets.git
 	branch = main
+[submodule "inputs/stylix"]
+	path = inputs/stylix
+	url = https://github.com/nix-community/stylix.git
+	branch = master

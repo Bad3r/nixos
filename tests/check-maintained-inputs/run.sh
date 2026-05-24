@@ -1225,6 +1225,196 @@ test_fail_reachable_commit_missing_rev() {
     'has no locked rev for'
 }
 
+test_pass_submodule_clean() {
+  local fixture exit_code upstream upstream_rev inv lock flake_with_submodule
+  fixture="$(init_fixture pass-submodule-clean)"
+  upstream="${tmpdir}/pass-submodule-clean.upstream.git"
+  git init -q --bare "${upstream}"
+
+  local clone_dir="${tmpdir}/pass-submodule-clean.clone"
+  git clone -q "${upstream}" "${clone_dir}"
+  git -C "${clone_dir}" config user.email "test@example.com"
+  git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" config commit.gpgsign false
+  printf '{ outputs = _: {}; }' >"${clone_dir}/flake.nix"
+  git -C "${clone_dir}" add flake.nix
+  git -C "${clone_dir}" commit -q -m "init"
+  git -C "${clone_dir}" push -q origin HEAD:master
+  upstream_rev=$(git -C "${clone_dir}" rev-parse HEAD)
+
+  git -C "${upstream}" symbolic-ref HEAD refs/heads/master
+  git -C "${fixture}" -c protocol.file.allow=always submodule add -b master -q "file://${upstream}" inputs/example
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "file://'"${upstream}"'"; ref = "master"; };
+    sourceMode = "submodule";
+    follows.nixpkgs = "nixpkgs";
+    lockGraph.inputNames = [ "nixpkgs" ];
+    checks = [ "clean-checkout" "reachable-commit" "follows-preserved" "lock-graph" ];
+  };
+}'
+  flake_with_submodule='{
+  inputs = {
+    example.url = "./inputs/example";
+    example.flake = true;
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example", "nixpkgs": "nixpkgs" } },
+    "example": {
+      "inputs": { "nixpkgs": ["nixpkgs"] },
+      "locked": { "path": "./inputs/example", "type": "path" },
+      "original": { "path": "./inputs/example", "type": "path" }
+    },
+    "nixpkgs": {
+      "locked": { "rev": "0000000000000000000000000000000000000000", "type": "github", "owner": "NixOS", "repo": "nixpkgs" },
+      "original": { "owner": "NixOS", "repo": "nixpkgs", "type": "github" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${flake_with_submodule}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  git -C "${fixture}" add .gitmodules inputs/example
+  exit_code=$(run_sut "${fixture}" --fetch)
+  if [[ ${exit_code} -ne 0 ]]; then
+    printf 'FAIL: pass-submodule-clean expected exit 0, got %s (upstream rev %s)\n' "${exit_code}" "${upstream_rev}" >&2
+    dump_stderr "pass-submodule-clean" "${fixture}"
+    exit 1
+  fi
+}
+
+test_fail_submodule_lock_path_mismatch() {
+  local fixture exit_code upstream inv lock flake_with_submodule
+  fixture="$(init_fixture fail-submodule-lock-path)"
+  upstream="${tmpdir}/fail-submodule-lock-path.upstream.git"
+  git init -q --bare "${upstream}"
+
+  local clone_dir="${tmpdir}/fail-submodule-lock-path.clone"
+  git clone -q "${upstream}" "${clone_dir}"
+  git -C "${clone_dir}" config user.email "test@example.com"
+  git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" config commit.gpgsign false
+  git -C "${clone_dir}" commit -q --allow-empty -m "init"
+  git -C "${clone_dir}" push -q origin HEAD:master
+
+  git -C "${upstream}" symbolic-ref HEAD refs/heads/master
+  git -C "${fixture}" -c protocol.file.allow=always submodule add -b master -q "file://${upstream}" inputs/example
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "file://'"${upstream}"'"; ref = "master"; };
+    sourceMode = "submodule";
+    follows.nixpkgs = "nixpkgs";
+    lockGraph.inputNames = [ "nixpkgs" ];
+    checks = [ "follows-preserved" "lock-graph" ];
+  };
+}'
+  flake_with_submodule='{
+  inputs = {
+    example.url = "./inputs/example";
+    example.flake = true;
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example", "nixpkgs": "nixpkgs" } },
+    "example": {
+      "inputs": { "nixpkgs": ["nixpkgs"] },
+      "locked": { "path": "./inputs/wrong-name", "type": "path" },
+      "original": { "path": "./inputs/wrong-name", "type": "path" }
+    },
+    "nixpkgs": {
+      "locked": { "rev": "0000000000000000000000000000000000000000", "type": "github", "owner": "NixOS", "repo": "nixpkgs" },
+      "original": { "owner": "NixOS", "repo": "nixpkgs", "type": "github" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${flake_with_submodule}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  git -C "${fixture}" add .gitmodules inputs/example
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-submodule-lock-path" "${fixture}" "${exit_code}" \
+    'expected \./inputs/example but got'
+}
+
+test_fail_submodule_checkout_missing() {
+  local fixture exit_code inv flake_with_submodule lock
+  fixture="$(init_fixture fail-submodule-missing)"
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "https://example.invalid/example.git"; ref = "main"; };
+    sourceMode = "submodule";
+    follows.nixpkgs = "nixpkgs";
+    lockGraph.inputNames = [ "nixpkgs" ];
+    checks = [ "clean-checkout" "follows-preserved" "lock-graph" ];
+  };
+}'
+  flake_with_submodule='{
+  inputs = {
+    example.url = "./inputs/example";
+    example.flake = true;
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example", "nixpkgs": "nixpkgs" } },
+    "example": {
+      "inputs": { "nixpkgs": ["nixpkgs"] },
+      "locked": { "path": "./inputs/example", "type": "path" },
+      "original": { "path": "./inputs/example", "type": "path" }
+    },
+    "nixpkgs": {
+      "locked": { "rev": "0000000000000000000000000000000000000000", "type": "github", "owner": "NixOS", "repo": "nixpkgs" },
+      "original": { "owner": "NixOS", "repo": "nixpkgs", "type": "github" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${flake_with_submodule}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-submodule-missing" "${fixture}" "${exit_code}" \
+    'submodule directory missing at inputs/example'
+}
+
+test_pass_inputs_subdir_url_in_flake_nix() {
+  # Asserts the flake.nix pre-check excludes ./inputs/<name> path URLs; the
+  # override-input flags supplied by run.sh redirect eval to ./example so the
+  # missing inputs/example checkout does not abort the run.
+  local fixture exit_code flake_with_subdir
+  fixture="$(init_fixture pass-inputs-subdir-url)"
+  flake_with_subdir='{
+  inputs = {
+    example.url = "./inputs/example";
+    example.flake = true;
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${INVENTORY_EMPTY}"
+  write_file "${fixture}/flake.nix" "${flake_with_subdir}"
+  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_pass "pass-inputs-subdir-url" "${fixture}" "${exit_code}"
+}
+
 test_pass_clean_state
 test_pass_empty_inventory
 test_fail_input_missing_from_flake_nix
@@ -1256,5 +1446,9 @@ test_pass_reachable_commit
 test_fail_reachable_commit_unreachable
 test_fail_reachable_commit_bad_ref
 test_fail_reachable_commit_missing_rev
+test_pass_submodule_clean
+test_fail_submodule_lock_path_mismatch
+test_fail_submodule_checkout_missing
+test_pass_inputs_subdir_url_in_flake_nix
 
-printf '31 passed\n'
+printf '35 passed\n'

@@ -135,7 +135,8 @@
     };
 
     stylix = {
-      url = "github:nix-community/stylix";
+      url = "./inputs/stylix";
+      flake = true;
       inputs = {
         flake-parts.follows = "flake-parts";
         nixpkgs.follows = "nixpkgs";

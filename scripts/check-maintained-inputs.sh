@@ -2,6 +2,14 @@
 set -euo pipefail
 export LC_ALL=C
 
+# Git sets GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE when invoking hooks,
+# and subprocess git inherits them. Without unsetting, `git -C inputs/<name>`
+# still operates on the parent repo's GIT_DIR and silently ignores `-C`,
+# which makes submodule status checks report parent-repo paths as deleted.
+# Discovery from CWD reproduces the correct worktree for both hook and
+# direct invocations.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+
 root=$(git rev-parse --show-toplevel)
 cd "$root"
 
@@ -66,11 +74,17 @@ is_local_flake_ref() {
 # URL (`url = "github:foo"; # was path = ./local`) does not produce a false
 # positive that would block the push before the authoritative lock scan
 # runs. The follow-up grep still drops any whole-line `#` comment that
-# starts at column 0. Block comments (`/* ... */`) are not handled.
+# starts at column 0. Block comments (`/* ... */`) are not handled. Paths
+# beginning with `"./inputs/` are the project's submodule-backed local-input
+# convention (see `modules/meta/maintained-inputs.nix`, sourceMode =
+# "submodule") and are excluded here; the per-input loop below verifies that
+# every such path is registered in the maintained inventory and resolves to
+# the expected `inputs/<flakeInput>` directory.
 local_url_hits="$tmp_root/local-url-hits.txt"
 if awk '{sub(/[[:space:]]+#.*$/, ""); print NR":" $0}' flake.nix |
   grep -E '[^[:alnum:]_](url|path)[[:space:]]*=[[:space:]]*"?((path|git\+file|file):|/|\.\.?/)' |
-  grep -vE '^[0-9]+:[[:space:]]*#' >"$local_url_hits"; then
+  grep -vE '^[0-9]+:[[:space:]]*#' |
+  grep -vE '[^[:alnum:]_](url|path)[[:space:]]*=[[:space:]]*"\.?/inputs/' >"$local_url_hits"; then
   error_msg "flake.nix contains a local input URL"
   sed 's/^/  flake.nix:/' "$local_url_hits" >&2
 fi
@@ -217,20 +231,36 @@ while IFS= read -r encoded; do
     continue
   fi
 
-  # Local-source policy is on by default for every inventory input.
-  # `allowLocalSource = true` is the explicit per-entry opt-out used only by
-  # offline reachable-commit fixtures that legitimately point upstream at a
-  # `file://` bare repo.
-  if [ "$allow_local_source" != "true" ]; then
+  # Local-source policy:
+  #   - sourceMode = "submodule": the lock is expected to be type = "path"
+  #     with path = "./inputs/<flakeInput>"; mismatch is the error.
+  #   - sourceMode in {"remote-locked","local-override"} with
+  #     allowLocalSource = true: the entry legitimately points at a local
+  #     ref (offline reachable-commit fixtures); skip the scan.
+  #   - otherwise: reject any local-path lock metadata.
+  case "$source_mode" in
+  submodule)
+    expected_path="./inputs/$flake_input"
     for section in locked original; do
-      input_type=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].type // empty' flake.lock)
-      input_url=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].url // empty' flake.lock)
       input_path=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].path // empty' flake.lock)
-      if [ "$input_type" = "path" ] || [ -n "$input_path" ] || is_local_flake_ref "$input_url"; then
-        error_msg "$id: flake.lock $section source for $flake_input is a local path"
+      if [ "$input_path" != "$expected_path" ]; then
+        error_msg "$id: flake.lock $section.path for $flake_input expected $expected_path but got '$input_path'"
       fi
     done
-  fi
+    ;;
+  *)
+    if [ "$allow_local_source" != "true" ]; then
+      for section in locked original; do
+        input_type=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].type // empty' flake.lock)
+        input_url=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].url // empty' flake.lock)
+        input_path=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].path // empty' flake.lock)
+        if [ "$input_type" = "path" ] || [ -n "$input_path" ] || is_local_flake_ref "$input_url"; then
+          error_msg "$id: flake.lock $section source for $flake_input is a local path"
+        fi
+      done
+    fi
+    ;;
+  esac
 
   if has_check "$item" follows-preserved; then
     expected_follows=$(jq -c '.follows // {}' <<<"$item")
@@ -260,34 +290,94 @@ while IFS= read -r encoded; do
     fi
   fi
 
-  if { has_check "$item" clean-checkout || has_check "$item" tracked-files; } && [ -z "$path_env" ]; then
+  # Checkout resolution depends on sourceMode:
+  #   - submodule: derived from the convention inputs/<flakeInput>; the
+  #     checkout must exist (submodule initialized) for any clean-checkout
+  #     or tracked-files claim to be enforceable.
+  #   - non-submodule: optional $pathEnv-named env var points at the
+  #     external checkout; an empty env var skips the checks (off-host
+  #     workflows).
+  checkout=""
+  if [ "$source_mode" = "submodule" ]; then
+    checkout="inputs/$flake_input"
+  elif [ -n "$path_env" ]; then
+    checkout="${!path_env:-}"
+  fi
+
+  if { has_check "$item" clean-checkout || has_check "$item" tracked-files; } &&
+    [ "$source_mode" != "submodule" ] && [ -z "$path_env" ]; then
     error_msg "$id: clean-checkout or tracked-files declared but local.pathEnv is missing"
   fi
 
-  if [ -n "$path_env" ]; then
-    checkout="${!path_env:-}"
-    if [ -n "$checkout" ]; then
-      if ! git -C "$checkout" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        error_msg "$id: $path_env does not point at a git checkout: $checkout"
+  if [ -n "$checkout" ]; then
+    if [ "$source_mode" = "submodule" ]; then
+      # Submodule mode resolution is split into three states:
+      #   1. Directory missing entirely: the gitlink was never materialized
+      #      (no submodule update). Error out so operators initialize it.
+      #   2. Directory present but no submodule worktree at this path:
+      #      pre-commit's pre-push checkout creates empty placeholders for
+      #      gitlinks without recursing submodules, so a plain
+      #      `git -C $checkout` would walk up and discover the parent's
+      #      .git. The lock-path and reachable-commit checks above already
+      #      validate the gitlink itself, so worktree-level checks are
+      #      skipped here.
+      #   3. Submodule worktree present: run worktree-level checks
+      #      against the submodule.
+      # `git rev-parse --show-superproject-working-tree` returns the parent
+      # worktree path only when the current repo is actually a submodule,
+      # which differentiates (2) from (3) without false positives from
+      # git's upward auto-discovery.
+      if [ ! -d "$checkout" ]; then
+        error_msg "$id: submodule directory missing at $checkout; run 'git submodule update --init --recursive'"
       else
-        status=$(git -C "$checkout" status --porcelain=v1 --untracked-files=all)
-        if [ -n "$status" ] && has_check "$item" clean-checkout; then
-          error_msg "$id: checkout from $path_env is dirty or has untracked files"
-          printf -- '%s\n' "$status" | sed "s/^/  $id: /" >&2
+        superproject=$(git -C "$checkout" rev-parse --show-superproject-working-tree 2>/dev/null || true)
+        if [ -n "$superproject" ]; then
+          status=$(git -C "$checkout" status --porcelain=v1 --untracked-files=all)
+          if [ -n "$status" ] && has_check "$item" clean-checkout; then
+            error_msg "$id: checkout at $checkout is dirty or has untracked files"
+            printf -- '%s\n' "$status" | sed "s/^/  $id: /" >&2
+          fi
+          if [ -n "$status" ] && has_check "$item" tracked-files && grep -q '^?? ' <<<"$status"; then
+            error_msg "$id: checkout at $checkout has untracked files"
+            printf -- '%s\n' "$status" | sed "s/^/  $id: /" >&2
+          fi
         fi
-        if [ -n "$status" ] && has_check "$item" tracked-files && grep -q '^?? ' <<<"$status"; then
-          error_msg "$id: checkout from $path_env has untracked files"
-          printf -- '%s\n' "$status" | sed "s/^/  $id: /" >&2
-        fi
+      fi
+    elif ! git -C "$checkout" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      error_msg "$id: $path_env does not point at a git checkout: $checkout"
+    else
+      status=$(git -C "$checkout" status --porcelain=v1 --untracked-files=all)
+      if [ -n "$status" ] && has_check "$item" clean-checkout; then
+        error_msg "$id: checkout at $checkout is dirty or has untracked files"
+        printf -- '%s\n' "$status" | sed "s/^/  $id: /" >&2
+      fi
+      if [ -n "$status" ] && has_check "$item" tracked-files && grep -q '^?? ' <<<"$status"; then
+        error_msg "$id: checkout at $checkout has untracked files"
+        printf -- '%s\n' "$status" | sed "s/^/  $id: /" >&2
       fi
     fi
   fi
 
   if [ "$fetch" -eq 1 ] && has_check "$item" reachable-commit; then
-    locked_rev=$(jq -r --arg node "$node" '.nodes[$node].locked.rev // empty' flake.lock)
-    if [ -z "$locked_rev" ]; then
-      error_msg "$id: flake.lock has no locked rev for $flake_input"
+    # Submodule mode: locked rev is the gitlink commit in the parent tree,
+    # since path-type lock entries carry no rev. Other modes: locked rev is
+    # the flake.lock locked.rev field.
+    locked_rev=""
+    if [ "$source_mode" = "submodule" ]; then
+      # Read the gitlink from the index so staged-but-not-committed adds
+      # still validate. The index reflects HEAD plus staged changes, which
+      # matches both pre-commit and pre-push semantics.
+      locked_rev=$(git ls-files -s "inputs/$flake_input" | awk '{print $2}')
+      if [ -z "$locked_rev" ]; then
+        error_msg "$id: no submodule gitlink recorded at inputs/$flake_input"
+      fi
     else
+      locked_rev=$(jq -r --arg node "$node" '.nodes[$node].locked.rev // empty' flake.lock)
+      if [ -z "$locked_rev" ]; then
+        error_msg "$id: flake.lock has no locked rev for $flake_input"
+      fi
+    fi
+    if [ -n "$locked_rev" ]; then
       remote_check_dir=$(mktemp -d "$tmp_root/$id.reachability.XXXXXX")
       git -C "$remote_check_dir" init --quiet
       git -C "$remote_check_dir" remote add origin "$upstream_url"

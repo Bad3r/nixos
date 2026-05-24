@@ -1442,18 +1442,14 @@
         "tinted-zed": "tinted-zed"
       },
       "locked": {
-        "lastModified": 1779378391,
-        "narHash": "sha256-IsDb9erotvx9npI94UDosvMeYQK17p7/vmU2v9batrY=",
-        "owner": "nix-community",
-        "repo": "stylix",
-        "rev": "c1456cc4ba3c9485e7b4158c909eeca5a752cd59",
-        "type": "github"
+        "path": "./inputs/stylix",
+        "type": "path"
       },
       "original": {
-        "owner": "nix-community",
-        "repo": "stylix",
-        "type": "github"
-      }
+        "path": "./inputs/stylix",
+        "type": "path"
+      },
+      "parent": []
     },
     "systems": {
       "locked": {
