@@ -245,7 +245,11 @@ while IFS= read -r encoded; do
   submodule)
     expected_path="./inputs/$flake_input"
     for section in locked original; do
+      input_type=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].type // empty' flake.lock)
       input_path=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].path // empty' flake.lock)
+      if [ "$input_type" != "path" ]; then
+        error_msg "$id: flake.lock $section.type for $flake_input expected path but got '$input_type'"
+      fi
       if [ "$input_path" != "$expected_path" ]; then
         error_msg "$id: flake.lock $section.path for $flake_input expected $expected_path but got '$input_path'"
       fi

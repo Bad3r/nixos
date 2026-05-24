@@ -1434,6 +1434,68 @@ test_fail_submodule_lock_path_mismatch() {
     'expected \./inputs/example but got'
 }
 
+test_fail_submodule_lock_type_mismatch() {
+  local fixture exit_code upstream inv lock flake_with_submodule
+  fixture="$(init_fixture fail-submodule-lock-type)"
+  upstream="${tmpdir}/fail-submodule-lock-type.upstream.git"
+  git init -q --bare "${upstream}"
+
+  local clone_dir="${tmpdir}/fail-submodule-lock-type.clone"
+  git clone -q "${upstream}" "${clone_dir}"
+  git -C "${clone_dir}" config user.email "test@example.com"
+  git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" config commit.gpgsign false
+  git -C "${clone_dir}" commit -q --allow-empty -m "init"
+  git -C "${clone_dir}" push -q origin HEAD:master
+
+  git -C "${upstream}" symbolic-ref HEAD refs/heads/master
+  git -C "${fixture}" -c protocol.file.allow=always submodule add -b master -q "file://${upstream}" inputs/example
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "file://'"${upstream}"'"; ref = "master"; };
+    sourceMode = "submodule";
+    follows.nixpkgs = "nixpkgs";
+    lockGraph.inputNames = [ "nixpkgs" ];
+    checks = [ "follows-preserved" "lock-graph" ];
+  };
+}'
+  flake_with_submodule='{
+  inputs = {
+    example.url = "./inputs/example";
+    example.flake = true;
+    nixpkgs.url = "github:NixOS/nixpkgs";
+  };
+  outputs = _: { lib = (import ./modules/meta/maintained-inputs.nix {}).flake.lib; };
+}'
+  # path matches the inputs/<name> convention but type is not "path"; with the
+  # path string correct, only the type check can fire. A lock node that drifts
+  # to a non-path type while keeping the expected path must still be rejected.
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example", "nixpkgs": "nixpkgs" } },
+    "example": {
+      "inputs": { "nixpkgs": ["nixpkgs"] },
+      "locked": { "path": "./inputs/example", "type": "git" },
+      "original": { "path": "./inputs/example", "type": "git" }
+    },
+    "nixpkgs": {
+      "locked": { "rev": "0000000000000000000000000000000000000000", "type": "github", "owner": "NixOS", "repo": "nixpkgs" },
+      "original": { "owner": "NixOS", "repo": "nixpkgs", "type": "github" }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${flake_with_submodule}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  git -C "${fixture}" add .gitmodules inputs/example
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_fail "fail-submodule-lock-type" "${fixture}" "${exit_code}" \
+    '\.type for example expected path but got'
+}
+
 test_fail_submodule_upstream_url_drift() {
   local fixture exit_code upstream inv lock flake_with_submodule
   fixture="$(init_fixture fail-submodule-upstream-url-drift)"
@@ -1684,6 +1746,7 @@ test_pass_upstream_fresh
 test_fail_upstream_fresh_stale
 test_pass_submodule_clean
 test_fail_submodule_lock_path_mismatch
+test_fail_submodule_lock_type_mismatch
 test_fail_submodule_upstream_url_drift
 test_fail_submodule_checkout_missing
 test_pass_inputs_subdir_url_in_flake_nix
@@ -1691,4 +1754,4 @@ test_fail_forkof_missing_url
 test_fail_forkof_missing_ref
 test_pass_forkof_full
 
-printf '39 passed\n'
+printf '41 passed\n'
