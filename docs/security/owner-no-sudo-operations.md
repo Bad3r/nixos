@@ -38,6 +38,11 @@ Scope:
     - mechanism:
       - `kernel.dmesg_restrict = 0`
     - available without sudo because `kernel.dmesg_restrict = 0`.
+- Disk management:
+  - `fdisk ...`
+  - mechanism:
+    - `disk` group membership
+  - available without sudo because owner is in the `disk` group.
 - Packet capture:
   - `wireshark`
   - `tcpdump`
