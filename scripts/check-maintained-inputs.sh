@@ -115,9 +115,9 @@ fi
 # flake.lock. flake.lock normalizes every input to JSON, so this iteration is
 # immune to formatting issues that affect the line-based flake.nix grep
 # above (nixfmt-wrapped values, inline trailing comments). Inventory-declared
-# inputs are governed by their explicit `no-local-url` check (see the per
-# input loop below), which keeps support for offline reachable-commit fixtures
-# that legitimately use `file://` upstream URLs.
+# inputs run the same scan unconditionally inside the per-input loop below;
+# the explicit `allowLocalSource = true` opt-out covers offline
+# reachable-commit fixtures that legitimately use `file://` upstream URLs.
 # Single jq pass: emits `name<TAB>section` for each offending entry. Skips
 # root-level follows arrays (`select((.value | type) == "string")`) and
 # inventory-declared inputs via the slurped exemption set.
@@ -158,7 +158,7 @@ has_check() {
 
 valid_check_name() {
   case "$1" in
-  clean-checkout | reachable-commit | tracked-files | follows-preserved | lock-graph | no-local-url)
+  clean-checkout | reachable-commit | tracked-files | follows-preserved | lock-graph)
     return 0
     ;;
   *)
@@ -181,6 +181,7 @@ while IFS= read -r encoded; do
   upstream_ref=$(json_string '.upstream.ref' "$item")
   source_mode=$(json_string '.sourceMode' "$item")
   path_env=$(json_string '.local.pathEnv' "$item")
+  allow_local_source=$(jq -r '.allowLocalSource // false' <<<"$item")
 
   [ -n "$flake_input" ] || error_msg "$id: missing flakeInput"
   [ -n "$upstream_url" ] || error_msg "$id: missing upstream.url"
@@ -216,7 +217,11 @@ while IFS= read -r encoded; do
     continue
   fi
 
-  if has_check "$item" no-local-url; then
+  # Local-source policy is on by default for every inventory input.
+  # `allowLocalSource = true` is the explicit per-entry opt-out used only by
+  # offline reachable-commit fixtures that legitimately point upstream at a
+  # `file://` bare repo.
+  if [ "$allow_local_source" != "true" ]; then
     for section in locked original; do
       input_type=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].type // empty' flake.lock)
       input_url=$(jq -r --arg node "$node" --arg section "$section" '.nodes[$node][$section].url // empty' flake.lock)

@@ -57,6 +57,7 @@ Required fields:
 | `follows`              | Expected nested input follows relationships that must be preserved.                                           |
 | `lockGraph.inputNames` | Expected nested input names for graph-drift detection.                                                        |
 | `checks`               | Validation classes required before publishing.                                                                |
+| `allowLocalSource`     | Optional `true` opt-out from the local-source check. Use only for offline fixtures.                           |
 | `notes`                | Short rationale and upstreaming expectations.                                                                 |
 
 Example shape:
@@ -80,7 +81,6 @@ Example shape:
       "reachable-commit"
       "follows-preserved"
       "lock-graph"
-      "no-local-url"
     ];
     notes = "Use for upstream package fixes before they are released.";
   };
@@ -108,21 +108,22 @@ passes `--no-fetch`.
 The `maintained-inputs` hook runs at the `pre-push` and `manual` stages of the
 pre-commit framework and wraps the same script without `--fetch`. The
 `flake.nix` local URL scan is repository-wide because committed local input URLs
-are never allowed. The inventory `no-local-url` check controls the per-input
-`flake.lock` scan.
+are never allowed. The same scan runs against every root input in `flake.lock`,
+including every inventory entry; the only escape hatch is the explicit
+`allowLocalSource = true` opt-out, intended for offline reachability fixtures.
 
 Validation is split by the failure it catches:
 
-| Check             | Failure caught                                                                     | Data source                                                         |
-| ----------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Inventory schema  | Missing fields, unknown check names, duplicate input records.                      | Inventory attrset.                                                  |
-| Input existence   | Inventory references an input not present in `flake.nix`.                          | Root flake inputs.                                                  |
-| No local URL      | Published `flake.nix` or `flake.lock` points at a `path:` or machine-local source. | `flake.nix`, `flake.lock`.                                          |
-| Clean checkout    | A publishable local input has unstaged, staged, or untracked state.                | `git -C "$checkout" status --porcelain=v1 --untracked-files=all`.   |
-| Tracked files     | New files required by evaluation are tracked before testing or publishing.         | Git status in the input checkout.                                   |
-| Reachable commit  | The locked revision is not reachable from the configured remote/ref.               | `git fetch` plus ancestry check.                                    |
-| Follows preserved | Nested input deduplication changed without a reviewed inventory update.            | Inventory `follows` plus flake input declarations or lock metadata. |
-| Lock graph drift  | An input update changed dependency edges beyond the intended input revision.       | Inventory `lockGraph.inputNames` and `flake.lock`.                  |
+| Check             | Failure caught                                                                                                                                                                            | Data source                                                         |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Inventory schema  | Missing fields, unknown check names, duplicate input records.                                                                                                                             | Inventory attrset.                                                  |
+| Input existence   | Inventory references an input not present in `flake.nix`.                                                                                                                                 | Root flake inputs.                                                  |
+| No local URL      | Published `flake.nix` or `flake.lock` points at a `path:` or machine-local source. Runs unconditionally for every root input; opt out per inventory entry with `allowLocalSource = true`. | `flake.nix`, `flake.lock`.                                          |
+| Clean checkout    | A publishable local input has unstaged, staged, or untracked state.                                                                                                                       | `git -C "$checkout" status --porcelain=v1 --untracked-files=all`.   |
+| Tracked files     | New files required by evaluation are tracked before testing or publishing.                                                                                                                | Git status in the input checkout.                                   |
+| Reachable commit  | The locked revision is not reachable from the configured remote/ref.                                                                                                                      | `git fetch` plus ancestry check.                                    |
+| Follows preserved | Nested input deduplication changed without a reviewed inventory update.                                                                                                                   | Inventory `follows` plus flake input declarations or lock metadata. |
+| Lock graph drift  | An input update changed dependency edges beyond the intended input revision.                                                                                                              | Inventory `lockGraph.inputNames` and `flake.lock`.                  |
 
 `clean-checkout` and `tracked-files` encode different policies. `clean-checkout`
 rejects any unstaged, staged, or untracked content because `git status` uses

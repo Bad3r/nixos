@@ -82,7 +82,6 @@ INVENTORY_FULL='_: {
       lockGraph.inputNames = [ "nixpkgs" ];
       checks = [
         "clean-checkout"
-        "no-local-url"
         "follows-preserved"
         "lock-graph"
       ];
@@ -113,6 +112,7 @@ init_fixture() {
   git init -q "${fixture}"
   git -C "${fixture}" config user.email "tests@example.invalid"
   git -C "${fixture}" config user.name "check-maintained-inputs tests"
+  git -C "${fixture}" config commit.gpgsign false
   git -C "${fixture}" commit --allow-empty -q -m init
   printf '%s' "${fixture}"
 }
@@ -556,7 +556,6 @@ test_fail_lock_graph_missing_inputnames() {
       sourceMode = "local-override";
       follows.nixpkgs = "nixpkgs";
       checks = [
-        "no-local-url"
         "follows-preserved"
         "lock-graph"
       ];
@@ -650,7 +649,6 @@ test_fail_follows_preserved_missing_follows() {
       sourceMode = "local-override";
       lockGraph.inputNames = [ "nixpkgs" ];
       checks = [
-        "no-local-url"
         "follows-preserved"
         "lock-graph"
       ];
@@ -672,6 +670,7 @@ test_pass_tracked_files_modified_tracked() {
   git init -q "${checkout}"
   git -C "${checkout}" config user.email "tests@example.invalid"
   git -C "${checkout}" config user.name "check-maintained-inputs tests"
+  git -C "${checkout}" config commit.gpgsign false
   printf 'init' >"${checkout}/README"
   git -C "${checkout}" add README
   git -C "${checkout}" commit -q -m init
@@ -690,7 +689,6 @@ test_pass_tracked_files_modified_tracked() {
       lockGraph.inputNames = [ "nixpkgs" ];
       checks = [
         "tracked-files"
-        "no-local-url"
         "follows-preserved"
         "lock-graph"
       ];
@@ -713,6 +711,7 @@ test_fail_clean_and_tracked_both_fire() {
   git init -q "${checkout}"
   git -C "${checkout}" config user.email "tests@example.invalid"
   git -C "${checkout}" config user.name "check-maintained-inputs tests"
+  git -C "${checkout}" config commit.gpgsign false
   printf 'init' >"${checkout}/README"
   git -C "${checkout}" add README
   git -C "${checkout}" commit -q -m init
@@ -733,7 +732,6 @@ test_fail_clean_and_tracked_both_fire() {
       checks = [
         "clean-checkout"
         "tracked-files"
-        "no-local-url"
         "follows-preserved"
         "lock-graph"
       ];
@@ -771,7 +769,6 @@ test_fail_checkout_check_missing_pathenv() {
       lockGraph.inputNames = [ "nixpkgs" ];
       checks = [
         "clean-checkout"
-        "no-local-url"
         "follows-preserved"
         "lock-graph"
       ];
@@ -879,6 +876,77 @@ test_fail_unknown_source_mode() {
     'example: unknown sourceMode: bogus'
 }
 
+test_pass_local_url_lock_with_allow_local_source() {
+  local fixture exit_code inventory_allow lock_local
+  fixture="$(init_fixture pass-allow-local-source)"
+  inventory_allow='_: {
+  flake.lib.meta.maintainedInputs = {
+    example = {
+      flakeInput = "example";
+      upstream = {
+        url = "https://example.invalid/example.git";
+        ref = "main";
+      };
+      sourceMode = "remote-locked";
+      allowLocalSource = true;
+      follows.nixpkgs = "nixpkgs";
+      lockGraph.inputNames = [ "nixpkgs" ];
+      checks = [
+        "follows-preserved"
+        "lock-graph"
+      ];
+    };
+  };
+}'
+  lock_local='{
+  "nodes": {
+    "root": {
+      "inputs": {
+        "example": "example",
+        "nixpkgs": "nixpkgs"
+      }
+    },
+    "example": {
+      "inputs": {
+        "nixpkgs": ["nixpkgs"]
+      },
+      "locked": {
+        "lastModified": 0,
+        "narHash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "rev": "0000000000000000000000000000000000000000",
+        "revCount": 0,
+        "type": "git",
+        "url": "git+file:///tmp/example"
+      },
+      "original": {
+        "type": "git",
+        "url": "git+file:///tmp/example"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "rev": "0000000000000000000000000000000000000000",
+        "type": "github",
+        "owner": "NixOS",
+        "repo": "nixpkgs"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inventory_allow}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${lock_local}"
+  exit_code=$(run_sut "${fixture}" --no-fetch)
+  assert_pass "pass-allow-local-source" "${fixture}" "${exit_code}"
+}
+
 test_fail_unknown_check_name() {
   local fixture exit_code bad_inventory
   fixture="$(init_fixture fail-unknown-check)"
@@ -982,6 +1050,7 @@ test_pass_reachable_commit() {
   git clone -q "${upstream}" "${clone_dir}"
   git -C "${clone_dir}" config user.email "test@example.com"
   git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" config commit.gpgsign false
   git -C "${clone_dir}" commit -q --allow-empty -m "init"
   git -C "${clone_dir}" push -q origin HEAD:main
   local locked_sha
@@ -992,6 +1061,7 @@ test_pass_reachable_commit() {
     flakeInput = "example";
     upstream = { url = "file://'"${upstream}"'"; ref = "main"; };
     sourceMode = "remote-locked";
+    allowLocalSource = true;
     checks = [ "reachable-commit" ];
   };
 }'
@@ -1030,6 +1100,7 @@ test_fail_reachable_commit_unreachable() {
   git clone -q "${upstream}" "${clone_dir}"
   git -C "${clone_dir}" config user.email "test@example.com"
   git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" config commit.gpgsign false
   git -C "${clone_dir}" commit -q --allow-empty -m "init"
   git -C "${clone_dir}" push -q origin HEAD:main
 
@@ -1038,6 +1109,7 @@ test_fail_reachable_commit_unreachable() {
     flakeInput = "example";
     upstream = { url = "file://'"${upstream}"'"; ref = "main"; };
     sourceMode = "remote-locked";
+    allowLocalSource = true;
     checks = [ "reachable-commit" ];
   };
 }'
@@ -1077,6 +1149,7 @@ test_fail_reachable_commit_bad_ref() {
   git clone -q "${upstream}" "${clone_dir}"
   git -C "${clone_dir}" config user.email "test@example.com"
   git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" config commit.gpgsign false
   git -C "${clone_dir}" commit -q --allow-empty -m "init"
   git -C "${clone_dir}" push -q origin HEAD:main
 
@@ -1085,6 +1158,7 @@ test_fail_reachable_commit_bad_ref() {
     flakeInput = "example";
     upstream = { url = "file://'"${upstream}"'"; ref = "nonexistent"; };
     sourceMode = "remote-locked";
+    allowLocalSource = true;
     checks = [ "reachable-commit" ];
   };
 }'
@@ -1175,6 +1249,7 @@ test_fail_missing_upstream_url
 test_fail_missing_upstream_ref
 test_fail_missing_source_mode
 test_fail_unknown_source_mode
+test_pass_local_url_lock_with_allow_local_source
 test_fail_unknown_check_name
 test_fail_inventory_export
 test_pass_reachable_commit
@@ -1182,4 +1257,4 @@ test_fail_reachable_commit_unreachable
 test_fail_reachable_commit_bad_ref
 test_fail_reachable_commit_missing_rev
 
-printf '30 passed\n'
+printf '31 passed\n'

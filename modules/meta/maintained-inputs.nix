@@ -20,7 +20,6 @@ _: {
         "reachable-commit"
         "follows-preserved"
         "lock-graph"
-        "no-local-url"
       ];
       notes = "Pilot input for local upstream patching through temporary --override-input evaluation.";
     };
