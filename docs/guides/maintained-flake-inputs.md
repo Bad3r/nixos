@@ -392,4 +392,4 @@ The maintained-input flow proves this sequence per entry:
 | Nested input relationships are preserved.                                               | `follows` is explicit inventory data and a validation target.                                     |
 | Validation catches dirty inputs, untracked files, unreachable commits, and graph drift. | `scripts/check-maintained-inputs.sh` validates these conditions, with `--fetch` for reachability. |
 | Documentation covers workflows.                                                         | This guide covers patching, sync, conflict handling, publishing, and rollback.                    |
-| Pilot input can be maintained.                                                          | `stylix` is the initial inventory entry.                                                          |
+| Pilot input can be maintained.                                                          | `nixpkgs`, `home-manager`, and `stylix` are the initial inventory entries.                        |
