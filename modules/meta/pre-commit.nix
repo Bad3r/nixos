@@ -113,7 +113,13 @@ _: {
               description = "Validate maintained flake input inventory and lock metadata.";
               entry = "${config.packages.hook-maintained-inputs}/bin/hook-maintained-inputs";
               pass_filenames = false;
-              files = "^(flake\\.nix|flake\\.lock|\\.gitmodules|modules/meta/(hooks/)?maintained-inputs\\.nix|scripts/check-maintained-inputs\\.sh)$";
+              # A maintained-input update commonly bumps only the inputs/<name>
+              # submodule gitlink (the path-type lock entries carry no rev, so
+              # flake.lock does not change). The global `^inputs/` exclude drops
+              # those paths from every hook, so a `files` filter would skip the
+              # most common change; always_run mirrors the sibling pre-push
+              # validators so gitlink-only updates still run the inventory checks.
+              always_run = true;
               stages = [
                 "pre-push"
                 "manual"
