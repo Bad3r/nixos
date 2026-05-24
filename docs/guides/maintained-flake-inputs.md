@@ -331,36 +331,42 @@ If validation reports an unreachable or dirty submodule:
 
 Do not mask the failure by setting the inventory entry to `allowLocalSource = true` or by editing `flake.lock` by hand.
 
-## Pilot Recommendation
+## Maintained Inputs
 
-`stylix` is the pilot because the repository is set up to patch it locally
-(theming framework with five active follows: `flake-parts`, `nixpkgs`,
-`nur` via `dedupe_nur`, `systems`, `tinted-schemes`, and a nested lock graph
-of fourteen entries). The committed `inputs/stylix` git submodule pins a
-reachable revision on the `Bad3r/stylix` fork; the canonical source it
-tracks is `nix-community/stylix` (recorded in the inventory as
-`forkOf`). The repo-level `inputs.self.submodules = true;` declaration
-makes the submodule content visible to flake evaluation without
-per-command overrides.
+The inventory currently tracks three submodule-backed inputs:
 
-The pilot should prove this sequence:
+| Input          | Submodule path        | Fork remote                     | Canonical source             | Nested input shape                                                                                                                    |
+| -------------- | --------------------- | ------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `nixpkgs`      | `inputs/nixpkgs`      | `Bad3r/nixpkgs` (`master`)      | `NixOS/nixpkgs`              | Leaf input, no nested follows.                                                                                                        |
+| `home-manager` | `inputs/home-manager` | `Bad3r/home-manager` (`master`) | `nix-community/home-manager` | Single nested input `nixpkgs`, dedup'd through the root.                                                                              |
+| `stylix`       | `inputs/stylix`       | `Bad3r/stylix` (`master`)       | `nix-community/stylix`       | Five active follows (`flake-parts`, `nixpkgs`, `nur` via `dedupe_nur`, `systems`, `tinted-schemes`) over a fourteen-entry lock graph. |
 
-1. Keep the inventory entry for `stylix` with `sourceMode = "submodule"`,
-   `upstream.url` pointing at the fork (`Bad3r/stylix`), and `forkOf.url`
-   pointing at the canonical source (`nix-community/stylix`).
+Each committed `inputs/<flakeInput>` directory is a git submodule pinned to a
+reachable revision on the corresponding `Bad3r/<flakeInput>` fork; the
+canonical source it tracks is recorded in the inventory as `forkOf`. The
+repo-level `inputs.self.submodules = true;` declaration makes submodule
+content visible to flake evaluation without per-command overrides.
+
+The maintained-input flow proves this sequence per entry:
+
+1. Keep the inventory entry with `sourceMode = "submodule"`, `upstream.url`
+   pointing at the fork (`Bad3r/<flakeInput>`), and `forkOf.url` pointing at
+   the canonical source.
 2. Initialize the submodule and add the canonical upstream remote:
-   `git submodule update --init --recursive inputs/stylix` then
-   `git -C inputs/stylix remote add upstream https://github.com/nix-community/stylix.git`.
-3. Patch the upstream code in `inputs/stylix/` and evaluate without flags:
+   `git submodule update --init --recursive inputs/<flakeInput>` then
+   `git -C inputs/<flakeInput> remote add upstream <forkOf.url>`.
+3. Patch the upstream code in `inputs/<flakeInput>/` and evaluate without
+   flags:
    `nix eval --accept-flake-config --no-write-lock-file .#nixosConfigurations.<host>.config.system.build.toplevel.drvPath`.
 4. Track any new upstream files before evaluation depends on them.
 5. Push the submodule commit to `origin` (the fork) on a reachable branch.
-6. Stage the updated gitlink (`git add inputs/stylix`) in the parent repo.
+6. Stage the updated gitlink (`git add inputs/<flakeInput>`) in the parent
+   repo.
 7. Run `scripts/check-maintained-inputs.sh --fetch` to check clean submodule
    state, reachable commit (against the fork URL), locked path matches the
    convention, preserved follows, and intended lock graph changes.
-8. When the change is ready, open a PR upstream against
-   `nix-community/stylix` from the fork branch.
+8. When the change is ready, open a PR upstream against the canonical source
+   from the fork branch.
 9. Document the result in the issue before expanding the workflow to more
    inputs.
 

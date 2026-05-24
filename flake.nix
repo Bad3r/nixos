@@ -22,7 +22,8 @@
     };
 
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "./inputs/home-manager";
+      flake = true;
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -86,7 +87,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs = {
+      url = "./inputs/nixpkgs";
+      flake = true;
+    };
 
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 

@@ -6,3 +6,11 @@
 	path = inputs/stylix
 	url = https://github.com/Bad3r/stylix.git
 	branch = master
+[submodule "inputs/nixpkgs"]
+	path = inputs/nixpkgs
+	url = https://github.com/Bad3r/nixpkgs.git
+	branch = master
+[submodule "inputs/home-manager"]
+	path = inputs/home-manager
+	url = https://github.com/Bad3r/home-manager.git
+	branch = master
