@@ -70,6 +70,16 @@ in
     homeManagerModules = {
       base = {
         imports = [ inputs.stylix.homeModules.stylix ];
+        # Stylix's nixvim home-manager target adds a back-compat setter
+        # `lib.stylix.nixvim.config = ... config.stylix.targets.nixvim.exportedModule`
+        # whose value graph reaches `cfg.enable`, defined as
+        # `config.lib.stylix.mkEnableTargetWith ...`. Evaluating
+        # `home-manager.users.<u>.lib` therefore loops through itself.
+        # Targets under modules/neovim/ (neovim, neovide, nixvim, nvf, vim) are
+        # all unused in this configuration (nixvim theming uses onedark.nvim),
+        # so disabling the whole hm.nix target group is safe and breaks the
+        # cycle without losing functionality.
+        disabledModules = [ "${inputs.stylix}/modules/neovim/hm.nix" ];
         stylix = baseTheme // {
           targets = {
             kde.enable = false;

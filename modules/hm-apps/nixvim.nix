@@ -50,9 +50,9 @@ _: {
       config =
         if nvimEnabled then
           {
-            # Use navarasu/onedark.nvim directly instead of stylix's base16 mapping
-            stylix.targets.nixvim.enable = false;
-
+            # Stylix's nixvim target is disabled at module level in
+            # modules/stylix/stylix.nix (disabledModules), so we cannot set
+            # stylix.targets.nixvim.enable here. Theming uses navarasu/onedark.
             programs.nixvim = {
               enable = true;
               package = nvimPkg;
