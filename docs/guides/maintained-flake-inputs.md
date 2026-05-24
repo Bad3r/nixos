@@ -165,15 +165,17 @@ is read after CLI flags, so it forces fetch validation even when the wrapper
 passes `--no-fetch`.
 
 The `maintained-inputs` hook runs at the `pre-push` and `manual` stages of the
-pre-commit framework and wraps the same script without `--fetch`. The
-`flake.nix` local URL scan is repository-wide because committed local input URLs
-are never allowed, with one exception: URLs of the form `./inputs/<flakeInput>`
-are reserved for submodule-backed inventory entries and pass the pre-check
-unconditionally. The repo-wide `flake.lock` scan then runs against every root
-input, exempts inventory-declared inputs from the global rejection, and inside
-the per-input loop reapplies a per-entry policy: submodule-mode entries must
-carry `type = "path"` with `path = "./inputs/<flakeInput>"`, while other modes
-must avoid local paths unless `allowLocalSource = true`.
+pre-commit framework and wraps the same script without `--fetch`. The hook also
+fires on `.gitmodules` edits so a submodule URL or branch retarget cannot drift
+from the inventory without push-time validation. The `flake.nix` local URL scan
+is repository-wide because committed local input URLs are never allowed, with
+one exception: URLs of the form `./inputs/<flakeInput>` are reserved for
+submodule-backed inventory entries and pass the pre-check unconditionally. The
+repo-wide `flake.lock` scan then runs against every root input, exempts
+inventory-declared inputs from the global rejection, and inside the per-input
+loop reapplies a per-entry policy: submodule-mode entries must carry
+`type = "path"` with `path = "./inputs/<flakeInput>"`, while other modes must
+avoid local paths unless `allowLocalSource = true`.
 
 Validation is split by the failure it catches:
 

@@ -140,7 +140,7 @@ _: {
               description = "Validate maintained flake input inventory and lock metadata.";
               entry = "${config.packages.hook-maintained-inputs}/bin/hook-maintained-inputs";
               pass_filenames = false;
-              files = "^(flake\\.nix|flake\\.lock|modules/meta/(hooks/)?maintained-inputs\\.nix|scripts/check-maintained-inputs\\.sh)$";
+              files = "^(flake\\.nix|flake\\.lock|\\.gitmodules|modules/meta/(hooks/)?maintained-inputs\\.nix|scripts/check-maintained-inputs\\.sh)$";
               stages = [
                 "pre-push"
                 "manual"
