@@ -14,6 +14,7 @@ _: {
       checks = [
         "clean-checkout"
         "reachable-commit"
+        "upstream-fresh"
       ];
       notes = "Foundational package set tracked as a git submodule under inputs/nixpkgs. .gitmodules points at the Bad3r/nixpkgs fork (submodule origin) so the committed gitlink stays reachable for any in-progress patches; the local upstream remote points at NixOS/nixpkgs canonical for fetching new master commits and opening PRs. nixpkgs is a leaf input (no nested flake inputs), so follows and lockGraph.inputNames are not declared.";
     };
@@ -37,6 +38,7 @@ _: {
       checks = [
         "clean-checkout"
         "reachable-commit"
+        "upstream-fresh"
         "follows-preserved"
         "lock-graph"
       ];
@@ -79,6 +81,7 @@ _: {
       checks = [
         "clean-checkout"
         "reachable-commit"
+        "upstream-fresh"
         "follows-preserved"
         "lock-graph"
       ];

@@ -5,7 +5,6 @@ export LC_ALL=C
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUT="${SCRIPT_DIR}/../../scripts/check-maintained-inputs.sh"
-export CHECK_MAINTAINED_INPUTS_NIX_EVAL_FLAGS="--override-input example path:./example --override-input nixpkgs path:./nixpkgs"
 
 if [[ ! -x ${SUT} ]]; then
   printf 'run.sh: SUT not executable at %s\n' "${SUT}" >&2
@@ -1022,24 +1021,6 @@ test_fail_path_type_in_flake_lock() {
     'source for example is a local path'
 }
 
-test_fail_inventory_export() {
-  local fixture exit_code flake_no_lib
-  fixture="$(init_fixture fail-inventory-export)"
-  flake_no_lib='{
-  inputs = {
-    example.url = "github:example/example";
-    nixpkgs.url = "github:NixOS/nixpkgs";
-  };
-  outputs = _: { };
-}'
-  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${INVENTORY_FULL}"
-  write_file "${fixture}/flake.nix" "${flake_no_lib}"
-  write_file "${fixture}/flake.lock" "${LOCK_BASE}"
-  exit_code=$(run_sut "${fixture}" --no-fetch)
-  assert_fail "fail-inventory-export" "${fixture}" "${exit_code}" \
-    'failed to evaluate \.#lib\.meta\.maintainedInputs'
-}
-
 test_pass_reachable_commit() {
   local fixture exit_code upstream lock inv
   fixture="$(init_fixture pass-reachable)"
@@ -1186,6 +1167,110 @@ test_fail_reachable_commit_bad_ref() {
   exit_code=$(run_sut "${fixture}" --fetch)
   assert_fail "fail-reachable-bad-ref" "${fixture}" "${exit_code}" \
     'failed to fetch'
+}
+
+test_pass_upstream_fresh() {
+  local fixture exit_code upstream lock inv canonical_sha
+  fixture="$(init_fixture pass-upstream-fresh)"
+  upstream="${tmpdir}/upstream-fresh.git"
+  git init -q --bare "${upstream}"
+
+  local clone_dir="${tmpdir}/upstream-fresh-clone"
+  git clone -q "${upstream}" "${clone_dir}"
+  git -C "${clone_dir}" config user.email "test@example.com"
+  git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" config commit.gpgsign false
+  git -C "${clone_dir}" commit -q --allow-empty -m "fresh"
+  git -C "${clone_dir}" push -q origin HEAD:main
+  canonical_sha=$(git -C "${clone_dir}" rev-parse HEAD)
+
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "file://'"${upstream}"'"; ref = "main"; };
+    forkOf = { url = "file://'"${upstream}"'"; ref = "main"; };
+    sourceMode = "remote-locked";
+    allowLocalSource = true;
+    checks = [ "upstream-fresh" ];
+  };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example" } },
+    "example": {
+      "locked": {
+        "rev": "'"${canonical_sha}"'",
+        "type": "git",
+        "url": "file://'"${upstream}"'"
+      },
+      "original": {
+        "type": "git",
+        "url": "file://'"${upstream}"'"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  exit_code=$(run_sut "${fixture}" --fetch)
+  assert_pass "pass-upstream-fresh" "${fixture}" "${exit_code}"
+}
+
+test_fail_upstream_fresh_stale() {
+  local fixture exit_code upstream lock inv stale_sha stale_date
+  fixture="$(init_fixture fail-upstream-fresh-stale)"
+  upstream="${tmpdir}/upstream-fresh-stale.git"
+  git init -q --bare "${upstream}"
+
+  local clone_dir="${tmpdir}/upstream-fresh-stale-clone"
+  git clone -q "${upstream}" "${clone_dir}"
+  git -C "${clone_dir}" config user.email "test@example.com"
+  git -C "${clone_dir}" config user.name "Test"
+  git -C "${clone_dir}" config commit.gpgsign false
+  # Backdate the commit by 60 days so it falls outside the 14-day default.
+  stale_date=$(date -u -d '60 days ago' +'%Y-%m-%dT%H:%M:%SZ')
+  GIT_AUTHOR_DATE="${stale_date}" GIT_COMMITTER_DATE="${stale_date}" \
+    git -C "${clone_dir}" commit -q --allow-empty -m "stale"
+  git -C "${clone_dir}" push -q origin HEAD:main
+  stale_sha=$(git -C "${clone_dir}" rev-parse HEAD)
+
+  inv='_: {
+  flake.lib.meta.maintainedInputs.example = {
+    flakeInput = "example";
+    upstream = { url = "file://'"${upstream}"'"; ref = "main"; };
+    forkOf = { url = "file://'"${upstream}"'"; ref = "main"; };
+    sourceMode = "remote-locked";
+    allowLocalSource = true;
+    checks = [ "upstream-fresh" ];
+  };
+}'
+  lock='{
+  "nodes": {
+    "root": { "inputs": { "example": "example" } },
+    "example": {
+      "locked": {
+        "rev": "'"${stale_sha}"'",
+        "type": "git",
+        "url": "file://'"${upstream}"'"
+      },
+      "original": {
+        "type": "git",
+        "url": "file://'"${upstream}"'"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}'
+  write_file "${fixture}/modules/meta/maintained-inputs.nix" "${inv}"
+  write_file "${fixture}/flake.nix" "${FLAKE_NIX_CLEAN}"
+  write_file "${fixture}/flake.lock" "${lock}"
+  exit_code=$(run_sut "${fixture}" --fetch)
+  assert_fail "fail-upstream-fresh-stale" "${fixture}" "${exit_code}" \
+    'freshness threshold is'
 }
 
 test_fail_reachable_commit_missing_rev() {
@@ -1591,11 +1676,12 @@ test_fail_missing_source_mode
 test_fail_unknown_source_mode
 test_pass_local_url_lock_with_allow_local_source
 test_fail_unknown_check_name
-test_fail_inventory_export
 test_pass_reachable_commit
 test_fail_reachable_commit_unreachable
 test_fail_reachable_commit_bad_ref
 test_fail_reachable_commit_missing_rev
+test_pass_upstream_fresh
+test_fail_upstream_fresh_stale
 test_pass_submodule_clean
 test_fail_submodule_lock_path_mismatch
 test_fail_submodule_upstream_url_drift
@@ -1605,4 +1691,4 @@ test_fail_forkof_missing_url
 test_fail_forkof_missing_ref
 test_pass_forkof_full
 
-printf '38 passed\n'
+printf '39 passed\n'

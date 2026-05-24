@@ -167,32 +167,44 @@ passes `--no-fetch`.
 The `maintained-inputs` hook runs at the `pre-push` and `manual` stages of the
 pre-commit framework and wraps the same script without `--fetch`. The hook also
 fires on `.gitmodules` edits so a submodule URL or branch retarget cannot drift
-from the inventory without push-time validation. The `flake.nix` local URL scan
-is repository-wide because committed local input URLs are never allowed, with
-one exception: URLs of the form `./inputs/<flakeInput>` are reserved for
-submodule-backed inventory entries and pass the pre-check unconditionally. The
-repo-wide `flake.lock` scan then runs against every root input, exempts
-inventory-declared inputs from the global rejection, and inside the per-input
-loop reapplies a per-entry policy: submodule-mode entries must carry
-`type = "path"` with `path = "./inputs/<flakeInput>"`, while other modes must
-avoid local paths unless `allowLocalSource = true`. For `submodule` mode, the
-validator also enforces that `upstream.url` matches the URL recorded in
-`.gitmodules` for `inputs/<flakeInput>`, so the `reachable-commit --fetch`
-check queries the same remote that fresh `git clone --recurse-submodules`
-uses.
+from the inventory without push-time validation. The validator reads the
+inventory via `(import ./modules/meta/maintained-inputs.nix {}).flake.lib.meta.maintainedInputs`
+rather than `nix eval .#lib.meta.maintainedInputs`, so it does not force every
+flake input (including submodule-backed `inputs/<flakeInput>` trees) into the
+Nix store. The `flake.nix` local URL scan is repository-wide because committed
+local input URLs are never allowed, with one exception: URLs of the form
+`./inputs/<flakeInput>` are reserved for submodule-backed inventory entries
+and pass the pre-check unconditionally. The repo-wide `flake.lock` scan then
+runs against every root input, exempts inventory-declared inputs from the
+global rejection, and inside the per-input loop reapplies a per-entry policy:
+submodule-mode entries must carry `type = "path"` with
+`path = "./inputs/<flakeInput>"`, while other modes must avoid local paths
+unless `allowLocalSource = true`. For `submodule` mode, the validator also
+enforces that `upstream.url` matches the URL recorded in `.gitmodules` for
+`inputs/<flakeInput>`, so the `reachable-commit --fetch` check queries the
+same remote that fresh `git clone --recurse-submodules` uses.
+
+Network-bound checks (`reachable-commit`, `upstream-fresh`) are gated on
+`--fetch` and intended to run locally on operator workstations during a
+publish cycle. CI does not run `--fetch` because the maintained-input forks
+(`nixpkgs`, `home-manager`) are gigabyte-scale and would dominate workflow
+runtime; the validator's offline checks (schema, follows, lock-graph, no
+local URL, `.gitmodules` URL match) cover the gate that CI can afford to
+enforce.
 
 Validation is split by the failure it catches:
 
-| Check             | Failure caught                                                                                                                                                                                                                                                                 | Data source                                                                                                           |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Inventory schema  | Missing fields, unknown check names, duplicate input records.                                                                                                                                                                                                                  | Inventory attrset.                                                                                                    |
-| Input existence   | Inventory references an input not present in `flake.nix`.                                                                                                                                                                                                                      | Root flake inputs.                                                                                                    |
-| No local URL      | Published `flake.nix` or `flake.lock` points at a `path:` or machine-local source. Runs unconditionally for every root input. Submodule-mode entries instead enforce `path = "./inputs/<flakeInput>"`; other modes opt out per inventory entry with `allowLocalSource = true`. | `flake.nix`, `flake.lock`.                                                                                            |
-| Clean checkout    | A publishable local input has unstaged, staged, or untracked state. Submodule mode resolves the checkout to `inputs/<flakeInput>`; other modes use `$<INPUT>_CHECKOUT` named by `local.pathEnv`.                                                                               | `git -C "$checkout" status --porcelain=v1 --untracked-files=all`.                                                     |
-| Tracked files     | New files required by evaluation are tracked before testing or publishing.                                                                                                                                                                                                     | Git status in the input checkout.                                                                                     |
-| Reachable commit  | The locked revision is not reachable from the configured remote/ref. Submodule mode reads the committed gitlink as the locked revision (path-type lock entries carry no `rev`); other modes read `nodes[$node].locked.rev` from `flake.lock`.                                  | Submodule gitlink (`git ls-files -s inputs/<flakeInput>`) or `flake.lock` plus `git fetch` and `merge-base` ancestry. |
-| Follows preserved | Nested input deduplication changed without a reviewed inventory update.                                                                                                                                                                                                        | Inventory `follows` plus flake input declarations or lock metadata.                                                   |
-| Lock graph drift  | An input update changed dependency edges beyond the intended input revision.                                                                                                                                                                                                   | Inventory `lockGraph.inputNames` and `flake.lock`.                                                                    |
+| Check             | Failure caught                                                                                                                                                                                                                                                                                                                                                                     | Data source                                                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Inventory schema  | Missing fields, unknown check names, duplicate input records.                                                                                                                                                                                                                                                                                                                      | Inventory attrset.                                                                                                                       |
+| Input existence   | Inventory references an input not present in `flake.nix`.                                                                                                                                                                                                                                                                                                                          | Root flake inputs.                                                                                                                       |
+| No local URL      | Published `flake.nix` or `flake.lock` points at a `path:` or machine-local source. Runs unconditionally for every root input. Submodule-mode entries instead enforce `path = "./inputs/<flakeInput>"`; other modes opt out per inventory entry with `allowLocalSource = true`.                                                                                                     | `flake.nix`, `flake.lock`.                                                                                                               |
+| Clean checkout    | A publishable local input has unstaged, staged, or untracked state. Submodule mode resolves the checkout to `inputs/<flakeInput>`; other modes use `$<INPUT>_CHECKOUT` named by `local.pathEnv`.                                                                                                                                                                                   | `git -C "$checkout" status --porcelain=v1 --untracked-files=all`.                                                                        |
+| Tracked files     | New files required by evaluation are tracked before testing or publishing.                                                                                                                                                                                                                                                                                                         | Git status in the input checkout.                                                                                                        |
+| Reachable commit  | The locked revision is not reachable from the configured remote/ref. Submodule mode reads the committed gitlink as the locked revision (path-type lock entries carry no `rev`); other modes read `nodes[$node].locked.rev` from `flake.lock`.                                                                                                                                      | Submodule gitlink (`git ls-files -s inputs/<flakeInput>`) or `flake.lock` plus `git fetch` and `merge-base` ancestry.                    |
+| Upstream fresh    | The locked revision is unreachable from the canonical upstream (`forkOf.ref`) or its commit timestamp is older than the freshness window. Replaces the prior flake-checker hook with a check that works on submodule-backed forks. Local-only: runs under `--fetch` (CI skips fetch-bound checks because the maintained-input forks are too large to clone on every workflow run). | Inventory `forkOf.url`/`forkOf.ref`, `git fetch` against canonical, commit timestamp vs `MAINTAINED_INPUTS_FRESHNESS_DAYS` (default 14). |
+| Follows preserved | Nested input deduplication changed without a reviewed inventory update.                                                                                                                                                                                                                                                                                                            | Inventory `follows` plus flake input declarations or lock metadata.                                                                      |
+| Lock graph drift  | An input update changed dependency edges beyond the intended input revision.                                                                                                                                                                                                                                                                                                       | Inventory `lockGraph.inputNames` and `flake.lock`.                                                                                       |
 
 `clean-checkout` and `tracked-files` encode different policies. `clean-checkout`
 rejects any unstaged, staged, or untracked content because `git status` uses

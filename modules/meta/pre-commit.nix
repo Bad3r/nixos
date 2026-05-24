@@ -1,14 +1,6 @@
 _: {
   perSystem =
-    { config, pkgs, ... }:
-    let
-      flakeCheckerCondition = builtins.concatStringsSep " " [
-        "supportedRefs.contains(gitRef)"
-        "&& has(numDaysOld)"
-        "&& numDaysOld < 30"
-        "&& owner == 'NixOS'"
-      ];
-    in
+    { config, ... }:
     {
       pre-commit = {
         # Custom hooks rely on git metadata; skip sandboxed flake checks.
@@ -95,25 +87,6 @@ _: {
               description = "Detect hardcoded secrets in repository history.";
               entry = "${config.packages.hook-gitleaks}/bin/hook-gitleaks";
               pass_filenames = false;
-              always_run = true;
-              stages = [
-                "pre-push"
-                "manual"
-              ];
-            };
-
-            flake-checker = {
-              enable = true;
-              name = "flake-checker";
-              description = "Check flake.lock Nixpkgs inputs for supported upstream freshness.";
-              entry = builtins.concatStringsSep " " [
-                "${pkgs.flake-checker}/bin/flake-checker"
-                "--no-telemetry"
-                "--fail-mode"
-                "--condition \"${flakeCheckerCondition}\""
-              ];
-              pass_filenames = false;
-              files = "";
               always_run = true;
               stages = [
                 "pre-push"

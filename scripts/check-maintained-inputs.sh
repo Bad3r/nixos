@@ -93,29 +93,21 @@ if [ "$fail" -ne 0 ]; then
   exit "$fail"
 fi
 
-nix_eval_flags=()
-if [ -n "${CHECK_MAINTAINED_INPUTS_NIX_EVAL_FLAGS:-}" ]; then
-  read -r -a nix_eval_flags <<<"$CHECK_MAINTAINED_INPUTS_NIX_EVAL_FLAGS"
-fi
-
 inventory_eval_stderr="$tmp_root/inventory-eval.stderr"
-inventory_export_failed=0
-# --accept-flake-config is required so the flake's nixConfig
-# (pipe-operators, allow-import-from-derivation) loads. Without it, import-tree
-# fails to parse modules that use pipe-operator syntax and the eval drops into
-# the fallback path. --no-update-lock-file makes Nix error out when flake.lock
-# is stale relative to flake.nix instead of silently resolving the missing
-# inputs in memory (which would also reach the network during the pre-push).
-# --no-update-lock-file implies no write, so the hook also stays read-only.
-if ! nix eval --accept-flake-config --no-update-lock-file "${nix_eval_flags[@]}" --json '.#lib.meta.maintainedInputs' >"$inventory_json" 2>"$inventory_eval_stderr"; then
-  # Keep validating with raw inventory data so lock-source diagnostics are not masked.
-  inventory_export_failed=1
-  inventory_expr='(import ./modules/meta/maintained-inputs.nix {}).flake.lib.meta.maintainedInputs'
-  if ! nix eval --impure --json --expr "$inventory_expr" >"$inventory_json"; then
-    echo "maintained-inputs: failed to evaluate .#lib.meta.maintainedInputs" >&2
-    sed 's/^/  /' "$inventory_eval_stderr" >&2
-    exit 1
-  fi
+# Read the inventory by importing the module file directly rather than via
+# `nix eval .#lib.meta.maintainedInputs`. The flake-output path forces a
+# full flake evaluation, which copies every input source (including
+# submodule-backed inputs/<flakeInput> trees, multi-GB for nixpkgs) into the
+# Nix store and triggers nix's git fetcher to populate its own gitv3 cache
+# for any input URL it hasn't seen. That made the pre-push hook take 30+
+# minutes on a first run. The inventory file is pure static data with no
+# input references, so `(import ./modules/meta/maintained-inputs.nix {})`
+# returns the same attrset in milliseconds and stays offline.
+inventory_expr='(import ./modules/meta/maintained-inputs.nix {}).flake.lib.meta.maintainedInputs'
+if ! nix eval --impure --json --expr "$inventory_expr" >"$inventory_json" 2>"$inventory_eval_stderr"; then
+  echo "maintained-inputs: failed to import modules/meta/maintained-inputs.nix" >&2
+  sed 's/^/  /' "$inventory_eval_stderr" >&2
+  exit 1
 fi
 
 flake_inputs_expr='builtins.attrNames ((import ./flake.nix).inputs or {})'
@@ -156,10 +148,6 @@ done < <(jq -r --slurpfile inv "$inventory_flake_inputs_json" '
 ' flake.lock)
 
 if [ "$(jq 'length' "$inventory_json")" -eq 0 ]; then
-  if [ "$inventory_export_failed" -eq 1 ]; then
-    error_msg "failed to evaluate .#lib.meta.maintainedInputs"
-    sed 's/^/  /' "$inventory_eval_stderr" >&2
-  fi
   exit "$fail"
 fi
 
@@ -172,7 +160,7 @@ has_check() {
 
 valid_check_name() {
   case "$1" in
-  clean-checkout | reachable-commit | tracked-files | follows-preserved | lock-graph)
+  clean-checkout | reachable-commit | tracked-files | follows-preserved | lock-graph | upstream-fresh)
     return 0
     ;;
   *)
@@ -180,6 +168,11 @@ valid_check_name() {
     ;;
   esac
 }
+
+# Maximum age, in days, accepted by the upstream-fresh check. Configurable via
+# the MAINTAINED_INPUTS_FRESHNESS_DAYS env var so CI jobs can tighten or
+# loosen the gate without editing the script.
+freshness_days="${MAINTAINED_INPUTS_FRESHNESS_DAYS:-14}"
 
 json_string() {
   jq -r "$1 // empty" <<<"$2"
@@ -422,11 +415,55 @@ while IFS= read -r encoded; do
       fi
     fi
   fi
-done < <(jq -r 'to_entries[] | @base64' "$inventory_json")
 
-if [ "$inventory_export_failed" -eq 1 ]; then
-  error_msg "failed to evaluate .#lib.meta.maintainedInputs"
-  sed 's/^/  /' "$inventory_eval_stderr" >&2
-fi
+  # upstream-fresh: validate that the gitlinked SHA is also reachable from the
+  # canonical upstream (forkOf.ref) AND that the commit timestamp is within
+  # the freshness window. Replaces flake-checker's NixOS-owner / supported-ref
+  # / numDaysOld semantics, with the difference that we check the gitlink
+  # against the canonical-source-of-record rather than the fork's own ref.
+  # The check is meaningful only when forkOf is set; for inventory entries
+  # without a canonical upstream there is no second remote to compare to.
+  if [ "$fetch" -eq 1 ] && has_check "$item" upstream-fresh; then
+    fork_of_url=$(json_string '.forkOf.url' "$item")
+    fork_of_ref=$(json_string '.forkOf.ref' "$item")
+    [ -n "$fork_of_url" ] || error_msg "$id: upstream-fresh declared but forkOf.url is missing"
+    [ -n "$fork_of_ref" ] || error_msg "$id: upstream-fresh declared but forkOf.ref is missing"
+    fresh_rev=""
+    if [ "$source_mode" = "submodule" ]; then
+      fresh_rev=$(git ls-files -s "inputs/$flake_input" | awk '{print $2}')
+    else
+      fresh_rev=$(jq -r --arg node "$node" '.nodes[$node].locked.rev // empty' flake.lock)
+    fi
+    if [ -n "$fork_of_url" ] && [ -n "$fork_of_ref" ] && [ -n "$fresh_rev" ]; then
+      canonical_dir=$(mktemp -d "$tmp_root/$id.upstream-fresh.XXXXXX")
+      git -C "$canonical_dir" init --quiet
+      git -C "$canonical_dir" remote add canonical "$fork_of_url"
+      if git -C "$canonical_dir" fetch --filter=blob:none --quiet canonical "$fork_of_ref"; then
+        if ! git -C "$canonical_dir" merge-base --is-ancestor "$fresh_rev" FETCH_HEAD; then
+          error_msg "$id: locked rev $fresh_rev is not reachable from canonical $fork_of_url $fork_of_ref"
+        fi
+        # Commit timestamp lookup. For submodule mode the gitlinked commit is
+        # in the submodule checkout; for other modes it is in the canonical
+        # clone (we fetched it). Either way the SHA resolves through the
+        # canonical clone because we filter by blob and need only the tree
+        # metadata.
+        commit_ts=$(git -C "$canonical_dir" log -1 --format=%ct "$fresh_rev" 2>/dev/null || true)
+        if [ -n "$commit_ts" ]; then
+          now_ts=$(date +%s)
+          age_seconds=$((now_ts - commit_ts))
+          max_age_seconds=$((freshness_days * 86400))
+          if [ "$age_seconds" -gt "$max_age_seconds" ]; then
+            age_days=$((age_seconds / 86400))
+            error_msg "$id: locked rev $fresh_rev is $age_days days old; freshness threshold is $freshness_days days"
+          fi
+        else
+          error_msg "$id: failed to resolve commit timestamp for $fresh_rev in canonical $fork_of_url"
+        fi
+      else
+        error_msg "$id: failed to fetch canonical $fork_of_url $fork_of_ref"
+      fi
+    fi
+  fi
+done < <(jq -r 'to_entries[] | @base64' "$inventory_json")
 
 exit "$fail"

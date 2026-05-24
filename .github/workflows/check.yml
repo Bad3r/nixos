@@ -3,22 +3,6 @@ name: Dendritic Pattern Compliance Check
 "on":
   workflow_dispatch:
 jobs:
-  flake-lock-health:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5.0.0
-        with:
-          submodules: true
-          fetch-depth: 0
-      - name: Check Nixpkgs lock health
-        uses: DeterminateSystems/flake-checker-action@v12
-        with:
-          send-statistics: false
-          fail-mode: true
-          condition: >-
-            supportedRefs.contains(gitRef) && has(numDaysOld)
-            && numDaysOld < 30 && owner == 'NixOS'
-
   check-compliance:
     runs-on: ubuntu-latest
     steps:
