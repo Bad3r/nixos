@@ -189,6 +189,7 @@ let
       gzip.extended.enable = lib.mkOverride 1100 true;
       hashcat.extended.enable = lib.mkOverride 1100 true;
       hdparm.extended.enable = lib.mkOverride 1100 true;
+      helix.extended.enable = lib.mkOverride 1100 true;
       hopper.extended.enable = lib.mkOverride 1100 false;
       hsetroot.extended.enable = lib.mkOverride 1100 true;
       htmlq.extended.enable = lib.mkOverride 1100 true;
