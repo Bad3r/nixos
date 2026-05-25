@@ -17,7 +17,7 @@ jobs:
           fail-mode: true
           condition: >-
             supportedRefs.contains(gitRef) && has(numDaysOld)
-            && numDaysOld < 30 && owner == 'NixOS'
+            && numDaysOld < 30 && owner == 'Bad3r'
 
   check-compliance:
     runs-on: ubuntu-latest
