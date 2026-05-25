@@ -303,6 +303,11 @@ in
 
               # Nushell theming (only if enabled)
               nushell.enable = nushellEnabled;
+
+              # Helix uses its built-in OneDark theme (set in the Helix HM module),
+              # not Stylix's generated base16 theme. Disable explicitly so Stylix
+              # autoEnable cannot set `settings.theme = "stylix"` and collide.
+              helix.enable = false;
             };
           };
 

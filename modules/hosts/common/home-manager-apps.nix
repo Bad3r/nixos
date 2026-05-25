@@ -29,6 +29,7 @@ let
     "greenclip"
     "google-chrome"
     "gptfdisk"
+    "helix"
     "htop"
     "i3-config"
     "jq"
