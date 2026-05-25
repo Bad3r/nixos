@@ -17,6 +17,7 @@ _: {
           enable = true;
           # NOTE: Cannot use `package = null` here because HM nushell plugins
           # require the package reference to be installed alongside them.
+          package = osConfig.programs.nushell.extended.package;
         };
       };
     };
