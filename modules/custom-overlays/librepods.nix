@@ -16,7 +16,7 @@
 # conditional rewrites. `--set` unconditionally forces Fusion before
 # exec, so the broken value is always replaced. Fusion is palette-aware
 # and picks up the Stylix Base16 colors via the qt6ct color scheme
-# (see `modules/stylix/qt6ct-colors.nix`).
+# that Stylix's qt target generates.
 _:
 let
   Overlay =

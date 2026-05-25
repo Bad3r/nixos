@@ -787,15 +787,15 @@
         ]
       },
       "locked": {
-        "lastModified": 1779627636,
-        "narHash": "sha256-J6JGf42zNzLo/CrRdKb5dNznpLI+eGxN/5KTLG1Mo5s=",
-        "owner": "nix-community",
+        "lastModified": 1779678629,
+        "narHash": "sha256-gHcIFg0mm+KFsg7iZQt67kni3+qR5U3PhEC9P7vKlZ4=",
+        "owner": "Bad3r",
         "repo": "home-manager",
-        "rev": "044c30c19550c0557997dece4ce9e54d2fa77ba1",
+        "rev": "612bbe3b405ad5f71d7bf9edecc04b678a061652",
         "type": "github"
       },
       "original": {
-        "owner": "nix-community",
+        "owner": "Bad3r",
         "repo": "home-manager",
         "type": "github"
       }
@@ -1183,15 +1183,15 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1779536132,
-        "narHash": "sha256-q+fF42iv/geEbHfgSzy3tS0FF/EyD6XTZ98E6yxiBO8=",
-        "owner": "NixOS",
+        "lastModified": 1779593580,
+        "narHash": "sha256-le3WvQyzAQjBZnb7q2c8C5Fk2c9LgN/Oq+b0KiD4fM4=",
+        "owner": "Bad3r",
         "repo": "nixpkgs",
-        "rev": "3d8f0f3f72a6cd4d93d0ad13203f2ea1cb7e1456",
+        "rev": "d849bb215dcdf71bce3e686839ccdb4219e84b2f",
         "type": "github"
       },
       "original": {
-        "owner": "NixOS",
+        "owner": "Bad3r",
         "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
@@ -1442,15 +1442,15 @@
         "tinted-zed": "tinted-zed"
       },
       "locked": {
-        "lastModified": 1779378391,
-        "narHash": "sha256-IsDb9erotvx9npI94UDosvMeYQK17p7/vmU2v9batrY=",
-        "owner": "nix-community",
+        "lastModified": 1779653741,
+        "narHash": "sha256-q6650dPjNQzjykEN/hlY+JVBR7B1y6QpmXNXQPffTw8=",
+        "owner": "Bad3r",
         "repo": "stylix",
-        "rev": "c1456cc4ba3c9485e7b4158c909eeca5a752cd59",
+        "rev": "744c7a27d88b6fa2db2ebadd5dc437afc687ccce",
         "type": "github"
       },
       "original": {
-        "owner": "nix-community",
+        "owner": "Bad3r",
         "repo": "stylix",
         "type": "github"
       }

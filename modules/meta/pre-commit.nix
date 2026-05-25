@@ -6,7 +6,7 @@ _: {
         "supportedRefs.contains(gitRef)"
         "&& has(numDaysOld)"
         "&& numDaysOld < 30"
-        "&& owner == 'NixOS'"
+        "&& owner == 'Bad3r'"
       ];
     in
     {
