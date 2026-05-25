@@ -40,6 +40,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.helix = {
           enable = true;
+          package = osConfig.programs.helix.extended.package;
           defaultEditor = false;
 
           # Language servers and formatters are placed on hx's PATH only: the HM
