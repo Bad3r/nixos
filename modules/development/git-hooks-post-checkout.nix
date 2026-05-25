@@ -43,7 +43,7 @@ _: {
 
                 reference_args=()
                 if [ -n "$common_dir" ] && [ "$git_dir" != "$common_dir" ]; then
-                  reference_repo="$common_dir/modules/$submodule_path"
+                  reference_repo="$common_dir/modules/$module_name"
                   [ -d "$reference_repo" ] && reference_args=(--reference "$reference_repo")
                 fi
 
