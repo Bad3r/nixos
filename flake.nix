@@ -1,4 +1,6 @@
 {
+  # Local development: point any input at a local checkout with
+  # `--override-input <input> path:/abs/path` instead of editing this file.
   nixConfig = {
     abort-on-warn = false;
     extra-experimental-features = [ "pipe-operators" ];
@@ -22,7 +24,7 @@
     };
 
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "github:Bad3r/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -52,7 +54,6 @@
     };
 
     nix-logseq-git-flake = {
-      # GitHub URL for portability; use --override-input for local dev
       url = "github:Bad3r/nix-logseq-git-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -86,7 +87,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:Bad3r/nixpkgs/nixpkgs-unstable";
 
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
@@ -135,7 +136,7 @@
     };
 
     stylix = {
-      url = "github:nix-community/stylix";
+      url = "github:Bad3r/stylix";
       inputs = {
         flake-parts.follows = "flake-parts";
         nixpkgs.follows = "nixpkgs";
