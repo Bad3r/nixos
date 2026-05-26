@@ -436,6 +436,9 @@ in
 
       ! https://web.webex.com
       web.webex.com##.cookie-banner-body
+
+      ! https://www.google.com/sorry
+      @@||www.google.com/sorry^$document
     '';
 
     selectedFilterLists = lib.unique (
