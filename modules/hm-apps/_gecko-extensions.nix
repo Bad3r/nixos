@@ -301,6 +301,9 @@ let
     "accounts.google.com * 3p-frame noop"
     "myaccount.google.com * 3p-script noop"
     "myaccount.google.com * 3p-frame noop"
+    # Google ReCaptcha
+    "www.google.com/sorry * 3p-script noop"
+    "www.google.com/sorry * 3p-frame noop"
 
     # Microsoft 365
     "teams.cloud.microsoft * 3p-script noop"
@@ -436,9 +439,6 @@ in
 
       ! https://web.webex.com
       web.webex.com##.cookie-banner-body
-
-      ! https://www.google.com/sorry
-      @@||www.google.com/sorry^$document
     '';
 
     selectedFilterLists = lib.unique (
