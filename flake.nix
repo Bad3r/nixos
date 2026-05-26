@@ -24,7 +24,7 @@
     };
 
     home-manager = {
-      url = "github:Bad3r/home-manager";
+      url = "github:Bad3r/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -136,7 +136,7 @@
     };
 
     stylix = {
-      url = "github:Bad3r/stylix";
+      url = "github:Bad3r/stylix/master";
       inputs = {
         flake-parts.follows = "flake-parts";
         nixpkgs.follows = "nixpkgs";

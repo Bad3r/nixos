@@ -121,6 +121,7 @@ let
     { osConfig, ... }:
     {
       home.stateVersion = osConfig.system.stateVersion;
+      home.enableNixpkgsReleaseCheck = false;
     };
   baseModule = loadHomeModule ../home-manager/base.nix [
     "flake"

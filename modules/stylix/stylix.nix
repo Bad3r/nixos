@@ -6,6 +6,7 @@
 let
   baseTheme = {
     enable = true;
+    enableReleaseChecks = false;
     base16Scheme = lib.mkDefault "${inputs.tinted-schemes}/base16/onedark.yaml";
     polarity = lib.mkDefault "dark";
   };
@@ -81,6 +82,7 @@ in
         # cycle without losing functionality.
         disabledModules = [ "${inputs.stylix}/modules/neovim/hm.nix" ];
         stylix = baseTheme // {
+          overlays.enable = false;
           targets = {
             kde.enable = false;
             gnome.enable = false;
