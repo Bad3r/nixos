@@ -7,6 +7,9 @@ _: {
       #boot.kernelPackages = pkgs.linuxPackages;
 
       boot = {
+        tmp.useTmpfs = true;
+        tmp.tmpfsSize = "90%";
+
         # Base kernel modules for System76 hardware
         initrd.availableKernelModules = [
           "xhci_pci"
