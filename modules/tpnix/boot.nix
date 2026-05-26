@@ -6,6 +6,9 @@
       boot.kernelPackages = lib.mkDefault pkgs.cachyosKernels.linuxPackages-cachyos-latest;
 
       boot = {
+        tmp.useTmpfs = true;
+        tmp.tmpfsSize = "90%";
+
         initrd.availableKernelModules = [
           "xhci_pci"
           "ahci"
