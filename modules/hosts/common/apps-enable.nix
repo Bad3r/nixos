@@ -414,7 +414,7 @@ let
       tar.extended.enable = lib.mkOverride 1100 true;
       tcpdump.extended.enable = lib.mkOverride 1100 true;
       tealdeer.extended.enable = lib.mkOverride 1100 true;
-      "teams-for-linux".extended.enable = lib.mkOverride 1100 true;
+      "teams-for-linux".extended.enable = lib.mkOverride 1100 false;
       "telegram-desktop".extended.enable = lib.mkOverride 1100 true;
       "temurin-bin-25".extended.enable = lib.mkOverride 1100 true;
       terraform.extended.enable = lib.mkOverride 1100 true;
