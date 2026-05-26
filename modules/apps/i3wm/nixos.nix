@@ -62,6 +62,12 @@ let
         # a host can still disable a specific helper with a higher-priority
         # override (`= false` or `lib.mkForce false`).
         programs = {
+          # Run i3lock-color as the i3lock binary so the nixpkgs i3 module's
+          # programs.i3lock PAM service (/etc/pam.d/i3lock) stays intact while
+          # removing the duplicate plain-i3lock that collides with i3lock-color
+          # in system-path. Disabling programs.i3lock instead would drop that
+          # PAM service on hosts without a fingerprint module and lock the user out.
+          i3lock.package = pkgs.i3lock-color;
           "i3-focus-or-launch".extended.enable = lib.mkDefault true;
           "i3-scratchpad-show-or-create".extended.enable = lib.mkDefault true;
           "monitor-query".extended.enable = lib.mkDefault true;

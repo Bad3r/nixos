@@ -249,7 +249,7 @@ let
       lxsession.extended.enable = lib.mkOverride 1100 true;
       lychee.extended.enable = lib.mkOverride 1100 true;
       lynis.extended.enable = lib.mkOverride 1100 true;
-      maestral.extended.enable = lib.mkOverride 1100 true;
+      maestral.extended.enable = lib.mkOverride 1100 false;
       "maestral-gui".extended.enable = lib.mkOverride 1100 true;
       maim.extended.enable = lib.mkOverride 1100 true;
       malimite.extended.enable = lib.mkOverride 1100 false;
@@ -287,7 +287,7 @@ let
       "nix-diff".extended.enable = lib.mkOverride 1100 true;
       "nix-direnv".extended.enable = lib.mkOverride 1100 true;
       "nix-eval-jobs".extended.enable = lib.mkOverride 1100 true;
-      "nix-index".extended.enable = lib.mkOverride 1100 true;
+      "nix-index".extended.enable = lib.mkOverride 1100 false;
       "nix-output-monitor".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-git".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-github".extended.enable = lib.mkOverride 1100 true;
@@ -296,7 +296,7 @@ let
       "nixpkgs-review".extended.enable = lib.mkOverride 1100 true;
       nmap.extended.enable = lib.mkOverride 1100 true;
       "node-cloudflare-sdk".extended.enable = lib.mkOverride 1100 false;
-      nodejs_22.extended.enable = lib.mkOverride 1100 true;
+      nodejs_22.extended.enable = lib.mkOverride 1100 false;
       nodejs_24.extended.enable = lib.mkOverride 1100 true;
       "nomachine-client".extended.enable = lib.mkOverride 1100 true;
       normcap.extended.enable = lib.mkOverride 1100 true;
@@ -320,7 +320,7 @@ let
       openssl.extended.enable = lib.mkOverride 1100 true;
       openvpn.extended.enable = lib.mkOverride 1100 true;
       overskride.extended.enable = lib.mkOverride 1100 true;
-      p7zip.extended.enable = lib.mkOverride 1100 true;
+      p7zip.extended.enable = lib.mkOverride 1100 false;
       "p7zip-rar".extended.enable = lib.mkOverride 1100 true;
       pamixer.extended.enable = lib.mkOverride 1100 true;
       pandoc.extended.enable = lib.mkOverride 1100 true;
@@ -430,7 +430,7 @@ let
       "typescript-language-server".extended.enable = lib.mkOverride 1100 false;
       udiskie.extended.enable = lib.mkOverride 1100 true;
       "ungoogled-chromium".extended.enable = lib.mkOverride 1100 true;
-      unrar.extended.enable = lib.mkOverride 1100 true;
+      unrar.extended.enable = lib.mkOverride 1100 false;
       unzip.extended.enable = lib.mkOverride 1100 true;
       upscayl.extended.enable = lib.mkOverride 1100 true;
       usbutils.extended.enable = lib.mkOverride 1100 true;

@@ -40,13 +40,11 @@ let
     kdiskmark = false;
     "kiro-fhs" = false;
     lxsession = false;
-    maestral = false;
     "maestral-gui" = false;
     "minio-client" = false;
     mpv = false;
     "msgraph-cli" = false;
     "mullvad-browser" = false;
-    nodejs_22 = false;
     "oh-my-opencode" = false;
     onlyoffice-desktopeditors = false;
     opendirectorydownloader = false;
