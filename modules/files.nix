@@ -40,9 +40,9 @@
   config = {
     text.readme.parts.files =
       let
-        files = withSystem (builtins.head config.systems) (psArgs: psArgs.config.files.files);
-        filteredFiles = lib.filter (file: file.path != ".treefmt.toml") files;
-        fileList = map (file: "- `${file.path}`") filteredFiles;
+        files = withSystem (builtins.head config.systems) (psArgs: psArgs.config.files.file);
+        filteredFiles = lib.filter (path: path != ".treefmt.toml") (builtins.attrNames files);
+        fileList = map (path: "- `${path}`") filteredFiles;
         sortedList = lib.naturalSort fileList;
         withHeader = lib.concat [
           # markdown
@@ -60,7 +60,7 @@
       { pkgs, config, ... }:
       let
         # Get the list of managed files for reporting
-        managedFiles = map (f: f.path) config.files.files;
+        managedFiles = builtins.attrNames config.files.file;
         managedFilesList = builtins.concatStringsSep "\n" (map (f: "  - ${f}") managedFiles);
 
         # Wrap the original writer with verbose output
