@@ -16,8 +16,16 @@ let
         jobs = 2;
         repos = [
           # NixOS
+          "NixOS/nix"
           "NixOS/nixos-hardware"
           "NixOS/nixpkgs"
+          "NixOS/rfcs"
+
+          # Nix implementations and installers (Lix, Determinate)
+          "https://git.lix.systems/lix-project/lix.git"
+          "https://git.lix.systems/lix-project/lix-installer.git"
+          "https://git.lix.systems/lix-project/nixos-module.git"
+          "DeterminateSystems/nix-installer"
 
           # Nix community
           "nix-community/home-manager"

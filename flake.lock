@@ -796,7 +796,6 @@
       },
       "original": {
         "owner": "Bad3r",
-        "ref": "master",
         "repo": "home-manager",
         "type": "github"
       }
@@ -1452,7 +1451,6 @@
       },
       "original": {
         "owner": "Bad3r",
-        "ref": "master",
         "repo": "stylix",
         "type": "github"
       }
