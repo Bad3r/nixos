@@ -55,10 +55,10 @@ Rebuild the target host, then verify that the user timer exists and run the firs
 
 ```bash
 ./build.sh --host <host>
-systemctl --user is-enabled git-mirror.timer
+systemctl --user --no-block start git-mirror.service
 systemctl --user status git-mirror.timer --no-pager
-systemctl --user start git-mirror.service
 systemctl --user list-timers git-mirror.timer
+systemctl --user is-enabled git-mirror.timer
 ls -ld /data/git
 ```
 
@@ -77,17 +77,23 @@ Prefer shorthand for GitHub repositories even when the source is given as a
 `https://github.com/owner/repo/` URL.
 Full URLs include a normalized host prefix and strip common host suffixes such as `.org`.
 
-| Repository spec                               | Local path                                          |
-| --------------------------------------------- | --------------------------------------------------- |
-| `owner/repo`                                  | `$LOCAL_MIRRORS/owner-repo`                         |
-| `mdn/content`                                 | `$LOCAL_MIRRORS/mdn-content`                        |
-| `mozilla/enterprise-admin-reference`          | `$LOCAL_MIRRORS/mozilla-enterprise-admin-reference` |
-| `mozilla-firefox/firefox`                     | `$LOCAL_MIRRORS/mozilla-firefox-firefox`            |
-| Firefox built docs                            | `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs`       |
-| `mozilla/policy-templates`                    | `$LOCAL_MIRRORS/mozilla-policy-templates`           |
-| `openai/codex`                                | `$LOCAL_MIRRORS/openai-codex`                       |
-| `tridactyl/tridactyl`                         | `$LOCAL_MIRRORS/tridactyl-tridactyl`                |
-| `https://codeberg.org/librewolf/settings.git` | `$LOCAL_MIRRORS/codeberg-librewolf-settings`        |
+| Repository spec                                         | Local path                                                 |
+| ------------------------------------------------------- | ---------------------------------------------------------- |
+| `owner/repo`                                            | `$LOCAL_MIRRORS/owner-repo`                                |
+| `NixOS/nix`                                             | `$LOCAL_MIRRORS/NixOS-nix`                                 |
+| `NixOS/rfcs`                                            | `$LOCAL_MIRRORS/NixOS-rfcs`                                |
+| `DeterminateSystems/nix-installer`                      | `$LOCAL_MIRRORS/DeterminateSystems-nix-installer`          |
+| `mdn/content`                                           | `$LOCAL_MIRRORS/mdn-content`                               |
+| `mozilla/enterprise-admin-reference`                    | `$LOCAL_MIRRORS/mozilla-enterprise-admin-reference`        |
+| `mozilla-firefox/firefox`                               | `$LOCAL_MIRRORS/mozilla-firefox-firefox`                   |
+| Firefox built docs                                      | `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs`              |
+| `mozilla/policy-templates`                              | `$LOCAL_MIRRORS/mozilla-policy-templates`                  |
+| `openai/codex`                                          | `$LOCAL_MIRRORS/openai-codex`                              |
+| `tridactyl/tridactyl`                                   | `$LOCAL_MIRRORS/tridactyl-tridactyl`                       |
+| `https://git.lix.systems/lix-project/lix.git`           | `$LOCAL_MIRRORS/git.lix.systems-lix-project-lix`           |
+| `https://git.lix.systems/lix-project/lix-installer.git` | `$LOCAL_MIRRORS/git.lix.systems-lix-project-lix-installer` |
+| `https://git.lix.systems/lix-project/nixos-module.git`  | `$LOCAL_MIRRORS/git.lix.systems-lix-project-nixos-module`  |
+| `https://codeberg.org/librewolf/settings.git`           | `$LOCAL_MIRRORS/codeberg-librewolf-settings`               |
 
 ## Firefox Source Docs
 
@@ -124,6 +130,12 @@ mirrors that should exist on every managed host:
 ```nix
 programs.gitMirror.repos = [
   "owner/repo"
+  "NixOS/nix"
+  "NixOS/rfcs"
+  "https://git.lix.systems/lix-project/lix.git"
+  "https://git.lix.systems/lix-project/lix-installer.git"
+  "https://git.lix.systems/lix-project/nixos-module.git"
+  "DeterminateSystems/nix-installer"
   "mozilla-firefox/firefox"
   "mdn/content" # https://developer.mozilla.org
   "mozilla/policy-templates"

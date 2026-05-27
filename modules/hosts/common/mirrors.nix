@@ -21,10 +21,12 @@ let
           "NixOS/nixpkgs"
           "NixOS/rfcs"
 
-          # Nix implementations and installers (Lix, Determinate)
+          # Lix
           "https://git.lix.systems/lix-project/lix.git"
           "https://git.lix.systems/lix-project/lix-installer.git"
           "https://git.lix.systems/lix-project/nixos-module.git"
+
+          # Determinate Nix (DeterminateSystems)
           "DeterminateSystems/nix-installer"
 
           # Nix community

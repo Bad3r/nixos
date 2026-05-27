@@ -98,20 +98,26 @@ Available after `nix develop`:
 
 ## Resource Links
 
-| Resource                   | Location                                            |
-| -------------------------- | --------------------------------------------------- |
-| Firefox source/docs        | `/data/git/mozilla-firefox-firefox`                 |
-| Firefox built docs         | `/data/git/mozilla-firefox-firefox-docs/current`    |
-| MDN Web Docs               | `/data/git/mdn-content`                             |
-| NixOS manual mirror        | `nixos-manual/`                                     |
-| Home Manager manual        | `/data/git/nix-community-home-manager/docs/manual/` |
-| Stylix source              | `/data/git/nix-community-stylix`                    |
-| Firefox policies           | `/data/git/mozilla-policy-templates`                |
-| Enterprise admin reference | `/data/git/mozilla-enterprise-admin-reference`      |
-| LibreWolf settings         | `/data/git/codeberg-librewolf-settings`             |
-| nixpkgs                    | `/data/git/NixOS-nixpkgs`                           |
-| sops-nix                   | `/data/git/Mic92-sops-nix`                          |
-| import-tree                | `/data/git/vic-import-tree`                         |
+| Resource                   | Location                                              |
+| -------------------------- | ----------------------------------------------------- |
+| Firefox source/docs        | `/data/git/mozilla-firefox-firefox`                   |
+| Firefox built docs         | `/data/git/mozilla-firefox-firefox-docs/current`      |
+| MDN Web Docs               | `/data/git/mdn-content`                               |
+| NixOS manual mirror        | `nixos-manual/`                                       |
+| Home Manager manual        | `/data/git/nix-community-home-manager/docs/manual/`   |
+| Stylix source              | `/data/git/nix-community-stylix`                      |
+| Firefox policies           | `/data/git/mozilla-policy-templates`                  |
+| Enterprise admin reference | `/data/git/mozilla-enterprise-admin-reference`        |
+| LibreWolf settings         | `/data/git/codeberg-librewolf-settings`               |
+| Nix source                 | `/data/git/NixOS-nix`                                 |
+| Nix RFCs                   | `/data/git/NixOS-rfcs`                                |
+| nixpkgs                    | `/data/git/NixOS-nixpkgs`                             |
+| Lix source                 | `/data/git/git.lix.systems-lix-project-lix`           |
+| Lix installer              | `/data/git/git.lix.systems-lix-project-lix-installer` |
+| Lix NixOS module           | `/data/git/git.lix.systems-lix-project-nixos-module`  |
+| Determinate Nix installer  | `/data/git/DeterminateSystems-nix-installer`          |
+| sops-nix                   | `/data/git/Mic92-sops-nix`                            |
+| import-tree                | `/data/git/vic-import-tree`                           |
 
 ## Next Steps
 

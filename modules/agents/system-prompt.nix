@@ -279,10 +279,22 @@ let
         Reference i3 documentation offline.
       - Duplicati Docs: `/data/git/duplicati-documentation`
         Look up `duplicati-cli` commands, options, or backup format.
+      - Nix source: `/data/git/NixOS-nix`
+        Inspect Nix CLI, daemon, evaluator, or store behavior.
+      - Nix RFCs: `/data/git/NixOS-rfcs`
+        Review accepted and proposed NixOS RFCs offline.
       - nixpkgs: `/data/git/NixOS-nixpkgs`
         Inspect or patch upstream expressions.
       - nixos-hardware: `/data/git/NixOS-nixos-hardware`
         Pull hardware profiles and troubleshoot host hardware options.
+      - Lix source: `/data/git/git.lix.systems-lix-project-lix`
+        Inspect Lix implementation behavior or release history.
+      - Lix installer: `/data/git/git.lix.systems-lix-project-lix-installer`
+        Review Lix installer behavior and packaging.
+      - Lix NixOS module: `/data/git/git.lix.systems-lix-project-nixos-module`
+        Inspect the Lix NixOS module integration.
+      - Determinate Nix installer: `/data/git/DeterminateSystems-nix-installer`
+        Review Determinate installer behavior and Nix setup logic.
       - nixvim: `/data/git/nix-community-nixvim`
         Examine NixVim modules and options.
       - treefmt-nix: `/data/git/numtide-treefmt-nix`
