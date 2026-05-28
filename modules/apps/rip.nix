@@ -350,20 +350,39 @@ let
           ripCompletion
         ];
 
-        systemd.tmpfiles.rules = [
+        # Emit a separate drop-in (50-rip-trash.conf) instead of merging
+        # into the generated /etc/tmpfiles.d/00-nixos.conf. The shared
+        # boot.tmp.cleanOnBoot path (`modules/hosts/common/tmp.nix`) injects
+        # `D! /tmp 1777 root root` into the same 00- file, and on boot the
+        # `D` action wipes /tmp's contents. Co-locating `d /tmp/Trash` with
+        # that wipe in one file races the creation against the cleanup so
+        # /tmp/Trash can be missing after boot. systemd-tmpfiles loads
+        # drop-ins in lexicographic filename order, so a 50- prefix is
+        # processed strictly after the 00- block and the trash entries land
+        # after the /tmp wipe regardless of in-file rule order.
+        systemd.tmpfiles.settings."50-rip-trash" = {
           # Create the trash directory; clean entries older than 10 days.
-          "d ${cfg.trashPath} 0700 ${owner} users 10d"
+          ${cfg.trashPath}.d = {
+            mode = "0700";
+            user = owner;
+            group = "users";
+            age = "10d";
+          };
           # Bootstrap the XDG data parent so the symlink below can be placed
           # on freshly provisioned users. Without this, `L` is a no-op when
           # `~/.local/share` does not yet exist and `trash-cli` later
           # materialises `Trash` as a real directory.
-          "d /home/${owner}/.local/share 0755 ${owner} users -"
+          "/home/${owner}/.local/share".d = {
+            mode = "0755";
+            user = owner;
+            group = "users";
+          };
           # Point home-partition trash at the configured path. Use `L` (not
           # `L+`) so any existing entry at that path is preserved; users
           # migrating from another trash implementation must move it aside
           # before this symlink takes effect.
-          "L /home/${owner}/.local/share/Trash - - - - ${cfg.trashPath}"
-        ];
+          "/home/${owner}/.local/share/Trash".L.argument = cfg.trashPath;
+        };
       };
     };
 in
