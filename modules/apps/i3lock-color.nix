@@ -47,10 +47,20 @@ let
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
 
-        # Enable PAM service for i3lock-color authentication.
-        # NixOS 25.05+ disables PAM services for i3lock by default.
+        # Enable the nixpkgs programs.i3lock module so its PAM services
+        # (/etc/pam.d/i3lock and /etc/pam.d/i3lock-color, gated on
+        # programs.i3lock.enable in nixpkgs security/pam.nix) stay intact.
+        # NixOS 25.05+ disables those PAM services by default.
         # See: https://github.com/NixOS/nixpkgs/blob/master/nixos/doc/manual/release-notes/rl-2505.section.md
+        #
+        # Point programs.i3lock.package at cfg.package so the nixpkgs module
+        # installs i3lock-color as the i3lock binary instead of plain
+        # pkgs.i3lock. Without this override, both packages land in
+        # system-path and collide. Disabling programs.i3lock instead would
+        # drop the PAM service and lock the user out on hosts without a
+        # fingerprint module.
         programs.i3lock.enable = true;
+        programs.i3lock.package = cfg.package;
       };
     };
 in
