@@ -43,7 +43,6 @@ let
     # Core settings
     model = "gpt-5.5";
     review_model = "gpt-5.5";
-    profile = "default";
     commit_attribution = "";
     approval_policy = "on-request";
     default_permissions = "workspace";
@@ -74,7 +73,7 @@ let
     # model_supports_reasoning_summaries = true; # Avoid sending reasoning.summary.
     model_reasoning_effort = "xhigh";
     plan_mode_reasoning_effort = "xhigh"; # none|minimal|low|medium|high|xhigh
-    model_verbosity = "medium";
+    model_verbosity = "high";
 
     # Reasoning visibility
     hide_agent_reasoning = false;
@@ -190,17 +189,6 @@ let
 
     # MCP servers
     mcp_servers = codexMcpServers;
-
-    # Profiles
-    profiles = {
-      default = {
-        model = "gpt-5.5";
-        approval_policy = "on-request";
-        # model_supports_reasoning_summaries = true; # Avoid sending reasoning.summary.
-        model_reasoning_effort = "xhigh";
-        model_verbosity = "medium";
-      };
-    };
   };
 
   # Base settings (everything except projects - those are merged at runtime)
