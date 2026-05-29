@@ -1580,13 +1580,13 @@ get_comment() {
   [[ -n ${input} ]] || die 1 "get-comment: empty comment ref"
 
   local kind="" numeric="" override_owner_repo=""
-  if [[ ${input} =~ ^https?://[^/]+/([^/]+)/([^/]+)/(pull|issues)/[0-9]+(/files)?#discussion_r([0-9]+)$ ]]; then
+  if [[ ${input} =~ ^https?://[^/]+/([^/]+)/([^/]+)/(pull|issues)/[0-9]+(/files)?(\?[^#]*)?#discussion_r([0-9]+)$ ]]; then
+    override_owner_repo="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    numeric="${BASH_REMATCH[6]}"
+    kind=review
+  elif [[ ${input} =~ ^https?://[^/]+/([^/]+)/([^/]+)/(pull|issues)/[0-9]+(\?[^#]*)?#issuecomment-([0-9]+)$ ]]; then
     override_owner_repo="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
     numeric="${BASH_REMATCH[5]}"
-    kind=review
-  elif [[ ${input} =~ ^https?://[^/]+/([^/]+)/([^/]+)/(pull|issues)/[0-9]+#issuecomment-([0-9]+)$ ]]; then
-    override_owner_repo="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
-    numeric="${BASH_REMATCH[4]}"
     kind=issue
   elif [[ ${input} =~ ^(discussion_r|r)([0-9]+)$ ]]; then
     numeric="${BASH_REMATCH[2]}"
@@ -1602,8 +1602,17 @@ get_comment() {
   if [[ -n ${numeric} ]]; then
     if [[ -n ${override_owner_repo} ]]; then
       PR_OWNER_REPO="${override_owner_repo}"
-    else
+    elif [[ -n ${PR_REF} ]]; then
+      # --pr was given: pr_resolve handles bare number and owner/repo#number
+      # without enforcing OPEN state (that guard only applies to the branch
+      # auto-detection path).
       pr_resolve
+    else
+      # Numeric/fragment lookup is repo-scoped; it never needs PR_NUMBER.
+      # Avoid pr_resolve's "must be OPEN" guard so the command works from
+      # main, detached HEAD, or a branch whose PR is closed/merged.
+      PR_OWNER_REPO=$(_gh_run repo view --json nameWithOwner -q .nameWithOwner) ||
+        die 1 "get-comment: cannot detect owner/repo (use --pr or pass a comment URL)"
     fi
     _get_comment_rest "${PR_OWNER_REPO}" "${numeric}" "${kind}"
     return $?
@@ -1628,16 +1637,26 @@ _get_comment_rest() {
     ;;
   ambiguous)
     # Review first: a bare numeric id is almost always copied from a
-    # `r<id>` URL fragment, which is the review-comment convention. The
-    # first 404 is silenced so the issue-comment retry stays quiet on the
-    # happy path; both failures are surfaced together below.
-    if rest=$(gh api "repos/${owner_repo}/pulls/comments/${numeric}" 2>/dev/null); then
-      :
-    elif rest=$(gh api "repos/${owner_repo}/issues/comments/${numeric}" 2>/dev/null); then
-      :
+    # `r<id>` URL fragment, which is the review-comment convention.
+    # Each stderr is captured separately so a non-404 failure (auth,
+    # rate-limit, network) is not collapsed into a generic "not found".
+    local _err_review=""
+    if ! rest=$(gh api "repos/${owner_repo}/pulls/comments/${numeric}" 2>/tmp/_gcr.$$); then
+      _err_review=$(cat /tmp/_gcr.$$ 2>/dev/null)
+      rm -f /tmp/_gcr.$$
+      local _err_issue=""
+      if ! rest=$(gh api "repos/${owner_repo}/issues/comments/${numeric}" 2>/tmp/_gci.$$); then
+        _err_issue=$(cat /tmp/_gci.$$ 2>/dev/null)
+        rm -f /tmp/_gci.$$
+        local _msg="get-comment: ${numeric} not found in ${owner_repo}"
+        [[ -n ${_err_review} ]] && _msg+=" (pulls/comments: ${_err_review})"
+        [[ -n ${_err_issue} ]] && _msg+=" (issues/comments: ${_err_issue})"
+        err "${_msg}"
+        return 2
+      fi
+      rm -f /tmp/_gci.$$
     else
-      err "get-comment: ${numeric} not found as review or issue comment in ${owner_repo}"
-      return 2
+      rm -f /tmp/_gcr.$$
     fi
     ;;
   *)
@@ -1695,6 +1714,8 @@ query($id: ID!) {
       startLine
       originalStartLine
       diffHunk
+      side
+      startSide
       subjectType
       isMinimized
       minimizedReason
