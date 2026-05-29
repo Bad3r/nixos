@@ -83,6 +83,7 @@ Full URLs include a normalized host prefix and strip common host suffixes such a
 | `NixOS/nix`                                             | `$LOCAL_MIRRORS/NixOS-nix`                                 |
 | `NixOS/rfcs`                                            | `$LOCAL_MIRRORS/NixOS-rfcs`                                |
 | `DeterminateSystems/nix-installer`                      | `$LOCAL_MIRRORS/DeterminateSystems-nix-installer`          |
+| `nix-community/noogle`                                  | `$LOCAL_MIRRORS/nix-community-noogle`                      |
 | `mdn/content`                                           | `$LOCAL_MIRRORS/mdn-content`                               |
 | `mozilla/enterprise-admin-reference`                    | `$LOCAL_MIRRORS/mozilla-enterprise-admin-reference`        |
 | `mozilla-firefox/firefox`                               | `$LOCAL_MIRRORS/mozilla-firefox-firefox`                   |

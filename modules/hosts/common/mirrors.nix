@@ -34,6 +34,7 @@ let
           "nix-community/nh"
           "nix-community/nixd"
           "nix-community/nixvim"
+          "nix-community/noogle"
           "nix-community/stylix"
 
           # Flake inputs / tooling

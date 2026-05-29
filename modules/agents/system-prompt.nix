@@ -297,6 +297,8 @@ let
         Review Determinate installer behavior and Nix setup logic.
       - nixvim: `/data/git/nix-community-nixvim`
         Examine NixVim modules and options.
+      - noogle: `/data/git/nix-community-noogle`
+        Search Nix function signatures and documentation offline.
       - treefmt-nix: `/data/git/numtide-treefmt-nix`
         Adjust formatter behavior or pinning.
       - git-hooks.nix: `/data/git/cachix-git-hooks.nix`
