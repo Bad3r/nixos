@@ -3,7 +3,6 @@
   homeDir,
   lib,
   pkgs,
-  codexZshWrapper,
 }:
 let
   # MCP servers via compiled agents.mcp client profile
@@ -48,7 +47,6 @@ let
     default_permissions = "workspace";
     personality = "pragmatic";
     web_search = "live";
-    zsh_path = lib.getExe codexZshWrapper;
 
     # Developer instructions for security research context
     developer_instructions = ''
@@ -108,6 +106,8 @@ let
       memories = true;
       realtime_conversation = true;
       exec_permission_approvals = true;
+      # Patched zsh layout provided by ./_packaged-codex.nix; upstream removed
+      # the `zsh_path` key in v0.135.0 and now resolves via InstallContext.
       shell_zsh_fork = true;
       shell_snapshot = true;
       skill_env_var_dependency_prompt = true;
