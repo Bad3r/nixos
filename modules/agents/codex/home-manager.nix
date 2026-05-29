@@ -11,7 +11,7 @@
 
   Options:
     --cd <path>: Set the working directory Codex should operate in before executing tasks.
-    --profile <name>: Select a saved profile configuration for the current session.
+    --profile <name>: Layer `$CODEX_HOME/<name>.config.toml` on top of the base user config for the session.
     --approval-policy <mode>: Override the approval policy (for example `never`, `always`, `manual`).
     --sandbox-mode <mode>: Adjust the sandbox level for commands launched by Codex.
 

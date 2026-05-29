@@ -96,8 +96,6 @@
   # permissions = null;
   # personality = null;
   # plan_mode_reasoning_effort = null;
-  # profile = null;
-  profiles = { };
   # project_doc_fallback_filenames = null;
   # project_doc_max_bytes = null;
   project_root_markers = [ ".git" ];
