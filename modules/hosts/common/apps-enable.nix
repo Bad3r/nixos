@@ -98,6 +98,7 @@ let
       cloudflared.extended.enable = lib.mkOverride 1100 true;
       cmake.extended.enable = lib.mkOverride 1100 true;
       codeburn.extended.enable = lib.mkOverride 1100 true;
+      codegraph.extended.enable = lib.mkOverride 1100 true;
       "coderabbit-cli".extended.enable = lib.mkOverride 1100 true;
       codex.extended.enable = lib.mkOverride 1100 true;
       coreutils.extended.enable = lib.mkOverride 1100 true;

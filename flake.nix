@@ -31,7 +31,7 @@
     import-tree.url = "github:vic/import-tree";
 
     llm-agents = {
-      url = "github:numtide/llm-agents.nix";
+      url = "github:Bad3r/llm-agents.nix";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         treefmt-nix.follows = "treefmt-nix";
