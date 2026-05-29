@@ -94,28 +94,18 @@ let
 
     # Feature flags
     features = {
-      apply_patch_freeform = true;
-      apps = true;
-      apps_mcp_gateway = false;
       child_agents_md = true;
-      codex_git_commit = true;
       default_mode_request_user_input = true;
       enable_request_compression = false;
-      js_repl = true; # Requires Node >= v22.22.0.
-      multi_agent = true;
       memories = true;
+      external_migration = true;
+      imagegenext = true;
+      mentions_v2 = true;
       realtime_conversation = true;
       exec_permission_approvals = true;
       # Patched zsh layout provided by ./_packaged-codex.nix; upstream removed
       # the `zsh_path` key in v0.135.0 and now resolves via InstallContext.
       shell_zsh_fork = true;
-      shell_snapshot = true;
-      skill_env_var_dependency_prompt = true;
-      sqlite = true;
-      undo = true;
-      unified_exec = true;
-      use_linux_sandbox_bwrap = true;
-      responses_websockets_v2 = true;
     };
 
     memories = {
@@ -166,6 +156,8 @@ let
     # TUI settings
     tui = {
       notifications = true;
+      theme = "one-half-dark";
+      vim_mode_default = true;
       status_line = [
         # Configure Status Line: Select which items to display in the status line.
         "model-with-reasoning" # Current model name with reasoning level
@@ -174,6 +166,11 @@ let
         # "model-name" # Current model name
         # "project-root" # Project root directory (omitted when unavailable)
         "git-branch" # Current Git branch (omitted when unavailable)
+        "pull-request-number" # Open pull request number for the current branch (omitted when unavailable)
+        "branch-changes" # Committed branch changes against the default branch (omitted when unavailable)
+        # "status" # Compact session run-state text
+        # "permissions" # Active permission profile or sandbox mode
+        # "approval-mode" # Active command approval mode
         # "context-used" # Percentage of context window used (omitted when unknown)
         "five-hour-limit" # Remaining usage on 5-hour usage limit (omitted when unavailable)
         "weekly-limit" # Remaining usage on weekly usage limit (omitted when unavailable)
@@ -182,8 +179,11 @@ let
         # "used-tokens" # Total tokens used in session (omitted when zero)
         # "total-input-tokens" # Total input tokens used in session
         # "total-output-tokens" # Total output tokens used in session
-        # "session-id" # Current session identifier (omitted until session starts)
-        "fast-mode" # Whether Fast mode is currently active
+        # "thread-id" # Current thread identifier (omitted until thread starts)
+        # "fast-mode" # Whether Fast mode is currently active
+        # "raw-output" # Whether raw scrollback mode is active
+        # "thread-title" # Current thread title, or thread identifier when unnamed
+        # "task-progress" # Latest task progress from update_plan (omitted until available)
       ];
     };
 

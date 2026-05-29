@@ -35,7 +35,7 @@ pkgs.runCommandLocal "${pname}-packaged-${version}"
     chmod +w $out/bin/.codex-wrapped
 
     # New trampoline preserves the bubblewrap PATH prepend that upstream's
-    # wrapProgram adds, so use_linux_sandbox_bwrap keeps finding bwrap.
+    # wrapProgram adds, so the default Linux sandbox keeps finding bwrap.
     cat > $out/bin/codex << EOF
     #!${pkgs.bash}/bin/bash -e
     PATH='${pkgs.bubblewrap}/bin'\''${PATH:+:\$PATH}
