@@ -45,7 +45,9 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        # hiPrio so the projectdiscovery httpx CLI wins over jupyter-all's
+        # bundled bin/httpx in system-path (avoids a buildEnv subpath collision).
+        environment.systemPackages = [ (lib.hiPrio cfg.package) ];
       };
     };
 in
