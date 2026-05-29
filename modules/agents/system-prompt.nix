@@ -235,7 +235,7 @@ let
       - Which sibling package or symbol this is coupled to.
 
       Cite version numbers, symbol names, and error messages. Avoid adjectives like
-      "compatible" and "latest". Wrap body text at 80 columns. Never open with
+      "compatible" and "latest". Wrap body text at 120 columns. Never open with
       "Update the X..." because the subject already says it.
     '';
 
