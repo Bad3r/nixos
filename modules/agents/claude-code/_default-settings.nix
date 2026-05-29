@@ -84,10 +84,11 @@
     alwaysThinkingEnabled = true;
     enableAllProjectMcpServers = true;
     language = "en"; # Language
-    outputStyle = "default"; # Output style
-    respectGitignore = true; # Respect .gitignore in file picker
+    outputStyle = "Proactive"; # Output style
+    respectGitignore = false; # Respect .gitignore in file picker
     spinnerTipsEnabled = true; # Show tips
     terminalProgressBarEnabled = true; # Terminal progress bar
+    useAutoModeDuringPlan = false; # Use auto mode during plan
   };
 
   # UI preferences for ~/.claude.json (merged with existing config in _settings.nix)
@@ -99,9 +100,11 @@
     autocheckpointingEnabled = true; # Rewind code (checkpoints)
     autoConnectIde = false; # Auto-connect to IDE
     autoUpdates = false; # Auto-updates
-    claudeInChromeDefaultEnabled = false; # Chrome enabled by default
+    claudeInChromeDefaultEnabled = true; # Chrome enabled by default
+    defaultToAgentsView = true; # Open agents view by default
     diffTool = "diff"; # Diff tool
     editorMode = "vim"; # Editor mode
+    externalEditorContext = true; # Show last response in external editor
     preferredNotifChannel = "iterm2_with_bell"; # Notifications
     theme = "dark"; # Theme
     thinkingEnabled = true; # Thinking mode
