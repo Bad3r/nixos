@@ -167,7 +167,7 @@ let
         # "project-root" # Project root directory (omitted when unavailable)
         "git-branch" # Current Git branch (omitted when unavailable)
         "pull-request-number" # Open pull request number for the current branch (omitted when unavailable)
-        "branch-changes" # Committed branch changes against the default branch (omitted when unavailable)
+        # "branch-changes" # Committed branch changes against the default branch (omitted when unavailable)
         # "status" # Compact session run-state text
         # "permissions" # Active permission profile or sandbox mode
         # "approval-mode" # Active command approval mode
