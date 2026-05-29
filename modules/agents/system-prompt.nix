@@ -309,6 +309,10 @@ let
         Review or extend auto-loading behavior.
       - files module: `/data/git/mightyiam-files`
         Update generated NixOS artifact sources such as `.gitignore`.
+      - openai/codex: `/data/git/openai-codex`
+        Browse Codex CLI source and internals.
+      - tridactyl: `/data/git/tridactyl-tridactyl`
+        Reference Tridactyl browser extension source and configuration.
     '';
   };
 
