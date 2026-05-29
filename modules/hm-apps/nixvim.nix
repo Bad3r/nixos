@@ -74,7 +74,12 @@ _: {
               # Nixvim builds its own pkgs instance, so the system-level
               # allowUnfreePredicate doesn't apply. Forward it so unfree
               # plugins listed in `nixpkgs.allowedUnfreePackages` are honored.
-              nixpkgs.config.allowUnfreePredicate = pkgs.config.allowUnfreePredicate;
+              version.enableNixpkgsReleaseCheck = false;
+              nixpkgs = {
+                useGlobalPackages = false;
+                source = inputs.nixpkgs;
+                config.allowUnfreePredicate = pkgs.config.allowUnfreePredicate;
+              };
 
               # Leader keys.
               globals = {

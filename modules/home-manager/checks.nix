@@ -10,11 +10,14 @@
               inherit pkgs;
               modules = [
                 {
-                  home.username = "hm-smoke";
-                  home.homeDirectory = "/tmp/hm-smoke";
+                  home = {
+                    username = "hm-smoke";
+                    homeDirectory = "/tmp/hm-smoke";
+                    stateVersion = (lib.importJSON "${inputs.home-manager}/release.json").release;
+                    enableNixpkgsReleaseCheck = false;
+                  };
                   programs.home-manager.enable = true;
                 }
-                { home.stateVersion = "26.05"; }
               ];
             };
           in
@@ -26,12 +29,15 @@
               inherit pkgs;
               modules = [
                 {
-                  home.username = "hm-smoke";
-                  home.homeDirectory = "/tmp/hm-smoke";
+                  home = {
+                    username = "hm-smoke";
+                    homeDirectory = "/tmp/hm-smoke";
+                    stateVersion = (lib.importJSON "${inputs.home-manager}/release.json").release;
+                    enableNixpkgsReleaseCheck = false;
+                  };
                   programs.home-manager.enable = true;
                   programs.alacritty.enable = true;
                 }
-                { home.stateVersion = "26.05"; }
               ];
             };
           in
