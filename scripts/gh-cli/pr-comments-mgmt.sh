@@ -127,9 +127,22 @@ Read subcommands:
                                            Default output: JSON array.
   get-thread <thread-id>                   Single review thread, same shape
                                            as one element of list-threads.
-  get-comment <comment-node-id>            Single issue-level (top-level)
-                                           PR comment, same shape as one
-                                           element of list-comments.
+  get-comment <ref>                        Single comment (top-level or inline
+                                           review). <ref> accepts a GraphQL
+                                           node id, a numeric REST databaseId,
+                                           a URL fragment (e.g.
+                                           `discussion_r3315576613` /
+                                           `r3315576613` for an inline review
+                                           comment, `issuecomment-1234567`
+                                           for a top-level one), or a full
+                                           comment URL. Owner/repo comes from
+                                           the URL when supplied; otherwise
+                                           --pr (or the current-branch PR)
+                                           resolves it. Output matches the
+                                           list-comments shape for top-level
+                                           comments; review comments add
+                                           path, line, diffHunk, side,
+                                           replyTo, etc.
   current-pr                               PR view as JSON. Fields:
                                            id, number, title, body, state,
                                            url, headRefName, baseRefName,
@@ -382,6 +395,8 @@ Examples:
     | column -t -s $'\t'
   pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC
   pr-comments-mgmt.sh get-comment IC_kwDOPeLwm88AAAABBCSK6A
+  pr-comments-mgmt.sh get-comment 'https://github.com/Bad3r/nixos/pull/278#discussion_r3315576613'
+  pr-comments-mgmt.sh --pr Bad3r/nixos#278 get-comment r3315576613
   pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'
   pr-comments-mgmt.sh --pr 149 set-labels 'type(enhancement)' 'area(scripts)'
   pr-comments-mgmt.sh --pr 149 comment --body-file response.md
@@ -1546,12 +1561,127 @@ query($id: ID!) {
 }
 
 get_comment() {
-  # Mirror of `get_thread` for issue-level (top-level) PR comments.
-  # Same field shape as one element of `list-comments`. The node id is
-  # globally unique on GitHub's side, so `--pr` is accepted (for surface
-  # consistency) but never read.
+  # Accepts a comment reference in any of these forms:
+  #   * GraphQL node id (IC_..., PRRC_..., etc.) -> GraphQL lookup.
+  #   * Numeric REST databaseId (e.g. 3315576613). Tries the pull-request
+  #     review-comment endpoint first (the most common reason to paste a
+  #     bare numeric id is the `r<id>` fragment from a `#discussion_r<id>`
+  #     URL, which is GitHub's convention for inline review comments),
+  #     then falls back to the issue-comment endpoint.
+  #   * URL fragment `discussion_r<n>` or `r<n>` -> review comment by id.
+  #   * URL fragment `issuecomment-<n>` -> issue comment by id.
+  #   * Full GitHub comment URL with one of the fragments above. Owner and
+  #     repo are read off the URL, so --pr is not required for this form.
+  # Numeric and bare-fragment inputs require owner/repo from --pr or the
+  # current-branch PR (resolved by pr_resolve). All paths converge on a
+  # GraphQL node-id lookup so the output shape is canonical regardless of
+  # input form.
+  local input="$1"
+  [[ -n ${input} ]] || die 1 "get-comment: empty comment ref"
+
+  local kind="" numeric="" override_owner_repo=""
+  if [[ ${input} =~ ^https?://[^/]+/([^/]+)/([^/]+)/(pull|issues)/[0-9]+(/files)?(\?[^#]*)?#discussion_r([0-9]+)$ ]]; then
+    override_owner_repo="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    numeric="${BASH_REMATCH[6]}"
+    kind=review
+  elif [[ ${input} =~ ^https?://[^/]+/([^/]+)/([^/]+)/(pull|issues)/[0-9]+(\?[^#]*)?#issuecomment-([0-9]+)$ ]]; then
+    override_owner_repo="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    numeric="${BASH_REMATCH[5]}"
+    kind=issue
+  elif [[ ${input} =~ ^(discussion_r|r)([0-9]+)$ ]]; then
+    numeric="${BASH_REMATCH[2]}"
+    kind=review
+  elif [[ ${input} =~ ^issuecomment-([0-9]+)$ ]]; then
+    numeric="${BASH_REMATCH[1]}"
+    kind=issue
+  elif [[ ${input} =~ ^[0-9]+$ ]]; then
+    numeric="${input}"
+    kind=ambiguous
+  fi
+
+  if [[ -n ${numeric} ]]; then
+    if [[ -n ${override_owner_repo} ]]; then
+      PR_OWNER_REPO="${override_owner_repo}"
+    elif [[ -n ${PR_REF} ]]; then
+      # --pr was given: pr_resolve handles bare number and owner/repo#number
+      # without enforcing OPEN state (that guard only applies to the branch
+      # auto-detection path).
+      pr_resolve
+    else
+      # Numeric/fragment lookup is repo-scoped; it never needs PR_NUMBER.
+      # Avoid pr_resolve's "must be OPEN" guard so the command works from
+      # main, detached HEAD, or a branch whose PR is closed/merged.
+      PR_OWNER_REPO=$(_gh_run repo view --json nameWithOwner -q .nameWithOwner) ||
+        die 1 "get-comment: cannot detect owner/repo (use --pr or pass a comment URL)"
+    fi
+    _get_comment_rest "${PR_OWNER_REPO}" "${numeric}" "${kind}"
+    return $?
+  fi
+
+  _get_comment_graphql "${input}"
+}
+
+_get_comment_rest() {
+  # Args: <owner/repo> <databaseId> <kind: review|issue|ambiguous>
+  # Looks up the comment via the REST endpoint that matches the kind, reads
+  # the node_id off the response, then defers to _get_comment_graphql so the
+  # returned JSON matches the node-id input path.
+  local owner_repo="$1" numeric="$2" kind="$3"
+  local rest=""
+  case "${kind}" in
+  review)
+    rest=$(_gh_run api "repos/${owner_repo}/pulls/comments/${numeric}") || return 2
+    ;;
+  issue)
+    rest=$(_gh_run api "repos/${owner_repo}/issues/comments/${numeric}") || return 2
+    ;;
+  ambiguous)
+    # Review first: a bare numeric id is almost always copied from a
+    # `r<id>` URL fragment, which is the review-comment convention.
+    # Each stderr is captured separately so a non-404 failure (auth,
+    # rate-limit, network) is not collapsed into a generic "not found".
+    local _err_review="" _err_file_review="" _err_file_issue=""
+    _err_file_review=$(mktemp) || die 1 "get-comment: mktemp failed"
+    if ! rest=$(gh api "repos/${owner_repo}/pulls/comments/${numeric}" 2>"${_err_file_review}"); then
+      _err_review=$(cat "${_err_file_review}" 2>/dev/null)
+      rm -f "${_err_file_review}"
+      local _err_issue=""
+      _err_file_issue=$(mktemp) || die 1 "get-comment: mktemp failed"
+      if ! rest=$(gh api "repos/${owner_repo}/issues/comments/${numeric}" 2>"${_err_file_issue}"); then
+        _err_issue=$(cat "${_err_file_issue}" 2>/dev/null)
+        rm -f "${_err_file_issue}"
+        local _msg="get-comment: ${numeric} not found in ${owner_repo}"
+        [[ -n ${_err_review} ]] && _msg+=" (pulls/comments: ${_err_review})"
+        [[ -n ${_err_issue} ]] && _msg+=" (issues/comments: ${_err_issue})"
+        err "${_msg}"
+        return 2
+      fi
+      rm -f "${_err_file_issue}"
+    else
+      rm -f "${_err_file_review}"
+    fi
+    ;;
+  *)
+    die 1 "internal: _get_comment_rest: unknown kind '${kind}'"
+    ;;
+  esac
+
+  local node_id
+  node_id=$(printf '%s' "${rest}" | jq -r '.node_id // ""')
+  if [[ -z ${node_id} ]]; then
+    err "get-comment: REST response for ${numeric} missing node_id"
+    return 2
+  fi
+
+  _get_comment_graphql "${node_id}"
+}
+
+_get_comment_graphql() {
+  # Resolves a GraphQL node id to either an IssueComment or a
+  # PullRequestReviewComment payload. The shared fields match the
+  # list-comments shape; review comments add path/line/diffHunk and the
+  # related review-context fields.
   local comment_id="$1"
-  [[ -n ${comment_id} ]] || die 1 "get-comment: empty comment id"
 
   local response
   if ! response=$(graphql_call '
@@ -1572,6 +1702,33 @@ query($id: ID!) {
       viewerCanUpdate
       viewerCanDelete
     }
+    ... on PullRequestReviewComment {
+      id
+      databaseId
+      author { login }
+      body
+      createdAt
+      updatedAt
+      url
+      path
+      line
+      originalLine
+      startLine
+      originalStartLine
+      diffHunk
+      side
+      startSide
+      subjectType
+      isMinimized
+      minimizedReason
+      viewerCanMinimize
+      viewerCanUpdate
+      viewerCanDelete
+      pullRequest { number url }
+      commit { oid }
+      originalCommit { oid }
+      replyTo { id }
+    }
   }
 }
 ' "id=${comment_id}"); then
@@ -1581,10 +1738,13 @@ query($id: ID!) {
 
   local typename
   typename=$(printf '%s' "${response}" | jq -r '.data.node.__typename // ""')
-  if [[ ${typename} != "IssueComment" ]]; then
-    err "get-comment: ${comment_id} is ${typename:-not found}, expected IssueComment"
+  case "${typename}" in
+  IssueComment | PullRequestReviewComment) ;;
+  *)
+    err "get-comment: ${comment_id} is ${typename:-not found}, expected IssueComment or PullRequestReviewComment"
     return 2
-  fi
+    ;;
+  esac
 
   printf '%s' "${response}" | jq '.data.node | del(.__typename)'
 }
