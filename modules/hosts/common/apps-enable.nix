@@ -379,6 +379,7 @@ let
       selenium.extended.enable = lib.mkOverride 1100 true;
       shellcheck.extended.enable = lib.mkOverride 1100 true;
       shfmt.extended.enable = lib.mkOverride 1100 true;
+      sidecar.extended.enable = lib.mkOverride 1100 true;
       "signal-desktop".extended.enable = lib.mkOverride 1100 true;
       simplescreenrecorder.extended.enable = lib.mkOverride 1100 true;
       skim.extended.enable = lib.mkOverride 1100 false;
