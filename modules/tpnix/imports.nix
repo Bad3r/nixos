@@ -82,7 +82,7 @@ in
     security = {
       polkit.wheelPowerManagement.enable = true;
       polkit.wheelSystemdManagement.enable = false;
-      repoSecrets.enable = lib.mkForce false;
+      repoSecrets.enable = true;
       r2CloudSecrets.enable = lib.mkForce false;
     };
 
