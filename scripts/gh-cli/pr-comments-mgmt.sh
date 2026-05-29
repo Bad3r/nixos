@@ -1640,23 +1640,25 @@ _get_comment_rest() {
     # `r<id>` URL fragment, which is the review-comment convention.
     # Each stderr is captured separately so a non-404 failure (auth,
     # rate-limit, network) is not collapsed into a generic "not found".
-    local _err_review=""
-    if ! rest=$(gh api "repos/${owner_repo}/pulls/comments/${numeric}" 2>/tmp/_gcr.$$); then
-      _err_review=$(cat /tmp/_gcr.$$ 2>/dev/null)
-      rm -f /tmp/_gcr.$$
+    local _err_review="" _err_file_review="" _err_file_issue=""
+    _err_file_review=$(mktemp) || die 1 "get-comment: mktemp failed"
+    if ! rest=$(gh api "repos/${owner_repo}/pulls/comments/${numeric}" 2>"${_err_file_review}"); then
+      _err_review=$(cat "${_err_file_review}" 2>/dev/null)
+      rm -f "${_err_file_review}"
       local _err_issue=""
-      if ! rest=$(gh api "repos/${owner_repo}/issues/comments/${numeric}" 2>/tmp/_gci.$$); then
-        _err_issue=$(cat /tmp/_gci.$$ 2>/dev/null)
-        rm -f /tmp/_gci.$$
+      _err_file_issue=$(mktemp) || die 1 "get-comment: mktemp failed"
+      if ! rest=$(gh api "repos/${owner_repo}/issues/comments/${numeric}" 2>"${_err_file_issue}"); then
+        _err_issue=$(cat "${_err_file_issue}" 2>/dev/null)
+        rm -f "${_err_file_issue}"
         local _msg="get-comment: ${numeric} not found in ${owner_repo}"
         [[ -n ${_err_review} ]] && _msg+=" (pulls/comments: ${_err_review})"
         [[ -n ${_err_issue} ]] && _msg+=" (issues/comments: ${_err_issue})"
         err "${_msg}"
         return 2
       fi
-      rm -f /tmp/_gci.$$
+      rm -f "${_err_file_issue}"
     else
-      rm -f /tmp/_gcr.$$
+      rm -f "${_err_file_review}"
     fi
     ;;
   *)
