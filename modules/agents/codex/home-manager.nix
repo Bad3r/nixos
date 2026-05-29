@@ -61,7 +61,6 @@ _: {
           lib
           pkgs
           ;
-        inherit (execPolicy) codexZshWrapper;
       };
 
       codexRuntime = import ./_wrapper.nix {
@@ -71,6 +70,7 @@ _: {
           lib
           pkgs
           ;
+        inherit (execPolicy) codexZshWrapper;
         inherit (codexSettings)
           baseSettings
           nixProjectSettings

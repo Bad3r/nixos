@@ -3,10 +3,18 @@
   nixProjectSettings,
   configDir,
   codexPkg,
+  codexZshWrapper,
   lib,
   pkgs,
 }:
 let
+  # Repackaged codex closure that exposes the codex-package.json + bundled
+  # codex-resources layout required by `shell_zsh_fork = true;` starting in
+  # codex v0.135.0 (upstream removed the `zsh_path` config key).
+  codexPackaged = import ./_packaged-codex.nix {
+    inherit pkgs codexPkg codexZshWrapper;
+  };
+
   tomlFormat = pkgs.formats.toml { };
   coreutilsMktemp = lib.getExe' pkgs.coreutils "mktemp";
   coreutilsRm = lib.getExe' pkgs.coreutils "rm";
@@ -146,7 +154,7 @@ let
       fi
     fi
 
-    exec ${codexPkg}/bin/codex "$@"
+    exec ${codexPackaged}/bin/codex "$@"
   '';
 in
 {

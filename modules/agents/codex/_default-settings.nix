@@ -131,5 +131,4 @@
     # status_line = null;
   };
   web_search = "cached";
-  # zsh_path = null;
 }
