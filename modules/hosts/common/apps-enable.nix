@@ -253,6 +253,7 @@ let
       "maestral-gui".extended.enable = lib.mkOverride 1100 true;
       maim.extended.enable = lib.mkOverride 1100 true;
       malimite.extended.enable = lib.mkOverride 1100 false;
+      markitdown.extended.enable = lib.mkOverride 1100 true;
       "marp-cli".extended.enable = lib.mkOverride 1100 true;
       marktext.extended.enable = lib.mkOverride 1100 true;
       masscan.extended.enable = lib.mkOverride 1100 true;
