@@ -313,31 +313,36 @@ let
 
         trashPath = lib.mkOption {
           type = lib.types.path;
-          default = "/tmp/Trash";
+          default = "/var/cache/Trash";
           description = ''
-            Directory used as the home-partition trash store. A symlink is
-            created from `~/.local/share/Trash` to this path. The non-
-            replacing `L` form is used, so the symlink is skipped if
-            anything (real directory, file, or stale symlink with a
-            different target) already exists at that path; the operator is
-            responsible for migrating an existing entry. In particular,
-            changing this option in a later rebuild will not retarget an
-            existing symlink: remove `~/.local/share/Trash` manually, then
-            rebuild, to pick up the new value.
+            Persistent trash store for files on the home filesystem. A
+            symlink is created from `~/.local/share/Trash` to this path so
+            `trash-cli` treats it as the FreeDesktop "home trash".
 
-            Defaults to `/tmp/Trash`, which is cleared on reboot. Because
-            `/tmp` is a tmpfs on this configuration, every cross-device
-            trash from `/home` is copied into RAM; deleting a multi-GB tree
-            can therefore exhaust RAM (`ENOSPC`/OOM). Set this to a path on
-            a persistent disk-backed filesystem (for example
-            `/var/cache/Trash`) when storing large or long-lived deletions.
+            This path must live on the same filesystem (same `st_dev`) as the
+            files being trashed. `trash-cli` follows the FreeDesktop Trash
+            spec and refuses to use the home trash for any file on a
+            different volume, failing with "trash dir and file to be trashed
+            are not in the same volume" and then falling back to per-volume
+            `.Trash-<uid>` directories that an unprivileged user normally
+            cannot create at a mount root. Pointing this at the `/tmp` tmpfs
+            therefore breaks trashing every file under `/home` (a separate
+            volume), which is why the default is a disk-backed path on the
+            root filesystem rather than `/tmp/Trash`.
 
-            The directory is created via `systemd.tmpfiles.rules` with the
-            built-in `10d` age qualifier, so entries older than ten days are
-            cleaned up automatically. Drop or override that rule directly if
-            longer retention is required.
+            The non-replacing `L` form is used for the symlink, so it is
+            skipped if anything (real directory, file, or stale symlink with
+            a different target) already exists at `~/.local/share/Trash`.
+            Changing this option will not retarget an existing symlink:
+            remove `~/.local/share/Trash` manually, then rebuild, to pick up
+            the new value.
+
+            The directory is created via `systemd.tmpfiles` with the `10d`
+            age qualifier, so entries older than ten days are cleaned up
+            automatically. Override that rule directly if longer retention is
+            required.
           '';
-          example = "/var/cache/Trash";
+          example = "/home/alice/.local/share/Trash";
         };
       };
 
@@ -350,17 +355,13 @@ let
           ripCompletion
         ];
 
-        # Emit a separate drop-in (50-rip-trash.conf) instead of merging
-        # into the generated /etc/tmpfiles.d/00-nixos.conf. The shared
-        # boot.tmp.cleanOnBoot path (`modules/hosts/common/tmp.nix`) injects
-        # `D! /tmp 1777 root root` into the same 00- file, and on boot the
-        # `D` action wipes /tmp's contents. Co-locating `d /tmp/Trash` with
-        # that wipe in one file races the creation against the cleanup so
-        # /tmp/Trash can be missing after boot. systemd-tmpfiles loads
-        # drop-ins in lexicographic filename order, so a 50- prefix is
-        # processed strictly after the 00- block and the trash entries land
-        # after the /tmp wipe regardless of in-file rule order.
-        systemd.tmpfiles.settings."50-rip-trash" = {
+        # Bootstrap the trash store and point the XDG home trash at it. The
+        # store sits on the same filesystem as the files being trashed (see
+        # `trashPath` above), so it stays off the `/tmp` tmpfs. Keeping it
+        # off `/tmp` also sidesteps the boot-time `D! /tmp` wipe from
+        # `boot.tmp.cleanOnBoot` and the tmpfs mount, so these rules need no
+        # ordering relationship with any other tmpfiles drop-in.
+        systemd.tmpfiles.settings."rip-trash" = {
           # Create the trash directory; clean entries older than 10 days.
           ${cfg.trashPath}.d = {
             mode = "0700";
