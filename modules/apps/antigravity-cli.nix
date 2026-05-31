@@ -1,5 +1,5 @@
 /*
-  Package: antigravity
+  Package: antigravity-cli
   Description: CLI for Google Antigravity, an agentic development platform.
   Homepage: https://antigravity.google/
   Documentation: https://antigravity.google/cli
@@ -22,7 +22,7 @@
 */
 { inputs, ... }:
 let
-  AntigravityModule =
+  AntigravityCliModule =
     {
       config,
       lib,
@@ -30,21 +30,21 @@ let
       ...
     }:
     let
-      cfg = config.programs.antigravity.extended;
+      cfg = config.programs."antigravity-cli".extended;
     in
     {
-      options.programs.antigravity.extended = {
+      options.programs."antigravity-cli".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable antigravity.";
+          description = "Whether to enable antigravity-cli.";
         };
 
         package = lib.mkOption {
           type = lib.types.package;
-          default = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity;
-          defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.antigravity";
-          description = "The antigravity package to use.";
+          default = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli;
+          defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.antigravity-cli";
+          description = "The antigravity-cli package to use.";
         };
       };
 
@@ -54,7 +54,7 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "antigravity" ];
+  nixpkgs.allowedUnfreePackages = [ "antigravity-cli" ];
 
-  flake.nixosModules.apps.antigravity = AntigravityModule;
+  flake.nixosModules.apps."antigravity-cli" = AntigravityCliModule;
 }

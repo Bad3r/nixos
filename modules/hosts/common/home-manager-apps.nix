@@ -4,7 +4,7 @@ let
   sharedAppNames = [
     "1password-gui-beta"
     "act"
-    "antigravity"
+    "antigravity-cli"
     "atuin"
     "autorandr"
     "bat"
