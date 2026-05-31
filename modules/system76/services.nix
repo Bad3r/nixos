@@ -1,15 +1,98 @@
-_: {
+{ secretsRoot, ... }:
+let
+  sambaSecretFile = "${secretsRoot}/system76.yaml";
+  sambaSecretExists = builtins.pathExists sambaSecretFile;
+  sambaMediaPathSecret = "system76/samba-media-path";
+  sambaMediaShareTemplate = "system76/samba-media-share.conf";
+in
+{
   configurations.nixos.system76.module =
-    { pkgs, lib, ... }:
     {
+      config,
+      pkgs,
+      lib,
+      metaOwner,
+      ...
+    }:
+    let
+      sambaMediaShareTemplatePath = config.sops.templates.${sambaMediaShareTemplate}.path;
+    in
+    {
+      imports =
+        lib.optionals sambaSecretExists [
+          {
+            services.samba.settings.media.include = sambaMediaShareTemplatePath;
+
+            sops.secrets.${sambaMediaPathSecret} = {
+              sopsFile = sambaSecretFile;
+              key = "samba_media_path";
+              owner = "root";
+              group = "root";
+              mode = "0400";
+            };
+
+            sops.templates.${sambaMediaShareTemplate} = {
+              content = ''
+                path = ${config.sops.placeholder.${sambaMediaPathSecret}}
+                browsable = yes
+                read only = yes
+                guest ok = yes
+                force user = ${metaOwner.username}
+              '';
+              owner = "root";
+              group = "root";
+              mode = "0400";
+              reloadUnits = [
+                "samba-smbd.service"
+                "samba-nmbd.service"
+              ];
+            };
+          }
+        ]
+        ++ lib.optionals (!sambaSecretExists) [
+          {
+            warnings = [
+              "system76 Samba media share skipped because ${sambaSecretFile} is missing."
+            ];
+          }
+        ];
+
       # Cannot use systemd.sysusers with normal users (only supports system users)
       # systemd.sysusers.enable = true;
-      systemd.coredump = {
-        enable = true;
-        settings.Coredump = {
-          MaxUse = "1G";
-          KeepFree = "2G";
-          MaxRetentionSec = "3d";
+      systemd = {
+        coredump = {
+          enable = true;
+          settings.Coredump = {
+            MaxUse = "1G";
+            KeepFree = "2G";
+            MaxRetentionSec = "3d";
+          };
+        };
+
+        # On-demand Samba: keep units available but don't auto-start at boot.
+        # Start manually with `systemctl start samba.target` when sharing is
+        # needed; `systemctl stop samba.target` brings down smbd/nmbd together.
+        targets.samba.wantedBy = lib.mkForce [ ];
+
+        # Set system76-power profile to performance on boot. The daemon is
+        # provided by system76-power.service (D-Bus name com.system76.PowerDaemon);
+        # wait for dbus.service so D-Bus activation succeeds.
+        services.system76-power-profile = {
+          description = "Set System76 power profile to performance";
+          wantedBy = [ "multi-user.target" ];
+          after = [
+            "system76-power.service"
+            "dbus.service"
+          ];
+          wants = [ "system76-power.service" ];
+          startLimitBurst = 3;
+          startLimitIntervalSec = 3600;
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${pkgs.system76-power}/bin/system76-power profile performance";
+            Restart = "on-failure";
+            RestartSec = 3;
+          };
         };
       };
 
@@ -50,6 +133,22 @@ _: {
         avahi = {
           enable = lib.mkDefault true;
           nssmdns4 = true;
+          openFirewall = true;
+        };
+
+        samba = {
+          enable = true;
+          openFirewall = true;
+          settings = {
+            global = {
+              "map to guest" = "Bad User";
+              "server min protocol" = "SMB3";
+            };
+          };
+        };
+
+        samba-wsdd = {
+          enable = true;
           openFirewall = true;
         };
 
@@ -101,27 +200,6 @@ _: {
           # PCIe runtime PM) do not survive suspend on all hardware.
           ${pkgs.system76-power}/bin/system76-power profile performance || true
         '';
-      };
-
-      # Set system76-power profile to performance on boot. The daemon is
-      # provided by system76-power.service (D-Bus name com.system76.PowerDaemon);
-      # wait for dbus.service so D-Bus activation succeeds.
-      systemd.services.system76-power-profile = {
-        description = "Set System76 power profile to performance";
-        wantedBy = [ "multi-user.target" ];
-        after = [
-          "system76-power.service"
-          "dbus.service"
-        ];
-        wants = [ "system76-power.service" ];
-        startLimitBurst = 3;
-        startLimitIntervalSec = 3600;
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.system76-power}/bin/system76-power profile performance";
-          Restart = "on-failure";
-          RestartSec = 3;
-        };
       };
 
       # CoolerControl: DISABLED - conflicts with System76 EC fan control
