@@ -25,6 +25,7 @@ _: {
       # claude code testing
       .mcp.json
       .specify/
+      .understand-anything/
 
       # direnv state
       .direnv/
