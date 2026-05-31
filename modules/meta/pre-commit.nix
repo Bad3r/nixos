@@ -17,7 +17,7 @@ _: {
         settings = {
           excludes = [
             "^inputs/"
-            "^nixos-manual/"
+            "^docs/nixos-manual/"
           ];
 
           default_stages = [

@@ -8,6 +8,13 @@ Technical documentation for Cloudflare's developer platform services.
 | --------------------------- | ------------------------------------------ | ------ |
 | [Containers](./containers/) | Run Docker containers on Cloudflare's edge | Beta   |
 
+## NixOS samples
+
+| Sample                                              | Purpose                                 |
+| --------------------------------------------------- | --------------------------------------- |
+| [ACME DNS-01](./acme-cloudflare-sample.md)          | Configure ACME certificates with DNS-01 |
+| [Cloudflare Tunnel](./cloudflared-tunnel-sample.md) | Configure `cloudflared` ingress locally |
+
 ## Planned Documentation
 
 - Workers

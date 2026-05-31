@@ -257,4 +257,4 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 10. Local docs\
     `docs/sops/README.md`\
     `docs/index.md`\
-    `nixos-manual/configuration/ssh.section.md`
+    `docs/nixos-manual/configuration/ssh.section.md`

@@ -109,8 +109,9 @@ is `modules/readme.nix`.
   - Location: `scripts/`
   - Notes: Operational tooling.
 - Documentation
-  - Location: `docs/`, `nixos-manual/`
-  - Notes: Long-form references and local workflows.
+  - Location: `docs/`
+  - Notes: Long-form references and local workflows. The NixOS manual mirror
+    lives under `docs/nixos-manual/`.
 - Secrets
   - Location: `secrets/`
   - Notes: Encrypted payloads managed via `sops.secrets`.

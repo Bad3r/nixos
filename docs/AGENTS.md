@@ -6,9 +6,24 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 
 - `architecture/`: canonical design docs for module system and composition.
 - `guides/`, `usage/`, `reference/`: task-oriented instructions and reference material.
-- Domain folders (for example `cloudflare/`, `sops/`, `usbguard/`): product-specific docs.
+- `nixos-manual/`: mirrored upstream NixOS manual sources.
+- `technical-writing/`: style guidance for documentation structure,
+  examples, review, and lifecycle.
+- Domain folders (for example `cloudflare/`, `duplicati/`, `mpv/`,
+  `r2-cloud/`, `sops/`, `system76/`, `usbguard/`): product-specific docs.
 
-Prefer updating an existing page over adding a new one. Use clear, repo-relative links (for example `../architecture/index.md`) and keep host/user assumptions aligned to the per-host model under `modules/<host>/` and the `vx` user model. To enumerate the active hosts, run `nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames`.
+Prefer updating an existing page over adding a new one. Update `index.md` when
+adding, removing, or moving documentation pages. Use clear, repo-relative links
+(for example `../architecture/README.md`) and keep host/user assumptions aligned
+to the per-host model under `modules/<host>/` and the `vx` user model. To
+enumerate the active hosts, run
+`nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames`.
+
+Use lowercase directory names for provider and product folders. Cloudflare docs
+belong under `cloudflare/`, including Containers material under
+`cloudflare/containers/`; do not recreate case variants such as `CloudFlare/`.
+The mirrored NixOS manual belongs under `docs/nixos-manual/`; do not recreate a
+root-level `nixos-manual/` tree.
 
 ## Build, Test, and Development Commands
 
@@ -30,6 +45,9 @@ nix develop -c pre-commit run --all-files --hook-stage manual
 ```
 
 Prefer lowercase, hyphenated filenames (for example `module-discovery.md`). Use backticks for commands, paths, options, and identifiers.
+Follow the local technical-writing guidance for new or substantially rewritten
+pages, especially `technical-writing/drafting.md` and
+`technical-writing/code-samples.md`.
 
 ## Testing Guidelines
 

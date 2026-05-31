@@ -13,7 +13,9 @@ _: {
       [[allowlists]]
       description = "Documentation examples with placeholder secrets"
       paths = [
+        # Keep the old root-level path because gitleaks scans historical commits.
         "nixos-manual/.*",
+        "docs/nixos-manual/.*",
       ]
 
       [[allowlists]]

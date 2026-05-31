@@ -101,8 +101,9 @@ relationships.
   Common build logic shared between modules.
 - Helper scripts: `scripts/`
   Operational tooling.
-- Documentation: `docs/`, `nixos-manual/`
-  Long-form references and local workflows.
+- Documentation: `docs/`
+  Long-form references and local workflows. The NixOS manual mirror lives under
+  `docs/nixos-manual/`.
 - Secrets: `secrets/`
   Encrypted payloads managed through `sops.secrets`.
 - Generated artifacts: `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`

@@ -103,7 +103,7 @@ Available after `nix develop`:
 | Firefox source/docs        | `/data/git/mozilla-firefox-firefox`                   |
 | Firefox built docs         | `/data/git/mozilla-firefox-firefox-docs/current`      |
 | MDN Web Docs               | `/data/git/mdn-content`                               |
-| NixOS manual mirror        | `nixos-manual/`                                       |
+| NixOS manual mirror        | `docs/nixos-manual/`                                  |
 | Home Manager manual        | `/data/git/nix-community-home-manager/docs/manual/`   |
 | Stylix source              | `/data/git/nix-community-stylix`                      |
 | Firefox policies           | `/data/git/mozilla-policy-templates`                  |

@@ -26,10 +26,28 @@
 
 ## Cloudflare
 
+- [cloudflare/README.md](cloudflare/README.md)
+  - Index for Cloudflare developer platform docs and local NixOS samples.
 - [cloudflare/acme-cloudflare-sample.md](cloudflare/acme-cloudflare-sample.md)
   - Sample NixOS configuration for ACME certificate management using Cloudflare DNS-01 challenge.
 - [cloudflare/cloudflared-tunnel-sample.md](cloudflare/cloudflared-tunnel-sample.md)
   - Sample NixOS configuration for Cloudflare Tunnel (cloudflared) with ingress rules and credential setup.
+- [cloudflare/containers/README.md](cloudflare/containers/README.md)
+  - Technical documentation index for Cloudflare Containers.
+- [cloudflare/containers/architecture.md](cloudflare/containers/architecture.md)
+  - Architecture, request flow, and rollout model for Cloudflare Containers.
+- [cloudflare/containers/configuration.md](cloudflare/containers/configuration.md)
+  - Wrangler, Dockerfile, environment, and deployment configuration for Cloudflare Containers.
+- [cloudflare/containers/api-reference.md](cloudflare/containers/api-reference.md)
+  - Container package properties, helper functions, methods, and TypeScript interfaces.
+- [cloudflare/containers/lifecycle.md](cloudflare/containers/lifecycle.md)
+  - Cold starts, warm requests, sleep behavior, shutdown, storage lifetime, and rollouts.
+- [cloudflare/containers/storage-networking.md](cloudflare/containers/storage-networking.md)
+  - Disk, R2 mount, ingress, egress, DNS, and network-isolation notes for Containers.
+- [cloudflare/containers/use-cases.md](cloudflare/containers/use-cases.md)
+  - Practical Cloudflare Containers examples and application patterns.
+- [cloudflare/containers/limitations-roadmap.md](cloudflare/containers/limitations-roadmap.md)
+  - Beta limitations, platform gaps, and roadmap notes for Cloudflare Containers.
 
 ## R2 Cloud
 
@@ -74,6 +92,13 @@
 
 - [mcp/logseq.md](mcp/logseq.md)
   - Logseq MCP server documentation for AI assistant integration with knowledge graphs (DB graphs only).
+
+## NixOS manual
+
+- [nixos-manual/README.md](nixos-manual/README.md)
+  - Entry point for the mirrored upstream NixOS manual under `docs/nixos-manual/`.
+- [nixos-manual/manual.md](nixos-manual/manual.md)
+  - Upstream manual structure file for chapters, appendices, options, and release notes.
 
 ## mpv
 

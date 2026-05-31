@@ -19,7 +19,7 @@ case "$REPO_ROOT" in
   ;;
 esac
 
-MANUAL_DIR="$REPO_ROOT/nixos-manual"
+MANUAL_DIR="$REPO_ROOT/docs/nixos-manual"
 # TMP_PARENT is owned jointly by the success path (which clears it inline and
 # resets it to "") and the EXIT trap (which cleans up early exits). The empty
 # reset is what keeps the trap from double-acting after a successful run.
@@ -31,7 +31,7 @@ updated=false
 cleanup() {
   if [[ $updated == false && -n $BACKUP_MANUAL && -d $BACKUP_MANUAL ]]; then
     if [[ ! -e $MANUAL_DIR ]]; then
-      echo "Restoring previous nixos-manual after failed update..." >&2
+      echo "Restoring previous docs/nixos-manual after failed update..." >&2
       mv "$BACKUP_MANUAL" "$MANUAL_DIR"
     else
       echo "Skipped restoring backup: $MANUAL_DIR already exists." >&2
@@ -92,7 +92,7 @@ cp -R "$MANUAL_SOURCE" "$STAGED_MANUAL"
 # stray outward-pointing symlink in the source can't redirect the chmod.
 find "$STAGED_MANUAL" \( -type d -o -type f \) -exec chmod u+rwX,go+rX {} +
 
-echo "🔁 Replacing nixos-manual..."
+echo "🔁 Replacing docs/nixos-manual..."
 if [[ -e $MANUAL_DIR ]]; then
   mv "$MANUAL_DIR" "$BACKUP_MANUAL"
 fi

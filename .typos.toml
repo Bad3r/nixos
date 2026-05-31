@@ -34,7 +34,7 @@ ANC = "ANC"                   # Active Noise Cancellation (AirPods)
 [files]
 extend-exclude = [
   "secrets/**",
-  "nixos-manual/**/*.md",
+  "docs/nixos-manual/**/*.md",
   "flake.lock",
   ".clj-kondo/**",
   "**/.clj-kondo/**",
