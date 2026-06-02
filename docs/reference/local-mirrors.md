@@ -89,6 +89,7 @@ Full URLs include a normalized host prefix and strip common host suffixes such a
 | `mozilla-firefox/firefox`                               | `$LOCAL_MIRRORS/mozilla-firefox-firefox`                   |
 | Firefox built docs                                      | `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs`              |
 | `mozilla/policy-templates`                              | `$LOCAL_MIRRORS/mozilla-policy-templates`                  |
+| `mpv-player/mpv`                                        | `$LOCAL_MIRRORS/mpv-player-mpv`                            |
 | `openai/codex`                                          | `$LOCAL_MIRRORS/openai-codex`                              |
 | `tridactyl/tridactyl`                                   | `$LOCAL_MIRRORS/tridactyl-tridactyl`                       |
 | `https://git.lix.systems/lix-project/lix.git`           | `$LOCAL_MIRRORS/git.lix.systems-lix-project-lix`           |
