@@ -12,7 +12,8 @@ bundle, and the `video-cache` shell helper.
 The docs cover what is true today across both supported hosts and intentionally
 omit host names. Each page is concise and concern-focused; cross-link the
 upstream mpv manual at <https://mpv.io/manual/stable/> for canonical option
-semantics.
+semantics. The upstream source is mirrored at `$LOCAL_MIRRORS/mpv-player-mpv`
+for offline reference.
 
 ## Contents
 
