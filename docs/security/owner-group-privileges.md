@@ -10,7 +10,7 @@ Scope:
   - example: `modules/apps/docker.nix`
 - no-sudo command policy:
   - `modules/security/polkit.nix`
-  - `modules/system76/sudo.nix`
+  - `modules/hosts/common/sudo.nix`
   - `modules/system76/boot.nix`
 
 ## Groups Assigned To Owner In Baseline Profile
@@ -41,6 +41,8 @@ Scope:
       - `org.freedesktop.NetworkManager.*`
       - `org.freedesktop.ModemManager*`
     - enables privileged `nmcli` / `mmcli` operations without sudo.
+    - present in the evaluated `security.polkit.extraConfig`; the repo-owned
+      `modules/security/polkit.nix` only contributes the wheel power rule.
   - security impact:
     - network tampering, DNS/profile changes, network DoS, and modem control if modem hardware exists.
 
@@ -108,7 +110,8 @@ Scope:
   - Avahi D-Bus policy grants `org.freedesktop.Avahi.Server.SetHostName` to `netdev` group members.
   - if owner is added to `netdev`, hostname change becomes available without sudo.
 - `power` note:
-  - no direct polkit/dbus allow tied to `power` group is currently configured on this host.
+  - on `system76` the `power` group has no active grant because `thermald` is disabled.
+  - on hosts where `thermald` is enabled (for example `tpnix`), its D-Bus policy grants the `power` group control of the daemon.
 - `plugdev` / `bluetooth` note:
   - currently no direct owner assignment in baseline; privilege impact depends on future service or udev rules that consume those groups.
 
