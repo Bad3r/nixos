@@ -1,6 +1,6 @@
 # Nix Store Maintenance
 
-This runbook defines the default repair workflow for this host.
+This runbook defines the default repair workflow for each opted-in host.
 
 ## Host Defaults
 
@@ -40,6 +40,7 @@ sss-nix-repair --yes
 sss-nix-repair --keep-since 30d --keep 5
 sss-nix-repair --trust
 sss-nix-repair --no-clean --no-verify
+sss-nix-repair --help # or -h
 ```
 
 ## Manual Fallback Commands

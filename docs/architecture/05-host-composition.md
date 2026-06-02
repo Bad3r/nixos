@@ -52,7 +52,6 @@ Every host follows the same shape: each `modules/<host>/*.nix` file extends `con
 | `modules/system76/imports.nix`                | Baseline module imports and hardware profile wiring                |
 | `modules/system76/home-manager-apps.nix`      | system76-only HM extras (awscli2, pentesting-devshell)             |
 | `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs` and `min-free` overrides                 |
-| `modules/system76/nix-substituters.nix`       | Regional substituter mirror (ustc)                                 |
 | `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override      |
 | `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)        |
 | `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                     |
@@ -73,7 +72,6 @@ Every host follows the same shape: each `modules/<host>/*.nix` file extends `con
 | `modules/tpnix/home-manager-apps.nix`    | tpnix-only HM extras (libreoffice)                                       |
 | `modules/tpnix/default-apps.nix`         | Per-host overrides for `host.defaults` (audioPlayer, videoPlayer = null) |
 | `modules/tpnix/nix-settings.nix`         | Hardware-tuned `max-jobs` and `min-free` overrides                       |
-| `modules/tpnix/nix-substituters.nix`     | Regional substituter mirror (sjtu)                                       |
 | `modules/tpnix/firmware-manager-fix.nix` | tpnix-only `services.fwupd.enable = true;` override                      |
 | `modules/tpnix/r2-runtime.nix`           | Host runtime bindings for external `r2-flake` modules                    |
 | `modules/tpnix/hardware-config.nix`      | Filesystems, firmware, low-level hardware settings                       |
@@ -126,7 +124,7 @@ After host-level changes, build every affected host closure and run flake-level 
 ```bash
 nix build .#nixosConfigurations.<host>.config.system.build.toplevel
 nix flake check --accept-flake-config --no-build --offline
-nix run .#generation-manager -- score   # target: 35/35
+nix run .#generation-manager -- score   # target: 20/20
 ```
 
 Use `nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames` to enumerate the host names available in the current checkout.
