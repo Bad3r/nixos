@@ -6,24 +6,37 @@ The espanso module provides declarative configuration for the cross-platform tex
 
 ## Quick Start
 
-### Enable in Home Manager Configuration
+### Enable espanso
 
-The module is auto-imported when included in your Home Manager modules list:
+Two modules cooperate behind a single system-level toggle:
 
-```nix
-{
-  imports = [
-    config.flake.homeManagerModules.apps.espanso
-  ];
-}
-```
+- `flake.nixosModules.apps.espanso` (source: `modules/apps/espanso.nix`) defines
+  the option `services.espanso.extended.enable` (default `false`).
+- `flake.homeManagerModules.apps.espanso` (source: `modules/hm-apps/espanso.nix`)
+  reads that toggle from `osConfig` and configures `services.espanso` only when
+  it is `true`.
 
-This automatically enables espanso with:
+Importing the Home Manager module alone does nothing: the toggle must be on at
+the system level. On hosts that use the common baseline this is already wired:
 
-- Both X11 and Wayland support (auto-detection based on `$WAYLAND_DISPLAY`)
+- `modules/hosts/common/home-manager-apps.nix` adds `espanso` to the shared
+  Home Manager app modules.
+- `modules/hosts/common/apps-enable.nix` sets
+  `services.espanso.extended.enable = true` at the default-on baseline
+  (`lib.mkOverride 1100`).
+
+So common hosts get espanso enabled by default. To opt out on a host, set
+`services.espanso.extended.enable = false`. To enable it on a host that does not
+use the baseline, import `flake.nixosModules.apps.espanso` and set the toggle
+true at the system level.
+
+When enabled, espanso starts with:
+
+- Both X11 and Wayland support (Home Manager defaults on Linux; runtime selection based on `$WAYLAND_DISPLAY`)
 - Notifications disabled (less intrusive)
 - Common date/time triggers (`:date`, `:time`, `:now`, `:isodate`)
-- Development snippets (`:shebang`, `:todo`, `:fixme`)
+- Development snippets (`:shebang`, `:shebangnix`, `:todo`, `:fixme`)
+- A `:test` smoke-test trigger that expands to `test 1.2.3`
 
 ### Default Triggers
 
@@ -33,6 +46,7 @@ Once enabled, the following triggers are available:
 
 | Trigger       | Output            | Example                                             |
 | ------------- | ----------------- | --------------------------------------------------- |
+| `:test`       | Smoke-test string | `test 1.2.3`                                        |
 | `:date`       | Current date      | `2025-10-08`                                        |
 | `:time`       | Current time      | `14:30`                                             |
 | `:now`        | Date and time     | `2025-10-08 14:30`                                  |
