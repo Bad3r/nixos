@@ -11,7 +11,7 @@ Verified on 2026-05-04 against the active flake pin.
 
 | Result                                                           | Count   |
 | ---------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                             | 101     |
+| ✅ Run as documented                                             | 100     |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
 | ⚠️ Build or evaluation error                                     | 9       |
 | ⚠️ Binary path mismatch in the documented attribute              | 5       |
@@ -20,7 +20,7 @@ Verified on 2026-05-04 against the active flake pin.
 | ⚠️ External (non-nixpkgs) toolchain blocked                      | 1       |
 | ⚠️ Closure too large for smoke budget                            | 1       |
 | ⚠️ Documented uvx / PyPI invocation broken                       | 2       |
-| **Total entries in the reference**                               | **133** |
+| **Total entries in the reference**                               | **132** |
 
 The reference doc flags each unavailable tool inline (the entry's `run..:`
 field carries text such as `Not in nixpkgs ...` or `Must create a custom nixpkg`); there is no dedicated section for them. The groupings below are
@@ -83,7 +83,6 @@ this report's, collected by the underlying reason for the failure.
 - ✅ qsreplace
 - ✅ meg
 - ✅ wuzz
-- ✅ exploitdb (`searchsploit`)
 - ✅ paramspider (uvx)
 - ✅ commix
 - ✅ joomscan
