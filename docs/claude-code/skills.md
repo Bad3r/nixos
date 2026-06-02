@@ -2,7 +2,7 @@
 
 Skills are Markdown files with YAML frontmatter that extend Claude Code with custom slash commands and guided workflows. They follow the open [Agent Skills](https://agentskills.io) format with Claude Code-specific extensions.
 
-A skill encodes a repeatable multi-step process -- a deployment checklist, a code review workflow, a migration procedure -- into a single invocable unit. Skills enforce conventions, chain workflows through handoffs, and carry reference material that loads on demand rather than permanently occupying context.
+A skill encodes a repeatable multi-step process -- a deployment checklist, a code review workflow, a migration procedure -- into a single invocable unit. Skills enforce conventions and carry reference material that loads on demand rather than permanently occupying context.
 
 Claude Code discovers skills at session start by scanning `.claude/skills/` directories. Each skill's description is indexed for semantic matching against user intent. When invoked, the full skill body is injected into the conversation context with string substitutions applied.
 
@@ -45,7 +45,7 @@ Arguments are captured as `$ARGUMENTS` (full string) or accessed by index (`$0`,
 
 ### Skill Tool (Programmatic)
 
-Claude Code exposes an internal `Skill` tool that Claude can call programmatically. This enables skill chaining and handoff dispatching. The Skill tool respects permission rules: `Skill(name)` for exact match, `Skill(name *)` for prefix matching.
+Claude Code exposes an internal `Skill` tool that Claude can call programmatically. This enables one skill to dispatch another. The Skill tool respects permission rules: `Skill(name)` for exact match, `Skill(name *)` for prefix matching.
 
 ### Model-Initiated
 
@@ -106,17 +106,22 @@ All fields are optional. When omitted, defaults apply as shown.
 
 | Field                      | Type    | Default           | Description                                                                                  |
 | -------------------------- | ------- | ----------------- | -------------------------------------------------------------------------------------------- |
-| `name`                     | string  | Directory name    | Display name and slash command identifier. Lowercase, hyphens, max 64 characters             |
-| `description`              | string  | First paragraph   | What the skill does and when to use it. Used for model-initiated matching                    |
+| `name`                     | string  | Directory name    | Display name shown in skill listings. The `/command` name comes from the skill directory     |
+| `description`              | string  | First paragraph   | What the skill does and when to use it. Drives model-initiated matching                      |
+| `when_to_use`              | string  | (none)            | Extra matching context combined with `description`; the pair is capped at ~1,536 characters  |
 | `argument-hint`            | string  | (none)            | Autocomplete hint shown after `/name`. Example: `[issue-number]`                             |
+| `arguments`                | string  | (none)            | Named positional arguments for `$name` substitution. Space-separated string or YAML list     |
 | `disable-model-invocation` | boolean | `false`           | When `true`, prevents Claude from auto-loading this skill. Manual `/name` only               |
 | `user-invocable`           | boolean | `true`            | When `false`, hides from `/` menu. Skill remains available as background knowledge           |
-| `allowed-tools`            | string  | (inherit all)     | Comma-separated tool whitelist for implicit permission. Example: `Read, Grep, Glob`          |
-| `model`                    | string  | (inherit)         | Override model for this skill: `sonnet`, `opus`, `haiku`, or `inherit`                       |
+| `allowed-tools`            | string  | (inherit all)     | Tools usable without a permission prompt while active. Space/comma string or YAML list       |
+| `disallowed-tools`         | string  | (none)            | Tools removed from the available pool while the skill is active                              |
+| `model`                    | string  | (inherit)         | Model override while active: same values as `/model`, or `inherit`                           |
+| `effort`                   | string  | (inherit)         | Effort override while active: `low`, `medium`, `high`, `xhigh`, or `max` (model-dependent)   |
 | `context`                  | string  | (inline)          | Set to `fork` to run in an isolated subagent context                                         |
 | `agent`                    | string  | `general-purpose` | Subagent type when `context: fork`. Options: `Explore`, `Plan`, `general-purpose`, or custom |
 | `hooks`                    | object  | (none)            | Lifecycle hooks scoped to skill execution. Supports `PreToolUse`, `PostToolUse`, `Stop`      |
-| `handoffs`                 | array   | (none)            | Follow-up actions presented on skill completion                                              |
+| `paths`                    | string  | (none)            | Glob patterns that limit auto-activation to matching files                                   |
+| `shell`                    | string  | `bash`            | Shell for `` !`command` `` blocks: `bash` or `powershell`                                    |
 
 ### String Substitutions
 
@@ -202,10 +207,10 @@ Session: ${CLAUDE_SESSION_ID}
 At session start, Claude Code scans all skill locations (enterprise, project, personal, plugin) for `*/SKILL.md` files. For each skill discovered:
 
 1. Frontmatter is parsed for `name`, `description`, `user-invocable`, `argument-hint`
-2. Descriptions are loaded into a semantic index (budget: ~15,000 characters across all skills)
+2. Descriptions are loaded into a semantic index. The combined budget scales with the model context window (about 1% of it by default), not a fixed character count, and each description is capped at roughly 1,536 characters
 3. Full Markdown bodies are **not** loaded until invocation
 
-If the combined description length exceeds the budget, lower-priority skills are excluded. Check with the `/context` command. The budget is configurable via `SLASH_COMMAND_TOOL_CHAR_BUDGET`.
+If the combined description length exceeds the budget, lower-priority skills are excluded. Check with the `/context` command. Tune the budget with the `skillListingBudgetFraction` setting or the `SLASH_COMMAND_TOOL_CHAR_BUDGET` environment variable.
 
 ### Resolution
 
@@ -229,13 +234,12 @@ When a skill is invoked:
 
 For `context: fork` skills, the processed content becomes the subagent's prompt in an isolated context (no conversation history).
 
-### Completion and Handoffs
+### Completion
 
 When a skill finishes execution:
 
-- If `handoffs` are configured, follow-up buttons are presented to the user
-- If a handoff has `send: true`, it auto-dispatches without user interaction
 - Skill-scoped hooks are cleaned up
+- For `context: fork` skills, the subagent's results are summarized back into the main conversation
 
 ## Skills vs Tools
 
@@ -245,7 +249,7 @@ When a skill finishes execution:
 | Invocation    | `/slash-command`, Skill tool, or auto-match   | Model-initiated only                         |
 | Scope         | Enterprise, project, personal, plugin         | Global (built-in) or MCP server scope        |
 | State         | Shares conversation or forks isolated context | Stateless per-call                           |
-| Composability | Chains via handoffs and Skill tool dispatch   | Direct tool calls                            |
+| Composability | Chains via Skill tool dispatch                | Direct tool calls                            |
 | Authoring     | Markdown -- no code required                  | Code in supported languages                  |
 | Customization | Full control over instructions and behavior   | Limited to parameters defined by tool schema |
 
@@ -259,13 +263,13 @@ The skill body, after substitutions and preprocessing, is injected as a system i
 
 ### Description Budget
 
-All enabled skill descriptions share a budget of ~15,000 characters at session start. This budget covers the semantic index that enables model-initiated invocation. If exceeded:
+All enabled skill descriptions share a budget at session start. The budget scales with the model's context window (about 1% of it by default) rather than a fixed character count, and each individual description is capped at roughly 1,536 characters. This budget covers the semantic index that enables model-initiated invocation. If exceeded:
 
 - Lower-priority skills (by scope) are excluded from the index
 - The `/context` command reports which skills are loaded
-- Override with `SLASH_COMMAND_TOOL_CHAR_BUDGET=<chars>` environment variable
+- Tune it with the `skillListingBudgetFraction` setting or the `SLASH_COMMAND_TOOL_CHAR_BUDGET=<chars>` environment variable
 
-Keep individual descriptions concise (under ~200 characters) to leave room for other skills.
+Keep individual descriptions concise (well under the ~1,536-character per-skill cap) to leave room for other skills.
 
 ### Context Modes
 
@@ -325,27 +329,6 @@ Effective skills follow a predictable structure:
 
 Keep instructions specific and actionable. Avoid vague guidance like "review carefully" -- instead specify what to check and what constitutes a finding.
 
-### Handoff Chains
-
-Skills can compose into multi-stage workflows through handoffs. Each handoff presents a follow-up action on completion:
-
-```yaml
----
-name: feature-workflow
-description: Guide a feature from spec to implementation
-handoffs:
-  - label: "Write spec"
-    agent: specify
-    prompt: "Create specification for $ARGUMENTS"
-  - label: "Generate tasks"
-    agent: tasks
-    prompt: "Generate tasks from the spec"
-    send: true # Auto-dispatch without user interaction
----
-```
-
-Design handoff chains so each stage is independently useful. A user should be able to stop after any stage and have a meaningful deliverable.
-
 ### Common Patterns
 
 **Argument validation**: check arguments before proceeding.
@@ -404,7 +387,7 @@ Plugin skills are automatically namespaced as `plugin-name:skill-name` to avoid 
 
 Descriptions form a semantic index consulted for model-initiated invocation. The index is built once at session start and not refreshed mid-session. Adding or modifying skills requires restarting the session for changes to take effect.
 
-The ~15,000 character budget is an approximate figure. Monitor usage with `/context` and adjust with `SLASH_COMMAND_TOOL_CHAR_BUDGET` if needed.
+The budget scales with the model context window (about 1% by default) rather than a fixed character count, and each description is capped at roughly 1,536 characters. Monitor usage with `/context` and adjust with the `skillListingBudgetFraction` setting or `SLASH_COMMAND_TOOL_CHAR_BUDGET` if needed.
 
 ## CLI Integration
 
@@ -466,33 +449,6 @@ name: db.backup
 ```
 
 These appear grouped in the `/` listing as `db.migrate`, `db.seed`, `db.backup`. Plugin skills are automatically namespaced with a colon separator: `plugin-name:skill-name`.
-
-### Handoff Configuration
-
-Handoffs define follow-up actions presented when a skill completes.
-
-| Field    | Type    | Required | Description                                                     |
-| -------- | ------- | -------- | --------------------------------------------------------------- |
-| `label`  | string  | Yes      | Button text shown to user                                       |
-| `agent`  | string  | Yes      | Target skill or agent name                                      |
-| `prompt` | string  | No       | Prompt passed to the target. Supports `$ARGUMENTS` substitution |
-| `send`   | boolean | No       | When `true`, auto-dispatches without waiting for user click     |
-
-Example with chained handoffs:
-
-```yaml
----
-name: feature-spec
-description: Write a feature specification
-handoffs:
-  - label: "Generate implementation plan"
-    agent: plan
-    prompt: "Plan implementation based on the spec just created"
-  - label: "Create tasks from spec"
-    agent: tasks
-    prompt: "Generate tasks from the spec"
----
-```
 
 ### Hook Integration
 
