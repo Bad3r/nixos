@@ -113,7 +113,7 @@ plugin-repository/
 └── [any other files]
 ```
 
-**Plugin Type Detection** (`packages/cli/src/utils/validation.ts:24-45`):
+**Plugin Type Detection** (`packages/cli/src/utils/validation.ts`):
 
 1. Check for `.claude-plugin/marketplace.json` with `plugins` array → **marketplace**
 2. Check for `.claude-plugin/plugin.json` → **single plugin**
@@ -211,7 +211,7 @@ Skills can install to one of two scopes:
 | Global | User-wide (all projects)             | Default             | If `globalDir` undefined, auto-switches to local |
 | Local  | Project-specific (current directory) | `--project` or `-p` | Always succeeds (all clients have `localDir`)    |
 
-**Scope Selection Flow** (`packages/skills-installer/src/lib/select-scope-and-clients.ts:103-123`):
+**Scope Selection Flow** (`packages/skills-installer/src/lib/select-scope-and-clients.ts`):
 
 1. If `--project` flag present → scope = `local`
 2. If `--client` flag present without `--project` → scope = `global`
@@ -245,7 +245,7 @@ Claude Code discovers plugins through two mechanisms:
 1. **Known Marketplaces Registry**: `~/.claude/plugins/known_marketplaces.json`
 2. **Settings File**: `~/.claude/settings.json` → `enabledPlugins` object
 
-**Known Marketplaces Schema** (`packages/cli/src/core/marketplace.ts:13-29`):
+**Known Marketplaces Schema** (`packages/cli/src/core/marketplace.ts`):
 
 ```json
 {
@@ -270,7 +270,7 @@ Claude Code discovers plugins through two mechanisms:
 }
 ```
 
-**Settings Schema** (`packages/cli/src/core/settings.ts:4-7`):
+**Settings Schema** (`packages/cli/src/core/settings.ts`):
 
 ```json
 {
@@ -356,7 +356,7 @@ Complete `.claude/` directory structure managed by claude-plugins:
 
 Command: `claude-plugins install <plugin-identifier>`
 
-**Step-by-Step Execution** (`packages/cli/src/commands/install.ts:18-121`):
+**Step-by-Step Execution** (`packages/cli/src/commands/install.ts`):
 
 01. **Parse Input**: Extract plugin name from identifier (URL or short-form)
 02. **Resolve Plugin**:
@@ -400,7 +400,7 @@ Command: `claude-plugins install <plugin-identifier>`
 
 Command: `skills-installer install <skill-identifier> [--client <name>] [--project]`
 
-**Step-by-Step Execution** (`packages/skills-installer/src/commands/install.ts:47-186`):
+**Step-by-Step Execution** (`packages/skills-installer/src/commands/install.ts`):
 
 01. **Parse Input**: Extract owner/repo/skill components from identifier
 02. **Resolve Skill**:
@@ -455,7 +455,7 @@ The registry is hosted on Val Town and provides resolution, search, and analytic
 
 **Base URL**: `https://api.claude-plugins.dev`
 
-**Configuration** (`packages/cli/src/config.ts:4-7`):
+**Configuration** (`packages/cli/src/config.ts`):
 
 ```typescript
 const DEFAULT_CONFIG = {
@@ -582,7 +582,7 @@ POST /api/skills/<owner>/<repo>/<skill-name>/install
 
 ### Retry Logic
 
-**Download Retry** (`packages/skills-installer/src/lib/download.ts:48-82`):
+**Download Retry** (`packages/skills-installer/src/lib/download.ts`):
 
 - Maximum attempts: 3
 - Backoff: Exponential (1s, 2s, 4s)
@@ -708,7 +708,7 @@ The `search` command provides a rich interactive experience:
 
 **Solution**: In-memory lock map prevents concurrent modifications to the same file.
 
-**Implementation** (`packages/cli/src/utils/fs.ts:18-47`):
+**Implementation** (`packages/cli/src/utils/fs.ts`):
 
 ```typescript
 const locks = new Map<string, Promise<void>>();
@@ -746,7 +746,7 @@ All `readJSON` and `writeJSON` operations automatically acquire locks.
 
 **Solution**: Write to temp file, then atomic rename (POSIX guarantee).
 
-**Implementation** (`packages/cli/src/utils/fs.ts:97-114`):
+**Implementation** (`packages/cli/src/utils/fs.ts`):
 
 ```typescript
 async function writeJSON<T>(filePath: string, data: T): Promise<void> {
@@ -782,7 +782,7 @@ async function writeJSON<T>(filePath: string, data: T): Promise<void> {
 
 **Solution**: Normalize before passing to `giget`.
 
-**Implementation** (`packages/skills-installer/src/lib/download.ts:9-31`):
+**Implementation** (`packages/skills-installer/src/lib/download.ts`):
 
 ```typescript
 const normalizeGithubPath = (
