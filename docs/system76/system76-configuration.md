@@ -4,19 +4,31 @@
 
 All System76-specific configuration lives in `modules/system76/`:
 
-| File                  | Purpose                                  |
-| --------------------- | ---------------------------------------- |
-| `hardware-config.nix` | Filesystems, LUKS, firmware, bluetooth   |
-| `nvidia-gpu.nix`      | NVIDIA PRIME sync/offload                |
-| `boot.nix`            | Kernel, crash dump, NVIDIA params        |
-| `services.nix`        | power management, scheduler, logging     |
-| `support.nix`         | System76 kernel modules, firmware daemon |
-| `packages.nix`        | System76 utilities, unfree allowlist     |
+| File                         | Purpose                                           |
+| ---------------------------- | ------------------------------------------------- |
+| `hardware-config.nix`        | Filesystems, LUKS, firmware, bluetooth, GPU mode  |
+| `nvidia-gpu.nix`             | NVIDIA driver, PRIME sync/nvidia-only mode        |
+| `boot.nix`                   | CachyOS kernel, crash dump, NVIDIA params         |
+| `cachyos-kernel.nix`         | CachyOS kernel overlay and binary cache           |
+| `services.nix`               | power management, scheduler, logging              |
+| `support.nix`                | System76 kernel modules, firmware daemon          |
+| `system76-power-overlay.nix` | `system76-power` patch (skip non-ALPM SCSI hosts) |
+| `packages.nix`               | System76 utilities, unfree allowlist              |
 
 ## Hardware Support
 
+`support.nix` defines the `system76-support` NixOS module behind the
+`hardware.system76.extended.enable` option. The host opts in from `imports.nix`:
+
 ```nix
-# modules/system76/support.nix
+# modules/system76/imports.nix
+hardware.system76.extended.enable = true;
+```
+
+When enabled, the module turns on the System76 hardware stack:
+
+```nix
+# modules/system76/support.nix (effect of extended.enable)
 hardware.system76 = {
   kernel-modules.enable = true;   # Fan monitoring, EC communication
   firmware-daemon.enable = true;  # Firmware updates via fwupd
@@ -29,26 +41,27 @@ services.fwupd.enable = true;
 
 ## Hardware Firmware
 
-Selective approach - only needed firmware declared explicitly:
+The host declares the firmware it needs explicitly, layered on top of the
+redistributable default via `lib.mkAfter`:
 
 ```nix
 # modules/system76/hardware-config.nix
-hardware = {
-  cpu.intel.updateMicrocode = true;
-
-  firmware = lib.mkAfter [
-    pkgs.linux-firmware  # Intel 8265 WiFi/BT, i915 GPU
-    pkgs.sof-firmware    # Intel audio DSP
-    pkgs.wireless-regdb  # WiFi regulatory
-  ];
-};
+hardware.firmware = lib.mkAfter [
+  pkgs.linux-firmware  # Intel 8265 WiFi/BT, i915 GPU
+  pkgs.sof-firmware    # Intel audio DSP
+  pkgs.wireless-regdb  # WiFi regulatory
+];
 
 # modules/base/hardware-scan.nix
 hardware = {
-  enableRedistributableFirmware = false;
+  enableRedistributableFirmware = lib.mkDefault true;
   enableAllFirmware = false;
 };
 ```
+
+Intel CPU microcode is not set here; it is provided by the
+`nixos-hardware` `common-cpu-intel-cpu-only` module imported in
+`imports.nix`.
 
 All firmware is redistributable (no unfree). See [system76-hardware.md](system76-hardware.md) for firmware details.
 
@@ -61,7 +74,8 @@ services = {
   thermald.enable = false;
 
   system76-scheduler.enable = true;  # Desktop responsiveness
-  power-profiles-daemon.enable = false;  # Conflicts with system76-power
+  power-profiles-daemon.enable = lib.mkForce false;  # Conflicts with system76-power
+  lact.enable = true;  # GPU control/monitoring (power limits, fan curves, clocks)
 };
 
 powerManagement.cpuFreqGovernor = "performance";
@@ -87,18 +101,32 @@ sudo system76-power charge-thresholds --profile full_charge   # 96-100%
 
 ```nix
 # modules/system76/nvidia-gpu.nix
-options.system76.gpu.mode = lib.mkOption {
-  type = lib.types.enum [ "hybrid-sync" "nvidia-only" ];
-  default = "hybrid-sync";
+options.system76.gpu = {
+  mode = lib.mkOption {
+    type = lib.types.enum [ "hybrid-sync" "nvidia-only" ];
+    default = "hybrid-sync";
+  };
+  intelBusId = lib.mkOption { type = lib.types.str; default = "PCI:0:2:0"; };
+  nvidiaBusId = lib.mkOption { type = lib.types.str; default = "PCI:1:0:0"; };
 };
 
 hardware.nvidia = {
+  # GTX 1070 Max-Q is supported by the 580.xx legacy branch only.
+  package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
   modesetting.enable = true;
   powerManagement.enable = true;
-  open = false;  # Proprietary driver
+  powerManagement.finegrained = false;  # Incompatible with PRIME sync
+  open = false;          # Proprietary driver
+  nvidiaSettings = true;
 };
+hardware.nvidia-container-toolkit.enable = true;  # GPU passthrough for containers
+```
 
-# PRIME sync (default)
+```nix
+# Active host mode is set in hardware-config.nix (overrides the hybrid-sync default):
+system76.gpu.mode = "nvidia-only";
+
+# hybrid-sync branch enables PRIME sync (NOT active on this host):
 hardware.nvidia.prime = {
   sync.enable = true;
   intelBusId = "PCI:0:2:0";
@@ -106,17 +134,19 @@ hardware.nvidia.prime = {
 };
 ```
 
-| Mode          | Description                                               |
-| ------------- | --------------------------------------------------------- |
-| `hybrid-sync` | iGPU drives display, dGPU renders (battery + performance) |
-| `nvidia-only` | Only dGPU active (maximum GPU performance)                |
+| Mode          | Description                                                | Active                       |
+| ------------- | ---------------------------------------------------------- | ---------------------------- |
+| `hybrid-sync` | iGPU drives display, dGPU renders (battery + performance)  | option default               |
+| `nvidia-only` | Only dGPU active, PRIME disabled (maximum GPU performance) | set in `hardware-config.nix` |
 
 ## Boot Configuration
 
 ```nix
 # modules/system76/boot.nix
 boot = {
-  kernelPackages = pkgs.linuxPackages_latest;
+  # CachyOS generic kernel (BORE scheduler + performance patches).
+  # Overlay and binary cache are wired in cachyos-kernel.nix.
+  kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-latest;
   blacklistedKernelModules = [ "nouveau" ];
 
   kernelParams = [
@@ -132,12 +162,15 @@ boot = {
   kernel.sysctl = {
     "kernel.sysrq" = 1;
     "kernel.printk" = "7 4 1 7";
+    "kernel.dmesg_restrict" = 0;  # Allow dmesg without sudo
   };
+};
 
-  loader.systemd-boot = {
-    enable = true;
-    configurationLimit = 3;
-  };
+# The bootloader, LUKS devices, and filesystems live in hardware-config.nix:
+# modules/system76/hardware-config.nix
+boot.loader.systemd-boot = {
+  enable = true;
+  configurationLimit = 3;
 };
 ```
 
@@ -171,24 +204,30 @@ services.pipewire = {
   pulse.enable = true;
 };
 
-# Bluetooth
+# Bluetooth (modules/system76/hardware-config.nix)
 hardware.bluetooth = {
   enable = true;
   powerOnBoot = true;
+  settings.General = {
+    Experimental = true;        # battery-level reporting
+    KernelExperimental = true;
+  };
 };
 ```
 
 ## Unfree Packages
 
 ```nix
-# modules/system76/packages.nix
+# modules/system76/packages.nix - System76-branded artwork only
 nixpkgs.allowedUnfreePackages = [
-  "nvidia-x11"
-  "nvidia-settings"
   "system76-wallpapers"
-  # ... other unfree packages
+  "system76-wallpapers-0-unstable-2024-04-26"
 ];
 ```
+
+NVIDIA unfree entries (`nvidia-x11`, `nvidia-settings`) are allowed in the
+shared `modules/hosts/common/packages.nix` allowlist, not in the System76
+module. `imports.nix` additionally allows `p7zip-rar`, `rar`, and `unrar`.
 
 > **Note:** All firmware packages are redistributable, not unfree.
 
@@ -204,8 +243,8 @@ nixpkgs.allowedUnfreePackages = [
 ## Quick Reference
 
 ```bash
-# Services
-systemctl status com.system76.PowerDaemon
+# Services (unit is system76-power.service; com.system76.PowerDaemon is its D-Bus name)
+systemctl status system76-power
 systemctl status system76-scheduler
 
 # Power management
