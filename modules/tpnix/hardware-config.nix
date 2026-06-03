@@ -69,11 +69,23 @@
             type = "hwmon";
             query = "/sys/class/hwmon";
             name = "coretemp";
+            indices = [
+              1
+              2
+              3
+              4
+              5
+            ];
           }
           {
             type = "hwmon";
             query = "/sys/class/hwmon";
             name = "nvme";
+            indices = [
+              1
+              2
+              3
+            ];
           }
         ];
 
