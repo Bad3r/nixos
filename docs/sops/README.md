@@ -4,11 +4,14 @@ This repository manages secrets with [sops](https://github.com/mozilla/sops) and
 
 The `secrets/` content is provided by a git submodule.
 
-This flake sets `self.submodules = true` (see `flake.nix`) so the submodule is
-included in the flake source snapshot and the `builtins.pathExists` guards
-evaluate against the real checkout content. Individual secret declarations stay
-optional: each is guarded by `pathExists`, so a missing encrypted file skips its
-block instead of failing evaluation.
+This flake sets `self.submodules = true` (see `flake.nix`) so consumers that
+fetch this repository as a flake input include the `secrets/` submodule without
+adding `?submodules=1` to the input URL. Direct local evaluation still uses the
+checked-out worktree that Nix was given. Keep the submodule initialized locally,
+or reference the repository with a Git flake URI that includes `?submodules=1`,
+so the `builtins.pathExists` guards evaluate against the real checkout content.
+Individual secret declarations stay optional: each is guarded by `pathExists`,
+so a missing encrypted file skips its block instead of failing evaluation.
 
 ## What Ships in the Repo
 
@@ -24,15 +27,40 @@ block instead of failing evaluation.
 
 ## Host Preparation
 
-1. Generate the Age host key once per machine:
+The repository uses one canonical Age recipient. Preparing a host means
+installing the existing private identity that matches `host_pub_key`, not
+generating a new per-host key.
+
+1. Restore the canonical Age identity from secure backup:
    ```bash
    sudo install -d -m 0700 -o root -g root /var/lib/sops-nix
-   sudo age-keygen -o /var/lib/sops-nix/key.txt
-   sudo chmod 0600 /var/lib/sops-nix/key.txt
-   sudo age-keygen -y /var/lib/sops-nix/key.txt   # prints the public key for rotation
+   sudo install -m 0600 -o root -g root /path/to/secure-backup/key.txt /var/lib/sops-nix/key.txt
+   sudo age-keygen -y /var/lib/sops-nix/key.txt
    ```
-2. Add the public key to `modules/security/sops-policy.nix` (it will replicate to `.sops.yaml` on the next `write-files`).
+2. Confirm the printed public key matches `host_pub_key` in `.sops.yaml` and
+   `modules/security/sops-policy.nix`.
 3. Keep a secure offline copy of `/var/lib/sops-nix/key.txt`.
+
+### Key Rotation
+
+Generate a replacement identity only when rotating the canonical recipient.
+Rotation requires updating the policy and re-encrypting every managed secret so
+no file remains encrypted to the retired key.
+
+1. Generate the replacement identity:
+   ```bash
+   sudo install -d -m 0700 -o root -g root /var/lib/sops-nix
+   sudo age-keygen -o /var/lib/sops-nix/key.txt.next
+   sudo chmod 0600 /var/lib/sops-nix/key.txt.next
+   sudo age-keygen -y /var/lib/sops-nix/key.txt.next
+   ```
+2. Replace `host_pub_key` in `modules/security/sops-policy.nix` with the
+   printed public key, then regenerate `.sops.yaml` with
+   `nix develop --accept-flake-config -c write-files --offline`.
+3. Run `sops updatekeys` for every encrypted file under `secrets/`.
+4. Deploy the updated configuration, install the replacement identity as
+   `/var/lib/sops-nix/key.txt` on every host that decrypts these secrets, and
+   store a secure offline backup.
 
 ### Home Manager user service
 
