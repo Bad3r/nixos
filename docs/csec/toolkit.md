@@ -33,6 +33,12 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://github.com/projectdiscovery/cdncheck#readme>
   - Desc.: Identifies CDN, cloud, and WAF providers for DNS names or IP addresses.
   - Stat.: Maintained (latest release v1.2.36, 2026-05-17).
+- dnsenum
+  - run..: `dnsenum $domain`
+  - Repo.: <https://github.com/SparrowOchon/dnsenum2>
+  - Docs.: <https://github.com/SparrowOchon/dnsenum2#readme>
+  - Desc.: Multi-purpose Perl DNS enumeration toolkit with AXFR, brute force, and Google scraping.
+  - Stat.: Maintenance mode (last release v1.3.2, 2024-03-15).
 - dnsx
   - run..: `dnsx -l hosts.txt -resp`
   - Repo.: <https://github.com/projectdiscovery/dnsx>
@@ -150,6 +156,12 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://epi052.github.io/feroxbuster-docs/>
   - Desc.: Rust-based content discovery scanner.
   - Stat.: Maintained (latest release 2025-12-13).
+- ffuf
+  - run..: `ffuf -u $url/FUZZ -w $wordlist`
+  - Repo.: <https://github.com/ffuf/ffuf>
+  - Docs.: <https://github.com/ffuf/ffuf/wiki>
+  - Desc.: Fast Go-based web fuzzer for content discovery, vhost, and parameter brute forcing.
+  - Stat.: Maintenance mode (last release v2.1.0, 2023-09-16; active upstream commits, no recent tag).
 - gobuster
   - run..: `gobuster dir -u $url -w $wordlist`
   - Repo.: <https://github.com/OJ/gobuster>
@@ -168,6 +180,24 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://github.com/sqlmapproject/sqlmap/wiki>
   - Desc.: Automated SQL injection detection and exploitation.
   - Stat.: Maintained (latest release 2026-01-01).
+- wfuzz
+  - run..: `wfuzz -w $wordlist $url/FUZZ`
+  - Repo.: <https://github.com/xmendez/wfuzz>
+  - Docs.: <https://wfuzz.readthedocs.io/>
+  - Desc.: Python web application fuzzer with payload encoders, iterators, and matchers.
+  - Stat.: Maintained (v3.1.1, 2026-01-21).
+- wpscan
+  - run..: `wpscan --url $url`
+  - Repo.: <https://github.com/wpscanteam/wpscan>
+  - Docs.: <https://github.com/wpscanteam/wpscan/wiki>
+  - Desc.: Black box WordPress security scanner for plugins, themes, users, and credentials.
+  - Stat.: Maintained (v4.0.0, 2026-05-19).
+- xnlinkfinder
+  - run..: `xnlinkfinder -i $url`
+  - Repo.: <https://github.com/xnl-h4ck3r/xnLinkFinder>
+  - Docs.: <https://github.com/xnl-h4ck3r/xnLinkFinder#readme>
+  - Desc.: Endpoint, parameter, and target-specific wordlist extractor from URLs, JS, and proxy logs.
+  - Stat.: Maintained (v8.2, 2026-03-08).
 - zap
   - run..: `zap`
   - Repo.: <https://github.com/zaproxy/zaproxy>
@@ -226,6 +256,12 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
 
 ## Exploitation Frameworks
 
+- exploitdb
+  - run..: `searchsploit $query`
+  - Repo.: <https://gitlab.com/exploit-database/exploitdb>
+  - Docs.: <https://www.exploit-db.com/searchsploit>
+  - Desc.: Local archive of public exploits with the `searchsploit` CLI for offline lookup.
+  - Stat.: Maintained (database tagged 2026-05-01).
 - metasploit
   - run..: `msfconsole`
   - Repo.: <https://github.com/rapid7/metasploit-framework>
@@ -235,6 +271,12 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
 
 ## Reverse Engineering & Dynamic Analysis
 
+- cutter
+  - run..: `cutter $binary`
+  - Repo.: <https://github.com/rizinorg/cutter>
+  - Docs.: <https://cutter.re/>
+  - Desc.: Rizin-powered reverse engineering GUI with decompiler, graph view, and integrated debugger.
+  - Stat.: Maintained (latest release v2.4.1, 2025-05-11).
 - frida-tools
   - run..: `frida -U $process`
   - Repo.: <https://github.com/frida/frida-tools>
@@ -445,6 +487,18 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
   - Docs.: <https://cisofy.com/documentation/lynis/>
   - Desc.: Unix system hardening auditor.
   - Stat.: Maintained (latest release 2025-10-23).
+- nuclei
+  - run..: `nuclei -u $target`
+  - Repo.: <https://github.com/projectdiscovery/nuclei>
+  - Docs.: <https://docs.projectdiscovery.io/tools/nuclei>
+  - Desc.: Template-based vulnerability scanner spanning HTTP, DNS, network, SSL, file, and code checks.
+  - Stat.: Maintained (v3.8.0, 2026-04-18).
+- nuclei-templates
+  - run..: `nuclei -t /run/current-system/sw/share/nuclei-templates/ -u $target`
+  - Repo.: <https://github.com/projectdiscovery/nuclei-templates>
+  - Docs.: <https://docs.projectdiscovery.io/templates>
+  - Desc.: Curated detection template corpus consumed by nuclei (CVEs, misconfigurations, exposures); installed under `share/nuclei-templates`.
+  - Stat.: Maintained (v10.4.4, 2026-05-28).
 - ssh-audit
   - run..: `ssh-audit $host`
   - Repo.: <https://github.com/jtesta/ssh-audit>
@@ -1060,5 +1114,5 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
 
 ## Notes
 
-- Disabled-by-default reverse engineering and binary analysis tools (radare2, rizin, iaito, cutter, jadx, malimite, hopper) are present in the catalog with `enable = false`. Flip the flag in the relevant host's `apps-enable.nix` to bring them in.
+- Disabled-by-default reverse engineering and binary analysis tools (radare2, rizin, iaito, jadx, malimite, hopper) are present in the catalog with `enable = false`. Flip the flag in the relevant host's `apps-enable.nix` to bring them in. The Rizin Cutter GUI (`cutter`) is the exception in this group: it ships enabled by default.
 - This catalog is maintained by hand. After adding or removing entries in `modules/<host>/apps-enable.nix`, refresh the relevant section here.
