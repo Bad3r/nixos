@@ -20,7 +20,7 @@ Each skill lives in its own directory containing a required `SKILL.md` entry poi
     └── helper.sh      # Executable utilities
 ```
 
-Reference files load on demand when the skill body links to them, keeping the main skill focused on instructions.
+Reference files load on demand when the skill body links to them, keeping the main skill focused on instructions. The skill directory normally provides the slash command name; frontmatter `name` is only the display label in skill listings.
 
 ## Invocation Methods
 
@@ -106,11 +106,11 @@ All fields are optional. When omitted, defaults apply as shown.
 
 | Field                      | Type    | Default           | Description                                                                                  |
 | -------------------------- | ------- | ----------------- | -------------------------------------------------------------------------------------------- |
-| `name`                     | string  | Directory name    | Display name shown in skill listings. The `/command` name comes from the skill directory     |
+| `name`                     | string  | Directory name    | Display label shown in skill listings. The `/command` name usually comes from the directory  |
 | `description`              | string  | First paragraph   | What the skill does and when to use it. Drives model-initiated matching                      |
 | `when_to_use`              | string  | (none)            | Extra matching context combined with `description`; the pair is capped at ~1,536 characters  |
 | `argument-hint`            | string  | (none)            | Autocomplete hint shown after `/name`. Example: `[issue-number]`                             |
-| `arguments`                | string  | (none)            | Named positional arguments for `$name` substitution. Space-separated string or YAML list     |
+| `arguments`                | string  | (none)            | Named positional arguments mapped to variables, e.g. `$issue` for argument `issue`           |
 | `disable-model-invocation` | boolean | `false`           | When `true`, prevents Claude from auto-loading this skill. Manual `/name` only               |
 | `user-invocable`           | boolean | `true`            | When `false`, hides from `/` menu. Skill remains available as background knowledge           |
 | `allowed-tools`            | string  | (inherit all)     | Tools usable without a permission prompt while active. Space/comma string or YAML list       |
@@ -132,6 +132,7 @@ Substitutions are processed in the Markdown body before injection into context.
 | `$ARGUMENTS`           | Full argument string passed at invocation | `SearchBar React Vue`         |
 | `$ARGUMENTS[N]`        | Nth argument by zero-based index          | `$ARGUMENTS[0]` → `SearchBar` |
 | `$N`                   | Shorthand for `$ARGUMENTS[N]`             | `$0` → `SearchBar`            |
+| `$name`                | Named argument from `arguments`           | `$issue` → first argument     |
 | `${CLAUDE_SESSION_ID}` | Current session identifier                | `abc123`                      |
 
 When a skill body does not contain `$ARGUMENTS`, Claude Code appends `ARGUMENTS: <value>` to the end of the injected content automatically.
@@ -151,7 +152,7 @@ Use standard Markdown: headers, lists, code blocks, bold for emphasis. Claude re
 
 ```yaml
 ---
-# Identity: lowercase, hyphens, becomes /review-pr command
+# Display label; the skill directory normally provides /review-pr
 name: review-pr
 
 # Indexed at session start; drives model-initiated matching.
