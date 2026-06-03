@@ -88,7 +88,7 @@ Helpers should stay pure and idempotent; anything that needs heavy evaluation be
 This repository uses both patterns, for different purposes:
 
 - `perSystem.packages` is used for flake-exposed tooling packages (for example, `generation-manager` and hook helpers in `modules/devshell.nix`).
-- App packages in `packages/<name>/default.nix` are injected through per-app overlay modules under `modules/custom-overlays/<name>.nix`. Each registers `flake.customOverlays.<name>` and adds `pkgs.<name> = final.callPackage ../../packages/<name> { }` to `nixpkgs.overlays`, gated on the matching `programs.<name>.extended.enable`. `modules/hosts/common/custom-overlays-base.nix` imports every registered overlay into the shared `flake.nixosModules.hosts-common` aggregate, so an overlay only takes effect on hosts where its app is enabled.
+- App packages in `packages/<name>/default.nix` are injected through per-app overlay modules under `modules/custom-overlays/<name>.nix`. Each registers `flake.customOverlays.<name>` and adds an overlay to `nixpkgs.overlays` that returns `<name> = final.callPackage ../../packages/<name> { }`, making the package available as `pkgs.<name>` when gated on the matching `programs.<name>.extended.enable`. `modules/hosts/common/custom-overlays-base.nix` imports every registered overlay into the shared `flake.nixosModules.hosts-common` aggregate, so an overlay only takes effect on hosts where its app is enabled.
 
 This means these packages are **not** exposed under `.#packages.<system>.<name>`; they materialize as `pkgs.<name>` only inside a `nixosConfigurations.<host>` evaluation where the matching app is enabled.
 
