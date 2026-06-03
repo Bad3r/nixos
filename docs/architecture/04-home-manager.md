@@ -6,12 +6,13 @@ This document covers the Home Manager aggregator namespace and app loading mecha
 
 Home Manager modules feed into `flake.homeManagerModules` for user-level configuration:
 
-| Key                                                                    | Type             | Description                                                           |
-| ---------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------- |
-| `base`                                                                 | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                 |
-| `gui`                                                                  | Deferred module  | Reserved GUI aggregation point (currently mostly an empty merge root) |
-| `apps.<name>`                                                          | Deferred module  | Individual app modules loaded by key                                  |
-| `context7Secrets`, `greptileSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules                                  |
+| Key                                                                                    | Type             | Description                                                                  |
+| -------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `base`                                                                                 | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
+| `gui`                                                                                  | Deferred module  | Reserved GUI aggregation point (currently mostly an empty merge root)        |
+| `apps.<name>`                                                                          | Deferred module  | Individual app modules loaded by key                                         |
+| `sopsRuntime`                                                                          | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
+| `context7Secrets`, `geckoSecrets`, `greptileSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules (each guarded by `builtins.pathExists`) |
 
 ## Contributing to Namespaces
 
@@ -82,14 +83,15 @@ Each host appends to `home-manager.extraAppImports` and mirrors matching app mod
 
 The shared HM base is identical across hosts; per-host overrides live in each host's `imports.nix`. As a current snapshot:
 
-| HM toggle           | system76 default       | tpnix default                          | Notes                                                                                                                                  |
-| ------------------- | ---------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `context7Secrets`   | `mkDefault true`       | `mkForce false`                        | Context7 API key rendering.                                                                                                            |
-| `greptileSecrets`   | `mkForce false`        | `mkForce false`                        | Disabled with the Greptile Claude Code plugin/MCP integration; re-enable only when that plugin is explicitly enabled.                  |
-| `virustotalSecrets` | `mkDefault true`       | `mkForce false`                        | VirusTotal API key rendering.                                                                                                          |
-| `r2Secrets`         | `mkForce false`        | `mkForce false`                        | NixOS-side `r2CloudSecrets` is also off in the current configuration.                                                                  |
-| `repoGpg`           | `mkDefault true`       | (not enabled, no shared module pulled) | system76 pulls `inputs.self.homeManagerModules.repoGpg` into `home-manager.sharedModules`; tpnix does not pull this shared module.     |
-| `services.espanso`  | (inherits HM upstream) | `x11Support = mkForce true`            | system76 leaves espanso's session-backend defaults alone; tpnix forces X11 via `home-manager.sharedModules` because it runs i3 on X11. |
+| HM toggle           | system76 default        | tpnix default                          | Notes                                                                                                                                                                 |
+| ------------------- | ----------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `context7Secrets`   | `mkDefault true`        | `mkForce false`                        | Context7 API key rendering.                                                                                                                                           |
+| `geckoSecrets`      | `true` (module default) | `mkForce false`                        | Gecko bookmark secret rendering; the module defaults `enable = true`, so system76 leaves it on (rendered only when the secret file exists) while tpnix forces it off. |
+| `greptileSecrets`   | `mkForce false`         | `mkForce false`                        | Disabled with the Greptile Claude Code plugin/MCP integration; re-enable only when that plugin is explicitly enabled.                                                 |
+| `virustotalSecrets` | `mkDefault true`        | `mkForce false`                        | VirusTotal API key rendering.                                                                                                                                         |
+| `r2Secrets`         | `mkForce false`         | `mkForce false`                        | NixOS-side `r2CloudSecrets` is also off in the current configuration.                                                                                                 |
+| `repoGpg`           | `mkDefault true`        | (not enabled, no shared module pulled) | system76 pulls `inputs.self.homeManagerModules.repoGpg` into `home-manager.sharedModules`; tpnix does not pull this shared module.                                    |
+| `services.espanso`  | (inherits HM upstream)  | `x11Support = mkForce true`            | system76 leaves espanso's session-backend defaults alone; tpnix forces X11 via `home-manager.sharedModules` because it runs i3 on X11.                                |
 
 Authoritative source for any host: that host's `imports.nix` (`modules/<host>/imports.nix`). When adding a new secret module, set both NixOS- and HM-side defaults explicitly per host so behavior is obvious from `imports.nix` rather than implicit through `mkDefault` chains.
 

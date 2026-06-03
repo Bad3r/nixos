@@ -454,7 +454,7 @@ sharedAppNames = [
 ];
 ```
 
-> **Pitfall:** HM modules exported to `flake.homeManagerModules.apps.<name>` are **not** auto-imported. They must be explicitly listed in `home-manager-apps.nix`. The `flake.homeManagerModules.gui` namespace (used by i3wm, terminal configs, etc.) is auto-loaded separately.
+> **Pitfall:** HM modules exported to `flake.homeManagerModules.apps.<name>` are **not** auto-imported. They must be explicitly listed in the `sharedAppNames` list in `home-manager-apps.nix` (or a host's `hostAppNames`). GUI session modules are no exception: `i3-config` and `stylix-gui` are themselves `flake.homeManagerModules.apps.*` modules listed in `sharedAppNames`.
 
 ### 8. Check for Stylix Integration
 
@@ -465,7 +465,8 @@ grep -r "<tool>" /data/git/nix-community-stylix/modules/
 
 ### 9. Add Stylix Configuration (if supported)
 
-Add to `modules/style/stylix.nix` under `flake.homeManagerModules.gui`:
+Add to the Home Manager Stylix module in `modules/stylix/stylix.nix`
+(`flake.homeManagerModules.apps.stylix-gui`), inside its `stylix.targets` block:
 
 ```nix
 stylix.targets.<tool> = {
@@ -480,7 +481,7 @@ stylix.targets.<tool> = {
 git add modules/apps/<tool>.nix modules/hm-apps/<tool>.nix
 git add modules/hosts/common/apps-enable.nix
 git add modules/hosts/common/home-manager-apps.nix
-git add modules/style/stylix.nix
+git add modules/stylix/stylix.nix
 
 nix fmt
 nix flake check --accept-flake-config --no-build

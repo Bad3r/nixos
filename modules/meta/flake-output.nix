@@ -89,7 +89,7 @@
       # `modules/custom-overlays/`. Declared with attrsOf deferredModule for
       # the same reason as `flake.csec` above: each entry must be a
       # first-class submodule rather than collapse into the parent.
-      # Imported into each host by `modules/<host>/custom-overlays-base.nix`.
+      # Imported into each host by `modules/hosts/common/custom-overlays-base.nix`.
       customOverlays = lib.mkOption {
         type = lib.types.attrsOf lib.types.deferredModule;
         default = { };

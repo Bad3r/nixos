@@ -3,8 +3,11 @@
 This guide documents how tray icons are managed on each i3-based host in this
 repo and how to make them match the active theme.
 
-Scope: any host that enables `gui.i3` (currently `system76` and `tpnix`) and
-the `vx` user.
+Scope: every host that runs the i3 session and the `vx` user. The i3 session is
+enabled by importing `flake.nixosModules.i3` (wired in through
+`modules/hosts/common/window-manager.nix` for hosts with `shareCommon = true`);
+there is no `gui.i3.enable` toggle, and the `gui.i3` option tree only carries
+session sub-options.
 
 ## Runtime Model
 

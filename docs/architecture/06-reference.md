@@ -10,7 +10,7 @@ Run the following before every push:
 nix fmt
 nix develop -c bash scripts/hooks/sync-pre-commit-hooks.sh
 nix develop -c pre-commit run --all-files --hook-stage manual
-nix run .#generation-manager -- score   # target: 35/35
+nix run .#generation-manager -- score   # target: 20/20
 nix flake check --accept-flake-config --no-build --offline
 ```
 

@@ -24,15 +24,16 @@ Use lowercase, hyphenated names matching the package's `pname`. Keep the directo
 
 ```
 packages/
-├── age-plugin-fido2prf/
+├── dnsleak/
 │   └── default.nix
 ├── searchfox-cli/
 │   ├── default.nix
 │   ├── hashes.json
 │   └── update.py
-└── malimite/
+└── wfuzz/
     ├── default.nix
-    └── fix-classpath.patch
+    ├── python-313-shlex.patch
+    └── update.py
 ```
 
 Use `hashes.json` when a package has multiple update-managed pins, such as `version`, `srcHash`, and `cargoHash`. Add `update.py` when the package can be updated mechanically from upstream release metadata. Expose it from the derivation with `passthru.updateScript = ./update.py;`.

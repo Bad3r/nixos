@@ -6,7 +6,7 @@ Promotion to a host happens by authoring a `modules/apps/<name>.nix` module and 
 
 Each entry lists a representative invocation, optional additional invocations, upstream repository, official documentation, a one-line description, a one-line decision hint, and an upstream maintenance classification. Verified against `nixpkgs` rev pinned in `flake.lock` on 2026-05-09.
 
-`Stat.` classifies upstream health as of 2026-05-09: **Maintained** (release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), **Core utility** (foundational tooling whose release cadence does not map to the other categories), or **Deprecated** (archived, abandoned, or superseded).
+`Stat.` classifies upstream health as of 2026-06-02: **Maintained** (release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), **Core utility** (foundational tooling whose release cadence does not map to the other categories), or **Deprecated** (archived, abandoned, or superseded). Release dates were refreshed via the GitHub release API and PyPI on 2026-06-02.
 
 ## Convert To Markdown Or Structured Output
 
@@ -20,7 +20,7 @@ Each entry lists a representative invocation, optional additional invocations, u
   - Docs.: <https://docling-project.github.io/docling/>
   - Desc.: Layout-aware conversion of PDFs and other office formats (DOCX, PPTX, HTML, images) into Markdown, JSON, or chunks for RAG and LLM pipelines.
   - Use..: Mixed-format inputs or when an explicit document model with sections, tables, and figures must be preserved; prefer over `marker` for non-PDF sources.
-  - Stat.: Maintained (v2.93.0, 2026-05-07).
+  - Stat.: Maintained (v2.96.1, 2026-06-01).
 - marker
   - run..: `uvx --from marker-pdf marker_single report.pdf --output_dir out/`
   - More..:
