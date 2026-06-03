@@ -213,12 +213,17 @@ Use regex for more flexible matching:
 
 ### Default Behavior (Recommended)
 
-Both X11 and Wayland support are enabled by default on Linux. The module:
+Home Manager's `services.espanso` module enables both X11 and Wayland support by
+default on Linux. Its upstream module:
 
-- Configures `x11Support = true` and `waylandSupport = true`
-- Sets `package-wayland = pkgs.espanso-wayland`
+- Defaults `x11Support = true` and `waylandSupport = true` on Linux
+- Defaults `package-wayland = pkgs.espanso-wayland` when Wayland support is on
 - Creates a wrapper script that checks `$WAYLAND_DISPLAY` at runtime
 - Automatically launches the correct binary based on your graphical session
+
+This repository's Home Manager app module leaves those display-server defaults
+in place; it adds repo-specific configs, matches, and service restart policy
+only after `services.espanso.extended.enable` is true.
 
 ### Optimizing Closure Size
 
@@ -332,20 +337,27 @@ For those hosts, do not add a separate Home Manager import. Customize
 
 ### Hosts outside the common baseline
 
-A host that does not use `hosts-common` needs both the NixOS option module and
-the Home Manager app import:
+A host that does not use `hosts-common` needs a flake-parts module that pushes
+both the NixOS option module and Home Manager app import into the host module:
 
 ```nix
 { config, lib, ... }:
+let
+  espansoModule = config.flake.nixosModules.apps.espanso;
+in
 {
-  imports = [
-    config.flake.nixosModules.apps.espanso
-  ];
+  configurations.nixos.<hostName>.module = _: {
+    imports = [ espansoModule ];
 
-  services.espanso.extended.enable = true;
-  home-manager.extraAppImports = lib.mkAfter [ "espanso" ];
+    services.espanso.extended.enable = true;
+    home-manager.extraAppImports = lib.mkAfter [ "espanso" ];
+  };
 }
 ```
+
+`home-manager.extraAppImports` is defined by `flake.nixosModules.base`, so the
+host must already import that aggregate. Standard NixOS configurations in this
+repository do.
 
 ### Module locations
 
