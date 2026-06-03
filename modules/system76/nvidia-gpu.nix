@@ -106,11 +106,12 @@ _: {
           # depend on Intel graphics-side plumbing even when NVIDIA renders X11.
 
           # Route VA-API to Intel Quick Sync (iHD), not NVDEC, to avoid the Xid 31
-          # decode fault (see graphics.extraPackages above). i915 stays loaded here, so
-          # iHD has an Intel render node to use; an app that opens the NVIDIA node
-          # instead falls back to software decode. VDPAU_DRIVER is intentionally unset:
-          # VDPAU is legacy, and pointing it at nvidia would route back into NVDEC.
+          # decode fault (see graphics.extraPackages above). i915 stays loaded here,
+          # and the by-path render node keeps libva off the NVIDIA DRM device.
+          # VDPAU_DRIVER is intentionally unset: VDPAU is legacy, and pointing it at
+          # nvidia would route back into NVDEC.
           environment.variables = {
+            LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/pci-0000:00:02.0-render";
             LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
           };
         })

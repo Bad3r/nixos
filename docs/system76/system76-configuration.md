@@ -120,6 +120,10 @@ hardware.nvidia = {
   nvidiaSettings = true;
 };
 hardware.nvidia-container-toolkit.enable = true;  # GPU passthrough for containers
+
+# nvidia-only branch: libva uses Intel Quick Sync through the stable iGPU render node.
+environment.variables.LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
+environment.variables.LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/pci-0000:00:02.0-render";
 ```
 
 ```nix
