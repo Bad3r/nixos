@@ -11,8 +11,8 @@ every line must earn its place.
   style, ownership boundaries, safety constraints, validation expectations).
 - **Non-obvious repository facts**: module-discovery rules, build commands,
   branch and PR workflow, where generated artifacts come from.
-- **Pointers, not prose**: link to deeper docs (`docs/`, `AGENTS.md`) instead of
-  restating them.
+- **Pointers, not prose**: link to deeper docs (`docs/`) and import shared
+  baseline files with `@path` when Claude Code should load them.
 
 Put repeatable multi-step procedures (deploy checklists, migrations, review
 workflows) in skills, not here. CLAUDE.md holds standing rules; skills hold
@@ -47,6 +47,10 @@ imports; expose modules through namespace exports" is a rule an agent can apply.
 
 ## Layering
 
-Deeper `CLAUDE.md` files (per package or subdirectory) and `AGENTS.md` add
-narrower rules on top of the baseline. Keep shared conventions in the root file
-and restate something lower down only when that scope genuinely differs.
+Claude Code loads `CLAUDE.md`, `CLAUDE.local.md`, and `.claude/rules/`; it does
+not automatically load `AGENTS.md`. If `AGENTS.md` is the shared source of truth
+for other agents, make `CLAUDE.md` import it with `@AGENTS.md` or symlink
+`CLAUDE.md` to it, then add only Claude-specific deltas.
+
+Keep shared conventions in one source of truth. Use deeper `CLAUDE.md` files or
+path-scoped `.claude/rules/` only for narrow rules whose scope genuinely differs.
