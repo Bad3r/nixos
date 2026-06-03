@@ -315,32 +315,46 @@ Some applications require clipboard backend:
 
 ## Integration with This Repository
 
-### In Dendritic Configuration
+### Common-baseline hosts
 
-Import in your home-manager configuration:
+Hosts whose registry entry has `shareCommon = true` already receive espanso
+through the common host modules:
+
+- `modules/hosts/common/home-manager-apps.nix` appends `espanso` to
+  `home-manager.extraAppImports` and adds `flake.homeManagerModules.apps.espanso`
+  to shared modules.
+- `modules/hosts/common/apps-enable.nix` sets
+  `services.espanso.extended.enable = true` at `lib.mkOverride 1100`.
+
+For those hosts, do not add a separate Home Manager import. Customize
+`services.espanso.matches` in Home Manager configuration, or opt out by setting
+`services.espanso.extended.enable = false`.
+
+### Hosts outside the common baseline
+
+A host that does not use `hosts-common` needs both the NixOS option module and
+the Home Manager app import:
 
 ```nix
-# In configurations/homeManager/<username>/default.nix
+{ config, lib, ... }:
 {
   imports = [
-    config.flake.homeManagerModules.apps.espanso
+    config.flake.nixosModules.apps.espanso
   ];
 
-  # Override defaults as needed
-  services.espanso.matches.personal = {
-    matches = [
-      # Your custom matches
-    ];
-  };
+  services.espanso.extended.enable = true;
+  home-manager.extraAppImports = lib.mkAfter [ "espanso" ];
 }
 ```
 
-### Module Location
+### Module locations
 
-The espanso module is auto-discovered from:
+The espanso modules are auto-discovered from:
 
-- Source: `modules/hm-apps/espanso.nix`
-- Export: `flake.homeManagerModules.apps.espanso`
+- NixOS source: `modules/apps/espanso.nix`
+- NixOS export: `flake.nixosModules.apps.espanso`
+- Home Manager source: `modules/hm-apps/espanso.nix`
+- Home Manager export: `flake.homeManagerModules.apps.espanso`
 
 ## References
 
