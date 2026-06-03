@@ -156,7 +156,7 @@ Use standard Markdown: headers, lists, code blocks, bold for emphasis. Claude re
 name: review-pr
 
 # Indexed at session start; drives model-initiated matching.
-# Keep under ~200 chars to leave budget for other skills.
+# Keep well under the ~1,536-char per-skill cap to leave budget for other skills.
 description: >
   Review a pull request for code quality, security issues,
   and adherence to project conventions.
