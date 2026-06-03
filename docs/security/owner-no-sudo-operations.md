@@ -29,7 +29,7 @@ Scope:
   - mechanism:
     - polkit `networkmanager` group allow rules present in the evaluated
       `security.polkit.extraConfig`; the repo-owned `modules/security/polkit.nix`
-      only contributes the wheel power rule.
+      only owns wheel-group rules.
   - Available without sudo because the owner is in the `networkmanager` group
     (`modules/meta/owner.nix`).
 - Log/kernel visibility:
@@ -76,6 +76,7 @@ Scope:
   - `journalctl -n 20 --no-pager`
   - `dmesg -T | head -n 20`
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.polkit.extraConfig | jq -r`
-    - shows the wheel power-off/reboot rule plus the NetworkManager/ModemManager
-      group rules; only the wheel rule is owned by `modules/security/polkit.nix`.
+    - shows the enabled wheel power-off/reboot rule plus the NetworkManager/ModemManager
+      group rules; only wheel rules are owned by `modules/security/polkit.nix`.
+      Current host imports disable the optional wheel systemd unit-management rule.
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.sudo-rs.extraRules | jq`

@@ -26,6 +26,11 @@ Scope:
     - polkit allow for login1 power actions:
       - `org.freedesktop.login1.power-off*`
       - `org.freedesktop.login1.reboot*`
+    - repo-owned `modules/security/polkit.nix` owns wheel-group polkit rules:
+      - current host imports enable the power rule.
+      - `wheelSystemdManagement` can grant
+        `org.freedesktop.systemd1.manage-units`, but current host imports
+        disable it.
     - packet-capture wrappers with `CAP_NET_RAW` / `CAP_NET_ADMIN` for:
       - Wireshark
       - `tcpdump`
@@ -42,7 +47,7 @@ Scope:
       - `org.freedesktop.ModemManager*`
     - enables privileged `nmcli` / `mmcli` operations without sudo.
     - present in the evaluated `security.polkit.extraConfig`; the repo-owned
-      `modules/security/polkit.nix` only contributes the wheel power rule.
+      `modules/security/polkit.nix` only owns wheel-group rules.
   - security impact:
     - network tampering, DNS/profile changes, network DoS, and modem control if modem hardware exists.
 
