@@ -91,7 +91,8 @@ extension is a per-user choice and not modeled here.
 4. Execs `mpv` (optionally with `--shuffle`) on the matching list.
 
 The helper is exposed as a custom package via
-`modules/base/custom-packages-overlay.nix` and gated behind the standard
+`modules/custom-overlays/video-cache.nix` (registering
+`flake.customOverlays.video-cache`) and gated behind the standard
 `programs.video-cache.extended.enable` option in `modules/apps/video-cache.nix`.
 It is independent of the mpv app module: enabling `video-cache` on a host that
 has mpv disabled installs the helper but `mpv` itself comes from

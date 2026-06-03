@@ -35,10 +35,30 @@ Each `.nix` file is a flake-parts module that registers itself under one or more
 
 ```nix
 # modules/apps/jq.nix
-_: {
-  flake.nixosModules.apps.jq = { pkgs, ... }: {
-    environment.systemPackages = [ pkgs.jq ];
-  };
+_:
+let
+  JqModule =
+    { config, lib, pkgs, ... }:
+    let
+      cfg = config.programs.jq.extended;
+    in
+    {
+      options.programs.jq.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to enable jq.";
+        };
+        package = lib.mkPackageOption pkgs "jq" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
+      };
+    };
+in
+{
+  flake.nixosModules.apps.jq = JqModule;
 }
 ```
 
@@ -49,18 +69,21 @@ The file:
 3. Contributes to `flake.nixosModules.apps.jq`
 4. Can be consumed by hosts via `config.flake.nixosModules.apps.jq`
 
+Per-app modules follow this `programs.<name>.extended.enable` shape (the header doc-comment is elided above). Hosts do not import each app by hand: the apps-enable baseline flips the toggles. See [NixOS Modules](03-nixos-modules.md) and [Host Composition](05-host-composition.md).
+
 ## Aggregator Namespaces
 
 This flake exposes the following top-level aggregators (all declared in `modules/meta/flake-output.nix`):
 
-| Namespace                  | Purpose                             | Typical Exports                                                                 |
-| -------------------------- | ----------------------------------- | ------------------------------------------------------------------------------- |
-| `flake.nixosModules`       | System-level configuration          | `base`, hardware profiles, `apps.<name>`                                        |
-| `flake.homeManagerModules` | Home Manager configuration          | `base`, `gui`, `apps.<name>`                                                    |
-| `flake.csec`               | Cybersecurity feature modules       | `wordlists` (per-feature, opt-in via host import + enable)                      |
-| `flake.lib.*`              | Helper functions and small metadata | `meta`, `nixos`, `homeManager`, `security`, `nixvim`, `xdg`, `agents`, `checks` |
+| Namespace                  | Purpose                             | Typical Exports                                                                                        |
+| -------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `flake.nixosModules`       | System-level configuration          | `base`, hardware profiles, `apps.<name>`                                                               |
+| `flake.homeManagerModules` | Home Manager configuration          | `base`, `gui`, `apps.<name>`                                                                           |
+| `flake.csec`               | Cybersecurity feature modules       | `wordlists` (per-feature, opt-in via host import + enable)                                             |
+| `flake.customOverlays`     | Per-app `nixpkgs` overlay modules   | `<name>` (auto-discovered from `modules/custom-overlays/`, gated on `programs.<name>.extended.enable`) |
+| `flake.lib.*`              | Helper functions and small metadata | `meta`, `nixos`, `homeManager`, `security`, `nixvim`, `xdg`, `agents`, `checks`                        |
 
-`flake.nixosModules` and `flake.homeManagerModules` collect modules that hosts compose by name. `flake.csec` is a separate `attrsOf deferredModule` so each feature is a first-class entry that hosts opt into individually. `flake.lib` holds pure helper data (see [NixOS Modules](03-nixos-modules.md#flakelib-namespaces) for the full breakdown).
+`flake.nixosModules` and `flake.homeManagerModules` collect modules that hosts compose by name. `flake.csec` and `flake.customOverlays` are each a separate `attrsOf deferredModule` so every feature or overlay is a first-class entry that hosts opt into individually (see [NixOS Modules](03-nixos-modules.md#persystem-vs-host-overlays) for how overlays are wired). `flake.lib` holds pure helper data (see [NixOS Modules](03-nixos-modules.md#flakelib-namespaces) for the full breakdown).
 
 Modules register themselves under these namespaces. Consumers compose features by name rather than by file path.
 

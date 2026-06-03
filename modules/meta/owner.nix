@@ -19,7 +19,7 @@
           plugdev = { }; # For removable devices and USB access
           bluetooth = { }; # For Bluetooth device access
           netdev = { }; # For network device management (avahi SetHostName)
-          power = { }; # For power management (thermald control)
+          power = { }; # Power management group (thermald D-Bus control where thermald is enabled)
         };
 
         users.users.${metaOwner.username} = {

@@ -313,6 +313,8 @@ let
         Browse Codex CLI source and internals.
       - tridactyl: `/data/git/tridactyl-tridactyl`
         Reference Tridactyl browser extension source and configuration.
+      - mpv: `/data/git/mpv-player-mpv`
+        Inspect mpv player source, option definitions, and scripting API.
     '';
   };
 

@@ -66,6 +66,7 @@ let
           "cloudflare/workers-sdk"
           "duplicati/duplicati"
           "logseq/logseq"
+          "mpv-player/mpv"
           "openai/codex"
           "rclone/rclone"
           "restic/restic"

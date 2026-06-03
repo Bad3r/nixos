@@ -22,10 +22,10 @@
 
 ### Graphics
 
-| Type | Model                | Driver               |
-| ---- | -------------------- | -------------------- |
-| iGPU | Intel UHD 630        | i915                 |
-| dGPU | NVIDIA GTX 10-series | nvidia (proprietary) |
+| Type | Model                   | Driver                          |
+| ---- | ----------------------- | ------------------------------- |
+| iGPU | Intel UHD 630           | i915                            |
+| dGPU | NVIDIA GTX 1070 (Max-Q) | nvidia proprietary (legacy_580) |
 
 ### Storage
 

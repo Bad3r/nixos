@@ -46,7 +46,10 @@
           pathParts = if parts == [ ] then [ ] else builtins.tail parts;
           rawName = lib.concatStringsSep "-" ([ hostName ] ++ pathParts);
         in
-        rawName |> sanitizeUrlDirName |> collapseDashes |> trimDashes;
+        rawName
+        |> sanitizeUrlDirName
+        |> collapseDashes
+        |> trimDashes;
       mirrorDirName =
         spec:
         if lib.hasPrefix "http://" spec || lib.hasPrefix "https://" spec then

@@ -98,6 +98,16 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Desc.: Adds a searchable OCR text layer to scanned PDFs while preserving the original page image.
   - Use..: Scanned PDF input; prefer over raw `tesseract` when the source is already a PDF.
   - Stat.: Maintained (v17.4.1, 2026-04-06).
+- readpdf
+  - run..: `readpdf report.pdf`
+  - More..:
+    - pages: `readpdf -p 2-5 report.pdf`
+    - file: `readpdf -o out.txt report.pdf`
+  - Repo.: Local module `modules/apps/readpdf.nix` (no upstream project).
+  - Docs.: Module header in `modules/apps/readpdf.nix`.
+  - Desc.: Force-OCR text extractor that wraps `ocrmypdf` for image-based or broken-text-layer PDFs; prints to stdout and adds `pdf-cat`/`cat-pdf` aliases.
+  - Use..: Pull plain text from a scanned or bad-text-layer PDF without producing a searchable PDF; prefer over `ocrmypdf` when only the text is needed.
+  - Stat.: Maintained (repo-local wrapper; tracks `ocrmypdf`).
 - tesseract
   - run..: `tesseract receipt.png stdout`
   - More..:
@@ -133,6 +143,7 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
 - Existing PDF, ML-driven Markdown/JSON for RAG pipelines: see [`additional-tools-reference.md`](additional-tools-reference.md) for `marker` and `docling`.
 - Existing PDF, layout-aware Markdown for RAG pipelines without bundled ML models: see [`additional-tools-reference.md`](additional-tools-reference.md) for `pymupdf4llm`.
 - Scanned PDF needing a searchable text layer: use `ocrmypdf`.
+- Scanned or broken-text-layer PDF, plain-text dump only: use `readpdf`.
 - Image OCR or OCR format debugging: use `tesseract`.
 - Full-featured GUI review with annotations: use `okular`.
 - Keyboard-centric reading or LaTeX workflows: use `zathura`.

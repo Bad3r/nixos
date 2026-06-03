@@ -6,24 +6,37 @@ The espanso module provides declarative configuration for the cross-platform tex
 
 ## Quick Start
 
-### Enable in Home Manager Configuration
+### Enable espanso
 
-The module is auto-imported when included in your Home Manager modules list:
+Two modules cooperate behind a single system-level toggle:
 
-```nix
-{
-  imports = [
-    config.flake.homeManagerModules.apps.espanso
-  ];
-}
-```
+- `flake.nixosModules.apps.espanso` (source: `modules/apps/espanso.nix`) defines
+  the option `services.espanso.extended.enable` (default `false`).
+- `flake.homeManagerModules.apps.espanso` (source: `modules/hm-apps/espanso.nix`)
+  reads that toggle from `osConfig` and configures `services.espanso` only when
+  it is `true`.
 
-This automatically enables espanso with:
+Importing the Home Manager module alone does nothing: the toggle must be on at
+the system level. On hosts that use the common baseline this is already wired:
 
-- Both X11 and Wayland support (auto-detection based on `$WAYLAND_DISPLAY`)
+- `modules/hosts/common/home-manager-apps.nix` adds `espanso` to the shared
+  Home Manager app modules.
+- `modules/hosts/common/apps-enable.nix` sets
+  `services.espanso.extended.enable = true` at the default-on baseline
+  (`lib.mkOverride 1100`).
+
+So common hosts get espanso enabled by default. To opt out on a host, set
+`services.espanso.extended.enable = false`. To enable it on a host that does not
+use the baseline, import `flake.nixosModules.apps.espanso` and set the toggle
+true at the system level.
+
+When enabled, espanso starts with:
+
+- Both X11 and Wayland support (Home Manager defaults on Linux; runtime selection based on `$WAYLAND_DISPLAY`)
 - Notifications disabled (less intrusive)
 - Common date/time triggers (`:date`, `:time`, `:now`, `:isodate`)
-- Development snippets (`:shebang`, `:todo`, `:fixme`)
+- Development snippets (`:shebang`, `:shebangnix`, `:todo`, `:fixme`)
+- A `:test` smoke-test trigger that expands to `test 1.2.3`
 
 ### Default Triggers
 
@@ -33,6 +46,7 @@ Once enabled, the following triggers are available:
 
 | Trigger       | Output            | Example                                             |
 | ------------- | ----------------- | --------------------------------------------------- |
+| `:test`       | Smoke-test string | `test 1.2.3`                                        |
 | `:date`       | Current date      | `2025-10-08`                                        |
 | `:time`       | Current time      | `14:30`                                             |
 | `:now`        | Date and time     | `2025-10-08 14:30`                                  |
@@ -199,12 +213,17 @@ Use regex for more flexible matching:
 
 ### Default Behavior (Recommended)
 
-Both X11 and Wayland support are enabled by default on Linux. The module:
+Home Manager's `services.espanso` module enables both X11 and Wayland support by
+default on Linux. Its upstream module:
 
-- Configures `x11Support = true` and `waylandSupport = true`
-- Sets `package-wayland = pkgs.espanso-wayland`
+- Defaults `x11Support = true` and `waylandSupport = true` on Linux
+- Defaults `package-wayland = pkgs.espanso-wayland` when Wayland support is on
 - Creates a wrapper script that checks `$WAYLAND_DISPLAY` at runtime
 - Automatically launches the correct binary based on your graphical session
+
+This repository's Home Manager app module leaves those display-server defaults
+in place; it adds repo-specific configs, matches, and service restart policy
+only after `services.espanso.extended.enable` is true.
 
 ### Optimizing Closure Size
 
@@ -301,32 +320,53 @@ Some applications require clipboard backend:
 
 ## Integration with This Repository
 
-### In Dendritic Configuration
+### Common-baseline hosts
 
-Import in your home-manager configuration:
+Hosts whose registry entry has `shareCommon = true` already receive espanso
+through the common host modules:
+
+- `modules/hosts/common/home-manager-apps.nix` appends `espanso` to
+  `home-manager.extraAppImports` and adds `flake.homeManagerModules.apps.espanso`
+  to shared modules.
+- `modules/hosts/common/apps-enable.nix` sets
+  `services.espanso.extended.enable = true` at `lib.mkOverride 1100`.
+
+For those hosts, do not add a separate Home Manager import. Customize
+`services.espanso.matches` in Home Manager configuration, or opt out by setting
+`services.espanso.extended.enable = false`.
+
+### Hosts outside the common baseline
+
+A host that does not use `hosts-common` needs a flake-parts module that pushes
+both the NixOS option module and Home Manager app import into the host module:
 
 ```nix
-# In configurations/homeManager/<username>/default.nix
+{ config, lib, ... }:
+let
+  espansoModule = config.flake.nixosModules.apps.espanso;
+in
 {
-  imports = [
-    config.flake.homeManagerModules.apps.espanso
-  ];
+  configurations.nixos.<hostName>.module = _: {
+    imports = [ espansoModule ];
 
-  # Override defaults as needed
-  services.espanso.matches.personal = {
-    matches = [
-      # Your custom matches
-    ];
+    services.espanso.extended.enable = true;
+    home-manager.extraAppImports = lib.mkAfter [ "espanso" ];
   };
 }
 ```
 
-### Module Location
+`home-manager.extraAppImports` is defined by `flake.nixosModules.base`, so the
+host must already import that aggregate. Standard NixOS configurations in this
+repository do.
 
-The espanso module is auto-discovered from:
+### Module locations
 
-- Source: `modules/hm-apps/espanso.nix`
-- Export: `flake.homeManagerModules.apps.espanso`
+The espanso modules are auto-discovered from:
+
+- NixOS source: `modules/apps/espanso.nix`
+- NixOS export: `flake.nixosModules.apps.espanso`
+- Home Manager source: `modules/hm-apps/espanso.nix`
+- Home Manager export: `flake.homeManagerModules.apps.espanso`
 
 ## References
 

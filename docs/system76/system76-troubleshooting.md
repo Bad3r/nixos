@@ -14,10 +14,11 @@ ______________________________________________________________________
 ## Thermal Management
 
 Thermal management is handled by `system76-power` (the System76 Power Daemon).
+The daemon is enabled through the `system76-support` module:
 
 ```nix
-# modules/system76/support.nix
-hardware.system76.power-daemon.enable = true;
+# modules/system76/imports.nix
+hardware.system76.extended.enable = true;  # turns on power-daemon, kernel-modules, firmware-daemon
 ```
 
 ### Power Profiles
@@ -47,9 +48,9 @@ watch -n 1 sensors
 # CPU package
 watch -n 1 'sensors coretemp-isa-0000 | grep Package'
 
-# system76-power status
-systemctl status com.system76.PowerDaemon
-journalctl -u com.system76.PowerDaemon -f
+# system76-power status (unit is system76-power.service)
+systemctl status system76-power
+journalctl -u system76-power -f
 
 # Fan status
 sensors system76-isa-0000 | grep fan

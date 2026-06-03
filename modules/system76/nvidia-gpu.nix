@@ -52,9 +52,17 @@ _: {
           };
 
           hardware = {
-            # NVIDIA-related graphics libraries (generic graphics enablement lives in pc/graphics-support.nix)
+            # VA-API decode routes through Intel Quick Sync (iHD), not NVDEC.
+            # nvidia-vaapi-driver's VA-API -> NVDEC handoff faults under decode-context
+            # churn: switching videos quickly or reloading stalled SMB/SFTP streams
+            # produces an Xid 31 MMU page fault on ENGINE NVDEC, hanging the dGPU and
+            # freezing the session (the dGPU drives the display in nvidia-only mode).
+            # Intel UHD 630 (i915 stays loaded here, see the nvidia-only branch) decodes
+            # H.264/HEVC/VP9 in hardware; AV1 falls back to software. mpv is unaffected
+            # because hwdec=auto uses FFmpeg NVCUVID (nvdec), never libva.
+            # (generic graphics enablement lives in modules/hosts/common/graphics-support.nix)
             graphics.extraPackages = with pkgs; [
-              nvidia-vaapi-driver
+              intel-media-driver
               vulkan-validation-layers
             ];
 
@@ -62,6 +70,11 @@ _: {
               # GTX 1070 Max-Q is supported by the 580.xx legacy branch; newer production drivers ignore it.
               package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
               modesetting.enable = true;
+              # Suppress nixpkgs' default nvidia-vaapi-driver install (this option
+              # defaults to true and is its only consumer). VA-API decode is handled by
+              # Intel iHD instead; see the graphics.extraPackages note for the Xid 31
+              # NVDEC fault rationale.
+              videoAcceleration = false;
               powerManagement.enable = true;
               # Fine-grained power management (D3 power gating) is incompatible with PRIME sync.
               # Sync mode keeps the dGPU always on to drive display output through the iGPU.
@@ -92,10 +105,14 @@ _: {
           # Do not blacklist i915: internal HDA/SOF audio on this chassis can
           # depend on Intel graphics-side plumbing even when NVIDIA renders X11.
 
-          # Prefer NVIDIA VA-API/VDPAU implementations in dedicated mode.
+          # Route VA-API to Intel Quick Sync (iHD), not NVDEC, to avoid the Xid 31
+          # decode fault (see graphics.extraPackages above). i915 stays loaded here,
+          # and the by-path render node keeps libva off the NVIDIA DRM device.
+          # VDPAU_DRIVER is intentionally unset: VDPAU is legacy, and pointing it at
+          # nvidia would route back into NVDEC.
           environment.variables = {
-            LIBVA_DRIVER_NAME = lib.mkDefault "nvidia";
-            VDPAU_DRIVER = lib.mkDefault "nvidia";
+            LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/pci-0000:00:02.0-render";
+            LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
           };
         })
 

@@ -18,6 +18,12 @@ npm install -g @logseq/cli
 logseq mcp-server [options]
 ```
 
+> **Nix package note**: This repository installs the CLI through the
+> `logseq-cli` package (flake input `nix-logseq-git-flake`), which names the
+> binary `logseq-cli`. On these hosts the plain `logseq` binary is the desktop
+> app, so invoke `logseq-cli mcp-server ...`. The `npm install` above instead
+> provides a `logseq` binary.
+
 ### Options
 
 | Flag                         | Alias | Default   | Description                              |
