@@ -9,7 +9,7 @@ Scope:
 - polkit rules:
   - `modules/security/polkit.nix`
 - sudo-rs rules:
-  - `modules/system76/sudo.nix`
+  - `modules/hosts/common/sudo.nix`
 - kernel setting affecting `dmesg`:
   - `modules/system76/boot.nix`
 
@@ -27,8 +27,11 @@ Scope:
   - `nmcli ...` privileged actions
   - `mmcli ...` privileged actions
   - mechanism:
-    - polkit `networkmanager` group allow rules
-  - Granted to `networkmanager` group by evaluated `security.polkit.extraConfig`.
+    - polkit `networkmanager` group allow rules present in the evaluated
+      `security.polkit.extraConfig`; the repo-owned `modules/security/polkit.nix`
+      only owns wheel-group rules.
+  - Available without sudo because the owner is in the `networkmanager` group
+    (`modules/meta/owner.nix`).
 - Log/kernel visibility:
   - `journalctl ...`
     - mechanism:
@@ -73,4 +76,7 @@ Scope:
   - `journalctl -n 20 --no-pager`
   - `dmesg -T | head -n 20`
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.polkit.extraConfig | jq -r`
+    - shows the enabled wheel power-off/reboot rule plus the NetworkManager/ModemManager
+      group rules; only wheel rules are owned by `modules/security/polkit.nix`.
+      Current host imports disable the optional wheel systemd unit-management rule.
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.sudo-rs.extraRules | jq`
