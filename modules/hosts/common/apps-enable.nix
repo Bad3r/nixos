@@ -384,6 +384,7 @@ let
       simplescreenrecorder.extended.enable = lib.mkOverride 1100 true;
       skim.extended.enable = lib.mkOverride 1100 false;
       slop.extended.enable = lib.mkOverride 1100 true;
+      slidev-cli.extended.enable = lib.mkOverride 1100 true;
       smartmontools.extended.enable = lib.mkOverride 1100 true;
       snixembed.extended.enable = lib.mkOverride 1100 false;
       socat.extended.enable = lib.mkOverride 1100 true;
