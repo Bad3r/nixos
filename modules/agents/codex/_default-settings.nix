@@ -56,7 +56,6 @@
     plugin_sharing = true;
     external_migration = false;
     image_generation = true;
-    imagegenext = false;
     skill_mcp_dependency_install = true;
     mentions_v2 = false;
     default_mode_request_user_input = false;
