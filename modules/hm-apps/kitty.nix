@@ -136,6 +136,7 @@ _: {
             # Runtime helpers
             shell = ".";
             editor = "nvim";
+            auto_reload_config = "-1"; # disable config hot-reload
             close_on_child_death = false;
             allow_remote_control = true;
             listen_on = "none";
