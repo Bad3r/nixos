@@ -99,7 +99,6 @@ let
       enable_request_compression = false;
       memories = true;
       external_migration = true;
-      imagegenext = true;
       mentions_v2 = true;
       realtime_conversation = true;
       exec_permission_approvals = true;
