@@ -13,8 +13,8 @@
       netBlockBase = {
         block = "net";
         interval = 2;
-        format = " $icon {$ssid|$device} $ip ";
-        format_alt = "  $speed_down.eng(prefix:K)/s  $speed_up.eng(prefix:K)/s ";
+        format = " $icon {$ssid $signal_strength|$device} {$ip|} ";
+        format_alt = " $icon $device ^icon_net_down $speed_down.eng(prefix:K)/s ^icon_net_up $speed_up.eng(prefix:K)/s ";
       };
 
       netBlock = netBlockBase // lib.optionalAttrs (netInterface != null) { device = netInterface; };
@@ -50,11 +50,25 @@
         {
           block = "temperature";
           interval = 10;
+          info = 81.0;
+          warning = 90.0;
           format = " $icon $max ";
+          format_alt = " $icon $min min, $average avg, $max max ";
+        }
+        {
+          block = "backlight";
+          step_width = 10.0;
+          minimum = 1.0;
+          missing_format = "";
         }
         {
           block = "sound";
+          driver = "pipewire";
           format = " $icon {$volume|muted} ";
+          format_alt = " $icon $output_description.str(max_w:18) {$volume|muted} ";
+          step_width = 2;
+          max_vol = 100;
+          headphones_indicator = true;
           show_volume_when_muted = false;
           click = [
             {
@@ -64,14 +78,34 @@
           ];
         }
         {
+          block = "privacy";
+          driver = [
+            {
+              name = "v4l";
+            }
+            {
+              name = "pipewire";
+            }
+          ];
+        }
+        {
           block = "battery";
           interval = 30;
-          format = " $icon $percentage ";
+          format = " $icon $percentage {$time_remaining.dur(hms:true, min_unit:m) |}";
+          full_format = " $icon $percentage ";
+          not_charging_format = " $icon $percentage ";
+          missing_format = "";
+        }
+        {
+          block = "notify";
+          driver = "dunst";
+          format = " $icon {$notification_count.eng(w:1)|} ";
         }
         {
           block = "time";
           interval = 60;
           format = " $icon $timestamp.datetime(f:'%a %d/%m %R') ";
+          format_alt = " $icon $timestamp.datetime(f:'%A %d %B %Y') ";
         }
       ];
 
