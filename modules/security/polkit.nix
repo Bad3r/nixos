@@ -2,6 +2,7 @@ let
   module =
     { config, lib, ... }:
     let
+      fwupdCfg = config.services.fwupd;
       powerCfg = config.security.polkit.wheelPowerManagement;
       systemdCfg = config.security.polkit.wheelSystemdManagement;
     in
@@ -17,6 +18,20 @@ let
       };
 
       config = lib.mkMerge [
+        (lib.mkIf fwupdCfg.enable {
+          security.polkit = {
+            enable = true;
+            extraConfig = ''
+              polkit.addRule(function(action, subject) {
+                if (action.id === "org.freedesktop.fwupd.refresh-remote" &&
+                    subject.user === "fwupd-refresh") {
+                  return polkit.Result.YES;
+                }
+              });
+            '';
+          };
+        })
+
         (lib.mkIf powerCfg.enable {
           security.polkit = {
             enable = true;
