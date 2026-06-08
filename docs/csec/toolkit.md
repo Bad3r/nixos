@@ -27,6 +27,12 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://github.com/tomnomnom/assetfinder#readme>
   - Desc.: Lightweight passive subdomain finder that emits pipeline-friendly domain lists.
   - Stat.: Deprecated (latest tag v0.1.1; no upstream commits since 2020-04-15).
+- arp-scan-rs
+  - run..: `arp-scan --profile default`
+  - Repo.: <https://github.com/kongbytes/arp-scan-rs>
+  - Docs.: <https://github.com/kongbytes/arp-scan-rs#readme>
+  - Desc.: Rust ARP sweeper for local Layer-2 host discovery with profiles, VLAN support, and structured output.
+  - Stat.: Maintained (latest release v0.15.1, 2025-11-18).
 - cdncheck
   - run..: `cdncheck -i $host -silent`
   - Repo.: <https://github.com/projectdiscovery/cdncheck>
