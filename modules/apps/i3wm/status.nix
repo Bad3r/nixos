@@ -105,7 +105,6 @@
           block = "time";
           interval = 60;
           format = " $icon $timestamp.datetime(f:'%a %d/%m %R') ";
-          format_alt = " $icon $timestamp.datetime(f:'%A %d %B %Y') ";
         }
       ];
 
