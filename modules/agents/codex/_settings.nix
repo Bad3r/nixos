@@ -102,9 +102,9 @@ let
       mentions_v2 = true;
       realtime_conversation = true;
       exec_permission_approvals = true;
-      # Patched zsh layout provided by ./_packaged-codex.nix; upstream removed
-      # the `zsh_path` key in v0.135.0 and now resolves via InstallContext.
-      shell_zsh_fork = true;
+      # Codex does not expose a config key for shell selection; ./_wrapper.nix
+      # supplies bash as the detected passwd shell instead.
+      shell_zsh_fork = false;
     };
 
     memories = {
@@ -149,6 +149,9 @@ let
       exclude = [
         "AWS_*"
         "AZURE_*"
+        "CODEX_ORIGINAL_LD_PRELOAD"
+        "LD_PRELOAD"
+        "NSS_WRAPPER_*"
       ];
     };
 

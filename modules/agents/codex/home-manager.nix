@@ -67,10 +67,11 @@ _: {
         inherit
           configDir
           codexPkg
+          homeDir
           lib
           pkgs
           ;
-        inherit (execPolicy) codexZshWrapper;
+        inherit (execPolicy) codexBashWrapper;
         inherit (codexSettings)
           baseSettings
           nixProjectSettings

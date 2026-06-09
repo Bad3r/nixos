@@ -84,15 +84,29 @@ let
   # Scope recoverable bare `rm` rewrites to the top-level Codex shell command
   # instead of mutating PATH for every subprocess those commands spawn.
   #
-  # Keep the wrapper executable named `zsh` so Codex continues to classify
-  # `zsh -lc ...` invocations as shell commands and applies execpolicy to the
+  # Keep the wrapper executable named `bash` so Codex continues to classify
+  # `bash -lc ...` invocations as shell commands and applies execpolicy to the
   # inner script instead of requiring a blanket allowlist for the wrapper.
-  codexZshWrapper = pkgs.writeShellScriptBin "zsh" ''
+  codexBashWrapper = pkgs.writeShellScriptBin "bash" ''
     set -euo pipefail
 
     direnvBin=${lib.getExe pkgs.direnv}
-    realZsh=${lib.getExe pkgs.zsh}
+    realBash=${lib.getExe pkgs.bashInteractive}
     rmShimPath=${rmShim}/bin/rm
+
+    restoreCodexShellEnv() {
+      if [ -n "''${CODEX_ORIGINAL_LD_PRELOAD+x}" ]; then
+        if [ -n "$CODEX_ORIGINAL_LD_PRELOAD" ]; then
+          export LD_PRELOAD="$CODEX_ORIGINAL_LD_PRELOAD"
+        else
+          unset LD_PRELOAD
+        fi
+        unset CODEX_ORIGINAL_LD_PRELOAD
+      else
+        unset LD_PRELOAD
+      fi
+      unset NSS_WRAPPER_PASSWD NSS_WRAPPER_GROUP
+    }
 
     if [ "$#" -ge 2 ] && { [ "$1" = "-c" ] || [ "$1" = "-lc" ]; }; then
       shellFlag="$1"
@@ -100,9 +114,10 @@ let
       shift 2
 
       export CODEX_WRAPPED_COMMAND="$wrappedCommand"
-      exec "$realZsh" "$shellFlag" '
+      restoreCodexShellEnv
+      exec "$realBash" "$shellFlag" '
         # Mirror interactive direnv behavior for Codex non-interactive shell commands.
-        if direnvExports="$("'"$direnvBin"'" export zsh 2>/dev/null)"; then
+        if direnvExports="$("'"$direnvBin"'" export bash 2>/dev/null)"; then
           eval "$direnvExports"
         fi
         rm() {
@@ -112,7 +127,8 @@ let
       ' "$@"
     fi
 
-    exec "$realZsh" "$@"
+    restoreCodexShellEnv
+    exec "$realBash" "$@"
   '';
 
   execPolicyManagedRules =
@@ -507,7 +523,7 @@ let
 in
 {
   inherit
-    codexZshWrapper
+    codexBashWrapper
     execPolicyManagedRulesFile
     rmShim
     ;
