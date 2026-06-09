@@ -11,17 +11,12 @@ _: {
       legacyProfilesPath = ".mozilla/firefox";
       xdgProfilesPath = ".config/mozilla/firefox";
       nixosEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
-      # The NVIDIA proprietary X driver's EGL/DMABUF path corrupts images; detect
-      # it from the host so the gecko prefs disable widget.dmabuf on that host only.
-      nvidiaProprietary = lib.elem "nvidia" (
-        lib.attrByPath [ "services" "xserver" "videoDrivers" ] [ ] osConfig
-      );
       gecko = import ./_gecko-mk-profile.nix {
         inherit
           pkgs
           lib
           config
-          nvidiaProprietary
+          osConfig
           ;
       };
       xdgProfileRoot = gecko.mkXdgProfileRoot {
