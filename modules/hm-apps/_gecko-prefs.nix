@@ -199,7 +199,8 @@ in
       "network.dns.disableIPv6" = true;
     }
     // lib.optionalAttrs nvidiaProprietary {
-      # MOZ_X11_EGL bypasses gfx.x11-egl.force-disabled; widget.dmabuf is the effective switch.
+      # MOZ_X11_EGL bypasses gfx.x11-egl.force-disabled; widget.dmabuf is the effective
+      # switch, but it also disables VA-API surface import zero-copy on NVIDIA hosts.
       "widget.dmabuf.enabled" = false;
     };
 }
