@@ -95,17 +95,12 @@ let
     rmShimPath=${rmShim}/bin/rm
 
     restoreCodexShellEnv() {
-      if [ -n "''${CODEX_ORIGINAL_LD_PRELOAD+x}" ]; then
-        if [ -n "$CODEX_ORIGINAL_LD_PRELOAD" ]; then
-          export LD_PRELOAD="$CODEX_ORIGINAL_LD_PRELOAD"
-        else
-          unset LD_PRELOAD
-        fi
-        unset CODEX_ORIGINAL_LD_PRELOAD
+      if [ -n "''${CODEX_ORIGINAL_LD_PRELOAD-}" ]; then
+        export LD_PRELOAD="$CODEX_ORIGINAL_LD_PRELOAD"
       else
         unset LD_PRELOAD
       fi
-      unset NSS_WRAPPER_PASSWD NSS_WRAPPER_GROUP
+      unset CODEX_ORIGINAL_LD_PRELOAD NSS_WRAPPER_PASSWD NSS_WRAPPER_GROUP
     }
 
     if [ "$#" -ge 2 ] && { [ "$1" = "-c" ] || [ "$1" = "-lc" ]; }; then

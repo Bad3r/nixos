@@ -149,7 +149,6 @@ let
       exclude = [
         "AWS_*"
         "AZURE_*"
-        "CODEX_ORIGINAL_LD_PRELOAD"
         "LD_PRELOAD"
         "NSS_WRAPPER_*"
       ];
