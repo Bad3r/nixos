@@ -56,12 +56,6 @@
           format_alt = " $icon $min min, $average avg, $max max ";
         }
         {
-          block = "backlight";
-          step_width = 10.0;
-          minimum = 1.0;
-          missing_format = "";
-        }
-        {
           block = "sound";
           driver = "pipewire";
           format = " $icon {$volume|muted} ";
