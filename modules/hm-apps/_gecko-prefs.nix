@@ -11,6 +11,9 @@
 {
   lib,
   fonts ? null,
+  # True when the host runs the NVIDIA proprietary X driver (videoDrivers
+  # contains "nvidia"); gates the DMABUF workaround at the end of commonSettings.
+  nvidiaProprietary ? false,
 }:
 let
   geckoSearch = import ./_gecko-search.nix { };
@@ -194,5 +197,10 @@ in
 
       # Disable IPv6 address lookups.
       "network.dns.disableIPv6" = true;
+    }
+    // lib.optionalAttrs nvidiaProprietary {
+      # MOZ_X11_EGL bypasses gfx.x11-egl.force-disabled; widget.dmabuf is the effective
+      # switch, but it also disables VA-API surface import zero-copy on NVIDIA hosts.
+      "widget.dmabuf.enabled" = false;
     };
 }
