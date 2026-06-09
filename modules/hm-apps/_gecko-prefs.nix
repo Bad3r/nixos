@@ -11,6 +11,9 @@
 {
   lib,
   fonts ? null,
+  # True when the host runs the NVIDIA proprietary X driver (videoDrivers
+  # contains "nvidia"); gates the DMABUF workaround at the end of commonSettings.
+  nvidiaProprietary ? false,
 }:
 let
   geckoSearch = import ./_gecko-search.nix { };
@@ -194,5 +197,12 @@ in
 
       # Disable IPv6 address lookups.
       "network.dns.disableIPv6" = true;
+    }
+    // lib.optionalAttrs nvidiaProprietary {
+      # Disable DMABUF on the NVIDIA proprietary driver: its EGL/DMABUF zero-copy
+      # path corrupts images into color stripes under X11. widget.dmabuf is the
+      # reliable kill switch since gfx.x11-egl.force-disabled is overridden by the
+      # MOZ_X11_EGL env var. Host fact derives from services.xserver.videoDrivers.
+      "widget.dmabuf.enabled" = false;
     };
 }

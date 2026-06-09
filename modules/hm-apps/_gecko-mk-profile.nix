@@ -6,6 +6,8 @@
 
   Arguments:
     pkgs, lib, config: standard module args from the caller.
+    nvidiaProprietary: host runs the NVIDIA proprietary X driver; forwarded to
+      _gecko-prefs.nix to gate the widget.dmabuf workaround.
   Returns:
     mkProfile, policies, nativeMessagingHosts, profile packages, and helpers.
 */
@@ -14,10 +16,11 @@
   pkgs,
   lib,
   config,
+  nvidiaProprietary ? false,
 }:
 let
   geckoPrefs = import ./_gecko-prefs.nix {
-    inherit lib;
+    inherit lib nvidiaProprietary;
     fonts = if (config.stylix.enable or false) then config.stylix.fonts else null;
   };
   geckoBookmarks = import ./_gecko-bookmarks.nix { inherit lib; };
