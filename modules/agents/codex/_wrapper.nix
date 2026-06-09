@@ -3,22 +3,25 @@
   nixProjectSettings,
   configDir,
   codexPkg,
-  codexZshWrapper,
+  codexBashWrapper,
+  homeDir,
   lib,
   pkgs,
 }:
 let
-  # Repackaged codex closure that exposes the codex-package.json + bundled
-  # codex-resources layout required by `shell_zsh_fork = true;` starting in
-  # codex v0.135.0 (upstream removed the `zsh_path` config key).
+  # Repackaged codex closure that exposes codex-package.json for
+  # InstallContext::from_exe without enabling upstream's zsh fork path.
   codexPackaged = import ./_packaged-codex.nix {
-    inherit pkgs codexPkg codexZshWrapper;
+    inherit pkgs codexPkg;
   };
 
   tomlFormat = pkgs.formats.toml { };
+  coreutilsId = lib.getExe' pkgs.coreutils "id";
   coreutilsMktemp = lib.getExe' pkgs.coreutils "mktemp";
+  coreutilsMv = lib.getExe' pkgs.coreutils "mv";
   coreutilsRm = lib.getExe' pkgs.coreutils "rm";
   coreutilsSha256sum = lib.getExe' pkgs.coreutils "sha256sum";
+  nssWrapperLib = "${pkgs.nss_wrapper}/lib/libnss_wrapper.so";
 
   baseConfigFile = tomlFormat.generate "codex-config-base" baseSettings;
   nixProjectsFile = tomlFormat.generate "codex-nix-projects" nixProjectSettings;
@@ -85,10 +88,16 @@ let
     userProjects="$cfgDir/trusted-projects.toml"
     out="$cfgDir/config.toml"
     mergeStamp="$cfgDir/config.merge.sha256"
+    nssDir="$cfgDir/runtime/nss"
+    passwdFile="$nssDir/passwd"
+    groupFile="$nssDir/group"
     tmpDir="/tmp/agents"
     tmpOut=""
     tmpStamp=""
+    tmpPasswd=""
+    tmpGroup=""
 
+    mkdir -p "$cfgDir"
     mkdir -p "$tmpDir"
     export TMPDIR="$tmpDir"
 
@@ -101,6 +110,15 @@ let
       fi
     }
 
+    cleanupNssArtifacts() {
+      if [ -n "$tmpPasswd" ] && [ -e "$tmpPasswd" ]; then
+        ${coreutilsRm} -f -- "$tmpPasswd"
+      fi
+      if [ -n "$tmpGroup" ] && [ -e "$tmpGroup" ]; then
+        ${coreutilsRm} -f -- "$tmpGroup"
+      fi
+    }
+
     hashInputs() {
       for path in "$base" "$nixProjects" "$userProjects"; do
         if [ -f "$path" ]; then
@@ -110,6 +128,65 @@ let
           printf 'missing\t%s\n' "$path"
         fi
       done | ${coreutilsSha256sum} | awk '{print $1}'
+    }
+
+    prepareBashShellOverride() {
+      uid="$(${coreutilsId} -u)" || {
+        echo "codex-wrapper: ERROR: failed to resolve current uid" >&2
+        exit 1
+      }
+      gid="$(${coreutilsId} -g)" || {
+        echo "codex-wrapper: ERROR: failed to resolve current gid" >&2
+        exit 1
+      }
+      user="$(${coreutilsId} -un 2>/dev/null)" || user="user"
+      group="$(${coreutilsId} -gn 2>/dev/null)" || group="group"
+
+      mkdir -p "$nssDir" || {
+        echo "codex-wrapper: ERROR: failed to create NSS runtime dir at $nssDir" >&2
+        exit 1
+      }
+      tmpPasswd="$(${coreutilsMktemp} "$nssDir/passwd.XXXXXXXX")" || {
+        echo "codex-wrapper: ERROR: failed to create temp NSS passwd file in $nssDir" >&2
+        exit 1
+      }
+      tmpGroup="$(${coreutilsMktemp} "$nssDir/group.XXXXXXXX")" || {
+        echo "codex-wrapper: ERROR: failed to create temp NSS group file in $nssDir" >&2
+        cleanupNssArtifacts
+        exit 1
+      }
+      printf '%s:x:%s:%s::%s:%s\n' \
+        "$user" \
+        "$uid" \
+        "$gid" \
+        "''${HOME:-${homeDir}}" \
+        "${codexBashWrapper}/bin/bash" > "$tmpPasswd" || {
+          echo "codex-wrapper: ERROR: failed to write NSS passwd override at $tmpPasswd" >&2
+          cleanupNssArtifacts
+          exit 1
+        }
+      printf '%s:x:%s:\n' "$group" "$gid" > "$tmpGroup" || {
+        echo "codex-wrapper: ERROR: failed to write NSS group override at $tmpGroup" >&2
+        cleanupNssArtifacts
+        exit 1
+      }
+      ${coreutilsMv} -f -- "$tmpGroup" "$groupFile" || {
+        echo "codex-wrapper: ERROR: failed to install NSS group override at $groupFile" >&2
+        cleanupNssArtifacts
+        exit 1
+      }
+      tmpGroup=""
+      ${coreutilsMv} -f -- "$tmpPasswd" "$passwdFile" || {
+        echo "codex-wrapper: ERROR: failed to install NSS passwd override at $passwdFile" >&2
+        cleanupNssArtifacts
+        exit 1
+      }
+      tmpPasswd=""
+
+      export CODEX_ORIGINAL_LD_PRELOAD="''${LD_PRELOAD-}"
+      export LD_PRELOAD="${nssWrapperLib}''${LD_PRELOAD:+:$LD_PRELOAD}"
+      export NSS_WRAPPER_PASSWD="$passwdFile"
+      export NSS_WRAPPER_GROUP="$groupFile"
     }
 
     if [ -f "$base" ]; then
@@ -154,6 +231,7 @@ let
       fi
     fi
 
+    prepareBashShellOverride
     exec ${codexPackaged}/bin/codex "$@"
   '';
 in
