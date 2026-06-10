@@ -7,6 +7,8 @@
 
   Summary:
     * Provides a feature-rich file manager supporting SMB/NFS/GVFS mounts, context-menu extensions, bulk rename, and media previews.
+    * Installs video and XApp thumbnail generators so XDG thumbnail lookup can generate previews for common media formats.
+    * Enables Nemo quick previews and Seahorse encryption/signing integration by default.
     * Integrates Cinnamon desktop conventions while remaining usable in other desktop environments with underlying GNOME services.
 
   Options:
@@ -31,6 +33,26 @@ let
     }:
     let
       cfg = config.programs.nemo.extended;
+      nemoExtensionPackages =
+        lib.optional cfg.preview.enable cfg.preview.package
+        ++ lib.optional cfg.seahorse.enable cfg.seahorse.package;
+
+      configuredPackage =
+        if nemoExtensionPackages == [ ] then
+          cfg.package
+        else if cfg.package ? override then
+          cfg.package.override {
+            extensions = nemoExtensionPackages;
+          }
+        else
+          throw "programs.nemo.extended.package requires override support when preview or seahorse integration is enabled";
+
+      seahorseGSettingsPackages = [
+        pkgs.nemo
+        pkgs.gcr
+        pkgs.libcryptui
+        cfg.seahorse.package
+      ];
     in
     {
       options.programs.nemo.extended = {
@@ -40,11 +62,49 @@ let
           description = "Whether to enable nemo.";
         };
 
-        package = lib.mkPackageOption pkgs "nemo" { };
+        package = lib.mkPackageOption pkgs "nemo-with-extensions" { };
+
+        preview = {
+          enable = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = "Whether to enable Nemo quick preview integration.";
+          };
+
+          package = lib.mkPackageOption pkgs "nemo-preview" { };
+        };
+
+        seahorse = {
+          enable = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = "Whether to enable Nemo Seahorse encryption and signing integration.";
+          };
+
+          package = lib.mkPackageOption pkgs "nemo-seahorse" { };
+        };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [
+          configuredPackage
+          pkgs.ffmpegthumbnailer
+          pkgs.gst-thumbnailers
+          pkgs.xapp-thumbnailers
+        ];
+
+        services = {
+          dbus.packages = [
+            configuredPackage
+          ]
+          ++ lib.optionals cfg.seahorse.enable [
+            pkgs.libcryptui
+          ];
+
+          desktopManager.gnome.extraGSettingsOverridePackages = lib.optionals cfg.seahorse.enable seahorseGSettingsPackages;
+
+          xserver.desktopManager.cinnamon.extraGSettingsOverridePackages = lib.optionals cfg.seahorse.enable seahorseGSettingsPackages;
+        };
       };
     };
 in
