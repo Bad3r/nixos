@@ -221,7 +221,7 @@ let
   # automationBehaviour, installation) are dropped, and syncSettings is
   # flipped to false because Dark Reader prefers storage.sync over this
   # declarative storage.local payload whenever syncSettings is true.
-  darkreaderSettings = builtins.fromJSON (builtins.readFile ./_gecko-darkreader-settings.json);
+  darkreaderSettings = lib.importJSON ./_gecko-darkreader-settings.json;
 
   userscripts = builtins.fromJSON (builtins.readFile ./_gecko-userscripts.json);
   nixpkgsReviewGhaScript = userscripts."nixpkgs-review-gha";
