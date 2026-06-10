@@ -103,6 +103,8 @@ Available after `nix develop`:
 | Firefox source/docs        | `/data/git/mozilla-firefox-firefox`                   |
 | Firefox built docs         | `/data/git/mozilla-firefox-firefox-docs/current`      |
 | MDN Web Docs               | `/data/git/mdn-content`                               |
+| CPython source/docs        | `/data/git/python-cpython`                            |
+| Python stable docs source  | `/data/git/python-cpython-docs/current`               |
 | NixOS manual mirror        | `docs/nixos-manual/`                                  |
 | Home Manager manual        | `/data/git/nix-community-home-manager/docs/manual/`   |
 | Stylix source              | `/data/git/nix-community-stylix`                      |

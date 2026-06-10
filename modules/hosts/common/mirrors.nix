@@ -13,6 +13,7 @@ let
       home-manager.users.${metaOwner.username}.programs.gitMirror = {
         enable = true;
         firefoxDocs.enable = true;
+        pythonDocs.enable = true;
         jobs = 2;
         repos = [
           # NixOS
@@ -59,6 +60,7 @@ let
           "mdn/content" # https://developer.mozilla.org
           "mozilla/policy-templates"
           "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
+          "python/cpython" # Source for docs.python.org
 
           # Applications
           "https://codeberg.org/librewolf/settings.git"

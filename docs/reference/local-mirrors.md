@@ -22,9 +22,15 @@ Repositories sync to flat paths under `/data/git`.
   `git-mirror-firefox-docs.service` with `OnSuccess=` after sync when
   `programs.gitMirror.firefoxDocs.enable = true;`, so the docs build is not
   part of the mirror sync start transaction
-- **Switch behavior**: The mirror sync and Firefox docs build services use
-  `X-SwitchMethod=keep-old`; rebuilds update the unit files without starting
-  or restarting long-running mirror jobs during Home Manager activation
+- **Python documentation sources**: `git-mirror.service` queues
+  `git-mirror-python-docs.service` with `OnSuccess=` after sync when
+  `programs.gitMirror.pythonDocs.enable = true;`. The publisher resolves the
+  current stable Python minor version from `https://docs.python.org/3/`, then
+  publishes CPython `Doc/` from the matching upstream branch.
+- **Switch behavior**: The mirror sync, Firefox docs build, and Python docs
+  source publishing services use `X-SwitchMethod=keep-old`; rebuilds update the
+  unit files without starting or restarting long-running mirror jobs during Home
+  Manager activation
 - **Failure recovery**: `git-mirror.service` restarts on failure after 5
   minutes, bounded to three attempts per hour, so transient Git or network
   failures retry without churning forever
@@ -39,6 +45,7 @@ localMirrors.enable = true;
 home-manager.users.${metaOwner.username}.programs.gitMirror = {
   enable = true;
   firefoxDocs.enable = true;
+  pythonDocs.enable = true;
   repos = [
     "owner/repo"
     # ...
@@ -91,6 +98,8 @@ Full URLs include a normalized host prefix and strip common host suffixes such a
 | `mozilla/policy-templates`                              | `$LOCAL_MIRRORS/mozilla-policy-templates`                  |
 | `mpv-player/mpv`                                        | `$LOCAL_MIRRORS/mpv-player-mpv`                            |
 | `openai/codex`                                          | `$LOCAL_MIRRORS/openai-codex`                              |
+| `python/cpython`                                        | `$LOCAL_MIRRORS/python-cpython`                            |
+| Current stable Python docs source                       | `$LOCAL_MIRRORS/python-cpython-docs/current`               |
 | `tridactyl/tridactyl`                                   | `$LOCAL_MIRRORS/tridactyl-tridactyl`                       |
 | `https://git.lix.systems/lix-project/lix.git`           | `$LOCAL_MIRRORS/git.lix.systems-lix-project-lix`           |
 | `https://git.lix.systems/lix-project/lix-installer.git` | `$LOCAL_MIRRORS/git.lix.systems-lix-project-lix-installer` |
@@ -124,6 +133,36 @@ The service skips incomplete mirrors, dirty Firefox checkouts, and revisions
 that already have a successful generated docs tree. After publishing a new
 `current` symlink, it prunes old revision and linkcheck output directories.
 
+## Python Documentation Sources
+
+The CPython mirror publishes the current stable Python documentation source tree
+after the mirror updates. CPython `main` tracks future Python development, so
+the publisher does not use the checkout's default branch. It reads
+`https://docs.python.org/3/`, extracts the current stable minor branch from the
+page title, and archives `Doc/` from `origin/<major.minor>`.
+
+- Source checkout: `$LOCAL_MIRRORS/python-cpython`
+- Current stable docs source: `$LOCAL_MIRRORS/python-cpython-docs/current`
+- Revision sources:
+  `$LOCAL_MIRRORS/python-cpython-docs/revisions/<major.minor>-<sha>/Doc`
+- State marker: `$LOCAL_MIRRORS/python-cpython-docs/current-branch` records the
+  resolved branch, commit, and version URL
+- Retention: `programs.gitMirror.pythonDocs.maxRevisions` keeps the newest
+  source revisions, defaulting to `2`
+
+Run or inspect the docs source publisher directly:
+
+```bash
+systemctl --user start git-mirror-python-docs.service
+journalctl --user -u git-mirror-python-docs.service -n 100 --no-pager
+test -f /data/git/python-cpython-docs/current/conf.py
+```
+
+When `docs.python.org/3/` reports Python 3.14.x, the published source comes
+from CPython branch `3.14`. When the Python project promotes a newer stable
+minor version and updates `docs.python.org/3/`, the next successful sync moves
+`current` to that branch automatically.
+
 ## Adding Repositories
 
 Edit `programs.gitMirror.repos` in `modules/hosts/common/mirrors.nix` for
@@ -142,6 +181,7 @@ programs.gitMirror.repos = [
   "mdn/content" # https://developer.mozilla.org
   "mozilla/policy-templates"
   "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
+  "python/cpython" # Source for docs.python.org
   "tridactyl/tridactyl"
   "https://codeberg.org/librewolf/settings.git"
   # ...

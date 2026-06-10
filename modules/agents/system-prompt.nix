@@ -268,6 +268,11 @@ let
         `git-mirror-firefox-docs.service`.
       - MDN Web Docs: `/data/git/mdn-content`
         Reference MDN Web and API documentation offline.
+      - CPython source/docs: `/data/git/python-cpython`
+        Inspect Python implementation behavior and documentation sources.
+      - Python stable docs source: `/data/git/python-cpython-docs/current`
+        Browse the current stable Python documentation source tree published by
+        `git-mirror-python-docs.service`.
       - Firefox policies: `/data/git/mozilla-policy-templates`
         Inspect supported Firefox managed-policy templates and schema.
       - Enterprise admin reference:
