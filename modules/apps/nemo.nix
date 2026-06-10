@@ -7,6 +7,7 @@
 
   Summary:
     * Provides a feature-rich file manager supporting SMB/NFS/GVFS mounts, context-menu extensions, bulk rename, and media previews.
+    * Enables the Mint-default Nemo extensions explicitly instead of relying on wrapper defaults.
     * Installs video and XApp thumbnail generators so XDG thumbnail lookup can generate previews for common media formats.
     * Enables Nemo quick previews and Seahorse encryption/signing integration by default.
     * Integrates Cinnamon desktop conventions while remaining usable in other desktop environments with underlying GNOME services.
@@ -33,22 +34,45 @@ let
     }:
     let
       cfg = config.programs.nemo.extended;
-      nemoExtensionPackages =
-        lib.optional cfg.preview.enable cfg.preview.package
-        ++ lib.optional cfg.seahorse.enable cfg.seahorse.package;
+      mkExtensionOptions = packageName: description: {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Whether to enable ${description}.";
+        };
+
+        package = lib.mkPackageOption pkgs packageName { };
+      };
+
+      configuredExtensions = [
+        cfg.folderColorSwitcher
+        cfg.emblems
+        cfg.fileRoller
+        cfg.python
+        cfg.preview
+        cfg.seahorse
+      ];
+
+      nemoExtensionPackages = lib.concatMap (
+        extension: lib.optional extension.enable extension.package
+      ) configuredExtensions;
+
+      canWrapPackage = cfg.package ? extensiondir && cfg.package ? version;
 
       configuredPackage =
         if nemoExtensionPackages == [ ] then
           cfg.package
-        else if cfg.package ? override then
-          cfg.package.override {
+        else if canWrapPackage then
+          pkgs.nemo-with-extensions.override {
+            nemo = cfg.package;
             extensions = nemoExtensionPackages;
+            useDefaultExtensions = false;
           }
         else
           cfg.package;
 
       seahorseGSettingsPackages = [
-        pkgs.nemo
+        cfg.package
         pkgs.gcr
         pkgs.libcryptui
         cfg.seahorse.package
@@ -62,34 +86,26 @@ let
           description = "Whether to enable nemo.";
         };
 
-        package = lib.mkPackageOption pkgs "nemo-with-extensions" { };
+        package = lib.mkPackageOption pkgs "nemo" { };
 
-        preview = {
-          enable = lib.mkOption {
-            type = lib.types.bool;
-            default = true;
-            description = "Whether to enable Nemo quick preview integration.";
-          };
+        folderColorSwitcher = mkExtensionOptions "folder-color-switcher" "Nemo folder color integration";
 
-          package = lib.mkPackageOption pkgs "nemo-preview" { };
-        };
+        emblems = mkExtensionOptions "nemo-emblems" "Nemo emblem integration";
 
-        seahorse = {
-          enable = lib.mkOption {
-            type = lib.types.bool;
-            default = true;
-            description = "Whether to enable Nemo Seahorse encryption and signing integration.";
-          };
+        fileRoller = mkExtensionOptions "nemo-fileroller" "Nemo archive integration";
 
-          package = lib.mkPackageOption pkgs "nemo-seahorse" { };
-        };
+        python = mkExtensionOptions "nemo-python" "Nemo Python extension loading support";
+
+        preview = mkExtensionOptions "nemo-preview" "Nemo quick preview integration";
+
+        seahorse = mkExtensionOptions "nemo-seahorse" "Nemo Seahorse encryption and signing integration";
       };
 
       config = lib.mkIf cfg.enable {
         assertions = [
           {
-            assertion = nemoExtensionPackages == [ ] || cfg.package ? override;
-            message = "programs.nemo.extended.package requires override support when preview or seahorse integration is enabled";
+            assertion = nemoExtensionPackages == [ ] || canWrapPackage;
+            message = "programs.nemo.extended.package requires version and extensiondir attributes when Nemo extensions are enabled";
           }
         ];
 
