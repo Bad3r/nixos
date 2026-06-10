@@ -214,14 +214,26 @@ let
     list: !(builtins.elem list disabledLibrewolfLists)
   ) librewolfUblockOriginListData.lists;
 
-  # Dark Reader UserSettings, imported from the dotfiles extension export
-  # (Bad3r/dotfiles@c2ae2c0, dark-Reader-Settings/Dark-Reader-Settings.json).
-  # The JSON keeps only keys present in Dark Reader's DEFAULT_SETTINGS storage
-  # shape; export-only keys (displayedNews, readNews, notifyOfNews,
-  # automationBehaviour, installation) are dropped, and syncSettings is
-  # flipped to false because Dark Reader prefers storage.sync over this
-  # declarative storage.local payload whenever syncSettings is true.
-  darkreaderSettings = lib.importJSON ./_gecko-darkreader-settings.json;
+  darkreaderBaseSettings = lib.importJSON ./_gecko-darkreader-settings.json;
+  darkreaderStylixThemeColors = with config.lib.stylix.colors.withHashtag; {
+    darkSchemeBackgroundColor = base00;
+    darkSchemeTextColor = base05;
+    lightSchemeBackgroundColor = base06;
+    lightSchemeTextColor = base00;
+    scrollbarColor = base00;
+    selectionColor = base0D;
+  };
+  withDarkreaderStylixColors = theme: theme // darkreaderStylixThemeColors;
+  darkreaderSettings = darkreaderBaseSettings // {
+    theme = withDarkreaderStylixColors darkreaderBaseSettings.theme;
+    customThemes = builtins.map (
+      customTheme:
+      customTheme
+      // {
+        theme = withDarkreaderStylixColors customTheme.theme;
+      }
+    ) darkreaderBaseSettings.customThemes;
+  };
 
   userscripts = builtins.fromJSON (builtins.readFile ./_gecko-userscripts.json);
   nixpkgsReviewGhaScript = userscripts."nixpkgs-review-gha";
