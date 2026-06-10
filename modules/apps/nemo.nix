@@ -45,7 +45,7 @@ let
             extensions = nemoExtensionPackages;
           }
         else
-          throw "programs.nemo.extended.package requires override support when preview or seahorse integration is enabled";
+          cfg.package;
 
       seahorseGSettingsPackages = [
         pkgs.nemo
@@ -86,6 +86,13 @@ let
       };
 
       config = lib.mkIf cfg.enable {
+        assertions = [
+          {
+            assertion = nemoExtensionPackages == [ ] || cfg.package ? override;
+            message = "programs.nemo.extended.package requires override support when preview or seahorse integration is enabled";
+          }
+        ];
+
         environment.systemPackages = [
           configuredPackage
           pkgs.ffmpegthumbnailer
