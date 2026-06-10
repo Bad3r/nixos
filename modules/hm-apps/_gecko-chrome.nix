@@ -1,9 +1,9 @@
 /*
   Internal: shared Gecko-browser chrome stylesheet
-  Description: userChrome.css payload applied to every Firefox/LibreWolf
+  Description: userChrome.css payload applied to every gecko browser
   profile via _gecko-mk-profile.nix. Loading requires the
   `toolkit.legacyUserProfileCustomizations.stylesheets` pref, which
-  _gecko-prefs.nix already enables.
+  _gecko-prefs.nix enables.
 
   Notes:
     * The dotfiles file opens with an invalid "# Font Settings" line. The
