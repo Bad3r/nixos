@@ -18,8 +18,9 @@ let
       ];
 
       download-attempts = lib.mkDefault 5;
+      download-buffer-size = 1073741824; # 1GB
       connect-timeout = lib.mkDefault 30;
-      max-substitution-jobs = lib.mkDefault 32;
+      max-substitution-jobs = 16;
       http-connections = lib.mkForce 0; # unlimited
       http2 = lib.mkDefault true;
       narinfo-cache-negative-ttl = lib.mkDefault 60;
