@@ -8,8 +8,9 @@
   Provenance: gecko-chrome/userChrome.css is imported from
   `.mozilla/firefox/Bad3r/chrome/userChrome.css` at
   Bad3r/dotfiles@c2ae2c0ba55c7f804cd0ec0d3602a951c509f620, with whitespace
-  normalized by the repo formatter and the inert font block converted to an
-  explicit CSS comment.
+  normalized by the repo formatter, the inert font block converted to an
+  explicit CSS comment, and hardcoded menu colors replaced with Firefox theme
+  variables so Stylix remains the color owner.
 
   Notes:
     * The dotfiles file opens with an invalid "# Font Settings" line. The

@@ -175,14 +175,19 @@ toolbar#nav-bar::after {
 :root[sessionrestored]:not([inFullscreen]) > body > #browser{ margin-top: var(--uc-navbar-transform); }
 
 */
-/* Makes context menus dark. Also affects some portions of menu popups */
-/* Uses dark theme colors but does not respect dark theme variables (they wouldn't work on sidebar context menu) */
+/* Makes context menus follow the browser theme. Also affects some portions of menu popups. */
 
 :root {
-	--uc-menu-bkgnd: #2e3440;
-	--uc-menu-color: #4c566a;
-	--uc-menu-dimmed: #a5abb6;
-	--uc-menu-disabled: #3b4252;
+	--uc-menu-bkgnd: var(
+		--panel-background-color,
+		var(--toolbar-background-color, Canvas)
+	);
+	--uc-menu-color: var(
+		--panel-text-color,
+		var(--toolbar-text-color, CanvasText)
+	);
+	--uc-menu-dimmed: var(--button-background-color-hover, SelectedItem);
+	--uc-menu-disabled: GrayText;
 }
 panel richlistbox,
 panel tree,
@@ -229,10 +234,10 @@ panel textbox input {
 panel input {
 	border-width: 1px;
 	border-style: solid;
-	background-color: #2e3440 !important;
+	background-color: var(--uc-menu-bkgnd) !important;
 }
 panel #searchbar {
-	background-color: #2e3440 !important;
+	background-color: var(--uc-menu-bkgnd) !important;
 	padding: 0 !important;
 }
 panel #searchbar input {
@@ -241,7 +246,7 @@ panel #searchbar input {
 
 panel menulist:hover,
 panel menulist[open] {
-	border-color: Highlight !important;
+	border-color: SelectedItem !important;
 }
 
 #editBMPanel_folderMenuList > menupopup > menuitem {
@@ -262,8 +267,4 @@ menuitem[_moz-menuactive] {
 menu[disabled="true"],
 menuitem[disabled="true"] {
 	color: var(--uc-menu-disabled) !important;
-}
-
-menu:not(.subviewbutton) > .menu-right {
-	filter: invert(1);
 }
