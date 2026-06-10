@@ -111,6 +111,8 @@ let
 
         environment.systemPackages = [
           configuredPackage
+        ]
+        ++ lib.optionals cfg.thumbnailers.enable [
           pkgs.ffmpegthumbnailer
           pkgs.gst-thumbnailers
           pkgs.xapp-thumbnailers
