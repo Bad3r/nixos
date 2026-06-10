@@ -69,18 +69,20 @@ One file can populate both aggregators. Keep the scopes independent.
 
 ```nix
 # modules/base/nix-settings.nix
-{ lib, config, ... }:
+{ lib, ... }:
+let
+  settings = {
+    experimental-features = [ "nix-command" "flakes" "pipe-operators" "recursive-nix" ];
+    auto-optimise-store = lib.mkDefault true;
+  };
+in
 {
   config = {
-    nix.settings.experimental-features = [ "nix-command" "flakes" "pipe-operators" "recursive-nix" ];
-    nix.settings.auto-optimise-store = lib.mkDefault true;
-
-    flake.nixosModules.base.nix = {
-      inherit (config.nix) settings;
-    };
+    nix.settings = settings;
+    flake.nixosModules.base.nix.settings = settings;
 
     flake.homeManagerModules.base = _: {
-      nix.settings = config.nix.settings;
+      nix.settings = settings;
     };
   };
 }
