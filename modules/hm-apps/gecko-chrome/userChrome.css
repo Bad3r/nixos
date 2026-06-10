@@ -89,7 +89,6 @@ toolbar#nav-bar::after {
 }
 
 /* Autohide Sidebar */
-/* Sidebar min and max width removal */
 #sidebar {
 	max-width: none !important;
 	min-width: 0px !important;
@@ -137,45 +136,7 @@ toolbar#nav-bar::after {
 	z-index: 1;
 }
 
-/* This style hides the main toolbar and shows it when the cursor is over the
-   tabs toolbar as well as whenever the focus is inside nav-bar, such as when
-   __urlbar is focused. */
-/*
-:root{ --uc-navbar-transform: -40px }
-:root[uidensity="compact"]{ --uc-navbar-transform: -34px }
-
-:root[sessionrestored] :where(#nav-bar,#PersonalToolbar,#tab-notification-deck){
-  transform: translateY(var(--uc-navbar-transform))
-}
-
-:root[customizing],
-:root[chromehidden*="toolbar"] :where(#nav-bar,#PersonalToolbar,#tab-notification-deck){
-  transform: none !important;
-  opacity: 1 !important;
-}
-
-#nav-bar:not([customizing]){
-  opacity: 0;
-  transition:  transform 400ms ease 1.8s, opacity 400ms ease 1.8s !important;
-  position: relative;
-  z-index: 2;
-}
-#TabsToolbar{ position: relative; z-index: 3 }
-#navigator-toolbox:focus-within > .browser-toolbar,
-#titlebar:hover ~ .browser-toolbar,
-#nav-bar:hover,
-#nav-bar:hover + #PersonalToolbar{
-  transform: translateY(0);
-  opacity: 1;
-  transition-duration: 500ms, 200ms !important;
-  transition-delay: 0s !important;
-}
-
-#PersonalToolbar{ transition: transform 400ms ease 1.8s !important; position: relative; z-index: 1 }
-:root[sessionrestored]:not([inFullscreen]) > body > #browser{ margin-top: var(--uc-navbar-transform); }
-
-*/
-/* Makes context menus follow the browser theme. Also affects some portions of menu popups. */
+/* Stylix feeds these browser theme variables through Firefox Color. */
 
 :root {
 	--uc-menu-bkgnd: var(
