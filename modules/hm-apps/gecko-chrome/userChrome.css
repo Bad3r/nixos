@@ -64,13 +64,13 @@ toolbar#nav-bar::after {
 
 #main-menubar {
 	-moz-box-flex: 1;
-	background-color: var(--toolbar-bgcolor, --toolbar-non-lwt-bgcolor);
+	background-color: var(--toolbar-bgcolor, var(--toolbar-non-lwt-bgcolor));
 	background-clip: padding-box;
 	border-image:
 		linear-gradient(
 			to left,
 			transparent,
-			var(--toolbar-bgcolor, --toolbar-non-lwt-bgcolor) 30px
+			var(--toolbar-bgcolor, var(--toolbar-non-lwt-bgcolor)) 30px
 		)
 		20 / 30px;
 }
