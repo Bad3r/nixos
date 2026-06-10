@@ -35,6 +35,7 @@ let
       pkgs
       ;
   };
+  geckoChrome = import ./_gecko-chrome.nix { };
   geckoPolicies = import ./_gecko-policies.nix { };
   geckoShortcuts = import ./_gecko-mk-shortcuts.nix { inherit lib; };
 
@@ -61,7 +62,9 @@ let
         // geckoExtensions.toolbarSettings
         // (geckoBookmarks.settings bookmarksFile)
         // extraSettings;
-      inherit (geckoExtensions) userChrome;
+      # Imported dotfiles chrome first; the extension fragment appends so its
+      # widget-specific icon override wins the cascade.
+      userChrome = geckoChrome.userChrome + geckoExtensions.userChrome;
       extensions = {
         force = true;
         inherit packages;

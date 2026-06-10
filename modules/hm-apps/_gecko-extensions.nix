@@ -214,6 +214,15 @@ let
     list: !(builtins.elem list disabledLibrewolfLists)
   ) librewolfUblockOriginListData.lists;
 
+  # Dark Reader UserSettings, imported from the dotfiles extension export
+  # (Bad3r/dotfiles@c2ae2c0, dark-Reader-Settings/Dark-Reader-Settings.json).
+  # The JSON keeps only keys present in Dark Reader's DEFAULT_SETTINGS storage
+  # shape; export-only keys (displayedNews, readNews, notifyOfNews,
+  # automationBehaviour, installation) are dropped, and syncSettings is
+  # flipped to false because Dark Reader prefers storage.sync over this
+  # declarative storage.local payload whenever syncSettings is true.
+  darkreaderSettings = builtins.fromJSON (builtins.readFile ./_gecko-darkreader-settings.json);
+
   userscripts = builtins.fromJSON (builtins.readFile ./_gecko-userscripts.json);
   nixpkgsReviewGhaScript = userscripts."nixpkgs-review-gha";
   nixpkgsReviewGhaScriptId = toString nixpkgsReviewGhaScript.id;
@@ -403,88 +412,98 @@ in
 
   inherit userChrome;
 
-  # uBO
-  extensionStorage."${ublockOrigin}".settings = {
-    advancedUserEnabled = true;
-    cloudStorageEnabled = false;
+  extensionStorage = {
+    # uBO
+    "${ublockOrigin}".settings = {
+      advancedUserEnabled = true;
+      cloudStorageEnabled = false;
 
-    hiddenSettings = { };
-    importedLists = [ ];
+      hiddenSettings = { };
+      importedLists = [ ];
 
-    showIconBadge = false;
-    uiAccentCustom = stylixEnabled;
-    uiAccentCustom0 = ublockOriginAccentColor;
-    uiTheme = ublockOriginUiTheme;
+      showIconBadge = false;
+      uiAccentCustom = stylixEnabled;
+      uiAccentCustom0 = ublockOriginAccentColor;
+      uiTheme = ublockOriginUiTheme;
 
-    hostnameSwitchesString = builtins.concatStringsSep "\n" [
-      "no-csp-reports: * true"
-      "no-large-media: behind-the-scene false"
-    ];
+      hostnameSwitchesString = builtins.concatStringsSep "\n" [
+        "no-csp-reports: * true"
+        "no-large-media: behind-the-scene false"
+      ];
 
-    dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
+      dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
 
-    netWhitelist = [
-      "chrome-extension-scheme"
-      "moz-extension-scheme"
-    ];
+      netWhitelist = [
+        "chrome-extension-scheme"
+        "moz-extension-scheme"
+      ];
 
-    urlFilteringString = "";
+      urlFilteringString = "";
 
-    userFilters = ''
-      ! https://octobox.io
-      octobox.io##.btn-outline-light.btn-sm.btn
+      userFilters = ''
+        ! https://octobox.io
+        octobox.io##.btn-outline-light.btn-sm.btn
 
-      ! https://web.webex.com
-      web.webex.com##.cookie-banner-body
+        ! https://web.webex.com
+        web.webex.com##.cookie-banner-body
 
-      ! https://www.google.com/sorry
-      @@||www.google.com/sorry^$document
-    '';
+        ! https://www.google.com/sorry
+        @@||www.google.com/sorry^$document
+      '';
 
-    selectedFilterLists = lib.unique (
-      librewolfUblockOriginLists
-      ++ [
-        # Keep "My filters" enabled; uBO hides the element picker without it.
-        "user-filters"
+      selectedFilterLists = lib.unique (
+        librewolfUblockOriginLists
+        ++ [
+          # Keep "My filters" enabled; uBO hides the element picker without it.
+          "user-filters"
 
-        # uBO Lists
-        "ublock-filters"
-        "ublock-privacy"
-        "ublock-quick-fixes"
-        "ublock-unbreak"
+          # uBO Lists
+          "ublock-filters"
+          "ublock-privacy"
+          "ublock-quick-fixes"
+          "ublock-unbreak"
 
-        # Ads Lists
-        "easylist"
-        "adguard-generic"
+          # Ads Lists
+          "easylist"
+          "adguard-generic"
 
-        # Privacy Lists
-        "easyprivacy"
-        "LegitimateURLShortener"
-        "adguard-spyware-url" # AdGuard/uBO - URL Tracking Protection
-        "block-lan"
+          # Privacy Lists
+          "easyprivacy"
+          "LegitimateURLShortener"
+          "adguard-spyware-url" # AdGuard/uBO - URL Tracking Protection
+          "block-lan"
 
-        # Multipurpose
-        "plowe-0"
+          # Multipurpose
+          "plowe-0"
 
-        # Cookie notices
-        "adguard-cookies"
-        "ublock-cookies-adguard" # Fanboy - Anti-Facebook
+          # Cookie notices
+          "adguard-cookies"
+          "ublock-cookies-adguard" # Fanboy - Anti-Facebook
 
-        # Annoyances
-        "adguard-other-annoyances"
-        "adguard-popup-overlays"
-        "adguard-widgets"
-        "ublock-annoyances"
+          # Annoyances
+          "adguard-other-annoyances"
+          "adguard-popup-overlays"
+          "adguard-widgets"
+          "ublock-annoyances"
 
-        # Additional regional lists
-        "ara-0"
-      ]
-    );
-  };
+          # Additional regional lists
+          "ara-0"
+        ]
+      );
+    };
 
-  # ViolentMonkey
-  extensionStorage."${violentmonkey}".settings = {
-    "code:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaCode;
-    "scr:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaRecord;
+    # ViolentMonkey
+    "${violentmonkey}".settings = {
+      "code:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaCode;
+      "scr:${nixpkgsReviewGhaScriptId}" = nixpkgsReviewGhaRecord;
+    };
+
+    # Dark Reader
+    "${darkreader}".settings = darkreaderSettings;
+
+    # Tabliss is intentionally unmanaged: it is not in the extension policy set,
+    # and the archived dotfiles export (tabliss/tabliss.json) is dropped rather
+    # than ported. The managed new-tab surface stays Firefox's activity-stream,
+    # configured in _gecko-prefs.nix.
   };
 }
