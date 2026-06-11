@@ -195,7 +195,7 @@ let
       `/data/git/python-cpython-docs/current` before web lookup when Python
       behavior or documentation is relevant.
 
-      Use `uv` and `uvx` for Python work. Do not use `pip`, `venv`, or direct
+      Use `uv` and `uvx` for Python work. Do not directly use `pip`, `venv`, or
       `python` invocations. For inline or one-off dependencies, use
       `uv run --with <pkg> <script>`.
     '';
