@@ -58,6 +58,8 @@ let
       ) configuredExtensions;
 
       canWrapPackage = cfg.package ? extensiondir && cfg.package ? version;
+      canExtendWrappedPackage =
+        cfg.package ? override && lib.hasPrefix "nemo-with-extensions-" (cfg.package.name or "");
 
       configuredPackage =
         if nemoExtensionPackages == [ ] then
@@ -68,6 +70,11 @@ let
             extensions = nemoExtensionPackages;
             useDefaultExtensions = false;
           }
+        else if canExtendWrappedPackage then
+          cfg.package.override (prev: {
+            extensions = lib.unique ((prev.extensions or [ ]) ++ nemoExtensionPackages);
+            useDefaultExtensions = false;
+          })
         else
           cfg.package;
 
@@ -110,8 +117,8 @@ let
       config = lib.mkIf cfg.enable {
         assertions = [
           {
-            assertion = nemoExtensionPackages == [ ] || canWrapPackage;
-            message = "programs.nemo.extended.package requires version and extensiondir attributes when Nemo extensions are enabled";
+            assertion = nemoExtensionPackages == [ ] || canWrapPackage || canExtendWrappedPackage;
+            message = "programs.nemo.extended.package requires version and extensiondir attributes or an overridable nemo-with-extensions package when Nemo extensions are enabled";
           }
         ];
 
