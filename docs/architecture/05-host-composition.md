@@ -81,11 +81,16 @@ Every host follows the same shape: each `modules/<host>/*.nix` file extends `con
 | `modules/tpnix/power.nix`                | tpnix power management (`powerprofilesctl` backend)                      |
 | `modules/tpnix/services.nix`             | Service-level host behavior                                              |
 
-Cross-host baselines (default-apps, mirrors, nix-ld, sudo, zsh, ssh, nix-settings,
+Cross-host baselines (default-apps, mirrors, nix-ld, sudo, zsh, ssh,
 nix-substituters, packages, home-manager-apps, virtualization, ...) live in
 `modules/hosts/common/` and contribute to `flake.nixosModules.hosts-common`.
 The host constructor imports that aggregate before each host-specific module
 when `flake.lib.nixos.hosts.<host>.shareCommon = true`.
+
+General Nix daemon and evaluator settings live in `modules/base/nix-settings.nix`.
+The common `nix-substituters` module owns cache topology and download retry
+settings only. Per-host `nix-settings.nix` files stay limited to hardware-tuned
+values such as `max-jobs` and `min-free`.
 
 ### Host-conditional helpers
 

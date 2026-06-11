@@ -41,6 +41,9 @@ Canonical documentation lives under `docs/architecture/`.
 
 ## Nix Configuration
 
+`flake.nix#nixConfig` carries only pre-evaluation settings needed before the
+module graph is loaded:
+
 - `abort-on-warn`
   - Value: `false`
   - Purpose: Don't abort on warnings
@@ -50,11 +53,14 @@ Canonical documentation lives under `docs/architecture/`.
 - `allow-import-from-derivation`
   - Value: `true`
   - Purpose: Required by IFD consumer `nix-doom-emacs-unstraightened`
-- `experimental-features`
-  - Value: `nix-command flakes`
-  - Purpose: Enable flakes and new Nix CLI
 
-These settings are mirrored in `build.sh` via `NIX_CONFIGURATION`.
+Durable daemon and evaluator settings live in `modules/base/nix-settings.nix`.
+Cache topology and download retry settings live in
+`modules/hosts/common/nix-substituters.nix`. Inspect those owning files for
+current values instead of duplicating the full `nix.settings` set here.
+
+`build.sh` exports `NIX_CONFIG` only as a bootstrap overlay for the Nix commands
+it launches before the target system configuration is active.
 
 ## Architecture and Module System
 

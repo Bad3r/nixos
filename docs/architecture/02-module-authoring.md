@@ -69,23 +69,29 @@ One file can populate both aggregators. Keep the scopes independent.
 
 ```nix
 # modules/base/nix-settings.nix
-{ config, ... }:
+{ lib, ... }:
+let
+  settings = {
+    experimental-features = [ "nix-command" "flakes" "pipe-operators" "recursive-nix" ];
+    auto-optimise-store = lib.mkDefault true;
+  };
+in
 {
   config = {
-    nix.settings.experimental-features = [ "nix-command" "flakes" "pipe-operators" "recursive-nix" ];
-
-    flake.nixosModules.base.nix = {
-      inherit (config.nix) settings;
-    };
+    nix.settings = settings;
+    flake.nixosModules.base.nix.settings = settings;
 
     flake.homeManagerModules.base = _: {
-      nix.settings = config.nix.settings;
+      nix.settings = settings;
     };
   };
 }
 ```
 
 Use `lib.mkIf`, `lib.mkMerge`, and other option helpers to extend shared modules without clobbering defaults.
+
+Keep general Nix daemon and evaluator settings in `modules/base/nix-settings.nix`.
+Cache topology and download retry settings belong in `modules/hosts/common/nix-substituters.nix`.
 
 ### Pattern 5: Host Module
 
