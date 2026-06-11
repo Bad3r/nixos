@@ -111,7 +111,7 @@ let
       curlie.extended.enable = lib.mkOverride 1100 true;
       cutter.extended.enable = lib.mkOverride 1100 true;
       "czkawka-cli".extended.enable = lib.mkOverride 1100 true;
-      "czkawka-gui".extended.enable = lib.mkOverride 1100 true;
+      "czkawka-gui".extended.enable = lib.mkOverride 1100 false;
       ddrescue.extended.enable = lib.mkOverride 1100 true;
       deadnix.extended.enable = lib.mkOverride 1100 true;
       delve.extended.enable = lib.mkOverride 1100 false;

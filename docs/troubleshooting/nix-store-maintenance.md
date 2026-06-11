@@ -10,7 +10,7 @@ Configured automation and store behavior:
   - `programs.nh.clean.enable = true`
   - `programs.nh.clean.dates = "weekly"`
   - `programs.nh.clean.extraArgs = "--keep-since 14d --keep 3"`
-- `modules/hosts/common/nix-settings.nix`
+- `modules/base/nix-settings.nix`
   - `nix.settings.auto-optimise-store = true`
 
 Because `auto-optimise-store` is enabled globally, this workflow does not include a separate `nix store optimise` step.

@@ -30,6 +30,7 @@ BUILD_FLAGS=()
 NH_CMD=()
 LOG_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/nixos-build"
 LOG_FILE=""
+BOOTSTRAP_EXPERIMENTAL_FEATURES="nix-command flakes pipe-operators recursive-nix"
 # Colors for output (readonly constants)
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
@@ -251,13 +252,12 @@ BOOTSTRAP_TRUSTED_KEYS=(
 configure_build_flags() {
   local build_cores="0"    # "$(($(nproc --all) - 1))" # Nix default = 0 (all cores per build job)
   local build_max_jobs="2" # Nix default = 1
-  local nix_experimental_features="nix-command flakes pipe-operators"
 
   BUILD_FLAGS=(
     "--cores" "${build_cores}"
     "--max-jobs" "${build_max_jobs}"
     "--accept-flake-config"
-    "--extra-experimental-features" "${nix_experimental_features}"
+    "--extra-experimental-features" "${BOOTSTRAP_EXPERIMENTAL_FEATURES}"
   )
 
   # Offline mode
@@ -293,7 +293,9 @@ configure_nix_config() {
   }
 
   NIX_CONFIG=""
-  append_nix_config_line "experimental-features = nix-command flakes pipe-operators"
+  # Bootstrap-only settings for the Nix commands launched by this script.
+  # Durable daemon settings live in modules/base/nix-settings.nix.
+  append_nix_config_line "experimental-features = ${BOOTSTRAP_EXPERIMENTAL_FEATURES}"
   append_nix_config_line "accept-flake-config = true"
   # IFD required by `nix-doom-emacs-unstraightened` (see flake.nix#nixConfig).
   append_nix_config_line "allow-import-from-derivation = true"

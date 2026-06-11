@@ -21,8 +21,6 @@ let
     "cf-terraforming" = false;
     cloudflared = false;
     "coderabbit-cli" = false;
-    "czkawka-cli" = false;
-    "czkawka-gui" = false;
     discord = false;
     dropbox = false;
     dwarfs = false; # Default dependency of steam extraTools
