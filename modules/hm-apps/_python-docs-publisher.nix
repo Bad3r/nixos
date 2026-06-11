@@ -29,7 +29,7 @@ pkgs.writeShellApplication {
     log() { printf '%s python-docs: %s\n' "$(date -Is)" "$*" >&2; }
 
     has_docs_source() {
-      [ -f "$1/conf.py" ] && [ -f "$1/index.rst" ] && [ -d "$1/library" ]
+      [ -f "$1/conf.py" ] && [ -f "$1/contents.rst" ] && [ -d "$1/library" ]
     }
 
     cleanup_tmp() {
@@ -118,7 +118,7 @@ pkgs.writeShellApplication {
       tmp_revision=$(mktemp -d "$output_root/revisions/.tmp-$branch-$sha.XXXXXX")
       git -C "$repo_path" archive "$sha" Doc | tar -x -C "$tmp_revision"
       if ! has_docs_source "$tmp_revision/Doc"; then
-        log "expected CPython $branch Doc/ to contain conf.py, index.rst, and library/"
+        log "expected CPython $branch Doc/ to contain conf.py, contents.rst, and library/"
         exit 1
       fi
       mv -T "$tmp_revision" "$revision_root"
