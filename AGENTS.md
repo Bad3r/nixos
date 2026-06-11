@@ -127,6 +127,11 @@ Prefer GitHub `owner/repo` shorthand for GitHub repositories, even when the
 input is a `https://github.com/owner/repo/` URL. For example,
 `tridactyl/tridactyl` maps to `/data/git/tridactyl-tridactyl`.
 
+The full path inventory lives in `docs/reference/local-mirrors.md`. When a
+common mirror is added or removed, keep `docs/reference/local-mirrors.md`,
+`docs/architecture/06-reference.md`, and `modules/agents/system-prompt.nix` in
+sync with `modules/hosts/common/mirrors.nix`.
+
 ## Execution Playbooks
 
 ### Branch Workflow

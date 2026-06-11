@@ -259,71 +259,44 @@ let
       ## Local Mirrors
 
       Use local source and documentation mirrors before web lookup when a mirror is
-      listed for the subject:
+      listed for the subject. The shared mirror list is managed in
+      `modules/hosts/common/mirrors.nix`, and operator path documentation lives in
+      `docs/reference/local-mirrors.md`.
 
-      - Stylix: `/data/git/nix-community-stylix`
-        Inspect source or apply local patches.
-      - Home Manager: `/data/git/nix-community-home-manager`
-        Review module behavior or backport fixes.
-      - Firefox source/docs: `/data/git/mozilla-firefox-firefox`
-        Inspect Firefox source behavior, Gecko internals, or preferences.
-      - Firefox built docs: `/data/git/mozilla-firefox-firefox-docs/current`
-        Browse generated Firefox source docs built by
-        `git-mirror-firefox-docs.service`.
-      - MDN Web Docs: `/data/git/mdn-content`
-        Reference MDN Web and API documentation offline.
-      - CPython source/docs: `/data/git/python-cpython`
-        Inspect Python implementation behavior and documentation sources.
-      - Python stable docs source: `/data/git/python-cpython-docs/current`
-        Browse the current stable Python documentation source tree published by
-        `git-mirror-python-docs.service`.
-      - Firefox policies: `/data/git/mozilla-policy-templates`
-        Inspect supported Firefox managed-policy templates and schema.
-      - Enterprise admin reference:
-        `/data/git/mozilla-enterprise-admin-reference`
-        Check Firefox enterprise policy behavior and syntax documentation.
-      - LibreWolf settings: `/data/git/codeberg-librewolf-settings`
-        Inspect upstream LibreWolf default settings and uBO assets.
-      - i3 Docs: `/data/git/i3-i3.github.io`
-        Reference i3 documentation offline.
-      - Duplicati Docs: `/data/git/duplicati-documentation`
-        Look up `duplicati-cli` commands, options, or backup format.
-      - Nix source: `/data/git/NixOS-nix`
-        Inspect Nix CLI, daemon, evaluator, or store behavior.
-      - Nix RFCs: `/data/git/NixOS-rfcs`
-        Review accepted and proposed NixOS RFCs offline.
-      - nixpkgs: `/data/git/NixOS-nixpkgs`
-        Inspect or patch upstream expressions.
-      - nixos-hardware: `/data/git/NixOS-nixos-hardware`
-        Pull hardware profiles and troubleshoot host hardware options.
-      - Lix source: `/data/git/git.lix.systems-lix-project-lix`
-        Inspect Lix implementation behavior or release history.
-      - Lix installer: `/data/git/git.lix.systems-lix-project-lix-installer`
-        Review Lix installer behavior and packaging.
-      - Lix NixOS module: `/data/git/git.lix.systems-lix-project-nixos-module`
-        Inspect the Lix NixOS module integration.
-      - Determinate Nix installer: `/data/git/DeterminateSystems-nix-installer`
-        Review Determinate installer behavior and Nix setup logic.
-      - nixvim: `/data/git/nix-community-nixvim`
-        Examine NixVim modules and options.
-      - noogle: `/data/git/nix-community-noogle`
-        Search Nix function signatures and documentation offline.
-      - treefmt-nix: `/data/git/numtide-treefmt-nix`
-        Adjust formatter behavior or pinning.
-      - git-hooks.nix: `/data/git/cachix-git-hooks.nix`
-        Update hook definitions or debug pre-commit failures.
-      - sops-nix: `/data/git/Mic92-sops-nix`
-        Manage encrypted secret integrations.
-      - import-tree: `/data/git/vic-import-tree`
-        Review or extend auto-loading behavior.
-      - files module: `/data/git/mightyiam-files`
-        Update generated NixOS artifact sources such as `.gitignore`.
-      - openai/codex: `/data/git/openai-codex`
-        Browse Codex CLI source and internals.
-      - tridactyl: `/data/git/tridactyl-tridactyl`
-        Reference Tridactyl browser extension source and configuration.
-      - mpv: `/data/git/mpv-player-mpv`
-        Inspect mpv player source, option definitions, and scripting API.
+      - Nix: `/data/git/NixOS-nix`, `/data/git/NixOS-nixos-hardware`,
+        `/data/git/NixOS-nixpkgs`, `/data/git/NixOS-rfcs`,
+        `/data/git/DeterminateSystems-nix-installer`
+      - Lix: `/data/git/git.lix.systems-lix-project-lix`,
+        `/data/git/git.lix.systems-lix-project-lix-installer`,
+        `/data/git/git.lix.systems-lix-project-nixos-module`
+      - Nix community: `/data/git/nix-community-home-manager`,
+        `/data/git/nix-community-nh`, `/data/git/nix-community-nixd`,
+        `/data/git/nix-community-nixvim`, `/data/git/nix-community-noogle`,
+        `/data/git/nix-community-stylix`
+      - Flake inputs and tooling: `/data/git/numtide-llm-agents.nix`,
+        `/data/git/Mic92-sops-nix`, `/data/git/cachix-devenv`,
+        `/data/git/cachix-git-hooks.nix`, `/data/git/cachix-docs.cachix.org`,
+        `/data/git/evilmartians-lefthook`, `/data/git/hercules-ci-flake-parts`,
+        `/data/git/hercules-ci-flake.parts-website`, `/data/git/mightyiam-files`,
+        `/data/git/numtide-treefmt`, `/data/git/numtide-treefmt-nix`,
+        `/data/git/vic-import-tree`
+      - Documentation: `/data/git/duplicati-documentation`,
+        `/data/git/github-docs`, `/data/git/i3-i3.github.io`,
+        `/data/git/mozilla-firefox-firefox`,
+        `/data/git/mozilla-firefox-firefox-docs/current`,
+        `/data/git/mdn-content`, `/data/git/mozilla-policy-templates`,
+        `/data/git/mozilla-enterprise-admin-reference`, `/data/git/python-cpython`,
+        `/data/git/python-cpython-docs/current`
+      - Applications and services: `/data/git/codeberg-librewolf-settings`,
+        `/data/git/better-auth-better-auth`, `/data/git/cloudflare-workers-sdk`,
+        `/data/git/duplicati-duplicati`, `/data/git/logseq-logseq`,
+        `/data/git/mpv-player-mpv`, `/data/git/openai-codex`,
+        `/data/git/rclone-rclone`, `/data/git/restic-restic`,
+        `/data/git/s0md3v-wappalyzer-next`, `/data/git/tridactyl-tridactyl`
+      - ZAP: `/data/git/zaproxy-zaproxy`,
+        `/data/git/zaproxy-zap-extensions`, `/data/git/zaproxy-zap-api-python`,
+        `/data/git/zaproxy-community-scripts`, `/data/git/fuzzdb-project-fuzzdb`,
+        `/data/git/dtkmn-mcp-zap-server`
     '';
   };
 
