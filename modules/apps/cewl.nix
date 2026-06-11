@@ -32,6 +32,7 @@ let
     }:
     let
       cfg = config.programs.cewl.extended;
+      cewlGemdirFor = pkgs': pkgs'.path + "/pkgs/by-name/ce/cewl";
 
       gemfile = builtins.toFile "cewl-Gemfile" ''
         source 'https://rubygems.org'
@@ -254,20 +255,23 @@ let
       };
 
       config = {
+        assertions = [
+          {
+            assertion = builtins.pathExists (cewlGemdirFor pkgs);
+            message = "cewl overlay: expected nixpkgs CeWL package directory at ${toString (cewlGemdirFor pkgs)}";
+          }
+        ];
+
         # Overlay is unconditional so `pkgs.cewl` resolves to the fixed runtime
         # for package-option consumers and ad-hoc host package access.
         nixpkgs.overlays = [
           (
             _final: prev:
             let
-              cewlGemdir = prev.path + "/pkgs/by-name/ce/cewl";
+              cewlGemdir = cewlGemdirFor prev;
               rubyEnv = prev.bundlerEnv {
                 name = "cewl-ruby-env";
-                gemdir =
-                  if builtins.pathExists cewlGemdir then
-                    cewlGemdir
-                  else
-                    throw "cewl overlay: expected nixpkgs CeWL package directory at ${toString cewlGemdir}";
+                gemdir = cewlGemdir;
                 inherit gemfile lockfile gemset;
               };
             in

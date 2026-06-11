@@ -45,7 +45,7 @@ let
         else if cfg.package ? override then
           cfg.package.override { pythonModuleDir = cfg.python.moduleDirectory; }
         else
-          throw "programs.burpsuitepro.extended.python.moduleDirectory requires a package with override support";
+          cfg.package;
     in
     {
       options.programs.burpsuitepro.extended = {
@@ -70,6 +70,13 @@ let
       };
 
       config = {
+        assertions = lib.optionals cfg.enable [
+          {
+            assertion = cfg.python.moduleDirectory == null || cfg.package ? override;
+            message = "programs.burpsuitepro.extended.python.moduleDirectory requires a package with override support";
+          }
+        ];
+
         # Overlay is unconditional so `pkgs.burpsuitepro` resolves even when the
         # module is not enabled — sibling modules (burpsuite-loader, devshell
         # consumers, local overrides) rely on that attribute being present.

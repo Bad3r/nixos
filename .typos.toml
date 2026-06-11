@@ -10,9 +10,10 @@ extend-ignore-re = [
 [default.extend-words]
 # General terms
 example = "example"
-UE = "UE"           # minified JS variable name in docs
-fpt = "fpt"         # Intel Flash Programming Tool
-PN = "PN"           # Part Number
+UE = "UE"                     # minified JS variable name in docs
+fpt = "fpt"                   # Intel Flash Programming Tool
+PN = "PN"                     # Part Number
+thumbnailers = "thumbnailers" # XDG thumbnail generator terminology
 
 # App/tool names
 iterm2_with_bell = "iterm2_with_bell"

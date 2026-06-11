@@ -34,7 +34,7 @@ let
     }:
     let
       cfg = config.programs.wireshark.extended;
-      owner = metaOwner.username or (throw "Wireshark module: expected metaOwner.username to be defined");
+      owner = metaOwner.username or null;
     in
     {
       options.programs.wireshark.extended = {
@@ -47,19 +47,33 @@ let
         package = lib.mkPackageOption pkgs "wireshark" { };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
-        users.groups.wireshark = { };
-        users.users.${owner}.extraGroups = lib.mkAfter [ "wireshark" ];
+      config = lib.mkIf cfg.enable (
+        lib.mkMerge [
+          {
+            assertions = [
+              {
+                assertion = owner != null;
+                message = "Wireshark module: expected metaOwner.username to be defined";
+              }
+            ];
 
-        security.wrappers.dumpcap = {
-          source = "${cfg.package}/bin/dumpcap";
-          capabilities = "cap_net_raw,cap_net_admin+ep";
-          owner = "root";
-          group = "wheel";
-          permissions = "u+rx,g+x";
-        };
-      };
+            environment.systemPackages = [ cfg.package ];
+            users.groups.wireshark = { };
+
+            security.wrappers.dumpcap = {
+              source = "${cfg.package}/bin/dumpcap";
+              capabilities = "cap_net_raw,cap_net_admin+ep";
+              owner = "root";
+              group = "wheel";
+              permissions = "u+rx,g+x";
+            };
+          }
+
+          (lib.mkIf (owner != null) {
+            users.users.${owner}.extraGroups = lib.mkAfter [ "wireshark" ];
+          })
+        ]
+      );
     };
 in
 {
