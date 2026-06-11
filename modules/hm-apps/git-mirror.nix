@@ -14,7 +14,7 @@
     }:
     let
       cfg = config.programs.gitMirror;
-      inherit (cfg) firefoxDocs;
+      inherit (cfg) firefoxDocs pythonDocs;
       allowedUrlDirChars = lib.stringToCharacters "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-";
       stripAfter = separator: value: builtins.head (lib.splitString separator value);
       sanitizeUrlDirName =
@@ -56,7 +56,11 @@
           urlToDirName spec
         else
           builtins.replaceStrings [ "/" ] [ "-" ] spec;
+      onSuccessUnits =
+        lib.optionals firefoxDocs.enable [ "git-mirror-firefox-docs.service" ]
+        ++ lib.optionals pythonDocs.enable [ "git-mirror-python-docs.service" ];
       firefoxDocsLockPath = "${firefoxDocs.repoPath}.git-mirror.lock";
+      pythonDocsLockPath = "${pythonDocs.outputRoot}.git-mirror.lock";
       reposFile = pkgs.writeText "repos.txt" (lib.concatStringsSep "\n" cfg.repos);
 
       # Helper script for syncing a single repo (called by parallel)
@@ -196,6 +200,13 @@
         };
       };
 
+      pythonDocsScript = import ./_python-docs-publisher.nix {
+        inherit lib pkgs;
+        pythonDocs = pythonDocs // {
+          lockPath = pythonDocsLockPath;
+        };
+      };
+
       # Main entry point
       mirrorScript = pkgs.writeShellApplication {
         name = "git-mirror";
@@ -321,6 +332,40 @@
           };
         };
 
+        pythonDocs = {
+          enable = lib.mkEnableOption "publishing current stable Python documentation sources after mirror sync";
+
+          repoSpec = lib.mkOption {
+            type = lib.types.str;
+            default = "python/cpython";
+            description = "Repository spec from programs.gitMirror.repos that provides CPython documentation sources.";
+          };
+
+          repoPath = lib.mkOption {
+            type = lib.types.str;
+            default = "${cfg.root}/${mirrorDirName pythonDocs.repoSpec}";
+            description = "Local CPython checkout used as the Python documentation source repository. Defaults to the mirror path derived from repoSpec.";
+          };
+
+          outputRoot = lib.mkOption {
+            type = lib.types.str;
+            default = "${cfg.root}/${mirrorDirName pythonDocs.repoSpec}-docs";
+            description = "Directory where current stable Python documentation sources are published. Defaults to the mirror path derived from repoSpec with a -docs suffix.";
+          };
+
+          versionUrl = lib.mkOption {
+            type = lib.types.str;
+            default = "https://docs.python.org/3/";
+            description = "Python documentation URL used to resolve the current stable CPython minor branch.";
+          };
+
+          maxRevisions = lib.mkOption {
+            type = lib.types.ints.positive;
+            default = 2;
+            description = "Maximum published Python documentation source revisions to keep.";
+          };
+        };
+
         maxBackups = lib.mkOption {
           type = lib.types.ints.positive;
           default = 5;
@@ -350,9 +395,17 @@
             assertion = !firefoxDocs.enable || builtins.elem firefoxDocs.repoSpec cfg.repos;
             message = "programs.gitMirror.firefoxDocs.repoSpec must be present in programs.gitMirror.repos.";
           }
+          {
+            assertion = !pythonDocs.enable || builtins.elem pythonDocs.repoSpec cfg.repos;
+            message = "programs.gitMirror.pythonDocs.repoSpec must be present in programs.gitMirror.repos.";
+          }
         ];
 
-        home.packages = [ mirrorScript ] ++ lib.optional firefoxDocs.enable firefoxDocsScript;
+        home.packages = [
+          mirrorScript
+        ]
+        ++ lib.optional firefoxDocs.enable firefoxDocsScript
+        ++ lib.optional pythonDocs.enable pythonDocsScript;
 
         systemd.user = {
           services = {
@@ -363,8 +416,8 @@
                 StartLimitBurst = 3;
                 StartLimitIntervalSec = "1h";
               }
-              // lib.optionalAttrs firefoxDocs.enable {
-                OnSuccess = [ "git-mirror-firefox-docs.service" ];
+              // lib.optionalAttrs (onSuccessUnits != [ ]) {
+                OnSuccess = onSuccessUnits;
               };
               Service = {
                 Type = "oneshot";
@@ -386,6 +439,22 @@
                 ExecStart = "${firefoxDocsScript}/bin/git-mirror-build-firefox-docs";
                 Environment = [ "GIT_TERMINAL_PROMPT=0" ];
                 TimeoutStartSec = "6h";
+                Nice = 10;
+                IOSchedulingClass = "idle";
+              };
+            };
+
+            git-mirror-python-docs = lib.mkIf pythonDocs.enable {
+              Unit = {
+                Description = "Publish current stable Python documentation sources";
+                After = [ "git-mirror.service" ];
+                X-SwitchMethod = "keep-old";
+              };
+              Service = {
+                Type = "oneshot";
+                ExecStart = "${pythonDocsScript}/bin/git-mirror-publish-python-docs";
+                Environment = [ "GIT_TERMINAL_PROMPT=0" ];
+                TimeoutStartSec = "30m";
                 Nice = 10;
                 IOSchedulingClass = "idle";
               };

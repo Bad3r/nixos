@@ -1,6 +1,8 @@
 # Local repository mirrors (shared hosts).
 # GitHub shorthand syncs daily to /data/git/{owner}-{repo}; full URLs use
 # a normalized host-prefixed path.
+# Keep docs/reference/local-mirrors.md, docs/architecture/06-reference.md, and
+# modules/agents/system-prompt.nix synchronized with the repos list below.
 {
   metaOwner,
   ...
@@ -13,6 +15,7 @@ let
       home-manager.users.${metaOwner.username}.programs.gitMirror = {
         enable = true;
         firefoxDocs.enable = true;
+        pythonDocs.enable = true;
         jobs = 2;
         repos = [
           # NixOS
@@ -59,6 +62,7 @@ let
           "mdn/content" # https://developer.mozilla.org
           "mozilla/policy-templates"
           "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
+          "python/cpython" # Source for docs.python.org
 
           # Applications
           "https://codeberg.org/librewolf/settings.git"

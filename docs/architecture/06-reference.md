@@ -98,26 +98,68 @@ Available after `nix develop`:
 
 ## Resource Links
 
+The complete shared mirror inventory is documented in
+[`../reference/local-mirrors.md`](../reference/local-mirrors.md). The table
+below mirrors the configured common-host paths from
+`modules/hosts/common/mirrors.nix` plus generated documentation paths.
+
 | Resource                   | Location                                              |
 | -------------------------- | ----------------------------------------------------- |
-| Firefox source/docs        | `/data/git/mozilla-firefox-firefox`                   |
-| Firefox built docs         | `/data/git/mozilla-firefox-firefox-docs/current`      |
-| MDN Web Docs               | `/data/git/mdn-content`                               |
-| NixOS manual mirror        | `docs/nixos-manual/`                                  |
-| Home Manager manual        | `/data/git/nix-community-home-manager/docs/manual/`   |
-| Stylix source              | `/data/git/nix-community-stylix`                      |
-| Firefox policies           | `/data/git/mozilla-policy-templates`                  |
-| Enterprise admin reference | `/data/git/mozilla-enterprise-admin-reference`        |
-| LibreWolf settings         | `/data/git/codeberg-librewolf-settings`               |
 | Nix source                 | `/data/git/NixOS-nix`                                 |
-| Nix RFCs                   | `/data/git/NixOS-rfcs`                                |
+| nixos-hardware             | `/data/git/NixOS-nixos-hardware`                      |
 | nixpkgs                    | `/data/git/NixOS-nixpkgs`                             |
+| Nix RFCs                   | `/data/git/NixOS-rfcs`                                |
 | Lix source                 | `/data/git/git.lix.systems-lix-project-lix`           |
 | Lix installer              | `/data/git/git.lix.systems-lix-project-lix-installer` |
 | Lix NixOS module           | `/data/git/git.lix.systems-lix-project-nixos-module`  |
 | Determinate Nix installer  | `/data/git/DeterminateSystems-nix-installer`          |
+| Home Manager source        | `/data/git/nix-community-home-manager`                |
+| Home Manager manual        | `/data/git/nix-community-home-manager/docs/manual/`   |
+| nh                         | `/data/git/nix-community-nh`                          |
+| nixd                       | `/data/git/nix-community-nixd`                        |
+| nixvim                     | `/data/git/nix-community-nixvim`                      |
+| noogle                     | `/data/git/nix-community-noogle`                      |
+| Stylix source              | `/data/git/nix-community-stylix`                      |
+| llm-agents.nix             | `/data/git/numtide-llm-agents.nix`                    |
 | sops-nix                   | `/data/git/Mic92-sops-nix`                            |
+| devenv                     | `/data/git/cachix-devenv`                             |
+| git-hooks.nix              | `/data/git/cachix-git-hooks.nix`                      |
+| Cachix docs                | `/data/git/cachix-docs.cachix.org`                    |
+| lefthook                   | `/data/git/evilmartians-lefthook`                     |
+| flake-parts                | `/data/git/hercules-ci-flake-parts`                   |
+| flake.parts website        | `/data/git/hercules-ci-flake.parts-website`           |
+| files module               | `/data/git/mightyiam-files`                           |
+| treefmt                    | `/data/git/numtide-treefmt`                           |
+| treefmt-nix                | `/data/git/numtide-treefmt-nix`                       |
 | import-tree                | `/data/git/vic-import-tree`                           |
+| Duplicati docs             | `/data/git/duplicati-documentation`                   |
+| GitHub docs                | `/data/git/github-docs`                               |
+| i3 Docs                    | `/data/git/i3-i3.github.io`                           |
+| Firefox source/docs        | `/data/git/mozilla-firefox-firefox`                   |
+| Firefox built docs         | `/data/git/mozilla-firefox-firefox-docs/current`      |
+| MDN Web Docs               | `/data/git/mdn-content`                               |
+| Firefox policies           | `/data/git/mozilla-policy-templates`                  |
+| Enterprise admin reference | `/data/git/mozilla-enterprise-admin-reference`        |
+| CPython source/docs        | `/data/git/python-cpython`                            |
+| Python stable docs source  | `/data/git/python-cpython-docs/current`               |
+| LibreWolf settings         | `/data/git/codeberg-librewolf-settings`               |
+| better-auth                | `/data/git/better-auth-better-auth`                   |
+| Cloudflare Workers SDK     | `/data/git/cloudflare-workers-sdk`                    |
+| Duplicati source           | `/data/git/duplicati-duplicati`                       |
+| Logseq source              | `/data/git/logseq-logseq`                             |
+| mpv source                 | `/data/git/mpv-player-mpv`                            |
+| openai/codex               | `/data/git/openai-codex`                              |
+| rclone source              | `/data/git/rclone-rclone`                             |
+| restic source              | `/data/git/restic-restic`                             |
+| wappalyzer-next            | `/data/git/s0md3v-wappalyzer-next`                    |
+| tridactyl                  | `/data/git/tridactyl-tridactyl`                       |
+| ZAP source                 | `/data/git/zaproxy-zaproxy`                           |
+| ZAP extensions             | `/data/git/zaproxy-zap-extensions`                    |
+| ZAP Python API             | `/data/git/zaproxy-zap-api-python`                    |
+| ZAP community scripts      | `/data/git/zaproxy-community-scripts`                 |
+| fuzzdb                     | `/data/git/fuzzdb-project-fuzzdb`                     |
+| mcp-zap-server             | `/data/git/dtkmn-mcp-zap-server`                      |
+| NixOS manual mirror        | `docs/nixos-manual/`                                  |
 
 ## Next Steps
 
