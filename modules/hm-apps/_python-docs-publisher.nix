@@ -18,6 +18,7 @@ pkgs.writeShellApplication {
   ];
   text = ''
     set -euo pipefail
+    export LC_ALL=C
 
     repo_path=${lib.escapeShellArg pythonDocs.repoPath}
     output_root=${lib.escapeShellArg pythonDocs.outputRoot}
@@ -54,8 +55,7 @@ pkgs.writeShellApplication {
     }
 
     resolve_stable_branch() {
-      page=$(curl --fail --location --silent --show-error "$version_url")
-      printf '%s\n' "$page" |
+      curl --fail --location --silent --show-error "$version_url" |
         sed -nE '/Python 3\.[0-9]+(\.[0-9]+)? [Dd]ocumentation/ {
           s/.*Python (3\.[0-9]+)(\.[0-9]+)? [Dd]ocumentation.*/\1/p
           q
