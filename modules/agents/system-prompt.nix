@@ -191,6 +191,10 @@ let
     python = _vars: ''
       ## Python
 
+      Target Python 3.14 when using Python. Use the cloned docs at
+      `/data/git/python-cpython-docs/current` before web lookup when Python
+      behavior or documentation is relevant.
+
       Use `uv` and `uvx` for Python work. Do not use `pip`, `venv`, or direct
       `python` invocations. For inline or one-off dependencies, use
       `uv run --with <pkg> <script>`.
