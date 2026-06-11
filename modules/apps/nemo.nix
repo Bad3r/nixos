@@ -8,7 +8,7 @@
   Summary:
     * Provides a feature-rich file manager supporting SMB/NFS/GVFS mounts, context-menu extensions, bulk rename, and media previews.
     * Enables the Mint-default Nemo extensions explicitly instead of relying on wrapper defaults.
-    * Installs video and XApp thumbnail generators so XDG thumbnail lookup can generate previews for common media formats.
+    * Installs optional video and XApp thumbnail generators so XDG thumbnail lookup can generate previews for common media formats.
     * Enables Nemo quick previews and Seahorse encryption/signing integration by default.
     * Integrates Cinnamon desktop conventions while remaining usable in other desktop environments with underlying GNOME services.
 
@@ -99,6 +99,12 @@ let
         preview = mkExtensionOptions "nemo-preview" "Nemo quick preview integration";
 
         seahorse = mkExtensionOptions "nemo-seahorse" "Nemo Seahorse encryption and signing integration";
+
+        thumbnailers.enable = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Whether to install video and XApp thumbnail generators for media previews.";
+        };
       };
 
       config = lib.mkIf cfg.enable {
