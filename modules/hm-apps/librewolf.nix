@@ -35,7 +35,6 @@ _: {
           pkgs
           lib
           config
-          osConfig
           ;
       };
       xdgProfileRoot = gecko.mkXdgProfileRoot {
