@@ -6,8 +6,6 @@
 
   Arguments:
     pkgs, lib, config: standard module args from the caller.
-    osConfig: NixOS configuration of the host, used to detect hardware facts;
-      forwarded to _gecko-prefs.nix to gate the widget.dmabuf workaround.
   Returns:
     mkProfile, policies, nativeMessagingHosts, profile packages, and helpers.
 */
@@ -16,15 +14,10 @@
   pkgs,
   lib,
   config,
-  osConfig ? { },
 }:
 let
-  # Gate on videoDrivers only: the proprietary NVIDIA DMABUF issue also affects Wayland.
-  nvidiaProprietary = lib.elem "nvidia" (
-    lib.attrByPath [ "services" "xserver" "videoDrivers" ] [ ] osConfig
-  );
   geckoPrefs = import ./_gecko-prefs.nix {
-    inherit lib nvidiaProprietary;
+    inherit lib;
     fonts = if (config.stylix.enable or false) then config.stylix.fonts else null;
   };
   geckoBookmarks = import ./_gecko-bookmarks.nix { inherit lib; };
