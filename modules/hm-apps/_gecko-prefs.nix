@@ -1,6 +1,6 @@
 /*
   Internal: shared Gecko-browser preferences
-  Description: user_pref values applied to every Gecho-browser profiles.
+  Description: user_pref values applied to every Gecko-browser profile.
 
   Notes:
     * `fonts` is forwarded from `config.stylix.fonts`; pass `null` to let

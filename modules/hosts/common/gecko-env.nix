@@ -3,8 +3,7 @@
   (Bad3r/dotfiles config/zsh/rc.d/firefox.zsh).
 
   MOZ_X11_EGL selects the EGL GL backend on X11 and bypasses
-  gfx.x11-egl.force-disabled, which VA-API decode depends on; see the
-  widget.dmabuf note in modules/hm-apps/_gecko-prefs.nix.
+  gfx.x11-egl.force-disabled, which VA-API decode depends on.
 
   The dotfiles NVIDIA branch (NVD_BACKEND=direct, LIBVA_DRIVER_NAME=nvidia,
   MOZ_DISABLE_RDD_SANDBOX=1) is intentionally not ported. Those variables
