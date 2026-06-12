@@ -129,10 +129,7 @@ toolbar#nav-bar::after {
 	max-width: var(--wide-tab-width) !important;
 
 	/* Negative right-margin to keep page from being pushed to the side. */
-	margin-right: calc(
-		(var(--wide-tab-width) - var(--thin-tab-width)) *
-		-1
-	) !important;
+	margin-right: calc(var(--thin-tab-width) - var(--wide-tab-width)) !important;
 	z-index: 1;
 }
 
