@@ -185,7 +185,7 @@ menupopup:not(#BMB_bookmarksPopup),
 	color: var(--uc-menu-color) !important;
 	padding: 2px;
 	background-color: var(--uc-menu-bkgnd) !important;
-	border-color: var(--uc-menu-disabled) !important;
+	border: 1px solid var(--uc-menu-disabled) !important;
 }
 
 panel textbox input {
