@@ -215,13 +215,13 @@ let
   ) librewolfUblockOriginListData.lists;
 
   darkreaderBaseSettings = lib.importJSON ./_gecko-darkreader-settings.json;
-  darkreaderStylixThemeColors = with config.lib.stylix.colors.withHashtag; {
-    darkSchemeBackgroundColor = base00;
-    darkSchemeTextColor = base05;
-    lightSchemeBackgroundColor = base06;
-    lightSchemeTextColor = base00;
-    scrollbarColor = base00;
-    selectionColor = base0D;
+  darkreaderStylixThemeColors = {
+    darkSchemeBackgroundColor = getStylixColor "base00" "#282c34";
+    darkSchemeTextColor = getStylixColor "base05" "#abb2bf";
+    lightSchemeBackgroundColor = getStylixColor "base06" "#b6bdca";
+    lightSchemeTextColor = getStylixColor "base00" "#282c34";
+    scrollbarColor = getStylixColor "base00" "#282c34";
+    selectionColor = getStylixColor "base0D" "#aca0f7";
   };
   withDarkreaderStylixColors = theme: theme // darkreaderStylixThemeColors;
   darkreaderSettings = darkreaderBaseSettings // {
