@@ -135,8 +135,13 @@ in
   settings =
     bookmarksFile:
     lib.optionalAttrs (bookmarksFile != null) {
+      # BookmarkHTMLUtils.defaultPath reads this pref, so Firefox will import
+      # the SOPS-generated HTML once on a fresh profile (DATABASE_STATUS_CREATE
+      # path). Do NOT also set browser.places.importBookmarksHTML here: user.js
+      # is applied on every startup, so that pref permanently set would call
+      # importFromURL(..., { replace: true }) on every launch, wiping all
+      # bookmarks including any Tab Stash folders.
       "browser.bookmarks.file" = bookmarksFile;
-      "browser.places.importBookmarksHTML" = true;
     };
 
   html =
