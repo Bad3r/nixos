@@ -33,9 +33,23 @@ _: {
           }
         ];
 
-        home.activation.checkFirefoxXdgProfileRoot = xdgProfileRoot.activation;
+        home = {
+          activation.checkFirefoxXdgProfileRoot = xdgProfileRoot.activation;
 
-        home.file = gecko.mkCustomKeysFiles config.programs.firefox // xdgProfileRoot.file;
+          # Seed Dark Reader storage once as a writable file so the extension's
+          # runtime changes survive home-manager switches.
+          activation.seedDarkreaderFirefox = gecko.mkDarkreaderSeed {
+            profilesPath = legacyProfilesPath;
+            # Mirrors programs.firefox.profiles below.
+            profiles = [
+              "primary"
+              "pentesting"
+              "work"
+            ];
+          };
+
+          file = gecko.mkCustomKeysFiles config.programs.firefox // xdgProfileRoot.file;
+        };
 
         programs.firefox = {
           enable = true;

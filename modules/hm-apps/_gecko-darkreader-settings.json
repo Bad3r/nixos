@@ -1,0 +1,123 @@
+{
+	"schemeVersion": 2,
+	"enabled": true,
+	"fetchNews": true,
+	"theme": {
+		"mode": 1,
+		"brightness": 100,
+		"contrast": 100,
+		"grayscale": 0,
+		"sepia": 0,
+		"useFont": false,
+		"fontFamily": "system-ui",
+		"textStroke": 0,
+		"engine": "dynamicTheme",
+		"stylesheet": "",
+		"styleSystemControls": true,
+		"lightColorScheme": "Default",
+		"darkColorScheme": "Default",
+		"immediateModify": false
+	},
+	"presets": [],
+	"customThemes": [
+		{
+			"url": ["*.officeapps.live.com"],
+			"theme": {
+				"mode": 1,
+				"brightness": 100,
+				"contrast": 100,
+				"grayscale": 0,
+				"sepia": 0,
+				"useFont": false,
+				"fontFamily": "Open Sans",
+				"textStroke": 0,
+				"engine": "cssFilter",
+				"stylesheet": "",
+				"styleSystemControls": true,
+				"lightColorScheme": "Default",
+				"darkColorScheme": "Default",
+				"immediateModify": false
+			},
+			"builtIn": true
+		},
+		{
+			"url": ["*.sharepoint.com"],
+			"theme": {
+				"mode": 1,
+				"brightness": 100,
+				"contrast": 100,
+				"grayscale": 0,
+				"sepia": 0,
+				"useFont": false,
+				"fontFamily": "Open Sans",
+				"textStroke": 0,
+				"engine": "cssFilter",
+				"stylesheet": "",
+				"styleSystemControls": true,
+				"lightColorScheme": "Default",
+				"darkColorScheme": "Default",
+				"immediateModify": false
+			},
+			"builtIn": true
+		},
+		{
+			"url": ["docs.google.com"],
+			"theme": {
+				"mode": 1,
+				"brightness": 100,
+				"contrast": 100,
+				"grayscale": 0,
+				"sepia": 0,
+				"useFont": false,
+				"fontFamily": "Open Sans",
+				"textStroke": 0,
+				"engine": "cssFilter",
+				"stylesheet": "",
+				"styleSystemControls": true,
+				"lightColorScheme": "Default",
+				"darkColorScheme": "Default",
+				"immediateModify": false
+			},
+			"builtIn": true
+		},
+		{
+			"url": ["onedrive.live.com"],
+			"theme": {
+				"mode": 1,
+				"brightness": 100,
+				"contrast": 100,
+				"grayscale": 0,
+				"sepia": 0,
+				"useFont": false,
+				"fontFamily": "Open Sans",
+				"textStroke": 0,
+				"engine": "cssFilter",
+				"stylesheet": "",
+				"styleSystemControls": true,
+				"lightColorScheme": "Default",
+				"darkColorScheme": "Default",
+				"immediateModify": false
+			},
+			"builtIn": true
+		}
+	],
+	"enabledByDefault": true,
+	"enabledFor": [],
+	"disabledFor": [],
+	"changeBrowserTheme": false,
+	"syncSettings": false,
+	"syncSitesFixes": true,
+	"automation": {
+		"enabled": false,
+		"mode": "",
+		"behavior": "OnOff"
+	},
+	"location": {
+		"latitude": null,
+		"longitude": null
+	},
+	"enableForPDF": true,
+	"enableForProtectedPages": true,
+	"enableContextMenus": true,
+	"detectDarkTheme": true
+}
