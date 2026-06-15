@@ -164,6 +164,7 @@ in
       "privacy.partition.network_state" = true;
       "network.cookie.cookieBehavior" = 5;
       "privacy.resistFingerprinting" = true;
+      "privacy.fingerprintingProtection" = true;
       # Disabling timer jitter dodges a Claude AI infinite-loop freeze.
       # See codeberg.org/librewolf/issues/issues/1934
       "privacy.resistFingerprinting.reduceTimerPrecision.jitter" = false;
