@@ -58,12 +58,7 @@ _: {
           # runtime changes survive home-manager switches.
           activation.seedDarkreaderLibrewolf = gecko.mkDarkreaderSeed {
             profilesPath = legacyProfilesPath;
-            # Mirrors programs.librewolf.profiles below.
-            profiles = [
-              "primary"
-              "pentesting"
-              "work"
-            ];
+            profiles = lib.attrNames config.programs.librewolf.profiles;
           };
 
           file = gecko.mkCustomKeysFiles config.programs.librewolf // xdgProfileRoot.file;
