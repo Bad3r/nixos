@@ -2,9 +2,10 @@ _: {
   perSystem =
     { config, pkgs, ... }:
     let
+      # flake-checker injects numDaysOld as a scalar. CEL has() only accepts
+      # field selectors, not bare variables.
       flakeCheckerCondition = builtins.concatStringsSep " " [
         "supportedRefs.contains(gitRef)"
-        "&& has(numDaysOld)"
         "&& numDaysOld < 30"
         "&& owner == 'Bad3r'"
       ];
