@@ -1,9 +1,8 @@
 /*
   Internal: shared Gecko-browser preferences
-  Description: user_pref values applied to every Firefox/LibreWolf profile.
+  Description: user_pref values applied to every Gecko-browser profile.
 
   Notes:
-    * Reader-mode colors come from Stylix's own reader-mode wiring.
     * `fonts` is forwarded from `config.stylix.fonts`; pass `null` to let
       the browser use its built-in defaults.
 */
@@ -11,9 +10,6 @@
 {
   lib,
   fonts ? null,
-  # True when the host runs the NVIDIA proprietary X driver (videoDrivers
-  # contains "nvidia"); gates the DMABUF workaround at the end of commonSettings.
-  nvidiaProprietary ? false,
 }:
 let
   geckoSearch = import ./_gecko-search.nix { };
@@ -197,10 +193,5 @@ in
 
       # Disable IPv6 address lookups.
       "network.dns.disableIPv6" = true;
-    }
-    // lib.optionalAttrs nvidiaProprietary {
-      # MOZ_X11_EGL bypasses gfx.x11-egl.force-disabled; widget.dmabuf is the effective
-      # switch, but it also disables VA-API surface import zero-copy on NVIDIA hosts.
-      "widget.dmabuf.enabled" = false;
     };
 }
