@@ -52,9 +52,23 @@ _: {
           }
         ];
 
-        home.activation.checkLibreWolfXdgProfileRoot = xdgProfileRoot.activation;
+        home = {
+          activation.checkLibreWolfXdgProfileRoot = xdgProfileRoot.activation;
 
-        home.file = gecko.mkCustomKeysFiles config.programs.librewolf // xdgProfileRoot.file;
+          # Seed Dark Reader storage once as a writable file so the extension's
+          # runtime changes survive home-manager switches.
+          activation.seedDarkreaderLibrewolf = gecko.mkDarkreaderSeed {
+            profilesPath = legacyProfilesPath;
+            # Mirrors programs.librewolf.profiles below.
+            profiles = [
+              "primary"
+              "pentesting"
+              "work"
+            ];
+          };
+
+          file = gecko.mkCustomKeysFiles config.programs.librewolf // xdgProfileRoot.file;
+        };
 
         programs.librewolf = {
           enable = true;

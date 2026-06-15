@@ -113,9 +113,36 @@ let
         };
       };
     };
+
+  # Seed Dark Reader's storage.js once per profile as a writable file. Home
+  # Manager's extensions.settings would force-rewrite it on every activation
+  # and discard the extension's runtime state, so the seed is skipped whenever a
+  # real storage.js already exists. `addon@darkreader.org` is the extension ID
+  # (the browser-extension-data directory name); see _gecko-extensions.nix.
+  mkDarkreaderSeed =
+    {
+      profilesPath,
+      profiles,
+    }:
+    lib.hm.dag.entryAfter [ "writeBoundary" ] (
+      lib.concatMapStringsSep "\n" (profileName: ''
+        dr_dir="${config.home.homeDirectory}/${profilesPath}/${profileName}/browser-extension-data/addon@darkreader.org"
+        dr_file="$dr_dir/storage.js"
+        if [ -L "$dr_file" ] || [ ! -e "$dr_file" ]; then
+          $DRY_RUN_CMD rm -f "$dr_file"
+          $DRY_RUN_CMD mkdir -p "$dr_dir"
+          $DRY_RUN_CMD install -m644 ${geckoExtensions.darkreaderStorageSeed} "$dr_file"
+        fi
+      '') profiles
+    );
 in
 {
-  inherit mkProfile mkXdgProfileRoot policies;
+  inherit
+    mkProfile
+    mkXdgProfileRoot
+    mkDarkreaderSeed
+    policies
+    ;
   inherit (geckoShortcuts) mkCustomKeysFiles;
   inherit (geckoExtensions)
     nativeMessagingHosts
