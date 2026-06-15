@@ -110,7 +110,9 @@ _: {
           # and the by-path render node keeps libva off the NVIDIA DRM device.
           # VDPAU_DRIVER is intentionally unset: VDPAU is legacy, and pointing it at
           # nvidia would route back into NVDEC.
-          environment.variables = {
+          # sessionVariables (PAM-initialised) so GUI apps launched outside a
+          # shell inherit the iHD routing, not just terminal-spawned ones.
+          environment.sessionVariables = {
             LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/pci-0000:00:02.0-render";
             LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
           };
