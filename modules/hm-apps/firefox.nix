@@ -39,12 +39,7 @@ _: {
           # runtime changes survive home-manager switches.
           activation.seedDarkreaderFirefox = gecko.mkDarkreaderSeed {
             profilesPath = legacyProfilesPath;
-            # Mirrors programs.firefox.profiles below.
-            profiles = [
-              "primary"
-              "pentesting"
-              "work"
-            ];
+            profiles = lib.attrNames config.programs.firefox.profiles;
           };
 
           file = gecko.mkCustomKeysFiles config.programs.firefox // xdgProfileRoot.file;
