@@ -59,7 +59,7 @@
 # Note: Java 17+ Swing rendering relies on native X11 libraries for hardware acceleration.
 
 let
-  version = "5.1";
+  version = "5.2";
 
   heapSize = "8192M";
   directMemorySize = "4096M";
@@ -130,7 +130,7 @@ stdenv.mkDerivation {
       "--user-agent"
       "Mozilla/5.0"
     ];
-    hash = "sha256-gExmuh1A21QGkfcmcwPPgk51Ag7Ced9kPTHha2ofbKg=";
+    hash = "sha256-8B/+YXz7Nwnn2DhLc5K8S9E5vz1eCvv+V5GoGoK9x4k=";
   };
 
   passthru.updateScript = ./update.py;

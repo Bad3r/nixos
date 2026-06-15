@@ -22,7 +22,7 @@ _: {
       # Gemini/Antigravity
       .antigravitycli/
 
-      # claude code testing
+      # Agent local testing
       .mcp.json
       .specify/
       .understand-anything/
