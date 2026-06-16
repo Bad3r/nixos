@@ -151,7 +151,7 @@ stdenvNoCC.mkDerivation {
     fi
     mkdir -p "$profile"
     exec electron \
-      --ozone-platform=auto \
+      --ozone-platform-hint=auto \
       --enable-features=UseOzonePlatform,WaylandWindowDecorations \
       --class=Raindrop \
       --name=Raindrop \
