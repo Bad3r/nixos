@@ -38,9 +38,114 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
 
     mkdir -p $out/bin
+    mkdir -p $out/share/raindrop
+
+    cat > $out/share/raindrop/package.json <<'JSON'
+    {
+      "name": "raindrop",
+      "version": "0.0.0",
+      "main": "main.js"
+    }
+    JSON
+
+    cat > $out/share/raindrop/main.js <<'APP'
+    const { app, BrowserWindow, shell } = require("electron");
+
+    const raindropHost = "raindrop.io";
+    const externalProtocols = new Set(["http:", "https:", "mailto:", "tel:"]);
+
+    function parseUrl(rawUrl) {
+      try {
+        return new URL(rawUrl);
+      } catch (error) {
+        console.error("Blocked invalid URL " + rawUrl + ": " + error.message);
+        return null;
+      }
+    }
+
+    function isRaindropUrl(rawUrl) {
+      const url = parseUrl(rawUrl);
+      if (url === null) {
+        return false;
+      }
+
+      return (
+        (url.protocol === "http:" || url.protocol === "https:") &&
+        (url.hostname === raindropHost || url.hostname.endsWith("." + raindropHost))
+      );
+    }
+
+    function openExternal(rawUrl) {
+      const url = parseUrl(rawUrl);
+      if (url === null) {
+        return;
+      }
+
+      if (!externalProtocols.has(url.protocol)) {
+        console.error("Blocked unsupported external URL scheme: " + url.protocol);
+        return;
+      }
+
+      shell.openExternal(rawUrl).catch((error) => {
+        console.error("Failed to open external URL " + rawUrl + ": " + error.message);
+      });
+    }
+
+    function createWindow() {
+      const window = new BrowserWindow({
+        width: 1280,
+        height: 900,
+        title: "Raindrop.io",
+        webPreferences: {
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+        },
+      });
+
+      window.webContents.setWindowOpenHandler(({ url }) => {
+        if (isRaindropUrl(url)) {
+          window.loadURL(url);
+        } else {
+          openExternal(url);
+        }
+
+        return { action: "deny" };
+      });
+
+      window.webContents.on("will-navigate", (event, url) => {
+        if (isRaindropUrl(url)) {
+          return;
+        }
+
+        event.preventDefault();
+        openExternal(url);
+      });
+
+      window.loadURL("https://app.raindrop.io");
+    }
+
+    app.whenReady().then(() => {
+      createWindow();
+
+      app.on("activate", () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+          createWindow();
+        }
+      });
+    });
+
+    app.on("window-all-closed", () => {
+      if (process.platform !== "darwin") {
+        app.quit();
+      }
+    });
+    APP
+
     cat > $out/bin/raindrop <<'LAUNCHER'
     #!/usr/bin/env bash
     set -euo pipefail
+    app_dir="@raindropAppDir@"
     profile="$HOME/.config/raindrop"
     if XDG_CONFIG_HOME_VALUE="$(printenv XDG_CONFIG_HOME 2>/dev/null)"; then
       if [ -n "$XDG_CONFIG_HOME_VALUE" ]; then
@@ -54,8 +159,10 @@ stdenvNoCC.mkDerivation {
       --class=Raindrop \
       --name=Raindrop \
       --user-data-dir="$profile" \
-      --app=https://app.raindrop.io "$@"
+      "$app_dir" "$@"
     LAUNCHER
+    substituteInPlace $out/bin/raindrop \
+      --replace-fail @raindropAppDir@ "$out/share/raindrop"
     chmod +x $out/bin/raindrop
 
     wrapProgram $out/bin/raindrop \
