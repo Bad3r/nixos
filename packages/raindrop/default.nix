@@ -86,8 +86,8 @@ stdenvNoCC.mkDerivation {
         return;
       }
 
-      shell.openExternal(rawUrl).catch((error) => {
-        console.error("Failed to open external URL " + rawUrl + ": " + error.message);
+      shell.openExternal(url.href).catch((error) => {
+        console.error("Failed to open external URL " + url.href + ": " + error.message);
       });
     }
 
