@@ -81,6 +81,68 @@
         '';
       };
 
+      # Toggle Raindrop scratchpad - mirrors the Logseq scratchpad behavior
+      toggleRaindropScript = pkgs.writeShellApplication {
+        name = "toggle-raindrop";
+        meta = {
+          description = "Toggle Raindrop as an i3 scratchpad with smart positioning";
+          license = lib.licenses.mit;
+          platforms = lib.platforms.linux;
+          mainProgram = "toggle-raindrop";
+        };
+        runtimeInputs = [
+          pkgs.libnotify
+          pkgs.i3
+          pkgs.coreutils
+          pkgs.jq
+          config.gui.scratchpad.geometryPackage
+          pkgs.i3-scratchpad-show-or-create
+        ];
+        text = /* bash */ ''
+          set -euo pipefail
+
+          eval "$(scratchpad-geometry)"
+
+          i3_mark="Raindrop"
+          window_class="Raindrop"
+
+          scratchpad_exists() {
+            i3-msg -t get_marks \
+              | jq -e --arg mark "$i3_mark" 'index($mark) != null' \
+              >/dev/null
+          }
+
+          window_exists() {
+            i3-msg -t get_tree \
+              | jq -e --arg class "$window_class" '
+                  recurse(.nodes[]?, .floating_nodes[]?)
+                  | select(.window_properties.class? == $class)
+                ' \
+              >/dev/null
+          }
+
+          position_marked_window() {
+            i3-msg "[con_mark=\"$i3_mark\"] move position ''${TARGET_X}px ''${TARGET_Y}px, resize set ''${TARGET_WIDTH}px ''${TARGET_HEIGHT}px" >/dev/null
+          }
+
+          if scratchpad_exists; then
+            i3-msg "[con_mark=\"$i3_mark\"] scratchpad show, move position ''${TARGET_X}px ''${TARGET_Y}px, resize set ''${TARGET_WIDTH}px ''${TARGET_HEIGHT}px" >/dev/null
+            exit 0
+          fi
+
+          if window_exists; then
+            i3-msg "[class=\"$window_class\"] mark \"$i3_mark\", move scratchpad" >/dev/null
+            i3-msg "[con_mark=\"$i3_mark\"] scratchpad show, move position ''${TARGET_X}px ''${TARGET_Y}px, resize set ''${TARGET_WIDTH}px ''${TARGET_HEIGHT}px" >/dev/null
+            exit 0
+          fi
+
+          notify-send "Raindrop" "Starting Raindrop..."
+          i3-scratchpad-show-or-create "$i3_mark" "raindrop"
+          sleep 5
+          position_marked_window
+        '';
+      };
+
       # Power profile switcher using the host-selected backend
       powerProfileScript = pkgs.writeShellApplication {
         name = "power-profile-rofi";
@@ -205,6 +267,7 @@
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
         ocr = lib.getExe pkgs.normcap;
         logseqToggle = lib.getExe toggleLogseqScript;
+        raindropToggle = lib.getExe toggleRaindropScript;
         powerProfile = lib.getExe powerProfileScript;
         focusOrLaunch = lib.getExe pkgs.i3-focus-or-launch;
       };
@@ -421,6 +484,7 @@
           pkgs.i3-scratchpad-show-or-create
           pkgs.i3-focus-or-launch
           toggleLogseqScript
+          toggleRaindropScript
         ];
 
         xdg.configFile = {
@@ -443,6 +507,11 @@
           "i3/scripts/toggle_logseq.sh" = {
             executable = true;
             source = "${toggleLogseqScript}/bin/toggle-logseq";
+          };
+
+          "i3/scripts/toggle_raindrop.sh" = {
+            executable = true;
+            source = "${toggleRaindropScript}/bin/toggle-raindrop";
           };
         };
 
