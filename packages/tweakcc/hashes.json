@@ -1,6 +1,6 @@
 {
-	"version": "unstable-2026-06-13",
-	"srcRev": "78911f00b47875c95693b3580ac26f253c65ba3b",
-	"srcHash": "sha256-ObH+YUxT/gSOovgTnGP3fRhS4+vAL73OcDXo4MaCP+s=",
-	"pnpmDepsHash": "sha256-2cYZaVItKgSwwgtX/9fkAJ7BsNEY/KevBZTBh0DD6BA="
+	"version": "unstable-2026-06-15",
+	"srcRev": "9a843bc6dfdead0497f7c74cdc71ecc074961766",
+	"srcHash": "sha256-cuKAeXhLrIYH455fqVvpDLBbWKubqEZom8m8WynzN+E=",
+	"pnpmDepsHash": "sha256-3GMZkEGHmiuwpO4JjGfSvKGupJHjOx7QcY6RjCAEmtM="
 }
