@@ -54,6 +54,20 @@ stdenvNoCC.mkDerivation {
     const raindropHost = "raindrop.io";
     const externalProtocols = new Set(["http:", "https:", "mailto:", "tel:"]);
 
+    // Hosts kept inside the app window (not the external browser) so social
+    // sign-in finishes in the Electron --user-data-dir profile. Exact hosts
+    // only: a whole-domain match would also trap normal bookmark links.
+    const oauthHosts = new Set([
+      "accounts.google.com",
+      "appleid.apple.com",
+      "www.facebook.com",
+      "m.facebook.com",
+      "facebook.com",
+      "api.twitter.com",
+      "twitter.com",
+      "x.com",
+    ]);
+
     function parseUrl(rawUrl) {
       try {
         return new URL(rawUrl);
@@ -71,7 +85,9 @@ stdenvNoCC.mkDerivation {
 
       return (
         (url.protocol === "http:" || url.protocol === "https:") &&
-        (url.hostname === raindropHost || url.hostname.endsWith("." + raindropHost))
+        (url.hostname === raindropHost ||
+          url.hostname.endsWith("." + raindropHost) ||
+          oauthHosts.has(url.hostname))
       );
     }
 
