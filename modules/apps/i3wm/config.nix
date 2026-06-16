@@ -96,7 +96,8 @@
           pkgs.coreutils
           pkgs.jq
           config.gui.scratchpad.geometryPackage
-        ];
+        ]
+        ++ lib.optional (pkgs ? raindrop) pkgs.raindrop;
         text = /* bash */ ''
           set -euo pipefail
 
