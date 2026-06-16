@@ -113,15 +113,12 @@ stdenvNoCC.mkDerivation {
         return { action: "deny" };
       });
 
-      window.webContents.on("will-navigate", (event, url) => {
-        if (isRaindropUrl(url)) {
-          return;
-        }
-
-        event.preventDefault();
-        openExternal(url);
-      });
-
+      // Top-level navigations are left untouched so OAuth provider redirects
+      // (Google, Apple, Facebook, Twitter) and payment flows complete inside
+      // this window, where their session cookies reach the Electron
+      // --user-data-dir profile. Only new-window requests (target=_blank
+      // bookmark links) are routed to the default browser, by the handler
+      // above. Intercepting will-navigate here would break social sign-in.
       window.loadURL("https://app.raindrop.io");
     }
 
