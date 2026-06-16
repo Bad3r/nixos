@@ -96,6 +96,7 @@ stdenvNoCC.mkDerivation {
         width: 1280,
         height: 900,
         title: "Raindrop.io",
+        autoHideMenuBar: true,
         webPreferences: {
           contextIsolation: true,
           nodeIntegration: false,
