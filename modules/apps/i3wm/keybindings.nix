@@ -237,6 +237,7 @@
 
               # Scratchpad apps
               "Mod1+3" = "exec --no-startup-id ${commands.logseqToggle}";
+              "Mod1+4" = "exec --no-startup-id ${commands.raindropToggle}";
               "${mod}+e" =
                 "exec --no-startup-id i3-scratchpad-show-or-create scratch-nvim '${commands.terminal} nvim'";
 
