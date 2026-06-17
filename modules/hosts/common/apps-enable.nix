@@ -169,7 +169,7 @@ let
       gimp.extended.enable = lib.mkOverride 1100 false;
       git.extended.enable = lib.mkOverride 1100 true;
       "git-filter-repo".extended.enable = lib.mkOverride 1100 true;
-      "git-fork-reset".extended.enable = lib.mkOverride 1100 true;
+      "git-fork-utils".extended.enable = lib.mkOverride 1100 true;
       gitlawb.extended.enable = lib.mkOverride 1100 false;
       glab.extended.enable = lib.mkOverride 1100 true;
       glow.extended.enable = lib.mkOverride 1100 true;
