@@ -57,12 +57,11 @@
           mainProgram = "toggle-logseq";
         };
         runtimeInputs = [
-          pkgs.procps
           pkgs.libnotify
           pkgs.i3
           pkgs.coreutils
+          pkgs.jq
           config.gui.scratchpad.geometryPackage
-          pkgs.i3-scratchpad-show-or-create
         ];
         text = /* bash */ ''
           set -euo pipefail
@@ -70,14 +69,45 @@
           # Get window geometry from scratchpad-geometry calculator
           eval "$(scratchpad-geometry)"
 
-          if ! pgrep -f logseq >/dev/null; then
+          logseq_mark="Logseq"
+          logseq_class_pattern="^logseq$"
+          logseq_criteria='[class="(?i)^logseq$"]'
+
+          logseq_window_exists() {
+            i3-msg -t get_tree \
+              | jq -e --arg pattern "''${logseq_class_pattern}" \
+                '.. | objects | select((.window_properties?.class? // "") | test($pattern; "i"))' \
+              >/dev/null
+          }
+
+          scratchpad_marked() {
+            i3-msg -t get_marks \
+              | jq -e --arg mark "''${logseq_mark}" 'index($mark) != null' \
+              >/dev/null
+          }
+
+          if ! logseq_window_exists; then
             notify-send "Logseq" "Starting Logseq..."
-            i3-scratchpad-show-or-create "Logseq" "logseq"
-            sleep 5
+            logseq &
+
+            for _ in $(seq 1 150); do
+              if logseq_window_exists; then
+                break
+              fi
+              sleep 0.2
+            done
           fi
 
-          # shellcheck disable=SC2140
-          i3-msg "[class=\"Logseq\"] scratchpad show, move position ''${TARGET_X}px ''${TARGET_Y}px, resize set ''${TARGET_WIDTH}px ''${TARGET_HEIGHT}px" >/dev/null
+          if ! logseq_window_exists; then
+            echo "Failed to detect Logseq window" >&2
+            exit 1
+          fi
+
+          if ! scratchpad_marked; then
+            i3-msg "''${logseq_criteria} mark \"''${logseq_mark}\", move scratchpad" >/dev/null
+          fi
+
+          i3-msg "[con_mark=\"''${logseq_mark}\"] scratchpad show, move position ''${TARGET_X}px ''${TARGET_Y}px, resize set ''${TARGET_WIDTH}px ''${TARGET_HEIGHT}px" >/dev/null
         '';
       };
 
