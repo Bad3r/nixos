@@ -6,7 +6,7 @@
   Repository: nil
 
   Summary:
-    * Provides `git-fork-sync`, also invocable as `git fork-sync`, for pulling fork branches from origin and upstream.
+    * Provides `git-fork-sync`, also invocable as `git fork-sync`, for pulling fork branches from origin and optional upstream.
     * Provides `git-fork-reset`, also invocable as `git fork-reset`, for refreshing fork branches from upstream.
     * Backs up dirty, untracked, and ignored local state with `git stash --all` before resetting.
 
@@ -38,18 +38,22 @@ let
 
       gitForkSyncWrapper = pkgs.writeShellApplication {
         name = "git-fork-sync";
-        runtimeInputs = [ cfg.package ];
+        runtimeInputs = [
+          cfg.package
+          pkgs.coreutils
+        ];
         text = ''
           usage() {
             cat <<'EOF'
-          git-fork-sync - pull a fork branch from origin and upstream
+          git-fork-sync - pull a fork branch from origin and optional upstream
 
           Usage:
             git-fork-sync [OPTIONS]
             git fork-sync [OPTIONS]
 
-          Pulls the current branch from origin, pulls the same branch from
-          upstream, then pushes the refreshed branch back to origin.
+          Pulls the current branch from origin. When an upstream remote exists,
+          pulls the same branch from upstream, then pushes the refreshed branch
+          back to origin.
 
           Options:
             -c REPO_PATH              Run against this local repository path.
@@ -108,9 +112,21 @@ let
           branch="$(git symbolic-ref --quiet --short HEAD)" \
             || die 'not on a branch'
 
-          git pull --no-edit origin "$branch" \
-            && git pull --no-edit upstream "$branch" \
-            && git push origin "$branch"
+          git remote get-url origin >/dev/null 2>&1 \
+            || die 'no origin remote found'
+
+          upstream_exists=false
+          if git remote get-url upstream >/dev/null 2>&1; then
+            upstream_exists=true
+          else
+            printf 'git fork-sync: warning: upstream remote not found; skipping upstream pull\n' >&2
+          fi
+
+          git pull --no-edit origin "$branch"
+          if $upstream_exists; then
+            git pull --no-edit upstream "$branch"
+          fi
+          git push origin "$branch"
         '';
       };
 
