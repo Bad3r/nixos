@@ -26,17 +26,33 @@ function parseUrl(rawUrl) {
 	}
 }
 
+function isHttpUrl(url) {
+	return url.protocol === "http:" || url.protocol === "https:";
+}
+
+function hasRaindropHost(url) {
+	return (
+		url.hostname === raindropHost || url.hostname.endsWith("." + raindropHost)
+	);
+}
+
 function isRaindropUrl(rawUrl) {
 	const url = parseUrl(rawUrl);
 	if (url === null) {
 		return false;
 	}
 
+	return isHttpUrl(url) && hasRaindropHost(url);
+}
+
+function isInAppUrl(rawUrl) {
+	const url = parseUrl(rawUrl);
+	if (url === null) {
+		return false;
+	}
+
 	return (
-		(url.protocol === "http:" || url.protocol === "https:") &&
-		(url.hostname === raindropHost ||
-			url.hostname.endsWith("." + raindropHost) ||
-			oauthHosts.has(url.hostname))
+		isHttpUrl(url) && (hasRaindropHost(url) || oauthHosts.has(url.hostname))
 	);
 }
 
@@ -58,6 +74,17 @@ function openExternal(rawUrl) {
 	});
 }
 
+function childWindowOptions() {
+	return {
+		autoHideMenuBar: true,
+		webPreferences: {
+			contextIsolation: true,
+			nodeIntegration: false,
+			sandbox: true,
+		},
+	};
+}
+
 function createWindow() {
 	const window = new BrowserWindow({
 		width: 1280,
@@ -71,18 +98,29 @@ function createWindow() {
 		},
 	});
 
+	configureWindow(window);
+	window.loadURL("https://app.raindrop.io");
+}
+
+function configureWindow(window) {
 	window.webContents.setWindowOpenHandler(({ url }) => {
-		if (isRaindropUrl(url)) {
-			window.loadURL(url);
-		} else {
-			openExternal(url);
+		if (isInAppUrl(url)) {
+			return {
+				action: "allow",
+				overrideBrowserWindowOptions: childWindowOptions(),
+			};
 		}
 
+		openExternal(url);
 		return { action: "deny" };
 	});
 
+	window.webContents.on("did-create-window", (childWindow) => {
+		configureWindow(childWindow);
+	});
+
 	window.webContents.on("will-navigate", (event, url) => {
-		if (isRaindropUrl(url)) {
+		if (isInAppUrl(url)) {
 			return;
 		}
 
@@ -90,7 +128,14 @@ function createWindow() {
 		openExternal(url);
 	});
 
-	window.loadURL("https://app.raindrop.io");
+	window.webContents.on("will-redirect", (event, url) => {
+		if (!isRaindropUrl(window.webContents.getURL()) || isInAppUrl(url)) {
+			return;
+		}
+
+		event.preventDefault();
+		openExternal(url);
+	});
 }
 
 app.whenReady().then(() => {

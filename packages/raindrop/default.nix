@@ -149,8 +149,8 @@ symlinkJoin {
         stay separate from other Electron apps.
       - External top-level navigations and window.open targets open in the
         default system browser, while raindrop.io and a fixed set of social
-        sign-in hosts (Google, Apple, Facebook, X/Twitter) stay in the app
-        window so OAuth flows complete in the app profile.
+        sign-in hosts (Google, Apple, Facebook, X/Twitter) stay in app-owned
+        windows so OAuth flows complete in the app profile.
     '';
     homepage = "https://raindrop.io";
     license = lib.licenses.mit;
