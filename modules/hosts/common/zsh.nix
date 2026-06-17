@@ -112,19 +112,6 @@ let
           fi
 
           setopt NO_INTERACTIVE_COMMENTS
-          git-fork-sync() {
-            local branch
-
-            branch="$(git branch --show-current)" || return
-            if [[ -z "$branch" ]]; then
-              printf 'git-fork-sync: not on a branch\n' >&2
-              return 1
-            fi
-
-            git pull --no-edit origin "$branch" \
-              && git pull --no-edit upstream "$branch" \
-              && git push origin "$branch"
-          }
           alias nr='nix run nixpkgs#'
           alias ns='nix shell nixpkgs#'
           alias np='nix profile install nixpkgs#'

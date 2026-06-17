@@ -1,16 +1,18 @@
 /*
-  Package: git-fork-reset
-  Description: Reset the current fork branch to the matching upstream branch.
+  Package: git-fork-utils
+  Description: Git fork maintenance utilities.
   Homepage: nil
   Documentation: nil
   Repository: nil
 
   Summary:
+    * Provides `git-fork-sync`, also invocable as `git fork-sync`, for pulling fork branches from origin and upstream.
     * Provides `git-fork-reset`, also invocable as `git fork-reset`, for refreshing fork branches from upstream.
     * Backs up dirty, untracked, and ignored local state with `git stash --all` before resetting.
 
   Options:
     --no-push: Reset locally without force-with-lease pushing to origin.
+    -c <path>: Run against a local repository path instead of the current directory.
     --yes: Confirm the destructive reset without an interactive prompt.
     --dry-run: Print the Git operations that would run without changing the repository.
     --upstream <repo>: Add the upstream remote when missing, accepting owner/repo, GitHub URLs, or fully qualified Git remotes.
@@ -19,13 +21,12 @@
     -h, --help: Print usage information.
 
   Notes:
-    * The old shell function name is intentionally not preserved.
-    * In Git subcommand form, use `git fork-reset -h`; Git handles `git fork-reset --help` as a manpage lookup.
+    * In Git subcommand form, use `git fork-sync -h` or `git fork-reset -h`; Git handles `--help` as a manpage lookup.
     * The backup stash is kept for recovery and is never dropped automatically.
 */
 _:
 let
-  GitForkResetModule =
+  GitForkUtilsModule =
     {
       config,
       lib,
@@ -33,7 +34,85 @@ let
       ...
     }:
     let
-      cfg = config.programs."git-fork-reset".extended;
+      cfg = config.programs."git-fork-utils".extended;
+
+      gitForkSyncWrapper = pkgs.writeShellApplication {
+        name = "git-fork-sync";
+        runtimeInputs = [ cfg.package ];
+        text = ''
+          usage() {
+            cat <<'EOF'
+          git-fork-sync - pull a fork branch from origin and upstream
+
+          Usage:
+            git-fork-sync [OPTIONS]
+            git fork-sync [OPTIONS]
+
+          Pulls the current branch from origin, pulls the same branch from
+          upstream, then pushes the refreshed branch back to origin.
+
+          Options:
+            -c REPO_PATH              Run against this local repository path.
+            -h, --help                Print this help and exit.
+
+          Examples:
+            git fork-sync
+            git fork-sync -c /data/Projects/igit/fork-nixpkgs
+
+          Note:
+            Git handles `git fork-sync --help` as a manpage lookup. Use
+            `git fork-sync -h` or `git-fork-sync --help` for this help text.
+          EOF
+          }
+
+          die() {
+            printf 'git fork-sync: %s\n' "$*" >&2
+            exit 1
+          }
+
+          repo_path="."
+
+          while [[ $# -gt 0 ]]; do
+            case "$1" in
+              -c)
+                if [[ -z "''${2:-}" ]]; then
+                  die '-c requires a repo path'
+                fi
+                repo_path="$2"
+                shift 2
+                ;;
+              -h|--help)
+                usage
+                exit 0
+                ;;
+              --)
+                shift
+                if [[ $# -gt 0 ]]; then
+                  die 'unexpected positional arguments'
+                fi
+                break
+                ;;
+              -*)
+                die "unknown option: $1"
+                ;;
+              *)
+                die "unexpected argument: $1"
+                ;;
+            esac
+          done
+
+          cd -- "$repo_path" || die "cannot access repo path: $repo_path"
+
+          git rev-parse --show-toplevel >/dev/null 2>&1 \
+            || die 'not inside a Git worktree'
+          branch="$(git symbolic-ref --quiet --short HEAD)" \
+            || die 'not on a branch'
+
+          git pull --no-edit origin "$branch" \
+            && git pull --no-edit upstream "$branch" \
+            && git push origin "$branch"
+        '';
+      };
 
       gitForkResetWrapper = pkgs.writeShellApplication {
         name = "git-fork-reset";
@@ -58,6 +137,7 @@ let
 
           Options:
             --no-push                 Reset locally without pushing origin.
+            -c REPO_PATH              Run against this local repository path.
             -y, --yes                 Confirm without an interactive prompt.
             --dry-run                 Print operations without changing state.
             --upstream REPO           Upstream repo to add when the remote is missing.
@@ -69,6 +149,7 @@ let
 
           Examples:
             git fork-reset --yes
+            git fork-reset -c /data/Projects/igit/fork-nixpkgs --yes
             git fork-reset --no-push
             git fork-reset --upstream NixOS/nixpkgs --yes
             git-fork-reset --dry-run
@@ -152,6 +233,7 @@ let
           push=true
           assume_yes=false
           dry_run=false
+          repo_path="."
           upstream_input=""
           upstream_remote="upstream"
           origin_remote="origin"
@@ -161,6 +243,13 @@ let
               --no-push)
                 push=false
                 shift
+                ;;
+              -c)
+                if [[ -z "''${2:-}" ]]; then
+                  die '-c requires a repo path'
+                fi
+                repo_path="$2"
+                shift 2
                 ;;
               -y|--yes)
                 assume_yes=true
@@ -234,6 +323,8 @@ let
 
           validate_remote_name upstream "$upstream_remote"
           validate_remote_name origin "$origin_remote"
+
+          cd -- "$repo_path" || die "cannot access repo path: $repo_path"
 
           repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" \
             || die 'not inside a Git worktree'
@@ -344,21 +435,24 @@ let
       };
     in
     {
-      options.programs."git-fork-reset".extended = {
+      options.programs."git-fork-utils".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable the git fork reset helper.";
+          description = "Whether to enable the git fork utility helpers.";
         };
 
         package = lib.mkPackageOption pkgs "git" { };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ gitForkResetWrapper ];
+        environment.systemPackages = [
+          gitForkSyncWrapper
+          gitForkResetWrapper
+        ];
       };
     };
 in
 {
-  flake.nixosModules.apps."git-fork-reset" = GitForkResetModule;
+  flake.nixosModules.apps."git-fork-utils" = GitForkUtilsModule;
 }
