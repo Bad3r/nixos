@@ -6,7 +6,7 @@
 
   Usage:
     host.defaults.browser = "librewolf";
-    host.defaults.mailClient = "thunderbird";
+    host.defaults.mailClient = "thunderbird"; # Email, calendar, feeds, and newsgroups.
     host.defaults.torrentClient = "qbittorrent";
     host.defaults.terminal = "kitty";
     host.defaults.fileManager = "nemo";

@@ -33,10 +33,23 @@ let
     "x-scheme-handler/https"
   ];
 
-  # MIME types for mail clients
+  # MIME types and URI schemes for mail, calendar, feed, and newsgroup clients.
   mailClientMimeTypes = [
+    "application/atom+xml"
+    "application/rdf+xml"
+    "application/rss+xml"
+    "message/news"
     "message/rfc822"
+    "text/calendar"
+    "text/x-vcalendar"
+    "text/x-vcard"
+    "x-scheme-handler/feed"
     "x-scheme-handler/mailto"
+    "x-scheme-handler/news"
+    "x-scheme-handler/nntp"
+    "x-scheme-handler/snews"
+    "x-scheme-handler/webcal"
+    "x-scheme-handler/webcals"
   ];
 
   # MIME types for BitTorrent clients
@@ -400,8 +413,8 @@ let
       defaultValue = "thunderbird";
       example = "thunderbird";
       description = ''
-        Default mail client for this host.
-        Set to null to not configure a default mail client via XDG mimeapps.
+        Default mail, calendar, feed, and newsgroup client for this host.
+        Set to null to not configure these defaults via XDG mimeapps.
       '';
     };
 
