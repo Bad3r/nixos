@@ -73,14 +73,30 @@ let
       mkCategoryConfig =
         name: cat:
         lib.mkIf (cfg.${name} != null) (
+          let
+            appInfo = cat.desktopFiles.${cfg.${name}};
+            desktopFile = appInfo.desktop;
+            mimeDefaults =
+              if appInfo ? mimeTypes then
+                xdg.mime.mkDefaults appInfo.mimeTypes desktopFile
+              else
+                cat.mkMimeDefaults desktopFile;
+            addedAssociations =
+              if appInfo ? addedAssociations then
+                xdg.mime.mkDefaults appInfo.addedAssociations desktopFile
+              else
+                { };
+          in
           lib.mkMerge [
-            { xdg.mime.defaultApplications = cat.mkMimeDefaults cat.desktopFiles.${cfg.${name}}.desktop; }
+            { xdg.mime.defaultApplications = mimeDefaults; }
+            { xdg.mime.addedAssociations = addedAssociations; }
             (lib.optionalAttrs hasHomeManager {
               home-manager.sharedModules = [
                 {
                   xdg.mimeApps = {
                     enable = true;
-                    defaultApplications = cat.mkMimeDefaults cat.desktopFiles.${cfg.${name}}.desktop;
+                    defaultApplications = mimeDefaults;
+                    associations.added = addedAssociations;
                   };
                 }
               ];
