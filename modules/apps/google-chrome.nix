@@ -36,11 +36,13 @@ let
       cfg = config.programs.google-chrome.extended;
 
       managedExtensionSettings = {
+        # uBlock Origin Lite
         "ddkjiahejlhfcafbddmgiahcphecmpfh" = {
           installation_mode = "force_installed";
           update_url = "https://clients2.google.com/service/update2/crx";
         };
-        "nngceckbapebfimnlniiiahkandclblb" = {
+        # 1Password - Password Manager
+        "aeblfdkhhhdcdjpifhhbdiojplfjncoa" = {
           installation_mode = "force_installed";
           update_url = "https://clients2.google.com/service/update2/crx";
         };
