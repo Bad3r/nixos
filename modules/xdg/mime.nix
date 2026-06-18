@@ -33,11 +33,38 @@ let
     "x-scheme-handler/https"
   ];
 
-  # MIME types for mail clients
+  # MIME types and URI schemes for plain mail clients.
   mailClientMimeTypes = [
     "message/rfc822"
     "x-scheme-handler/mailto"
   ];
+
+  # MIME types and URI schemes for applications that manage calendars.
+  calendarMimeTypes = [
+    "text/calendar"
+    "text/x-vcalendar"
+    "text/x-vcard"
+    "x-scheme-handler/webcal"
+    "x-scheme-handler/webcals"
+  ];
+
+  # MIME types and URI schemes for applications that manage feeds.
+  feedMimeTypes = [
+    "application/atom+xml"
+    "application/rdf+xml"
+    "application/rss+xml"
+    "x-scheme-handler/feed"
+  ];
+
+  # MIME types and URI schemes for applications that manage newsgroups.
+  newsMimeTypes = [
+    "message/news"
+    "x-scheme-handler/news"
+    "x-scheme-handler/nntp"
+    "x-scheme-handler/snews"
+  ];
+
+  thunderbirdMimeTypes = mailClientMimeTypes ++ calendarMimeTypes ++ feedMimeTypes ++ newsMimeTypes;
 
   # MIME types for BitTorrent clients
   torrentClientMimeTypes = [
@@ -258,6 +285,8 @@ let
       thunderbird = {
         desktop = "thunderbird.desktop";
         module = "thunderbird";
+        mimeTypes = thunderbirdMimeTypes;
+        addedAssociations = thunderbirdMimeTypes;
       };
     };
 
@@ -357,6 +386,10 @@ let
       mkDefaults
       browserMimeTypes
       mailClientMimeTypes
+      calendarMimeTypes
+      feedMimeTypes
+      newsMimeTypes
+      thunderbirdMimeTypes
       torrentClientMimeTypes
       terminalMimeTypes
       fileManagerMimeTypes
@@ -400,8 +433,8 @@ let
       defaultValue = "thunderbird";
       example = "thunderbird";
       description = ''
-        Default mail client for this host.
-        Set to null to not configure a default mail client via XDG mimeapps.
+        Default mail, calendar, feed, and newsgroup client for this host.
+        Set to null to not configure these defaults via XDG mimeapps.
       '';
     };
 
@@ -643,6 +676,34 @@ let
   };
 in
 {
+  perSystem =
+    { pkgs, ... }:
+    let
+      thunderbird = desktopFiles.mailClient.thunderbird;
+      thunderbirdMimeHandlersOk =
+        lib.assertMsg (
+          mailClientMimeTypes == [
+            "message/rfc822"
+            "x-scheme-handler/mailto"
+          ]
+        ) "generic mail client MIME defaults must stay mail-only"
+        && lib.assertMsg (
+          thunderbird.mimeTypes == thunderbirdMimeTypes
+        ) "Thunderbird must opt into mail, calendar, feed, and newsgroup MIME defaults"
+        && lib.assertMsg (
+          thunderbird.addedAssociations == thunderbirdMimeTypes
+        ) "Thunderbird must add associations for every defaulted MIME handler";
+    in
+    {
+      checks.xdg-thunderbird-mime-handlers =
+        if thunderbirdMimeHandlersOk then
+          pkgs.runCommandLocal "xdg-thunderbird-mime-handlers-ok" { } ''
+            echo "ok: Thunderbird MIME handlers are scoped and associated" > $out
+          ''
+        else
+          throw "unreachable";
+    };
+
   flake = {
     lib.xdg = {
       inherit
