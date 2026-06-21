@@ -1,5 +1,5 @@
 _: {
-  configurations.nixos.system76.module = _: {
+  configurations.nixos.system76.module = {
     networking.firewall = {
       enable = true;
       allowedTCPPorts = [
