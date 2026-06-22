@@ -115,11 +115,6 @@ in
 
         cloudflared.enable = true;
 
-        cloudflare-warp = {
-          enable = true;
-          package = pkgs.cloudflare-warp.override { headless = true; };
-        };
-
         printing = {
           enable = lib.mkForce false;
           drivers = with pkgs; [
