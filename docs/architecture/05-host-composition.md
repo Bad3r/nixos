@@ -94,7 +94,7 @@ values such as `max-jobs` and `min-free`.
 
 ### Host-conditional helpers
 
-When a module needs to behave differently for one host (or skip itself entirely), use `flake.lib.nixos.hosts.<hostname>.<flag>` rather than reading hostname strings. Example: `modules/tpnix/policy.nix` exports `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`, and `modules/tpnix/imports.nix` reads it to gate `duplicati-r2` until SOPS runtime is wired.
+When a module needs to behave differently for one host (or skip itself entirely), use `flake.lib.nixos.hosts.<hostname>.<flag>` rather than reading hostname strings. Example: `modules/tpnix/policy.nix` exports `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`, and `modules/tpnix/imports.nix` reads it before importing `duplicati-r2`.
 
 ```nix
 inherit (config.flake.lib.nixos.hosts.tpnix) sopsRuntimeReady;
