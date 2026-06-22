@@ -11,7 +11,9 @@ service token delivered through a managed deployment file (`mdm.xml`).
 | ----------------------------- | ---------------------------------------------------------- |
 | [Deployment](./deployment.md) | Operator runbook: dashboard prerequisites, secret, rollout |
 | [Reference](./reference.md)   | Module options, mdm.xml parameters, sops layout            |
+| [Modes](./modes.md)           | WARP mode comparison, DNS tradeoffs, split tunnels         |
 | [Operations](./operations.md) | Runtime verification, coexistence checks, troubleshooting  |
+| [Cheatsheet](./cheatsheet.md) | `warp-cli`, `warp-diag`, and service inspection commands   |
 
 ## What the module does
 
@@ -53,3 +55,12 @@ OFF; enrollment is a deliberate per-host opt-in.
 - `mdm.xml` is written to `/var/lib/cloudflare-warp/mdm.xml` as `0600 root:root`.
 - `secrets/` is a git submodule; the encrypted payload is committed there, the
   Nix changes in the main repository.
+
+## References
+
+- [WARP client docs](https://developers.cloudflare.com/warp-client/)
+- [Get started on Linux](https://developers.cloudflare.com/warp-client/get-started/linux/)
+- [Deploy the client headless on Linux](https://developers.cloudflare.com/cloudflare-one/tutorials/deploy-client-headless-linux/)
+- [Managed deployment parameters](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/warp/deployment/mdm-deployment/parameters/)
+- [Service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-auth/service-tokens/)
+- [NixOS option `services.cloudflare-warp`](https://search.nixos.org/options?query=services.cloudflare-warp)
