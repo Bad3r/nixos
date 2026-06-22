@@ -1,0 +1,55 @@
+# Cloudflare WARP (Zero Trust)
+
+Declarative Cloudflare WARP enrollment for this NixOS configuration. The
+`programs.cloudflare-warp.extended` module runs the `warp-svc` daemon and enrolls
+a device into the Cloudflare Zero Trust organization non-interactively, using a
+service token delivered through a managed deployment file (`mdm.xml`).
+
+## Documents
+
+| Document                      | Purpose                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
+| [Deployment](./deployment.md) | Operator runbook: dashboard prerequisites, secret, rollout |
+| [Reference](./reference.md)   | Module options, mdm.xml parameters, sops layout            |
+| [Operations](./operations.md) | Runtime verification, coexistence checks, troubleshooting  |
+
+## What the module does
+
+`modules/apps/cloudflare-warp.nix` is a thin wrapper over the upstream
+`services.cloudflare-warp` NixOS service. When `programs.cloudflare-warp.extended`
+is enabled it:
+
+1. Enables `services.cloudflare-warp`, which runs `warp-svc` as root with
+   `CAP_NET_ADMIN` and opens the WARP UDP port (2408 by default).
+2. Declares two sops secrets (`auth_client_id`, `auth_client_secret`) from
+   `secrets/cloudflare-warp.yaml`, guarded by `builtins.pathExists` so a missing
+   secret warns instead of failing evaluation.
+3. Renders `/var/lib/cloudflare-warp/mdm.xml` from non-secret options plus sops
+   placeholders, and installs it (mode 0600, root) via an `ExecStartPre` right
+   before `warp-svc` starts.
+4. Sets `networking.firewall.checkReversePath = "loose"` (the WARP interface
+   trips strict reverse-path filtering).
+5. Adds a best-effort `cloudflare-warp-connect` oneshot that waits for the daemon
+   and runs `warp-cli connect` on boot.
+
+`service_mode` is authoritative through `mdm.xml`; the module never calls
+`warp-cli mode`, so the managed config and the local client cannot fight.
+
+## Enrolled hosts
+
+| Host       | Service mode         | Enable file                            |
+| ---------- | -------------------- | -------------------------------------- |
+| `tpnix`    | `warp` (full tunnel) | `modules/tpnix/cloudflare-warp.nix`    |
+| `system76` | `warp` (full tunnel) | `modules/system76/cloudflare-warp.nix` |
+
+The common baseline (`modules/hosts/common/apps-enable.nix`) defaults the app
+OFF; enrollment is a deliberate per-host opt-in.
+
+## Security model
+
+- Credentials live only in `secrets/cloudflare-warp.yaml` (sops, age). The
+  rendered `mdm.xml` is produced from sops placeholders, so plaintext
+  credentials never enter the Nix store or git history.
+- `mdm.xml` is written to `/var/lib/cloudflare-warp/mdm.xml` as `0600 root:root`.
+- `secrets/` is a git submodule; the encrypted payload is committed there, the
+  Nix changes in the main repository.
