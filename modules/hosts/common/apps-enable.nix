@@ -95,7 +95,7 @@ let
       "cloudflare-go-sdk".extended.enable = lib.mkOverride 1100 false;
       "cloudflare-python-sdk".extended.enable = lib.mkOverride 1100 false;
       "cloudflare-rs-sdk".extended.enable = lib.mkOverride 1100 false;
-      "cloudflare-warp".extended.enable = lib.mkOverride 1100 true;
+      "cloudflare-warp".extended.enable = lib.mkOverride 1100 false;
       cloudflared.extended.enable = lib.mkOverride 1100 true;
       cmake.extended.enable = lib.mkOverride 1100 true;
       codeburn.extended.enable = lib.mkOverride 1100 false;
