@@ -73,20 +73,81 @@ hardware-backed SSH keys can coexist without breaking SOPS.
 ## Adding a New Secret
 
 1. Confirm the recipient exists in `.sops.yaml` (regenerate via `nix develop -c write-files` if you just edited the policy module).
-2. Create or edit the encrypted file:
+2. Create or edit the encrypted file under `secrets/`:
    ```bash
-   sops secrets/<name>.yaml
+   sops secrets/<service>.yaml
    ```
-3. Declare the secret in a module:
+3. Use `secrets/service.yaml.example` as the plaintext template for ordinary
+   service credentials. Keep the actual secret file as a small YAML document
+   with flat, top-level `snake_case` keys. Do not add the `sops:` metadata block
+   manually; SOPS adds and maintains it after encryption.
+   ```yaml
+   # secrets/<service>.yaml
+   # Edit with: sops secrets/<service>.yaml
+   # Do not add the sops: metadata block manually. SOPS adds it after encryption.
+
+   api_token: "<secret>"
+   client_id: "<secret>"
+   client_secret: "<secret>"
+   ```
+4. Declare each consumed key explicitly in the owning module. Set `key` to the
+   YAML key name even when it would match today, because the runtime secret name
+   often uses slashes or hyphens while the YAML key should stay simple.
    ```nix
-   sops.secrets."<namespace>/<name>" = {
-     sopsFile = "${secretsRoot}/<name>.yaml";
-     mode = "0400";
-     owner = config.flake.lib.meta.owner.username;
-   };
+   {
+     config,
+     lib,
+     metaOwner,
+     secretsRoot,
+     ...
+   }:
+   let
+     serviceSecretFile = "${secretsRoot}/<service>.yaml";
+     serviceSecretExists = builtins.pathExists serviceSecretFile;
+     ownerName = metaOwner.username;
+   in
+   {
+     config = lib.mkIf serviceSecretExists {
+       sops.secrets."<service>/api-token" = {
+         sopsFile = serviceSecretFile;
+         format = "yaml";
+         key = "api_token";
+         path = "/run/secrets/<service>/api-token";
+         mode = "0400";
+         owner = ownerName;
+       };
+
+       sops.secrets."<service>/client-id" = {
+         sopsFile = serviceSecretFile;
+         format = "yaml";
+         key = "client_id";
+         path = "/run/secrets/<service>/client-id";
+         mode = "0400";
+         owner = ownerName;
+       };
+
+       sops.secrets."<service>/client-secret" = {
+         sopsFile = serviceSecretFile;
+         format = "yaml";
+         key = "client_secret";
+         path = "/run/secrets/<service>/client-secret";
+         mode = "0400";
+         owner = ownerName;
+       };
+     };
+   }
    ```
-4. Reference the runtime material via `.path` or a template. Never read secrets at evaluation time.
-5. Run the validation suite (see [`docs/architecture/06-reference.md`](../architecture/06-reference.md#validation)).
+5. For Home Manager modules, use the same YAML shape and explicit `key`
+   selectors. Set `path` under the user's home directory and omit `owner`
+   unless the local module needs a non-default owner.
+6. Reference the runtime material via `.path`, `config.sops.placeholder`, or a
+   `sops.templates` output. Never read decrypted secret values at evaluation
+   time.
+7. Use nested YAML only when the owning module intentionally expects a
+   slash-separated selector such as `duplicati-r2/AWS_ACCESS_KEY_ID`. Use
+   `key = ""` only when the consumer needs the whole decrypted YAML file instead
+   of one key.
+8. Run the validation suite (see [`docs/architecture/06-reference.md`](../architecture/06-reference.md#validation)).
 
 ## Example: GitHub Token for `act`
 
