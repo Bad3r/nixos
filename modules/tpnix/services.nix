@@ -32,10 +32,10 @@ _: {
         cloudflared.enable = lib.mkForce false;
 
         printing = {
-          enable = lib.mkForce false;
+          enable = true;
           drivers = with pkgs; [
             gutenprint
-            # hplip  # Requires unfree license
+            hplip
             brlaser
           ];
         };

@@ -91,7 +91,6 @@
           '';
         };
 
-        printing.enable = lib.mkForce false;
         fstrim.enable = true;
       };
 
