@@ -32,6 +32,16 @@
   - Sample NixOS configuration for ACME certificate management using Cloudflare DNS-01 challenge.
 - [cloudflare/cloudflared-tunnel-sample.md](cloudflare/cloudflared-tunnel-sample.md)
   - Sample NixOS configuration for Cloudflare Tunnel (cloudflared) with ingress rules and credential setup.
+- [cloudflare/warp/README.md](cloudflare/warp/README.md)
+  - Overview and reading order for running Cloudflare WARP (Zero Trust device client) on NixOS.
+- [cloudflare/warp/warp-modes.md](cloudflare/warp/warp-modes.md)
+  - Comparison of the five WARP modes and the full versus traffic-only DNS tradeoff.
+- [cloudflare/warp/zero-trust-enrollment.md](cloudflare/warp/zero-trust-enrollment.md)
+  - Non-interactive Zero Trust enrollment with a service token and mdm.xml parameters.
+- [cloudflare/warp/nixos-setup.md](cloudflare/warp/nixos-setup.md)
+  - Working NixOS recipe using services.cloudflare-warp and a sops-rendered mdm.xml.
+- [cloudflare/warp/operations.md](cloudflare/warp/operations.md)
+  - Verification checks, warp-cli cheat sheet, warp-diag, and common Linux failure modes.
 - [cloudflare/containers/README.md](cloudflare/containers/README.md)
   - Technical documentation index for Cloudflare Containers.
 - [cloudflare/containers/architecture.md](cloudflare/containers/architecture.md)
