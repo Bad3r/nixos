@@ -10,7 +10,9 @@ let
   printerSecretName = "tpnix/printing/m604-device-uri";
   printerSecretPath = "/run/secrets/${printerSecretName}";
   printerServiceName = "ensure-tpnix-printer-m604";
+  inherit (config.flake.lib.nixos.hosts.tpnix) sopsRuntimeReady;
   inherit (config.flake.lib.security) sopsInstallSecretsDeps;
+  printerSecretsReady = sopsRuntimeReady && printerSecretExists;
 in
 {
   configurations.nixos.tpnix.module =
@@ -23,7 +25,7 @@ in
     in
     {
       config = lib.mkMerge [
-        (lib.mkIf printerSecretExists {
+        (lib.mkIf printerSecretsReady {
           sops.secrets.${printerSecretName} = {
             sopsFile = printerSecretFile;
             format = "yaml";
@@ -67,9 +69,9 @@ in
           };
         })
 
-        (lib.mkIf (!printerSecretExists) {
+        (lib.mkIf (!printerSecretsReady) {
           warnings = [
-            "tpnix M604 printer is skipped because ${printerSecretFile} is missing."
+            "M604 printer queue is disabled on tpnix until SOPS decryption keys are configured."
           ];
         })
       ];
