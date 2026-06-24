@@ -81,7 +81,7 @@ _: {
             pkgs.tridactyl-native
           ]
           ++ gecko.nativeMessagingHosts
-          ++ lib.optional firefoxpwaEnabled pkgs.firefoxpwa;
+          ++ lib.optional firefoxpwaEnabled osConfig.programs.firefoxpwa.extended.package;
 
           inherit (gecko) policies;
 
