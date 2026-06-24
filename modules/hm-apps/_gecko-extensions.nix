@@ -81,6 +81,16 @@ let
   wappalyzer = "wappalyzer@crunchlabz.com";
   webArchives = "{d07ccf11-c0cd-4938-a265-2a4d6ad01189}";
 
+  # PWAsForFirefox management extension. Force-installed on the regular gecko
+  # browsers (extensionSettings below), like uBlock, so PWAs can be installed and
+  # managed from the browser. The native connector is wired in
+  # modules/hm-apps/{firefox,librewolf}.nix.
+  firefoxpwaExt = "firefoxpwa@filips.si";
+  # Tab Reloader (page auto refresh). Force-installed only into the firefoxpwa
+  # runtime profiles via firefoxpwaRuntimePolicies, never the regular browsers;
+  # periodic reloads keep authenticated PWA sessions alive past idle timeouts.
+  tabReloader = "jid0-bnmfwWw2w2w4e4edvcdDbnMhdVg@jetpack";
+
   policyExtensionIds = [
     arabicDictionary
     cookieAutoDelete
@@ -382,6 +392,32 @@ let
       install_url = ublockOriginInstallUrl;
       private_browsing = true;
     };
+    "${firefoxpwaExt}" = {
+      installation_mode = "force_installed";
+      install_url = mkAmoInstallUrl firefoxpwaExt;
+    };
+  };
+
+  # Enterprise policy applied to the firefoxpwa runtime (every PWA profile) by
+  # modules/custom-overlays/firefoxpwa.nix. uBlock matches the regular browsers;
+  # Tab Reloader is PWA-only. uBlock here keeps default settings: the medium-mode
+  # extensionStorage below is scoped to Home Manager profiles, and PWA profile
+  # ULIDs are generated at runtime, so per-profile seeding is not reliable.
+  firefoxpwaRuntimePolicies = {
+    ExtensionSettings = {
+      "${ublockOrigin}" = {
+        installation_mode = "force_installed";
+        install_url = ublockOriginInstallUrl;
+        private_browsing = true;
+      };
+      "${tabReloader}" = {
+        installation_mode = "force_installed";
+        install_url = mkAmoInstallUrl tabReloader;
+      };
+    };
+    DisableAppUpdate = true;
+    DisableTelemetry = true;
+    DisableFirefoxStudies = true;
   };
 
   primaryPackages = [ ];
@@ -404,6 +440,8 @@ in
   inherit primaryPackages pentestingPackages workPackages;
 
   nativeMessagingHosts = [ onePasswordNativeMessagingHost ];
+
+  inherit firefoxpwaRuntimePolicies;
 
   sidebarSettings =
     let

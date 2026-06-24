@@ -11,6 +11,7 @@ _: {
       legacyProfilesPath = ".mozilla/firefox";
       xdgProfilesPath = ".config/mozilla/firefox";
       nixosEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
+      firefoxpwaEnabled = lib.attrByPath [ "programs" "firefoxpwa" "extended" "enable" ] false osConfig;
       gecko = import ./_gecko-mk-profile.nix {
         inherit
           pkgs
@@ -55,8 +56,13 @@ _: {
           package = osConfig.programs.firefox.extended.package;
           # `home.packages` is not on Firefox's native-messaging discovery
           # path. Use HM's browser-native option so manifests land in
-          # ~/.mozilla/native-messaging-hosts.
-          nativeMessagingHosts = [ pkgs.tridactyl-native ] ++ gecko.nativeMessagingHosts;
+          # ~/.mozilla/native-messaging-hosts. firefoxpwa ships the PWA connector
+          # manifest (firefoxpwa.json); add it when the host enables firefoxpwa.
+          nativeMessagingHosts = [
+            pkgs.tridactyl-native
+          ]
+          ++ gecko.nativeMessagingHosts
+          ++ lib.optional firefoxpwaEnabled pkgs.firefoxpwa;
 
           inherit (gecko) policies;
 
