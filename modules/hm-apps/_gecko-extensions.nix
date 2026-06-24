@@ -7,6 +7,10 @@
   config,
   lib,
   pkgs,
+  # Whether the host enables programs.firefoxpwa.extended. Gates the firefoxpwa
+  # management extension so it is only force-installed where the native
+  # connector and CLI also exist (see firefox.nix/librewolf.nix).
+  firefoxpwaEnabled ? false,
 }:
 let
   # Use AMO's extension-ID URL form so the install URL matches the
@@ -386,17 +390,25 @@ let
     "app.raindrop.io * 3p-frame noop"
   ];
 
-  extensionSettings = (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy) // {
-    "${ublockOrigin}" = {
-      installation_mode = "force_installed";
-      install_url = ublockOriginInstallUrl;
-      private_browsing = true;
+  extensionSettings =
+    (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy)
+    // {
+      "${ublockOrigin}" = {
+        installation_mode = "force_installed";
+        install_url = ublockOriginInstallUrl;
+        private_browsing = true;
+      };
+    }
+    # The firefoxpwa management extension is only useful when the host enables
+    # firefoxpwa: the native connector and `firefoxpwa` CLI are gated on the same
+    # option. Force-installing it on an opt-out host would leave a non-removable
+    # add-on stuck in a "connector not installed" state.
+    // lib.optionalAttrs firefoxpwaEnabled {
+      "${firefoxpwaExt}" = {
+        installation_mode = "force_installed";
+        install_url = mkAmoInstallUrl firefoxpwaExt;
+      };
     };
-    "${firefoxpwaExt}" = {
-      installation_mode = "force_installed";
-      install_url = mkAmoInstallUrl firefoxpwaExt;
-    };
-  };
 
   # Enterprise policy applied to the firefoxpwa runtime (every PWA profile) by
   # modules/custom-overlays/firefoxpwa.nix. uBlock matches the regular browsers;

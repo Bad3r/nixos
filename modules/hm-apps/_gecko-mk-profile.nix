@@ -14,6 +14,7 @@
   pkgs,
   lib,
   config,
+  firefoxpwaEnabled ? false,
 }:
 let
   geckoPrefs = import ./_gecko-prefs.nix {
@@ -26,6 +27,7 @@ let
       config
       lib
       pkgs
+      firefoxpwaEnabled
       ;
   };
   geckoChrome = import ./_gecko-chrome.nix { };

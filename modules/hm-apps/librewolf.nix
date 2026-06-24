@@ -36,6 +36,7 @@ _: {
           pkgs
           lib
           config
+          firefoxpwaEnabled
           ;
       };
       xdgProfileRoot = gecko.mkXdgProfileRoot {
