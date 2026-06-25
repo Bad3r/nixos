@@ -123,7 +123,7 @@ _: {
             };
 
             ".local/bin/claude" = {
-              source = claudeRuntime.claudeWrapperScript;
+              source = lib.getExe claudeRuntime.claudeWrapped;
               executable = true;
             };
           }
