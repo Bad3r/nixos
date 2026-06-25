@@ -2,8 +2,10 @@
   Runtime wrapper for Claude Code.
 
   The wrapper owns launch-time environment and target selection. It is installed
-  into ~/.local/bin/claude from home-manager.nix so it wins over an external
-  bun global binary at $XDG_DATA_HOME/bun/bin/claude.
+  into ~/.local/bin/claude from home-manager.nix, which also prepends
+  ~/.local/bin ahead of the bun global bin on home.sessionPath (lib.mkBefore),
+  so it wins PATH resolution over an external bun global binary at
+  $XDG_DATA_HOME/bun/bin/claude.
 */
 {
   lib,

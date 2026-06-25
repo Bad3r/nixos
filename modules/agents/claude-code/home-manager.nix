@@ -155,6 +155,12 @@ _: {
 
           inherit activation;
 
+          # Prepend ~/.local/bin so the wrapper at ~/.local/bin/claude wins PATH
+          # resolution over an external bun-global claude. bun (modules/hm-apps/bun.nix)
+          # puts its bin on home.sessionPath, which is prepended to PATH in list
+          # order; lib.mkBefore orders this entry ahead of bun's so the wrapper wins.
+          sessionPath = lib.mkBefore [ "${config.home.homeDirectory}/.local/bin" ];
+
           sessionVariables = {
             # Duplicates of postFixup in modules/apps/claude-code.nix (belt-and-suspenders)
             DISABLE_AUTOUPDATER = "1";
