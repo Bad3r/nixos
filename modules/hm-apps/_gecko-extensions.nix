@@ -90,9 +90,10 @@ let
   # managed from the browser. The native connector is wired in
   # modules/hm-apps/{firefox,librewolf}.nix.
   firefoxpwaExt = "firefoxpwa@filips.si";
-  # Tab Reloader (page auto refresh). Force-installed only into the firefoxpwa
-  # runtime profiles via firefoxpwaRuntimePolicies, never the regular browsers;
-  # periodic reloads keep authenticated PWA sessions alive past idle timeouts.
+  # Tab Reloader (page auto refresh). Installed only into the firefoxpwa runtime
+  # profiles via firefoxpwaRuntimePolicies (normal_installed, user-removable),
+  # never the regular browsers; periodic reloads keep authenticated PWA sessions
+  # alive past idle timeouts.
   tabReloader = "jid0-bnmfwWw2w2w4e4edvcdDbnMhdVg@jetpack";
 
   policyExtensionIds = [
@@ -411,10 +412,15 @@ let
     };
 
   # Enterprise policy applied to the firefoxpwa runtime (every PWA profile) by
-  # modules/custom-overlays/firefoxpwa.nix. uBlock matches the regular browsers;
-  # Tab Reloader is PWA-only. uBlock here keeps default settings: the medium-mode
-  # extensionStorage below is scoped to Home Manager profiles, and PWA profile
-  # ULIDs are generated at runtime, so per-profile seeding is not reliable.
+  # modules/custom-overlays/firefoxpwa.nix. uBlock and 1Password are
+  # force-installed so the ad blocker and password manager are always present in
+  # PWAs; 1Password reaches its desktop app through the native-messaging host the
+  # firefox module already drops in ~/.mozilla/native-messaging-hosts, which the
+  # runtime reads (XRE_USER_NATIVE_MANIFESTS is the hardcoded legacy path).
+  # Tridactyl and Tab Reloader are normal_installed: present but user-removable.
+  # uBlock here keeps default settings: the medium-mode extensionStorage below is
+  # scoped to Home Manager profiles, and PWA profile ULIDs are generated at
+  # runtime, so per-profile seeding is not reliable.
   firefoxpwaRuntimePolicies = {
     ExtensionSettings = {
       "${ublockOrigin}" = {
@@ -422,10 +428,12 @@ let
         install_url = ublockOriginInstallUrl;
         private_browsing = true;
       };
-      "${tabReloader}" = {
+      "${onePassword}" = {
         installation_mode = "force_installed";
-        install_url = mkAmoInstallUrl tabReloader;
+        install_url = mkAmoInstallUrl onePassword;
       };
+      "${tridactyl}" = mkNormalInstalledPolicy tridactyl;
+      "${tabReloader}" = mkNormalInstalledPolicy tabReloader;
     };
     DisableAppUpdate = true;
     DisableTelemetry = true;

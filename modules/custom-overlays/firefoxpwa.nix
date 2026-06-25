@@ -8,9 +8,10 @@
   policy file in the runtime's `distribution/` directory (the same mechanism
   `wrapFirefox` uses for normal Firefox).
 
-  This overlay injects that policy file (force-installing uBlock Origin and the
-  Tab Reloader keep-alive extension into every PWA profile) into the unwrapped
-  package. nixpkgs builds `firefoxpwa = wrapFirefox firefoxpwa-unwrapped { }`, so
+  This overlay injects that policy file into the unwrapped package. The policy
+  force-installs uBlock Origin and 1Password into every PWA profile, and adds
+  Tridactyl and the Tab Reloader keep-alive extension as user-removable installs.
+  nixpkgs builds `firefoxpwa = wrapFirefox firefoxpwa-unwrapped { }`, so
   overriding only the unwrapped package lets the package-set fixpoint rebuild the
   wrapped `firefoxpwa` around the patched runtime, with no manual re-wrap. The
   policy set is owned by modules/hm-apps/_gecko-extensions.nix so add-on IDs stay
