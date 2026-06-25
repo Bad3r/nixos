@@ -78,13 +78,8 @@ let
       charles.extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
       clangd.extended.enable = lib.mkOverride 1100 false;
-      # Both install methods disabled: the claude-code binary is managed
-      # outside Nix on this host. Home Manager still installs ~/.local/bin/claude
-      # as a wrapper, applies settings, skills, and MCP merge, then delegates to
-      # programs.claude-code.extended.externalBinary. To switch back to a
-      # Nix-managed binary, set installMethods.nix.enable = true; for
-      # bun-managed, set installMethods.bun.enable = true and
-      # programs.bun.extended.enable = true.
+      # Both install methods off: binary managed outside Nix via externalBinary;
+      # the wrapper, settings, skills, and MCP merge still apply.
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;

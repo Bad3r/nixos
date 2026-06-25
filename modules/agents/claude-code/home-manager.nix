@@ -155,10 +155,8 @@ _: {
 
           inherit activation;
 
-          # Prepend ~/.local/bin so the wrapper at ~/.local/bin/claude wins PATH
-          # resolution over an external bun-global claude. bun (modules/hm-apps/bun.nix)
-          # puts its bin on home.sessionPath, which is prepended to PATH in list
-          # order; lib.mkBefore orders this entry ahead of bun's so the wrapper wins.
+          # bun puts its global bin on home.sessionPath; mkBefore orders
+          # ~/.local/bin ahead of it so the wrapper shadows a bun-global claude.
           sessionPath = lib.mkBefore [ "${config.home.homeDirectory}/.local/bin" ];
 
           sessionVariables = {

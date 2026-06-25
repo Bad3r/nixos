@@ -1,10 +1,6 @@
-# Shared rm -> rip shim for terminal coding agents.
-#
-# Both the codex and claude-code shell wrappers rewrite bare `rm` to a
-# recoverable, rip-backed deletion. Keeping the shim here is the single source
-# of truth so the two agents cannot drift on deletion semantics.
+# Shared rm -> rip shim: the codex and claude-code wrappers both route bare `rm`
+# through it so deletions stay recoverable.
 { lib, pkgs }:
-# Translate common rm flags into rip so agents default to recoverable deletions.
 pkgs.writeShellScriptBin "rm" ''
   set -euo pipefail
 
