@@ -16,8 +16,6 @@
   greptileApiKeyPath,
 }:
 let
-  coreutilsTr = lib.getExe' pkgs.coreutils "tr";
-
   targetScript =
     if installMethods.bun.enable then
       ''
@@ -35,7 +33,9 @@ let
   greptileEnv = lib.optionalString greptilePluginRequested ''
     secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
     if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
-      if secret_value="$(${coreutilsTr} -d '\r\n' < "$secret_path")" && [ -n "$secret_value" ]; then
+      secret_value=$(< "$secret_path")
+      secret_value="''${secret_value//[$'\r\n']/}"
+      if [ -n "$secret_value" ]; then
         export GREPTILE_API_KEY="$secret_value"
       fi
     fi
