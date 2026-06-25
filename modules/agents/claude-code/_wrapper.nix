@@ -1,19 +1,9 @@
 /*
-  Runtime wrapper for Claude Code.
+  Launch wrapper for Claude Code: launch-time env, target-binary selection, and
+  routing the shell tool through a controlled bash.
 
-  The wrapper owns launch-time environment and target selection. It is installed
-  into ~/.local/bin/claude from home-manager.nix, which also prepends
-  ~/.local/bin ahead of the bun global bin on home.sessionPath (lib.mkBefore),
-  so it wins PATH resolution over an external bun global binary at
-  $XDG_DATA_HOME/bun/bin/claude.
-
-  Like the codex wrapper it: corrals temp files under /tmp/agents, and forces a
-  controlled bash for the agent's shell tool (rip-backed rm + direnv) instead of
-  the user's login shell. Codex injects that bash by overriding the passwd shell
-  field through nss_wrapper because it execs the login shell; Claude Code instead
-  resolves its shell from CLAUDE_CODE_SHELL (it accepts a path containing
-  bash/zsh that is executable), so the wrapper points that variable at the shim
-  rather than carrying the nss_wrapper/LD_PRELOAD machinery.
+  Unlike codex (which overrides the passwd shell via nss_wrapper), Claude Code
+  takes its shell from CLAUDE_CODE_SHELL, so the wrapper sets that variable.
 */
 {
   lib,
@@ -26,17 +16,10 @@
   greptileApiKeyPath,
 }:
 let
-  # rm -> rip shim shared with the codex wrapper (modules/agents/_rm-shim.nix).
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
 
-  # Controlled bash for Claude's shell tool. Puts the rip-backed `rm` shim first
-  # on PATH so bare `rm` stays recoverable for every command and subprocess in
-  # any invocation form (-c, -lc, -i, -s, stdin, sourced snapshot), not just the
-  # `bash -c` path Claude happens to use today. It also mirrors interactive
-  # direnv for `bash -c`/`-lc` commands, then hands off to real bash. This is the
-  # codex bash wrapper minus the nss_wrapper LD_PRELOAD restore (Claude never
-  # sets that preload). Kept named `bash` so the CLAUDE_CODE_SHELL check accepts
-  # it.
+  # Claude runs its shell tool through this via CLAUDE_CODE_SHELL, which requires
+  # the path to contain "bash" or "zsh", hence the `bash` name.
   claudeBashWrapper = pkgs.writeShellScriptBin "bash" ''
     set -euo pipefail
 
@@ -44,9 +27,8 @@ let
     realBash=${lib.getExe pkgs.bashInteractive}
     rmShimPath=${rmShim}/bin/rm
 
-    # The shim dir holds only `rm`, so prepending it shadows nothing else. This
-    # is the layer that cannot be bypassed by how the shell is launched; the -c
-    # branch below additionally defines an `rm` function as defense in depth.
+    # Only `rm` lives in this dir, so prepending shadows nothing else; on PATH so
+    # bare `rm` is shimmed for every shell invocation form, not just -c below.
     export PATH=${rmShim}/bin''${PATH:+:$PATH}
 
     if [ "$#" -ge 2 ] && { [ "$1" = "-c" ] || [ "$1" = "-lc" ]; }; then
@@ -56,7 +38,7 @@ let
 
       export CLAUDE_WRAPPED_COMMAND="$wrappedCommand"
       exec "$realBash" "$shellFlag" '
-        # Mirror interactive direnv behavior for non-interactive shell commands.
+        # Load direnv as an interactive shell would.
         if direnvExports="$("'"$direnvBin"'" export bash 2>/dev/null)"; then
           eval "$direnvExports"
         fi
@@ -114,20 +96,15 @@ let
     export DISABLE_BUG_COMMAND=1
     export USE_BUILTIN_RIPGREP=0
 
-    # Corral agent temp files under a shared root, matching the codex wrapper.
+    # Shared scratch root for agent temp files.
     tmpDir="/tmp/agents"
     mkdir -p "$tmpDir"
     export TMPDIR="$tmpDir"
 
-    # Resolve bare `rm` to the rip-backed shim for Claude and every process it
-    # spawns, including a fallback shell if CLAUDE_CODE_SHELL is ever rejected,
-    # so the safeguard does not depend on the shell launch path. The controlled
-    # bash shim re-asserts this on its own PATH as well.
+    # Covers Claude itself and any fallback shell (if CLAUDE_CODE_SHELL is
+    # rejected); the controlled bash re-asserts the same prepend.
     export PATH=${rmShim}/bin''${PATH:+:$PATH}
 
-    # Force Claude's shell tool onto the controlled bash shim (direnv mirror +
-    # rip-backed rm): the CLAUDE_CODE_SHELL analogue of the codex passwd-shell
-    # override.
     export CLAUDE_CODE_SHELL=${lib.escapeShellArg "${claudeBashWrapper}/bin/bash"}
 
     ${greptileEnv}

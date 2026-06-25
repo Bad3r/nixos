@@ -20,7 +20,6 @@ let
     }:
     "host_executable(name=${builtins.toJSON name}, paths=${builtins.toJSON paths})";
 
-  # rm -> rip shim shared with the other agent wrappers (modules/agents/_rm-shim.nix).
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
 
   # Scope recoverable bare `rm` rewrites to the top-level Codex shell command
