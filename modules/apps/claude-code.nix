@@ -82,6 +82,17 @@ in
           description = "Claude Code package used when installMethods.nix.enable is true.";
         };
 
+        externalBinary = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = ''
+            Absolute runtime path used by the Home Manager `~/.local/bin/claude`
+            wrapper when both `installMethods.nix.enable` and
+            `installMethods.bun.enable` are false. When null, the wrapper
+            delegates to the Home Manager bun global path under XDG data home.
+          '';
+        };
+
         installMethods = {
           nix.enable = lib.mkOption {
             type = lib.types.bool;
