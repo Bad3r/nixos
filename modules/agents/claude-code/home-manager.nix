@@ -27,6 +27,7 @@
         _plugins.nix           enabledPlugins composition from osConfig
         _settings.nix          merges defaults + plugins + mcpServers
         _activation.nix        activation snippets (jq merge + optional bun install)
+        _wrapper.nix           shell launcher environment and binary selection
 */
 
 _: {
@@ -41,6 +42,16 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "claude-code" "extended" "enable" ] false osConfig;
+      claudePkg = lib.attrByPath [
+        "programs"
+        "claude-code"
+        "extended"
+        "package"
+      ] pkgs.claude-code osConfig;
+      installMethods = lib.attrByPath [ "programs" "claude-code" "extended" "installMethods" ] {
+        nix.enable = false;
+        bun.enable = false;
+      } osConfig;
 
       defaults = import ./_default-settings.nix;
       plugins = import ./_plugins.nix { inherit lib osConfig; };
@@ -56,6 +67,18 @@ _: {
 
       greptileApiKeyPath = "${config.xdg.dataHome}/greptile/api-key";
       greptileHeadersHelperPath = "${config.home.homeDirectory}/.local/bin/claude-greptile-mcp-headers";
+      bunInstallDir = "${config.xdg.dataHome}/bun";
+      configuredExternalBinary = lib.attrByPath [
+        "programs"
+        "claude-code"
+        "extended"
+        "externalBinary"
+      ] null osConfig;
+      externalBinary =
+        if configuredExternalBinary == null then
+          "${bunInstallDir}/bin/claude"
+        else
+          configuredExternalBinary;
 
       activation = import ./_activation.nix {
         inherit
@@ -70,14 +93,18 @@ _: {
         inherit (plugins) greptilePluginKey greptilePluginRequested;
       };
 
-      bunInstallEnabled = lib.attrByPath [
-        "programs"
-        "claude-code"
-        "extended"
-        "installMethods"
-        "bun"
-        "enable"
-      ] false osConfig;
+      claudeRuntime = import ./_wrapper.nix {
+        inherit
+          lib
+          pkgs
+          claudePkg
+          bunInstallDir
+          externalBinary
+          installMethods
+          greptilePluginRequested
+          greptileApiKeyPath
+          ;
+      };
 
       # ── Commit Skill ──────────────────────────────────────────────────────
       claudeInstructions = agents.systemPrompt.render {
@@ -93,6 +120,11 @@ _: {
 
             ".claude/skills/commit/SKILL.md" = {
               text = commitSkillMd;
+            };
+
+            ".local/bin/claude" = {
+              source = claudeRuntime.claudeWrapperScript;
+              executable = true;
             };
           }
           // lib.optionalAttrs greptilePluginRequested {
@@ -117,32 +149,6 @@ _: {
                 ${pkgs.jq}/bin/jq -n --arg authorization "Bearer $secret_value" '{
                   Authorization: $authorization
                 }'
-              '';
-            };
-          }
-          // lib.optionalAttrs bunInstallEnabled {
-            ".local/bin/claude" = {
-              executable = true;
-              text = ''
-                #!${pkgs.bash}/bin/bash
-                set -euo pipefail
-
-                ${lib.optionalString greptilePluginRequested ''
-                  secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
-                  if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
-                    if secret_value="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret_path")" && [ -n "$secret_value" ]; then
-                      export GREPTILE_API_KEY="$secret_value"
-                    fi
-                  fi
-                ''}
-
-                bun_claude="$HOME/.local/share/bun/bin/claude"
-                if [ -x "$bun_claude" ]; then
-                  exec "$bun_claude" "$@"
-                fi
-
-                echo "ERROR: Claude Code bun install not found at $bun_claude" >&2
-                exit 127
               '';
             };
           };
