@@ -12,8 +12,7 @@
     * Renders /var/lib/cloudflare-warp/mdm.xml from sops-backed credentials, store-safe.
 
   Options:
-    enable: Run warp-svc plus managed Zero Trust enrollment.
-    organization: Zero Trust team name (the <team> in <team>.cloudflareaccess.com); null disables managed enrollment.
+    enable: Run warp-svc; managed Zero Trust enrollment activates when secrets/cloudflare-warp.yaml exists.
     serviceMode: mdm.xml service_mode (warp | tunnelonly | 1dot1 | proxy | postureonly).
     autoConnect: mdm.xml auto_connect minutes (0-1440); 0 keeps the client off after a manual disconnect.
     switchLocked: mdm.xml switch_locked; when true the user cannot disconnect.
@@ -21,7 +20,7 @@
 
   Notes:
     * service_mode is authoritative via mdm.xml; the module never calls `warp-cli mode`.
-    * Secrets (auth_client_id/auth_client_secret) live in secrets/cloudflare-warp.yaml (sops).
+    * Secrets (organization/auth_client_id/auth_client_secret) live in secrets/cloudflare-warp.yaml (sops).
     * Sets networking.firewall.checkReversePath = "loose" (mkDefault); the WARP interface trips strict rp_filter.
     * Pairs with per-host enablement in modules/tpnix/cloudflare-warp.nix and modules/system76/cloudflare-warp.nix.
 */
@@ -40,7 +39,14 @@ let
       rootDir = config.services.cloudflare-warp.rootDir;
       secretsFile = "${secretsRoot}/cloudflare-warp.yaml";
       haveSecrets = builtins.pathExists secretsFile;
-      enrolling = cfg.organization != null && haveSecrets;
+      enrolling = haveSecrets;
+
+      # Logged by the connect-on-boot oneshot when the device has no managed
+      # mdm.xml, so the journal explains why `warp-cli connect` only reaches
+      # consumer WARP instead of the Zero Trust org.
+      unenrolledNotice = lib.optionalString (!enrolling) ''
+        echo "cloudflare-warp-connect: device is UN-ENROLLED (no managed mdm.xml); connecting to consumer WARP only. Create secrets/cloudflare-warp.yaml to enroll."
+      '';
 
       # Linux mdm.xml is a bare <dict> plist fragment (no XML declaration, no
       # <plist> wrapper). Secret values are injected through sops placeholders so
@@ -48,7 +54,7 @@ let
       mdmContent = ''
         <dict>
           <key>organization</key>
-          <string>${cfg.organization}</string>
+          <string>${config.sops.placeholder."cloudflare-warp/organization"}</string>
           <key>auth_client_id</key>
           <string>${config.sops.placeholder."cloudflare-warp/auth_client_id"}</string>
           <key>auth_client_secret</key>
@@ -77,20 +83,6 @@ let
           description = ''
             Cloudflare WARP package. Defaults to the headless build, which ships
             warp-cli, warp-svc, warp-dex, and warp-diag and omits the GUI taskbar.
-          '';
-        };
-
-        organization = lib.mkOption {
-          # Zero Trust team names are [A-Za-z0-9-]+. Constraining the type makes a
-          # bad value (placeholder, whitespace, XML metacharacters) fail at eval
-          # instead of rendering an unparsable mdm.xml that warp-svc rejects at
-          # startup. cfg.organization is interpolated raw into the plist body.
-          type = lib.types.nullOr (lib.types.strMatching "[A-Za-z0-9-]+");
-          default = null;
-          example = "my-team";
-          description = ''
-            Cloudflare Zero Trust team name (the <team> in <team>.cloudflareaccess.com).
-            When null, the module runs warp-svc without managed enrollment.
           '';
         };
 
@@ -169,14 +161,14 @@ let
                   but services.dnscrypt-proxy is enabled (binds 127.0.0.1:53). Use serviceMode
                   "tunnelonly"/"proxy" or disable dnscrypt-proxy.
                 ''
-              ++ lib.optional (cfg.organization != null && !haveSecrets) ''
+              ++ lib.optional (!haveSecrets) ''
                 programs.cloudflare-warp.extended: ${secretsFile} is missing; running warp-svc
-                WITHOUT managed enrollment. Create the sops secret (see
+                WITHOUT managed enrollment (degraded). Create the sops secret (see
                 docs/cloudflare/warp/deployment.md) and rebuild.
               '';
           }
 
-          # When not enrolling (organization unset, or the sops secret is absent),
+          # When not enrolling (the sops secret is absent),
           # remove any mdm.xml left by a previous enrollment. mdm.xml is
           # authoritative for service_mode and caches the service token, so a stale
           # file would keep warp-svc in managed mode instead of degrading to the
@@ -189,15 +181,22 @@ let
 
           (lib.mkIf enrolling {
             sops = {
-              secrets."cloudflare-warp/auth_client_id" = {
-                sopsFile = secretsFile;
-                key = "auth_client_id";
-                mode = "0400";
-              };
-              secrets."cloudflare-warp/auth_client_secret" = {
-                sopsFile = secretsFile;
-                key = "auth_client_secret";
-                mode = "0400";
+              secrets = {
+                "cloudflare-warp/organization" = {
+                  sopsFile = secretsFile;
+                  key = "organization";
+                  mode = "0400";
+                };
+                "cloudflare-warp/auth_client_id" = {
+                  sopsFile = secretsFile;
+                  key = "auth_client_id";
+                  mode = "0400";
+                };
+                "cloudflare-warp/auth_client_secret" = {
+                  sopsFile = secretsFile;
+                  key = "auth_client_secret";
+                  mode = "0400";
+                };
               };
               templates."cloudflare-warp-mdm" = {
                 content = mdmContent;
@@ -224,7 +223,6 @@ let
               restartTriggers = [
                 (builtins.toJSON {
                   inherit (cfg)
-                    organization
                     serviceMode
                     autoConnect
                     switchLocked
@@ -252,11 +250,12 @@ let
                   fi
                   sleep 1
                 done
-
-                # Managed enrollment (mdm.xml service token) registers the device and
-                # accepts ToS, so no interactive `warp-cli registration new` is needed.
-                # This connect is best-effort: log the outcome and exit 0 so a user who
-                # legitimately keeps WARP off does not leave the unit failed.
+                ${unenrolledNotice}
+                # When enrolling, mdm.xml (service token) has already registered the
+                # device and accepted ToS, so no interactive `warp-cli registration
+                # new` is needed. This connect is best-effort either way: log the
+                # outcome and exit 0 so a user who legitimately keeps WARP off does
+                # not leave the unit failed.
                 if ${cfg.package}/bin/warp-cli connect; then
                   echo "cloudflare-warp-connect: connect requested"
                 else
