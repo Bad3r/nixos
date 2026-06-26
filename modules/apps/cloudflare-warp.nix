@@ -246,7 +246,7 @@ let
               };
               script = ''
                 # Wait for the warp-svc IPC socket to answer before connecting.
-                for _ in $(seq 1 30); do
+                for _ in {1..30}; do
                   if ${cfg.package}/bin/warp-cli status >/dev/null 2>&1; then
                     break
                   fi
