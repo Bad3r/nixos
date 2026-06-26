@@ -266,7 +266,7 @@ let
                 # new` is needed. This connect is best-effort either way: log the
                 # outcome and exit 0 so a user who legitimately keeps WARP off does
                 # not leave the unit failed.
-                if ${cfg.package}/bin/warp-cli connect; then
+                if ${cfg.package}/bin/warp-cli --accept-tos connect; then
                   echo "cloudflare-warp-connect: connect requested"
                 else
                   echo "cloudflare-warp-connect: connect returned non-zero (already connected or daemon still settling)"
