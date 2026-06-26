@@ -94,10 +94,12 @@ in
       polkit.wheelPowerManagement.enable = true;
       # Do not grant broad systemd unit management without explicit elevation.
       polkit.wheelSystemdManagement.enable = false;
+      repoSecrets.enable = lib.mkDefault true;
       r2CloudSecrets.enable = lib.mkForce false;
     };
     home-manager.users.${metaOwner.username}.home = {
       context7Secrets.enable = lib.mkDefault true;
+      geckoSecrets.enable = lib.mkDefault true;
       greptileSecrets.enable = lib.mkForce false;
       r2Secrets.enable = lib.mkForce false;
       virustotalSecrets.enable = lib.mkDefault true;
