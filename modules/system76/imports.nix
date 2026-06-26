@@ -79,8 +79,12 @@ in
       "unrar"
     ];
 
-    # Hardware support
-    hardware.system76.extended.enable = true;
+    # Hardware support; gate the enable on the optional system76-support module
+    # that declares hardware.system76.extended so an absent module degrades
+    # gracefully instead of aborting on an undeclared option (cf. repoGpg).
+    hardware = lib.optionalAttrs system76SupportExists {
+      system76.extended.enable = true;
+    };
 
     # Cybersecurity wordlist symlinks under /usr/share/wordlists/
     csec.wordlists.enable = true;
