@@ -42,6 +42,10 @@ let
         if direnvExports="$("'"$direnvBin"'" export bash 2>/dev/null)"; then
           eval "$direnvExports"
         fi
+        # direnv (e.g. nix-direnv use-flake) can prepend dev-shell bins and
+        # push the shim down PATH; re-prepend it so command rm, find -exec rm,
+        # xargs rm, and nested shells resolve the shim, not coreutils rm.
+        export PATH=${rmShim}/bin''${PATH:+:$PATH}
         rm() {
           "'"$rmShimPath"'" "$@"
         }
