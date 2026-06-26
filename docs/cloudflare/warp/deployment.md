@@ -6,7 +6,8 @@ configuration. Dashboard steps target an Enterprise Zero Trust account.
 ## 1. Dashboard prerequisites (one time)
 
 1. **Team name.** Note the `<team>` in `<team>.cloudflareaccess.com`. This becomes
-   the `organization` option.
+   the `organization` key in the sops secret (step 2). Use the bare team name,
+   not the full hostname.
 2. **Service token.** Settings/Access > Service Auth > Create Service Token.
    Capture the **Client ID** (ends in `.access`) and the **Client Secret** (shown
    once). These become `auth_client_id` / `auth_client_secret`.
@@ -27,15 +28,17 @@ configuration. Dashboard steps target an Enterprise Zero Trust account.
 ## 2. Create the encrypted secret
 
 The secret lives in the `secrets/` submodule and is covered by the existing
-`.sops.yaml` catch-all rule.
+`.sops.yaml` catch-all rule. Copy `secrets/cloudflare-warp.yaml.example` for the
+expected key layout.
 
 ```bash
 sops secrets/cloudflare-warp.yaml
 ```
 
-Enter the service-token values:
+Enter the team name and the service-token values:
 
 ```yaml
+organization: <team>
 auth_client_id: <client-id>.access
 auth_client_secret: <client-secret>
 ```
@@ -43,14 +46,13 @@ auth_client_secret: <client-secret>
 Verify and stage inside the submodule:
 
 ```bash
-sops -d secrets/cloudflare-warp.yaml          # shows both keys
+sops -d secrets/cloudflare-warp.yaml          # shows all three keys
 git -C secrets add cloudflare-warp.yaml
 ```
 
 ## 3. Enable the host
 
-Each host opts in through a small file that sets the `organization` (team name)
-and Full mode:
+Each host opts in through a small file that enables the wrapper in Full mode:
 
 - `modules/tpnix/cloudflare-warp.nix`
 - `modules/system76/cloudflare-warp.nix`
@@ -60,7 +62,6 @@ _: {
   configurations.nixos.<host>.module = {
     programs.cloudflare-warp.extended = {
       enable = true;
-      organization = "my-team"; # your Zero Trust team name; null leaves warp-svc un-enrolled
       serviceMode = "warp";
       autoConnect = 0;
       switchLocked = false;
@@ -69,6 +70,10 @@ _: {
   };
 }
 ```
+
+The team name is not set here; it comes from the `organization` key in the sops
+secret. Until `secrets/cloudflare-warp.yaml` exists the host runs `warp-svc`
+un-enrolled and emits a build warning.
 
 ## 4. Validate and deploy
 

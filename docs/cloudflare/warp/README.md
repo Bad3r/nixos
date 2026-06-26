@@ -23,9 +23,10 @@ is enabled it:
 
 1. Enables `services.cloudflare-warp`, which runs `warp-svc` as root with
    `CAP_NET_ADMIN` and opens the WARP UDP port (2408 by default).
-2. Declares two sops secrets (`auth_client_id`, `auth_client_secret`) from
-   `secrets/cloudflare-warp.yaml`, guarded by `builtins.pathExists` so a missing
-   secret warns instead of failing evaluation.
+2. Declares three sops secrets (`organization`, `auth_client_id`,
+   `auth_client_secret`) from `secrets/cloudflare-warp.yaml`, guarded by
+   `builtins.pathExists` so a missing secret warns and runs `warp-svc`
+   un-enrolled instead of failing evaluation.
 3. Renders `/var/lib/cloudflare-warp/mdm.xml` from non-secret options plus sops
    placeholders, and installs it (mode 0600, root) via an `ExecStartPre` right
    before `warp-svc` starts.
@@ -49,9 +50,10 @@ OFF; enrollment is a deliberate per-host opt-in.
 
 ## Security model
 
-- Credentials live only in `secrets/cloudflare-warp.yaml` (sops, age). The
-  rendered `mdm.xml` is produced from sops placeholders, so plaintext
-  credentials never enter the Nix store or git history.
+- The team name (`organization`) and service-token credentials live only in
+  `secrets/cloudflare-warp.yaml` (sops, age). The rendered `mdm.xml` is produced
+  from sops placeholders, so neither the team name nor the credentials enter the
+  Nix store or git history.
 - `mdm.xml` is written to `/var/lib/cloudflare-warp/mdm.xml` as `0600 root:root`.
 - `secrets/` is a git submodule; the encrypted payload is committed there, the
   Nix changes in the main repository.
