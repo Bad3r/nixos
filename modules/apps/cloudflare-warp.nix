@@ -176,6 +176,17 @@ let
               '';
           }
 
+          # When not enrolling (organization unset, or the sops secret is absent),
+          # remove any mdm.xml left by a previous enrollment. mdm.xml is
+          # authoritative for service_mode and caches the service token, so a stale
+          # file would keep warp-svc in managed mode instead of degrading to the
+          # un-enrolled daemon. rootDir is the upstream StateDirectory.
+          (lib.mkIf (!enrolling) {
+            systemd.services.cloudflare-warp.serviceConfig.ExecStartPre = [
+              "${pkgs.coreutils}/bin/rm -f ${rootDir}/mdm.xml"
+            ];
+          })
+
           (lib.mkIf enrolling {
             sops = {
               secrets."cloudflare-warp/auth_client_id" = {
