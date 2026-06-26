@@ -23,9 +23,13 @@ Complete hosts live under `configurations.nixos.<name>.module`. The helper in `m
         config.flake.nixosModules.repoSecrets
         config.flake.nixosModules.lang
         config.flake.nixosModules.ssh
-        config.flake.nixosModules."duplicati-r2"
-        config.flake.nixosModules.mirror-root
         inputs.nixos-hardware.nixosModules.system76
+      ]
+      ++ lib.optionals (lib.hasAttrByPath [ "flake" "nixosModules" "duplicati-r2" ] config) [
+        config.flake.nixosModules."duplicati-r2"
+      ]
+      ++ lib.optionals (lib.hasAttrByPath [ "flake" "nixosModules" "mirror-root" ] config) [
+        config.flake.nixosModules.mirror-root
       ]
       ++ lib.optionals (lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config) [
         config.flake.nixosModules.system76-support

@@ -22,6 +22,8 @@ let
 
   # Optional flake module checks
   system76SupportExists = lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config;
+  duplicatiModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "duplicati-r2" ] config;
+  mirrorRootModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "mirror-root" ] config;
   lenovyMonitorExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-lenovo-y27q-20" ] config;
   repoGpgModuleExists = lib.hasAttrByPath [
     "self"
@@ -45,8 +47,6 @@ in
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
       config.flake.nixosModules.bluetooth
-      config.flake.nixosModules."duplicati-r2"
-      config.flake.nixosModules.mirror-root
       config.flake.nixosModules.zshKeybindings
 
       # External hardware modules
@@ -54,6 +54,8 @@ in
       inputs.nixos-hardware.nixosModules.system76
     ]
     # Optional modules (graceful degradation)
+    ++ lib.optionals duplicatiModuleExists [ config.flake.nixosModules."duplicati-r2" ]
+    ++ lib.optionals mirrorRootModuleExists [ config.flake.nixosModules.mirror-root ]
     ++ lib.optionals system76SupportExists [ config.flake.nixosModules.system76-support ]
     ++ lib.optionals lenovyMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ]
     ++ [
