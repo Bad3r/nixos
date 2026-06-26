@@ -95,9 +95,11 @@ in
     home-manager.users.${metaOwner.username}.home = {
       context7Secrets.enable = lib.mkDefault true;
       greptileSecrets.enable = lib.mkForce false;
-      repoGpg.enable = lib.mkDefault true;
       r2Secrets.enable = lib.mkForce false;
       virustotalSecrets.enable = lib.mkDefault true;
+    }
+    // lib.optionalAttrs repoGpgModuleExists {
+      repoGpg.enable = lib.mkDefault true;
     };
 
     # Gaming & performance
