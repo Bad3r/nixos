@@ -202,6 +202,12 @@ let
               templates."cloudflare-warp-mdm" = {
                 content = mdmContent;
                 mode = "0600";
+                # restartTriggers below only hash non-secret fields. Rotating
+                # auth_client_id/auth_client_secret re-renders this template but
+                # would not restart warp-svc, so the daemon would keep the old
+                # token until reboot. Restart on rotation (matches the repo
+                # pattern in usbguard.nix and duplicati-r2.nix).
+                restartUnits = [ "cloudflare-warp.service" ];
               };
             };
 
