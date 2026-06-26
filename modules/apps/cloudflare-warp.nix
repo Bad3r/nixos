@@ -24,8 +24,9 @@
     * Sets networking.firewall.checkReversePath = "loose" (mkDefault); the WARP interface trips strict rp_filter.
     * Pairs with per-host enablement in modules/tpnix/cloudflare-warp.nix and modules/system76/cloudflare-warp.nix.
 */
-_:
+{ config, ... }:
 let
+  inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   CloudflareWarpModule =
     {
       config,
@@ -40,6 +41,10 @@ let
       secretsFile = "${secretsRoot}/cloudflare-warp.yaml";
       haveSecrets = builtins.pathExists secretsFile;
       enrolling = haveSecrets;
+      # Gate the sops-install-secrets.service dependency on
+      # sops.useSystemdActivation: the unit only exists in that mode (issue #37);
+      # activation-script hosts decrypt before any unit ordering, so this is [].
+      installSecretsDeps = sopsInstallSecretsDeps config;
 
       # Logged by the connect-on-boot oneshot when the device has no managed
       # mdm.xml, so the journal explains why `warp-cli connect` only reaches
@@ -214,6 +219,11 @@ let
             # rootDir already exists from the upstream tmpfiles rule, and the sops
             # template is rendered during activation (before multi-user.target).
             systemd.services.cloudflare-warp = {
+              # Order warp-svc after sops installs the secret/template so the
+              # ExecStartPre install of mdm.xml sees the rendered file. No-op on
+              # activation-script hosts (installSecretsDeps = []).
+              after = installSecretsDeps;
+              requires = installSecretsDeps;
               serviceConfig.ExecStartPre = [
                 "${pkgs.coreutils}/bin/install -D -m0600 -o root -g root ${
                   config.sops.templates."cloudflare-warp-mdm".path
