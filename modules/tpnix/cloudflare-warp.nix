@@ -14,7 +14,10 @@ _: {
   configurations.nixos.tpnix.module = {
     programs.cloudflare-warp.extended = {
       enable = true;
-      organization = "<your-team-name>";
+      # null keeps warp-svc un-enrolled (the documented sentinel). Set the real
+      # Zero Trust team name to turn on managed enrollment; a placeholder or any
+      # non-team-name string now fails at eval (strMatching in the wrapper).
+      organization = null;
       serviceMode = "warp";
       autoConnect = 0;
       switchLocked = false;

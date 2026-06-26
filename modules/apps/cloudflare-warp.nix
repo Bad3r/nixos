@@ -81,7 +81,11 @@ let
         };
 
         organization = lib.mkOption {
-          type = lib.types.nullOr lib.types.str;
+          # Zero Trust team names are [A-Za-z0-9-]+. Constraining the type makes a
+          # bad value (placeholder, whitespace, XML metacharacters) fail at eval
+          # instead of rendering an unparsable mdm.xml that warp-svc rejects at
+          # startup. cfg.organization is interpolated raw into the plist body.
+          type = lib.types.nullOr (lib.types.strMatching "[A-Za-z0-9-]+");
           default = null;
           example = "my-team";
           description = ''
