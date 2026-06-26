@@ -60,7 +60,7 @@ _: {
   configurations.nixos.<host>.module = {
     programs.cloudflare-warp.extended = {
       enable = true;
-      organization = "<your-team-name>";
+      organization = "my-team"; # your Zero Trust team name; null leaves warp-svc un-enrolled
       serviceMode = "warp";
       autoConnect = 0;
       switchLocked = false;
