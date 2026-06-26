@@ -38,10 +38,11 @@ curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E '^warp='   # warp=on
 ## Reapplying managed config
 
 The `cloudflare-warp.service` carries a `restartTriggers` hash of the non-secret
-mdm fields (`organization`, `serviceMode`, `autoConnect`, `switchLocked`).
-Changing any of them and rebuilding restarts `warp-svc`, which re-reads
-`mdm.xml`. Rotating the service token (the sops secret) re-renders the file on
-the next activation.
+mdm fields (`serviceMode`, `autoConnect`, `switchLocked`). Changing any of them
+and rebuilding restarts `warp-svc`, which re-reads `mdm.xml`. The team name
+(`organization`) and the service token live in the sops secret; rotating either
+re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
+`warp-svc` on the next activation.
 
 ## Troubleshooting
 
@@ -49,11 +50,12 @@ the next activation.
   device-enrollment permission. Add a Service Auth rule referencing the token
   (Deployment, step 3). Collect a diagnostics bundle: `sudo warp-diag`.
 - **mdm.xml missing at boot (race).** `mdm.xml` is installed by an `ExecStartPre`
-  that copies the sops-rendered template. The template is rendered during
-  activation, before `multi-user.target`, and `warp-svc` has `Restart=always`, so
-  a transient miss self-heals. If a cold-boot race is observed, order
-  `cloudflare-warp.service` after the sops template unit (add `after`/`wants` on
-  the sops setup unit) and rebuild.
+  that copies the sops-rendered template. Ordering is wired into the module:
+  `cloudflare-warp.service` carries `after`/`requires` on the sops secret-install
+  dependency (`config.flake.lib.security.sopsInstallSecretsDeps`), so on
+  systemd-activation hosts the rendered template is present before `warp-svc`
+  starts. Activation-script hosts decrypt secrets before any unit ordering, and
+  `warp-svc` has `Restart=always`, so a transient miss self-heals either way.
 - **No connectivity with strict rp_filter.** The module sets
   `networking.firewall.checkReversePath = "loose"` by default. If a host firewall
   module forces `strict`, the `CloudflareWARP` interface drops return traffic.
