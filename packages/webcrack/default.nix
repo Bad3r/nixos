@@ -17,7 +17,7 @@
   ada,
   brotli,
   c-ares,
-  icu76,
+  icu78,
   libuv,
   llhttp,
   nghttp2,
@@ -114,7 +114,7 @@ stdenv.mkDerivation (finalAttrs: {
     (lib.getLib sqlite)
     (lib.getLib uvwasi)
     (lib.getLib openssl)
-    (lib.getLib icu76)
+    (lib.getLib icu78)
   ];
 
   # Point node-gyp to Node headers (prevents download in sandbox)
