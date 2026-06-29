@@ -1,9 +1,62 @@
-{ lib, ... }:
 {
-  configurations.nixos.tpnix.module = {
-    networking = {
-      networkmanager.enable = true;
-      useDHCP = lib.mkDefault true;
+  config,
+  lib,
+  secretsRoot,
+  ...
+}:
+let
+  signalxSecretFile = "${secretsRoot}/tpnix.yaml";
+  signalxSecretExists = builtins.pathExists signalxSecretFile;
+  signalxSecretName = "tpnix/networking/signalx-hosts";
+  signalxSecretPath = "/run/secrets/${signalxSecretName}";
+  inherit (config.flake.lib.nixos.hosts.tpnix) sopsRuntimeReady;
+  inherit (config.flake.lib.security) sopsInstallSecretsDeps;
+  signalxDnsReady = sopsRuntimeReady && signalxSecretExists;
+in
+{
+  configurations.nixos.tpnix.module =
+    { config, ... }:
+    let
+      installSecretsDeps = sopsInstallSecretsDeps config;
+    in
+    {
+      config = lib.mkMerge [
+        {
+          networking = {
+            networkmanager.enable = true;
+            useDHCP = lib.mkDefault true;
+          };
+        }
+
+        (lib.mkIf signalxDnsReady {
+          environment.etc."NetworkManager/dnsmasq.d/tpnix-signalx.conf".text = ''
+            addn-hosts=${signalxSecretPath}
+          '';
+
+          networking.networkmanager.dns = "dnsmasq";
+
+          sops.secrets.${signalxSecretName} = {
+            sopsFile = signalxSecretFile;
+            format = "yaml";
+            key = "signalx_hosts";
+            path = signalxSecretPath;
+            owner = "root";
+            group = "root";
+            mode = "0400";
+            restartUnits = [ "NetworkManager.service" ];
+          };
+
+          systemd.services.NetworkManager = {
+            after = installSecretsDeps;
+            requires = installSecretsDeps;
+          };
+        })
+
+        (lib.mkIf (!signalxDnsReady) {
+          warnings = [
+            "SignalX DNS routing is disabled on tpnix until SOPS decryption keys are configured."
+          ];
+        })
+      ];
     };
-  };
 }
