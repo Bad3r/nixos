@@ -3,7 +3,7 @@
   stdenv,
   fetchFromGitHub,
   nodejs_22,
-  pnpm_9,
+  pnpm_10,
   fetchPnpmDeps,
   pnpmConfigHook,
   makeWrapper,
@@ -26,7 +26,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [
     nodejs_22
-    pnpm_9
+    pnpm_10
     pnpmConfigHook
     makeWrapper
     autoPatchelfHook
@@ -46,7 +46,7 @@ stdenv.mkDerivation (finalAttrs: {
       src
       postPatch
       ;
-    pnpm = pnpm_9;
+    pnpm = pnpm_10;
     fetcherVersion = 3;
     hash = pin.pnpmDepsHash;
   };
