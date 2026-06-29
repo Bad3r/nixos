@@ -6,7 +6,7 @@
   ...
 }:
 let
-  ready = config.flake.lib.nixos.hosts.tpnix.sopsRuntimeReady;
+  ready = config.flake.lib.nixos.hosts.tpnix.r2RuntimeReady;
 in
 {
   configurations.nixos.tpnix.module = config.flake.lib.nixos.r2.mkHostR2Module {
@@ -18,7 +18,7 @@ in
     policy = {
       enableExternalFlake = ready;
       sopsRuntimeReady = ready;
-      disabledReason = "tpnix R2 runtime services are disabled until SOPS decryption keys are configured.";
+      disabledReason = "tpnix R2 runtime services are disabled until the upstream r2-flake stops referencing removed pkgs.nodePackages.";
     };
   };
 }
