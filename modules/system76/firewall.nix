@@ -12,7 +12,7 @@ _: {
         }
       ];
       interfaces.tailscale0.allowedTCPPorts = [ 22 ];
-      interfaces."enp4s0" = {
+      interfaces."enp0s20f0u1u4" = {
         allowedUDPPorts = [
           53
           67
