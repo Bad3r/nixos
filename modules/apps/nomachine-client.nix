@@ -3,6 +3,7 @@
   Description: NoMachine remote desktop client for NX sessions.
   Homepage: https://www.nomachine.com/
   Documentation: https://www.nomachine.com/documents
+  Repository: nil
 
   Summary:
     * Provides the `nxplayer` GUI client for connecting to NoMachine remote desktops and published applications.
