@@ -318,7 +318,7 @@ Projects using `pnpm.patchedDependencies` in package.json apply patches to npm p
 
 **Try building first** - Modern `fetchPnpmDeps` (fetcherVersion 2+) often handles patched dependencies correctly. Only remove if you get lockfile mismatch errors.
 
-**Check if patches are required** - Some patches add critical functionality. For example, wakaru's ast-types patch adds `markAsStale()` method essential for scope manipulation. Removing such patches causes runtime errors.
+**Check if patches are required** - Some patches add critical functionality (for example, adding a method that a dependency relies on at runtime). Removing such patches causes runtime errors.
 
 **When removal is necessary** (lockfile mismatch errors):
 

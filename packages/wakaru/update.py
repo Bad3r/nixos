@@ -1,6 +1,12 @@
 #!/usr/bin/env nix
 #! nix shell nixpkgs#python3 nixpkgs#nix --command python3
-"""Update script for wakaru."""
+"""Update script for wakaru.
+
+Upstream migrated the project from a pnpm JavaScript monorepo (``cli-v*`` tags,
+last released as ``cli-v0.0.10``) to a Rust workspace tagged
+``v<major>.<minor>.<patch>``. This tracks the Rust release tag and computes the
+Cargo vendor hash for the ``wakaru-cli`` crate.
+"""
 
 from __future__ import annotations
 
@@ -35,7 +41,7 @@ from updater import (  # noqa: E402
 
 
 def latest_version() -> str:
-    """Fetch the highest stable wakaru Rust release tag."""
+    """Fetch the highest stable wakaru release tag."""
     return fetch_github_latest_tag(OWNER, REPO, TAG_PATTERN)
 
 
@@ -56,7 +62,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """Update wakaru to the latest stable Rust release."""
+    """Update wakaru to the latest release tag."""
     args = parse_args()
     data = load_hashes(HASHES_FILE)
     current = cast("str", data["version"])
