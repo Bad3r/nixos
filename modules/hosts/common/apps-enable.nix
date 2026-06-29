@@ -128,7 +128,7 @@ let
       dnsx.extended.enable = lib.mkOverride 1100 true;
       docker.extended.enable = lib.mkOverride 1100 true;
       dolphin.extended.enable = lib.mkOverride 1100 false;
-      "doom-emacs".extended.enable = lib.mkOverride 1100 true;
+      "doom-emacs".extended.enable = lib.mkOverride 1100 false;
       "dragon-drop".extended.enable = lib.mkOverride 1100 true;
       dropbox.extended.enable = lib.mkOverride 1100 true;
       dua.extended.enable = lib.mkOverride 1100 true;
@@ -413,7 +413,7 @@ let
       stylua.extended.enable = lib.mkOverride 1100 true;
       subfinder.extended.enable = lib.mkOverride 1100 true;
       subjack.extended.enable = lib.mkOverride 1100 true;
-      synchrony.extended.enable = lib.mkOverride 1100 true;
+      synchrony.extended.enable = lib.mkOverride 1100 false;
       sysstat.extended.enable = lib.mkOverride 1100 true;
       tailscale.extended.enable = lib.mkOverride 1100 true;
       taplo.extended.enable = lib.mkOverride 1100 true;
@@ -453,7 +453,7 @@ let
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
       "vt-cli".extended.enable = lib.mkOverride 1100 true;
       vulnix.extended.enable = lib.mkOverride 1100 true;
-      wakaru.extended.enable = lib.mkOverride 1100 true;
+      wakaru.extended.enable = lib.mkOverride 1100 false;
       "wappalyzer-next".extended.enable = lib.mkOverride 1100 true;
       webcrack.extended.enable = lib.mkOverride 1100 true;
       webex.extended.enable = lib.mkOverride 1100 true;

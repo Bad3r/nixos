@@ -12,7 +12,7 @@ from typing import Any, cast
 PACKAGE_NAME = "wakaru"
 OWNER = "pionxzh"
 REPO = "wakaru"
-TAG_PATTERN = r"^cli-v(?P<version>\d+\.\d+\.\d+)$"
+TAG_PATTERN = r"^v(?P<version>\d+\.\d+\.\d+)$"
 
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
@@ -35,7 +35,7 @@ from updater import (  # noqa: E402
 
 
 def latest_version() -> str:
-    """Fetch the highest stable wakaru CLI tag."""
+    """Fetch the highest stable wakaru Rust release tag."""
     return fetch_github_latest_tag(OWNER, REPO, TAG_PATTERN)
 
 
@@ -56,7 +56,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """Update wakaru to the latest CLI tag."""
+    """Update wakaru to the latest stable Rust release."""
     args = parse_args()
     data = load_hashes(HASHES_FILE)
     current = cast("str", data["version"])
@@ -64,7 +64,7 @@ def main() -> None:
 
     print(f"Current: {current}")
     print(f"Latest:  {latest}")
-    print(f"Tag:     cli-v{latest}")
+    print(f"Tag:     v{latest}")
 
     if args.check_release:
         print("Release metadata is valid")
@@ -76,18 +76,18 @@ def main() -> None:
 
     print("Calculating source hash...")
     src_hash = calculate_url_hash(
-        f"https://github.com/{OWNER}/{REPO}/archive/refs/tags/cli-v{latest}.tar.gz",
+        f"https://github.com/{OWNER}/{REPO}/archive/refs/tags/v{latest}.tar.gz",
         unpack=True,
     )
 
     new_data: dict[str, Any] = {
         "version": latest,
         "srcHash": src_hash,
-        "pnpmDepsHash": data.get("pnpmDepsHash", ""),
+        "cargoHash": data.get("cargoHash", ""),
     }
-    new_data["pnpmDepsHash"] = calculate_dependency_hash(
+    new_data["cargoHash"] = calculate_dependency_hash(
         PACKAGE_ATTR,
-        "pnpmDepsHash",
+        "cargoHash",
         HASHES_FILE,
         new_data,
     )

@@ -22,6 +22,8 @@ let
 
   # Optional flake module checks
   system76SupportExists = lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config;
+  duplicatiModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "duplicati-r2" ] config;
+  mirrorRootModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "mirror-root" ] config;
   lenovyMonitorExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-lenovo-y27q-20" ] config;
   repoGpgModuleExists = lib.hasAttrByPath [
     "self"
@@ -45,8 +47,6 @@ in
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
       config.flake.nixosModules.bluetooth
-      config.flake.nixosModules."duplicati-r2"
-      config.flake.nixosModules.mirror-root
       config.flake.nixosModules.zshKeybindings
 
       # External hardware modules
@@ -54,6 +54,8 @@ in
       inputs.nixos-hardware.nixosModules.system76
     ]
     # Optional modules (graceful degradation)
+    ++ lib.optionals duplicatiModuleExists [ config.flake.nixosModules."duplicati-r2" ]
+    ++ lib.optionals mirrorRootModuleExists [ config.flake.nixosModules.mirror-root ]
     ++ lib.optionals system76SupportExists [ config.flake.nixosModules.system76-support ]
     ++ lib.optionals lenovyMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ]
     ++ [
@@ -79,8 +81,12 @@ in
       "unrar"
     ];
 
-    # Hardware support
-    hardware.system76.extended.enable = true;
+    # Hardware support; gate the enable on the optional system76-support module
+    # that declares hardware.system76.extended so an absent module degrades
+    # gracefully instead of aborting on an undeclared option (cf. repoGpg).
+    hardware = lib.optionalAttrs system76SupportExists {
+      system76.extended.enable = true;
+    };
 
     # Cybersecurity wordlist symlinks under /usr/share/wordlists/
     csec.wordlists.enable = true;
@@ -90,14 +96,18 @@ in
       polkit.wheelPowerManagement.enable = true;
       # Do not grant broad systemd unit management without explicit elevation.
       polkit.wheelSystemdManagement.enable = false;
+      repoSecrets.enable = lib.mkDefault true;
       r2CloudSecrets.enable = lib.mkForce false;
     };
     home-manager.users.${metaOwner.username}.home = {
       context7Secrets.enable = lib.mkDefault true;
+      geckoSecrets.enable = lib.mkDefault true;
       greptileSecrets.enable = lib.mkForce false;
-      repoGpg.enable = lib.mkDefault true;
       r2Secrets.enable = lib.mkForce false;
       virustotalSecrets.enable = lib.mkDefault true;
+    }
+    // lib.optionalAttrs repoGpgModuleExists {
+      repoGpg.enable = lib.mkDefault true;
     };
 
     # Gaming & performance

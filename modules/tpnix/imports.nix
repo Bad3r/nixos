@@ -26,6 +26,11 @@ let
     sopsRuntimeReady && lib.hasAttrByPath [ "flake" "nixosModules" "duplicati-r2" ] config;
   mirrorRootModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "mirror-root" ] config;
   lenovoMonitorExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-lenovo-y27q-20" ] config;
+  repoGpgModuleExists = lib.hasAttrByPath [
+    "self"
+    "homeManagerModules"
+    "repoGpg"
+  ] inputs;
 in
 {
   configurations.nixos.tpnix.module = {
@@ -82,29 +87,37 @@ in
     security = {
       polkit.wheelPowerManagement.enable = true;
       polkit.wheelSystemdManagement.enable = false;
-      repoSecrets.enable = lib.mkForce false;
-      r2CloudSecrets.enable = lib.mkForce false;
+      repoSecrets.enable = lib.mkDefault true;
+      r2CloudSecrets.enable = lib.mkDefault true;
     };
 
     # Cybersecurity wordlist symlinks under /usr/share/wordlists/
     csec.wordlists.enable = true;
     home-manager.users.${metaOwner.username} = {
       home = {
-        context7Secrets.enable = lib.mkForce false;
-        geckoSecrets.enable = lib.mkForce false;
-        greptileSecrets.enable = lib.mkForce false;
-        r2Secrets.enable = lib.mkForce false;
-        virustotalSecrets.enable = lib.mkForce false;
+        context7Secrets.enable = lib.mkDefault true;
+        geckoSecrets.enable = lib.mkDefault true;
+        greptileSecrets.enable = lib.mkDefault true;
+        r2Secrets.enable = lib.mkDefault true;
+        virustotalSecrets.enable = lib.mkDefault true;
+      }
+      // lib.optionalAttrs repoGpgModuleExists {
+        repoGpg.enable = lib.mkDefault true;
       };
     };
 
-    home-manager.sharedModules = lib.mkAfter [
-      {
-        services.espanso = {
-          waylandSupport = lib.mkForce false;
-          x11Support = lib.mkForce true;
-        };
-      }
-    ];
+    home-manager.sharedModules = lib.mkAfter (
+      lib.optionals repoGpgModuleExists [
+        (lib.getAttrFromPath [ "self" "homeManagerModules" "repoGpg" ] inputs)
+      ]
+      ++ [
+        {
+          services.espanso = {
+            waylandSupport = lib.mkForce false;
+            x11Support = lib.mkForce true;
+          };
+        }
+      ]
+    );
   };
 }
