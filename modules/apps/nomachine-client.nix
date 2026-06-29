@@ -3,6 +3,7 @@
   Description: NoMachine remote desktop client for NX sessions.
   Homepage: https://www.nomachine.com/
   Documentation: https://www.nomachine.com/documents
+  Repository: nil
 
   Summary:
     * Provides the `nxplayer` GUI client for connecting to NoMachine remote desktops and published applications.
@@ -27,14 +28,6 @@ let
     }:
     let
       cfg = config.programs."nomachine-client".extended;
-
-      nomachine-client = pkgs.nomachine-client.overrideAttrs (_: {
-        version = "9.5.7";
-        src = pkgs.fetchurl {
-          url = "https://download.nomachine.com/download/9.5/Linux/nomachine_9.5.7_2_x86_64.tar.gz";
-          sha256 = "sha256-8f4ZL3Ko5VunojXLvTS9P3oB+ZVCSYIA0GIjM8VpUO4=";
-        };
-      });
     in
     {
       options.programs."nomachine-client".extended = {
@@ -46,7 +39,7 @@ let
 
         package = lib.mkOption {
           type = lib.types.package;
-          default = nomachine-client;
+          default = pkgs.nomachine-client;
           defaultText = lib.literalExpression "pkgs.nomachine-client";
           description = "The nomachine-client package to use.";
         };

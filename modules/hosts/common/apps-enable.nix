@@ -504,6 +504,7 @@ let
       autorandr.extended.enable = lib.mkOverride 1100 true;
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
+      "nomachine-server".extended.enable = lib.mkOverride 1100 true;
       pcscd.extended.enable = lib.mkOverride 1100 true;
       "protonmail-bridge".extended.enable = lib.mkOverride 1100 true;
       thinkfan.extended.enable = lib.mkOverride 1100 false;
