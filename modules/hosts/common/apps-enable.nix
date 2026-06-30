@@ -78,8 +78,9 @@ let
       charles.extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
       clangd.extended.enable = lib.mkOverride 1100 false;
-      # Both install methods off: binary managed outside Nix via externalBinary;
-      # the wrapper, settings, skills, and MCP merge still apply.
+      # Both install methods off: delegate to the bun global path by default;
+      # set externalBinary for a non-bun external binary.
+      # The wrapper, settings, skills, and MCP merge still apply.
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;

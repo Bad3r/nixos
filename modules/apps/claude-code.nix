@@ -89,7 +89,8 @@ in
             Absolute runtime path used by the Home Manager `~/.local/bin/claude`
             wrapper when both `installMethods.nix.enable` and
             `installMethods.bun.enable` are false. When null, the wrapper
-            delegates to the Home Manager bun global path under XDG data home.
+            delegates to the Home Manager bun global path under XDG data home,
+            so `programs.bun.extended.enable` must be true.
           '';
         };
 
@@ -186,6 +187,8 @@ in
                   malformedKeys = lib.filter (k: builtins.match ".+@.+" k == null) extraKeys;
                   lspKeysWithMarket = map (k: "${k}@claude-plugins-official") (lib.attrNames cfg.lspPlugins);
                   lspCollisions = lib.intersectLists extraKeys lspKeysWithMarket;
+                  delegatesToBunGlobal =
+                    (!cfg.installMethods.nix.enable) && (!cfg.installMethods.bun.enable) && cfg.externalBinary == null;
                 in
                 [
                   {
@@ -196,6 +199,16 @@ in
                       apps-enable.nix (e.g. modules/tpnix/apps-enable.nix:32 or
                       modules/system76/apps-enable.nix:47) before enabling the bun
                       install method for claude-code.
+                    '';
+                  }
+                  {
+                    assertion = (!delegatesToBunGlobal) || config.programs.bun.extended.enable;
+                    message = ''
+                      programs.claude-code.extended.externalBinary = null with both
+                      claude-code install methods disabled delegates to the Home Manager
+                      bun global path. Enable programs.bun.extended.enable, set
+                      programs.claude-code.extended.externalBinary to an absolute path,
+                      or enable one of the claude-code install methods.
                     '';
                   }
                   {
