@@ -22,6 +22,15 @@ _: {
       gdriveSecretContents = if gdriveSecretExists then builtins.readFile gdriveSecretFile else "";
       gdriveTokenExists = lib.hasInfix "GDRIVE_TOKEN=" gdriveSecretContents;
       gdriveReady = gdriveSecretExists && repoSecretsEnabled && gdriveEnvPath != null;
+      protondriveSecretFile = "${secretsRoot}/rclone_protondrive.env";
+      protondriveSecretExists = builtins.pathExists protondriveSecretFile;
+      protondriveEnvPath = lib.attrByPath [
+        "sops"
+        "secrets"
+        "rclone/protondrive-env"
+        "path"
+      ] null osConfig;
+      protondriveReady = protondriveSecretExists && repoSecretsEnabled && protondriveEnvPath != null;
       r2SecretFile = "${secretsRoot}/r2.yaml";
       r2SecretExists = builtins.pathExists r2SecretFile;
       r2SecretsEnabled = lib.attrByPath [ "home" "r2Secrets" "enable" ] false config;
@@ -46,6 +55,8 @@ _: {
               }
               gdriveEnabled=${lib.boolToString gdriveReady}
               gdriveEnvPath=${lib.escapeShellArg (if gdriveReady then gdriveEnvPath else "")}
+              protondriveEnabled=${lib.boolToString protondriveReady}
+              protondriveEnvPath=${lib.escapeShellArg (if protondriveReady then protondriveEnvPath else "")}
 
               run mkdir -p "$renderedDir"
               chmod 700 "$renderedDir"
@@ -83,6 +94,35 @@ _: {
                 } >> "$tmpConfig"
               fi
 
+              if [ "$protondriveEnabled" = true ]; then
+                unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
+                . "$protondriveEnvPath"
+
+                if [ -z "''${PROTONDRIVE_USERNAME:-}" ] || [ -z "''${PROTONDRIVE_PASSWORD:-}" ]; then
+                  echo "rclone protondrive env file is missing PROTONDRIVE_USERNAME or PROTONDRIVE_PASSWORD: $protondriveEnvPath" >&2
+                  exit 1
+                fi
+
+                # password/otp_secret_key/mailbox_password must already be rclone-obscured
+                # in the secret (run `rclone obscure <value>`); the backend reveals them.
+                # enable_caching is forced off: required for `rclone mount` (Proton's
+                # change-event system is unimplemented, so a metadata cache goes stale)
+                # and harmless for bisync.
+                {
+                  printf '\n[protondrive]\n'
+                  printf 'type = protondrive\n'
+                  printf 'username = %s\n' "$PROTONDRIVE_USERNAME"
+                  printf 'password = %s\n' "$PROTONDRIVE_PASSWORD"
+                  if [ -n "''${PROTONDRIVE_OTP_SECRET_KEY:-}" ]; then
+                    printf 'otp_secret_key = %s\n' "$PROTONDRIVE_OTP_SECRET_KEY"
+                  fi
+                  if [ -n "''${PROTONDRIVE_MAILBOX_PASSWORD:-}" ]; then
+                    printf 'mailbox_password = %s\n' "$PROTONDRIVE_MAILBOX_PASSWORD"
+                  fi
+                  printf 'enable_caching = false\n'
+                } >> "$tmpConfig"
+              fi
+
               chmod 600 "$tmpConfig"
               run mv "$tmpConfig" "$renderedConfig"
             '';
@@ -112,6 +152,18 @@ _: {
           (lib.mkIf (gdriveSecretExists && !gdriveTokenExists) {
             warnings = [
               "rclone gdrive credentials were loaded from ${gdriveSecretFile}, but no GDRIVE_TOKEN was found. Obtain a Drive token with a temporary rclone config or `rclone authorize drive <client_id> <client_secret>`, then store the resulting JSON as GDRIVE_TOKEN in ${gdriveSecretFile}."
+            ];
+          })
+
+          (lib.mkIf (protondriveSecretExists && (!repoSecretsEnabled)) {
+            warnings = [
+              "programs.rclone.extended.enable is true and ${protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive remote setup. Manage ~/.config/rclone/rclone.conf manually or enable repo secrets after SOPS decryption is configured."
+            ];
+          })
+
+          (lib.mkIf (protondriveSecretExists && repoSecretsEnabled && protondriveEnvPath == null) {
+            warnings = [
+              "programs.rclone.extended.enable is true and ${protondriveSecretFile} exists, but no system-side rclone/protondrive-env secret path was declared in osConfig; skipping protondrive remote setup."
             ];
           })
         ]
