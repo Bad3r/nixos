@@ -14,7 +14,7 @@
   nixpkgs builds `firefoxpwa = wrapFirefox firefoxpwa-unwrapped { }`, so
   overriding only the unwrapped package lets the package-set fixpoint rebuild the
   wrapped `firefoxpwa` around the patched runtime, with no manual re-wrap. The
-  policy set is owned by modules/hm-apps/_gecko-extensions.nix so add-on IDs stay
+  policy set is owned by modules/lib/_gecko-extension-data.nix so add-on IDs stay
   single-sourced.
 
   Gated on `programs.firefoxpwa.extended.enable`; see modules/apps/firefoxpwa.nix.
@@ -32,13 +32,11 @@ let
           (
             final: prev:
             let
-              geckoExtensions = import ../hm-apps/_gecko-extensions.nix {
+              geckoExtensionData = import ../lib/_gecko-extension-data.nix {
                 inherit lib;
-                pkgs = final;
-                config = { };
               };
               runtimePolicies = final.writeText "firefoxpwa-runtime-policies.json" (
-                builtins.toJSON { policies = geckoExtensions.firefoxpwaRuntimePolicies; }
+                builtins.toJSON { policies = geckoExtensionData.firefoxpwaRuntimePolicies; }
               );
             in
             {
