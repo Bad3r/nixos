@@ -52,14 +52,17 @@ in
 
       basePackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
 
+      # Privacy/update disables baked into the binary so a bare `claude` that
+      # bypasses the ~/.local/bin wrapper still gets them. Shared source:
+      # modules/agents/claude-code/_env.nix (also feeds settings.json + wrapper).
+      claudeEnv = import ../agents/claude-code/_env.nix;
+      binaryEnvFlags = lib.concatStringsSep " " (
+        lib.mapAttrsToList (name: value: "--set ${name} ${lib.escapeShellArg value}") claudeEnv.binary
+      );
+
       wrappedPackage = basePackage.overrideAttrs (old: {
         postFixup = (old.postFixup or "") + ''
-          wrapProgram $out/bin/claude \
-            --set DISABLE_AUTOUPDATER 1 \
-            --set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC 1 \
-            --set DISABLE_NON_ESSENTIAL_MODEL_CALLS 1 \
-            --set DISABLE_TELEMETRY 1 \
-            --set DISABLE_INSTALLATION_CHECKS 1
+          wrapProgram $out/bin/claude ${binaryEnvFlags}
         '';
       });
     in

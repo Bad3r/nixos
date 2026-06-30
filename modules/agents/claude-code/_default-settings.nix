@@ -6,22 +6,15 @@
   mcpServers) are injected by _settings.nix; this attrset only carries the
   static portion shared across hosts.
 */
+let
+  claudeEnv = import ./_env.nix;
+in
 {
   claudeSettingsBase = {
     cleanupPeriodDays = 30;
-    env = {
-      # Duplicates of postFixup in modules/apps/claude-code.nix (belt-and-suspenders)
-      DISABLE_AUTOUPDATER = "1";
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
-      DISABLE_NON_ESSENTIAL_MODEL_CALLS = "1";
-      DISABLE_TELEMETRY = "1";
-      DISABLE_INSTALLATION_CHECKS = "1";
-      # Runtime settings (not in postFixup)
-      CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "1";
-      BASH_DEFAULT_TIMEOUT_MS = "240000";
-      BASH_MAX_TIMEOUT_MS = "4800000";
-      # MAX_THINKING_TOKENS = "32768";
-    };
+    # Disables + bash knobs from the shared source
+    # (modules/agents/claude-code/_env.nix).
+    env = claudeEnv.settings;
     includeCoAuthoredBy = false;
     permissions = {
       allow = [

@@ -54,6 +54,7 @@ _: {
       } osConfig;
 
       defaults = import ./_default-settings.nix;
+      claudeEnv = import ./_env.nix;
       plugins = import ./_plugins.nix { inherit lib osConfig; };
       inherit (plugins) greptilePluginRequested;
 
@@ -159,29 +160,9 @@ _: {
           # ~/.local/bin ahead of it so the wrapper shadows a bun-global claude.
           sessionPath = lib.mkBefore [ "${config.home.homeDirectory}/.local/bin" ];
 
-          sessionVariables = {
-            # Duplicates of postFixup in modules/apps/claude-code.nix (belt-and-suspenders)
-            DISABLE_AUTOUPDATER = "1";
-            CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
-            DISABLE_NON_ESSENTIAL_MODEL_CALLS = "1";
-            DISABLE_TELEMETRY = "1";
-            DISABLE_INSTALLATION_CHECKS = "1";
-            # Runtime settings (not in postFixup)
-            # ANTHROPIC_MODEL = defaultModel;
-            CLAUDE_CODE_ENABLE_TELEMETRY = "0";
-            DISABLE_ERROR_REPORTING = "1";
-            CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "1";
-            BASH_DEFAULT_TIMEOUT_MS = "240000";
-            BASH_MAX_TIMEOUT_MS = "4800000";
-            BASH_MAX_OUTPUT_LENGTH = "1024";
-            # MAX_THINKING_TOKENS = "32768";
-            # CLAUDE_CODE_MAX_OUTPUT_TOKENS = "UNKNOWN";
-            # MAX_MCP_OUTPUT_TOKENS = "32000";
-            CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
-            CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL = "1";
-            DISABLE_BUG_COMMAND = "1";
-            USE_BUILTIN_RIPGREP = "0";
-          };
+          # Full env from the shared source (modules/agents/claude-code/_env.nix);
+          # belt-and-suspenders with the binary postFixup and settings.json `env`.
+          sessionVariables = claudeEnv.all;
         };
       };
     };

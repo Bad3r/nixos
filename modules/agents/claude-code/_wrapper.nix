@@ -18,6 +18,14 @@
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
 
+  # Full env from the shared source (modules/agents/claude-code/_env.nix),
+  # rendered as shell exports; belt-and-suspenders with home.sessionVariables,
+  # the binary postFixup, and settings.json `env`.
+  claudeEnv = import ./_env.nix;
+  envExports = lib.concatStringsSep "\n" (
+    lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") claudeEnv.all
+  );
+
   # Claude runs its shell tool through this via CLAUDE_CODE_SHELL, which requires
   # the path to contain "bash" or "zsh", hence the `bash` name.
   claudeBashWrapper = pkgs.writeShellScriptBin "bash" ''
@@ -84,21 +92,7 @@ let
   wrapperBody = ''
     set -euo pipefail
 
-    export DISABLE_AUTOUPDATER=1
-    export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
-    export DISABLE_NON_ESSENTIAL_MODEL_CALLS=1
-    export DISABLE_TELEMETRY=1
-    export DISABLE_INSTALLATION_CHECKS=1
-    export CLAUDE_CODE_ENABLE_TELEMETRY=0
-    export DISABLE_ERROR_REPORTING=1
-    export CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1
-    export BASH_DEFAULT_TIMEOUT_MS=240000
-    export BASH_MAX_TIMEOUT_MS=4800000
-    export BASH_MAX_OUTPUT_LENGTH=1024
-    export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=0
-    export CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL=1
-    export DISABLE_BUG_COMMAND=1
-    export USE_BUILTIN_RIPGREP=0
+    ${envExports}
 
     # Shared scratch root for agent temp files.
     tmpDir="/tmp/agents"
