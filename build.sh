@@ -313,7 +313,6 @@ configure_nix_config() {
     append_nix_config_line "http-connections = 0"
     append_nix_config_line "http2 = true"
     append_nix_config_line "narinfo-cache-negative-ttl = 60"
-    append_nix_config_line "stalled-download-timeout = 900"
 
   fi
 
