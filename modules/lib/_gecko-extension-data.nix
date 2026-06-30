@@ -46,6 +46,17 @@ let
   # browsers, like uBlock, so PWAs can be installed and managed from the browser.
   # The native connector is wired in modules/hm-apps/{firefox,librewolf}.nix.
   firefoxpwaExt = "firefoxpwa@filips.si";
+  firefoxpwaAmoFileIds = {
+    "2.18.2" = "4734250";
+  };
+  mkFirefoxpwaInstallUrl =
+    version:
+    let
+      fileId =
+        firefoxpwaAmoFileIds.${version}
+          or (throw "Unsupported FirefoxPWA extension version ${version}; add its AMO file id to modules/lib/_gecko-extension-data.nix");
+    in
+    "https://addons.mozilla.org/firefox/downloads/file/${fileId}/pwas_for_firefox-${version}.xpi";
 
   # Tab Reloader (page auto refresh). Installed only into the firefoxpwa runtime
   # profiles via firefoxpwaRuntimePolicies (normal_installed, user-removable),
@@ -128,6 +139,8 @@ in
     wappalyzer
     webArchives
     firefoxpwaExt
+    firefoxpwaAmoFileIds
+    mkFirefoxpwaInstallUrl
     tabReloader
     policyExtensionIds
     mkNormalInstalledPolicy

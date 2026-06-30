@@ -11,11 +11,11 @@
   # management extension so it is only force-installed where the native
   # connector and CLI also exist (see firefox.nix/librewolf.nix).
   firefoxpwaEnabled ? false,
+  firefoxpwaPackage ? null,
 }:
 let
   geckoExtensionData = import ../lib/_gecko-extension-data.nix { inherit lib; };
   inherit (geckoExtensionData)
-    mkAmoInstallUrl
     toWidgetId
     ublockOrigin
     ublockOriginInstallUrl
@@ -33,6 +33,7 @@ let
     violentmonkey
     webArchives
     firefoxpwaExt
+    mkFirefoxpwaInstallUrl
     policyExtensionIds
     mkNormalInstalledPolicy
     firefoxpwaRuntimePolicies
@@ -366,7 +367,10 @@ let
     // lib.optionalAttrs firefoxpwaEnabled {
       "${firefoxpwaExt}" = {
         installation_mode = "force_installed";
-        install_url = mkAmoInstallUrl firefoxpwaExt;
+        install_url = mkFirefoxpwaInstallUrl (
+          firefoxpwaPackage.version
+            or (throw "firefoxpwaPackage.version is required when firefoxpwaEnabled is true")
+        );
       };
     };
 

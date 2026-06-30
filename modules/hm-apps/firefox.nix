@@ -12,12 +12,19 @@ _: {
       xdgProfilesPath = ".config/mozilla/firefox";
       nixosEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
       firefoxpwaEnabled = lib.attrByPath [ "programs" "firefoxpwa" "extended" "enable" ] false osConfig;
+      firefoxpwaPackage = lib.attrByPath [
+        "programs"
+        "firefoxpwa"
+        "extended"
+        "package"
+      ] pkgs.firefoxpwa osConfig;
       gecko = import ./_gecko-mk-profile.nix {
         inherit
           pkgs
           lib
           config
           firefoxpwaEnabled
+          firefoxpwaPackage
           ;
       };
       xdgProfileRoot = gecko.mkXdgProfileRoot {
@@ -63,7 +70,7 @@ _: {
             pkgs.tridactyl-native
           ]
           ++ gecko.nativeMessagingHosts
-          ++ lib.optional firefoxpwaEnabled osConfig.programs.firefoxpwa.extended.package;
+          ++ lib.optional firefoxpwaEnabled firefoxpwaPackage;
 
           inherit (gecko) policies;
 
