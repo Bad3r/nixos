@@ -118,13 +118,10 @@ let
 in
 {
   inherit
-    amoLatestBaseUrl
-    mkAmoInstallUrl
     toWidgetId
     ublockOrigin
     ublockOriginInstallUrl
     onePassword
-    arabicDictionary
     cookieAutoDelete
     darkreader
     foxyproxy
@@ -136,12 +133,9 @@ in
     tabStash
     tridactyl
     violentmonkey
-    wappalyzer
     webArchives
     firefoxpwaExt
-    firefoxpwaAmoFileIds
     mkFirefoxpwaInstallUrl
-    tabReloader
     policyExtensionIds
     mkNormalInstalledPolicy
     firefoxpwaRuntimePolicies

@@ -36,7 +36,6 @@ let
     mkFirefoxpwaInstallUrl
     policyExtensionIds
     mkNormalInstalledPolicy
-    firefoxpwaRuntimePolicies
     ;
 
   stylixEnabled = config.stylix.enable or false;
@@ -394,8 +393,6 @@ in
   inherit primaryPackages pentestingPackages workPackages;
 
   nativeMessagingHosts = [ onePasswordNativeMessagingHost ];
-
-  inherit firefoxpwaRuntimePolicies;
 
   sidebarSettings =
     let
