@@ -51,10 +51,13 @@ let
               # `firefoxpwa` is `wrapFirefox firefoxpwa-unwrapped { }` in the
               # package set, so the fixpoint re-wraps it around this override.
               firefoxpwa-unwrapped = prev.firefoxpwa-unwrapped.overrideAttrs (old: {
-                postInstall = (old.postInstall or "") + ''
-                  install -Dm644 ${runtimePolicies} \
-                    "$out/share/firefoxpwa/runtime/distribution/policies.json"
-                '';
+                postInstall =
+                  (old.postInstall or "")
+                  + "\n"
+                  + ''
+                    install -Dm644 ${runtimePolicies} \
+                      "$out/share/firefoxpwa/runtime/distribution/policies.json"
+                  '';
               });
             }
           )
