@@ -1,11 +1,15 @@
-# Bump librepods to v0.2.5 (nixpkgs pins v0.2.0). v0.2.5 swaps
-# qtquick3d for qtdeclarative + qttools and adds Widgets/DBus.
-# Dep lookups go through `final` so any later overlay (e.g. an `openssl`
-# CVE patch) feeds into this build instead of being silently bypassed.
-# The Max-2 patch backports https://github.com/kavishdevar/librepods/pull/519
-# so AirPods Max 2 (BLE 0x2D20 / model A3454) is recognised; without it
-# the device falls through to the unknown-model defaults. Drop the patch
-# once upstream merges PR #519 and a release pinning it ships.
+# librepods overlay. Base nixpkgs now pins v0.2.5 with the same src hash, so
+# this override only carries what base does not:
+#   * the Max-2 patch backporting https://github.com/kavishdevar/librepods/pull/519
+#     so AirPods Max 2 (BLE 0x2D20 / model A3454) is recognised; without it the
+#     device falls through to the unknown-model defaults. Drop the patch once
+#     PR #519 merges and a release pinning it ships.
+#   * qtdeclarative + qttools in buildInputs (base pulls qtquick3d); librepods
+#     is a QtQuick.Controls 2 app, so the QML runtime comes from qtdeclarative
+#     and qtquick3d's 3D stack is not needed.
+#   * QT_STYLE_OVERRIDE=Fusion forced at wrap time (rationale below).
+# Dep lookups go through `final` so any later overlay (e.g. an `openssl` CVE
+# patch) feeds into this build instead of being silently bypassed.
 #
 # librepods is a pure QtQuick.Controls 2 app and Stylix exports
 # `QT_STYLE_OVERRIDE=kvantum` in the session env. Kvantum ships only
@@ -24,7 +28,7 @@
 # becomes a real bash array before `wrapQtAppsHook` runs, but that
 # hook still initializes with `qtWrapperArgs=(${qtWrapperArgs-})`,
 # unquoted scalar word-splitting that collapses an array down to just
-# its first element. That drops the rest of our flags and misaligns
+# its first element. That drops the rest of the flags and misaligns
 # every `--prefix` group `qtHostPathHook` appends afterward, which
 # surfaces as `makeCWrapper: Unknown argument :`. Mutating the
 # already-initialized array with `+=` in `preFixup` sidesteps the
@@ -41,14 +45,7 @@ let
       config = lib.mkIf cfg.enable {
         nixpkgs.overlays = [
           (final: prev: {
-            librepods = prev.librepods.overrideAttrs (old: rec {
-              version = "0.2.5";
-              src = final.fetchFromGitHub {
-                owner = "kavishdevar";
-                repo = "librepods";
-                tag = "v${version}";
-                hash = "sha256-6l1WjwjDbv5e3tDaWo9+XSEjr9ge/hKysIkeUqyiO4U=";
-              };
+            librepods = prev.librepods.overrideAttrs (old: {
               patches = (old.patches or [ ]) ++ [
                 ../../packages/librepods/airpods-max-2.patch
               ];
