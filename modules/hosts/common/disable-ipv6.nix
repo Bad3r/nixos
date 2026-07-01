@@ -1,4 +1,4 @@
-_:
+{ lib, ... }:
 let
   # The default route on these hosts is an IPv4-only ProtonVPN WireGuard tunnel
   # that sinks every IPv6 destination into its ipv6leakintrf0 blackhole. With
@@ -8,7 +8,7 @@ let
   # addresses in play. enableIPv6 = false sets
   # net.ipv6.conf.{all,default}.disable_ipv6 = true.
   body = {
-    networking.enableIPv6 = false;
+    networking.enableIPv6 = lib.mkDefault false;
   };
 in
 {
