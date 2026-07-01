@@ -227,9 +227,10 @@ nixpkgs.allowedUnfreePackages = [
 ];
 ```
 
-NVIDIA unfree entries (`nvidia-x11`, `nvidia-settings`) are allowed in the
-shared `modules/hosts/common/packages.nix` allowlist, not in the System76
-module. `imports.nix` additionally allows `p7zip-rar`, `rar`, and `unrar`.
+NVIDIA unfree entries (`nvidia-kernel-modules`, `nvidia-x11`,
+`nvidia-settings`) are allowed in the shared
+`modules/hosts/common/packages.nix` allowlist, not in the System76 module.
+`imports.nix` additionally allows `p7zip-rar`, `rar`, and `unrar`.
 
 > **Note:** All firmware packages are redistributable, not unfree.
 

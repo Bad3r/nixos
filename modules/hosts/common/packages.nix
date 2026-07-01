@@ -38,6 +38,7 @@ in
   # allowUnfreePredicate sees them across both hosts).
   nixpkgs.allowedUnfreePackages = [
     # NVIDIA drivers
+    "nvidia-kernel-modules"
     "nvidia-x11"
     "nvidia-settings"
 
