@@ -7,24 +7,37 @@
   config,
   lib,
   pkgs,
+  # Whether the host enables programs.firefoxpwa.extended. Gates the firefoxpwa
+  # management extension so it is only force-installed where the native
+  # connector and CLI also exist (see firefox.nix/librewolf.nix).
+  firefoxpwaEnabled ? false,
+  firefoxpwaPackage ? null,
 }:
 let
-  # Use AMO's extension-ID URL form so the install URL matches the
-  # ExtensionSettings policy key.
-  amoLatestBaseUrl = "https://addons.mozilla.org/firefox/downloads/latest/";
-  mkAmoInstallUrl =
-    extension:
-    "${amoLatestBaseUrl}${lib.replaceStrings [ "{" "}" ] [ "%7B" "%7D" ] extension}/latest.xpi";
-  allowedWidgetChars = lib.stringToCharacters "abcdefghijklmnopqrstuvwxyz0123456789_-";
-  toWidgetId =
-    extension:
-    let
-      sanitizeChar = char: if builtins.elem char allowedWidgetChars then char else "_";
-    in
-    "${lib.stringAsChars sanitizeChar (lib.toLower extension)}-browser-action";
+  geckoExtensionData = import ../lib/_gecko-extension-data.nix { inherit lib; };
+  inherit (geckoExtensionData)
+    toWidgetId
+    ublockOrigin
+    ublockOriginInstallUrl
+    onePassword
+    cookieAutoDelete
+    darkreader
+    foxyproxy
+    languageTool
+    printEdit
+    raindrop
+    savePage
+    svgGobbler
+    tabStash
+    tridactyl
+    violentmonkey
+    webArchives
+    firefoxpwaExt
+    mkFirefoxpwaInstallUrl
+    policyExtensionIds
+    mkNormalInstalledPolicy
+    ;
 
-  ublockOrigin = "uBlock0@raymondhill.net";
-  ublockOriginInstallUrl = mkAmoInstallUrl ublockOrigin;
   stylixEnabled = config.stylix.enable or false;
   stylixPolarity = config.stylix.polarity or "auto";
   stylixColors = lib.attrByPath [ "lib" "stylix" "colors" ] { } config;
@@ -51,7 +64,6 @@ let
       "auto";
   ublockOriginAccentColor = getStylixColor "base0D" "#aca0f7";
 
-  onePassword = "{d634138d-c276-4fc8-924b-40a0ea21d284}";
   # Browser-side trust manifest for the managed 1Password extension. The
   # 1Password GUI module owns the /run/wrappers/bin target.
   onePasswordNativeMessagingHost =
@@ -65,44 +77,6 @@ let
           allowed_extensions = [ onePassword ];
         }
       );
-
-  arabicDictionary = "ar@dictionaries.addons.mozilla.org";
-  cookieAutoDelete = "CookieAutoDelete@kennydo.com";
-  darkreader = "addon@darkreader.org";
-  foxyproxy = "foxyproxy@eric.h.jung";
-  languageTool = "languagetool-webextension@languagetool.org";
-  printEdit = "printedit-we@DW-dev";
-  raindrop = "jid0-adyhmvsP91nUO8pRv0Mn2VKeB84@jetpack";
-  savePage = "savepage-we@DW-dev";
-  svgGobbler = "{7962ff4a-5985-4cf2-9777-4bb642ad05b8}";
-  tabStash = "tab-stash@condordes.net";
-  tridactyl = "tridactyl.vim@cmcaine.co.uk";
-  violentmonkey = "{aecec67f-0d10-4fa7-b7c7-609a2db280cf}";
-  wappalyzer = "wappalyzer@crunchlabz.com";
-  webArchives = "{d07ccf11-c0cd-4938-a265-2a4d6ad01189}";
-
-  policyExtensionIds = [
-    arabicDictionary
-    cookieAutoDelete
-    darkreader
-    foxyproxy
-    languageTool
-    onePassword
-    printEdit
-    raindrop
-    savePage
-    svgGobbler
-    tabStash
-    tridactyl
-    violentmonkey
-    wappalyzer
-    webArchives
-  ];
-
-  mkNormalInstalledPolicy = extension: {
-    installation_mode = "normal_installed";
-    install_url = mkAmoInstallUrl extension;
-  };
 
   unifiedExtensionsArea = [
     (toWidgetId cookieAutoDelete)
@@ -376,13 +350,28 @@ let
     "app.raindrop.io * 3p-frame noop"
   ];
 
-  extensionSettings = (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy) // {
-    "${ublockOrigin}" = {
-      installation_mode = "force_installed";
-      install_url = ublockOriginInstallUrl;
-      private_browsing = true;
+  extensionSettings =
+    (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy)
+    // {
+      "${ublockOrigin}" = {
+        installation_mode = "force_installed";
+        install_url = ublockOriginInstallUrl;
+        private_browsing = true;
+      };
+    }
+    # The firefoxpwa management extension is only useful when the host enables
+    # firefoxpwa: the native connector and `firefoxpwa` CLI are gated on the same
+    # option. Force-installing it on an opt-out host would leave a non-removable
+    # add-on stuck in a "connector not installed" state.
+    // lib.optionalAttrs firefoxpwaEnabled {
+      "${firefoxpwaExt}" = {
+        installation_mode = "force_installed";
+        install_url = mkFirefoxpwaInstallUrl (
+          firefoxpwaPackage.version
+            or (throw "firefoxpwaPackage.version is required when firefoxpwaEnabled is true")
+        );
+      };
     };
-  };
 
   primaryPackages = [ ];
 

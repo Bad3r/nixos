@@ -67,6 +67,12 @@ jobs:
             supportedRefs.contains(gitRef) && has(numDaysOld)
             && numDaysOld < 30 && owner == 'Bad3r'
 
+      - name: Sync firefoxpwa extension pin
+        if: steps.update.outputs.changed == 'true'
+        # pkgs.firefoxpwa may have bumped; refresh the AMO pin so the gecko
+        # policy stays in sync before the flake check evaluates it.
+        run: scripts/update-firefoxpwa-extension.py
+
       - name: Run flake check
         if: steps.update.outputs.changed == 'true'
         run: nix flake check --accept-flake-config

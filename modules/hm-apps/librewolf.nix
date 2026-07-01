@@ -30,11 +30,20 @@ _: {
       legacyProfilesPath = ".librewolf";
       xdgProfilesPath = ".config/librewolf/librewolf";
       nixosEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
+      firefoxpwaEnabled = lib.attrByPath [ "programs" "firefoxpwa" "extended" "enable" ] false osConfig;
+      firefoxpwaPackage = lib.attrByPath [
+        "programs"
+        "firefoxpwa"
+        "extended"
+        "package"
+      ] pkgs.firefoxpwa osConfig;
       gecko = import ./_gecko-mk-profile.nix {
         inherit
           pkgs
           lib
           config
+          firefoxpwaEnabled
+          firefoxpwaPackage
           ;
       };
       xdgProfileRoot = gecko.mkXdgProfileRoot {
@@ -73,8 +82,13 @@ _: {
           configPath = legacyProfilesPath;
           package = osConfig.programs.librewolf.extended.package;
           # See modules/hm-apps/firefox.nix for why this uses the browser
-          # native-messaging option instead of `home.packages`.
-          nativeMessagingHosts = [ pkgs.tridactyl-native ] ++ gecko.nativeMessagingHosts;
+          # native-messaging option instead of `home.packages`, and why the
+          # firefoxpwa connector manifest is added when firefoxpwa is enabled.
+          nativeMessagingHosts = [
+            pkgs.tridactyl-native
+          ]
+          ++ gecko.nativeMessagingHosts
+          ++ lib.optional firefoxpwaEnabled firefoxpwaPackage;
 
           inherit (gecko) policies;
 
