@@ -3,7 +3,7 @@
   configurations.nixos.tpnix.module =
     { pkgs, ... }:
     {
-      boot.kernelPackages = lib.mkDefault pkgs.cachyosKernels.linuxPackages-cachyos-latest;
+      boot.kernelPackages = lib.mkDefault pkgs.linuxPackages_zen;
 
       boot = {
         tmp.useTmpfs = true;

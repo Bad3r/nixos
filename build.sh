@@ -236,7 +236,6 @@ BOOTSTRAP_SUBSTITUTERS=(
   "https://nix-logseq-git-flake.cachix.org"
   "https://nix-community.cachix.org"
   "https://doom-emacs-unstraightened.cachix.org"
-  "https://attic.xuyh0120.win/lantian?priority=39"
 )
 BOOTSTRAP_TRUSTED_KEYS=(
   "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
@@ -246,7 +245,6 @@ BOOTSTRAP_TRUSTED_KEYS=(
   "nix-logseq-git-flake.cachix.org-1:DSBNW07PSRyCvS926tpIWahb53OIydwwZhsP6LhJNZo="
   "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
   "doom-emacs-unstraightened.cachix.org-1:O5oOlRPnmQEvVaFyuMTmthCEooHbrg54WgSLR07tmg4="
-  "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
 )
 
 configure_build_flags() {
@@ -315,7 +313,6 @@ configure_nix_config() {
     append_nix_config_line "http-connections = 0"
     append_nix_config_line "http2 = true"
     append_nix_config_line "narinfo-cache-negative-ttl = 60"
-    append_nix_config_line "stalled-download-timeout = 900"
 
   fi
 

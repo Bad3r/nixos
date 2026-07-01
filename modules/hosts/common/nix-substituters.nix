@@ -24,7 +24,7 @@ let
       http-connections = lib.mkForce 0; # unlimited
       http2 = lib.mkDefault true;
       narinfo-cache-negative-ttl = lib.mkDefault 60;
-      stalled-download-timeout = lib.mkDefault 900;
+      stalled-download-timeout = lib.mkDefault 300; # nix default; fail a stalled download instead of freezing the build
 
     };
   };

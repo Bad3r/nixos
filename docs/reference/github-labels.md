@@ -93,7 +93,6 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 | `input(llm-agents)`                 | Use for the `numtide/llm-agents.nix` input and its integration.            |
 | `input(make-shell)`                 | Use for the `nicknovitski/make-shell` input and its integration.           |
 | `input(mcp-servers-nix)`            | Use for the `natsukium/mcp-servers-nix` input and its integration.         |
-| `input(nix-cachyos-kernel)`         | Use for the `xddxdd/nix-cachyos-kernel` input and its integration.         |
 | `input(nix-index-database)`         | Use for the `nix-community/nix-index-database` input and its integration.  |
 | `input(nix-logseq-git-flake)`       | Use for the `Bad3r/nix-logseq-git-flake` input and its integration.        |
 | `input(nixos-hardware)`             | Use for the `NixOS/nixos-hardware` input and its integration.              |
