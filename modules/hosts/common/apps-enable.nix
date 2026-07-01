@@ -78,11 +78,9 @@ let
       charles.extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
       clangd.extended.enable = lib.mkOverride 1100 false;
-      # Both install methods disabled: the claude-code binary is managed
-      # outside Nix on this host. Home Manager still applies settings,
-      # skills, and MCP merge. To switch back to a Nix-managed binary, set
-      # installMethods.nix.enable = true; for bun-managed, set
-      # installMethods.bun.enable = true and programs.bun.extended.enable = true.
+      # Both install methods off: delegate to the bun global path by default;
+      # set externalBinary for a non-bun external binary.
+      # The wrapper, settings, skills, and MCP merge still apply.
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;
@@ -151,6 +149,7 @@ let
       findomain.extended.enable = lib.mkOverride 1100 true;
       findutils.extended.enable = lib.mkOverride 1100 true;
       firefox.extended.enable = lib.mkOverride 1100 true;
+      firefoxpwa.extended.enable = lib.mkOverride 1100 true;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 true;
       fonttools.extended.enable = lib.mkOverride 1100 true;

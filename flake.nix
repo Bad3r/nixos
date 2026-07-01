@@ -71,12 +71,6 @@
     #   };
     # };
 
-    nix-cachyos-kernel = {
-      # CachyOS kernel with BORE scheduler and performance patches
-      # Using release branch for binary cache; do NOT override nixpkgs
-      url = "github:xddxdd/nix-cachyos-kernel/release";
-    };
-
     emacs-overlay = {
       url = "github:nix-community/emacs-overlay";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -20,69 +20,14 @@ let
     }:
     "host_executable(name=${builtins.toJSON name}, paths=${builtins.toJSON paths})";
 
-  # Translate common rm flags into rip so Codex defaults to recoverable deletions.
-  rmShim = pkgs.writeShellScriptBin "rm" ''
-    set -euo pipefail
+  rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
 
-    force=0
-    operands=()
-
-    while [ "$#" -gt 0 ]; do
-      case "$1" in
-        --)
-          shift
-          while [ "$#" -gt 0 ]; do
-            operands+=("$1")
-            shift
-          done
-          break
-          ;;
-        -f|--force)
-          force=1
-          shift
-          ;;
-        -r|-R|--recursive)
-          shift
-          ;;
-        -[!-]*)
-          bundle="''${1#-}"
-          unsupported="''${bundle//[fRr]/}"
-          if [ -n "$unsupported" ]; then
-            echo "rm shim: unsupported rm option '$1'; use rip directly for nonstandard flags" >&2
-            exit 2
-          fi
-          case "$bundle" in
-            *f*)
-              force=1
-              ;;
-          esac
-          shift
-          ;;
-        --*)
-          echo "rm shim: unsupported rm option '$1'; use rip directly for nonstandard flags" >&2
-          exit 2
-          ;;
-        *)
-          operands+=("$1")
-          shift
-          ;;
-      esac
-    done
-
-    cmd=(${lib.getExe' pkgs.trash-cli "trash-put"})
-    if [ "$force" -eq 1 ]; then
-      cmd+=(-f)
-    fi
-
-    if [ "''${#operands[@]}" -eq 0 ]; then
-      exec "''${cmd[@]}"
-    fi
-
-    exec "''${cmd[@]}" -- "''${operands[@]}"
-  '';
-
-  # Scope recoverable bare `rm` rewrites to the top-level Codex shell command
-  # instead of mutating PATH for every subprocess those commands spawn.
+  # Route bare `rm` through the rip-backed shim (PATH prepend plus a top-level
+  # rm() function) so `find -exec rm`, `xargs rm`, and nested shells inside a
+  # Codex session trash deletions instead of running coreutils rm. Mirrors the
+  # claude-code wrapper: the bwrap workspace-write sandbox bounds the blast
+  # radius, but the workspace is the user's work, so the shim is what keeps
+  # those deletions recoverable.
   #
   # Keep the wrapper executable named `bash` so Codex continues to classify
   # `bash -lc ...` invocations as shell commands and applies execpolicy to the
@@ -93,6 +38,10 @@ let
     direnvBin=${lib.getExe pkgs.direnv}
     realBash=${lib.getExe pkgs.bashInteractive}
     rmShimPath=${rmShim}/bin/rm
+
+    # Only `rm` lives in this dir, so prepending shadows nothing else; on PATH so
+    # bare `rm` is shimmed for every shell invocation form, not just -c below.
+    export PATH=${rmShim}/bin''${PATH:+:$PATH}
 
     restoreCodexShellEnv() {
       if [ -n "''${CODEX_ORIGINAL_LD_PRELOAD-}" ]; then
@@ -115,6 +64,10 @@ let
         if direnvExports="$("'"$direnvBin"'" export bash 2>/dev/null)"; then
           eval "$direnvExports"
         fi
+        # direnv (e.g. nix-direnv use-flake) can prepend dev-shell bins and
+        # push the shim down PATH; re-prepend it so command rm, find -exec rm,
+        # xargs rm, and nested shells resolve the shim, not coreutils rm.
+        export PATH=${rmShim}/bin''${PATH:+:$PATH}
         rm() {
           "'"$rmShimPath"'" "$@"
         }

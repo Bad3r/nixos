@@ -2,9 +2,8 @@ _: {
   configurations.nixos.system76.module =
     { pkgs, ... }:
     {
-      # CachyOS generic kernel package set with BORE scheduler/performance patches.
-      boot.kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-latest;
-      #boot.kernelPackages = pkgs.linuxPackages;
+      # linux-zen: low-latency desktop kernel, prebuilt in cache.nixos.org.
+      boot.kernelPackages = pkgs.linuxPackages_zen;
 
       boot = {
         tmp.useTmpfs = true;

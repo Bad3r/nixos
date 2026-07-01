@@ -8,8 +8,7 @@ All System76-specific configuration lives in `modules/system76/`:
 | ---------------------------- | ------------------------------------------------- |
 | `hardware-config.nix`        | Filesystems, LUKS, firmware, bluetooth, GPU mode  |
 | `nvidia-gpu.nix`             | NVIDIA driver, PRIME sync/nvidia-only mode        |
-| `boot.nix`                   | CachyOS kernel, crash dump, NVIDIA params         |
-| `cachyos-kernel.nix`         | CachyOS kernel overlay and binary cache           |
+| `boot.nix`                   | linux-zen kernel, crash dump, NVIDIA params       |
 | `services.nix`               | power management, scheduler, logging              |
 | `support.nix`                | System76 kernel modules, firmware daemon          |
 | `system76-power-overlay.nix` | `system76-power` patch (skip non-ALPM SCSI hosts) |
@@ -148,9 +147,8 @@ hardware.nvidia.prime = {
 ```nix
 # modules/system76/boot.nix
 boot = {
-  # CachyOS generic kernel (BORE scheduler + performance patches).
-  # Overlay and binary cache are wired in cachyos-kernel.nix.
-  kernelPackages = pkgs.cachyosKernels.linuxPackages-cachyos-latest;
+  # linux-zen: low-latency desktop kernel, prebuilt in cache.nixos.org.
+  kernelPackages = pkgs.linuxPackages_zen;
   blacklistedKernelModules = [ "nouveau" ];
 
   kernelParams = [

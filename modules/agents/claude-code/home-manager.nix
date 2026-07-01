@@ -27,6 +27,7 @@
         _plugins.nix           enabledPlugins composition from osConfig
         _settings.nix          merges defaults + plugins + mcpServers
         _activation.nix        activation snippets (jq merge + optional bun install)
+        _wrapper.nix           shell launcher environment and binary selection
 */
 
 _: {
@@ -41,8 +42,19 @@ _: {
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "claude-code" "extended" "enable" ] false osConfig;
+      claudePkg = lib.attrByPath [
+        "programs"
+        "claude-code"
+        "extended"
+        "package"
+      ] pkgs.claude-code osConfig;
+      installMethods = lib.attrByPath [ "programs" "claude-code" "extended" "installMethods" ] {
+        nix.enable = false;
+        bun.enable = false;
+      } osConfig;
 
       defaults = import ./_default-settings.nix;
+      claudeEnv = import ./_env.nix;
       plugins = import ./_plugins.nix { inherit lib osConfig; };
       inherit (plugins) greptilePluginRequested;
 
@@ -56,6 +68,18 @@ _: {
 
       greptileApiKeyPath = "${config.xdg.dataHome}/greptile/api-key";
       greptileHeadersHelperPath = "${config.home.homeDirectory}/.local/bin/claude-greptile-mcp-headers";
+      bunInstallDir = "${config.xdg.dataHome}/bun";
+      configuredExternalBinary = lib.attrByPath [
+        "programs"
+        "claude-code"
+        "extended"
+        "externalBinary"
+      ] null osConfig;
+      externalBinary =
+        if configuredExternalBinary == null then
+          "${bunInstallDir}/bin/claude"
+        else
+          configuredExternalBinary;
 
       activation = import ./_activation.nix {
         inherit
@@ -70,14 +94,18 @@ _: {
         inherit (plugins) greptilePluginKey greptilePluginRequested;
       };
 
-      bunInstallEnabled = lib.attrByPath [
-        "programs"
-        "claude-code"
-        "extended"
-        "installMethods"
-        "bun"
-        "enable"
-      ] false osConfig;
+      claudeRuntime = import ./_wrapper.nix {
+        inherit
+          lib
+          pkgs
+          claudePkg
+          bunInstallDir
+          externalBinary
+          installMethods
+          greptilePluginRequested
+          greptileApiKeyPath
+          ;
+      };
 
       # ── Commit Skill ──────────────────────────────────────────────────────
       claudeInstructions = agents.systemPrompt.render {
@@ -93,6 +121,11 @@ _: {
 
             ".claude/skills/commit/SKILL.md" = {
               text = commitSkillMd;
+            };
+
+            ".local/bin/claude" = {
+              source = lib.getExe claudeRuntime.claudeWrapped;
+              executable = true;
             };
           }
           // lib.optionalAttrs greptilePluginRequested {
@@ -119,59 +152,17 @@ _: {
                 }'
               '';
             };
-          }
-          // lib.optionalAttrs bunInstallEnabled {
-            ".local/bin/claude" = {
-              executable = true;
-              text = ''
-                #!${pkgs.bash}/bin/bash
-                set -euo pipefail
-
-                ${lib.optionalString greptilePluginRequested ''
-                  secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
-                  if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
-                    if secret_value="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret_path")" && [ -n "$secret_value" ]; then
-                      export GREPTILE_API_KEY="$secret_value"
-                    fi
-                  fi
-                ''}
-
-                bun_claude="$HOME/.local/share/bun/bin/claude"
-                if [ -x "$bun_claude" ]; then
-                  exec "$bun_claude" "$@"
-                fi
-
-                echo "ERROR: Claude Code bun install not found at $bun_claude" >&2
-                exit 127
-              '';
-            };
           };
 
           inherit activation;
 
-          sessionVariables = {
-            # Duplicates of postFixup in modules/apps/claude-code.nix (belt-and-suspenders)
-            DISABLE_AUTOUPDATER = "1";
-            CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
-            DISABLE_NON_ESSENTIAL_MODEL_CALLS = "1";
-            DISABLE_TELEMETRY = "1";
-            DISABLE_INSTALLATION_CHECKS = "1";
-            # Runtime settings (not in postFixup)
-            # ANTHROPIC_MODEL = defaultModel;
-            CLAUDE_CODE_ENABLE_TELEMETRY = "0";
-            DISABLE_ERROR_REPORTING = "1";
-            CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "1";
-            BASH_DEFAULT_TIMEOUT_MS = "240000";
-            BASH_MAX_TIMEOUT_MS = "4800000";
-            BASH_MAX_OUTPUT_LENGTH = "1024";
-            # MAX_THINKING_TOKENS = "32768";
-            # CLAUDE_CODE_MAX_OUTPUT_TOKENS = "UNKNOWN";
-            # MAX_MCP_OUTPUT_TOKENS = "32000";
-            CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
-            CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL = "1";
-            DISABLE_BUG_COMMAND = "1";
-            USE_BUILTIN_RIPGREP = "0";
-          };
+          # bun puts its global bin on home.sessionPath; mkBefore orders
+          # ~/.local/bin ahead of it so the wrapper shadows a bun-global claude.
+          sessionPath = lib.mkBefore [ "${config.home.homeDirectory}/.local/bin" ];
+
+          # Full env from the shared source (modules/agents/claude-code/_env.nix);
+          # belt-and-suspenders with the binary postFixup and settings.json `env`.
+          sessionVariables = claudeEnv.all;
         };
       };
     };

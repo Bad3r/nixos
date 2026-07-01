@@ -52,14 +52,17 @@ in
 
       basePackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
 
+      # Privacy/update disables baked into the binary so a bare `claude` that
+      # bypasses the ~/.local/bin wrapper still gets them. Shared source:
+      # modules/agents/claude-code/_env.nix (also feeds settings.json + wrapper).
+      claudeEnv = import ../agents/claude-code/_env.nix;
+      binaryEnvFlags = lib.concatStringsSep " " (
+        lib.mapAttrsToList (name: value: "--set ${name} ${lib.escapeShellArg value}") claudeEnv.binary
+      );
+
       wrappedPackage = basePackage.overrideAttrs (old: {
         postFixup = (old.postFixup or "") + ''
-          wrapProgram $out/bin/claude \
-            --set DISABLE_AUTOUPDATER 1 \
-            --set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC 1 \
-            --set DISABLE_NON_ESSENTIAL_MODEL_CALLS 1 \
-            --set DISABLE_TELEMETRY 1 \
-            --set DISABLE_INSTALLATION_CHECKS 1
+          wrapProgram $out/bin/claude ${binaryEnvFlags}
         '';
       });
     in
@@ -80,6 +83,18 @@ in
           default = wrappedPackage;
           defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.claude-code";
           description = "Claude Code package used when installMethods.nix.enable is true.";
+        };
+
+        externalBinary = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = ''
+            Absolute runtime path used by the Home Manager `~/.local/bin/claude`
+            wrapper when both `installMethods.nix.enable` and
+            `installMethods.bun.enable` are false. When null, the wrapper
+            delegates to the Home Manager bun global path under XDG data home,
+            so `programs.bun.extended.enable` must be true.
+          '';
         };
 
         installMethods = {
@@ -175,6 +190,8 @@ in
                   malformedKeys = lib.filter (k: builtins.match ".+@.+" k == null) extraKeys;
                   lspKeysWithMarket = map (k: "${k}@claude-plugins-official") (lib.attrNames cfg.lspPlugins);
                   lspCollisions = lib.intersectLists extraKeys lspKeysWithMarket;
+                  delegatesToBunGlobal =
+                    (!cfg.installMethods.nix.enable) && (!cfg.installMethods.bun.enable) && cfg.externalBinary == null;
                 in
                 [
                   {
@@ -185,6 +202,16 @@ in
                       apps-enable.nix (e.g. modules/tpnix/apps-enable.nix:32 or
                       modules/system76/apps-enable.nix:47) before enabling the bun
                       install method for claude-code.
+                    '';
+                  }
+                  {
+                    assertion = (!delegatesToBunGlobal) || config.programs.bun.extended.enable;
+                    message = ''
+                      programs.claude-code.extended.externalBinary = null with both
+                      claude-code install methods disabled delegates to the Home Manager
+                      bun global path. Enable programs.bun.extended.enable, set
+                      programs.claude-code.extended.externalBinary to an absolute path,
+                      or enable one of the claude-code install methods.
                     '';
                   }
                   {
