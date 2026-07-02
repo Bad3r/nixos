@@ -17,6 +17,19 @@
 # exec, so the broken value is always replaced. Fusion is palette-aware
 # and picks up the Stylix Base16 colors via the qt6ct color scheme
 # that Stylix's qt target generates.
+#
+# That `--set` is injected via `preFixup` shell code instead of a
+# `qtWrapperArgs` list attribute because upstream sets
+# `__structuredAttrs = true`. Under structured attrs a Nix list attr
+# becomes a real bash array before `wrapQtAppsHook` runs, but that
+# hook still initializes with `qtWrapperArgs=(${qtWrapperArgs-})`,
+# unquoted scalar word-splitting that collapses an array down to just
+# its first element. That drops the rest of our flags and misaligns
+# every `--prefix` group `qtHostPathHook` appends afterward, which
+# surfaces as `makeCWrapper: Unknown argument :`. Mutating the
+# already-initialized array with `+=` in `preFixup` sidesteps the
+# collapse, matching nixpkgs' own precedent in `pkgs/by-name/ed/eden`
+# and `pkgs/by-name/ya/yacreader`.
 _:
 let
   Overlay =
@@ -47,11 +60,9 @@ let
                 final.qt6.qtdeclarative
                 final.qt6.qttools
               ];
-              qtWrapperArgs = (old.qtWrapperArgs or [ ]) ++ [
-                "--set"
-                "QT_STYLE_OVERRIDE"
-                "Fusion"
-              ];
+              preFixup = (old.preFixup or "") + ''
+                qtWrapperArgs+=(--set QT_STYLE_OVERRIDE Fusion)
+              '';
             });
           })
         ];
