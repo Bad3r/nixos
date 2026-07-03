@@ -39,13 +39,48 @@ let
     # bare `rm` is shimmed for every shell invocation form, not just -c below.
     export PATH=${rmShim}/bin''${PATH:+:$PATH}
 
-    if [ "$#" -ge 2 ] && { [ "$1" = "-c" ] || [ "$1" = "-lc" ]; }; then
-      shellFlag="$1"
-      wrappedCommand="$2"
-      shift 2
+    # Claude Code runs its shell tool as `bash [OPTS] <command> [ARG...]`. OPTS is
+    # any order/mix of short flags (-c, -l, -i, or bundles like -lc) and long
+    # flags; newer Claude Code passes login as a separate flag, e.g.
+    # `-c -l <command>`, so the command is not always $2. Scan past every option
+    # word to find the first operand. A short flag bundle containing `c` selects
+    # command mode; long flags (--login, --norc) never do, even when they contain
+    # a "c". Non-command invocations (interactive/login shell, no `-c`) are exec'd
+    # through untouched.
+    originalArgs=("$@")
+    options=()
+    haveCommand=0
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --)
+          options+=("$1")
+          shift
+          break
+          ;;
+        --*)
+          options+=("$1")
+          shift
+          ;;
+        -*c*)
+          haveCommand=1
+          options+=("$1")
+          shift
+          ;;
+        -?*)
+          options+=("$1")
+          shift
+          ;;
+        *)
+          break
+          ;;
+      esac
+    done
 
-      export CLAUDE_WRAPPED_COMMAND="$wrappedCommand"
-      exec "$realBash" "$shellFlag" '
+    if [ "$haveCommand" -eq 1 ] && [ "$#" -ge 1 ]; then
+      export CLAUDE_WRAPPED_COMMAND="$1"
+      shift
+
+      exec "$realBash" "''${options[@]}" '
         # Load direnv as an interactive shell would.
         if direnvExports="$("'"$direnvBin"'" export bash 2>/dev/null)"; then
           eval "$direnvExports"
@@ -61,7 +96,7 @@ let
       ' "$@"
     fi
 
-    exec "$realBash" "$@"
+    exec "$realBash" "''${originalArgs[@]}"
   '';
 
   targetScript =
