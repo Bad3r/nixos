@@ -77,4 +77,6 @@ code:
   `<string>${config.sops.placeholder."cloudflare-warp/organization"}</string>`,
   so the team name never enters the Nix store or git history.
 - There is no per-host `organization` option; a host enrolls by providing the
-  secret. Without the secret the host runs `warp-svc` un-enrolled and warns.
+  secret (and, where enablement is gated on `sopsRuntimeReady` such as tpnix, once
+  that flag is `true`). On an enabled host without the secret, `warp-svc` runs
+  un-enrolled and warns; a host still gated by `sopsRuntimeReady` stays off entirely.
