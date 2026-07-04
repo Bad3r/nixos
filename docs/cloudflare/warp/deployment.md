@@ -54,8 +54,16 @@ git -C secrets add cloudflare-warp.yaml
 
 Each host opts in through a small file that enables the wrapper in Full mode:
 
-- `modules/tpnix/cloudflare-warp.nix`
-- `modules/system76/cloudflare-warp.nix`
+- `modules/system76/cloudflare-warp.nix` sets `enable = true` directly; system76
+  has runtime SOPS decryption.
+- `modules/tpnix/cloudflare-warp.nix` sets `enable = sopsRuntimeReady`, gating on
+  `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady` (`modules/tpnix/policy.nix`) like
+  the other tpnix sops consumers (`duplicati.nix`, `printing.nix`, `fonts.nix`).
+  tpnix has no runtime decryption key yet, so the wrapper stays off until that flag
+  is `true`; committing the secret while it is `false` would make tpnix declare
+  `cloudflare-warp/*` secrets it cannot decrypt and fail activation.
+
+A SOPS-ready host enables directly:
 
 ```nix
 _: {
@@ -71,9 +79,31 @@ _: {
 }
 ```
 
+A host still gated by `sopsRuntimeReady` (tpnix) enables through the flag; flip it in
+`modules/tpnix/policy.nix` once the decryption key is in place:
+
+```nix
+{ config, ... }:
+let
+  inherit (config.flake.lib.nixos.hosts.tpnix) sopsRuntimeReady;
+in
+{
+  configurations.nixos.tpnix.module = {
+    programs.cloudflare-warp.extended = {
+      enable = sopsRuntimeReady;
+      serviceMode = "warp";
+      autoConnect = 0;
+      switchLocked = false;
+      connectOnBoot = true;
+    };
+  };
+}
+```
+
 The team name is not set here; it comes from the `organization` key in the sops
-secret. Until `secrets/cloudflare-warp.yaml` exists the host runs `warp-svc`
-un-enrolled and emits a build warning.
+secret. On a SOPS-ready host, until `secrets/cloudflare-warp.yaml` exists the host
+runs `warp-svc` un-enrolled and emits a build warning. A host still gated by
+`sopsRuntimeReady` stays off entirely until the flag is `true`.
 
 ## 4. Validate and deploy
 
