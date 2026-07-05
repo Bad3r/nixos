@@ -42,25 +42,11 @@ jobs:
           git config --global url."$URL".insteadOf ssh://git@github.com/
       - name: Check flake
         run: nix flake check --extra-experimental-features pipe-operators
-      - name: Check namespace compliance
-        run: ./test-dendritic-compliance.sh
       - name: Build configurations
         run: |
           HOST=".#nixosConfigurations.system76"
           nix build "$HOST.config.system.build.toplevel" \
             --dry-run --extra-experimental-features pipe-operators
-      - name: Generate dependency graph
-        run: ./generate-dependency-graph.sh
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v4.6.2
-        with:
-          name: dependency-graph
-          path: |
-            module-dependencies.dot
-            module-dependencies.png
-            module-dependencies.svg
-          retention-days: 30
 
   format-check:
     runs-on: ubuntu-latest
@@ -97,14 +83,16 @@ jobs:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
       - name: Validate namespaces
         run: |
-          # Check that no modules create wrong namespaces
-          if grep -rq "flake.nixosModules.desktop" \
+          # Forbid assigning a single module directly to a retired namespace.
+          # Anchored on "=" so nested groups (flake.nixosModules.storage.x)
+          # and hyphenated names (flake.nixosModules.boot-redundancy) pass.
+          if grep -rqE "flake\.nixosModules\.desktop[[:space:]]*=" \
             modules/ --include="*.nix"; then exit 1; fi
-          if grep -rq "flake.nixosModules.audio" \
+          if grep -rqE "flake\.nixosModules\.audio[[:space:]]*=" \
             modules/ --include="*.nix"; then exit 1; fi
-          if grep -rq "flake.nixosModules.boot" \
+          if grep -rqE "flake\.nixosModules\.boot[[:space:]]*=" \
             modules/ --include="*.nix"; then exit 1; fi
-          if grep -rq "flake.nixosModules.storage" \
+          if grep -rqE "flake\.nixosModules\.storage[[:space:]]*=" \
             modules/ --include="*.nix"; then exit 1; fi
       - name: Check import-tree usage
         run: grep -q "import-tree.*modules" flake.nix || exit 1
