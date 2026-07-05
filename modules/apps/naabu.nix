@@ -18,9 +18,6 @@
     -rate <value>: Packets to send per second.
     -j, -json: Write output in JSON Lines format.
     -silent: Display only results.
-
-  Notes:
-    * `modules/custom-overlays/naabu.nix` upgrades older nixpkgs channels to upstream v2.6.1.
 */
 _:
 let
