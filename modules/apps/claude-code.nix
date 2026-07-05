@@ -198,10 +198,10 @@ in
                     assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
                     message = ''
                       programs.claude-code.extended.installMethods.bun.enable requires
-                      programs.bun.extended.enable = true. Enable bun in your host's
-                      apps-enable.nix (e.g. modules/tpnix/apps-enable.nix:32 or
-                      modules/system76/apps-enable.nix:47) before enabling the bun
-                      install method for claude-code.
+                      programs.bun.extended.enable = true. Enable bun via the shared
+                      baseline (modules/hosts/common/apps-enable.nix) or your host's
+                      apps-enable.nix override before enabling the bun install method
+                      for claude-code.
                     '';
                   }
                   {

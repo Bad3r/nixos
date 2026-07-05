@@ -238,7 +238,7 @@ body:
         whole-file changes. List every file that must be touched.
       placeholder: |
         https://github.com/Bad3r/nixos/blob/cd63f312/modules/base/envfs.nix#L9-L34
-        modules/system76/custom-packages-overlay.nix
+        modules/custom-overlays/brave-origin.nix
     validations:
       required: true
 
