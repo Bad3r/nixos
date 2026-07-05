@@ -20,6 +20,7 @@ _: {
             cd "$root"
 
             apps_dir="modules/apps"
+            browsers_dir="modules/browsers"
 
             excluded_apps=(
               "qemu"
@@ -27,10 +28,16 @@ _: {
               "ovftool"
             )
 
+            # Browser modules live under modules/browsers/<name>/apps.nix
+            # since the browsers consolidation; their catalog entries use the
+            # directory name.
             mapfile -t filesystem_apps < <(
-              find "$apps_dir" -maxdepth 1 -type f -name "*.nix" ! -name "_*.nix" -printf "%f\n" \
-                | sed 's/\.nix$//' \
-                | sort
+              {
+                find "$apps_dir" -maxdepth 1 -type f -name "*.nix" ! -name "_*.nix" -printf "%f\n" \
+                  | sed 's/\.nix$//'
+                find "$browsers_dir" -mindepth 2 -maxdepth 2 -type f -name "apps.nix" -printf "%h\n" \
+                  | sed 's|.*/||'
+              } | sort -u
             )
 
             declare -A excluded_map
@@ -52,7 +59,8 @@ _: {
             done
 
             # The common baseline at modules/hosts/common/apps-enable.nix is
-            # the canonical catalog and must list every app from modules/apps/.
+            # the canonical catalog and must list every app from modules/apps/
+            # and every browser module from modules/browsers/.
             # Per-host files (modules/<host>/apps-enable.nix) only carry
             # overrides for entries that diverge from the baseline; they are
             # not required to be complete and must only reference apps that
@@ -97,7 +105,8 @@ _: {
               while IFS= read -r changed_file; do
                 if [[ "$changed_file" =~ ^modules/.+/apps-enable\.nix$ ]]; then
                   catalog_files_to_check["$changed_file"]=1
-                elif [[ "$changed_file" =~ ^modules/apps/[^_/][^/]*\.nix$ ]]; then
+                elif [[ "$changed_file" =~ ^modules/apps/[^_/][^/]*\.nix$ ]] \
+                  || [[ "$changed_file" =~ ^modules/browsers/[^_/][^/]*/apps\.nix$ ]]; then
                   app_modules_changed=1
                 fi
               done < <(git diff --name-only "''${from_ref}..''${to_ref}" 2>/dev/null || true)
@@ -171,7 +180,7 @@ _: {
               if [ "''${#missing[@]}" -gt 0 ] || [ "''${#stale[@]}" -gt 0 ]; then
                 echo "" >&2
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
-                echo "❌ Error: apps-enable.nix is out of sync with modules/apps/" >&2
+                echo "❌ Error: apps-enable.nix is out of sync with the app modules" >&2
                 echo "   File: $catalog_file" >&2
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
                 echo "" >&2
