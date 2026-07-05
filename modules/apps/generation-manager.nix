@@ -211,12 +211,40 @@ let
                     # Check for literal path imports (20 points)
                     echo -n "1. No literal path imports: "
                     if [ -d modules ]; then
-                      # Enhanced pattern to catch actual file path imports
-                      # Matches: ./file and ../file
-                      literal_imports=$(grep -Hn -E '^[[:space:]]*imports[[:space:]]*=' modules/ -r 2>/dev/null | \
-                        sed -E 's/[[:space:]]#.*$//' | \
-                        grep -E '\./|\.\./' | \
-                        grep -v -E '^[^:]+:[0-9]+:[[:space:]]*#' || true)
+                      # Track imports = [ ... ] blocks across lines so the
+                      # idiomatic multi-line style is caught too; the previous
+                      # single-line grep only flagged ./ on the imports line
+                      # itself and missed every path on a following line.
+                      # Paths whose basename starts with "_" are the sanctioned
+                      # underscore-sibling pattern and stay exempt.
+                      # shellcheck disable=SC2016
+                      literal_imports=$(find modules/ -name '*.nix' -print0 2>/dev/null | \
+                        xargs -0 -r awk '
+                          FNR == 1 { inblock = 0; depth = 0 }
+                          {
+                            line = $0
+                            sub(/#.*/, "", line)
+                            if (!inblock && line ~ /^[[:space:]]*imports[[:space:]]*=/) {
+                              inblock = 1
+                              depth = 0
+                            }
+                            if (inblock) {
+                              tmp = line
+                              while (match(tmp, "\\.\\.?/[A-Za-z0-9_./-]+")) {
+                                p = substr(tmp, RSTART, RLENGTH)
+                                n = split(p, parts, "/")
+                                if (substr(parts[n], 1, 1) != "_") {
+                                  printf "%s:%d:%s\n", FILENAME, FNR, $0
+                                  break
+                                }
+                                tmp = substr(tmp, RSTART + RLENGTH)
+                              }
+                              depth += gsub(/\[/, "", line)
+                              depth -= gsub(/\]/, "", line)
+                              if (depth <= 0 && line ~ /;/) inblock = 0
+                            }
+                          }
+                        ' || true)
                       if [ -z "$literal_imports" ]; then
                         import_count=0
                       else
