@@ -17,7 +17,7 @@
   policy set is owned by modules/browsers/_gecko-extension-data.nix so add-on IDs stay
   single-sourced.
 
-  Gated on `programs.firefoxpwa.extended.enable`; see modules/apps/firefoxpwa.nix.
+  Gated on `programs.firefoxpwa.extended.enable`; see modules/browsers/firefoxpwa/apps.nix.
 */
 _:
 let
