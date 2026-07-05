@@ -5,7 +5,7 @@ The list covers purpose-built offensive, defensive, forensic, and reverse-engine
 plus general-purpose utilities that show up frequently in pentesting, recon, enumeration, and\
 incident response workflows.
 
-**Source of truth**: each host's `apps-enable.nix`. Per-tool option flags live in `modules/apps/<name>.nix`.\
+**Source of truth**: each host's `apps-enable.nix`. Per-tool option flags live in `modules/apps/<name>.nix`, except browser modules, which live in `modules/browsers/<name>/`.\
 A given entry may be enabled on one host and disabled on another;\
 consult the host catalog to confirm availability before relying on a specific binary.
 

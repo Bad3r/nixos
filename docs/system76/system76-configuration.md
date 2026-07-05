@@ -113,6 +113,7 @@ hardware.nvidia = {
   # GTX 1070 Max-Q is supported by the 580.xx legacy branch only.
   package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
   modesetting.enable = true;
+  videoAcceleration = false;  # No nvidia-vaapi-driver; VA-API routes to Intel iHD
   powerManagement.enable = true;
   powerManagement.finegrained = false;  # Incompatible with PRIME sync
   open = false;          # Proprietary driver
@@ -121,8 +122,8 @@ hardware.nvidia = {
 hardware.nvidia-container-toolkit.enable = true;  # GPU passthrough for containers
 
 # nvidia-only branch: libva uses Intel Quick Sync through the stable iGPU render node.
-environment.variables.LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
-environment.variables.LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/pci-0000:00:02.0-render";
+environment.sessionVariables.LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
+environment.sessionVariables.LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/pci-0000:00:02.0-render";
 ```
 
 ```nix
@@ -199,10 +200,11 @@ boot.initrd.luks = {
 ## Audio & Bluetooth
 
 ```nix
-# Audio: PipeWire
+# Audio: PipeWire (modules/hosts/common/pipewire.nix)
 services.pipewire = {
   enable = true;
   alsa.enable = true;
+  alsa.support32Bit = true;
   pulse.enable = true;
 };
 

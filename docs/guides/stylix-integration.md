@@ -4,7 +4,7 @@ This document covers how Stylix theming integrates with the Dendritic Pattern an
 
 ## Overview
 
-[Stylix](https://github.com/danth/stylix) provides automatic, consistent theming across NixOS and Home Manager applications using base16 color schemes. This repository integrates Stylix at both the system (NixOS) and user (Home Manager) levels.
+[Stylix](https://github.com/nix-community/stylix) provides automatic, consistent theming across NixOS and Home Manager applications using base16 color schemes. This repository integrates Stylix at both the system (NixOS) and user (Home Manager) levels. The `stylix` flake input is pinned to `github:Bad3r/stylix/master`, a maintained fork of nix-community/stylix.
 
 The integration is configured in:
 
@@ -64,10 +64,11 @@ stylix.targets.fzf.enable = lib.mkDefault true;
 3. Let Home Manager modules handle user-level theming
 
 ```nix
-# Correct NixOS app module
-{
-  flake.nixosModules.apps.dunst =
-    { pkgs, lib, config, ... }:
+# Correct NixOS app module (mirrors modules/apps/dunst.nix)
+_:
+let
+  DunstModule =
+    { config, lib, pkgs, ... }:
     let
       cfg = config.programs.dunst.extended;
     in
@@ -76,15 +77,20 @@ stylix.targets.fzf.enable = lib.mkDefault true;
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable dunst notification daemon.";
+          description = "Whether to enable dunst.";
         };
+
+        package = lib.mkPackageOption pkgs "dunst" { };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ pkgs.dunst ];
+        environment.systemPackages = [ cfg.package ];
         # NO stylix.targets.dunst.enable here -- it's HM-only
       };
     };
+in
+{
+  flake.nixosModules.apps.dunst = DunstModule;
 }
 ```
 
@@ -96,13 +102,19 @@ stylix.targets.fzf.enable = lib.mkDefault true;
 
 ```nix
 # Correct HM app module -- let autoEnable work
+# (mirrors modules/hm-apps/fzf.nix, abridged)
 {
   flake.homeManagerModules.apps.fzf =
-    { lib, ... }:
+    { osConfig, lib, ... }:
+    let
+      enabled = lib.attrByPath [ "programs" "fzf" "extended" "enable" ] false osConfig;
+    in
     {
-      programs.fzf.enable = true;
-      # Stylix will automatically enable stylix.targets.fzf
-      # because programs.fzf.enable = true
+      config = lib.mkIf enabled {
+        programs.fzf.enable = true;
+        # Stylix will automatically enable stylix.targets.fzf
+        # because programs.fzf.enable = true
+      };
     };
 }
 
@@ -194,5 +206,5 @@ ownership, and package-level remediation patterns:
 - [`docs/architecture/01-pattern-overview.md`](../architecture/01-pattern-overview.md) -- module discovery and aggregator patterns
 - [`docs/architecture/04-home-manager.md`](../architecture/04-home-manager.md) -- how Home Manager modules are composed
 - [Apps Module Style Guide](apps-module-style-guide.md) -- per-app module authoring conventions
-- [Stylix Documentation](https://danth.github.io/stylix/) -- upstream reference
+- [Stylix Documentation](https://nix-community.github.io/stylix/) -- upstream reference
 - [Tray Icon Theming (i3/i3bar)](tray-icon-theming.md) -- protocol classification and tray icon remediation on this host

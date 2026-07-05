@@ -10,7 +10,7 @@ system services and the `r2` CLI wrapper.
 - `modules/security/sops-policy.nix`
 - `modules/security/r2-cloud-secrets.nix`
 - `modules/home/r2-secrets.nix`
-- `modules/system76/r2-runtime.nix`
+- `modules/lib/r2-runtime.nix`
 
 ## Not Covered
 
@@ -21,7 +21,11 @@ system services and the `r2` CLI wrapper.
 
 - SOPS policy includes explicit creation rule `path_regex: secrets/r2\.yaml`.
 - Source of truth file: `secrets/r2.yaml`.
-- System declarations are guarded by `builtins.pathExists "${secretsRoot}/r2.yaml"`.
+- System declarations are gated by `security.r2CloudSecrets.enable`
+  (default `false`) and guarded by
+  `builtins.pathExists "${secretsRoot}/r2.yaml"`.
+- Host imports set the gate per host: `modules/tpnix/imports.nix` enables it,
+  `modules/system76/imports.nix` forces it off.
 
 ## System Secret Mapping (`/run/secrets/r2/*`)
 
@@ -49,7 +53,8 @@ Permissions:
 ## Home Manager R2 Env Template
 
 Consumer-local HM module `flake.homeManagerModules.r2Secrets` also reads
-`secrets/r2.yaml` and renders:
+`secrets/r2.yaml` (when `home.r2Secrets.enable` is set for the user) and
+renders:
 
 - `~/.config/cloudflare/r2/env` (mode `0400`)
 
@@ -59,14 +64,14 @@ with:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 
-This HM env file exists for user-space workflows, while the active host runtime
-in `modules/system76/r2-runtime.nix` explicitly points to
-`/run/secrets/r2/credentials.env`.
+This HM env file exists for user-space workflows, while the host runtime
+assignments in `modules/lib/r2-runtime.nix` (applied only when the host policy
+enables the runtime) explicitly point to `/run/secrets/r2/credentials.env`.
 
 ## Quick Verification
 
 ```bash
 rg -n 'path_regex: secrets/r2\\.yaml' modules/security/sops-policy.nix
 rg -n 'r2/(account-id|access-key-id|secret-access-key|restic-password|explorer-admin-kid|explorer-admin-secret)' modules/security/r2-cloud-secrets.nix
-rg -n 'templates\\.(\"r2-credentials\\.env\"|\"r2-explorer\\.env\"|\"cloudflare/r2/env\")' modules/security/r2-cloud-secrets.nix modules/home/r2-secrets.nix
+rg -n 'templates\."(r2-credentials\.env|r2-explorer\.env|cloudflare/r2/env)"' modules/security/r2-cloud-secrets.nix modules/home/r2-secrets.nix
 ```

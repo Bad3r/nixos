@@ -2,12 +2,14 @@
 
 ## Scope
 
-Document the current `system76` runtime contract that consumes `r2-flake`
-modules.
+Document the `system76` host policy for `r2-flake` consumption and the runtime
+contract that applies when the policy enables it.
 
 ## Source of Truth
 
-- `modules/system76/r2-runtime.nix`
+- `modules/system76/r2-runtime.nix` (host policy)
+- `modules/lib/r2-runtime.nix` (shared runtime contract)
+- `modules/system76/imports.nix` (secrets module toggles)
 
 ## Not Covered
 
@@ -15,18 +17,36 @@ modules.
   (see upstream `docs/reference/index.md`)
 - Duplicati backup service (`services.duplicati-r2`)
 
-## Enabled Services and Programs
+## Current Host Policy
 
-| Surface                                   | Enabled | Key bindings in this repo                                                                     |
-| ----------------------------------------- | ------- | --------------------------------------------------------------------------------------------- |
-| `services.r2-sync`                        | yes     | `credentialsFile=/run/secrets/r2/credentials.env`, `accountIdFile=/run/secrets/r2/account-id` |
-| `services.r2-restic`                      | yes     | same credentials/account ID files + `passwordFile=/run/secrets/r2/restic-password`            |
-| `programs.git-annex-r2`                   | yes     | `credentialsFile=/run/secrets/r2/credentials.env`                                             |
-| `home-manager.users.vx.programs.r2-cloud` | yes     | `accountIdFile`, `credentialsFile`, `explorerEnvFile` all under `/run/secrets/r2`             |
+`modules/system76/r2-runtime.nix` builds the host module through
+`config.flake.lib.nixos.r2.mkHostR2Module` with:
+
+- `enableExternalFlake = false`
+- `sopsRuntimeReady = false`
+- `disabledReason` explaining that system76 R2 integration is disabled until
+  the upstream `r2-flake` stops referencing removed `pkgs.nodePackages`
+
+`modules/system76/imports.nix` additionally forces
+`security.r2CloudSecrets.enable = false` and `home.r2Secrets.enable = false`
+for the owner user. With this policy, no `r2-*` units, `/run/secrets/r2/*`
+files, or `r2` wrapper are active on `system76`; the helper emits the
+`disabledReason` as an evaluation warning instead.
+
+## Services and Programs When the Policy Enables the Runtime
+
+Configured in `modules/lib/r2-runtime.nix`:
+
+| Surface                                   | Key bindings in this repo                                                                                 |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `services.r2-sync`                        | `credentialsFile=/run/secrets/r2/credentials.env`, `accountIdFile=/run/secrets/r2/account-id`             |
+| `services.r2-restic`                      | same credentials/account ID files + `passwordFile=/run/secrets/r2/restic-password`                        |
+| `programs.git-annex-r2`                   | `credentialsFile=/run/secrets/r2/credentials.env`                                                         |
+| `home-manager.users.vx.programs.r2-cloud` | `accountIdFile`, `credentialsFile`, `explorerEnvFile` under `/run/secrets/r2`; `enableRcloneRemote=false` |
 
 ## Sync Mount Profiles
 
-Current configured mounts:
+Configured mounts (in `modules/lib/r2-runtime.nix`):
 
 1. `workspace`
    - bucket: `nix-r2-cf-r2e-files-prod`
@@ -40,6 +60,12 @@ Current configured mounts:
    - mount point: `/data/r2/mount/fonts`
    - local path: `/data/fonts`
    - sync interval: `30m`
+3. `docs`
+   - bucket: `nix-r2-cf-r2e-files-prod`
+   - remote prefix: `docs`
+   - mount point: `/data/r2/mount/docs`
+   - local path: `/data/Docs`
+   - sync interval: `5m`
 
 ## Restic Profile
 
@@ -55,13 +81,16 @@ Current configured mounts:
   - `r2-bisync-workspace`
   - `r2-mount-fonts`
   - `r2-bisync-fonts`
+  - `r2-mount-docs`
+  - `r2-bisync-docs`
   - `r2-restic-backup`
-- `systemd.tmpfiles` ensures `/data/r2` and required mount/workspace
-  directories exist and are user-owned.
+- `systemd.tmpfiles` ensures `/data/r2`, the mount points, `/data/r2/workspace`,
+  `/data/fonts`, and `/data/Docs` exist and are user-owned.
 
 ## Quick Verification
 
 ```bash
-rg -n 'services\\.r2-sync|services\\.r2-restic|programs\\.git-annex-r2|programs\\.fuse\\.userAllowOther' modules/system76/r2-runtime.nix
-rg -n 'r2-(mount|bisync|restic)' modules/system76/r2-runtime.nix
+rg -n 'mkHostR2Module|enableExternalFlake|sopsRuntimeReady' modules/system76/r2-runtime.nix
+rg -n 'services\.r2-sync|services\.r2-restic|programs\.git-annex-r2|programs\.fuse\.userAllowOther' modules/lib/r2-runtime.nix
+rg -n 'r2-(mount|bisync|restic)' modules/lib/r2-runtime.nix
 ```

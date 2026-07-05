@@ -43,11 +43,11 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
   - `fileSystems`
   - `swapDevices`
 - `modules/tpnix/boot.nix` owns host policy:
-  - `pkgs.cachyosKernels.linuxPackages-cachyos-latest`
+  - `pkgs.linuxPackages_zen` (the CachyOS kernel was retired for the cached linux-zen kernel)
   - `systemd-boot` settings
   - crash dump reservation
   - kernel sysctls
-- `modules/tpnix/firmware-manager-fix.nix` owns the firmware-manager compatibility override and enables `services.fwupd`.
+- `modules/tpnix/firmware-manager-fix.nix` enables `services.fwupd`; the firmware-manager build override now lives in the shared `modules/hosts/common/firmware-manager-fix.nix`.
 - The repo keeps using `modules/base/hardware-scan.nix` for generic scan support. Do not import `installer/scan/not-detected.nix` directly into the host module.
 
 ## 3) Migration Requirements
@@ -64,7 +64,7 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
   - bootloader policy
   - firmware update support
 - Use the host boot policy that is actually committed here:
-  - `boot.kernelPackages = lib.mkDefault pkgs.cachyosKernels.linuxPackages-cachyos-latest`
+  - `boot.kernelPackages = lib.mkDefault pkgs.linuxPackages_zen`
   - `systemd-boot` stays enabled with the existing editor, console, and configuration-limit settings
 - Keep the graphics-stack migration out of scope for this document revision:
   - do not describe `NVIDIA PRIME`, `services.xserver.videoDrivers`, or runtime graphics policy here
@@ -85,7 +85,7 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
 - Do not leave boot storage facts split across `boot.nix` and `hardware-config.nix`; that creates drift on the next hardware change.
 - Do not copy the generated file verbatim into the repo; preserve repo policy and only lift the machine-specific facts.
 - Do not reuse the old `networking.hostId`; that risks collisions if the previous machine ever comes back online.
-- Do not let this document describe a different kernel or graphics policy than the code in this branch; this branch now carries the CachyOS boot policy and leaves the graphics stack to a separate change.
+- Do not let this document describe a different kernel or graphics policy than the committed code; the repo now carries the linux-zen boot policy in `modules/tpnix/boot.nix` and keeps the tpnix graphics stack in `modules/tpnix/power.nix`, outside this document's scope.
 - Do not assume missing firmware packages in advance. If Wi-Fi, audio, or suspend behavior fails after boot, inspect logs and add only the exact firmware that is proven necessary.
 
 ## 5) Validation And Rollout

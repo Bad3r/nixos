@@ -245,30 +245,19 @@ Claude Code discovers plugins through two mechanisms:
 1. **Known Marketplaces Registry**: `~/.claude/plugins/known_marketplaces.json`
 2. **Settings File**: `~/.claude/settings.json` → `enabledPlugins` object
 
-**Known Marketplaces Schema** (`packages/cli/src/core/marketplace.ts`):
+**Known Marketplaces Schema** (as written by Claude Code in `~/.claude/plugins/known_marketplaces.json`):
 
 ```json
 {
-  "marketplaces": [
-    {
-      "name": "marketplace-name",
-      "location": "/absolute/path/to/marketplace",
-      "plugins": [
-        {
-          "name": "plugin-name",
-          "source": { "source": "directory", "path": "/absolute/path" },
-          "description": "...",
-          "version": "1.0.0",
-          "author": { "name": "..." },
-          "commands": ["cmd1"],
-          "agents": ["agent1"],
-          "mcpServers": ["server1"]
-        }
-      ]
-    }
-  ]
+  "marketplace-name": {
+    "source": { "source": "github", "repo": "owner/repo" },
+    "installLocation": "/home/user/.claude/plugins/marketplaces/marketplace-name",
+    "lastUpdated": "2026-01-23T07:57:05.048Z"
+  }
 }
 ```
+
+Plugin metadata is not embedded in this registry; Claude Code reads it from each marketplace's `.claude-plugin/marketplace.json` under `installLocation`.
 
 **Settings Schema** (`packages/cli/src/core/settings.ts`):
 
@@ -285,9 +274,9 @@ Claude Code discovers plugins through two mechanisms:
 
 1. Claude Code session starts
 2. Read `~/.claude/plugins/known_marketplaces.json`
-3. For each marketplace, read plugin metadata
+3. For each marketplace, read plugin metadata from `.claude-plugin/marketplace.json` under its `installLocation`
 4. Check `~/.claude/settings.json` → `enabledPlugins` for activation state
-5. For enabled plugins, load capabilities from `source.path`
+5. For enabled plugins, load capabilities from the plugin's install path
 
 ### Skill Discovery
 
@@ -321,7 +310,7 @@ Skills require no registration. Claude Code scans skill directories at session s
 2. Scan `~/.claude/skills/*/SKILL.md` (global scope)
 3. Scan `./.claude/skills/*/SKILL.md` (project scope, if present)
 4. Parse YAML frontmatter for `name`, `description`
-5. Load descriptions into semantic index (budget: ~15,000 chars)
+5. Load descriptions into a semantic index (budget scales with the model context window, about 1% by default; see [skills.md](skills.md))
 6. Full content loads on-demand when skill is invoked
 
 ### Filesystem Layout

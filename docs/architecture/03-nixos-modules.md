@@ -73,13 +73,13 @@ in
 
 ## `flake.lib` Namespaces
 
-`flake.lib` exposes pure helper data and small utilities. All sub-namespaces are declared in `modules/meta/flake-output.nix` and populated by individual modules.
+`flake.lib` exposes pure helper data and small utilities. Sub-namespaces are declared in `modules/meta/flake-output.nix` and populated by individual modules; `nixosBrowsers` is the exception, published as a freeform entry by `modules/meta/nixos-browser-helpers.nix`.
 
 | Namespace                 | Type                               | Purpose                                                                                         |
 | ------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `flake.lib.meta`          | `anything`                         | Repo metadata (owner identity, hostnames, surface for `metaOwner` arg).                         |
+| `flake.lib.meta`          | `anything`                         | Repo metadata (owner identity, input branch pins; surface for the `metaOwner` arg).             |
 | `flake.lib.nixos`         | `lazyAttrsOf anything`             | App-registry helpers (`hasApp`, `getApp`, ...) and host-conditional flags under `hosts.<name>`. |
-| `flake.lib.nixosBrowsers` | `lazyAttrsOf anything`             | Browser-registry helpers (`hasBrowser`, `getBrowser`, ...) for `modules/browsers/`.             |
+| `flake.lib.nixosBrowsers` | attrs (freeform)                   | Browser-registry helpers (`hasBrowser`, `getBrowser`, ...) for `modules/browsers/`.             |
 | `flake.lib.homeManager`   | `attrsOf anything` (via submodule) | Helpers and metadata used by Home Manager modules.                                              |
 | `flake.lib.security`      | `attrsOf anything`                 | Shared SOPS helpers (e.g. `sopsInstallSecretsService`).                                         |
 | `flake.lib.nixvim`        | `attrsOf anything`                 | Helpers for NixVim integrations and shared module shape.                                        |
@@ -93,7 +93,7 @@ Helpers should stay pure and idempotent; anything that needs heavy evaluation be
 
 This repository uses both patterns, for different purposes:
 
-- `perSystem.packages` is used for flake-exposed tooling packages (for example, `generation-manager` and hook helpers in `modules/devshell.nix`).
+- `perSystem.packages` is used for flake-exposed tooling packages (for example, `generation-manager` from `modules/apps/generation-manager.nix` and the hook helpers in `modules/devshell.nix`).
 - App packages in `packages/<name>/default.nix` are injected through per-app overlay modules under `modules/custom-overlays/<name>.nix`. Each registers `flake.customOverlays.<name>` and adds an overlay to `nixpkgs.overlays` that returns `<name> = final.callPackage ../../packages/<name> { }`, making the package available as `pkgs.<name>` when gated on the matching `programs.<name>.extended.enable`. `modules/hosts/common/custom-overlays-base.nix` imports every registered overlay into the shared `flake.nixosModules.hosts-common` aggregate, so an overlay only takes effect on hosts where its app is enabled.
 
 This means these packages are **not** exposed under `.#packages.<system>.<name>`; they materialize as `pkgs.<name>` only inside a `nixosConfigurations.<host>` evaluation where the matching app is enabled.
