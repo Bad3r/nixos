@@ -4,12 +4,13 @@ This document covers how to write modules correctly in this flake-parts + import
 
 ## File Placement
 
-| Location                     | Purpose               | Export Pattern                                                                    |
-| ---------------------------- | --------------------- | --------------------------------------------------------------------------------- |
-| `modules/apps/<name>.nix`    | Per-app modules       | `flake.nixosModules.apps.<name>`                                                  |
-| `modules/hm-apps/<name>.nix` | Per-app HM modules    | `flake.homeManagerModules.apps.<name>`                                            |
-| `modules/<domain>/`          | Higher-level features | `flake.nixosModules.<feature>`                                                    |
-| `modules/<host>/`            | Host-specific config  | `configurations.nixos.<host>.module` (e.g. `modules/system76/`, `modules/tpnix/`) |
+| Location                     | Purpose               | Export Pattern                                                                                             |
+| ---------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `modules/apps/<name>.nix`    | Per-app modules       | `flake.nixosModules.apps.<name>`                                                                           |
+| `modules/hm-apps/<name>.nix` | Per-app HM modules    | `flake.homeManagerModules.apps.<name>`                                                                     |
+| `modules/browsers/<name>/`   | Per-browser modules   | `flake.nixosModules.browsers.<name>` (`apps.nix`), `flake.homeManagerModules.browsers.<name>` (`home.nix`) |
+| `modules/<domain>/`          | Higher-level features | `flake.nixosModules.<feature>`                                                                             |
+| `modules/<host>/`            | Host-specific config  | `configurations.nixos.<host>.module` (e.g. `modules/system76/`, `modules/tpnix/`)                          |
 
 **Rule:** If a module only installs packages, put it in `modules/apps/`. If it configures services or composes multiple apps, use a domain directory.
 

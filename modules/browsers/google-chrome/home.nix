@@ -22,7 +22,7 @@
     * `google-chrome-stable --user-data-dir=/tmp/chrome-test` -- Isolated testing profile.
 */
 _: {
-  flake.homeManagerModules.apps.google-chrome =
+  flake.homeManagerModules.browsers.google-chrome =
     { osConfig, lib, ... }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "google-chrome" "extended" "enable" ] false osConfig;

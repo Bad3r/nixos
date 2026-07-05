@@ -39,5 +39,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.librewolf = LibrewolfModule;
+  flake.nixosModules.browsers.librewolf = LibrewolfModule;
 }

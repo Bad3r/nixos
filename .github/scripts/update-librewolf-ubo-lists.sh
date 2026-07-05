@@ -10,7 +10,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 DEFAULT_SOURCE_URL="https://codeberg.org/librewolf/source/raw/branch/main"
 DEFAULT_SOURCE_URL+="/assets/uBOAssets.json"
-DEFAULT_OUTPUT_PATH="${REPO_ROOT}/modules/hm-apps"
+DEFAULT_OUTPUT_PATH="${REPO_ROOT}/modules/browsers"
 DEFAULT_OUTPUT_PATH+="/_librewolf-ubo-default-lists.json"
 
 SOURCE_URL="${LIBREWOLF_UBO_ASSETS_URL:-$DEFAULT_SOURCE_URL}"

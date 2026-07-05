@@ -50,5 +50,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps."brave-origin" = BraveOriginModule;
+  flake.nixosModules.browsers."brave-origin" = BraveOriginModule;
 }

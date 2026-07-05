@@ -153,5 +153,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.ungoogled-chromium = UngoogledChromiumModule;
+  flake.nixosModules.browsers.ungoogled-chromium = UngoogledChromiumModule;
 }
