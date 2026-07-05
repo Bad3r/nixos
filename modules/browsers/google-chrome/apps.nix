@@ -97,5 +97,5 @@ let
 in
 {
   nixpkgs.allowedUnfreePackages = [ "google-chrome" ];
-  flake.nixosModules.apps.google-chrome = GoogleChromeModule;
+  flake.nixosModules.browsers.google-chrome = GoogleChromeModule;
 }

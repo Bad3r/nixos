@@ -12,7 +12,7 @@
       geckoFileExists = builtins.pathExists geckoFile;
       homeDirectory = config.home.homeDirectory;
 
-      geckoBookmarks = import ../hm-apps/_gecko-bookmarks.nix { inherit lib; };
+      geckoBookmarks = import ../browsers/_gecko-bookmarks.nix { inherit lib; };
 
       secretKeys = {
         "gecko/work/bookmark/url-1" = "gecko_work_bookmark_url_1";

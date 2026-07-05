@@ -18,7 +18,7 @@
 */
 
 _: {
-  flake.homeManagerModules.apps.librewolf =
+  flake.homeManagerModules.browsers.librewolf =
     {
       osConfig,
       lib,
@@ -37,7 +37,7 @@ _: {
         "extended"
         "package"
       ] pkgs.firefoxpwa osConfig;
-      gecko = import ./_gecko-mk-profile.nix {
+      gecko = import ../_gecko-mk-profile.nix {
         inherit
           pkgs
           lib
@@ -81,7 +81,7 @@ _: {
           # storage, and profile-scoped packages, so the XDG leaf is a symlink.
           configPath = legacyProfilesPath;
           package = osConfig.programs.librewolf.extended.package;
-          # See modules/hm-apps/firefox.nix for why this uses the browser
+          # See modules/browsers/firefox/home.nix for why this uses the browser
           # native-messaging option instead of `home.packages`, and why the
           # firefoxpwa connector manifest is added when firefoxpwa is enabled.
           nativeMessagingHosts = [

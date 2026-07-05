@@ -30,7 +30,7 @@ from updater import (  # noqa: E402
     save_hashes,
 )
 
-PINS_FILE = FLAKE_ROOT / "modules" / "hm-apps" / "_gecko-userscripts.json"
+PINS_FILE = FLAKE_ROOT / "modules" / "browsers" / "_gecko-userscripts.json"
 META_BLOCK_RE = re.compile(
     r"(?:^|\n).*?//[\x20\t]*==UserScript==(?P<body>[\s\S]*?\n).*?//[\x20\t]*==/UserScript=="
 )

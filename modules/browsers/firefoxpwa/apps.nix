@@ -8,7 +8,7 @@
 
   Notes:
     * The companion extension and native-messaging connector are wired into the
-      gecko browsers in modules/hm-apps/{firefox,librewolf}.nix.
+      gecko browsers in modules/browsers/{firefox,librewolf}/home.nix.
     * Extensions for the isolated PWA runtime profiles are installed (per-add-on
       force_installed or user-removable normal_installed) through a policy file
       injected by modules/custom-overlays/firefoxpwa.nix.
@@ -45,5 +45,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.firefoxpwa = FirefoxpwaModule;
+  flake.nixosModules.browsers.firefoxpwa = FirefoxpwaModule;
 }

@@ -13,7 +13,7 @@ jobs:
   update-firefoxpwa-extension:
     runs-on: ubuntu-latest
     env:
-      PIN_FILE: modules/lib/_firefoxpwa-extension-pin.json
+      PIN_FILE: modules/browsers/_firefoxpwa-extension-pin.json
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5

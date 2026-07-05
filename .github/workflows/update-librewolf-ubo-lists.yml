@@ -13,7 +13,7 @@ jobs:
   update-librewolf-ubo-lists:
     runs-on: ubuntu-latest
     env:
-      LIST_FILE: modules/hm-apps/_librewolf-ubo-default-lists.json
+      LIST_FILE: modules/browsers/_librewolf-ubo-default-lists.json
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5

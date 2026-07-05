@@ -45,5 +45,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.mullvad-browser = MullvadBrowserModule;
+  flake.nixosModules.browsers.mullvad-browser = MullvadBrowserModule;
 }

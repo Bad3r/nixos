@@ -11,6 +11,7 @@ Home Manager modules feed into `flake.homeManagerModules` for user-level configu
 | `base`                                                                                 | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
 | `gui`                                                                                  | Deferred module  | Reserved GUI aggregation point (currently mostly an empty merge root)        |
 | `apps.<name>`                                                                          | Deferred module  | Individual app modules loaded by key                                         |
+| `browsers.<name>`                                                                      | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                  |
 | `sopsRuntime`                                                                          | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
 | `context7Secrets`, `geckoSecrets`, `greptileSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules (each guarded by `builtins.pathExists`) |
 
@@ -78,6 +79,10 @@ defaultAppImports = [
 ### Adding Extra Apps
 
 Each host appends to `home-manager.extraAppImports` and mirrors matching app modules into `home-manager.sharedModules` from its own `modules/<host>/home-manager-apps.nix`.
+
+### Browser Modules
+
+Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix`. `modules/hosts/common/home-manager-apps.nix` resolves the shared browser set from that namespace directly into `home-manager.sharedModules`; browser names never go through `extraAppImports`, which only resolves the `apps` namespace and the `modules/hm-apps/` fallback path.
 
 ### Per-Host Divergences
 

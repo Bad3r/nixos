@@ -69,6 +69,11 @@
               default = { };
               description = "Per-app Home Manager modules (merged by name)";
             };
+            browsers = lib.mkOption {
+              type = lib.types.attrsOf lib.types.deferredModule;
+              default = { };
+              description = "Per-browser Home Manager modules (merged by name)";
+            };
           };
         };
         default = { };
