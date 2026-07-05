@@ -146,6 +146,13 @@
             flock 9
           fi
 
+          if [ "''${GIT_MIRROR_PYTHON_DOCS_REPO_SPEC:-}" = "$spec" ] && [ -n "''${GIT_MIRROR_PYTHON_DOCS_LOCK_PATH:-}" ]; then
+            lock_file="$GIT_MIRROR_PYTHON_DOCS_LOCK_PATH"
+            mkdir -p "$(dirname "$lock_file")"
+            exec 8>"$lock_file"
+            flock 8
+          fi
+
           log "$spec: syncing"
 
           # Clone if missing
@@ -224,6 +231,10 @@
           ${lib.optionalString firefoxDocs.enable ''
             export GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC=${lib.escapeShellArg firefoxDocs.repoSpec}
             export GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH=${lib.escapeShellArg firefoxDocsLockPath}
+          ''}
+          ${lib.optionalString pythonDocs.enable ''
+            export GIT_MIRROR_PYTHON_DOCS_REPO_SPEC=${lib.escapeShellArg pythonDocs.repoSpec}
+            export GIT_MIRROR_PYTHON_DOCS_LOCK_PATH=${lib.escapeShellArg pythonDocsLockPath}
           ''}
           grep -vE '^[[:space:]]*(#|$)' "${reposFile}" | \
             parallel --line-buffer -j${toString cfg.jobs} ${syncRepoScript}/bin/git-mirror-sync-repo
