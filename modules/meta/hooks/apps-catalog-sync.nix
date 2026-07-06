@@ -35,7 +35,8 @@ _: {
               {
                 find "$apps_dir" -maxdepth 1 -type f -name "*.nix" ! -name "_*.nix" -printf "%f\n" \
                   | sed 's/\.nix$//'
-                find "$browsers_dir" -mindepth 2 -maxdepth 2 -type f -name "apps.nix" -printf "%h\n" \
+                find "$browsers_dir" -mindepth 2 -maxdepth 2 -type f -name "apps.nix" \
+                  ! -path "*/_*/*" -printf "%h\n" \
                   | sed 's|.*/||'
               } | sort -u
             )
