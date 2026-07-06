@@ -1,13 +1,16 @@
 # R2 Cloud Integration
 
 This directory documents how `/home/vx/nixos` consumes
-`Bad3r/nix-R2-CloudFlare-Flake` for host `system76` and user `vx`.
+`Bad3r/nix-R2-CloudFlare-Flake` for user `vx`. Each host wires the integration
+through the shared builder `flake.lib.nixos.r2.mkHostR2Module` with a per-host
+policy; current host policies keep the producer runtime disabled pending an
+upstream `r2-flake` fix (removed `pkgs.nodePackages` references).
 
 ## Scope
 
 - Consumer-side wiring in this repository:
   - flake input registration
-  - NixOS/Home Manager module import chain
+  - NixOS/Home Manager module import chain and per-host enable policy
   - `secrets/r2.yaml` to runtime file rendering
   - host runtime configuration (`services.r2-sync`, `services.r2-restic`,
     `programs.git-annex-r2`, `programs.r2-cloud`)
@@ -17,10 +20,13 @@ This directory documents how `/home/vx/nixos` consumes
 ## Source of Truth
 
 - `flake.nix` (`inputs.r2-flake`)
-- `modules/system76/imports.nix` (producer module imports)
+- `modules/lib/r2-runtime.nix` (shared builder: gated producer module imports
+  and runtime consumers)
+- per-host `modules/<host>/r2-runtime.nix` (policy passed to the builder)
+- per-host `modules/<host>/imports.nix` (`security.r2CloudSecrets.enable` and
+  `home.r2Secrets.enable` toggles)
 - `modules/security/r2-cloud-secrets.nix` (system secrets/templates)
 - `modules/home/r2-secrets.nix` (HM secrets/template)
-- `modules/system76/r2-runtime.nix` (runtime consumers)
 - `modules/security/sops-policy.nix` (SOPS creation rule for `secrets/r2.yaml`)
 
 ## Not Covered
@@ -35,7 +41,7 @@ This directory documents how `/home/vx/nixos` consumes
 | -------------------------------- | ---------------------------------------------------------------- |
 | `input-and-module-wiring.md`     | Exact integration path from `inputs.r2-flake` to host/HM imports |
 | `secrets-and-rendered-files.md`  | `secrets/r2.yaml` key mapping and rendered file contract         |
-| `system76-runtime.md`            | Runtime service and mount layout currently enabled on this host  |
+| `system76-runtime.md`            | Host policy and the service/mount layout applied when enabled    |
 | `home-manager-r2-cloud.md`       | HM-side wrapper, secret template, and module loading behavior    |
 | `validation-and-drift-checks.md` | Commands to prove integration is still wired correctly           |
 | `troubleshooting.md`             | Fast diagnosis for common breakages                              |

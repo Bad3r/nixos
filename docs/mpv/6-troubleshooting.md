@@ -29,29 +29,32 @@ codec that is not in nixpkgs at all and must be supplied via a custom build.
 `nix flake check` (or a host build) fails with an assertion message like:
 
 ```
-<host>.defaults.videoPlayer is set to "mpv" but the app module is not enabled.
+host.defaults.videoPlayer is set to "mpv" but the app module is not enabled.
 Enable it with: programs.mpv.extended.enable = true;
-Or set <host>.defaults.videoPlayer = null; to disable this default.
+Or set host.defaults.videoPlayer = null; to disable this default.
 ```
 
 The same assertion exists for `audioPlayer`.
 
 ### Cause
 
-The host declares mpv as the default audio or video handler in
-`modules/<host>/default-apps.nix`, but the dedicated mpv module is disabled.
-The XDG default-apps machinery refuses to register `mpv.desktop` as the MIME
-handler for `audio/*` or `video/*` types when the matching app module would
-not otherwise install mpv. The assertion lives in `modules/<host>/default-apps.nix`
-and is parameterized by the category name.
+The host resolves mpv as the default audio or video handler (the common
+baseline in `modules/hosts/common/default-apps.nix` sets both categories to
+`"mpv"`), but the dedicated mpv module is disabled. The XDG default-apps
+machinery refuses to register `mpv.desktop` as the MIME handler for
+`audio/*` or `video/*` types when the matching app module would not
+otherwise install mpv. The assertion lives in
+`modules/hosts/common/default-apps.nix` and is parameterized by the category
+name.
 
 ### Resolution
 
 Pick one:
 
 - Enable the app module: `programs.mpv.extended.enable = true;`.
-- Or drop the default for that category: `<host>.defaults.videoPlayer = null;`
-  (and `audioPlayer` if it points at mpv too).
+- Or drop the default for that category in the host's `default-apps.nix`:
+  `host.defaults.videoPlayer = null;` (and `audioPlayer` if it points at mpv
+  too).
 
 The assertion is intentional; it prevents shipping an XDG mimeapps entry that
 points at a desktop file the host never installed.

@@ -13,7 +13,7 @@ The `import-tree` function (see `flake.nix`) recursively imports every `.nix` fi
 ```
 modules/
 ├── apps/
-│   ├── firefox.nix      ← Imported automatically
+│   ├── jq.nix           ← Imported automatically
 │   └── _experimental.nix ← Ignored (underscore prefix)
 ├── system76/
 │   └── boot.nix         ← Imported automatically (system76 host)
@@ -73,17 +73,17 @@ Per-app modules follow this `programs.<name>.extended.enable` shape (the header 
 
 ## Aggregator Namespaces
 
-This flake exposes the following top-level aggregators (all declared in `modules/meta/flake-output.nix`):
+This flake exposes the following top-level aggregators (declared in `modules/meta/flake-output.nix`, except `flake.nixosModules`, which flake-parts declares upstream):
 
 | Namespace                  | Purpose                             | Typical Exports                                                                                        |
 | -------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `flake.nixosModules`       | System-level configuration          | `base`, hardware profiles, `apps.<name>`                                                               |
-| `flake.homeManagerModules` | Home Manager configuration          | `base`, `gui`, `apps.<name>`                                                                           |
+| `flake.nixosModules`       | System-level configuration          | `base`, hardware profiles, `apps.<name>`, `browsers.<name>`                                            |
+| `flake.homeManagerModules` | Home Manager configuration          | `base`, `gui`, `apps.<name>`, `browsers.<name>`                                                        |
 | `flake.csec`               | Cybersecurity feature modules       | `wordlists` (per-feature, opt-in via host import + enable)                                             |
 | `flake.customOverlays`     | Per-app `nixpkgs` overlay modules   | `<name>` (auto-discovered from `modules/custom-overlays/`, gated on `programs.<name>.extended.enable`) |
-| `flake.lib.*`              | Helper functions and small metadata | `meta`, `nixos`, `homeManager`, `security`, `nixvim`, `xdg`, `agents`, `checks`                        |
+| `flake.lib.*`              | Helper functions and small metadata | `meta`, `nixos`, `nixosBrowsers`, `homeManager`, `security`, `nixvim`, `xdg`, `agents`, `checks`       |
 
-`flake.nixosModules` and `flake.homeManagerModules` collect modules that hosts compose by name. `flake.csec` and `flake.customOverlays` are each a separate `attrsOf deferredModule` so every feature or overlay is a first-class entry that hosts opt into individually (see [NixOS Modules](03-nixos-modules.md#persystem-vs-host-overlays) for how overlays are wired). `flake.lib` holds pure helper data (see [NixOS Modules](03-nixos-modules.md#flakelib-namespaces) for the full breakdown).
+`flake.nixosModules` and `flake.homeManagerModules` collect modules that hosts compose by name. `flake.csec` and `flake.customOverlays` are each a separate `attrsOf deferredModule` so every feature or overlay is a first-class entry. Hosts opt into `flake.csec` features individually, while `modules/hosts/common/custom-overlays-base.nix` imports every registered overlay and each overlay gates itself on its app's enable flag (see [NixOS Modules](03-nixos-modules.md#persystem-vs-host-overlays) for how overlays are wired). `flake.lib` holds pure helper data (see [NixOS Modules](03-nixos-modules.md#flakelib-namespaces) for the full breakdown).
 
 Modules register themselves under these namespaces. Consumers compose features by name rather than by file path.
 

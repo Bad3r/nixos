@@ -64,13 +64,13 @@ nix eval .#nixosConfigurations.<host>.config.system.build.toplevel
 
 ## External Tooling
 
-| Tool                       | Purpose                  | Example                                          |
-| -------------------------- | ------------------------ | ------------------------------------------------ |
-| Context7 MCP               | Documentation lookups    | Configured via `flake.lib.agents.mcp`            |
-| DeepWiki MCP               | GitHub repo exploration  | Query via MCP `deepwiki_fetch` with `owner/repo` |
-| `nix-index` / `nix-locate` | Find packaged binaries   | `nix-locate 'bin/act'`                           |
-| `write-files`              | Regenerate managed files | `nix develop -c write-files`                     |
-| `gh-actions-run`           | Local GitHub Actions     | `nix develop -c gh-actions-run -n`               |
+| Tool                       | Purpose                  | Example                                     |
+| -------------------------- | ------------------------ | ------------------------------------------- |
+| Context7 MCP               | Documentation lookups    | Configured via `flake.lib.agents.mcp`       |
+| DeepWiki MCP               | GitHub repo exploration  | Pass `owner/repo` to the DeepWiki MCP tools |
+| `nix-index` / `nix-locate` | Find packaged binaries   | `nix-locate 'bin/act'`                      |
+| `write-files`              | Regenerate managed files | `nix develop -c write-files`                |
+| `gh-actions-run`           | Local GitHub Actions     | `nix develop -c gh-actions-run -n`          |
 
 ## Dev Shell Helpers
 
@@ -86,15 +86,15 @@ Available after `nix develop`:
 
 ## Glossary
 
-| Term                    | Definition                                                                                                                                                                       |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Aggregator**          | Attribute subtree (e.g., `flake.nixosModules.apps`) that collects modules merged via flake-parts                                                                                 |
-| **Custom module args**  | Per-host arguments injected via `_module.args` (`metaOwner`, `secretsRoot`, `inputs`, `nixosAppHelpers`); see [Module Authoring](02-module-authoring.md#custom-module-arguments) |
-| **Deferred module**     | Value of type `lib.types.deferredModule`, allowing later import into submodule fixpoints                                                                                         |
-| **Dendritic Pattern**   | Repository pattern coupling import-tree auto-discovery with aggregator-based composition                                                                                         |
-| **import-tree**         | Function that recursively imports all `.nix` files under a directory                                                                                                             |
-| **perSystem**           | flake-parts construct yielding system-specific attrsets (packages, dev shells, checks)                                                                                           |
-| **Two-Context Problem** | Issue where `config.flake.*` and `config.home.*` exist in different evaluation contexts                                                                                          |
+| Term                    | Definition                                                                                                                                                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Aggregator**          | Attribute subtree (e.g., `flake.nixosModules.apps`) that collects modules merged via flake-parts                                                                                                                       |
+| **Custom module args**  | Per-host arguments injected via `_module.args` (`metaOwner`, `secretsRoot`, `inputs`, `hostName`; `nixosAppHelpers` at flake-parts scope only); see [Module Authoring](02-module-authoring.md#custom-module-arguments) |
+| **Deferred module**     | Value of type `lib.types.deferredModule`, allowing later import into submodule fixpoints                                                                                                                               |
+| **Dendritic Pattern**   | Repository pattern coupling import-tree auto-discovery with aggregator-based composition                                                                                                                               |
+| **import-tree**         | Function that recursively imports all `.nix` files under a directory                                                                                                                                                   |
+| **perSystem**           | flake-parts construct yielding system-specific attrsets (packages, dev shells, checks)                                                                                                                                 |
+| **Two-Context Problem** | Issue where `config.flake.*` and `config.home.*` exist in different evaluation contexts                                                                                                                                |
 
 ## Resource Links
 

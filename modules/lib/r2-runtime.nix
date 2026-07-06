@@ -26,8 +26,13 @@
           "homeManagerModules"
           "default"
         ] inputs;
+      # The runtime block sets options that only exist when the r2-flake
+      # modules are importable, so it must not outrun the import predicates.
       runtimeEnabled =
-        externalFlakeEnabled && policy.sopsRuntimeReady && builtins.pathExists r2ConfigFile;
+        externalNixosModuleEnabled
+        && externalHomeModuleEnabled
+        && policy.sopsRuntimeReady
+        && builtins.pathExists r2ConfigFile;
     in
     { config, lib, ... }:
     let
@@ -46,7 +51,10 @@
           ];
         })
 
-        (lib.mkIf runtimeEnabled {
+        # optionalAttrs, not mkIf: these options are declared only by the
+        # conditionally imported r2-flake modules, so the definitions must
+        # vanish entirely when the modules are absent.
+        (lib.optionalAttrs runtimeEnabled {
           # Allow non-root mounts to use `--allow-other`.
           programs.fuse.userAllowOther = true;
 

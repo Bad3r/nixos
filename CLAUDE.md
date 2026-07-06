@@ -113,7 +113,8 @@ relationships.
   `docs/nixos-manual/`.
 - Secrets: `secrets/`
   Encrypted payloads managed through `sops.secrets`.
-- Generated artifacts: `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`
+- Generated artifacts: `.actrc`, `.githooks/post-checkout`, `.gitignore`,
+  `.gitleaks.toml`, `.sops.yaml`, `README.md`
   Owned by the files module. Update source definitions instead of editing
   generated output directly.
 
@@ -203,8 +204,8 @@ Generate managed artifacts:
 nix develop --accept-flake-config -c write-files --offline
 ```
 
-Post-check: review diffs in `.actrc`, `.gitignore`, `.sops.yaml`, and
-`README.md`.
+Post-check: review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`,
+`.gitleaks.toml`, `.sops.yaml`, and `README.md`.
 
 ## Validation
 

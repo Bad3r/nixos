@@ -30,20 +30,22 @@ Two operator-facing CLIs read this state without invoking `duplicati-cli`:
 - `duplicati-r2-list` (Cut A): read-only path/snapshot/history/grep queries directly against the per-target SQLite. No R2 access, no AES decryption. See [operations.md](operations.md#query-the-local-sqlite-read-only).
 - `duplicati-r2-extract` (Cut B): single-file or glob-mode extract that fetches only the dblocks the file needs from R2 (or a `file://` mirror), decrypts them in process memory through `pyAesCrypt`, and writes plaintext to a destination file, stdout, or an output directory. See [operations.md](operations.md#extract-a-single-file-from-r2-cut-b).
 
-Both are auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty. The full design lives in [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md); Cut C (read-only FUSE mount) is the next implementation step in this same branch/PR.
+Both are auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty. The full design lives in [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md); Cut C (read-only FUSE mount) is designed there but not implemented.
 
 ## Repository layout
 
-| Path                                  | Role                                                                                                                                                                                               |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `modules/services/duplicati-r2.nix`   | Service module: options, manifest handling, generator/backup/verify scripts, sops template wiring. Exported as `flake.nixosModules."duplicati-r2"` and `flake.nixosModules.services.duplicati-r2`. |
-| `modules/storage/duplicati-r2.nix`    | Re-export under the storage namespace (`flake.nixosModules.storage.duplicati-r2`).                                                                                                                 |
-| `modules/apps/duplicati-r2-tools.nix` | Apps module that installs `duplicati-r2-list` and `duplicati-r2-extract` on PATH; auto-enables when `services.duplicati-r2.stateDirReadableBy` is non-empty.                                       |
-| `modules/<host>/duplicati.nix`        | Per-host wiring: gates `services.duplicati-r2.enable` on the presence of both encrypted secrets, sets `stateDirReadableBy` from `metaOwner.username`.                                              |
-| `packages/duplicati-r2-tools/`        | Source for the operator-facing CLIs (`duplicati-r2-list`, `duplicati-r2-extract`) plus the local `pyAesCrypt` derivation and the synthetic AES test fixture generator.                             |
-| `secrets/duplicati-r2.yaml`           | SOPS-encrypted credentials (R2 keys + duplicati passphrase).                                                                                                                                       |
-| `secrets/duplicati-config.json`       | SOPS-encrypted manifest in binary mode (the entire JSON manifest is the encrypted payload).                                                                                                        |
-| `scripts/validate-oncalendar.sh`      | Lints `OnCalendar` expressions via `systemd-analyze calendar`.                                                                                                                                     |
+| Path                                        | Role                                                                                                                                                                                                                         |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modules/services/duplicati-r2.nix`         | Service module: options, manifest handling, generator/backup/verify scripts, sops template wiring. Exported as `flake.nixosModules."duplicati-r2"` and `flake.nixosModules.services.duplicati-r2`.                           |
+| `modules/storage/duplicati-r2.nix`          | Re-export under the storage namespace (`flake.nixosModules.storage.duplicati-r2`).                                                                                                                                           |
+| `modules/apps/duplicati-r2-tools.nix`       | Apps module that installs `duplicati-r2-list` and `duplicati-r2-extract` on PATH; auto-enables when `services.duplicati-r2.stateDirReadableBy` is non-empty.                                                                 |
+| `modules/<host>/duplicati.nix`              | Per-host wiring: gates `services.duplicati-r2.enable` on the presence of both encrypted secrets plus any per-host readiness gates; hosts that grant operator read access set `stateDirReadableBy` from `metaOwner.username`. |
+| `packages/duplicati-r2-tools/`              | Source for the operator-facing CLIs (`duplicati-r2-list`, `duplicati-r2-extract`) plus the local `pyAesCrypt` derivation and the synthetic AES test fixture generator.                                                       |
+| `secrets/duplicati-r2.yaml`                 | SOPS-encrypted credentials (R2 keys + duplicati passphrase).                                                                                                                                                                 |
+| `secrets/duplicati-config.json`             | SOPS-encrypted manifest in binary mode (the entire JSON manifest is the encrypted payload).                                                                                                                                  |
+| `scripts/validate-oncalendar.sh`            | Lints `OnCalendar` expressions via `systemd-analyze calendar`.                                                                                                                                                               |
+| `scripts/duplicati/duplicati-r2-restore.sh` | Root-run restore wrapper: resolves destination, credentials, and `--dbpath` from the runtime manifest; `--dry-run` computes matching files and the dblock fetch ceiling before any network I/O.                              |
+| `scripts/duplicati-r2-repair.sh`            | Root-run wrapper for `duplicati-cli repair`, `list-broken-files`, and `purge-broken-files` against a manifest target (see [recovery.md](recovery.md)).                                                                       |
 
 ## Documentation index
 
@@ -56,7 +58,7 @@ Both are auto-installed on every host where `services.duplicati-r2.stateDirReada
 
 Cross-reference: the host composition pattern that imports this module is described in [../architecture/05-host-composition.md](../architecture/05-host-composition.md).
 
-Upstream documentation: the [`duplicati/documentation`](https://github.com/duplicati/documentation) source is mirrored locally at `/data/git/duplicati-documentation` for offline lookup of `duplicati-cli` flags, manifest fields, and the backup format. Sync is managed through the shared `programs.gitMirror.repos` list; see [../reference/local-mirrors.md](../reference/local-mirrors.md).
+Upstream references: the [`duplicati/documentation`](https://github.com/duplicati/documentation) source is mirrored locally at `/data/git/duplicati-documentation`, and the [`duplicati/duplicati`](https://github.com/duplicati/duplicati) source at `/data/git/duplicati-duplicati`, for offline lookup of `duplicati-cli` flags, manifest fields, and the backup format. Sync is managed through the shared `programs.gitMirror.repos` list; see [../reference/local-mirrors.md](../reference/local-mirrors.md).
 
 ## Operating invariants
 

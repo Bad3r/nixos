@@ -9,7 +9,7 @@ Home Manager modules feed into `flake.homeManagerModules` for user-level configu
 | Key                                                                                    | Type             | Description                                                                  |
 | -------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
 | `base`                                                                                 | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
-| `gui`                                                                                  | Deferred module  | Reserved GUI aggregation point (currently mostly an empty merge root)        |
+| `gui`                                                                                  | Deferred module  | Reserved GUI aggregation point (currently an empty merge root)               |
 | `apps.<name>`                                                                          | Deferred module  | Individual app modules loaded by key                                         |
 | `browsers.<name>`                                                                      | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                  |
 | `sopsRuntime`                                                                          | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
@@ -21,14 +21,20 @@ Multiple files can extend shared namespaces. Common patterns in this repo:
 
 ```nix
 # modules/files/fzf.nix
-_: {
+{
   flake.homeManagerModules.base = _: {
-    programs.fzf.enable = true;
+    programs.fzf = {
+      enable = true;
+      enableZshIntegration = true;
+      enableBashIntegration = true;
+      enableFishIntegration = false;
+    };
   };
 }
 
-# modules/stylix/stylix.nix
-_: {
+# modules/stylix/stylix.nix (excerpt)
+{ inputs, lib, ... }:
+{
   flake.homeManagerModules.apps.stylix-gui = { ... }: {
     stylix.targets.gtk.enable = true;
   };
@@ -114,18 +120,22 @@ Authoritative source for any host: that host's `imports.nix` (`modules/<host>/im
 Home-level secrets helpers guard SOPS declarations behind `builtins.pathExists`:
 
 ```nix
-# modules/home/context7-secrets.nix
-{ lib, metaOwner, secretsRoot, ... }:
-let
-  ctxFile = "${secretsRoot}/context7.yaml";
-in
+# modules/home/context7-secrets.nix (excerpt)
 {
-  config = lib.mkIf (builtins.pathExists ctxFile) {
-    sops.secrets."context7/api-key" = {
-      sopsFile = ctxFile;
-      # ...
+  flake.homeManagerModules.context7Secrets =
+    { lib, config, secretsRoot, ... }:
+    let
+      cfg = config.home.context7Secrets;
+      ctxFile = "${secretsRoot}/context7.yaml";
+    in
+    {
+      config = lib.mkIf (cfg.enable && builtins.pathExists ctxFile) {
+        sops.secrets."context7/api-key" = {
+          sopsFile = ctxFile;
+          # ...
+        };
+      };
     };
-  };
 }
 ```
 

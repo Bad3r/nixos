@@ -150,9 +150,9 @@ let
         echo "codex-wrapper: ERROR: failed to create temp NSS passwd file in $nssDir" >&2
         exit 1
       }
+      trap cleanupNssArtifacts EXIT INT TERM
       tmpGroup="$(${coreutilsMktemp} "$nssDir/group.XXXXXXXX")" || {
         echo "codex-wrapper: ERROR: failed to create temp NSS group file in $nssDir" >&2
-        cleanupNssArtifacts
         exit 1
       }
       printf '%s:x:%s:%s::%s:%s\n' \
@@ -162,26 +162,23 @@ let
         "''${HOME:-${homeDir}}" \
         "${codexBashWrapper}/bin/bash" > "$tmpPasswd" || {
           echo "codex-wrapper: ERROR: failed to write NSS passwd override at $tmpPasswd" >&2
-          cleanupNssArtifacts
           exit 1
         }
       printf '%s:x:%s:\n' "$group" "$gid" > "$tmpGroup" || {
         echo "codex-wrapper: ERROR: failed to write NSS group override at $tmpGroup" >&2
-        cleanupNssArtifacts
         exit 1
       }
       ${coreutilsMv} -f -- "$tmpGroup" "$groupFile" || {
         echo "codex-wrapper: ERROR: failed to install NSS group override at $groupFile" >&2
-        cleanupNssArtifacts
         exit 1
       }
       tmpGroup=""
       ${coreutilsMv} -f -- "$tmpPasswd" "$passwdFile" || {
         echo "codex-wrapper: ERROR: failed to install NSS passwd override at $passwdFile" >&2
-        cleanupNssArtifacts
         exit 1
       }
       tmpPasswd=""
+      trap - EXIT INT TERM
 
       export CODEX_ORIGINAL_LD_PRELOAD="''${LD_PRELOAD-}"
       export LD_PRELOAD="${nssWrapperLib}''${LD_PRELOAD:+:$LD_PRELOAD}"
@@ -201,11 +198,11 @@ let
           echo "codex-wrapper: ERROR: failed to create temporary config file in $tmpDir" >&2
           exit 1
         }
+        trap cleanupMergeArtifacts EXIT INT TERM
         tmpStamp="$(${coreutilsMktemp} "$tmpDir/codex-config-stamp.XXXXXXXX")" || {
           echo "codex-wrapper: ERROR: failed to create temporary stamp file in $tmpDir" >&2
           exit 1
         }
-        trap cleanupMergeArtifacts EXIT INT TERM
 
         if ${tomlMergePython}/bin/python ${tomlMergeScript} "$base" "$nixProjects" "$userProjects" "$tmpOut"; then
           if [ -s "$tmpOut" ]; then
@@ -213,9 +210,15 @@ let
               echo "codex-wrapper: ERROR: failed to write merge stamp to $tmpStamp" >&2
               exit 1
             fi
-            mv "$tmpOut" "$out"
+            ${coreutilsMv} -f -- "$tmpOut" "$out" || {
+              echo "codex-wrapper: ERROR: failed to install merged config at $out" >&2
+              exit 1
+            }
             tmpOut=""
-            mv "$tmpStamp" "$mergeStamp"
+            ${coreutilsMv} -f -- "$tmpStamp" "$mergeStamp" || {
+              echo "codex-wrapper: ERROR: failed to install merge stamp at $mergeStamp" >&2
+              exit 1
+            }
             tmpStamp=""
             trap - EXIT INT TERM
           else

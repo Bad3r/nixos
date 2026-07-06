@@ -9,7 +9,7 @@
 
 ## Peer review
 
-- Peer review is mandatory; self-review misses gaps to curse-of-knowledge bias regardless of the author's experience.
+- Peer review is mandatory; self-review misses gaps due to curse-of-knowledge bias regardless of the author's experience.
 - A subject-matter technical reviewer MUST be assigned for any topic outside the author's direct expertise.
 - Reviewers verify that documented behavior matches actual product behavior; assertions without verification do not count as review.
 
