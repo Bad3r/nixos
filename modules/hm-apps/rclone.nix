@@ -67,7 +67,17 @@ _: {
                 # activation; skip with a warning instead of aborting the
                 # whole home-manager activation under set -eu.
                 if [ ! -r "$gdriveEnvPath" ]; then
-                  echo "rclone gdrive env file is missing or unreadable at $gdriveEnvPath; skipping gdrive remote for this activation" >&2
+                  echo "rclone gdrive env file is missing or unreadable at $gdriveEnvPath; skipping gdrive remote refresh for this activation" >&2
+                  # Carry the previously rendered [gdrive] stanza forward so a
+                  # transiently unreadable secret does not drop a working
+                  # remote from the rewritten config.
+                  if [ -r "$renderedConfig" ]; then
+                    prevGdrive="$(sed -n '/^\[gdrive\]$/,/^\[/{ /^\[gdrive\]$/p; /^\[/!p; }' "$renderedConfig")"
+                    if [ -n "$prevGdrive" ]; then
+                      printf '\n%s\n' "$prevGdrive" >> "$tmpConfig"
+                      echo "rclone gdrive remote preserved from the previous rendered config" >&2
+                    fi
+                  fi
                 else
                   unset GDRIVE_CLIENT_ID GDRIVE_CLIENT_SECRET GDRIVE_TOKEN
                   . "$gdriveEnvPath"
