@@ -13,6 +13,9 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.
 - `updater/`: shared Python library for package updater scripts. Reuse these
   helpers instead of duplicating HTTP, hash, Nix, npm, or version parsing logic.
+- `prune-stale-worktrees.sh`: prunes branches with gone upstreams and their
+  worktrees; wrapped by the `worktree-prune` Home Manager timer. Tests live in
+  `tests/prune-stale-worktrees/run.sh`; see `docs/reference/worktree-prune.md`.
 - Top-level scripts are task-specific entrypoints. Keep them runnable from the
   repository root and avoid hidden dependencies on the current shell session.
 
