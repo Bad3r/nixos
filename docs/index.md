@@ -144,6 +144,13 @@
 - [csec/additional-tools-runtime-status.md](csec/additional-tools-runtime-status.md)
   - Smoke-test report for the additional-tools reference; records which entries launched cleanly on the active flake pin and which failed with build, attribute, or invocation issues.
 
+## RDP
+
+- [rdp/README.md](rdp/README.md)
+  - Index for Remote Desktop (RDP) operator docs covering One Identity Safeguard RemoteApp access.
+- [rdp/safeguard-remoteapp-file-export.md](rdp/safeguard-remoteapp-file-export.md)
+  - Why file export/download fails inside a Safeguard RemoteApp session and the Safeguard channel-policy changes to request from the administrator.
+
 ## Reference
 
 - [reference/github-labels.md](reference/github-labels.md)
