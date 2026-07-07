@@ -47,12 +47,17 @@ Expected result:
 ```bash
 nix flake check --accept-flake-config --no-build --offline
 nix build .#nixosConfigurations.system76.config.system.build.toplevel
+# Focused rclone.conf ownership check (also part of nix flake check)
+nix build --accept-flake-config --no-link '.#checks.x86_64-linux."home-manager/rclone-config-ownership"'
 ```
 
 Expected result:
 
-- both commands exit `0`
+- all commands exit `0`
 - no missing-option/module import errors for `r2` surfaces
+- the ownership check proves `modules/hm-apps/rclone.nix` stays the single
+  writer of `~/.config/rclone/rclone.conf` and that a colliding
+  `programs.r2-cloud.enableRcloneRemote` fails evaluation
 
 ## Runtime Presence Checks (after switch/boot)
 
@@ -78,6 +83,12 @@ Expected result (on a host with the runtime enabled):
 
 - `inputs."r2-flake".*` gated imports removed from `modules/lib/r2-runtime.nix`
 - `programs.r2-cloud` assignment removed from `modules/lib/r2-runtime.nix`
+- `enableRcloneRemote = false` removed from `modules/lib/r2-runtime.nix`
+  (rejected at host evaluation by the `modules/hm-apps/rclone.nix` assertion
+  once a host policy re-enables the runtime)
+- the `rclone.conf` ownership assertions removed from
+  `modules/hm-apps/rclone.nix` (caught by
+  `checks.<system>."home-manager/rclone-config-ownership"`)
 - a host's `modules/<host>/r2-runtime.nix` no longer calls `mkHostR2Module`
 - `secrets/r2.yaml` creation rule removed from `modules/security/sops-policy.nix`
 - secret template paths changed without consumer path updates
