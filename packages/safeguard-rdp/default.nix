@@ -88,6 +88,15 @@ let
           exit 65
         fi
 
+        # Safeguard puts the one-time launch token in username and ships no
+        # password field, so Remmina would prompt and the token can expire
+        # during that prompt: the exact race this launcher removes. Inject the
+        # fixed 'sg' placeholder the Safeguard target accepts (matching the
+        # 1drdp helper) unless the reconstructed file already carries one.
+        if ! grep -qi '^password' "$tmp"; then
+          printf 'password:s:sg\n' >> "$tmp"
+        fi
+
         # Open with the proven Remmina path. Remmina may hand the file to an
         # already-running instance and return immediately, so the token-bearing
         # temp file is removed after a grace period rather than synchronously.
