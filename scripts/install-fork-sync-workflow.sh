@@ -144,6 +144,24 @@ Validation: nix run nixpkgs#actionlint -- .github/workflows/sync-upstream.yml'
   git -C "${clone_path}" push origin "${branch}"
 fi
 
+# Inherited upstream workflows only fail on a fork (Pages deploys hit 403
+# or 404 without the upstream environment) or accumulate skipped runs, and
+# Dependabot security updates fail against manifests the fork never edits;
+# upstream fixes arrive through the sync instead. Keep sync-upstream as the
+# only active workflow. Re-enable a workflow later with:
+# gh workflow enable <id> -R <owner>/<repo>
+gh workflow list --all -R "${repo}" --json id,name,state,path \
+  --jq '.[] | select(.state == "active")
+    | select(.path | startswith(".github/workflows/"))
+    | select(.path != ".github/workflows/sync-upstream.yml")
+    | "\(.id)\t\(.name)"' |
+  while IFS=$'\t' read -r workflow_id workflow_name; do
+    gh workflow disable "${workflow_id}" -R "${repo}"
+    printf 'Disabled inherited workflow: %s\n' "${workflow_name}"
+  done
+gh api --method DELETE "repos/${repo}/automated-security-fixes" >/dev/null
+printf 'Disabled Dependabot security updates on %s\n' "${repo}"
+
 for _ in 1 2 3 4 5; do
   if gh workflow run "${workflow_file_name}" -R "${repo}" --ref "${branch}" 2>/dev/null; then
     printf 'Dispatched verification run. Watch with: gh run list --workflow=%s -R %s\n' \

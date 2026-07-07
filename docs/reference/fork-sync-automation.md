@@ -41,6 +41,30 @@ conflict-recovery path.
   without repository activity. If GitHub sends such a notice, re-enable with
   `gh workflow enable sync-upstream.yml -R <owner>/<repo>`.
 
+## Fork Hygiene
+
+`sync-upstream` is the only active workflow on each covered fork. Workflow
+files inherited from upstream stay in the tree but are disabled server side,
+and Dependabot security updates are off:
+
+- Upstream deploy workflows fail on a fork. The home-manager `GitHub Pages`
+  workflow gets a 403 pushing `gh-pages` as `github-actions[bot]`, and the
+  stylix `Documentation` workflow gets a 404 from `actions/deploy-pages`
+  because the fork has no Pages environment.
+- Guarded upstream workflows (nixpkgs `Bot`, `Periodic Merges`, `Teams`)
+  skip on forks but keep logging scheduled runs.
+- Dependabot security updates attempt update jobs against manifests the fork
+  never edits and fail; upstream fixes arrive through the sync instead.
+  Vulnerability alerts stay enabled. The `Dependabot Updates` and
+  `Dependency Graph` entries in the Actions tab are dynamic system workflows
+  and cannot be disabled by workflow id.
+
+The installer applies this hygiene. Pushes made by the sync workflow itself
+use `GITHUB_TOKEN` and trigger no other workflows; the hygiene matters for
+manual pushes such as cherry-picks. Re-enable a specific workflow with
+`gh workflow enable <id> -R <owner>/<repo>` (find ids with
+`gh workflow list --all -R <owner>/<repo>`).
+
 ## Manual Operations
 
 Dispatch and watch a sync run:
@@ -67,6 +91,7 @@ scripts/install-fork-sync-workflow.sh /data/Projects/igit/<clone>
 ```
 
 The installer writes the canonical workflow, commits and pushes it, enables
-GitHub Actions when disabled, and dispatches a verification run. The
+GitHub Actions when disabled, disables inherited upstream workflows and
+Dependabot security updates, and dispatches a verification run. The
 canonical workflow content lives in the installer heredoc; keep changes to
 the workflow and the installer in one commit.
