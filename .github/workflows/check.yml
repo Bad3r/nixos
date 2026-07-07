@@ -64,7 +64,7 @@ jobs:
             experimental-features = nix-command flakes pipe-operators
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
       - name: Check formatting
-        run: nix fmt -- --check --extra-experimental-features pipe-operators
+        run: nix fmt -- --ci
 
   module-validation:
     runs-on: ubuntu-latest

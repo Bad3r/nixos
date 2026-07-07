@@ -23,6 +23,7 @@
   Notes:
     * In Git subcommand form, use `git fork-sync -h` or `git fork-reset -h`; Git handles `--help` as a manpage lookup.
     * The backup stash is kept for recovery and is never dropped automatically.
+    * Scheduled upstream syncs run inside each fork repository via the sync-upstream GitHub workflow; see docs/reference/fork-sync-automation.md.
 */
 _:
 let
