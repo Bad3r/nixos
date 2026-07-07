@@ -22,6 +22,10 @@ jobs:
     timeout-minutes: 90
     strategy:
       fail-fast: false
+      # One job at a time: concurrent cold NVD downloads starve each other
+      # against nvd.nist.gov rate limiting, and a sequential job restores
+      # the previous job's saved NVD cache instead of downloading again.
+      max-parallel: 1
       matrix:
         host:
           - system76
@@ -46,8 +50,8 @@ jobs:
       - name: Prefer HTTPS for GitHub
         run: |
           URL="https://github.com/"
-          git config --global url."$URL".insteadOf git@github.com:
-          git config --global url."$URL".insteadOf ssh://git@github.com/
+          git config --global --add url."$URL".insteadOf git@github.com:
+          git config --global --add url."$URL".insteadOf ssh://git@github.com/
 
       # Restore/save are split so the NVD database persists even when the
       # scan fails; vulnix commits per archive, so partial downloads survive.
