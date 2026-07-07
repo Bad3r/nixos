@@ -107,11 +107,16 @@ _: {
           ;
       };
 
-      # ── Commit Skill ──────────────────────────────────────────────────────
       claudeInstructions = agents.systemPrompt.render {
         vars.questionTool = "AskUserQuestion";
       };
-      commitSkillMd = agents.skills.commit.claude;
+
+      # Install every compiled skill that ships a Claude profile at
+      # ~/.claude/skills/<name>/SKILL.md, keyed off the shared registry so new
+      # skills need no per-client wiring here.
+      claudeSkillFiles = lib.mapAttrs' (
+        name: skill: lib.nameValuePair ".claude/skills/${name}/SKILL.md" { text = skill.claude; }
+      ) (lib.filterAttrs (_name: skill: skill ? claude) agents.skills.list);
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -119,15 +124,12 @@ _: {
           file = {
             ".claude/CLAUDE.md".text = claudeInstructions;
 
-            ".claude/skills/commit/SKILL.md" = {
-              text = commitSkillMd;
-            };
-
             ".local/bin/claude" = {
               source = lib.getExe claudeRuntime.claudeWrapped;
               executable = true;
             };
           }
+          // claudeSkillFiles
           // lib.optionalAttrs greptilePluginRequested {
             ".local/bin/claude-greptile-mcp-headers" = {
               executable = true;
