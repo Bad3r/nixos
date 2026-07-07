@@ -39,8 +39,12 @@ let
         fi
 
         # RFC 3986 percent-decode ('+' is treated as space, query-string style).
+        # Literal backslashes are doubled first so printf %b keeps them verbatim
+        # rather than reading AD names (DOMAIN\user) or \\tsclient paths as escape
+        # sequences and corrupting the username or redirection fields.
         urldecode() {
-          local s="''${1//+/ }"
+          local s="''${1//\\/\\\\}"
+          s="''${s//+/ }"
           printf '%b' "''${s//%/\\x}"
         }
 
