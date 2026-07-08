@@ -28,14 +28,15 @@
 
   Bootstrap and on-demand use:
     The proton-drive-sync CLI is installed whenever the protondrive remote is
-    ready, independent of services.protonDriveSync.enable. For bisync, the
-    baseline must be built manually once: confirm localPath holds the desired
-    seed contents, then run `proton-drive-sync --resync` (rclone lets the
-    local side win resync conflicts). Timer-driven runs refuse to sync until
-    that baseline exists instead of silently seeding.
+    ready, independent of services.protonDriveSync.enable. Every direction
+    (bisync, up, down) requires a one-time baseline so an unattended first run
+    cannot wipe the destination: confirm the authoritative side holds the
+    desired contents, then run `proton-drive-sync --resync` once. Timer-driven
+    runs refuse to sync until that baseline marker exists instead of silently
+    seeding (for bisync, --resync also lets the local side win conflicts).
 
     proton-drive-sync            # run the configured sync immediately
-    proton-drive-sync --resync   # build or rebuild the bisync baseline
+    proton-drive-sync --resync   # establish (or rebuild) the baseline
 
   Multi-host caveat:
     services.protonDriveSync.enable is off by default and should be enabled on
@@ -100,10 +101,28 @@ _: {
 
           case "$direction" in
             up)
+              # rclone sync mirrors local -> remote and deletes remote-only
+              # files, so an unattended first run against a freshly created
+              # empty local would wipe Proton. Gate the first run behind an
+              # explicit --resync (after the operator confirms the local seed),
+              # same as bisync; later timer runs proceed once the marker exists.
+              if [ "$resync" -ne 1 ] && [ ! -e "$state_dir/initialized" ]; then
+                echo "proton-drive-sync: no baseline; run 'proton-drive-sync --resync' once after confirming '$local_path' holds the desired seed (up mirrors local -> remote and deletes remote-only files)." >&2
+                exit 1
+              fi
               rclone sync "$local_path" "$remote" --create-empty-src-dirs "''${common[@]}" "''${extra[@]}"
+              touch "$state_dir/initialized"
               ;;
             down)
+              # rclone sync mirrors remote -> local and deletes local-only
+              # files, so an unattended first run would clobber a local seed.
+              # Same first-run gate as up/bisync.
+              if [ "$resync" -ne 1 ] && [ ! -e "$state_dir/initialized" ]; then
+                echo "proton-drive-sync: no baseline; run 'proton-drive-sync --resync' once after confirming '$remote' holds the desired contents (down mirrors remote -> local and deletes local-only files)." >&2
+                exit 1
+              fi
               rclone sync "$remote" "$local_path" --create-empty-src-dirs "''${common[@]}" "''${extra[@]}"
+              touch "$state_dir/initialized"
               ;;
             bisync)
               if [ "$resync" -eq 1 ]; then

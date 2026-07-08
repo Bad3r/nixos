@@ -112,32 +112,49 @@ _: {
               fi
 
               if [ "$protondriveEnabled" = true ]; then
-                unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
-                . "$protondriveEnvPath"
+                # Mirror the gdrive guard: the sops secret may be unmaterialized
+                # on a first activation, so skip with a warning instead of letting
+                # `. "$protondriveEnvPath"` abort the whole home-manager activation
+                # under set -eu.
+                if [ ! -r "$protondriveEnvPath" ]; then
+                  echo "rclone protondrive env file is missing or unreadable at $protondriveEnvPath; skipping protondrive remote refresh for this activation" >&2
+                  # Carry the previously rendered [protondrive] stanza forward so a
+                  # transiently unreadable secret does not drop a working remote.
+                  if [ -r "$renderedConfig" ]; then
+                    prevProton="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^\[protondrive\]$/p; /^\[/!p; }' "$renderedConfig")"
+                    if [ -n "$prevProton" ]; then
+                      printf '\n%s\n' "$prevProton" >> "$tmpConfig"
+                      echo "rclone protondrive remote preserved from the previous rendered config" >&2
+                    fi
+                  fi
+                else
+                  unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
+                  . "$protondriveEnvPath"
 
-                if [ -z "''${PROTONDRIVE_USERNAME:-}" ] || [ -z "''${PROTONDRIVE_PASSWORD:-}" ]; then
-                  echo "rclone protondrive env file is missing PROTONDRIVE_USERNAME or PROTONDRIVE_PASSWORD: $protondriveEnvPath" >&2
-                  exit 1
+                  if [ -z "''${PROTONDRIVE_USERNAME:-}" ] || [ -z "''${PROTONDRIVE_PASSWORD:-}" ]; then
+                    echo "rclone protondrive env file is missing PROTONDRIVE_USERNAME or PROTONDRIVE_PASSWORD: $protondriveEnvPath" >&2
+                    exit 1
+                  fi
+
+                  # password/otp_secret_key/mailbox_password must already be rclone-obscured
+                  # in the secret (run `rclone obscure <value>`); the backend reveals them.
+                  # enable_caching is forced off: required for `rclone mount` (Proton's
+                  # change-event system is unimplemented, so a metadata cache goes stale)
+                  # and harmless for bisync.
+                  {
+                    printf '\n[protondrive]\n'
+                    printf 'type = protondrive\n'
+                    printf 'username = %s\n' "$PROTONDRIVE_USERNAME"
+                    printf 'password = %s\n' "$PROTONDRIVE_PASSWORD"
+                    if [ -n "''${PROTONDRIVE_OTP_SECRET_KEY:-}" ]; then
+                      printf 'otp_secret_key = %s\n' "$PROTONDRIVE_OTP_SECRET_KEY"
+                    fi
+                    if [ -n "''${PROTONDRIVE_MAILBOX_PASSWORD:-}" ]; then
+                      printf 'mailbox_password = %s\n' "$PROTONDRIVE_MAILBOX_PASSWORD"
+                    fi
+                    printf 'enable_caching = false\n'
+                  } >> "$tmpConfig"
                 fi
-
-                # password/otp_secret_key/mailbox_password must already be rclone-obscured
-                # in the secret (run `rclone obscure <value>`); the backend reveals them.
-                # enable_caching is forced off: required for `rclone mount` (Proton's
-                # change-event system is unimplemented, so a metadata cache goes stale)
-                # and harmless for bisync.
-                {
-                  printf '\n[protondrive]\n'
-                  printf 'type = protondrive\n'
-                  printf 'username = %s\n' "$PROTONDRIVE_USERNAME"
-                  printf 'password = %s\n' "$PROTONDRIVE_PASSWORD"
-                  if [ -n "''${PROTONDRIVE_OTP_SECRET_KEY:-}" ]; then
-                    printf 'otp_secret_key = %s\n' "$PROTONDRIVE_OTP_SECRET_KEY"
-                  fi
-                  if [ -n "''${PROTONDRIVE_MAILBOX_PASSWORD:-}" ]; then
-                    printf 'mailbox_password = %s\n' "$PROTONDRIVE_MAILBOX_PASSWORD"
-                  fi
-                  printf 'enable_caching = false\n'
-                } >> "$tmpConfig"
               fi
 
               chmod 600 "$tmpConfig"
