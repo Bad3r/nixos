@@ -59,11 +59,13 @@ let
     "$(readlink -f ~/.local/state/home-manager/gcroots/current-home)/activate"
     ```
 
-    2. Refresh user-manager state after activation:
+    2. Refresh user-manager state after activation. Scope `reset-failed` to the
+       repaired unit; a bare `reset-failed` clears the failed state of every
+       user unit and hides unrelated failures from later diagnostics:
 
     ```bash
     systemctl --user daemon-reload
-    systemctl --user reset-failed
+    systemctl --user reset-failed <unit>
     ```
 
     3. If a timer or service was degraded or missing, re-enable it (substitute
@@ -96,8 +98,8 @@ let
     - Symptom: `<unit>: Unit to trigger vanished`.
       - Likely cause: the user manager re-executed during the switch with an
         incomplete Home Manager reactivation.
-      - Fix: activate Home Manager, `daemon-reload`, `reset-failed`, then enable
-        the unit.
+      - Fix: activate Home Manager, `daemon-reload`, `reset-failed <unit>`, then
+        enable the unit.
 
     - Symptom: invoking `nixos-activation.service` does nothing for user links.
       - Likely cause: wrong activation layer (that service does not own
