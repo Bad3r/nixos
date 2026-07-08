@@ -17,11 +17,11 @@ let
         "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
       ];
 
-      download-attempts = lib.mkDefault 5;
+      download-attempts = lib.mkDefault 3;
       download-buffer-size = lib.mkDefault 1073741824; # 1GB
       connect-timeout = lib.mkDefault 30;
-      max-substitution-jobs = lib.mkDefault 16;
-      http-connections = lib.mkForce 0; # unlimited
+      max-substitution-jobs = lib.mkDefault 0; # unlimited
+      http-connections = lib.mkDefault 0; # unlimited
       http2 = lib.mkDefault true;
       narinfo-cache-negative-ttl = lib.mkDefault 60;
       stalled-download-timeout = lib.mkDefault 300; # nix default; fail a stalled download instead of freezing the build

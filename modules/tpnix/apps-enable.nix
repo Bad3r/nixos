@@ -47,6 +47,7 @@ let
     onlyoffice-desktopeditors = false;
     opendirectorydownloader = false;
     parted = false;
+    projectlibre = true;
     "spec-kit" = false;
     steam = false;
     terraform = false;

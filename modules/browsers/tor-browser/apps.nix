@@ -48,5 +48,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.tor-browser = TorBrowserModule;
+  flake.nixosModules.browsers.tor-browser = TorBrowserModule;
 }

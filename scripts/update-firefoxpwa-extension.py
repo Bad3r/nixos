@@ -6,7 +6,7 @@ The PWAsForFirefox browser extension ships only through addons.mozilla.org (it
 is not in the nixpkgs `firefoxpwa` output and is absent from upstream GitHub
 release assets), and AMO download URLs require a per-version opaque file id that
 cannot be derived from the version string. This script resolves that id from the
-AMO API and writes it to `modules/lib/_firefoxpwa-extension-pin.json`, which the
+AMO API and writes it to `modules/browsers/_firefoxpwa-extension-pin.json`, which the
 gecko extension policy reads to force-install the extension.
 
 The connector (native messaging host) and extension stay protocol-compatible as
@@ -42,7 +42,7 @@ from updater import fetch_json, load_hashes, save_hashes  # noqa: E402
 from updater.nix import nix_command  # noqa: E402
 from updater.version import compare_versions, parse_version  # noqa: E402
 
-PIN_FILE = FLAKE_ROOT / "modules" / "lib" / "_firefoxpwa-extension-pin.json"
+PIN_FILE = FLAKE_ROOT / "modules" / "browsers" / "_firefoxpwa-extension-pin.json"
 
 # AMO addon GUID, matching `firefoxpwaExt` in _gecko-extension-data.nix. The API
 # accepts the GUID, slug, or numeric id; the GUID is the stable identifier the

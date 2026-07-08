@@ -6,7 +6,7 @@
 # The metaOwner parameter is injected by the system configuration via:
 #   _module.args.metaOwner = metaOwner;
 #
-# See: modules/system76/imports.nix:315 for the injection point
+# See: modules/configurations/nixos.nix (_module.args block) for the injection point
 { lib, metaOwner, ... }:
 {
   flake = {

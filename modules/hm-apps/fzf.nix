@@ -46,8 +46,8 @@ _: {
 
           # Use fd for file/directory finding (faster and respects .gitignore)
           defaultCommand = "${pkgs.fd}/bin/fd --type f --hidden --follow --exclude .git";
-          fileWidgetCommand = "${pkgs.fd}/bin/fd --type f --hidden --follow --exclude .git";
-          changeDirWidgetCommand = "${pkgs.fd}/bin/fd --type d --hidden --follow --exclude .git";
+          fileWidget.command = "${pkgs.fd}/bin/fd --type f --hidden --follow --exclude .git";
+          changeDirWidget.command = "${pkgs.fd}/bin/fd --type d --hidden --follow --exclude .git";
 
           # Default options
           defaultOptions = [
@@ -77,20 +77,23 @@ _: {
           ];
 
           # File preview with bat
-          fileWidgetOptions = [
+          fileWidget.options = [
             "--preview '${pkgs.bat}/bin/bat --style=numbers --color=always --line-range=:500 {}'"
           ];
 
           # Directory preview with eza or tree
-          changeDirWidgetOptions = [
+          changeDirWidget.options = [
             "--preview '${pkgs.eza}/bin/eza --tree --level=2 --color=always {} | head -200'"
           ];
 
           # History search with preview showing command
-          historyWidgetOptions = [
+          historyWidget.options = [
             "--preview 'echo {}'"
             "--preview-window=down:3:wrap"
           ];
+
+          # Yield Ctrl-R to Atuin in nushell; fzf keeps Ctrl-R for zsh/bash.
+          historyWidget.nushell.command = "";
 
           # Colors automatically managed by stylix.targets.fzf
         };

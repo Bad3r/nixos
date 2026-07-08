@@ -44,7 +44,7 @@ let
 
   # PWAsForFirefox management extension. Force-installed on the regular gecko
   # browsers, like uBlock, so PWAs can be installed and managed from the browser.
-  # The native connector is wired in modules/hm-apps/{firefox,librewolf}.nix.
+  # The native connector is wired in modules/browsers/{firefox,librewolf}/home.nix.
   firefoxpwaExt = "firefoxpwa@filips.si";
 
   # The extension ships only through AMO, whose download URL needs a per-version
@@ -64,7 +64,7 @@ let
     if firefoxpwaExtensionPin.packageVersion == version then
       firefoxpwaExtensionPin.url
     else
-      throw "firefoxpwa management-extension pin is stale: pinned for connector ${firefoxpwaExtensionPin.packageVersion} but pkgs.firefoxpwa is ${version}. Refresh modules/lib/_firefoxpwa-extension-pin.json with scripts/update-firefoxpwa-extension.py (or run the update-firefoxpwa-extension workflow).";
+      throw "firefoxpwa management-extension pin is stale: pinned for connector ${firefoxpwaExtensionPin.packageVersion} but pkgs.firefoxpwa is ${version}. Refresh modules/browsers/_firefoxpwa-extension-pin.json with scripts/update-firefoxpwa-extension.py (or run the update-firefoxpwa-extension workflow).";
 
   # Tab Reloader (page auto refresh). Installed only into the firefoxpwa runtime
   # profiles via firefoxpwaRuntimePolicies (normal_installed, user-removable),

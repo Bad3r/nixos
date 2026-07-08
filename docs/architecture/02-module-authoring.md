@@ -4,12 +4,13 @@ This document covers how to write modules correctly in this flake-parts + import
 
 ## File Placement
 
-| Location                     | Purpose               | Export Pattern                                                                    |
-| ---------------------------- | --------------------- | --------------------------------------------------------------------------------- |
-| `modules/apps/<name>.nix`    | Per-app modules       | `flake.nixosModules.apps.<name>`                                                  |
-| `modules/hm-apps/<name>.nix` | Per-app HM modules    | `flake.homeManagerModules.apps.<name>`                                            |
-| `modules/<domain>/`          | Higher-level features | `flake.nixosModules.<feature>`                                                    |
-| `modules/<host>/`            | Host-specific config  | `configurations.nixos.<host>.module` (e.g. `modules/system76/`, `modules/tpnix/`) |
+| Location                     | Purpose               | Export Pattern                                                                                             |
+| ---------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `modules/apps/<name>.nix`    | Per-app modules       | `flake.nixosModules.apps.<name>`                                                                           |
+| `modules/hm-apps/<name>.nix` | Per-app HM modules    | `flake.homeManagerModules.apps.<name>`                                                                     |
+| `modules/browsers/<name>/`   | Per-browser modules   | `flake.nixosModules.browsers.<name>` (`apps.nix`), `flake.homeManagerModules.browsers.<name>` (`home.nix`) |
+| `modules/<domain>/`          | Higher-level features | `flake.nixosModules.<feature>`                                                                             |
+| `modules/<host>/`            | Host-specific config  | `configurations.nixos.<host>.module` (e.g. `modules/system76/`, `modules/tpnix/`)                          |
 
 **Rule:** If a module only installs packages, put it in `modules/apps/`. If it configures services or composes multiple apps, use a domain directory.
 
@@ -19,24 +20,32 @@ This document covers how to write modules correctly in this flake-parts + import
 
 ```nix
 # modules/development/json-tools.nix
-{ config, ... }:
 {
-  flake.homeManagerModules.base = { pkgs, ... }: {
-    home.packages = with pkgs; [ jq jnv ];
-  };
+  flake.homeManagerModules.base =
+    { pkgs, ... }:
+    {
+      home.packages = [
+        pkgs.jq
+        pkgs.jq-lsp
+      ];
+    };
 }
 ```
 
-The outer function does **not** receive `pkgs` -- flake-parts doesn't provide it at that level. The exported value must be a function that receives `{ pkgs, ... }`.
+flake-parts does **not** provide `pkgs` at the file's top level. The exported value must be a function that receives `{ pkgs, ... }`.
 
 ### Pattern 2: Module Without `pkgs`
 
 ```nix
-# modules/networking/ssh-hosts.nix
-{ lib, ... }:
+# modules/files/fzf.nix
 {
   flake.homeManagerModules.base = _: {
-    programs.ssh.knownHosts = lib.mkMerge [ /* ... */ ];
+    programs.fzf = {
+      enable = true;
+      enableZshIntegration = true;
+      enableBashIntegration = true;
+      enableFishIntegration = false;
+    };
   };
 }
 ```
@@ -46,8 +55,8 @@ Return an attribute set directly when you don't need extra arguments.
 ### Pattern 3: Multi-Namespace Module
 
 ```nix
-# modules/stylix/stylix.nix
-{ inputs, ... }:
+# modules/stylix/stylix.nix (excerpt)
+{ inputs, lib, ... }:
 {
   flake.nixosModules.base = {
     imports = [ inputs.stylix.nixosModules.stylix ];
@@ -68,7 +77,7 @@ One file can populate both aggregators. Keep the scopes independent.
 ### Pattern 4: Extending Existing Namespaces
 
 ```nix
-# modules/base/nix-settings.nix
+# modules/base/nix-settings.nix (excerpt)
 { lib, ... }:
 let
   settings = {
@@ -96,7 +105,7 @@ Cache topology and download retry settings belong in `modules/hosts/common/nix-s
 ### Pattern 5: Host Module
 
 ```nix
-# modules/system76/imports.nix
+# modules/system76/imports.nix (simplified)
 { config, lib, ... }:
 {
   configurations.nixos.system76.module = {
@@ -115,35 +124,42 @@ See [Host Composition](05-host-composition.md) for details.
 
 NixOS modules can receive a small set of repo-specific arguments as ordinary function parameters. They reach the host evaluation through two layers:
 
-1. The shared host helper `modules/configurations/nixos.nix` injects `metaOwner` and `secretsRoot` into every deferred host module (`_module.args`) and into the wrapping `nixosSystem` `specialArgs`. New hosts get these for free.
-2. Each host's `modules/<host>/imports.nix` re-asserts `metaOwner` and `secretsRoot` and additionally propagates `inputs` on the wrapping `nixosSystem` call, so flake inputs are reachable from inside NixOS modules.
+1. The shared host helper `modules/configurations/nixos.nix` injects `hostName`, `inputs`, `metaOwner`, and `secretsRoot` into every deferred host module (`_module.args`) and into the wrapping `nixosSystem` `specialArgs`, so flake inputs are reachable from inside NixOS modules. New hosts get these for free.
+2. Each host's `modules/<host>/imports.nix` re-asserts `metaOwner` and `secretsRoot` through `_module.args` inside the host module.
 
-| Arg           | Type  | Source                                                               | Available where                                                                                                                     |
-| ------------- | ----- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `metaOwner`   | attrs | `modules/meta/owner.nix` via shared helper + per-host `imports.nix`  | Every NixOS module (HM users, secrets); owner identity (`username`, `sshKeys`).                                                     |
-| `secretsRoot` | path  | Repo `secrets/` directory via shared helper + per-host `imports.nix` | Every NixOS module; base for `sopsFile` references and `pathExists` guards.                                                         |
-| `inputs`      | attrs | Per-host `imports.nix` wrapping `nixosSystem`                        | Every NixOS module reached through the host closure; lets modules use `inputs.<flake>.nixosModules` without re-importing the flake. |
+| Arg           | Type   | Source                                                                                            | Available where                                                                                                                     |
+| ------------- | ------ | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `metaOwner`   | attrs  | `lib/meta-owner-profile.nix` via `flake.nix`, forwarded by shared helper + per-host `imports.nix` | Every NixOS module (HM users, secrets); owner identity (`username`, `sshKeys`).                                                     |
+| `secretsRoot` | path   | Repo `secrets/` directory via shared helper + per-host `imports.nix`                              | Every NixOS module; base for `sopsFile` references and `pathExists` guards.                                                         |
+| `inputs`      | attrs  | Shared helper (`_module.args` + `nixosSystem` `specialArgs`)                                      | Every NixOS module reached through the host closure; lets modules use `inputs.<flake>.nixosModules` without re-importing the flake. |
+| `hostName`    | string | Shared helper (`_module.args` + `nixosSystem` `specialArgs`)                                      | Every NixOS module; the host attribute name (consumed by `modules/hosts/common/hostname.nix`).                                      |
+
+Home Manager modules receive `inputs`, `metaOwner`, and `secretsRoot` through `home-manager.extraSpecialArgs` (set in `modules/home-manager/nixos.nix`), as in this HM-side consumer:
 
 ```nix
-# modules/home/context7-secrets.nix
-{ lib, metaOwner, secretsRoot, ... }:
-let
-  ctxFile = "${secretsRoot}/context7.yaml";
-in
+# modules/home/context7-secrets.nix (excerpt)
 {
-  config = lib.mkIf (builtins.pathExists ctxFile) {
-    sops.secrets."context7/api-key" = {
-      sopsFile = ctxFile;
-      owner = metaOwner.username;
-      # ...
+  flake.homeManagerModules.context7Secrets =
+    { lib, config, metaOwner, secretsRoot, ... }:
+    let
+      cfg = config.home.context7Secrets;
+      ctxFile = "${secretsRoot}/context7.yaml";
+    in
+    {
+      config = lib.mkIf (cfg.enable && builtins.pathExists ctxFile) {
+        sops.secrets."context7/api-key" = {
+          sopsFile = ctxFile;
+          path = "/home/${metaOwner.username}/.local/share/context7/api-key";
+          # ...
+        };
+      };
     };
-  };
 }
 ```
 
 `config.flake.lib.nixos` (the `hasApp`, `getApp`, `getApps`, `getAllApps`, `getAppOr` helpers) is a separate flake-parts helper, not a NixOS module argument. Read it from the flake-parts outer scope when authoring host-side modules. The same helpers are also published as `_module.args.nixosAppHelpers` at flake-parts scope only, so a NixOS module that declares `{ nixosAppHelpers, ... }:` will fail to evaluate.
 
-Treat custom args as the contract between hosts and downstream modules. Adding a new arg requires updating either `modules/configurations/nixos.nix` (for shared args) or each host's `imports.nix` (for host-specific args), plus the wrapping `nixosSystem` block. Missing args surface as evaluation-time errors that name the missing parameter.
+Treat custom args as the contract between hosts and downstream modules. Adding a shared arg means updating both `_module.args` and `specialArgs` in `modules/configurations/nixos.nix`; host-specific args belong in that host's `imports.nix`. Missing args surface as evaluation-time errors that name the missing parameter.
 
 ## Common Pitfalls
 

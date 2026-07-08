@@ -19,7 +19,7 @@
     * Use `-gpu swiftshader_indirect` with emulator if GPU acceleration causes issues.
     * Standalone adb provided via android-tools; systemd 258+ handles uaccess rules automatically.
     * Install cmdline-tools via Android Studio SDK Manager before using sdkmanager CLI.
-    * Emulator requires nix-ld libraries defined in modules/system76/nix-ld.nix (libcxx, libtiff,
+    * Emulator requires nix-ld libraries defined in modules/hosts/common/nix-ld.nix (libcxx, libtiff,
       libuuid, libbsd, ncurses5, X11 libs, libpulseaudio, libpng, etc.).
 */
 _:

@@ -11,14 +11,14 @@ ______________________________________________________________________
 ### 2.1 Using the Nix REPL (`nix repl`)
 
 - Launch `nix repl` with flake or file inputs and inspect bindings via `:?`, `:doc`, and `:type` for quick reference while iterating on expressions.
-- Toggle stack traces interactively with `:show-trace` or collect build logs with `:log <derivation>` to pinpoint failing derivations without leaving the REPL.
+- Toggle evaluation traces interactively with `:te` (`:trace-enable`) or collect build logs with `:log <derivation>` to pinpoint failing derivations without leaving the REPL.
 - Use `:b drv` or `:bl` to build derivations in place, creating GC roots that preserve artifacts for deeper inspection.
-- Combine `--expr` or `--file` with `--extra-experimental-features 'flakes repl-flake'` when testing flake-based inputs so the REPL mirrors production evaluation settings.
+- Load flakes directly with `nix repl .` or `:lf <ref>` inside the REPL when testing flake-based inputs so the REPL mirrors production evaluation settings; the removed `repl-flake` experimental feature is now the default behavior whenever `flakes` is enabled.
 
 ```bash
 nix repl --expr 'import <nixpkgs> {}'
 nix-repl> :doc builtins.map
-nix-repl> :show-trace
+nix-repl> :te
 ```
 
 ### 2.2 Tracing Evaluation (`builtins.trace`)
@@ -127,7 +127,7 @@ error: cannot coerce null to a string: null
 - Pass values via module arguments (`specialArgs` or `_module.args`) instead of accessing `config` early
 - Ensure proper evaluation order with `imports` or explicit dependencies
 
-### 2.4 Language-Level Debugging Tools (e.g., `nix-debug`, `nix-tree`)
+### 2.4 Language-Level Debugging Tools (e.g., `nix eval`, `nix-tree`)
 
 - Use `nix eval --show-trace --expr '<expr>'` or `nix-instantiate --eval --strict` to surface evaluation errors without building derivations.
 - Explore dependency graphs with `nix-tree <installable>` or `nix path-info --recursive --closure-size` to identify unexpectedly large closures and hidden references.
@@ -173,7 +173,7 @@ ______________________________________________________________________
 
 - Run `home-manager switch --show-trace` to expand evaluation backtraces for option type or dependency errors before activation aborts.
 - Inspect the NixOS Home Manager service with `systemctl status home-manager-$USER.service` and stream logs via `journalctl -fu home-manager-$USER.service` on NixOS installations that manage activation as a system service.
-- Use `home-manager switch --dry-run` (or `--activation-trace`) to preview file links without touching the live home directory, then rerun with `--show-trace` if validation fails.
+- Use `home-manager switch --dry-run` to preview file links without touching the live home directory, then rerun with `--show-trace` if validation fails.
 
 ```bash
 home-manager switch --show-trace
@@ -192,7 +192,7 @@ journalctl -fu "home-manager-$USER.service"
 
 ### 4.3 Debugging Modules
 
-- Refer to `man home-configuration.nix` or `home-manager help option <name>` to confirm option types, defaults, and merged definitions prior to editing module code.
+- Refer to `man home-configuration.nix` or `home-manager option <name>` to confirm option types, defaults, and merged definitions prior to editing module code.
 - Custom activation scripts defined under `home.activation.*` should respect `DRY_RUN` and can emit verbose output by checking the `VERBOSE` environment variable set during activation.
 - Use `home-manager --override-input` or `--flake` overrides to test module patches against alternate Home Manager revisions without disturbing the system profile.
 

@@ -222,8 +222,10 @@ if "$list_broken"; then
   trap 'rm -f "$tmp"' EXIT
   echo
   echo ">>> duplicati-cli list-broken-files ..."
+  set +e
   duplicati-cli list-broken-files "${list_args[@]}" | tee "$tmp"
   status=$?
+  set -e
   if [[ $status -ne 0 ]]; then
     echo "duplicati-cli list-broken-files failed with exit code $status" >&2
     rm -f "$tmp"
@@ -241,8 +243,10 @@ if "$purge_broken"; then
   trap 'rm -f "$tmp"' EXIT
   echo
   echo ">>> duplicati-cli purge-broken-files ..."
+  set +e
   duplicati-cli purge-broken-files "${purge_args[@]}" | tee "$tmp"
   status=$?
+  set -e
   if [[ $status -ne 0 ]]; then
     echo "duplicati-cli purge-broken-files failed with exit code $status" >&2
     rm -f "$tmp"

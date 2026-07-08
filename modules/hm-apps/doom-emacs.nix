@@ -42,82 +42,86 @@ _: {
       inherit (doomCfg) doomDir enableLanguageTooling enableService;
     in
     {
-      imports = [ inputs.nix-doom-emacs-unstraightened.homeModule ];
+      imports = lib.optionals doomEnabled [ inputs.nix-doom-emacs-unstraightened.homeModule ];
 
-      config = lib.mkIf doomEnabled {
-        programs.doom-emacs = {
-          enable = true;
-          inherit doomDir;
-          doomLocalDir = "${config.xdg.dataHome}/nix-doom";
-          emacs = doomPackage;
-          # Upstream's default reads `config.programs.{ripgrep,git,fd}.package`;
-          # this repo opts those Home Manager wrappers out (`package = null`),
-          # so the upstream default would inject null entries that fail
-          # `types.listOf types.package`. Source the binaries directly from pkgs.
-          extraPackages = epkgs: [
-            # The bundled doomdir enables tree-sitter syntax for Nix, so keep
-            # that grammar available even when broader language tooling is off.
-            (epkgs.treesit-grammars.with-grammars (
-              grammars:
-              with grammars;
-              [
-                tree-sitter-nix
-              ]
-              ++ lib.optionals enableLanguageTooling [
-                tree-sitter-bash
-                tree-sitter-c
-                tree-sitter-css
-                tree-sitter-go
-                tree-sitter-html
-                tree-sitter-javascript
-                tree-sitter-jsdoc
-                tree-sitter-json
-                tree-sitter-lua
-                tree-sitter-markdown
-                tree-sitter-markdown-inline
-                tree-sitter-python
-                tree-sitter-rust
-                tree-sitter-toml
-                tree-sitter-tsx
-                tree-sitter-typescript
-                tree-sitter-yaml
-              ]
-            ))
-          ];
-          extraBinPackages =
-            with pkgs;
-            [
-              fd
-              git
-              ripgrep
-            ]
-            ++ lib.optionals enableLanguageTooling [
-              bash-language-server
-              biome
-              clang-tools
-              glow
-              go
-              gopls
-              jq
-              lua-language-server
-              marksman
-              nixd
-              nixfmt
-              pyright
-              ruff
-              rust-analyzer
-              rustfmt
-              shfmt
-              stylua
-              taplo
-              typescript-language-server
-              uv
-              vscode-langservers-extracted
-              yaml-language-server
-            ];
-        };
+      config =
+        if doomEnabled then
+          {
+            programs.doom-emacs = {
+              enable = true;
+              inherit doomDir;
+              doomLocalDir = "${config.xdg.dataHome}/nix-doom";
+              emacs = doomPackage;
+              # Upstream's default reads `config.programs.{ripgrep,git,fd}.package`;
+              # this repo opts those Home Manager wrappers out (`package = null`),
+              # so the upstream default would inject null entries that fail
+              # `types.listOf types.package`. Source the binaries directly from pkgs.
+              extraPackages = epkgs: [
+                # The bundled doomdir enables tree-sitter syntax for Nix, so keep
+                # that grammar available even when broader language tooling is off.
+                (epkgs.treesit-grammars.with-grammars (
+                  grammars:
+                  with grammars;
+                  [
+                    tree-sitter-nix
+                  ]
+                  ++ lib.optionals enableLanguageTooling [
+                    tree-sitter-bash
+                    tree-sitter-c
+                    tree-sitter-css
+                    tree-sitter-go
+                    tree-sitter-html
+                    tree-sitter-javascript
+                    tree-sitter-jsdoc
+                    tree-sitter-json
+                    tree-sitter-lua
+                    tree-sitter-markdown
+                    tree-sitter-markdown-inline
+                    tree-sitter-python
+                    tree-sitter-rust
+                    tree-sitter-toml
+                    tree-sitter-tsx
+                    tree-sitter-typescript
+                    tree-sitter-yaml
+                  ]
+                ))
+              ];
+              extraBinPackages =
+                with pkgs;
+                [
+                  fd
+                  git
+                  ripgrep
+                ]
+                ++ lib.optionals enableLanguageTooling [
+                  bash-language-server
+                  biome
+                  clang-tools
+                  glow
+                  go
+                  gopls
+                  jq
+                  lua-language-server
+                  marksman
+                  nixd
+                  nixfmt
+                  pyright
+                  ruff
+                  rust-analyzer
+                  rustfmt
+                  shfmt
+                  stylua
+                  taplo
+                  typescript-language-server
+                  uv
+                  vscode-langservers-extracted
+                  yaml-language-server
+                ];
+            };
 
-        services.emacs.enable = lib.mkDefault enableService;
-      };
+            services.emacs.enable = lib.mkDefault enableService;
+          }
+        else
+          { };
     };
 }

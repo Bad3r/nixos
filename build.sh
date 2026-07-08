@@ -302,15 +302,16 @@ configure_nix_config() {
   append_nix_config_line "access-tokens = github.com=$(gh auth token)"
 
   append_nix_config_line "warn-dirty = false"
-  append_nix_config_line "download-attempts = 5"
+  append_nix_config_line "download-attempts = 3"
+  append_nix_config_line "stalled-download-timeout = 300"
+  append_nix_config_line "max-substitution-jobs = 0"
+  append_nix_config_line "http-connections = 0"
   append_nix_config_line "connect-timeout = 30"
 
   if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
     append_nix_config_line "substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"
     append_nix_config_line "trusted-public-keys = ${BOOTSTRAP_TRUSTED_KEYS[*]}"
 
-    append_nix_config_line "max-substitution-jobs = 32"
-    append_nix_config_line "http-connections = 0"
     append_nix_config_line "http2 = true"
     append_nix_config_line "narinfo-cache-negative-ttl = 60"
 

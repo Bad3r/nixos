@@ -97,7 +97,7 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: <https://ocrmypdf.readthedocs.io/en/latest/>
   - Desc.: Adds a searchable OCR text layer to scanned PDFs while preserving the original page image.
   - Use..: Scanned PDF input; prefer over raw `tesseract` when the source is already a PDF.
-  - Stat.: Maintained (v17.4.1, 2026-04-06).
+  - Stat.: Maintained (v17.4.1, 2025-04-06).
 - readpdf
   - run..: `readpdf report.pdf`
   - More..:

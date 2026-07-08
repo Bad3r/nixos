@@ -32,28 +32,10 @@ let
     let
       cfg = config.programs."ungoogled-chromium".extended;
 
-      managedExtensionSettings = {
-        # uBlock Origin Lite
-        "ddkjiahejlhfcafbddmgiahcphecmpfh" = {
-          installation_mode = "force_installed";
-          update_url = "https://clients2.google.com/service/update2/crx";
-        };
-        # 1Password - Password Manager
-        "aeblfdkhhhdcdjpifhhbdiojplfjncoa" = {
-          installation_mode = "force_installed";
-          update_url = "https://clients2.google.com/service/update2/crx";
-        };
-      };
-
-      managedDefaultSearchProvider = {
-        DefaultSearchProviderEnabled = true;
-        DefaultSearchProviderName = "Google";
-        DefaultSearchProviderKeyword = "google.com";
-        DefaultSearchProviderSearchURL = "https://www.google.com/search?q={searchTerms}&hl=en&gl=US&pws=0&safe=off";
-        DefaultSearchProviderSuggestURL = "https://www.google.com/complete/search?hl=en&gl=US&client=chrome&q={searchTerms}";
-        DefaultSearchProviderIconURL = "https://www.google.com/favicon.ico";
-        DefaultSearchProviderEncodings = [ "UTF-8" ];
-      };
+      inherit (import ../_chromium-policies.nix)
+        managedExtensionSettings
+        managedDefaultSearchProvider
+        ;
 
       chromiumWebStoreSrc = pkgs.fetchFromGitHub {
         owner = "NeverDecaf";
@@ -153,5 +135,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps.ungoogled-chromium = UngoogledChromiumModule;
+  flake.nixosModules.browsers.ungoogled-chromium = UngoogledChromiumModule;
 }

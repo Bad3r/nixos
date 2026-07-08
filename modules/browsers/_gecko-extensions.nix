@@ -14,7 +14,7 @@
   firefoxpwaPackage ? null,
 }:
 let
-  geckoExtensionData = import ../lib/_gecko-extension-data.nix { inherit lib; };
+  geckoExtensionData = import ./_gecko-extension-data.nix { inherit lib; };
   inherit (geckoExtensionData)
     toWidgetId
     ublockOrigin

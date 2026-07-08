@@ -10,7 +10,7 @@
 */
 
 _: {
-  flake.homeManagerModules.apps.ungoogled-chromium =
+  flake.homeManagerModules.browsers.ungoogled-chromium =
     {
       osConfig,
       lib,

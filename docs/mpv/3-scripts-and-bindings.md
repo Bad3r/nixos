@@ -52,9 +52,12 @@ To enable or disable any of them or add more, see [customizing.md](5-customizing
 
 ## Inline Lua Hooks
 
-The HM module writes two Lua scripts via `xdg.configFile` to
-`~/.config/mpv/scripts/`. Both load alongside the bundled `mpvScripts.*`
-packages.
+The HM module ships two repo-local Lua scripts. Their source is rendered by
+`modules/hm-apps/mpv/scripts.nix` into script packages
+(`flake.lib.homeManager.mpvScripts`) that the HM module appends to
+`programs.mpv.scripts`, so both load alongside the bundled `mpvScripts.*`
+packages through the same `--script=` wrapper flags. Nothing is written to
+`~/.config/mpv/scripts/`.
 
 ### `playlist_filter.lua`
 

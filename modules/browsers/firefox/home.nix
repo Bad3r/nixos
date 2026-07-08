@@ -1,5 +1,5 @@
 _: {
-  flake.homeManagerModules.apps.firefox =
+  flake.homeManagerModules.browsers.firefox =
     {
       osConfig,
       lib,
@@ -18,7 +18,7 @@ _: {
         "extended"
         "package"
       ] pkgs.firefoxpwa osConfig;
-      gecko = import ./_gecko-mk-profile.nix {
+      gecko = import ../_gecko-mk-profile.nix {
         inherit
           pkgs
           lib

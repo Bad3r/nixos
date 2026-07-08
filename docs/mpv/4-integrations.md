@@ -17,8 +17,8 @@ applications. The mpv-related entries are:
 - `videoPlayerMimeTypes` and `audioPlayerMimeTypes`, the canonical MIME-type
   lists fed to `mkMimeDefaults`.
 
-The host's defaults module reads these structures and emits two parallel
-configurations:
+The shared defaults module (`modules/hosts/common/default-apps.nix`) reads
+these structures and emits parallel configurations:
 
 - `xdg.mime.defaultApplications` (NixOS): System-wide `/etc/xdg/mimeapps.list` registers `mpv.desktop` for the audio/video MIME set.
 - `home-manager.sharedModules.xdg.mimeApps.defaultApplications`: User-level `~/.config/mimeapps.list` carries the same mappings.
@@ -27,9 +27,9 @@ configurations:
 The MIME-type lists themselves are exhaustive (covering matroska, webm, mp4,
 opus, flac, etc.). Updating the list in the helper updates every consumer.
 
-Setting `<host>.defaults.audioPlayer = "mpv"` or `videoPlayer = "mpv"` while
+Setting `host.defaults.audioPlayer = "mpv"` or `videoPlayer = "mpv"` while
 `programs.mpv.extended.enable` is `false` fails the build with the assertion
-in `modules/<host>/default-apps.nix`; see [troubleshooting.md](6-troubleshooting.md)
+in `modules/hosts/common/default-apps.nix`; see [troubleshooting.md](6-troubleshooting.md)
 for the failure mode and the two resolutions.
 
 Only `videoPlayer` exports an environment variable (`VIDEO_PLAYER`), because

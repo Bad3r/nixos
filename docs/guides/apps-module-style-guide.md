@@ -604,11 +604,11 @@ This pattern aligns with CLAUDE.md guidance: "Use `lib.hasAttrByPath` + `lib.get
 | ----------------- | ----------------------------------------------------------- |
 | General support   | `grep -r "<tool>" /data/git/nix-community-stylix/modules/`  |
 | Firefox/LibreWolf | `cat /data/git/nix-community-stylix/modules/firefox/hm.nix` |
-| Available options | `cat /data/git/nix-community-stylix/modules/<tool>/`        |
+| Available options | `ls /data/git/nix-community-stylix/modules/<tool>/`         |
 
-### NUR Firefox Addons
+### Firefox/LibreWolf Extensions
 
-| Check        | Command                                                                      |
-| ------------ | ---------------------------------------------------------------------------- |
-| List addons  | `nix eval nixpkgs#nur.repos.rycee.firefox-addons --apply builtins.attrNames` |
-| Search addon | `nix search nixpkgs#nur.repos.rycee.firefox-addons.<name>`                   |
+Browser extensions are not sourced from NUR. Gecko extension IDs and AMO
+install URLs are pinned in `modules/browsers/_gecko-extension-data.nix`, and
+`modules/browsers/_gecko-extensions.nix` renders them into `ExtensionSettings`
+policies and per-profile extension lists.

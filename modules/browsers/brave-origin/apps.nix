@@ -18,7 +18,7 @@
 
   Notes:
     * Local copy of https://github.com/NixOS/nixpkgs/pull/511131 until the PR merges upstream.
-    * Package is defined under packages/brave-origin/ and wired through modules/system76/custom-packages-overlay.nix.
+    * Package is defined under packages/brave-origin/ and wired through modules/custom-overlays/brave-origin.nix.
     * Changelog: https://github.com/brave/brave-browser/blob/master/CHANGELOG_DESKTOP_ORIGIN.md (currently empty upstream).
 */
 _:
@@ -50,5 +50,5 @@ let
     };
 in
 {
-  flake.nixosModules.apps."brave-origin" = BraveOriginModule;
+  flake.nixosModules.browsers."brave-origin" = BraveOriginModule;
 }

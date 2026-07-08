@@ -13,7 +13,7 @@ jobs:
   update-librewolf-ubo-lists:
     runs-on: ubuntu-latest
     env:
-      LIST_FILE: modules/hm-apps/_librewolf-ubo-default-lists.json
+      LIST_FILE: modules/browsers/_librewolf-ubo-default-lists.json
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -42,6 +42,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create Pull Request
+        id: cpr
         if: steps.update.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
@@ -63,3 +64,10 @@ jobs:
             origin(automated)
             area(automation)
             area(home-manager)
+
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        run: gh pr merge --auto --squash "$PR_NUMBER"

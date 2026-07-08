@@ -39,7 +39,7 @@ in
     # should be imported here.
     imports = [
       # Required infrastructure (exported NixOS modules)
-      # Note: base includes Stylix via modules/style/stylix.nix contribution
+      # Note: base includes Stylix via modules/stylix/stylix.nix contribution
       config.flake.nixosModules.base
       config.flake.csec.wordlists
       config.flake.nixosModules.sopsRuntime

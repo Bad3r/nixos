@@ -288,7 +288,7 @@ These are managed declaratively via Nix. Manual edits will be overwritten on Hom
 
 1. Verify service is running: `systemctl --user status espanso`
 2. Check logs: `journalctl --user -u espanso`
-3. Test with `:espanso` trigger (built-in test)
+3. Test with the `:test` trigger (defined in this repo, expands to `test 1.2.3`)
 4. Ensure correct backend for your application (try `backend = "Clipboard"`)
 
 ### Wayland Clipboard Issues
