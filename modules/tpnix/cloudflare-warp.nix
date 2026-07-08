@@ -6,12 +6,14 @@
   (sops); see docs/cloudflare/warp/deployment.md for the dashboard prerequisites.
 
   Gated on tpnix's sopsRuntimeReady flag (modules/tpnix/policy.nix), matching the
-  other tpnix sops consumers (duplicati.nix, printing.nix, fonts.nix). tpnix has no
-  runtime SOPS decryption key yet, so with the flag false the wrapper stays off;
-  otherwise committing secrets/cloudflare-warp.yaml would make enrolling declare
-  sops.secrets."cloudflare-warp/*" and the cloudflare-warp-mdm template, and
-  sops-install-secrets/activation would fail on the un-decryptable payload instead of
-  the intended un-enrolled fallback. Flip the flag to true once tpnix can decrypt.
+  other tpnix sops consumers (duplicati.nix, printing.nix, fonts.nix). Repo-managed
+  sops decryption is enabled for tpnix (PR #305), so the flag is true and the
+  wrapper behaves like system76's: un-enrolled degraded mode (build warning, no
+  managed mdm.xml) until secrets/cloudflare-warp.yaml is committed, then
+  non-interactive enrollment. The gate still matters as a kill switch: if tpnix
+  ever loses its runtime decryption key, flipping the flag back to false drops the
+  WARP stack with it, so the sops.secrets."cloudflare-warp/*" declarations and the
+  cloudflare-warp-mdm template cannot fail activation on an un-decryptable payload.
 
   Note: the Zero Trust team name (organization) is identifying, and this repository
   is public, so it lives in secrets/cloudflare-warp.yaml (sops) and is rendered into
