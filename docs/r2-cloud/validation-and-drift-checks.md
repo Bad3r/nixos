@@ -56,8 +56,9 @@ Expected result:
 - all commands exit `0`
 - no missing-option/module import errors for `r2` surfaces
 - the ownership check proves `modules/hm-apps/rclone.nix` stays the single
-  writer of `~/.config/rclone/rclone.conf` and that a colliding
-  `programs.r2-cloud.enableRcloneRemote` fails evaluation
+  writer of `~/.config/rclone/rclone.conf`, that a colliding
+  `programs.r2-cloud.enableRcloneRemote` fails evaluation, and that a
+  populated `programs.rclone.remotes` fails evaluation
 
 ## Runtime Presence Checks (after switch/boot)
 

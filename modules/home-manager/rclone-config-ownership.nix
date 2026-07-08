@@ -9,13 +9,17 @@
 
   - the safe split keeps the repo activation writer as the only owner,
   - the colliding combination fails evaluation,
-  - a relocated programs.r2-cloud.rcloneConfigPath is accepted.
+  - a relocated programs.r2-cloud.rcloneConfigPath is accepted,
+  - a populated programs.rclone.remotes fails evaluation (this one is
+    independent of the r2-flake input, so it runs even when that input is
+    unavailable).
 
-  The three scenarios differ only in the enableRcloneRemote/rcloneConfigPath
-  values, so a failing colliding scenario is attributable to the ownership
-  assertion without matching on its message text. Home Manager gates config
-  access behind its own failed-assertion throw, which is why the colliding
-  scenario is probed with tryEval instead of reading config.assertions.
+  Each scenario differs from a passing baseline only in the
+  enableRcloneRemote/rcloneConfigPath/remotes values, so a failing scenario
+  is attributable to the ownership assertions without matching on message
+  text. Home Manager gates config access behind its own failed-assertion
+  throw, which is why the failing scenarios are probed with tryEval instead
+  of reading config.assertions.
 */
 {
   config,
@@ -110,7 +114,22 @@ in
         )
       ];
 
+      # Uses the upstream option shape (remotes.<name>.config, with the
+      # required "type" key) so the scenario is valid for the Home Manager
+      # rclone module and the only eval failure it can hit is the
+      # remotes-ownership assertion in modules/hm-apps/rclone.nix.
+      remotesConflict = mkRcloneHome [
+        {
+          programs.rclone.remotes.smoke.config = {
+            type = "s3";
+            provider = "Cloudflare";
+          };
+        }
+      ];
+
       collidingEval = builtins.tryEval collidingRemote.config.home.username;
+
+      remotesConflictEval = builtins.tryEval remotesConflict.config.home.username;
     in
     {
       checks."home-manager/rclone-config-ownership" =
@@ -129,6 +148,9 @@ in
         assert lib.assertMsg (
           (!r2HomeModuleAvailable) || relocatedRemote.config.home.activation ? configureRcloneConfig
         ) "relocated programs.r2-cloud.rcloneConfigPath lost the repo activation writer";
+        assert lib.assertMsg (
+          !remotesConflictEval.success
+        ) "non-empty programs.rclone.remotes colliding with the repo-owned rclone.conf was not rejected";
         pkgs.runCommand "rclone-config-ownership" { } "echo ok > $out";
     };
 }
