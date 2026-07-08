@@ -504,7 +504,9 @@ let
       autorandr.extended.enable = lib.mkOverride 1100 true;
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
-      "nomachine-server".extended.enable = lib.mkOverride 1100 true;
+      # Off in the baseline: NoMachine is a remote-login daemon and should be
+      # a deliberate per-host opt-in, not enabled for every shareCommon host.
+      "nomachine-server".extended.enable = lib.mkOverride 1100 false;
       pcscd.extended.enable = lib.mkOverride 1100 true;
       "protonmail-bridge".extended.enable = lib.mkOverride 1100 true;
       thinkfan.extended.enable = lib.mkOverride 1100 false;
