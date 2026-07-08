@@ -14,7 +14,9 @@ prog_name="${0##*/}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
-  cat >&2 <<EOF
+  # Help requested explicitly (-h/--help) prints to stdout; callers on the
+  # error path redirect this to stderr with `usage >&2`.
+  cat <<EOF
 usage: ${prog_name} [options]
 
 Detects local branches whose upstream tracking branch is gone after
@@ -107,13 +109,17 @@ while [[ $# -gt 0 ]]; do
     exit 0
     ;;
   *)
-    usage
+    error_msg "unknown option: $1"
+    usage >&2
     exit 1
     ;;
   esac
 done
 
-if [[ ${#roots[@]} -eq 0 ]]; then
+# Only fall back to the default root when the caller named neither a root nor
+# a specific --repo; an explicit --repo alone means "scan just that repo",
+# so pulling in $HOME/trees anyway would be a surprising extra scan.
+if [[ ${#roots[@]} -eq 0 && ${#extra_repos[@]} -eq 0 ]]; then
   roots=("${HOME}/trees")
 fi
 
@@ -255,8 +261,8 @@ register_worktree_dir() {
     common_dir="${dir}/${common_dir}"
   fi
   common_dir="$(canonical "${common_dir}")"
-  owner="$(dirname "${common_dir}")"
-  if [[ "$(basename "${common_dir}")" != ".git" ]]; then
+  owner="${common_dir%/*}"
+  if [[ ${common_dir##*/} != ".git" ]]; then
     # Bare repository or unusual layout; branch cleanup still works from the
     # git directory itself, worktree removal is guarded per candidate.
     owner="${common_dir}"
@@ -265,7 +271,7 @@ register_worktree_dir() {
 }
 
 scan_roots() {
-  local root canon_root level1 level2 found_worktree
+  local root canon_root level1 level2
   for root in "${roots[@]}"; do
     canon_root="$(canonical "${root}" 2>/dev/null)" || {
       error_msg "root does not exist, skipping: ${root}"
@@ -278,20 +284,17 @@ scan_roots() {
         register_worktree_dir "${level1}"
         continue
       fi
-      found_worktree=false
+      # Containers without any worktree are left alone; their nested entries
+      # are each registered or reported as orphans below.
       for level2 in "${level1}"/*/; do
         [[ -d ${level2} ]] || continue
         level2="${level2%/}"
         if [[ -e "${level2}/.git" ]]; then
           register_worktree_dir "${level2}"
-          found_worktree=true
         else
           record_orphan "${level2}" not-a-worktree
         fi
       done
-      # Containers without any worktree are left alone; their contents were
-      # already reported as orphans.
-      ${found_worktree} || true
     done
   done
 }
@@ -405,7 +408,7 @@ classify_worktree_status() {
     status_class=clean
     return
   fi
-  if [[ "$(wc -l <<<"${status}")" -eq 1 ]]; then
+  if [[ ${status} != *$'\n'* ]]; then
     line="${status}"
     xy="${line:0:2}"
     path="${line:3}"
@@ -440,7 +443,7 @@ remove_worktree_via_helper() {
 
 remove_empty_container() {
   local parent
-  parent="$(dirname "$1")"
+  parent="${1%/*}"
   if is_under_roots "${parent}" && [[ -d ${parent} && -z "$(ls -A "${parent}")" ]]; then
     rmdir "${parent}"
     log_line "removed-empty-dir=${parent}"
@@ -468,7 +471,7 @@ process_branch() {
   worktree="${branch_worktree[${branch}]:-none}"
   drift=""
 
-  if [[ -n ${pre_fetch_sha[${upstream}]:-} ]]; then
+  if [[ -n ${upstream} && -n ${pre_fetch_sha[${upstream}]:-} ]]; then
     if [[ ${pre_fetch_sha[${upstream}]} == "${tip}" ]]; then
       pushed=verified
     else

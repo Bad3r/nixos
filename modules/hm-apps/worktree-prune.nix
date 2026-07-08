@@ -83,9 +83,13 @@
         };
 
         backupRetentionDays = lib.mkOption {
-          type = lib.types.ints.positive;
+          type = lib.types.ints.unsigned;
           default = 90;
-          description = "Days to keep refs/prune-backup/* refs of deleted branches.";
+          description = ''
+            Days to keep refs/prune-backup/* refs of deleted branches. 0
+            disables expiry (keep backups indefinitely), matching the CLI's
+            --backup-retention-days 0.
+          '';
         };
       };
 

@@ -547,6 +547,27 @@ test_exclude_pattern_limits_candidates() {
   pass
 }
 
+test_include_pattern_limits_candidates() {
+  local out wt1 wt2
+  make_fixture include
+  wt1="${root}/proj/feat-rho"
+  wt2="${root}/proj/chore-sigma"
+  add_worktree_branch feat/rho "${wt1}"
+  add_worktree_branch chore/sigma "${wt2}"
+  delete_on_origin feat/rho
+  delete_on_origin chore/sigma
+
+  out="${tmpdir}/include.out"
+  run_sut "${out}" --root "${root}" --apply --include 'feat/*'
+
+  # Only the included branch is pruned; the non-matching gone branch stays.
+  assert_branch_absent feat/rho "include"
+  assert_dir_absent "${wt1}" "include"
+  assert_branch_exists chore/sigma "include"
+  assert_dir_exists "${wt2}" "include"
+  pass
+}
+
 test_json_output_is_valid() {
   local out wt
   make_fixture json
@@ -585,6 +606,7 @@ test_backup_refs_expire_after_retention
 test_backup_failure_blocks_branch_deletion
 test_fetch_failure_skips_repo
 test_exclude_pattern_limits_candidates
+test_include_pattern_limits_candidates
 test_json_output_is_valid
 
 printf '%d passed\n' "${tests_passed}"
