@@ -26,9 +26,22 @@
          PROTONDRIVE_OTP_SECRET_KEY=<obscured>      # only if 2FA is enabled
          PROTONDRIVE_MAILBOX_PASSWORD=<obscured>    # only on two-password accounts
 
-  Force a sync on demand:
+  Bootstrap and on-demand use:
+    The proton-drive-sync CLI is installed whenever the protondrive remote is
+    ready, independent of services.protonDriveSync.enable. For bisync, the
+    baseline must be built manually once: confirm localPath holds the desired
+    seed contents, then run `proton-drive-sync --resync` (rclone lets the
+    local side win resync conflicts). Timer-driven runs refuse to sync until
+    that baseline exists instead of silently seeding.
+
     proton-drive-sync            # run the configured sync immediately
-    proton-drive-sync --resync   # rebuild the bisync baseline (recovery)
+    proton-drive-sync --resync   # build or rebuild the bisync baseline
+
+  Multi-host caveat:
+    services.protonDriveSync.enable is off by default and should be enabled on
+    at most one host per Proton account: rclone bisync keeps per-machine
+    listings and assumes a single peer per side, so two hosts on independent
+    timers race on listings and conflict resolution.
 */
 
 _: {
@@ -93,10 +106,13 @@ _: {
               rclone sync "$remote" "$local_path" --create-empty-src-dirs "''${common[@]}" "''${extra[@]}"
               ;;
             bisync)
-              if [ "$resync" -eq 1 ] || [ ! -e "$state_dir/initialized" ]; then
-                echo "proton-drive-sync: building initial bisync baseline (--resync)" >&2
+              if [ "$resync" -eq 1 ]; then
+                echo "proton-drive-sync: building bisync baseline (--resync; local side wins conflicts)" >&2
                 rclone bisync "$local_path" "$remote" --resync --create-empty-src-dirs --resilient "''${common[@]}" "''${extra[@]}"
                 touch "$state_dir/initialized"
+              elif [ ! -e "$state_dir/initialized" ]; then
+                echo "proton-drive-sync: no bisync baseline; run 'proton-drive-sync --resync' once after confirming '$local_path' holds the desired seed contents." >&2
+                exit 1
               else
                 rclone bisync "$local_path" "$remote" --create-empty-src-dirs --resilient --conflict-resolve=newer --max-delete=25 "''${common[@]}" "''${extra[@]}"
               fi
@@ -113,11 +129,13 @@ _: {
       options.services.protonDriveSync = {
         enable = lib.mkOption {
           type = lib.types.bool;
-          default = protondriveReady;
+          default = false;
           description = ''
-            Whether to run automatic Proton Drive syncing. Defaults to true once
-            the protondrive rclone remote is ready (rclone enabled, the SOPS
-            secret present, and repo secrets active on the host).
+            Whether to run automatic Proton Drive syncing. Off by default even
+            when the protondrive rclone remote is ready: enable this on at most
+            one host per Proton account, since rclone bisync assumes a single
+            peer per side and two hosts syncing against the same remote race on
+            listings and conflict resolution.
           '';
         };
 
@@ -163,30 +181,35 @@ _: {
         };
       };
 
-      config = lib.mkIf cfg.enable {
-        home.packages = [ syncScript ];
+      config = lib.mkMerge [
+        # The CLI is the documented bootstrap/recovery path
+        # (proton-drive-sync --resync), so it must exist while the timer is
+        # still off; only the units are gated on cfg.enable.
+        (lib.mkIf protondriveReady {
+          home.packages = [ syncScript ];
+        })
 
-        systemd.user.services.proton-drive-sync = {
-          Unit = {
-            Description = "Proton Drive sync via rclone (${cfg.direction})";
-            After = [ "network-online.target" ];
-            Wants = [ "network-online.target" ];
+        (lib.mkIf cfg.enable {
+          systemd.user.services.proton-drive-sync = {
+            # No network-online.target dependency: the user manager has no
+            # such target, so ordering against it is a no-op. OnBootSec plus
+            # the periodic retry cover the offline-at-boot case.
+            Unit.Description = "Proton Drive sync via rclone (${cfg.direction})";
+            Service = {
+              Type = "oneshot";
+              ExecStart = lib.getExe syncScript;
+            };
           };
-          Service = {
-            Type = "oneshot";
-            ExecStart = lib.getExe syncScript;
-          };
-        };
 
-        systemd.user.timers.proton-drive-sync = {
-          Unit.Description = "Periodic Proton Drive sync (every ${cfg.interval})";
-          Timer = {
-            OnBootSec = "2m";
-            OnUnitActiveSec = cfg.interval;
-            Persistent = true;
+          systemd.user.timers.proton-drive-sync = {
+            Unit.Description = "Periodic Proton Drive sync (every ${cfg.interval})";
+            Timer = {
+              OnBootSec = "2m";
+              OnUnitActiveSec = cfg.interval;
+            };
+            Install.WantedBy = [ "timers.target" ];
           };
-          Install.WantedBy = [ "timers.target" ];
-        };
-      };
+        })
+      ];
     };
 }
