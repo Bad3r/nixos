@@ -158,7 +158,9 @@ writeShellApplication {
 
         if [ "$RUN_CLEAN" -eq 1 ]; then
           log ":: Running nh clean"
-          if ! run_cmd nh clean all --keep-since "$KEEP_SINCE" --keep "$KEEP_COUNT"; then
+          if run_cmd nh clean all --keep-since "$KEEP_SINCE" --keep "$KEEP_COUNT"; then
+            :
+          else
             CLEAN_RC=$?
             warn "nh clean failed with exit code $CLEAN_RC"
             OVERALL_RC=$CLEAN_RC
@@ -176,6 +178,9 @@ writeShellApplication {
               run_cmd sudo nix store verify --all --repair --no-trust
             fi
           else
+            # verify exits non-zero exactly when it finds bad paths; disable
+            # errexit so the triage below still runs on that outcome.
+            set +e
             if [ "$TRUST_VERIFY" -eq 1 ]; then
               # shellcheck disable=SC2024
               sudo nix store verify --all --repair >"$VERIFY_LOG" 2>&1
@@ -184,6 +189,7 @@ writeShellApplication {
               sudo nix store verify --all --repair --no-trust >"$VERIFY_LOG" 2>&1
             fi
             VERIFY_RC=$?
+            set -e
             cat "$VERIFY_LOG"
           fi
         else

@@ -5,7 +5,10 @@
   Documentation: https://support.google.com/chrome/
 
   Local Workarounds:
-    * Removes duplicate desktop file with broken /usr/bin path.
+    * Removes the duplicate com.google.Chrome.desktop launcher entry. nixpkgs
+      patches its Exec path, so it is a working duplicate of
+      google-chrome.desktop, not a broken one; dropping it avoids two
+      identical "Google Chrome" menu entries.
 
   Summary:
     * Full-featured web browser with Google account sync, built-in PDF viewer, and automatic updates.
@@ -35,28 +38,10 @@ let
     let
       cfg = config.programs.google-chrome.extended;
 
-      managedExtensionSettings = {
-        # uBlock Origin Lite
-        "ddkjiahejlhfcafbddmgiahcphecmpfh" = {
-          installation_mode = "force_installed";
-          update_url = "https://clients2.google.com/service/update2/crx";
-        };
-        # 1Password - Password Manager
-        "aeblfdkhhhdcdjpifhhbdiojplfjncoa" = {
-          installation_mode = "force_installed";
-          update_url = "https://clients2.google.com/service/update2/crx";
-        };
-      };
-
-      managedDefaultSearchProvider = {
-        DefaultSearchProviderEnabled = true;
-        DefaultSearchProviderName = "Google";
-        DefaultSearchProviderKeyword = "google.com";
-        DefaultSearchProviderSearchURL = "https://www.google.com/search?q={searchTerms}&hl=en&gl=US&pws=0&safe=off";
-        DefaultSearchProviderSuggestURL = "https://www.google.com/complete/search?hl=en&gl=US&client=chrome&q={searchTerms}";
-        DefaultSearchProviderIconURL = "https://www.google.com/favicon.ico";
-        DefaultSearchProviderEncodings = [ "UTF-8" ];
-      };
+      inherit (import ../_chromium-policies.nix)
+        managedExtensionSettings
+        managedDefaultSearchProvider
+        ;
     in
     {
       options.programs.google-chrome.extended = {
@@ -69,23 +54,22 @@ let
         package = lib.mkPackageOption pkgs "google-chrome" { };
       };
 
-      config = {
-        # Add overlay to apply workaround
-        # Must be unconditional so the package option can resolve
+      config = lib.mkIf cfg.enable {
         nixpkgs.overlays = [
           (_final: prev: {
             google-chrome = prev.google-chrome.overrideAttrs (oldAttrs: {
               postInstall = (oldAttrs.postInstall or "") + ''
-                # Remove unpatched duplicate desktop file with broken /usr/bin path
+                # nixpkgs patches this file's Exec path, so it duplicates
+                # google-chrome.desktop; drop it to avoid a second launcher.
                 rm -f $out/share/applications/com.google.Chrome.desktop
               '';
             });
           })
         ];
 
-        environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
+        environment.systemPackages = [ cfg.package ];
 
-        environment.etc = lib.mkIf cfg.enable {
+        environment.etc = {
           "opt/chrome/policies/managed/extension-settings.json".text = builtins.toJSON {
             ExtensionSettings = managedExtensionSettings;
           };

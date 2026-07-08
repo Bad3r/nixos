@@ -3,7 +3,6 @@
   Description: Freeware web browser developed by Google.
   Homepage: https://www.google.com/chrome/
   Documentation: https://support.google.com/chrome/
-  Repository: https://github.com/nicotine-plus/nicotine-plus
 
   Summary:
     * Full-featured web browser with Google account sync, built-in PDF viewer, and automatic updates.
@@ -29,7 +28,13 @@ _: {
     in
     {
       config = lib.mkIf nixosEnabled {
-        programs.google-chrome.enable = true;
+        programs.google-chrome = {
+          enable = true;
+          # Keep the Home Manager profile on the same build the NixOS side
+          # resolved, so a host override of extended.package cannot desync
+          # the two installs (matches the other browsers' home modules).
+          package = osConfig.programs.google-chrome.extended.package;
+        };
       };
     };
 }

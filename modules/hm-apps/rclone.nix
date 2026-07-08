@@ -63,24 +63,41 @@ _: {
               } > "$tmpConfig"
 
               if [ "$gdriveEnabled" = true ]; then
-                unset GDRIVE_CLIENT_ID GDRIVE_CLIENT_SECRET GDRIVE_TOKEN
-                . "$gdriveEnvPath"
-
-                if [ -z "$GDRIVE_CLIENT_ID" ] || [ -z "$GDRIVE_CLIENT_SECRET" ]; then
-                  echo "rclone gdrive env file is missing GDRIVE_CLIENT_ID or GDRIVE_CLIENT_SECRET: $gdriveEnvPath" >&2
-                  exit 1
-                fi
-
-                {
-                  printf '\n[gdrive]\n'
-                  printf 'type = drive\n'
-                  printf 'client_id = %s\n' "$GDRIVE_CLIENT_ID"
-                  printf 'client_secret = %s\n' "$GDRIVE_CLIENT_SECRET"
-                  printf 'scope = drive\n'
-                  if [ -n "''${GDRIVE_TOKEN:-}" ]; then
-                    printf 'token = %s\n' "$GDRIVE_TOKEN"
+                # The sops secret may not be materialized yet on a first
+                # activation; skip with a warning instead of aborting the
+                # whole home-manager activation under set -eu.
+                if [ ! -r "$gdriveEnvPath" ]; then
+                  echo "rclone gdrive env file is missing or unreadable at $gdriveEnvPath; skipping gdrive remote refresh for this activation" >&2
+                  # Carry the previously rendered [gdrive] stanza forward so a
+                  # transiently unreadable secret does not drop a working
+                  # remote from the rewritten config.
+                  if [ -r "$renderedConfig" ]; then
+                    prevGdrive="$(sed -n '/^\[gdrive\]$/,/^\[/{ /^\[gdrive\]$/p; /^\[/!p; }' "$renderedConfig")"
+                    if [ -n "$prevGdrive" ]; then
+                      printf '\n%s\n' "$prevGdrive" >> "$tmpConfig"
+                      echo "rclone gdrive remote preserved from the previous rendered config" >&2
+                    fi
                   fi
-                } >> "$tmpConfig"
+                else
+                  unset GDRIVE_CLIENT_ID GDRIVE_CLIENT_SECRET GDRIVE_TOKEN
+                  . "$gdriveEnvPath"
+
+                  if [ -z "''${GDRIVE_CLIENT_ID:-}" ] || [ -z "''${GDRIVE_CLIENT_SECRET:-}" ]; then
+                    echo "rclone gdrive env file is missing GDRIVE_CLIENT_ID or GDRIVE_CLIENT_SECRET: $gdriveEnvPath" >&2
+                    exit 1
+                  fi
+
+                  {
+                    printf '\n[gdrive]\n'
+                    printf 'type = drive\n'
+                    printf 'client_id = %s\n' "$GDRIVE_CLIENT_ID"
+                    printf 'client_secret = %s\n' "$GDRIVE_CLIENT_SECRET"
+                    printf 'scope = drive\n'
+                    if [ -n "''${GDRIVE_TOKEN:-}" ]; then
+                      printf 'token = %s\n' "$GDRIVE_TOKEN"
+                    fi
+                  } >> "$tmpConfig"
+                fi
               fi
 
               chmod 600 "$tmpConfig"

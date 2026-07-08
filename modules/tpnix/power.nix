@@ -84,13 +84,6 @@
           HandleLidSwitchDocked = "ignore";
         };
 
-        journald = {
-          storage = "persistent";
-          extraConfig = ''
-            SystemMaxUse=200M
-          '';
-        };
-
         fstrim.enable = true;
       };
 

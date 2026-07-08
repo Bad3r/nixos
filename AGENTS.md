@@ -122,7 +122,8 @@ is `modules/readme.nix`.
   - Location: `secrets/`
   - Notes: Encrypted payloads managed via `sops.secrets`.
 - Generated artifacts
-  - Location: `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`
+  - Location: `.actrc`, `.githooks/post-checkout`, `.gitignore`,
+    `.gitleaks.toml`, `.sops.yaml`, `README.md`
   - Notes: Owned by the files module. Update source definitions instead of editing generated output directly.
 
 ### Local Mirrors
@@ -183,7 +184,7 @@ PR body should include:
 - Generate artifacts
   - Command: `nix develop --accept-flake-config -c write-files --offline`
   - Preconditions: Dev shell ready; managed files may update.
-  - Post-check: Review diffs in `.actrc`, `.gitignore`, `.sops.yaml`, `README.md`.
+  - Post-check: Review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`, `.gitleaks.toml`, `.sops.yaml`, `README.md`.
 
 ### Validation and Builds
 
