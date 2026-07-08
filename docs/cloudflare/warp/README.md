@@ -48,10 +48,12 @@ is enabled it:
 The common baseline (`modules/hosts/common/apps-enable.nix`) defaults the app
 OFF; enrollment is a deliberate per-host opt-in. `system76` enables the wrapper
 directly. `tpnix` gates `enable` on `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`
-(currently `false`, `modules/tpnix/policy.nix`), like its other sops consumers, so
-the wrapper stays off until tpnix has a runtime decryption key; without the gate,
-committing the secret would make tpnix declare `cloudflare-warp/*` secrets it cannot
-decrypt and fail activation.
+(currently `true` since repo-managed sops landed for tpnix in PR #305,
+`modules/tpnix/policy.nix`), like its other sops consumers, so both hosts run
+the wrapper un-enrolled until `secrets/cloudflare-warp.yaml` is committed. The
+gate remains a kill switch: if tpnix ever loses its runtime decryption key,
+flipping the flag back to `false` also drops the `cloudflare-warp/*` secret
+declarations that would otherwise fail activation on an un-decryptable payload.
 
 ## Security model
 
