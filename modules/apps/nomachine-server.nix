@@ -18,6 +18,9 @@
   Notes:
     * Uses services namespace because NoMachine runs as a system daemon.
     * The upstream installer mutates /etc, /usr, PAM, polkit, systemd, and firewall state. This module exposes the same payload through NixOS-managed users, files, tmpfiles, firewall rules, and systemd service definitions.
+    * The systemd unit mirrors the upstream scripts/systemd/nxserver.service (User=nx, Type=simple, KillMode=process, SuccessExitStatus="0 SIGTERM", Restart=always): the daemon deliberately runs as the unprivileged nx account, and nxexec stays foreground so Type=simple is correct (no forking).
+    * The daemon is NOT yet functional end-to-end on NixOS: the upstream installer marks nxexec, nxfsm, and /etc/NX/nxserver setuid-root (nxsetup lines ~6225/10001/10012) so the nx-user daemon can escalate for PAM auth and per-user session spawn. The read-only, nosuid Nix store cannot carry those bits through the ${serverRoot}/bin store symlink, so client authentication and session startup need setuid wrappers wired through security.wrappers pointing ${serverRoot}/bin/{nxexec,nxfsm} at /run/wrappers/bin. Tracked as follow-up; verifying it requires a live deploy plus a client connection.
+    * tmpfiles `C ${serverRoot}/etc` seeds the mutable config once; it is not refreshed when cfg.package changes. After a package update that ships new etc defaults, wipe ${serverRoot}/etc so the daemon picks up upstream changes.
     * NoMachine v8 and newer use TCP port 4000 and UDP port 4000 for NX protocol connections.
     * Package is unfree and must remain in `nixpkgs.allowedUnfreePackages`.
 */
@@ -147,8 +150,14 @@ let
 
         openFirewall = lib.mkOption {
           type = lib.types.bool;
-          default = true;
-          description = "Whether to open the NoMachine NX TCP and UDP ports in the firewall.";
+          default = false;
+          description = ''
+            Whether to open the NoMachine NX TCP and UDP ports (4000) in the
+            firewall on every interface. Off by default: NX is a remote-login
+            surface, so opening it is a deliberate per-host decision. Prefer
+            scoping the ports to a trusted interface (e.g. tailscale0) in the
+            host firewall module instead of enabling this blanket opener.
+          '';
         };
       };
 
@@ -175,8 +184,18 @@ let
           "NX/server/localhost/node.cfg".text = ''
             NodeRoot = "${serverRoot}"
           '';
-          "pam.d/nx".source = "${cfg.package}/NX/scripts/etc/pam.d/nx";
-          "pam.d/nxlimits".source = "${cfg.package}/NX/scripts/etc/pam.d/nxlimits";
+        };
+
+        # The upstream pam.d/nx is "auth include su" and pam.d/nxlimits is a
+        # bare "session optional pam_limits.so". Dropping those verbatim into
+        # /etc/pam.d fails on NixOS: generated PAM files reference modules by
+        # absolute store path, so a bare pam_limits.so never resolves. Declare
+        # the services so NixOS emits store-path-correct stacks (nx = standard
+        # unix password auth, matching upstream's delegation to su; nxlimits =
+        # session-only stack that carries pam_limits).
+        security.pam.services = {
+          nx = { };
+          nxlimits = { };
         };
 
         systemd.tmpfiles.rules = [
