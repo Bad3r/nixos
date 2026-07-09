@@ -48,9 +48,6 @@ let
     - Never run `git clean -fd`.
     - Never run `git add -A` or `git add .`; stage explicit file paths only.
     - Never run `git push --force` to `main` or `master`.
-    - Never use `--no-verify` or `--no-gpg-sign`.
-    - Never disable commit signing through any other mechanism either: no `-c commit.gpgsign=false`, no `GIT_CONFIG_PARAMETERS`, no git config edits. The shared system prompt's retry-once-unsigned fallback for unreachable signers does not apply inside this skill; if signing fails, stop and report the signer error.
-    - Never run `rm` or `rm -rf`; use recoverable deletion tool `rip` when deletion is required.
     - Treat `flake.lock` as protected and exclude it from transfer, staging, and cleanup unless the user explicitly requests it.
     - When moving edits to a new worktree with explicit file paths, only those paths must become clean in the invoking checkout before staging or commit continues.
     - If the required cleanup scope remains dirty after transfer, fail hard and report remaining paths.
