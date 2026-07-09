@@ -46,12 +46,25 @@ jobs:
           inputs=$(nix flake metadata --json "path:." \
             | jq -r '.locks.nodes.root.inputs | keys[]')
 
+          failures=0
+          total=0
           if [ -n "$inputs" ]; then
             for input in $inputs; do
+              total=$((total + 1))
               echo "Updating $input..."
-              nix flake update "$input" --flake "path:." \
-                || echo "Failed to update $input, skipping..."
+              nix flake update "$input" --flake "path:." || {
+                echo "Failed to update $input, skipping..."
+                failures=$((failures + 1))
+              }
             done
+          fi
+
+          # A single per-input failure stays best-effort, but every input
+          # failing is a systemic outage, not a genuine "everything current"
+          # day: fail so it is not masked as a green changed=false.
+          if [ "$total" -gt 0 ] && [ "$failures" -eq "$total" ]; then
+            echo "All $total flake input updates failed" >&2
+            exit 1
           fi
 
           # Check if flake.lock changed
