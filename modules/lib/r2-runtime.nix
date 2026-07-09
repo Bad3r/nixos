@@ -110,6 +110,11 @@
             accountIdFile = "/run/secrets/r2/account-id";
             credentialsFile = "/run/secrets/r2/credentials.env";
             explorerEnvFile = "/run/secrets/r2/explorer.env";
+            # Upstream defaults this to true, which would register a second
+            # writer for ~/.config/rclone/rclone.conf. That file is owned by
+            # modules/hm-apps/rclone.nix while programs.rclone.extended.enable
+            # is set (the common-host default); its assertion rejects the
+            # colliding combination.
             enableRcloneRemote = false;
           };
 
