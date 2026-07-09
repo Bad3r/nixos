@@ -81,7 +81,7 @@ One file can populate both aggregators. Keep the scopes independent.
 { lib, ... }:
 let
   settings = {
-    experimental-features = [ "nix-command" "flakes" "pipe-operators" "recursive-nix" ];
+    experimental-features = [ "nix-command" "flakes" "pipe-operator" "flake-self-attrs" ];
     auto-optimise-store = lib.mkDefault true;
   };
 in

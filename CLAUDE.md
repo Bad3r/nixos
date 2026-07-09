@@ -18,13 +18,21 @@ Canonical architecture documentation lives under `docs/architecture/`.
 
 ## Nix Configuration
 
+Hosts, Home Manager, repo hooks, and CI run Lix
+(`pkgs.lixPackageSets.latest.lix`, selected in `modules/base/nix-package.nix`;
+RFC issue #282). Lix requires the `flake-self-attrs` experimental feature for
+this flake's `self.submodules = true`; it must come from ambient configuration
+(`modules/base/nix-settings.nix`, CI installer conf, `build.sh` `NIX_CONFIG`)
+because Lix enforces it before `nixConfig` applies.
+
 `flake.nix#nixConfig` carries only pre-evaluation settings needed before the
 module graph is loaded:
 
 - `abort-on-warn = false`
   Do not abort on warnings.
-- `extra-experimental-features = [ "pipe-operators" ]`
-  Enable pipe operator syntax in Nix expressions.
+- `extra-experimental-features = [ "pipe-operator" "pipe-operators" ]`
+  Enable pipe operator syntax under the Lix name (singular) and the CppNix
+  name (plural) for pre-cutover and third-party CppNix evaluators.
 - `allow-import-from-derivation = true`
   Required by IFD consumer `nix-doom-emacs-unstraightened`.
 
