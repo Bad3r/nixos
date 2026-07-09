@@ -91,6 +91,21 @@ jobs:
         if: steps.update.outputs.changed == 'true'
         run: nix flake check --accept-flake-config --no-build "path:."
 
+      - name: Free disk space
+        if: steps.update.outputs.changed == 'true'
+        # Reclaim ~15 GB of preinstalled toolchains so one host closure fits.
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+
+      # Realise one host closure (both exceed runner disk, hence --no-build on
+      # the flake check). Gates the auto-merged PR on an actual build: a lock
+      # bump that evaluates but fails to build (broken patch, a package that no
+      # longer compiles) fails the run before the PR is created and merged.
+      - name: Build host closure
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          nix build --accept-flake-config --no-link -L \
+            "path:.#nixosConfigurations.system76.config.system.build.toplevel"
+
       - name: Show updated inputs
         if: steps.update.outputs.changed == 'true'
         # path:. avoids the git self-fetch of the unreadable secrets submodule.
