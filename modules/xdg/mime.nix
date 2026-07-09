@@ -72,6 +72,11 @@ let
     "x-scheme-handler/magnet"
   ];
 
+  # MIME types for remote desktop clients
+  remoteDesktopClientMimeTypes = [
+    "application/x-rdp"
+  ];
+
   # MIME types for terminal emulators
   terminalMimeTypes = [
     "application/x-terminal-emulator"
@@ -297,6 +302,15 @@ let
       };
     };
 
+    remoteDesktopClient = {
+      remmina = {
+        desktop = "org.remmina.Remmina-file.desktop";
+        module = "remmina";
+        mimeTypes = remoteDesktopClientMimeTypes;
+        addedAssociations = remoteDesktopClientMimeTypes;
+      };
+    };
+
     fileManager = {
       dolphin = {
         desktop = "org.kde.dolphin.desktop";
@@ -391,6 +405,7 @@ let
       newsMimeTypes
       thunderbirdMimeTypes
       torrentClientMimeTypes
+      remoteDesktopClientMimeTypes
       terminalMimeTypes
       fileManagerMimeTypes
       archiveMimeTypes
@@ -404,6 +419,7 @@ let
     mkBrowserDefaults = mkDefaults browserMimeTypes;
     mkMailClientDefaults = mkDefaults mailClientMimeTypes;
     mkTorrentClientDefaults = mkDefaults torrentClientMimeTypes;
+    mkRemoteDesktopClientDefaults = mkDefaults remoteDesktopClientMimeTypes;
     mkTerminalDefaults = mkDefaults terminalMimeTypes;
     mkFileManagerDefaults = mkDefaults fileManagerMimeTypes;
     mkArchiveManagerDefaults = mkDefaults archiveMimeTypes;
@@ -445,6 +461,16 @@ let
       description = ''
         Default BitTorrent client for this host.
         Set to null to not configure a default BitTorrent client via XDG mimeapps.
+      '';
+    };
+
+    remoteDesktopClient = {
+      mkMimeDefaults = mime.mkRemoteDesktopClientDefaults;
+      defaultValue = "remmina";
+      example = "remmina";
+      description = ''
+        Default remote desktop client for RDP profile files.
+        Set to null to not configure a default RDP profile file handler via XDG mimeapps.
       '';
     };
 
@@ -680,6 +706,7 @@ in
     { pkgs, ... }:
     let
       thunderbird = desktopFiles.mailClient.thunderbird;
+      remmina = desktopFiles.remoteDesktopClient.remmina;
       thunderbirdMimeHandlersOk =
         lib.assertMsg (
           mailClientMimeTypes == [
@@ -693,15 +720,35 @@ in
         && lib.assertMsg (
           thunderbird.addedAssociations == thunderbirdMimeTypes
         ) "Thunderbird must add associations for every defaulted MIME handler";
+      remminaRdpMimeHandlersOk =
+        lib.assertMsg (
+          remoteDesktopClientMimeTypes == [ "application/x-rdp" ]
+        ) "remote desktop client MIME defaults must stay scoped to RDP profile files"
+        && lib.assertMsg (
+          remmina.mimeTypes == remoteDesktopClientMimeTypes
+        ) "Remmina must opt into RDP profile file MIME defaults"
+        && lib.assertMsg (
+          remmina.addedAssociations == remoteDesktopClientMimeTypes
+        ) "Remmina must add associations for every defaulted RDP MIME handler";
     in
     {
-      checks.xdg-thunderbird-mime-handlers =
-        if thunderbirdMimeHandlersOk then
-          pkgs.runCommandLocal "xdg-thunderbird-mime-handlers-ok" { } ''
-            echo "ok: Thunderbird MIME handlers are scoped and associated" > $out
-          ''
-        else
-          throw "unreachable";
+      checks = {
+        xdg-thunderbird-mime-handlers =
+          if thunderbirdMimeHandlersOk then
+            pkgs.runCommandLocal "xdg-thunderbird-mime-handlers-ok" { } ''
+              echo "ok: Thunderbird MIME handlers are scoped and associated" > $out
+            ''
+          else
+            throw "unreachable";
+
+        xdg-remmina-rdp-mime-handlers =
+          if remminaRdpMimeHandlersOk then
+            pkgs.runCommandLocal "xdg-remmina-rdp-mime-handlers-ok" { } ''
+              echo "ok: Remmina RDP MIME handlers are scoped and associated" > $out
+            ''
+          else
+            throw "unreachable";
+      };
     };
 
   flake = {

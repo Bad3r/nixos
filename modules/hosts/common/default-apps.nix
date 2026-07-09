@@ -8,6 +8,7 @@
     host.defaults.browser = "librewolf";
     host.defaults.mailClient = "thunderbird"; # Email, calendar, feeds, and newsgroups.
     host.defaults.torrentClient = "qbittorrent";
+    host.defaults.remoteDesktopClient = "remmina";
     host.defaults.terminal = "kitty";
     host.defaults.fileManager = "nemo";
     host.defaults.archiveManager = "file-roller";
