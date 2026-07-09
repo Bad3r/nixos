@@ -158,6 +158,10 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
   - Command: `git worktree add $HOME/trees/nixos/<type>-<name> -b <type>/<name>`
 - Work
   - Command: `cd $HOME/trees/nixos/<type>-<name>` then commit changes
+  - Rule: give flake commands an explicit `path:.` installable in linked
+    worktrees (`nix develop path:.`, `nix flake check path:.`); Lix cannot
+    fetch a clean linked worktree as a `git+file` flake because `.git` is a
+    file there, not a directory
 - PR
   - Command: `gh pr create --title "<type>(scope): summary" --body "..."` (Assign labels)
 - Cleanup after merge

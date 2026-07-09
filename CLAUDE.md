@@ -154,6 +154,11 @@ Create a worktree:
 git worktree add "$HOME/trees/nixos/<type>-<name>" -b "<type>/<name>"
 ```
 
+In a linked worktree, give flake commands an explicit `path:.` installable
+(`nix develop path:.`, `nix flake check path:.`, `nix eval "path:.#..."`):
+Lix cannot fetch a clean linked worktree as a `git+file` flake because `.git`
+is a file there, not a directory. The repo hooks already do this.
+
 Work in that tree, then create a PR:
 
 ```sh
