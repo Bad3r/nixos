@@ -35,11 +35,8 @@ jobs:
       - name: Update flake inputs
         id: update
         run: |
-          # Update all inputs except secrets (requires private SSH access)
-          # Get all inputs except 'secrets' and 'self'
           inputs=$(nix flake metadata --json \
-            | jq -r '.locks.nodes.root.inputs | keys[]' \
-            | grep -v "^secrets$" || true)
+            | jq -r '.locks.nodes.root.inputs | keys[]')
 
           if [ -n "$inputs" ]; then
             for input in $inputs; do
@@ -55,7 +52,7 @@ jobs:
             echo "No updates available"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Flake inputs updated (excluding secrets)"
+            echo "Flake inputs updated"
           fi
 
       - name: Check Nixpkgs lock health
@@ -117,9 +114,6 @@ jobs:
             - ✅ Flake inputs updated successfully
             - ✅ `nix flake check --accept-flake-config --no-build "path:."`
               passed (secretless evaluation, issue #327)
-
-            ### Excluded Inputs
-            - `secrets` - Requires private authentication, updated manually
 
             ### Changed Inputs
             See the commit diff for detailed changes to `flake.lock`.
