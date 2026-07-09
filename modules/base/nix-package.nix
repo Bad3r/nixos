@@ -3,15 +3,10 @@ let
   polyModule =
     { pkgs, ... }:
     {
-      nix.package =
-        let
-          versions = lib.attrNames pkgs.nixVersions;
-          nixVersions = lib.filter (lib.hasPrefix "nix_") versions;
-          sorted = lib.naturalSort nixVersions;
-          latest = lib.last sorted;
-          package = lib.getAttr latest pkgs.nixVersions;
-        in
-        lib.mkDefault package;
+      # Lix (RFC #282). `latest` (>= 2.95) is required for the
+      # `abort-on-warn` setting in modules/base/nix-settings.nix.
+      # Rollback to CppNix: `nix.package = pkgs.nixVersions.latest`.
+      nix.package = lib.mkDefault pkgs.lixPackageSets.latest.lix;
     };
 in
 {
