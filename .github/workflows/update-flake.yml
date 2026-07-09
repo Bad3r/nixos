@@ -75,9 +75,16 @@ jobs:
         # policy stays in sync before the flake check evaluates it.
         run: scripts/update-firefoxpwa-extension.py
 
+      # "path:." bypasses the git fetcher: flake.nix sets
+      # self.submodules = true, which would make any git-based self fetch
+      # pull the private secrets submodule that CI cannot read. Secret
+      # files are then absent, so the per-file pathExists guards evaluate
+      # the secretless configuration and warn about disabled services.
+      # --no-build: the flake checks include both host toplevels, and
+      # building two desktop closures exceeds runner disk.
       - name: Run flake check
         if: steps.update.outputs.changed == 'true'
-        run: nix flake check --accept-flake-config
+        run: nix flake check --accept-flake-config --no-build "path:."
 
       - name: Show updated inputs
         if: steps.update.outputs.changed == 'true'
@@ -107,8 +114,9 @@ jobs:
             This PR updates all flake inputs to their latest versions.
 
             ### Validation
-            - ✅ Flake inputs updated successfully (excluding `secrets`)
-            - ✅ `nix flake check --accept-flake-config` passed
+            - ✅ Flake inputs updated successfully
+            - ✅ `nix flake check --accept-flake-config --no-build "path:."`
+              passed (secretless evaluation, issue #327)
 
             ### Excluded Inputs
             - `secrets` - Requires private authentication, updated manually

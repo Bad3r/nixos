@@ -8,8 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5.0.0
         with:
-          submodules: true
-          fetch-depth: 0
+          persist-credentials: false
       - name: Check Nixpkgs lock health
         uses: DeterminateSystems/flake-checker-action@v12
         with:
@@ -26,8 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5.0.0
         with:
-          submodules: true
-          fetch-depth: 0
+          persist-credentials: false
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
@@ -42,21 +40,25 @@ jobs:
           URL="https://github.com/"
           git config --global url."$URL".insteadOf git@github.com:
           git config --global url."$URL".insteadOf ssh://git@github.com/
+      # "path:." bypasses the git fetcher: self.submodules = true would
+      # make a git-based self fetch pull the private secrets submodule
+      # that CI cannot read; the per-file pathExists guards then evaluate
+      # the secretless configuration. --no-build: the flake checks include
+      # both host toplevels, and building them exceeds runner disk.
       - name: Check flake
-        run: nix flake check --extra-experimental-features pipe-operators
+        run: nix flake check --accept-flake-config --no-build "path:."
       - name: Build configurations
         run: |
-          HOST=".#nixosConfigurations.system76"
+          HOST="path:.#nixosConfigurations.system76"
           nix build "$HOST.config.system.build.toplevel" \
-            --dry-run --extra-experimental-features pipe-operators
+            --dry-run --accept-flake-config
 
   format-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5.0.0
         with:
-          submodules: true
-          fetch-depth: 0
+          persist-credentials: false
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
@@ -65,16 +67,20 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes pipe-operators
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+      # nix fmt resolves .#formatter through the git fetcher, which would
+      # pull the private secrets submodule; run the formatter from the
+      # path-fetched flake instead.
       - name: Check formatting
-        run: nix fmt -- --ci
+        run: >-
+          nix run --accept-flake-config
+          "path:.#formatter.x86_64-linux" -- --ci
 
   module-validation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5.0.0
         with:
-          submodules: true
-          fetch-depth: 0
+          persist-credentials: false
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
