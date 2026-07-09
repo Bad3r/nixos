@@ -6,7 +6,8 @@ _: {
         name = "hook-pre-commit-config-sync";
         runtimeInputs = [
           pkgs.git
-          pkgs.nix
+          # Lix: eval semantics must match what hosts run (RFC #282).
+          pkgs.lixPackageSets.latest.lix
           pkgs.coreutils
         ];
         text = # bash
@@ -49,7 +50,10 @@ _: {
             # scripts/hooks/sync-pre-commit-hooks.sh and
             # scripts/hooks/install-git-hooks.sh from the shellHook.
             sync_log=$(mktemp -t pre-commit-config-sync.XXXXXX)
-            if ! nix develop --accept-flake-config --offline -c true >"$sync_log" 2>&1; then
+            # Features are passed explicitly so the hook does not depend on
+            # the invoking host's nix.conf feature list.
+            if ! nix develop --extra-experimental-features 'pipe-operator flake-self-attrs' \
+              --accept-flake-config --offline -c true >"$sync_log" 2>&1; then
               {
                 echo "pre-commit-config-sync: offline hook sync failed."
                 echo "If updated inputs or tools are missing from the local store, realize them once with network access:"
