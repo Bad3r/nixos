@@ -63,9 +63,11 @@ jobs:
         with:
           send-statistics: false
           fail-mode: true
+          # CEL has() only accepts field selectors, not bare variables.
+          # Keep in sync with modules/meta/pre-commit.nix.
           condition: >-
-            supportedRefs.contains(gitRef) && has(numDaysOld)
-            && numDaysOld < 30 && owner == 'Bad3r'
+            supportedRefs.contains(gitRef) && numDaysOld < 30
+            && owner == 'Bad3r'
 
       - name: Sync firefoxpwa extension pin
         if: steps.update.outputs.changed == 'true'
