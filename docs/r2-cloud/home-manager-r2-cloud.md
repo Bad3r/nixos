@@ -12,6 +12,8 @@ inputs for user `vx`.
 - `modules/system76/imports.nix`
 - `modules/home-manager/nixos.nix`
 - `modules/home/r2-secrets.nix`
+- `modules/hm-apps/rclone.nix`
+- `modules/home-manager/rclone-config-ownership.nix`
 
 ## Not Covered
 
@@ -54,6 +56,28 @@ Operational effect (when enabled):
 - wrapper reads credentials/account ID from rendered runtime secret paths
 - wrapper can source Worker share admin variables from `explorer.env`
 
+## `rclone.conf` Ownership
+
+`modules/hm-apps/rclone.nix` renders `~/.config/rclone/rclone.conf` from a
+Home Manager activation step whenever `programs.rclone.extended.enable` is
+true (the common-host default from `modules/hosts/common/apps-enable.nix`).
+While that option is set, the activation writer is the single owner of the
+file.
+
+`programs.r2-cloud.enableRcloneRemote` (upstream default: `true`) renders
+`programs.r2-cloud.rcloneConfigPath`, which defaults to the same file. Two
+writers for one path let one generation silently drop the other's remotes,
+such as `gdrive`. `modules/hm-apps/rclone.nix` therefore asserts that
+`programs.r2-cloud` either keeps `enableRcloneRemote = false` (the value set
+by `modules/lib/r2-runtime.nix`) or points `rcloneConfigPath` at a different
+file. A second assertion keeps upstream `programs.rclone.remotes` empty so
+the upstream rclone-config generator cannot become another writer.
+
+The boundary is regression-checked by
+`checks.<system>."home-manager/rclone-config-ownership"` from
+`modules/home-manager/rclone-config-ownership.nix`, which evaluates the safe
+split, the colliding combination, and a relocated `rcloneConfigPath`.
+
 ## Relationship to HM Env Template
 
 `modules/home/r2-secrets.nix` renders `~/.config/cloudflare/r2/env` when
@@ -72,4 +96,6 @@ Treat these as two valid credential surfaces:
 rg -n '"r2-flake"\.homeManagerModules\.default' modules/lib/r2-runtime.nix
 rg -n 'r2Secrets|cloudflare/r2/env' modules/home-manager/nixos.nix modules/home/r2-secrets.nix
 rg -n 'programs\.r2-cloud' modules/lib/r2-runtime.nix
+rg -n 'r2CloudClaimsRenderedConfig' modules/hm-apps/rclone.nix
+nix build --accept-flake-config --no-link '.#checks.x86_64-linux."home-manager/rclone-config-ownership"'
 ```
