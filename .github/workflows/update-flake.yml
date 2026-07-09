@@ -36,14 +36,20 @@ jobs:
 
       - name: Update flake inputs
         id: update
+        # path:. reads the checkout directly instead of the git fetcher, which
+        # would pull the unreadable secrets submodule (self.submodules = true)
+        # and fail; path:. still writes flake.lock back to the working tree.
+        # pipefail surfaces a metadata failure instead of masking it as an empty
+        # input list and a green "No updates available" no-op.
         run: |
-          inputs=$(nix flake metadata --json \
+          set -eo pipefail
+          inputs=$(nix flake metadata --json "path:." \
             | jq -r '.locks.nodes.root.inputs | keys[]')
 
           if [ -n "$inputs" ]; then
             for input in $inputs; do
               echo "Updating $input..."
-              nix flake lock --update-input "$input" \
+              nix flake update "$input" --flake "path:." \
                 || echo "Failed to update $input, skipping..."
             done
           fi
@@ -87,11 +93,12 @@ jobs:
 
       - name: Show updated inputs
         if: steps.update.outputs.changed == 'true'
+        # path:. avoids the git self-fetch of the unreadable secrets submodule.
         run: |
           {
             echo "## Updated Inputs"
             echo '```'
-            nix flake metadata --json | jq -r '
+            nix flake metadata --json "path:." | jq -r '
               .locks.nodes | to_entries[]
               | select(.value.locked)
               | "\(.key): \(.value.locked.rev // .value.locked.narHash)"
