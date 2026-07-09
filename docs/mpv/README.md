@@ -1,6 +1,6 @@
 # mpv
 
-Last Update: 2026-05-05
+Last Update: 2026-07-05
 
 This directory documents how `mpv` is composed and managed in this NixOS
 configuration: the NixOS app module, the Home Manager app module, the XDG
@@ -9,7 +9,7 @@ bundle, and the `video-cache` shell helper.
 
 ## Scope
 
-The docs cover what is true today across both supported hosts and intentionally
+The docs cover what is true today across the supported hosts and intentionally
 omit host names. Each page is concise and concern-focused; cross-link the
 upstream mpv manual at <https://mpv.io/manual/stable/> for canonical option
 semantics. The upstream source is mirrored at `$LOCAL_MIRRORS/mpv-player-mpv`

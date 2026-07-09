@@ -23,6 +23,8 @@
   - Technical reference for the claude-plugins project covering architecture, registry API, installation flows, and CLI commands.
 - [claude-code/skills.md](claude-code/skills.md)
   - Technical manual for SKILL.md files covering frontmatter fields, invocation methods, execution lifecycle, and best practices.
+- [claude-code/writing-CLAUDE.md](claude-code/writing-CLAUDE.md)
+  - How to write CLAUDE.md files: persistent, always-active agent instructions loaded at session start.
 
 ## Cloudflare
 
@@ -82,6 +84,10 @@
 
 - [drafts/android-emulator-network-plan.md](drafts/android-emulator-network-plan.md)
   - Draft plan for Android emulator network interception setup with mitmproxy, KVM acceleration, and CA management.
+- [drafts/duplicati-r2-readonly-mount-investigation.md](drafts/duplicati-r2-readonly-mount-investigation.md)
+  - Investigation into a read-only mount for encrypted R2 backup archives (issue #204).
+- [drafts/tpnix-cryptographic-identity-bootstrap-plan.md](drafts/tpnix-cryptographic-identity-bootstrap-plan.md)
+  - Draft plan for bootstrapping cryptographic identity on the tpnix host.
 
 ## Guides
 
@@ -134,6 +140,13 @@
 - [packaging/javascript-packages.md](packaging/javascript-packages.md)
   - Packaging npm, pnpm, and bun applications in NixOS including monorepos, native modules, and Electron apps.
 
+## PDF Tooling
+
+- [pdf/toolkit.md](pdf/toolkit.md)
+  - Catalog of PDF-focused applications managed by this configuration covering viewers, structural inspectors, content extractors, and OCR engines.
+- [pdf/additional-tools-reference.md](pdf/additional-tools-reference.md)
+  - Reference catalog of PDF tools that complement the active toolkit, invocable ad hoc via `nix run`, `nix shell`, or `uvx`.
+
 ## Cybersecurity
 
 - [csec/toolkit.md](csec/toolkit.md)
@@ -145,12 +158,23 @@
 
 ## Reference
 
+- [reference/fork-sync-automation.md](reference/fork-sync-automation.md)
+  - Scheduled upstream sync workflow installed in each flake-input fork, its conflict behavior, and the installer for adding new forks.
 - [reference/github-labels.md](reference/github-labels.md)
   - GitHub label taxonomy, application rules, and label-family reference for issues and pull requests.
 - [reference/local-mirrors.md](reference/local-mirrors.md)
   - List of repositories mirrored locally via `git-mirror` for offline access and patching.
 - [reference/mcp-tools.md](reference/mcp-tools.md)
   - Quick reference for available MCP tools including context7, cfdocs, cfbrowser, and deepwiki.
+- [reference/useful-commands.md](reference/useful-commands.md)
+  - Collection of handy general-purpose CLI commands not tied to NixOS or this repository.
+
+## Security
+
+- [security/owner-group-privileges.md](security/owner-group-privileges.md)
+  - Security-relevant access granted by owner group membership.
+- [security/owner-no-sudo-operations.md](security/owner-no-sudo-operations.md)
+  - Configuration-managed operations available to the owner user without a sudo password.
 
 ## SOPS
 
@@ -168,6 +192,11 @@
 - [system76/system76-troubleshooting.md](system76/system76-troubleshooting.md)
   - Troubleshooting guide covering thermal management, crash diagnostics, fan issues, and stress testing.
 
+## tpnix
+
+- [tpnix/IMPLEMENTATION_PLAN.md](tpnix/IMPLEMENTATION_PLAN.md)
+  - Hardware migration plan for the tpnix host on a Lenovo ThinkPad P15s Gen 2i.
+
 ## Technical Writing
 
 - [technical-writing/scope-and-audience.md](technical-writing/scope-and-audience.md)
@@ -183,12 +212,30 @@
 - [technical-writing/lifecycle.md](technical-writing/lifecycle.md)
   - Rules for publishing, feedback triage, measurement, maintenance, and deprecation.
 
+## Troubleshooting
+
+- [troubleshooting/nix-store-maintenance.md](troubleshooting/nix-store-maintenance.md)
+  - Runbook defining the default Nix store repair workflow for each opted-in host.
+
+## USBGuard
+
+- [usbguard/README.md](usbguard/README.md)
+  - USBGuard USB device access control with rules stored encrypted via sops.
+
 ## Usage
 
 - [usage/README.md](usage/README.md)
   - Index of user-facing documentation for specific modules and features.
 - [duplicati/README.md](duplicati/README.md)
   - Maintainer reference for the duplicati-r2 service: architecture, options, runbooks, recovery, security.
+- [duplicati/operations.md](duplicati/operations.md)
+  - Runbooks for everyday duplicati-r2 changes: provisioning secrets, editing the manifest, manual backup and restore, post-deploy validation.
+- [duplicati/recovery.md](duplicati/recovery.md)
+  - Failure modes, repair flow, and the impact-analysis playbook for missing or damaged remote volumes.
+- [duplicati/reference.md](duplicati/reference.md)
+  - Complete option surface, manifest schema, and runtime artifact catalog for `services.duplicati-r2`.
+- [duplicati/security.md](duplicati/security.md)
+  - Threat model, secret layout, state-directory access controls, credential rotation, and bucket lifecycle posture.
 - [usage/espanso-usage.md](usage/espanso-usage.md)
   - Espanso text expander usage including default triggers, custom matches, and troubleshooting.
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)

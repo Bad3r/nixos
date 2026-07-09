@@ -12,14 +12,7 @@ _: {
         };
       };
 
-      # lock = logind signal -> xss-lock --transfer-sleep-lock (i3lock-stylix)
-      services.logind.settings.Login = {
-        HandlePowerKey = lib.mkDefault "lock";
-        HandleLidSwitch = lib.mkDefault "suspend"; # ignore, lock, suspend, poweroff, hibernate
-        HandleLidSwitchExternalPower = lib.mkDefault "suspend"; # On AC power
-        HandleLidSwitchDocked = lib.mkDefault "ignore"; # External display connected
-      };
-
+      # logind lid/power-key behavior lives in modules/tpnix/power.nix.
       services = {
         journald = {
           storage = "persistent";

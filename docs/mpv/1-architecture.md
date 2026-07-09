@@ -16,7 +16,7 @@ them.
 - **HM app module**
   - Location: `modules/hm-apps/mpv/mpv.nix`
   - Namespace: `flake.homeManagerModules.apps.mpv`
-  - Role: Writes `mpv.conf`, `input.conf`, two `xdg.configFile` Lua hooks, and a script list when the NixOS layer is enabled.
+  - Role: Writes `mpv.conf`, `input.conf`, and a `script-opts` file, and wraps the mpv binary with a script list (packaged scripts plus two repo-local Lua scripts) when the NixOS layer is enabled.
 - **Media bundle**
   - Location: `modules/apps/media-toolchain.nix`
   - Namespace: `flake.nixosModules.apps.media-toolchain`
@@ -71,12 +71,15 @@ directly.
 ### Package install contract
 
 Both layers install mpv: the NixOS module via `environment.systemPackages` and
-the HM module unconditionally via `home.packages`. HM's `programs.mpv.package`
-option is typed `types.package` (not nullable), so setting it to `null` to
-suppress the user-profile entry is not valid. In practice this is benign: both
-sides default to `pkgs.mpv`, which is the same derivation and therefore the
-same store path. The result is two profile symlinks to one store entry, not two
-builds.
+the HM module via `home.packages` (through `programs.mpv.finalPackage`). HM's
+`programs.mpv.package` option is typed `types.package` (not nullable), so
+setting it to `null` to suppress the user-profile entry is not valid. Because
+the HM module sets `programs.mpv.scripts`, `finalPackage` is
+`pkgs.mpv.override { scripts = ...; }`: a rewrapped mpv whose wrapper adds
+`--script=` flags. The two profiles therefore carry different wrapper store
+paths, but both wrap the same `mpv-unwrapped` build, so mpv itself is not
+built twice, and the script-aware user-profile wrapper takes precedence on
+`PATH`.
 
 ### Activation contract
 
@@ -108,13 +111,15 @@ Two consequences follow:
   import `modules/apps/mpv.nix` at all, defaulting to `false` rather than
   throwing.
 
-Hosts pin their app-enable bits with `lib.mkOverride 1100` in their
-`apps-enable.nix` (see `modules/system76/apps-enable.nix` for an example
-that pins `mpv.extended.enable = true` and `modules/tpnix/apps-enable.nix`
-for the matching `false`). Priority `1100` sits between `mkDefault`
-(priority `1000`) and `mkOptionDefault` (priority `1500`), so it overrides
-the option's declared default while still yielding to explicit user-level
-definitions (priority `100`).
+The common baseline pins app-enable bits with `lib.mkOverride 1100` in
+`modules/hosts/common/apps-enable.nix`, which sets
+`mpv.extended.enable = true`. Per-host override files such as
+`modules/tpnix/apps-enable.nix` layer `lib.mkOverride 1000` on top (tpnix
+sets `mpv = false` there), so the host value wins over the baseline.
+Priority `1100` sits between `mkDefault` (priority `1000`) and
+`mkOptionDefault` (priority `1500`), so the baseline overrides the option's
+declared default while still yielding to per-host overrides and to explicit
+user-level definitions (priority `100`).
 
 ## Relation to the Media Bundle
 
@@ -126,9 +131,6 @@ mpv binary is present even on hosts where `programs.mpv.extended.enable` is
 `false`. In that scenario the user runs upstream-default mpv with no managed
 configuration files. See [integrations.md](4-integrations.md) for the
 implications.
-
-The media bundle is being phased out in favor of independent modules; its
-behavior here is documented as it stands today.
 
 ## Where to Look Next
 

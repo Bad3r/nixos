@@ -13,9 +13,9 @@ These nixpkgs packages demonstrate various patterns for packaging JavaScript app
 | **synchrony**        | `/data/git/NixOS-nixpkgs/pkgs/by-name/sy/synchrony/package.nix`        | Simple `cp -r node_modules`                   | Single-package pnpm projects (non-monorepo)                     |
 | **siyuan**           | `/data/git/NixOS-nixpkgs/pkgs/by-name/si/siyuan/package.nix`           | `sourceRoot` + `postPatch` to `fetchPnpmDeps` | Monorepo subpackage with lockfile at root                       |
 | **heroic-unwrapped** | `/data/git/NixOS-nixpkgs/pkgs/by-name/he/heroic-unwrapped/package.nix` | `npm_config_nodedir` for native modules       | Electron/native addons needing Node headers                     |
-| **tweakcc**          | `packages/tweakcc/default.nix` (local)                                 | shamefully-hoist + autoPatchelfHook           | ESM apps with prebuilt native addons, external deps             |
+| **tweakcc**          | `packages/tweakcc/package.nix` (local)                                 | shamefully-hoist + autoPatchelfHook           | ESM apps with prebuilt native addons, external deps             |
 
-> **Note:** nixpkgs paths reference a local clone at `/data/git/NixOS-nixpkgs`. Clone via `ghq get NixOS/nixpkgs` or adjust paths.
+> **Note:** nixpkgs paths reference the local mirror at `/data/git/NixOS-nixpkgs`, provisioned by `modules/hosts/common/mirrors.nix` (see `docs/reference/local-mirrors.md`).
 
 ## pnpm Packages
 
@@ -104,6 +104,8 @@ Controls output format of `fetchPnpmDeps`. Use `3` for new packages:
 - **1**: Legacy format (backwards compatibility only)
 - **2**: Consistent file permissions ([PR #422975](https://github.com/NixOS/nixpkgs/pull/422975))
 - **3**: Reproducible tarball, smaller closure ([PR #469950](https://github.com/NixOS/nixpkgs/pull/469950))
+
+nixpkgs master (26.11) removes versions `1` and `2` and adds `4` (SQLite database dump, [PR #522703](https://github.com/NixOS/nixpkgs/pull/522703)); the nixpkgs pinned by this flake still accepts all three.
 
 Changing version requires regenerating the hash.
 
@@ -228,11 +230,11 @@ The `preFixup` runs before `autoPatchelfHook`, removing incompatible musl varian
 
 ### Native Modules Linking Against Node.js Internals
 
-Some native modules (like `isolated-vm`) link against Node.js internal libraries (libuv, openssl, icu, etc.) that are provided by Node.js at runtime, not as system libraries. Use `autoPatchelfIgnoreMissingDeps` to suppress errors:
+Some native modules (like `isolated-vm`) link against Node.js internal libraries (libuv, openssl, icu, etc.) that are provided by Node.js at runtime, not as system libraries. Either satisfy the linker by adding the real libraries to `buildInputs` (via `lib.getLib`), or suppress the errors with `autoPatchelfIgnoreMissingDeps`:
 
 ```nix
 # isolated-vm links against Node.js internal libraries
-# These are provided by Node.js at runtime, so we can safely ignore them
+# These are provided by Node.js at runtime, so they are safe to ignore
 autoPatchelfIgnoreMissingDeps = [
   "libuv.so.1"
   "libssl.so.3"
@@ -249,7 +251,7 @@ autoPatchelfIgnoreMissingDeps = [
 ];
 ```
 
-The specific libraries depend on the Node.js version. Check build errors to identify which libraries to ignore. See `packages/webcrack/default.nix` for a complete example with isolated-vm.
+The specific libraries depend on the Node.js version. Check build errors to identify which libraries are involved. See `packages/webcrack/default.nix` for a complete example with isolated-vm; it takes the `buildInputs` route, adding each library with `lib.getLib` so `autoPatchelfHook` can resolve them.
 
 ## Electron Apps
 
@@ -463,7 +465,7 @@ stdenv.mkDerivation {
 - **Node headers (Electron)**: `export npm_config_nodedir=${electron.headers}`
 - **Skip Electron download**: `env.ELECTRON_SKIP_BINARY_DOWNLOAD = "1";`
 - **Prebuilt native addons**: `autoPatchelfHook` + `buildInputs = [ stdenv.cc.cc.lib ]`
-- **Node.js internal libs**: `autoPatchelfIgnoreMissingDeps = [ "libuv.so.1" ... ]` for native modules linking Node internals
+- **Node.js internal libs**: add them to `buildInputs` via `lib.getLib`, or list them in `autoPatchelfIgnoreMissingDeps`
 - **Remove musl binaries**: `preFixup = ''find $out -name "*.musl.node" -delete'';`
 - **patchedDependencies**: Try building first; only remove if lockfile mismatch errors occur
 - **Dereference symlinks**: `cp -rL node_modules $out/`

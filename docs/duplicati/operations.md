@@ -63,7 +63,7 @@ sops -d --input-type binary --output-type binary secrets/duplicati-config.json |
 
 ## Wire the module in a host
 
-Each host module (`modules/<host>/duplicati.nix`) takes `metaOwner` and `secretsRoot` from `_module.args` and gates on the presence of both encrypted files:
+Each host module (`modules/<host>/duplicati.nix`) takes `secretsRoot` from `_module.args` and gates on the presence of both encrypted files; hosts that grant operator read access also take `metaOwner` and set `stateDirReadableBy` (some hosts add further readiness gates, such as SOPS key availability):
 
 ```nix
 {
@@ -205,6 +205,7 @@ export AUTH_PASSWORD="$AWS_SECRET_ACCESS_KEY"
 dest="s3://${R2_BUCKET}/$(hostname --short)/<slug>?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio&s3-server-name=${R2_S3_ENDPOINT}"
 
 duplicati-cli restore "$dest" \
+  --dbpath=/var/lib/duplicati-r2/duplicati-r2-<slug>.sqlite \
   --restore-path=/tmp/restore \
   --passphrase="$DUPLICATI_PASSPHRASE" \
   --restore-volume-downloaders=8 \
@@ -214,18 +215,18 @@ duplicati-cli restore "$dest" \
 RESTORE
 ```
 
-Adjust with `--version`, `--time`, or `--include` filters as needed. Wipe `/tmp/restore` once finished.
+Adjust with `--version`, `--time`, or `--include` filters as needed. Wipe `/tmp/restore` once finished. `--dbpath` points duplicati at the service's per-target SQLite; omitting it makes `duplicati-cli` build a fresh database under root's config directory by downloading every dindex first. The packaged wrapper `scripts/duplicati/duplicati-r2-restore.sh` performs the same setup from the runtime manifest and adds a `--dry-run` impact analysis.
 
 ### Concurrency tuning for R2
 
-Out-of-the-box defaults for `duplicati-cli restore` (six downloaders, six decryptors, six decompressors, channel buffer size twelve) under-perform against Cloudflare R2. A single-file restore from `bankdata` recovering 44 `*.torrent` paths (~10 MiB plaintext, fetch ceiling ~425 MiB across 8 dblocks) was observed at ~130 KiB/s through a single TCP connection to R2; every worker thread sat idle at 0% CPU, with the run on track for a ~30 minute completion. The four flags below keep the pipeline saturated when individual TCP streams to R2 are slow:
+Out-of-the-box defaults for `duplicati-cli restore` (downloaders, decryptors, and decompressors each default to half the logical CPU count; the channel buffer defaults to the CPU count, so 6/6/6/12 on the 12-CPU host observed below) under-perform against Cloudflare R2. A single-file restore from `bankdata` recovering 44 `*.torrent` paths (~10 MiB plaintext, fetch ceiling ~425 MiB across 8 dblocks) was observed at ~130 KiB/s through a single TCP connection to R2; every worker thread sat idle at 0% CPU, with the run on track for a ~30 minute completion. The four flags below keep the pipeline saturated when individual TCP streams to R2 are slow:
 
-| Option                           | Default | Recommended | Effect                                                                   |
-| -------------------------------- | ------- | ----------- | ------------------------------------------------------------------------ |
-| `--restore-volume-downloaders`   | 6       | 8           | Concurrent dblock fetches over distinct TCP connections.                 |
-| `--restore-volume-decryptors`    | 6       | 8           | Threads running the AES Crypt decrypt loop in parallel.                  |
-| `--restore-volume-decompressors` | 6       | 8           | Threads unzipping the inner dblock zip in parallel.                      |
-| `--restore-channel-buffer-size`  | 12      | 32          | Inter-stage queue depth between download / decrypt / decompress / write. |
+| Option                           | Default  | Recommended | Effect                                                                   |
+| -------------------------------- | -------- | ----------- | ------------------------------------------------------------------------ |
+| `--restore-volume-downloaders`   | CPUs / 2 | 8           | Concurrent dblock fetches over distinct TCP connections.                 |
+| `--restore-volume-decryptors`    | CPUs / 2 | 8           | Threads running the AES Crypt decrypt loop in parallel.                  |
+| `--restore-volume-decompressors` | CPUs / 2 | 8           | Threads unzipping the inner dblock zip in parallel.                      |
+| `--restore-channel-buffer-size`  | CPUs     | 32          | Inter-stage queue depth between download / decrypt / decompress / write. |
 
 Two checks are useful: (1) confirm the pipeline is actually moving bytes, (2) measure achieved throughput. Connection count is a weaker signal because the AWS SDK / minio client may pool requests over a small number of long-lived TCP connections regardless of pipeline depth.
 
@@ -273,7 +274,7 @@ To compute the exact dblock fetch list before running a restore, query the per-t
 
 ## Query the local SQLite (read-only)
 
-`duplicati-r2-list` (provided by `pkgs.duplicati-r2-tools.list`) answers snapshot, path, size, mtime, and version-history questions directly from the per-target SQLite at `/var/lib/duplicati-r2/<slug>/duplicati-r2-<slug>.sqlite`. It opens the database with `mode=ro` (the URI path is percent-encoded so spaces or `?`/`#` in the state-dir survive), performs no R2 fetches, and does not decrypt anything. The `immutable=1` flag deliberately is not set: Duplicati keeps writing to the same database, and `immutable=1` would make SQLite ignore WAL replay and return stale or torn rows. Cut A of [`docs/drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md).
+`duplicati-r2-list` (provided by `pkgs.duplicati-r2-tools.list`) answers snapshot, path, size, mtime, and version-history questions directly from the per-target SQLite at `<stateDir>/duplicati-r2-<slug>.sqlite` (state dir resolved from the runtime manifest; `/var/lib/duplicati-r2/duplicati-r2-<slug>.sqlite` under the default layout). It opens the database with `mode=ro` (the URI path is percent-encoded so spaces or `?`/`#` in the state-dir survive), performs no R2 fetches, and does not decrypt anything. The `immutable=1` flag deliberately is not set: Duplicati keeps writing to the same database, and `immutable=1` would make SQLite ignore WAL replay and return stale or torn rows. Cut A of [`docs/drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md).
 
 The tool is auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty; usernames listed there can run it without `sudo` via the named-user POSIX ACL on the state directory. Other users see `permission denied` on the SQLite open, which is the expected loud failure.
 
@@ -308,14 +309,14 @@ Global flags:
 | `--config <path>` | Override `/run/duplicati-r2/config.json` for slug-to-stateDir resolution.                           |
 | `--snapshot <id>` | (`ls`, `stat`, `grep`) Fileset.ID integer or ISO-8601 timestamp; default is the latest snapshot.    |
 
-Exit codes mirror `duplicati-r2-restore.sh`:
+Exit codes follow the `scripts/duplicati/duplicati-r2-restore.sh` convention:
 
 - `0` success
 - `64` usage error (bad args, invalid glob/regex, unknown target, unresolved snapshot)
 - `65` schema-version mismatch (the tool refuses to operate against unsupported `Configuration.Version`)
 - `66` manifest/db unreadable, target disabled, snapshot id not found, path not in snapshot
 
-When `--config` and `--db` are both omitted and `/run/duplicati-r2/config.json` is not readable to the invoker, the tool falls back to the default state directory `/var/lib/duplicati-r2/<slug>` and proceeds; pass `--config` or `--db` explicitly when the manifest layout is non-default.
+When `--config` and `--db` are both omitted and `/run/duplicati-r2/config.json` is not readable to the invoker, the tool probes the default candidates `/var/lib/duplicati-r2/<slug>/duplicati-r2-<slug>.sqlite` then `/var/lib/duplicati-r2/duplicati-r2-<slug>.sqlite` and proceeds with the first that exists; pass `--config` or `--db` explicitly when the manifest layout is non-default.
 
 ## Extract a single file from R2 (Cut B)
 
@@ -443,7 +444,7 @@ If a target unexpectedly fails to appear, the generator logged the reason to `jo
 Rotating an R2 access pair or any non-passphrase credential is safe:
 
 ```bash
-nix develop -c sops -i secrets/duplicati-r2.yaml      # interactive edit
+nix develop -c sops secrets/duplicati-r2.yaml         # interactive edit
 nixos-rebuild switch --flake .#<host>                  # or ./build.sh
 ```
 

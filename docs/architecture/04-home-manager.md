@@ -9,8 +9,9 @@ Home Manager modules feed into `flake.homeManagerModules` for user-level configu
 | Key                                                                                    | Type             | Description                                                                  |
 | -------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
 | `base`                                                                                 | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
-| `gui`                                                                                  | Deferred module  | Reserved GUI aggregation point (currently mostly an empty merge root)        |
+| `gui`                                                                                  | Deferred module  | Reserved GUI aggregation point (currently an empty merge root)               |
 | `apps.<name>`                                                                          | Deferred module  | Individual app modules loaded by key                                         |
+| `browsers.<name>`                                                                      | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                  |
 | `sopsRuntime`                                                                          | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
 | `context7Secrets`, `geckoSecrets`, `greptileSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules (each guarded by `builtins.pathExists`) |
 
@@ -20,14 +21,20 @@ Multiple files can extend shared namespaces. Common patterns in this repo:
 
 ```nix
 # modules/files/fzf.nix
-_: {
+{
   flake.homeManagerModules.base = _: {
-    programs.fzf.enable = true;
+    programs.fzf = {
+      enable = true;
+      enableZshIntegration = true;
+      enableBashIntegration = true;
+      enableFishIntegration = false;
+    };
   };
 }
 
-# modules/stylix/stylix.nix
-_: {
+# modules/stylix/stylix.nix (excerpt)
+{ inputs, lib, ... }:
+{
   flake.homeManagerModules.apps.stylix-gui = { ... }: {
     stylix.targets.gtk.enable = true;
   };
@@ -79,6 +86,10 @@ defaultAppImports = [
 
 Each host appends to `home-manager.extraAppImports` and mirrors matching app modules into `home-manager.sharedModules` from its own `modules/<host>/home-manager-apps.nix`.
 
+### Browser Modules
+
+Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix`. `modules/hosts/common/home-manager-apps.nix` resolves the shared browser set from that namespace directly into `home-manager.sharedModules`; browser names never go through `extraAppImports`, which only resolves the `apps` namespace and the `modules/hm-apps/` fallback path.
+
 ### Per-Host Divergences
 
 The shared HM base is identical across hosts; per-host overrides live in each host's `imports.nix`. As a current snapshot:
@@ -109,18 +120,22 @@ Authoritative source for any host: that host's `imports.nix` (`modules/<host>/im
 Home-level secrets helpers guard SOPS declarations behind `builtins.pathExists`:
 
 ```nix
-# modules/home/context7-secrets.nix
-{ lib, metaOwner, secretsRoot, ... }:
-let
-  ctxFile = "${secretsRoot}/context7.yaml";
-in
+# modules/home/context7-secrets.nix (excerpt)
 {
-  config = lib.mkIf (builtins.pathExists ctxFile) {
-    sops.secrets."context7/api-key" = {
-      sopsFile = ctxFile;
-      # ...
+  flake.homeManagerModules.context7Secrets =
+    { lib, config, secretsRoot, ... }:
+    let
+      cfg = config.home.context7Secrets;
+      ctxFile = "${secretsRoot}/context7.yaml";
+    in
+    {
+      config = lib.mkIf (cfg.enable && builtins.pathExists ctxFile) {
+        sops.secrets."context7/api-key" = {
+          sopsFile = ctxFile;
+          # ...
+        };
+      };
     };
-  };
 }
 ```
 

@@ -58,7 +58,7 @@ getfacl /etc/duplicati/r2.env | grep -E '^(user|mask)'
 # Expect: mask::r--, and named-user effective r-- (no `#effective:---`).
 ```
 
-If a state directory predates this commit and the verification still shows `mask::---` (e.g., the existing entries on disk diverged enough that the additive `A+` rule did not converge them), refresh the ACL in place without changing the 0700 mode bits:
+If a state directory predates the explicit-mask rules and the verification still shows `mask::---` (e.g., the existing entries on disk diverged enough that the additive `A+` rule did not converge them), refresh the ACL in place without changing the 0700 mode bits:
 
 ```bash
 sudo setfacl -m m::r-x /var/lib/duplicati-r2/
@@ -84,7 +84,7 @@ Implication for `stateDirReadableBy`: every name listed receives the same trust.
 Rotating R2 access pairs and most other entries is safe; the env file refreshes on the next deploy:
 
 ```bash
-nix develop -c sops -i secrets/duplicati-r2.yaml
+nix develop -c sops secrets/duplicati-r2.yaml
 nixos-rebuild switch --flake .#<host>     # or ./build.sh
 ```
 
@@ -149,5 +149,5 @@ A quarterly audit covers everything noted above:
 2. Verify `services.duplicati-r2.stateDirReadableBy` matches the maintainer set; remove stale entries.
 3. Inspect bucket lifecycle (`GET ?lifecycle`) and confirm no abort-multipart rule has been re-attached.
 4. List in-progress multipart uploads; abort anything older than the longest expected backup.
-5. Run `duplicati-cli test <dest> --samples=200` against each active target, or rely on the verify timer's logs.
+5. Run `duplicati-cli test <dest> 200` against each active target (the sample count is positional; `--samples` is not a recognized option), or rely on the verify timer's logs.
 6. Confirm the duplicati passphrase has not changed since the last audit by decrypting `secrets/duplicati-r2.yaml` and diffing against the previous known-good value.

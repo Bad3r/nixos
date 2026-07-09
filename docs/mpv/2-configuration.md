@@ -8,12 +8,10 @@ at <https://mpv.io/manual/stable/> for option semantics.
 
 ## Files Produced
 
-- `~/.config/mpv/mpv.conf`: `programs.mpv.config` in the HM module
+- `~/.config/mpv/mpv.conf`: `programs.mpv.config` and `programs.mpv.profiles` in the HM module
 - `~/.config/mpv/input.conf`: `programs.mpv.bindings` in the HM module (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
-- `~/.config/mpv/scripts/playlist_filter.lua`: `xdg.configFile."mpv/scripts/playlist_filter.lua"` in the HM module (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
-- `~/.config/mpv/scripts/ytdlp_cookies.lua`: `xdg.configFile."mpv/scripts/ytdlp_cookies.lua"` in the HM module (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
 - `~/.config/mpv/script-opts/status_line.conf`: `programs.mpv.scriptOpts.status_line` in the HM module (see [Script Options](#script-options))
-- Loaded scripts under `~/.config/mpv/scripts/`: `programs.mpv.scripts` (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
+- Loaded scripts: `programs.mpv.scripts` wraps the mpv binary with `--script=` flags; the list includes the packaged scripts plus the two repo-local Lua scripts (`playlist_filter`, `ytdlp_cookies`) built by `modules/hm-apps/mpv/scripts.nix`. Nothing is written under `~/.config/mpv/scripts/` (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
 
 ## Settings Reference
 
@@ -34,7 +32,7 @@ at <https://mpv.io/manual/stable/> for option semantics.
 
 ### GPU and Hardware Decoding
 
-- `vo = gpu-next`: The next-generation unified video output. Required for `profile=high-quality`. Supersedes `vo=gpu`.
+- `vo = gpu-next`: The next-generation unified video output. Supersedes `vo=gpu`. The `high-quality` profile targets the GPU-based outputs, and some of its HDR options only take effect on `gpu-next`.
 - `gpu-context = auto`: Let mpv pick a supported windowing context (X11 or Wayland) at runtime.
 - `hwdec = auto`: Negotiate hardware decode at runtime. Falls back to software when no path is available.
 - `hwdec-codecs`: Not set; mpv's upstream default applies (`h264,vc1,hevc,vp8,vp9,av1,prores,prores_raw,ffv1,dpx`). Earlier revisions extended the list with `mpeg2video,mpeg4,msmpeg4v2,msmpeg4v3`, but `mpeg4` Simple Profile (the dominant variant in the wild) is rejected by every hwaccel backend on this hardware and only produced probe noise without a payoff.
@@ -57,7 +55,7 @@ key, regardless of the file-side key spelling).
   `mpv-image-viewer` `status-line` script. The script renders a persistent ASS
   overlay (filename, `[N/M]` playlist position, `[WxH]` dimensions) and never
   auto-hides, so it is dormant during normal video playback. The `img` profile
-  re-enables it via `script-opts=…,status_line-enabled=yes`. Writes
+  re-enables it via `script-opts=...,status_line-enabled=yes`. Writes
   `~/.config/mpv/script-opts/status_line.conf`.
 
 ### Profiles

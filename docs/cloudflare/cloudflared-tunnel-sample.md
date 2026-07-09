@@ -1,9 +1,9 @@
 # Cloudflare Tunnel Starter Configuration
 
-This repository previously shipped a `modules/networking/cloudflared-tunnel.nix`
-sample that enabled Cloudflare Tunnel with placeholder values. As part of the
-single-host refactor, the workstation bundle is going away, so keep this example
-in documentation instead of wiring it automatically.
+`modules/apps/cloudflared.nix` installs the `cloudflared` package through
+`programs.cloudflared.extended.enable` but wires no tunnel ingress. Keep the
+tunnel starter configuration below in documentation and apply it per host
+instead of wiring placeholder values automatically.
 
 ```nix
 {

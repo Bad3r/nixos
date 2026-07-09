@@ -49,5 +49,5 @@ in
     "firefox-bin-unwrapped"
   ];
 
-  flake.nixosModules.apps.firefox = FirefoxModule;
+  flake.nixosModules.browsers.firefox = FirefoxModule;
 }

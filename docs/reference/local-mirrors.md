@@ -265,4 +265,4 @@ programs.gitMirror.repos = [
 ];
 ```
 
-Use a host-specific override only when a mirror should exist on one host but not the other.
+Use a host-specific override only when a mirror should not exist on every common host.

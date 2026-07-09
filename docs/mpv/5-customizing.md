@@ -74,7 +74,10 @@ _:
 }
 ```
 
-This is the same pattern the shared HM module uses for `playlist_filter.lua`.
+This suits one-off user hooks. The shared HM module instead packages its
+local scripts (`playlist_filter`, `ytdlp_cookies`) in
+`modules/hm-apps/mpv/scripts.nix` and loads them through
+`programs.mpv.scripts`.
 
 Keybinding:
 
@@ -112,17 +115,23 @@ _:
 
 ## Replacing the mpv Package
 
-To swap in a custom build or an overlay-provided variant:
+To swap in a custom build for the system-wide install:
 
 ```nix
 { pkgs, ... }:
 {
-  programs.mpv.extended.package = pkgs.mpv-with-scripts.override { /* ... */ };
+  programs.mpv.extended.package = pkgs.mpv.override {
+    mpv-unwrapped = pkgs.mpv-unwrapped.override { /* ... */ };
+  };
 }
 ```
 
-Both the NixOS layer and the HM layer install from `cfg.package`, so a single
-override in the host's apps-enable file applies to both.
+Only the NixOS layer installs from `cfg.package`. The HM layer installs
+`programs.mpv.finalPackage`, which always rewraps `pkgs.mpv` because the
+shared module sets `programs.mpv.scripts` (upstream Home Manager asserts
+that `programs.mpv.package` stays at its default whenever `scripts` is
+set). To replace mpv in both layers, override `pkgs.mpv` itself in an
+overlay.
 
 ## Adding mpv-Adjacent Tools
 

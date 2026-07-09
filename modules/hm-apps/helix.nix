@@ -127,7 +127,15 @@ _: {
                       let
                         flake = builtins.getFlake (toString ./.);
                         hosts = flake.nixosConfigurations or {};
-                        host = hosts.${hostname} or (builtins.head (builtins.attrValues hosts)) or null;
+                        # A chained `or` after a parenthesized call is the "cursed or"
+                        # (application of the identifier `or`), so use explicit if/else.
+                        host =
+                          if hosts ? "${hostname}" then
+                            hosts."${hostname}"
+                          else if hosts != { } then
+                            builtins.head (builtins.attrValues hosts)
+                          else
+                            null;
                       in
                         if host != null then host.options else {}
                     '';

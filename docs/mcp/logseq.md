@@ -20,9 +20,14 @@ logseq mcp-server [options]
 
 > **Nix package note**: This repository installs the CLI through the
 > `logseq-cli` package (flake input `nix-logseq-git-flake`), which names the
-> binary `logseq-cli`. On these hosts the plain `logseq` binary is the desktop
-> app, so invoke `logseq-cli mcp-server ...`. The `npm install` above instead
-> provides a `logseq` binary.
+> binary `logseq-cli`; the plain `logseq` binary is the desktop app. The
+> pinned package now builds upstream's OCaml CLI rewrite, which has no
+> `mcp-server` subcommand (upstream removed the ClojureScript CLI, including
+> `mcp-server`, in "chore: remove old cli (#12739)"). On these hosts, run the
+> MCP server through the Logseq desktop app instead (see "Enabling in Logseq
+> Desktop" below). The HTTP examples in this document work against that
+> server; the `logseq mcp-server` invocations, the stdio transport, and the
+> local-graph flags apply only to the retired `@logseq/cli`.
 
 ### Options
 
@@ -205,10 +210,11 @@ curl -sS -X POST "http://127.0.0.1:12315/api" \
 ## Enabling in Logseq Desktop
 
 1. Open Logseq Settings
-2. Go to **Advanced**
-3. Enable **HTTP APIs Server**
-4. Create an authorization token
-5. Optionally enable **MCP Server** toggle
+2. Go to **AI**
+3. Enable the **MCP Server** toggle (this also turns on the **HTTP API
+   server** setting; MCP depends on it)
+4. Start the server from the **HTTP API server** toolbar indicator and manage
+   authorization tokens from the same indicator
 
 ## Limitations
 
@@ -219,6 +225,8 @@ curl -sS -X POST "http://127.0.0.1:12315/api" \
 
 ## References
 
-- [Logseq CLI README](https://github.com/logseq/logseq/tree/master/deps/cli)
 - [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25)
-- Source: `deps/cli/src/logseq/cli/common/mcp/` in logseq/logseq repo
+- Source: `src/electron/electron/mcp_server.cljs` in the logseq/logseq repo
+  (mirrored at `$LOCAL_MIRRORS/logseq-logseq`). The earlier
+  `deps/cli/src/logseq/cli/common/mcp/` tree was removed upstream together
+  with the ClojureScript CLI.

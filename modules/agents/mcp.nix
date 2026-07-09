@@ -223,7 +223,7 @@ let
                   secret_path="''${XDG_DATA_HOME:-$HOME/.local/share}/context7/api-key"
                   if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
                     # Context7 supports unauthenticated access; export auth only when the optional secret exists.
-                    if ! secret_value="$(tr -d '\n' < "$secret_path")"; then
+                    if ! secret_value="$(tr -d '\r\n' < "$secret_path")"; then
                       echo "Failed to read Context7 secret from $secret_path" >&2
                       exit 1
                     fi

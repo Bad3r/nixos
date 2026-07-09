@@ -1,6 +1,6 @@
 # USBGuard Configuration
 
-This repository uses [USBGuard](https://usbguard.github.io/) to control USB device access. Rules are stored encrypted via sops at `secrets/usbguard/system76.yaml`.
+This repository ships a [USBGuard](https://usbguard.github.io/) module to control USB device access, but the service is currently disabled: `modules/hosts/common/usbguard.nix` sets `enabled = false`, which forces `services.usbguard.enable` off on every common host. Set that toggle to `true` to activate the workflow below. Rules are stored encrypted via sops at `secrets/usbguard/system76.yaml`.
 
 ## Adding New Devices
 

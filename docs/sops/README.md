@@ -1,6 +1,6 @@
 # sops-nix Usage in This Repository
 
-This repository manages secrets with [sops](https://github.com/mozilla/sops) and [sops-nix](https://github.com/Mic92/sops-nix). The policy is intentionally small: a single Age host key that doubles as the editor key, plus a handful of templates that expose runtime files only when encrypted material exists.
+This repository manages secrets with [sops](https://github.com/getsops/sops) and [sops-nix](https://github.com/Mic92/sops-nix). The policy is intentionally small: a single Age host key that doubles as the editor key, plus a handful of templates that expose runtime files only when encrypted material exists.
 
 The `secrets/` content is provided by a git submodule.
 
@@ -77,7 +77,7 @@ hardware-backed SSH keys can coexist without breaking SOPS.
    ```bash
    sops secrets/<service>.yaml
    ```
-3. Use `secrets/service.yaml.example` as the plaintext template for ordinary
+3. Use `secrets/secret.yaml.example` as the plaintext template for ordinary
    service credentials. Keep the actual secret file as a small YAML document
    with flat, top-level `snake_case` keys. Do not add the `sops:` metadata block
    manually; SOPS adds and maintains it after encryption.

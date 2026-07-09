@@ -27,11 +27,35 @@ _: {
       r2SecretsEnabled = lib.attrByPath [ "home" "r2Secrets" "enable" ] false config;
       r2EndpointAvailable = r2SecretsEnabled && r2SecretExists;
       renderedRcloneConfig = "${config.xdg.configHome}/rclone/rclone.conf";
+      # Ownership guard inputs. The r2-flake Home Manager module declares
+      # programs.r2-cloud only when a host policy imports it, so probe with
+      # attrByPath instead of reading undeclared options.
+      r2CloudCfg = lib.attrByPath [ "programs" "r2-cloud" ] { } config;
+      r2CloudRcloneConfigPath =
+        if r2CloudCfg ? rcloneConfigPath then toString r2CloudCfg.rcloneConfigPath else "";
+      r2CloudClaimsRenderedConfig =
+        (r2CloudCfg.enable or false)
+        && (r2CloudCfg.enableRcloneRemote or false)
+        && r2CloudRcloneConfigPath == renderedRcloneConfig;
     in
     {
       config = lib.mkIf nixosEnabled (
         lib.mkMerge [
           {
+            # This module is the single writer of renderedRcloneConfig while
+            # programs.rclone.extended.enable is set; other generators must
+            # target a different path (see docs/r2-cloud/home-manager-r2-cloud.md).
+            assertions = [
+              {
+                assertion = !r2CloudClaimsRenderedConfig;
+                message = "programs.rclone.extended.enable makes modules/hm-apps/rclone.nix the owner of ${renderedRcloneConfig}, but programs.r2-cloud.enableRcloneRemote also renders programs.r2-cloud.rcloneConfigPath = ${r2CloudRcloneConfigPath}. Set programs.r2-cloud.enableRcloneRemote = false (as modules/lib/r2-runtime.nix does) or point programs.r2-cloud.rcloneConfigPath at a different file.";
+              }
+              {
+                assertion = config.programs.rclone.remotes == { };
+                message = "programs.rclone.remotes would make the upstream Home Manager rclone-config generator a second writer of ${renderedRcloneConfig} next to the activation writer in modules/hm-apps/rclone.nix. Keep remotes empty or retire the activation writer first.";
+              }
+            ];
+
             programs.rclone = {
               enable = true;
             };
@@ -63,24 +87,41 @@ _: {
               } > "$tmpConfig"
 
               if [ "$gdriveEnabled" = true ]; then
-                unset GDRIVE_CLIENT_ID GDRIVE_CLIENT_SECRET GDRIVE_TOKEN
-                . "$gdriveEnvPath"
-
-                if [ -z "$GDRIVE_CLIENT_ID" ] || [ -z "$GDRIVE_CLIENT_SECRET" ]; then
-                  echo "rclone gdrive env file is missing GDRIVE_CLIENT_ID or GDRIVE_CLIENT_SECRET: $gdriveEnvPath" >&2
-                  exit 1
-                fi
-
-                {
-                  printf '\n[gdrive]\n'
-                  printf 'type = drive\n'
-                  printf 'client_id = %s\n' "$GDRIVE_CLIENT_ID"
-                  printf 'client_secret = %s\n' "$GDRIVE_CLIENT_SECRET"
-                  printf 'scope = drive\n'
-                  if [ -n "''${GDRIVE_TOKEN:-}" ]; then
-                    printf 'token = %s\n' "$GDRIVE_TOKEN"
+                # The sops secret may not be materialized yet on a first
+                # activation; skip with a warning instead of aborting the
+                # whole home-manager activation under set -eu.
+                if [ ! -r "$gdriveEnvPath" ]; then
+                  echo "rclone gdrive env file is missing or unreadable at $gdriveEnvPath; skipping gdrive remote refresh for this activation" >&2
+                  # Carry the previously rendered [gdrive] stanza forward so a
+                  # transiently unreadable secret does not drop a working
+                  # remote from the rewritten config.
+                  if [ -r "$renderedConfig" ]; then
+                    prevGdrive="$(sed -n '/^\[gdrive\]$/,/^\[/{ /^\[gdrive\]$/p; /^\[/!p; }' "$renderedConfig")"
+                    if [ -n "$prevGdrive" ]; then
+                      printf '\n%s\n' "$prevGdrive" >> "$tmpConfig"
+                      echo "rclone gdrive remote preserved from the previous rendered config" >&2
+                    fi
                   fi
-                } >> "$tmpConfig"
+                else
+                  unset GDRIVE_CLIENT_ID GDRIVE_CLIENT_SECRET GDRIVE_TOKEN
+                  . "$gdriveEnvPath"
+
+                  if [ -z "''${GDRIVE_CLIENT_ID:-}" ] || [ -z "''${GDRIVE_CLIENT_SECRET:-}" ]; then
+                    echo "rclone gdrive env file is missing GDRIVE_CLIENT_ID or GDRIVE_CLIENT_SECRET: $gdriveEnvPath" >&2
+                    exit 1
+                  fi
+
+                  {
+                    printf '\n[gdrive]\n'
+                    printf 'type = drive\n'
+                    printf 'client_id = %s\n' "$GDRIVE_CLIENT_ID"
+                    printf 'client_secret = %s\n' "$GDRIVE_CLIENT_SECRET"
+                    printf 'scope = drive\n'
+                    if [ -n "''${GDRIVE_TOKEN:-}" ]; then
+                      printf 'token = %s\n' "$GDRIVE_TOKEN"
+                    fi
+                  } >> "$tmpConfig"
+                fi
               fi
 
               chmod 600 "$tmpConfig"
