@@ -156,6 +156,8 @@
   - Quick reference for available MCP tools including context7, cfdocs, cfbrowser, and deepwiki.
 - [reference/useful-commands.md](reference/useful-commands.md)
   - Collection of handy general-purpose CLI commands not tied to NixOS or this repository.
+- [reference/worktree-prune.md](reference/worktree-prune.md)
+  - Pruning of local branches with gone upstreams and their worktrees, the scheduled cleanup timer, safety guarantees, and recovery paths.
 
 ## Security
 
