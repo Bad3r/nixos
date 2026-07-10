@@ -45,6 +45,7 @@ let
     "obsidian"
     "pandoc"
     "pcmanfm"
+    "proton-drive"
     "rclone"
     "remmina"
     "ripgrep"

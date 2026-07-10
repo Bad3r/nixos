@@ -31,6 +31,9 @@ let
       gdriveSecretFile = "${secretsRoot}/rclone_gdrive.env";
       gdriveSecretExists = builtins.pathExists gdriveSecretFile;
       gdriveSecretPath = "/run/secrets/rclone/gdrive-env";
+      protondriveSecretFile = "${secretsRoot}/rclone_protondrive.env";
+      protondriveSecretExists = builtins.pathExists protondriveSecretFile;
+      protondriveSecretPath = "/run/secrets/rclone/protondrive-env";
       repoSecretsEnabled = lib.attrByPath [ "security" "repoSecrets" "enable" ] true config;
     in
     {
@@ -68,6 +71,25 @@ let
         (lib.mkIf (cfg.enable && !gdriveSecretExists) {
           warnings = [
             "programs.rclone.extended.enable is true but ${gdriveSecretFile} is missing; skipping gdrive remote setup."
+          ];
+        })
+
+        (lib.mkIf (cfg.enable && protondriveSecretExists && repoSecretsEnabled) {
+          sops.secrets."rclone/protondrive-env" = {
+            sopsFile = protondriveSecretFile;
+            format = "dotenv";
+            path = protondriveSecretPath;
+            inherit owner;
+            mode = "0400";
+          };
+        })
+
+        # Proton Drive is opt-in: a missing secret is the common case (most hosts
+        # do not use it), so no warning fires on absence. Only surface the
+        # actionable case where the secret exists but repo secrets are off.
+        (lib.mkIf (cfg.enable && protondriveSecretExists && (!repoSecretsEnabled)) {
+          warnings = [
+            "programs.rclone.extended.enable is true and ${protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive secret materialization. Manage rclone protondrive config manually or enable repo secrets after SOPS decryption is configured."
           ];
         })
       ];
