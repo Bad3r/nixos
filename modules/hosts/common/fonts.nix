@@ -9,7 +9,7 @@
   ...
 }:
 let
-  fontArchive = "${secretsRoot}/fonts/monolisa.tar.zst";
+  fontArchive = secretsRoot + "/fonts/monolisa.tar.zst";
   inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   secretExists = builtins.pathExists fontArchive;
   secretName = "fonts/monolisa.archive";

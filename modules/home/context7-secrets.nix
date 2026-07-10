@@ -9,7 +9,7 @@
     }:
     let
       cfg = config.home.context7Secrets;
-      ctxFile = "${secretsRoot}/context7.yaml";
+      ctxFile = secretsRoot + "/context7.yaml";
       ctxFileExists = builtins.pathExists ctxFile;
       homeDirectory = "/home/${metaOwner.username}";
     in
@@ -33,7 +33,7 @@
 
         (lib.mkIf (cfg.enable && !ctxFileExists) {
           warnings = [
-            "home.context7Secrets.enable is true but ${ctxFile} is missing; skipping Context7 secret."
+            "home.context7Secrets.enable is true but ${toString ctxFile} is missing; skipping Context7 secret."
           ];
         })
       ];

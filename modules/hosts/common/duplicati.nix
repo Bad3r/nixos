@@ -10,8 +10,8 @@
   ...
 }:
 let
-  manifestFile = "${secretsRoot}/duplicati-config.json";
-  credentialsFile = "${secretsRoot}/duplicati-r2.yaml";
+  manifestFile = secretsRoot + "/duplicati-config.json";
+  credentialsFile = secretsRoot + "/duplicati-r2.yaml";
   duplicatiModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "duplicati-r2" ] config;
   duplicatiSecretsExist = (builtins.pathExists manifestFile) && (builtins.pathExists credentialsFile);
   hostsRegistry = config.flake.lib.nixos.hosts or { };
@@ -39,7 +39,7 @@ let
         })
         // (lib.optionalAttrs duplicatiSecretsMissing {
           warnings = [
-            "services.duplicati-r2 is disabled on ${hostName}: encrypted files ${manifestFile} and/or ${credentialsFile} are missing. Initialize secrets with `git submodule update --init --recursive` or see docs/sops/README.md."
+            "services.duplicati-r2 is disabled on ${hostName}: encrypted files ${toString manifestFile} and/or ${toString credentialsFile} are missing. Initialize secrets with `git submodule update --init --recursive` or see docs/sops/README.md."
           ];
         });
     };

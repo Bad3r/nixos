@@ -5,7 +5,7 @@
   ...
 }:
 let
-  signalxSecretFile = "${secretsRoot}/tpnix.yaml";
+  signalxSecretFile = secretsRoot + "/tpnix.yaml";
   signalxSecretExists = builtins.pathExists signalxSecretFile;
   signalxSecretName = "tpnix/networking/signalx-hosts";
   signalxSecretPath = "/run/secrets/${signalxSecretName}";

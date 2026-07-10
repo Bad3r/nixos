@@ -11,7 +11,7 @@
     }:
     let
       cfg = config.home.repoGpg;
-      gpgSecretFile = "${secretsRoot}/gpg/vx.asc";
+      gpgSecretFile = secretsRoot + "/gpg/vx.asc";
       gpgSecretExists = builtins.pathExists gpgSecretFile;
       gpgAgentEnabled = lib.attrByPath [ "programs" "gnupg" "agent" "enable" ] false osConfig;
       repoGpgAvailable = cfg.enable && gpgSecretExists;
@@ -80,7 +80,7 @@
 
         (lib.mkIf (cfg.enable && !gpgSecretExists) {
           warnings = [
-            "home.repoGpg.enable is true but ${gpgSecretFile} is missing; Git signing will stay disabled."
+            "home.repoGpg.enable is true but ${toString gpgSecretFile} is missing; Git signing will stay disabled."
           ];
         })
       ];

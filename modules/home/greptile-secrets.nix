@@ -9,7 +9,7 @@
     }:
     let
       cfg = config.home.greptileSecrets;
-      greptileFile = "${secretsRoot}/greptile.yaml";
+      greptileFile = secretsRoot + "/greptile.yaml";
       greptileFileExists = builtins.pathExists greptileFile;
       homeDirectory = "/home/${metaOwner.username}";
     in
@@ -32,7 +32,7 @@
 
         (lib.mkIf (cfg.enable && !greptileFileExists) {
           warnings = [
-            "home.greptileSecrets.enable is true but ${greptileFile} is missing; skipping Greptile secret."
+            "home.greptileSecrets.enable is true but ${toString greptileFile} is missing; skipping Greptile secret."
           ];
         })
       ];
