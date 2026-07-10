@@ -58,6 +58,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    tinfoil-wiper = {
+      url = "github:Bad3r/Tinfoil-Wiper";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # R2 integration module flake (portable source; no machine-local paths)
     r2-flake.url = "github:Bad3r/nix-R2-CloudFlare-Flake?ref=main";
 

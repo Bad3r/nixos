@@ -1415,6 +1415,7 @@
         "sops-nix": "sops-nix",
         "stylix": "stylix",
         "systems": "systems_7",
+        "tinfoil-wiper": "tinfoil-wiper",
         "tinted-schemes": "tinted-schemes",
         "treefmt-nix": "treefmt-nix_2",
         "vim-autoread": "vim-autoread",
@@ -1633,6 +1634,26 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "tinfoil-wiper": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1783716011,
+        "narHash": "sha256-Bw5UBjkKP4dfx6vt4Fu50JaFxrfOy6JeDwn++Q/OoS0=",
+        "owner": "Bad3r",
+        "repo": "Tinfoil-Wiper",
+        "rev": "d6c9071a88c8076ef59cefe49534d7fb692bbf32",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Bad3r",
+        "repo": "Tinfoil-Wiper",
         "type": "github"
       }
     },
