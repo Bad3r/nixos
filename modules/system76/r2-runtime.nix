@@ -13,9 +13,9 @@
       secretsRoot
       ;
     policy = {
-      enableExternalFlake = false;
-      sopsRuntimeReady = false;
-      disabledReason = "system76 R2 integration is disabled until the upstream r2-flake stops referencing removed pkgs.nodePackages.";
+      enableExternalFlake = true;
+      sopsRuntimeReady = true;
+      disabledReason = "system76 R2 runtime is disabled; requires policy.enableExternalFlake, policy.sopsRuntimeReady, and secrets/r2.yaml.";
     };
   };
 }
