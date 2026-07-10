@@ -4,7 +4,10 @@
   nixConfig = {
     abort-on-warn = false;
     # Lix name (singular) plus CppNix name (plural); see the transition
-    # rationale in modules/base/nix-settings.nix.
+    # rationale in modules/base/nix-settings.nix. Lix additionally needs
+    # `flake-self-attrs` for `self.submodules = true`, but it must come from
+    # ambient config (nix.conf, NIX_CONFIG, --extra-experimental-features):
+    # Lix enforces it before this nixConfig block is applied.
     extra-experimental-features = [
       "pipe-operator"
       "pipe-operators"
