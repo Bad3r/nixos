@@ -56,12 +56,17 @@ Each host opts in through a small file that enables the wrapper in Full mode:
 
 - `modules/system76/cloudflare-warp.nix` sets `enable = true` directly; system76
   has runtime SOPS decryption.
+- `modules/system76/cloudflare-warp.nix` sets `enable = true` directly; system76
+  has runtime SOPS decryption.
 - `modules/tpnix/cloudflare-warp.nix` sets `enable = sopsRuntimeReady`, gating on
   `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady` (`modules/tpnix/policy.nix`) like
   the other tpnix sops consumers (`duplicati.nix`, `printing.nix`, `fonts.nix`).
-  tpnix has no runtime decryption key yet, so the wrapper stays off until that flag
-  is `true`; committing the secret while it is `false` would make tpnix declare
-  `cloudflare-warp/*` secrets it cannot decrypt and fail activation.
+  The flag is currently `true` (repo-managed sops landed for tpnix in PR #305), so
+  the wrapper behaves like system76's: un-enrolled degraded mode until
+  `secrets/cloudflare-warp.yaml` is committed, then non-interactive enrollment.
+  The gate remains a kill switch: if tpnix ever loses its runtime decryption key,
+  flipping the flag back to `false` drops the `cloudflare-warp/*` secret
+  declarations that would otherwise fail activation on an un-decryptable payload.
 
 A SOPS-ready host enables directly:
 
