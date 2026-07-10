@@ -1,3 +1,7 @@
+# Shared font stack plus the MonoLisa secret-font install pipeline. The
+# install path activates only when the encrypted archive exists and the host
+# registry sets sopsRuntimeReady. Hosts append fontconfig rules through the
+# host.fontconfig.extraRules option declared here.
 {
   config,
   lib,
@@ -11,14 +15,27 @@ let
   secretName = "fonts/monolisa.archive";
   secretRuntimePath = "/run/secrets/fonts/monolisa.archive";
   fontInstallDir = "/var/lib/fonts/monolisa";
-in
-{
-  configurations.nixos.system76.module =
-    { config, pkgs, ... }:
+  hostsRegistry = config.flake.lib.nixos.hosts or { };
+
+  body =
+    {
+      config,
+      hostName,
+      pkgs,
+      ...
+    }:
     let
       installSecretsDeps = sopsInstallSecretsDeps config;
+      sopsRuntimeReady = (hostsRegistry.${hostName} or { }).sopsRuntimeReady or false;
+      installReady = secretExists && sopsRuntimeReady;
     in
     {
+      options.host.fontconfig.extraRules = lib.mkOption {
+        type = lib.types.lines;
+        default = "";
+        description = "Extra fontconfig XML fragments appended to the shared local.conf.";
+      };
+
       config = lib.mkMerge [
         {
           fonts = {
@@ -62,10 +79,18 @@ in
                   "Symbols Nerd Font Mono"
                 ];
               };
+              localConf = ''
+                <?xml version="1.0"?>
+                <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+                <fontconfig>
+                  ${lib.optionalString installReady "<dir>${fontInstallDir}</dir>"}
+                  ${config.host.fontconfig.extraRules}
+                </fontconfig>
+              '';
             };
           };
         }
-        (lib.optionalAttrs secretExists {
+        (lib.optionalAttrs installReady {
           sops.secrets.${secretName} = {
             sopsFile = fontArchive;
             format = "binary";
@@ -123,15 +148,15 @@ in
               fc-cache -f "${fontInstallDir}"
             '';
           };
-
-          fonts.fontconfig.localConf = ''
-            <?xml version="1.0"?>
-            <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
-            <fontconfig>
-              <dir>${fontInstallDir}</dir>
-            </fontconfig>
-          '';
+        })
+        (lib.optionalAttrs (secretExists && (!sopsRuntimeReady)) {
+          warnings = [
+            "MonoLisa secret font install is disabled on ${hostName} until flake.lib.nixos.hosts.${hostName}.sopsRuntimeReady is set."
+          ];
         })
       ];
     };
+in
+{
+  flake.nixosModules.hosts-common.imports = [ body ];
 }

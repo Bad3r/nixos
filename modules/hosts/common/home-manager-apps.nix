@@ -92,12 +92,24 @@ let
       or (throw "Home Manager browser module '${name}' not found in flake.homeManagerModules.browsers");
   sharedBrowserModules = map getBrowserModule sharedBrowserNames;
 
-  body = _: {
-    config = {
-      home-manager.extraAppImports = lib.mkAfter sharedAppNames;
-      home-manager.sharedModules = lib.mkAfter (sharedAppModules ++ sharedBrowserModules);
+  # Host-only extras come from the registry:
+  #   flake.lib.nixos.hosts.<host>.extraHomeApps = [ "<app>" ... ];
+  hostsRegistry = config.flake.lib.nixos.hosts or { };
+
+  body =
+    { hostName, ... }:
+    let
+      hostAppNames = (hostsRegistry.${hostName} or { }).extraHomeApps or [ ];
+      hostAppModules = map getAppModule hostAppNames;
+    in
+    {
+      config = {
+        home-manager.extraAppImports = lib.mkAfter (sharedAppNames ++ hostAppNames);
+        home-manager.sharedModules = lib.mkAfter (
+          sharedAppModules ++ sharedBrowserModules ++ hostAppModules
+        );
+      };
     };
-  };
 in
 {
   flake.nixosModules.hosts-common.imports = [ body ];

@@ -20,14 +20,9 @@ in
       installSecretsDeps = sopsInstallSecretsDeps config;
     in
     {
+      # NetworkManager/DHCP base comes from modules/hosts/common/networking.nix;
+      # this file layers SignalX DNS routing on top.
       config = lib.mkMerge [
-        {
-          networking = {
-            networkmanager.enable = true;
-            useDHCP = lib.mkDefault true;
-          };
-        }
-
         (lib.mkIf signalxDnsReady {
           environment.etc."NetworkManager/dnsmasq.d/tpnix-signalx.conf".text = ''
             addn-hosts=${signalxSecretPath}

@@ -32,9 +32,8 @@ inputs for user `vx`.
    - `flake.homeManagerModules.r2Secrets`
    - loaded from `modules/home/r2-secrets.nix` via
      `modules/home-manager/nixos.nix`
-   - gated by `home.r2Secrets.enable` (forced off in
-     `modules/system76/imports.nix`, defaulted on in
-     `modules/tpnix/imports.nix`)
+   - gated by `home.r2Secrets.enable` (defaulted on in
+     `modules/hosts/common/imports.nix`)
 3. Host-level option assignment for user `vx`:
    - `home-manager.users.${username}.programs.r2-cloud = { ... }`
    - file: `modules/lib/r2-runtime.nix`, applied only when the host policy

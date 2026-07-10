@@ -26,6 +26,9 @@
       };
       kernelModules = [ "kvm-intel" ];
       extraModulePackages = [ ];
+
+      # Loader skeleton comes from modules/hosts/common/boot.nix.
+      loader.systemd-boot.configurationLimit = 5;
     };
 
     fileSystems = {

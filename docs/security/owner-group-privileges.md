@@ -11,7 +11,7 @@ Scope:
 - no-sudo command policy:
   - `modules/security/polkit.nix`
   - `modules/hosts/common/sudo.nix`
-  - `modules/system76/boot.nix`
+  - `modules/hosts/common/boot.nix`
 
 ## Groups Assigned To Owner In Baseline Profile
 

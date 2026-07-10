@@ -145,16 +145,10 @@ system76.gpu.mode = "nvidia-only";
 ## Boot Configuration
 
 ```nix
-# modules/system76/boot.nix
+# modules/hosts/common/boot.nix (shared by every host)
 boot = {
   # linux-zen: low-latency desktop kernel, prebuilt in cache.nixos.org.
-  kernelPackages = pkgs.linuxPackages_zen;
-  blacklistedKernelModules = [ "nouveau" ];
-
-  kernelParams = [
-    "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
-    "nvidia.NVreg_EnableGpuFirmware=1"
-  ];
+  kernelPackages = lib.mkDefault pkgs.linuxPackages_zen;
 
   crashDump = {
     enable = true;
@@ -168,12 +162,18 @@ boot = {
   };
 };
 
-# The bootloader, LUKS devices, and filesystems live in hardware-config.nix:
+# modules/system76/nvidia-gpu.nix (host GPU profile)
+boot.blacklistedKernelModules = [ "nouveau" ];
+boot.kernelParams = [
+  "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
+  "nvidia.NVreg_EnableGpuFirmware=1"
+];
+
+# The loader skeleton (systemd-boot enable, editor, consoleMode, EFI vars)
+# lives in modules/hosts/common/boot.nix; the host keeps its entry limit,
+# LUKS devices, and filesystems in hardware-config.nix:
 # modules/system76/hardware-config.nix
-boot.loader.systemd-boot = {
-  enable = true;
-  configurationLimit = 3;
-};
+boot.loader.systemd-boot.configurationLimit = 3;
 ```
 
 ## Storage (LUKS)

@@ -5,5 +5,24 @@ _: {
     # these two keys to the successor host's policy.nix.
     primary = true;
     tailnetIp = "100.64.1.5";
+
+    # Readiness gates read by modules/hosts/common/*.
+    sopsRuntimeReady = true;
+    r2RuntimeReady = true;
+
+    # Per-host values consumed by modules/hosts/common/*.
+    duplicatiStateDirReadable = true;
+    lenovoMonitorAttached = true;
+    extraHomeApps = [
+      "awscli2"
+      "pentesting-devshell"
+    ];
+    firewallDnsInterfaces = [ "enp0s20f0u1u4" ];
+    firewallExtraTcpPortRanges = [
+      {
+        from = 8000;
+        to = 8999;
+      }
+    ];
   };
 }

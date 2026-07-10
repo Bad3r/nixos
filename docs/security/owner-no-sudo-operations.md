@@ -11,7 +11,7 @@ Scope:
 - sudo-rs rules:
   - `modules/hosts/common/sudo.nix`
 - kernel setting affecting `dmesg`:
-  - `modules/system76/boot.nix`
+  - `modules/hosts/common/boot.nix`
 
 ## Commands That Do Not Require `sudo`
 

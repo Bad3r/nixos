@@ -47,7 +47,7 @@ Checks:
 test -f secrets/r2.yaml && echo present || echo missing
 rg -n 'path_regex: secrets/r2\\.yaml' modules/security/sops-policy.nix
 rg -n 'r2SecretExists|builtins\.pathExists' modules/security/r2-cloud-secrets.nix
-rg -n 'r2CloudSecrets\.enable' modules/system76/imports.nix modules/tpnix/imports.nix
+rg -n 'r2CloudSecrets\.enable' modules/hosts/common/imports.nix modules/system76 modules/tpnix
 ```
 
 Fix:
