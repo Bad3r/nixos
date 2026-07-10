@@ -97,6 +97,5 @@ let
   };
 in
 {
-  configurations.nixos.system76.module = clientOnlyTorModule;
-  configurations.nixos.tpnix.module = clientOnlyTorModule;
+  flake.nixosModules.hosts-common.imports = [ clientOnlyTorModule ];
 }
