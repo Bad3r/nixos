@@ -133,7 +133,11 @@ let
           }
 
           (lib.mkIf (cfg.vaapi.backend == "nvidia") {
-            hardware.graphics.extraPackages = [ pkgs.nvidia-vaapi-driver ];
+            # VA-API handed to NVDEC: videoAcceleration is nixpkgs' knob that
+            # installs nvidia-vaapi-driver into hardware.graphics.extraPackages.
+            # Setting it here (rather than adding the package directly) avoids a
+            # double-install, since it already defaults to true.
+            hardware.nvidia.videoAcceleration = true;
           })
 
           (lib.mkIf (cfg.vaapi.backend == "intel-media") {
