@@ -69,8 +69,8 @@ let
 
     # Reasoning settings
     # model_supports_reasoning_summaries = true; # Avoid sending reasoning.summary.
-    model_reasoning_effort = "xhigh";
-    plan_mode_reasoning_effort = "xhigh"; # none|minimal|low|medium|high|xhigh
+    model_reasoning_effort = "ultra";
+    plan_mode_reasoning_effort = "ultra"; # none|minimal|low|medium|high|xhigh
     model_verbosity = "high";
 
     # Reasoning visibility
