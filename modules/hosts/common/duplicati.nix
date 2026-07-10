@@ -20,8 +20,9 @@ let
     { hostName, lib, ... }:
     let
       hostFlags = hostsRegistry.${hostName} or { };
-      duplicatiReady =
-        duplicatiModuleExists && duplicatiSecretsExist && (hostFlags.sopsRuntimeReady or false);
+      sopsRuntimeReady = hostFlags.sopsRuntimeReady or false;
+      duplicatiReady = duplicatiModuleExists && duplicatiSecretsExist && sopsRuntimeReady;
+      duplicatiSecretsMissing = duplicatiModuleExists && sopsRuntimeReady && !duplicatiSecretsExist;
     in
     {
       # services.duplicati-r2 options exist only when the duplicati-r2 module
@@ -36,9 +37,9 @@ let
             ];
           };
         })
-        // (lib.optionalAttrs (!duplicatiReady) {
+        // (lib.optionalAttrs duplicatiSecretsMissing {
           warnings = [
-            "services.duplicati-r2 is disabled on ${hostName}: requires flake.lib.nixos.hosts.${hostName}.sopsRuntimeReady = true and encrypted files ${manifestFile} and ${credentialsFile}. Initialize secrets with `git submodule update --init --recursive` or see docs/sops/README.md."
+            "services.duplicati-r2 is disabled on ${hostName}: encrypted files ${manifestFile} and/or ${credentialsFile} are missing. Initialize secrets with `git submodule update --init --recursive` or see docs/sops/README.md."
           ];
         });
     };
