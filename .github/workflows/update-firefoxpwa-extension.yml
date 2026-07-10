@@ -19,23 +19,9 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install Lix
-        env:
-          # The pinned installer release also pins the Lix version; keep at
-          # parity with lixPackageSets.latest in the nixpkgs fork.
-          NIX_INSTALLER_EXTRA_CONF: |
-            experimental-features = nix-command flakes pipe-operator
-            extra-experimental-features = flake-self-attrs
-            abort-on-warn = false
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf -o /tmp/lix-installer \
-            https://install.lix.systems/lix/2.95.2/lix-installer-x86_64-linux
-          chmod +x /tmp/lix-installer
-          # act containers have no systemd; fall back to a root-only install.
-          extra_args=()
-          if [ -n "${ACT:-}" ]; then extra_args+=(--init none); fi
-          sudo -E /tmp/lix-installer install linux --no-confirm \
-            "${extra_args[@]}"
+        uses: ./.github/actions/install-lix
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sync extension pin
         id: update
