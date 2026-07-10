@@ -54,7 +54,7 @@ _: {
             # the invoking host's nix.conf feature list. path:. instead of the
             # default git+file ref because Lix cannot fetch a clean linked git
             # worktree (.git is a file there, not a directory).
-            if ! nix develop --extra-experimental-features 'pipe-operator flake-self-attrs' \
+            if ! nix develop --extra-experimental-features 'nix-command flakes pipe-operator flake-self-attrs' \
               --accept-flake-config --offline path:. -c true >"$sync_log" 2>&1; then
               {
                 echo "pre-commit-config-sync: offline hook sync failed."

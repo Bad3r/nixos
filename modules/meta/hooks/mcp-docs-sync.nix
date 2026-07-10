@@ -28,7 +28,7 @@ _: {
             # the invoking host's nix.conf feature list. path:. instead of .#
             # because Lix cannot fetch a clean linked git worktree as a
             # git+file flake (.git is a file there, not a directory).
-            if ! nix eval --extra-experimental-features 'pipe-operator flake-self-attrs' \
+            if ! nix eval --extra-experimental-features 'nix-command flakes pipe-operator flake-self-attrs' \
               --raw "path:.#lib.agents.mcp.docs.referenceMarkdown" > "$tmp_expected"; then
               echo "✗ Failed to generate expected MCP docs markdown." >&2
               echo "Run the regeneration command manually and retry." >&2
