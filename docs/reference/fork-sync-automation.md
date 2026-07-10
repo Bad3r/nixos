@@ -8,17 +8,12 @@ conflict-recovery path.
 
 ## Covered Forks
 
-| Fork                                  | Branch             | Upstream                                | Local clone                                              |
-| ------------------------------------- | ------------------ | --------------------------------------- | -------------------------------------------------------- |
-| `Bad3r/nixpkgs`                       | `nixpkgs-unstable` | `NixOS/nixpkgs`                         | `/data/Projects/igit/fork-nixpkgs`                       |
-| `Bad3r/home-manager`                  | `master`           | `nix-community/home-manager`            | `/data/Projects/igit/fork-home-manager`                  |
-| `Bad3r/stylix`                        | `master`           | `nix-community/stylix`                  | `/data/Projects/igit/fork-stylix`                        |
-| `Bad3r/llm-agents.nix`                | `main`             | `numtide/llm-agents.nix`                | `/data/Projects/igit/llm-agents.nix-fork`                |
-| `Bad3r/nix-doom-emacs-unstraightened` | `main`             | `marienz/nix-doom-emacs-unstraightened` | `/data/Projects/igit/fork-nix-doom-emacs-unstraightened` |
-
-`Bad3r/nix-doom-emacs-unstraightened` carries the doomdir-input Lix
-compatibility fix (upstream issue marienz/nix-doom-emacs-unstraightened#133);
-drop the fork if upstream lands an equivalent fix.
+| Fork                   | Branch             | Upstream                     | Local clone                               |
+| ---------------------- | ------------------ | ---------------------------- | ----------------------------------------- |
+| `Bad3r/nixpkgs`        | `nixpkgs-unstable` | `NixOS/nixpkgs`              | `/data/Projects/igit/fork-nixpkgs`        |
+| `Bad3r/home-manager`   | `master`           | `nix-community/home-manager` | `/data/Projects/igit/fork-home-manager`   |
+| `Bad3r/stylix`         | `master`           | `nix-community/stylix`       | `/data/Projects/igit/fork-stylix`         |
+| `Bad3r/llm-agents.nix` | `main`             | `numtide/llm-agents.nix`     | `/data/Projects/igit/llm-agents.nix-fork` |
 
 ## Behavior
 
