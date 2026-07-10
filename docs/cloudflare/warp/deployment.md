@@ -84,8 +84,11 @@ _: {
 }
 ```
 
-A host still gated by `sopsRuntimeReady` (tpnix) enables through the flag; flip it in
-`modules/tpnix/policy.nix` once the decryption key is in place:
+tpnix keeps `enable` gated on `sopsRuntimeReady` as a kill switch. The flag is
+currently `true`, so tpnix behaves like a SOPS-ready host; if the tpnix
+decryption key is ever lost, flipping the flag back to `false` in
+`modules/tpnix/policy.nix` drops the `cloudflare-warp/*` secret declarations and
+the mdm template with it:
 
 ```nix
 { config, ... }:
@@ -103,12 +106,6 @@ in
     };
   };
 }
-```
-
-The team name is not set here; it comes from the `organization` key in the sops
-secret. On a SOPS-ready host, until `secrets/cloudflare-warp.yaml` exists the host
-runs `warp-svc` un-enrolled and emits a build warning. A host still gated by
-`sopsRuntimeReady` stays off entirely until the flag is `true`.
 
 ## 4. Validate and deploy
 
