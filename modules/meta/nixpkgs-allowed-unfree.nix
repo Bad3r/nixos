@@ -7,16 +7,11 @@
 let
   cfg = config;
   predicate = pkg: builtins.elem (lib.getName pkg) cfg.nixpkgs.allowedUnfreePackages;
-  optionModule =
-    { lib, ... }:
-    {
-      options.nixpkgs.allowedUnfreePackages = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-      };
-    };
 in
 {
+  # Unfree entries are declared at the flake-parts level only (any module can
+  # contribute to this option); there is deliberately no NixOS-scope or
+  # Home Manager-scope allowlist option, the predicate below is shared.
   options.nixpkgs.allowedUnfreePackages = lib.mkOption {
     type = lib.types.listOf lib.types.str;
     default = [ ];
@@ -36,7 +31,6 @@ in
       };
 
     flake = {
-      nixosModules.base.imports = [ optionModule ];
       nixosModules.base.nixpkgs.config.allowUnfreePredicate = predicate;
 
       homeManagerModules.base = args: {

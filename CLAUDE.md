@@ -289,8 +289,10 @@ sops.secrets."context7/api-key" = {
 ## Troubleshooting
 
 - Unfree package blocked:
-  Add the package to `config.nixpkgs.allowedUnfreePackages` in
-  `modules/meta/nixpkgs-allowed-unfree.nix`.
+  Add the package to the flake-parts `nixpkgs.allowedUnfreePackages` option
+  from the module that needs it (option declared in
+  `modules/meta/nixpkgs-allowed-unfree.nix`). There is no NixOS-scope
+  allowlist option; host-level `nixpkgs.allowedUnfreePackages` fails eval.
 - Missing reference:
   Ensure the file is tracked by git.
 - Need to explore config:

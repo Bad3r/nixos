@@ -30,12 +30,6 @@ let
   ] inputs;
 
   body = _: {
-    nixpkgs.allowedUnfreePackages = lib.mkAfter [
-      "p7zip-rar"
-      "rar"
-      "unrar"
-    ];
-
     # Cybersecurity wordlist symlinks under /usr/share/wordlists/
     csec.wordlists.enable = true;
 
