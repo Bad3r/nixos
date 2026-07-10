@@ -8,17 +8,9 @@
 }:
 let
   inherit (config.flake.lib.security) sopsInstallSecretsDeps;
-  usbguardLib =
-    let
-      libAttrs = import ../../security/usbguard-lib.nix { inherit lib; };
-      flakeLib = libAttrs.flake or { };
-      securityLib = (flakeLib.lib or { }).security or { };
-    in
-    securityLib.usbguard or { };
-  baseRules = lib.strings.trim (usbguardLib.baseRules or "");
+  usbguardLib = config.flake.lib.security.usbguard;
+  baseRules = lib.strings.trim usbguardLib.baseRules;
   baseRulesFile = pkgs.writeText "usbguard-base.rules" baseRules;
-  defaultsModule = usbguardLib.defaultsModule or null;
-  moduleImports = lib.optional (defaultsModule != null) defaultsModule;
   ownerUsername = metaOwner.username;
 
   runtimeRuleFile = "/var/lib/usbguard/rules.conf";
@@ -42,8 +34,6 @@ let
       installSecretsDeps = sopsInstallSecretsDeps config;
     in
     {
-      imports = moduleImports;
-
       config = lib.mkMerge [
         {
           services.usbguard.enable = lib.mkForce enabled;
