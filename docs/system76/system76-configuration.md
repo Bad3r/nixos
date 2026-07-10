@@ -122,8 +122,8 @@ gpu.nvidia = {
   open = false;                  # Pascal predates the open kernel modules
   vaapi.backend = "intel-media"; # VA-API routes to Intel iHD, not NVDEC (Xid 31)
   prime = {
-    enable = cfg.mode == "hybrid-sync";
-    inherit (cfg) intelBusId nvidiaBusId;
+    enable = config.system76.gpu.mode == "hybrid-sync";
+    inherit (config.system76.gpu) intelBusId nvidiaBusId;
   };
 };
 
