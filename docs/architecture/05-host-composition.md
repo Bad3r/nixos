@@ -51,22 +51,23 @@ Every host follows the same shape: each `modules/<host>/*.nix` file extends `con
 
 ### system76 (Oryx Pro laptop)
 
-| File                                          | Purpose                                                               |
-| --------------------------------------------- | --------------------------------------------------------------------- |
-| `modules/system76/imports.nix`                | Baseline module imports and hardware profile wiring                   |
-| `modules/system76/home-manager-apps.nix`      | system76-only HM extras (awscli2, pentesting-devshell)                |
-| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs` and `min-free` overrides                    |
-| `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override         |
-| `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)           |
-| `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                        |
-| `modules/system76/r2-runtime.nix`             | Host runtime bindings for external `r2-flake` modules                 |
-| `modules/system76/hardware-config.nix`        | Filesystems, firmware, low-level hardware settings                    |
-| `modules/system76/host-id.nix`                | `networking.hostId`                                                   |
-| `modules/system76/support.nix`                | system76 hardware-support enable (kernel modules, firmware-daemon)    |
-| `modules/system76/nvidia-gpu.nix`             | NVIDIA PRIME (system76-only)                                          |
-| `modules/system76/mpv.nix`                    | mpv `gpu-api = "opengl"` override (NVIDIA Vulkan deadlock workaround) |
-| `modules/system76/pass-secret-service.nix`    | DBus secret-service for `pass` (system76-only)                        |
-| `modules/system76/services.nix`               | Service-level host behavior                                           |
+| File                                          | Purpose                                                                       |
+| --------------------------------------------- | ----------------------------------------------------------------------------- |
+| `modules/system76/imports.nix`                | Baseline module imports and hardware profile wiring                           |
+| `modules/system76/home-manager-apps.nix`      | system76-only HM extras (awscli2, pentesting-devshell)                        |
+| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs` and `min-free` overrides                            |
+| `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                 |
+| `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                   |
+| `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                                |
+| `modules/system76/r2-runtime.nix`             | Host runtime bindings for external `r2-flake` modules                         |
+| `modules/system76/hardware-config.nix`        | Filesystems, firmware, low-level hardware settings                            |
+| `modules/system76/host-id.nix`                | `networking.hostId`                                                           |
+| `modules/system76/support.nix`                | system76 hardware-support enable (kernel modules, firmware-daemon)            |
+| `modules/system76/nvidia-gpu.nix`             | NVIDIA PRIME (system76-only)                                                  |
+| `modules/system76/mpv.nix`                    | mpv `gpu-api = "opengl"` override (NVIDIA Vulkan deadlock workaround)         |
+| `modules/system76/pass-secret-service.nix`    | DBus secret-service for `pass` (system76-only)                                |
+| `modules/system76/policy.nix`                 | Registry data under `flake.lib.nixos.hosts.system76` (`primary`, `tailnetIp`) |
+| `modules/system76/services.nix`               | Service-level host behavior                                                   |
 
 ### tpnix (ThinkPad)
 
@@ -109,6 +110,8 @@ duplicatiModuleExists = sopsRuntimeReady && lib.hasAttrByPath [ "flake" "nixosMo
 ```
 
 Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in a host-owned module; consumers read the path with `lib.hasAttrByPath` to stay safe across hosts.
+
+Registry entries also carry fleet endpoint data. `modules/system76/policy.nix` marks the host `primary = true` and records its `tailnetIp`; `modules/networking/ssh-hosts.nix` derives one `<host>.local` SSH alias per registered host (excluding self), and `modules/apps/tailscale.nix` defaults `sshHostName` to the primary host's `tailnetIp`. Promoting another host to primary is a policy.nix data change, not a module edit.
 
 ## App and Home Manager Wiring
 
