@@ -18,7 +18,7 @@ in
     policy = {
       enableExternalFlake = ready;
       sopsRuntimeReady = ready;
-      disabledReason = "tpnix R2 runtime services are disabled until the upstream r2-flake stops referencing removed pkgs.nodePackages.";
+      disabledReason = "tpnix R2 runtime is disabled; set flake.lib.nixos.hosts.tpnix.r2RuntimeReady = true and provide secrets/r2.yaml.";
     };
   };
 }
