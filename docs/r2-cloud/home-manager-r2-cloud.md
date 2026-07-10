@@ -9,7 +9,7 @@ inputs for user `vx`.
 
 - `modules/lib/r2-runtime.nix`
 - `modules/system76/r2-runtime.nix`
-- `modules/system76/imports.nix`
+- `modules/hosts/common/imports.nix`
 - `modules/home-manager/nixos.nix`
 - `modules/home/r2-secrets.nix`
 - `modules/hm-apps/rclone.nix`
@@ -26,8 +26,7 @@ inputs for user `vx`.
    - `inputs."r2-flake".homeManagerModules.default` appended to
      `home-manager.sharedModules`
    - file: `modules/lib/r2-runtime.nix`, gated by `policy.enableExternalFlake`
-     from the host's `modules/<host>/r2-runtime.nix` (currently `false` on
-     `system76`)
+     from the host's `modules/<host>/r2-runtime.nix`
 2. Consumer-local HM secrets module import:
    - `flake.homeManagerModules.r2Secrets`
    - loaded from `modules/home/r2-secrets.nix` via

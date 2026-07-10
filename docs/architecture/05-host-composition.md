@@ -10,7 +10,7 @@ nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.att
 
 Complete hosts live under `configurations.nixos.<name>.module`. The helper in `modules/configurations/nixos.nix` maps each entry to a `nixosConfigurations.<name>` output by wrapping the deferred module in `inputs.nixpkgs.lib.nixosSystem`.
 
-Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which contributes the aggregate import list (base, sops runtime, repo secrets, lang, ssh, shared hardware profiles, optional modules) to `flake.nixosModules.hosts-common`. Per-host `imports.nix` files carry only chassis-specific modules:
+Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which contributes the aggregate import list (base, sops runtime, repo secrets, lang, ssh, shared hardware profiles, optional modules) to `flake.nixosModules.hosts-common`. Host-owned composition files carry chassis-specific modules when needed; `modules/system76/imports.nix` is the current example:
 
 ```nix
 # modules/hosts/common/imports.nix (excerpt)
@@ -51,9 +51,13 @@ Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which cont
 
 ## Host File Structures
 
-Every host follows the same shape: each `modules/<host>/*.nix` file extends `configurations.nixos.<host>.module`. Cross-host concerns (imports skeleton, boot, base services, networking base, firewall, fonts, duplicati wiring, sudo, dbus, pipewire, hostname, sops, etc.) live under `modules/hosts/common/`; a host directory carries only hardware truth, chassis-specific modules, and small value files. Notable and divergent files are listed below for the hosts currently in the repo. To audit the current set of files for any host, run `ls modules/<host>/`.
+Every host follows the same shape: NixOS fragments under `modules/<host>/` extend `configurations.nixos.<host>.module`, while `policy.nix` contributes per-host registry data. Cross-host concerns (imports skeleton, boot, base services, networking base, firewall, fonts, duplicati wiring, sudo, dbus, pipewire, hostname, sops, etc.) live under `modules/hosts/common/`; a host directory carries only hardware truth, chassis-specific modules, and small value files. Notable and divergent files are listed below for the hosts currently in the repo. To audit the current set of files for any host, run `ls modules/<host>/`.
 
-A new host's mandatory footprint is `hardware-config.nix`, `host-id.nix`, `state-version.nix`, a GPU module, `support.nix`, and a `policy.nix` carrying the registry values the common layer consumes.
+The planned `coldfront` managed-workstation footprint is `hardware-config.nix`,
+`host-id.nix`, `state-version.nix`, a GPU module, `support.nix`, and a
+`policy.nix` carrying the registry values the common layer consumes. The NixOS
+evaluator itself only requires a `configurations.nixos.<name>.module`
+contribution; common-baseline participation is a separate registry choice.
 
 ### system76 (Oryx Pro laptop)
 
@@ -125,7 +129,7 @@ in
 }
 ```
 
-Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers read the path with `lib.hasAttrByPath` or `or` fallbacks to stay safe across hosts. Current per-host value keys consumed by `modules/hosts/common/*`: `sopsRuntimeReady`, `r2RuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallDnsInterfaces`, and `firewallExtraTcpPortRanges`.
+Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers read the path with `lib.hasAttrByPath` or `or` fallbacks to stay safe across hosts. Current per-host value keys consumed by `modules/hosts/common/*`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallDnsInterfaces`, and `firewallExtraTcpPortRanges`. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
 
 Registry entries also carry fleet endpoint data. `modules/system76/policy.nix` marks the host `primary = true` and records its `tailnetIp`; `modules/networking/ssh-hosts.nix` derives one `<host>.local` SSH alias per registered host (excluding self), and `modules/apps/tailscale.nix` defaults `sshHostName` to the primary host's `tailnetIp`. Promoting another host to primary is a policy.nix data change, not a module edit.
 

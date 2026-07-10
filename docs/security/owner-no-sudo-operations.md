@@ -78,5 +78,6 @@ Scope:
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.polkit.extraConfig | jq -r`
     - shows the enabled wheel power-off/reboot rule plus the NetworkManager/ModemManager
       group rules; only wheel rules are owned by `modules/security/polkit.nix`.
-      Current host imports disable the optional wheel systemd unit-management rule.
+      The common host baseline disables the optional wheel systemd
+      unit-management rule.
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.sudo-rs.extraRules | jq`

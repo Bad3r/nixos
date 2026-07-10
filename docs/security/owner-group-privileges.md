@@ -27,10 +27,10 @@ Scope:
       - `org.freedesktop.login1.power-off*`
       - `org.freedesktop.login1.reboot*`
     - repo-owned `modules/security/polkit.nix` owns wheel-group polkit rules:
-      - current host imports enable the power rule.
+      - the common host baseline enables the power rule.
       - `wheelSystemdManagement` can grant
-        `org.freedesktop.systemd1.manage-units`, but current host imports
-        disable it.
+        `org.freedesktop.systemd1.manage-units`, but the common host baseline
+        disables it.
     - packet-capture wrappers with `CAP_NET_RAW` / `CAP_NET_ADMIN` for:
       - Wireshark
       - `tcpdump`

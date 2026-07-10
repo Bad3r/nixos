@@ -6,8 +6,10 @@ _: {
     primary = true;
     tailnetIp = "100.64.1.5";
 
-    # Readiness gates read by modules/hosts/common/*.
+    # Shared readiness gate read by modules/hosts/common/*.
     sopsRuntimeReady = true;
+
+    # Host runtime gate read by modules/system76/r2-runtime.nix.
     r2RuntimeReady = true;
 
     # Per-host values consumed by modules/hosts/common/*.

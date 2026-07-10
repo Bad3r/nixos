@@ -461,7 +461,7 @@ duplicati-r2-extract <slug> ... --json                    # JSON summary on stde
 - Implement `--allow-other` as a CLI opt-in. The NixOS service passes it only when `services.duplicati-r2.mount.allowOther = true`, and that same option is the only path that sets `programs.fuse.userAllowOther = true;`.
 - Add `services.duplicati-r2.mount.{enable,user,group,mountPoint,allowOther,debug}` and a `systemd` service in `modules/services/duplicati-r2.nix`. Assert the mount user is included in `stateDirReadableBy`, create the mountpoint via `systemd.tmpfiles`, set `restartIfChanged = false;`, `stopIfChanged = false;`, and `serviceConfig.Restart = "on-failure";`, and keep sudo out of normal operation by using the existing SQLite/env-file ACLs.
 - Add `pkgs.duplicati-r2-tools.mount` to the app module's default package list and expose flake output `.#duplicati-r2-mount`.
-- Enable the managed mount service from `modules/system76/duplicati.nix` only; `tpnix` should remain off unless it later gets matching state/env-file ACL access and explicitly opts in.
+- Gate the managed mount service in `modules/hosts/common/duplicati.nix` on per-host registry data; enable it only for `system76`. `tpnix` should remain off unless it later gets matching state/env-file ACL access and explicitly opts in.
 
 **FUSE semantics work**:
 

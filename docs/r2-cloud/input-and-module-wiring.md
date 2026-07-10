@@ -32,13 +32,13 @@ repository.
    - `inputs."r2-flake".homeManagerModules.default` via
      `home-manager.sharedModules`
    - File: `modules/lib/r2-runtime.nix`
-   - Current host policies set `enableExternalFlake = false` (see each host's
-     `disabledReason`), so neither producer surface is imported today.
+   - Current host policies set `enableExternalFlake = true`, so both producer
+     surfaces are imported for `system76` and `tpnix`.
 4. Repo-local HM secrets module is also loaded globally:
    - `flake.homeManagerModules.r2Secrets` from `modules/home/r2-secrets.nix`
    - wired by `modules/home-manager/nixos.nix`
-   - gated by `home.r2Secrets.enable` (default `false`; set per host in
-     `modules/<host>/imports.nix`)
+   - gated by `home.r2Secrets.enable` (the option defaults to `false`; the
+     common baseline defaults it on in `modules/hosts/common/imports.nix`)
 
 ## Why Both HM Module Paths Exist
 

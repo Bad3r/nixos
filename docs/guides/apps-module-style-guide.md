@@ -443,8 +443,9 @@ _: {
 
 Add to `modules/hosts/common/home-manager-apps.nix` (in the shared
 `sharedAppNames` list) so every opted-in host imports the HM module. If
-the tool is host-specific, add it to `modules/<host>/home-manager-apps.nix`
-under the per-host `hostAppNames` list instead.
+the tool is host-specific, add its name to
+`flake.lib.nixos.hosts.<host>.extraHomeApps` in that host's `policy.nix`
+instead.
 
 ```nix
 sharedAppNames = [
@@ -454,7 +455,7 @@ sharedAppNames = [
 ];
 ```
 
-> **Pitfall:** HM modules exported to `flake.homeManagerModules.apps.<name>` are **not** auto-imported. They must be explicitly listed in the `sharedAppNames` list in `home-manager-apps.nix` (or a host's `hostAppNames`). GUI session modules are no exception: `i3-config` and `stylix-gui` are themselves `flake.homeManagerModules.apps.*` modules listed in `sharedAppNames`.
+> **Pitfall:** HM modules exported to `flake.homeManagerModules.apps.<name>` are **not** auto-imported. They must be explicitly listed in the `sharedAppNames` list in `home-manager-apps.nix` or in a host's `extraHomeApps` registry list. GUI session modules are no exception: `i3-config` and `stylix-gui` are themselves `flake.homeManagerModules.apps.*` modules listed in `sharedAppNames`.
 
 ### 8. Check for Stylix Integration
 
