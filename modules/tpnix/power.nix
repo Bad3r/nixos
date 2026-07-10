@@ -9,11 +9,6 @@
     {
       boot.blacklistedKernelModules = [ "nouveau" ];
 
-      nixpkgs.allowedUnfreePackages = lib.mkAfter [
-        "nvidia-settings"
-        "nvidia-x11"
-      ];
-
       gpu.nvidia = {
         enable = true;
         package = config.boot.kernelPackages.nvidiaPackages.production;

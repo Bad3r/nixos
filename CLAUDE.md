@@ -63,7 +63,10 @@ The registry is `flake.lib.nixos.hosts.<name>.shareCommon`, declared in
 Common modules contribute to the aggregate `flake.nixosModules.hosts-common`
 module. `modules/configurations/nixos.nix` imports that aggregate for each host
 whose registry entry has `shareCommon = true`, before importing the
-host-specific module so per-host overrides still win.
+host-specific module so per-host overrides still win. Every host under
+`configurations.nixos` must set `shareCommon` explicitly; the host constructor
+aborts evaluation for hosts without a registry entry, so a host cannot skip
+the common baseline silently.
 
 ```nix
 { ... }:
@@ -286,8 +289,10 @@ sops.secrets."context7/api-key" = {
 ## Troubleshooting
 
 - Unfree package blocked:
-  Add the package to `config.nixpkgs.allowedUnfreePackages` in
-  `modules/meta/nixpkgs-allowed-unfree.nix`.
+  Add the package to the flake-parts `nixpkgs.allowedUnfreePackages` option
+  from the module that needs it (option declared in
+  `modules/meta/nixpkgs-allowed-unfree.nix`). There is no NixOS-scope
+  allowlist option; host-level `nixpkgs.allowedUnfreePackages` fails eval.
 - Missing reference:
   Ensure the file is tracked by git.
 - Need to explore config:

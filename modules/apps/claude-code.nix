@@ -40,6 +40,8 @@ let
   };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "claude-code" ];
+
   flake.nixosModules.apps.claude-code =
     {
       config,
@@ -179,7 +181,6 @@ in
           [
             {
               environment.systemPackages = lib.optional cfg.installMethods.nix.enable cfg.package;
-              nixpkgs.allowedUnfreePackages = lib.optionals cfg.installMethods.nix.enable [ "claude-code" ];
               # Import by Home Manager app key so import-tree resolves the module location.
               # The bun HM module owns BUN_INSTALL/PATH setup and the createBunDir DAG node.
               home-manager.extraAppImports = lib.mkAfter (lib.optional cfg.installMethods.bun.enable "bun");

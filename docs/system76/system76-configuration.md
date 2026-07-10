@@ -233,10 +233,10 @@ nixpkgs.allowedUnfreePackages = [
 ```
 
 NVIDIA unfree entries (`nvidia-kernel-modules`, `nvidia-x11`,
-`nvidia-settings`) are allowed in the shared
-`modules/hosts/common/packages.nix` allowlist, not in the System76 module.
-`modules/hosts/common/imports.nix` additionally allows `p7zip-rar`, `rar`, and
-`unrar`.
+`nvidia-settings`) and the archive utilities (`p7zip-rar`, `rar`, `unrar`)
+are allowed in the shared `modules/hosts/common/packages.nix` allowlist, not
+in the System76 module. All entries contribute to the single flake-parts
+`nixpkgs.allowedUnfreePackages` option; there is no NixOS-scope allowlist.
 
 > **Note:** All firmware packages are redistributable, not unfree.
 

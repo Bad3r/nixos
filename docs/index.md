@@ -92,6 +92,8 @@
   - Conventions for packages/ directory including templates for Rust, Go, Python, and binary downloads.
 - [guides/github-deployments.md](guides/github-deployments.md)
   - Using GitHub's Deployments API via gh CLI for tracking deployments (metadata only, not actual deployment).
+- [guides/host-onboarding.md](guides/host-onboarding.md)
+  - Procedural checklist for adding a NixOS host: registry entry, per-host module set, policy flags, sops provisioning, backups, docs, and validation.
 - [guides/nix-debugging-manual.md](guides/nix-debugging-manual.md)
   - Debugging techniques for Nix expressions, NixOS modules, and Home Manager including REPL, tracing, and common errors.
 - [guides/stylix-integration.md](guides/stylix-integration.md)

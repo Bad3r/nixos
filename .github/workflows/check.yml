@@ -44,14 +44,26 @@ jobs:
       # make a git-based self fetch pull the private secrets submodule
       # that CI cannot read; the per-file pathExists guards then evaluate
       # the secretless configuration. --no-build: the flake checks include
-      # both host toplevels, and building them exceeds runner disk.
+      # every host toplevel, and building them exceeds runner disk.
       - name: Check flake
         run: nix flake check --accept-flake-config --no-build "path:."
+      # Dry-run every host closure. The host list comes from the flake, so
+      # a new host is covered without editing this workflow; an empty list
+      # fails instead of passing vacuously.
       - name: Build configurations
         run: |
-          HOST="path:.#nixosConfigurations.system76"
-          nix build "$HOST.config.system.build.toplevel" \
-            --dry-run --accept-flake-config
+          hosts=$(nix eval --accept-flake-config --json \
+            "path:.#nixosConfigurations" --apply builtins.attrNames \
+            | jq -r '.[]')
+          if [ -z "$hosts" ]; then
+            echo "no nixosConfigurations found" >&2
+            exit 1
+          fi
+          for host in $hosts; do
+            echo "Dry-run building $host..."
+            nix build --dry-run --accept-flake-config \
+              "path:.#nixosConfigurations.$host.config.system.build.toplevel"
+          done
 
   format-check:
     runs-on: ubuntu-latest

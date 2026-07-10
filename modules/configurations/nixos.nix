@@ -12,7 +12,20 @@ let
     { module }:
     let
       hostName = name;
-      shareCommon = lib.attrByPath [ hostName "shareCommon" ] false (config.flake.lib.nixos.hosts or { });
+      # shareCommon must be declared explicitly per host: a silent `false`
+      # default let an unregistered host build green without the entire
+      # hosts-common baseline (hostname, stateVersion, sops pin, ...) and
+      # surface only at runtime. The throw is lazy, so enumerating host
+      # names (nix eval .#nixosConfigurations --apply builtins.attrNames)
+      # still works while any deeper eval of the host aborts.
+      hostsRegistry = config.flake.lib.nixos.hosts or { };
+      registryHint = "add `${hostName}.shareCommon = true;` (opt in to the hosts-common baseline) or `= false;` (deliberate opt-out) to modules/hosts/common/registry.nix";
+      hostEntry =
+        hostsRegistry.${hostName}
+          or (throw "Host ${hostName} has no entry in flake.lib.nixos.hosts; ${registryHint}");
+      shareCommon =
+        hostEntry.shareCommon
+          or (throw "flake.lib.nixos.hosts.${hostName} does not set shareCommon; ${registryHint}");
       commonModule =
         config.flake.nixosModules.hosts-common
           or (throw "Host ${hostName} has shareCommon enabled but flake.nixosModules.hosts-common is missing");
