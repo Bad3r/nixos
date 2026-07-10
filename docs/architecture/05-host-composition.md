@@ -55,9 +55,12 @@ Every host follows the same shape: NixOS fragments under `modules/<host>/` exten
 
 The planned `coldfront` managed-workstation footprint is `hardware-config.nix`,
 `host-id.nix`, `state-version.nix`, a GPU module, `support.nix`, and a
-`policy.nix` carrying the registry values the common layer consumes. The NixOS
-evaluator itself only requires a `configurations.nixos.<name>.module`
-contribution; common-baseline participation is a separate registry choice.
+`policy.nix` carrying the registry values the common layer consumes. Every
+host additionally needs an explicit `shareCommon` entry in
+`modules/hosts/common/registry.nix`: the host constructor aborts evaluation
+for hosts without one, so common-baseline participation is always a recorded
+choice (`true` to opt in, `false` to deliberately opt out). The full
+procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 
 ### system76 (Oryx Pro laptop)
 
