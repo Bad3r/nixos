@@ -26,7 +26,7 @@ let
             "system76-power"
             "powerprofilesctl"
           ];
-          default = "system76-power";
+          default = "powerprofilesctl";
           description = "Power-profile backend exposed to shared i3 launcher scripts.";
         };
 
