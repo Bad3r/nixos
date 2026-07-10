@@ -21,12 +21,16 @@ runs:
         INSTALLER_SHA256: 57564e78a6d57126661fe5e793de70a72bacf9835ddb7c5c0cbfadf3db21545e
         # flake-self-attrs is required for this flake's
         # self.submodules = true and must be ambient: Lix enforces it
-        # before flake.nix#nixConfig applies. abort-on-warn = false is the
-        # Lix default, restated to record the decision that third-party
+        # before flake.nix#nixConfig applies. Append-only on purpose: the
+        # installer's own base conf already appends nix-command flakes,
+        # and this payload is rewritten from a parsed key map with
+        # unspecified order, so a plain experimental-features line here
+        # can be emitted after an extra- append and silently drop it
+        # (reproduced with Lix 2.95.2). abort-on-warn = false is the Lix
+        # default, restated to record the decision that third-party
         # deprecated-syntax warnings stay non-fatal in CI.
         NIX_INSTALLER_EXTRA_CONF: |
-          experimental-features = nix-command flakes pipe-operator
-          extra-experimental-features = flake-self-attrs
+          extra-experimental-features = pipe-operator flake-self-attrs
           abort-on-warn = false
           access-tokens = github.com=${{ inputs.github-token }}
       run: |-
