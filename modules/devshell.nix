@@ -111,6 +111,7 @@
               config.packages."hook-mcp-docs-sync"
               config.packages."hook-gitleaks"
               config.packages."hook-luacheck"
+              config.packages."hook-pre-commit-config-sync"
 
               age
               sops

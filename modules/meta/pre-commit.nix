@@ -173,6 +173,25 @@ _: {
                 "manual"
               ];
             };
+
+            pre-commit-config-sync = {
+              enable = true;
+              name = "pre-commit-config-sync";
+              description = "Refresh generated hook state offline when hook sources change.";
+              entry = "${config.packages.hook-pre-commit-config-sync}/bin/hook-pre-commit-config-sync";
+              pass_filenames = false;
+              files = builtins.concatStringsSep "|" [
+                "^(flake\\.nix"
+                "flake\\.lock"
+                "\\.githooks/"
+                "scripts/hooks/"
+                "modules/devshell\\.nix"
+                "modules/devshell/"
+                "modules/meta/pre-commit\\.nix"
+                "modules/meta/treefmt\\.nix"
+                "modules/meta/hooks/)"
+              ];
+            };
           };
         };
       };

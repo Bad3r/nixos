@@ -159,6 +159,12 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
     `working trees containing submodules cannot be moved or removed`; the helper
     refuses dirty, ignored, or locked worktrees before using `--force` for that
     Git guard.
+- Bulk cleanup of leftovers
+  - Command: `scripts/prune-stale-worktrees.sh` (dry-run), `--apply` to act
+  - Scope: branches whose upstream is gone plus their worktrees; a semimonthly
+    `worktree-prune` user timer runs the safe apply mode on shared hosts.
+  - Reference: `docs/reference/worktree-prune.md` for safety guarantees and
+    recovery through `refs/prune-backup/*`.
 
 Branch type should follow Conventional Commits prefixes.
 

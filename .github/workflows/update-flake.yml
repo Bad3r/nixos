@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
@@ -34,19 +36,35 @@ jobs:
 
       - name: Update flake inputs
         id: update
+        # path:. reads the checkout directly instead of the git fetcher, which
+        # would pull the unreadable secrets submodule (self.submodules = true)
+        # and fail; path:. still writes flake.lock back to the working tree.
+        # pipefail surfaces a metadata failure instead of masking it as an empty
+        # input list and a green "No updates available" no-op.
         run: |
-          # Update all inputs except secrets (requires private SSH access)
-          # Get all inputs except 'secrets' and 'self'
-          inputs=$(nix flake metadata --json \
-            | jq -r '.locks.nodes.root.inputs | keys[]' \
-            | grep -v "^secrets$" || true)
+          set -eo pipefail
+          inputs=$(nix flake metadata --json "path:." \
+            | jq -r '.locks.nodes.root.inputs | keys[]')
 
+          failures=0
+          total=0
           if [ -n "$inputs" ]; then
             for input in $inputs; do
+              total=$((total + 1))
               echo "Updating $input..."
-              nix flake lock --update-input "$input" \
-                || echo "Failed to update $input, skipping..."
+              nix flake update "$input" --flake "path:." || {
+                echo "Failed to update $input, skipping..."
+                failures=$((failures + 1))
+              }
             done
+          fi
+
+          # A single per-input failure stays best-effort, but every input
+          # failing is a systemic outage, not a genuine "everything current"
+          # day: fail so it is not masked as a green changed=false.
+          if [ "$total" -gt 0 ] && [ "$failures" -eq "$total" ]; then
+            echo "All $total flake input updates failed" >&2
+            exit 1
           fi
 
           # Check if flake.lock changed
@@ -55,7 +73,7 @@ jobs:
             echo "No updates available"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "Flake inputs updated (excluding secrets)"
+            echo "Flake inputs updated"
           fi
 
       - name: Check Nixpkgs lock health
@@ -63,9 +81,11 @@ jobs:
         with:
           send-statistics: false
           fail-mode: true
+          # CEL has() only accepts field selectors, not bare variables.
+          # Keep in sync with modules/meta/pre-commit.nix.
           condition: >-
-            supportedRefs.contains(gitRef) && has(numDaysOld)
-            && numDaysOld < 30 && owner == 'Bad3r'
+            supportedRefs.contains(gitRef) && numDaysOld < 30
+            && owner == 'Bad3r'
 
       - name: Sync firefoxpwa extension pin
         if: steps.update.outputs.changed == 'true'
@@ -73,17 +93,40 @@ jobs:
         # policy stays in sync before the flake check evaluates it.
         run: scripts/update-firefoxpwa-extension.py
 
+      # "path:." bypasses the git fetcher: flake.nix sets
+      # self.submodules = true, which would make any git-based self fetch
+      # pull the private secrets submodule that CI cannot read. Secret
+      # files are then absent, so the per-file pathExists guards evaluate
+      # the secretless configuration and warn about disabled services.
+      # --no-build: the flake checks include both host toplevels, and
+      # building two desktop closures exceeds runner disk.
       - name: Run flake check
         if: steps.update.outputs.changed == 'true'
-        run: nix flake check --accept-flake-config
+        run: nix flake check --accept-flake-config --no-build "path:."
+
+      - name: Free disk space
+        if: steps.update.outputs.changed == 'true'
+        # Reclaim ~15 GB of preinstalled toolchains so one host closure fits.
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+
+      # Realise one host closure (both exceed runner disk, hence --no-build on
+      # the flake check). Gates the auto-merged PR on an actual build: a lock
+      # bump that evaluates but fails to build (broken patch, a package that no
+      # longer compiles) fails the run before the PR is created and merged.
+      - name: Build host closure
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          nix build --accept-flake-config --no-link -L \
+            "path:.#nixosConfigurations.system76.config.system.build.toplevel"
 
       - name: Show updated inputs
         if: steps.update.outputs.changed == 'true'
+        # path:. avoids the git self-fetch of the unreadable secrets submodule.
         run: |
           {
             echo "## Updated Inputs"
             echo '```'
-            nix flake metadata --json | jq -r '
+            nix flake metadata --json "path:." | jq -r '
               .locks.nodes | to_entries[]
               | select(.value.locked)
               | "\(.key): \(.value.locked.rev // .value.locked.narHash)"
@@ -105,11 +148,9 @@ jobs:
             This PR updates all flake inputs to their latest versions.
 
             ### Validation
-            - ✅ Flake inputs updated successfully (excluding `secrets`)
-            - ✅ `nix flake check --accept-flake-config` passed
-
-            ### Excluded Inputs
-            - `secrets` - Requires private authentication, updated manually
+            - ✅ Flake inputs updated successfully
+            - ✅ `nix flake check --accept-flake-config --no-build "path:."`
+              passed (secretless evaluation, issue #327)
 
             ### Changed Inputs
             See the commit diff for detailed changes to `flake.lock`.

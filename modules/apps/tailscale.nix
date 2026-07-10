@@ -19,9 +19,17 @@
     interfaceName: Override the network interface name used by tailscaled (default `tailscale0`).
     sshHostAlias: Host alias written to `~/.ssh/hosts/<alias>` when tailscale is enabled.
     sshHostName: HostName used in the generated SSH match block (IP or MagicDNS name).
+      Defaults to the `tailnetIp` of the registry host marked `primary` in
+      `flake.lib.nixos.hosts`, so a primary-host handoff is a registry data change.
 */
-_:
+{ config, lib, ... }:
 let
+  fleetHosts = config.flake.lib.nixos.hosts or { };
+  primaryTailnetIp = lib.findFirst (ip: ip != null) null (
+    lib.mapAttrsToList (_: host: host.tailnetIp or null) (
+      lib.filterAttrs (_: host: host.primary or false) fleetHosts
+    )
+  );
   TailscaleModule =
     {
       config,
@@ -67,9 +75,13 @@ let
         };
 
         sshHostName = lib.mkOption {
-          type = lib.types.str;
-          default = "100.64.1.5";
-          description = "SSH HostName for the tailscale host entry (IP or MagicDNS name).";
+          type = lib.types.nullOr lib.types.str;
+          default = primaryTailnetIp;
+          description = ''
+            SSH HostName for the tailscale host entry (IP or MagicDNS name).
+            Defaults to the tailnetIp of the flake.lib.nixos.hosts entry marked
+            primary; null skips the generated ~/.ssh/hosts alias.
+          '';
         };
       };
 

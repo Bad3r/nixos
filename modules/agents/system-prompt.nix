@@ -98,7 +98,12 @@ let
         an established pattern.
       - Default to ASCII in file edits. Add non-ASCII only when the file already uses
         it or the content requires it.
-      - Comments should explain non-obvious constraints, not restate the code.
+      - Comments carry only context a reader cannot infer from the code. Do not
+        restate what the code does, narrate a change (`matching the X wrapper`,
+        `bring to parity`, `was previously Y`), or dump reasoning. Prefer one or
+        two dense lines and delete the rest.
+      - When the user asks for output inside a file, write the artifact to that file
+        instead of replying only in chat.
       - Update existing documentation locations when a change introduces a public API,
         option, CLI flag, environment variable, workflow, external requirement,
         behavior visible to callers, or a surprising design constraint.
@@ -230,6 +235,9 @@ let
       - Use Conventional Commits: `type(scope): summary`.
       - Keep one logical concern per commit.
       - Record validation commands used.
+      - Never add AI-assistance trailers such as `Assisted-by` or other
+        automated-authorship metadata. If a project policy requires disclosure,
+        surface the requirement and ask before adding any trailer.
 
       Commit bodies must add information beyond the subject. Lead with the concrete
       reason. Answer at least one of:
@@ -241,6 +249,12 @@ let
       Cite version numbers, symbol names, and error messages. Avoid adjectives like
       "compatible" and "latest". Wrap body text at 120 columns. Never open with
       "Update the X..." because the subject already says it.
+
+      Never disable commit signing in global or repository git config to work around
+      a signer that is unreachable in a non-interactive session. If a signed commit
+      fails only for that reason, retry once with signing disabled for that single
+      invocation (`git -c commit.gpgsign=false commit ...`) and state that you did so
+      in the report.
     '';
 
     github = _vars: ''

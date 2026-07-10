@@ -6,13 +6,13 @@
   Repository: https://gitlab.com/Remmina/Remmina
 
   Summary:
-    * Keeps Remmina's RDP MIME wiring declarative without inheriting the upstream graphical-session autostart service.
+    * Enables Home Manager's Remmina integration without duplicating repo-owned RDP MIME defaults.
 
   Options:
     services.remmina.enable: Turn on the Home Manager Remmina integration.
     services.remmina.systemdService.enable: Upstream defaults this to true; this wrapper forces false to prevent boot-time autostart.
     services.remmina.systemdService.startupFlags: Control the flags passed when the optional upstream user service launches Remmina.
-    services.remmina.addRdpMimeTypeAssoc: Manage the `application/x-rdp` MIME association from Home Manager.
+    services.remmina.addRdpMimeTypeAssoc: Disabled here because host.defaults.remoteDesktopClient owns the RDP MIME association.
 
   Notes:
     * Home Manager exposes Remmina under `services.remmina`, not `programs.remmina`.
@@ -28,6 +28,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         services.remmina = {
           enable = true;
+          addRdpMimeTypeAssoc = false;
           systemdService.enable = false;
         };
       };

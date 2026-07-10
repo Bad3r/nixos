@@ -85,11 +85,17 @@ _: {
         ''
       ];
 
-      commitSkillDir = (agents.skills.commit.codex pkgs).dir;
       codexInstructions = agents.systemPrompt.render {
         vars.questionTool = "request_user_input";
         vars.shellRules = codexShellRules;
       };
+
+      # Install every compiled skill that ships a Codex profile under
+      # ~/.config/agents/skills/<name> (discovered by Codex at ~/.agents/skills),
+      # keyed off the shared registry so new skills need no per-client wiring.
+      codexSkillDirs = lib.mapAttrs' (
+        name: skill: lib.nameValuePair "agents/skills/${name}" { source = (skill.codex pkgs).dir; }
+      ) (lib.filterAttrs (_name: skill: skill ? codex) agents.skills.list);
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -199,10 +205,9 @@ _: {
 
           # User-level Codex instructions under XDG config home
           "codex/AGENTS.md".text = codexInstructions;
-
-          # Commit skill (user-scoped, discovered by SkillsManager at ~/.agents/skills/)
-          "agents/skills/commit".source = commitSkillDir;
-        };
+        }
+        # Skills (user-scoped, discovered by SkillsManager at ~/.agents/skills/)
+        // codexSkillDirs;
       };
     };
 }

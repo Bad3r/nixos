@@ -35,6 +35,10 @@ in
 
           networking.networkmanager.dns = "dnsmasq";
 
+          # services.resolved force-sets networking.networkmanager.dns =
+          # "systemd-resolved", which conflicts with dnsmasq mode above.
+          services.resolved.enable = false;
+
           sops.secrets.${signalxSecretName} = {
             sopsFile = signalxSecretFile;
             format = "yaml";
