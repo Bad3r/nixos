@@ -9,7 +9,8 @@ expected files/options in this repository.
 
 - `flake.nix`
 - `modules/lib/r2-runtime.nix`
-- per-host `modules/<host>/r2-runtime.nix` and `modules/<host>/imports.nix`
+- per-host `modules/<host>/r2-runtime.nix`
+- `modules/hosts/common/imports.nix`
 - `modules/security/r2-cloud-secrets.nix`
 - `modules/home/r2-secrets.nix`
 - `modules/security/sops-policy.nix`
@@ -64,8 +65,8 @@ Expected result:
 
 The secret checks require `security.r2CloudSecrets.enable` on the host; the
 unit checks additionally require the host R2 policy to enable the runtime.
-Current host policies keep the runtime disabled, so absent `r2-*` units are
-the expected state today.
+Current `system76` and `tpnix` policies enable the runtime. After deploying the
+evaluated configuration, absent `r2-*` units or secret files indicate breakage.
 
 ```bash
 test -s /run/secrets/r2/account-id

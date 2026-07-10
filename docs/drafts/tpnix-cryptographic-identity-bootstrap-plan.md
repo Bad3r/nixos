@@ -31,7 +31,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 2. Private key management model: SOPS-managed.
 3. Git signing key configuration ownership:
    - Shared defaults in `modules/git/git.nix`.
-   - Host-specific fingerprint override in `modules/system76/imports.nix` and `modules/tpnix/imports.nix`.
+   - Host-specific fingerprint override in dedicated `modules/system76/git.nix` and `modules/tpnix/git.nix` files.
 4. Secret file layout:
    - `secrets/gpg/system76.asc`
    - `secrets/gpg/tpnix.asc`
@@ -64,12 +64,12 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
      - `signing.format = "openpgp"`
    - Remove hard-coded shared `signing.key`.
 
-2. `modules/system76/imports.nix`
+2. `modules/system76/git.nix`
 
    - Add explicit host signing key:
      - `home-manager.users.${metaOwner.username}.programs.git.signing.key = lib.mkForce "<SYSTEM76_GPG_FINGERPRINT>";`
 
-3. `modules/tpnix/imports.nix`
+3. `modules/tpnix/git.nix`
 
    - Do not rely on `security.repoSecrets` for OpenPGP material; that module is ACT-only.
    - Add explicit host signing key:
@@ -219,8 +219,8 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
 1. Revert only touched files:
    - `modules/git/git.nix`
-   - `modules/system76/imports.nix`
-   - `modules/tpnix/imports.nix`
+   - `modules/system76/git.nix`
+   - `modules/tpnix/git.nix`
    - `modules/security/secrets.nix`
    - `modules/home/pass-secret-service.nix`
    - `modules/tpnix/ssh.nix`

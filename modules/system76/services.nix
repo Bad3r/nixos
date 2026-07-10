@@ -57,17 +57,9 @@ in
           }
         ];
 
-      # Cannot use systemd.sysusers with normal users (only supports system users)
-      # systemd.sysusers.enable = true;
       systemd = {
-        coredump = {
-          enable = true;
-          settings.Coredump = {
-            MaxUse = "1G";
-            KeepFree = "2G";
-            MaxRetentionSec = "3d";
-          };
-        };
+        # Local crash-triage retention on top of the shared coredump baseline.
+        coredump.settings.Coredump.MaxRetentionSec = "3d";
 
         # On-demand Samba: keep units available but don't auto-start at boot.
         # Start manually with `systemctl start samba.target` when sharing is
@@ -105,14 +97,6 @@ in
       };
 
       services = {
-        journald = {
-          storage = "persistent";
-          extraConfig = ''
-            SystemMaxUse=1G
-            SystemKeepFree=10G
-          '';
-        };
-
         cloudflared.enable = true;
 
         cloudflare-warp = {
@@ -127,13 +111,6 @@ in
             # hplip  # Requires unfree license
             brlaser
           ];
-        };
-
-        # Enable CUPS for printing
-        avahi = {
-          enable = lib.mkDefault true;
-          nssmdns4 = true;
-          openFirewall = true;
         };
 
         samba = {
@@ -152,25 +129,8 @@ in
           openFirewall = true;
         };
 
-        # Power management
-        upower.enable = true;
         # power-profiles-daemon conflicts with system76-power; keep disabled
         power-profiles-daemon.enable = lib.mkForce false;
-
-        # Enable GVFS for trash support, mounting, etc.
-        gvfs.enable = true;
-
-        # Enable thumbnail generation
-        tumbler.enable = true;
-
-        # Enable locate service
-        locate = {
-          enable = true;
-          package = pkgs.plocate;
-        };
-
-        # Enable weekly fstrim for SSDs
-        fstrim.enable = true;
 
         # Thermal management handled by system76-power (hardware.system76.power-daemon)
         # thermald disabled - system76-power provides thermal management, power profiles,
@@ -191,13 +151,9 @@ in
       # launcher must shell out to system76-power instead of powerprofilesctl.
       gui.i3.powerProfiles.backend = "system76-power";
 
-      # Power management configuration
-      # - powerManagement: kernel-level CPU governor and suspend/resume hooks
-      # - system76-power: System76 daemon for fans, backlight, turbo policies
+      # system76-power: System76 daemon for fans, backlight, turbo policies
       powerManagement = {
-        enable = true;
         cpuFreqGovernor = "performance"; # ondemand, powersave, performance
-        powertop.enable = false; # Aggressive USB autosuspend causes device issues
         resumeCommands = ''
           # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
           ${pkgs.systemd}/bin/loginctl lock-sessions
@@ -207,16 +163,9 @@ in
         '';
       };
 
-      # CoolerControl: DISABLED - conflicts with System76 EC fan control
-      # When both CoolerControl and EC control fans simultaneously (e.g., Fn+1),
-      # the EC hangs causing system crash. See: github.com/pop-os/system76-dkms/issues/11
-      # Let EC and system76-power handle fans natively.
-      programs.coolercontrol.enable = false;
-
-      # Disable ACME sample certs until configured with real domain/token
-      security.acme = {
-        acceptTerms = lib.mkDefault false;
-        certs = lib.mkForce { };
-      };
+      # CoolerControl stays disabled via the shared baseline; it conflicts with
+      # System76 EC fan control. When both control fans simultaneously (e.g.,
+      # Fn+1), the EC hangs causing system crash.
+      # See: github.com/pop-os/system76-dkms/issues/11
     };
 }

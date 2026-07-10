@@ -38,6 +38,14 @@ _: {
 
       config = lib.mkMerge [
         {
+          # Blacklist nouveau to avoid conflicts with proprietary NVIDIA driver
+          boot.blacklistedKernelModules = [ "nouveau" ];
+
+          boot.kernelParams = [
+            "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
+            "nvidia.NVreg_EnableGpuFirmware=1"
+          ];
+
           gpu.nvidia = {
             enable = true;
             # GTX 1070 Max-Q is supported by the 580.xx legacy branch; newer production drivers ignore it.

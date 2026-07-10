@@ -3,8 +3,9 @@
 This directory documents how `/home/vx/nixos` consumes
 `Bad3r/nix-R2-CloudFlare-Flake` for user `vx`. Each host wires the integration
 through the shared builder `flake.lib.nixos.r2.mkHostR2Module` with a per-host
-policy; current host policies keep the producer runtime disabled pending an
-upstream `r2-flake` fix (removed `pkgs.nodePackages` references).
+policy. The current `system76` and `tpnix` policies enable the producer runtime;
+the builder still gates imports and runtime assignments on each host's readiness
+flag and the encrypted `secrets/r2.yaml` payload.
 
 ## Scope
 
@@ -23,8 +24,8 @@ upstream `r2-flake` fix (removed `pkgs.nodePackages` references).
 - `modules/lib/r2-runtime.nix` (shared builder: gated producer module imports
   and runtime consumers)
 - per-host `modules/<host>/r2-runtime.nix` (policy passed to the builder)
-- per-host `modules/<host>/imports.nix` (`security.r2CloudSecrets.enable` and
-  `home.r2Secrets.enable` toggles)
+- `modules/hosts/common/imports.nix` (`security.r2CloudSecrets.enable` and
+  `home.r2Secrets.enable` defaults)
 - `modules/security/r2-cloud-secrets.nix` (system secrets/templates)
 - `modules/home/r2-secrets.nix` (HM secrets/template)
 - `modules/security/sops-policy.nix` (SOPS creation rule for `secrets/r2.yaml`)

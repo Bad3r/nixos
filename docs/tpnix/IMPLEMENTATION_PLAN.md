@@ -42,7 +42,7 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
   - `boot.extraModulePackages`
   - `fileSystems`
   - `swapDevices`
-- `modules/tpnix/boot.nix` owns host policy:
+- `modules/hosts/common/boot.nix` owns the shared boot policy (the loader entry limit stays in `modules/tpnix/hardware-config.nix`):
   - `pkgs.linuxPackages_zen` (the CachyOS kernel was retired for the cached linux-zen kernel)
   - `systemd-boot` settings
   - crash dump reservation
@@ -85,7 +85,7 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
 - Do not leave boot storage facts split across `boot.nix` and `hardware-config.nix`; that creates drift on the next hardware change.
 - Do not copy the generated file verbatim into the repo; preserve repo policy and only lift the machine-specific facts.
 - Do not reuse the old `networking.hostId`; that risks collisions if the previous machine ever comes back online.
-- Do not let this document describe a different kernel or graphics policy than the committed code; the repo now carries the linux-zen boot policy in `modules/tpnix/boot.nix` and keeps the tpnix graphics stack in `modules/tpnix/power.nix`, outside this document's scope.
+- Do not let this document describe a different kernel or graphics policy than the committed code; the repo now carries the linux-zen boot policy in `modules/hosts/common/boot.nix` and keeps the tpnix graphics stack in `modules/tpnix/power.nix`, outside this document's scope.
 - Do not assume missing firmware packages in advance. If Wi-Fi, audio, or suspend behavior fails after boot, inspect logs and add only the exact firmware that is proven necessary.
 
 ## 5) Validation And Rollout
