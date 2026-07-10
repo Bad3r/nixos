@@ -42,6 +42,7 @@ in
       config.flake.nixosModules.lang
       config.flake.nixosModules.ssh
       config.flake.nixosModules.bluetooth
+      config.flake.nixosModules.nvidia-gpu
       config.flake.nixosModules.zshKeybindings
 
       # External hardware modules
