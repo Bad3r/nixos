@@ -40,8 +40,8 @@ let
   # Existing non-default values (kept as-is).
   codexSettingsOverrides = {
     # Core settings
-    model = "gpt-5.5";
-    review_model = "gpt-5.5";
+    model = "gpt-5.6-sol";
+    review_model = "gpt-5.6-sol";
     commit_attribution = "";
     approval_policy = "on-request";
     default_permissions = "workspace";
