@@ -96,11 +96,21 @@ jobs:
       # pull the private secrets submodule that CI cannot read. Secret
       # files are then absent, so the per-file pathExists guards evaluate
       # the secretless configuration and warn about disabled services.
-      # --no-build: the flake checks include every host toplevel, and
-      # building desktop closures exceeds runner disk.
+      # nix eval instead of `nix flake check --no-build`: Lix forces
+      # read-only store mode under --no-build, which breaks eval-time
+      # store writes (interpolated source copies, IFD derivations) on the
+      # fresh runner store; forcing every check's drvPath keeps the eval
+      # surface (package-checks.nix mirrors every package into checks and
+      # make-shell exposes each dev shell as a `<name>-shell` check, so
+      # both still evaluate here; apps is empty) without building check
+      # outputs (the checks include every host toplevel, and building
+      # desktop closures exceeds runner disk).
       - name: Run flake check
         if: steps.update.outputs.changed == 'true'
-        run: nix flake check --accept-flake-config --no-build "path:."
+        run: |
+          nix eval --accept-flake-config --json \
+            "path:.#checks.x86_64-linux" \
+            --apply 'checks: builtins.mapAttrs (_: check: check.drvPath) checks'
 
       - name: Free disk space
         if: steps.update.outputs.changed == 'true'
