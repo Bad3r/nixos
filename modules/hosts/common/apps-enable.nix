@@ -313,10 +313,13 @@ let
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 true;
       ocrmypdf.extended.enable = lib.mkOverride 1100 true;
-      "oh-my-opencode".extended.enable = lib.mkOverride 1100 true;
+      # Off: unused on current hosts, and the llm-agents bun2nix packaging
+      # breaks Lix eval-only CI until nix-community/bun2nix#97 lands.
+      "oh-my-opencode".extended.enable = lib.mkOverride 1100 false;
       okular.extended.enable = lib.mkOverride 1100 false;
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 true;
-      opencode.extended.enable = lib.mkOverride 1100 true;
+      # Off: unused on current hosts (same packaging as oh-my-opencode).
+      opencode.extended.enable = lib.mkOverride 1100 false;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 true;
       openssh.extended.enable = lib.mkOverride 1100 true;
       openssl.extended.enable = lib.mkOverride 1100 true;
