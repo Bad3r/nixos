@@ -70,10 +70,6 @@ def connector_version() -> str:
             "--impure",
             "--raw",
             "--accept-flake-config",
-            # The flake's modules use pipe operators; nix_command pins
-            # --experimental-features, so re-add it for this evaluation.
-            "--extra-experimental-features",
-            "pipe-operators",
             "--expr",
             expr,
         ],

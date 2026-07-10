@@ -18,15 +18,24 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          extra_nix_config: |
-            experimental-features = nix-command flakes pipe-operators
+      - name: Install Lix
+        env:
+          # The pinned installer release also pins the Lix version; keep at
+          # parity with lixPackageSets.latest in the nixpkgs fork.
+          NIX_INSTALLER_EXTRA_CONF: |
+            experimental-features = nix-command flakes pipe-operator
+            extra-experimental-features = flake-self-attrs
             abort-on-warn = false
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf -o /tmp/lix-installer \
+            https://install.lix.systems/lix/2.95.2/lix-installer-x86_64-linux
+          chmod +x /tmp/lix-installer
+          # act containers have no systemd; fall back to a root-only install.
+          extra_args=()
+          if [ -n "${ACT:-}" ]; then extra_args+=(--init none); fi
+          sudo -E /tmp/lix-installer install linux --no-confirm \
+            "${extra_args[@]}"
 
       - name: Prefer HTTPS for GitHub
         run: |
@@ -52,7 +61,10 @@ jobs:
             for input in $inputs; do
               total=$((total + 1))
               echo "Updating $input..."
-              nix flake update "$input" --flake "path:." || {
+              # Lix rejects a relative --flake ref ("cannot fetch input
+              # 'path:.' because it uses a relative path"); the absolute
+              # form keeps the same write-back behavior.
+              nix flake update "$input" --flake "path:$PWD" || {
                 echo "Failed to update $input, skipping..."
                 failures=$((failures + 1))
               }
