@@ -23,7 +23,10 @@ Hosts, Home Manager, repo hooks, and CI run Lix
 RFC issue #282). Lix requires the `flake-self-attrs` experimental feature for
 this flake's `self.submodules = true`; it must come from ambient configuration
 (`modules/base/nix-settings.nix`, CI installer conf, `build.sh` `NIX_CONFIG`)
-because Lix enforces it before `nixConfig` applies.
+because Lix enforces it before `nixConfig` applies. CI installs the same
+release through `.github/actions/install-lix` (version and installer digest
+pinned together); the `ci-lix-installer-parity` flake check fails when that
+pin drifts from `lixPackageSets.latest.lix`.
 
 `flake.nix#nixConfig` carries only pre-evaluation settings needed before the
 module graph is loaded:
