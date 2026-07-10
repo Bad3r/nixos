@@ -51,7 +51,9 @@ _: {
             head -n 40 "$tmp_diff" | sed 's/^/    /' >&2 || true
             echo "" >&2
             echo "Regenerate with:" >&2
-            echo "  tmp=\$(mktemp) && nix eval --raw \"path:.#lib.agents.mcp.docs.referenceMarkdown\" >! \"\$tmp\" && mv \"\$tmp\" docs/reference/mcp-tools.md" >&2
+            # >| (POSIX clobber-override) instead of zsh-only >!: mktemp
+            # pre-creates the file, so plain > breaks under noclobber.
+            echo "  tmp=\$(mktemp) && nix eval --raw \"path:.#lib.agents.mcp.docs.referenceMarkdown\" >| \"\$tmp\" && mv \"\$tmp\" docs/reference/mcp-tools.md" >&2
             echo "Then stage docs/reference/mcp-tools.md and commit normally." >&2
             exit 1
           '';
