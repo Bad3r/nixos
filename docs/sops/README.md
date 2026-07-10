@@ -122,7 +122,7 @@ hardware-backed SSH keys can coexist without breaking SOPS.
      ...
    }:
    let
-     serviceSecretFile = "${secretsRoot}/<service>.yaml";
+     serviceSecretFile = secretsRoot + "/<service>.yaml";
      serviceSecretExists = builtins.pathExists serviceSecretFile;
      ownerName = metaOwner.username;
    in

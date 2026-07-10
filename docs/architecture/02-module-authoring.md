@@ -145,7 +145,7 @@ Home Manager modules receive `inputs`, `metaOwner`, and `secretsRoot` through `h
     { lib, config, metaOwner, secretsRoot, ... }:
     let
       cfg = config.home.context7Secrets;
-      ctxFile = "${secretsRoot}/context7.yaml";
+      ctxFile = secretsRoot + "/context7.yaml";
     in
     {
       config = lib.mkIf (cfg.enable && builtins.pathExists ctxFile) {

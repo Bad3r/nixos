@@ -23,7 +23,7 @@ system services and the `r2` CLI wrapper.
 - Source of truth file: `secrets/r2.yaml`.
 - System declarations are gated by `security.r2CloudSecrets.enable`
   (default `false`) and guarded by
-  `builtins.pathExists "${secretsRoot}/r2.yaml"`.
+  `builtins.pathExists (secretsRoot + "/r2.yaml")`.
 - The common baseline (`modules/hosts/common/imports.nix`) defaults the gate
   on for every shared host; per-host modules can override it.
 
