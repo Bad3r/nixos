@@ -79,7 +79,6 @@ in
         xfsettingsd.enable = false;
       };
       powerProfiles = {
-        backend = "powerprofilesctl";
         allowSelection = false;
       };
     };

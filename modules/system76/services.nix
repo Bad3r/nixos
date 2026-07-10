@@ -186,6 +186,11 @@ in
         lact.enable = true;
       };
 
+      # This host manages power profiles through the System76 EC daemon
+      # (power-profiles-daemon is force-disabled above), so the shared i3
+      # launcher must shell out to system76-power instead of powerprofilesctl.
+      gui.i3.powerProfiles.backend = "system76-power";
+
       # Power management configuration
       # - powerManagement: kernel-level CPU governor and suspend/resume hooks
       # - system76-power: System76 daemon for fans, backlight, turbo policies
