@@ -130,7 +130,7 @@ See `modules/apps/pyyaml.nix` (library) and `modules/apps/cloudflare-python-sdk.
 ## File Layout
 
 - Store each app module at `modules/apps/<tool>.nix`.
-- Export the module as `flake.nixosModules.apps.<tool>`. Provide additional bundles (for example `workstation`, `base`) only when they are meaningful.
+- Export the module as `flake.nixosModules.apps.<tool>`. Provide additional bundles (for example `base`) only when they are meaningful.
 - Keep per-app modules focused on package enablement and lightweight configuration. Compose higher-level behaviour in domain modules (for example `modules/networking/`).
 
 ## Top-of-File Documentation Block
