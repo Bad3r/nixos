@@ -8,11 +8,13 @@ All System76-specific configuration lives in `modules/system76/`:
 | ---------------------------- | ------------------------------------------------- |
 | `hardware-config.nix`        | Filesystems, LUKS, firmware, bluetooth, GPU mode  |
 | `nvidia-gpu.nix`             | NVIDIA driver, PRIME sync/nvidia-only mode        |
-| `boot.nix`                   | linux-zen kernel, crash dump, NVIDIA params       |
-| `services.nix`               | power management, scheduler, logging              |
+| `services.nix`               | Power, Samba, Cloudflare, scheduler, LACT         |
 | `support.nix`                | System76 kernel modules, firmware daemon          |
 | `system76-power-overlay.nix` | `system76-power` patch (skip non-ALPM SCSI hosts) |
 | `packages.nix`               | System76 utilities, unfree allowlist              |
+
+Shared boot and base-service policy lives in `modules/hosts/common/boot.nix`
+and `modules/hosts/common/services.nix`.
 
 ## Hardware Support
 
@@ -60,7 +62,7 @@ hardware = {
 
 Intel CPU microcode is not set here; it is provided by the
 `nixos-hardware` `common-cpu-intel-cpu-only` module imported in
-`imports.nix`.
+`modules/hosts/common/imports.nix`.
 
 All firmware is redistributable (no unfree). See [system76-hardware.md](system76-hardware.md) for firmware details.
 
@@ -78,6 +80,8 @@ services = {
 };
 
 powerManagement.cpuFreqGovernor = "performance";
+
+# modules/hosts/common/services.nix
 programs.coolercontrol.enable = false;  # Conflicts with EC
 ```
 
@@ -145,16 +149,10 @@ system76.gpu.mode = "nvidia-only";
 ## Boot Configuration
 
 ```nix
-# modules/system76/boot.nix
+# modules/hosts/common/boot.nix (shared by every shareCommon host)
 boot = {
   # linux-zen: low-latency desktop kernel, prebuilt in cache.nixos.org.
-  kernelPackages = pkgs.linuxPackages_zen;
-  blacklistedKernelModules = [ "nouveau" ];
-
-  kernelParams = [
-    "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
-    "nvidia.NVreg_EnableGpuFirmware=1"
-  ];
+  kernelPackages = lib.mkDefault pkgs.linuxPackages_zen;
 
   crashDump = {
     enable = true;
@@ -168,12 +166,18 @@ boot = {
   };
 };
 
-# The bootloader, LUKS devices, and filesystems live in hardware-config.nix:
+# modules/system76/nvidia-gpu.nix (host GPU profile)
+boot.blacklistedKernelModules = [ "nouveau" ];
+boot.kernelParams = [
+  "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
+  "nvidia.NVreg_EnableGpuFirmware=1"
+];
+
+# The loader skeleton (systemd-boot enable, editor, consoleMode, EFI vars)
+# lives in modules/hosts/common/boot.nix; the host keeps its entry limit,
+# LUKS devices, and filesystems in hardware-config.nix:
 # modules/system76/hardware-config.nix
-boot.loader.systemd-boot = {
-  enable = true;
-  configurationLimit = 3;
-};
+boot.loader.systemd-boot.configurationLimit = 3;
 ```
 
 ## Storage (LUKS)
@@ -231,7 +235,8 @@ nixpkgs.allowedUnfreePackages = [
 NVIDIA unfree entries (`nvidia-kernel-modules`, `nvidia-x11`,
 `nvidia-settings`) are allowed in the shared
 `modules/hosts/common/packages.nix` allowlist, not in the System76 module.
-`imports.nix` additionally allows `p7zip-rar`, `rar`, and `unrar`.
+`modules/hosts/common/imports.nix` additionally allows `p7zip-rar`, `rar`, and
+`unrar`.
 
 > **Note:** All firmware packages are redistributable, not unfree.
 

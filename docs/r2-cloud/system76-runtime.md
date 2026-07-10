@@ -9,7 +9,7 @@ contract that applies when the policy enables it.
 
 - `modules/system76/r2-runtime.nix` (host policy)
 - `modules/lib/r2-runtime.nix` (shared runtime contract)
-- `modules/system76/imports.nix` (secrets module toggles)
+- `modules/hosts/common/imports.nix` (secrets module defaults)
 
 ## Not Covered
 
@@ -22,16 +22,18 @@ contract that applies when the policy enables it.
 `modules/system76/r2-runtime.nix` builds the host module through
 `config.flake.lib.nixos.r2.mkHostR2Module` with:
 
-- `enableExternalFlake = false`
-- `sopsRuntimeReady = false`
-- `disabledReason` explaining that system76 R2 integration is disabled until
-  the upstream `r2-flake` stops referencing removed `pkgs.nodePackages`
+- `enableExternalFlake = flake.lib.nixos.hosts.system76.r2RuntimeReady`
+- `sopsRuntimeReady = flake.lib.nixos.hosts.system76.r2RuntimeReady`
+- `disabledReason` explaining how to restore the readiness flag and encrypted
+  payload if either is unavailable
 
-`modules/system76/imports.nix` additionally forces
-`security.r2CloudSecrets.enable = false` and `home.r2Secrets.enable = false`
-for the owner user. With this policy, no `r2-*` units, `/run/secrets/r2/*`
-files, or `r2` wrapper are active on `system76`; the helper emits the
-`disabledReason` as an evaluation warning instead.
+`modules/system76/policy.nix` currently sets `r2RuntimeReady = true`, and the
+common baseline defaults `security.r2CloudSecrets.enable` and
+`home.r2Secrets.enable` on. With `secrets/r2.yaml` present, the evaluated
+configuration imports both producer modules and enables the `r2-*` units,
+runtime secret files, and the owner user's `r2` wrapper. If readiness or the
+encrypted payload is missing, the helper omits runtime assignments and emits
+`disabledReason` as an evaluation warning.
 
 ## Services and Programs When the Policy Enables the Runtime
 

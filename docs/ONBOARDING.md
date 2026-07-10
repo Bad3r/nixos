@@ -16,7 +16,7 @@ theming, and a custom `build.sh` validate-and-deploy pipeline.
 | -------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **Languages**  | Nix (primary), Python, Shell, plus JSON / YAML / TOML / SQL / Markdown data                                          |
 | **Frameworks** | flake-parts, import-tree, home-manager, sops-nix, stylix, treefmt-nix, git-hooks.nix, nixos-hardware, GitHub Actions |
-| **Hosts**      | `system76`, `tpnix`, and `coldfront`                                                                                 |
+| **Hosts**      | Configured: `system76`, `tpnix`; planned: `coldfront`                                                                |
 
 Start with `docs/architecture/README.md` for the 01-06 reading order. This guide
 is the map; that doc set is the detail.
@@ -139,7 +139,7 @@ builds on the last.
 | 4   | How a file becomes a module           | `docs/architecture/02-module-authoring.md` (placement rules, pkgs-vs-no-pkgs split, the Two-Context Problem)                                |
 | 5   | NixOS modules & the app catalog       | `docs/architecture/03-nixos-modules.md`, `modules/hosts/common/apps-base.nix`, `apps-enable.nix`                                            |
 | 6   | Assembling a host                     | `docs/architecture/05-host-composition.md`, `modules/configurations/nixos.nix`, `modules/hosts/common/registry.nix`                         |
-| 7   | Per-host composition & overrides      | `modules/system76/imports.nix`, `modules/tpnix/imports.nix`, `modules/tpnix/apps-enable.nix`                                                |
+| 7   | Per-host composition & overrides      | `modules/hosts/common/imports.nix`, `modules/system76/imports.nix`, `modules/tpnix/apps-enable.nix`                                         |
 | 8   | Home Manager: the dual-module pattern | `docs/architecture/04-home-manager.md`, `modules/home-manager/nixos.nix`, `base.nix`                                                        |
 | 9   | Secrets with sops-nix                 | `modules/security/sops-runtime.nix`, `modules/hosts/common/sops.nix`, `modules/security/secrets.nix`                                        |
 | 10  | Custom packages & overlays            | `modules/hosts/common/custom-overlays-base.nix`, `modules/custom-overlays/restringer.nix`, `packages/restringer/default.nix`, `hashes.json` |
@@ -175,15 +175,18 @@ load-bearing ones.
 - `modules/hosts/common/apps-enable.nix`: default-on/off baseline for hundreds of
   `programs.*`/`services.*` at `mkOverride 1100`; publishes the snapshot for the
   collision check.
-- `modules/system76/imports.nix`, `modules/tpnix/imports.nix`: per-host
-  composition hubs wiring base/ssh/sops/duplicati + nixos-hardware profiles.
+- `modules/hosts/common/imports.nix`: fleet composition hub wiring
+  base/ssh/sops/duplicati + shared nixos-hardware profiles; host-owned modules
+  such as `modules/system76/imports.nix` add chassis-specific composition.
 - `modules/tpnix/apps-enable.nix`: host override demonstration (disables defaults,
   enables thinkfan at `mkOverride 1000`).
 
 ### Base System & Boot
 
 - `modules/base/`: core Nix settings, users, locale.
-- `modules/boot/`: bootloader and kernel configuration.
+- `modules/hosts/common/boot.nix`: shared kernel, initrd, systemd-boot, crash
+  dump, and sysctl policy.
+- `modules/boot/`: boot compression and visual policy.
 
 ### Home Manager & Dotfiles
 

@@ -61,7 +61,7 @@
 - [r2-cloud/README.md](r2-cloud/README.md)
   - Index for `nix-R2-CloudFlare-Flake` consumer integration docs in this repo.
 - [r2-cloud/input-and-module-wiring.md](r2-cloud/input-and-module-wiring.md)
-  - How `inputs.r2-flake` is wired into System76 NixOS and Home Manager imports.
+  - How `inputs.r2-flake` is wired into registered NixOS and Home Manager hosts.
 - [r2-cloud/secrets-and-rendered-files.md](r2-cloud/secrets-and-rendered-files.md)
   - Mapping from `secrets/r2.yaml` to `/run/secrets/r2/*` and HM env templates.
 - [r2-cloud/system76-runtime.md](r2-cloud/system76-runtime.md)

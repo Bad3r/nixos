@@ -61,43 +61,28 @@ Inspect the active manifest:
 sops -d --input-type binary --output-type binary secrets/duplicati-config.json | jq
 ```
 
-## Wire the module in a host
+## Wire the module for a common host
 
-Each host module (`modules/<host>/duplicati.nix`) takes `secretsRoot` from `_module.args` and gates on the presence of both encrypted files; hosts that grant operator read access also take `metaOwner` and set `stateDirReadableBy` (some hosts add further readiness gates, such as SOPS key availability):
+`modules/hosts/common/imports.nix` imports `flake.nixosModules."duplicati-r2"`
+when that optional export exists. `modules/hosts/common/duplicati.nix` then
+enables the service only when both encrypted files exist and the host registry
+sets `sopsRuntimeReady = true`. Hosts grant the owner read access to local state
+through `duplicatiStateDirReadable`:
 
 ```nix
-{
-  lib,
-  metaOwner,
-  secretsRoot,
-  ...
-}:
-let
-  manifestFile = "${secretsRoot}/duplicati-config.json";
-  credentialsFile = "${secretsRoot}/duplicati-r2.yaml";
-  ready = (builtins.pathExists manifestFile) && (builtins.pathExists credentialsFile);
-in
-{
-  configurations.nixos.<host>.module = _: {
-    config = lib.mkMerge [
-      (lib.mkIf ready {
-        services.duplicati-r2 = {
-          enable = true;
-          configFile = manifestFile;
-          stateDirReadableBy = [ metaOwner.username ];
-        };
-      })
-      (lib.mkIf (!ready) {
-        warnings = [
-          "services.duplicati-r2 is disabled because secrets are missing."
-        ];
-      })
-    ];
+# modules/system76/policy.nix (excerpt)
+_: {
+  flake.lib.nixos.hosts.system76 = {
+    sopsRuntimeReady = true;
+    duplicatiStateDirReadable = true;
   };
 }
 ```
 
-Import the module in the host closure (typically `modules/<host>/imports.nix`) via `config.flake.nixosModules."duplicati-r2"`. Order it after `sops-nix`'s module so the secret declarations are valid.
+Set `duplicatiStateDirReadable = false` or omit it when the owner should not
+receive SQLite and environment-file ACLs. A missing optional module or a host
+whose SOPS runtime is not ready stays quiet; a ready host with missing encrypted
+payloads receives an evaluation warning naming both expected files.
 
 ## Add a target
 

@@ -11,7 +11,7 @@ Scope:
 - sudo-rs rules:
   - `modules/hosts/common/sudo.nix`
 - kernel setting affecting `dmesg`:
-  - `modules/system76/boot.nix`
+  - `modules/hosts/common/boot.nix`
 
 ## Commands That Do Not Require `sudo`
 
@@ -78,5 +78,6 @@ Scope:
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.polkit.extraConfig | jq -r`
     - shows the enabled wheel power-off/reboot rule plus the NetworkManager/ModemManager
       group rules; only wheel rules are owned by `modules/security/polkit.nix`.
-      Current host imports disable the optional wheel systemd unit-management rule.
+      The common host baseline disables the optional wheel systemd
+      unit-management rule.
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.sudo-rs.extraRules | jq`

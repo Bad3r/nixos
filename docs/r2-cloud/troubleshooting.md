@@ -9,7 +9,8 @@ Fast diagnosis for integration-specific failures between this repo and
 
 - `flake.nix`
 - `modules/lib/r2-runtime.nix`
-- per-host `modules/<host>/r2-runtime.nix` and `modules/<host>/imports.nix`
+- per-host `modules/<host>/r2-runtime.nix`
+- `modules/hosts/common/imports.nix`
 - `modules/security/r2-cloud-secrets.nix`
 - `modules/home/r2-secrets.nix`
 
@@ -47,13 +48,13 @@ Checks:
 test -f secrets/r2.yaml && echo present || echo missing
 rg -n 'path_regex: secrets/r2\\.yaml' modules/security/sops-policy.nix
 rg -n 'r2SecretExists|builtins\.pathExists' modules/security/r2-cloud-secrets.nix
-rg -n 'r2CloudSecrets\.enable' modules/system76/imports.nix modules/tpnix/imports.nix
+rg -n 'r2CloudSecrets\.enable' modules/hosts/common/imports.nix modules/system76 modules/tpnix
 ```
 
 Fix:
 
-1. ensure `security.r2CloudSecrets.enable` is true for the host (default is
-   `false`; `modules/system76/imports.nix` currently forces it off)
+1. ensure `security.r2CloudSecrets.enable` is true for the host (the common
+   baseline defaults it on; a per-host module can override it)
 2. ensure `secrets/r2.yaml` exists and is encrypted with a matching SOPS policy
 3. confirm creation rule still includes `secrets/r2.yaml`
 4. rebuild/activate after secret changes
