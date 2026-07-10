@@ -51,6 +51,11 @@
 - [cloudflare/containers/limitations-roadmap.md](cloudflare/containers/limitations-roadmap.md)
   - Beta limitations, platform gaps, and roadmap notes for Cloudflare Containers.
 
+## Coldfront
+
+- [coldfront/project-coldfront.md](coldfront/project-coldfront.md)
+  - Hardware plan and assembly notes for the `coldfront` workstation host.
+
 ## R2 Cloud
 
 - [r2-cloud/README.md](r2-cloud/README.md)
