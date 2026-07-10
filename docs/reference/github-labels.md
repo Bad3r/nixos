@@ -115,10 +115,11 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 
 ## Host Labels
 
-| Label            | Description                                                            |
-| ---------------- | ---------------------------------------------------------------------- |
-| `host(system76)` | Use for changes specific to the System76 host or its runtime contract. |
-| `host(tpnix)`    | Use for changes specific to the `tpnix` host or its runtime contract.  |
+| Label             | Description                                                            |
+| ----------------- | ---------------------------------------------------------------------- |
+| `host(coldfront)` | Use for changes specific to the `coldfront` host or hardware plan.     |
+| `host(system76)`  | Use for changes specific to the System76 host or its runtime contract. |
+| `host(tpnix)`     | Use for changes specific to the `tpnix` host or its runtime contract.  |
 
 ## Focus Labels
 

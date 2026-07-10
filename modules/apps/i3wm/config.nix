@@ -12,7 +12,7 @@
     }:
     let
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
-      powerProfileBackend = lib.attrByPath [ "powerProfiles" "backend" ] "system76-power" hostI3Cfg;
+      powerProfileBackend = lib.attrByPath [ "powerProfiles" "backend" ] "powerprofilesctl" hostI3Cfg;
       powerProfileSelectionAllowed = lib.attrByPath [ "powerProfiles" "allowSelection" ] true hostI3Cfg;
       sessionMetadata = {
         DESKTOP_SESSION = "none+i3";

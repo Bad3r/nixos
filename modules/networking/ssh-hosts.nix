@@ -1,4 +1,8 @@
-_: {
+{ config, ... }:
+let
+  fleetHostNames = builtins.attrNames (config.flake.lib.nixos.hosts or { });
+in
+{
   # Provide per-host SSH config via include files under ~/.ssh/hosts/*
   flake.homeManagerModules.base =
     {
@@ -20,11 +24,22 @@ _: {
         "tailscale"
         "extended"
         "sshHostName"
-      ] "100.64.1.5" osConfig;
+      ] null osConfig;
+      selfHostName = lib.attrByPath [ "networking" "hostName" ] "" osConfig;
+      # One LAN alias per registered fleet host, excluding the host itself.
+      lanAliasFiles = lib.listToAttrs (
+        map (name: {
+          name = ".ssh/hosts/${name}.local";
+          value.text = ''
+            Host ${name}.local
+              IdentityFile ~/.ssh/id_ed25519
+          '';
+        }) (lib.filter (name: name != selfHostName) fleetHostNames)
+      );
     in
     {
       home.file = lib.mkMerge [
-        (lib.mkIf tailscaleEnabled {
+        (lib.mkIf (tailscaleEnabled && tailscaleHostName != null) {
           ".ssh/hosts/${tailscaleHostAlias}".text = ''
             Host ${tailscaleHostAlias}
               Port 22
@@ -46,12 +61,8 @@ _: {
               ControlPersist 15m
               ControlPath ~/.ssh/ctl-%C
           '';
-
-          ".ssh/hosts/system76.local".text = ''
-            Host system76.local
-              IdentityFile ~/.ssh/id_ed25519
-          '';
         }
+        lanAliasFiles
       ];
     };
 }

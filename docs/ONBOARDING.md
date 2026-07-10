@@ -16,7 +16,7 @@ theming, and a custom `build.sh` validate-and-deploy pipeline.
 | -------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **Languages**  | Nix (primary), Python, Shell, plus JSON / YAML / TOML / SQL / Markdown data                                          |
 | **Frameworks** | flake-parts, import-tree, home-manager, sops-nix, stylix, treefmt-nix, git-hooks.nix, nixos-hardware, GitHub Actions |
-| **Hosts**      | `system76` and `tpnix` (each opts into a shared common baseline)                                                     |
+| **Hosts**      | `system76`, `tpnix`, and `coldfront`                                                                                 |
 
 Start with `docs/architecture/README.md` for the 01-06 reading order. This guide
 is the map; that doc set is the detail.
@@ -31,10 +31,10 @@ documentation.
     into systems: the host builder, the devshell / files / readme / package-checks
     aggregators, shared `lib` helpers, and the git post-checkout hook.
 
-02. **Host Definitions & Baseline** (`modules/system76`, `modules/tpnix`,
-    `modules/hosts/common`). Per-host configuration and hardware profiles, plus the
-    cross-host shared baseline and the registry that every opted-in host composes.
-    The largest layer.
+02. **Host Definitions & Baseline** (`modules/<host>/`, `modules/hosts/common`).
+    Per-host configuration, hardware profiles, host documentation, the cross-host
+    shared baseline, and the registry that every opted-in host composes. The
+    largest layer.
 
 03. **Base System & Boot** (`modules/base`, `modules/boot`). Foundational settings
     shared by all hosts: core Nix settings, users, locale, bootloader, and kernel.

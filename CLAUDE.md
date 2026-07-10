@@ -163,6 +163,12 @@ This repo has an initialized `secrets/` submodule, so plain
 checks for dirty, ignored, and locked worktrees first, then uses `--force` only
 for that Git submodule guard.
 
+Leftover branches whose remote branch was deleted, and the worktrees backing
+them, are pruned by `scripts/prune-stale-worktrees.sh` (dry-run by default)
+and by a semimonthly `worktree-prune` user timer on shared hosts. See
+`docs/reference/worktree-prune.md` for flags, safety guarantees, and recovery
+through `refs/prune-backup/*`.
+
 Branch type should follow Conventional Commits prefixes. PR bodies should
 include:
 

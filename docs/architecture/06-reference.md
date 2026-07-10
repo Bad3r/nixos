@@ -37,14 +37,15 @@ nix flake check --accept-flake-config --no-build --offline
 
 ## Troubleshooting
 
-| Scenario                         | Resolution                                                                                                                   |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Git hooks fail in a new worktree | Run `nix develop` (auto-sync runs in shellHook) or run `nix develop -c bash scripts/hooks/sync-pre-commit-hooks.sh` manually |
-| Missing app reference            | Use `config.flake.lib.nixos.hasApp "name"` or `nix eval --json .#nixosModules.apps --apply builtins.attrNames`               |
-| Helper assertion failures        | Run `nix flake check --accept-flake-config` and inspect `checks.<system>.helpers-exist`                                      |
-| Managed file drift               | Run `nix develop -c write-files` then `git diff`                                                                             |
-| Unfree package blocked           | Add to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`                                   |
-| "Cannot coerce null to string"   | See [Two-Context Problem](02-module-authoring.md#the-two-context-problem)                                                    |
+| Scenario                                                | Resolution                                                                                                                   |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Git hooks fail in a new worktree                        | Run `nix develop` (auto-sync runs in shellHook) or run `nix develop -c bash scripts/hooks/sync-pre-commit-hooks.sh` manually |
+| Commit fails with `hooks were refreshed; retry commit.` | The `pre-commit-config-sync` hook resynced generated hook state after a hook source change; rerun the same `git commit`      |
+| Missing app reference                                   | Use `config.flake.lib.nixos.hasApp "name"` or `nix eval --json .#nixosModules.apps --apply builtins.attrNames`               |
+| Helper assertion failures                               | Run `nix flake check --accept-flake-config` and inspect `checks.<system>.helpers-exist`                                      |
+| Managed file drift                                      | Run `nix develop -c write-files` then `git diff`                                                                             |
+| Unfree package blocked                                  | Add to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`                                   |
+| "Cannot coerce null to string"                          | See [Two-Context Problem](02-module-authoring.md#the-two-context-problem)                                                    |
 
 ## Introspection
 

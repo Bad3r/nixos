@@ -51,6 +51,11 @@
 - [cloudflare/containers/limitations-roadmap.md](cloudflare/containers/limitations-roadmap.md)
   - Beta limitations, platform gaps, and roadmap notes for Cloudflare Containers.
 
+## Coldfront
+
+- [coldfront/project-coldfront.md](coldfront/project-coldfront.md)
+  - Hardware plan and assembly notes for the `coldfront` workstation host.
+
 ## R2 Cloud
 
 - [r2-cloud/README.md](r2-cloud/README.md)
@@ -144,6 +149,13 @@
 - [csec/additional-tools-runtime-status.md](csec/additional-tools-runtime-status.md)
   - Smoke-test report for the additional-tools reference; records which entries launched cleanly on the active flake pin and which failed with build, attribute, or invocation issues.
 
+## RDP
+
+- [rdp/README.md](rdp/README.md)
+  - Index for Remote Desktop (RDP) operator docs covering One Identity Safeguard RemoteApp access.
+- [rdp/safeguard-remoteapp-file-export.md](rdp/safeguard-remoteapp-file-export.md)
+  - Why file export/download fails inside a Safeguard RemoteApp session and the Safeguard channel-policy changes to request from the administrator.
+
 ## Reference
 
 - [reference/fork-sync-automation.md](reference/fork-sync-automation.md)
@@ -156,6 +168,8 @@
   - Quick reference for available MCP tools including context7, cfdocs, cfbrowser, and deepwiki.
 - [reference/useful-commands.md](reference/useful-commands.md)
   - Collection of handy general-purpose CLI commands not tied to NixOS or this repository.
+- [reference/worktree-prune.md](reference/worktree-prune.md)
+  - Pruning of local branches with gone upstreams and their worktrees, the scheduled cleanup timer, safety guarantees, and recovery paths.
 
 ## Security
 

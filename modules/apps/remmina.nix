@@ -8,6 +8,7 @@
   Summary:
     * Provides a tabbed GTK client for RDP, VNC, SPICE, NX, X2Go, SSH, SFTP, and related remote-access workflows.
     * Supports reusable connection profiles, SSH tunneling, and plugin-driven protocol integration from one interface.
+    * Installs shared MIME info for `.rdp` connection files so XDG can classify them as `application/x-rdp`.
 
   Options:
     remmina: Launch the graphical client and browse saved connection profiles.
@@ -25,6 +26,17 @@ let
     }:
     let
       cfg = config.programs.remmina.extended;
+      rdpMimeInfo = pkgs.writeTextDir "share/mime/packages/application-x-rdp.xml" ''
+        <?xml version="1.0" encoding="UTF-8"?>
+        <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+          <mime-type type="application/x-rdp">
+            <comment>RDP connection file</comment>
+            <icon name="application-x-rdp"/>
+            <glob-deleteall/>
+            <glob pattern="*.rdp"/>
+          </mime-type>
+        </mime-info>
+      '';
     in
     {
       options.programs.remmina.extended = {
@@ -38,7 +50,10 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [
+          cfg.package
+          rdpMimeInfo
+        ];
       };
     };
 in

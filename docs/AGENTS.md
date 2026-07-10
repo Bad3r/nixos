@@ -9,8 +9,9 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 - `nixos-manual/`: mirrored upstream NixOS manual sources.
 - `technical-writing/`: style guidance for documentation structure,
   examples, review, and lifecycle.
-- Domain folders (for example `cloudflare/`, `duplicati/`, `mpv/`,
-  `r2-cloud/`, `sops/`, `system76/`, `usbguard/`): product-specific docs.
+- Host and domain folders (for example `cloudflare/`, `coldfront/`,
+  `duplicati/`, `mpv/`, `r2-cloud/`, `sops/`, `system76/`, `usbguard/`):
+  host-specific and product-specific docs.
 
 Prefer updating an existing page over adding a new one. Update `index.md` when
 adding, removing, or moving documentation pages. Use clear, repo-relative links

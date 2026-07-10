@@ -98,6 +98,12 @@ sudo system76-power charge-thresholds --profile full_charge   # 96-100%
 
 ## NVIDIA GPU
 
+Shared NVIDIA wiring (driver selection, open-module toggle, container
+toolkit, VA-API routing, PRIME) lives in the parameterized
+`flake.nixosModules.nvidia-gpu` module (`modules/hardware/nvidia-gpu.nix`).
+The host file maps the `system76.gpu.mode` enum onto it and keeps the
+chassis-specific libva routing.
+
 ```nix
 # modules/system76/nvidia-gpu.nix
 options.system76.gpu = {
@@ -109,17 +115,17 @@ options.system76.gpu = {
   nvidiaBusId = lib.mkOption { type = lib.types.str; default = "PCI:1:0:0"; };
 };
 
-hardware.nvidia = {
+gpu.nvidia = {
+  enable = true;
   # GTX 1070 Max-Q is supported by the 580.xx legacy branch only.
   package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
-  modesetting.enable = true;
-  videoAcceleration = false;  # No nvidia-vaapi-driver; VA-API routes to Intel iHD
-  powerManagement.enable = true;
-  powerManagement.finegrained = false;  # Incompatible with PRIME sync
-  open = false;          # Proprietary driver
-  nvidiaSettings = true;
+  open = false;                  # Pascal predates the open kernel modules
+  vaapi.backend = "intel-media"; # VA-API routes to Intel iHD, not NVDEC (Xid 31)
+  prime = {
+    enable = config.system76.gpu.mode == "hybrid-sync";
+    inherit (config.system76.gpu) intelBusId nvidiaBusId;
+  };
 };
-hardware.nvidia-container-toolkit.enable = true;  # GPU passthrough for containers
 
 # nvidia-only branch: libva uses Intel Quick Sync through the stable iGPU render node.
 environment.sessionVariables.LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
@@ -129,13 +135,6 @@ environment.sessionVariables.LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/
 ```nix
 # Active host mode is set in hardware-config.nix (overrides the hybrid-sync default):
 system76.gpu.mode = "nvidia-only";
-
-# hybrid-sync branch enables PRIME sync (NOT active on this host):
-hardware.nvidia.prime = {
-  sync.enable = true;
-  intelBusId = "PCI:0:2:0";
-  nvidiaBusId = "PCI:1:0:0";
-};
 ```
 
 | Mode          | Description                                                | Active                       |
