@@ -9,8 +9,10 @@
 #
 # An entry in a per-host override that sets the SAME value as the common
 # baseline is a no-op: it adds noise without changing behavior. This check
-# emits a flake-level assertion that fails `nix flake check` when such
-# duplicates are found, prompting the author to delete the redundant entry.
+# throws at evaluation time when such duplicates are found, so the CI gate
+# that forces check drvPaths with `nix eval` fails (not only a full
+# `nix flake check` that builds checks), prompting the author to delete the
+# redundant entry.
 #
 # Hosts opt in by publishing their override attrset under
 # `flake.lib.nixos._hostAppsOverrides.<host>`. A `host-<host>-apps-no-noop`
@@ -94,15 +96,11 @@ in
     {
       checks = {
         host-apps-baseline-present =
+          # throw, not a failing derivation: CI forces each check's drvPath
+          # with `nix eval` and never builds checks, so only an eval-time
+          # failure gates CI (same rationale as modules/meta/ci-lix-parity.nix).
           if baselineMissing then
-            pkgs.runCommandLocal "host-apps-baseline-missing-fail"
-              {
-                message = baselineMissingMessage;
-              }
-              ''
-                printf '%s\n' "$message" >&2
-                exit 1
-              ''
+            throw baselineMissingMessage
           else
             pkgs.runCommandLocal "host-apps-baseline-present-ok" { } ''
               echo "ok: common app baseline snapshot is present when host overrides are registered" > $out
@@ -116,14 +114,7 @@ in
               echo "ok: ${host} apps override file contains no no-op entries" > $out
             ''
           else
-            pkgs.runCommandLocal "host-${host}-apps-no-noop-fail"
-              {
-                message = messageFor host noOps;
-              }
-              ''
-                printf '%s\n' "$message" >&2
-                exit 1
-              ''
+            throw (messageFor host noOps)
         )
       ) noOpsByHost;
     };
