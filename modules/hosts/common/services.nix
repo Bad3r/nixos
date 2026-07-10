@@ -57,11 +57,8 @@
         # Keep hardware fan-control tooling disabled unless a host needs manual tuning.
         programs.coolercontrol.enable = false;
 
-        # Disable ACME sample certs until configured with real domain/token
-        security.acme = {
-          acceptTerms = lib.mkDefault false;
-          certs = lib.mkForce { };
-        };
+        # Keep ACME provider terms acceptance as an explicit per-host opt-in.
+        security.acme.acceptTerms = lib.mkDefault false;
       }
     )
   ];
