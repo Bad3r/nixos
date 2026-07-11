@@ -42,7 +42,6 @@ let
     "minio-client" = false;
     mpv = false;
     "msgraph-cli" = false;
-    "mullvad-browser" = false;
     onlyoffice-desktopeditors = false;
     opendirectorydownloader = false;
     parted = false;
