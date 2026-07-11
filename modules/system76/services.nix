@@ -1,6 +1,6 @@
 { secretsRoot, ... }:
 let
-  sambaSecretFile = "${secretsRoot}/system76.yaml";
+  sambaSecretFile = secretsRoot + "/system76.yaml";
   sambaSecretExists = builtins.pathExists sambaSecretFile;
   sambaMediaPathSecret = "system76/samba-media-path";
   sambaMediaShareTemplate = "system76/samba-media-share.conf";
@@ -52,7 +52,7 @@ in
         ++ lib.optionals (!sambaSecretExists) [
           {
             warnings = [
-              "system76 Samba media share skipped because ${sambaSecretFile} is missing."
+              "system76 Samba media share skipped because ${toString sambaSecretFile} is missing."
             ];
           }
         ];

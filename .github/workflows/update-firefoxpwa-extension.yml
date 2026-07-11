@@ -18,15 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
         with:
-          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          extra_nix_config: |
-            experimental-features = nix-command flakes pipe-operators
-            abort-on-warn = false
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sync extension pin
         id: update

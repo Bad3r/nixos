@@ -18,13 +18,24 @@ Canonical architecture documentation lives under `docs/architecture/`.
 
 ## Nix Configuration
 
+Hosts, Home Manager, repo hooks, and CI run Lix
+(`pkgs.lixPackageSets.latest.lix`, selected in `modules/base/nix-package.nix`;
+RFC issue #282). Lix requires the `flake-self-attrs` experimental feature for
+this flake's `self.submodules = true`; it must come from ambient configuration
+(`modules/base/nix-settings.nix`, CI installer conf, `build.sh` `NIX_CONFIG`)
+because Lix enforces it before `nixConfig` applies. CI installs the same
+release through `.github/actions/install-lix` (version and installer digest
+pinned together); the `ci-lix-installer-parity` flake check fails when that
+pin drifts from `lixPackageSets.latest.lix`.
+
 `flake.nix#nixConfig` carries only pre-evaluation settings needed before the
 module graph is loaded:
 
 - `abort-on-warn = false`
   Do not abort on warnings.
-- `extra-experimental-features = [ "pipe-operators" ]`
-  Enable pipe operator syntax in Nix expressions.
+- `extra-experimental-features = [ "pipe-operator" "pipe-operators" ]`
+  Enable pipe operator syntax under the Lix name (singular) and the CppNix
+  name (plural) for pre-cutover and third-party CppNix evaluators.
 - `allow-import-from-derivation = true`
   Required by IFD consumer `nix-doom-emacs-unstraightened`.
 
@@ -145,6 +156,11 @@ Create a worktree:
 ```sh
 git worktree add "$HOME/trees/nixos/<type>-<name>" -b "<type>/<name>"
 ```
+
+In a linked worktree, give flake commands an explicit `path:.` installable
+(`nix develop path:.`, `nix flake check path:.`, `nix eval "path:.#..."`):
+Lix cannot fetch a clean linked worktree as a `git+file` flake because `.git`
+is a file there, not a directory. The repo hooks already do this.
 
 Work in that tree, then create a PR:
 

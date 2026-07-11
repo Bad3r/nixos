@@ -5,7 +5,7 @@
   ...
 }:
 let
-  printerSecretFile = "${secretsRoot}/tpnix.yaml";
+  printerSecretFile = secretsRoot + "/tpnix.yaml";
   printerSecretExists = builtins.pathExists printerSecretFile;
   printerSecretName = "tpnix/printing/m604-device-uri";
   printerSecretPath = "/run/secrets/${printerSecretName}";

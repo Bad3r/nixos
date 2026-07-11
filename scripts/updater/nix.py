@@ -73,8 +73,12 @@ def nix_command(
     """
     cmd = [
         "nix",
+        # Superset bridge list: Lix names (pipe-operator, flake-self-attrs)
+        # plus the CppNix spelling (pipe-operators); each implementation
+        # warns about the other's names. flake-self-attrs is required by Lix
+        # for this flake's `self.submodules = true`.
         "--experimental-features",
-        "nix-command flakes",
+        "nix-command flakes pipe-operator pipe-operators flake-self-attrs",
     ]
     flake_aware = {"build", "eval", "run", "develop", "shell", "flake"}
     flake_mutating = (

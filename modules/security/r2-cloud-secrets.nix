@@ -11,7 +11,7 @@
     { config, ... }:
     let
       cfg = config.security.r2CloudSecrets;
-      r2SecretFile = "${secretsRoot}/r2.yaml";
+      r2SecretFile = secretsRoot + "/r2.yaml";
       r2SecretExists = builtins.pathExists r2SecretFile;
       ownerName = metaOwner.username;
       r2SecretsEnabled = cfg.enable && r2SecretExists;
@@ -117,7 +117,7 @@
 
         (lib.mkIf (cfg.enable && !r2SecretExists) {
           warnings = [
-            "security.r2CloudSecrets.enable is true but ${r2SecretFile} is missing; skipping R2 secrets."
+            "security.r2CloudSecrets.enable is true but ${toString r2SecretFile} is missing; skipping R2 secrets."
           ];
         })
       ];

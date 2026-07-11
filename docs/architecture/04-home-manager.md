@@ -136,7 +136,7 @@ Home-level secrets helpers guard SOPS declarations behind `builtins.pathExists`:
     { lib, config, secretsRoot, ... }:
     let
       cfg = config.home.context7Secrets;
-      ctxFile = "${secretsRoot}/context7.yaml";
+      ctxFile = secretsRoot + "/context7.yaml";
     in
     {
       config = lib.mkIf (cfg.enable && builtins.pathExists ctxFile) {

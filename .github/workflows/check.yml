@@ -26,15 +26,10 @@ jobs:
       - uses: actions/checkout@v5.0.0
         with:
           persist-credentials: false
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
         with:
-          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          extra_nix_config: |
-            experimental-features = nix-command flakes pipe-operators
-            abort-on-warn = false
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Prefer HTTPS for GitHub
         run: |
           URL="https://github.com/"
@@ -43,13 +38,27 @@ jobs:
       # "path:." bypasses the git fetcher: self.submodules = true would
       # make a git-based self fetch pull the private secrets submodule
       # that CI cannot read; the per-file pathExists guards then evaluate
-      # the secretless configuration. --no-build: the flake checks include
-      # every host toplevel, and building them exceeds runner disk.
+      # the secretless configuration. nix eval instead of
+      # `nix flake check --no-build` and `nix build --dry-run`: Lix forces
+      # read-only store mode for both (lix/nix/flake.cc), so eval-time
+      # store writes (interpolated source copies, IFD derivations) fail on
+      # the fresh runner store. Forcing every check's drvPath keeps the
+      # same eval surface as `nix flake check`: package-checks.nix mirrors
+      # every package into checks and make-shell exposes each dev shell as
+      # a `<name>-shell` check, so both still evaluate here; apps is empty
+      # and formatter runs in the format-check job. Never builds check
+      # outputs (the checks include every host toplevel, and building them
+      # exceeds runner disk).
       - name: Check flake
-        run: nix flake check --accept-flake-config --no-build "path:."
-      # Dry-run every host closure. The host list comes from the flake, so
-      # a new host is covered without editing this workflow; an empty list
-      # fails instead of passing vacuously.
+        run: |
+          nix eval --accept-flake-config --json \
+            "path:.#checks.x86_64-linux" \
+            --apply 'checks: builtins.mapAttrs (_: check: check.drvPath) checks'
+      # Force every host closure's drvPath. The host list comes from the
+      # flake, so a new host is covered without editing this workflow; an
+      # empty list fails instead of passing vacuously. nix eval (not
+      # nix build --dry-run) because Lix forces read-only store mode for
+      # dry-run, which breaks eval-time store writes on the fresh runner.
       - name: Build configurations
         run: |
           hosts=$(nix eval --accept-flake-config --json \
@@ -60,9 +69,9 @@ jobs:
             exit 1
           fi
           for host in $hosts; do
-            echo "Dry-run building $host..."
-            nix build --dry-run --accept-flake-config \
-              "path:.#nixosConfigurations.$host.config.system.build.toplevel"
+            echo "Forcing $host toplevel drvPath..."
+            nix eval --accept-flake-config --raw \
+              "path:.#nixosConfigurations.$host.config.system.build.toplevel.drvPath"
           done
 
   format-check:
@@ -71,14 +80,10 @@ jobs:
       - uses: actions/checkout@v5.0.0
         with:
           persist-credentials: false
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
         with:
-          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          extra_nix_config: |
-            experimental-features = nix-command flakes pipe-operators
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       # nix fmt resolves .#formatter through the git fetcher, which would
       # pull the private secrets submodule; run the formatter from the
       # path-fetched flake instead.
@@ -89,18 +94,11 @@ jobs:
 
   module-validation:
     runs-on: ubuntu-latest
+    # No Nix here: every step is plain grep/awk/find over the checkout.
     steps:
       - uses: actions/checkout@v5.0.0
         with:
           persist-credentials: false
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          extra_nix_config: |
-            experimental-features = nix-command flakes pipe-operators
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
       - name: Validate namespaces
         run: |
           # Forbid assigning a single module directly to a retired namespace.

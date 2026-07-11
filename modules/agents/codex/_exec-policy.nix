@@ -126,19 +126,20 @@ let
         "chromium"
       ];
 
+      # Lix: allow the binaries hosts actually run (RFC #282).
       nixHostExecutables = [
         {
           name = "nix";
           paths = [
             "/run/current-system/sw/bin/nix"
-            (lib.getExe pkgs.nix)
+            (lib.getExe pkgs.lixPackageSets.latest.lix)
           ];
         }
         {
           name = "nix-instantiate";
           paths = [
             "/run/current-system/sw/bin/nix-instantiate"
-            (lib.getExe' pkgs.nix "nix-instantiate")
+            (lib.getExe' pkgs.lixPackageSets.latest.lix "nix-instantiate")
           ];
         }
       ];

@@ -3,7 +3,15 @@
   # `--override-input <input> path:/abs/path` instead of editing this file.
   nixConfig = {
     abort-on-warn = false;
-    extra-experimental-features = [ "pipe-operators" ];
+    # Lix name (singular) plus CppNix name (plural); see the transition
+    # rationale in modules/base/nix-settings.nix. Lix additionally needs
+    # `flake-self-attrs` for `self.submodules = true`, but it must come from
+    # ambient config (nix.conf, NIX_CONFIG, --extra-experimental-features):
+    # Lix enforces it before this nixConfig block is applied.
+    extra-experimental-features = [
+      "pipe-operator"
+      "pipe-operators"
+    ];
     # IFD consumers in this repo:
     #   * nix-doom-emacs-unstraightened: lib.importJSON of
     #     `doom-intermediates/packages.json`.

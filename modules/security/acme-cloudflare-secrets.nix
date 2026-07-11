@@ -13,7 +13,7 @@
   flake.nixosModules.base =
     _:
     let
-      cfTokenFile = "${secretsRoot}/cf-api-token.yaml";
+      cfTokenFile = secretsRoot + "/cf-api-token.yaml";
       cfTokenExists = builtins.pathExists cfTokenFile;
     in
     {

@@ -15,7 +15,7 @@
     }:
     let
       cfg = config.home.r2Secrets;
-      r2Yaml = "${secretsRoot}/r2.yaml";
+      r2Yaml = secretsRoot + "/r2.yaml";
       r2YamlExists = builtins.pathExists r2Yaml;
       homeDirectory = "/home/${metaOwner.username}";
     in
@@ -63,7 +63,9 @@
         })
 
         (lib.mkIf (cfg.enable && !r2YamlExists) {
-          warnings = [ "home.r2Secrets.enable is true but ${r2Yaml} is missing; skipping HM R2 secrets." ];
+          warnings = [
+            "home.r2Secrets.enable is true but ${toString r2Yaml} is missing; skipping HM R2 secrets."
+          ];
         })
       ];
     };

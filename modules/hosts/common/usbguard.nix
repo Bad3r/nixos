@@ -26,8 +26,8 @@ let
       ...
     }:
     let
-      secretDir = "${secretsRoot}/usbguard";
-      secretFile = "${secretDir}/${hostName}.yaml";
+      secretDir = secretsRoot + "/usbguard";
+      secretFile = secretDir + "/${hostName}.yaml";
       secretName = "usbguard/${hostName}.rules";
       secretRuntimePath = "/run/secrets/usbguard/${hostName}.rules";
       secretExists = builtins.pathExists secretFile;

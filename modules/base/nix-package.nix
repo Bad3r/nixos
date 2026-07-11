@@ -3,15 +3,13 @@ let
   polyModule =
     { pkgs, ... }:
     {
-      nix.package =
-        let
-          versions = lib.attrNames pkgs.nixVersions;
-          nixVersions = lib.filter (lib.hasPrefix "nix_") versions;
-          sorted = lib.naturalSort nixVersions;
-          latest = lib.last sorted;
-          package = lib.getAttr latest pkgs.nixVersions;
-        in
-        lib.mkDefault package;
+      # Lix (RFC #282). `latest` (>= 2.95) is required for the
+      # `abort-on-warn` setting in modules/base/nix-settings.nix.
+      # Rollback to CppNix: revert this commit. Swapping nix.package alone is
+      # insufficient — modules/base/nix-settings.nix carries the Lix-only
+      # feature names pipe-operator/flake-self-attrs, which the CppNix nix.conf
+      # check rejects.
+      nix.package = lib.mkDefault pkgs.lixPackageSets.latest.lix;
     };
 in
 {
