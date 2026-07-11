@@ -930,6 +930,8 @@ let
     };
 in
 {
-  flake.nixosModules.services.duplicati-r2 = module;
+  # flake-parts types nixosModules as attrsOf deferredModule, so a nested
+  # `services.duplicati-r2` key would collapse into an unimportable module.
+  # Only the flat alias is sound; hosts import it via hosts/common/imports.nix.
   flake.nixosModules."duplicati-r2" = module;
 }

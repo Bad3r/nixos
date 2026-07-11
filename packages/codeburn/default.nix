@@ -1,6 +1,7 @@
 {
   lib,
   buildNpmPackage,
+  fetchNpmDeps,
   fetchFromGitHub,
   nodejs_22,
 }:
@@ -23,6 +24,12 @@ buildNpmPackage rec {
 
   inherit (pin) npmDepsHash;
 
+  dashNpmDeps = fetchNpmDeps {
+    inherit src;
+    sourceRoot = "${src.name}/dash";
+    hash = pin.dashNpmDepsHash;
+  };
+
   # The upstream `build` script invokes scripts/bundle-litellm.mjs, which
   # downloads the LiteLLM price table from the network. The snapshot it would
   # produce is already committed to src/data/litellm-snapshot.json, so drop
@@ -30,8 +37,14 @@ buildNpmPackage rec {
   postPatch = ''
     substituteInPlace package.json \
       --replace-fail 'node scripts/bundle-litellm.mjs && ' \
-                     ""
+                     "" \
+      --replace-fail 'cd dash && npm install --no-audit --no-fund --silent && npm run build' \
+                     'cd dash && npm run build'
     rm scripts/bundle-litellm.mjs
+  '';
+
+  preBuild = ''
+    npmRoot=dash npmDeps="$dashNpmDeps" npmConfigHook
   '';
 
   passthru.updateScript = ./update.py;
