@@ -8,11 +8,15 @@
 
   Built-in links (matching Kali Linux paths under /usr/share/wordlists/):
 
-  - Every top-level entry under ${pkgs.wordlists}/share/wordlists/ is
-    linked at activation time, so anything the upstream nixpkgs `wordlists`
-    meta-package adds (e.g. seclists, wfuzz, nmap.lst, rockyou.txt at the
-    time of writing) is exposed automatically without realizing the package
-    during evaluation.
+  - Every top-level entry under the wordlists collection's
+    share/wordlists/ is linked at activation time, so anything the upstream
+    nixpkgs `wordlists` meta-package aggregates (e.g. seclists, wfuzz,
+    nmap.lst, rockyou.txt at the time of writing) is exposed automatically
+    without realizing the package during evaluation. The `wfuzz` entry is
+    sourced from packages/wfuzz-wordlists (the static wordlist/ subtree of
+    the wfuzz source) rather than the full wfuzz application, so this module
+    never pulls the wfuzz Python closure (pycurl, compat patches) just for
+    its wordlists.
   - Plus the entries declared in `csec.wordlists.manualLinks`, defaulting
     to enabled packages that ship their wordlists outside the meta-package:
       * dirbuster   -> ${pkgs.dirbuster}/share/dirbuster when
@@ -48,7 +52,13 @@
     }:
     let
       cfg = config.csec.wordlists;
-      wordlistsRoot = "${pkgs.wordlists}/share/wordlists";
+      # wordlists uses its `wfuzz` input only for the share/wordlists/wfuzz
+      # subtree, so swap the full wfuzz application for the wordlists-only
+      # derivation to keep the Python closure out of this module.
+      wordlistsPkg = pkgs.wordlists.override {
+        wfuzz = pkgs.callPackage ../../packages/wfuzz-wordlists { };
+      };
+      wordlistsRoot = "${wordlistsPkg}/share/wordlists";
       appEnabled =
         name:
         lib.attrByPath [
