@@ -9,7 +9,7 @@ This document covers how Stylix theming integrates with the Dendritic Pattern an
 The integration is configured in:
 
 - `modules/stylix/stylix.nix` -- NixOS and Home Manager Stylix configuration
-  (exports `flake.nixosModules.{base,workstation}` and
+  (exports `flake.nixosModules.base` and
   `flake.homeManagerModules.{base,apps.stylix-gui}`)
 - Individual app modules -- may interact with Stylix targets
 

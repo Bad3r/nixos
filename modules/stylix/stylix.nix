@@ -52,19 +52,6 @@ in
         };
       };
 
-      workstation =
-        { pkgs, ... }:
-        {
-          stylix = {
-            # Opacity settings for desktop systems
-            opacity = lib.genAttrs [ "applications" "desktop" "popups" "terminal" ] (_n: 1.0);
-
-            # Font configuration for desktop systems
-            fonts = monoLisaFonts pkgs 12;
-          };
-          fonts.fontconfig.enable = true;
-        };
-
       # end of nixosModules
     };
 

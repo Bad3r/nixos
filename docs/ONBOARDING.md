@@ -44,7 +44,7 @@ documentation.
     configuration, and generated dotfile sources (bat, eza, fzf, ...).
 
 05. **System Services & Desktop Domains** (`modules/networking`, `security`,
-    `storage`, `services`, `stylix`, `git`, `xdg`, `impermanence`, `csec`, ...).
+    `services`, `stylix`, `git`, `xdg`, `csec`, ...).
     Domain modules configuring system services and the desktop.
 
 06. **AI Agents Configuration** (`modules/agents`). Provisions developer AI tooling
@@ -204,8 +204,6 @@ load-bearing ones.
   runtime and age-key pinning.
 - `modules/git/git.nix`: Git via HM (aliases, delta, LFS, 1Password commit
   signing).
-- `modules/impermanence/impermanence.nix`: btrfs `/persist` model, wipes root on
-  boot.
 - `modules/services/duplicati-r2.nix`: declarative Duplicati backups to Cloudflare
   R2 with runtime-materialized systemd timers.
 - `modules/stylix/stylix.nix`: central theming (OneDark base16, MonoLisa,
@@ -270,7 +268,6 @@ cross-cutting effects.
 
 - `modules/services/duplicati-r2.nix`, `modules/lib/r2-runtime.nix`: R2 backups,
   runtime systemd materialization, external-flake gating.
-- `modules/impermanence/impermanence.nix`: wipes root on boot. Edit with care.
 - `modules/networking/ssh.nix`, `modules/hosts/common/usbguard.nix`:
   security-sensitive (usbguard is currently force-disabled via the module's
   `enabled` toggle; the module also disables kernel audit pending full
