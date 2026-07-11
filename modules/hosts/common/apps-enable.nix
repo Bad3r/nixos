@@ -457,7 +457,7 @@ let
       vulnix.extended.enable = lib.mkOverride 1100 true;
       wakaru.extended.enable = lib.mkOverride 1100 false;
       "wappalyzer-next".extended.enable = lib.mkOverride 1100 true;
-      webcrack.extended.enable = lib.mkOverride 1100 true;
+      webcrack.extended.enable = lib.mkOverride 1100 false;
       webex.extended.enable = lib.mkOverride 1100 true;
       wezterm.extended.enable = lib.mkOverride 1100 false;
       wfuzz.extended.enable = lib.mkOverride 1100 false;
