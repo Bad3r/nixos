@@ -100,12 +100,12 @@ This means these packages are **not** exposed under `.#packages.<system>.<name>`
 
 ## Shared System Helpers
 
-| Module                                         | Export                                         | Scope           | Purpose                                           |
-| ---------------------------------------------- | ---------------------------------------------- | --------------- | ------------------------------------------------- |
-| `modules/system76/support.nix`                 | `flake.nixosModules."system76-support"`        | system76 only   | System76 kernel modules, firmware                 |
-| `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | shared (opt-in) | Monitor profile                                   |
-| `modules/hosts/common/virtualization.nix`      | host options under `host.virtualization.*`     | shared          | Virtualization app toggles                        |
-| `modules/tpnix/policy.nix`                     | `flake.lib.nixos.hosts.tpnix.*` flags          | tpnix only      | Host-conditional gating (e.g. `sopsRuntimeReady`) |
+| Module                                         | Export                                         | Scope           | Purpose                                       |
+| ---------------------------------------------- | ---------------------------------------------- | --------------- | --------------------------------------------- |
+| `modules/system76/support.nix`                 | `flake.nixosModules."system76-support"`        | system76 only   | System76 kernel modules, firmware             |
+| `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | shared (opt-in) | Monitor profile                               |
+| `modules/hosts/common/virtualization.nix`      | host options under `host.virtualization.*`     | shared          | Virtualization app toggles                    |
+| `modules/<host>/policy.nix`                    | `flake.lib.nixos.hosts.<host>.*` data          | per host        | Host readiness gates and common-module values |
 
 ## The `flake.csec` Namespace
 
@@ -118,17 +118,16 @@ flake.csec = {
 };
 ```
 
-Hosts opt in explicitly by importing the module and toggling its enable flag:
+The common host aggregate imports the module and enables it for every
+`shareCommon` host:
 
 ```nix
-# modules/system76/imports.nix
-configurations.nixos.system76.module = {
-  imports = [
-    config.flake.csec.wordlists
-    # ...
-  ];
-  csec.wordlists.enable = true;
-};
+# modules/hosts/common/imports.nix
+flake.nixosModules.hosts-common.imports = [
+  config.flake.csec.wordlists
+  # ...
+  { csec.wordlists.enable = true; }
+];
 ```
 
 | Module                       | Export                 | Purpose                                                                                               |

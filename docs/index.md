@@ -63,12 +63,17 @@
 - [cloudflare/containers/limitations-roadmap.md](cloudflare/containers/limitations-roadmap.md)
   - Beta limitations, platform gaps, and roadmap notes for Cloudflare Containers.
 
+## Coldfront
+
+- [coldfront/project-coldfront.md](coldfront/project-coldfront.md)
+  - Hardware plan and assembly notes for the `coldfront` workstation host.
+
 ## R2 Cloud
 
 - [r2-cloud/README.md](r2-cloud/README.md)
   - Index for `nix-R2-CloudFlare-Flake` consumer integration docs in this repo.
 - [r2-cloud/input-and-module-wiring.md](r2-cloud/input-and-module-wiring.md)
-  - How `inputs.r2-flake` is wired into System76 NixOS and Home Manager imports.
+  - How `inputs.r2-flake` is wired into registered NixOS and Home Manager hosts.
 - [r2-cloud/secrets-and-rendered-files.md](r2-cloud/secrets-and-rendered-files.md)
   - Mapping from `secrets/r2.yaml` to `/run/secrets/r2/*` and HM env templates.
 - [r2-cloud/system76-runtime.md](r2-cloud/system76-runtime.md)
@@ -99,6 +104,8 @@
   - Conventions for packages/ directory including templates for Rust, Go, Python, and binary downloads.
 - [guides/github-deployments.md](guides/github-deployments.md)
   - Using GitHub's Deployments API via gh CLI for tracking deployments (metadata only, not actual deployment).
+- [guides/host-onboarding.md](guides/host-onboarding.md)
+  - Procedural checklist for adding a NixOS host: registry entry, per-host module set, policy flags, sops provisioning, backups, docs, and validation.
 - [guides/nix-debugging-manual.md](guides/nix-debugging-manual.md)
   - Debugging techniques for Nix expressions, NixOS modules, and Home Manager including REPL, tracing, and common errors.
 - [guides/stylix-integration.md](guides/stylix-integration.md)

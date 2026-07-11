@@ -130,7 +130,7 @@ See `modules/apps/pyyaml.nix` (library) and `modules/apps/cloudflare-python-sdk.
 ## File Layout
 
 - Store each app module at `modules/apps/<tool>.nix`.
-- Export the module as `flake.nixosModules.apps.<tool>`. Provide additional bundles (for example `workstation`, `base`) only when they are meaningful.
+- Export the module as `flake.nixosModules.apps.<tool>`. Provide additional bundles (for example `base`) only when they are meaningful.
 - Keep per-app modules focused on package enablement and lightweight configuration. Compose higher-level behaviour in domain modules (for example `modules/networking/`).
 
 ## Top-of-File Documentation Block
@@ -443,8 +443,9 @@ _: {
 
 Add to `modules/hosts/common/home-manager-apps.nix` (in the shared
 `sharedAppNames` list) so every opted-in host imports the HM module. If
-the tool is host-specific, add it to `modules/<host>/home-manager-apps.nix`
-under the per-host `hostAppNames` list instead.
+the tool is host-specific, add its name to
+`flake.lib.nixos.hosts.<host>.extraHomeApps` in that host's `policy.nix`
+instead.
 
 ```nix
 sharedAppNames = [
@@ -454,7 +455,7 @@ sharedAppNames = [
 ];
 ```
 
-> **Pitfall:** HM modules exported to `flake.homeManagerModules.apps.<name>` are **not** auto-imported. They must be explicitly listed in the `sharedAppNames` list in `home-manager-apps.nix` (or a host's `hostAppNames`). GUI session modules are no exception: `i3-config` and `stylix-gui` are themselves `flake.homeManagerModules.apps.*` modules listed in `sharedAppNames`.
+> **Pitfall:** HM modules exported to `flake.homeManagerModules.apps.<name>` are **not** auto-imported. They must be explicitly listed in the `sharedAppNames` list in `home-manager-apps.nix` or in a host's `extraHomeApps` registry list. GUI session modules are no exception: `i3-config` and `stylix-gui` are themselves `flake.homeManagerModules.apps.*` modules listed in `sharedAppNames`.
 
 ### 8. Check for Stylix Integration
 

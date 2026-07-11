@@ -84,7 +84,10 @@ defaultAppImports = [
 
 ### Adding Extra Apps
 
-Each host appends to `home-manager.extraAppImports` and mirrors matching app modules into `home-manager.sharedModules` from its own `modules/<host>/home-manager-apps.nix`.
+`modules/hosts/common/home-manager-apps.nix` appends the shared app set to
+`home-manager.extraAppImports` and mirrors the matching modules into
+`home-manager.sharedModules`. Host-only extras come from
+`flake.lib.nixos.hosts.<host>.extraHomeApps` in that host's `policy.nix`.
 
 ### Browser Modules
 
@@ -92,21 +95,28 @@ Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules
 
 ### Per-Host Divergences
 
-The shared HM base is identical across hosts; per-host overrides live in each host's `imports.nix`. As a current snapshot:
+The shared HM base and secret defaults live in
+`modules/hosts/common/imports.nix`; host-owned modules add only the overrides
+that diverge. As a current snapshot:
 
-| HM toggle           | system76 default                       | tpnix default                          | Notes                                                                                                                                                                                                                                                                                |
-| ------------------- | -------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `context7Secrets`   | `mkDefault true`                       | `mkDefault true`                       | Context7 API key rendering.                                                                                                                                                                                                                                                          |
-| `geckoSecrets`      | `mkDefault true`                       | `mkDefault true`                       | Gecko bookmark secret rendering; both hosts set `mkDefault true` explicitly (rendered only when the secret file exists; the module also defaults `enable = true`).                                                                                                                   |
-| `greptileSecrets`   | `mkForce false`                        | `mkDefault true`                       | Greptile secret rendering tied to the Greptile Claude Code plugin/MCP integration; system76 forces it off while tpnix defaults it on (rendered only when the secret file exists).                                                                                                    |
-| `virustotalSecrets` | `mkDefault true`                       | `mkDefault true`                       | VirusTotal API key rendering.                                                                                                                                                                                                                                                        |
-| `r2Secrets`         | `mkForce false`                        | `mkDefault true`                       | Renders `~/.config/cloudflare/r2/env` when the secret file exists; tpnix also enables NixOS-side `security.r2CloudSecrets.enable`, while system76 forces both off.                                                                                                                   |
-| `repoGpg`           | `mkDefault true` (when module present) | `mkDefault true` (when module present) | Both hosts conditionally import `inputs.self.homeManagerModules.repoGpg` into `home-manager.sharedModules` when `repoGpgModuleExists` and gate `repoGpg.enable` on the same check via `lib.optionalAttrs`, so the enable tracks the import and is dropped when the module is absent. |
-| `services.espanso`  | (inherits HM upstream)                 | `x11Support = mkForce true`            | system76 leaves espanso's session-backend defaults alone; tpnix forces X11 via `home-manager.sharedModules` because it runs i3 on X11.                                                                                                                                               |
+| HM toggle           | system76 default                       | tpnix default                          | Notes                                                                                                                                                                             |
+| ------------------- | -------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `context7Secrets`   | `mkDefault true`                       | `mkDefault true`                       | Context7 API key rendering.                                                                                                                                                       |
+| `geckoSecrets`      | `mkDefault true`                       | `mkDefault true`                       | The common baseline enables Gecko bookmark secret rendering for both hosts; rendering still requires the secret file.                                                             |
+| `greptileSecrets`   | `mkForce false`                        | `mkDefault true`                       | Greptile secret rendering tied to the Greptile Claude Code plugin/MCP integration; system76 forces it off while tpnix defaults it on (rendered only when the secret file exists). |
+| `virustotalSecrets` | `mkDefault true`                       | `mkDefault true`                       | VirusTotal API key rendering.                                                                                                                                                     |
+| `r2Secrets`         | `mkDefault true`                       | `mkDefault true`                       | Renders `~/.config/cloudflare/r2/env` when the secret file exists; the common baseline also defaults NixOS-side `security.r2CloudSecrets.enable` on.                              |
+| `repoGpg`           | `mkDefault true` (when module present) | `mkDefault true` (when module present) | The common baseline conditionally imports `inputs.self.homeManagerModules.repoGpg` and gates `repoGpg.enable` on the same module-existence check.                                 |
+| `services.espanso`  | (inherits HM upstream)                 | `x11Support = mkForce true`            | system76 leaves espanso's session-backend defaults alone; tpnix forces X11 via `home-manager.sharedModules` because it runs i3 on X11.                                            |
 
-On the NixOS side, both hosts default `security.repoSecrets.enable` to `mkDefault true`, so the repo-managed SOPS payloads decrypt once the shared age key is installed; tpnix also defaults `security.r2CloudSecrets.enable` to `mkDefault true`, while system76 forces `r2CloudSecrets` off.
+On the NixOS side, both hosts default `security.repoSecrets.enable` and
+`security.r2CloudSecrets.enable` to `mkDefault true`, so the repo-managed SOPS
+payloads decrypt once the shared age key is installed.
 
-Authoritative source for any host: that host's `imports.nix` (`modules/<host>/imports.nix`). When adding a new secret module, set both NixOS- and HM-side defaults explicitly per host so behavior is obvious from `imports.nix` rather than implicit through `mkDefault` chains.
+The common defaults in `modules/hosts/common/imports.nix` are authoritative;
+host-owned modules such as `modules/system76/imports.nix` carry explicit
+divergences. When adding a shared secret module, set both NixOS- and HM-side
+defaults in the common baseline and add only host-specific overrides locally.
 
 ## Authoring Rules
 
@@ -126,7 +136,7 @@ Home-level secrets helpers guard SOPS declarations behind `builtins.pathExists`:
     { lib, config, secretsRoot, ... }:
     let
       cfg = config.home.context7Secrets;
-      ctxFile = "${secretsRoot}/context7.yaml";
+      ctxFile = secretsRoot + "/context7.yaml";
     in
     {
       config = lib.mkIf (cfg.enable && builtins.pathExists ctxFile) {

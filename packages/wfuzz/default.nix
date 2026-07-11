@@ -39,6 +39,10 @@ buildPythonPackage (finalAttrs: {
     # https://github.com/xmendez/wfuzz/issues/380
     # Drop once xmendez/wfuzz#380 is merged and a release is cut.
     ./python-313-shlex.patch
+    # replace removed `pkg_resources` API with stdlib `pkgutil` for setuptools >= 81
+    # https://github.com/xmendez/wfuzz/issues/381
+    # Drop once xmendez/wfuzz#382 is merged and a release is cut.
+    ./pkg-resources-pkgutil.patch
   ];
 
   build-system = [ setuptools ];

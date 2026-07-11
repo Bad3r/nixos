@@ -8,7 +8,7 @@
     }:
     let
       cfg = config.home.geckoSecrets;
-      geckoFile = "${secretsRoot}/gecko.yaml";
+      geckoFile = secretsRoot + "/gecko.yaml";
       geckoFileExists = builtins.pathExists geckoFile;
       homeDirectory = config.home.homeDirectory;
 
@@ -59,7 +59,7 @@
 
         (lib.mkIf (cfg.enable && !geckoFileExists) {
           warnings = [
-            "home.geckoSecrets.enable is true but ${geckoFile} is missing; skipping Gecko bookmark secrets."
+            "home.geckoSecrets.enable is true but ${toString geckoFile} is missing; skipping Gecko bookmark secrets."
           ];
         })
       ];

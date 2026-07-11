@@ -18,10 +18,16 @@ let
     experimental-features = [
       "nix-command"
       "flakes"
-      "pipe-operators"
-      "recursive-nix"
+      # Lix names: `pipe-operator` (singular) gates `|>`; `flake-self-attrs`
+      # gates `self.submodules = true` in flake.nix. Only Lix-known names may
+      # appear here: the nix.conf check derivation (pkgs.formats.nixConf and
+      # the Home Manager equivalent) promotes `nix config show` warnings to
+      # errors, so an unknown name fails the system build. The CppNix
+      # spelling `pipe-operators` lives in flake.nix#nixConfig and in
+      # build.sh NIX_CONFIG, which are not check-phased.
+      "pipe-operator"
+      "flake-self-attrs"
     ];
-    extra-system-features = [ "recursive-nix" ];
   };
 in
 {

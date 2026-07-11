@@ -26,7 +26,7 @@ let
 
       cfg = config.services.duplicati-r2;
 
-      credentialsSecretPath = "${secretsRoot}/duplicati-r2.yaml";
+      credentialsSecretPath = secretsRoot + "/duplicati-r2.yaml";
       credentialsExist = builtins.pathExists credentialsSecretPath;
 
       credentialNames = [
@@ -694,7 +694,7 @@ let
             When set, the file is decrypted via sops.templates during activation
             so the plaintext never enters the Nix store.
           '';
-          example = literalExpression ''"${secretsRoot}/duplicati-config.json"'';
+          example = literalExpression "secretsRoot + \"/duplicati-config.json\"";
         };
 
         environmentFile = mkOption {
@@ -794,7 +794,7 @@ let
           assertions = [
             {
               assertion = credentialsExist;
-              message = "services.duplicati-r2 requires an encrypted credentials file at ${credentialsSecretPath}.";
+              message = "services.duplicati-r2 requires an encrypted credentials file at ${toString credentialsSecretPath}.";
             }
             {
               assertion = builtins.substring 0 1 (toString cfg.environmentFile) == "/";
@@ -930,6 +930,8 @@ let
     };
 in
 {
-  flake.nixosModules.services.duplicati-r2 = module;
+  # flake-parts types nixosModules as attrsOf deferredModule, so a nested
+  # `services.duplicati-r2` key would collapse into an unimportable module.
+  # Only the flat alias is sound; hosts import it via hosts/common/imports.nix.
   flake.nixosModules."duplicati-r2" = module;
 }

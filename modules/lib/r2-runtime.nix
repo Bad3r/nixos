@@ -9,7 +9,7 @@
     }:
     let
       externalFlakeEnabled = policy.enableExternalFlake;
-      r2ConfigFile = "${secretsRoot}/r2.yaml";
+      r2ConfigFile = secretsRoot + "/r2.yaml";
       # Import the option surface independently from SOPS runtime readiness.
       # Secret readiness gates only the host's runtime assignments below.
       externalNixosModuleEnabled =

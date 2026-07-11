@@ -81,7 +81,7 @@ One file can populate both aggregators. Keep the scopes independent.
 { lib, ... }:
 let
   settings = {
-    experimental-features = [ "nix-command" "flakes" "pipe-operators" "recursive-nix" ];
+    experimental-features = [ "nix-command" "flakes" "pipe-operator" "flake-self-attrs" ];
     auto-optimise-store = lib.mkDefault true;
   };
 in
@@ -109,11 +109,9 @@ Cache topology and download retry settings belong in `modules/hosts/common/nix-s
 { config, lib, ... }:
 {
   configurations.nixos.system76.module = {
-    imports =
-      [ config.flake.nixosModules.base ]
-      ++ lib.optionals (lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config) [
-        config.flake.nixosModules."system76-support"
-      ];
+    imports = lib.optionals (lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config) [
+      config.flake.nixosModules."system76-support"
+    ];
   };
 }
 ```
@@ -122,17 +120,21 @@ See [Host Composition](05-host-composition.md) for details.
 
 ## Custom Module Arguments
 
-NixOS modules can receive a small set of repo-specific arguments as ordinary function parameters. They reach the host evaluation through two layers:
+NixOS modules can receive a small set of repo-specific arguments as ordinary
+function parameters. They reach the host evaluation through the shared host
+helper:
 
-1. The shared host helper `modules/configurations/nixos.nix` injects `hostName`, `inputs`, `metaOwner`, and `secretsRoot` into every deferred host module (`_module.args`) and into the wrapping `nixosSystem` `specialArgs`, so flake inputs are reachable from inside NixOS modules. New hosts get these for free.
-2. Each host's `modules/<host>/imports.nix` re-asserts `metaOwner` and `secretsRoot` through `_module.args` inside the host module.
+The shared host helper `modules/configurations/nixos.nix` injects `hostName`,
+`inputs`, `metaOwner`, and `secretsRoot` into every deferred host module through
+both `_module.args` and the wrapping `nixosSystem` `specialArgs`. New hosts get
+these arguments without re-declaring them.
 
-| Arg           | Type   | Source                                                                                            | Available where                                                                                                                     |
-| ------------- | ------ | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `metaOwner`   | attrs  | `lib/meta-owner-profile.nix` via `flake.nix`, forwarded by shared helper + per-host `imports.nix` | Every NixOS module (HM users, secrets); owner identity (`username`, `sshKeys`).                                                     |
-| `secretsRoot` | path   | Repo `secrets/` directory via shared helper + per-host `imports.nix`                              | Every NixOS module; base for `sopsFile` references and `pathExists` guards.                                                         |
-| `inputs`      | attrs  | Shared helper (`_module.args` + `nixosSystem` `specialArgs`)                                      | Every NixOS module reached through the host closure; lets modules use `inputs.<flake>.nixosModules` without re-importing the flake. |
-| `hostName`    | string | Shared helper (`_module.args` + `nixosSystem` `specialArgs`)                                      | Every NixOS module; the host attribute name (consumed by `modules/hosts/common/hostname.nix`).                                      |
+| Arg           | Type   | Source                                                                       | Available where                                                                                                                     |
+| ------------- | ------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `metaOwner`   | attrs  | `lib/meta-owner-profile.nix` via `flake.nix`, forwarded by the shared helper | Every NixOS module (HM users, secrets); owner identity (`username`, `sshKeys`).                                                     |
+| `secretsRoot` | path   | Repo `secrets/` directory via the shared helper                              | Every NixOS module; base for `sopsFile` references and `pathExists` guards.                                                         |
+| `inputs`      | attrs  | Shared helper (`_module.args` + `nixosSystem` `specialArgs`)                 | Every NixOS module reached through the host closure; lets modules use `inputs.<flake>.nixosModules` without re-importing the flake. |
+| `hostName`    | string | Shared helper (`_module.args` + `nixosSystem` `specialArgs`)                 | Every NixOS module; the host attribute name (consumed by `modules/hosts/common/hostname.nix`).                                      |
 
 Home Manager modules receive `inputs`, `metaOwner`, and `secretsRoot` through `home-manager.extraSpecialArgs` (set in `modules/home-manager/nixos.nix`), as in this HM-side consumer:
 
@@ -143,7 +145,7 @@ Home Manager modules receive `inputs`, `metaOwner`, and `secretsRoot` through `h
     { lib, config, metaOwner, secretsRoot, ... }:
     let
       cfg = config.home.context7Secrets;
-      ctxFile = "${secretsRoot}/context7.yaml";
+      ctxFile = secretsRoot + "/context7.yaml";
     in
     {
       config = lib.mkIf (cfg.enable && builtins.pathExists ctxFile) {
@@ -159,7 +161,7 @@ Home Manager modules receive `inputs`, `metaOwner`, and `secretsRoot` through `h
 
 `config.flake.lib.nixos` (the `hasApp`, `getApp`, `getApps`, `getAllApps`, `getAppOr` helpers) is a separate flake-parts helper, not a NixOS module argument. Read it from the flake-parts outer scope when authoring host-side modules. The same helpers are also published as `_module.args.nixosAppHelpers` at flake-parts scope only, so a NixOS module that declares `{ nixosAppHelpers, ... }:` will fail to evaluate.
 
-Treat custom args as the contract between hosts and downstream modules. Adding a shared arg means updating both `_module.args` and `specialArgs` in `modules/configurations/nixos.nix`; host-specific args belong in that host's `imports.nix`. Missing args surface as evaluation-time errors that name the missing parameter.
+Treat custom args as the contract between hosts and downstream modules. Adding a shared arg means updating both `_module.args` and `specialArgs` in `modules/configurations/nixos.nix`; any future host-specific arg belongs in a host-owned module. Missing args surface as evaluation-time errors that name the missing parameter.
 
 ## Common Pitfalls
 

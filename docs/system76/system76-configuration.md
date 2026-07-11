@@ -8,11 +8,13 @@ All System76-specific configuration lives in `modules/system76/`:
 | ---------------------------- | ------------------------------------------------- |
 | `hardware-config.nix`        | Filesystems, LUKS, firmware, bluetooth, GPU mode  |
 | `nvidia-gpu.nix`             | NVIDIA driver, PRIME sync/nvidia-only mode        |
-| `boot.nix`                   | linux-zen kernel, crash dump, NVIDIA params       |
-| `services.nix`               | power management, scheduler, logging              |
+| `services.nix`               | Power, Samba, Cloudflare, scheduler, LACT         |
 | `support.nix`                | System76 kernel modules, firmware daemon          |
 | `system76-power-overlay.nix` | `system76-power` patch (skip non-ALPM SCSI hosts) |
 | `packages.nix`               | System76 utilities, unfree allowlist              |
+
+Shared boot and base-service policy lives in `modules/hosts/common/boot.nix`
+and `modules/hosts/common/services.nix`.
 
 ## Hardware Support
 
@@ -60,7 +62,7 @@ hardware = {
 
 Intel CPU microcode is not set here; it is provided by the
 `nixos-hardware` `common-cpu-intel-cpu-only` module imported in
-`imports.nix`.
+`modules/hosts/common/imports.nix`.
 
 All firmware is redistributable (no unfree). See [system76-hardware.md](system76-hardware.md) for firmware details.
 
@@ -78,6 +80,8 @@ services = {
 };
 
 powerManagement.cpuFreqGovernor = "performance";
+
+# modules/hosts/common/services.nix
 programs.coolercontrol.enable = false;  # Conflicts with EC
 ```
 
@@ -98,6 +102,12 @@ sudo system76-power charge-thresholds --profile full_charge   # 96-100%
 
 ## NVIDIA GPU
 
+Shared NVIDIA wiring (driver selection, open-module toggle, container
+toolkit, VA-API routing, PRIME) lives in the parameterized
+`flake.nixosModules.nvidia-gpu` module (`modules/hardware/nvidia-gpu.nix`).
+The host file maps the `system76.gpu.mode` enum onto it and keeps the
+chassis-specific libva routing.
+
 ```nix
 # modules/system76/nvidia-gpu.nix
 options.system76.gpu = {
@@ -109,17 +119,17 @@ options.system76.gpu = {
   nvidiaBusId = lib.mkOption { type = lib.types.str; default = "PCI:1:0:0"; };
 };
 
-hardware.nvidia = {
+gpu.nvidia = {
+  enable = true;
   # GTX 1070 Max-Q is supported by the 580.xx legacy branch only.
   package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
-  modesetting.enable = true;
-  videoAcceleration = false;  # No nvidia-vaapi-driver; VA-API routes to Intel iHD
-  powerManagement.enable = true;
-  powerManagement.finegrained = false;  # Incompatible with PRIME sync
-  open = false;          # Proprietary driver
-  nvidiaSettings = true;
+  open = false;                  # Pascal predates the open kernel modules
+  vaapi.backend = "intel-media"; # VA-API routes to Intel iHD, not NVDEC (Xid 31)
+  prime = {
+    enable = config.system76.gpu.mode == "hybrid-sync";
+    inherit (config.system76.gpu) intelBusId nvidiaBusId;
+  };
 };
-hardware.nvidia-container-toolkit.enable = true;  # GPU passthrough for containers
 
 # nvidia-only branch: libva uses Intel Quick Sync through the stable iGPU render node.
 environment.sessionVariables.LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
@@ -129,13 +139,6 @@ environment.sessionVariables.LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/
 ```nix
 # Active host mode is set in hardware-config.nix (overrides the hybrid-sync default):
 system76.gpu.mode = "nvidia-only";
-
-# hybrid-sync branch enables PRIME sync (NOT active on this host):
-hardware.nvidia.prime = {
-  sync.enable = true;
-  intelBusId = "PCI:0:2:0";
-  nvidiaBusId = "PCI:1:0:0";
-};
 ```
 
 | Mode          | Description                                                | Active                       |
@@ -146,16 +149,10 @@ hardware.nvidia.prime = {
 ## Boot Configuration
 
 ```nix
-# modules/system76/boot.nix
+# modules/hosts/common/boot.nix (shared by every shareCommon host)
 boot = {
   # linux-zen: low-latency desktop kernel, prebuilt in cache.nixos.org.
-  kernelPackages = pkgs.linuxPackages_zen;
-  blacklistedKernelModules = [ "nouveau" ];
-
-  kernelParams = [
-    "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
-    "nvidia.NVreg_EnableGpuFirmware=1"
-  ];
+  kernelPackages = lib.mkDefault pkgs.linuxPackages_zen;
 
   crashDump = {
     enable = true;
@@ -169,12 +166,18 @@ boot = {
   };
 };
 
-# The bootloader, LUKS devices, and filesystems live in hardware-config.nix:
+# modules/system76/nvidia-gpu.nix (host GPU profile)
+boot.blacklistedKernelModules = [ "nouveau" ];
+boot.kernelParams = [
+  "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
+  "nvidia.NVreg_EnableGpuFirmware=1"
+];
+
+# The loader skeleton (systemd-boot enable, editor, consoleMode, EFI vars)
+# lives in modules/hosts/common/boot.nix; the host keeps its entry limit,
+# LUKS devices, and filesystems in hardware-config.nix:
 # modules/system76/hardware-config.nix
-boot.loader.systemd-boot = {
-  enable = true;
-  configurationLimit = 3;
-};
+boot.loader.systemd-boot.configurationLimit = 3;
 ```
 
 ## Storage (LUKS)
@@ -230,9 +233,10 @@ nixpkgs.allowedUnfreePackages = [
 ```
 
 NVIDIA unfree entries (`nvidia-kernel-modules`, `nvidia-x11`,
-`nvidia-settings`) are allowed in the shared
-`modules/hosts/common/packages.nix` allowlist, not in the System76 module.
-`imports.nix` additionally allows `p7zip-rar`, `rar`, and `unrar`.
+`nvidia-settings`) and the archive utilities (`p7zip-rar`, `rar`, `unrar`)
+are allowed in the shared `modules/hosts/common/packages.nix` allowlist, not
+in the System76 module. All entries contribute to the single flake-parts
+`nixpkgs.allowedUnfreePackages` option; there is no NixOS-scope allowlist.
 
 > **Note:** All firmware packages are redistributable, not unfree.
 

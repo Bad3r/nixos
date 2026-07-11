@@ -122,7 +122,7 @@ hardware-backed SSH keys can coexist without breaking SOPS.
      ...
    }:
    let
-     serviceSecretFile = "${secretsRoot}/<service>.yaml";
+     serviceSecretFile = secretsRoot + "/<service>.yaml";
      serviceSecretExists = builtins.pathExists serviceSecretFile;
      ownerName = metaOwner.username;
    in
@@ -182,21 +182,20 @@ The R2 cutover uses `secrets/r2.yaml` as the source of truth. When enabled,
 system secrets are extracted to `/run/secrets/r2/*` and Home Manager renders
 `~/.config/cloudflare/r2/env` via `modules/home/r2-secrets.nix`.
 
-`tpnix` enables the R2 system secrets and Home Manager R2 env when the encrypted
-file exists. The system secrets under `/run/secrets/r2/*` expect the host age
-key at `/var/lib/sops-nix/key.txt`, matching the shared SOPS runtime
-configuration. Rendering `~/.config/cloudflare/r2/env` additionally requires the
-owner age key at `~/.config/sops/age/keys.txt`, because the Home Manager SOPS
-runtime (`modules/home-manager/sops-runtime.nix`) defaults `sops.age.keyFile`
-there; a host provisioned with only the system key decrypts `/run/secrets/r2/*`
-but cannot render the Home Manager env file. The external R2 runtime consumers
-remain disabled until the upstream r2-flake stops referencing removed
-`pkgs.nodePackages`.
+The common baseline enables the R2 system secrets and Home Manager R2 env for
+`system76` and `tpnix` when the encrypted file exists. The system secrets under
+`/run/secrets/r2/*` expect the host age key at `/var/lib/sops-nix/key.txt`,
+matching the shared SOPS runtime configuration. Rendering
+`~/.config/cloudflare/r2/env` additionally requires the owner age key at
+`~/.config/sops/age/keys.txt`, because the Home Manager SOPS runtime
+(`modules/home-manager/sops-runtime.nix`) defaults `sops.age.keyFile` there; a
+host provisioned with only the system key decrypts `/run/secrets/r2/*` but
+cannot render the Home Manager env file.
 
-R2 is currently disabled on `system76`: `security.r2CloudSecrets.enable` and
-`home.r2Secrets.enable` are forced off, and `modules/system76/r2-runtime.nix`
-sets `sopsRuntimeReady = false` until the upstream r2-flake stops referencing
-removed `pkgs.nodePackages`.
+Both host policies currently set `r2RuntimeReady = true`, so their evaluated
+configurations import the external R2 modules and enable the runtime consumers.
+Clearing a host's readiness flag or removing `secrets/r2.yaml` disables those
+runtime assignments and emits the host's `disabledReason` warning.
 
 For the full integration contract (input wiring, runtime consumers, drift
 checks), see [`docs/r2-cloud/README.md`](../r2-cloud/README.md).

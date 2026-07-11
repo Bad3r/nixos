@@ -2,26 +2,8 @@ _: {
   configurations.nixos.tpnix.module =
     { pkgs, lib, ... }:
     {
-      # Cannot use systemd.sysusers with normal users (only supports system users)
-      # systemd.sysusers.enable = true;
-      systemd.coredump = {
-        enable = true;
-        settings.Coredump = {
-          MaxUse = "1G";
-          KeepFree = "2G";
-        };
-      };
-
       # logind lid/power-key behavior lives in modules/tpnix/power.nix.
       services = {
-        journald = {
-          storage = "persistent";
-          extraConfig = ''
-            SystemMaxUse=1G
-            SystemKeepFree=10G
-          '';
-        };
-
         cloudflared.enable = lib.mkForce false;
 
         printing = {
@@ -33,40 +15,23 @@ _: {
           ];
         };
 
-        # Enable CUPS for printing
-        avahi = {
-          enable = lib.mkDefault true;
-          nssmdns4 = true;
-          openFirewall = true;
-        };
-
-        # Power management
-        upower.enable = true;
         power-profiles-daemon.enable = lib.mkForce true;
-
-        # Enable GVFS for trash support, mounting, etc.
-        gvfs.enable = true;
-
-        # Enable thumbnail generation
-        tumbler.enable = true;
-
-        # Enable locate service
-        locate = {
-          enable = true;
-          package = pkgs.plocate;
-        };
-
-        # Enable weekly fstrim for SSDs
-        fstrim.enable = true;
 
         thermald.enable = lib.mkDefault true;
       };
 
+      gui.i3 = {
+        integrations = {
+          xfsettingsd.enable = false;
+        };
+        powerProfiles = {
+          allowSelection = false;
+        };
+      };
+
       # Power management configuration.
       powerManagement = {
-        enable = true;
         cpuFreqGovernor = lib.mkForce "performance"; # ondemand, powersave, performance
-        powertop.enable = false; # Aggressive USB autosuspend causes device issues
         resumeCommands = ''
           # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
           ${pkgs.systemd}/bin/loginctl lock-sessions
@@ -92,13 +57,14 @@ _: {
         };
       };
 
-      # Keep hardware fan-control tooling disabled unless this host needs manual tuning.
-      programs.coolercontrol.enable = false;
-
-      # Disable ACME sample certs until configured with real domain/token
-      security.acme = {
-        acceptTerms = lib.mkDefault false;
-        certs = lib.mkForce { };
-      };
+      # espanso's Wayland/X11 split is decided per host; this chassis runs X11.
+      home-manager.sharedModules = lib.mkAfter [
+        {
+          services.espanso = {
+            waylandSupport = lib.mkForce false;
+            x11Support = lib.mkForce true;
+          };
+        }
+      ];
     };
 }

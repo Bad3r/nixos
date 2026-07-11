@@ -17,11 +17,11 @@ REPO = "codeburn"
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from updater_bootstrap import bootstrap, host_package_attr  # noqa: E402
+from updater_bootstrap import bootstrap  # noqa: E402
 
 FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
 HASHES_FILE = PACKAGE_DIR / "hashes.json"
-PACKAGE_ATTR = host_package_attr(FLAKE_ROOT, PACKAGE_NAME)
+PACKAGE_ATTR = f"{FLAKE_ROOT}#{PACKAGE_NAME}"
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
 from updater import (  # noqa: E402
@@ -77,11 +77,18 @@ def main() -> None:
         "version": latest,
         "srcHash": src_hash,
         "npmDepsHash": data.get("npmDepsHash", ""),
+        "dashNpmDepsHash": data.get("dashNpmDepsHash", ""),
     }
 
     new_data["npmDepsHash"] = calculate_dependency_hash(
         PACKAGE_ATTR,
         "npmDepsHash",
+        HASHES_FILE,
+        new_data,
+    )
+    new_data["dashNpmDepsHash"] = calculate_dependency_hash(
+        PACKAGE_ATTR,
+        "dashNpmDepsHash",
         HASHES_FILE,
         new_data,
     )

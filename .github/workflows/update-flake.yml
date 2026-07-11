@@ -18,15 +18,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
         with:
-          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          extra_nix_config: |
-            experimental-features = nix-command flakes pipe-operators
-            abort-on-warn = false
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prefer HTTPS for GitHub
         run: |
@@ -52,7 +47,10 @@ jobs:
             for input in $inputs; do
               total=$((total + 1))
               echo "Updating $input..."
-              nix flake update "$input" --flake "path:." || {
+              # Lix rejects a relative --flake ref ("cannot fetch input
+              # 'path:.' because it uses a relative path"); the absolute
+              # form keeps the same write-back behavior.
+              nix flake update "$input" --flake "path:$PWD" || {
                 echo "Failed to update $input, skipping..."
                 failures=$((failures + 1))
               }
@@ -98,26 +96,55 @@ jobs:
       # pull the private secrets submodule that CI cannot read. Secret
       # files are then absent, so the per-file pathExists guards evaluate
       # the secretless configuration and warn about disabled services.
-      # --no-build: the flake checks include both host toplevels, and
-      # building two desktop closures exceeds runner disk.
+      # nix eval instead of `nix flake check --no-build`: Lix forces
+      # read-only store mode under --no-build, which breaks eval-time
+      # store writes (interpolated source copies, IFD derivations) on the
+      # fresh runner store; forcing every check's drvPath keeps the eval
+      # surface (package-checks.nix mirrors every package into checks and
+      # make-shell exposes each dev shell as a `<name>-shell` check, so
+      # both still evaluate here; apps is empty) without building check
+      # outputs (the checks include every host toplevel, and building
+      # desktop closures exceeds runner disk).
       - name: Run flake check
         if: steps.update.outputs.changed == 'true'
-        run: nix flake check --accept-flake-config --no-build "path:."
+        run: |
+          nix eval --accept-flake-config --json \
+            "path:.#checks.x86_64-linux" \
+            --apply 'checks: builtins.mapAttrs (_: check: check.drvPath) checks'
 
       - name: Free disk space
         if: steps.update.outputs.changed == 'true'
-        # Reclaim ~15 GB of preinstalled toolchains so one host closure fits.
+        # Reclaim ~15 GB of preinstalled toolchains so a host closure fits.
         run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
 
-      # Realise one host closure (both exceed runner disk, hence --no-build on
-      # the flake check). Gates the auto-merged PR on an actual build: a lock
-      # bump that evaluates but fails to build (broken patch, a package that no
-      # longer compiles) fails the run before the PR is created and merged.
-      - name: Build host closure
+      # Realise every host closure, one at a time (a single closure fits the
+      # runner disk, several at once do not, hence --no-build on the flake
+      # check and the garbage collection between hosts). Gates the
+      # auto-merged PR on actual builds: a lock bump that evaluates but fails
+      # to build (broken patch, a package that no longer compiles) fails the
+      # run before the PR is created and merged. The host list comes from the
+      # flake, so a new host is covered without editing this workflow.
+      - name: Build host closures
         if: steps.update.outputs.changed == 'true'
         run: |
-          nix build --accept-flake-config --no-link -L \
-            "path:.#nixosConfigurations.system76.config.system.build.toplevel"
+          hosts=$(nix eval --accept-flake-config --json \
+            "path:.#nixosConfigurations" --apply builtins.attrNames \
+            | jq -r '.[]')
+          if [ -z "$hosts" ]; then
+            echo "no nixosConfigurations found" >&2
+            exit 1
+          fi
+          first=1
+          for host in $hosts; do
+            if [ "$first" -eq 1 ]; then
+              first=0
+            else
+              nix store gc
+            fi
+            echo "Building $host closure..."
+            nix build --accept-flake-config --no-link -L \
+              "path:.#nixosConfigurations.$host.config.system.build.toplevel"
+          done
 
       - name: Show updated inputs
         if: steps.update.outputs.changed == 'true'

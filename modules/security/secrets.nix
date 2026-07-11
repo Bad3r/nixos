@@ -9,7 +9,7 @@
     }:
     let
       cfg = config.security.repoSecrets;
-      actSecretFile = "${secretsRoot}/act.yaml";
+      actSecretFile = secretsRoot + "/act.yaml";
       actSecretExists = builtins.pathExists actSecretFile;
       ownerName = metaOwner.username;
     in
@@ -42,7 +42,7 @@
 
         (lib.mkIf (cfg.enable && !actSecretExists) {
           warnings = [
-            "security.repoSecrets.enable is true but ${actSecretFile} is missing; skipping act secret."
+            "security.repoSecrets.enable is true but ${toString actSecretFile} is missing; skipping act secret."
           ];
         })
       ];

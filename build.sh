@@ -30,7 +30,11 @@ BUILD_FLAGS=()
 NH_CMD=()
 LOG_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/nixos-build"
 LOG_FILE=""
-BOOTSTRAP_EXPERIMENTAL_FEATURES="nix-command flakes pipe-operators recursive-nix"
+# Superset of Lix names (pipe-operator, flake-self-attrs) and the CppNix
+# spelling (pipe-operators) so the first build after checkout works from a
+# host still running CppNix; each implementation warns about the other's
+# names. NIX_CONFIG is not check-phased, unlike nix.settings.
+BOOTSTRAP_EXPERIMENTAL_FEATURES="nix-command flakes pipe-operator pipe-operators flake-self-attrs"
 # Colors for output (readonly constants)
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
@@ -58,7 +62,7 @@ Options:
       --keep-going       Continue building despite failures
       --repair           Repair corrupted store paths during build
       --fallback         Build from source if binary substitutes fail
-      --bootstrap        Use extra substituters for first build (e.g., Determinate Nix)
+      --bootstrap        Use extra substituters for first build
   -h, --help             Show this help message
 
 Logs:
@@ -223,8 +227,8 @@ if [[ ! -f "${FLAKE_DIR}/flake.nix" ]]; then
 fi
 
 # Configure build settings
-# Bootstrap substituters for first build (before system has them configured)
-# Used for initial Determinate Nix setup or similar migrations
+# Bootstrap substituters for first builds, before the host substituter
+# configuration from modules/hosts/common/nix-substituters.nix is active.
 BOOTSTRAP_SUBSTITUTERS=(
   "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
   #"https://mirror.sjtu.edu.cn/nix-channels/store"

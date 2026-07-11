@@ -41,6 +41,16 @@ Canonical documentation lives under `docs/architecture/`.
 
 ## Nix Configuration
 
+Hosts, Home Manager, repo hooks, and CI run Lix
+(`pkgs.lixPackageSets.latest.lix`, selected in `modules/base/nix-package.nix`;
+RFC issue #282). Lix requires the `flake-self-attrs` experimental feature for
+this flake's `self.submodules = true`; it must come from ambient configuration
+(`modules/base/nix-settings.nix`, CI installer conf, `build.sh` `NIX_CONFIG`)
+because Lix enforces it before `nixConfig` applies. CI installs the same
+release through `.github/actions/install-lix` (version and installer digest
+pinned together); the `ci-lix-installer-parity` flake check fails when that
+pin drifts from `lixPackageSets.latest.lix`.
+
 `flake.nix#nixConfig` carries only pre-evaluation settings needed before the
 module graph is loaded:
 
@@ -48,8 +58,10 @@ module graph is loaded:
   - Value: `false`
   - Purpose: Don't abort on warnings
 - `extra-experimental-features`
-  - Value: `[ "pipe-operators" ]`
-  - Purpose: Enable pipe operator syntax in Nix expressions
+  - Value: `[ "pipe-operator" "pipe-operators" ]`
+  - Purpose: Enable pipe operator syntax under the Lix name (singular) and
+    the CppNix name (plural) for pre-cutover and third-party CppNix
+    evaluators
 - `allow-import-from-derivation`
   - Value: `true`
   - Purpose: Required by IFD consumer `nix-doom-emacs-unstraightened`
@@ -149,6 +161,10 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
   - Command: `git worktree add $HOME/trees/nixos/<type>-<name> -b <type>/<name>`
 - Work
   - Command: `cd $HOME/trees/nixos/<type>-<name>` then commit changes
+  - Rule: give flake commands an explicit `path:.` installable in linked
+    worktrees (`nix develop path:.`, `nix flake check path:.`); Lix cannot
+    fetch a clean linked worktree as a `git+file` flake because `.git` is a
+    file there, not a directory
 - PR
   - Command: `gh pr create --title "<type>(scope): summary" --body "..."` (Assign labels)
 - Cleanup after merge

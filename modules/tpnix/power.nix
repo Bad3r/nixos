@@ -9,43 +9,25 @@
     {
       boot.blacklistedKernelModules = [ "nouveau" ];
 
+      gpu.nvidia = {
+        enable = true;
+        package = config.boot.kernelPackages.nvidiaPackages.production;
+        open = false;
+        vaapi.backend = "nvidia";
+        # PRIME sync with the chassis default bus IDs (PCI:0:2:0 / PCI:1:0:0).
+        prime.enable = true;
+      };
+
       hardware = {
         bluetooth = {
           enable = true;
           powerOnBoot = true;
         };
 
-        graphics.extraPackages = [
-          pkgs.nvidia-vaapi-driver
-          pkgs.vulkan-validation-layers
-        ];
-
-        nvidia = {
-          package = config.boot.kernelPackages.nvidiaPackages.production;
-          modesetting.enable = true;
-          open = false;
-          gsp.enable = true;
-          powerManagement.enable = true;
-          powerManagement.finegrained = false;
-          nvidiaSettings = true;
-
-          prime = {
-            offload.enable = lib.mkForce false;
-            sync.enable = true;
-            intelBusId = "PCI:0:2:0";
-            nvidiaBusId = "PCI:1:0:0";
-          };
-        };
-
-        nvidia-container-toolkit.enable = true;
+        nvidia.gsp.enable = true;
       };
 
       security.rtkit.enable = true;
-
-      environment.systemPackages = with pkgs; [
-        mesa-demos
-        vulkan-tools
-      ];
 
       services = {
         dbus = {
@@ -64,10 +46,6 @@
 
         xserver = {
           enable = true;
-          videoDrivers = lib.mkForce [ "nvidia" ];
-          screenSection = lib.mkDefault ''
-            Option "metamodes" "nvidia-auto-select +0+0 {ForceFullCompositionPipeline=On}"
-          '';
           xkb = {
             layout = "us";
             variant = "";

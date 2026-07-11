@@ -6,7 +6,8 @@ _: {
         name = "hook-mcp-docs-sync";
         runtimeInputs = [
           pkgs.git
-          pkgs.nix
+          # Lix: eval semantics must match what hosts run (RFC #282).
+          pkgs.lixPackageSets.latest.lix
           pkgs.coreutils
           pkgs.diffutils
           pkgs.gnused
@@ -23,7 +24,12 @@ _: {
             tmp_diff=$(mktemp)
             trap 'rm -f "$tmp_expected" "$tmp_diff"' EXIT
 
-            if ! nix eval --raw .#lib.agents.mcp.docs.referenceMarkdown > "$tmp_expected"; then
+            # Features are passed explicitly so the hook does not depend on
+            # the invoking host's nix.conf feature list. path:. instead of .#
+            # because Lix cannot fetch a clean linked git worktree as a
+            # git+file flake (.git is a file there, not a directory).
+            if ! nix eval --extra-experimental-features 'nix-command flakes pipe-operator flake-self-attrs' \
+              --raw "path:.#lib.agents.mcp.docs.referenceMarkdown" > "$tmp_expected"; then
               echo "✗ Failed to generate expected MCP docs markdown." >&2
               echo "Run the regeneration command manually and retry." >&2
               exit 1
@@ -45,7 +51,9 @@ _: {
             head -n 40 "$tmp_diff" | sed 's/^/    /' >&2 || true
             echo "" >&2
             echo "Regenerate with:" >&2
-            echo "  tmp=\$(mktemp) && nix eval --raw .#lib.agents.mcp.docs.referenceMarkdown >! \"\$tmp\" && mv \"\$tmp\" docs/reference/mcp-tools.md" >&2
+            # >| (POSIX clobber-override) instead of zsh-only >!: mktemp
+            # pre-creates the file, so plain > breaks under noclobber.
+            echo "  tmp=\$(mktemp) && nix eval --raw \"path:.#lib.agents.mcp.docs.referenceMarkdown\" >| \"\$tmp\" && mv \"\$tmp\" docs/reference/mcp-tools.md" >&2
             echo "Then stage docs/reference/mcp-tools.md and commit normally." >&2
             exit 1
           '';

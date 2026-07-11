@@ -16,7 +16,7 @@ theming, and a custom `build.sh` validate-and-deploy pipeline.
 | -------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **Languages**  | Nix (primary), Python, Shell, plus JSON / YAML / TOML / SQL / Markdown data                                          |
 | **Frameworks** | flake-parts, import-tree, home-manager, sops-nix, stylix, treefmt-nix, git-hooks.nix, nixos-hardware, GitHub Actions |
-| **Hosts**      | `system76` and `tpnix` (each opts into a shared common baseline)                                                     |
+| **Hosts**      | Configured: `system76`, `tpnix`; planned: `coldfront`                                                                |
 
 Start with `docs/architecture/README.md` for the 01-06 reading order. This guide
 is the map; that doc set is the detail.
@@ -31,10 +31,10 @@ documentation.
     into systems: the host builder, the devshell / files / readme / package-checks
     aggregators, shared `lib` helpers, and the git post-checkout hook.
 
-02. **Host Definitions & Baseline** (`modules/system76`, `modules/tpnix`,
-    `modules/hosts/common`). Per-host configuration and hardware profiles, plus the
-    cross-host shared baseline and the registry that every opted-in host composes.
-    The largest layer.
+02. **Host Definitions & Baseline** (`modules/<host>/`, `modules/hosts/common`).
+    Per-host configuration, hardware profiles, host documentation, the cross-host
+    shared baseline, and the registry that every opted-in host composes. The
+    largest layer.
 
 03. **Base System & Boot** (`modules/base`, `modules/boot`). Foundational settings
     shared by all hosts: core Nix settings, users, locale, bootloader, and kernel.
@@ -44,7 +44,7 @@ documentation.
     configuration, and generated dotfile sources (bat, eza, fzf, ...).
 
 05. **System Services & Desktop Domains** (`modules/networking`, `security`,
-    `storage`, `services`, `stylix`, `git`, `xdg`, `impermanence`, `csec`, ...).
+    `services`, `stylix`, `git`, `xdg`, `csec`, ...).
     Domain modules configuring system services and the desktop.
 
 06. **AI Agents Configuration** (`modules/agents`). Provisions developer AI tooling
@@ -139,7 +139,7 @@ builds on the last.
 | 4   | How a file becomes a module           | `docs/architecture/02-module-authoring.md` (placement rules, pkgs-vs-no-pkgs split, the Two-Context Problem)                                |
 | 5   | NixOS modules & the app catalog       | `docs/architecture/03-nixos-modules.md`, `modules/hosts/common/apps-base.nix`, `apps-enable.nix`                                            |
 | 6   | Assembling a host                     | `docs/architecture/05-host-composition.md`, `modules/configurations/nixos.nix`, `modules/hosts/common/registry.nix`                         |
-| 7   | Per-host composition & overrides      | `modules/system76/imports.nix`, `modules/tpnix/imports.nix`, `modules/tpnix/apps-enable.nix`                                                |
+| 7   | Per-host composition & overrides      | `modules/hosts/common/imports.nix`, `modules/system76/imports.nix`, `modules/tpnix/apps-enable.nix`                                         |
 | 8   | Home Manager: the dual-module pattern | `docs/architecture/04-home-manager.md`, `modules/home-manager/nixos.nix`, `base.nix`                                                        |
 | 9   | Secrets with sops-nix                 | `modules/security/sops-runtime.nix`, `modules/hosts/common/sops.nix`, `modules/security/secrets.nix`                                        |
 | 10  | Custom packages & overlays            | `modules/hosts/common/custom-overlays-base.nix`, `modules/custom-overlays/restringer.nix`, `packages/restringer/default.nix`, `hashes.json` |
@@ -175,15 +175,18 @@ load-bearing ones.
 - `modules/hosts/common/apps-enable.nix`: default-on/off baseline for hundreds of
   `programs.*`/`services.*` at `mkOverride 1100`; publishes the snapshot for the
   collision check.
-- `modules/system76/imports.nix`, `modules/tpnix/imports.nix`: per-host
-  composition hubs wiring base/ssh/sops/duplicati + nixos-hardware profiles.
+- `modules/hosts/common/imports.nix`: fleet composition hub wiring
+  base/ssh/sops/duplicati + shared nixos-hardware profiles; host-owned modules
+  such as `modules/system76/imports.nix` add chassis-specific composition.
 - `modules/tpnix/apps-enable.nix`: host override demonstration (disables defaults,
   enables thinkfan at `mkOverride 1000`).
 
 ### Base System & Boot
 
 - `modules/base/`: core Nix settings, users, locale.
-- `modules/boot/`: bootloader and kernel configuration.
+- `modules/hosts/common/boot.nix`: shared kernel, initrd, systemd-boot, crash
+  dump, and sysctl policy.
+- `modules/boot/`: boot compression and visual policy.
 
 ### Home Manager & Dotfiles
 
@@ -201,8 +204,6 @@ load-bearing ones.
   runtime and age-key pinning.
 - `modules/git/git.nix`: Git via HM (aliases, delta, LFS, 1Password commit
   signing).
-- `modules/impermanence/impermanence.nix`: btrfs `/persist` model, wipes root on
-  boot.
 - `modules/services/duplicati-r2.nix`: declarative Duplicati backups to Cloudflare
   R2 with runtime-materialized systemd timers.
 - `modules/stylix/stylix.nix`: central theming (OneDark base16, MonoLisa,
@@ -267,7 +268,6 @@ cross-cutting effects.
 
 - `modules/services/duplicati-r2.nix`, `modules/lib/r2-runtime.nix`: R2 backups,
   runtime systemd materialization, external-flake gating.
-- `modules/impermanence/impermanence.nix`: wipes root on boot. Edit with care.
 - `modules/networking/ssh.nix`, `modules/hosts/common/usbguard.nix`:
   security-sensitive (usbguard is currently force-disabled via the module's
   `enabled` toggle; the module also disables kernel audit pending full

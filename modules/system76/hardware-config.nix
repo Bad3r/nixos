@@ -90,16 +90,8 @@ _: {
           "xfs"
         ];
 
-        # Boot loader configuration (CRITICAL - must be here for system to boot)
-        loader = {
-          systemd-boot = {
-            enable = true;
-            editor = false;
-            consoleMode = "auto";
-            configurationLimit = 3;
-          };
-          efi.canTouchEfiVariables = true;
-        };
+        # Loader skeleton comes from modules/hosts/common/boot.nix.
+        loader.systemd-boot.configurationLimit = 3;
       };
 
       # Filesystem configuration (CRITICAL - must be here for system to boot)

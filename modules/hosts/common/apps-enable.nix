@@ -84,6 +84,7 @@ let
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;
+      "claude-code".extended.lspPlugins."swift-lsp" = lib.mkOverride 1100 false;
       "claude-desktop".extended.enable = lib.mkOverride 1100 true;
       "claude-plugins".extended.enable = lib.mkOverride 1100 true;
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
@@ -313,10 +314,13 @@ let
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 true;
       ocrmypdf.extended.enable = lib.mkOverride 1100 true;
-      "oh-my-opencode".extended.enable = lib.mkOverride 1100 true;
+      # Off: unused on current hosts, and the llm-agents bun2nix packaging
+      # breaks Lix eval-only CI until nix-community/bun2nix#97 lands.
+      "oh-my-opencode".extended.enable = lib.mkOverride 1100 false;
       okular.extended.enable = lib.mkOverride 1100 false;
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 true;
-      opencode.extended.enable = lib.mkOverride 1100 true;
+      # Off: unused on current hosts (same packaging as oh-my-opencode).
+      opencode.extended.enable = lib.mkOverride 1100 false;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 true;
       openssh.extended.enable = lib.mkOverride 1100 true;
       openssl.extended.enable = lib.mkOverride 1100 true;
@@ -427,6 +431,7 @@ let
       tesseract.extended.enable = lib.mkOverride 1100 true;
       testdisk.extended.enable = lib.mkOverride 1100 true;
       thunderbird.extended.enable = lib.mkOverride 1100 true;
+      "tinfoil-wiper".extended.enable = lib.mkOverride 1100 true;
       tokei.extended.enable = lib.mkOverride 1100 true;
       tor.extended.enable = lib.mkOverride 1100 true;
       "tor-browser".extended.enable = lib.mkOverride 1100 true;
@@ -455,10 +460,10 @@ let
       vulnix.extended.enable = lib.mkOverride 1100 true;
       wakaru.extended.enable = lib.mkOverride 1100 false;
       "wappalyzer-next".extended.enable = lib.mkOverride 1100 true;
-      webcrack.extended.enable = lib.mkOverride 1100 true;
+      webcrack.extended.enable = lib.mkOverride 1100 false;
       webex.extended.enable = lib.mkOverride 1100 true;
       wezterm.extended.enable = lib.mkOverride 1100 false;
-      wfuzz.extended.enable = lib.mkOverride 1100 true;
+      wfuzz.extended.enable = lib.mkOverride 1100 false;
       wgcf.extended.enable = lib.mkOverride 1100 true;
       wget.extended.enable = lib.mkOverride 1100 true;
       whatweb.extended.enable = lib.mkOverride 1100 true;

@@ -1,0 +1,84 @@
+Replace removed `pkg_resources` API with stdlib `pkgutil` in the filter-help
+loader.
+
+`pkg_resources` (setuptools) is deprecated and dropped in setuptools >= 81, so
+`import pkg_resources` in helpers/file_func.py raises ModuleNotFoundError and
+breaks `import wfuzz` under setuptools 82 / Python 3.14. `pkgutil.get_data`
+reads the bundled `advanced.rst` package resource without setuptools.
+
+Reported upstream: https://github.com/xmendez/wfuzz/issues/381
+Mirrors upstream fix: https://github.com/xmendez/wfuzz/pull/382
+
+diff --git a/src/wfuzz/helpers/file_func.py b/src/wfuzz/helpers/file_func.py
+index e5459faf..ae8081bf 100644
+--- a/src/wfuzz/helpers/file_func.py
++++ b/src/wfuzz/helpers/file_func.py
+@@ -1,7 +1,7 @@
+ import os
+ import sys
+ import re
+-import pkg_resources
++import pkgutil
+ 
+ from chardet.universaldetector import UniversalDetector
+ import chardet
+@@ -13,14 +13,18 @@ def get_filter_help_file():
+     FILTER_HELP_FILE = "advanced.rst"
+     FILTER_HELP_DEV_FILE = "../../../docs/user/advanced.rst"
+ 
+-    filter_help_text = None
+     try:
+-        fname = pkg_resources.resource_filename("wfuzz", FILTER_HELP_FILE)
+-        filter_help_text = open(fname).read()
+-    except IOError:
+-        filter_help_text = open(get_path(FILTER_HELP_DEV_FILE)).read()
++        filter_help_text = pkgutil.get_data("wfuzz", FILTER_HELP_FILE)
++    except (IOError, OSError):
++        filter_help_text = None
+ 
+-    return filter_help_text
++    if filter_help_text is not None:
++        if not isinstance(filter_help_text, str):
++            filter_help_text = filter_help_text.decode("utf-8")
++        return filter_help_text
++
++    with open(get_path(FILTER_HELP_DEV_FILE)) as filter_help:
++        return filter_help.read()
+ 
+ 
+ def create_dir(dir_path):
+diff --git a/tests/helpers/test_file_func.py b/tests/helpers/test_file_func.py
+new file mode 100644
+index 00000000..66c58b3d
+--- /dev/null
++++ b/tests/helpers/test_file_func.py
+@@ -0,0 +1,29 @@
++try:
++    from unittest import mock
++except ImportError:
++    import mock
++
++from wfuzz.helpers import file_func
++
++
++def test_get_filter_help_file_uses_package_data():
++    with mock.patch(
++        "wfuzz.helpers.file_func.pkgutil.get_data",
++        return_value=b"Package help",
++    ):
++        assert file_func.get_filter_help_file() == "Package help"
++
++
++def test_get_filter_help_file_falls_back_to_development_file(tmpdir):
++    help_file = tmpdir.join("advanced.rst")
++    help_file.write("Development help")
++
++    with mock.patch(
++        "wfuzz.helpers.file_func.pkgutil.get_data",
++        return_value=None,
++    ):
++        with mock.patch(
++            "wfuzz.helpers.file_func.get_path",
++            return_value=str(help_file),
++        ):
++            assert file_func.get_filter_help_file() == "Development help"

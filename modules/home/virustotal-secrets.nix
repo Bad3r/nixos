@@ -14,7 +14,7 @@
     }:
     let
       cfg = config.home.virustotalSecrets;
-      vtSecretFile = "${secretsRoot}/virustotal.yaml";
+      vtSecretFile = secretsRoot + "/virustotal.yaml";
       vtSecretExists = builtins.pathExists vtSecretFile;
       homeDirectory = "/home/${metaOwner.username}";
     in
@@ -43,7 +43,7 @@
 
         (lib.mkIf (cfg.enable && !vtSecretExists) {
           warnings = [
-            "home.virustotalSecrets.enable is true but ${vtSecretFile} is missing; skipping VirusTotal secret."
+            "home.virustotalSecrets.enable is true but ${toString vtSecretFile} is missing; skipping VirusTotal secret."
           ];
         })
       ];
