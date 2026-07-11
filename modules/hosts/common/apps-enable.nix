@@ -84,6 +84,7 @@ let
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;
+      "claude-code".extended.lspPlugins."swift-lsp" = lib.mkOverride 1100 false;
       "claude-desktop".extended.enable = lib.mkOverride 1100 true;
       "claude-plugins".extended.enable = lib.mkOverride 1100 true;
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
@@ -459,7 +460,7 @@ let
       webcrack.extended.enable = lib.mkOverride 1100 true;
       webex.extended.enable = lib.mkOverride 1100 true;
       wezterm.extended.enable = lib.mkOverride 1100 false;
-      wfuzz.extended.enable = lib.mkOverride 1100 true;
+      wfuzz.extended.enable = lib.mkOverride 1100 false;
       wgcf.extended.enable = lib.mkOverride 1100 true;
       wget.extended.enable = lib.mkOverride 1100 true;
       whatweb.extended.enable = lib.mkOverride 1100 true;
