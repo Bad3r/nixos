@@ -80,5 +80,4 @@ in
     "steam-unwrapped"
   ];
   flake.nixosModules.apps.steam = steamModule;
-  flake.nixosModules.workstation = steamModule;
 }
