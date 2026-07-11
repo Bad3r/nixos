@@ -70,6 +70,9 @@ Every listed component is current and the parts are fully compatible with each o
   are the USB4 implementation, not separate additional ports. About 11 rear USB
   ports total.
 - VRM: 22+1+2+2 teamed power stages, main CPU stages rated 110 A.
+- In-box cables: 4x SATA 6 Gb/s data cables, 1x ARGB (addressable RGB) extension
+  cable. Non-cable connectivity also bundled: the ASUS WiFi Q-Antenna (required
+  for the onboard Wi-Fi 7) and a Q-connector front-panel jumper block.
 
 ### GPU: Gigabyte RTX 5080 Gaming OC 16G
 
@@ -132,6 +135,26 @@ Every listed component is current and the parts are fully compatible with each o
   must be installed with a motherboard or third-party M.2 heatsink for full
   performance. The heatsink model is a separate part, CT4000T710SSD5.
 
+### Secondary Storage: Samsung 850 Pro (SATA)
+
+- 2.5 in SATA III (6 Gb/s) SSD, added as an existing secondary drive alongside
+  the Crucial T710 NVMe boot drive. It caps at the SATA 6 Gb/s interface
+  (roughly 550 MB/s), independent of the Gen5 primary.
+- Connects to any of the board's 4 SATA 6 Gb/s ports. Those ports are
+  chipset-attached and only M.2_1 (CPU) is populated, so all 4 stay available;
+  the SATA drive takes no lanes from the GPU or the T710.
+- Cabling comes from the build's included cables:
+  - Data: 1 of the board's 4 bundled SATA 6 Gb/s cables (3 spare).
+  - Power: 1 SATA power connector from the ROG Strix 1200W. Its 2 modular SATA
+    cables carry 6 connectors total; the ARCTIC Case Fan Hub uses 1, leaving 5,
+    so the 850 Pro takes 1 of the remaining 5.
+- Use the ROG Strix's own modular SATA power cable. Modular pin-outs differ
+  between PSU brands and models, so a leftover cable from another unit can
+  damage the drive.
+- Mounting: the CTE C750 Air holds up to 12x 2.5 in drives; the tray and case
+  screws are in the case box.
+- Power draw is a few watts, absorbed by the existing ~490 W budget headroom.
+
 ### PSU: ASUS ROG Strix 1200W Platinum (ROG-STRIX-1200P-GAMING)
 
 - 1200 W. 80 PLUS Platinum and Cybenetics Platinum. ("1200P" is the model code,
@@ -140,6 +163,13 @@ Every listed component is current and the parts are fully compatible with each o
 - 1x native 12V-2x6 connector rated 600 W (native 16-pin to 16-pin cable
   included). Powers the RTX 5080 directly; the GPU's 8-pin adapter is not needed.
 - Fully modular. 135 mm dual-ball-bearing fan with a 0 dB idle mode.
+- In-box modular cables:
+  - 1x ATX 24-pin (20+4) motherboard cable, 610 mm
+  - 2x CPU/EPS 4+4-pin cables, 1000 mm
+  - 1x PCIe 12V-2x6 16-pin-to-16-pin cable, 750 mm (the GPU cable above)
+  - 4x PCIe 8-pin-to-6+2-pin cables, 750 mm
+  - 2x SATA power cables, 3 connectors each (6 total)
+  - 1x peripheral (Molex) cable, 3 connectors
 - 160 mm depth. 10-year warranty.
 
 ### AIO Cooler: ARCTIC Liquid Freezer III Pro 420
@@ -188,6 +218,7 @@ Every listed component is current and the parts are fully compatible with each o
 | GPU (PCIe 5.0 x16, 340 mm) to Board + Case        | OK. Board x16 slot; case fits 340 mm.      |
 | GPU 12V-2x6 to PSU native 12V-2x6 (600 W)         | OK. One native cable, 360 W load.          |
 | SSD (Gen5 x4, M.2 2280) to Board M.2_1 (CPU Gen5) | OK. Add a heatsink.                        |
+| SATA SSD (850 Pro) to Board + PSU + Case          | OK. Data + power cables included.          |
 | PSU (1200 W) to full system (~700 W peak)         | OK. About 490 W headroom.                  |
 | Board (ATX) to Case (up to E-ATX)                 | OK. Ample room.                            |
 
