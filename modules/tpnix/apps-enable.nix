@@ -76,7 +76,12 @@ in
 {
   flake.lib.nixos._hostAppsOverrides.tpnix = appEnable;
   configurations.nixos.tpnix.module = {
-    programs = lib.mapAttrs mkExtendedEnable programOverrides;
+    # firefoxpwa.dmail is a per-site PWA sub-toggle, not a flat app (it routes to
+    # dmail.enable, not extended.enable), so it stays out of `appEnable` and is
+    # layered directly at the same 1000 priority.
+    programs = lib.recursiveUpdate (lib.mapAttrs mkExtendedEnable programOverrides) {
+      firefoxpwa.dmail.enable = lib.mkOverride 1000 true;
+    };
     services = lib.mapAttrs mkExtendedEnable serviceOverrides;
   };
 }

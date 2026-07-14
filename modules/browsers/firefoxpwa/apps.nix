@@ -36,6 +36,21 @@ let
         package = lib.mkPackageOption pkgs "firefoxpwa" { };
       };
 
+      # Per-site install toggles are declared here (NixOS scope) so the common
+      # app catalog and per-host apps-enable files can layer them like any other
+      # app, and the Home Manager installer in ./dmail.nix can read them through
+      # `osConfig`.
+      options.programs.firefoxpwa.dmail.enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Install the primary user's work mail Progressive Web App (DMail)
+          through firefoxpwa. The start URL is read at runtime from the
+          SOPS-encrypted gecko work-bookmark secret. Requires
+          programs.firefoxpwa.extended.enable.
+        '';
+      };
+
       config = lib.mkIf cfg.enable {
         # The connector is launched via the native-messaging manifest's absolute
         # path, but the `firefoxpwa` CLI must also be on PATH so the management
