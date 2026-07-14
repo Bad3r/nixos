@@ -89,8 +89,8 @@ let
               tags = [ "Work" ];
             }
             {
-              name = "Deem Mail";
-              url = workUrls.deemMail;
+              name = "DMail";
+              url = workUrls.dmail;
               urlIsTemplate = true;
               tags = [ "Work" ];
             }

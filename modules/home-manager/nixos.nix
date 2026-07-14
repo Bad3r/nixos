@@ -143,6 +143,11 @@ let
     "homeManagerModules"
     "geckoSecrets"
   ];
+  firefoxpwaDmailModule = loadHomeModule ../browsers/firefoxpwa/dmail.nix [
+    "flake"
+    "homeManagerModules"
+    "firefoxpwaDmail"
+  ];
   r2Module = loadHomeModule ../home/r2-secrets.nix [
     "flake"
     "homeManagerModules"
@@ -171,6 +176,7 @@ let
     sopsRuntimeModule
     context7Module
     geckoSecretsModule
+    firefoxpwaDmailModule
     r2Module
     virustotalModule
   ];
