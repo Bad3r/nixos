@@ -131,6 +131,12 @@ _: {
             "programs.firefoxpwa.dmail.enable is true but ${toString geckoFile} is missing; skipping the DMail PWA install."
           ];
         })
+
+        (lib.mkIf (dmailEnabled && !firefoxpwaEnabled) {
+          warnings = [
+            "programs.firefoxpwa.dmail.enable is true but programs.firefoxpwa.extended.enable is false; skipping the DMail PWA install."
+          ];
+        })
       ];
     };
 }
