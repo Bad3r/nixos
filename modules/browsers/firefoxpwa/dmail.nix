@@ -66,10 +66,17 @@ _: {
             exit 1
           fi
 
-          if [ -f "$config_file" ] \
-            && jq -e --arg n "$app_name" \
-              '(.sites // {}) | to_entries[] | select(.value.config.name == $n)' \
-              "$config_file" >/dev/null 2>&1; then
+          # firefoxpwa stores the managed site under .sites.<ulid> and the
+          # launcher name set with --name lands at .config.name, so a site
+          # carrying this name is our install. Emits the ulid, or nothing.
+          site_ulid() {
+            [ -f "$config_file" ] || return 0
+            jq -r --arg n "$app_name" \
+              '(.sites // {}) | to_entries[] | select(.value.config.name == $n) | .key' \
+              "$config_file" 2>/dev/null | head -n1
+          }
+
+          if [ -n "$(site_ulid)" ]; then
             echo "firefoxpwa-dmail: '$app_name' already installed"
             exit 0
           fi
@@ -87,6 +94,13 @@ _: {
               --start-url "$url" \
               --name "$app_name"; then
               echo "firefoxpwa-dmail: installed '$app_name'"
+              exit 0
+            fi
+            # A failed attempt can still register the site before erroring (for
+            # example on desktop integration); re-checking the name keeps the
+            # retry from creating a second "DMail" entry.
+            if [ -n "$(site_ulid)" ]; then
+              echo "firefoxpwa-dmail: '$app_name' registered despite a failed attempt; not retrying"
               exit 0
             fi
             echo "firefoxpwa-dmail: install attempt $attempt failed; retrying" >&2
