@@ -109,6 +109,8 @@ _: {
           sops.secrets.${secretName} = {
             sopsFile = geckoFile;
             key = "gecko_work_bookmark_url_1";
+            path = "${config.home.homeDirectory}/.local/share/firefoxpwa/dmail-url";
+            mode = "0400";
           };
 
           systemd.user.services.firefoxpwa-dmail = {
