@@ -10,8 +10,9 @@
     * A oneshot user service ordered after sops-nix.service decrypts the URL and
       runs `firefoxpwa site install` with a synthetic data: manifest, so the
       site installs without the target having to serve a web manifest.
-    * The install is idempotent: it is skipped when a firefoxpwa site already
-      carries the managed name, so the service is safe to run on every login.
+    * The install is idempotent: a site already carrying the managed name is
+      refreshed in place when the decrypted URL has rotated and otherwise left
+      untouched, so the service is safe to run on every login.
     * firefoxpwa system integration writes the launcher .desktop entry and icon,
       making the app discoverable from the desktop menu.
 */
@@ -76,9 +77,31 @@ _: {
               "$config_file" 2>/dev/null | head -n1
           }
 
-          if [ -n "$(site_ulid)" ]; then
-            echo "firefoxpwa-dmail: '$app_name' already installed"
-            exit 0
+          # The --start-url override lands at .config.start_url; firefoxpwa
+          # prefers it over the manifest start URL when launching. Emits the
+          # stored value, or nothing.
+          site_start_url() {
+            [ -f "$config_file" ] || return 0
+            jq -r --arg n "$app_name" \
+              '(.sites // {}) | to_entries[] | select(.value.config.name == $n) | (.value.config.start_url // "")' \
+              "$config_file" 2>/dev/null | head -n1
+          }
+
+          # Already installed. The start URL is read at runtime from the rotating
+          # secret, so refresh it in place when the stored value drifts instead of
+          # leaving the app pinned to the URL captured at first install.
+          if ulid=$(site_ulid) && [ -n "$ulid" ]; then
+            if [ "$(site_start_url)" = "$url" ]; then
+              echo "firefoxpwa-dmail: '$app_name' already installed with current URL"
+              exit 0
+            fi
+            echo "firefoxpwa-dmail: refreshing start URL for '$app_name' ($ulid)"
+            if firefoxpwa site update "$ulid" --start-url "$url" --no-manifest-updates; then
+              echo "firefoxpwa-dmail: updated start URL for '$app_name'"
+              exit 0
+            fi
+            echo "firefoxpwa-dmail: failed to update start URL for '$app_name'" >&2
+            exit 1
           fi
 
           # A data: manifest keeps the install self-contained: firefoxpwa does not
