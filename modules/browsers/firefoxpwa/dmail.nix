@@ -104,11 +104,23 @@ _: {
             exit 1
           fi
 
+          # Manifest scope is a prefix match, so it must be the URL origin: a
+          # full-URL scope pushes same-origin navigation (and any path or token
+          # rotation) out of scope and into the external browser. site update
+          # cannot change scope, so an origin scope also keeps the rotation
+          # refresh above self-consistent.
+          origin=$(jq -rn --arg u "$url" \
+            '$u | capture("^(?<o>[a-z][a-z0-9+.-]*://[^/]+)").o // ""')
+          if [ -z "$origin" ]; then
+            echo "firefoxpwa-dmail: cannot derive an origin from '$url'" >&2
+            exit 1
+          fi
+
           # A data: manifest keeps the install self-contained: firefoxpwa does not
           # have to fetch or parse a manifest from the target site. --document-url
           # is required whenever the manifest URL is a data: URL.
-          manifest=$(jq -nc --arg u "$url" --arg n "$app_name" \
-            '{name: $n, scope: $u, start_url: $u, display: "standalone"}')
+          manifest=$(jq -nc --arg u "$url" --arg s "$origin" --arg n "$app_name" \
+            '{name: $n, scope: $s, start_url: $u, display: "standalone"}')
           manifest_url="data:application/manifest+json;base64,$(printf '%s' "$manifest" | base64 -w0)"
 
           for attempt in 1 2 3; do
