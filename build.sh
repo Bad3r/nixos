@@ -252,9 +252,12 @@ BOOTSTRAP_TRUSTED_KEYS=(
 )
 
 configure_build_flags() {
-  local build_cores="0"       # 0 = all cores per build job
-  local build_max_jobs="auto" # one slot per core; a low fixed cap serializes the
-  # many small derivations in a system closure behind long compiles
+  local build_cores="0" # 0 = all cores per build job
+  # Half the cores: a low fixed cap serializes the many small derivations in a
+  # system closure behind long compiles, while cores=0 with one job per core
+  # lets peak RAM stack with every concurrent source build.
+  local build_max_jobs
+  build_max_jobs="$((($(nproc) + 1) / 2))"
 
   BUILD_FLAGS=(
     "--cores" "${build_cores}"
