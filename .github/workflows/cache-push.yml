@@ -1,0 +1,68 @@
+---
+name: Cache Push
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - flake.lock
+      - modules/meta/cache-roots.nix
+      - modules/custom-overlays/**
+      - packages/**
+concurrency:
+  group: cache-push
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5.0.0
+        with:
+          persist-credentials: false
+      # Preinstalled toolchains the build never uses; the cache-roots
+      # closure plus its build inputs exceeds the runner's default free
+      # space.
+      - name: Free runner disk
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet \
+            /opt/ghc /usr/local/.ghcup
+          df -h /
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # path:. bypasses the git fetcher: self.submodules = true would make
+      # a git-based self fetch pull the private secrets submodule that CI
+      # cannot read. cache-roots only references package sets, so the
+      # secretless evaluation yields the same derivations hosts build.
+      - name: Build cache roots
+        run: |
+          nix build --accept-flake-config --print-build-logs \
+            "path:.#cache-roots"
+      # actionlint: the secrets context is not available in step `if`
+      # expressions, so a gate step exports token presence as an output.
+      - name: Detect Cachix token
+        id: cachix-token
+        env:
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        run: |
+          if [ -n "$CACHIX_AUTH_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Push closure to Cachix
+        if: ${{ steps.cachix-token.outputs.present == 'true' }}
+        env:
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        run: |
+          nix run --accept-flake-config --inputs-from "path:." \
+            nixpkgs#cachix -- push bad3r-nixos "$(readlink -f result)"
+      - name: Report unpushed build
+        if: ${{ steps.cachix-token.outputs.present == 'false' }}
+        run: |
+          echo "::warning::CACHIX_AUTH_TOKEN is not set;" \
+            "cache-roots was built but not pushed."
