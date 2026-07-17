@@ -6,9 +6,12 @@ name: Cache Push
     branches:
       - main
     paths:
+      # modules/** is deliberately broad: overlay packages inherit
+      # indirect inputs from sibling modules (browser policy data, icon
+      # assets), so narrower filters would skip pushes for derivation
+      # changes hosts still evaluate.
       - flake.lock
-      - modules/meta/cache-roots.nix
-      - modules/custom-overlays/**
+      - modules/**
       - packages/**
 concurrency:
   group: cache-push

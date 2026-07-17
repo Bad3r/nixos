@@ -71,16 +71,22 @@ Cached via cache-roots (free, redistributable):
 | electron-mail        | GPL-3.0            |
 | firefoxpwa           | MPL-2.0            |
 | john                 | GPL-2.0-or-later   |
-| mullvad-browser      | MPL-2.0 + LGPL     |
 | nemo-with-extensions | GPL-2.0 + LGPL-2.0 |
 | planify              | GPL-3.0-or-later   |
 | proton-vpn           | GPL-3.0-only       |
 | restringer           | MIT                |
-| tor-browser          | MPL-2.0 + LGPL     |
 | tweakcc              | MIT                |
 | upscayl              | AGPL-3.0-or-later  |
 | wappalyzer-next      | GPL-3.0-only       |
 | wfuzz                | GPL-2.0-only       |
+
+context7-mcp is sourced from the `mcp-servers-nix` input, matching the
+consumer in `modules/agents/mcp.nix`; the host package set carries a
+same-named but different derivation no consumer runs. For entries built
+through `buildFHSEnv` or wrapper derivations (electron-mail, upscayl,
+nemo-with-extensions), the outer wrapper sets `allowSubstitutes = false`
+and always rebuilds locally; that is trivial assembly work, and the heavy
+dependency closure underneath substitutes normally.
 
 Intentionally local, unfree with redistribution not permitted or unclear
 (publishing these to a public cache would violate their licenses):
@@ -108,6 +114,10 @@ operator decision, kept local until then:
 
 Residual local builds accepted with reasons:
 
+- tor-browser and mullvad-browser: free and redistributable, but nixpkgs
+  sets `allowSubstitutes = false` on the main derivation, so hosts build
+  them locally regardless of cache contents; caching them would only
+  spend CI time.
 - logseq family: served by `nix-logseq-git-flake.cachix.org`. Local builds
   happen when that input repository's CI has not yet built the pinned
   nightly; the fix belongs in that repository's build schedule, not in a
@@ -155,9 +165,13 @@ logs and its full runtime closure is redistributable:
 
 - Source it from the host package set when a custom overlay or host
   nixpkgs config shapes it; source it from `self'.packages` when only the
-  devshell surface consumes it.
+  devshell surface consumes it; source it from the owning flake input
+  when a module consumes the input's package directly (context7-mcp).
 - Verify the license before adding:
   `nix eval "path:.#nixosConfigurations.<host>.pkgs.<name>.meta.license"`.
+- Verify the heavy derivation substitutes: entries whose main derivation
+  sets `allowSubstitutes = false` (check `drvAttrs.allowSubstitutes`)
+  never hit the cache and do not belong in the list.
 - Confirm derivation parity with
   `nix build --dry-run "path:.#cache-roots"` on a recently switched host:
   the new entry must not introduce rebuilds of paths the host already has.

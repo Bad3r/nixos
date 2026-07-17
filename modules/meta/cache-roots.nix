@@ -25,17 +25,17 @@ let
 
   # Free-license, redistribution-safe packages observed building locally
   # in ~/.local/state/nixos-build profiling (issue #382). Extend only
-  # with packages whose full runtime closure is redistributable.
+  # with packages whose full runtime closure is redistributable and whose
+  # heavy derivations substitute: tor-browser and mullvad-browser are
+  # excluded because nixpkgs sets allowSubstitutes = false on the main
+  # derivation, so hosts rebuild them no matter what the cache holds.
   hostPackageNames = [
-    "context7-mcp"
     "electron-mail"
     "firefoxpwa"
     "john"
-    "mullvad-browser"
     "nemo-with-extensions"
     "planify"
     "proton-vpn"
-    "tor-browser"
     "tweakcc"
     "upscayl"
     "wappalyzer-next"
@@ -55,6 +55,7 @@ in
       pkgs,
       system,
       self',
+      inputs',
       ...
     }:
     let
@@ -71,6 +72,15 @@ in
             inherit name;
             path = self'.packages.${name};
           }) perSystemPackageNames
+          ++ [
+            # modules/agents/mcp.nix resolves MCP server packages from the
+            # mcp-servers-nix input; hostPkgs carries a same-named but
+            # different context7-mcp derivation no consumer runs.
+            {
+              name = "context7-mcp";
+              path = inputs'.mcp-servers-nix.packages.context7-mcp;
+            }
+          ]
         );
       };
     };
