@@ -124,31 +124,29 @@ Residual local builds accepted with reasons:
   nixpkgs pin (Hydra lag): transient; the heaviest recurring cases (nemo,
   planify) are pinned into cache-roots.
 
-## Operator runbook
+## Operator setup
 
-One-time setup, in order:
+Completed 2026-07-17:
 
-1. Create a public Cachix cache named `bad3r-nixos` under the account that
+1. The public Cachix cache `bad3r-nixos` exists under the account that
    owns `nix-logseq-git-flake`.
-2. Create a Cachix auth token with write access to that cache and store it
-   as the `CACHIX_AUTH_TOKEN` repository secret:
-   `gh secret set CACHIX_AUTH_TOKEN --repo Bad3r/nixos`.
-   Until the secret exists, the workflow builds cache-roots and emits a
-   warning instead of pushing.
-3. Run the `Cache Push` workflow once via `workflow_dispatch` and confirm
-   the push step succeeds.
-4. Wire the substituter into `modules/hosts/common/nix-substituters.nix`:
-   add `https://bad3r-nixos.cachix.org` to `extra-substituters` and the
-   cache's public key (shown on the Cachix cache page after creation) to
-   `extra-trusted-public-keys`. The key exists only after step 1, so this
-   lands as a follow-up change.
-5. After the next nixpkgs bump and merge, compare a host switch build log
+2. A Cachix auth token with write access to the cache is stored as the
+   `CACHIX_AUTH_TOKEN` repository secret
+   (`gh secret set CACHIX_AUTH_TOKEN --repo Bad3r/nixos`; rotate the same
+   way). Whenever the secret is absent, the workflow builds cache-roots
+   and emits a warning instead of pushing.
+3. Common hosts trust the cache: `modules/hosts/common/nix-substituters.nix`
+   carries `https://bad3r-nixos.cachix.org` and its public key.
+
+Remaining:
+
+1. First populated run: the workflow triggers on pushes to `main` that
+   change `flake.lock`, the cache-roots module, custom overlays, or
+   `packages/` (the merge introducing the module qualifies), or run it via
+   `workflow_dispatch`; confirm the push step succeeds.
+2. After the next nixpkgs bump and merge, compare a host switch build log
    against a pre-cache log: the cache-roots packages should appear as
    downloads, not builds.
-
-The workflow also runs automatically on pushes to `main` that change
-`flake.lock`, the cache-roots module, custom overlays, or `packages/`, so
-the cache tracks the input revisions hosts evaluate against.
 
 ## Extending the allowlist
 
