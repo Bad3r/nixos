@@ -40,11 +40,6 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        # Stylix patches gtksourceview (inkscape dependency) with a custom color
-        # scheme, changing its derivation hash and causing a binary cache miss.
-        # Disable to avoid rebuilding inkscape and all gtksourceview consumers.
-        stylix.targets.gtksourceview.enable = false;
-
         environment.systemPackages = [ cfg.package ];
       };
     };

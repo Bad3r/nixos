@@ -2,8 +2,12 @@
 let
   body = {
     nix.settings = {
+      # The NixOS module default already contributes https://cache.nixos.org/
+      # (trailing slash) and its trusted key. Re-adding the unslashed
+      # spelling is not deduplicated (Lix getDefaultSubstituters compares
+      # exact URI strings), so it opens a second store against the same host
+      # and doubles narinfo misses.
       substituters = lib.mkAfter [
-        "https://cache.nixos.org" # fallback
         "https://cache.garnix.io"
         "https://cache.numtide.com"
         "https://nixpkgs-unfree.cachix.org" # unfree packages (unrar, etc.)
@@ -11,7 +15,6 @@ let
         # appended by modules/apps/doom-emacs.nix when the module is enabled.
       ];
       trusted-public-keys = lib.mkAfter [
-        "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
         "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
         "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
         "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
