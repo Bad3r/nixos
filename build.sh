@@ -252,8 +252,9 @@ BOOTSTRAP_TRUSTED_KEYS=(
 )
 
 configure_build_flags() {
-  local build_cores="0"    # "$(($(nproc --all) - 1))" # Nix default = 0 (all cores per build job)
-  local build_max_jobs="2" # Nix default = 1
+  local build_cores="0"       # 0 = all cores per build job
+  local build_max_jobs="auto" # one slot per core; a low fixed cap serializes the
+  # many small derivations in a system closure behind long compiles
 
   BUILD_FLAGS=(
     "--cores" "${build_cores}"
