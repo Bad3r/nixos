@@ -48,6 +48,13 @@ in
             regreet.enable = false;
             # Enable Chromium theming (applies to Google Chrome via browser policies)
             chromium.enable = true;
+            # The NixOS-scope target only enables a nixpkgs overlay that
+            # patches gtksourceview 2/3/4/5 with the generated color scheme.
+            # The hash change forces gtksourceview and every consumer
+            # (planify, inkscape, ...) to rebuild from source on each nixpkgs
+            # bump. The Home Manager target ships the same scheme as
+            # user-scope data files, keeping the theming without rebuilds.
+            gtksourceview.enable = false;
           };
         };
       };
