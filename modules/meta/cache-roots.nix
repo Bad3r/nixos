@@ -10,7 +10,7 @@
 
   A cache hit requires the exact derivation a consumer evaluates, so
   each entry is sourced from the package set that owns it: host-enabled
-  overlay packages (firefoxpwa policy injection, wfuzz patches, ...)
+  overlay packages (firefoxpwa policy injection, john patches, ...)
   come from the primary host's pkgs, and devshell-consumed packages
   come from the perSystem instance that `nix develop` uses. The lists
   are explicit allowlists because the pushed closure lands on a public
@@ -39,7 +39,6 @@ let
     "tweakcc"
     "upscayl"
     "wappalyzer-next"
-    "wfuzz"
   ];
 
   # Built through the perSystem nixpkgs instance (devshell surface),

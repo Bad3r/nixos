@@ -46,8 +46,12 @@ builds logseq and pushes to its own Cachix cache trusted in
 of free, redistribution-safe packages:
 
 - Host-sourced entries come from the primary host's package set so custom
-  overlays (firefoxpwa policy injection, wfuzz patches, john patches) and
-  nixpkgs config produce exactly the derivations a host switch evaluates.
+  overlays (firefoxpwa policy injection, john patches) and nixpkgs config
+  produce exactly the derivations a host switch evaluates. Every entry's
+  app must be enabled on that host: overlays are gated on
+  `programs.<name>.extended.enable`, and a disabled app resolves to the
+  stock nixpkgs attr that no host consumes (which is why wfuzz is not
+  listed).
   `nix build --dry-run "path:.#cache-roots"` on a host that has switched
   recently should report no unexpected package rebuilds; that is the
   derivation-parity check.
@@ -78,7 +82,6 @@ Cached via cache-roots (free, redistributable):
 | tweakcc              | MIT                |
 | upscayl              | AGPL-3.0-or-later  |
 | wappalyzer-next      | GPL-3.0-only       |
-| wfuzz                | GPL-2.0-only       |
 
 context7-mcp is sourced from the `mcp-servers-nix` input, matching the
 consumer in `modules/agents/mcp.nix`; the host package set carries a
@@ -125,7 +128,7 @@ Residual local builds accepted with reasons:
 - pentest wrappers (`pentest-*`): the wrapper derivations embed the flake
   self path and change on every commit; their heavy runtime payloads are
   either Hydra-built (metasploit, nmap, sqlmap, ...), covered by
-  cache-roots entries (john, wfuzz, wappalyzer-next), or unfree (burpsuite,
+  cache-roots entries (john, wappalyzer-next), or unfree (burpsuite,
   charles) and excluded by license.
 - nix-index-with-full-db: fetch-dominated assembly of a prebuilt database,
   negligible build cost.
