@@ -452,6 +452,14 @@ for host in "${HOSTS[@]}"; do
   done
   unset SEEN
 
+  # host_system drives the foreign-system filter and the stock eval. If the
+  # walk never resolved it, every derivation would look foreign, no stock
+  # comparison would run, and the gate would emit OK: fail closed instead.
+  if [[ -z ${host_system} ]]; then
+    err "could not resolve the system of ${host}'s toplevel derivation; refusing to emit a verdict"
+    exit 2
+  fi
+
   printf 'substitutable: %s derivations\n' "${#substitutable_names[@]}"
   printf 'would build on a fresh machine: %s derivations\n' "${#built_drvs[@]}"
 
