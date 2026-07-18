@@ -14,7 +14,6 @@ _: {
           pkgs.jq
           pkgs.gitMinimal
           pkgs.gawk
-          pkgs.gnused
           pkgs.coreutils
         ];
         text = builtins.readFile ../../scripts/cache-coverage.sh;
