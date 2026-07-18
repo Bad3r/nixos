@@ -69,6 +69,7 @@ cache (`narinfo-cache-negative-ttl`) cannot serve stale answers.
 | unexpected-local  | Diverged from a stock path that a host probe base serves (FAIL)                             |
 | allowlisted       | unexpected-local, accepted in the allowlist                                                 |
 | diverged-uncached | Diverged, but the stock path is not served either                                           |
+| inconclusive      | Stock probe returned no HTTP code, so the served status is unknown (FAIL)                   |
 | uncached-stock    | Identical to stock, not yet published (hydra lag)                                           |
 | fetch             | Fixed-output derivation, a source download                                                  |
 | local-only        | No stock counterpart: config texts, units, wrappers, custom packages, foreign-system builds |
@@ -102,10 +103,15 @@ through review.
   divergences. They surface under local-only.
 - All-outputs probing: a derivation counts as substitutable only when
   every output is served by some probe base.
-- A probe that never returns an HTTP code is treated as unserved, which
-  could hide or invent a divergence, so any probe network error makes the
-  run exit 2 with no OK/FAIL verdict instead of reporting on unreliable
-  data; re-run once the network is healthy.
+- A probe that never returns an HTTP code (unreachable or timed-out cache)
+  is read as unserved. For an output path this is only a non-fatal warning:
+  the path is usually already served by a definitive `200` from another
+  base, and even a genuinely local path fails closed (it can only
+  over-report a build, never hide one), so a single decommissioned cache
+  does not disable the gate. A `000` that leaves a matched stock path's
+  served status undecided is fatal: that divergence could be a hidden
+  unexpected-local, so the run exits 2 with no OK/FAIL verdict (surfaced as
+  the `inconclusive` class). Re-run once the network is healthy.
 - Runtime is dominated by evaluation (about one minute per host on a warm
   eval cache) plus one narinfo probe per output path of the unserved
   subgraph and its served frontier. Probe results are shared across

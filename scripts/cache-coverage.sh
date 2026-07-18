@@ -316,6 +316,11 @@ printf 'thresholds: max unexpected count %s, max unexpected nar size %s\n' \
 
 TOTAL_UNEXPECTED=0
 TOTAL_UNEXPECTED_SIZE=0
+# Stock probes that returned no HTTP code from any base: the served status
+# is undecided, so a real unexpected-local could be hiding as
+# diverged-uncached. Fatal (unlike a probe error on an output path, which
+# only ever over-reports a build and fails closed).
+STOCK_INCONCLUSIVE=0
 
 for host in "${HOSTS[@]}"; do
   printf '\n== %s ==\n' "${host}"
@@ -602,6 +607,7 @@ for host in "${HOSTS[@]}"; do
   unexpected=()
   allowlisted_entries=()
   diverged_uncached=()
+  inconclusive=()
   uncached_stock=()
   fetch_drvs=()
   local_only=()
@@ -631,16 +637,27 @@ for host in "${HOSTS[@]}"; do
     stock_hash="$(hash_part "${spath}")"
     stock_url=""
     stock_serving_base=""
+    stock_probe_error=0
     for b in "${probe_bases[@]}"; do
-      if [[ ${PROBE["${b}/${stock_hash}.narinfo"]:-000} == "200" ]]; then
+      stock_code="${PROBE["${b}/${stock_hash}.narinfo"]:-000}"
+      if [[ ${stock_code} == "200" ]]; then
         stock_url="${b}/${stock_hash}.narinfo"
         stock_serving_base="${b}"
         break
       fi
+      [[ ${stock_code} == "000" ]] && stock_probe_error=1
     done
     if [[ -z ${stock_url} ]]; then
-      stock_code="${PROBE["https://cache.nixos.org/${stock_hash}.narinfo"]:-000}"
-      diverged_uncached+=("${name} (stock ${attr} not served, http ${stock_code})")
+      # No base served the stock path. If every base gave a definitive answer
+      # it is genuinely diverged-uncached; if a probe errored (000) the served
+      # status is unknown and a real unexpected-local could be hiding here, so
+      # mark it inconclusive and fail closed at the end.
+      if [[ ${stock_probe_error} -eq 1 ]]; then
+        inconclusive+=("${name} (stock ${attr} probe failed to resolve, http 000)")
+        STOCK_INCONCLUSIVE=$((STOCK_INCONCLUSIVE + 1))
+      else
+        diverged_uncached+=("${name} (stock ${attr} not served)")
+      fi
       continue
     fi
     narsize="$(fetch_narsize "${stock_url}")"
@@ -667,6 +684,8 @@ for host in "${HOSTS[@]}"; do
     "${#allowlisted_entries[@]}" "${allowlisted_entries[@]}"
   print_group "diverged-uncached" "diverged, stock unserved too" \
     "${#diverged_uncached[@]}" "${diverged_uncached[@]}"
+  print_group "inconclusive" "stock probe errored; served status unknown (FAIL)" \
+    "${#inconclusive[@]}" "${inconclusive[@]}"
   print_group "uncached-stock" "same path as stock, not yet published" \
     "${#uncached_stock[@]}" "${uncached_stock[@]}"
   print_group "fetch" "fixed-output source downloads" \
@@ -698,14 +717,19 @@ for host in "${HOSTS[@]}"; do
 done
 
 printf '\n'
-# A probe that never returned an HTTP code is cached as 000 and read as
-# "unserved". That can hide a real unexpected-local (a transient 000 on a
-# stock path demotes it to diverged-uncached, which the threshold ignores)
-# or invent a false one. The verdict is untrustworthy in both directions,
-# so refuse to emit OK/FAIL rather than let a regression pass the gate.
+# A 000 on a non-decisive base (an output path already served 200 elsewhere,
+# or a stale extra-substituter) does not change any verdict, so it is only a
+# warning: making every 000 fatal would let one decommissioned cache disable
+# the gate on every run. A 000 that left a *stock* path's served status
+# undecided is different: the divergence could be a hidden unexpected-local,
+# so refuse to emit OK/FAIL in that case.
 if [[ ${PROBE_ERRORS} -gt 0 ]]; then
-  printf 'error: %s narinfo probes failed with network errors; paths may be misreported as unserved, refusing to emit a pass/fail verdict (re-run with working network)\n' \
+  printf 'warning: %s narinfo probes returned no HTTP code (unreachable or timed-out cache); non-decisive probes do not affect the verdict\n' \
     "${PROBE_ERRORS}" >&2
+fi
+if [[ ${STOCK_INCONCLUSIVE} -gt 0 ]]; then
+  printf 'error: %s stock-path probes could not be resolved, so a served stock path may be misread as unserved and hide an unexpected-local; refusing to emit a pass/fail verdict (re-run with working network)\n' \
+    "${STOCK_INCONCLUSIVE}" >&2
   exit 2
 fi
 if [[ ${TOTAL_UNEXPECTED} -gt ${MAX_COUNT} || ${TOTAL_UNEXPECTED_SIZE} -gt ${MAX_SIZE} ]]; then
