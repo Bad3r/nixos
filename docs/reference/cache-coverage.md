@@ -102,8 +102,10 @@ through review.
   divergences. They surface under local-only.
 - All-outputs probing: a derivation counts as substitutable only when
   every output is served by some probe base.
-- Network errors during probes are reported in a trailing warning; an
-  unserved classification can be wrong while the warning is present.
+- A probe that never returns an HTTP code is treated as unserved, which
+  could hide or invent a divergence, so any probe network error makes the
+  run exit 2 with no OK/FAIL verdict instead of reporting on unreliable
+  data; re-run once the network is healthy.
 - Runtime is dominated by evaluation (about one minute per host on a warm
   eval cache) plus one narinfo probe per output path of the unserved
   subgraph and its served frontier. Probe results are shared across

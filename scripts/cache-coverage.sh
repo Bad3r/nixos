@@ -138,7 +138,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-for tool in nix jq curl git numfmt; do
+for tool in nix jq curl git numfmt awk; do
   command -v "$tool" >/dev/null 2>&1 || {
     err "required tool not found: $tool"
     exit 2
@@ -692,9 +692,15 @@ for host in "${HOSTS[@]}"; do
 done
 
 printf '\n'
+# A probe that never returned an HTTP code is cached as 000 and read as
+# "unserved". That can hide a real unexpected-local (a transient 000 on a
+# stock path demotes it to diverged-uncached, which the threshold ignores)
+# or invent a false one. The verdict is untrustworthy in both directions,
+# so refuse to emit OK/FAIL rather than let a regression pass the gate.
 if [[ ${PROBE_ERRORS} -gt 0 ]]; then
-  printf 'warning: %s narinfo probes failed with network errors; unserved classifications may be wrong\n' \
-    "${PROBE_ERRORS}"
+  printf 'error: %s narinfo probes failed with network errors; paths may be misreported as unserved, refusing to emit a pass/fail verdict (re-run with working network)\n' \
+    "${PROBE_ERRORS}" >&2
+  exit 2
 fi
 if [[ ${TOTAL_UNEXPECTED} -gt ${MAX_COUNT} || ${TOTAL_UNEXPECTED_SIZE} -gt ${MAX_SIZE} ]]; then
   printf 'result: FAIL (%s unexpected-local, stock nar %s; thresholds: count %s, size %s)\n' \
