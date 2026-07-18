@@ -19,7 +19,7 @@
 #
 # Each would-build derivation lands in one class:
 #   unexpected-local   the same attribute in the raw nixpkgs input (no
-#                      overlays) yields an outPath that cache.nixos.org
+#                      overlays) yields an outPath that a host probe base
 #                      serves: an overlay or override broke cache coverage
 #                      (FAIL)
 #   allowlisted        unexpected-local but accepted in the allowlist
@@ -585,8 +585,10 @@ for host in "${HOSTS[@]}"; do
     STOCK_PATH["${drv}"]="${chosen_path}"
     if [[ -n ${chosen_path} ]]; then
       h="${chosen_path##*/}"
-      printf 'https://cache.nixos.org/%s.narinfo\n' "${h%%-*}" \
-        >>"${tmp}/stock.urls"
+      h="${h%%-*}"
+      for b in "${probe_bases[@]}"; do
+        printf '%s/%s.narinfo\n' "${b}" "${h}" >>"${tmp}/stock.urls"
+      done
     fi
   done <"${tmp}/meta"
   probe_urls "${tmp}/stock.urls"
@@ -615,9 +617,23 @@ for host in "${HOSTS[@]}"; do
       uncached_stock+=("${name}")
       continue
     fi
-    stock_url="https://cache.nixos.org/$(hash_part "${spath}").narinfo"
-    stock_code="${PROBE[${stock_url}]:-000}"
-    if [[ ${stock_code} != "200" ]]; then
+    # Stock is served when any host probe base has it, not cache.nixos.org
+    # alone: unfree stock paths (nvidia, steam, brave) are published only to
+    # nixpkgs-unfree.cachix.org, so a hardcoded cache.nixos.org probe would
+    # misclassify those divergences as diverged-uncached and let a
+    # regression pass the threshold.
+    stock_hash="$(hash_part "${spath}")"
+    stock_url=""
+    stock_serving_base=""
+    for b in "${probe_bases[@]}"; do
+      if [[ ${PROBE["${b}/${stock_hash}.narinfo"]:-000} == "200" ]]; then
+        stock_url="${b}/${stock_hash}.narinfo"
+        stock_serving_base="${b}"
+        break
+      fi
+    done
+    if [[ -z ${stock_url} ]]; then
+      stock_code="${PROBE["https://cache.nixos.org/${stock_hash}.narinfo"]:-000}"
       diverged_uncached+=("${name} (stock ${attr} not served, http ${stock_code})")
       continue
     fi
@@ -627,7 +643,7 @@ for host in "${HOSTS[@]}"; do
     entry="${name}"
     entry+=$'\n'"      actual: ${outpath:-?} (no configured substituter serves it)"
     entry+=$'\n'"      stock:  ${spath}"
-    entry+=$'\n'"              attr ${attr}, nar $(human "${narsize}"), cache.nixos.org 200"
+    entry+=$'\n'"              attr ${attr}, nar $(human "${narsize}"), ${stock_serving_base} 200"
     if [[ -n ${hint} ]]; then
       entry+=$'\n'"      hint: ${hint}"
     fi

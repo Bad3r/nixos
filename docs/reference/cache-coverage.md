@@ -50,9 +50,12 @@ Gate a deploy on the report:
    attribute matches only when its stock version equals the local version
    or its stock derivation name equals the local one; name prefixes of
    unrelated packages never count.
-4. `cache.nixos.org` is probed for each stock outPath. A derivation that
-   diverged from a served stock path is unexpected-local: the divergence,
-   not cache lag, causes the local build.
+4. Each stock outPath is probed against the same host probe bases
+   (substituters, extra-substituters, and `cache.nixos.org`). Unfree stock
+   paths are published only to `nixpkgs-unfree.cachix.org`, so probing that
+   whole set, not `cache.nixos.org` alone, is what catches unfree
+   divergences. A derivation that diverged from a served stock path is
+   unexpected-local: the divergence, not cache lag, causes the local build.
 
 Unlike `nix build --dry-run`, the walk ignores local store validity, so
 leftover store paths from earlier generations cannot mask a regression.
@@ -63,7 +66,7 @@ cache (`narinfo-cache-negative-ttl`) cannot serve stale answers.
 
 | Class             | Meaning                                                                                     |
 | ----------------- | ------------------------------------------------------------------------------------------- |
-| unexpected-local  | Diverged from a stock path that cache.nixos.org serves (FAIL)                               |
+| unexpected-local  | Diverged from a stock path that a host probe base serves (FAIL)                             |
 | allowlisted       | unexpected-local, accepted in the allowlist                                                 |
 | diverged-uncached | Diverged, but the stock path is not served either                                           |
 | uncached-stock    | Identical to stock, not yet published (hydra lag)                                           |
