@@ -41,6 +41,11 @@ MAX_SIZE=0
 VERBOSE=false
 CURL_MAX_TIME=30
 CURL_PARALLEL=40
+# `nix derivation show` receives the whole walk frontier as argv. A
+# low-level divergence (an stdenv- or xz-tier override) can make one level
+# hold the entire uncached subgraph (tens of thousands of .drv paths), so
+# the frontier is chunked to stay under ARG_MAX in exactly that scenario.
+DRV_SHOW_BATCH=512
 # Superset spelling for pre-cutover CppNix and Lix, mirroring build.sh; the
 # unknown-name warning from either implementation is harmless.
 EXPERIMENTAL_FEATURES="nix-command flakes pipe-operator pipe-operators flake-self-attrs"
@@ -350,7 +355,12 @@ for host in "${HOSTS[@]}"; do
     level=$((level + 1))
     printf 'cache-coverage: %s: walk level %s (%s derivations)\n' \
       "${host}" "${level}" "${#frontier[@]}" >&2
-    nix_cmd derivation show "${frontier[@]}" >"${tmp}/level.json"
+    : >"${tmp}/level.json.parts"
+    for ((_i = 0; _i < ${#frontier[@]}; _i += DRV_SHOW_BATCH)); do
+      nix_cmd derivation show "${frontier[@]:_i:DRV_SHOW_BATCH}" \
+        >>"${tmp}/level.json.parts"
+    done
+    jq -s 'add' "${tmp}/level.json.parts" >"${tmp}/level.json"
     # drv, name, pname, version, fixed-output flag, system, space-joined
     # output paths, space-joined inputDrvs. Pipe-delimited: a tab in IFS is
     # IFS whitespace, so bash read would collapse empty fields; the store
