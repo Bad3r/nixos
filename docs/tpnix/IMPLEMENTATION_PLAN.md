@@ -47,7 +47,7 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
   - `systemd-boot` settings
   - crash dump reservation
   - kernel sysctls
-- `modules/tpnix/firmware-manager-fix.nix` enables `services.fwupd`; the firmware-manager build override now lives in the shared `modules/hosts/common/firmware-manager-fix.nix`.
+- `modules/tpnix/firmware-manager-fix.nix` enables `services.fwupd`. The shared firmware-manager build override was removed after nixpkgs added pkg-config and xz to the package's nativeBuildInputs.
 - The repo keeps using `modules/base/hardware-scan.nix` for generic scan support. Do not import `installer/scan/not-detected.nix` directly into the host module.
 
 ## 3) Migration Requirements
