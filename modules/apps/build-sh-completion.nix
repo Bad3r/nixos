@@ -100,6 +100,7 @@ let
                   '--repair[repair corrupted store paths during build]' \
                   '--fallback[build from source if binary substitutes fail]' \
                   '--bootstrap[use extra substituters for first build]' \
+                  '--cache-coverage[fail before deploy on unexpected local source builds]' \
                   '(-h --help)'{-h,--help}'[show help message]'
               }
 

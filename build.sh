@@ -25,6 +25,7 @@ KEEP_GOING=false
 REPAIR=false
 FALLBACK=false
 BOOTSTRAP_CACHES=false
+CACHE_COVERAGE=false
 ACTION="switch" # default action after build: switch | boot
 BUILD_FLAGS=()
 NH_CMD=()
@@ -63,6 +64,9 @@ Options:
       --repair           Repair corrupted store paths during build
       --fallback         Build from source if binary substitutes fail
       --bootstrap        Use extra substituters for first build
+      --cache-coverage   Fail before deploying when the target host closure
+                         has unexpected local source builds
+                         (scripts/cache-coverage.sh)
   -h, --help             Show this help message
 
 Logs:
@@ -188,6 +192,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   --bootstrap)
     BOOTSTRAP_CACHES=true
+    shift
+    ;;
+  --cache-coverage)
+    CACHE_COVERAGE=true
     shift
     ;;
   -h | --help)
@@ -502,6 +510,11 @@ main() {
     nix flake check "${FLAKE_DIR}" --no-build "${BUILD_FLAGS[@]}"
   else
     status_msg "${YELLOW}" "Skipping flake check (--skip-check flag used)..."
+  fi
+
+  if [[ ${CACHE_COVERAGE} == "true" ]]; then
+    status_msg "${YELLOW}" "Checking cache coverage for '${TARGET_HOST}' (narinfo probes, no builds)..."
+    "${FLAKE_DIR}/scripts/cache-coverage.sh" --flake-dir "${FLAKE_DIR}" --host "${TARGET_HOST}"
   fi
 
   status_msg "${GREEN}" "Validation completed successfully!"
