@@ -108,6 +108,12 @@ while [[ $# -gt 0 ]]; do
       err "$1 requires an argument"
       exit 2
     }
+    # Reject leading zeros too: [[ -gt ]] reads 010 as octal 8, which would
+    # silently lower the gate threshold.
+    [[ $2 =~ ^(0|[1-9][0-9]*)$ ]] || {
+      err "--max-count requires a non-negative decimal integer, got: $2"
+      exit 2
+    }
     MAX_COUNT="$2"
     shift 2
     ;;
