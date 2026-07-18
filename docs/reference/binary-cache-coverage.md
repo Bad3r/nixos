@@ -59,7 +59,12 @@ of free, redistribution-safe packages:
   the devshell surface and build from the perSystem nixpkgs instance.
 
 The allowlist is explicit because `cachix push` publishes the full runtime
-closure to a public cache. Every entry's closure must be redistributable.
+closure to a public cache. Every entry's closure must be redistributable, and
+`cache-roots` enforces it: an `assertFree` guard aborts evaluation for any entry
+whose `meta.license` is missing or is neither free nor redistributable, so a
+license-violating addition fails `nix flake check` (the check
+`modules/package-checks.nix` mirrors from this output) instead of reaching the
+cache.
 
 ## Classification (2026-07-17 build logs)
 
@@ -181,4 +186,8 @@ logs and its full runtime closure is redistributable:
 
 Unfree packages must never enter the allowlist while the cache is public.
 Serving them requires the issue's phase 2: a private or authenticated
-cache with the token provisioned to hosts via sops.
+cache with the token provisioned to hosts via sops. The `assertFree` guard
+in `cache-roots.nix` backstops this: a package whose license is missing or
+non-redistributable aborts evaluation. Unfree-but-redistributable packages
+(firefox-bin, nvidia-x11, steam) pass the guard's legal check but stay out of
+the allowlist until that phase-2 operator decision.

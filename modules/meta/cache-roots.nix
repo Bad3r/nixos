@@ -59,17 +59,36 @@ in
     }:
     let
       hostPkgs = config.flake.nixosConfigurations.${primaryHost}.pkgs;
+
+      # The pushed closure lands on a public cache, so the allowlist above is
+      # only safe while every entry stays redistributable. This aborts
+      # evaluation (and therefore the nix flake check that
+      # modules/package-checks.nix mirrors from this output) when an entry has
+      # no meta.license or carries a license that is neither free nor
+      # redistributable, instead of silently publishing a license violation.
+      assertFree =
+        name: pkg:
+        let
+          licenses = lib.toList (pkg.meta.license or [ ]);
+          redistributable =
+            licenses != [ ]
+            && lib.all (license: (license.free or false) || (license.redistributable or false)) licenses;
+        in
+        if redistributable then
+          pkg
+        else
+          throw "cache-roots: ${name} is not free or redistributable; refusing to publish it to the public cache";
     in
     {
       packages = lib.mkIf (hostPkgs.stdenv.hostPlatform.system == system) {
         cache-roots = pkgs.linkFarm "cache-roots" (
           map (name: {
             inherit name;
-            path = hostPkgs.${name};
+            path = assertFree name hostPkgs.${name};
           }) hostPackageNames
           ++ map (name: {
             inherit name;
-            path = self'.packages.${name};
+            path = assertFree name self'.packages.${name};
           }) perSystemPackageNames
           ++ [
             # modules/agents/mcp.nix resolves MCP server packages from the
@@ -77,7 +96,7 @@ in
             # different context7-mcp derivation no consumer runs.
             {
               name = "context7-mcp";
-              path = inputs'.mcp-servers-nix.packages.context7-mcp;
+              path = assertFree "context7-mcp" inputs'.mcp-servers-nix.packages.context7-mcp;
             }
           ]
         );
