@@ -646,6 +646,7 @@ for host in "${HOSTS[@]}"; do
     stock_url=""
     stock_serving_base=""
     stock_probe_error=0
+    stock_error_code=""
     for b in "${probe_bases[@]}"; do
       stock_code="${PROBE["${b}/${stock_hash}.narinfo"]:-000}"
       if [[ ${stock_code} == "200" ]]; then
@@ -653,15 +654,21 @@ for host in "${HOSTS[@]}"; do
         stock_serving_base="${b}"
         break
       fi
-      [[ ${stock_code} == "000" ]] && stock_probe_error=1
+      # Only 404 is a definitive "absent". 000 (unreachable) and non-200
+      # codes like 429/403/503 (cachix rate limit, S3/Fastly under load) are
+      # transient, so they must not silently demote a possible
+      # unexpected-local to diverged-uncached.
+      if [[ ${stock_code} != "404" ]]; then
+        stock_probe_error=1
+        [[ -z ${stock_error_code} ]] && stock_error_code="${stock_code}"
+      fi
     done
     if [[ -z ${stock_url} ]]; then
-      # No base served the stock path. If every base gave a definitive answer
-      # it is genuinely diverged-uncached; if a probe errored (000) the served
-      # status is unknown and a real unexpected-local could be hiding here, so
-      # mark it inconclusive and fail closed at the end.
+      # No base served the stock path. Genuinely diverged-uncached only when
+      # every base answered 404; a non-decisive code leaves the served status
+      # unknown, so mark it inconclusive and fail closed at the end.
       if [[ ${stock_probe_error} -eq 1 ]]; then
-        inconclusive+=("${name} (stock ${attr} probe failed to resolve, http 000)")
+        inconclusive+=("${name} (stock ${attr} probe not decisive, http ${stock_error_code})")
         STOCK_INCONCLUSIVE=$((STOCK_INCONCLUSIVE + 1))
       else
         diverged_uncached+=("${name} (stock ${attr} not served)")
