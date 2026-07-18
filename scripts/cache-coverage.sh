@@ -324,9 +324,15 @@ for host in "${HOSTS[@]}"; do
     exit 2
   fi
 
-  mapfile -t substituters < <(nix_cmd eval \
-    "${FLAKE_REF}#nixosConfigurations.${host}.config.nix.settings.substituters" \
-    --accept-flake-config --json | jq -r '.[]')
+  # A fresh machine substitutes from substituters plus extra-substituters;
+  # app modules (doom-emacs, logseq, logseq-cli) append their caches through
+  # extra-substituters, so probe the union or their served outputs are
+  # walked and misreported as local builds.
+  mapfile -t substituters < <(nix_cmd eval --json \
+    "${FLAKE_REF}#nixosConfigurations.${host}.config.nix.settings" \
+    --accept-flake-config \
+    --apply 's: (s.substituters or [ ]) ++ (s."extra-substituters" or [ ])' |
+    jq -r '.[]')
   printf 'substituters (%s): %s\n' "${#substituters[@]}" "${substituters[*]}"
 
   # Probe bases: host substituters plus cache.nixos.org (dedup by base).

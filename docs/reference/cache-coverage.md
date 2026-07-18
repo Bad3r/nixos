@@ -35,8 +35,10 @@ Gate a deploy on the report:
 1. The host toplevel derivation is instantiated
    (`nix path-info --derivation`, evaluation only).
 2. The derivation graph is walked top down. Every output path of every
-   visited derivation is probed over HTTP against the configured
-   substituters of that host plus `https://cache.nixos.org`. A derivation
+   visited derivation is probed over HTTP against the host probe bases:
+   its `nix.settings.substituters` and `nix.settings.extra-substituters`
+   (app modules such as doom-emacs and logseq append caches through
+   `extra-substituters`) plus `https://cache.nixos.org`. A derivation
    whose outputs are all served terminates its branch: binary caches are
    closed under references, so everything below it substitutes too. An
    unserved derivation would build locally on a fresh machine; the walk
