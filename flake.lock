@@ -240,11 +240,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784347635,
-        "narHash": "sha256-mGXtPsO4iNUoqA8c5B5Z6meIk7waoAh9uJciPgJvFoU=",
+        "lastModified": 1784396004,
+        "narHash": "sha256-MKbeqQrlCBmVRqStucTn3pIhrBQ1PLM52eSt7Eakmnk=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "2a3c227ee9c0e95672ee79685b9e18ae1286d043",
+        "rev": "9f096a60d709fec555060828381dce6f3f54da8e",
         "type": "github"
       },
       "original": {
@@ -310,11 +310,11 @@
         "nixpkgs-stable": "nixpkgs-stable"
       },
       "locked": {
-        "lastModified": 1784344340,
-        "narHash": "sha256-Ewr/sJiOzGoVNemxxw5qfMSO57Z2Z7y41srnwiw3P4k=",
+        "lastModified": 1784396061,
+        "narHash": "sha256-dArIPQULMeS1pqzo67cNh1go04lPXxEhbnEJjfPZXGQ=",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "af2225abe7652d866d5cd1edc646d87b20524a91",
+        "rev": "71e94848029a0bff7e27620a0248b73e8ea8b294",
         "type": "github"
       },
       "original": {
@@ -333,11 +333,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784282308,
-        "narHash": "sha256-/wRvJCGTYx60YeU8Py/z5uCT+UfVjE6ZTHb/MtLa2B8=",
+        "lastModified": 1784366793,
+        "narHash": "sha256-AL5mOos/3Ys4Rx/t+aApWpBjSOA7mallIasvmKA2gmM=",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "8b5da395cfd870e61401323738d31ef09823e0cf",
+        "rev": "b4248ab2cadf27595b4a95172c0fbe1816403c39",
         "type": "github"
       },
       "original": {
@@ -734,11 +734,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784137288,
-        "narHash": "sha256-CpKN5dnmKF4HwyeNWxCW3gmB507yiTyJO/OSc8FHp5s=",
+        "lastModified": 1784368137,
+        "narHash": "sha256-wbm2+oPQRkoUF1+f40j49nqXxJj9vy+iztcxt2QemNY=",
         "owner": "Bad3r",
         "repo": "home-manager",
-        "rev": "1b386895d450679bcf2de3d44d7c5d95d3e72678",
+        "rev": "ff51b1aea56701ddab6481972cb5452a30dd43f2",
         "type": "github"
       },
       "original": {
@@ -843,11 +843,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784345456,
-        "narHash": "sha256-ISeVtPM1RddEx1cikqXOA4QaoAhJbXJgHGDguSOvd7s=",
+        "lastModified": 1784367875,
+        "narHash": "sha256-pVwgDtsvcw+n1Q1ECAEb5naoOE9tkkKwKRwtQ4QQQK0=",
         "owner": "Bad3r",
         "repo": "llm-agents.nix",
-        "rev": "dd4f4903a9b0cd6326d936f892046baf69ed980d",
+        "rev": "3b4955dcb24314e3121246524fa6c9a889cafc14",
         "type": "github"
       },
       "original": {
@@ -958,11 +958,11 @@
         "systems": "systems_3"
       },
       "locked": {
-        "lastModified": 1784283186,
-        "narHash": "sha256-UbL99HxNfp3TDSe+GjQwRFeRjCpvIO7JHbkLc5rHRFQ=",
+        "lastModified": 1784368167,
+        "narHash": "sha256-6wEBLmLdxj/vmkpsaf0uFxVolyI8R/417RdYtQuLQcc=",
         "owner": "marienz",
         "repo": "nix-doom-emacs-unstraightened",
-        "rev": "41a81ad56ad1b02493afb25f54c0d5aef21d770f",
+        "rev": "c5f1c84cb8fc234568368e3375e7c46db8334c4f",
         "type": "github"
       },
       "original": {
@@ -1160,11 +1160,11 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1784345331,
-        "narHash": "sha256-dxbnU4J89nuSzjmCylkxfhUT/7uehEVse10yKQtRo24=",
+        "lastModified": 1784394772,
+        "narHash": "sha256-A3d+l3Wlm0wq9kNbl7QdDTucv8LTWHevIMKjoxkPct4=",
         "owner": "Bad3r",
         "repo": "nixpkgs",
-        "rev": "bafefe057813dbcdfa05314c03c61a5c066d0325",
+        "rev": "cc2842db5e86d10eb69fe5cd1ead1bd2d70d124c",
         "type": "github"
       },
       "original": {
@@ -1735,11 +1735,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1780220602,
-        "narHash": "sha256-eynAfOmbmxJnkp7YewvCEbShNnnYJ9gLLqkzsYtBPeM=",
+        "lastModified": 1784369104,
+        "narHash": "sha256-47cxbcZODibHv3rELFQ9vZly0vUNkND/atn/U7HLeb0=",
         "owner": "numtide",
         "repo": "treefmt-nix",
-        "rev": "db947814a175b7ca6ded66e21383d938df01c227",
+        "rev": "df3c0640565d04a0261253cdd89fce78ec50168a",
         "type": "github"
       },
       "original": {
