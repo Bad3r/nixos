@@ -1,0 +1,37 @@
+# Accepted local-build divergences for scripts/cache-coverage.sh.
+# One glob per line, matched with a bash pattern against both the
+# derivation name (zap-2.17.0) and the pname (zap). Blank lines and
+# comments are ignored; inline comments after the glob are allowed.
+#
+# Keep every entry tied to its owning module and remove the entry together
+# with the override so real regressions stay visible.
+
+# Fork or version pins carried as custom overlays
+# (modules/custom-overlays/<name>.nix).
+age-plugin-fido2prf*
+electron-mail*
+firefoxpwa* # covers firefoxpwa and firefoxpwa-unwrapped
+librepods*
+proton-vpn*
+snixembed*
+subjack*
+
+# overrideAttrs fixes carried in app modules.
+cewl* # modules/apps/cewl.nix
+normcap* # modules/apps/normcap.nix
+zap* # modules/apps/zap.nix
+
+# Deliberate feature or environment overrides.
+p7zip* # modules/apps/p7zip-rar.nix enables the unfree RAR codec
+pass-secret-service* # modules/password-managers/pass-secret-service.nix asyncio loop fix
+system76-power* # modules/system76/system76-power-overlay.nix patch
+nixos-icons* # stylix.targets.nixos-icons recolors the logo source (leaf package)
+nixos-option* # rebuilt against the host nix package (Lix, modules/base/nix-package.nix)
+
+# Configuration wrappers around substituted unwrapped packages; only the
+# small wrapper derivation rebuilds locally.
+firefox-[0-9]* # policy/extension wrapper (modules/browsers)
+librewolf-[0-9]* # policy/extension wrapper (modules/browsers)
+neovim-[0-9]* # plugin wrapper (modules/apps/neovim.nix)
+rofi-[0-9]* # plugin wrapper with rofi-calc (modules/hm-apps/rofi.nix)
+mdformat-wrapped* # mdformat.withPlugins gfm wrapper (modules/apps/mdformat.nix)
