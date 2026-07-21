@@ -1,6 +1,6 @@
-# Project Coldfront
+# Project Songbird
 
-Host: `coldfront`.
+Host: `songbird`.
 
 High-end Intel Arrow Lake workstation, productivity first (compilation, local
 LLM work) and gaming second. Functional, not pretty, no RGB. This revision
@@ -8,7 +8,7 @@ reflects the final purchased build as validated on 2026-07-20 and supersedes
 the earlier Thermaltake CTE C750 / Gigabyte 5080 / ARCTIC 420 plan in full.
 
 Source of truth for hardware research is the
-[Bad3r/project-coldfront](https://github.com/Bad3r/project-coldfront)
+[Bad3r/project-songbird](https://github.com/Bad3r/project-songbird)
 repository (`pc-build.md`, `build-report.md`, `assembly-checklist.md`, with
 verbatim source copies under `sources/`). This document carries the facts
 needed to plan, assemble, and operate the host; the OS plan lives in
@@ -39,10 +39,10 @@ completes on the case's five stock fans first.
 
 ## Storage Inventory
 
-Beyond the new SN8100, coldfront receives both storage devices currently in
+Beyond the new SN8100, songbird receives both storage devices currently in
 the `system76` host. system76 itself keeps running on replacement drives.
 
-| Disk | Device                                           | Bus                  | Role on coldfront                         |
+| Disk | Device                                           | Bus                  | Role on songbird                          |
 | ---- | ------------------------------------------------ | -------------------- | ----------------------------------------- |
 | A    | WD_BLACK SN8100 4TB (new)                        | M.2_1, CPU PCIe 5.0  | NixOS (LUKS2), daily driver               |
 | B    | 2TB NVMe (ex system76 root drive)                | M.2_2, CPU PCIe 4.0  | Windows 11 (BitLocker), gaming            |
@@ -264,12 +264,12 @@ Gentle shared curve: about 600-900 RPM idle, 1200-1400 RPM under load.
 ## Sources
 
 Full validation with verbatim source copies in
-[Bad3r/project-coldfront](https://github.com/Bad3r/project-coldfront):
-[sources/README.md](https://github.com/Bad3r/project-coldfront/blob/main/sources/README.md)
+[Bad3r/project-songbird](https://github.com/Bad3r/project-songbird):
+[sources/README.md](https://github.com/Bad3r/project-songbird/blob/main/sources/README.md)
 (index), cited throughout
-[pc-build.md](https://github.com/Bad3r/project-coldfront/blob/main/pc-build.md)
+[pc-build.md](https://github.com/Bad3r/project-songbird/blob/main/pc-build.md)
 and
-[build-report.md](https://github.com/Bad3r/project-coldfront/blob/main/build-report.md).
+[build-report.md](https://github.com/Bad3r/project-songbird/blob/main/build-report.md).
 Assembly procedure:
-[assembly-checklist.md](https://github.com/Bad3r/project-coldfront/blob/main/assembly-checklist.md)
+[assembly-checklist.md](https://github.com/Bad3r/project-songbird/blob/main/assembly-checklist.md)
 (Phases 0-8 with validation log).

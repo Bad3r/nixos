@@ -1,9 +1,9 @@
-# Coldfront NixOS Setup Plan
+# Songbird NixOS Setup Plan
 
-Decision-complete plan for bringing the `coldfront` host into this
+Decision-complete plan for bringing the `songbird` host into this
 repository: dual-boot layout, firmware settings, install sequence, data
 migration from system76, the per-host module files, and validation. Hardware
-facts live in [project-coldfront.md](project-coldfront.md); the generic
+facts live in [project-songbird.md](project-songbird.md); the generic
 onboarding mechanics live in the
 [Host Onboarding Runbook](../guides/host-onboarding.md). Decisions below were
 locked with the owner on 2026-07-21. The install is gated only by delivery of
@@ -24,9 +24,9 @@ disk A (the SN8100).
 | 9   | Secure Boot stays off (unsigned systemd-boot, fleet standard). BitLocker therefore binds to the non-PCR7 TPM profile; that is expected.                                                                             |
 | 10  | Migration: contents of B (system76 root/home) and S (system76 /data) are copied to A before B is wiped for Windows and S is reformatted.                                                                            |
 | 11  | Migrated data lands in `/data` as a plain directory on A's root filesystem (no separate partition).                                                                                                                 |
-| 12  | `shareCommon = true`: coldfront takes the full hosts-common baseline (zen kernel, systemd-boot, i3/X11, PipeWire, sops runtime, app baseline).                                                                      |
+| 12  | `shareCommon = true`: songbird takes the full hosts-common baseline (zen kernel, systemd-boot, i3/X11, PipeWire, sops runtime, app baseline).                                                                       |
 | 13  | GPU wiring via `flake.nixosModules.nvidia-gpu`: `open = true` (mandatory on Blackwell), production driver branch (>= 570 required), `vaapi.backend = "nvidia"` with `"intel-media"` as the documented fallback.     |
-| 14  | coldfront becomes the primary fleet endpoint: `primary = true` and a fresh `tailnetIp` move into its `policy.nix`; system76 stays a fleet member on replacement drives without those keys.                          |
+| 14  | songbird becomes the primary fleet endpoint: `primary = true` and a fresh `tailnetIp` move into its `policy.nix`; system76 stays a fleet member on replacement drives without those keys.                           |
 | 15  | `system.stateVersion = "26.05"` (current stable at install time; never bumped afterwards).                                                                                                                          |
 | 16  | Steam stays enabled on the NixOS side too (`programs.steam.extended.enable`), matching system76; Proton covers casual Linux-side gaming.                                                                            |
 | 17  | Windows hibernation and Fast Startup are disabled (`powercfg /h off`); NixOS keeps hibernation. Cross-OS discipline rules in Operating Rules.                                                                       |
@@ -74,25 +74,25 @@ flashed in Phase 1):
 What each device needs from the configuration. "hosts-common" means it is
 already covered by the shared baseline and needs no per-host code.
 
-| Hardware                         | Driver / stack                     | Config source                                                           |
-| -------------------------------- | ---------------------------------- | ----------------------------------------------------------------------- |
-| 285K P/E cores, virtualization   | intel_pstate, kvm-intel, coretemp  | hosts-common (`boot.nix`); microcode via `hardware-config.nix`          |
-| Arrow Lake iGPU (Xe-LPG)         | i915/xe, linux-firmware            | Present for bring-up; VA-API only if `vaapi.backend = "intel-media"`    |
-| RTX 5080 (Blackwell GB203)       | NVIDIA open kernel modules, >= 570 | `modules/coldfront/nvidia-gpu.nix` over `flake.nixosModules.nvidia-gpu` |
-| Intel 2.5 GbE                    | igc (in-kernel)                    | Nothing needed; name feeds `firewallDnsInterfaces`                      |
-| Realtek 5 GbE (RTL8126)          | r8169 (in-kernel since 6.8)        | Nothing needed; zen kernel is well past 6.8                             |
-| Wi-Fi 7 module (vendor unlisted) | iwlwifi or mt76 + linux-firmware   | Identify at first boot (`lspci -nn`); in-kernel either way              |
-| Bluetooth 5.4                    | btusb                              | `hardware.bluetooth.enable` in `hardware-config.nix`                    |
-| USB audio codec (SupremeFX)      | PipeWire                           | hosts-common (`pipewire.nix`)                                           |
-| NVMe (A, B) and SATA (S)         | nvme, ahci                         | hosts-common initrd module list already includes both                   |
-| Thunderbolt 4 / USB4             | thunderbolt + bolt                 | `services.hardware.bolt.enable` in `hardware-config.nix`                |
-| Board sensors                    | coretemp, nct6775 family           | Monitoring only; fan control lives in BIOS Q-Fan                        |
-| AIO pump/fans                    | none (plain PWM)                   | No OS dependency by design                                              |
+| Hardware                         | Driver / stack                     | Config source                                                          |
+| -------------------------------- | ---------------------------------- | ---------------------------------------------------------------------- |
+| 285K P/E cores, virtualization   | intel_pstate, kvm-intel, coretemp  | hosts-common (`boot.nix`); microcode via `hardware-config.nix`         |
+| Arrow Lake iGPU (Xe-LPG)         | i915/xe, linux-firmware            | Present for bring-up; VA-API only if `vaapi.backend = "intel-media"`   |
+| RTX 5080 (Blackwell GB203)       | NVIDIA open kernel modules, >= 570 | `modules/songbird/nvidia-gpu.nix` over `flake.nixosModules.nvidia-gpu` |
+| Intel 2.5 GbE                    | igc (in-kernel)                    | Nothing needed; name feeds `firewallDnsInterfaces`                     |
+| Realtek 5 GbE (RTL8126)          | r8169 (in-kernel since 6.8)        | Nothing needed; zen kernel is well past 6.8                            |
+| Wi-Fi 7 module (vendor unlisted) | iwlwifi or mt76 + linux-firmware   | Identify at first boot (`lspci -nn`); in-kernel either way             |
+| Bluetooth 5.4                    | btusb                              | `hardware.bluetooth.enable` in `hardware-config.nix`                   |
+| USB audio codec (SupremeFX)      | PipeWire                           | hosts-common (`pipewire.nix`)                                          |
+| NVMe (A, B) and SATA (S)         | nvme, ahci                         | hosts-common initrd module list already includes both                  |
+| Thunderbolt 4 / USB4             | thunderbolt + bolt                 | `services.hardware.bolt.enable` in `hardware-config.nix`               |
+| Board sensors                    | coretemp, nct6775 family           | Monitoring only; fan control lives in BIOS Q-Fan                       |
+| AIO pump/fans                    | none (plain PWM)                   | No OS dependency by design                                             |
 
 ## Install Sequence
 
 Runs inside the assembly flow of the build's
-[assembly-checklist.md](https://github.com/Bad3r/project-coldfront/blob/main/assembly-checklist.md)
+[assembly-checklist.md](https://github.com/Bad3r/project-songbird/blob/main/assembly-checklist.md)
 (OS install is its Phase 6 step). Phases N1-N2 need only disk A; N3-N5 wait
 for the drives pulled from system76.
 
@@ -123,7 +123,7 @@ for the drives pulled from system76.
 
 3. Harvest hardware truth: `nixos-generate-config --root /mnt` and copy the
    UUIDs (LUKS partitions, ext4 root, ESP, swap) into
-   `modules/coldfront/hardware-config.nix`. The generated file itself is not
+   `modules/songbird/hardware-config.nix`. The generated file itself is not
    committed; this repo's per-host module replaces it.
 
 4. Clone the repo with the secrets submodule. The submodule is private, so
@@ -132,10 +132,10 @@ for the drives pulled from system76.
 
    ```sh
    git clone --recurse-submodules git@github.com:Bad3r/nixos.git
-   cd nixos && git switch -c feat/coldfront-host
+   cd nixos && git switch -c feat/songbird-host
    ```
 
-5. Add the coldfront module files (skeletons below), fill the UUID and
+5. Add the songbird module files (skeletons below), fill the UUID and
    hostId placeholders, and commit. Committing is mandatory: flake
    evaluation only sees git-tracked files.
 
@@ -145,7 +145,7 @@ for the drives pulled from system76.
    ```sh
    nix shell nixpkgs#lixPackageSets.latest.lix
    export NIX_CONFIG='experimental-features = nix-command flakes pipe-operator pipe-operators flake-self-attrs'
-   nixos-install --root /mnt --flake .#coldfront --no-root-passwd
+   nixos-install --root /mnt --flake .#songbird --no-root-passwd
    ```
 
    The owner account ships with an initial password hash from
@@ -159,14 +159,14 @@ for the drives pulled from system76.
    the password manager to `/var/lib/sops-nix/key.txt` (root:root, 0600) and
    `~/.config/sops/age/keys.txt`. Single-recipient design: no `.sops.yaml`
    change, no `sops updatekeys`.
-3. Flip `sopsRuntimeReady = true` in `modules/coldfront/policy.nix`, rebuild
+3. Flip `sopsRuntimeReady = true` in `modules/songbird/policy.nix`, rebuild
    with `./build.sh`, and confirm secret-consuming services activate.
 4. Join the tailnet; read the assigned address with `tailscale ip -4` and set
    it as `tailnetIp` in `policy.nix`. In the same change move
-   `primary = true` off `modules/system76/policy.nix` and onto coldfront
+   `primary = true` off `modules/system76/policy.nix` and onto songbird
    (ssh-hosts aliases and the tailscale SSH default follow the registry).
 5. Record the host SSH public key
-   (`cat /etc/ssh/ssh_host_ed25519_key.pub`) in `modules/coldfront/ssh.nix`.
+   (`cat /etc/ssh/ssh_host_ed25519_key.pub`) in `modules/songbird/ssh.nix`.
 6. Fill remaining Open Items (interface names, Wi-Fi module vendor), run the
    validation ladder, and open the PR.
 
@@ -185,7 +185,7 @@ task, outside this plan), so B and S are free to pull.
 3. Verify sizes and spot-check (`du -sh`, `diff -r` on samples). A has 4 TB;
    both source datasets fit.
 4. Record disk B's exact model (`lsblk -o NAME,MODEL,SIZE`) in
-   [project-coldfront.md](project-coldfront.md) Storage Inventory (S is the
+   [project-songbird.md](project-songbird.md) Storage Inventory (S is the
    Samsung 850 Pro 4TB).
 5. Leave B and S untouched until Phase N4/N5 confirm nothing was missed; the
    originals are the rollback until then.
@@ -234,16 +234,16 @@ task, outside this plan), so B and S are free to pull.
 Registry entry in `modules/hosts/common/registry.nix`:
 
 ```nix
-coldfront.shareCommon = true;
+songbird.shareCommon = true;
 ```
 
-`modules/coldfront/hardware-config.nix` (placeholders in angle brackets come
+`modules/songbird/hardware-config.nix` (placeholders in angle brackets come
 from Phase N1 step 3 and Phase N5):
 
 ```nix
 { lib, ... }:
 {
-  configurations.nixos.coldfront.module =
+  configurations.nixos.songbird.module =
     { config, metaOwner, ... }:
     let
       owner = metaOwner.username;
@@ -324,11 +324,11 @@ from Phase N1 step 3 and Phase N5):
 }
 ```
 
-`modules/coldfront/nvidia-gpu.nix`:
+`modules/songbird/nvidia-gpu.nix`:
 
 ```nix
 _: {
-  configurations.nixos.coldfront.module =
+  configurations.nixos.songbird.module =
     { config, ... }:
     {
       boot.blacklistedKernelModules = [ "nouveau" ];
@@ -350,14 +350,14 @@ _: {
 }
 ```
 
-`modules/coldfront/policy.nix`:
+`modules/songbird/policy.nix`:
 
 ```nix
 _: {
-  flake.lib.nixos.hosts.coldfront = {
+  flake.lib.nixos.hosts.songbird = {
     # Primary fleet endpoint, moved from system76 in this change.
     primary = true;
-    tailnetIp = "<coldfront tailscale IPv4>";
+    tailnetIp = "<songbird tailscale IPv4>";
 
     # Flip after the age identity is installed (Phase N2 step 2-3).
     sopsRuntimeReady = false;
@@ -369,47 +369,47 @@ _: {
 }
 ```
 
-`modules/coldfront/host-id.nix` (derive on the target:
+`modules/songbird/host-id.nix` (derive on the target:
 `head -c 8 /etc/machine-id`):
 
 ```nix
 _: {
-  configurations.nixos.coldfront.module = {
+  configurations.nixos.songbird.module = {
     networking.hostId = "<8-hex-chars>";
   };
 }
 ```
 
-`modules/coldfront/state-version.nix`:
+`modules/songbird/state-version.nix`:
 
 ```nix
 _: {
-  configurations.nixos.coldfront.module = {
+  configurations.nixos.songbird.module = {
     # Install-time constant for this host. Never bump on upgrades.
     system.stateVersion = "26.05";
   };
 }
 ```
 
-`modules/coldfront/ssh.nix`:
+`modules/songbird/ssh.nix`:
 
 ```nix
 { lib, ... }:
 {
-  configurations.nixos.coldfront.module = {
+  configurations.nixos.songbird.module = {
     services.openssh = {
       enable = lib.mkDefault false;
-      publicKey = "<ssh-ed25519 ... root@coldfront>";
+      publicKey = "<ssh-ed25519 ... root@songbird>";
     };
   };
 }
 ```
 
-`modules/coldfront/imports.nix`:
+`modules/songbird/imports.nix`:
 
 ```nix
 _: {
-  configurations.nixos.coldfront.module = {
+  configurations.nixos.songbird.module = {
     # Desktop board with no vendor NixOS module; the fleet baseline comes
     # from hosts-common, so no nixos-hardware import is needed.
     programs = {
@@ -420,11 +420,11 @@ _: {
 }
 ```
 
-`modules/coldfront/nix-settings.nix`:
+`modules/songbird/nix-settings.nix`:
 
 ```nix
 _: {
-  configurations.nixos.coldfront.module.nix.settings = {
+  configurations.nixos.songbird.module.nix.settings = {
     max-jobs = "auto"; # 24 threads, 48 GB RAM
     min-free = 53687091200; # 50 GB
   };
@@ -465,10 +465,10 @@ remain open; these are measurements that require the hardware.
 | LUKS, ext4, ESP, swap UUIDs | `nixos-generate-config --root /mnt`     | `hardware-config.nix`                                                    |
 | hostId                      | `head -c 8 /etc/machine-id`             | `host-id.nix`                                                            |
 | Wired interface names       | `ip link`                               | `policy.nix` `firewallDnsInterfaces`                                     |
-| Wi-Fi module vendor         | `lspci -nn \| grep -i network`          | project-coldfront.md (note)                                              |
+| Wi-Fi module vendor         | `lspci -nn \| grep -i network`          | project-songbird.md (note)                                               |
 | Host SSH public key         | `cat /etc/ssh/ssh_host_ed25519_key.pub` | `ssh.nix`                                                                |
 | Tailnet IPv4                | `tailscale ip -4` after joining         | `policy.nix` `tailnetIp`                                                 |
-| Disk B exact model          | `lsblk -o NAME,MODEL,SIZE`              | project-coldfront.md Storage Inventory                                   |
+| Disk B exact model          | `lsblk -o NAME,MODEL,SIZE`              | project-songbird.md Storage Inventory                                    |
 | Shared partition PARTUUID   | `lsblk -o NAME,PARTUUID` after Phase N5 | `hardware-config.nix` crypttab entry                                     |
 | BitLocker keys (B, S)       | Windows BitLocker setup                 | Password manager; S password also to `/var/lib/secrets/shared-bitlk.key` |
 
@@ -479,8 +479,8 @@ Per the runbook, before and after the PR:
 ```sh
 nix fmt
 nix flake check --accept-flake-config --no-build --offline
-nix build ".#nixosConfigurations.coldfront.config.system.build.toplevel"
-./build.sh --boot          # on coldfront; activates on next reboot
+nix build ".#nixosConfigurations.songbird.config.system.build.toplevel"
+./build.sh --boot          # on songbird; activates on next reboot
 nix run .#generation-manager -- score   # target: 20/20
 ```
 

@@ -51,12 +51,12 @@
 - [cloudflare/containers/limitations-roadmap.md](cloudflare/containers/limitations-roadmap.md)
   - Beta limitations, platform gaps, and roadmap notes for Cloudflare Containers.
 
-## Coldfront
+## Songbird
 
-- [coldfront/project-coldfront.md](coldfront/project-coldfront.md)
-  - Hardware plan and assembly notes for the `coldfront` workstation host.
-- [coldfront/nixos-setup.md](coldfront/nixos-setup.md)
-  - Decision-complete dual-boot and NixOS install plan for `coldfront`.
+- [songbird/project-songbird.md](songbird/project-songbird.md)
+  - Hardware plan and assembly notes for the `songbird` workstation host.
+- [songbird/nixos-setup.md](songbird/nixos-setup.md)
+  - Decision-complete dual-boot and NixOS install plan for `songbird`.
 
 ## R2 Cloud
 

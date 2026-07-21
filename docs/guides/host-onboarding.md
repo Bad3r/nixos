@@ -4,7 +4,7 @@ Procedural checklist for adding a NixOS host to this repository. The
 composition model behind these steps is documented in
 [Host Composition](../architecture/05-host-composition.md); hardware planning
 for the next host lives in
-[project-coldfront](../coldfront/project-coldfront.md). Follow the steps in
+[project-songbird](../songbird/project-songbird.md). Follow the steps in
 order: the validation ladder at the end assumes everything before it is in
 place.
 
