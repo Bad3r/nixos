@@ -136,8 +136,16 @@ for the drives pulled from system76.
    ```
 
 5. Add the songbird module files (skeletons below), fill the UUID and
-   hostId placeholders, and commit. Committing is mandatory: flake
-   evaluation only sees git-tracked files.
+   hostId placeholders, then commit and push the branch. Committing is
+   mandatory (flake evaluation only sees git-tracked files); pushing is too.
+   This installer checkout lives on the live-ISO tmpfs and is discarded at
+   reboot, and `nixos-install` copies only the store closure to `/mnt`, not
+   this working tree, so the branch must reach the remote to survive into
+   Phase N2:
+
+   ```sh
+   git push -u origin feat/songbird-host
+   ```
 
 6. Install with Lix (the repo's pinned Nix implementation; the ISO's CppNix
    also works pre-cutover with the same feature set):
@@ -153,20 +161,33 @@ for the drives pulled from system76.
 
 ### Phase N2: First boot and fleet integration
 
-1. Log in, change the owner password (`passwd`).
+1. Log in and change the owner password (`passwd`). Clone the fleet checkout
+   into the primary user's home and resume the branch pushed in Phase N1;
+   `~/nixos` is the canonical checkout the worktree-prune timer expects on
+   shared hosts, and it is owner-owned because the primary user creates it:
+
+   ```sh
+   git clone --recurse-submodules git@github.com:Bad3r/nixos.git ~/nixos
+   cd ~/nixos && git switch feat/songbird-host
+   ```
+
 2. Provision the canonical age identity (sops), per
    [SOPS usage](../sops/README.md) Host Preparation: copy from system76 or
    the password manager to `/var/lib/sops-nix/key.txt` (root:root, 0600) and
    `~/.config/sops/age/keys.txt`. Single-recipient design: no `.sops.yaml`
    change, no `sops updatekeys`.
+
 3. Flip `sopsRuntimeReady = true` in `modules/songbird/policy.nix`, rebuild
    with `./build.sh`, and confirm secret-consuming services activate.
+
 4. Join the tailnet; read the assigned address with `tailscale ip -4` and set
    it as `tailnetIp` in `policy.nix`. In the same change move
    `primary = true` off `modules/system76/policy.nix` and onto songbird
    (ssh-hosts aliases and the tailscale SSH default follow the registry).
+
 5. Record the host SSH public key
    (`cat /etc/ssh/ssh_host_ed25519_key.pub`) in `modules/songbird/ssh.nix`.
+
 6. Fill remaining Open Items (interface names, Wi-Fi module vendor), run the
    validation ladder, and open the PR.
 
