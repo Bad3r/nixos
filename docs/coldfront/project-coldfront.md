@@ -2,9 +2,17 @@
 
 Host: `coldfront`.
 
-High-end Intel Arrow Lake workstation build. Functional, not pretty, no RGB.
-All specifications below were validated against manufacturer product pages and independent reviews in 2026 (see Sources).
-Every listed component is current and the parts are fully compatible with each other.
+High-end Intel Arrow Lake workstation, productivity first (compilation, local
+LLM work) and gaming second. Functional, not pretty, no RGB. This revision
+reflects the final purchased build as validated on 2026-07-20 and supersedes
+the earlier Thermaltake CTE C750 / Gigabyte 5080 / ARCTIC 420 plan in full.
+
+Source of truth for hardware research is the
+[Bad3r/project-coldfront](https://github.com/Bad3r/project-coldfront)
+repository (`pc-build.md`, `build-report.md`, `assembly-checklist.md`, with
+verbatim source copies under `sources/`). This document carries the facts
+needed to plan, assemble, and operate the host; the OS plan lives in
+[nixos-setup.md](nixos-setup.md).
 
 ## Parts List
 
@@ -12,428 +20,255 @@ Every listed component is current and the parts are fully compatible with each o
 | ------------- | ------------------------------------------------ | ---------------------- |
 | CPU           | Intel Core Ultra 9 285K (Arrow Lake-S)           | BX80768285K            |
 | Motherboard   | ASUS ROG Maximus Z890 Hero (ATX)                 | 90MB1IX0-M0EAY0        |
-| GPU           | Gigabyte GeForce RTX 5080 Gaming OC 16G          | GV-N5080GAMING OC-16GD |
+| GPU           | ASUS GeForce RTX 5080 Noctua OC Edition 16G      | RTX5080-O16G-NOCTUA    |
 | RAM           | Corsair Vengeance DDR5 CUDIMM 48GB (2x24GB) 8400 | CMKC48GX5M2X8400C40    |
-| SSD           | Crucial T710 4TB PCIe 5.0 NVMe M.2 (no heatsink) | CT4000T710SSD8-01      |
+| SSD           | WD_BLACK SN8100 4TB PCIe 5.0 NVMe M.2            | WDS400T1X0M-00CMT0     |
 | PSU           | ASUS ROG Strix 1200W Platinum                    | ROG-STRIX-1200P-GAMING |
-| AIO cooler    | ARCTIC Liquid Freezer III Pro 420                | ACFRE00181A            |
-| Case          | Thermaltake CTE C750 Air (Full Tower)            | CA-1X6-00F1WN-00       |
-| Case fans     | ARCTIC P14 Pro PST 140 mm (2x 5-pack, 10 fans)   | ACFAN00319A            |
+| CPU cooler    | Cooler Master MasterLiquid 360 Atmos (Black)     | MLX-D36M-A25PZ-R1      |
+| Contact frame | Thermalright LGA1851-BCF Black (V2)              | TR-L18517BCFV2-BK      |
+| Case          | Antec Flux SE (Mid Tower)                        | UPC 0-761345-10177-6   |
+| Case fans     | ARCTIC P14 Pro PST 140 mm (1x 5-pack, 5 fans)    | ACFAN00319A            |
 | Fan hub       | ARCTIC Case Fan Hub (10-port PWM, SATA)          | ACFAN00175A            |
 | Thermal paste | Noctua NT-H2 (3.5g, AM5 Edition)                 | NT-H2 3.5g AM5         |
+
+Procurement state (2026-07-20): everything is purchased. All parts gating
+assembly are on hand. The SN8100 is ordered but not yet shipped and gates only
+OS installation. The P14 Pro 5-pack and the ARCTIC hub arrive 27-31 July,
+after assembly day, and gate only the deferred Phase 8 fan swap; the build
+completes on the case's five stock fans first.
+
+## Storage Inventory
+
+Beyond the new SN8100, coldfront receives both storage devices currently in
+the `system76` host. system76 itself keeps running on replacement drives.
+
+| Disk | Device                                   | Bus                  | Role on coldfront                         |
+| ---- | ---------------------------------------- | -------------------- | ----------------------------------------- |
+| A    | WD_BLACK SN8100 4TB (new)                | M.2_1, CPU PCIe 5.0  | NixOS (LUKS2), daily driver               |
+| B    | 2TB NVMe (ex system76 root drive)        | M.2_2, CPU PCIe 4.0  | Windows 11 (BitLocker), gaming            |
+| S    | 4TB Samsung SATA SSD (ex system76 /data) | SATA 6 Gb/s, chipset | Shared BitLocker NTFS drive for both OSes |
+
+Exact models of B and S are recorded when they are pulled from system76; both
+predate this build. B in M.2_2 uses CPU Gen4 lanes and does not touch GPU
+lanes. S caps at SATA speeds (about 550 MB/s), which is adequate for a bulk
+game library and shared data; latency-sensitive titles install on B.
+
+Slot rule: M.2_3 and M.2_4 stay empty permanently. Populating either drops
+the GPU slot from PCIe 5.0 x16 to x8.
 
 ## Component Specifications
 
 ### CPU: Intel Core Ultra 9 285K
 
-- Socket LGA1851, Arrow Lake-S, built on TSMC N3B.
-- 24 cores / 24 threads. 8 Performance cores (Lion Cove) + 16 Efficient cores
-  (Skymont). No Hyper-Threading, so this i9-class part is 24T, down from the
-  14900K's 32T.
-- P-core 3.7 GHz base, 5.6 GHz boost, 5.7 GHz single-core max (Thermal Velocity
-  Boost). E-core 3.2 GHz base, 4.6 GHz boost.
-- 36 MB L3, 40 MB L2.
-- Base power (PL1) 125 W, max turbo power (PL2) 250 W. Peaks around 250 to 260 W,
-  loads near 80 to 82 C on strong cooling. Runs roughly 100 W lower on average
-  than the i9-14900K. Gaming is a few percent behind the 14900K; productivity is
-  about on par.
-- Integrated Xe-LPG graphics (4 Xe-cores, up to 2.0 GHz) for display and media
-  only. Not a gaming GPU.
-- Native memory: DDR5-6400 (CUDIMM) or DDR5-5600 (UDIMM) at 1 DIMM per channel.
-- 24 CPU PCIe lanes: 20x PCIe 5.0 (16 for the GPU + 4 for one M.2) plus 4x
-  PCIe 4.0 (one M.2). Chipset link is DMI 4.0 x8.
-- Ships without a cooler (K-series). An AIO or high-end air cooler is required.
+- Socket FCLGA1851, Arrow Lake-S, compute tile on TSMC N3B.
+- 24 cores / 24 threads: 8 Performance (Lion Cove) + 16 Efficient (Skymont),
+  no Hyper-Threading.
+- P-core 3.7 GHz base, up to 5.7 GHz (Thermal Velocity Boost); E-core 3.2 to
+  4.6 GHz. 36 MB L3, 40 MB L2.
+- Power: PL1 125 W, PL2 250 W; measures about 245 W sustained all-core.
+- Memory: native DDR5-6400 CUDIMM at 1 DIMM per channel (DDR5-5600 UDIMM).
+  Dual channel, max 256 GB, ECC supported by the CPU (kit is non-ECC).
+- PCIe: 24 CPU lanes, 20x PCIe 5.0 (16 GPU + 4 for one M.2) plus 4x PCIe 4.0
+  (one M.2). Chipset link DMI 4.0 x8.
+- Integrated Xe-LPG graphics (4 Xe-cores, up to 2.0 GHz): used for GPU-less
+  bring-up over the board HDMI port, available for VA-API decode later.
+- Ships without a cooler.
 
 ### Motherboard: ASUS ROG Maximus Z890 Hero
 
-- LGA1851, Intel Z890 chipset, ATX form factor (30.5 x 24.4 cm). Supports Intel
-  Core Ultra Series 2 (Arrow Lake). Confirmed compatible with the 285K.
-- Memory: 4x DDR5 DIMM, up to 256 GB, advertised up to DDR5-9200+ (overclock)
-  with CUDIMM support, NitroPath DRAM, and AEMP III. Any rating above DDR5-6400
-  is an XMP/OC figure, not the CPU's native speed.
-- Top memory speeds require 1 DIMM per channel (2 DIMMs total). Populating all 4
-  slots (2 DIMMs per channel) sharply reduces attainable speed.
-- 6x M.2 slots:
-  - M.2_1: CPU, PCIe 5.0 x4 (dedicated, does not share GPU lanes)
-  - M.2_2: CPU, PCIe 4.0 x4
-  - M.2_3: CPU, PCIe 5.0 x4 (shares lanes with the primary x16 slot)
-  - M.2_4: CPU, PCIe 5.0 x4 (shares lanes with the primary x16 slot)
-  - M.2_5: chipset, PCIe 4.0 x4
-  - M.2_6: chipset, PCIe 4.0 x4
-  - Net: 3x Gen5 + 3x Gen4; 4 CPU-attached + 2 chipset-attached.
-- Enabling M.2_3 or M.2_4 drops the primary PCIe 5.0 x16 slot to x8.
-- PCIe slots: 1x PCIe 5.0 x16 (CPU), 1x PCIe 4.0 x16-length running x4 (chipset,
-  intended for the Thunderbolt card), 1x PCIe 4.0 x1.
-- Networking: Realtek 5 GbE + Intel 2.5 GbE (two different vendors). Wi-Fi 7
-  (2x2, 802.11be) + Bluetooth 5.4.
-- 2x Thunderbolt 4 (USB-C, 40 Gbps, USB4-compliant). These same two USB-C ports
-  are the USB4 implementation, not separate additional ports. About 11 rear USB
-  ports total.
-- VRM: 22+1+2+2 teamed power stages, main CPU stages rated 110 A.
-- In-box cables: 4x SATA 6 Gb/s data cables, 1x ARGB (addressable RGB) extension
-  cable. Non-cable connectivity also bundled: the ASUS WiFi Q-Antenna (required
-  for the onboard Wi-Fi 7) and a Q-connector front-panel jumper block.
+- LGA1851, Intel Z890, ATX (30.5 x 24.4 cm). Native Core Ultra Series 2
+  support. Latest BIOS as of 2026-07-19: 3202 (2026-05-08).
+- Memory: 4x DIMM, up to DDR5-9200+ (OC) with CUDIMM support. The build's
+  exact kit (Ver 5.53.13) is on the ASUS QVL at 8400 MT/s in 1- and 2-DIMM
+  population, not 4.
+- 6x M.2: M.2_1 CPU PCIe 5.0 x4 (dedicated, has board heatsink); M.2_2 CPU
+  PCIe 4.0 x4; M.2_3 / M.2_4 CPU PCIe 5.0 x4 shared with the GPU slot (ASUS:
+  "When M.2_3 or M.2_4 is enabled, PCIEX16(G5) will run x8 only."); M.2_5 /
+  M.2_6 chipset PCIe 4.0 x4. 4x SATA 6 Gb/s ports (chipset).
+- PCIe slots: 1x PCIe 5.0 x16 (CPU) with Q-Release Slim, 1x PCIe 4.0 x16
+  length at x4 (chipset), 1x PCIe 4.0 x1.
+- Networking: 1x Intel 2.5 GbE + 1x Realtek 5 GbE, Wi-Fi 7 (2x2, 802.11be,
+  module vendor not published by ASUS), Bluetooth 5.4.
+- Rear I/O: 2x Thunderbolt 4 (USB4, DP out), 1x HDMI 2.1 (iGPU path for
+  GPU-less bring-up), about 11 USB ports total.
+- USB BIOS FlashBack works on standby power with no CPU installed (BIOS file
+  renamed to `A5555.CAP`; port is the lower red USB 10Gbps Type-A).
+- Fan headers: CPU_FAN, CPU_OPT, CHA_FAN1-4, AIO_PUMP at 1 A / 12 W each;
+  W_PUMP+ at 3 A / 36 W. AIO_PUMP and W_PUMP+ default to full speed.
+- VRM: 22+1+2+2 teamed power stages, 110 A main stages.
 
-### GPU: Gigabyte RTX 5080 Gaming OC 16G
+### GPU: ASUS RTX 5080 Noctua OC Edition (RTX5080-O16G-NOCTUA)
 
-- Blackwell GB203, 10,752 CUDA cores.
-- 16 GB GDDR7, 256-bit bus, 30 Gbps, 960 GB/s bandwidth.
-- Boost clock 2730 MHz in the card's default OC mode (a factory overclock over
-  the 2617 MHz reference boost). Base clock is about 2295 MHz. The 2730 MHz
-  figure Gigabyte prints as "Core Clock" is the boost, not the base.
-- Bus interface PCIe 5.0 x16.
-- Total graphics power (TGP) 360 W. NVIDIA and Gigabyte both recommend an 850 W
-  PSU minimum.
-- 1x 16-pin 12V-2x6 (12VHPWR) power connector. A 12V-2x6 to 3x PCIe 8-pin adapter
-  is bundled but is not needed with this PSU (see PSU below).
-- Outputs: 3x DisplayPort 2.1b + 1x HDMI 2.1b. Up to 7680x4320.
-- Dimensions 340 x 140 x 70 mm, about 3.5 slots thick, roughly 1.8 kg.
+- Blackwell GB203, 10,752 CUDA cores, PCIe 5.0 x16.
+- 16 GB GDDR7, 256-bit, 30 Gbps, 960 GB/s.
+- Clocks: 2295 MHz base; boost 2700 MHz (Default) / 2730 MHz (OC Mode via GPU
+  Tweak III). Measured about 2792 MHz average across 25 games (TechPowerUp).
+- Power: 360 W default TGP, board power limit adjustable -31% to +25% (max
+  450 W). 1x 16-pin 12V-2x6 (600 W rated) in a recessed top-edge cutout at
+  mid-card. Dual BIOS switch (P/Q), the two BIOSes differ only in fan curve.
+- Outputs: 3x DisplayPort 2.1b UHBR20 + 2x HDMI 2.1b (max 4 displays).
+- Cooler: 3x Noctua NF-A12x25 G2 120 mm fans on a 4-slot vapor-chamber
+  heatsink; fans stop below 55 C (0 dB idle). Open-bench reference: 64 C GPU,
+  72 C memory at 23.9 dBA (Quiet BIOS).
+- Dimensions 385 x 151 x 80 mm (TPU measured 390 mm, 2667 g). About 2.7 kg;
+  a matching anti-sag holder is bundled and used (the case has none).
 
 ### RAM: Corsair Vengeance DDR5 CUDIMM 48GB (CMKC48GX5M2X8400C40)
 
-- 48 GB kit, 2x 24 GB, single-rank. DDR5-8400 (8400 MT/s; the actual clock is
-  4200 MHz, "MHz" on the label is the standard MT/s marketing convention).
-- CL40-52-52-135 at XMP, 1.40 V. JEDEC/SPD fallback is CL40-40-40-77 at 1.1 V.
-- CUDIMM (Clocked Unbuffered DIMM): an onboard Client Clock Driver (CKD) chip
-  regenerates the host clock to restore signal integrity, which is what makes
-  reliable DDR5-6400+ possible. The CKD runs in active mode only on Intel Arrow
-  Lake (Core Ultra 200S) with a Z890 board. On any other platform (including
-  AMD AM5) the module falls back to bypass mode and is capped near DDR5-6000.
-- DDR5-8400 is an XMP overclock above the CPU's native DDR5-6400. Reaching it
-  needs 1 DIMM per channel (this 2-DIMM kit), Gear 2, a current BIOS, and a
-  capable memory controller. It is achievable on this board/CPU but not
-  guaranteed plug-and-play.
-- Without XMP (stock BIOS defaults), the kit boots at its JEDEC SPD base of
-  DDR5-4800, the CL40-40-40-77 at 1.1 V profile above. It does not auto-run the
-  native 6400; enable the XMP profile to target 8400.
-- Capacity upgrade path (speed vs cost tradeoff):
-  - Cheaper, keeps the current kit: add a second identical 2x24 GB kit (same
-    CMKC48GX5M2X8400C40) for 96 GB. Four sticks is 2 DIMMs per channel
-    (dual-rank), so the 8400 XMP will not train; expect roughly DDR5-6000 to
-    6800 (often near 6400) and plan to set speed and timings manually. Use the
-    same model; do not mix in a different-spec kit.
-  - Fastest, replaces the kit: swap to a 2x48 GB (96 GB) kit and stay at 2 DIMMs
-    (1 per channel) to keep 8000+. 48 GB DIMMs are dual-rank, so the top bins are
-    a little harder than the current 2x24.
-    Gaming does not use more than 48 GB, so more capacity mainly helps heavy
-    creator or workstation work, which often values 96 GB over the bandwidth given
-    up at ~6400.
-- Height 35 mm (standard Vengeance heatspreader, not low-profile). No clearance
-  concern with the AIO.
+- 2x 24 GB, single-sided, SK Hynix DRAM, 35 mm tall.
+- XMP: 8400 MT/s, 40-52-52-135, 1.40 V. JEDEC fallback 4800 MT/s at 1.10 V;
+  the kit boots at 4800 until XMP is enabled.
+- CUDIMM: an on-module clock driver (CKD) regenerates the memory clock;
+  active on Intel 800-series boards only.
+- DDR5-8400 remains an XMP overclock above the CPU's native 6400. QVL
+  validation on this exact board raises confidence, not a guarantee.
+  Fallback ladder: 8000, 7600, 6400.
+- Capacity path: a second identical kit (4 DIMMs) drops speed to roughly the
+  native 6400 class and leaves the QVL; a 2x 48 GB kit keeps 1DPC at speed.
 
-### SSD: Crucial T710 4TB (CT4000T710SSD8-01)
+### SSD (disk A): WD_BLACK SN8100 4TB (WDS400T1X0M-00CMT0)
 
-- PCIe 5.0 (Gen5) x4, NVMe 2.0, M.2 2280 single-sided.
-- Sequential up to 14,500 / 13,800 MB/s (read/write) on the 4TB model. Up to
-  2.2M / 2.3M IOPS. Note: the 14,900 MB/s read figure on Crucial's page applies
-  only to the 1TB SKU; 14,500 is correct for this 4TB drive.
-- Silicon Motion SM2508 controller (TSMC 6 nm), Micron G9 276-layer 3D TLC NAND,
-  about 4 GB LPDDR4 DRAM cache. More power-efficient than the previous T705
-  (Phison E26): about 8.25 W vs 11.25 W.
-- 2,400 TBW endurance, 5-year warranty (or TBW limit, whichever comes first).
-- This "-01" part is the no-heatsink variant. Per Crucial, a non-heatsink T710
-  must be installed with a motherboard or third-party M.2 heatsink for full
-  performance. The heatsink model is a separate part, CT4000T710SSD5.
-
-### Secondary Storage: Samsung 850 Pro (SATA)
-
-- 2.5 in SATA III (6 Gb/s) SSD, added as an existing secondary drive alongside
-  the Crucial T710 NVMe boot drive. It caps at the SATA 6 Gb/s interface
-  (roughly 550 MB/s), independent of the Gen5 primary.
-- Connects to any of the board's 4 SATA 6 Gb/s ports. Those ports are
-  chipset-attached and only M.2_1 (CPU) is populated, so all 4 stay available;
-  the SATA drive takes no lanes from the GPU or the T710.
-- Cabling comes from the build's included cables:
-  - Data: 1 of the board's 4 bundled SATA 6 Gb/s cables (3 spare).
-  - Power: 1 SATA power connector from the ROG Strix 1200W. Its 2 modular SATA
-    cables carry 6 connectors total; the ARCTIC Case Fan Hub uses 1, leaving 5,
-    so the 850 Pro takes 1 of the remaining 5.
-- Use the ROG Strix's own modular SATA power cable. Modular pin-outs differ
-  between PSU brands and models, so a leftover cable from another unit can
-  damage the drive.
-- Mounting: the CTE C750 Air holds up to 12x 2.5 in drives; the tray and case
-  screws are in the case box.
-- Power draw is a few watts, absorbed by the existing ~490 W budget headroom.
+- PCIe 5.0 x4, NVMe 2.0, M.2 2280, single-sided.
+- Silicon Motion SM2508-class controller (SanDisk-relabeled), Kioxia/SanDisk
+  BiCS8 218-layer TLC, DDR4 DRAM cache.
+- Up to 14,900 / 14,000 MB/s sequential read/write, 2.3M / 2.4M IOPS (4TB).
+- Power: 6.5 W average active read, 7.0 W active write, 5 mW sleep (PS4).
+- Endurance 2,400 TBW; 5-year limited warranty.
+- Bare SKU (no heatsink): it must sit under the Z890 Hero's M.2_1 heatsink.
+  Firmware throttle point is 100 C; under a board heatsink it holds sustained
+  writes without throttling.
 
 ### PSU: ASUS ROG Strix 1200W Platinum (ROG-STRIX-1200P-GAMING)
 
-- 1200 W. 80 PLUS Platinum and Cybenetics Platinum. ("1200P" is the model code,
-  the P denotes Platinum.)
-- ATX 3.1, PCIe 5.1 ready.
-- 1x native 12V-2x6 connector rated 600 W (native 16-pin to 16-pin cable
-  included). Powers the RTX 5080 directly; the GPU's 8-pin adapter is not needed.
-- Fully modular. 135 mm dual-ball-bearing fan with a 0 dB idle mode.
-- In-box modular cables:
-  - 1x ATX 24-pin (20+4) motherboard cable, 610 mm
-  - 2x CPU/EPS 4+4-pin cables, 1000 mm
-  - 1x PCIe 12V-2x6 16-pin-to-16-pin cable, 750 mm (the GPU cable above)
-  - 4x PCIe 8-pin-to-6+2-pin cables, 750 mm
-  - 2x SATA power cables, 3 connectors each (6 total)
-  - 1x peripheral (Molex) cable, 3 connectors
-- 160 mm depth. 10-year warranty.
+- 1200 W, ATX 3.1, PCIe Gen 5.1 ready. 80 PLUS Platinum, Cybenetics Platinum,
+  Lambda A noise rating. +12V single rail 100 A.
+- Native 16-pin connector on both PSU and component side; the bundled 750 mm
+  16-pin-to-16-pin cable (600 W) feeds the GPU directly. Other connectors:
+  24-pin, 2x EPS 4+4, 4x PCIe 6+2, 6x SATA, 3x peripheral.
+- Fully modular, 135 mm dual-ball-bearing fan, 0 dB fan-stop mode with a
+  physical button. 160 mm depth, 10-year warranty.
+- Use only this unit's own modular cables. Modular pin-outs differ between
+  PSU brands and models; a leftover cable from another unit can damage
+  drives.
 
-### AIO Cooler: ARCTIC Liquid Freezer III Pro 420
+### CPU Cooler: Cooler Master MasterLiquid 360 Atmos + Thermalright Contact Frame
 
-- 420 mm radiator (3x 140 mm fans). Radiator 458 x 138 x 38 mm. Case-side
-  clearance needed 65 mm (38 mm radiator + 27 mm P14 Pro fans).
-- 3x P14 Pro fans (7-blade, 140 mm, 400 to 2500 RPM PWM). VRM fan on the pump.
-  PWM pump 800 to 2800 RPM. 500 mm tubes.
-- Sockets: Intel LGA1851 and LGA1700; AMD AM5 and AM4. The LGA1851 contact frame
-  (offset mount tuned to the CPU hotspot) and MX-6 paste are included in the box.
-- 6-year warranty.
-- The "Pro" model differs from the standard Liquid Freezer III by its 7-blade
-  P14 Pro fans, higher radiator fin density, and optimized Intel offset mount. It
-  is not a thicker radiator: both the Pro and the standard use a 38 mm radiator.
-- Comfortably rated for the 285K's 250 W+ heat load.
+- 360 mm AIO: radiator 394 x 119 x 27.2 mm; installed stack with fans
+  52.2 mm; 400 mm tubes; dual-chamber PWM pump (3.84 W, 0.32 A).
+- Fans: 3x SickleFlow 120 Edge (690-2500 RPM, 0.2 A each, ARGB) joined by the
+  bundled PWM splitter. No software, USB, or SATA dependency: pump and fans
+  run from plain PWM headers (deliberate selection criterion; the optional
+  MasterPlus software is Windows-only and unnecessary).
+- LGA1851 mounting uses the LGA1700 hole pattern (identical locations per
+  Intel). Thermal capability verified beyond 350 W real CPU power, well over
+  the 285K's 245-250 W sustained.
+- Contact frame: Thermalright LGA1851-BCF V2 replaces the socket's stock ILM
+  to load the package evenly; expected effect single-digit degrees. The
+  frame occupies only the ILM position; the cooler's four mounting holes stay
+  free. Removing the stock ILM may void the board warranty; stock parts are
+  bagged for reversal. Installation is the build's highest-care step.
+- Paste: NT-H2 (center dot plus four corner dots). The AM5-shaped paste guard
+  stays unused on LGA1851; the Atmos's bundled CryoFuze stays boxed as spare.
 
-### Case: Thermaltake CTE C750 Air
+### Case: Antec Flux SE
 
-- Full tower with Centralized Thermal Efficiency (CTE) layout: the motherboard
-  tray is rotated 90 degrees so the rear I/O and GPU outputs face upward. The CPU
-  ends up near the front intake and the GPU near the rear, giving each its own
-  cold-air path.
-- Supports Mini-ITX, Micro-ATX, ATX, and E-ATX (up to 12 x 13 in).
-- Dimensions 565.2 x 327 x 599.2 mm (H x W x D). Weight 16.7 kg. 7 expansion
-  slots.
-- 3x CT140 fans pre-installed (140 mm, about 1500 RPM, 30.5 dBA), at front, top,
-  and rear.
-- Max GPU length: 420 mm with no radiator in the GPU path, 370 mm with a
-  radiator in the GPU path.
-- Max CPU air cooler height: 190 mm.
-- PSU: ATX (PS2), up to 200 mm long.
-- Drive bays: 7x 3.5 in or 12x 2.5 in.
-- 4 mm tempered glass left side panel, mesh front panel (the "Air" model).
-- Includes a rotatable PCI-E / riser mounting bracket that accepts 90 or 180
-  degree riser cables for optional vertical GPU mounting. The riser cable itself
-  is not included in the box.
+- Mid tower, F-LUX airflow platform: recessed front fan channel behind mesh,
+  PSU shroud with upward intake aimed at the GPU. 484 x 239 x 502 mm, 8.8 kg,
+  7 expansion slots. Mini-ITX to E-ATX (up to 330 mm).
+- Published clearances: GPU up to 408 mm (front fans live in the recessed
+  channel, outside the main chamber), CPU cooler 180 mm, PSU 235 mm.
+- Radiator support: front up to 420 mm, top up to 360 mm (drop-in bracket,
+  60 mm stack budget), rear single 120/140 fan only.
+- Included fans (all 4-pin PWM, no ARGB): 3x P12 front, 1x P12R reverse-blade
+  on the PSU shroud (blows up at the GPU), 1x P14 rear. A built-in 5-port PWM
+  hub (SATA powered, one uplink) ships pre-wired to all five.
+- Storage: 2x 3.5"/2.5" cage in the basement + 1x 2.5" sled behind the tray
+  (takes disk S). Front I/O: 2x USB 3.0, 1x USB-C 10 Gbps, combo audio.
 
-## Compatibility Verification
+## Clearances and Fitment (verified)
 
-| Pairing                                           | Result                                     |
-| ------------------------------------------------- | ------------------------------------------ |
-| CPU (LGA1851) to Motherboard (Z890, LGA1851)      | OK. Native support.                        |
-| AIO (LGA1851 contact frame in box) to CPU         | OK. Rated for 250 W+.                      |
-| AIO (420 mm, 38 mm) to Case                       | OK. Fits front, motherboard side, or rear. |
-| RAM (CUDIMM DDR5-8400) to CPU + Board             | OK on Z890 at 1DPC. 8400 is an XMP OC.     |
-| GPU (PCIe 5.0 x16, 340 mm) to Board + Case        | OK. Board x16 slot; case fits 340 mm.      |
-| GPU 12V-2x6 to PSU native 12V-2x6 (600 W)         | OK. One native cable, 360 W load.          |
-| SSD (Gen5 x4, M.2 2280) to Board M.2_1 (CPU Gen5) | OK. Add a heatsink.                        |
-| SATA SSD (850 Pro) to Board + PSU + Case          | OK. Data + power cables included.          |
-| PSU (1200 W) to full system (~700 W peak)         | OK. About 490 W headroom.                  |
-| Board (ATX) to Case (up to E-ATX)                 | OK. Ample room.                            |
+| #   | Check                       | Numbers                                              | Verdict                     |
+| --- | --------------------------- | ---------------------------------------------------- | --------------------------- |
+| 1   | GPU length, front fans only | case limit 408 mm; card 385 (390 measured)           | PASS, +23 mm (+18 measured) |
+| 2   | GPU length, any front rad   | 408 - ~30 (radiator body intrusion) = ~378 < 385     | FAIL; top is the only spot  |
+| 3   | Atmos 360 on top rails      | 394 mm radiator, 360-class mount                     | PASS by case spec           |
+| 4   | Atmos top stack             | 27.2 + 25 = 52.2 mm vs 60 mm budget                  | PASS, 7.8 mm margin         |
+| 5   | Contact frame vs cooler     | frame in ILM position; cooler uses the 4 board holes | PASS, no interaction        |
+| 6   | PSU bay                     | 160 mm unit vs 235 mm incl. cables                   | PASS                        |
+| 7   | 12V-2x6 side clearance      | >= 29 mm above card spine + recess; 35 mm straight   | PASS with routing care      |
+| 8   | GPU thickness               | 4 slots (80-82 mm) in slots 1-4 of 7                 | PASS                        |
+| 9   | Fan and pump currents       | pump 0.32 A / 1 A; 3 fans 0.6 A / 1 A; hub 1.4/4.5 A | PASS                        |
 
-## Case Cooling and Radiator Support
-
-Radiator support by location (official Thermaltake):
-
-| Location         | Max radiator |
-| ---------------- | ------------ |
-| Front            | up to 420 mm |
-| Motherboard side | up to 420 mm |
-| Rear             | up to 420 mm |
-| Top              | up to 240 mm |
-| Bottom           | up to 360 mm |
-
-Fan support by location:
-
-| Location         | Fans                               |
-| ---------------- | ---------------------------------- |
-| Top              | 2x 120 mm or 2x 140 mm             |
-| Front            | 3x 120 mm, 3x 140 mm, or 2x 200 mm |
-| Bottom           | 3x 120 mm or 3x 140 mm             |
-| Rear             | 3x 120 mm, 3x 140 mm, or 2x 200 mm |
-| Motherboard side | 3x 120 mm or 3x 140 mm             |
-
-Thickness note: Thermaltake warns that "420 mm radiators over 27 mm in thickness
-may have issues with compatibility on multi radiator configurations." This
-applies only to custom multi-radiator loops. A single 38 mm AIO radiator fits
-fine, and the CTE chassis is designed for large, thick radiators.
+The front-radiator failure (check 2) is why the CPU radiator mounts on top as
+exhaust: Antec's own flyer marks about 30 mm of main-chamber intrusion for a
+front radiator body, and the 385 mm card needs more than the roughly 378 mm
+that leaves.
 
 ## Cooling Configuration and Fan Plan
 
-### How the case moves air
+Airflow: front intake through the recessed channel, PSU-shroud fans feeding
+the GPU from below, top (CPU radiator) and rear as exhaust. The GPU keeps the
+entire front intake to itself.
 
-The rotated CTE layout gives the CPU and GPU separate cold-air intakes. Per
-Thermaltake's own thermal validation report and independent reviews:
+Final layout (after the Phase 8 fan swap):
 
-- Intake: front, rear, and bottom. The rear is an intake here, not the usual
-  exhaust, and feeds cold air straight onto the rear-mounted GPU. Rear plus
-  bottom is the GPU's dedicated cold-air path.
-- Exhaust: top (heat rises out). The motherboard-side panel can run as intake or
-  exhaust.
-- The 3 preinstalled CT140 fans ship as front intake, rear intake, top exhaust.
+| Location          | Fan                          | Direction      |
+| ----------------- | ---------------------------- | -------------- |
+| Top               | Atmos 360, 3x SickleFlow 120 | Exhaust        |
+| Front             | 3x P14 Pro 140               | Intake         |
+| Rear              | 1x P14 Pro 140               | Exhaust        |
+| PSU shroud pos. 1 | stock P12R reverse 120       | Intake, upward |
+| PSU shroud pos. 2 | stock P12 120, face-down     | Intake, upward |
 
-### Recommended AIO placement: front, as intake
+Assembly-day layout: the five stock fans as shipped (front 3x P12, rear P14,
+shroud P12R) on the case's built-in hub; complete and safe for daily use.
 
-Mount the ARCTIC 420 in the front as intake. This is the configuration
-Thermaltake validated, it preserves the full 420 mm GPU clearance (a radiator in
-the GPU path cuts max GPU length to 370 mm), and AIO-placement testing on a
-matching 285K + RTX 5080 360 W rig measured front/side mounting about 3 C cooler
-on the CPU than top. The 285K's ~250 W is trivial for a 420 mm radiator, so CPU
-temperature is a non-issue either way.
-
-Side-mounted-as-exhaust is a valid alternative but not a proven optimum (see Myth
-check). It places the radiator in the GPU chamber and cuts GPU clearance to
-370 mm, so prefer front mounting here.
-
-### Recommended fan layout (front AIO)
-
-| Location         | Fans             | Direction | Purpose                          |
-| ---------------- | ---------------- | --------- | -------------------------------- |
-| Front            | 3x P14 Pro (AIO) | Intake    | CPU radiator, coldest air        |
-| Rear             | 3x P14 Pro       | Intake    | GPU cold-air path                |
-| Bottom           | 3x P14 Pro       | Intake    | GPU cold-air path                |
-| Top              | 2x P14 Pro       | Exhaust   | Evacuate CPU and case heat       |
-| Motherboard side | open             | -         | Not populated; 2 spare fans held |
-
-This fully populates the GPU's rear plus bottom intake (the priority for a hot
-air-cooled card) and runs slightly positive pressure to limit dust.
-
-### Fan count
-
-The build runs 11 fans: the AIO's 3 front P14 Pro plus 8 case P14 Pro (rear 3,
-bottom 3, top 2). That uses 8 of the 10 P14 Pro purchased; the other 2 are
-spares. The 3 stock CT140s come out and are kept as spares.
-
-The motherboard-side 3-fan bank stays open. Independent testing (KitGuru) found
-this case is not airflow-limited, so the side bank is optional and would add only
-a marginal thermal gain.
-
-### Fan model and noise
-
-- Case fans: ARCTIC P14 Pro PST (140 mm), the same fan the AIO carries on its
-  radiator, so the whole system runs one fan model with one acoustic signature.
-  It leads the compared fans on airflow (110 CFM) and static pressure
-  (5.2 mmH2O) at the lowest price per fan (see build-report.md).
-- Noise strategy: more 140 mm fans at low RPM beat fewer at high RPM, because fan
-  noise climbs steeply with RPM. Set a gentle curve, roughly 600 to 900 RPM idle
-  ramping to 1200 to 1400 RPM under load; the P14 Pro's airflow lets it stay low.
-
-### Fan control
-
-The AIO daisy-chains its pump, 3 radiator fans, and VRM fan onto one cable to a
-single header (CPU_FAN or AIO_PUMP). The 8 case fans run from the ARCTIC Case Fan
-Hub (ACFAN00175A): 10 PWM ports, SATA-powered from the PSU, all driven by one
-chassis-fan PWM signal so the case fans turn as a single synchronized zone. The 8
-P14 Pro draw about 2.8 A, well under the hub's 4.5 A input. Net: one board header
-for the AIO, one for the hub.
-
-### GPU orientation caveat
-
-The CTE layout mounts the GPU vertically. Independent testing (igor'sLAB) found a
-heat-pipe hotspot problem in this orientation on some air-cooled cards (hotspot
-up to about 106 C, roughly 40 C above ambient, on an RX 6900 XT and an
-RTX 3070 Ti), resolved by orienting the case horizontally or using a water block.
-It is card-dependent (an RX 6600 was unaffected), and modern vapor-chamber
-coolers tolerate it better. Monitor the RTX 5080's hotspot and memory-junction
-temperature under sustained load; the recommended fan plan already maximizes the
-GPU's cold-air intake, which is the main mitigation.
-
-### Myth check: side-exhaust AIO claims
-
-Three widely repeated claims about this case do not survive the primary sources:
-
-- "High-end GPUs benefit more from side exhaust than intake fans" (often citing
-  an RTX 4080): unsupported. The RTX 4080 figure traces to review benches run as
-  intake, not to any side-exhaust test. The GPU is cooled by its own rear and
-  bottom intake, not by the CPU AIO's exhaust.
-- "Side-mounted AIO as exhaust is optimal or Thermaltake-official": inaccurate.
-  The "official Side = Exhaust" spec is a mislabeled forum post. Thermaltake's
-  page describes the side as an intake, and every measured configuration (vendor
-  and igor'sLAB) runs the radiator as intake. No professional front-versus-side
-  test exists.
-- "Side AIO isolates CPU heat and improves GPU temps": partly true. The CPU and
-  GPU heat isolation is real, but it comes from the rotated layout, not from
-  side-mounting the AIO, and the GPU benefit is unmeasured (one test found a CPU
-  AIO left the GPU about 3 C warmer).
-
-Front-intake AIO with a fully populated GPU intake path is the better-supported
-setup.
-
-## Recommended Assembly Layout
-
-- GPU: install in the primary PCIe 5.0 x16 slot (CPU-attached, the top slot).
-  This is a direct board mount with no riser cable. The CTE layout rotates the
-  entire motherboard, so the card keeps its native slot connection. A riser is
-  needed only for the optional vertical (showcase) orientation, which is not
-  recommended for this card: it would require a separately purchased PCIe 5.0
-  riser cable (the case ships only the bracket), place the 3.5-slot card against
-  the side glass, and restrict airflow on a 360 W GPU.
-- SSD: install the Crucial T710 in M.2_1 (CPU PCIe 5.0 x4, dedicated). Use the
-  board's Gen5 M.2 heatsink. Keep M.2_3 and M.2_4 empty so the GPU slot stays at
-  x16. Extra drives go in M.2_2 (CPU Gen4) or M.2_5 / M.2_6 (chipset Gen4).
-- RAM: install both DIMMs in the two ASUS-specified slots (typically A2 and B2)
-  to keep 1 DIMM per channel. Enable XMP, set Gear 2, and update to the latest
-  BIOS before targeting DDR5-8400. A second pair later (4 slots) will not sustain
-  8400 and drops to ~6400; that is the capacity-over-speed tradeoff covered in the
-  RAM spec.
-- AIO: mount the 420 mm radiator in the front as intake. It keeps GPU clearance
-  at the full 420 mm and matches Thermaltake's validated configuration. See
-  Cooling Configuration and Fan Plan for the full fan layout, fan count, and why
-  side-exhaust is not the better choice here.
-- PSU: route the PSU's native 12V-2x6 cable straight to the GPU. Do not use the
-  GPU's bundled 8-pin adapter. Seat the connector fully until it clicks.
+Control: pump on AIO_PUMP (full speed), the three radiator fans on CPU_FAN
+via the bundled splitter, case fans on CHA_FAN1 (built-in hub now, ARCTIC
+10-port hub after Phase 8), the two shroud fans on CHA_FAN2 after Phase 8.
+All fan control is BIOS Q-Fan; no OS-side fan software exists or is needed.
+Gentle shared curve: about 600-900 RPM idle, 1200-1400 RPM under load.
 
 ## Power Budget
 
-| Rail                        | Draw                                     |
-| --------------------------- | ---------------------------------------- |
-| CPU (max turbo, PL2)        | up to 250 W                              |
-| GPU (TGP)                   | 360 W (transient spikes 500 W+)          |
-| Board, RAM, SSD, fans, pump | ~80 to 100 W                             |
-| Sustained system peak       | ~660 to 710 W                            |
-| PSU capacity                | 1200 W                                   |
-| Headroom                    | ~490 W (system runs near 55 to 60% load) |
+| Rail                   | Draw                                         |
+| ---------------------- | -------------------------------------------- |
+| CPU (PL2)              | up to 250 W (about 245 W measured sustained) |
+| GPU (default TGP)      | 360 W; up to 450 W with the slider maxed     |
+| Board, RAM, SSDs, fans | about 80 to 100 W                            |
+| Sustained system peak  | about 690 to 710 W (800 W worst case)        |
+| PSU capacity           | 1200 W                                       |
+| Headroom               | about 490 W at defaults                      |
 
-The 1200 W unit sits near its peak-efficiency load band and absorbs RTX 5080
-transient spikes without issue. This exceeds NVIDIA's 850 W guidance with margin.
+## Build Caveats
 
-## Build Caveats and Risks
-
-1. DDR5-8400 is an overclock, not a guaranteed speed. It depends on the memory
-   controller (varies by chip), a current BIOS, Gear 2, and the 1DPC 2-DIMM
-   layout. If unstable, step down to DDR5-8000, 7600, or the native 6400. Two
-   DIMMs hold 8400; adding a second pair for capacity drops it to ~6400 (see the
-   RAM spec upgrade path).
-2. The Gen5 SSD needs a heatsink. This "-01" SKU ships without one. Use the
-   motherboard's Gen5 M.2 heatsink or the drive will thermally throttle.
-3. GPU lane sharing: keeping M.2_3 and M.2_4 empty preserves the GPU at
-   PCIe 5.0 x16. Populating either drops it to x8.
-4. Airflow planning: the CTE rotated layout moves heat vertically. Set the case
-   P14 Pro fans and the AIO fans for front, rear, and bottom intake with top
-   exhaust. Confirm fan orientation during assembly.
-5. 12V-2x6 seating: fully seat the connector to avoid the known melting risk on
-   high-power NVIDIA cards. The native PSU cable is preferred over adapters.
-6. GPU orientation: the CTE layout mounts the GPU vertically, which can cause
-   heat-pipe hotspot issues on some air-cooled cards. Monitor hotspot and memory
-   temperatures; the recommended fan plan already maximizes rear and bottom
-   intake, the main mitigation. See Cooling Configuration and Fan Plan.
-7. Fan control: 11 fans on an 8-header board is handled by the ARCTIC Case Fan
-   Hub (SATA-powered, 10-port). All 8 case fans run off it as one zone; the AIO
-   uses one board header.
-8. Thermal paste: the build uses Noctua NT-H2; the AIO's included MX-6 is
-   the spare. The NT-H2 AM5 Edition's paste guard is shaped for the AMD AM5 IHS and
-   does not fit the 285K's LGA1851, so it goes unused. The compound and the 3
-   cleaning wipes are socket-agnostic.
-9. Fan mounting: the P14 Pro mounting holes are tight, and the screws are hard to
-   drive once a fan is held against the case. Pre-run each screw through the fan on
-   a flat surface, pressing firmly to avoid stripping the head, before mounting the
-   fan to the case.
+1. Contact frame install: board flat, fingers off exposed socket pins, all
+   four screws started by hand, tightened gradually in a cross pattern (stock
+   frame screws are Torx T20). May void the board warranty; stock parts kept.
+2. DDR5-8400 is an XMP overclock; ladder down 8000 / 7600 / 6400 on
+   instability. Four DIMMs forfeit 8400.
+3. Disk A must sit under the board's M.2_1 heatsink or it throttles.
+4. M.2_3 and M.2_4 stay empty (GPU x8 drop). B goes in M.2_2 only.
+5. 12V-2x6: native PSU cable only, click-seat with no shoulder gap, 35 mm
+   straight before the first bend, no side-panel pressure, re-check seating
+   after the first heavy GPU session.
+6. P14 Pro screw holes are tight: pre-run every screw on a flat surface
+   before mounting fans in the case.
+7. Q-Release Slim: to remove the GPU, hold the end nearest the rear I/O and
+   lift slightly at an angle; do not force the card straight out.
+8. Install the GPU's bundled anti-sag holder (2.7 kg card, no case support).
+9. SATA power for disk S comes from this PSU's own modular SATA cables only
+   (pin-out warning above).
 
 ## Sources
 
-- Intel ARK: Core Ultra 9 285K (SKU 241060)
-- ASUS ROG Maximus Z890 Hero official specification page
-- Gigabyte GV-N5080GAMING OC-16GD product page; NVIDIA GeForce RTX 5080 page;
-  TechPowerUp review
-- Corsair CMKC48GX5M2X8400C40 product page; Rambus DDR5 CKD reference
-- Crucial T710 (CT4000T710SSD8) product page; StorageReview, HotHardware,
-  Tom's Hardware, TechPowerUp reviews
-- ASUS ROG Strix 1200W Platinum product page; Cybenetics / HWBusters review
-- ARCTIC Liquid Freezer III Pro 420 (ACFRE00181A) spec sheet; Tom's Hardware,
-  KitGuru, HWCooling reviews
-- Thermaltake CTE C750 Air official specification page; KitGuru review
-- Thermaltake CTE C750 Air System Thermal Test Report (PDF); igor'sLAB,
-  TechPowerUp, Guru3D, PC Gamer CTE C750 reviews
-- Noctua AIO radiator placement guide (top vs front/side); ARCTIC P14 Pro PST
-  (ACFAN00319A) and ARCTIC Case Fan Hub (ACFAN00175A) product pages
+Full validation with verbatim source copies in
+[Bad3r/project-coldfront](https://github.com/Bad3r/project-coldfront):
+[sources/README.md](https://github.com/Bad3r/project-coldfront/blob/main/sources/README.md)
+(index), cited throughout
+[pc-build.md](https://github.com/Bad3r/project-coldfront/blob/main/pc-build.md)
+and
+[build-report.md](https://github.com/Bad3r/project-coldfront/blob/main/build-report.md).
+Assembly procedure:
+[assembly-checklist.md](https://github.com/Bad3r/project-coldfront/blob/main/assembly-checklist.md)
+(Phases 0-8 with validation log).

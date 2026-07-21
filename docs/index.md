@@ -55,6 +55,8 @@
 
 - [coldfront/project-coldfront.md](coldfront/project-coldfront.md)
   - Hardware plan and assembly notes for the `coldfront` workstation host.
+- [coldfront/nixos-setup.md](coldfront/nixos-setup.md)
+  - Decision-complete dual-boot and NixOS install plan for `coldfront`.
 
 ## R2 Cloud
 
