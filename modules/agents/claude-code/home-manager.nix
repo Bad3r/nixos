@@ -17,6 +17,9 @@
       programs.claude-code.extended.lspPlugins in modules/apps/claude-code.nix.
     * Additional non-LSP plugins are governed by
       programs.claude-code.extended.extraPlugins in modules/apps/claude-code.nix.
+    * Blocked MCP servers, mainly the claude.ai account connectors that local
+      config cannot otherwise remove, are governed by
+      programs.claude-code.extended.deniedMcpServers in modules/apps/claude-code.nix.
     * `enabledPlugins` keys end with `@<marketplace>` (see
       ~/.claude/plugins/known_marketplaces.json). Default plugins assume the
       `claude-plugins-official` marketplace is registered (install once with
@@ -61,8 +64,26 @@ _: {
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
 
+      # Display names blocked via settings.json deniedMcpServers, mainly the
+      # claude.ai account connectors that local config cannot otherwise remove.
+      deniedMcpServers =
+        lib.attrByPath
+          [
+            "programs"
+            "claude-code"
+            "extended"
+            "deniedMcpServers"
+          ]
+          [ ]
+          osConfig;
+
       settings = import ./_settings.nix {
-        inherit pkgs defaults mcpServers;
+        inherit
+          pkgs
+          defaults
+          mcpServers
+          deniedMcpServers
+          ;
         inherit (plugins) enabledPlugins;
       };
 

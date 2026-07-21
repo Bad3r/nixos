@@ -30,13 +30,10 @@ _: {
       package = "context7-mcp";
       secretEnvVar = "CONTEXT7_API_KEY";
       network.allowedDomains = [ "context7.com" ];
-      clients = [
-        "claude"
-        "codex"
-      ];
+      clients = [ "codex" ];
       docs = {
         primaryUse = "Look up library IDs and documentation for coding tasks.";
-        accessNotes = "Works without an API key; provision the standard local secret path for higher rate limits.";
+        accessNotes = "Works without an API key; provision the standard local secret path for higher rate limits. Scoped to Codex: Claude Code consumes the claude.ai Context7 connector instead, so the local server is dropped there to avoid a duplicate registration.";
         example = "`context7 resolve-library-id --name <library>`";
       };
     };

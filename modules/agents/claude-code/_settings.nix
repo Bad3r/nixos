@@ -2,7 +2,7 @@
   Settings producer for Claude Code.
 
   Merges the static defaults from _default-settings.nix with runtime values
-  (enabledPlugins, mcpServers) and produces:
+  (enabledPlugins, deniedMcpServers, mcpServers) and produces:
     - claudeSettings: the value rendered to ~/.claude/settings.json.
     - claudeSettingsFile: the store-path JSON file consumed by the jq merge
       in _activation.nix.
@@ -19,10 +19,12 @@
   defaults,
   enabledPlugins,
   mcpServers,
+  deniedMcpServers ? [ ],
 }:
 let
   claudeSettings = defaults.claudeSettingsBase // {
     inherit enabledPlugins;
+    deniedMcpServers = map (serverName: { inherit serverName; }) deniedMcpServers;
   };
 
   claudeSettingsFile = pkgs.writeText "claude-settings.json" (builtins.toJSON claudeSettings);
