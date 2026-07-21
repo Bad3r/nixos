@@ -152,6 +152,8 @@ let
       findutils.extended.enable = lib.mkOverride 1100 true;
       firefox.extended.enable = lib.mkOverride 1100 true;
       firefoxpwa.extended.enable = lib.mkOverride 1100 true;
+      # Per-site PWA install (not a package): off by default, enabled per host.
+      firefoxpwa.dmail.enable = lib.mkOverride 1100 false;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 true;
       fonttools.extended.enable = lib.mkOverride 1100 true;

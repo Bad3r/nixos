@@ -1,0 +1,188 @@
+/*
+  firefoxpwa: DMail web app
+  Description: Installs the primary user's work mail site as a standalone
+    Progressive Web App through the firefoxpwa CLI. The start URL is never
+    written to the Nix store: it is read at runtime from the SOPS-encrypted
+    work-bookmark secret that modules/home/gecko-secrets.nix already stores
+    (gecko.yaml key gecko_work_bookmark_url_1).
+
+  Mechanism:
+    * A oneshot user service ordered after sops-nix.service decrypts the URL and
+      runs `firefoxpwa site install` with a synthetic data: manifest, so the
+      site installs without the target having to serve a web manifest.
+    * The install is idempotent: a site already carrying the managed name is
+      refreshed in place when the decrypted URL has rotated and otherwise left
+      untouched, so the service is safe to run on every login.
+    * firefoxpwa system integration writes the launcher .desktop entry and icon,
+      making the app discoverable from the desktop menu.
+*/
+_: {
+  flake.homeManagerModules.firefoxpwaDmail =
+    {
+      config,
+      lib,
+      pkgs,
+      osConfig,
+      secretsRoot,
+      ...
+    }:
+    let
+      geckoFile = secretsRoot + "/gecko.yaml";
+      geckoFileExists = builtins.pathExists geckoFile;
+
+      # Per-host toggle declared at NixOS scope in ./apps.nix; layered by the
+      # common app catalog (off) and modules/tpnix/apps-enable.nix (on).
+      dmailEnabled = osConfig.programs.firefoxpwa.dmail.enable or false;
+      firefoxpwaEnabled = osConfig.programs.firefoxpwa.extended.enable or false;
+      firefoxpwaPackage = osConfig.programs.firefoxpwa.extended.package or pkgs.firefoxpwa;
+
+      secretName = "firefoxpwa/dmail/url";
+      urlPath = config.sops.secrets.${secretName}.path or null;
+
+      # The launcher name doubles as the idempotency key. firefoxpwa stores it in
+      # config.json at .sites.<ulid>.config.name, so an existing site with this
+      # name means the app is already installed.
+      appName = "DMail";
+
+      installScript = pkgs.writeShellApplication {
+        name = "firefoxpwa-install-dmail";
+        runtimeInputs = [
+          firefoxpwaPackage
+          pkgs.jq
+          pkgs.coreutils
+        ];
+        text = ''
+          url_file=${lib.escapeShellArg urlPath}
+          app_name=${lib.escapeShellArg appName}
+          config_file="''${XDG_DATA_HOME:-$HOME/.local/share}/firefoxpwa/config.json"
+
+          if [ ! -r "$url_file" ]; then
+            echo "firefoxpwa-dmail: secret not readable at $url_file" >&2
+            exit 1
+          fi
+
+          url=$(tr -d '[:space:]' < "$url_file")
+          if [ -z "$url" ]; then
+            echo "firefoxpwa-dmail: decrypted URL is empty" >&2
+            exit 1
+          fi
+
+          # firefoxpwa stores the managed site under .sites.<ulid> and the
+          # launcher name set with --name lands at .config.name, so a site
+          # carrying this name is our install. Emits the ulid, or nothing.
+          site_ulid() {
+            [ -f "$config_file" ] || return 0
+            jq -r --arg n "$app_name" \
+              '(.sites // {}) | to_entries[] | select(.value.config.name == $n) | .key' \
+              "$config_file" 2>/dev/null | head -n1
+          }
+
+          # The --start-url override lands at .config.start_url; firefoxpwa
+          # prefers it over the manifest start URL when launching. Emits the
+          # stored value, or nothing.
+          site_start_url() {
+            [ -f "$config_file" ] || return 0
+            jq -r --arg n "$app_name" \
+              '(.sites // {}) | to_entries[] | select(.value.config.name == $n) | (.value.config.start_url // "")' \
+              "$config_file" 2>/dev/null | head -n1
+          }
+
+          # Already installed. The start URL is read at runtime from the rotating
+          # secret, so refresh it in place when the stored value drifts instead of
+          # leaving the app pinned to the URL captured at first install.
+          if ulid=$(site_ulid) && [ -n "$ulid" ]; then
+            if [ "$(site_start_url)" = "$url" ]; then
+              echo "firefoxpwa-dmail: '$app_name' already installed with current URL"
+              exit 0
+            fi
+            echo "firefoxpwa-dmail: refreshing start URL for '$app_name' ($ulid)"
+            if firefoxpwa site update "$ulid" --start-url "$url" --no-manifest-updates; then
+              echo "firefoxpwa-dmail: updated start URL for '$app_name'"
+              exit 0
+            fi
+            echo "firefoxpwa-dmail: failed to update start URL for '$app_name'" >&2
+            exit 1
+          fi
+
+          # Manifest scope is a prefix match, so it must be the URL origin: a
+          # full-URL scope pushes same-origin navigation (and any path or token
+          # rotation) out of scope and into the external browser. site update
+          # cannot change scope, so an origin scope also keeps the rotation
+          # refresh above self-consistent.
+          origin=$(jq -rn --arg u "$url" \
+            '$u | capture("^(?<o>[a-z][a-z0-9+.-]*://[^/]+)").o // ""')
+          if [ -z "$origin" ]; then
+            echo "firefoxpwa-dmail: cannot derive an origin from '$url'" >&2
+            exit 1
+          fi
+
+          # A data: manifest keeps the install self-contained: firefoxpwa does not
+          # have to fetch or parse a manifest from the target site. --document-url
+          # is required whenever the manifest URL is a data: URL.
+          manifest=$(jq -nc --arg u "$url" --arg s "$origin" --arg n "$app_name" \
+            '{name: $n, scope: $s, start_url: $u, display: "standalone"}')
+          manifest_url="data:application/manifest+json;base64,$(printf '%s' "$manifest" | base64 -w0)"
+
+          for attempt in 1 2 3; do
+            if firefoxpwa site install "$manifest_url" \
+              --document-url "$url" \
+              --start-url "$url" \
+              --name "$app_name"; then
+              echo "firefoxpwa-dmail: installed '$app_name'"
+              exit 0
+            fi
+            # A failed attempt can still register the site before erroring (for
+            # example on desktop integration); re-checking the name keeps the
+            # retry from creating a second "DMail" entry.
+            if [ -n "$(site_ulid)" ]; then
+              echo "firefoxpwa-dmail: '$app_name' registered despite a failed attempt; not retrying"
+              exit 0
+            fi
+            echo "firefoxpwa-dmail: install attempt $attempt failed; retrying" >&2
+            sleep 5
+          done
+
+          echo "firefoxpwa-dmail: install failed after 3 attempts" >&2
+          exit 1
+        '';
+      };
+    in
+    {
+      config = lib.mkMerge [
+        (lib.mkIf (dmailEnabled && firefoxpwaEnabled && geckoFileExists) {
+          sops.secrets.${secretName} = {
+            sopsFile = geckoFile;
+            key = "gecko_work_bookmark_url_1";
+            path = "${config.home.homeDirectory}/.local/share/firefoxpwa/dmail-url";
+            mode = "0400";
+          };
+
+          systemd.user.services.firefoxpwa-dmail = {
+            Unit = {
+              Description = "Install the DMail web app (firefoxpwa)";
+              After = [ "sops-nix.service" ];
+              Wants = [ "sops-nix.service" ];
+            };
+            Service = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart = lib.getExe installScript;
+            };
+            Install.WantedBy = [ "default.target" ];
+          };
+        })
+
+        (lib.mkIf (dmailEnabled && firefoxpwaEnabled && !geckoFileExists) {
+          warnings = [
+            "programs.firefoxpwa.dmail.enable is true but ${toString geckoFile} is missing; skipping the DMail PWA install."
+          ];
+        })
+
+        (lib.mkIf (dmailEnabled && !firefoxpwaEnabled) {
+          warnings = [
+            "programs.firefoxpwa.dmail.enable is true but programs.firefoxpwa.extended.enable is false; skipping the DMail PWA install."
+          ];
+        })
+      ];
+    };
+}
