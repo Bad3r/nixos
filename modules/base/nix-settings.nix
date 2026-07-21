@@ -12,7 +12,10 @@ let
     # Update both this comment and flake.nix when adding or removing IFD
     # consumers.
     allow-import-from-derivation = true;
-    auto-optimise-store = lib.mkDefault true;
+    # Hard-linking on every store write taxes builds and large substitution
+    # runs and serializes on the store lock; the scheduled
+    # nix.optimise.automatic run below deduplicates instead.
+    auto-optimise-store = lib.mkDefault false;
     cores = lib.mkDefault 0;
     keep-outputs = false;
     experimental-features = [
@@ -36,7 +39,12 @@ in
   };
   config = {
     nix.settings = settings;
-    flake.nixosModules.base.nix.settings = settings;
+    flake.nixosModules.base.nix = {
+      inherit settings;
+      # Store deduplication off the critical path; replaces
+      # auto-optimise-store (defaults to 03:45 daily).
+      optimise.automatic = true;
+    };
 
     flake.homeManagerModules.base = _: {
       nix.settings = settings;

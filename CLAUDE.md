@@ -243,6 +243,9 @@ Use these repo-specific validation defaults:
   `nix flake check --accept-flake-config --no-build --offline`.
 - Host closure changes:
   `nix build ".#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`.
+- Overlay or override changes that can affect binary-cache coverage:
+  `scripts/cache-coverage.sh --host $HOSTNAME` (evaluation plus narinfo
+  probes, no builds; see `docs/reference/cache-coverage.md`).
 - Input updates:
   `nix flake metadata --refresh`, `nix flake update`, then `nix fmt flake.lock`.
 

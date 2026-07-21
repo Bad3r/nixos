@@ -724,6 +724,12 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
   - Docs.: <https://tesseract-ocr.github.io/>
   - Desc.: OCR engine behind many image-to-text pipelines.
   - Stat.: Maintained (latest release 2025-12-26).
+- vex-tui
+  - run..: `vex $file.csv` (`csv-vex-tui` and `xls-vex-tui` are aliases)
+  - Repo.: <https://github.com/CodeOne45/vex-tui>
+  - Docs.: <https://github.com/CodeOne45/vex-tui#usage>
+  - Desc.: Terminal Excel and CSV viewer/editor for triaging tabular evidence exports.
+  - Stat.: Maintained (latest release v2.1.0, 2026-04-17).
 
 ## Database Clients
 

@@ -25,6 +25,7 @@ KEEP_GOING=false
 REPAIR=false
 FALLBACK=false
 BOOTSTRAP_CACHES=false
+CACHE_COVERAGE=false
 ACTION="switch" # default action after build: switch | boot
 BUILD_FLAGS=()
 NH_CMD=()
@@ -63,6 +64,9 @@ Options:
       --repair           Repair corrupted store paths during build
       --fallback         Build from source if binary substitutes fail
       --bootstrap        Use extra substituters for first build
+      --cache-coverage   Fail before deploying when the target host closure
+                         has unexpected local source builds
+                         (scripts/cache-coverage.sh)
   -h, --help             Show this help message
 
 Logs:
@@ -190,6 +194,10 @@ while [[ $# -gt 0 ]]; do
     BOOTSTRAP_CACHES=true
     shift
     ;;
+  --cache-coverage)
+    CACHE_COVERAGE=true
+    shift
+    ;;
   -h | --help)
     show_help
     exit 0
@@ -252,8 +260,12 @@ BOOTSTRAP_TRUSTED_KEYS=(
 )
 
 configure_build_flags() {
-  local build_cores="0"    # "$(($(nproc --all) - 1))" # Nix default = 0 (all cores per build job)
-  local build_max_jobs="2" # Nix default = 1
+  local build_cores="0" # 0 = all cores per build job
+  # Half the cores: a low fixed cap serializes the many small derivations in a
+  # system closure behind long compiles, while cores=0 with one job per core
+  # lets peak RAM stack with every concurrent source build.
+  local build_max_jobs
+  build_max_jobs="$((($(nproc) + 1) / 2))"
 
   BUILD_FLAGS=(
     "--cores" "${build_cores}"
@@ -498,6 +510,11 @@ main() {
     nix flake check "${FLAKE_DIR}" --no-build "${BUILD_FLAGS[@]}"
   else
     status_msg "${YELLOW}" "Skipping flake check (--skip-check flag used)..."
+  fi
+
+  if [[ ${CACHE_COVERAGE} == "true" ]]; then
+    status_msg "${YELLOW}" "Checking cache coverage for '${TARGET_HOST}' (narinfo probes, no builds)..."
+    "${FLAKE_DIR}/scripts/cache-coverage.sh" --flake-dir "${FLAKE_DIR}" --host "${TARGET_HOST}"
   fi
 
   status_msg "${GREEN}" "Validation completed successfully!"
