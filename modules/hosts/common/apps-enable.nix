@@ -320,7 +320,6 @@ let
       "oh-my-opencode".extended.enable = lib.mkOverride 1100 false;
       okular.extended.enable = lib.mkOverride 1100 false;
       onlyoffice-desktopeditors.extended.enable = lib.mkOverride 1100 true;
-      # Off: unused on current hosts (same packaging as oh-my-opencode).
       opencode.extended.enable = lib.mkOverride 1100 false;
       opendirectorydownloader.extended.enable = lib.mkOverride 1100 true;
       openssh.extended.enable = lib.mkOverride 1100 true;
