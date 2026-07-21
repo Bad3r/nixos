@@ -17,7 +17,7 @@ disk A (the SN8100).
 | 2   | Disk A (SN8100 4TB, M.2_1) belongs entirely to NixOS: GPT with 1 GiB ESP, LUKS2 ext4 root, 64 GiB LUKS2 swap.                                                                                                       |
 | 3   | Swap is 64 GiB so hibernation stays possible (48 GB RAM) and build/LLM spikes have headroom.                                                                                                                        |
 | 4   | Disk B (2TB NVMe ex system76, M.2_2) belongs entirely to Windows 11 with BitLocker and its own ESP. NixOS never mounts B.                                                                                           |
-| 5   | Disk S (4TB Samsung SATA ex system76) becomes a shared BitLocker NTFS drive, unlocked on NixOS via `cryptsetup` bitlk and mounted at `/shared`.                                                                     |
+| 5   | Disk S (Samsung 850 Pro 4TB SATA ex system76) becomes a shared BitLocker NTFS drive, unlocked on NixOS via `cryptsetup` bitlk and mounted at `/shared`.                                                             |
 | 6   | Each OS keeps its own ESP on its own disk: Windows updates cannot touch the NixOS boot chain.                                                                                                                       |
 | 7   | Default boot is systemd-boot on A. Windows is selected via the firmware boot menu (F8) or a one-shot `efibootmgr --bootnext`.                                                                                       |
 | 8   | No chainloading Windows through systemd-boot: the NixOS `boot.loader.systemd-boot.windows` entries boot via the EDK2 UEFI shell, which disturbs BitLocker's TPM measurements (PCR 4) and provokes recovery prompts. |
@@ -184,8 +184,9 @@ task, outside this plan), so B and S are free to pull.
    - S (old system76 /data, LUKS2 + XFS): contents into `/data/` on A.
 3. Verify sizes and spot-check (`du -sh`, `diff -r` on samples). A has 4 TB;
    both source datasets fit.
-4. Record the exact models of B and S (`lsblk -o NAME,MODEL,SIZE`) in
-   [project-coldfront.md](project-coldfront.md) Storage Inventory.
+4. Record disk B's exact model (`lsblk -o NAME,MODEL,SIZE`) in
+   [project-coldfront.md](project-coldfront.md) Storage Inventory (S is the
+   Samsung 850 Pro 4TB).
 5. Leave B and S untouched until Phase N4/N5 confirm nothing was missed; the
    originals are the rollback until then.
 
@@ -467,7 +468,7 @@ remain open; these are measurements that require the hardware.
 | Wi-Fi module vendor         | `lspci -nn \| grep -i network`          | project-coldfront.md (note)                                              |
 | Host SSH public key         | `cat /etc/ssh/ssh_host_ed25519_key.pub` | `ssh.nix`                                                                |
 | Tailnet IPv4                | `tailscale ip -4` after joining         | `policy.nix` `tailnetIp`                                                 |
-| Disk B and S exact models   | `lsblk -o NAME,MODEL,SIZE`              | project-coldfront.md Storage Inventory                                   |
+| Disk B exact model          | `lsblk -o NAME,MODEL,SIZE`              | project-coldfront.md Storage Inventory                                   |
 | Shared partition PARTUUID   | `lsblk -o NAME,PARTUUID` after Phase N5 | `hardware-config.nix` crypttab entry                                     |
 | BitLocker keys (B, S)       | Windows BitLocker setup                 | Password manager; S password also to `/var/lib/secrets/shared-bitlk.key` |
 

@@ -42,16 +42,17 @@ completes on the case's five stock fans first.
 Beyond the new SN8100, coldfront receives both storage devices currently in
 the `system76` host. system76 itself keeps running on replacement drives.
 
-| Disk | Device                                   | Bus                  | Role on coldfront                         |
-| ---- | ---------------------------------------- | -------------------- | ----------------------------------------- |
-| A    | WD_BLACK SN8100 4TB (new)                | M.2_1, CPU PCIe 5.0  | NixOS (LUKS2), daily driver               |
-| B    | 2TB NVMe (ex system76 root drive)        | M.2_2, CPU PCIe 4.0  | Windows 11 (BitLocker), gaming            |
-| S    | 4TB Samsung SATA SSD (ex system76 /data) | SATA 6 Gb/s, chipset | Shared BitLocker NTFS drive for both OSes |
+| Disk | Device                                           | Bus                  | Role on coldfront                         |
+| ---- | ------------------------------------------------ | -------------------- | ----------------------------------------- |
+| A    | WD_BLACK SN8100 4TB (new)                        | M.2_1, CPU PCIe 5.0  | NixOS (LUKS2), daily driver               |
+| B    | 2TB NVMe (ex system76 root drive)                | M.2_2, CPU PCIe 4.0  | Windows 11 (BitLocker), gaming            |
+| S    | Samsung 850 Pro 4TB SATA SSD (ex system76 /data) | SATA 6 Gb/s, chipset | Shared BitLocker NTFS drive for both OSes |
 
-Exact models of B and S are recorded when they are pulled from system76; both
-predate this build. B in M.2_2 uses CPU Gen4 lanes and does not touch GPU
-lanes. S caps at SATA speeds (about 550 MB/s), which is adequate for a bulk
-game library and shared data; latency-sensitive titles install on B.
+Disk B's exact model is recorded when it is pulled from system76; both moved
+drives predate this build. B in M.2_2 uses CPU Gen4 lanes and does not touch
+GPU lanes. S (2.5 in, 3D V-NAND MLC) caps at SATA speeds (about 550 MB/s),
+which is adequate for a bulk game library and shared data; latency-sensitive
+titles install on B.
 
 Slot rule: M.2_3 and M.2_4 stay empty permanently. Populating either drops
 the GPU slot from PCIe 5.0 x16 to x8.
