@@ -195,6 +195,29 @@
         "type": "github"
       }
     },
+    "codex-desktop-linux": {
+      "inputs": {
+        "flake-utils": [
+          "dedupe_flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1784620218,
+        "narHash": "sha256-XldpYvdtXF8ms+2k5XHywUroi3ultvNmx7TcaDz7faI=",
+        "owner": "ilysenko",
+        "repo": "codex-desktop-linux",
+        "rev": "8e8cad33d6d040e3723ddc1c9b434a3aae186a25",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ilysenko",
+        "repo": "codex-desktop-linux",
+        "type": "github"
+      }
+    },
     "dedupe_flake-compat": {
       "locked": {
         "lastModified": 1767039857,
@@ -1380,6 +1403,7 @@
         "cloudflare-go": "cloudflare-go",
         "cloudflare-python": "cloudflare-python",
         "cloudflare-rs": "cloudflare-rs",
+        "codex-desktop-linux": "codex-desktop-linux",
         "dedupe_flake-compat": "dedupe_flake-compat",
         "dedupe_flake-utils": "dedupe_flake-utils",
         "dedupe_nur": "dedupe_nur",

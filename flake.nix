@@ -137,6 +137,14 @@
       };
     };
 
+    codex-desktop-linux = {
+      url = "github:ilysenko/codex-desktop-linux";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "dedupe_flake-utils";
+      };
+    };
+
     smart-scrolloff-nvim = {
       flake = false;
       url = "github:tonymajestro/smart-scrolloff.nvim";
