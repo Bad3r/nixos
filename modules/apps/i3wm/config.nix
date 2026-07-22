@@ -175,6 +175,99 @@
         '';
       };
 
+      # Calendar dropdown launcher: toggles gsimplecal (a second click closes
+      # it) and, when calendarAutocloseSeconds > 0, closes it once the pointer
+      # has stayed off the window that long. gsimplecal never takes i3 focus
+      # (mainwindow_skip_taskbar), so under focus-follows-mouse the pointer
+      # leaving the window is the reliable "focus lost" signal. Placement is
+      # handled by gsimplecal itself (config below); this only toggles/watches.
+      calendarDropdownScript = pkgs.writeShellApplication {
+        name = "gsimplecal-dropdown";
+        meta = {
+          description = "Toggle gsimplecal under the i3 bar clock and auto-close it after the pointer leaves";
+          license = lib.licenses.mit;
+          platforms = lib.platforms.linux;
+          mainProgram = "gsimplecal-dropdown";
+        };
+        runtimeInputs = [
+          pkgs.gsimplecal
+          pkgs.i3
+          pkgs.jq
+          pkgs.xdotool
+          pkgs.coreutils
+        ];
+        text = /* bash */ ''
+          set -euo pipefail
+
+          sel='.. | objects | select((.window_properties?.class? // "" | ascii_downcase) == "gsimplecal")'
+          conid() { i3-msg -t get_tree | jq -r "first($sel) | .id // empty"; }
+
+          # Close the calendar once the pointer has stayed off it (plus a small
+          # margin) for delay_ms. Runs detached so the click handler returns at
+          # once and a later toggle click is never blocked.
+          watch_calendar() {
+            local con_id="$1" delay_ms="$2"
+            local poll_ms=200 margin=8 out_ticks=0 ticks_needed
+            local info cur_id wx wy ww wh loc mx my
+            local re='x:([0-9]+) y:([0-9]+)'
+            ticks_needed=$(( (delay_ms + poll_ms - 1) / poll_ms ))
+            while :; do
+              info="$(i3-msg -t get_tree | jq -r "first($sel) | [.id, .rect.x, .rect.y, .rect.width, .rect.height] | @tsv" || true)"
+              [ -n "$info" ] || return 0
+              read -r cur_id wx wy ww wh <<<"$info"
+              [ "$cur_id" = "$con_id" ] || return 0
+
+              loc="$(xdotool getmouselocation 2>/dev/null || true)"
+              mx=""; my=""
+              if [[ "$loc" =~ $re ]]; then
+                mx="''${BASH_REMATCH[1]}"
+                my="''${BASH_REMATCH[2]}"
+              fi
+
+              if [ -n "$mx" ] \
+                 && [ "$mx" -ge "$(( wx - margin ))" ] && [ "$mx" -lt "$(( wx + ww + margin ))" ] \
+                 && [ "$my" -ge "$(( wy - margin ))" ] && [ "$my" -lt "$(( wy + wh + margin ))" ]; then
+                out_ticks=0
+              else
+                out_ticks=$(( out_ticks + 1 ))
+                if [ "$out_ticks" -ge "$ticks_needed" ]; then
+                  i3-msg "[con_id=$con_id] kill" >/dev/null
+                  return 0
+                fi
+              fi
+              sleep 0.2
+            done
+          }
+
+          # Single-instance toggle: a second click closes the calendar.
+          existing="$(conid)"
+          if [ -n "$existing" ]; then
+            i3-msg "[con_id=$existing] kill" >/dev/null
+            exit 0
+          fi
+
+          # gsimplecal self-positions from its config (flush under the clock)
+          # and self-floats via the i3 window rule.
+          gsimplecal &
+
+          con_id=""
+          i=0
+          while [ "$i" -lt 150 ]; do
+            con_id="$(conid)"
+            [ -n "$con_id" ] && break
+            sleep 0.02
+            i=$((i + 1))
+          done
+          [ -n "$con_id" ] || exit 0
+
+          delay_ms=${toString (builtins.floor (config.gui.i3.calendarAutocloseSeconds * 1000))}
+          if [ "$delay_ms" -gt 0 ]; then
+            watch_calendar "$con_id" "$delay_ms" &
+          fi
+          exit 0
+        '';
+      };
+
       # Power profile switcher using the host-selected backend
       powerProfileScript = pkgs.writeShellApplication {
         name = "power-profile-rofi";
@@ -476,16 +569,18 @@
         };
 
         screenWidth = lib.mkOption {
-          description = "Primary screen width in pixels for window positioning calculations.";
+          description = "Primary screen width in pixels for window positioning calculations. Host sets it via NixOS gui.i3.screenWidth.";
           type = lib.types.int;
-          default = 2560;
+          default = lib.attrByPath [ "screenWidth" ] 2560 hostI3Cfg;
+          defaultText = lib.literalExpression "osConfig.gui.i3.screenWidth or 2560";
           example = 1920;
         };
 
         screenHeight = lib.mkOption {
-          description = "Primary screen height in pixels for window positioning calculations.";
+          description = "Primary screen height in pixels for window positioning calculations. Host sets it via NixOS gui.i3.screenHeight.";
           type = lib.types.int;
-          default = 1440;
+          default = lib.attrByPath [ "screenHeight" ] 1440 hostI3Cfg;
+          defaultText = lib.literalExpression "osConfig.gui.i3.screenHeight or 1440";
           example = 1080;
         };
 
@@ -498,11 +593,25 @@
         };
 
         barHeight = lib.mkOption {
-          description = "Status bar height in pixels. Derived from fontSize plus border padding.";
+          description = "Rendered i3bar height in pixels. Host sets it via NixOS gui.i3.barHeight; otherwise derived from fontSize plus border padding (an overestimate of the real bar on some fonts).";
           type = lib.types.int;
-          default = (config.gui.i3.fontSize * 2) + (config.gui.i3.borderWidth * 2);
-          defaultText = lib.literalExpression "(fontSize * 2) + (borderWidth * 2)";
+          default =
+            let
+              hostBarHeight = lib.attrByPath [ "barHeight" ] null hostI3Cfg;
+            in
+            if hostBarHeight != null then
+              hostBarHeight
+            else
+              (config.gui.i3.fontSize * 2) + (config.gui.i3.borderWidth * 2);
+          defaultText = lib.literalExpression "osConfig.gui.i3.barHeight or ((fontSize * 2) + (borderWidth * 2))";
           example = 34;
+        };
+
+        calendarAutocloseSeconds = lib.mkOption {
+          description = "Grace period in seconds before the status-bar calendar dropdown closes after the pointer leaves it. 0 keeps it open until dismissed (Escape, Ctrl+w, or a second click).";
+          type = lib.types.numbers.nonnegative;
+          default = 2.0;
+          example = 3.5;
         };
       };
 
@@ -511,6 +620,8 @@
         gui.i3.commands = lib.mkDefault commandsDefault;
 
         home.packages = [
+          pkgs.gsimplecal
+          calendarDropdownScript
           pkgs.rofimoji
           lockScript
           pkgs.i3-scratchpad-show-or-create
@@ -545,6 +656,25 @@
             executable = true;
             source = "${toggleRaindropScript}/bin/toggle-raindrop";
           };
+
+          # Calendar popup opened by the status-bar clock via
+          # gsimplecal-dropdown (config above). position=mouse spawns it under
+          # the clock; it lands clamped 5px below the screen top, so a yoffset
+          # of barHeight-5 drops it flush to the bar bottom. No i3 move is
+          # involved, so there is no reposition flash. Border is removed in
+          # window-rules.nix; GTK3 theming comes from Stylix. Auto-close after
+          # the pointer leaves is handled by gsimplecal-dropdown, so gsimplecal's
+          # own close_on_unfocus/close_on_mouseleave stay off (they have no
+          # delay and would vanish it instantly under focus-follows-mouse). Also
+          # dismissable with Escape, Ctrl+w, or a second click on the clock.
+          "gsimplecal/config".text = ''
+            close_on_unfocus = 0
+            close_on_mouseleave = 0
+            mark_today = 1
+            show_week_numbers = 1
+            mainwindow_position = mouse
+            mainwindow_yoffset = ${toString (config.gui.i3.barHeight - 5)}
+          '';
         };
 
         xsession = {

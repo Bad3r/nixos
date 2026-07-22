@@ -21,6 +21,11 @@ _: {
       };
 
       gui.i3 = {
+        # This chassis drives a 1920x1080 panel with a 24px i3bar; the shared
+        # 2560x1440 default and the fontSize-derived bar height are wrong here.
+        screenWidth = 1920;
+        screenHeight = 1080;
+        barHeight = 24;
         integrations = {
           xfsettingsd.enable = false;
         };
