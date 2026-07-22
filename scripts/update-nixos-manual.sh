@@ -117,14 +117,16 @@ else
   echo "Non-interactive shell; skipped commit prompt."
 fi
 if [[ $response =~ ^[Yy]$ ]]; then
-  git add "$MANUAL_DIR"
+  git add -A -- "$MANUAL_DIR"
+  # Pathspec-limited commit: pre-staged content outside MANUAL_DIR stays in
+  # the index instead of riding into the manual-refresh commit.
   git commit -m "$(
     cat <<EOF
 docs(nixos-manual): update from nixpkgs@${NIXPKGS_REV_SHORT}
 
 Source: https://github.com/NixOS/nixpkgs/tree/${NIXPKGS_REV}/nixos/doc/manual
 EOF
-  )"
+  )" -- "$MANUAL_DIR"
   echo "✅ Committed"
 else
   echo "⏭️  Skipped commit"
