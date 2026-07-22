@@ -15,9 +15,16 @@ jobs:
   review-with-tracking:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # yamllint disable rule:line-length
+    # Local policy (not from the upstream mirror): trusted authors and dependabot.
     if: >-
       github.event.pull_request.draft == false &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) ||
+        github.event.pull_request.user.login == 'dependabot[bot]'
+      )
+    # yamllint enable rule:line-length
     permissions:
       contents: read
       pull-requests: write
