@@ -53,7 +53,8 @@ let
           };
 
           systemd.services.usbguard = {
-            after = lib.mkIf (installSecretsDeps != [ ]) (lib.mkAfter installSecretsDeps);
+            after = installSecretsDeps;
+            requires = installSecretsDeps;
             preStart = lib.mkAfter ''
               install -D -m 0600 /dev/null ${runtimeRuleFile}
               cat ${baseRulesFile} > ${runtimeRuleFile}
