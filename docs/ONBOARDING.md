@@ -16,7 +16,7 @@ theming, and a custom `build.sh` validate-and-deploy pipeline.
 | -------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **Languages**  | Nix (primary), Python, Shell, plus JSON / YAML / TOML / SQL / Markdown data                                          |
 | **Frameworks** | flake-parts, import-tree, home-manager, sops-nix, stylix, treefmt-nix, git-hooks.nix, nixos-hardware, GitHub Actions |
-| **Hosts**      | Configured: `system76`, `tpnix`; planned: `coldfront`                                                                |
+| **Hosts**      | Configured: `system76`, `tpnix`; planned: `songbird`                                                                 |
 
 Start with `docs/architecture/README.md` for the 01-06 reading order. This guide
 is the map; that doc set is the detail.

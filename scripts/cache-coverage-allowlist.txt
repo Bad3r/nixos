@@ -23,7 +23,6 @@ zap* # modules/apps/zap.nix
 
 # Deliberate feature or environment overrides.
 p7zip* # modules/apps/p7zip-rar.nix enables the unfree RAR codec
-pass-secret-service* # modules/password-managers/pass-secret-service.nix asyncio loop fix
 system76-power* # modules/system76/system76-power-overlay.nix patch
 nixos-icons* # stylix.targets.nixos-icons recolors the logo source (leaf package)
 nixos-option* # rebuilt against the host nix package (Lix, modules/base/nix-package.nix)

@@ -53,7 +53,7 @@ Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which cont
 
 Every host follows the same shape: NixOS fragments under `modules/<host>/` extend `configurations.nixos.<host>.module`, while `policy.nix` contributes per-host registry data. Cross-host concerns (imports skeleton, boot, base services, networking base, firewall, fonts, duplicati wiring, sudo, dbus, pipewire, hostname, sops, etc.) live under `modules/hosts/common/`; a host directory carries only hardware truth, chassis-specific modules, and small value files. Notable and divergent files are listed below for the hosts currently in the repo. To audit the current set of files for any host, run `ls modules/<host>/`.
 
-The planned `coldfront` managed-workstation footprint is `hardware-config.nix`,
+The planned `songbird` managed-workstation footprint is `hardware-config.nix`,
 `host-id.nix`, `state-version.nix`, a GPU module, `support.nix`, and a
 `policy.nix` carrying the registry values the common layer consumes. Every
 host additionally needs an explicit `shareCommon` entry in

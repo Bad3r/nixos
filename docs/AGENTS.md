@@ -9,7 +9,7 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 - `nixos-manual/`: mirrored upstream NixOS manual sources.
 - `technical-writing/`: style guidance for documentation structure,
   examples, review, and lifecycle.
-- Host and domain folders (for example `cloudflare/`, `coldfront/`,
+- Host and domain folders (for example `cloudflare/`, `songbird/`,
   `duplicati/`, `mpv/`, `r2-cloud/`, `sops/`, `system76/`, `usbguard/`):
   host-specific and product-specific docs.
 
