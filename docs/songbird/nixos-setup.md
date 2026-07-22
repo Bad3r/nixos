@@ -30,6 +30,7 @@ disk A (the SN8100).
 | 15  | `system.stateVersion = "26.05"` (current stable at install time; never bumped afterwards).                                                                                                                          |
 | 16  | Steam stays enabled on the NixOS side too (`programs.steam.extended.enable`), matching system76; Proton covers casual Linux-side gaming.                                                                            |
 | 17  | Windows hibernation and Fast Startup are disabled (`powercfg /h off`); NixOS keeps hibernation. Cross-OS discipline rules in Operating Rules.                                                                       |
+| 18  | Disk A first gets a disposable Windows install (Phase N0) to validate firmware and hardware with vendor tools, then N1 wipes A for the final NixOS install. Final disk roles are unchanged.                         |
 
 ## Disk Layout
 
@@ -57,7 +58,7 @@ daily. Separate disks also isolate the boot chains completely.
 ## Firmware (UEFI) Settings
 
 Set once during Phase 6 of the assembly checklist (BIOS 3202 is already
-flashed in Phase 1):
+flashed in Phase 1), then exercised under the temporary Windows in Phase N0:
 
 | Setting                       | Value                       | Why                                                              |
 | ----------------------------- | --------------------------- | ---------------------------------------------------------------- |
@@ -93,10 +94,56 @@ already covered by the shared baseline and needs no per-host code.
 
 Runs inside the assembly flow of the build's
 [assembly-checklist.md](https://github.com/Bad3r/project-songbird/blob/main/assembly-checklist.md)
-(OS install is its Phase 6 step). Phases N1-N2 need only disk A; N3-N5 wait
-for the drives pulled from system76.
+(OS install is its Phase 6 step). Phases N0-N2 need only disk A; N3-N5 wait
+for the drives pulled from system76. Phase N0 is a disposable Windows install
+for firmware and hardware validation; disk A is wiped for the final NixOS
+install in N1.
 
-### Phase N1: NixOS on disk A
+### Phase N0: Temporary Windows on disk A for firmware and hardware validation
+
+A disposable Windows 11 install on disk A validates firmware settings and the
+hardware with mature vendor tools, and applies any Windows-only firmware
+updates, all inside the components' return windows. At this point only disk A is
+present (B and S are still in system76), so the Windows installer cannot reach
+another disk. Nothing here is preserved: Phase N1 wipes disk A.
+
+1. Confirm the assembly-checklist Phase 6 firmware settings are applied (Secure
+   Boot off, Intel PTT on, Above 4G Decoding + ReBAR on, VT-x and VT-d on, XMP
+   at the speed the Memtest ladder passed, Fast Boot off). Set the installer USB
+   first in the boot order. If the Windows 11 installer insists on Secure Boot,
+   enable it for N0 only and return it to off before N1.
+
+2. Install Windows 11 24H2+ to disk A from the installer USB. Let Windows create
+   its own layout; the disk is reused wholesale by N1, so the partitioning here
+   does not matter.
+
+3. Drivers and firmware: install the Intel chipset, NIC, and NVIDIA GPU drivers,
+   then apply Windows-only firmware updates (the SN8100 on disk A via WD
+   Dashboard, plus any board or GPU vendor utilities). BIOS 3202 is already
+   flashed by FlashBack in assembly Phase 1.
+
+4. Hardware validation (this is the assembly-checklist Phase 7 load work; record
+   the results in that log):
+
+   - Memory: re-confirm the DDR5-8400 (or laddered) profile is stable under a
+     Windows stress tool.
+   - CPU: 30-minute all-core stress; package temperature in range and no
+     throttling (about 245 W sustained).
+   - GPU: 30-minute sustained 3D load; RTX 5080 clocks and thermals in range,
+     the 0 dB idle fan stop works, no artifacts.
+   - SSD: sustained-write and health check on disk A under the board heatsink;
+     no thermal throttle (100 C firmware limit).
+   - I/O: displays on the card, USB4 and Thunderbolt, both NICs, Wi-Fi, and
+     Bluetooth each enumerate.
+
+5. Decision gate: if any component fails, use its return window before going
+   further. Once the platform is validated, proceed to N1; the temporary Windows
+   is discarded when disk A is repartitioned.
+
+### Phase N1: Final NixOS installation on disk A
+
+Disk A's temporary Windows from Phase N0 is discarded here: the partitioning in
+step 2 zaps the whole disk and gives A its final NixOS layout.
 
 1. Boot the NixOS 26.05 installer USB (prepared in assembly Phase 0). Wired
    network on either onboard NIC works out of the box.
@@ -159,7 +206,7 @@ for the drives pulled from system76.
    The owner account ships with an initial password hash from
    `modules/meta/owner.nix`; change it at first login.
 
-### Phase N2: First boot and fleet integration
+### Phase N2: Fleet integration
 
 1. Log in and change the owner password (`passwd`). Clone the fleet checkout
    into the primary user's home and resume the branch pushed in Phase N1;
@@ -191,7 +238,7 @@ for the drives pulled from system76.
 6. Fill remaining Open Items (interface names, Wi-Fi module vendor), run the
    validation ladder, and open the PR.
 
-### Phase N3: Data migration from system76
+### Phase N3: Migration from preserved B and S
 
 Prerequisite: system76 has been moved onto its replacement drives (its own
 task, outside this plan), so B and S are free to pull.
@@ -211,7 +258,7 @@ task, outside this plan), so B and S are free to pull.
 5. Leave B and S untouched until Phase N4/N5 confirm nothing was missed; the
    originals are the rollback until then.
 
-### Phase N4: Windows 11 on disk B
+### Phase N4: Final Windows installation on disk B
 
 1. Protect A's boot chain: disable the M.2_1 slot in UEFI (Advanced >
    Onboard Devices) if the firmware offers it; otherwise remove disk A
@@ -233,7 +280,7 @@ task, outside this plan), so B and S are free to pull.
    second.
 5. Verify both OSes boot cleanly from the F8 firmware boot menu.
 
-### Phase N5: Shared drive S
+### Phase N5: Shared BitLocker conversion of S
 
 1. In Windows: wipe S (contents already migrated), create a single GPT NTFS
    volume labeled `shared`, enable BitLocker with a password protector plus
@@ -514,7 +561,8 @@ Plus host-specific checks after first boot:
 - Hibernate round-trip (`systemctl hibernate`) after confirming
   `boot.resumeDevice`; NVIDIA VRAM survives (decision 13 kernel param).
 - Assembly checklist Phase 7 load validation (CPU 30 min, GPU 30 min, SSD
-  sustained write) fills the hardware validation log.
+  sustained write) runs under the temporary Windows in Phase N0 and fills the
+  hardware validation log; re-spot-check on NixOS after N1 if wanted.
 
 ## Operating Rules (cross-OS)
 
