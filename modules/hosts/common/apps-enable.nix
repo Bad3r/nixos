@@ -343,6 +343,7 @@ let
       pnpm.extended.enable = lib.mkOverride 1100 true;
       "poppler-utils".extended.enable = lib.mkOverride 1100 true;
       potrace.extended.enable = lib.mkOverride 1100 true;
+      powershell.extended.enable = lib.mkOverride 1100 true;
       "pre-commit".extended.enable = lib.mkOverride 1100 true;
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 true;
       procps.extended.enable = lib.mkOverride 1100 true;
