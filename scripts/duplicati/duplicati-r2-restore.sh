@@ -22,8 +22,16 @@ Options:
                            per-target SQLite. No restore, no network I/O.
   --restore-path <dir>     Output directory.
                            Default: /tmp/duplicati-restore/<slug>-<utc-ts>
-  --chown <user:group>     Recursive chown after restore. Default: vx:users.
+                           A pre-existing non-empty directory is refused
+                           unless --force is given.
+  --chown <user:group>     Chown applied to the entries this restore wrote
+                           (files restored and directories created), never to
+                           pre-existing content. Default: vx:users.
                            Pass 'none' to skip the chown step.
+  --force                  Allow restoring into a pre-existing non-empty
+                           --restore-path. Restored entries can overwrite
+                           files there (per --overwrite); chown/chmod stays
+                           scoped to what the restore wrote.
   --version <n>            Snapshot version (0=latest, 1=second-latest, ...).
                            Mutually exclusive with --time.
   --time <iso>             Snapshot time as ISO-8601. Selects the most recent
@@ -40,7 +48,8 @@ Environment variables:
 
 Exit codes:
   0    success (or dry-run completed)
-  64   usage error (bad arguments, mutually exclusive options, bad regex)
+  64   usage error (bad arguments, mutually exclusive options, bad regex,
+       pre-existing non-empty --restore-path without --force)
   66   manifest, env file, or db unreadable; target missing or disabled
   77   not running as root
   78   missing credentials in env file
@@ -60,10 +69,13 @@ Examples:
   # be fetched, and how many encrypted bytes that ceiling represents.
   sudo ./duplicati-r2-restore.sh --dry-run bankdata '.*\.torrent$'
 
-  # Restore .torrent files into /data/torrent, chown to vx:users.
+  # Restore .torrent files into the populated /data/torrent tree. --force
+  # acknowledges the pre-existing content; chown/chmod touches only what the
+  # restore writes.
   sudo ./duplicati-r2-restore.sh \
     --restore-path /data/torrent \
     --chown vx:users \
+    --force \
     bankdata '.*\.torrent$'
 
   # Restore from a specific snapshot version.
@@ -94,6 +106,9 @@ require_cmd numfmt
 require_cmd hostname
 require_cmd date
 require_cmd mktemp
+require_cmd sort
+require_cmd comm
+require_cmd xargs
 
 human_bytes() {
   local n=${1:-0}
@@ -101,6 +116,7 @@ human_bytes() {
 }
 
 dry_run=false
+force=false
 restore_path=""
 chown_spec="vx:users"
 version_arg=""
@@ -116,6 +132,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --dry-run)
     dry_run=true
+    shift
+    ;;
+  --force)
+    force=true
     shift
     ;;
   --restore-path)
@@ -441,8 +461,10 @@ if "$dry_run"; then
   fi
 
   # Run impact join via a fresh sqlite3 invocation that ATTACHes the live db
-  # read-only and imports the matching IDs into a temp table.
-  read -r plaintext_bytes dblocks encrypted_bytes orphans <<<"$(
+  # read-only and imports the matching IDs into a temp table. Capture output
+  # and status separately: a here-string read would succeed on the empty line
+  # a failed sqlite3 leaves behind and report garbage counts as a clean run.
+  if ! impact_output=$(
     sqlite3 -separator ' ' -noheader <<SQL
 ATTACH DATABASE '${src_uri}' AS src;
 CREATE TEMP TABLE matching_ids (ID INTEGER PRIMARY KEY);
@@ -466,7 +488,18 @@ SELECT
   COALESCE((SELECT SUM(Size) FROM matching_blocks), 0),
   (SELECT COUNT(*) FROM matching_blocks WHERE State = 'Uploaded');
 SQL
-  )"
+  ); then
+    echo "impact analysis query failed (sqlite3 exit $?); db locked, corrupt, or schema drift?" >&2
+    exit 66
+  fi
+
+  read -r plaintext_bytes dblocks encrypted_bytes orphans <<<"$impact_output"
+
+  if [[ ! ${plaintext_bytes:-} =~ ^[0-9]+$ || ! ${dblocks:-} =~ ^[0-9]+$ ||
+    ! ${encrypted_bytes:-} =~ ^[0-9]+$ || ! ${orphans:-} =~ ^[0-9]+$ ]]; then
+    echo "impact analysis returned non-numeric output: '${impact_output}'" >&2
+    exit 66
+  fi
 
   printf 'Files matched  : %s\n' "$match_count"
   printf 'Plaintext bytes: %s (%s)\n' "$plaintext_bytes" "$(human_bytes "$plaintext_bytes")"
@@ -493,7 +526,41 @@ if [[ ! -r $db_path ]]; then
   echo
 fi
 
+restore_path_preexisting=false
+if [[ -e $restore_path ]]; then
+  if [[ ! -d $restore_path ]]; then
+    echo "--restore-path exists and is not a directory: $restore_path" >&2
+    exit 64
+  fi
+  restore_path_preexisting=true
+  if [[ -n $(find "$restore_path" -mindepth 1 -print -quit) && $force != true ]]; then
+    echo "refusing: --restore-path '$restore_path' already exists and is not empty." >&2
+    echo "  A restore into it can overwrite files (per --overwrite) and the post-restore" >&2
+    echo "  ownership/permission pass would mix with pre-existing content." >&2
+    echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
+    exit 64
+  fi
+fi
+
 mkdir -p "$restore_path"
+
+# Marker plus pre-existing-directory inventory scope the post-restore chown
+# and chmod to entries this restore writes. Restored files get a fresh ctime
+# (newer than the marker's mtime); duplicati also bumps the ctime of
+# pre-existing directories it writes into, so those are excluded through the
+# inventory instead of being re-owned as a side effect.
+scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX)
+trap 'rm -rf "$scope_dir"' EXIT
+restore_marker="${scope_dir}/marker"
+pre_dirs="${scope_dir}/pre-dirs"
+: >"$restore_marker"
+find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"
+
+restored_entries() {
+  find "$restore_path" -mindepth 1 -type f -cnewer "$restore_marker" -print0
+  find "$restore_path" -mindepth 1 -type d -cnewer "$restore_marker" -print0 |
+    LC_ALL=C sort -z | comm -z -23 - "$pre_dirs"
+}
 
 declare -a restore_args=(
   "$dest"
@@ -533,8 +600,11 @@ fi
 
 if [[ $chown_spec != "none" ]]; then
   echo
-  echo "Applying chown ${chown_spec} to ${restore_path}..."
-  chown -R "$chown_spec" "$restore_path"
+  echo "Applying chown ${chown_spec} to restored entries under ${restore_path}..."
+  restored_entries | xargs -0 -r chown "$chown_spec"
+  if [[ $restore_path_preexisting == false ]]; then
+    chown "$chown_spec" "$restore_path"
+  fi
 fi
 
 # Restore drops the owner write bit on dirs and files because duplicati's
@@ -542,13 +612,17 @@ fi
 # (FileRestoreDestinationProvider.cs), which on Linux translates to clearing
 # the write bits. --restore-permissions=false does NOT suppress this; it only
 # gates the unix-mode/uid/gid path. Re-grant owner rwX and strip group/other
-# so the tree is usable post-chown without widening exposure.
-echo "Resetting permissions to u+rwX,go-rwx under ${restore_path}..."
-find "$restore_path" -mindepth 1 -exec chmod u+rwX,go-rwx {} +
+# so the tree is usable post-chown without widening exposure. Scoped to the
+# restored entries so pre-existing content keeps its modes.
+echo "Resetting permissions to u+rwX,go-rwx on restored entries under ${restore_path}..."
+restored_entries | xargs -0 -r chmod u+rwX,go-rwx
+if [[ $restore_path_preexisting == false ]]; then
+  chmod u+rwX,go-rwx "$restore_path"
+fi
 
 echo
 echo "Restored files under ${restore_path}:"
-find "$restore_path" -type f -printf '  %p (%s bytes)\n' 2>/dev/null | sort || true
+find "$restore_path" -type f -cnewer "$restore_marker" -printf '  %p (%s bytes)\n' 2>/dev/null | sort || true
 
 echo
 printf 'Done in %ss.\n' "$elapsed"
