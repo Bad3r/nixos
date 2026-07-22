@@ -202,8 +202,12 @@ in
             Use this to switch off claude.ai account connectors (the
             `claude.ai <Name>` entries in `/mcp`) that cannot be removed from Nix
             any other way, since the logged-in account provisions them rather
-            than local config. Remove a name to re-enable that server on the next
-            Home Manager switch. `serverName` matching needs Claude Code
+            than local config. Activation unions this list with the
+            `deniedMcpServers` already in `~/.claude/settings.json`, so a deny
+            added out of band survives a switch and is never silently dropped;
+            because of that union, a name a previous switch wrote stays denied
+            until it is removed from `~/.claude/settings.json` too, not only from
+            this list. `serverName` matching needs Claude Code
             `>= 2.1.182` and compares the exact display name, so a connector
             renamed on claude.ai (or suffixed ` (N)` after a name collision) must
             be updated here too. The account stays the source of truth:
