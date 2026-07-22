@@ -16,7 +16,7 @@ jobs:
       LIST_FILE: modules/browsers/_librewolf-ubo-default-lists.json
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Update generated list
         id: update
@@ -44,7 +44,7 @@ jobs:
       - name: Create Pull Request
         id: cpr
         if: steps.update.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore(ublock): update LibreWolf filter lists"
