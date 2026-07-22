@@ -83,6 +83,14 @@
                 exec act -W .github/workflows -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04 -l
               '';
             };
+            pruneOldStashes = pkgs.writeShellApplication {
+              name = "prune-old-stashes";
+              runtimeInputs = [
+                pkgs.git
+                pkgs.coreutils
+              ];
+              text = builtins.readFile ../scripts/prune-old-stashes.sh;
+            };
           in
           lib.unique (
             (with pkgs; [
@@ -119,6 +127,7 @@
               ssh-to-pgp
               ghActionsRun
               ghActionsList
+              pruneOldStashes
               config.packages.generation-manager
             ])
             ++ config.pre-commit.settings.enabledPackages
