@@ -195,6 +195,29 @@
         "type": "github"
       }
     },
+    "codex-desktop-linux": {
+      "inputs": {
+        "flake-utils": [
+          "dedupe_flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1784659912,
+        "narHash": "sha256-OhdIvgX/LjGvCMbZ5ZbZYY9+akQbbbLKLm0dV+S2vgE=",
+        "owner": "ilysenko",
+        "repo": "codex-desktop-linux",
+        "rev": "db60ae2c31aad4c2efdc3767136918f705b66423",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ilysenko",
+        "repo": "codex-desktop-linux",
+        "type": "github"
+      }
+    },
     "dedupe_flake-compat": {
       "locked": {
         "lastModified": 1767039857,
@@ -240,11 +263,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784611043,
-        "narHash": "sha256-Krm032H9FDDwebwR2u1oR6MNvLUIyxxQ3HiDLwwqFyo=",
+        "lastModified": 1784685284,
+        "narHash": "sha256-jlRacrV6wlql5OXa+M3tjPGySK1wLxSdei8sy4lhR/M=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "a82ae19b722f81733932134031f1b73adb4b28f5",
+        "rev": "e8c7948373ce13e34a2fc7ff7a2a48734c7d25e7",
         "type": "github"
       },
       "original": {
@@ -310,11 +333,11 @@
         "nixpkgs-stable": "nixpkgs-stable"
       },
       "locked": {
-        "lastModified": 1784604265,
-        "narHash": "sha256-aoEW/wefNqDcJPnuQ1g7jBQJCcb6b9C2ErHl0nfNR1g=",
+        "lastModified": 1784657203,
+        "narHash": "sha256-wqlVpI9c6O/z748wkLTIHnrTTBqULBbYGQkf6EewVf0=",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "c985bf858cce9beedf0e3cf47d36800e4a2043e0",
+        "rev": "2b417ffdabb717e42bfec7d579e6544b43b7915e",
         "type": "github"
       },
       "original": {
@@ -333,11 +356,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784544802,
-        "narHash": "sha256-zN1RO2vEsHe0Tf4+wfqenSqcs5/HHHY0CY66dfiVh6g=",
+        "lastModified": 1784629638,
+        "narHash": "sha256-0cZdEjMfFwSPRnf6+O8CQ+2YZ2JGiOC/Hxo+yU8NIAs=",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "9faf91af00053e3df18256c9db626fc2ba4507aa",
+        "rev": "6e45766c914b6651067b46b3062bc884d7b758d8",
         "type": "github"
       },
       "original": {
@@ -843,11 +866,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784612268,
-        "narHash": "sha256-lyelZvl2PdjZtqjikeoI6cQMjpugnHCrNYRLLq5lWzA=",
+        "lastModified": 1784685546,
+        "narHash": "sha256-44zTEDrrv2+Ko0ZE4gWAjLuofnhyef2EL8iBHu85oeE=",
         "owner": "Bad3r",
         "repo": "llm-agents.nix",
-        "rev": "f2f79fb64187b83730e76fdf798c78a11560c419",
+        "rev": "7d78a238cb332b4abef1ab1bb9b46ec692a36278",
         "type": "github"
       },
       "original": {
@@ -958,11 +981,11 @@
         "systems": "systems_3"
       },
       "locked": {
-        "lastModified": 1784546187,
-        "narHash": "sha256-ZrOGP6a2ljMRuzkpQ0W28mhNS1sZardab0bTsK+UAJI=",
+        "lastModified": 1784630071,
+        "narHash": "sha256-ibe8cF5RmA5NUzWRuGro94033mcFNxY/7ATdmVcFtAA=",
         "owner": "marienz",
         "repo": "nix-doom-emacs-unstraightened",
-        "rev": "03fadc26ccb5113b4eadbd70839044500f3554f3",
+        "rev": "2ef707c02cef1f5e16b892bc44e2c73afaad1884",
         "type": "github"
       },
       "original": {
@@ -1343,11 +1366,11 @@
         "wrangler": "wrangler"
       },
       "locked": {
-        "lastModified": 1783721472,
-        "narHash": "sha256-+GQfoWgFHTyLs8kwTMbp80f6ye5DKfniAyBvF/9nFuc=",
+        "lastModified": 1784655526,
+        "narHash": "sha256-fhA5qsiYcEtAneoURnNCNXNug5bUg3jjMkk0XTIR/xg=",
         "owner": "Bad3r",
         "repo": "nix-R2-CloudFlare-Flake",
-        "rev": "7a0470aaa3b903b1de228a447337e4d1a6d60fac",
+        "rev": "edb58e89b5794dd2b99319d2e4079c27eca4baa2",
         "type": "github"
       },
       "original": {
@@ -1380,6 +1403,7 @@
         "cloudflare-go": "cloudflare-go",
         "cloudflare-python": "cloudflare-python",
         "cloudflare-rs": "cloudflare-rs",
+        "codex-desktop-linux": "codex-desktop-linux",
         "dedupe_flake-compat": "dedupe_flake-compat",
         "dedupe_flake-utils": "dedupe_flake-utils",
         "dedupe_nur": "dedupe_nur",

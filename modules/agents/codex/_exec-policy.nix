@@ -22,7 +22,7 @@ let
 
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
 
-  # Route bare `rm` through the rip-backed shim (PATH prepend plus a top-level
+  # Route bare `rm` through the trash-cli-backed shim (PATH prepend plus a top-level
   # rm() function) so `find -exec rm`, `xargs rm`, and nested shells inside a
   # Codex session trash deletions instead of running coreutils rm. Mirrors the
   # claude-code wrapper: the bwrap workspace-write sandbox bounds the blast
@@ -428,7 +428,7 @@ let
         "# so forms like `git -C repo reset --hard`, `git checkout -- path`, or"
         "# `git push origin main --force` do not hit these prompt rules."
         ""
-        "# Bare rm resolves to a local shim that runs rip. Common absolute rm paths are forbidden."
+        "# Bare rm resolves to a local shim that runs trash-cli. Common absolute rm paths are forbidden."
         (execPolicyHostExecutable {
           name = "rm";
           paths = [ "${rmShim}/bin/rm" ];
@@ -436,7 +436,7 @@ let
         (execPolicyRule {
           pattern = [ "rm" ];
           decision = "allow";
-          justification = "Bare `rm` is rewritten to the local rip-backed shim.";
+          justification = "Bare `rm` is rewritten to the local trash-cli-backed shim.";
         })
         ""
         "# Auto-allowed command prefixes"

@@ -358,6 +358,7 @@ let
         install_url = ublockOriginInstallUrl;
         private_browsing = true;
       };
+      "${onePassword}".private_browsing = true;
     }
     # The firefoxpwa management extension is only useful when the host enables
     # firefoxpwa: the native connector and `firefoxpwa` CLI are gated on the same

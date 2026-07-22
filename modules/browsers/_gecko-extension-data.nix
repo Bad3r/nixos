@@ -115,6 +115,7 @@ let
       "${onePassword}" = {
         installation_mode = "force_installed";
         install_url = mkAmoInstallUrl onePassword;
+        private_browsing = true;
       };
       "${tridactyl}" = mkNormalInstalledPolicy tridactyl;
       "${tabReloader}" = mkNormalInstalledPolicy tabReloader;

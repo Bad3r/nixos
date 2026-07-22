@@ -2,9 +2,20 @@
 # Defines workspace assignments and per-window commands
 {
   flake.homeManagerModules.apps.i3-config =
-    { config, lib, ... }:
+    {
+      config,
+      lib,
+      osConfig ? { },
+      ...
+    }:
     let
       cfg = config.gui.i3;
+      claudeDesktopEnabled = lib.attrByPath [
+        "programs"
+        "claude-desktop"
+        "extended"
+        "enable"
+      ] false osConfig;
 
       # Quarter-screen geometry calculations (all derived from config options)
       # Width:  screenWidth/2 - borderWidth*2  (gap on both sides of center split)
@@ -111,7 +122,11 @@
             criteria.all = true;
             command = ''border pixel ${toString cfg.borderWidth}, title_format "<b>%title</b>", title_window_icon padding 3px'';
           }
-        ];
+        ]
+        ++ lib.optional claudeDesktopEnabled {
+          criteria.class = "(?i)^claude$";
+          command = "border none";
+        };
       };
     };
 }
