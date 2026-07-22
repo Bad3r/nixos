@@ -6,11 +6,11 @@ jobs:
   flake-lock-health:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Check Nixpkgs lock health
-        uses: DeterminateSystems/flake-checker-action@v12
+        uses: DeterminateSystems/flake-checker-action@v13
         with:
           send-statistics: false
           fail-mode: true
@@ -23,7 +23,7 @@ jobs:
   check-compliance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Install Lix
@@ -77,7 +77,7 @@ jobs:
   format-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Install Lix
@@ -96,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     # No Nix here: every step is plain grep/awk/find over the checkout.
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Validate namespaces

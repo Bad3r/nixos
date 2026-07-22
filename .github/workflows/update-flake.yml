@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -75,7 +75,7 @@ jobs:
           fi
 
       - name: Check Nixpkgs lock health
-        uses: DeterminateSystems/flake-checker-action@v12
+        uses: DeterminateSystems/flake-checker-action@v13
         with:
           send-statistics: false
           fail-mode: true
@@ -164,7 +164,7 @@ jobs:
       - name: Create Pull Request
         id: cpr
         if: steps.update.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore(flake.lock): automated daily update"
