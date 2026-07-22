@@ -72,6 +72,7 @@ in
       '. as $existing
       | $nixSettings[0] as $nix
       | ($existing * $nix)
+      | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
       | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
       | .enabledPlugins[$plugin] = $greptileEnabled
       | .env = ((($existing.env // {}) + ($nix.env // {})) | del(.GREPTILE_API_KEY))' \

@@ -143,12 +143,13 @@ in
         extraPlugins = lib.mkOption {
           type = lib.types.attrsOf lib.types.bool;
           default = {
-            "frontend-design@claude-plugins-official" = true;
             "chrome-devtools-mcp@chrome-devtools-plugins" = true;
             "code-review@claude-plugins-official" = true;
-            "pr-review-toolkit@claude-plugins-official" = true;
+            "superpowers@claude-plugins-official" = true;
             # Registered but disabled: keeps the key visible in settings.json so
             # toggling back on is a one-line Nix change without a reinstall.
+            "frontend-design@claude-plugins-official" = false;
+            "pr-review-toolkit@claude-plugins-official" = false;
             "claude-code-setup@claude-plugins-official" = false;
             "greptile@claude-plugins-official" = false;
           };
@@ -172,6 +173,45 @@ in
             effect. LSP plugin keys (those that would collide with
             `lspPlugins.<key>@claude-plugins-official`) are rejected by
             assertion to avoid silently masking the LSP-managed enable state.
+          '';
+        };
+
+        deniedMcpServers = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [
+            "claude.ai Cloudflare Developer Platform"
+            "claude.ai Gmail"
+            "claude.ai Google Calendar"
+            "claude.ai Google Drive"
+            "claude.ai JobDataLake"
+            "claude.ai Jobs and Careers"
+            "claude.ai Todoist"
+          ];
+          example = lib.literalExpression ''
+            [
+              "claude.ai Todoist"
+              "some-stdio-server"
+            ]
+          '';
+          description = ''
+            Display names of MCP servers to block for Claude Code, rendered into
+            `~/.claude/settings.json` as `deniedMcpServers` entries of the form
+            `{ serverName = <name>; }`. The denylist merges across every settings
+            scope and always wins, so a listed server never loads its tools.
+
+            Use this to switch off claude.ai account connectors (the
+            `claude.ai <Name>` entries in `/mcp`) that cannot be removed from Nix
+            any other way, since the logged-in account provisions them rather
+            than local config. Activation unions this list with the
+            `deniedMcpServers` already in `~/.claude/settings.json`, so a deny
+            added out of band survives a switch and is never silently dropped;
+            because of that union, a name a previous switch wrote stays denied
+            until it is removed from `~/.claude/settings.json` too, not only from
+            this list. `serverName` matching needs Claude Code
+            `>= 2.1.182` and compares the exact display name, so a connector
+            renamed on claude.ai (or suffixed ` (N)` after a name collision) must
+            be updated here too. The account stays the source of truth:
+            disconnect a connector at claude.ai to stop it everywhere.
           '';
         };
       };
