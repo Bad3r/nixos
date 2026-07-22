@@ -15,6 +15,7 @@ import argparse
 import io
 import os
 import re
+import stat
 import sys
 import tempfile
 from datetime import date
@@ -306,7 +307,9 @@ def write_catalog(path: Path, catalog: CommentedMap, yaml: YAML) -> None:
         temp_path = Path(tmp.name)
         yaml.dump(catalog, tmp)
     if mode is not None:
-        os.chmod(temp_path, mode)
+        # Clamp to owner-only: this writes decrypted catalog content, and a
+        # pre-existing 0644 from an ad-hoc `sops -d >` must not be preserved.
+        os.chmod(temp_path, stat.S_IMODE(mode) & 0o700)
     os.replace(temp_path, path)
 
 
