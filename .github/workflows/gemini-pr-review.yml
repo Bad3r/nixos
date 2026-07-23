@@ -4,7 +4,7 @@ name: Gemini PR Review
 
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review]
+    types: [opened, synchronize, ready_for_review, reopened]
 
 concurrency:
   group: gemini-pr-review-${{ github.event.pull_request.number }}
