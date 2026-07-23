@@ -1,7 +1,7 @@
 [tool.ruff]
 line-length = 100
 indent-width = 4
-target-version = "py313"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -49,7 +49,7 @@ indent-style = "space"
 
 [tool.pyright]
 typeCheckingMode = "strict"
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 pythonPlatform = "Linux"
 include = ["packages", "scripts"]
 exclude = ["packages/duplicati-r2-tools", "scripts/url-catalog-add.py", "scripts/usbguard-ensure-allow.py"]

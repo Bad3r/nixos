@@ -17,7 +17,7 @@
 
   Example Usage:
     * `node app.js` -- Run a Node.js server or script entrypoint.
-    * `npm init -y {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} npm install express` -- Initialize a project and add dependencies.
+    * `npm init -y && npm install express` -- Initialize a project and add dependencies.
     * `npx tsc` -- Execute TypeScript compiler via npx using the Node 22 toolchain.
 */
 _:

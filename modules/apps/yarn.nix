@@ -17,7 +17,7 @@
     yarn workspaces run <script>: Run commands across all workspaces.
 
   Example Usage:
-    * `yarn init -y {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} yarn add react` -- Bootstrap a project and add React dependency.
+    * `yarn init -y && yarn add react` -- Bootstrap a project and add React dependency.
     * `yarn install --frozen-lockfile` -- Install dependencies exactly as specified in the lockfile.
     * `yarn workspaces run test` -- Run the `test` script across all monorepo workspaces.
 */
