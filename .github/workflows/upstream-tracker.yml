@@ -26,6 +26,6 @@ jobs:
       UPSTREAM_TRACKER_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
       ISSUE_NUMBER: ${{ inputs.issue }}
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v7
       - name: Track upstream state
         run: .github/scripts/upstream-tracker.sh "${ISSUE_NUMBER:-}"
