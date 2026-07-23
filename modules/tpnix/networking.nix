@@ -9,6 +9,11 @@ let
   signalxSecretExists = builtins.pathExists signalxSecretFile;
   signalxSecretName = "tpnix/networking/signalx-hosts";
   signalxSecretPath = "/run/secrets/${signalxSecretName}";
+  # NetworkManager spawns dnsmasq without --user (nm-dns-dnsmasq.c), so the
+  # privilege-drop identity comes from dnsmasq config. Pinning it here makes
+  # the secret's group grant deterministic instead of relying on dnsmasq's
+  # compiled-in nobody/dip defaults.
+  dnsmasqRuntimeUser = "nm-dnsmasq";
   inherit (config.flake.lib.nixos.hosts.tpnix) sopsRuntimeReady;
   inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   signalxDnsReady = sopsRuntimeReady && signalxSecretExists;
@@ -25,10 +30,19 @@ in
       config = lib.mkMerge [
         (lib.mkIf signalxDnsReady {
           environment.etc."NetworkManager/dnsmasq.d/tpnix-signalx.conf".text = ''
+            user=${dnsmasqRuntimeUser}
+            group=${dnsmasqRuntimeUser}
             addn-hosts=${signalxSecretPath}
           '';
 
           networking.networkmanager.dns = "dnsmasq";
+
+          users.groups.${dnsmasqRuntimeUser} = { };
+          users.users.${dnsmasqRuntimeUser} = {
+            isSystemUser = true;
+            group = dnsmasqRuntimeUser;
+            description = "NetworkManager dnsmasq runtime user";
+          };
 
           # services.resolved force-sets networking.networkmanager.dns =
           # "systemd-resolved", which conflicts with dnsmasq mode above.
@@ -40,8 +54,8 @@ in
             key = "signalx_hosts";
             path = signalxSecretPath;
             owner = "root";
-            group = "root";
-            mode = "0400";
+            group = dnsmasqRuntimeUser;
+            mode = "0440";
             restartUnits = [ "NetworkManager.service" ];
           };
 
