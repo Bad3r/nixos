@@ -9,15 +9,19 @@ test.
 The runtime smoke test was run on 2026-05-04 against the active flake pin at
 that time. The inventory and summary below were reconciled on 2026-08-01
 against the companion reference; no run commands were re-executed on the
-current `flake.lock`.
+current `flake.lock`. The `mitm6` and `maigret` entries were re-verified on
+2026-07-23 under Python 3.14.6 and now run as documented: upstream `mitm6`
+dropped its `future` dependency (closure is netifaces / scapy / twisted only)
+and `maigret` migrated the insecure `pypdf2-3.0.1` to `pypdf-6.14.2`, clearing
+the two evaluation blocks recorded earlier.
 
 ## Summary
 
 | Result                                                           | Count   |
 | ---------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                             | 95      |
+| ✅ Run as documented                                             | 97      |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
-| ⚠️ Build or evaluation error                                     | 9       |
+| ⚠️ Build or evaluation error                                     | 7       |
 | ⚠️ Binary path mismatch in the documented attribute              | 5       |
 | ⚠️ Documented attribute resolves to a different upstream project | 2       |
 | ⚠️ Documented smoke flag incompatible with the binary            | 2       |
@@ -43,6 +47,7 @@ no longer entries in the companion reference.
 - ✅ bloodhound-py
 - ✅ responder
 - ✅ certipy
+- ✅ mitm6
 - ✅ enum4linux-ng
 - ✅ smbmap
 - ✅ adidnsdump
@@ -54,6 +59,7 @@ no longer entries in the companion reference.
 - ✅ rustscan
 - ✅ theharvester
 - ✅ sherlock
+- ✅ maigret
 - ✅ bettercap
 - ✅ ettercap
 - ✅ hping (binary `hping3`)
@@ -188,10 +194,6 @@ The reference itself flags these. Listed for completeness.
 
 - ⚠️ evil-winrm: Ruby 3.4 LoadError, `csv` gem missing then `winrm-fs` cannot
   load. Upstream nixpkgs build is currently broken.
-- ⚠️ mitm6: Python 3.14 evaluation error, `future-1.0.0` is not supported on
-  the active interpreter.
-- ⚠️ maigret: blocked by `python3.14-pypdf2-3.0.1` insecure marker. Requires
-  `permittedInsecurePackages` override.
 - ⚠️ maltego: unfree license. Requires `allowUnfree = true` and inclusion in
   `modules/meta/nixpkgs-allowed-unfree.nix`.
 - ⚠️ waybackurls: marked unfree in nixpkgs. Refuses to evaluate without
