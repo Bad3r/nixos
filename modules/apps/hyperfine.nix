@@ -18,7 +18,7 @@
 
   Example Usage:
     * `hyperfine 'rg foo' 'ack foo'` -- Compare ripgrep and ack for a search task.
-    * `hyperfine -w 3 -r 10 'make clean {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} make'` -- Benchmark a build pipeline with warmup and specific run counts.
+    * `hyperfine -w 3 -r 10 'make clean && make'` -- Benchmark a build pipeline with warmup and specific run counts.
     * `hyperfine --export-json results.json 'python script.py'` -- Save benchmark metrics for further analysis.
 */
 _:

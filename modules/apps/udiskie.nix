@@ -17,7 +17,7 @@
     --notify: Enable desktop notifications (default).
 
   Example Usage:
-    * `udiskie --tray {PRESERVED_DOCUMENTATION}` -- Run udiskie in the background to automount USB drives with a tray icon.
+    * `udiskie --tray &` -- Run udiskie in the background to automount USB drives with a tray icon.
     * `udiskie-mount -a` -- Mount all currently available devices.
     * Customize `~/.config/udiskie/config.yml` to specify mount options or blacklist devices.
 */
