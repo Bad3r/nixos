@@ -28,4 +28,5 @@ let
 in
 {
   flake.nixosModules.hosts-common.imports = [ body ];
+  flake.lib.nixos.fleetHostKeys = fleetHostKeys;
 }
