@@ -266,7 +266,7 @@
 
           delay_ms=${toString (builtins.floor (config.gui.i3.calendarAutocloseSeconds * 1000))}
           if [ "$delay_ms" -gt 0 ]; then
-            watch_calendar "$con_id" "$delay_ms" &
+            watch_calendar "$con_id" "$delay_ms" 9>&- &
           fi
           exit 0
         '';
