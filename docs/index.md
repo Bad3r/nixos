@@ -148,6 +148,8 @@
 
 - [csec/toolkit.md](csec/toolkit.md)
   - Catalog of cybersecurity-relevant apps managed by this configuration covering recon, web testing, credential attacks, RE, forensics, and dual-use utilities.
+- [csec/glossary.md](csec/glossary.md)
+  - Reference glossary for cybersecurity and software-engineering acronyms and concepts.
 - [csec/additional-tools-reference.md](csec/additional-tools-reference.md)
   - Reference catalog of pentesting tools available via `nix run`/`nix shell` that complement the active toolkit, grouped by AD, recon, web testing, credential attacks, wireless, RE, forensics, stego, SAST, cloud, and pivoting.
 - [csec/additional-tools-runtime-status.md](csec/additional-tools-runtime-status.md)
