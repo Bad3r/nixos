@@ -5,12 +5,14 @@ This module provides utilities for calculating dependency hashes
 dummy-hash-and-build pattern.
 """
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .hash import DUMMY_SHA256_HASH, extract_hash_from_build_error
 from .hashes_file import save_hashes
 from .nix import NixCommandError, nix_build
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def calculate_dependency_hash(

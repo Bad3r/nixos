@@ -2,8 +2,10 @@
 
 import json
 import subprocess
-from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class NixCommandError(Exception):
