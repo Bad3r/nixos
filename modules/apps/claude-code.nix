@@ -183,6 +183,7 @@ in
             "claude.ai Gmail"
             "claude.ai Google Calendar"
             "claude.ai Google Drive"
+            "claude.ai Indeed"
             "claude.ai JobDataLake"
             "claude.ai Jobs and Careers"
             "claude.ai Todoist"
