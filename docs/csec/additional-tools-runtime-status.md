@@ -185,9 +185,9 @@ The reference itself flags these. Listed for completeness.
 
 - ⚠️ evil-winrm: Ruby 3.4 LoadError, `csv` gem missing then `winrm-fs` cannot
   load. Upstream nixpkgs build is currently broken.
-- ⚠️ mitm6: Python 3.13 evaluation error, `future-1.0.0` is not supported on
+- ⚠️ mitm6: Python 3.14 evaluation error, `future-1.0.0` is not supported on
   the active interpreter.
-- ⚠️ maigret: blocked by `python3.13-pypdf2-3.0.1` insecure marker. Requires
+- ⚠️ maigret: blocked by `python3.14-pypdf2-3.0.1` insecure marker. Requires
   `permittedInsecurePackages` override.
 - ⚠️ maltego: unfree license. Requires `allowUnfree = true` and inclusion in
   `modules/meta/nixpkgs-allowed-unfree.nix`.

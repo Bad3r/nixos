@@ -803,7 +803,7 @@ class OpenedVolume:
         if expected_blocksize is not None:
             try:
                 actual_blocksize = int(self.manifest.get("Blocksize"))
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 fail(
                     f"{self.name}: manifest Blocksize {self.manifest.get('Blocksize')!r} is invalid",
                     EXIT_DATA_ERR,
@@ -840,7 +840,7 @@ class OpenedVolume:
         # downstream cares once we are tearing down.
         try:
             self._zip.close()
-        except (zipfile.BadZipFile, OSError):
+        except zipfile.BadZipFile, OSError:
             pass
 
 
