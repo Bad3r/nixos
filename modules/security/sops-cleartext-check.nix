@@ -4,6 +4,14 @@
 # The pre-commit ensure-sops hook only sees superproject staged files, so a
 # cleartext commit made inside the secrets submodule bypasses it; this check
 # scans the checked-out tree the flake actually ships.
+#
+# Scope: effective only where the secrets/ submodule content is checked out
+# (local dev trees, git hooks). CI evaluates the secretless `path:.` checkout
+# (issue #333, .github/workflows/check.yml) with no submodule content, so the
+# scan is skipped there: a local defense-in-depth gate, not a CI-enforced
+# invariant on the secrets gitlink. Initializing the submodule in CI is
+# deliberately not done: Bad3r/secrets is private and the secretless-eval
+# design keeps CI from fetching it.
 { lib, ... }:
 let
   secretsDir = ../../secrets;
