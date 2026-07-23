@@ -195,9 +195,13 @@
           pkgs.jq
           pkgs.xdotool
           pkgs.coreutils
+          pkgs.util-linux
         ];
         text = /* bash */ ''
           set -euo pipefail
+
+          exec 9>"''${XDG_RUNTIME_DIR:-/tmp}/gsimplecal-dropdown.lock"
+          flock 9
 
           sel='.. | objects | select((.window_properties?.class? // "" | ascii_downcase) == "gsimplecal")'
           conid() { i3-msg -t get_tree | jq -r "first($sel) | .id // empty"; }
