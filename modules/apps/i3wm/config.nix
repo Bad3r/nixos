@@ -239,7 +239,7 @@
                   return 0
                 fi
               fi
-              sleep 0.2
+              sleep "$(( poll_ms / 1000 )).$(printf '%03d' "$(( poll_ms % 1000 ))")"
             done
           }
 
