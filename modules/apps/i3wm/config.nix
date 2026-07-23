@@ -252,7 +252,7 @@
 
           # gsimplecal self-positions from its config (flush under the clock)
           # and self-floats via the i3 window rule.
-          gsimplecal &
+          gsimplecal 9>&- &
 
           con_id=""
           i=0
