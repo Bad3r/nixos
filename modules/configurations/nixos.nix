@@ -63,15 +63,7 @@ let
         fleetKeys = config.flake.lib.nixos.fleetHostKeys or { };
         pinnedKey = fleetKeys.${name} or null;
         hostKey = nixos.config.services.openssh.publicKey;
-        stripComment =
-          key:
-          let
-            parts = builtins.filter (s: s != "") (lib.splitString " " key);
-          in
-          if (builtins.length parts) >= 2 then
-            "${builtins.elemAt parts 0} ${builtins.elemAt parts 1}"
-          else
-            key;
+        stripComment = config.flake.lib.nixos.sshStripKeyComment;
         keyValid = pinnedKey == null || hostKey == null || stripComment pinnedKey == stripComment hostKey;
       in
       if !keyValid then
