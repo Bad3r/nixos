@@ -59,7 +59,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintained (5.0.4, 2025-11-22).
 - mitm6
   - run..: `nix run nixpkgs#mitm6 -- -d $domain`
-    - ⚠️ Failed to run: Python 3.14 evaluation error. `future-1.0.0` is not supported on the active interpreter.
   - Repo.: <https://github.com/dirkjanm/mitm6>
   - Docs.: <https://blog.fox-it.com/2018/01/11/mitm6-compromising-ipv4-networks-via-ipv6/>
   - Desc.: DHCPv6 spoofer for IPv6-based DNS takeover and NTLM relay setup.
@@ -227,7 +226,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintained (v2.2.19, 2025-12-11).
 - maigret
   - run..: `nix run nixpkgs#maigret -- $username`
-    - ⚠️ Failed to run: blocked by the `python3.14-pypdf2-3.0.1` insecure marker. Requires a `permittedInsecurePackages` override.
   - Repo.: <https://github.com/soxoj/maigret>
   - Docs.: <https://maigret.readthedocs.io/>
   - Desc.: Username enumerator across 3000+ sites with profile-data extraction; extended fork of sherlock.
