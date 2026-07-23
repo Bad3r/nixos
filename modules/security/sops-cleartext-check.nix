@@ -1,5 +1,6 @@
 # Regression gate for issue #344: any file under secrets/ that the .sops.yaml
-# creation_rules mark as encryptable must actually carry sops ENC[ markers.
+# creation_rules mark as encryptable must actually carry the sops
+# ENC[AES256_GCM, MAC token.
 # The pre-commit ensure-sops hook only sees superproject staged files, so a
 # cleartext commit made inside the secrets submodule bypasses it; this check
 # scans the checked-out tree the flake actually ships.
@@ -49,17 +50,21 @@ let
   # lib.hasInfix is regex-based and overflows the evaluator stack on
   # megabyte-scale strings (std::regex recursion; the sops-encrypted font
   # blob is ~1 MiB), so scan in bounded chunks with a marker-length overlap.
+  # Match the full `ENC[AES256_GCM,` MAC token, not a bare `ENC[`: cleartext
+  # containing `ENC[` (a Markdown fenced block, the #344 content type) would
+  # otherwise pass. Fails closed: a cipher change flags real ciphertext rather
+  # than admitting cleartext.
   hasEncMarker =
     s:
     let
       len = builtins.stringLength s;
       chunkSize = 8192;
-      overlap = builtins.stringLength "ENC[";
+      overlap = builtins.stringLength "ENC[AES256_GCM,";
       go =
         i:
         i < len
         && (
-          builtins.match ".*ENC\\[.*" (builtins.substring i (chunkSize + overlap) s) != null
+          builtins.match ".*ENC\\[AES256_GCM,.*" (builtins.substring i (chunkSize + overlap) s) != null
           || go (i + chunkSize)
         );
     in
