@@ -1,10 +1,11 @@
 { lib, ... }:
 let
   # Canonical extension set for the secrets/ encryption catch-all. The
-  # cleartext regression check (sops-cleartext-check.nix) and the
-  # ensure-sops pre-commit filter (modules/meta/pre-commit.nix) mirror this
-  # list as literals; the check asserts sync against the generated
-  # .sops.yaml, so drifting either copy fails evaluation.
+  # cleartext regression check (sops-cleartext-check.nix) mirrors this list as
+  # a literal and asserts it against the generated .sops.yaml, so drift there
+  # fails evaluation. The ensure-sops pre-commit filter
+  # (modules/meta/pre-commit.nix) mirrors it too (plus the age/enc container
+  # formats) but is NOT asserted; update it by hand when this list changes.
   sensitiveExtensions = [
     "yaml"
     "yml"
