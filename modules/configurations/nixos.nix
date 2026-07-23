@@ -64,7 +64,7 @@ let
         pinnedKey = fleetKeys.${name} or null;
         hostKey = nixos.config.services.openssh.publicKey;
         stripComment = config.flake.lib.nixos.sshStripKeyComment;
-        keyValid = pinnedKey == null || hostKey == null || stripComment pinnedKey == stripComment hostKey;
+        keyValid = pinnedKey == null || (hostKey != null && stripComment pinnedKey == stripComment hostKey);
       in
       if !keyValid then
         throw "Host ${name}: fleetHostKeys pinned key does not match config.services.openssh.publicKey"
