@@ -45,6 +45,9 @@ let
               noto-fonts-cjk-sans
               noto-fonts-color-emoji
               liberation_ttf
+              # Genuine Microsoft fonts (Arial, Times New Roman, Webdings, ...) so
+              # Office documents render their embedded faces instead of substitutes.
+              corefonts
               font-awesome_6
               material-icons
               nerd-fonts.symbols-only
@@ -158,5 +161,8 @@ let
     };
 in
 {
+  # corefonts ships under an unfree-redistributable EULA; gate it through the
+  # shared allowlist so allowUnfreePredicate lets the font derivation build.
+  nixpkgs.allowedUnfreePackages = [ "corefonts" ];
   flake.nixosModules.hosts-common.imports = [ body ];
 }
