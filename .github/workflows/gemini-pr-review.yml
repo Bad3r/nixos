@@ -109,7 +109,6 @@ jobs:
             Output only the review body as Markdown. Do not approve or block the PR.
 
       - name: Submit review
-        if: steps.gemini.outputs.summary != ''
         uses: actions/github-script@v9
         env:
           SUMMARY: ${{ steps.gemini.outputs.summary }}
