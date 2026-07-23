@@ -23,7 +23,7 @@ creation_rules:
       - age:
           - *host_pub_key
 
-  - path_regex: secrets/.+\.(yaml|yml|json|env|ini|asc|md|txt)$
+  - path_regex: (?i)secrets/.+\.(yaml|yml|json|env|ini|asc|md|txt)$
     key_groups:
       - age:
           - *host_pub_key

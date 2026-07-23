@@ -46,7 +46,7 @@ in
             - age:
                 - *host_pub_key
 
-        - path_regex: secrets/.+\.(${lib.concatStringsSep "|" sensitiveExtensions})$
+        - path_regex: (?i)secrets/.+\.(${lib.concatStringsSep "|" sensitiveExtensions})$
           key_groups:
             - age:
                 - *host_pub_key
