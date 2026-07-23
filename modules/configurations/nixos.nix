@@ -57,11 +57,28 @@ let
     }
   );
   checksMap = lib.attrValues (
-    lib.mapAttrs (name: nixos: {
-      ${nixos.config.nixpkgs.hostPlatform.system} = {
-        "configurations/nixos/${name}" = nixos.config.system.build.toplevel;
-      };
-    }) nixosConfigs
+    lib.mapAttrs (
+      name: nixos:
+      let
+        fleetKeys = config.flake.lib.nixos.fleetHostKeys or { };
+        pinnedKey = fleetKeys.${name} or null;
+        hostKey = nixos.config.services.openssh.publicKey;
+        stripComment = config.flake.lib.nixos.sshStripKeyComment;
+        keyValid =
+          if hostKey == null then
+            pinnedKey == null
+          else
+            pinnedKey != null && stripComment pinnedKey == stripComment hostKey;
+      in
+      if !keyValid then
+        throw "Host ${name}: services.openssh.publicKey has no matching fleetHostKeys pin (missing pin or key mismatch)"
+      else
+        {
+          ${nixos.config.nixpkgs.hostPlatform.system} = {
+            "configurations/nixos/${name}" = nixos.config.system.build.toplevel;
+          };
+        }
+    ) nixosConfigs
   );
 in
 {
