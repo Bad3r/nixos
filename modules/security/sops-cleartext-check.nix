@@ -23,7 +23,8 @@ let
   # Reading it through config.flake.lib recurses the flake-parts fixpoint, so
   # the sync is enforced below against the generated .sops.yaml instead.
   extAlternation = "yaml|yml|json|env|ini|asc|md|txt";
-  catchAllLine = "- path_regex: secrets/.+\\.(${extAlternation})$";
+  # `(?i)` mirrors the case-insensitive catch-all emitted to .sops.yaml.
+  catchAllLine = "- path_regex: (?i)secrets/.+\\.(${extAlternation})$";
   policySynced = lib.hasInfix catchAllLine (builtins.readFile ../../.sops.yaml);
 
   listFiles =
@@ -41,7 +42,9 @@ let
     );
 
   # Mirrors the creation_rules surface: the extension catch-all plus the
-  # fonts/ any-extension rule. Exemptions are the intentional cleartext
+  # fonts/ any-extension rule. The extension match case-folds path to mirror
+  # the `(?i)` catch-all in .sops.yaml, so a case-variant name (Runbook.MD) is
+  # still required-encrypted (#344). Exemptions are the intentional cleartext
   # conventions: *.example templates and the gitignored local-decryption
   # prefixes (decrypted_*, *.dec.*), which reach evaluation only through
   # `path:` flake refs that copy untracked files.
@@ -53,7 +56,9 @@ let
     !(lib.hasSuffix ".example" path)
     && !(lib.hasPrefix "decrypted_" base)
     && !(lib.hasInfix ".dec." base)
-    && (lib.hasPrefix "fonts/" path || builtins.match ".+\\.(${extAlternation})" path != null);
+    && (
+      lib.hasPrefix "fonts/" path || builtins.match ".+\\.(${extAlternation})" (lib.toLower path) != null
+    );
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
   # megabyte-scale strings (std::regex recursion; the sops-encrypted font
