@@ -21,11 +21,11 @@
 
   managedDefaultSearchProvider = {
     DefaultSearchProviderEnabled = true;
-    DefaultSearchProviderName = "Google";
-    DefaultSearchProviderKeyword = "google.com";
-    DefaultSearchProviderSearchURL = "https://www.google.com/search?q={searchTerms}&hl=en&gl=US&pws=0&safe=off";
-    DefaultSearchProviderSuggestURL = "https://www.google.com/complete/search?hl=en&gl=US&client=chrome&q={searchTerms}";
-    DefaultSearchProviderIconURL = "https://www.google.com/favicon.ico";
+    DefaultSearchProviderName = "Kagi";
+    DefaultSearchProviderKeyword = "kagi.com";
+    DefaultSearchProviderSearchURL = "https://kagi.com/search?q={searchTerms}";
+    DefaultSearchProviderSuggestURL = "https://kagi.com/api/autosuggest?q={searchTerms}";
+    DefaultSearchProviderIconURL = "https://kagi.com/favicon-32x32.png";
     DefaultSearchProviderEncodings = [ "UTF-8" ];
   };
 }
