@@ -16,9 +16,6 @@
         "xfs"
         "vfat"
       ];
-
-      # Enable memory test on boot (can be disabled if not needed)
-      loader.systemd-boot.memtest86.enable = false;
     };
 
     # Hardware firmware configuration

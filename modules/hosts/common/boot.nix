@@ -35,6 +35,7 @@
               enable = true;
               editor = false;
               consoleMode = "auto";
+              memtest86.enable = true;
             };
             efi.canTouchEfiVariables = true;
           };
