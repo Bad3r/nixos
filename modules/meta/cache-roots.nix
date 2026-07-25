@@ -23,6 +23,8 @@
 let
   primaryHost = "system76";
 
+  # tor-browser and mullvad-browser stay out: nixpkgs sets
+  # allowSubstitutes = false, so hosts rebuild them whatever the cache holds.
   hostPackageNames = [
     "electron-mail"
     "firefoxpwa"
