@@ -140,7 +140,7 @@ in
       deny = map bashPrefix bashDeny;
       defaultMode = "plan";
     };
-    # model = defaultModel; # Model (leave unset for default)
+    model = "claude-opus-5"; # Default model
     alwaysThinkingEnabled = true;
     enableAllProjectMcpServers = true;
     language = "en"; # Language
