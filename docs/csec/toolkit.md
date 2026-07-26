@@ -105,6 +105,12 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://docs.projectdiscovery.io/tools/tlsx>
   - Desc.: TLS certificate, handshake, cipher, and fingerprint data collector for host triage.
   - Stat.: Maintained (latest release v1.2.2, 2025-11-17).
+- wafw00f
+  - run..: `wafw00f $url`
+  - Repo.: <https://github.com/EnableSecurity/wafw00f>
+  - Docs.: <https://github.com/EnableSecurity/wafw00f#readme>
+  - Desc.: Fingerprints the Web Application Firewall (if any) fronting a target; complements cdncheck's passive detection with active probing.
+  - Stat.: Maintained (v2.4.2, 2026-01-26).
 - wappalyzer-next
   - run..: `wappalyzer -i $url`
   - Repo.: <https://github.com/s0md3v/wappalyzer-next>
@@ -168,18 +174,42 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://github.com/ffuf/ffuf/wiki>
   - Desc.: Fast Go-based web fuzzer for content discovery, vhost, and parameter brute forcing.
   - Stat.: Maintenance mode (last release v2.1.0, 2023-09-16; active upstream commits, no recent tag).
+- gau
+  - run..: `gau $domain`
+  - Repo.: <https://github.com/lc/gau>
+  - Docs.: <https://github.com/lc/gau#readme>
+  - Desc.: Fetches known URLs for a domain from the Wayback Machine, Common Crawl, OTX, and URLScan for passive endpoint discovery.
+  - Stat.: Maintenance mode (last release v2.2.4, 2024-10-28; active upstream commits through 2026-03-20).
 - gobuster
   - run..: `gobuster dir -u $url -w $wordlist`
   - Repo.: <https://github.com/OJ/gobuster>
   - Docs.: <https://github.com/OJ/gobuster#readme>
   - Desc.: Go-based directory, DNS, and vhost brute forcer.
   - Stat.: Maintained (latest release 2025-09-04).
+- gowitness
+  - run..: `gowitness scan -u $url`
+  - Repo.: <https://github.com/sensepost/gowitness>
+  - Docs.: <https://github.com/sensepost/gowitness/wiki>
+  - Desc.: Headless-Chrome web screenshotter with a reporting UI for triaging large host lists.
+  - Stat.: Maintained (3.1.1, 2025-11-24).
+- katana
+  - run..: `katana -u $url`
+  - Repo.: <https://github.com/projectdiscovery/katana>
+  - Docs.: <https://docs.projectdiscovery.io/tools/katana>
+  - Desc.: JavaScript-aware crawler with headless and standard modes for endpoint discovery; slots into the ProjectDiscovery recon pipeline.
+  - Stat.: Maintained (v1.6.1, 2026-05-05).
 - mitmproxy
   - run..: `mitmproxy`
   - Repo.: <https://github.com/mitmproxy/mitmproxy>
   - Docs.: <https://docs.mitmproxy.org/>
   - Desc.: Interactive HTTPS interception proxy with Python scripting.
   - Stat.: Maintained (latest release 2026-04-12).
+- nikto
+  - run..: `nikto -h $url`
+  - Repo.: <https://github.com/sullo/nikto>
+  - Docs.: <https://github.com/sullo/nikto/wiki>
+  - Desc.: Long-running web server scanner with thousands of misconfiguration and dangerous-file checks; prefer nuclei for template-based coverage and reach for nikto's classic default-file and outdated-server signature checks.
+  - Stat.: Maintained (2.6.0, 2026-02-11).
 - sqlmap
   - run..: `sqlmap -u $url`
   - Repo.: <https://github.com/sqlmapproject/sqlmap>

@@ -103,18 +103,6 @@ Each entry lists a representative run command, upstream repository, official doc
 
 ## Network Reconnaissance & Enumeration
 
-- nikto
-  - run..: `nix run nixpkgs#nikto -- -h $url`
-  - Repo.: <https://github.com/sullo/nikto>
-  - Docs.: <https://github.com/sullo/nikto/wiki>
-  - Desc.: Long-running web server scanner with thousands of misconfiguration and dangerous-file checks.
-  - Stat.: Maintained (2.6.0, 2026-02-11).
-- wafw00f
-  - run..: `nix run nixpkgs#wafw00f -- $url`
-  - Repo.: <https://github.com/EnableSecurity/wafw00f>
-  - Docs.: <https://github.com/EnableSecurity/wafw00f#readme>
-  - Desc.: Fingerprints which Web Application Firewall (if any) sits in front of a target.
-  - Stat.: Maintained (v2.4.2, 2026-01-26).
 - rustscan
   - run..: `nix run nixpkgs#rustscan -- -a $ip -- -A`
   - Repo.: <https://github.com/RustScan/RustScan>
@@ -314,18 +302,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Docs.: <https://github.com/s0md3v/Arjun/wiki>
   - Desc.: HTTP parameter discovery suite using GET/POST/JSON/XML probing.
   - Stat.: Maintenance mode (last release 2.2.7, 2024-11-03; active upstream commits through 2025-02-20).
-- katana
-  - run..: `nix run nixpkgs#katana -- -u $url`
-  - Repo.: <https://github.com/projectdiscovery/katana>
-  - Docs.: <https://docs.projectdiscovery.io/tools/katana>
-  - Desc.: JS-aware crawler with headless and standard modes for endpoint discovery.
-  - Stat.: Maintained (v1.6.1, 2026-05-05).
-- gau
-  - run..: `nix run nixpkgs#gau -- $domain`
-  - Repo.: <https://github.com/lc/gau>
-  - Docs.: <https://github.com/lc/gau#readme>
-  - Desc.: Pull known URLs from Wayback Machine, Common Crawl, OTX, and URLScan.
-  - Stat.: Maintenance mode (last release v2.2.4, 2024-10-28; active upstream commits through 2026-03-20).
 - waybackurls
   - run..: `nix run nixpkgs#waybackurls -- $domain`
     - ⚠️ Failed to run: marked unfree in nixpkgs. Refuses to evaluate without `NIXPKGS_ALLOW_UNFREE=1 --impure` (or an entry in `modules/meta/nixpkgs-allowed-unfree.nix`).
@@ -333,12 +309,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Docs.: <https://github.com/tomnomnom/waybackurls#readme>
   - Desc.: Stream all URLs the Wayback Machine knows for a domain.
   - Stat.: Deprecated (v0.1.0, 2022-04-05; no commits in 3+ years; superseded by gau).
-- gowitness
-  - run..: `nix run nixpkgs#gowitness -- scan -u $url`
-  - Repo.: <https://github.com/sensepost/gowitness>
-  - Docs.: <https://github.com/sensepost/gowitness/wiki>
-  - Desc.: Headless-Chrome web screenshot utility with reporting UI. The legacy `single` subcommand was renamed to `scan` in v3.
-  - Stat.: Maintained (3.1.1, 2025-11-24).
 - eyewitness
   - run..: `nix run nixpkgs#eyewitness -- --web -f urls.txt`
     - ⚠️ Failed to run: the derivation builds but `bin/eye-witness` is missing inside the store path. `nix run` fails with `No such file or directory`.
