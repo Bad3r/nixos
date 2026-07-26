@@ -23,12 +23,8 @@
 let
   primaryHost = "system76";
 
-  # Free-license, redistribution-safe packages observed building locally
-  # in ~/.local/state/nixos-build profiling (issue #382). Extend only
-  # with packages whose full runtime closure is redistributable and whose
-  # heavy derivations substitute: tor-browser and mullvad-browser are
-  # excluded because nixpkgs sets allowSubstitutes = false on the main
-  # derivation, so hosts rebuild them no matter what the cache holds.
+  # tor-browser and mullvad-browser stay out: nixpkgs sets
+  # allowSubstitutes = false, so hosts rebuild them whatever the cache holds.
   hostPackageNames = [
     "electron-mail"
     "firefoxpwa"
@@ -97,6 +93,10 @@ in
             {
               name = "context7-mcp";
               path = assertFree "context7-mcp" inputs'.mcp-servers-nix.packages.context7-mcp;
+            }
+            {
+              name = "codex";
+              path = assertFree "codex" inputs'.llm-agents.packages.codex;
             }
           ]
         );
