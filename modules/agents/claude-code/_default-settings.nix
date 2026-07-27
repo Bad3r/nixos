@@ -1,10 +1,10 @@
 /*
   Upstream-shaped Claude Code defaults.
 
-  Source of truth for default ~/.claude/settings.json keys and ~/.claude.json
-  UI preferences. Values that depend on runtime evaluation (enabledPlugins,
-  mcpServers) are injected by _settings.nix; this attrset only carries the
-  static portion shared across hosts.
+  Source of truth for default ~/.claude/settings.json keys, ~/.claude.json
+  UI preferences, and ~/.claude/keybindings.json. Values that depend on runtime
+  evaluation (enabledPlugins, mcpServers) are injected by _settings.nix; this
+  attrset only carries the static portion shared across hosts.
 
   Permission rule semantics (code.claude.com/docs/en/permissions):
     * Rules evaluate deny -> ask -> allow; first match wins, so an ask/deny
@@ -142,6 +142,9 @@ in
     };
     model = "claude-opus-5"; # Default model
     alwaysThinkingEnabled = true;
+    # Persisted effort accepts low|medium|high|xhigh only. `max` is session-scoped
+    # (/effort, --effort, CLAUDE_CODE_EFFORT_LEVEL) and rejected by the settings schema.
+    effortLevel = "xhigh";
     enableAllProjectMcpServers = true;
     language = "en"; # Language
     outputStyle = "Proactive"; # Output style
@@ -167,7 +170,26 @@ in
     externalEditorContext = true; # Show last response in external editor
     preferredNotifChannel = "iterm2_with_bell"; # Notifications
     theme = "dark"; # Theme
-    thinkingEnabled = true; # Thinking mode
     verbose = true; # Verbose output
+  };
+
+  # ~/.claude/keybindings.json. Claude only reads this file, so Home Manager can
+  # own it outright instead of jq-merging like settings.json.
+  #
+  # chat:thinkingToggle turns thinking off for the session on one keypress, and
+  # a disabled toggle makes the API reject effort `max`
+  # (400 output_config.effort 'max' is not supported when thinking is disabled).
+  # Upstream binds it to `meta+t`; Linux canonicalizes meta to alt, so `alt+t`
+  # is the form that matches and clears the default. /config keeps a deliberate
+  # path to the same setting.
+  claudeKeybindingsBase = {
+    "$schema" = "https://www.schemastore.org/claude-code-keybindings.json";
+    "$docs" = "https://code.claude.com/docs/en/keybindings";
+    bindings = [
+      {
+        context = "Chat";
+        bindings."alt+t" = null;
+      }
+    ];
   };
 }

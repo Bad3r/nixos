@@ -26,7 +26,8 @@
       `claude-plugins install anthropics/claude-plugins-official`); entries
       that reference an unregistered marketplace are silently ignored.
     * Config is split across private helpers in modules/agents/claude-code/:
-        _default-settings.nix  static defaults for settings.json and .claude.json
+        _default-settings.nix  static defaults for settings.json, .claude.json,
+                               and keybindings.json
         _plugins.nix           enabledPlugins composition from osConfig
         _settings.nix          merges defaults + plugins + mcpServers
         _activation.nix        activation snippets (jq merge + optional bun install)
@@ -144,6 +145,8 @@ _: {
         home = {
           file = {
             ".claude/CLAUDE.md".text = claudeInstructions;
+
+            ".claude/keybindings.json".text = builtins.toJSON defaults.claudeKeybindingsBase;
 
             ".local/bin/claude" = {
               source = lib.getExe claudeRuntime.claudeWrapped;
