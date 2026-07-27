@@ -29,13 +29,26 @@ let
     "electron-mail"
     "firefoxpwa"
     "john"
-    "nemo-with-extensions"
     "planify"
     "proton-vpn"
     "tweakcc"
     "upscayl"
     "wappalyzer-next"
   ];
+
+  # Modules that install a configured variant evaluate a derivation the bare
+  # package-set attribute never produces, so pushing the attribute caches a
+  # closure no host requests. nemo.extended wraps nemo with an explicit
+  # extension list (useDefaultExtensions = false), which is what pulls
+  # nemo-preview and nemo-seahorse in; neither is published by Hydra.
+  hostFinalPackagePaths = {
+    nemo-with-extensions = [
+      "programs"
+      "nemo"
+      "extended"
+      "finalPackage"
+    ];
+  };
 
   # Built through the perSystem nixpkgs instance (devshell surface),
   # not enabled as host apps; same redistribution constraint applies.
@@ -55,6 +68,7 @@ in
     }:
     let
       hostPkgs = config.flake.nixosConfigurations.${primaryHost}.pkgs;
+      hostConfig = config.flake.nixosConfigurations.${primaryHost}.config;
 
       # The pushed closure lands on a public cache, so the allowlist above is
       # only safe while every entry stays redistributable. This aborts
@@ -82,6 +96,10 @@ in
             inherit name;
             path = assertFree name hostPkgs.${name};
           }) hostPackageNames
+          ++ lib.mapAttrsToList (name: optionPath: {
+            inherit name;
+            path = assertFree name (lib.getAttrFromPath optionPath hostConfig);
+          }) hostFinalPackagePaths
           ++ map (name: {
             inherit name;
             path = assertFree name self'.packages.${name};

@@ -90,7 +90,11 @@ Cached via cache-roots (free, redistributable):
 
 context7-mcp is sourced from the `mcp-servers-nix` input, matching the
 consumer in `modules/agents/mcp.nix`; the host package set carries a
-same-named but different derivation no consumer runs. For entries built
+same-named but different derivation no consumer runs. nemo-with-extensions
+is sourced from `programs.nemo.extended.finalPackage` for the same reason:
+`modules/apps/nemo.nix` re-wraps nemo with an explicit extension list, so
+the bare `pkgs.nemo-with-extensions` attribute is a derivation no host
+installs, and its closure omits nemo-preview and nemo-seahorse. For entries built
 through `buildFHSEnv` or wrapper derivations (electron-mail, upscayl,
 nemo-with-extensions), the outer wrapper sets `allowSubstitutes = false`
 and always rebuilds locally; that is trivial assembly work, and the heavy
