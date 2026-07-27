@@ -15,7 +15,11 @@ name: Cache Push
       - packages/**
 concurrency:
   group: cache-push
-  cancel-in-progress: true
+  # A push after a nixpkgs bump rebuilds the whole closure and runs 60-90
+  # minutes, so cancelling in progress discarded finished builds and left
+  # hosts rebuilding cache-roots packages locally until a later run caught
+  # up. Queued runs re-push only paths the cache still lacks.
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
