@@ -1066,11 +1066,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1785174863,
-        "narHash": "sha256-ygzycyTCk+sjIfqRDqEiR1dF8dqvC4FNP6dCMX6QBtc=",
+        "lastModified": 1785220787,
+        "narHash": "sha256-4LnwO//y3315JVvC2KhJABj5yprBXGvy0uWj9HYkMaA=",
         "owner": "Bad3r",
         "repo": "nixpkgs",
-        "rev": "e432052f36803c8e638d320901d360d08df99a82",
+        "rev": "bd2eee7f4a2245052d83db004e78dd45b0ba5a04",
         "type": "github"
       },
       "original": {
