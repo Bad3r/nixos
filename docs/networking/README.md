@@ -160,6 +160,10 @@ every higher-numbered `.link` file on the host. Match `OriginalName` so the
 policy reaches only the intended adapter:
 
 ```nix
+# A MACAddressPolicy only survives if NetworkManager is not also setting the
+# address on this device, and the shared baseline sets "stable".
+networking.networkmanager.wifi.macAddress = "preserve";
+
 systemd.network.links."10-wlan" = {
   matchConfig.OriginalName = "wlan0";
   linkConfig.MACAddressPolicy = "random";
