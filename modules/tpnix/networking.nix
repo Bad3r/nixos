@@ -23,6 +23,15 @@ in
       # NetworkManager/DHCP base comes from modules/hosts/common/networking.nix;
       # this file layers SignalX DNS routing on top.
       config = lib.mkMerge [
+        {
+          # Overrides the common "stable" policy: this host roams across
+          # untrusted networks, so re-randomize the MAC on every connect.
+          networking.networkmanager = {
+            wifi.macAddress = "random";
+            ethernet.macAddress = "random";
+          };
+        }
+
         (lib.mkIf signalxDnsReady {
           environment.etc."NetworkManager/dnsmasq.d/tpnix-signalx.conf".text = ''
             addn-hosts=${signalxSecretPath}
