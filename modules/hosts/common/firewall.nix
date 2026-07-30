@@ -27,9 +27,19 @@ let
       pinnedNames = lib.filter (n: n != null) (
         lib.mapAttrsToList (_: link: link.linkConfig.Name or null) config.systemd.network.links
       );
-      # Neither naming scheme produces these, so only a .link Name= can.
+      # Interfaces this host declares rather than inherits from a NIC: neither
+      # naming scheme produces these, so a declaration has to.
+      declaredNames =
+        pinnedNames
+        ++ lib.attrNames config.networking.bridges
+        ++ lib.attrNames config.networking.bonds
+        ++ lib.attrNames config.networking.vlans
+        ++ lib.attrNames config.networking.macvlans
+        ++ lib.attrNames config.networking.ipvlans
+        ++ lib.attrNames config.networking.wireguard.interfaces
+        ++ lib.mapAttrsToList (n: netdev: netdev.netdevConfig.Name or n) config.systemd.network.netdevs;
       unbackedNames = lib.filter (
-        n: !(lib.elem n predictableNames || lib.elem n kernelNames || lib.elem n pinnedNames)
+        n: !(lib.elem n predictableNames || lib.elem n kernelNames || lib.elem n declaredNames)
       ) dnsInterfaces;
     in
     {
@@ -59,9 +69,10 @@ let
           message =
             "${hostName}: firewallDnsInterfaces names "
             + "(${lib.concatStringsSep ", " unbackedNames}) are neither predictable nor "
-            + "kernel-assigned, and no systemd.network.links entry sets linkConfig.Name to "
-            + "them, so they match no device. Add the .link pin as "
-            + "modules/system76/networking.nix does.";
+            + "kernel-assigned, and nothing on this host creates them: no .link Name=, "
+            + "bridge, bond, VLAN, macvlan, ipvlan, WireGuard interface, or networkd "
+            + "netdev. Pin the device as modules/system76/networking.nix does, or declare "
+            + "the interface.";
         }
       ];
 

@@ -17,11 +17,13 @@
           };
           useDHCP = lib.mkDefault true;
           # Kernel-order names (eth0, wlan0) instead of the topology-derived
-          # enp0s20f0u1u4 style. Hosts with two NICs of one class can see the
-          # numbering swap across boots; per-host interface values live in
-          # modules/<host>/policy.nix and assume the discovery order recorded
-          # there. Renaming also reseeds every "stable" MAC above, because
-          # NetworkManager hashes the interface name into it.
+          # enp0s20f0u1u4 style. Kernel order is not tied to a device, so a name
+          # that carries a firewall rule is pinned with a .link Name= instead
+          # (modules/system76/networking.nix); modules/hosts/common/firewall.nix
+          # asserts that every firewallDnsInterfaces value matches the naming
+          # scheme the host boots with, or is pinned. Renaming also reseeds every
+          # "stable" MAC above, because NetworkManager hashes the interface name
+          # into it.
           usePredictableInterfaceNames = lib.mkDefault false;
         };
       }
