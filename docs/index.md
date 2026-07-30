@@ -115,6 +115,11 @@
 - [nixos-manual/manual.md](nixos-manual/manual.md)
   - Upstream manual structure file for chapters, appendices, options, and release notes.
 
+## Networking
+
+- [networking/README.md](networking/README.md)
+  - NetworkManager MAC-address policies, networkd link policies, and temporary macchanger commands.
+
 ## mpv
 
 - [mpv/README.md](mpv/README.md)
