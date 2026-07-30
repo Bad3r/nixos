@@ -457,12 +457,17 @@ ip -br link
 udevadm info -q property -p /sys/class/net/eth0 | grep ID_PATH=
 ```
 
+`modules/songbird/networking.nix`:
+
 ```nix
-# modules/songbird/networking.nix
-systemd.network.links."10-lan0" = {
-  matchConfig.Path = "<ID_PATH of the intended NIC>";
-  linkConfig.Name = "lan0";
-};
+_: {
+  configurations.nixos.songbird.module = {
+    systemd.network.links."10-lan0" = {
+      matchConfig.Path = "<ID_PATH of the intended NIC>";
+      linkConfig.Name = "lan0";
+    };
+  };
+}
 ```
 
 Then set `firewallDnsInterfaces = [ "lan0" ]`. `docs/networking/README.md`

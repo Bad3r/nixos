@@ -116,10 +116,14 @@ udevadm info -q property -p /sys/class/net/eth0 | grep ID_PATH=
 ```
 
 ```nix
-systemd.network.links."10-lan0" = {
-  matchConfig.Path = "<ID_PATH value>";
-  linkConfig.Name = "lan0";
-};
+_: {
+  configurations.nixos.<host>.module = {
+    systemd.network.links."10-lan0" = {
+      matchConfig.Path = "<ID_PATH value>";
+      linkConfig.Name = "lan0";
+    };
+  };
+}
 ```
 
 `docs/networking/README.md` covers why the pinned name stays outside the

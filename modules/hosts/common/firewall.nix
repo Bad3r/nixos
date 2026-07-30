@@ -20,19 +20,31 @@ let
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       # enp4s0, eno1, ens3, enx001122334455, wlp0s20f3; not eth0 or wlan0.
       predictableNames = lib.filter (n: lib.match "(en|wl)[posx].*" n != null) dnsInterfaces;
+      # eth0, wlan0; not a .link-pinned name such as lan0, nor tailscale0.
+      kernelNames = lib.filter (n: lib.match "(eth|wlan)[0-9]+" n != null) dnsInterfaces;
+      predictable = config.networking.usePredictableInterfaceNames;
     in
     {
       # A name that matches no device is not an evaluation error on its own:
       # genAttrs below still emits an interfaces entry, so the opening silently
-      # does nothing. Catch the one case that guarantees a dead name.
+      # does nothing. Both naming schemes are reachable, so guard both.
       assertions = [
         {
-          assertion = config.networking.usePredictableInterfaceNames || predictableNames == [ ];
+          assertion = predictable || predictableNames == [ ];
           message =
             "${hostName}: firewallDnsInterfaces has predictable interface names "
             + "(${lib.concatStringsSep ", " predictableNames}) but the host boots with "
             + "net.ifnames=0, so they match no device. Use the kernel name (eth0, wlan0) "
             + "read from `ip -br link` after the first boot on this configuration.";
+        }
+        {
+          assertion = !predictable || kernelNames == [ ];
+          message =
+            "${hostName}: firewallDnsInterfaces has kernel interface names "
+            + "(${lib.concatStringsSep ", " kernelNames}) but the host sets "
+            + "networking.usePredictableInterfaceNames = true, so they match no device. "
+            + "Use the predictable name, or pin the device with a .link Name= outside the "
+            + "eth*/wlan* namespace as modules/system76/networking.nix does.";
         }
       ];
 
