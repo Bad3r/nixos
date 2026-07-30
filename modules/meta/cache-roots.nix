@@ -42,8 +42,10 @@ let
   # extension list (useDefaultExtensions = false), which is what pulls
   # nemo-preview and nemo-seahorse in; neither is published by Hydra.
   # Each path must address a read-only resolved-package option with a sibling
-  # `enable`: an option default evaluates even for a disabled module, so the
-  # enable flag is the only thing tying the entry to a host that requests it.
+  # `enable`. Owning modules define these options under `config` rather than as
+  # an option default, so a disabled module leaves the option undefined; the
+  # sibling `enable` is read here anyway, both to name the entry and host in the
+  # error and to catch an owning module that grows a default later.
   hostFinalPackagePaths = {
     nemo-with-extensions = [
       "programs"

@@ -59,10 +59,12 @@ of free, redistribution-safe packages:
   read-only resolved-package option on the primary host, for modules that
   install a configured variant the bare package-set attribute never produces
   (nemo-with-extensions, via `programs.nemo.extended.finalPackage`). The
-  enable invariant is not self-enforcing here: an option default evaluates
-  even when the module is disabled, so `cache-roots.nix` reads the sibling
-  `enable` explicitly and throws when it is off instead of publishing a
-  closure no host requests.
+  enable invariant holds here through the option's shape: `finalPackage` is
+  declared with no default and assigned inside `config = lib.mkIf cfg.enable`,
+  so a disabled module leaves it undefined rather than resolving to a closure
+  no host installs. `cache-roots.nix` reads the sibling `enable` as well, so
+  the failure names the entry, the option path, and the host instead of
+  surfacing a bare "option used but not defined".
 - perSystem-sourced entries (codeburn, restringer) are consumed through
   the devshell surface and build from the perSystem nixpkgs instance.
 - Input-sourced entries (context7-mcp, codex) come from the flake input the
@@ -194,9 +196,11 @@ logs and its full runtime closure is redistributable:
     directly (context7-mcp);
   - the owning module's read-only resolved-package option, listed in
     `hostFinalPackagePaths`, when the module installs a configured variant
-    rather than the bare package-set attribute (nemo-with-extensions). That
-    option needs a sibling `enable`, which `cache-roots.nix` reads to keep
-    the entry tied to a host that actually requests it.
+    rather than the bare package-set attribute (nemo-with-extensions).
+    Declare that option with no default and assign it inside
+    `config = lib.mkIf cfg.enable`, next to a sibling `enable` that
+    `cache-roots.nix` reads; `modules/browsers/ungoogled-chromium/apps.nix`
+    and `modules/apps/nemo.nix` are the reference shape.
 - Verify the license before adding:
   `nix eval "path:.#nixosConfigurations.<host>.pkgs.<name>.meta.license"`.
 - Verify the heavy derivation substitutes: entries whose main derivation
