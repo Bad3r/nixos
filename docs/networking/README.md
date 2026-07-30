@@ -28,8 +28,16 @@ firewall rule or a link policy. Per-host interface values live in
 ```bash
 nmcli device status
 ip link show
-cat /sys/class/net/wlan0/address
+cat /sys/class/net/wlan0/address   # address currently presented
+ethtool -P wlan0                   # permanent hardware address
 ```
+
+Read both. Once a policy other than `"preserve"` or `"permanent"` is active,
+`/sys/class/net/*/address` reports the address NetworkManager assigned, not the
+factory one, so `ethtool -P` is what identifies the existing DHCP reservation
+or ACL entry you are replacing. NetworkManager exposes only the presented
+address, as `GENERAL.HWADDR` in `nmcli device show`; it has no permanent-address
+field.
 
 Use the actual interface name in every example below.
 
@@ -105,13 +113,17 @@ after any of these:
 Preserve both of those files when restoring a host from backup to keep the
 generated addresses.
 
-After rebuilding the host, reconnect the device and read the address to re-key
-against:
+After rebuilding the host, read one address per connection profile that carries
+a reservation or an ACL entry, not one per host: each profile has its own UUID
+and therefore its own derived address, so a host with several saved Wi-Fi
+networks presents a different address on each. Activate the profile, then read
+what the device presents for it. `nmcli device connect` would activate whichever
+profile autoconnect picks rather than the one being re-keyed:
 
 ```bash
-nmcli device disconnect wlan0
-nmcli device connect wlan0
-cat /sys/class/net/wlan0/address
+nmcli connection show                       # profile names
+nmcli connection up "<profile name>"
+nmcli -f GENERAL.HWADDR device show wlan0
 ```
 
 ## Configure a systemd-udevd link policy
@@ -140,15 +152,20 @@ systemd.network.links."10-wlan" = {
 The `.link` `MACAddressPolicy` values are `"persistent"`, `"random"`, and
 `"none"`:
 
-- `"persistent"` creates a deterministic address for the link.
-- `"random"` creates a new random address when the link is initialized.
-- `"none"` leaves MAC-address policy disabled.
+- `"persistent"` keeps the address the kernel already uses when the hardware
+  reports a persistent one, which is the normal case. It generates a
+  deterministic address only for hardware without one, so it does not hide a
+  factory address.
+- `"random"` generates a new random address each time the device appears,
+  unless the kernel already assigned a random one. The result always has the
+  unicast and locally administered bits set.
+- `"none"` keeps the address the kernel assigned, and is the only policy under
+  which `MACAddress=` applies.
 
 Apply link-policy changes before the device appears. Rebooting, replugging a
 USB adapter, or otherwise reinitializing the link is more reliable than
 restarting a running network manager. Set `linkConfig.MACAddress` when you need
-a fixed explicit address, and leave `MACAddressPolicy` unset or `"none"`:
-systemd ignores `MACAddress` while a policy is in effect.
+a fixed explicit address, alongside the `"none"` policy above.
 
 ## Change the address temporarily with macchanger
 
