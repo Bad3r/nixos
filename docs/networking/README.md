@@ -73,15 +73,24 @@ without using the permanent hardware address.
 `"stable"` is not the permanent hardware address either. NetworkManager hashes
 the connection's `stable-id` with the machine identity held in
 `/var/lib/NetworkManager/secret_key`; since secret-key version 2 that hash
-covers `/etc/machine-id` as well. Moving a host off the upstream `"preserve"`
-default therefore changes the address it presents, once, at the next
-activation.
+covers `/etc/machine-id` as well. This repository leaves `connection.stable-id`
+unset, so it falls back to `default${CONNECTION}`, which is keyed on the
+profile's `connection.uuid`. The generated address is therefore specific to one
+profile on one host, and it changes whenever any of those inputs is reseeded.
 
-Re-key DHCP reservations, MAC allowlists, and wired 802.1X MAB entries to the
-generated address after the cutover. Re-key them again after a reinstall or
-any operation that regenerates `/var/lib/NetworkManager/secret_key` or
-`/etc/machine-id`, because both reseed the hash. Preserve those two files when
-restoring a host from backup to keep the generated addresses.
+Moving a host off the upstream `"preserve"` default changes the address it
+presents at the next activation. Re-key DHCP reservations, MAC allowlists, and
+wired 802.1X MAB entries to the generated address after that cutover, and again
+after either of these:
+
+- Deleting and re-creating a connection profile, including "forget this
+  network" followed by a rejoin, because the replacement profile gets a new
+  `connection.uuid`. This is the trigger that fires in normal use.
+- Reinstalling the host, or anything else that regenerates
+  `/var/lib/NetworkManager/secret_key` or `/etc/machine-id`.
+
+Preserve both of those files when restoring a host from backup to keep the
+generated addresses.
 
 After rebuilding the host, reconnect the device and read the address to re-key
 against:
@@ -100,15 +109,13 @@ enabled, so a link policy also takes effect on the NetworkManager hosts in this
 repository. udev applies it when the device is initialized and NetworkManager
 overwrites the address again on activation, so set a link policy only for
 devices whose NetworkManager `macAddress` policy you left at `"preserve"`.
-A random policy can be written directly as:
 
-```nix
-systemd.network.links."10-wlan".linkConfig.MACAddressPolicy = "random";
-```
-
-Match the policy to the intended interface in a complete configuration. Match
-`OriginalName` so a policy does not accidentally apply to another wireless
-adapter:
+Always give the policy a `matchConfig`. A `.link` file with no valid `[Match]`
+settings matches every interface udev initializes, and udev applies only the
+first matching file in lexicographic order, so an unmatched `10-wlan.link`
+randomizes bridges, `veth` pairs, tunnels, and wired NICs as well, and shadows
+every higher-numbered `.link` file on the host. Match `OriginalName` so the
+policy reaches only the intended adapter:
 
 ```nix
 systemd.network.links."10-wlan" = {
