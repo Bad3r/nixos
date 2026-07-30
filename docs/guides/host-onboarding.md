@@ -103,15 +103,27 @@ name is not an evaluation error: `modules/hosts/common/firewall.nix` emits a
 `networking.firewall.interfaces.<name>` entry for a device that never appears,
 so the DNS and DHCP opening silently does nothing.
 
-On a host with two interfaces of the same class, the `eth0` and `eth1`
-numbering follows kernel discovery order and can move. Record the mapping
-beside the value, as `modules/system76/policy.nix` does:
+On a host with two interfaces of the same class, or with a removable adapter,
+the `eth0` and `eth1` numbering follows kernel discovery order and can move
+between devices. Do not point `firewallDnsInterfaces` at a name that can
+change: the rule opens UDP 53/67 and TCP 53 on whichever device holds the name
+that boot. Pin the intended device first, as `modules/system76/networking.nix`
+does, then use the pinned name:
 
 ```sh
 ip -br link
-ethtool -P eth0
-readlink /sys/class/net/eth0/device
+udevadm info -q property -p /sys/class/net/eth0 | grep ID_PATH=
 ```
+
+```nix
+systemd.network.links."10-lan0" = {
+  matchConfig.Path = "<ID_PATH value>";
+  linkConfig.Name = "lan0";
+};
+```
+
+`docs/networking/README.md` covers why the pinned name stays outside the
+kernel's `eth*` namespace and why the match uses the path rather than a MAC.
 
 If the new host becomes the primary fleet endpoint,
 move `primary = true` and `tailnetIp` from the current primary host's

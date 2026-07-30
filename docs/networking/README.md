@@ -144,8 +144,10 @@ nmcli -f GENERAL.HWADDR device show wlan0
 `systemd-udevd` honors those files whether or not `systemd-networkd` is
 enabled, so a link policy also takes effect on the NetworkManager hosts in this
 repository. udev applies it when the device is initialized and NetworkManager
-overwrites the address again on activation, so set a link policy only for
-devices whose NetworkManager `macAddress` policy you left at `"preserve"`.
+overwrites the address again on activation, so set a `MACAddressPolicy` only
+for devices whose NetworkManager `macAddress` policy you left at `"preserve"`.
+That conflict is specific to the address. `linkConfig.Name` does not collide
+with NetworkManager and is used below to pin an interface name.
 
 Always give the policy a `matchConfig`. A `.link` file with no valid `[Match]`
 settings matches every interface udev initializes, and udev applies only the
@@ -173,6 +175,32 @@ The `.link` `MACAddressPolicy` values are `"persistent"`, `"random"`, and
   unicast and locally administered bits set.
 - `"none"` keeps the address the kernel assigned, and is the only policy under
   which `MACAddress=` applies.
+
+### Pin an interface name
+
+Kernel names follow discovery order, so a name is not tied to one device. That
+matters when a name carries a firewall rule: `firewallDnsInterfaces` opens UDP
+53/67 and TCP 53 on whatever device holds the name, and a removable adapter is
+absent on some boots by definition. Pin the device with `linkConfig.Name`
+matched on its path, as `modules/system76/networking.nix` does for the USB
+ethernet adapter that carries that opening:
+
+```nix
+systemd.network.links."10-lan0" = {
+  matchConfig.Path = "pci-0000:00:14.0-usb-0:1.4:1.0";
+  linkConfig.Name = "lan0";
+};
+```
+
+Read the value from `udevadm info -q property -p /sys/class/net/<name>`, field
+`ID_PATH`. Matching on the path rather than `PermanentMACAddress` keeps a
+hardware address out of the repository, and it degrades safely: when the
+adapter is detached or moved to another port, nothing is named `lan0`, so the
+firewall rule matches no device instead of landing on a different one.
+
+Pin to a name outside the kernel's `eth*` and `wlan*` namespace. The kernel
+assigns those itself, so a rename into one can collide with a device that
+already holds it.
 
 Apply link-policy changes before the device appears. Rebooting, replugging a
 USB adapter, or otherwise reinitializing the link is more reliable than

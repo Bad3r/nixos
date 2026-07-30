@@ -19,9 +19,11 @@ _: {
       "awscli2"
       "pentesting-devshell"
     ];
-    # USB ethernet adapter, formerly enp0s20f0u1u4. It registers ahead of the
-    # built-in enp4s0 (eth1), so it takes eth0 under net.ifnames=0.
-    firewallDnsInterfaces = [ "eth0" ];
+    # USB ethernet adapter, formerly enp0s20f0u1u4, pinned to lan0 by the .link
+    # in modules/system76/networking.nix. A bare eth0 would follow enumeration
+    # order onto the built-in NIC whenever the adapter is detached at boot, and
+    # this value opens UDP 53/67 and TCP 53.
+    firewallDnsInterfaces = [ "lan0" ];
     firewallExtraTcpPortRanges = [
       {
         from = 8000;

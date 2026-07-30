@@ -447,14 +447,26 @@ so the DNS and DHCP opening silently does nothing.
 
 Songbird has two wired NICs of the same class, the Intel 2.5 GbE on `igc` and
 the Realtek 5 GbE on `r8169`, so `eth0` and `eth1` follow kernel discovery
-order and can move between them. Pin the value to the intended NIC by
-recording the mapping beside it:
+order and can move between them. Do not aim `firewallDnsInterfaces` at a bare
+`eth0`: it opens UDP 53/67 and TCP 53 on whichever NIC holds the name that
+boot. Pin the intended NIC by PCI path and use the pinned name, the way
+`modules/system76/networking.nix` pins its USB adapter:
 
 ```sh
 ip -br link
-ethtool -P eth0                      # permanent address
-readlink /sys/class/net/eth0/device  # PCI path, distinguishes igc from r8169
+udevadm info -q property -p /sys/class/net/eth0 | grep ID_PATH=
 ```
+
+```nix
+# modules/songbird/networking.nix
+systemd.network.links."10-lan0" = {
+  matchConfig.Path = "<ID_PATH of the intended NIC>";
+  linkConfig.Name = "lan0";
+};
+```
+
+Then set `firewallDnsInterfaces = [ "lan0" ]`. `docs/networking/README.md`
+explains why the pinned name stays outside the kernel's `eth*` namespace.
 
 `modules/songbird/host-id.nix` (derive on the target:
 `head -c 8 /etc/machine-id`):
@@ -551,7 +563,7 @@ remain open; these are measurements that require the hardware.
 | --------------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
 | LUKS, ext4, ESP, swap UUIDs | `nixos-generate-config --root /mnt`     | `hardware-config.nix`                                                    |
 | hostId                      | `head -c 8 /etc/machine-id`             | `host-id.nix`                                                            |
-| Wired interface names       | `ip -br link` after the first boot      | `policy.nix` `firewallDnsInterfaces` (kernel names; see note below)      |
+| Wired interface names       | `ip -br link` after the first boot      | `policy.nix` `firewallDnsInterfaces` (pinned name; see note below)       |
 | Wi-Fi module vendor         | `lspci -nn \| grep -i network`          | project-songbird.md (note)                                               |
 | Host SSH public key         | `cat /etc/ssh/ssh_host_ed25519_key.pub` | `ssh.nix`                                                                |
 | Tailnet IPv4                | `tailscale ip -4` after joining         | `policy.nix` `tailnetIp`                                                 |
