@@ -83,14 +83,19 @@ separately licensed packages still needs the manual check under
 
 ## Classification (2026-07-17 build logs)
 
-License fields read from each package's `meta.license` on the primary
-host's package set.
+License fields read from each package's `meta.license` on the surface that
+entry is sourced from, per the rule under "Extending the allowlist": the
+primary host's package set for host-sourced entries,
+`programs.nemo.extended.finalPackage` for nemo-with-extensions, the owning
+flake input for context7-mcp and codex, and `self'.packages` for codeburn
+and restringer.
 
 Cached via cache-roots (free, redistributable):
 
 | Package              | License            |
 | -------------------- | ------------------ |
 | codeburn             | MIT                |
+| codex                | Apache-2.0         |
 | context7-mcp         | MIT                |
 | electron-mail        | GPL-3.0            |
 | firefoxpwa           | MPL-2.0            |
