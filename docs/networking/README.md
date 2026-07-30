@@ -14,8 +14,16 @@ activates a connection.
 
 ## Check the interface and its current address
 
-Identify the interface name before changing a policy. Wireless interfaces are
-often named `wlan0` or `wlp*`, while wired interfaces are often named `enp*`.
+This repository sets `networking.usePredictableInterfaceNames = false` in
+[`modules/hosts/common/networking.nix`](../../modules/hosts/common/networking.nix),
+so the kernel names interfaces `eth0`, `eth1`, `wlan0`, and so on rather than
+deriving `enp0s20f0u1u4`-style names from bus topology.
+
+Those names follow the order the kernel discovers the devices, which is not
+guaranteed across boots. A host with two interfaces of the same class can see
+the numbering swap, so confirm the mapping before relying on a name in a
+firewall rule or a link policy. Per-host interface values live in
+`modules/<host>/policy.nix` and record the order observed at the time.
 
 ```bash
 nmcli device status
@@ -73,19 +81,24 @@ without using the permanent hardware address.
 `"stable"` is not the permanent hardware address either. NetworkManager hashes
 the connection's `stable-id` with the machine identity held in
 `/var/lib/NetworkManager/secret_key`; since secret-key version 2 that hash
-covers `/etc/machine-id` as well. This repository leaves `connection.stable-id`
-unset, so it falls back to `default${CONNECTION}`, which is keyed on the
-profile's `connection.uuid`. The generated address is therefore specific to one
-profile on one host, and it changes whenever any of those inputs is reseeded.
+covers `/etc/machine-id` as well. It also hashes in the interface name, and
+this repository leaves `connection.stable-id` unset, so the stable-id falls
+back to `default${CONNECTION}`, which is keyed on the profile's
+`connection.uuid`. The generated address is therefore specific to one profile
+on one interface on one host, and it changes whenever any of those inputs is
+reseeded.
 
 Moving a host off the upstream `"preserve"` default changes the address it
 presents at the next activation. Re-key DHCP reservations, MAC allowlists, and
 wired 802.1X MAB entries to the generated address after that cutover, and again
-after either of these:
+after any of these:
 
 - Deleting and re-creating a connection profile, including "forget this
   network" followed by a rejoin, because the replacement profile gets a new
   `connection.uuid`. This is the trigger that fires in normal use.
+- Renaming the interface, including a change to
+  `networking.usePredictableInterfaceNames` or a kernel discovery order that
+  moves a device between `eth0` and `eth1`.
 - Reinstalling the host, or anything else that regenerates
   `/var/lib/NetworkManager/secret_key` or `/etc/machine-id`.
 

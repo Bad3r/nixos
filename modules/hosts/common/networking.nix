@@ -16,6 +16,13 @@
             ethernet.macAddress = lib.mkDefault "stable";
           };
           useDHCP = lib.mkDefault true;
+          # Kernel-order names (eth0, wlan0) instead of the topology-derived
+          # enp0s20f0u1u4 style. Hosts with two NICs of one class can see the
+          # numbering swap across boots; per-host interface values live in
+          # modules/<host>/policy.nix and assume the discovery order recorded
+          # there. Renaming also reseeds every "stable" MAC above, because
+          # NetworkManager hashes the interface name into it.
+          usePredictableInterfaceNames = lib.mkDefault false;
         };
       }
     )

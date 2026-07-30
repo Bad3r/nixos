@@ -8,6 +8,6 @@ _: {
 
     # Per-host values consumed by modules/hosts/common/*.
     extraHomeApps = [ "libreoffice" ];
-    firewallDnsInterfaces = [ "wlp0s20f3" ];
+    firewallDnsInterfaces = [ "wlan0" ]; # formerly wlp0s20f3
   };
 }

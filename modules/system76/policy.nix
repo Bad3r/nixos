@@ -19,7 +19,9 @@ _: {
       "awscli2"
       "pentesting-devshell"
     ];
-    firewallDnsInterfaces = [ "enp0s20f0u1u4" ];
+    # USB ethernet adapter, formerly enp0s20f0u1u4. It registers ahead of the
+    # built-in enp4s0 (eth1), so it takes eth0 under net.ifnames=0.
+    firewallDnsInterfaces = [ "eth0" ];
     firewallExtraTcpPortRanges = [
       {
         from = 8000;
