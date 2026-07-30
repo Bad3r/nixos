@@ -55,8 +55,19 @@ of free, redistribution-safe packages:
   `nix build --dry-run "path:.#cache-roots"` on a host that has switched
   recently should report no unexpected package rebuilds; that is the
   derivation-parity check.
+- Option-sourced entries (`hostFinalPackagePaths`) read the owning module's
+  read-only resolved-package option on the primary host, for modules that
+  install a configured variant the bare package-set attribute never produces
+  (nemo-with-extensions, via `programs.nemo.extended.finalPackage`). The
+  enable invariant is not self-enforcing here: an option default evaluates
+  even when the module is disabled, so `cache-roots.nix` reads the sibling
+  `enable` explicitly and throws when it is off instead of publishing a
+  closure no host requests.
 - perSystem-sourced entries (codeburn, restringer) are consumed through
   the devshell surface and build from the perSystem nixpkgs instance.
+- Input-sourced entries (context7-mcp, codex) come from the flake input the
+  consuming module resolves them from, because the host package set can
+  carry a same-named but different derivation.
 
 The allowlist is explicit because `cachix push` publishes the full runtime
 closure to a public cache. Every entry's closure must be redistributable, and
@@ -175,10 +186,17 @@ Remaining:
 Add a package to `modules/meta/cache-roots.nix` when it shows up in build
 logs and its full runtime closure is redistributable:
 
-- Source it from the host package set when a custom overlay or host
-  nixpkgs config shapes it; source it from `self'.packages` when only the
-  devshell surface consumes it; source it from the owning flake input
-  when a module consumes the input's package directly (context7-mcp).
+- Source it from the surface that owns the derivation:
+  - the host package set, when a custom overlay or host nixpkgs config
+    shapes it;
+  - `self'.packages`, when only the devshell surface consumes it;
+  - the owning flake input, when a module consumes the input's package
+    directly (context7-mcp);
+  - the owning module's read-only resolved-package option, listed in
+    `hostFinalPackagePaths`, when the module installs a configured variant
+    rather than the bare package-set attribute (nemo-with-extensions). That
+    option needs a sibling `enable`, which `cache-roots.nix` reads to keep
+    the entry tied to a host that actually requests it.
 - Verify the license before adding:
   `nix eval "path:.#nixosConfigurations.<host>.pkgs.<name>.meta.license"`.
 - Verify the heavy derivation substitutes: entries whose main derivation

@@ -41,6 +41,9 @@ let
   # closure no host requests. nemo.extended wraps nemo with an explicit
   # extension list (useDefaultExtensions = false), which is what pulls
   # nemo-preview and nemo-seahorse in; neither is published by Hydra.
+  # Each path must address a read-only resolved-package option with a sibling
+  # `enable`: an option default evaluates even for a disabled module, so the
+  # enable flag is the only thing tying the entry to a host that requests it.
   hostFinalPackagePaths = {
     nemo-with-extensions = [
       "programs"
@@ -96,10 +99,20 @@ in
             inherit name;
             path = assertFree name hostPkgs.${name};
           }) hostPackageNames
-          ++ lib.mapAttrsToList (name: optionPath: {
-            inherit name;
-            path = assertFree name (lib.getAttrFromPath optionPath hostConfig);
-          }) hostFinalPackagePaths
+          ++ lib.mapAttrsToList (
+            name: optionPath:
+            let
+              enablePath = lib.init optionPath ++ [ "enable" ];
+            in
+            {
+              inherit name;
+              path =
+                if lib.getAttrFromPath enablePath hostConfig then
+                  assertFree name (lib.getAttrFromPath optionPath hostConfig)
+                else
+                  throw "cache-roots: ${name} is sourced from ${lib.concatStringsSep "." optionPath}, but that module is disabled on ${primaryHost}";
+            }
+          ) hostFinalPackagePaths
           ++ map (name: {
             inherit name;
             path = assertFree name self'.packages.${name};
