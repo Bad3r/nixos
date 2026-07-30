@@ -64,7 +64,7 @@ of free, redistribution-safe packages:
   so a disabled module leaves it undefined rather than resolving to a closure
   no host installs. `cache-roots.nix` reads the sibling `enable` as well, so
   the failure names the entry, the option path, and the host instead of
-  surfacing a bare "option used but not defined".
+  surfacing a bare "was accessed but has no value defined".
 - perSystem-sourced entries (codeburn, restringer) are consumed through
   the devshell surface and build from the perSystem nixpkgs instance.
 - Input-sourced entries (context7-mcp, codex) come from the flake input the
