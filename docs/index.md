@@ -118,7 +118,7 @@
 ## Networking
 
 - [networking/README.md](networking/README.md)
-  - NetworkManager MAC-address policies, networkd link policies, and temporary macchanger commands.
+  - NetworkManager MAC-address policies, the re-keying step the `"stable"` cutover needs, systemd-udevd `.link` policies, and temporary macchanger commands.
 
 ## mpv
 
