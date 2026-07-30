@@ -95,8 +95,25 @@ _: {
 }
 ```
 
-Use the host's real interface names (`ip link` on the target) for
-`firewallDnsInterfaces`. If the new host becomes the primary fleet endpoint,
+Use the host's real interface names for `firewallDnsInterfaces`, read from
+`ip link` on the target **after** its first boot on this configuration.
+`shareCommon` hosts boot with `net.ifnames=0`, so the names are `eth0`, `eth1`,
+and `wlan0` rather than the `enp*` and `wlp*` names an installer shows. A stale
+name is not an evaluation error: `modules/hosts/common/firewall.nix` emits a
+`networking.firewall.interfaces.<name>` entry for a device that never appears,
+so the DNS and DHCP opening silently does nothing.
+
+On a host with two interfaces of the same class, the `eth0` and `eth1`
+numbering follows kernel discovery order and can move. Record the mapping
+beside the value, as `modules/system76/policy.nix` does:
+
+```sh
+ip -br link
+ethtool -P eth0
+readlink /sys/class/net/eth0/device
+```
+
+If the new host becomes the primary fleet endpoint,
 move `primary = true` and `tailnetIp` from the current primary host's
 `policy.nix`: `modules/networking/ssh-hosts.nix` aliases and the tailscale
 SSH default follow that registry data automatically.

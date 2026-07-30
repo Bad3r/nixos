@@ -106,19 +106,31 @@ after any of these:
   `connection.uuid`. This is the trigger that fires in normal use.
 - Renaming the interface, including a change to
   `networking.usePredictableInterfaceNames` or a kernel discovery order that
-  moves a device between `eth0` and `eth1`.
+  moves a device between `eth0` and `eth1`. Clear or update any profile that
+  pins `connection.interface-name` before the rename. `nm-settings-nmcli(5)`
+  warns that "if interface names change or are reordered the connection may be
+  applied to the wrong interface", and a profile that stops matching is
+  replaced by an auto-generated one whose new UUID derives a different address
+  again.
 - Reinstalling the host, or anything else that regenerates
   `/var/lib/NetworkManager/secret_key` or `/etc/machine-id`.
 
 Preserve both of those files when restoring a host from backup to keep the
 generated addresses.
 
-After rebuilding the host, read one address per connection profile that carries
-a reservation or an ACL entry, not one per host: each profile has its own UUID
-and therefore its own derived address, so a host with several saved Wi-Fi
-networks presents a different address on each. Activate the profile, then read
-what the device presents for it. `nmcli device connect` would activate whichever
-profile autoconnect picks rather than the one being re-keyed:
+Read the addresses after rebooting, not after `nixos-rebuild switch`.
+`usePredictableInterfaceNames` reaches the host as the `net.ifnames=0` kernel
+parameter, so interfaces keep their old names until the next boot. An address
+read before the rename is reseeded by it, and the `eth0` and `wlan0` values in
+`modules/<host>/policy.nix` match no device until then, so the DNS and DHCP
+firewall opening is absent for that window.
+
+Read one address per connection profile that carries a reservation or an ACL
+entry, not one per host: each profile has its own UUID and therefore its own
+derived address, so a host with several saved Wi-Fi networks presents a
+different address on each. Activate the profile, then read what the device
+presents for it. `nmcli device connect` would activate whichever profile
+autoconnect picks rather than the one being re-keyed:
 
 ```bash
 nmcli connection show                       # profile names

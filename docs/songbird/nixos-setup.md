@@ -80,7 +80,7 @@ already covered by the shared baseline and needs no per-host code.
 | 285K P/E cores, virtualization   | intel_pstate, kvm-intel, coretemp  | hosts-common (`boot.nix`); microcode via `hardware-config.nix`         |
 | Arrow Lake iGPU (Xe-LPG)         | i915/xe, linux-firmware            | Present for bring-up; VA-API only if `vaapi.backend = "intel-media"`   |
 | RTX 5080 (Blackwell GB203)       | NVIDIA open kernel modules, >= 570 | `modules/songbird/nvidia-gpu.nix` over `flake.nixosModules.nvidia-gpu` |
-| Intel 2.5 GbE                    | igc (in-kernel)                    | Nothing needed; name feeds `firewallDnsInterfaces`                     |
+| Intel 2.5 GbE                    | igc (in-kernel)                    | Nothing needed; kernel name feeds `firewallDnsInterfaces`              |
 | Realtek 5 GbE (RTL8126)          | r8169 (in-kernel since 6.8)        | Nothing needed; zen kernel is well past 6.8                            |
 | Wi-Fi 7 module (vendor unlisted) | iwlwifi or mt76 + linux-firmware   | Identify at first boot (`lspci -nn`); in-kernel either way             |
 | Bluetooth 5.4                    | btusb                              | `hardware.bluetooth.enable` in `hardware-config.nix`                   |
@@ -437,6 +437,25 @@ _: {
 }
 ```
 
+`shareCommon = true` means songbird boots with `net.ifnames=0`, so
+`firewallDnsInterfaces` takes a kernel name (`eth0`, `eth1`) read from
+`ip -br link` after the first boot on this configuration, not the `enp*` name
+an installer shows. A stale name is not an evaluation error:
+`modules/hosts/common/firewall.nix` emits a
+`networking.firewall.interfaces.<name>` entry for a device that never appears,
+so the DNS and DHCP opening silently does nothing.
+
+Songbird has two wired NICs of the same class, the Intel 2.5 GbE on `igc` and
+the Realtek 5 GbE on `r8169`, so `eth0` and `eth1` follow kernel discovery
+order and can move between them. Pin the value to the intended NIC by
+recording the mapping beside it:
+
+```sh
+ip -br link
+ethtool -P eth0                      # permanent address
+readlink /sys/class/net/eth0/device  # PCI path, distinguishes igc from r8169
+```
+
 `modules/songbird/host-id.nix` (derive on the target:
 `head -c 8 /etc/machine-id`):
 
@@ -532,7 +551,7 @@ remain open; these are measurements that require the hardware.
 | --------------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
 | LUKS, ext4, ESP, swap UUIDs | `nixos-generate-config --root /mnt`     | `hardware-config.nix`                                                    |
 | hostId                      | `head -c 8 /etc/machine-id`             | `host-id.nix`                                                            |
-| Wired interface names       | `ip link`                               | `policy.nix` `firewallDnsInterfaces`                                     |
+| Wired interface names       | `ip -br link` after the first boot      | `policy.nix` `firewallDnsInterfaces` (kernel names; see note below)      |
 | Wi-Fi module vendor         | `lspci -nn \| grep -i network`          | project-songbird.md (note)                                               |
 | Host SSH public key         | `cat /etc/ssh/ssh_host_ed25519_key.pub` | `ssh.nix`                                                                |
 | Tailnet IPv4                | `tailscale ip -4` after joining         | `policy.nix` `tailnetIp`                                                 |
