@@ -72,12 +72,14 @@ of free, redistribution-safe packages:
   carry a same-named but different derivation.
 
 The allowlist is explicit because `cachix push` publishes the full runtime
-closure to a public cache. Every entry's closure must be redistributable, and
-`cache-roots` enforces it: an `assertFree` guard aborts evaluation for any entry
-whose `meta.license` is missing or is neither free nor redistributable, so a
-license-violating addition fails `nix flake check` (the check
-`modules/package-checks.nix` mirrors from this output) instead of reaching the
-cache.
+closure to a public cache. Every entry's closure must be redistributable. An
+`assertFree` guard aborts evaluation for any entry whose `meta.license` is
+missing or is neither free nor redistributable, so a license-violating addition
+fails `nix flake check` (the check `modules/package-checks.nix` mirrors from
+this output) instead of reaching the cache. The guard reads the entry's own
+`meta.license` only; it does not walk the closure, so a wrapper that pulls in
+separately licensed packages still needs the manual check under
+"Extending the allowlist".
 
 ## Classification (2026-07-17 build logs)
 
@@ -201,8 +203,21 @@ logs and its full runtime closure is redistributable:
     `config = lib.mkIf cfg.enable`, next to a sibling `enable` that
     `cache-roots.nix` reads; `modules/browsers/ungoogled-chromium/apps.nix`
     and `modules/apps/nemo.nix` are the reference shape.
-- Verify the license before adding:
-  `nix eval "path:.#nixosConfigurations.<host>.pkgs.<name>.meta.license"`.
+- Verify the license on the surface the entry is sourced from, not on the
+  host package set by default, because the bare `pkgs.<name>` attribute can
+  be a different derivation than the one that gets published:
+  - host-sourced:
+    `nix eval "path:.#nixosConfigurations.<host>.pkgs.<name>.meta.license"`
+  - option-sourced:
+    `nix eval "path:.#nixosConfigurations.<host>.config.<option-path>.meta.license"`
+  - perSystem- and input-sourced: the matching `self'.packages.<name>` or
+    flake-input attribute.
+- For a wrapper-style entry, check the packages it wraps as well. `meta.license`
+  on the wrapper describes the wrapper alone, and `assertFree` reads that same
+  field, so neither covers what the wrapper pulls into the published closure:
+  `nemo-with-extensions` reports GPL-2.0 and LGPL-2.0 while carrying
+  nemo-preview, nemo-seahorse, nemo-python, nemo-fileroller (GPL-2.0-or-later),
+  nemo-emblems, and folder-color-switcher (GPL-3.0-only).
 - Verify the heavy derivation substitutes: entries whose main derivation
   sets `allowSubstitutes = false` (check `drvAttrs.allowSubstitutes`)
   never hit the cache and do not belong in the list.
