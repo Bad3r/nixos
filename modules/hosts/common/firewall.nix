@@ -23,6 +23,14 @@ let
       # eth0, wlan0; not a .link-pinned name such as lan0, nor tailscale0.
       kernelNames = lib.filter (n: lib.match "(eth|wlan)[0-9]+" n != null) dnsInterfaces;
       predictable = config.networking.usePredictableInterfaceNames;
+      # Names a .link Name= creates on this host, such as lan0.
+      pinnedNames = lib.filter (n: n != null) (
+        lib.mapAttrsToList (_: link: link.linkConfig.Name or null) config.systemd.network.links
+      );
+      # Neither naming scheme produces these, so only a .link Name= can.
+      unbackedNames = lib.filter (
+        n: !(lib.elem n predictableNames || lib.elem n kernelNames || lib.elem n pinnedNames)
+      ) dnsInterfaces;
     in
     {
       # A name that matches no device is not an evaluation error on its own:
@@ -45,6 +53,15 @@ let
             + "networking.usePredictableInterfaceNames = true, so they match no device. "
             + "Use the predictable name, or pin the device with a .link Name= outside the "
             + "eth*/wlan* namespace as modules/system76/networking.nix does.";
+        }
+        {
+          assertion = unbackedNames == [ ];
+          message =
+            "${hostName}: firewallDnsInterfaces names "
+            + "(${lib.concatStringsSep ", " unbackedNames}) are neither predictable nor "
+            + "kernel-assigned, and no systemd.network.links entry sets linkConfig.Name to "
+            + "them, so they match no device. Add the .link pin as "
+            + "modules/system76/networking.nix does.";
         }
       ];
 

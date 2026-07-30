@@ -7,10 +7,12 @@ address without exposing the device's permanent hardware address on every
 network.
 
 Choose one component to own the MAC address for an interface. Do not combine
-NetworkManager's `macAddress` options with a `.link` policy for the same
-device: `systemd-udevd` applies the link policy when the device is
-initialized, then NetworkManager overwrites the address again when it
-activates a connection.
+NetworkManager's `macAddress` options with a `.link` `MACAddressPolicy=` or
+`MACAddress=` for the same device: `systemd-udevd` applies the link setting
+when the device is initialized, then NetworkManager overwrites the address
+again when it activates a connection. Only the address settings conflict.
+`linkConfig.Name` does not, and is used below to pin a name on a device whose
+NetworkManager policy stays `"stable"`.
 
 ## Check the interface and its current address
 
@@ -20,10 +22,11 @@ so the kernel names interfaces `eth0`, `eth1`, `wlan0`, and so on rather than
 deriving `enp0s20f0u1u4`-style names from bus topology.
 
 Those names follow the order the kernel discovers the devices, which is not
-guaranteed across boots. A host with two interfaces of the same class can see
-the numbering swap, so confirm the mapping before relying on a name in a
-firewall rule or a link policy. Per-host interface values live in
-`modules/<host>/policy.nix` and record the order observed at the time.
+guaranteed across boots. A host with two interfaces of the same class, or with
+a removable adapter, can see the numbering move between devices. A name that
+carries a firewall rule must therefore be pinned rather than observed: see
+[Pin an interface name](#pin-an-interface-name). `modules/system76/policy.nix`
+points `firewallDnsInterfaces` at the pinned `lan0` for that reason.
 
 ```bash
 nmcli device status
