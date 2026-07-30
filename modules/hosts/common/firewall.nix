@@ -19,11 +19,18 @@ let
       dnsInterfaces = hostFlags.firewallDnsInterfaces or [ ];
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       # enp4s0, eno1, ens3, enx001122334455, wlp0s20f3, wwp0s20f0u2, ibp5s0.
-      predictableNames = lib.filter (n: lib.match "(en|wl|ww|ib)[posx].*" n != null) dnsInterfaces;
+      # Both scheme lists subtract declaredNames: a name this host creates, such
+      # as a .link pin or a wlanInterfaces AP, exists whichever scheme the host
+      # boots with, so its shape says nothing about whether it is stale.
+      predictableNames = lib.subtractLists declaredNames (
+        lib.filter (n: lib.match "(en|wl|ww|ib)[posx].*" n != null) dnsInterfaces
+      );
       # Kernel-assigned. usb0 is the usbnet default: drivers/net/usb/usbnet.c only
       # switches to eth%d, wlan%d, or wwan%d for drivers flagged FLAG_ETHER,
       # FLAG_WLAN, or FLAG_WWAN, so a cdc_ether tether comes up as usb0.
-      kernelNames = lib.filter (n: lib.match "(eth|wlan|usb|wwan|ib)[0-9]+" n != null) dnsInterfaces;
+      kernelNames = lib.subtractLists declaredNames (
+        lib.filter (n: lib.match "(eth|wlan|usb|wwan|ib)[0-9]+" n != null) dnsInterfaces
+      );
       predictable = config.networking.usePredictableInterfaceNames;
       # Names a .link Name= creates on this host, such as lan0.
       pinnedNames = lib.filter (n: n != null) (

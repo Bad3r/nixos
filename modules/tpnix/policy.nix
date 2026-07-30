@@ -8,6 +8,10 @@ _: {
 
     # Per-host values consumed by modules/hosts/common/*.
     extraHomeApps = [ "libreoffice" ];
-    firewallDnsInterfaces = [ "wlan0" ]; # formerly wlp0s20f3
+    # Internal Wi-Fi card, formerly wlp0s20f3, pinned to wifi0 by the .link in
+    # modules/tpnix/networking.nix. A bare wlan0 would follow registration order
+    # onto a USB adapter attached at boot, and this value opens UDP 53/67 and
+    # TCP 53 for NetworkManager's dnsmasq.
+    firewallDnsInterfaces = [ "wifi0" ];
   };
 }
