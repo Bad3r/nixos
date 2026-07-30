@@ -25,6 +25,11 @@ permissions:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # cancel-in-progress: false removes the eviction a later push used to
+    # perform, so a stalled build (substituter hang, runner disk exhaustion)
+    # would otherwise hold the concurrency group for the GitHub default of 6
+    # hours. Bounded above the observed 60-90 minute worst case.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v5.0.0
         with:
