@@ -18,17 +18,18 @@ let
       hostFlags = hostsRegistry.${hostName} or { };
       dnsInterfaces = hostFlags.firewallDnsInterfaces or [ ];
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
-      # enp4s0, eno1, ens3, enx001122334455, wlp0s20f3; not eth0 or wlan0.
-      predictableNames = lib.filter (n: lib.match "(en|wl)[posx].*" n != null) dnsInterfaces;
-      # eth0, wlan0; not a .link-pinned name such as lan0, nor tailscale0.
-      kernelNames = lib.filter (n: lib.match "(eth|wlan)[0-9]+" n != null) dnsInterfaces;
+      # enp4s0, eno1, ens3, enx001122334455, wlp0s20f3, wwp0s20f0u2, ibp5s0.
+      predictableNames = lib.filter (n: lib.match "(en|wl|ww|ib)[posx].*" n != null) dnsInterfaces;
+      # Kernel-assigned. usb0 is the usbnet default: drivers/net/usb/usbnet.c only
+      # switches to eth%d, wlan%d, or wwan%d for drivers flagged FLAG_ETHER,
+      # FLAG_WLAN, or FLAG_WWAN, so a cdc_ether tether comes up as usb0.
+      kernelNames = lib.filter (n: lib.match "(eth|wlan|usb|wwan|ib)[0-9]+" n != null) dnsInterfaces;
       predictable = config.networking.usePredictableInterfaceNames;
       # Names a .link Name= creates on this host, such as lan0.
       pinnedNames = lib.filter (n: n != null) (
         lib.mapAttrsToList (_: link: link.linkConfig.Name or null) config.systemd.network.links
       );
-      # Interfaces this host declares rather than inherits from a NIC: neither
-      # naming scheme produces these, so a declaration has to.
+      # Interfaces this host declares rather than inherits from a NIC.
       declaredNames =
         pinnedNames
         ++ lib.attrNames config.networking.bridges
@@ -36,6 +37,10 @@ let
         ++ lib.attrNames config.networking.vlans
         ++ lib.attrNames config.networking.macvlans
         ++ lib.attrNames config.networking.ipvlans
+        ++ lib.attrNames config.networking.vswitches
+        ++ lib.attrNames config.networking.wlanInterfaces
+        ++ lib.attrNames config.networking.sits
+        ++ lib.attrNames config.networking.greTunnels
         ++ lib.attrNames config.networking.wireguard.interfaces
         ++ lib.mapAttrsToList (n: netdev: netdev.netdevConfig.Name or n) config.systemd.network.netdevs;
       unbackedNames = lib.filter (
@@ -45,7 +50,10 @@ let
     {
       # A name that matches no device is not an evaluation error on its own:
       # genAttrs below still emits an interfaces entry, so the opening silently
-      # does nothing. Both naming schemes are reachable, so guard both.
+      # does nothing. A name from the wrong naming scheme is provably dead, so
+      # both schemes are hard assertions; an unrecognized name only might be,
+      # because a daemon can create an interface no option lists, so that one
+      # warns instead.
       assertions = [
         {
           assertion = predictable || predictableNames == [ ];
@@ -64,17 +72,18 @@ let
             + "Use the predictable name, or pin the device with a .link Name= outside the "
             + "eth*/wlan* namespace as modules/system76/networking.nix does.";
         }
-        {
-          assertion = unbackedNames == [ ];
-          message =
-            "${hostName}: firewallDnsInterfaces names "
-            + "(${lib.concatStringsSep ", " unbackedNames}) are neither predictable nor "
-            + "kernel-assigned, and nothing on this host creates them: no .link Name=, "
-            + "bridge, bond, VLAN, macvlan, ipvlan, WireGuard interface, or networkd "
-            + "netdev. Pin the device as modules/system76/networking.nix does, or declare "
-            + "the interface.";
-        }
       ];
+
+      warnings = lib.optional (unbackedNames != [ ]) (
+        "${hostName}: firewallDnsInterfaces names "
+        + "(${lib.concatStringsSep ", " unbackedNames}) are neither predictable nor "
+        + "kernel-assigned, and no declaration on this host creates them: no .link Name=, "
+        + "bridge, bond, VLAN, macvlan, ipvlan, vswitch, wlan interface, sit, GRE tunnel, "
+        + "WireGuard interface, or networkd netdev. That is expected for an interface a "
+        + "service creates at runtime (tailscale0, docker0, a wg-quick interface); "
+        + "otherwise the opening matches no device, so pin it as "
+        + "modules/system76/networking.nix does."
+      );
 
       networking.firewall = {
         enable = true;
