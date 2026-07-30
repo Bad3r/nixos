@@ -55,27 +55,47 @@ of free, redistribution-safe packages:
   `nix build --dry-run "path:.#cache-roots"` on a host that has switched
   recently should report no unexpected package rebuilds; that is the
   derivation-parity check.
+- Option-sourced entries (`hostFinalPackagePaths`) read the owning module's
+  read-only resolved-package option on the primary host, for modules that
+  install a configured variant the bare package-set attribute never produces
+  (nemo-with-extensions, via `programs.nemo.extended.finalPackage`). The
+  enable invariant holds here through the option's shape: `finalPackage` is
+  declared with no default and assigned inside `config = lib.mkIf cfg.enable`,
+  so a disabled module leaves it undefined rather than resolving to a closure
+  no host installs. `cache-roots.nix` reads the sibling `enable` as well, so
+  the failure names the entry, the option path, and the host instead of
+  surfacing a bare "was accessed but has no value defined".
 - perSystem-sourced entries (codeburn, restringer) are consumed through
   the devshell surface and build from the perSystem nixpkgs instance.
+- Input-sourced entries (context7-mcp, codex) come from the flake input the
+  consuming module resolves them from, because the host package set can
+  carry a same-named but different derivation.
 
 The allowlist is explicit because `cachix push` publishes the full runtime
-closure to a public cache. Every entry's closure must be redistributable, and
-`cache-roots` enforces it: an `assertFree` guard aborts evaluation for any entry
-whose `meta.license` is missing or is neither free nor redistributable, so a
-license-violating addition fails `nix flake check` (the check
-`modules/package-checks.nix` mirrors from this output) instead of reaching the
-cache.
+closure to a public cache. Every entry's closure must be redistributable. An
+`assertFree` guard aborts evaluation for any entry whose `meta.license` is
+missing or is neither free nor redistributable, so a license-violating addition
+fails `nix flake check` (the check `modules/package-checks.nix` mirrors from
+this output) instead of reaching the cache. The guard reads the entry's own
+`meta.license` only; it does not walk the closure, so a wrapper that pulls in
+separately licensed packages still needs the manual check under
+"Extending the allowlist".
 
 ## Classification (2026-07-17 build logs)
 
-License fields read from each package's `meta.license` on the primary
-host's package set.
+License fields read from each package's `meta.license` on the surface that
+entry is sourced from, per the rule under "Extending the allowlist": the
+primary host's package set for host-sourced entries,
+`programs.nemo.extended.finalPackage` for nemo-with-extensions, the owning
+flake input for context7-mcp and codex, and `self'.packages` for codeburn
+and restringer.
 
 Cached via cache-roots (free, redistributable):
 
 | Package              | License            |
 | -------------------- | ------------------ |
 | codeburn             | MIT                |
+| codex                | Apache-2.0         |
 | context7-mcp         | MIT                |
 | electron-mail        | GPL-3.0            |
 | firefoxpwa           | MPL-2.0            |
@@ -90,7 +110,11 @@ Cached via cache-roots (free, redistributable):
 
 context7-mcp is sourced from the `mcp-servers-nix` input, matching the
 consumer in `modules/agents/mcp.nix`; the host package set carries a
-same-named but different derivation no consumer runs. For entries built
+same-named but different derivation no consumer runs. nemo-with-extensions
+is sourced from `programs.nemo.extended.finalPackage` for the same reason:
+`modules/apps/nemo.nix` re-wraps nemo with an explicit extension list, so
+the bare `pkgs.nemo-with-extensions` attribute is a derivation no host
+installs, and its closure omits nemo-preview and nemo-seahorse. For entries built
 through `buildFHSEnv` or wrapper derivations (electron-mail, upscayl,
 nemo-with-extensions), the outer wrapper sets `allowSubstitutes = false`
 and always rebuilds locally; that is trivial assembly work, and the heavy
@@ -171,15 +195,42 @@ Remaining:
 Add a package to `modules/meta/cache-roots.nix` when it shows up in build
 logs and its full runtime closure is redistributable:
 
-- Source it from the host package set when a custom overlay or host
-  nixpkgs config shapes it; source it from `self'.packages` when only the
-  devshell surface consumes it; source it from the owning flake input
-  when a module consumes the input's package directly (context7-mcp).
-- Verify the license before adding:
-  `nix eval "path:.#nixosConfigurations.<host>.pkgs.<name>.meta.license"`.
-- Verify the heavy derivation substitutes: entries whose main derivation
-  sets `allowSubstitutes = false` (check `drvAttrs.allowSubstitutes`)
-  never hit the cache and do not belong in the list.
+- Source it from the surface that owns the derivation:
+  - the host package set, when a custom overlay or host nixpkgs config
+    shapes it;
+  - `self'.packages`, when only the devshell surface consumes it;
+  - the owning flake input, when a module consumes the input's package
+    directly (context7-mcp);
+  - the owning module's read-only resolved-package option, listed in
+    `hostFinalPackagePaths`, when the module installs a configured variant
+    rather than the bare package-set attribute (nemo-with-extensions).
+    Declare that option with no default and assign it inside
+    `config = lib.mkIf cfg.enable`, next to a sibling `enable` that
+    `cache-roots.nix` reads; `modules/browsers/ungoogled-chromium/apps.nix`
+    and `modules/apps/nemo.nix` are the reference shape.
+- Verify the license on the surface the entry is sourced from, not on the
+  host package set by default, because the bare `pkgs.<name>` attribute can
+  be a different derivation than the one that gets published:
+  - host-sourced:
+    `nix eval "path:.#nixosConfigurations.<host>.pkgs.<name>.meta.license"`
+  - option-sourced:
+    `nix eval "path:.#nixosConfigurations.<host>.config.<option-path>.meta.license"`
+  - perSystem- and input-sourced: the matching `self'.packages.<name>` or
+    flake-input attribute.
+- For a wrapper-style entry, check the packages it wraps as well. `meta.license`
+  on the wrapper describes the wrapper alone, and `assertFree` reads that same
+  field, so neither covers what the wrapper pulls into the published closure:
+  `nemo-with-extensions` reports GPL-2.0 and LGPL-2.0 while carrying
+  nemo-preview, nemo-seahorse, nemo-python, nemo-fileroller (GPL-2.0-or-later),
+  nemo-emblems, and folder-color-switcher (GPL-3.0-only).
+- Verify the heavy derivation substitutes: a derivation that sets
+  `allowSubstitutes = false` (check `drvAttrs.allowSubstitutes`) never hits
+  the cache itself, so what matters is whether that derivation is the
+  expensive one. An entry belongs in the list when the non-substitutable
+  derivation is thin assembly over a substitutable dependency closure
+  (electron-mail, upscayl, nemo-with-extensions all set it on the outer
+  wrapper). It does not belong when the non-substitutable derivation is
+  itself the expensive build (tor-browser, mullvad-browser).
 - Confirm derivation parity with
   `nix build --dry-run "path:.#cache-roots"` on a recently switched host:
   the new entry must not introduce rebuilds of paths the host already has.

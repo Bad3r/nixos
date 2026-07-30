@@ -29,13 +29,31 @@ let
     "electron-mail"
     "firefoxpwa"
     "john"
-    "nemo-with-extensions"
     "planify"
     "proton-vpn"
     "tweakcc"
     "upscayl"
     "wappalyzer-next"
   ];
+
+  # Modules that install a configured variant evaluate a derivation the bare
+  # package-set attribute never produces, so pushing the attribute caches a
+  # closure no host requests. nemo.extended wraps nemo with an explicit
+  # extension list (useDefaultExtensions = false), which is what pulls
+  # nemo-preview and nemo-seahorse in; neither is published by Hydra.
+  # Each path must address a read-only resolved-package option with a sibling
+  # `enable`. Owning modules define these options under `config` rather than as
+  # an option default, so a disabled module leaves the option undefined; the
+  # sibling `enable` is read here anyway, both to name the entry and host in the
+  # error and to catch an owning module that grows a default later.
+  hostFinalPackagePaths = {
+    nemo-with-extensions = [
+      "programs"
+      "nemo"
+      "extended"
+      "finalPackage"
+    ];
+  };
 
   # Built through the perSystem nixpkgs instance (devshell surface),
   # not enabled as host apps; same redistribution constraint applies.
@@ -55,6 +73,7 @@ in
     }:
     let
       hostPkgs = config.flake.nixosConfigurations.${primaryHost}.pkgs;
+      hostConfig = config.flake.nixosConfigurations.${primaryHost}.config;
 
       # The pushed closure lands on a public cache, so the allowlist above is
       # only safe while every entry stays redistributable. This aborts
@@ -82,6 +101,20 @@ in
             inherit name;
             path = assertFree name hostPkgs.${name};
           }) hostPackageNames
+          ++ lib.mapAttrsToList (
+            name: optionPath:
+            let
+              enablePath = lib.init optionPath ++ [ "enable" ];
+            in
+            {
+              inherit name;
+              path =
+                if lib.getAttrFromPath enablePath hostConfig then
+                  assertFree name (lib.getAttrFromPath optionPath hostConfig)
+                else
+                  throw "cache-roots: ${name} is sourced from ${lib.concatStringsSep "." optionPath}, but that module is disabled on ${primaryHost}";
+            }
+          ) hostFinalPackagePaths
           ++ map (name: {
             inherit name;
             path = assertFree name self'.packages.${name};

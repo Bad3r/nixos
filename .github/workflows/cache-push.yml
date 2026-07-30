@@ -15,12 +15,21 @@ name: Cache Push
       - packages/**
 concurrency:
   group: cache-push
-  cancel-in-progress: true
+  # A push after a nixpkgs bump rebuilds the whole closure and runs 60-90
+  # minutes, so cancelling in progress discarded finished builds and left
+  # hosts rebuilding cache-roots packages locally until a later run caught
+  # up. Queued runs re-push only paths the cache still lacks.
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # cancel-in-progress: false removes the eviction a later push used to
+    # perform, so a stalled build (substituter hang, runner disk exhaustion)
+    # would otherwise hold the concurrency group for the GitHub default of 6
+    # hours. Bounded above the observed 60-90 minute worst case.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v5.0.0
         with:
