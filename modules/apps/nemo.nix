@@ -120,7 +120,7 @@ let
           type = lib.types.package;
           readOnly = true;
           default = configuredPackage;
-          defaultText = lib.literalExpression "config.programs.nemo.extended.package with the enabled extensions wrapped in";
+          defaultText = lib.literalMD "`programs.nemo.extended.package`, wrapped by `nemo-with-extensions` with the enabled extensions (`useDefaultExtensions = false`) when any extension is enabled";
           description = "Resolved Nemo package installed by this module, including enabled extensions.";
         };
       };
