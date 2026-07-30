@@ -218,9 +218,14 @@ logs and its full runtime closure is redistributable:
   `nemo-with-extensions` reports GPL-2.0 and LGPL-2.0 while carrying
   nemo-preview, nemo-seahorse, nemo-python, nemo-fileroller (GPL-2.0-or-later),
   nemo-emblems, and folder-color-switcher (GPL-3.0-only).
-- Verify the heavy derivation substitutes: entries whose main derivation
-  sets `allowSubstitutes = false` (check `drvAttrs.allowSubstitutes`)
-  never hit the cache and do not belong in the list.
+- Verify the heavy derivation substitutes: a derivation that sets
+  `allowSubstitutes = false` (check `drvAttrs.allowSubstitutes`) never hits
+  the cache itself, so what matters is whether that derivation is the
+  expensive one. An entry belongs in the list when the non-substitutable
+  derivation is thin assembly over a substitutable dependency closure
+  (electron-mail, upscayl, nemo-with-extensions all set it on the outer
+  wrapper). It does not belong when the non-substitutable derivation is
+  itself the expensive build (tor-browser, mullvad-browser).
 - Confirm derivation parity with
   `nix build --dry-run "path:.#cache-roots"` on a recently switched host:
   the new entry must not introduce rebuilds of paths the host already has.
