@@ -237,6 +237,14 @@ in
                 in
                 [
                   {
+                    assertion = cfg.externalBinary == null || lib.hasPrefix "/" cfg.externalBinary;
+                    message = ''
+                      programs.claude-code.extended.externalBinary must be an absolute path.
+                      The Home Manager wrapper and tweakcc shell-wrapper resolver require
+                      a leading "/" for the selected target.
+                    '';
+                  }
+                  {
                     assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
                     message = ''
                       programs.claude-code.extended.installMethods.bun.enable requires
