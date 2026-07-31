@@ -108,8 +108,14 @@
             mkdir -p probe/bin
             install -m 0755 ${lib.getExe pkgs.hello} probe/bin/hello
             wrapProgram "$PWD/probe/bin/hello" --set CLAUDE_CODE_WRAPPER_PROBE 1
+            PROBE_WRAPPED=$(find "$PWD/probe/bin" -maxdepth 1 -type f -name '.hello-wrapped*' -print -quit)
+            if [ -z "$PROBE_WRAPPED" ]; then
+              echo "makeWrapper did not create the expected hidden wrapper" >&2
+              exit 1
+            fi
             PATCH_FILE=${../../../packages/tweakcc/shell-wrapper.patch} \
               PROBE_FILE="$PWD/probe/bin/hello" \
+              PROBE_WRAPPED="$PROBE_WRAPPED" \
               ${lib.getExe pkgs.nodejs} --input-type=module <<'NODE'
             import { readFileSync } from "node:fs";
 
@@ -176,11 +182,22 @@
             const probe = readFileSync(process.env.PROBE_FILE, "utf8");
             if (!shebangPattern.test(probe.split("\n")[0])) {
               throw new Error(
-                "makeWrapper no longer emits a shebang classified as a shell launcher"
+                  "makeWrapper no longer emits a shebang classified as a shell launcher"
               );
             }
-            if (!execPattern.test(probe)) {
-              throw new Error("makeWrapper no longer emits the exec form consumed by shell-wrapper.patch");
+            const execMatch = probe.match(execPattern);
+            if (!execMatch) {
+              throw new Error(
+                "makeWrapper no longer emits the exec form consumed by shell-wrapper.patch"
+              );
+            }
+            if (execMatch[2] !== process.env.PROBE_WRAPPED) {
+              throw new Error(
+                "makeWrapper exec target capture is " +
+                  execMatch[2] +
+                  ", expected " +
+                  process.env.PROBE_WRAPPED
+              );
             }
             NODE
             echo "ok: Claude wrapper and shell-wrapper.patch contracts" > $out
