@@ -242,7 +242,6 @@ BOOTSTRAP_SUBSTITUTERS=(
   #"https://mirror.sjtu.edu.cn/nix-channels/store"
   # "https://mirrors.ustc.edu.cn/nix-channels/store"
   "https://cache.nixos.org"
-  "https://cache.garnix.io?priority=38"
   "https://cache.numtide.com"
   "https://nixpkgs-unfree.cachix.org"
   "https://nix-logseq-git-flake.cachix.org"
@@ -251,7 +250,6 @@ BOOTSTRAP_SUBSTITUTERS=(
 )
 BOOTSTRAP_TRUSTED_KEYS=(
   "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-  "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
   "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
   "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
   "nix-logseq-git-flake.cachix.org-1:DSBNW07PSRyCvS926tpIWahb53OIydwwZhsP6LhJNZo="

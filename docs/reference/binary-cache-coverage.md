@@ -19,13 +19,14 @@ derivations built locally per full system build. Three groups remain:
   others)
 - host-specific config and text derivations (cheap, acceptable)
 
-The garnix question from the issue resolves as follows:
+The Garnix question from the issue resolves as follows:
 
-- The garnix GitHub app is not installed for this repository. Recent
-  commits carry no garnix check suites, and the garnix badge API returns
-  an empty badge. The few `cache.garnix.io` hits observed during builds
-  come from garnix's shared public cache, populated by other projects'
-  builds, not from CI coverage of this repository.
+- The Garnix GitHub app is not installed for this repository. Recent commits
+  carry no Garnix check suites, and the Garnix badge API returns an empty
+  badge. Earlier `cache.garnix.io` hits came from Garnix's shared public cache,
+  populated by other projects' builds, not from CI coverage of this repository.
+  Garnix is therefore not part of the default substituter set: an optional
+  shared cache must not be a required dependency for host builds.
 - garnix cannot build this flake in its current shape even if installed:
   `flake.nix` sets `self.submodules = true`, so any git-based fetch of the
   flake pulls the private `secrets/` submodule, which external CI cannot
