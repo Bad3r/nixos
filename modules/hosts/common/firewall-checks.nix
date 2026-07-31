@@ -4,9 +4,8 @@
 # Every host currently sets `firewallDnsInterfaces = [ ]`, so both assertions
 # and the warning in that module are vacuously true in every host closure
 # `nix flake check` evaluates. Without this file a typo in one regex
-# alternative, or a nixpkgs option renamed out of `declaredNames`, passes the
-# whole suite. The cases below are the ones verified by hand while the
-# classifier was written.
+# alternative, or an option silently dropped from the `declaredNames` sources,
+# passes the whole suite.
 #
 # This throws rather than emitting a failing derivation: CI forces each check's
 # drvPath with `nix eval` and never builds checks, so only an eval-time failure
@@ -15,6 +14,45 @@
 let
   classify = config.flake.lib.nixos._firewallDnsClassify or null;
   pinnedNamesOf = config.flake.lib.nixos._firewallDnsPinnedNamesOf or null;
+  declaredNamesOf = config.flake.lib.nixos._firewallDnsDeclaredNamesOf or null;
+
+  # One entry per source declaredNamesOf reads. A source dropped from that
+  # expression loses its name here, which is the failure this covers.
+  declaredStub = {
+    systemd.network = {
+      links."10-lan0" = link { Path = "pci-0000:00:14.0-usb-0:1.4:1.0"; } "lan0";
+      netdevs."10-vx0".netdevConfig.Name = "vx0";
+    };
+    networking = {
+      bridges."br0" = { };
+      bonds."bond0" = { };
+      vlans."vlan0" = { };
+      macvlans."macvlan0" = { };
+      ipvlans."ipvlan0" = { };
+      vswitches."ovs0" = { };
+      wlanInterfaces."wlan-ap0" = { };
+      sits."sit0" = { };
+      greTunnels."gre0" = { };
+      wireguard.interfaces."wg0" = { };
+      wg-quick.interfaces."wgq0" = { };
+    };
+  };
+
+  declaredExpected = [
+    "lan0"
+    "br0"
+    "bond0"
+    "vlan0"
+    "macvlan0"
+    "ipvlan0"
+    "ovs0"
+    "wlan-ap0"
+    "sit0"
+    "gre0"
+    "wg0"
+    "wgq0"
+    "vx0"
+  ];
 
   link = matchConfig: name: {
     inherit matchConfig;
@@ -171,9 +209,18 @@ let
     lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
   ) pinnedCases;
 
-  failures = classifyFailures ++ pinnedFailures;
+  declaredFailures =
+    let
+      got = declaredNamesOf declaredStub;
+      missing = lib.subtractLists got declaredExpected;
+    in
+    lib.optional (
+      missing != [ ]
+    ) "declaredNamesOf drops ${fmt missing}: a source was removed from the expression in firewall.nix";
 
-  missingExports = classify == null || pinnedNamesOf == null;
+  failures = classifyFailures ++ pinnedFailures ++ declaredFailures;
+
+  missingExports = classify == null || pinnedNamesOf == null || declaredNamesOf == null;
 in
 {
   perSystem =
@@ -183,8 +230,8 @@ in
         if missingExports then
           throw (
             "firewall-dns-interface-classifier: modules/hosts/common/firewall.nix no longer exports "
-            + "flake.lib.nixos._firewallDnsClassify and _firewallDnsPinnedNamesOf, so the "
-            + "firewallDnsInterfaces guards are unverified."
+            + "flake.lib.nixos._firewallDnsClassify, _firewallDnsPinnedNamesOf, and "
+            + "_firewallDnsDeclaredNamesOf, so the firewallDnsInterfaces guards are unverified."
           )
         else if failures != [ ] then
           throw (
@@ -195,7 +242,9 @@ in
           )
         else
           pkgs.runCommandLocal "firewall-dns-interface-classifier-ok" { } ''
-            echo "ok: ${toString (lib.length classifyCases + lib.length pinnedCases)} classifier cases" > $out
+            echo "ok: ${
+              toString (lib.length classifyCases + lib.length pinnedCases + 1)
+            } classifier cases" > $out
           '';
     };
 }

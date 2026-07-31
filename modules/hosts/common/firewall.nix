@@ -7,6 +7,16 @@
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
 
+  # Bound once each: the three classifier outputs stay mutually consistent only
+  # while both patterns are single-sourced.
+  # enp4s0, eno1, ens3, enx001122334455, wlp0s20f3, wwp0s20f0u2, ibp5s0.
+  predictableRe = "(en|wl|ww|ib)[posx].*";
+  # Kernel-assigned. usb0 is the usbnet default: drivers/net/usb/usbnet.c only
+  # switches to eth%d, wlan%d, or wwan%d for drivers flagged FLAG_ETHER,
+  # FLAG_WLAN, or FLAG_WWAN, so a cdc_ether tether comes up as usb0.
+  kernelRe = "(eth|wlan|usb|wwan|ib)[0-9]+";
+  matches = re: n: lib.match re n != null;
+
   # Pure classifier, exported so modules/hosts/common/firewall-checks.nix can
   # exercise every branch: both hosts leave firewallDnsInterfaces empty, so
   # nothing in a host closure reaches these cases.
@@ -16,26 +26,15 @@ let
       declaredNames,
     }:
     {
-      # enp4s0, eno1, ens3, enx001122334455, wlp0s20f3, wwp0s20f0u2, ibp5s0.
       # Both scheme lists subtract declaredNames: a name this host creates, such
       # as a .link pin or a wlanInterfaces AP, exists whichever scheme the host
       # boots with, so its shape says nothing about whether it is stale.
       predictableNames = lib.subtractLists declaredNames (
-        lib.filter (n: lib.match "(en|wl|ww|ib)[posx].*" n != null) dnsInterfaces
+        lib.filter (matches predictableRe) dnsInterfaces
       );
-      # Kernel-assigned. usb0 is the usbnet default: drivers/net/usb/usbnet.c only
-      # switches to eth%d, wlan%d, or wwan%d for drivers flagged FLAG_ETHER,
-      # FLAG_WLAN, or FLAG_WWAN, so a cdc_ether tether comes up as usb0.
-      kernelNames = lib.subtractLists declaredNames (
-        lib.filter (n: lib.match "(eth|wlan|usb|wwan|ib)[0-9]+" n != null) dnsInterfaces
-      );
+      kernelNames = lib.subtractLists declaredNames (lib.filter (matches kernelRe) dnsInterfaces);
       unbackedNames = lib.filter (
-        n:
-        !(
-          lib.match "(en|wl|ww|ib)[posx].*" n != null
-          || lib.match "(eth|wlan|usb|wwan|ib)[0-9]+" n != null
-          || lib.elem n declaredNames
-        )
+        n: !(matches predictableRe n || matches kernelRe n || lib.elem n declaredNames)
       ) dnsInterfaces;
     };
 
@@ -56,6 +55,24 @@ let
       ) links
     );
 
+  # Interfaces a host declares rather than inherits from a NIC. Exported with
+  # the classifier so the check can assert every source is still read.
+  declaredNamesOf =
+    cfg:
+    pinnedNamesOf cfg.systemd.network.links
+    ++ lib.attrNames cfg.networking.bridges
+    ++ lib.attrNames cfg.networking.bonds
+    ++ lib.attrNames cfg.networking.vlans
+    ++ lib.attrNames cfg.networking.macvlans
+    ++ lib.attrNames cfg.networking.ipvlans
+    ++ lib.attrNames cfg.networking.vswitches
+    ++ lib.attrNames cfg.networking.wlanInterfaces
+    ++ lib.attrNames cfg.networking.sits
+    ++ lib.attrNames cfg.networking.greTunnels
+    ++ lib.attrNames cfg.networking.wireguard.interfaces
+    ++ lib.attrNames cfg.networking.wg-quick.interfaces
+    ++ lib.mapAttrsToList (n: netdev: netdev.netdevConfig.Name or n) cfg.systemd.network.netdevs;
+
   body =
     {
       hostName,
@@ -68,20 +85,7 @@ let
       dnsInterfaces = hostFlags.firewallDnsInterfaces or [ ];
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       predictable = config.networking.usePredictableInterfaceNames;
-      # Interfaces this host declares rather than inherits from a NIC.
-      declaredNames =
-        pinnedNamesOf config.systemd.network.links
-        ++ lib.attrNames config.networking.bridges
-        ++ lib.attrNames config.networking.bonds
-        ++ lib.attrNames config.networking.vlans
-        ++ lib.attrNames config.networking.macvlans
-        ++ lib.attrNames config.networking.ipvlans
-        ++ lib.attrNames config.networking.vswitches
-        ++ lib.attrNames config.networking.wlanInterfaces
-        ++ lib.attrNames config.networking.sits
-        ++ lib.attrNames config.networking.greTunnels
-        ++ lib.attrNames config.networking.wireguard.interfaces
-        ++ lib.mapAttrsToList (n: netdev: netdev.netdevConfig.Name or n) config.systemd.network.netdevs;
+      declaredNames = declaredNamesOf config;
       inherit (classify { inherit dnsInterfaces declaredNames; })
         predictableNames
         kernelNames
@@ -120,8 +124,8 @@ let
         + "(${lib.concatStringsSep ", " unbackedNames}) are neither predictable nor "
         + "kernel-assigned, and no declaration on this host creates them: no .link Name=, "
         + "bridge, bond, VLAN, macvlan, ipvlan, vswitch, wlan interface, sit, GRE tunnel, "
-        + "WireGuard interface, or networkd netdev. That is expected for an interface a "
-        + "service creates at runtime (tailscale0, docker0, a wg-quick interface); "
+        + "WireGuard interface, wg-quick interface, or networkd netdev. That is expected "
+        + "for an interface a service creates at runtime (tailscale0, docker0); "
         + "otherwise the opening matches no device, so pin it as "
         + "modules/system76/networking.nix does."
       );
@@ -160,6 +164,7 @@ in
     lib.nixos = {
       _firewallDnsClassify = classify;
       _firewallDnsPinnedNamesOf = pinnedNamesOf;
+      _firewallDnsDeclaredNamesOf = declaredNamesOf;
     };
     nixosModules.hosts-common.imports = [ body ];
   };
