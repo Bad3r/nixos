@@ -131,7 +131,7 @@ def main() -> None:
     print(f"Updated {PACKAGE_FILE.relative_to(FLAKE_ROOT)} to {latest}")
 
     print("Validating package build...")
-    nix_build(PACKAGE_ATTR, no_link=True)
+    nix_build(PACKAGE_ATTR, no_link=True, capture_output=False)
 
 
 if __name__ == "__main__":
