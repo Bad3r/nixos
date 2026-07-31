@@ -229,9 +229,9 @@ firewall rule matches no device instead of landing on a different one.
 
 Pin to a name outside the namespaces the kernel assigns itself: `eth*`,
 `wlan*`, `usb*` (the usbnet default for `cdc_ether` and `rndis_host`), `wwan*`,
-and `ib*`. A rename into one of those can collide with a device that already
-holds it. `modules/hosts/common/firewall.nix` treats exactly that set as
-kernel-assigned.
+`ib*`, and `sl*`. A rename into one of those can collide with a device that
+already holds it. `modules/hosts/common/firewall.nix` treats exactly that set
+as kernel-assigned.
 
 A pinned device gets no other `.link`. udev applies only the first matching
 file, so a `10-*.link` pin also displaces systemd's `99-default.link` for that

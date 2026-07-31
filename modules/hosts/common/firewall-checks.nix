@@ -202,6 +202,7 @@ let
         "wlxb827ebaabbcc"
         "slp0s1"
         "enacmei1"
+        "mcp0s1"
       ];
       declaredNames = [ ];
       predictableNames = [
@@ -215,6 +216,7 @@ let
         "wlxb827ebaabbcc"
         "slp0s1"
         "enacmei1"
+        "mcp0s1"
       ];
       kernelNames = [ ];
       unbackedNames = [ ];

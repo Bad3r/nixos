@@ -203,7 +203,7 @@ let
           + "(${lib.concatStringsSep ", " staleScheme}) but the host sets "
           + "networking.usePredictableInterfaceNames = true, so they match no device. "
           + "Use the predictable name, or pin the device with a .link Name= outside the "
-          + "kernel-assigned namespaces (eth*, wlan*, usb*, wwan*, ib*) as "
+          + "kernel-assigned namespaces (eth*, wlan*, usb*, wwan*, ib*, sl*) as "
           + "modules/system76/networking.nix does."
         else
           "${hostName}: firewallDnsInterfaces has predictable interface names "
@@ -228,7 +228,7 @@ let
           message =
             "${hostName}: systemd.network.links pins interface names "
             + "(${lib.concatStringsSep ", " collidingPins}) inside the namespaces the "
-            + "kernel assigns itself (eth*, wlan*, usb*, wwan*, ib*). Per systemd.link(5) "
+            + "kernel assigns itself (eth*, wlan*, usb*, wwan*, ib*, sl*). Per systemd.link(5) "
             + "the udev rename races the kernel's own assignment there, so the pin may "
             + "silently not apply and anything keyed to the name matches no device. Pin "
             + "outside those namespaces, as modules/system76/networking.nix does with lan0.";
