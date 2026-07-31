@@ -11,8 +11,6 @@
     * User-level instructions generated via flake.lib.agents.systemPrompt
       (modules/agents/system-prompt.nix)
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
-    * Greptile plugin activation is optional and resolved during Home Manager
-      activation only when the plugin is explicitly enabled.
     * LSP plugin enablement and binary installation are governed by
       programs.claude-code.extended.lspPlugins in modules/apps/claude-code.nix.
     * Additional non-LSP plugins are governed by
@@ -40,21 +38,16 @@
     { pkgs, ... }:
     let
       renderWrapper =
-        {
-          installMethods,
-          greptilePluginRequested,
-        }:
+        { installMethods }:
         import ./_wrapper.nix {
           inherit
             lib
             pkgs
             installMethods
-            greptilePluginRequested
             ;
           claudePkg = "/nix/store/test-claude";
           bunInstallDir = "/nix/store/test-bun";
           externalBinary = "/nix/store/test-external/bin/claude";
-          greptileApiKeyPath = "/tmp/greptile/api-key";
         };
       installMethodVariants = {
         bun = {
@@ -70,32 +63,9 @@
           nix.enable = false;
         };
       };
-      variants = {
-        "bun-greptile-false" = renderWrapper {
-          installMethods = installMethodVariants.bun;
-          greptilePluginRequested = false;
-        };
-        "bun-greptile-true" = renderWrapper {
-          installMethods = installMethodVariants.bun;
-          greptilePluginRequested = true;
-        };
-        "nix-greptile-false" = renderWrapper {
-          installMethods = installMethodVariants.nix;
-          greptilePluginRequested = false;
-        };
-        "nix-greptile-true" = renderWrapper {
-          installMethods = installMethodVariants.nix;
-          greptilePluginRequested = true;
-        };
-        "external-greptile-false" = renderWrapper {
-          installMethods = installMethodVariants.external;
-          greptilePluginRequested = false;
-        };
-        "external-greptile-true" = renderWrapper {
-          installMethods = installMethodVariants.external;
-          greptilePluginRequested = true;
-        };
-      };
+      variants = lib.mapAttrs (
+        _name: installMethods: renderWrapper { inherit installMethods; }
+      ) installMethodVariants;
       wrapperPaths = lib.mapAttrs (_: wrapper: lib.getExe wrapper.claudeWrapped) variants;
       targetLinePattern = ''^[[:space:]]*target=('/[^']+'|"/[^"]+"|/[^[:space:]#]+)[[:space:]]*$'';
       wrapperTargetCounts = lib.mapAttrs (
@@ -282,7 +252,6 @@
       defaults = import ./_default-settings.nix;
       claudeEnv = import ./_env.nix;
       plugins = import ./_plugins.nix { inherit lib osConfig; };
-      inherit (plugins) greptilePluginRequested;
 
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
@@ -310,8 +279,6 @@
         inherit (plugins) enabledPlugins;
       };
 
-      greptileApiKeyPath = "${config.xdg.dataHome}/greptile/api-key";
-      greptileHeadersHelperPath = "${config.home.homeDirectory}/.local/bin/claude-greptile-mcp-headers";
       bunInstallDir = "${config.xdg.dataHome}/bun";
       configuredExternalBinary = lib.attrByPath [
         "programs"
@@ -331,11 +298,8 @@
           pkgs
           osConfig
           config
-          greptileApiKeyPath
-          greptileHeadersHelperPath
           ;
         inherit (settings) claudeSettingsFile claudeJsonConfigFile;
-        inherit (plugins) greptilePluginKey greptilePluginRequested;
       };
 
       claudeRuntime = import ./_wrapper.nix {
@@ -346,8 +310,6 @@
           bunInstallDir
           externalBinary
           installMethods
-          greptilePluginRequested
-          greptileApiKeyPath
           ;
       };
 
@@ -375,32 +337,7 @@
               executable = true;
             };
           }
-          // claudeSkillFiles
-          // lib.optionalAttrs greptilePluginRequested {
-            ".local/bin/claude-greptile-mcp-headers" = {
-              executable = true;
-              text = ''
-                #!${pkgs.bash}/bin/bash
-                set -euo pipefail
-
-                secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
-                if [ ! -r "$secret_path" ] || [ ! -s "$secret_path" ]; then
-                  echo "GREPTILE_API_KEY file is not readable: $secret_path" >&2
-                  exit 1
-                fi
-
-                secret_value="$(${pkgs.coreutils}/bin/tr -d '\r\n' < "$secret_path")"
-                if [ -z "$secret_value" ]; then
-                  echo "GREPTILE_API_KEY file is empty after normalization: $secret_path" >&2
-                  exit 1
-                fi
-
-                ${pkgs.jq}/bin/jq -n --arg authorization "Bearer $secret_value" '{
-                  Authorization: $authorization
-                }'
-              '';
-            };
-          };
+          // claudeSkillFiles;
 
           inherit activation;
 

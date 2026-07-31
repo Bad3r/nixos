@@ -151,7 +151,6 @@ in
             "frontend-design@claude-plugins-official" = false;
             "pr-review-toolkit@claude-plugins-official" = false;
             "claude-code-setup@claude-plugins-official" = false;
-            "greptile@claude-plugins-official" = false;
           };
           example = lib.literalExpression ''
             {
