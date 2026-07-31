@@ -28,14 +28,14 @@ index c0f8978..f8fb855 100644
    }
  
    // Check for binary magic numbers
-@@ -229,14 +234,48 @@ async function maybeResolveNixWrapper(binaryPath: string): Promise<string> {
+@@ -229,14 +234,55 @@ async function maybeResolveNixWrapper(binaryPath: string): Promise<string> {
    return binaryPath;
  }
  
 +/**
-+ * Resolves the static target used by a shell launcher. NixOS home-manager
-+ * wrappers use this form when the executable must be selected at runtime:
-+ * `target=/absolute/path/to/claude` followed by `exec "$target" "$@"`.
++ * Resolves static targets used by shell launchers. Home Manager wrappers use
++ * `target=/absolute/path/to/claude`, while makeWrapper uses
++ * `exec -a "<argv0>" "/absolute/path/to/wrapped"`.
 + * The producer is `modules/agents/claude-code/_wrapper.nix`.
 + */
 +async function resolveShellWrapper(wrapperPath: string): Promise<string | null> {
@@ -44,7 +44,14 @@ index c0f8978..f8fb855 100644
 +    const targetMatch = wrapper.match(
 +      /^\s*target=(?:"([^"]+)"|'([^']+)'|([^\s#]+))\s*$/m
 +    );
-+    const target = targetMatch?.[1] ?? targetMatch?.[2] ?? targetMatch?.[3];
++    const execTargetMatch = wrapper.match(
++      /^\s*exec\s+(?:-a\s+(?:"[^"]*"|'[^']*'|[^\s]+)\s+)?["'](\/[^"]+)["']/m
++    );
++    const target =
++      targetMatch?.[1] ??
++      targetMatch?.[2] ??
++      targetMatch?.[3] ??
++      execTargetMatch?.[1];
 +    if (!target || !target.startsWith('/')) {
 +      return null;
 +    }
@@ -84,9 +91,9 @@ index c0f8978..f8fb855 100644
  
 +    if (fileType === 'shell-wrapper') {
 +      const shellTarget = await resolveShellWrapper(resolvedPath);
-+      return shellTarget
-+        ? resolvePathToInstallationType(shellTarget, depth + 1)
-+        : null;
++      if (shellTarget) {
++        return resolvePathToInstallationType(shellTarget, depth + 1);
++      }
 +    }
 +
      if (fileType === 'javascript') {
