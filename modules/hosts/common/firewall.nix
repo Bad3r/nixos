@@ -51,17 +51,33 @@ let
       staleScheme = if predictable then kernelNames else predictableNames;
     };
 
+  # Match keys that can bind a .link to one device. Type= and Driver= select a
+  # class, not a device, so they are absent on purpose.
+  bindingMatchKeys = [
+    "Path"
+    "MACAddress"
+    "PermanentMACAddress"
+    "OriginalName"
+    "Property"
+  ];
+  # A [Match] that is empty, or whose every selector is a glob, matches each
+  # device udev initializes: it renames whichever interface appears first and
+  # shadows every higher-numbered .link file, so it does not bind a name.
+  bindsOneDevice =
+    matchConfig:
+    lib.any (
+      key: matchConfig ? ${key} && !(lib.any (lib.hasInfix "*") (lib.toList matchConfig.${key}))
+    ) bindingMatchKeys;
+
   # Names a .link Name= creates on a host, such as lan0. A disabled unit is
-  # never installed, and a .link with an empty [Match] matches every device udev
-  # initializes: it renames whichever interface appears first and shadows every
-  # higher-numbered .link file, so it does not bind a name to a device. Neither
-  # counts as a pin.
+  # never installed and a match-all file does not bind a name to a device, so
+  # neither counts as a pin.
   pinnedNamesOf =
     links:
     lib.filter (n: n != null) (
       lib.mapAttrsToList (
         _: link:
-        if !(link.enable or true) || link.matchConfig or { } == { } then
+        if !(link.enable or true) || !(bindsOneDevice (link.matchConfig or { })) then
           null
         else
           link.linkConfig.Name or null

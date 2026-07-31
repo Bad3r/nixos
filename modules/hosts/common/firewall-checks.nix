@@ -79,6 +79,21 @@ let
       expected = [ ];
     }
     {
+      name = "wildcard OriginalName is not a pin";
+      links."10-lan0" = link { OriginalName = "*"; } "lan0";
+      expected = [ ];
+    }
+    {
+      name = "class-only match is not a pin";
+      links."10-lan0" = link { Type = "ether"; } "lan0";
+      expected = [ ];
+    }
+    {
+      name = "exact OriginalName is a pin";
+      links."10-lan0" = link { OriginalName = "enp4s0"; } "lan0";
+      expected = [ "lan0" ];
+    }
+    {
       name = "disabled link is not a pin";
       links."10-lan0" = (link { Path = "pci-0000:00:14.3"; } "lan0") // {
         enable = false;
@@ -104,12 +119,18 @@ let
         "wwp0s20f0u2"
         "ibp5s0"
         "enP2p1s0"
+        "eno1"
+        "ens3"
+        "enx001122334455"
       ];
       declaredNames = [ ];
       predictableNames = [
         "wwp0s20f0u2"
         "ibp5s0"
         "enP2p1s0"
+        "eno1"
+        "ens3"
+        "enx001122334455"
       ];
       kernelNames = [ ];
       unbackedNames = [ ];
