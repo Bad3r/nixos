@@ -159,8 +159,11 @@ Always give the policy a `matchConfig`. A `.link` file with no valid `[Match]`
 settings matches every interface udev initializes, and udev applies only the
 first matching file in lexicographic order, so an unmatched `10-wlan.link`
 randomizes bridges, `veth` pairs, tunnels, and wired NICs as well, and shadows
-every higher-numbered `.link` file on the host. Match `OriginalName` so the
-policy reaches only the intended adapter:
+every higher-numbered `.link` file on the host. That same first-match rule means
+a device already covered by a pin never reads a second file: tpnix's internal
+card matches `10-wifi0.link`, which sorts first, so a policy for that device
+belongs in the pin file rather than in a separate one. Otherwise match
+`OriginalName` so the policy reaches only the intended adapter:
 
 ```nix
 # A MACAddressPolicy only survives if NetworkManager is not also setting the
@@ -198,7 +201,13 @@ ethernet adapter, so a rule later keyed to that name follows the adapter:
 ```nix
 systemd.network.links."10-lan0" = {
   matchConfig.Path = "pci-0000:00:14.0-usb-0:1.4:1.0";
-  linkConfig.Name = "lan0";
+  linkConfig = {
+    Name = "lan0";
+    # The pin displaces 99-default.link for this device, so restore the
+    # alternative names it would otherwise supply. Its "mac" token is left
+    # out: that derives an altname from the factory hardware address.
+    AlternativeNamesPolicy = "database onboard slot path";
+  };
 };
 ```
 
@@ -216,21 +225,11 @@ A pinned device gets no other `.link`. udev applies only the first matching
 file, so a `10-*.link` pin also displaces systemd's `99-default.link` for that
 device, dropping its `NamePolicy`, `AlternativeNamesPolicy`, and
 `MACAddressPolicy=persistent` defaults, and a second `.link` added later for the
-same device is never read. Put what the device needs in the pin file itself,
-with one exception: do not restore `NamePolicy`. Per `systemd.link(5)`, `Name=`
-"has lower precedence than `NamePolicy=`", so restoring it would override the
-pin and hand the device back to whichever name the policy resolves, with no
-error.
-
-```nix
-systemd.network.links."10-lan0" = {
-  matchConfig.Path = "pci-0000:00:14.0-usb-0:1.4:1.0";
-  linkConfig = {
-    Name = "lan0";
-    AlternativeNamesPolicy = "database onboard slot path";
-  };
-};
-```
+same device is never read, which is why the example above carries
+`AlternativeNamesPolicy` in the pin file. One default must not come back:
+`NamePolicy`. Per `systemd.link(5)`, `Name=` "has lower precedence than
+`NamePolicy=`", so restoring it would override the pin and hand the device back
+to whichever name the policy resolves, with no error.
 
 The pins in this repository restore `AlternativeNamesPolicy` but deliberately
 not `MACAddressPolicy`: NetworkManager owns the address on these hosts, so

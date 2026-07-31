@@ -108,16 +108,19 @@ let
           9999 # Stash default port
         ];
         allowedTCPPortRanges = extraTcpPortRanges;
-        interfaces = {
-          tailscale0.allowedTCPPorts = [ 22 ];
-        }
-        // lib.genAttrs dnsInterfaces (_: {
-          allowedUDPPorts = [
-            53
-            67
-          ];
-          allowedTCPPorts = [ 53 ];
-        });
+        # mkMerge, not //: a shallow update would let a dnsInterfaces entry named
+        # tailscale0 replace the submodule below and drop the port 22 rule that
+        # carries SSH over the tailnet.
+        interfaces = lib.mkMerge [
+          { tailscale0.allowedTCPPorts = [ 22 ]; }
+          (lib.genAttrs dnsInterfaces (_: {
+            allowedUDPPorts = [
+              53
+              67
+            ];
+            allowedTCPPorts = [ 53 ];
+          }))
+        ];
         # Allow SSH from local network (10.0.0.0/8)
         extraCommands = ''
           iptables -A nixos-fw -s 10.0.0.0/8 -p tcp --dport 22 -j nixos-fw-accept
