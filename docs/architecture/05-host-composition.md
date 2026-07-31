@@ -93,7 +93,7 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | `modules/tpnix/firmware-manager-fix.nix` | tpnix-only `services.fwupd.enable = true;` override                                                                             |
 | `modules/tpnix/fingerprint.nix`          | Fingerprint auth (`services.fprintd`) and PAM service wiring (tpnix-only)                                                       |
 | `modules/tpnix/fonts.nix`                | Arabic fontconfig rules through the `host.fontconfig.extraRules` option                                                         |
-| `modules/tpnix/networking.nix`           | SignalX DNS routing layered on the common NetworkManager base                                                                   |
+| `modules/tpnix/networking.nix`           | `.link` unit pinning the internal Wi-Fi card to `wifi0` by PCI path for `firewallDnsInterfaces`, plus SignalX DNS routing       |
 | `modules/tpnix/printing.nix`             | Printer provisioning with a SOPS-managed device URI (tpnix-only)                                                                |
 | `modules/tpnix/r2-runtime.nix`           | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                              |
 | `modules/tpnix/hardware-config.nix`      | Filesystems, firmware, loader entry limit, low-level hardware settings                                                          |

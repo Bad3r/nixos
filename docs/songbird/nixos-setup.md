@@ -80,7 +80,7 @@ already covered by the shared baseline and needs no per-host code.
 | 285K P/E cores, virtualization   | intel_pstate, kvm-intel, coretemp  | hosts-common (`boot.nix`); microcode via `hardware-config.nix`         |
 | Arrow Lake iGPU (Xe-LPG)         | i915/xe, linux-firmware            | Present for bring-up; VA-API only if `vaapi.backend = "intel-media"`   |
 | RTX 5080 (Blackwell GB203)       | NVIDIA open kernel modules, >= 570 | `modules/songbird/nvidia-gpu.nix` over `flake.nixosModules.nvidia-gpu` |
-| Intel 2.5 GbE                    | igc (in-kernel)                    | Nothing needed; kernel name feeds `firewallDnsInterfaces`              |
+| Intel 2.5 GbE                    | igc (in-kernel)                    | Nothing needed; pin its name if it ever serves DNS/DHCP                |
 | Realtek 5 GbE (RTL8126)          | r8169 (in-kernel since 6.8)        | Nothing needed; zen kernel is well past 6.8                            |
 | Wi-Fi 7 module (vendor unlisted) | iwlwifi or mt76 + linux-firmware   | Identify at first boot (`lspci -nn`); in-kernel either way             |
 | Bluetooth 5.4                    | btusb                              | `hardware.bluetooth.enable` in `hardware-config.nix`                   |
@@ -432,24 +432,29 @@ _: {
     r2RuntimeReady = false;
 
     extraHomeApps = [ ];
-    firewallDnsInterfaces = [ "<wired-interface-name>" ];
+    firewallDnsInterfaces = [ ]; # only if songbird serves DNS/DHCP; see below
   };
 }
 ```
 
-`shareCommon = true` means songbird boots with `net.ifnames=0`, so
-`firewallDnsInterfaces` takes a kernel name (`eth0`, `eth1`) read from
-`ip -br link` after the first boot on this configuration, not the `enp*` name
-an installer shows. A stale name is not an evaluation error:
-`modules/hosts/common/firewall.nix` emits a
+Leave `firewallDnsInterfaces` empty unless songbird actually serves DNS or DHCP
+to the network. It opens inbound UDP 53/67 and TCP 53, and both existing hosts
+now leave it empty for that reason; NetworkManager's `dns = "dnsmasq"` mode does
+not count, since that dnsmasq binds `127.0.0.1` and `::1` with no `dhcp-range`.
+
+If songbird does gain such a listener: `shareCommon = true` means it boots with
+`net.ifnames=0`, so the kernel names interfaces `eth0`, `eth1`, and `wlan0`
+rather than the `enp*` names an installer shows. Do not put a bare kernel name in
+`firewallDnsInterfaces` on this host: songbird has two wired NICs of the same class, so the numbering
+follows discovery order and can move between them, and the value opens UDP
+53/67 and TCP 53 on whichever NIC holds the name that boot. Pin the intended
+NIC as shown below and use the pinned name. A stale name is not an evaluation
+error either: `modules/hosts/common/firewall.nix` emits a
 `networking.firewall.interfaces.<name>` entry for a device that never appears,
 so the DNS and DHCP opening silently does nothing.
 
-Songbird has two wired NICs of the same class, the Intel 2.5 GbE on `igc` and
-the Realtek 5 GbE on `r8169`, so `eth0` and `eth1` follow kernel discovery
-order and can move between them. Do not aim `firewallDnsInterfaces` at a bare
-`eth0`: it opens UDP 53/67 and TCP 53 on whichever NIC holds the name that
-boot. Pin the intended NIC by PCI path and use the pinned name, the way
+The two same-class NICs are the Intel 2.5 GbE on `igc` and the Realtek 5 GbE on
+`r8169`. Pin the intended one by PCI path, the way
 `modules/system76/networking.nix` pins its USB adapter:
 
 ```sh
@@ -568,7 +573,7 @@ remain open; these are measurements that require the hardware.
 | --------------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
 | LUKS, ext4, ESP, swap UUIDs | `nixos-generate-config --root /mnt`     | `hardware-config.nix`                                                    |
 | hostId                      | `head -c 8 /etc/machine-id`             | `host-id.nix`                                                            |
-| Wired interface names       | `ip -br link` after the first boot      | `policy.nix` `firewallDnsInterfaces` (pinned name; see note below)       |
+| Wired interface names       | `ip -br link` after the first boot      | Only needed if a DNS/DHCP listener is added; see note below              |
 | Wi-Fi module vendor         | `lspci -nn \| grep -i network`          | project-songbird.md (note)                                               |
 | Host SSH public key         | `cat /etc/ssh/ssh_host_ed25519_key.pub` | `ssh.nix`                                                                |
 | Tailnet IPv4                | `tailscale ip -4` after joining         | `policy.nix` `tailnetIp`                                                 |

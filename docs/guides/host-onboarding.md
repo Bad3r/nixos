@@ -95,7 +95,13 @@ _: {
 }
 ```
 
-Use the host's real interface names for `firewallDnsInterfaces`, read from
+Leave `firewallDnsInterfaces` empty unless the host actually serves DNS or DHCP
+to the network, as both current hosts do. It opens inbound UDP 53/67 and TCP 53,
+and NetworkManager's `dns = "dnsmasq"` mode is not a reason to set it: that
+dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and `::1` with
+no `dhcp-range`, so it never listens on a link.
+
+When the host does have such a listener, use its real interface names, read from
 `ip link` on the target **after** its first boot on this configuration.
 `shareCommon` hosts boot with `net.ifnames=0`, so the names are `eth0`, `eth1`,
 and `wlan0` rather than the `enp*` and `wlp*` names an installer shows. A stale

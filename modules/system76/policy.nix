@@ -19,11 +19,12 @@ _: {
       "awscli2"
       "pentesting-devshell"
     ];
-    # USB ethernet adapter, formerly enp0s20f0u1u4, pinned to lan0 by the .link
-    # in modules/system76/networking.nix. A bare eth0 would follow enumeration
-    # order onto the built-in NIC whenever the adapter is detached at boot, and
-    # this value opens UDP 53/67 and TCP 53.
-    firewallDnsInterfaces = [ "lan0" ];
+    # No service here serves DNS or DHCP to the network, so naming an interface
+    # would open inbound UDP 53/67 and TCP 53 with no listener behind them.
+    # Restore it only alongside a real listener, and use the pinned lan0 rather
+    # than eth0, which follows enumeration order onto the built-in NIC whenever
+    # the USB adapter is detached at boot.
+    firewallDnsInterfaces = [ ];
     firewallExtraTcpPortRanges = [
       {
         from = 8000;

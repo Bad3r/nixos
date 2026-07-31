@@ -24,15 +24,14 @@ in
       # this file layers the Wi-Fi name pin and SignalX DNS routing on top.
       config = lib.mkMerge [
         {
-          # firewallDnsInterfaces in policy.nix opens UDP 53/67 and TCP 53 for
-          # the dnsmasq below. Under net.ifnames=0 a bare wlan0 would go to
-          # whichever wireless device registers first, so a USB adapter plugged
-          # in at boot could take it; pin the internal card to a name outside
-          # the kernel's wlan* namespace instead. The path is the PCI address
-          # encoded in the former name wlp0s20f3, slot 20 being 0x14; confirm
-          # with `udevadm info -q property -p /sys/class/net/wifi0 | grep
-          # ID_PATH=` after the first boot. A mismatch leaves no device named
-          # wifi0, so the opening matches nothing rather than the wrong link.
+          # Under net.ifnames=0 wlan0 goes to whichever wireless device
+          # registers first, so a USB adapter plugged in at boot can take it
+          # from the internal card. Pin the card to a name outside the kernel's
+          # wlan* namespace so anything keyed to it follows the card. The path
+          # is the PCI address encoded in the former name wlp0s20f3, slot 20
+          # being 0x14; confirm with `udevadm info -q property -p
+          # /sys/class/net/wifi0 | grep ID_PATH=` after the first boot. A
+          # mismatch leaves no device named wifi0, which fails closed.
           systemd.network.links."10-wifi0" = {
             matchConfig.Path = "pci-0000:00:14.3";
             linkConfig.Name = "wifi0";

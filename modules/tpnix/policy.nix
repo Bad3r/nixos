@@ -8,10 +8,13 @@ _: {
 
     # Per-host values consumed by modules/hosts/common/*.
     extraHomeApps = [ "libreoffice" ];
-    # Internal Wi-Fi card, formerly wlp0s20f3, pinned to wifi0 by the .link in
-    # modules/tpnix/networking.nix. A bare wlan0 would follow registration order
-    # onto a USB adapter attached at boot, and this value opens UDP 53/67 and
-    # TCP 53 for NetworkManager's dnsmasq.
-    firewallDnsInterfaces = [ "wifi0" ];
+    # No service here serves DNS or DHCP to the network. The only dnsmasq is the
+    # caching resolver NetworkManager spawns for dns = "dnsmasq" in
+    # networking.nix, and NM gives it --listen-address=127.0.0.1 and ::1 with no
+    # dhcp-range, so nothing binds UDP 67 or binds 53 off loopback. Naming an
+    # interface here would open inbound 53/67 on Wi-Fi, untrusted networks
+    # included, with no listener. Restore it only alongside a real listener, and
+    # use the pinned wifi0 rather than wlan0.
+    firewallDnsInterfaces = [ ];
   };
 }
