@@ -118,14 +118,11 @@
             const regexLiterals = patch
               .split("\n")
               .flatMap((line) => {
-                const match = line.match(/^\+\s+(\/.*\/[a-z]*)$/);
+                const match =
+                  line.match(/^\+\s+(\/.*\/[a-z]*)$/) ??
+                  line.match(/^\+\s+if \((\/.*\/[a-z]*)\.test\(/);
                 return match ? [match[1]] : [];
               });
-            if (regexLiterals.length !== 2) {
-              throw new Error(
-                "shell-wrapper.patch must expose exactly two resolver regex literals"
-              );
-            }
             const regexFromLiteral = (literal) => {
               const closingSlash = literal.lastIndexOf("/");
               return new RegExp(
@@ -134,13 +131,30 @@
               );
             };
             const regexes = regexLiterals.map(regexFromLiteral);
-            const targetPattern = regexes.find((regex) => regex.source.includes("target="));
-            const execPattern = regexes.find((regex) => regex.source.includes("exec"));
-            if (!targetPattern || !execPattern) {
-              throw new Error("shell-wrapper.patch regex literals lack target or exec coverage");
-            }
+            const pick = (label, needle) => {
+              const found = regexes.filter((regex) => regex.source.includes(needle));
+              if (found.length !== 1) {
+                throw new Error(
+                  "shell-wrapper.patch must expose exactly one " +
+                    label +
+                    " regex, found " +
+                    found.length
+                );
+              }
+              return found[0];
+            };
+            const shebangPattern = pick("shebang", "bash|dash");
+            const targetPattern = pick("target", "target=");
+            const execPattern = pick("exec", "exec");
             for (const [name, path] of Object.entries(wrapperPaths)) {
               const wrapper = readFileSync(path, "utf8");
+              if (!shebangPattern.test(wrapper.split("\n")[0])) {
+                throw new Error(
+                  "claude-code " +
+                    name +
+                    " wrapper shebang is not classified as a shell launcher"
+                );
+              }
               const matches = wrapper.split("\n").flatMap((line) => {
                 const match = line.match(targetPattern);
                 return match ? [match[1] ?? match[2] ?? match[3]] : [];
@@ -160,6 +174,11 @@
               }
             }
             const probe = readFileSync(process.env.PROBE_FILE, "utf8");
+            if (!shebangPattern.test(probe.split("\n")[0])) {
+              throw new Error(
+                "makeWrapper no longer emits a shebang classified as a shell launcher"
+              );
+            }
             if (!execPattern.test(probe)) {
               throw new Error("makeWrapper no longer emits the exec form consumed by shell-wrapper.patch");
             }
