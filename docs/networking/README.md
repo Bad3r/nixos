@@ -25,8 +25,10 @@ Those names follow the order the kernel discovers the devices, which is not
 guaranteed across boots. A host with two interfaces of the same class, or with
 a removable adapter, can see the numbering move between devices. A name that
 carries a firewall rule must therefore be pinned rather than observed: see
-[Pin an interface name](#pin-an-interface-name). `modules/system76/policy.nix`
-points `firewallDnsInterfaces` at the pinned `lan0` for that reason.
+[Pin an interface name](#pin-an-interface-name). `modules/system76/networking.nix`
+pins its USB ethernet adapter to `lan0` for that reason, so a rule keyed to that
+name follows the adapter. Both hosts currently leave `firewallDnsInterfaces`
+empty.
 
 ```bash
 nmcli device status
@@ -190,7 +192,7 @@ matters when a name carries a firewall rule: `firewallDnsInterfaces` opens UDP
 53/67 and TCP 53 on whatever device holds the name, and a removable adapter is
 absent on some boots by definition. Pin the device with `linkConfig.Name`
 matched on its path, as `modules/system76/networking.nix` does for the USB
-ethernet adapter that carries that opening:
+ethernet adapter, so a rule later keyed to that name follows the adapter:
 
 ```nix
 systemd.network.links."10-lan0" = {
