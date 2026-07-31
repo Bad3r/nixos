@@ -89,9 +89,44 @@ let
       expected = [ ];
     }
     {
-      name = "exact OriginalName is a pin";
+      name = "exact OriginalName is a pin under predictable naming";
       links."10-lan0" = link { OriginalName = "enp4s0"; } "lan0";
+      predictable = true;
       expected = [ "lan0" ];
+    }
+    {
+      name = "OriginalName binds no device under kernel naming";
+      links."10-lan0" = link { OriginalName = "enp4s0"; } "lan0";
+      predictable = false;
+      expected = [ ];
+    }
+    {
+      name = "glob metacharacters are not a pin";
+      links."10-lan0" = link { OriginalName = "eth?"; } "lan0";
+      predictable = true;
+      expected = [ ];
+    }
+    {
+      name = "bracket glob is not a pin";
+      links."10-lan0" = link { Path = "pci-0000:00:14.[0-9]"; } "lan0";
+      expected = [ ];
+    }
+    {
+      name = "multi-value list is not a pin";
+      links."10-lan0" = link {
+        OriginalName = [
+          "eth0"
+          "eth1"
+        ];
+      } "lan0";
+      predictable = true;
+      expected = [ ];
+    }
+    {
+      name = "whitespace-separated values are not a pin";
+      links."10-lan0" = link { OriginalName = "eth0 eth1"; } "lan0";
+      predictable = true;
+      expected = [ ];
     }
     {
       name = "disabled link is not a pin";
@@ -282,14 +317,14 @@ let
   pinnedFailures = lib.concatMap (
     case:
     let
-      got = pinnedNamesOf case.links;
+      got = pinnedNamesOf (case.predictable or false) case.links;
     in
     lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
   ) pinnedCases;
 
   declaredFailures =
     let
-      got = declaredNamesOf declaredStub;
+      got = declaredNamesOf false declaredStub;
       missing = lib.subtractLists got declaredExpected;
       # A disabled unit writes nothing, so its name must not count as declared.
       counted = lib.filter (n: lib.elem n got) declaredRejected;
