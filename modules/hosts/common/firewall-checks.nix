@@ -131,18 +131,16 @@ let
     {
       name = "multi-value list is not a pin";
       links."10-lan0" = link {
-        OriginalName = [
-          "eth0"
-          "eth1"
+        Path = [
+          "pci-0000:00:14.3"
+          "pci-0000:04:00.0"
         ];
       } "lan0";
-      predictable = true;
       expected = [ ];
     }
     {
       name = "whitespace-separated values are not a pin";
-      links."10-lan0" = link { OriginalName = "eth0 eth1"; } "lan0";
-      predictable = true;
+      links."10-lan0" = link { Path = "pci-0000:00:14.3 pci-0000:04:00.0"; } "lan0";
       expected = [ ];
     }
     {
