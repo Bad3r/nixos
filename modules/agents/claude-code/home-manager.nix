@@ -40,27 +40,60 @@
     { pkgs, ... }:
     let
       renderWrapper =
-        installMethods:
+        {
+          installMethods,
+          greptilePluginRequested,
+        }:
         import ./_wrapper.nix {
-          inherit lib pkgs installMethods;
+          inherit
+            lib
+            pkgs
+            installMethods
+            greptilePluginRequested
+            ;
           claudePkg = "/nix/store/test-claude";
           bunInstallDir = "/nix/store/test-bun";
           externalBinary = "/nix/store/test-external/bin/claude";
-          greptilePluginRequested = false;
           greptileApiKeyPath = "/tmp/greptile/api-key";
         };
-      variants = {
-        bun = renderWrapper {
+      installMethodVariants = {
+        bun = {
           bun.enable = true;
           nix.enable = false;
         };
-        nix = renderWrapper {
+        nix = {
           bun.enable = false;
           nix.enable = true;
         };
-        external = renderWrapper {
+        external = {
           bun.enable = false;
           nix.enable = false;
+        };
+      };
+      variants = {
+        "bun-greptile-false" = renderWrapper {
+          installMethods = installMethodVariants.bun;
+          greptilePluginRequested = false;
+        };
+        "bun-greptile-true" = renderWrapper {
+          installMethods = installMethodVariants.bun;
+          greptilePluginRequested = true;
+        };
+        "nix-greptile-false" = renderWrapper {
+          installMethods = installMethodVariants.nix;
+          greptilePluginRequested = false;
+        };
+        "nix-greptile-true" = renderWrapper {
+          installMethods = installMethodVariants.nix;
+          greptilePluginRequested = true;
+        };
+        "external-greptile-false" = renderWrapper {
+          installMethods = installMethodVariants.external;
+          greptilePluginRequested = false;
+        };
+        "external-greptile-true" = renderWrapper {
+          installMethods = installMethodVariants.external;
+          greptilePluginRequested = true;
         };
       };
       wrapperPaths = lib.mapAttrs (_: wrapper: lib.getExe wrapper.claudeWrapped) variants;
@@ -108,13 +141,21 @@
             }
             for (const [name, path] of Object.entries(wrapperPaths)) {
               const wrapper = readFileSync(path, "utf8");
-              const matches = wrapper.split("\n").filter((line) => targetPattern.test(line));
+              const matches = wrapper.split("\n").flatMap((line) => {
+                const match = line.match(targetPattern);
+                return match ? [match[1] ?? match[2] ?? match[3]] : [];
+              });
               if (matches.length !== 1) {
                 throw new Error(
                   "claude-code " +
                     name +
                     " wrapper must have exactly one target assignment, found " +
                     matches.length
+                );
+              }
+              if (!matches[0].startsWith("/")) {
+                throw new Error(
+                  "claude-code " + name + " wrapper target is not absolute: " + matches[0]
                 );
               }
             }
