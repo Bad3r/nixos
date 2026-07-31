@@ -58,6 +58,11 @@ let
   # Match keys that can bind a .link to one device. Type=, Driver=, and Property=
   # select a class, not a device (Property=ID_BUS=usb matches every USB netdev,
   # and the device-binding Property=ID_PATH= form is what Path= matches).
+  # MACAddress= is absent for a reason specific to this repository: it matches
+  # the device's current address, which is why PermanentMACAddress= exists
+  # separately, and the "stable" policy above replaces that current address on
+  # the first activation. A .link matched on it then binds nothing the next time
+  # udev re-evaluates the device.
   # OriginalName= is excluded under either naming scheme: it matches the udev
   # INTERFACE property, and systemd.link(5) notes it "cannot be used to match on
   # names that have already been changed from userspace". The predictable rename
@@ -67,7 +72,6 @@ let
   # same page calls "unstable between reboots".
   bindingMatchKeys = [
     "Path"
-    "MACAddress"
     "PermanentMACAddress"
   ];
 

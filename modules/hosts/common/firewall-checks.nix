@@ -94,9 +94,10 @@ let
       expected = [ "lan0" ];
     }
     {
-      name = "MACAddress-matched link is a pin";
+      # Matches the current address, which the "stable" policy replaces.
+      name = "MACAddress selects a mutable address, not a device";
       links."10-lan0" = link { MACAddress = "02:00:00:00:00:01"; } "lan0";
-      expected = [ "lan0" ];
+      expected = [ ];
     }
     {
       name = "PermanentMACAddress-matched link is a pin";
