@@ -67,7 +67,15 @@
         _name: installMethods: renderWrapper { inherit installMethods; }
       ) installMethodVariants;
       wrapperPaths = lib.mapAttrs (_: wrapper: lib.getExe wrapper.claudeWrapped) variants;
+      # Hand translation of the consumer regex the build script below reads out
+      # of shell-wrapper.patch. CI forces every check's drvPath but never
+      # builds one (.github/workflows/check.yml), so this eval-time copy is
+      # the only part of the contract CI actually exercises; pin it to the
+      # patch text so an edited patch regex fails eval instead of silently
+      # drifting from targetLinePattern.
       targetLinePattern = ''^[[:space:]]*target=('/[^']+'|"/[^"]+"|/[^[:space:]#]+)[[:space:]]*$'';
+      patchTargetRegexLiteral = ''/^\s*target=(?:"([^"]+)"|'([^']+)'|([^\s#]+))\s*$/m'';
+      shellWrapperPatchText = builtins.readFile ../../../packages/tweakcc/shell-wrapper.patch;
       wrapperTargetCounts = lib.mapAttrs (
         _name: wrapper:
         lib.count (line: builtins.match targetLinePattern line != null) (
@@ -77,6 +85,8 @@
     in
     {
       checks."claude-code/wrapper-target-contract" =
+        assert lib.assertMsg (lib.hasInfix patchTargetRegexLiteral shellWrapperPatchText)
+          "packages/tweakcc/shell-wrapper.patch changed its target= regex; update targetLinePattern in modules/agents/claude-code/home-manager.nix";
         assert lib.assertMsg (lib.all (count: count == 1) (lib.attrValues wrapperTargetCounts))
           "claude-code wrapper lost its single standalone absolute target assignment consumed by packages/tweakcc/shell-wrapper.patch";
         pkgs.runCommandLocal "claude-code-wrapper-target-contract"
