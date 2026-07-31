@@ -63,8 +63,7 @@
           nix.enable = false;
         };
       };
-      targetPattern = ''^[[:space:]]*target=("/[^"]+"|'/[^']+'|/[^[:space:]#]+)[[:space:]]*$'';
-      execPattern = ''^[[:space:]]*exec[[:space:]]+(-a[[:space:]]+("[^"]*"|[^[:space:]]+)[[:space:]]+)?"/[^"]+"'';
+      wrapperPaths = lib.mapAttrs (_: wrapper: lib.getExe wrapper.claudeWrapped) variants;
     in
     {
       checks."claude-code/wrapper-target-contract" =
@@ -73,22 +72,58 @@
             nativeBuildInputs = [ pkgs.makeWrapper ];
           }
           ''
-            ${lib.concatStringsSep "\n" (
-              lib.mapAttrsToList (name: wrapper: ''
-                if ! ${pkgs.gnugrep}/bin/grep -Eq ${lib.escapeShellArg targetPattern} ${lib.escapeShellArg (lib.getExe wrapper.claudeWrapped)}; then
-                  echo "claude-code ${name} wrapper target assignment is not standalone and absolute" >&2
-                  exit 1
-                fi
-              '') variants
-            )}
             mkdir -p probe/bin
             install -m 0755 ${lib.getExe pkgs.hello} probe/bin/hello
             wrapProgram "$PWD/probe/bin/hello" --set CLAUDE_CODE_WRAPPER_PROBE 1
-            if ! ${pkgs.gnugrep}/bin/grep -Eq ${lib.escapeShellArg execPattern} "$PWD/probe/bin/hello"; then
-              echo "makeWrapper no longer emits the exec form consumed by shell-wrapper.patch" >&2
-              exit 1
-            fi
-            echo "ok: Claude wrapper target and makeWrapper exec contracts" > $out
+            PATCH_FILE=${../../../packages/tweakcc/shell-wrapper.patch} \
+              PROBE_FILE="$PWD/probe/bin/hello" \
+              ${lib.getExe pkgs.nodejs} --input-type=module <<'NODE'
+            import { readFileSync } from "node:fs";
+
+            const patch = readFileSync(process.env.PATCH_FILE, "utf8");
+            const wrapperPaths = ${builtins.toJSON wrapperPaths};
+            const regexLiterals = patch
+              .split("\n")
+              .flatMap((line) => {
+                const match = line.match(/^\+\s+(\/.*\/[a-z]*)$/);
+                return match ? [match[1]] : [];
+              });
+            if (regexLiterals.length !== 2) {
+              throw new Error(
+                "shell-wrapper.patch must expose exactly two resolver regex literals"
+              );
+            }
+            const regexFromLiteral = (literal) => {
+              const closingSlash = literal.lastIndexOf("/");
+              return new RegExp(
+                literal.slice(1, closingSlash),
+                literal.slice(closingSlash + 1)
+              );
+            };
+            const regexes = regexLiterals.map(regexFromLiteral);
+            const targetPattern = regexes.find((regex) => regex.source.includes("target="));
+            const execPattern = regexes.find((regex) => regex.source.includes("exec"));
+            if (!targetPattern || !execPattern) {
+              throw new Error("shell-wrapper.patch regex literals lack target or exec coverage");
+            }
+            for (const [name, path] of Object.entries(wrapperPaths)) {
+              const wrapper = readFileSync(path, "utf8");
+              const matches = wrapper.split("\n").filter((line) => targetPattern.test(line));
+              if (matches.length !== 1) {
+                throw new Error(
+                  "claude-code " +
+                    name +
+                    " wrapper must have exactly one target assignment, found " +
+                    matches.length
+                );
+              }
+            }
+            const probe = readFileSync(process.env.PROBE_FILE, "utf8");
+            if (!execPattern.test(probe)) {
+              throw new Error("makeWrapper no longer emits the exec form consumed by shell-wrapper.patch");
+            }
+            NODE
+            echo "ok: Claude wrapper and shell-wrapper.patch contracts" > $out
           '';
     };
 
