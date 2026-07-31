@@ -27,10 +27,12 @@ FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
 from updater import (  # noqa: E402
+    NixCommandError,
     calculate_dependency_hash,
     calculate_url_hash,
     fetch_json,
     load_hashes,
+    nix_build,
     save_hashes,
 )
 
@@ -46,6 +48,7 @@ def latest_main_commit() -> dict[str, Any]:
 def main() -> None:
     """Update tweakcc to the latest commit on ``main``."""
     data = load_hashes(HASHES_FILE)
+    previous_data = data.copy()
     commit = latest_main_commit()
     sha = cast("str", commit["sha"])
     date = cast("str", commit["commit"]["author"]["date"])[:10]
@@ -77,6 +80,14 @@ def main() -> None:
         new_data,
     )
     save_hashes(HASHES_FILE, new_data)
+
+    print("Validating package build...")
+    try:
+        nix_build(".#tweakcc", no_link=True)
+    except NixCommandError:
+        save_hashes(HASHES_FILE, previous_data)
+        raise
+
     print(f"Updated to {new_data['version']} ({sha[:12]})")
 
 
