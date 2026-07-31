@@ -106,18 +106,31 @@
           }
           ''
             mkdir -p probe/bin
-            install -m 0755 ${lib.getExe pkgs.hello} probe/bin/hello
+            # Reproduce wrapping an existing shell launcher beside its hidden
+            # binary, which creates both shell hops and the collision suffix.
+            install -m 0755 ${lib.getExe pkgs.hello} probe/bin/.hello-wrapped
+            makeShellWrapper "$PWD/probe/bin/.hello-wrapped" "$PWD/probe/bin/hello" \
+              --inherit-argv0 --set CLAUDE_CODE_WRAPPER_PROBE 1
             wrapProgram "$PWD/probe/bin/hello" --set CLAUDE_CODE_WRAPPER_PROBE 1
-            PROBE_WRAPPED=$(find "$PWD/probe/bin" -maxdepth 1 -type f -name '.hello-wrapped*' -print -quit)
-            if [ -z "$PROBE_WRAPPED" ]; then
-              echo "makeWrapper did not create the expected hidden wrapper" >&2
-              exit 1
-            fi
+            PROBE_OUTER="$PWD/probe/bin/hello"
+            PROBE_INNER="$PWD/probe/bin/.hello-wrapped_"
+            PROBE_TARGET="$PWD/probe/bin/.hello-wrapped"
+            makeShellWrapper "$PROBE_TARGET" "$PWD/probe/bin/no-argv0" \
+              --set CLAUDE_CODE_WRAPPER_PROBE 1
+            for probeFile in "$PROBE_OUTER" "$PROBE_INNER" "$PWD/probe/bin/no-argv0"; do
+              if [ ! -f "$probeFile" ]; then
+                echo "makeWrapper did not create $probeFile" >&2
+                exit 1
+              fi
+            done
             makeWrapper ${lib.getExe pkgs.hello} "$PWD/probe/bin/interpreter" \
               --add-flags "$PWD/probe/bin/cli.js"
             PATCH_FILE=${../../../packages/tweakcc/shell-wrapper.patch} \
-              PROBE_FILE="$PWD/probe/bin/hello" \
-              PROBE_WRAPPED="$PROBE_WRAPPED" \
+              PROBE_FILE="$PROBE_OUTER" \
+              PROBE_WRAPPED="$PROBE_INNER" \
+              PROBE_INNER="$PROBE_INNER" \
+              PROBE_TARGET="$PROBE_TARGET" \
+              PROBE_NO_ARG="$PWD/probe/bin/no-argv0" \
               PROBE_INTERPRETER="$PWD/probe/bin/interpreter" \
               ${lib.getExe pkgs.nodejs} --input-type=module <<'NODE'
             import { readFileSync } from "node:fs";
@@ -201,6 +214,28 @@
                   ", expected " +
                   process.env.PROBE_WRAPPED
               );
+            }
+            const innerProbe = readFileSync(process.env.PROBE_INNER, "utf8");
+            if (!shebangPattern.test(innerProbe.split("\n")[0])) {
+              throw new Error(
+                "makeWrapper --inherit-argv0 no longer emits a shell-classified wrapper"
+              );
+            }
+            const innerMatch = innerProbe.match(execPattern);
+            if (!innerMatch || innerMatch[2] !== process.env.PROBE_TARGET) {
+              throw new Error(
+                "makeWrapper --inherit-argv0 exec form is not consumed by shell-wrapper.patch"
+              );
+            }
+            const noArgProbe = readFileSync(process.env.PROBE_NO_ARG, "utf8");
+            const noArgMatch = noArgProbe.match(execPattern);
+            if (!noArgMatch || noArgMatch[2] !== process.env.PROBE_TARGET) {
+              throw new Error(
+                "makeShellWrapper no-argv0 exec form is not consumed by shell-wrapper.patch"
+              );
+            }
+            if (/\bexec\s+-a\b/.test(noArgProbe)) {
+              throw new Error("makeShellWrapper no-argv0 probe unexpectedly sets argv0");
             }
             const interpreterProbe = readFileSync(process.env.PROBE_INTERPRETER, "utf8");
             if (execPattern.test(interpreterProbe)) {
