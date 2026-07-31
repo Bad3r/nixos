@@ -27,7 +27,6 @@ FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
 from updater import (  # noqa: E402
-    NixCommandError,
     calculate_dependency_hash,
     calculate_url_hash,
     fetch_json,
@@ -73,6 +72,7 @@ def main() -> None:
         "pnpmDepsHash": data.get("pnpmDepsHash", ""),
     }
 
+    committed = False
     try:
         new_data["pnpmDepsHash"] = calculate_dependency_hash(
             ".#tweakcc",
@@ -84,9 +84,10 @@ def main() -> None:
 
         print("Validating package build...")
         nix_build(".#tweakcc", no_link=True)
-    except (NixCommandError, ValueError):
-        save_hashes(HASHES_FILE, previous_data)
-        raise
+        committed = True
+    finally:
+        if not committed:
+            save_hashes(HASHES_FILE, previous_data)
 
     print(f"Updated to {new_data['version']} ({sha[:12]})")
 
