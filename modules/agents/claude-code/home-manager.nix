@@ -39,27 +39,44 @@
   perSystem =
     { pkgs, ... }:
     let
-      wrapper = import ./_wrapper.nix {
-        inherit lib pkgs;
-        claudePkg = "/nix/store/test-claude";
-        bunInstallDir = "/nix/store/test-bun";
-        externalBinary = "/nix/store/test-external/bin/claude";
-        installMethods = {
+      renderWrapper =
+        installMethods:
+        import ./_wrapper.nix {
+          inherit lib pkgs installMethods;
+          claudePkg = "/nix/store/test-claude";
+          bunInstallDir = "/nix/store/test-bun";
+          externalBinary = "/nix/store/test-external/bin/claude";
+          greptilePluginRequested = false;
+          greptileApiKeyPath = "/tmp/greptile/api-key";
+        };
+      variants = {
+        bun = renderWrapper {
           bun.enable = true;
           nix.enable = false;
         };
-        greptilePluginRequested = false;
-        greptileApiKeyPath = "/tmp/greptile/api-key";
+        nix = renderWrapper {
+          bun.enable = false;
+          nix.enable = true;
+        };
+        external = renderWrapper {
+          bun.enable = false;
+          nix.enable = false;
+        };
       };
+      targetPattern = ''^[[:space:]]*target=("/[^"]+"|'/[^']+'|/[^[:space:]#]+)[[:space:]]*$'';
     in
     {
       checks."claude-code/wrapper-target-contract" =
         pkgs.runCommandLocal "claude-code-wrapper-target-contract" { }
           ''
-            if ! ${pkgs.gnugrep}/bin/grep -Eq "^target=([\"']?)/" "${lib.getExe wrapper.claudeWrapped}"; then
-              echo "claude-code wrapper target assignment is not standalone and absolute" >&2
-              exit 1
-            fi
+            ${lib.concatStringsSep "\n" (
+              lib.mapAttrsToList (name: wrapper: ''
+                if ! ${pkgs.gnugrep}/bin/grep -Eq ${lib.escapeShellArg targetPattern} ${lib.escapeShellArg (lib.getExe wrapper.claudeWrapped)}; then
+                  echo "claude-code ${name} wrapper target assignment is not standalone and absolute" >&2
+                  exit 1
+                fi
+              '') variants
+            )}
             echo "ok: Claude wrapper exposes a standalone absolute target assignment" > $out
           '';
     };
