@@ -162,8 +162,9 @@ randomizes bridges, `veth` pairs, tunnels, and wired NICs as well, and shadows
 every higher-numbered `.link` file on the host. That same first-match rule means
 a device already covered by a pin never reads a second file: tpnix's internal
 card matches `10-wifi0.link`, which sorts first, so a policy for that device
-belongs in the pin file rather than in a separate one. Otherwise match
-`OriginalName` so the policy reaches only the intended adapter:
+belongs in the pin file rather than in a separate one. Otherwise match on `Path`,
+which names a device. `OriginalName` matches a name, and under `net.ifnames=0`
+that name follows discovery order rather than identifying hardware:
 
 ```nix
 # A MACAddressPolicy only survives if NetworkManager is not also setting the
@@ -174,7 +175,7 @@ belongs in the pin file rather than in a separate one. Otherwise match
 networking.networkmanager.wifi.macAddress = "preserve";
 
 systemd.network.links."10-wlan" = {
-  matchConfig.OriginalName = "wlan0";
+  matchConfig.Path = "<ID_PATH of the intended adapter>";
   linkConfig = {
     MACAddressPolicy = "random";
     # 10-wlan.link sorts before 99-default.link, so it is the only .link udev

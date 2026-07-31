@@ -74,6 +74,26 @@ let
       expected = [ "lan0" ];
     }
     {
+      name = "MACAddress-matched link is a pin";
+      links."10-lan0" = link { MACAddress = "02:00:00:00:00:01"; } "lan0";
+      expected = [ "lan0" ];
+    }
+    {
+      name = "PermanentMACAddress-matched link is a pin";
+      links."10-lan0" = link { PermanentMACAddress = "02:00:00:00:00:01"; } "lan0";
+      expected = [ "lan0" ];
+    }
+    {
+      name = "Property selects a class, not a device";
+      links."10-lan0" = link { Property = "ID_BUS=usb"; } "lan0";
+      expected = [ ];
+    }
+    {
+      name = "empty selector value is not a pin";
+      links."10-lan0" = link { Path = ""; } "lan0";
+      expected = [ ];
+    }
+    {
       name = "link with an empty match is not a pin";
       links."10-lan0" = link { } "lan0";
       expected = [ ];

@@ -51,18 +51,19 @@ let
       staleScheme = if predictable then kernelNames else predictableNames;
     };
 
-  # Match keys that can bind a .link to one device. Type= and Driver= select a
-  # class, not a device, so they are absent on purpose. OriginalName= selects a
-  # name: systemd.link(5) warns that "caution is advised when matching on
-  # kernel-assigned names, as they are known to be unstable between reboots", so
-  # it binds a device only where the host boots predictable names.
+  # Match keys that can bind a .link to one device. Type=, Driver=, and Property=
+  # select a class, not a device (Property=ID_BUS=usb matches every USB netdev,
+  # and the device-binding Property=ID_PATH= form is what Path= matches), so they
+  # are absent on purpose. OriginalName= selects a name: systemd.link(5) warns
+  # that "caution is advised when matching on kernel-assigned names, as they are
+  # known to be unstable between reboots", so it binds a device only where the
+  # host boots predictable names.
   bindingMatchKeys =
     predictable:
     [
       "Path"
       "MACAddress"
       "PermanentMACAddress"
-      "Property"
     ]
     ++ lib.optional predictable "OriginalName";
 
@@ -77,6 +78,9 @@ let
       tokens = lib.concatMap (lib.splitString " ") (lib.toList value);
     in
     lib.length tokens == 1
+    # An empty assignment resets the list in systemd.link(5), leaving the file
+    # with no effective [Match]; splitString yields [ "" ] for it.
+    && lib.head tokens != ""
     && !(lib.any (c: lib.hasInfix c (lib.head tokens)) [
       "*"
       "?"
