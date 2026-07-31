@@ -73,18 +73,18 @@ def main() -> None:
         "pnpmDepsHash": data.get("pnpmDepsHash", ""),
     }
 
-    new_data["pnpmDepsHash"] = calculate_dependency_hash(
-        ".#tweakcc",
-        "pnpmDepsHash",
-        HASHES_FILE,
-        new_data,
-    )
-    save_hashes(HASHES_FILE, new_data)
-
-    print("Validating package build...")
     try:
+        new_data["pnpmDepsHash"] = calculate_dependency_hash(
+            ".#tweakcc",
+            "pnpmDepsHash",
+            HASHES_FILE,
+            new_data,
+        )
+        save_hashes(HASHES_FILE, new_data)
+
+        print("Validating package build...")
         nix_build(".#tweakcc", no_link=True)
-    except NixCommandError:
+    except (NixCommandError, ValueError):
         save_hashes(HASHES_FILE, previous_data)
         raise
 
