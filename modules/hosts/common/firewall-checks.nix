@@ -94,6 +94,11 @@ let
       expected = [ ];
     }
     {
+      name = "tab-separated values are not a pin";
+      links."10-lan0" = link { Path = "pci-0000:00:14.3\tpci-0000:04:00.0"; } "lan0";
+      expected = [ ];
+    }
+    {
       name = "link with an empty match is not a pin";
       links."10-lan0" = link { } "lan0";
       expected = [ ];
@@ -172,6 +177,8 @@ let
         "eno1"
         "ens3"
         "enx001122334455"
+        "enxb827ebaabbcc"
+        "wlxb827ebaabbcc"
       ];
       declaredNames = [ ];
       predictableNames = [
@@ -181,6 +188,8 @@ let
         "eno1"
         "ens3"
         "enx001122334455"
+        "enxb827ebaabbcc"
+        "wlxb827ebaabbcc"
       ];
       kernelNames = [ ];
       unbackedNames = [ ];

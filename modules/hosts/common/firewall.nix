@@ -9,12 +9,13 @@ let
 
   # Bound once each: the three classifier outputs stay mutually consistent only
   # while both patterns are single-sourced.
-  # enp4s0, eno1, ens3, enx001122334455, wlp0s20f3, wwp0s20f0u2, ibp5s0, and the
-  # enP2p1s0 form systemd.net-naming-scheme(7) emits as prefix[Pdomain]sslot when
-  # the PCI domain is not 0. The trailing digit keeps the two classes disjoint:
-  # wlan0 is wl + a + n and ib0 has no letter after the prefix, so both stay
-  # kernel-assigned.
-  predictableRe = "(en|wl|ww|ib)(P[0-9]+)?[abcdiopsvx][0-9].*";
+  # enp4s0, eno1, ens3, wlp0s20f3, wwp0s20f0u2, ibp5s0, and the enP2p1s0 form
+  # systemd.net-naming-scheme(7) emits as prefix[Pdomain]sslot when the PCI
+  # domain is not 0. The x<MAC> form (enxb827ebaabbcc) is a separate branch: its
+  # 12 hex digits can begin with a-f, so it does not fit the letter-then-digit
+  # shape. That shape keeps the two classes disjoint: wlan0 is wl + a + n and
+  # ib0 has no letter after the prefix, so both stay kernel-assigned.
+  predictableRe = "(en|wl|ww|ib)(P[0-9]+)?([abcdiopsv][0-9].*|x[0-9a-f]{12})";
   # Kernel-assigned. usb0 is the usbnet default: drivers/net/usb/usbnet.c only
   # switches to eth%d, wlan%d, or wwan%d for drivers flagged FLAG_ETHER,
   # FLAG_WLAN, or FLAG_WWAN, so a cdc_ether tether comes up as usb0.
@@ -75,12 +76,15 @@ let
   bindsOneValue =
     value:
     let
-      tokens = lib.concatMap (lib.splitString " ") (lib.toList value);
+      # Split on any whitespace run, not just spaces: systemd.link(5) calls these
+      # "whitespace-separated" lists, and a tab or newline in a Nix multi-line
+      # string separates values just as well. builtins.split drops empty tokens,
+      # which also covers the empty assignment that resets the list.
+      tokens = lib.filter (t: lib.isString t && t != "") (
+        lib.concatMap (builtins.split "[[:space:]]+") (lib.toList value)
+      );
     in
     lib.length tokens == 1
-    # An empty assignment resets the list in systemd.link(5), leaving the file
-    # with no effective [Match]; splitString yields [ "" ] for it.
-    && lib.head tokens != ""
     # A "!" prefix inverts the test, so the file applies to every device except
     # the one named: the match-all case again.
     && !(lib.hasPrefix "!" (lib.head tokens))
