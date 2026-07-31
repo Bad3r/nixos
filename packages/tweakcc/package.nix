@@ -41,6 +41,12 @@ stdenv.mkDerivation (finalAttrs: {
 
   patches = [ ./shell-wrapper.patch ];
 
+  # Reject fuzzy application against the unstable upstream pin.
+  patchFlags = [
+    "-p1"
+    "-F0"
+  ];
+
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs)
       pname
