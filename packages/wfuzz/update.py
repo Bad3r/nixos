@@ -123,12 +123,19 @@ def main() -> None:
     )
     updated = updated_package_text(latest, src_hash)
 
-    if updated != package_text:
-        PACKAGE_FILE.write_text(updated, encoding="utf-8")
-        print(f"Updated {PACKAGE_FILE.relative_to(FLAKE_ROOT)} to {latest}")
+    changed = updated != package_text
+    validated = False
+    try:
+        if changed:
+            PACKAGE_FILE.write_text(updated, encoding="utf-8")
+            print(f"Updated {PACKAGE_FILE.relative_to(FLAKE_ROOT)} to {latest}")
 
-    print("Validating package patches...")
-    nix_build(PACKAGE_ATTR, no_link=True, capture_output=False)
+        print("Validating package patches...")
+        nix_build(PACKAGE_ATTR, no_link=True, capture_output=False)
+        validated = True
+    finally:
+        if changed and not validated:
+            PACKAGE_FILE.write_text(package_text, encoding="utf-8")
 
 
 if __name__ == "__main__":
