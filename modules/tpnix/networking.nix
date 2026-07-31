@@ -29,12 +29,19 @@ in
           # from the internal card. Pin the card to a name outside the kernel's
           # wlan* namespace so anything keyed to it follows the card. The path
           # is the PCI address encoded in the former name wlp0s20f3, slot 20
-          # being 0x14; confirm with `udevadm info -q property -p
-          # /sys/class/net/wifi0 | grep ID_PATH=` after the first boot. A
-          # mismatch leaves no device named wifi0, which fails closed.
+          # being 0x14. Confirm at first boot by reading the card's own ID_PATH,
+          # which works whether or not the pin took: `udevadm info -q property
+          # -p /sys/class/net/wlan0 | grep ID_PATH=`, using wifi0 in the path
+          # once the rename applies. A mismatch leaves no device named wifi0,
+          # which fails closed. This pin is the only .link udev applies to the
+          # card, so it restores the AlternativeNamesPolicy that 99-default.link
+          # would otherwise give it; the address stays NetworkManager's.
           systemd.network.links."10-wifi0" = {
             matchConfig.Path = "pci-0000:00:14.3";
-            linkConfig.Name = "wifi0";
+            linkConfig = {
+              Name = "wifi0";
+              AlternativeNamesPolicy = "database onboard slot path mac";
+            };
           };
         }
 

@@ -126,9 +126,10 @@ generated addresses.
 Read the addresses after rebooting, not after `nixos-rebuild switch`.
 `usePredictableInterfaceNames` reaches the host as the `net.ifnames=0` kernel
 parameter, so interfaces keep their old names until the next boot. An address
-read before the rename is reseeded by it, and the `eth0` and `wlan0` values in
-`modules/<host>/policy.nix` match no device until then, so the DNS and DHCP
-firewall opening is absent for that window.
+read before the rename is reseeded by it. The `.link` pins in
+`modules/<host>/networking.nix` take effect at that boot too, so a name they
+create matches no device until then, and anything keyed to it is inert for that
+window.
 
 Read one address per connection profile that carries a reservation or an ACL
 entry, not one per host: each profile has its own UUID and therefore its own
@@ -210,6 +211,26 @@ firewall rule matches no device instead of landing on a different one.
 Pin to a name outside the kernel's `eth*` and `wlan*` namespace. The kernel
 assigns those itself, so a rename into one can collide with a device that
 already holds it.
+
+A pinned device gets no other `.link`. udev applies only the first matching
+file, so a `10-*.link` pin also displaces systemd's `99-default.link` for that
+device, dropping its `NamePolicy`, `AlternativeNamesPolicy`, and
+`MACAddressPolicy=persistent` defaults, and a second `.link` added later for the
+same device is never read. Put what the device needs in the pin file itself:
+
+```nix
+systemd.network.links."10-lan0" = {
+  matchConfig.Path = "pci-0000:00:14.0-usb-0:1.4:1.0";
+  linkConfig = {
+    Name = "lan0";
+    AlternativeNamesPolicy = "database onboard slot path mac";
+  };
+};
+```
+
+The pins in this repository restore `AlternativeNamesPolicy` but deliberately
+not `MACAddressPolicy`: NetworkManager owns the address on these hosts, so
+setting a udev address policy here would be the conflict this page opens with.
 
 Apply link-policy changes before the device appears. Rebooting, replugging a
 USB adapter, or otherwise reinitializing the link is more reliable than
