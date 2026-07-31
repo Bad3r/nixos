@@ -113,9 +113,12 @@
               echo "makeWrapper did not create the expected hidden wrapper" >&2
               exit 1
             fi
+            makeWrapper ${lib.getExe pkgs.hello} "$PWD/probe/bin/interpreter" \
+              --add-flags "$PWD/probe/bin/cli.js"
             PATCH_FILE=${../../../packages/tweakcc/shell-wrapper.patch} \
               PROBE_FILE="$PWD/probe/bin/hello" \
               PROBE_WRAPPED="$PROBE_WRAPPED" \
+              PROBE_INTERPRETER="$PWD/probe/bin/interpreter" \
               ${lib.getExe pkgs.nodejs} --input-type=module <<'NODE'
             import { readFileSync } from "node:fs";
 
@@ -197,6 +200,12 @@
                   execMatch[2] +
                   ", expected " +
                   process.env.PROBE_WRAPPED
+              );
+            }
+            const interpreterProbe = readFileSync(process.env.PROBE_INTERPRETER, "utf8");
+            if (execPattern.test(interpreterProbe)) {
+              throw new Error(
+                "exec grammar resolves a generic makeWrapper interpreter wrapper"
               );
             }
             NODE
