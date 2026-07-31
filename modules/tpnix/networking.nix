@@ -34,13 +34,15 @@ in
           # -p /sys/class/net/wlan0 | grep ID_PATH=`, using wifi0 in the path
           # once the rename applies. A mismatch leaves no device named wifi0,
           # which fails closed. This pin is the only .link udev applies to the
-          # card, so it restores the AlternativeNamesPolicy that 99-default.link
-          # would otherwise give it; the address stays NetworkManager's.
+          # card, so it restores the alternative names 99-default.link would
+          # otherwise supply, minus its "mac" token: that one derives a
+          # wlx<permanent-mac> altname from the factory address, which is the
+          # value the "stable" policy exists to stop presenting.
           systemd.network.links."10-wifi0" = {
             matchConfig.Path = "pci-0000:00:14.3";
             linkConfig = {
               Name = "wifi0";
-              AlternativeNamesPolicy = "database onboard slot path mac";
+              AlternativeNamesPolicy = "database onboard slot path";
             };
           };
         }

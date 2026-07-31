@@ -469,7 +469,13 @@ _: {
   configurations.nixos.songbird.module = {
     systemd.network.links."10-lan0" = {
       matchConfig.Path = "<ID_PATH of the intended NIC>";
-      linkConfig.Name = "lan0";
+      linkConfig = {
+        Name = "lan0";
+        # The pin displaces 99-default.link for this device, so restore the
+        # alternative names it would otherwise supply. Its "mac" token is left
+        # out: that derives an altname from the factory hardware address.
+        AlternativeNamesPolicy = "database onboard slot path";
+      };
     };
   };
 }

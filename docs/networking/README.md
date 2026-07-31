@@ -223,7 +223,7 @@ systemd.network.links."10-lan0" = {
   matchConfig.Path = "pci-0000:00:14.0-usb-0:1.4:1.0";
   linkConfig = {
     Name = "lan0";
-    AlternativeNamesPolicy = "database onboard slot path mac";
+    AlternativeNamesPolicy = "database onboard slot path";
   };
 };
 ```
@@ -231,6 +231,10 @@ systemd.network.links."10-lan0" = {
 The pins in this repository restore `AlternativeNamesPolicy` but deliberately
 not `MACAddressPolicy`: NetworkManager owns the address on these hosts, so
 setting a udev address policy here would be the conflict this page opens with.
+They also drop the `mac` token that systemd's own default carries, because it
+derives an `enx<permanent-mac>` or `wlx<permanent-mac>` alternative name from
+the factory address, which is the value the `"stable"` policy exists to stop
+presenting.
 
 Apply link-policy changes before the device appears. Rebooting, replugging a
 USB adapter, or otherwise reinitializing the link is more reliable than

@@ -8,13 +8,15 @@
     # detached or moved to another port, which fails closed rather than onto the
     # built-in NIC.
     # This pin is the only .link udev applies to the adapter, so it restores the
-    # AlternativeNamesPolicy that 99-default.link would otherwise give it; the
-    # address stays NetworkManager's.
+    # alternative names 99-default.link would otherwise supply. Its "mac" token
+    # is dropped: that one derives an enx<permanent-mac> altname from the factory
+    # address, which is the value the "stable" policy exists to stop presenting.
+    # The address itself stays NetworkManager's.
     systemd.network.links."10-lan0" = {
       matchConfig.Path = "pci-0000:00:14.0-usb-0:1.4:1.0";
       linkConfig = {
         Name = "lan0";
-        AlternativeNamesPolicy = "database onboard slot path mac";
+        AlternativeNamesPolicy = "database onboard slot path";
       };
     };
   };
