@@ -64,10 +64,14 @@
         };
       };
       targetPattern = ''^[[:space:]]*target=("/[^"]+"|'/[^']+'|/[^[:space:]#]+)[[:space:]]*$'';
+      execPattern = ''^[[:space:]]*exec[[:space:]]+(-a[[:space:]]+("[^"]*"|[^[:space:]]+)[[:space:]]+)?"/[^"]+"'';
     in
     {
       checks."claude-code/wrapper-target-contract" =
-        pkgs.runCommandLocal "claude-code-wrapper-target-contract" { }
+        pkgs.runCommandLocal "claude-code-wrapper-target-contract"
+          {
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+          }
           ''
             ${lib.concatStringsSep "\n" (
               lib.mapAttrsToList (name: wrapper: ''
@@ -77,7 +81,14 @@
                 fi
               '') variants
             )}
-            echo "ok: Claude wrapper exposes a standalone absolute target assignment" > $out
+            mkdir -p probe/bin
+            install -m 0755 ${lib.getExe pkgs.hello} probe/bin/hello
+            wrapProgram "$PWD/probe/bin/hello" --set CLAUDE_CODE_WRAPPER_PROBE 1
+            if ! ${pkgs.gnugrep}/bin/grep -Eq ${lib.escapeShellArg execPattern} "$PWD/probe/bin/hello"; then
+              echo "makeWrapper no longer emits the exec form consumed by shell-wrapper.patch" >&2
+              exit 1
+            fi
+            echo "ok: Claude wrapper target and makeWrapper exec contracts" > $out
           '';
     };
 
