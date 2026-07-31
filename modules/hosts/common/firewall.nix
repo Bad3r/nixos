@@ -64,6 +64,14 @@ let
       ) links
     );
 
+  # Pins into a namespace the kernel assigns itself. systemd.link(5) on Name=:
+  # "specifying a name that the kernel might use for another interface (for
+  # example eth0) is dangerous because the name assignment done by udev will
+  # race with the assignment done by the kernel ... making the naming
+  # unpredictable". A pin that loses that race leaves the device on its kernel
+  # name, so anything keyed to the pinned name matches nothing.
+  collidingPinsOf = links: lib.filter (matches kernelRe) (pinnedNamesOf links);
+
   # Interfaces a host declares rather than inherits from a NIC. Exported with
   # the classifier so the check can assert every source is still read.
   declaredNamesOf =
@@ -109,6 +117,7 @@ let
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       predictable = config.networking.usePredictableInterfaceNames;
       declaredNames = declaredNamesOf config;
+      collidingPins = collidingPinsOf config.systemd.network.links;
       inherit (classify { inherit dnsInterfaces declaredNames predictable; })
         unbackedNames
         staleScheme
@@ -138,6 +147,16 @@ let
         {
           assertion = staleScheme == [ ];
           message = staleMessage;
+        }
+        {
+          assertion = collidingPins == [ ];
+          message =
+            "${hostName}: systemd.network.links pins interface names "
+            + "(${lib.concatStringsSep ", " collidingPins}) inside the namespaces the "
+            + "kernel assigns itself (eth*, wlan*, usb*, wwan*, ib*). Per systemd.link(5) "
+            + "the udev rename races the kernel's own assignment there, so the pin may "
+            + "silently not apply and anything keyed to the name matches no device. Pin "
+            + "outside those namespaces, as modules/system76/networking.nix does with lan0.";
         }
       ];
 
@@ -187,6 +206,7 @@ in
       _firewallDnsClassify = classify;
       _firewallDnsPinnedNamesOf = pinnedNamesOf;
       _firewallDnsDeclaredNamesOf = declaredNamesOf;
+      _firewallDnsCollidingPinsOf = collidingPinsOf;
     };
     nixosModules.hosts-common.imports = [ body ];
   };

@@ -15,6 +15,7 @@ let
   classify = config.flake.lib.nixos._firewallDnsClassify or null;
   pinnedNamesOf = config.flake.lib.nixos._firewallDnsPinnedNamesOf or null;
   declaredNamesOf = config.flake.lib.nixos._firewallDnsDeclaredNamesOf or null;
+  collidingPinsOf = config.flake.lib.nixos._firewallDnsCollidingPinsOf or null;
 
   # One entry per source declaredNamesOf reads. A source dropped from that
   # expression loses its name here, which is the failure this covers.
@@ -277,9 +278,43 @@ let
       lib.optional (counted != [ ])
         "declaredNamesOf counts ${fmt counted}: a disabled unit is never installed, so it creates no interface";
 
-  failures = classifyFailures ++ pinnedFailures ++ declaredFailures;
+  # A pin into a namespace the kernel assigns itself races udev, so it must be
+  # rejected; a pin outside them must not be.
+  collisionCases = [
+    {
+      name = "pin outside the kernel namespaces is accepted";
+      links."10-lan0" = link { Path = "pci-0000:00:14.0-usb-0:1.4:1.0"; } "lan0";
+      expected = [ ];
+    }
+    {
+      name = "pin named eth0 collides";
+      links."10-eth0" = link { Path = "pci-0000:04:00.0"; } "eth0";
+      expected = [ "eth0" ];
+    }
+    {
+      name = "pin named wlan0 collides";
+      links."10-wlan0" = link { Path = "pci-0000:00:14.3"; } "wlan0";
+      expected = [ "wlan0" ];
+    }
+    {
+      name = "pin named usb0 collides";
+      links."10-usb0" = link { Path = "pci-0000:00:14.0-usb-0:1.4:1.0"; } "usb0";
+      expected = [ "usb0" ];
+    }
+  ];
 
-  missingExports = classify == null || pinnedNamesOf == null || declaredNamesOf == null;
+  collisionFailures = lib.concatMap (
+    case:
+    let
+      got = collidingPinsOf case.links;
+    in
+    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
+  ) collisionCases;
+
+  failures = classifyFailures ++ pinnedFailures ++ declaredFailures ++ collisionFailures;
+
+  missingExports =
+    classify == null || pinnedNamesOf == null || declaredNamesOf == null || collidingPinsOf == null;
 in
 {
   perSystem =
@@ -289,8 +324,9 @@ in
         if missingExports then
           throw (
             "firewall-dns-interface-classifier: modules/hosts/common/firewall.nix no longer exports "
-            + "flake.lib.nixos._firewallDnsClassify, _firewallDnsPinnedNamesOf, and "
-            + "_firewallDnsDeclaredNamesOf, so the firewallDnsInterfaces guards are unverified."
+            + "flake.lib.nixos._firewallDnsClassify, _firewallDnsPinnedNamesOf, "
+            + "_firewallDnsDeclaredNamesOf, and _firewallDnsCollidingPinsOf, so the "
+            + "firewallDnsInterfaces guards are unverified."
           )
         else if failures != [ ] then
           throw (
@@ -302,7 +338,7 @@ in
         else
           pkgs.runCommandLocal "firewall-dns-interface-classifier-ok" { } ''
             echo "ok: ${
-              toString (lib.length classifyCases + lib.length pinnedCases + 1)
+              toString (lib.length classifyCases + lib.length pinnedCases + lib.length collisionCases + 1)
             } classifier cases" > $out
           '';
     };
