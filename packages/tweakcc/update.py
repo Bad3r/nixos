@@ -83,7 +83,7 @@ def main() -> None:
         save_hashes(HASHES_FILE, new_data)
 
         print("Validating package build...")
-        nix_build(".#tweakcc", no_link=True)
+        nix_build(".#tweakcc", no_link=True, capture_output=False)
         committed = True
     finally:
         if not committed:
