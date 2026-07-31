@@ -152,9 +152,13 @@ let
     # enabled; a disabled unit writes nothing either, same reasoning as the
     # disabled .link above. The hosts here run NetworkManager with networkd off,
     # so an ungated netdev name would be backed by nothing.
+    # netdevs is keyed by unit basename ("10-vx0"), not by interface name, so a
+    # netdev without netdevConfig.Name contributes nothing rather than its key.
     ++ lib.optionals cfg.systemd.network.enable (
-      lib.mapAttrsToList (n: netdev: netdev.netdevConfig.Name or n) (
-        lib.filterAttrs (_: netdev: netdev.enable or true) cfg.systemd.network.netdevs
+      lib.filter (n: n != null) (
+        lib.mapAttrsToList (_: netdev: netdev.netdevConfig.Name or null) (
+          lib.filterAttrs (_: netdev: netdev.enable or true) cfg.systemd.network.netdevs
+        )
       )
     );
 

@@ -462,7 +462,10 @@ The two same-class NICs are the Intel 2.5 GbE on `igc` and the Realtek 5 GbE on
 
 ```sh
 ip -br link
-udevadm info -q property -p /sys/class/net/eth0 | grep ID_PATH=
+for dev in /sys/class/net/*; do
+  udevadm info -q property -p "$dev" \
+    | grep -E '^(INTERFACE|ID_NET_DRIVER|ID_PATH)='
+done
 ```
 
 `modules/songbird/networking.nix`:

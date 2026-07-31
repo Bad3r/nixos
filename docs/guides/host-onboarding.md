@@ -122,7 +122,10 @@ does, then use the pinned name:
 
 ```sh
 ip -br link
-udevadm info -q property -p /sys/class/net/eth0 | grep ID_PATH=
+for dev in /sys/class/net/*; do
+  udevadm info -q property -p "$dev" \
+    | grep -E '^(INTERFACE|ID_NET_DRIVER|ID_PATH)='
+done
 ```
 
 ```nix

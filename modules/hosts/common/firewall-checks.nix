@@ -23,10 +23,15 @@ let
     systemd.network = {
       enable = true;
       links."10-lan0" = link { Path = "pci-0000:00:14.0-usb-0:1.4:1.0"; } "lan0";
-      netdevs."10-vx0".netdevConfig.Name = "vx0";
-      netdevs."10-off0" = {
-        enable = false;
-        netdevConfig.Name = "off0";
+      netdevs = {
+        "10-vx0".netdevConfig.Name = "vx0";
+        "10-off0" = {
+          enable = false;
+          netdevConfig.Name = "off0";
+        };
+        # Keyed by unit basename, so a netdev without netdevConfig.Name must
+        # contribute nothing rather than its key.
+        "eth0".netdevConfig = { };
       };
     };
     networking = {
@@ -61,7 +66,10 @@ let
   ];
 
   # Names present in the stub that must not come back.
-  declaredRejected = [ "off0" ];
+  declaredRejected = [
+    "off0"
+    "eth0"
+  ];
 
   # Same stub with networkd off: a netdev is created by systemd-networkd, so no
   # netdev name exists there. The .link pin still does, since udev honors .link
@@ -71,6 +79,7 @@ let
   networkdOffRejected = [
     "vx0"
     "off0"
+    "eth0"
   ];
 
   link = matchConfig: name: {
