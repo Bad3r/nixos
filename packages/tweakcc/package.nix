@@ -39,6 +39,8 @@ stdenv.mkDerivation (finalAttrs: {
     rm -f pnpm-workspace.yaml
   '';
 
+  patches = [ ./shell-wrapper.patch ];
+
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs)
       pname
