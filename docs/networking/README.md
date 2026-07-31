@@ -167,12 +167,21 @@ belongs in the pin file rather than in a separate one. Otherwise match
 
 ```nix
 # A MACAddressPolicy only survives if NetworkManager is not also setting the
-# address on this device, and the shared baseline sets "stable".
+# address on this device, and the shared baseline sets "stable". This option is
+# host-wide, not per-device: it drops "stable" on every Wi-Fi interface on the
+# host, while the .link below reaches only the one it matches. Use it only where
+# no Wi-Fi device should use the shared policy.
 networking.networkmanager.wifi.macAddress = "preserve";
 
 systemd.network.links."10-wlan" = {
   matchConfig.OriginalName = "wlan0";
-  linkConfig.MACAddressPolicy = "random";
+  linkConfig = {
+    MACAddressPolicy = "random";
+    # 10-wlan.link sorts before 99-default.link, so it is the only .link udev
+    # applies to this device. Restore the alternative names the default would
+    # otherwise supply, minus its "mac" token.
+    AlternativeNamesPolicy = "database onboard slot path";
+  };
 };
 ```
 

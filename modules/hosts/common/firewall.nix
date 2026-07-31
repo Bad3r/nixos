@@ -3,21 +3,19 @@
 #     Interfaces allowed to serve DNS/DHCP (UDP 53/67, TCP 53).
 #   flake.lib.nixos.hosts.<host>.firewallExtraTcpPortRanges
 #     Additional globally open TCP port ranges.
-{ config, ... }:
+{ config, lib, ... }:
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
 
-  body =
+  # Pure classifier, exported so modules/hosts/common/firewall-checks.nix can
+  # exercise every branch: both hosts leave firewallDnsInterfaces empty, so
+  # nothing in a host closure reaches these cases.
+  classify =
     {
-      hostName,
-      config,
-      lib,
-      ...
+      dnsInterfaces,
+      declaredNames,
     }:
-    let
-      hostFlags = hostsRegistry.${hostName} or { };
-      dnsInterfaces = hostFlags.firewallDnsInterfaces or [ ];
-      extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
+    {
       # enp4s0, eno1, ens3, enx001122334455, wlp0s20f3, wwp0s20f0u2, ibp5s0.
       # Both scheme lists subtract declaredNames: a name this host creates, such
       # as a .link pin or a wlanInterfaces AP, exists whichever scheme the host
@@ -31,24 +29,48 @@ let
       kernelNames = lib.subtractLists declaredNames (
         lib.filter (n: lib.match "(eth|wlan|usb|wwan|ib)[0-9]+" n != null) dnsInterfaces
       );
+      unbackedNames = lib.filter (
+        n:
+        !(
+          lib.match "(en|wl|ww|ib)[posx].*" n != null
+          || lib.match "(eth|wlan|usb|wwan|ib)[0-9]+" n != null
+          || lib.elem n declaredNames
+        )
+      ) dnsInterfaces;
+    };
+
+  # Names a .link Name= creates on a host, such as lan0. A disabled unit is
+  # never installed, and a .link with an empty [Match] matches every device udev
+  # initializes: it renames whichever interface appears first and shadows every
+  # higher-numbered .link file, so it does not bind a name to a device. Neither
+  # counts as a pin.
+  pinnedNamesOf =
+    links:
+    lib.filter (n: n != null) (
+      lib.mapAttrsToList (
+        _: link:
+        if !(link.enable or true) || link.matchConfig or { } == { } then
+          null
+        else
+          link.linkConfig.Name or null
+      ) links
+    );
+
+  body =
+    {
+      hostName,
+      config,
+      lib,
+      ...
+    }:
+    let
+      hostFlags = hostsRegistry.${hostName} or { };
+      dnsInterfaces = hostFlags.firewallDnsInterfaces or [ ];
+      extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       predictable = config.networking.usePredictableInterfaceNames;
-      # Names a .link Name= creates on this host, such as lan0. A disabled unit
-      # is never installed, and a .link with an empty [Match] matches every
-      # device udev initializes: it renames whichever interface appears first
-      # and shadows every higher-numbered .link file, so it does not bind a name
-      # to a device. Neither counts as a pin.
-      pinnedNames = lib.filter (n: n != null) (
-        lib.mapAttrsToList (
-          _: link:
-          if !(link.enable or true) || link.matchConfig or { } == { } then
-            null
-          else
-            link.linkConfig.Name or null
-        ) config.systemd.network.links
-      );
       # Interfaces this host declares rather than inherits from a NIC.
       declaredNames =
-        pinnedNames
+        pinnedNamesOf config.systemd.network.links
         ++ lib.attrNames config.networking.bridges
         ++ lib.attrNames config.networking.bonds
         ++ lib.attrNames config.networking.vlans
@@ -60,9 +82,11 @@ let
         ++ lib.attrNames config.networking.greTunnels
         ++ lib.attrNames config.networking.wireguard.interfaces
         ++ lib.mapAttrsToList (n: netdev: netdev.netdevConfig.Name or n) config.systemd.network.netdevs;
-      unbackedNames = lib.filter (
-        n: !(lib.elem n predictableNames || lib.elem n kernelNames || lib.elem n declaredNames)
-      ) dnsInterfaces;
+      inherit (classify { inherit dnsInterfaces declaredNames; })
+        predictableNames
+        kernelNames
+        unbackedNames
+        ;
     in
     {
       # A name that matches no device is not an evaluation error on its own:
@@ -132,5 +156,11 @@ let
     };
 in
 {
-  flake.nixosModules.hosts-common.imports = [ body ];
+  flake = {
+    lib.nixos = {
+      _firewallDnsClassify = classify;
+      _firewallDnsPinnedNamesOf = pinnedNamesOf;
+    };
+    nixosModules.hosts-common.imports = [ body ];
+  };
 }
