@@ -22,6 +22,10 @@ let
     systemd.network = {
       links."10-lan0" = link { Path = "pci-0000:00:14.0-usb-0:1.4:1.0"; } "lan0";
       netdevs."10-vx0".netdevConfig.Name = "vx0";
+      netdevs."10-off0" = {
+        enable = false;
+        netdevConfig.Name = "off0";
+      };
     };
     networking = {
       bridges."br0" = { };
@@ -53,6 +57,9 @@ let
     "wgq0"
     "vx0"
   ];
+
+  # Names present in the stub that must not come back.
+  declaredRejected = [ "off0" ];
 
   link = matchConfig: name: {
     inherit matchConfig;
@@ -177,12 +184,53 @@ let
       unbackedNames = [ "tailscale0" ];
     }
     {
+      name = "kernel name is stale under predictable naming";
+      dnsInterfaces = [ "wlan0" ];
+      declaredNames = [ ];
+      predictable = true;
+      predictableNames = [ ];
+      kernelNames = [ "wlan0" ];
+      unbackedNames = [ ];
+      staleScheme = [ "wlan0" ];
+    }
+    {
+      name = "kernel name is current under kernel naming";
+      dnsInterfaces = [ "wlan0" ];
+      declaredNames = [ ];
+      predictable = false;
+      predictableNames = [ ];
+      kernelNames = [ "wlan0" ];
+      unbackedNames = [ ];
+      staleScheme = [ ];
+    }
+    {
+      name = "predictable name is stale under kernel naming";
+      dnsInterfaces = [ "wlp0s20f3" ];
+      declaredNames = [ ];
+      predictable = false;
+      predictableNames = [ "wlp0s20f3" ];
+      kernelNames = [ ];
+      unbackedNames = [ ];
+      staleScheme = [ "wlp0s20f3" ];
+    }
+    {
+      name = "predictable name is current under predictable naming";
+      dnsInterfaces = [ "wlp0s20f3" ];
+      declaredNames = [ ];
+      predictable = true;
+      predictableNames = [ "wlp0s20f3" ];
+      kernelNames = [ ];
+      unbackedNames = [ ];
+      staleScheme = [ ];
+    }
+    {
       name = "empty input stays empty";
       dnsInterfaces = [ ];
       declaredNames = [ ];
       predictableNames = [ ];
       kernelNames = [ ];
       unbackedNames = [ ];
+      staleScheme = [ ];
     }
   ];
 
@@ -191,14 +239,20 @@ let
   classifyFailures = lib.concatMap (
     case:
     let
-      got = classify { inherit (case) dnsInterfaces declaredNames; };
+      got = classify {
+        inherit (case) dnsInterfaces declaredNames;
+        predictable = case.predictable or false;
+      };
       mismatch =
         field:
         lib.optional (
           got.${field} != case.${field}
         ) "${case.name}: ${field} = ${fmt got.${field}}, expected ${fmt case.${field}}";
     in
-    mismatch "predictableNames" ++ mismatch "kernelNames" ++ mismatch "unbackedNames"
+    mismatch "predictableNames"
+    ++ mismatch "kernelNames"
+    ++ mismatch "unbackedNames"
+    ++ lib.optionals (case ? staleScheme) (mismatch "staleScheme")
   ) classifyCases;
 
   pinnedFailures = lib.concatMap (
@@ -213,10 +267,15 @@ let
     let
       got = declaredNamesOf declaredStub;
       missing = lib.subtractLists got declaredExpected;
+      # A disabled unit writes nothing, so its name must not count as declared.
+      counted = lib.filter (n: lib.elem n got) declaredRejected;
     in
     lib.optional (
       missing != [ ]
-    ) "declaredNamesOf drops ${fmt missing}: a source was removed from the expression in firewall.nix";
+    ) "declaredNamesOf drops ${fmt missing}: a source was removed from the expression in firewall.nix"
+    ++
+      lib.optional (counted != [ ])
+        "declaredNamesOf counts ${fmt counted}: a disabled unit is never installed, so it creates no interface";
 
   failures = classifyFailures ++ pinnedFailures ++ declaredFailures;
 

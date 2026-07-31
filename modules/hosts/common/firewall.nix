@@ -24,8 +24,9 @@ let
     {
       dnsInterfaces,
       declaredNames,
+      predictable,
     }:
-    {
+    let
       # Both scheme lists subtract declaredNames: a name this host creates, such
       # as a .link pin or a wlanInterfaces AP, exists whichever scheme the host
       # boots with, so its shape says nothing about whether it is stale.
@@ -33,9 +34,17 @@ let
         lib.filter (matches predictableRe) dnsInterfaces
       );
       kernelNames = lib.subtractLists declaredNames (lib.filter (matches kernelRe) dnsInterfaces);
+    in
+    {
+      inherit predictableNames kernelNames;
       unbackedNames = lib.filter (
         n: !(matches predictableRe n || matches kernelRe n || lib.elem n declaredNames)
       ) dnsInterfaces;
+      # The scheme the host does not boot with, so these names match no device.
+      # Selected here rather than in the assertion so the check table covers the
+      # choice: both hosts pass an empty dnsInterfaces, which makes an inverted
+      # guard green in every closure.
+      staleScheme = if predictable then kernelNames else predictableNames;
     };
 
   # Names a .link Name= creates on a host, such as lan0. A disabled unit is
@@ -71,7 +80,11 @@ let
     ++ lib.attrNames cfg.networking.greTunnels
     ++ lib.attrNames cfg.networking.wireguard.interfaces
     ++ lib.attrNames cfg.networking.wg-quick.interfaces
-    ++ lib.mapAttrsToList (n: netdev: netdev.netdevConfig.Name or n) cfg.systemd.network.netdevs;
+    # A disabled netdev writes no unit, so nothing creates the interface; same
+    # reasoning as the disabled .link above.
+    ++ lib.mapAttrsToList (n: netdev: netdev.netdevConfig.Name or n) (
+      lib.filterAttrs (_: netdev: netdev.enable or true) cfg.systemd.network.netdevs
+    );
 
   body =
     {
@@ -86,36 +99,34 @@ let
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       predictable = config.networking.usePredictableInterfaceNames;
       declaredNames = declaredNamesOf config;
-      inherit (classify { inherit dnsInterfaces declaredNames; })
-        predictableNames
-        kernelNames
+      inherit (classify { inherit dnsInterfaces declaredNames predictable; })
         unbackedNames
+        staleScheme
         ;
+      staleMessage =
+        if predictable then
+          "${hostName}: firewallDnsInterfaces has kernel interface names "
+          + "(${lib.concatStringsSep ", " staleScheme}) but the host sets "
+          + "networking.usePredictableInterfaceNames = true, so they match no device. "
+          + "Use the predictable name, or pin the device with a .link Name= outside the "
+          + "eth*/wlan* namespace as modules/system76/networking.nix does."
+        else
+          "${hostName}: firewallDnsInterfaces has predictable interface names "
+          + "(${lib.concatStringsSep ", " staleScheme}) but the host boots with "
+          + "net.ifnames=0, so they match no device. Use the kernel name (eth0, wlan0) "
+          + "read from `ip -br link` after the first boot on this configuration.";
     in
     {
       # A name that matches no device is not an evaluation error on its own:
       # genAttrs below still emits an interfaces entry, so the opening silently
       # does nothing. A name from the wrong naming scheme is provably dead, so
-      # both schemes are hard assertions; an unrecognized name only might be,
+      # that is a hard assertion; an unrecognized name only might be,
       # because a daemon can create an interface no option lists, so that one
       # warns instead.
       assertions = [
         {
-          assertion = predictable || predictableNames == [ ];
-          message =
-            "${hostName}: firewallDnsInterfaces has predictable interface names "
-            + "(${lib.concatStringsSep ", " predictableNames}) but the host boots with "
-            + "net.ifnames=0, so they match no device. Use the kernel name (eth0, wlan0) "
-            + "read from `ip -br link` after the first boot on this configuration.";
-        }
-        {
-          assertion = !predictable || kernelNames == [ ];
-          message =
-            "${hostName}: firewallDnsInterfaces has kernel interface names "
-            + "(${lib.concatStringsSep ", " kernelNames}) but the host sets "
-            + "networking.usePredictableInterfaceNames = true, so they match no device. "
-            + "Use the predictable name, or pin the device with a .link Name= outside the "
-            + "eth*/wlan* namespace as modules/system76/networking.nix does.";
+          assertion = staleScheme == [ ];
+          message = staleMessage;
         }
       ];
 
