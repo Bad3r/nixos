@@ -199,6 +199,8 @@ let
         "enx001122334455"
         "enxb827ebaabbcc"
         "wlxb827ebaabbcc"
+        "slp0s1"
+        "enacmei1"
       ];
       declaredNames = [ ];
       predictableNames = [
@@ -210,6 +212,8 @@ let
         "enx001122334455"
         "enxb827ebaabbcc"
         "wlxb827ebaabbcc"
+        "slp0s1"
+        "enacmei1"
       ];
       kernelNames = [ ];
       unbackedNames = [ ];
@@ -228,6 +232,7 @@ let
         "usb0"
         "wwan0"
         "ib0"
+        "sl0"
       ];
       declaredNames = [ ];
       predictableNames = [ ];
@@ -235,6 +240,7 @@ let
         "usb0"
         "wwan0"
         "ib0"
+        "sl0"
       ];
       unbackedNames = [ ];
     }

@@ -11,15 +11,18 @@ let
   # while both patterns are single-sourced.
   # enp4s0, eno1, ens3, wlp0s20f3, wwp0s20f0u2, ibp5s0, and the enP2p1s0 form
   # systemd.net-naming-scheme(7) emits as prefix[Pdomain]sslot when the PCI
-  # domain is not 0. The x<MAC> form (enxb827ebaabbcc) is a separate branch: its
-  # 12 hex digits can begin with a-f, so it does not fit the letter-then-digit
-  # shape. That shape keeps the two classes disjoint: wlan0 is wl + a + n and
-  # ib0 has no letter after the prefix, so both stay kernel-assigned.
-  predictableRe = "(en|wl|ww|ib)(P[0-9]+)?([abcdiopsv][0-9].*|x[0-9a-f]{12})";
+  # domain is not 0. Prefixes are the full table from that page: en, wl, ww, ib,
+  # sl, mc. Two forms need their own branch because the character after the
+  # letter is not a digit: the platform/ACPI a<vendor><model>i<instance> name,
+  # whose vendor part is lowercase letters, and x<MAC>, whose 12 hex digits can
+  # begin with a-f. The letter-then-digit shape keeps the classes disjoint:
+  # wlan0 is wl + a + n and ib0 has no letter after the prefix, so both stay
+  # kernel-assigned.
+  predictableRe = "(en|wl|ww|ib|sl|mc)(P[0-9]+)?([abcdiopsv][0-9].*|a[a-z][a-z0-9]*i[0-9]+|x[0-9a-f]{12})";
   # Kernel-assigned. usb0 is the usbnet default: drivers/net/usb/usbnet.c only
   # switches to eth%d, wlan%d, or wwan%d for drivers flagged FLAG_ETHER,
   # FLAG_WLAN, or FLAG_WWAN, so a cdc_ether tether comes up as usb0.
-  kernelRe = "(eth|wlan|usb|wwan|ib)[0-9]+";
+  kernelRe = "(eth|wlan|usb|wwan|ib|sl)[0-9]+";
   matches = re: n: lib.match re n != null;
 
   # Pure classifier, exported so modules/hosts/common/firewall-checks.nix can
