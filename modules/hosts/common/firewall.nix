@@ -53,19 +53,19 @@ let
 
   # Match keys that can bind a .link to one device. Type=, Driver=, and Property=
   # select a class, not a device (Property=ID_BUS=usb matches every USB netdev,
-  # and the device-binding Property=ID_PATH= form is what Path= matches), so they
-  # are absent on purpose. OriginalName= selects a name: systemd.link(5) warns
-  # that "caution is advised when matching on kernel-assigned names, as they are
-  # known to be unstable between reboots", so it binds a device only where the
-  # host boots predictable names.
-  bindingMatchKeys =
-    predictable:
-    [
-      "Path"
-      "MACAddress"
-      "PermanentMACAddress"
-    ]
-    ++ lib.optional predictable "OriginalName";
+  # and the device-binding Property=ID_PATH= form is what Path= matches).
+  # OriginalName= is excluded under either naming scheme: it matches the udev
+  # INTERFACE property, and systemd.link(5) notes it "cannot be used to match on
+  # names that have already been changed from userspace". The predictable rename
+  # is done by the same net_setup_link builtin that applies these files, so the
+  # device still carries its kernel name at match time; an enp*/wlp* value never
+  # matches, and the eth0/wlan0 values that do are the discovery-order names the
+  # same page calls "unstable between reboots".
+  bindingMatchKeys = [
+    "Path"
+    "MACAddress"
+    "PermanentMACAddress"
+  ];
 
   # A [Match] that is empty, whose selector is a glob, or which carries more than
   # one value matches each device udev initializes: it renames whichever
@@ -81,6 +81,9 @@ let
     # An empty assignment resets the list in systemd.link(5), leaving the file
     # with no effective [Match]; splitString yields [ "" ] for it.
     && lib.head tokens != ""
+    # A "!" prefix inverts the test, so the file applies to every device except
+    # the one named: the match-all case again.
+    && !(lib.hasPrefix "!" (lib.head tokens))
     && !(lib.any (c: lib.hasInfix c (lib.head tokens)) [
       "*"
       "?"
@@ -88,20 +91,18 @@ let
     ]);
 
   bindsOneDevice =
-    predictable: matchConfig:
-    lib.any (key: matchConfig ? ${key} && bindsOneValue matchConfig.${key}) (
-      bindingMatchKeys predictable
-    );
+    matchConfig:
+    lib.any (key: matchConfig ? ${key} && bindsOneValue matchConfig.${key}) bindingMatchKeys;
 
   # Names a .link Name= creates on a host, such as lan0. A disabled unit is
   # never installed and a match-all file does not bind a name to a device, so
   # neither counts as a pin.
   pinnedNamesOf =
-    predictable: links:
+    links:
     lib.filter (n: n != null) (
       lib.mapAttrsToList (
         _: link:
-        if !(link.enable or true) || !(bindsOneDevice predictable (link.matchConfig or { })) then
+        if !(link.enable or true) || !(bindsOneDevice (link.matchConfig or { })) then
           null
         else
           link.linkConfig.Name or null
@@ -130,8 +131,8 @@ let
   # Interfaces a host declares rather than inherits from a NIC. Exported with
   # the classifier so the check can assert every source is still read.
   declaredNamesOf =
-    predictable: cfg:
-    pinnedNamesOf predictable cfg.systemd.network.links
+    cfg:
+    pinnedNamesOf cfg.systemd.network.links
     ++ lib.attrNames cfg.networking.bridges
     ++ lib.attrNames cfg.networking.bonds
     ++ lib.attrNames cfg.networking.vlans
@@ -171,7 +172,7 @@ let
         ));
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       predictable = config.networking.usePredictableInterfaceNames;
-      declaredNames = declaredNamesOf predictable config;
+      declaredNames = declaredNamesOf config;
       collidingPins = collidingPinsOf config.systemd.network.links;
       inherit (classify { inherit dnsInterfaces declaredNames predictable; })
         unbackedNames
