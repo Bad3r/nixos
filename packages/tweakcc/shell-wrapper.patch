@@ -45,13 +45,13 @@ index c0f8978..f8fb855 100644
 +      /^\s*target=(?:"([^"]+)"|'([^']+)'|([^\s#]+))\s*$/m
 +    );
 +    const execTargetMatch = wrapper.match(
-+      /^\s*exec\s+(?:-a\s+(?:"[^"]*"|'[^']*'|[^\s]+)\s+)?["'](\/[^"]+)["']/m
++      /^\s*exec\s+(?:-a\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(["'])(\/[^"'\n]+)\1/m
 +    );
 +    const target =
 +      targetMatch?.[1] ??
 +      targetMatch?.[2] ??
 +      targetMatch?.[3] ??
-+      execTargetMatch?.[1];
++      execTargetMatch?.[2];
 +    if (!target || !target.startsWith('/')) {
 +      return null;
 +    }
