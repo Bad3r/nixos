@@ -95,7 +95,17 @@ let
     }:
     let
       hostFlags = hostsRegistry.${hostName} or { };
-      dnsInterfaces = hostFlags.firewallDnsInterfaces or [ ];
+      # Required, not `or [ ]`: flake.lib.nixos.hosts.<host> is a free-form
+      # attrset, so a misspelled key would fall back to no rule and trip none of
+      # the guards below. Same reasoning as the required shareCommon entry in
+      # modules/configurations/nixos.nix.
+      dnsInterfaces =
+        hostFlags.firewallDnsInterfaces or (throw (
+          "flake.lib.nixos.hosts.${hostName} has no firewallDnsInterfaces entry; "
+          + "set it to [ ] explicitly in modules/${hostName}/policy.nix. A missing "
+          + "or misspelled key would otherwise emit no firewall rule and trip none "
+          + "of the guards in modules/hosts/common/firewall.nix."
+        ));
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       predictable = config.networking.usePredictableInterfaceNames;
       declaredNames = declaredNamesOf config;
@@ -109,7 +119,8 @@ let
           + "(${lib.concatStringsSep ", " staleScheme}) but the host sets "
           + "networking.usePredictableInterfaceNames = true, so they match no device. "
           + "Use the predictable name, or pin the device with a .link Name= outside the "
-          + "eth*/wlan* namespace as modules/system76/networking.nix does."
+          + "kernel-assigned namespaces (eth*, wlan*, usb*, wwan*, ib*) as "
+          + "modules/system76/networking.nix does."
         else
           "${hostName}: firewallDnsInterfaces has predictable interface names "
           + "(${lib.concatStringsSep ", " staleScheme}) but the host boots with "

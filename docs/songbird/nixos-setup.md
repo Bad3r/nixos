@@ -444,14 +444,17 @@ not count, since that dnsmasq binds `127.0.0.1` and `::1` with no `dhcp-range`.
 
 If songbird does gain such a listener: `shareCommon = true` means it boots with
 `net.ifnames=0`, so the kernel names interfaces `eth0`, `eth1`, and `wlan0`
-rather than the `enp*` names an installer shows. Do not put a bare kernel name in
-`firewallDnsInterfaces` on this host: songbird has two wired NICs of the same class, so the numbering
+rather than the `enp*` names an installer shows. `modules/hosts/common/firewall.nix`
+rejects an `enp*`/`wlp*` name on such a host with an assertion, and warns when a
+name is neither kernel-assigned nor created by a declaration on the host; a
+kernel name that is simply wrong for the machine passes both and silently opens
+nothing. Do not put a bare kernel name in `firewallDnsInterfaces` on this host: songbird has two wired NICs of the same class, so the numbering
 follows discovery order and can move between them, and the value opens UDP
 53/67 and TCP 53 on whichever NIC holds the name that boot. Pin the intended
 NIC as shown below and use the pinned name. A stale name is not an evaluation
 error either: `modules/hosts/common/firewall.nix` emits a
 `networking.firewall.interfaces.<name>` entry for a device that never appears,
-so the DNS and DHCP opening silently does nothing.
+so the opening silently does nothing.
 
 The two same-class NICs are the Intel 2.5 GbE on `igc` and the Realtek 5 GbE on
 `r8169`. Pin the intended one by PCI path, the way

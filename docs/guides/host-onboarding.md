@@ -95,8 +95,10 @@ _: {
 }
 ```
 
-Leave `firewallDnsInterfaces` empty, as both current hosts now do, unless the
-host actually serves DNS or DHCP to the network. It opens inbound UDP 53/67 and
+`firewallDnsInterfaces` is required: `modules/hosts/common/firewall.nix` throws
+when the key is absent, so a misspelling cannot fall back to no rule silently.
+Leave it empty, as both current hosts now do, unless the host actually serves
+DNS or DHCP to the network. It opens inbound UDP 53/67 and
 TCP 53, and NetworkManager's `dns = "dnsmasq"` mode is not a reason to set it:
 that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
 `::1` with no `dhcp-range`, so it never listens on a link.
@@ -104,10 +106,12 @@ that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
 When the host does have such a listener, use its real interface names, read from
 `ip link` on the target **after** its first boot on this configuration.
 `shareCommon` hosts boot with `net.ifnames=0`, so the names are `eth0`, `eth1`,
-and `wlan0` rather than the `enp*` and `wlp*` names an installer shows. A stale
-name is not an evaluation error: `modules/hosts/common/firewall.nix` emits a
-`networking.firewall.interfaces.<name>` entry for a device that never appears,
-so the DNS and DHCP opening silently does nothing.
+and `wlan0` rather than the `enp*` and `wlp*` names an installer shows.
+`modules/hosts/common/firewall.nix` rejects an `enp*`/`wlp*` name on such a host
+with an assertion, and warns when a name is neither kernel-assigned nor created
+by a declaration on the host. Neither guard catches a kernel name that is simply
+wrong for this machine: that emits a `networking.firewall.interfaces.<name>`
+entry for a device that never appears, so the opening silently does nothing.
 
 On a host with two interfaces of the same class, or with a removable adapter,
 the `eth0` and `eth1` numbering follows kernel discovery order and can move

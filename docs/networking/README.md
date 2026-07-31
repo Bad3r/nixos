@@ -226,9 +226,11 @@ hardware address out of the repository, and it degrades safely: when the
 adapter is detached or moved to another port, nothing is named `lan0`, so the
 firewall rule matches no device instead of landing on a different one.
 
-Pin to a name outside the kernel's `eth*` and `wlan*` namespace. The kernel
-assigns those itself, so a rename into one can collide with a device that
-already holds it.
+Pin to a name outside the namespaces the kernel assigns itself: `eth*`,
+`wlan*`, `usb*` (the usbnet default for `cdc_ether` and `rndis_host`), `wwan*`,
+and `ib*`. A rename into one of those can collide with a device that already
+holds it. `modules/hosts/common/firewall.nix` treats exactly that set as
+kernel-assigned.
 
 A pinned device gets no other `.link`. udev applies only the first matching
 file, so a `10-*.link` pin also displaces systemd's `99-default.link` for that
