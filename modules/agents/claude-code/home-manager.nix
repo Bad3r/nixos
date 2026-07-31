@@ -97,9 +97,18 @@
         };
       };
       wrapperPaths = lib.mapAttrs (_: wrapper: lib.getExe wrapper.claudeWrapped) variants;
+      targetLinePattern = ''^[[:space:]]*target=('[^']+'|"[^"]+"|/[^[:space:]#]+)[[:space:]]*$'';
+      wrapperTargetCounts = lib.mapAttrs (
+        _name: wrapper:
+        lib.count (line: builtins.match targetLinePattern line != null) (
+          lib.splitString "\n" wrapper.wrapperBody
+        )
+      ) variants;
     in
     {
       checks."claude-code/wrapper-target-contract" =
+        assert lib.assertMsg (lib.all (count: count == 1) (lib.attrValues wrapperTargetCounts))
+          "claude-code wrapper lost its single standalone absolute target assignment consumed by packages/tweakcc/shell-wrapper.patch";
         pkgs.runCommandLocal "claude-code-wrapper-target-contract"
           {
             nativeBuildInputs = [ pkgs.makeWrapper ];

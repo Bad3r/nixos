@@ -156,5 +156,5 @@ let
   claudeWrapped = pkgs.writeShellScriptBin "claude" wrapperBody;
 in
 {
-  inherit claudeWrapped;
+  inherit claudeWrapped wrapperBody;
 }
