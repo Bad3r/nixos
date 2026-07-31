@@ -216,7 +216,11 @@ A pinned device gets no other `.link`. udev applies only the first matching
 file, so a `10-*.link` pin also displaces systemd's `99-default.link` for that
 device, dropping its `NamePolicy`, `AlternativeNamesPolicy`, and
 `MACAddressPolicy=persistent` defaults, and a second `.link` added later for the
-same device is never read. Put what the device needs in the pin file itself:
+same device is never read. Put what the device needs in the pin file itself,
+with one exception: do not restore `NamePolicy`. Per `systemd.link(5)`, `Name=`
+"has lower precedence than `NamePolicy=`", so restoring it would override the
+pin and hand the device back to whichever name the policy resolves, with no
+error.
 
 ```nix
 systemd.network.links."10-lan0" = {

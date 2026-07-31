@@ -32,13 +32,18 @@ let
         lib.filter (n: lib.match "(eth|wlan|usb|wwan|ib)[0-9]+" n != null) dnsInterfaces
       );
       predictable = config.networking.usePredictableInterfaceNames;
-      # Names a .link Name= creates on this host, such as lan0. A .link with an
-      # empty [Match] matches every device udev initializes: it renames whichever
-      # interface appears first and shadows every higher-numbered .link file, so
-      # it does not bind a name to a device and is not counted as a pin.
+      # Names a .link Name= creates on this host, such as lan0. A disabled unit
+      # is never installed, and a .link with an empty [Match] matches every
+      # device udev initializes: it renames whichever interface appears first
+      # and shadows every higher-numbered .link file, so it does not bind a name
+      # to a device. Neither counts as a pin.
       pinnedNames = lib.filter (n: n != null) (
         lib.mapAttrsToList (
-          _: link: if link.matchConfig or { } == { } then null else link.linkConfig.Name or null
+          _: link:
+          if !(link.enable or true) || link.matchConfig or { } == { } then
+            null
+          else
+            link.linkConfig.Name or null
         ) config.systemd.network.links
       );
       # Interfaces this host declares rather than inherits from a NIC.
