@@ -148,10 +148,14 @@ let
     ++ lib.attrNames cfg.networking.greTunnels
     ++ lib.attrNames cfg.networking.wireguard.interfaces
     ++ lib.attrNames cfg.networking.wg-quick.interfaces
-    # A disabled netdev writes no unit, so nothing creates the interface; same
-    # reasoning as the disabled .link above.
-    ++ lib.mapAttrsToList (n: netdev: netdev.netdevConfig.Name or n) (
-      lib.filterAttrs (_: netdev: netdev.enable or true) cfg.systemd.network.netdevs
+    # A netdev is created by systemd-networkd, so it exists only when networkd is
+    # enabled; a disabled unit writes nothing either, same reasoning as the
+    # disabled .link above. The hosts here run NetworkManager with networkd off,
+    # so an ungated netdev name would be backed by nothing.
+    ++ lib.optionals cfg.systemd.network.enable (
+      lib.mapAttrsToList (n: netdev: netdev.netdevConfig.Name or n) (
+        lib.filterAttrs (_: netdev: netdev.enable or true) cfg.systemd.network.netdevs
+      )
     );
 
   body =

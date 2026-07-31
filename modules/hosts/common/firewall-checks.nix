@@ -21,6 +21,7 @@ let
   # expression loses its name here, which is the failure this covers.
   declaredStub = {
     systemd.network = {
+      enable = true;
       links."10-lan0" = link { Path = "pci-0000:00:14.0-usb-0:1.4:1.0"; } "lan0";
       netdevs."10-vx0".netdevConfig.Name = "vx0";
       netdevs."10-off0" = {
@@ -61,6 +62,16 @@ let
 
   # Names present in the stub that must not come back.
   declaredRejected = [ "off0" ];
+
+  # Same stub with networkd off: a netdev is created by systemd-networkd, so no
+  # netdev name exists there. The .link pin still does, since udev honors .link
+  # files either way.
+  networkdOffStub = lib.recursiveUpdate declaredStub { systemd.network.enable = false; };
+  networkdOffExpected = [ "lan0" ];
+  networkdOffRejected = [
+    "vx0"
+    "off0"
+  ];
 
   link = matchConfig: name: {
     inherit matchConfig;
@@ -360,6 +371,18 @@ let
       lib.optional (counted != [ ])
         "declaredNamesOf counts ${fmt counted}: a disabled unit is never installed, so it creates no interface";
 
+  networkdOffFailures =
+    let
+      got = declaredNamesOf networkdOffStub;
+      missing = lib.subtractLists got networkdOffExpected;
+      counted = lib.filter (n: lib.elem n got) networkdOffRejected;
+    in
+    lib.optional (missing != [ ])
+      "declaredNamesOf drops ${fmt missing} with networkd off: .link pins are honored by udev either way"
+    ++
+      lib.optional (counted != [ ])
+        "declaredNamesOf counts ${fmt counted} with networkd off: a netdev is created by systemd-networkd";
+
   # A pin into a namespace the kernel assigns itself races udev, so it must be
   # rejected; a pin outside them must not be.
   collisionCases = [
@@ -406,7 +429,8 @@ let
     lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
   ) collisionCases;
 
-  failures = classifyFailures ++ pinnedFailures ++ declaredFailures ++ collisionFailures;
+  failures =
+    classifyFailures ++ pinnedFailures ++ declaredFailures ++ networkdOffFailures ++ collisionFailures;
 
   missingExports =
     classify == null || pinnedNamesOf == null || declaredNamesOf == null || collidingPinsOf == null;
@@ -433,7 +457,7 @@ in
         else
           pkgs.runCommandLocal "firewall-dns-interface-classifier-ok" { } ''
             echo "ok: ${
-              toString (lib.length classifyCases + lib.length pinnedCases + lib.length collisionCases + 1)
+              toString (lib.length classifyCases + lib.length pinnedCases + lib.length collisionCases + 2)
             } classifier cases" > $out
           '';
     };
