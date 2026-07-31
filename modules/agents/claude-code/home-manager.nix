@@ -34,7 +34,36 @@
         _wrapper.nix           shell launcher environment and binary selection
 */
 
-_: {
+{ lib, ... }:
+{
+  perSystem =
+    { pkgs, ... }:
+    let
+      wrapper = import ./_wrapper.nix {
+        inherit lib pkgs;
+        claudePkg = "/nix/store/test-claude";
+        bunInstallDir = "/nix/store/test-bun";
+        externalBinary = "/nix/store/test-external/bin/claude";
+        installMethods = {
+          bun.enable = true;
+          nix.enable = false;
+        };
+        greptilePluginRequested = false;
+        greptileApiKeyPath = "/tmp/greptile/api-key";
+      };
+    in
+    {
+      checks."claude-code/wrapper-target-contract" =
+        pkgs.runCommandLocal "claude-code-wrapper-target-contract" { }
+          ''
+            if ! ${pkgs.gnugrep}/bin/grep -Eq "^target=([\"']?)/" "${lib.getExe wrapper.claudeWrapped}"; then
+              echo "claude-code wrapper target assignment is not standalone and absolute" >&2
+              exit 1
+            fi
+            echo "ok: Claude wrapper exposes a standalone absolute target assignment" > $out
+          '';
+    };
+
   flake.homeManagerModules.apps."claude-code" =
     {
       config,
