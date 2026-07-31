@@ -97,7 +97,7 @@
         };
       };
       wrapperPaths = lib.mapAttrs (_: wrapper: lib.getExe wrapper.claudeWrapped) variants;
-      targetLinePattern = ''^[[:space:]]*target=('[^']+'|"[^"]+"|/[^[:space:]#]+)[[:space:]]*$'';
+      targetLinePattern = ''^[[:space:]]*target=('/[^']+'|"/[^"]+"|/[^[:space:]#]+)[[:space:]]*$'';
       wrapperTargetCounts = lib.mapAttrs (
         _name: wrapper:
         lib.count (line: builtins.match targetLinePattern line != null) (
