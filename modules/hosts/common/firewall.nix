@@ -9,8 +9,12 @@ let
 
   # Bound once each: the three classifier outputs stay mutually consistent only
   # while both patterns are single-sourced.
-  # enp4s0, eno1, ens3, enx001122334455, wlp0s20f3, wwp0s20f0u2, ibp5s0.
-  predictableRe = "(en|wl|ww|ib)[posx].*";
+  # enp4s0, eno1, ens3, enx001122334455, wlp0s20f3, wwp0s20f0u2, ibp5s0, and the
+  # enP2p1s0 form systemd.net-naming-scheme(7) emits as prefix[Pdomain]sslot when
+  # the PCI domain is not 0. The trailing digit keeps the two classes disjoint:
+  # wlan0 is wl + a + n and ib0 has no letter after the prefix, so both stay
+  # kernel-assigned.
+  predictableRe = "(en|wl|ww|ib)(P[0-9]+)?[abcdiopsvx][0-9].*";
   # Kernel-assigned. usb0 is the usbnet default: drivers/net/usb/usbnet.c only
   # switches to eth%d, wlan%d, or wwan%d for drivers flagged FLAG_ETHER,
   # FLAG_WLAN, or FLAG_WWAN, so a cdc_ether tether comes up as usb0.
@@ -70,7 +74,18 @@ let
   # race with the assignment done by the kernel ... making the naming
   # unpredictable". A pin that loses that race leaves the device on its kernel
   # name, so anything keyed to the pinned name matches nothing.
-  collidingPinsOf = links: lib.filter (matches kernelRe) (pinnedNamesOf links);
+  # Derived from every enabled link rather than from pinnedNamesOf: a collision
+  # is a property of the name a .link writes, not of whether it binds to one
+  # device. A match-all file named eth0 is the worse case, not an excluded one.
+  collidingPinsOf =
+    links:
+    lib.filter (matches kernelRe) (
+      lib.filter (n: n != null) (
+        lib.mapAttrsToList (
+          _: link: if link.enable or true then link.linkConfig.Name or null else null
+        ) links
+      )
+    );
 
   # Interfaces a host declares rather than inherits from a NIC. Exported with
   # the classifier so the check can assert every source is still read.

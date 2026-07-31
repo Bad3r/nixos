@@ -99,15 +99,17 @@ let
       unbackedNames = [ ];
     }
     {
-      name = "wwan and infiniband predictable prefixes";
+      name = "wwan, infiniband, and nonzero-PCI-domain predictable prefixes";
       dnsInterfaces = [
         "wwp0s20f0u2"
         "ibp5s0"
+        "enP2p1s0"
       ];
       declaredNames = [ ];
       predictableNames = [
         "wwp0s20f0u2"
         "ibp5s0"
+        "enP2p1s0"
       ];
       kernelNames = [ ];
       unbackedNames = [ ];
@@ -295,6 +297,19 @@ let
       name = "pin named wlan0 collides";
       links."10-wlan0" = link { Path = "pci-0000:00:14.3"; } "wlan0";
       expected = [ "wlan0" ];
+    }
+    {
+      name = "match-all link named eth0 collides";
+      links."10-eth0".linkConfig.Name = "eth0";
+      expected = [ "eth0" ];
+    }
+    {
+      name = "disabled link named eth0 does not collide";
+      links."10-eth0" = {
+        enable = false;
+        linkConfig.Name = "eth0";
+      };
+      expected = [ ];
     }
     {
       name = "pin named usb0 collides";
