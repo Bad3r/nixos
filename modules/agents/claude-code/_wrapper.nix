@@ -99,6 +99,8 @@ let
     exec "$realBash" "''${originalArgs[@]}"
   '';
 
+  # Keep this assignment standalone. packages/tweakcc/shell-wrapper.patch
+  # parses it to reach the wrapped Claude executable.
   targetScript =
     if installMethods.bun.enable then
       ''

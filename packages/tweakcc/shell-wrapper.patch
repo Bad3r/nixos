@@ -21,14 +21,14 @@ index c0f8978..f8fb855 100644
        debug('detectFileTypeHeuristic: Detected JavaScript via shebang');
        return 'javascript';
      }
-+    if (/(?:^|\/)(?:bash|dash|zsh|sh)(?:\s|$)/.test(shebangStr)) {
++    if (/(?:^|[/\s])(?:bash|dash|zsh|ksh|ash|sh)(?:\s|$)/.test(shebangStr)) {
 +      debug('detectFileTypeHeuristic: Detected shell wrapper via shebang');
 +      return 'shell-wrapper';
 +    }
    }
  
    // Check for binary magic numbers
-@@ -229,14 +234,47 @@ async function maybeResolveNixWrapper(binaryPath: string): Promise<string> {
+@@ -229,14 +234,48 @@ async function maybeResolveNixWrapper(binaryPath: string): Promise<string> {
    return binaryPath;
  }
  
@@ -36,6 +36,7 @@ index c0f8978..f8fb855 100644
 + * Resolves the static target used by a shell launcher. NixOS home-manager
 + * wrappers use this form when the executable must be selected at runtime:
 + * `target=/absolute/path/to/claude` followed by `exec "$target" "$@"`.
++ * The producer is `modules/agents/claude-code/_wrapper.nix`.
 + */
 +async function resolveShellWrapper(wrapperPath: string): Promise<string | null> {
 +  try {
