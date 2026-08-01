@@ -47,3 +47,33 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
   (dry-run without `--apply`).
 - `--all-worktrees`: process repositories under `$HOME/trees/nixos` in
   addition to the current repository.
+
+## Exit Codes
+
+- `0`: success, or a dry run that changed nothing.
+- `1`: at least one archive write or drop failed, a stash list could not be
+  read, or another instance holds the run lock.
+- `64`: usage error, including an unparsable `--age` or `--archive-retention`.
+
+## Concurrency
+
+Runs are serialized by `${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/prune-old-stashes.<uid>.lock`,
+the same guard `scripts/prune-stale-worktrees.sh` uses. Dry runs take the lock
+too, so a plan is never printed against a stack another run is pruning. A
+second concurrent invocation exits 1 without touching anything.
+
+Within a run, stack positions are treated as a snapshot, not as identity: the
+position of each selected stash is resolved again from its recorded commit
+immediately before the drop, so a `git stash push` from another shell shifts
+indices without derailing the run or misidentifying a stash.
+
+## Tests
+
+```sh
+tests/prune-old-stashes/run.sh
+```
+
+The suite covers dry-run reporting, apply and archive ordering, recovery
+through an archive ref, base-ten age parsing, usage errors, unreadable stash
+lists, concurrent pushes and external drops, lock contention, retention
+sweeps, and shared stash stacks across linked worktrees.
