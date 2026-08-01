@@ -19,6 +19,10 @@ concurrency:
   # because GitHub offers no way to share one expression between the two; keep
   # them in sync, since any condition dropped here is a cancel-in-progress that
   # an untrusted commenter or a fork PR can aim at a running review.
+  # Declaring `concurrency` on the job instead would remove the duplication if a
+  # job dropped by `if:` never acquires its group, but GitHub documents no such
+  # guarantee, and if it is wrong the regression is silent and is exactly this
+  # bug. Confirm it on a throwaway PR before trading this predicate away.
   # comment.body reaches only startsWith: the group is always pr-<number> or
   # inert-<run_id>, so no untrusted text lands in it.
   group: >-

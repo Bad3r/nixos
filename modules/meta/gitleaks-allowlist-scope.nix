@@ -3,31 +3,49 @@
 # it, not just the false positive the entry was added for. Measured with
 # gitleaks 8.30.1: allowlisting secrets/private-ops/.* dropped the scan of that
 # file to 0 bytes and a planted Stripe live key and Slack bot token in it both
-# went undetected. Path matching is unanchored, so a pattern need not spell
-# "secrets" to reach the same file ("private-ops/.*" skips it too). The guard is
-# therefore an inverted allowlist: only the reviewed nixos-manual paths may
-# path-scope at all, and every other false positive must be scoped by content.
-# throw, not a failing derivation: CI runs `nix flake check --no-build`,
-# which evaluates check attrs but never builds them, so only an eval-time
-# failure gates CI.
+# went undetected. Entries are compiled as unanchored regexes, so a pattern
+# neither has to name the tree it reaches ("private-ops/.*" skips the same file)
+# nor stop at one tree ("nixos-manual/.*|secrets/.*" reaches both). The guard is
+# therefore an exact-match allowlist: only the two reviewed nixos-manual
+# patterns may path-scope, and every other false positive is scoped by content.
+# throw, not a failing derivation: `nix flake check --no-build` evaluates check
+# attrs but never builds them, so only an eval-time failure gates the runs that
+# use it (update-flake.yml, and check.yml on manual dispatch).
 { lib, ... }:
 {
   perSystem =
     { config, pkgs, ... }:
     let
-      # The Nix definition, not the regenerated .gitleaks.toml: a source edit
-      # that never went through write-files would otherwise pass this check and
-      # leave only the local managed-files-drift hook between it and main.
-      cfg = builtins.fromTOML config.files.file.".gitleaks.toml".text;
-
       # Structural parse rather than string splitting, because `paths=[` without
       # spaces, a reordered key, or an inline table all defeat an infix search,
       # and a guard that a whitespace change disarms is not a guard. gitleaks
-      # still accepts the singular [allowlist] table, so fold that in too.
-      allowlists = (cfg.allowlists or [ ]) ++ lib.optional (cfg ? allowlist) cfg.allowlist;
+      # honours the singular [allowlist] table and rule-scoped allowlists as
+      # well, so fold both in; cfg.rules is absent while the config only extends
+      # the default ruleset, which makes that term inert until a rule is added.
+      allowlistsIn =
+        text:
+        let
+          cfg = builtins.fromTOML text;
+          tablesOf = t: (t.allowlists or [ ]) ++ lib.optional (t ? allowlist) t.allowlist;
+        in
+        tablesOf cfg ++ lib.concatMap tablesOf (cfg.rules or [ ]);
+
+      # Both the definition a human edits and the artifact gitleaks actually
+      # reads. Parsing only the source misses a direct .gitleaks.toml edit and
+      # parsing only the artifact misses a source edit that skipped write-files;
+      # managed-files-drift closes neither gap here, being a pre-commit hook
+      # rather than a CI gate.
+      allowlists =
+        allowlistsIn config.files.file.".gitleaks.toml".text
+        ++ allowlistsIn (builtins.readFile ../../.gitleaks.toml);
+
+      reviewedPaths = [
+        "nixos-manual/.*"
+        "docs/nixos-manual/.*"
+      ];
 
       unreviewedPathScope = lib.filter (
-        a: lib.any (p: !lib.hasInfix "nixos-manual" p) (a.paths or [ ])
+        a: lib.any (p: !lib.elem p reviewedPaths) (a.paths or [ ])
       ) allowlists;
 
       # The Cloudflare KV allowlist is a no-op unless it is line-scoped: against
@@ -36,17 +54,19 @@
       kvBlocks = lib.filter (a: lib.any (lib.hasInfix "keys KV") (a.regexes or [ ])) allowlists;
       kvUnscoped = lib.filter (a: (a.regexTarget or "secret") != "line") kvBlocks;
 
-      describe = entries: lib.concatMapStringsSep ", " (a: a.description or "<undescribed>") entries;
+      describe =
+        entries: lib.concatStringsSep ", " (lib.unique (map (a: a.description or "<undescribed>") entries));
     in
     {
       checks.gitleaks-allowlist-scope =
         if unreviewedPathScope != [ ] then
           throw (
-            "gitleaks-allowlist-scope: allowlist ${describe unreviewedPathScope} path-scopes a tree "
-            + "outside the reviewed nixos-manual set. A paths entry makes gitleaks skip those files "
-            + "entirely, hiding real leaks in them, and matching is unanchored so the pattern need not "
-            + "name the tree it reaches. Scope by content with regexTarget = \"line\" instead, or "
-            + "extend this check deliberately (modules/development/gitleaks.nix)"
+            "gitleaks-allowlist-scope: allowlist ${describe unreviewedPathScope} carries a paths entry "
+            + "outside the reviewed set ${lib.concatStringsSep ", " reviewedPaths}. A paths entry makes "
+            + "gitleaks skip those files entirely, hiding real leaks in them, and entries are unanchored "
+            + "regexes so one can reach a tree it does not name. Scope by content with "
+            + "regexTarget = \"line\" instead, or widen reviewedPaths deliberately "
+            + "(modules/development/gitleaks.nix)"
           )
         else if kvBlocks == [ ] then
           throw (
@@ -61,7 +81,7 @@
           )
         else
           pkgs.runCommandLocal "gitleaks-allowlist-scope-ok" { } ''
-            echo "ok: no gitleaks allowlist path-scopes outside nixos-manual" > $out
+            echo "ok: every gitleaks allowlist path entry is in the reviewed set" > $out
           '';
     };
 }
