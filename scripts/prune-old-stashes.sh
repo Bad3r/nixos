@@ -44,9 +44,12 @@ options:
                             once: linked worktrees share one stash stack.
   --root <dir>              Repeatable. Directory scanned by
                             --all-worktrees; a usage error without it.
-                            Default: \$HOME/trees/nixos. A named root that
-                            is missing is reported and counted as a
-                            failure.
+                            Default: \$HOME/trees/nixos. Exactly one level
+                            below each root is scanned, so a root must
+                            directly contain the checkouts; unlike
+                            prune-stale-worktrees, container directories
+                            are not descended into. A named root that is
+                            missing is reported and counted as a failure.
   -h, --help                Print this help.
 
 Runs are serialized by a per-user lock; a second concurrent invocation exits
@@ -56,8 +59,8 @@ mutating.
 exit codes:
   0   success (or clean dry-run)
   1   at least one archive write, drop, or archive-ref deletion failed, the
-      stash list or the archive refs could not be read, or another instance
-      holds the run lock
+      stash list or the archive refs could not be read, a named --root does
+      not exist, or another instance holds the run lock
   64  usage error
 EOF
 }
@@ -200,6 +203,11 @@ if [[ $all_worktrees == true ]]; then
     fi
     for dir in "$scan_root"/*/; do
       [[ -d $dir ]] || continue
+      # rev-parse walks up, so a directory that is not itself a checkout
+      # resolves to whatever repository encloses the root: one plain directory
+      # under the root is enough to pull a dotfiles repo at $HOME into the scan
+      # set and prune its stashes.
+      [[ -e ${dir%/}/.git ]] || continue
       if wt_top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
         roots+=("$wt_top")
       fi

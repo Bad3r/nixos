@@ -773,6 +773,31 @@ test_root_is_repeatable_and_defaults_to_home_trees() {
   pass
 }
 
+test_non_checkout_under_a_root_is_not_resolved_upward() {
+  local out enclosing
+  make_fixture outsider
+  out="${tmpdir}/enclosing.out"
+
+  # $HOME is itself a repository with a stash, the dotfiles case. A plain
+  # directory under the scanned root would make `rev-parse --show-toplevel`
+  # walk up to it and pull it into the scan set.
+  enclosing="${HOME}"
+  git init -q -b main "${enclosing}"
+  init_repo_config "${enclosing}"
+  printf '%s\n' dot >"${enclosing}/f"
+  git -C "${enclosing}" add f
+  git -C "${enclosing}" commit -q -m "initial commit"
+  push_stash "${enclosing}" precious-dotfiles 30
+  mkdir -p "${enclosing}/trees/nixos/notes"
+
+  run_sut "${out}" "${repo}" --all-worktrees
+  assert_status 0 "${out}" enclosing
+  assert_not_contains "${out}" "repo: ${enclosing}$" enclosing
+  assert_not_contains "${out}" 'precious-dotfiles' enclosing
+  assert_stash_count "${enclosing}" 1 enclosing
+  pass
+}
+
 test_unusable_root_is_reported_not_expanded() {
   local out
   make_fixture bad-root
@@ -858,6 +883,7 @@ test_linked_worktrees_share_one_stash_stack
 test_all_worktrees_processes_independent_repos
 test_root_is_repeatable_and_defaults_to_home_trees
 test_unusable_root_is_reported_not_expanded
+test_non_checkout_under_a_root_is_not_resolved_upward
 test_unreadable_repo_is_not_swept
 test_dry_run_writes_nothing_on_a_stale_snapshot
 

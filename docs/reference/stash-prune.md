@@ -61,8 +61,13 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
   the current repository.
 - `--root <dir>`: repeatable; directory scanned by `--all-worktrees`. Defaults
   to `$HOME/trees/nixos`, matching `--root` in
-  `scripts/prune-stale-worktrees.sh`. Without `--all-worktrees` it is a usage
-  error rather than a silent no-op. A named root that is empty or missing is
+  `scripts/prune-stale-worktrees.sh`. Exactly one level below the root is
+  scanned, so each root must directly contain the checkouts; unlike
+  `scripts/prune-stale-worktrees.sh`, container directories are not descended
+  into. Directories without a `.git` are skipped rather than resolved, since
+  `git rev-parse --show-toplevel` walks up and would otherwise pull in the
+  repository enclosing the root. Without `--all-worktrees` it is a usage error
+  rather than a silent no-op. A named root that is empty or missing is
   reported and counted as a failure; the default root is allowed to be absent,
   since a host may have no worktrees.
 
@@ -70,8 +75,8 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
 
 - `0`: success, or a dry run that changed nothing.
 - `1`: at least one archive write, drop, or archive-ref deletion failed, a
-  stash list or the archive refs could not be read, or another instance holds
-  the run lock.
+  stash list or the archive refs could not be read, a named `--root` does not
+  exist, or another instance holds the run lock.
 - `64`: usage error, including an unparsable `--age` or `--archive-retention`.
 
 ## Concurrency
