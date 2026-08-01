@@ -92,6 +92,8 @@ in
       checkSystem =
         if config.flake.nixosConfigurations == { } then
           throw "bootstrap-substituter-parity: no nixosConfigurations to compare against; the check would pass vacuously"
+        else if !(lib.hasAttr checkHost config.flake.nixosConfigurations) then
+          throw "bootstrap-substituter-parity: anchor host ${checkHost} is not registered; point checkHost at a registered host so the check keeps landing on a perSystem instance"
         else
           config.flake.nixosConfigurations.${checkHost}.pkgs.stdenv.hostPlatform.system;
 

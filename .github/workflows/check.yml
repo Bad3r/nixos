@@ -7,6 +7,17 @@ name: Dendritic Pattern Compliance Check
   # bootstrap-substituter-parity. On dispatch alone they enforce nothing at
   # review time, which is when the drift they catch is introduced.
   pull_request:
+concurrency:
+  # Two of these jobs install Lix and run a full flake evaluation, so a
+  # superseded run is pure waste. cache-push.yml opts out because its long
+  # builds are worth preserving; nothing here builds.
+  group: check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  # No job here writes. The trigger above mints this token for every pull
+  # request, and it reaches ./.github/actions/install-lix, which resolves
+  # from the pull request head.
+  contents: read
 jobs:
   flake-lock-health:
     runs-on: ubuntu-latest
