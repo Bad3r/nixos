@@ -2,7 +2,6 @@
   lib,
   writeShellApplication,
   nh,
-  nix,
   coreutils,
   findutils,
   gnugrep,
@@ -13,9 +12,12 @@
 writeShellApplication {
   name = "sss-nix-repair";
 
+  # nix/nix-env/nix-store, like sudo below, resolve from the caller's PATH
+  # instead of runtimeInputs: they must be the live system's configured
+  # nix.package, not a nixpkgs copy pinned at this package's build time
+  # (mismatched experimental features, stale versions after flake updates).
   runtimeInputs = [
     nh
-    nix
     coreutils
     findutils
     gnugrep

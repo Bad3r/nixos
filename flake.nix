@@ -21,10 +21,11 @@
   };
 
   inputs = {
-    # Include the secrets submodule in flake source snapshots so secret existence
-    # checks evaluate against the real checkout content.
     self.submodules = true;
-    files.url = "github:mightyiam/files";
+    files = {
+      url = "github:mightyiam/files";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
@@ -36,7 +37,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    import-tree.url = "github:vic/import-tree";
+    import-tree = {
+      url = "github:vic/import-tree";
+    };
 
     llm-agents = {
       url = "github:Bad3r/llm-agents.nix";
@@ -71,8 +74,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # R2 integration module flake (portable source; no machine-local paths)
-    r2-flake.url = "github:Bad3r/nix-R2-CloudFlare-Flake?ref=main";
+    r2-flake = {
+      url = "github:bad3r/nix-r2-cloudflare-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     # nix-on-droid = {
     #   url = "github:nix-community/nix-on-droid";
@@ -94,9 +99,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs.url = "github:Bad3r/nixpkgs/nixpkgs-unstable";
+    nixpkgs = {
+      url = "github:Bad3r/nixpkgs/nixpkgs-unstable";
+    };
 
-    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+    nixos-hardware = {
+      url = "github:NixOS/nixos-hardware/master";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     nixvim = {
       url = "github:nix-community/nixvim";
@@ -211,7 +221,9 @@
 
     # Shared dependency pins consumed through `follows`. Generic pins use the
     # `dedupe_` prefix; `systems` keeps the canonical `nix-systems` input name.
-    dedupe_flake-compat.url = "github:edolstra/flake-compat";
+    dedupe_flake-compat = {
+      url = "github:edolstra/flake-compat";
+    };
 
     dedupe_flake-utils = {
       url = "github:numtide/flake-utils";
@@ -226,7 +238,9 @@
       };
     };
 
-    systems.url = "github:nix-systems/default";
+    systems = {
+      url = "github:nix-systems/default";
+    };
 
     git-hooks = {
       url = "github:cachix/git-hooks.nix";

@@ -7,7 +7,7 @@
 _: {
   policies = {
     SearchEngines = {
-      Default = "Google US";
+      Default = "Kagi";
       PreventInstalls = false;
       Remove = [
         "Google"
@@ -29,15 +29,15 @@ _: {
           URLTemplate = "https://www.google.com/search?q={searchTerms}&hl=en&persist_hl=1&gl=US&persist_gl=1&pws=0&safe=off";
           IconURL = "https://www.google.com/favicon.ico";
         }
-        # {
-        #   Name = "Kagi";
-        #   Description = "Premium private search engine.";
-        #   Alias = "@k";
-        #   Method = "GET";
-        #   URLTemplate = "https://kagi.com/search?q={searchTerms}";
-        #   SuggestURLTemplate = "https://kagi.com/api/autosuggest?q={searchTerms}";
-        #   IconURL = "https://kagi.com/favicon-32x32.png";
-        # }
+        {
+          Name = "Kagi";
+          Description = "Premium private search engine.";
+          Alias = "@k";
+          Method = "GET";
+          URLTemplate = "https://kagi.com/search?q={searchTerms}";
+          SuggestURLTemplate = "https://kagi.com/api/autosuggest?q={searchTerms}";
+          IconURL = "https://kagi.com/favicon-32x32.png";
+        }
         {
           Name = "YouTube US";
           Description = "YouTube search with English, US region, and no separate suggest endpoint.";
