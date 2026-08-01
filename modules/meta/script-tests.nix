@@ -76,9 +76,49 @@ let
 in
 {
   perSystem =
-    { pkgs, lib, ... }:
     {
-      checks = lib.mapAttrs' (
+      pkgs,
+      lib,
+      config,
+      ...
+    }:
+    let
+      wrapperInputsCheck =
+        pkgs.runCommand "script-tests-prune-old-stashes-wrapper-inputs"
+          {
+            nativeBuildInputs = [ pkgs.git ];
+          }
+          ''
+            export HOME="$PWD/home"
+            mkdir -p "$HOME/repo"
+            git -C "$HOME/repo" init -q -b main
+            git -C "$HOME/repo" config user.email inputs@example.invalid
+            git -C "$HOME/repo" config user.name "wrapper inputs check"
+            : >"$HOME/repo/f"
+            git -C "$HOME/repo" add f
+            git -C "$HOME/repo" commit -q -m "initial commit"
+
+            # A dry run reaches git, date and flock, which is the whole of
+            # runtimeInputs. PATH is scrubbed so only the wrapper supplies them.
+            cd "$HOME/repo"
+            env -i \
+              HOME="$HOME" \
+              TMPDIR="$PWD" \
+              XDG_RUNTIME_DIR="$PWD" \
+              PATH=/nonexistent \
+              ${config.packages.prune-old-stashes}/bin/prune-old-stashes --age 1d
+            touch "$out"
+          '';
+    in
+    {
+      # The suites run the scripts directly with inputs supplied by this module,
+      # so nothing they do exercises the wrapper's own runtimeInputs. Dropping
+      # util-linux from it leaves every case passing while the wrapper fails at
+      # the flock call for any user whose ambient PATH lacks it.
+      checks = {
+        script-tests-prune-old-stashes-wrapper-inputs = wrapperInputsCheck;
+      }
+      // lib.mapAttrs' (
         name: suite:
         lib.nameValuePair "script-tests-${name}" (
           pkgs.runCommand "script-tests-${name}"
