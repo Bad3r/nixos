@@ -38,6 +38,15 @@ packages/
 
 Use `hashes.json` when a package has multiple update-managed pins, such as `version`, `srcHash`, and `cargoHash`. Add `update.py` when the package can be updated mechanically from upstream release metadata. Expose it from the derivation with `passthru.updateScript = ./update.py;`.
 
+Start `update.py` with a `nix-shell` shebang so the script stays runnable on its own:
+
+```python
+#!/usr/bin/env nix-shell
+#! nix-shell -i python3 --packages python3
+```
+
+Lix implements no `#!/usr/bin/env nix` shebang, so the CppNix `#! nix shell ...` form fails with `is not a recognised command`. The shebang requests only `python3`; `nix` and `nix-prefetch-url` come from the ambient Lix that runs the shebang.
+
 ## Package Template
 
 Use the appropriate builder for your package type. All packages must include a `meta` attribute set.

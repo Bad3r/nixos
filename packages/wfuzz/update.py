@@ -1,5 +1,5 @@
-#!/usr/bin/env nix
-#! nix shell nixpkgs#python3 nixpkgs#nix --command python3
+#!/usr/bin/env nix-shell
+#! nix-shell -i python3 --packages python3
 """Update script for wfuzz."""
 
 from __future__ import annotations

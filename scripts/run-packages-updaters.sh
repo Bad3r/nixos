@@ -1,15 +1,16 @@
-#!/usr/bin/env nix
-#! nix shell nixpkgs#dash --command dash
-# shellcheck shell=dash
+#!/usr/bin/env bash
+# shellcheck shell=bash
 
-set -eu
+set -euo pipefail
 
-total=0
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
 
-for updater in packages/*/update.py; do
-  [ -f "$updater" ] || continue
-  total=$((total + 1))
-done
+shopt -s nullglob
+updaters=(packages/*/update.py)
+shopt -u nullglob
+
+total=${#updaters[@]}
 
 if [ "$total" -eq 0 ]; then
   printf 'No package updaters found.\n'
@@ -20,8 +21,7 @@ index=0
 
 printf 'Package updaters: %s\n' "$total"
 
-for updater in packages/*/update.py; do
-  [ -f "$updater" ] || continue
+for updater in "${updaters[@]}"; do
   index=$((index + 1))
 
   printf '\n[%s/%s] %s\n' "$index" "$total" "$updater"
