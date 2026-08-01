@@ -56,7 +56,10 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
   (dry-run without `--apply`). Refs bearing the current run's archive date are
   never swept, so `--apply --sweep-archive --archive-retention 1` in a single
   invocation cannot delete the archive of a stash it just dropped.
-  `--archive-retention 0` disables the sweep outright and says so.
+  `--archive-retention 0` disables the sweep outright and says so. A repository
+  whose stash list this run could not read or interpret, or in which one of
+  this run's own writes failed, is not swept: its archive refs are the only
+  copies of stashes dropped by earlier runs.
 - `--all-worktrees`: process repositories under each `--root` in addition to
   the current repository.
 - `--root <dir>` (also `--root=<dir>`): repeatable; directory scanned by `--all-worktrees`. Defaults

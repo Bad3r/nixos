@@ -305,6 +305,16 @@ SHIM
   assert_stash_subject_present "${repo}" old-a archive-fail
   assert_stash_count "${repo}" 1 archive-fail
   assert_archive_count "${repo}" 0 archive-fail
+
+  # A ref store that just rejected a write is where not to start deleting
+  # recovery material: the old archive ref is the only copy of a stash an
+  # earlier run dropped here.
+  "${REAL_GIT}" -C "${repo}" update-ref refs/stash-archive/2020-01-01/aaaaaaaaaaaa HEAD
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply --sweep-archive
+  assert_status 1 "${out}" archive-fail-sweep
+  assert_contains "${out}" 'archive sweep skipped' archive-fail-sweep
+  assert_not_contains "${out}" 'deleted archive ref' archive-fail-sweep
+  assert_archive_count "${repo}" 1 archive-fail-sweep
   pass
 }
 
@@ -374,6 +384,15 @@ SHIM
   assert_contains "${out}" 'drop failed for stash@\{0\}.*archive ref .* kept' drop-fail
   assert_stash_subject_present "${repo}" old-a drop-fail
   assert_archive_count "${repo}" 1 drop-fail
+
+  # Same rule for a failed drop: this run wrote nothing it could rely on here.
+  "${REAL_GIT}" -C "${repo}" update-ref refs/stash-archive/2020-01-01/aaaaaaaaaaaa HEAD
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply --sweep-archive
+  assert_status 1 "${out}" drop-fail-sweep
+  assert_contains "${out}" 'archive sweep skipped' drop-fail-sweep
+  assert_not_contains "${out}" 'deleted archive ref' drop-fail-sweep
+  "${REAL_GIT}" -C "${repo}" show-ref --verify --quiet refs/stash-archive/2020-01-01/aaaaaaaaaaaa ||
+    fail "drop-fail-sweep: the stale archive ref was expired after a failed drop"
   pass
 }
 

@@ -45,7 +45,9 @@ options:
                             past the retention window (dry-run without
                             --apply). Refs written under today's date are
                             never swept, so a single invocation cannot
-                            delete the archive of a stash it just dropped.
+                            delete the archive of a stash it just dropped,
+                            and a repository this run could not read or
+                            could not write to is not swept at all.
   --all-worktrees           Also process repositories under each --root.
                             Roots sharing a common git dir are processed
                             once: linked worktrees share one stash stack.
@@ -392,7 +394,7 @@ prune_repo() {
 
   # Iterate from the highest stash index down: dropping stash@{N} shifts
   # every index above N, but never the lower ones still pending.
-  local i age_d ref current located rc
+  local i age_d ref current located rc writes_failed=false
   for ((i = count - 1; i >= 0; i--)); do
     sha=${shas[i]}
     age_d=$(((now - ctimes[i]) / 86400))
@@ -429,6 +431,7 @@ prune_repo() {
     if ! git -C "$repo" update-ref "$ref" "$sha"; then
       echo "  ERROR: archive write failed for stash@{${idx}}; NOT dropping it" >&2
       failures=$((failures + 1))
+      writes_failed=true
       continue
     fi
     # Last check before the destructive step: the archive above is keyed by sha
@@ -442,15 +445,18 @@ prune_repo() {
     if ! git -C "$repo" stash drop "stash@{${idx}}" >/dev/null; then
       echo "  ERROR: drop failed for stash@{${idx}} (archive ref ${ref} kept)" >&2
       failures=$((failures + 1))
+      writes_failed=true
       continue
     fi
     echo "  dropped stash@{${idx}} (recover: git stash apply ${ref})"
     dropped=$((dropped + 1))
   done
-  # A repository whose stash list this run could not read, or could not fully
-  # interpret, must not have its archive refs expired: they are the only
-  # copies of stashes already dropped there.
-  if [[ $listing_unusable == true ]]; then
+  # A repository whose stash list this run could not read or fully interpret,
+  # or in which one of this run's own writes failed, must not have its archive
+  # refs expired: they are the only copies of stashes already dropped there,
+  # and a ref store that just rejected a write is exactly where not to start
+  # deleting recovery material.
+  if [[ $listing_unusable == true || $writes_failed == true ]]; then
     return 1
   fi
   return 0
@@ -547,7 +553,7 @@ for repo in "${repos[@]}"; do
     # A sweep the operator asked for must say when it does not happen: under
     # --all-worktrees this repository is one line in a wall of output and the
     # closing counts would silently exclude it.
-    echo "  archive sweep skipped: the stash list of ${repo} could not be read or interpreted" >&2
+    echo "  archive sweep skipped: the stash list of ${repo} could not be read or interpreted, or a write to it failed" >&2
   fi
 done
 
