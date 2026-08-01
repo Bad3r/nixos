@@ -8,6 +8,9 @@
 # nor stop at one tree ("nixos-manual/.*|secrets/.*" reaches both). The guard is
 # therefore an exact-match allowlist: only the two reviewed nixos-manual
 # patterns may path-scope, and every other false positive is scoped by content.
+# [extend] is covered too, because it suppresses more broadly than any paths
+# entry: disabledRules silences a rule across the whole repo and
+# useDefault = false drops the default ruleset outright.
 # throw, not a failing derivation: `nix flake check --no-build` evaluates check
 # attrs but never builds them, so only an eval-time failure gates the runs that
 # use it (update-flake.yml, and check.yml on manual dispatch).
@@ -16,28 +19,39 @@
   perSystem =
     { config, pkgs, ... }:
     let
-      # Structural parse rather than string splitting, because `paths=[` without
-      # spaces, a reordered key, or an inline table all defeat an infix search,
-      # and a guard that a whitespace change disarms is not a guard. gitleaks
-      # honours the singular [allowlist] table and rule-scoped allowlists as
-      # well, so fold both in; cfg.rules is absent while the config only extends
-      # the default ruleset, which makes that term inert until a rule is added.
-      allowlistsIn =
-        text:
-        let
-          cfg = builtins.fromTOML text;
-          tablesOf = t: (t.allowlists or [ ]) ++ lib.optional (t ? allowlist) t.allowlist;
-        in
-        tablesOf cfg ++ lib.concatMap tablesOf (cfg.rules or [ ]);
-
       # Both the definition a human edits and the artifact gitleaks actually
       # reads. Parsing only the source misses a direct .gitleaks.toml edit and
       # parsing only the artifact misses a source edit that skipped write-files;
       # managed-files-drift closes neither gap here, being a pre-commit hook
-      # rather than a CI gate.
-      allowlists =
-        allowlistsIn config.files.file.".gitleaks.toml".text
-        ++ allowlistsIn (builtins.readFile ../../.gitleaks.toml);
+      # rather than a CI gate. Each entry keeps its origin so a throw names the
+      # file that carries it rather than the one a reader would expect.
+      sources = [
+        {
+          origin = "modules/development/gitleaks.nix";
+          text = config.files.file.".gitleaks.toml".text;
+        }
+        {
+          origin = ".gitleaks.toml";
+          text = builtins.readFile ../../.gitleaks.toml;
+        }
+      ];
+
+      # Structural parse rather than string splitting, because `paths=[` without
+      # spaces, a reordered key, or an inline table all defeat an infix search,
+      # and a guard that a whitespace change disarms is not a guard.
+      parsed = map (s: s // { cfg = builtins.fromTOML s.text; }) sources;
+
+      # gitleaks honours the singular [allowlist] table and rule-scoped
+      # allowlists as well; cfg.rules is absent while the config only extends the
+      # default ruleset, which makes that term inert until a rule is added.
+      tablesOf = t: (t.allowlists or [ ]) ++ lib.optional (t ? allowlist) t.allowlist;
+
+      allowlists = lib.concatMap (
+        p:
+        map (a: a // { inherit (p) origin; }) (
+          tablesOf p.cfg ++ lib.concatMap tablesOf (p.cfg.rules or [ ])
+        )
+      ) parsed;
 
       reviewedPaths = [
         "nixos-manual/.*"
@@ -48,14 +62,26 @@
         a: lib.any (p: !lib.elem p reviewedPaths) (a.paths or [ ])
       ) allowlists;
 
+      weakenedExtend = lib.filter (
+        p:
+        let
+          e = p.cfg.extend or { };
+        in
+        (e.useDefault or false) != true || (e.disabledRules or [ ]) != [ ]
+      ) parsed;
+
       # The Cloudflare KV allowlist is a no-op unless it is line-scoped: against
       # the default target the regex is matched on the bare hex secret and never
       # sees the surrounding "keys KV:" text.
       kvBlocks = lib.filter (a: lib.any (lib.hasInfix "keys KV") (a.regexes or [ ])) allowlists;
       kvUnscoped = lib.filter (a: (a.regexTarget or "secret") != "line") kvBlocks;
 
+      bothFiles = lib.concatStringsSep " or " (map (s: s.origin) sources);
       describe =
-        entries: lib.concatStringsSep ", " (lib.unique (map (a: a.description or "<undescribed>") entries));
+        entries:
+        lib.concatStringsSep ", " (
+          lib.unique (map (a: "${a.origin}: ${a.description or "<undescribed>"}") entries)
+        );
     in
     {
       checks.gitleaks-allowlist-scope =
@@ -65,19 +91,27 @@
             + "outside the reviewed set ${lib.concatStringsSep ", " reviewedPaths}. A paths entry makes "
             + "gitleaks skip those files entirely, hiding real leaks in them, and entries are unanchored "
             + "regexes so one can reach a tree it does not name. Scope by content with "
-            + "regexTarget = \"line\" instead, or widen reviewedPaths deliberately "
-            + "(modules/development/gitleaks.nix)"
+            + "regexTarget = \"line\" instead, or widen reviewedPaths deliberately"
+          )
+        else if weakenedExtend != [ ] then
+          throw (
+            "gitleaks-allowlist-scope: [extend] in ${
+              lib.concatStringsSep ", " (lib.unique (map (p: p.origin) weakenedExtend))
+            } drops the default ruleset or disables rules "
+            + "(useDefault must stay true, disabledRules must stay empty). That suppresses a rule across "
+            + "the whole repository, which is broader than the path-scoping this check already bans. "
+            + "Scope the false positive by content with regexTarget = \"line\" instead"
           )
         else if kvBlocks == [ ] then
           throw (
-            "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from "
-            + "modules/development/gitleaks.nix; drop this check along with it"
+            "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${bothFiles}; "
+            + "drop this check along with it"
           )
         else if kvUnscoped != [ ] then
           throw (
-            "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist lost "
-            + "regexTarget = \"line\", so its regex is matched against the bare secret, never fires, "
-            + "and silently stops suppressing anything (modules/development/gitleaks.nix)"
+            "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist in "
+            + "${describe kvUnscoped} lost regexTarget = \"line\", so its regex is matched against the "
+            + "bare secret, never fires, and silently stops suppressing anything"
           )
         else
           pkgs.runCommandLocal "gitleaks-allowlist-scope-ok" { } ''
