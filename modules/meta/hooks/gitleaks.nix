@@ -20,23 +20,17 @@ _: {
               common+=(--config ".gitleaks.toml")
             fi
 
-            # One baseline per pass, because fingerprints are per scan mode and
-            # per repository: a git-scan fingerprint is
-            # <commit>:<file>:<rule>:<line> against that repo's shas, a dir-scan
-            # fingerprint is <file>:<rule>:<line>. Sharing one file would leave
-            # the other passes unable to suppress anything. Record a new entry
-            # with the same flags this hook uses, --redact included:
-            #   gitleaks dir --no-banner --redact --config .gitleaks.toml \
-            #     --report-path .gitleaks-baseline-dir.json .
+            # One baseline per pass, because fingerprints carry the shas of the
+            # repository they came from, so the superproject's entries can never
+            # match a submodule finding. Record a new entry with the same flags
+            # this hook uses, --redact included:
+            #   gitleaks git --no-banner --redact --config .gitleaks.toml \
+            #     --report-path .gitleaks-baseline-secrets.json secrets
             # Matching is by fingerprint, so a raw baseline would still suppress,
             # but it commits the credential in plaintext.
             git_args=("''${common[@]}")
             if [ -f ".gitleaks-baseline.json" ]; then
               git_args+=(--baseline-path ".gitleaks-baseline.json")
-            fi
-            dir_args=("''${common[@]}")
-            if [ -f ".gitleaks-baseline-dir.json" ]; then
-              dir_args+=(--baseline-path ".gitleaks-baseline-dir.json")
             fi
             sub_args=("''${common[@]}")
             if [ -f ".gitleaks-baseline-secrets.json" ]; then
@@ -54,18 +48,16 @@ _: {
             # removed, which a worktree scan can no longer see.
             gitleaks git "''${git_args[@]}" . || status=1
 
-            # Worktree pass: `gitleaks git` walks superproject history, where the
-            # secrets/ submodule is a gitlink and its blobs are absent, so a
-            # credential committed inside that submodule was scanned by nothing.
-            # `gitleaks dir` reads the filesystem, so the submodule is in scope.
-            gitleaks dir "''${dir_args[@]}" . || status=1
-
-            # Submodule history: the argument for the first pass applies to the
-            # one tree it cannot reach. The superproject sees only the gitlink
-            # and the worktree pass sees only the submodule's current files, so a
-            # credential committed inside secrets/ and later removed there is
-            # covered by neither. Guarded because the submodule may not be
-            # checked out; .git is a file there, not a directory, so -e not -d.
+            # Submodule history: the superproject pass sees only the gitlink, so
+            # nothing here covered secrets/ before this. Deliberately git and not
+            # a `gitleaks dir` filesystem walk: dir mode ignores .gitignore, and
+            # the patterns this repo reserves for local plaintext (secrets/*.dec*
+            # from a local sops -d, plus *.key, *.pem, *.agekey, .env, id_*) are
+            # exactly what such a pass would uniquely add, so at pre-push it
+            # would block every push during a normal decrypt. Everything being
+            # pushed is committed, so the git passes already cover it. Guarded
+            # because the submodule may not be checked out; .git is a file there,
+            # not a directory, so -e not -d.
             if [ -e "secrets/.git" ]; then
               # git exports GIT_DIR to its hooks and gitleaks shells out to git,
               # so an inherited GIT_DIR overrides the path argument and silently
