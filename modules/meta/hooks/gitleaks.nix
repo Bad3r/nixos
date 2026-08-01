@@ -64,11 +64,16 @@ _: {
 
             # .gitleaksignore is read from the repo root automatically and
             # suppresses by fingerprint exactly like the baselines below, but
-            # with no flag and no review. Fail rather than let one appear
-            # unnoticed alongside the channels this hook wires up deliberately.
+            # with no flag and no review. Refuse to scan at all rather than
+            # report a result it has already filtered: unlike gitleaks:allow,
+            # which --ignore-gitleaks-allow neutralises above, this channel
+            # cannot be turned off. On 8.30.1 the repo-root file is honoured even
+            # with --gitleaks-ignore-path pointed at an empty or nonexistent
+            # directory, so continuing would print "no leaks found" for the very
+            # findings the file hid.
             if [ -e ".gitleaksignore" ]; then
-              echo "hook-gitleaks: .gitleaksignore suppresses findings outside the reviewed baselines; record them in .gitleaks-baseline.json or secrets/.gitleaks-baseline.json instead" >&2
-              status=1
+              echo "hook-gitleaks: .gitleaksignore suppresses findings outside the reviewed baselines and cannot be disabled; remove it and record them in .gitleaks-baseline.json or secrets/.gitleaks-baseline.json instead" >&2
+              exit 1
             fi
 
             # History pass: catches a credential that was committed and later
