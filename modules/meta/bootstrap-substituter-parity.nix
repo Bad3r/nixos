@@ -9,9 +9,13 @@
   because the build still succeeds. It just rebuilds locally everything the
   missing cache would have served.
 
-  The comparison is directional. Every substituter and key the primary host
-  trusts must appear in the bootstrap arrays; the reverse is not required,
-  since build.sh also carries region mirrors for other networks.
+  The comparison is directional and covers every registered host. build.sh
+  bootstraps whichever host it runs on (`TARGET_HOST="$(hostname)"`, with a
+  `--host` override), so a cache that reaches only one host's nix.settings,
+  through a host-specific module or an app that per-host apps-enable.nix turns
+  on for one host and not the other, still has to be in the arrays. Every
+  substituter and key any host trusts must appear there; the reverse is not
+  required, since build.sh also carries region mirrors for other networks.
 
   extra-substituters counts the same as substituters. configure_nix_config
   replaces the whole list, so a cache that reaches the daemon through
@@ -21,7 +25,9 @@
 */
 { config, lib, ... }:
 let
-  primaryHost = "system76";
+  # Only decides which perSystem instance carries the check. The comparison
+  # below reads every registered host.
+  checkHost = "system76";
 
   buildScriptLines = lib.splitString "\n" (builtins.readFile ../../build.sh);
 
@@ -76,30 +82,33 @@ in
   perSystem =
     { pkgs, system, ... }:
     let
-      hostConfig = config.flake.nixosConfigurations.${primaryHost}.config;
-      hostSystem = config.flake.nixosConfigurations.${primaryHost}.pkgs.stdenv.hostPlatform.system;
+      checkSystem = config.flake.nixosConfigurations.${checkHost}.pkgs.stdenv.hostPlatform.system;
 
-      missingSubstituters = lib.subtractLists bootstrapSubstituters (
-        map normalize (
-          hostConfig.nix.settings.substituters ++ (hostConfig.nix.settings.extra-substituters or [ ])
-        )
-      );
-      missingKeys = lib.subtractLists bootstrapKeys (
-        hostConfig.nix.settings.trusted-public-keys
-        ++ (hostConfig.nix.settings.extra-trusted-public-keys or [ ])
+      missing = lib.concatLists (
+        lib.mapAttrsToList (
+          host: node:
+          let
+            settings = node.config.nix.settings;
+            substituters = map normalize (settings.substituters ++ (settings.extra-substituters or [ ]));
+            keys = settings.trusted-public-keys ++ (settings.extra-trusted-public-keys or [ ]);
+          in
+          map (entry: "${host} trusts ${entry}") (
+            lib.subtractLists bootstrapSubstituters substituters ++ lib.subtractLists bootstrapKeys keys
+          )
+        ) config.flake.nixosConfigurations
       );
     in
     {
-      checks = lib.mkIf (hostSystem == system) {
+      checks = lib.mkIf (checkSystem == system) {
         bootstrap-substituter-parity =
           # An empty parse means the arrays were renamed or reshaped. That must
           # fail rather than compare nothing and pass.
           if bootstrapSubstituters == [ ] || bootstrapKeys == [ ] then
             throw "bootstrap-substituter-parity: parsed no BOOTSTRAP_SUBSTITUTERS or BOOTSTRAP_TRUSTED_KEYS entries out of build.sh; a rename would make this comparison vacuous"
-          else if missingSubstituters != [ ] || missingKeys != [ ] then
+          else if missing != [ ] then
             throw (
-              "bootstrap-substituter-parity: ${primaryHost} trusts "
-              + lib.concatStringsSep ", " (missingSubstituters ++ missingKeys)
+              "bootstrap-substituter-parity: "
+              + lib.concatStringsSep "; " missing
               + " but build.sh omits it. configure_nix_config replaces the substituter list rather than "
               + "extending it, so build.sh --bootstrap cannot substitute from that cache. Add it to "
               + "BOOTSTRAP_SUBSTITUTERS and BOOTSTRAP_TRUSTED_KEYS."
