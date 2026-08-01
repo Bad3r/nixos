@@ -119,6 +119,14 @@
       kvBlocks = lib.filter (a: lib.any (lib.hasInfix "keys KV") (a.regexes or [ ])) allowlists;
       kvUnscoped = lib.filter (a: (a.regexTarget or "secret") != "line") kvBlocks;
 
+      # A global line-target allowlist is evaluated against every finding of
+      # every rule, so without targetRules the KV entry hides any real credential
+      # that shares a line with its text. That vector is triggered by file
+      # content rather than config, so nothing else here can catch it; pinning
+      # the scope is the only guard available.
+      kvTargetRules = [ "generic-api-key" ];
+      kvUntargeted = lib.filter (a: (a.targetRules or [ ]) != kvTargetRules) kvBlocks;
+
       bothFiles = lib.concatStringsSep " or " (map (s: s.origin) sources);
       describe =
         entries:
@@ -172,6 +180,14 @@
           throw (
             "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${bothFiles}; "
             + "drop this check along with it"
+          )
+        else if kvUntargeted != [ ] then
+          throw (
+            "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist in "
+            + "${describe kvUntargeted} is not scoped to ${lib.concatStringsSep ", " kvTargetRules}. "
+            + "A global line-target allowlist is matched against every rule's findings, so it would "
+            + "suppress any real credential sharing a line with the KV text (modules/development/"
+            + "gitleaks.nix)"
           )
         else if kvUnscoped != [ ] then
           throw (
