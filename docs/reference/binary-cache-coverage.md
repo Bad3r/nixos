@@ -308,9 +308,10 @@ logs and its full runtime closure is redistributable:
   builds; a package the cache now serves is no longer one, and leaving the
   glob behind hides the next regression on that name. The
   `cache-roots-allowlist-disjoint` check enforces this: it matches every
-  published entry name against the file's globs and aborts evaluation naming
-  the offender, so forgetting the deletion fails `nix flake check` rather than
-  surfacing as a silently dead glob later.
+  published entry against the file's globs, on the `linkFarm` key and on the
+  derivation `name` and `pname`, and aborts evaluation naming the offender. So
+  forgetting the deletion fails `nix flake check` rather than surfacing as a
+  silently dead glob later.
 - Confirm derivation parity with
   `nix build --dry-run "path:.#cache-roots"` on a recently switched host:
   the new entry must not introduce rebuilds of paths the host already has.

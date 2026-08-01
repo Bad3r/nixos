@@ -137,6 +137,13 @@ in
       # `entries` so the guard cannot fall behind the linkFarm. The failure is a
       # throw rather than a failing runCommand so that
       # `nix flake check --no-build` still catches it.
+      #
+      # Each entry is matched on all three strings the glob could have been
+      # written against, because scripts/cache-coverage.sh matches derivation
+      # name and pname while the linkFarm key is hand-chosen and carries no
+      # version: the key alone would miss `proton-vpn-[0-9]*` against a
+      # `proton-vpn-4.16.5` derivation, and version-anchored globs are already
+      # the file's convention for wrapper entries.
       allowlistGlobs =
         let
           globOf =
@@ -155,19 +162,31 @@ in
         builtins.match (builtins.replaceStrings [ "." "+" "*" "?" ] [ "\\." "\\+" ".*" "." ] glob) name
         != null;
 
-      allowlistedPublished = lib.filter (entry: lib.any (globMatches entry.name) allowlistGlobs) entries;
+      allowlistedPublished = lib.filter (
+        entry:
+        lib.any (candidate: lib.any (globMatches candidate) allowlistGlobs) (
+          [ entry.name ]
+          ++ lib.optional (entry.path ? name) entry.path.name
+          ++ lib.optional (entry.path ? pname) entry.path.pname
+        )
+      ) entries;
     in
     {
       packages = lib.mkIf (hostPkgs.stdenv.hostPlatform.system == system) {
         cache-roots = pkgs.linkFarm "cache-roots" entries;
       };
 
-      checks.cache-roots-allowlist-disjoint =
-        if allowlistedPublished == [ ] then
-          pkgs.runCommand "cache-roots-allowlist-disjoint" { } "touch $out"
-        else
-          throw "cache-roots: ${
-            lib.concatMapStringsSep ", " (entry: entry.name) allowlistedPublished
-          } is published by cache-roots.nix and also matched by a glob in scripts/cache-coverage-allowlist.txt; allowlisting and caching are mutually exclusive dispositions. Delete the glob (docs/reference/cache-coverage.md).";
+      # Gated with packages above: the guard reads each entry's derivation, so
+      # it belongs on the system that publishes them rather than resolving the
+      # primary host's package set under every other perSystem instance.
+      checks = lib.mkIf (hostPkgs.stdenv.hostPlatform.system == system) {
+        cache-roots-allowlist-disjoint =
+          if allowlistedPublished == [ ] then
+            pkgs.runCommand "cache-roots-allowlist-disjoint" { } "touch $out"
+          else
+            throw "cache-roots: ${
+              lib.concatMapStringsSep ", " (entry: entry.name) allowlistedPublished
+            } is published by cache-roots.nix and also matched by a glob in scripts/cache-coverage-allowlist.txt; allowlisting and caching are mutually exclusive dispositions. Delete the glob (docs/reference/cache-coverage.md).";
+      };
     };
 }

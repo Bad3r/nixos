@@ -104,8 +104,11 @@ p7zip), or a wrapper cheap enough that publishing it costs more CI time than
 it saves. Everything else belongs in `cache-roots.nix`, and adding it there
 means deleting the glob here in the same change. That is enforced rather than
 asked for: the `cache-roots-allowlist-disjoint` flake check in
-`modules/meta/cache-roots.nix` reads this file, matches every published entry
-name against its globs, and aborts evaluation naming the offender. It throws
+`modules/meta/cache-roots.nix` reads this file and aborts evaluation naming the
+offender. It matches each published entry on all three strings a glob could
+have been written against, the `linkFarm` key plus the derivation `name` and
+`pname`, so a version-anchored glob such as `proton-vpn-[0-9]*` is caught the
+same as `proton-vpn*`. It throws
 during evaluation, so `nix flake check --no-build` catches it without building
 anything. Entries currently allowlisted that fail the disposition test, rather
 than the overlap test, are tracked in
