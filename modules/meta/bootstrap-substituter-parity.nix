@@ -74,8 +74,8 @@ let
   # Spellings that address the same store must compare equal. The NixOS module
   # default contributes cache.nixos.org with a trailing slash while build.sh
   # writes it without one, and per-substituter priority is set through a URL
-  # parameter, which is how this array spelled its garnix entry
-  # (`?priority=38`) before it was removed.
+  # parameter, so `https://example.cachix.org?priority=38` and a bare
+  # `https://example.cachix.org` name the same cache.
   normalize = url: lib.removeSuffix "/" (lib.head (lib.splitString "?" url));
 
   bootstrapSubstituters = map normalize (arrayEntries "BOOTSTRAP_SUBSTITUTERS");
