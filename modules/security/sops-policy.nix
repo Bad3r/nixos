@@ -1,5 +1,8 @@
 _: {
   # Generate the canonical .sops.yaml policy via the files module
+  # Keep this recipient synchronized with hostPubKey in
+  # modules/security/sops-cleartext-check.nix. Key Rotation in
+  # docs/sops/README.md updates both literals before re-encrypting payloads.
   perSystem = _: {
     files.file.".sops.yaml".text = ''
       keys:

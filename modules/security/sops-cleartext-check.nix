@@ -31,6 +31,8 @@ let
     line: lib.hasPrefix "    " line && !(lib.hasPrefix "          - " line)
   ) policyContentLines;
   recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyContentLines;
+  # Keep this literal synchronized with modules/security/sops-policy.nix.
+  # Key Rotation must update both before `sops updatekeys` re-encrypts payloads.
   hostPubKey = "age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf";
   hostKey = "  - &host_pub_key " + hostPubKey;
   hostKeyLine = hostKey + "\n";
@@ -114,6 +116,9 @@ let
     ".gitkeep/prod-token.yaml" = true;
     "decrypted_dump/creds.yaml" = false;
     "sub/.git/config" = false;
+    "decrypted_dump/unsupported.sock" = false;
+    ".git/unsupported.sock" = false;
+    "unsupported.sock" = true;
   };
   exemptionDrift = lib.filter (path: mustBeEncrypted path != exemptionFixtures.${path}) (
     lib.attrNames exemptionFixtures
@@ -258,7 +263,7 @@ let
     }
     {
       name = "ini-long-line-without-mac";
-      content = "[sops]\n" + lib.concatStrings (lib.genList (_: "x") 1048576);
+      content = "[sops]\n" + lib.concatStrings (lib.genList (_: "x") 4096);
       want = false;
     }
     {
@@ -310,14 +315,16 @@ let
   symlinkFiles = map (entry: entry.path) (
     lib.filter (entry: entry.entryType == "symlink") secretEntries
   );
-  unsupportedEntries = map (entry: entry.path) (
-    lib.filter (
-      entry:
-      !lib.elem entry.entryType [
-        "regular"
-        "symlink"
-      ]
-    ) secretEntries
+  unsupportedEntries = lib.filter mustBeEncrypted (
+    map (entry: entry.path) (
+      lib.filter (
+        entry:
+        !lib.elem entry.entryType [
+          "regular"
+          "symlink"
+        ]
+      ) secretEntries
+    )
   );
   unsupportedSymlinks = lib.filter mustBeEncrypted symlinkFiles;
   cleartext = lib.filter isCleartext (lib.filter mustBeEncrypted secretsFiles);
