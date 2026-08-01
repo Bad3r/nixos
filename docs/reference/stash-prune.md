@@ -12,17 +12,21 @@ same script as `prune-old-stashes` on `PATH`. Issue tracking:
 
 ## Manual Use
 
+The command lives in this repository's dev shell. In a linked worktree the
+`path:.` installable is required, since Lix cannot fetch a clean linked
+worktree as a `git+file` flake; it works in the main checkout too.
+
 Dry-run report for the current repository (default, changes nothing):
 
 ```sh
-prune-old-stashes
+nix develop path:. -c prune-old-stashes
 ```
 
 Archive and drop stashes older than 30 days across the current repository
 and the worktrees under `$HOME/trees/nixos`:
 
 ```sh
-prune-old-stashes --age 30d --all-worktrees --apply
+nix develop path:. -c prune-old-stashes --age 30d --all-worktrees --apply
 ```
 
 Linked worktrees share one stash stack; roots resolving to the same common
@@ -31,7 +35,7 @@ git dir are processed once.
 Scan somewhere other than the default, or several places at once:
 
 ```sh
-prune-old-stashes --all-worktrees --root ~/trees/nixos --root ~/work/trees
+nix develop path:. -c prune-old-stashes --all-worktrees --root ~/trees/nixos --root ~/work/trees
 ```
 
 ## Recovery
