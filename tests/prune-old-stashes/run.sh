@@ -522,6 +522,36 @@ SHIM
   pass
 }
 
+test_leading_zero_committer_date_is_read_as_decimal() {
+  local out shim
+  make_fixture octal-ct
+  push_stash "${repo}" not-old 1
+  out="${tmpdir}/octal-ct.out"
+
+  # The shape check accepts a leading zero and bash arithmetic reads it as
+  # octal: 07000000000 compares as 939524096, old enough to drop, while its
+  # decimal value is a date in 2191 that must be kept.
+  shim="${tmpdir}/octal-ct-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* ]]; then
+  "${REAL_GIT}" "\$@" | awk -F'|' -v OFS='|' '{ \$2 = "07000000000"; print }'
+  exit \${PIPESTATUS[0]}
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply
+  assert_status 0 "${out}" octal-ct
+  assert_contains "${out}" 'no stashes older than 14d' octal-ct
+  assert_not_contains "${out}" 'dropped stash@' octal-ct
+  assert_stash_subject_present "${repo}" not-old octal-ct
+  assert_archive_count "${repo}" 0 octal-ct
+  pass
+}
+
 test_out_of_range_committer_date_is_rejected() {
   local out shim
   make_fixture huge-ct
@@ -1362,6 +1392,7 @@ test_blank_listing_line_is_rejected_not_skipped
 test_blank_line_in_the_live_stack_does_not_shift_lookup
 test_wholly_unusable_listing_is_not_reported_as_clean
 test_out_of_range_committer_date_is_rejected
+test_leading_zero_committer_date_is_read_as_decimal
 test_sweep_archive_respects_retention
 test_sweep_never_deletes_this_runs_archive
 test_zero_retention_disables_expiry

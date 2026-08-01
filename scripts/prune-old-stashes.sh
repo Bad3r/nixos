@@ -381,6 +381,12 @@ prune_repo() {
         pos=$((pos + 1))
         continue
       fi
+      # Normalized like parse_duration_days, and for the same reason: the shape
+      # check accepts a leading zero, which bash arithmetic reads as octal.
+      # `07000000000` would compare as 939524096 and select a stash dated 2191
+      # for dropping, while `09999999999` makes `((...))` abort inside an `if`
+      # condition, which returns 1 and skips the entry with no error at all.
+      ct=$((10#$ct))
       if ((ct <= age_cutoff)); then
         positions+=("$pos")
         shas+=("$sha")
