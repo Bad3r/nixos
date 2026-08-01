@@ -154,23 +154,39 @@ done
 
 prune_repo() {
   local repo=$1
-  local -a idxs=() shas=() ctimes=() subjects=()
-  local gd ct sha subject idx
+  local -a positions=() shas=() ctimes=() subjects=()
+  local listing gd ct sha subject idx pos=0
+
+  echo "repo: ${repo}"
+
+  # The listing is captured with its exit status rather than piped in from a
+  # process substitution, whose failure is invisible: the loop would read zero
+  # lines and an unreadable repository would be reported as a clean result.
+  if ! listing=$(git -C "$repo" stash list --format='%gd|%ct|%H|%s'); then
+    echo "  ERROR: cannot read the stash list of ${repo}" >&2
+    failures=$((failures + 1))
+    return 0
+  fi
 
   while IFS='|' read -r gd ct sha subject; do
     [[ -n $gd ]] || continue
-    idx=${gd#stash@\{}
-    idx=${idx%\}}
+    # Entries that do not have the expected shape are rejected, not treated as
+    # old: an empty ct evaluates as 0 and would select the entry unconditionally.
+    if [[ ! $ct =~ ^[0-9]+$ || ! $sha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
+      echo "  ERROR: unparsable stash list entry: ${gd}" >&2
+      failures=$((failures + 1))
+      continue
+    fi
     if ((ct <= age_cutoff)); then
-      idxs+=("$idx")
+      positions+=("$pos")
       shas+=("$sha")
       ctimes+=("$ct")
       subjects+=("$subject")
     fi
-  done < <(git -C "$repo" stash list --format='%gd|%ct|%H|%s')
+    pos=$((pos + 1))
+  done <<<"$listing"
 
-  echo "repo: ${repo}"
-  local count=${#idxs[@]}
+  local count=${#shas[@]}
   if ((count == 0)); then
     echo "  no stashes older than ${age_days}d"
     return 0
@@ -180,7 +196,7 @@ prune_repo() {
   # every index above N, but never the lower ones still pending.
   local i age_d ref current
   for ((i = count - 1; i >= 0; i--)); do
-    idx=${idxs[i]}
+    idx=${positions[i]}
     sha=${shas[i]}
     age_d=$(((now - ctimes[i]) / 86400))
     ref="refs/stash-archive/${archive_date}/${sha:0:12}"
