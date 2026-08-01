@@ -116,31 +116,28 @@ let
     lib.attrNames exemptionFixtures
   );
 
-  listFiles =
-    dir: prefix:
-    lib.concatLists (
-      lib.mapAttrsToList (
-        name: type:
-        if type == "directory" then
-          listFiles (dir + "/${name}") "${prefix}${name}/"
-        else if type == "regular" then
-          [ "${prefix}${name}" ]
-        else
-          [ ]
-      ) (builtins.readDir dir)
-    );
+  resolveEntryType =
+    dir: name: type:
+    if type == "unknown" then builtins.readFileType (dir + "/${name}") else type;
 
-  listSymlinks =
+  listEntries =
     dir: prefix:
     lib.concatLists (
       lib.mapAttrsToList (
         name: type:
-        if type == "directory" then
-          listSymlinks (dir + "/${name}") "${prefix}${name}/"
-        else if type == "symlink" then
-          [ "${prefix}${name}" ]
+        let
+          path = "${prefix}${name}";
+          entryType = resolveEntryType dir name type;
+        in
+        if entryType == "directory" then
+          listEntries (dir + "/${name}") "${path}/"
         else
-          [ ]
+          [
+            {
+              inherit path;
+              inherit entryType;
+            }
+          ]
       ) (builtins.readDir dir)
     );
 
@@ -170,8 +167,9 @@ let
   # megabyte-scale strings (std::regex recursion; the sops-encrypted font
   # blob is ~1 MiB), so scan each needle in bounded chunks with a needle-sized
   # overlap. SOPS 3.13.3 emits lastmodified metadata in every supported
-  # encrypted format, using sops_lastmodified for dotenv, so requiring it
-  # alongside the full cipher token rejects quoted-token cleartext samples.
+  # encrypted format, using sops_lastmodified for dotenv and an aligned mac =
+  # field for INI, so requiring it alongside the full cipher token rejects
+  # quoted-token cleartext samples.
   hasChunkedInfix =
     needle: s:
     let
@@ -190,6 +188,16 @@ let
 
   # Anchor on SOPS MAC footer fields, not a bare cipher token. Prose can mention
   # ENC[AES256_GCM, and lastmodified without containing encrypted payload data.
+  hasIniMacMarker =
+    s:
+    let
+      lines = lib.splitString "\n" s;
+    in
+    lib.elem "[sops]" lines
+    && lib.any (
+      line: builtins.match "[[:space:]]*mac[[:space:]]*=[[:space:]]*ENC\\[AES256_GCM,.*" line != null
+    ) lines;
+
   macNeedles = [
     "mac: ENC[AES256_GCM," # YAML
     "\"mac\": \"ENC[AES256_GCM," # JSON with a space
@@ -197,7 +205,9 @@ let
     "sops_mac=ENC[AES256_GCM," # dotenv
   ];
   hasSopsMarkers =
-    s: lib.any (needle: hasChunkedInfix needle s) macNeedles && hasChunkedInfix "lastmodified" s;
+    s:
+    (lib.any (needle: hasChunkedInfix needle s) macNeedles || hasIniMacMarker s)
+    && hasChunkedInfix "lastmodified" s;
 
   # Pin the detector in the secretless path so chunk boundaries and both
   # required markers remain covered without relying on submodule payloads.
@@ -215,6 +225,14 @@ let
     {
       name = "dotenv-footer";
       content = "sops_mac=ENC[AES256_GCM,data:x]\nsops_lastmodified=2026-01-01T00:00:00Z\n";
+      want = true;
+    }
+    {
+      name = "ini-footer";
+      content =
+        "[sops]\n"
+        + "lastmodified               = 2026-01-01T00:00:00Z\n"
+        + "mac                        = ENC[AES256_GCM,data:x]\n";
       want = true;
     }
     {
@@ -249,8 +267,22 @@ let
     in
     !(hasSopsMarkers content);
 
-  secretsFiles = if secretsPresent then listFiles secretsDir "" else [ ];
-  symlinkFiles = if secretsPresent then listSymlinks secretsDir "" else [ ];
+  secretEntries = if secretsPresent then listEntries secretsDir "" else [ ];
+  secretsFiles = map (entry: entry.path) (
+    lib.filter (entry: entry.entryType == "regular") secretEntries
+  );
+  symlinkFiles = map (entry: entry.path) (
+    lib.filter (entry: entry.entryType == "symlink") secretEntries
+  );
+  unsupportedEntries = map (entry: entry.path) (
+    lib.filter (
+      entry:
+      !lib.elem entry.entryType [
+        "regular"
+        "symlink"
+      ]
+    ) secretEntries
+  );
   unsupportedSymlinks = lib.filter mustBeEncrypted symlinkFiles;
   cleartext = lib.filter isCleartext (lib.filter mustBeEncrypted secretsFiles);
   encryptedTemplates = lib.filter (
@@ -281,6 +313,12 @@ in
           throw (
             "sops-cleartext-check.nix hasSopsMarkers misclassified these fixtures: "
             + lib.concatStringsSep ", " markerDrift
+          )
+        else if unsupportedEntries != [ ] then
+          throw (
+            "secrets/ contains unsupported filesystem entries that cannot be scanned: "
+            + lib.concatStringsSep ", " unsupportedEntries
+            + ". Replace them with regular files."
           )
         else if unsupportedSymlinks != [ ] then
           throw (

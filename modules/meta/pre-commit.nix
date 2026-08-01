@@ -90,10 +90,10 @@ _: {
               # secrets is a mode-160000 gitlink, so the superproject index
               # never presents secrets/<file> paths and this filter matches
               # nothing today. Keep it for a future de-submoduled checkout;
-              # secrets-no-cleartext is the actual gate. This hook parses only
-              # YAML and JSON; binary, extensionless, Markdown, and dotenv
-              # payloads remain with the evaluation-time gate. Exclude local
-              # decryption, template, and exact Git metadata conventions.
+              # secrets-no-cleartext is the actual gate. The pinned hook parses
+              # .yaml and .json; .yml, binary, extensionless, Markdown, and
+              # dotenv payloads remain with the evaluation-time gate. Exclude
+              # local decryption, template, and exact Git metadata conventions.
               files = "^secrets/(?!(?:.*/)?(?:\\.git(?:/.*)?|\\.gitignore|\\.gitattributes|\\.gitmodules|\\.gitkeep)$|(?:.*/)?decrypted_[^/]*$|(?:.*/)?[^/]*\\.dec\\.[^/]*$|.*\\.example$).*\\.(yaml|json)$";
             };
 
