@@ -236,6 +236,32 @@ test_unreadable_stash_list_fails_loudly() {
   pass
 }
 
+test_unreadable_archive_refs_fail_loudly() {
+  local out shim
+  make_fixture archive-unreadable
+  out="${tmpdir}/archive-unreadable.out"
+
+  # `git for-each-ref` survives broken and unreadable refs, so the failure has
+  # to be forced. Read through a process substitution a genuine failure would
+  # be indistinguishable from a repository with nothing left to expire.
+  shim="${tmpdir}/archive-unreadable-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *" for-each-ref "* && " \$* " == *"refs/stash-archive/"* ]]; then
+  echo "fatal: forced for-each-ref failure" >&2
+  exit 1
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --sweep-archive --apply
+  assert_status 1 "${out}" archive-unreadable
+  assert_contains "${out}" 'ERROR: cannot read archive refs' archive-unreadable
+  pass
+}
+
 test_concurrent_push_does_not_block_pruning() {
   local out shim
   make_fixture race
@@ -397,6 +423,7 @@ test_archived_stash_is_recoverable
 test_age_threshold_is_parsed_base_ten
 test_invalid_duration_is_a_usage_error
 test_unreadable_stash_list_fails_loudly
+test_unreadable_archive_refs_fail_loudly
 test_concurrent_push_does_not_block_pruning
 test_vanished_stash_is_skipped_not_mistaken
 test_second_instance_is_locked_out

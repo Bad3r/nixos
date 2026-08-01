@@ -272,7 +272,17 @@ prune_repo() {
 
 sweep_repo() {
   local repo=$1
-  local ref date_part epoch
+  local archive_refs ref date_part epoch
+
+  # Captured with its status for the same reason as the stash listing: a
+  # for-each-ref failure inside a process substitution would look like a
+  # repository that simply has no archive refs left to expire.
+  if ! archive_refs=$(git -C "$repo" for-each-ref --format='%(refname)' 'refs/stash-archive/'); then
+    echo "  ERROR: cannot read archive refs of ${repo}" >&2
+    failures=$((failures + 1))
+    return 0
+  fi
+
   while read -r ref; do
     [[ -n $ref ]] || continue
     date_part=${ref#refs/stash-archive/}
@@ -292,7 +302,7 @@ sweep_repo() {
     else
       echo "  would delete archive ref ${ref} (past ${retention_days}d retention)"
     fi
-  done < <(git -C "$repo" for-each-ref --format='%(refname)' 'refs/stash-archive/')
+  done <<<"$archive_refs"
 }
 
 # Serialize runs the way the sibling destructive helper does
