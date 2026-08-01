@@ -370,23 +370,26 @@ let
     lib.filter (line: line != "" && !(lib.hasPrefix "#" line)) (
       map (line: lib.removeSuffix "\r" line) (lib.splitString "\n" content)
     );
+  hasActiveIgnoreNegation =
+    content: lib.any (line: lib.hasPrefix "!" line) (activeIgnoreRules content);
   missingIgnoreRulesFor =
     content:
     let
       active = activeIgnoreRules content;
-      hasNegatedRule = lib.any (line: lib.hasPrefix "!" line) active;
     in
-    lib.filter (rule: hasNegatedRule || !(lib.elem rule active)) requiredIgnoreRules;
+    lib.filter (rule: hasActiveIgnoreNegation content || !(lib.elem rule active)) requiredIgnoreRules;
   ignoreRuleFixtures = [
     {
       name = "active-ignore-rules";
       content = "**/decrypted_*\n*.dec.*\n";
       want = [ ];
+      hasNegation = false;
     }
     {
       name = "commented-ignore-rule";
       content = "# **/decrypted_*\n*.dec.*\n";
       want = [ "**/decrypted_*" ];
+      hasNegation = false;
     }
     {
       name = "negated-ignore-rule";
@@ -395,6 +398,7 @@ let
         "**/decrypted_*"
         "*.dec.*"
       ];
+      hasNegation = true;
     }
     {
       name = "trailing-negated-ignore-rule";
@@ -403,10 +407,16 @@ let
         "**/decrypted_*"
         "*.dec.*"
       ];
+      hasNegation = true;
     }
   ];
   ignoreRuleDrift = map (fixture: fixture.name) (
     lib.filter (fixture: missingIgnoreRulesFor fixture.content != fixture.want) ignoreRuleFixtures
+  );
+  ignoreNegationDrift = map (fixture: fixture.name) (
+    lib.filter (
+      fixture: hasActiveIgnoreNegation fixture.content != fixture.hasNegation
+    ) ignoreRuleFixtures
   );
 
   isCleartext =
@@ -442,6 +452,12 @@ let
     else
       "";
   missingIgnoreRules = if secretsPresent then missingIgnoreRulesFor submoduleIgnore else [ ];
+  nestedIgnoreNegations = lib.filter (
+    path:
+    path != ".gitignore"
+    && baseNameOf path == ".gitignore"
+    && hasActiveIgnoreNegation (builtins.readFile (secretsDir + "/${path}"))
+  ) secretsFiles;
   cleartext = lib.filter isCleartext (lib.filter mustBeEncrypted secretsFiles);
   encryptedTemplates = lib.filter (
     path: lib.hasSuffix ".example" path && !(isCleartext path)
@@ -479,6 +495,12 @@ in
             + "for these fixtures: "
             + lib.concatStringsSep ", " ignoreRuleDrift
           )
+        else if ignoreNegationDrift != [ ] then
+          throw (
+            "sops-cleartext-check.nix misclassified active ignore negation lines "
+            + "for these fixtures: "
+            + lib.concatStringsSep ", " ignoreNegationDrift
+          )
         else if markerDrift != [ ] then
           throw (
             "sops-cleartext-check.nix hasSopsMarkers misclassified these fixtures: "
@@ -505,6 +527,14 @@ in
             + "git applies gitignore rules last-match-wins, so a later re-inclusion "
             + "can expose an exempt path and fails this check even when both "
             + "patterns are present."
+          )
+        else if nestedIgnoreNegations != [ ] then
+          throw (
+            "secrets/ contains nested .gitignore files with active '!' negation "
+            + "lines that can re-include a cleartext-exempt path: "
+            + lib.concatStringsSep ", " nestedIgnoreNegations
+            + ". Remove those lines; the decrypted_* and *.dec.* exemptions "
+            + "depend on those paths staying ignored at every level."
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
