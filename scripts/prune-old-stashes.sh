@@ -364,6 +364,10 @@ sweep_repo() {
       would_sweep=$((would_sweep + 1))
     fi
   done <<<"$archive_refs"
+  # Explicit, like prune_repo: this is the last command of the for body under
+  # errexit, so leaking the loop's trailing status would abort the run before
+  # the remaining repositories and before the failure summary.
+  return 0
 }
 
 # Serialize runs the way the sibling destructive helper does

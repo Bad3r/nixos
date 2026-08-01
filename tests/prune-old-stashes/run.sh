@@ -306,6 +306,37 @@ SHIM
   pass
 }
 
+test_unreadable_live_stack_blocks_the_drop() {
+  local out shim
+  make_fixture live-unreadable
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/live-unreadable.out"
+
+  # Only the --format=%H listing locate_stash_index reads is failed, leaving
+  # the snapshot listing intact. This is the branch that distinguishes "stack
+  # unreadable" from "commit gone"; collapsing the two would report a vanished
+  # stash where the stack simply could not be read.
+  shim="${tmpdir}/live-unreadable-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *"--format=%H"* ]]; then
+  echo "fatal: forced stash list failure" >&2
+  exit 1
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply
+  assert_status 1 "${out}" live-unreadable
+  assert_contains "${out}" 'cannot re-read the stash list' live-unreadable
+  assert_not_contains "${out}" 'is no longer in the stash stack' live-unreadable
+  assert_stash_subject_present "${repo}" old-a live-unreadable
+  assert_archive_count "${repo}" 0 live-unreadable
+  pass
+}
+
 test_sha_mismatch_gate_blocks_the_drop() {
   local out shim
   make_fixture mismatch
@@ -746,6 +777,7 @@ test_unreadable_stash_list_fails_loudly
 test_unreadable_archive_refs_fail_loudly
 test_failed_archive_write_aborts_the_drop
 test_sha_mismatch_gate_blocks_the_drop
+test_unreadable_live_stack_blocks_the_drop
 test_concurrent_push_does_not_block_pruning
 test_vanished_stash_is_skipped_not_mistaken
 test_second_instance_is_locked_out
