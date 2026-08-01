@@ -11,9 +11,12 @@
 # [extend] is covered too, because it suppresses more broadly than any paths
 # entry: disabledRules silences a rule across the whole repo and
 # useDefault = false drops the default ruleset outright.
-# throw, not a failing derivation: `nix flake check --no-build` evaluates check
-# attrs but never builds them, so only an eval-time failure gates the runs that
-# use it (update-flake.yml, and check.yml on manual dispatch).
+# throw, not a failing derivation: nothing builds check outputs. Every run that
+# evaluates this forces drvPaths only (`nix eval --apply ... .drvPath`, used in
+# place of `nix flake check --no-build` because Lix forces read-only store mode
+# there), so an eval-time failure is the only thing that gates them: check.yml's
+# eval-checks job on same-repo pull requests, check-compliance on manual
+# dispatch, and update-flake.yml.
 { lib, ... }:
 {
   perSystem =

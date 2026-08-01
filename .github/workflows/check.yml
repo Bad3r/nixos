@@ -11,8 +11,25 @@ jobs:
   # days later inside an unrelated flake-update PR. check-compliance covers the
   # same surface plus every host closure and stays on manual dispatch.
   eval-checks:
-    if: github.event_name == 'pull_request'
+    # Same-repo only, matching every other pull_request workflow here. This job
+    # runs `nix eval` over a PR's tree with allow-import-from-derivation = true
+    # (flake.nix), so evaluation builds derivations the branch controls, and
+    # install-lix has just written access-tokens = github.com=<token> into the
+    # runner's nix.conf. On a fork PR that is fork-controlled code executing
+    # next to a readable token, even though the token is read-only there.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    concurrency:
+      # pull_request defaults to opened/synchronize/reopened, so without this a
+      # push mid-eval leaves the superseded run forcing every host toplevel and
+      # every IFD dev-shell check to completion on its own runner. The run_id
+      # fallback keeps any non-pull_request run in a group of its own, so this
+      # does not depend on whether an `if:`-skipped job acquires its group.
+      group: >-
+        eval-checks-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: true
     permissions:
       contents: read
     steps:
