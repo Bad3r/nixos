@@ -152,6 +152,22 @@ for root in "${roots[@]}"; do
   repos+=("$root")
 done
 
+# Prints the current stack position of a stash commit. Exit 1 when the commit
+# is no longer stashed, 2 when the stack cannot be read at all.
+locate_stash_index() {
+  local repo=$1 want=$2 live listed pos=0
+  live=$(git -C "$repo" stash list --format='%H') || return 2
+  while IFS= read -r listed; do
+    [[ -n $listed ]] || continue
+    if [[ $listed == "$want" ]]; then
+      printf '%s' "$pos"
+      return 0
+    fi
+    pos=$((pos + 1))
+  done <<<"$live"
+  return 1
+}
+
 prune_repo() {
   local repo=$1
   local -a positions=() shas=() ctimes=() subjects=()
@@ -194,30 +210,49 @@ prune_repo() {
 
   # Iterate from the highest stash index down: dropping stash@{N} shifts
   # every index above N, but never the lower ones still pending.
-  local i age_d ref current
+  local i age_d ref current located rc
   for ((i = count - 1; i >= 0; i--)); do
-    idx=${positions[i]}
     sha=${shas[i]}
     age_d=$(((now - ctimes[i]) / 86400))
     ref="refs/stash-archive/${archive_date}/${sha:0:12}"
     selected=$((selected + 1))
 
     if [[ $apply != true ]]; then
-      echo "  would archive stash@{${idx}} (${age_d}d old) -> ${ref}"
+      echo "  would archive stash@{${positions[i]}} (${age_d}d old) -> ${ref}"
       echo "    ${subjects[i]}"
       continue
     fi
 
-    echo "  archiving stash@{${idx}} (${age_d}d old) -> ${ref}"
-    echo "    ${subjects[i]}"
-    current=$(git -C "$repo" rev-parse --verify --quiet "stash@{${idx}}") || current=""
-    if [[ $current != "$sha" ]]; then
-      echo "  ERROR: stash@{${idx}} no longer resolves to ${sha}; skipping its drop" >&2
+    # The position recorded at listing time is a snapshot: one `git stash push`
+    # from another shell shifts every index, and asserting the stale one would
+    # fail every remaining candidate even though each is still present and
+    # still eligible. The live position is resolved from the recorded sha, so
+    # the identity of what gets dropped never depends on the snapshot.
+    rc=0
+    located=$(locate_stash_index "$repo" "$sha") || rc=$?
+    if ((rc == 2)); then
+      echo "  ERROR: cannot re-read the stash list of ${repo}; not dropping ${sha}" >&2
+      failures=$((failures + 1))
+      continue
+    elif ((rc != 0)); then
+      echo "  ERROR: ${sha} is no longer in the stash stack of ${repo}; skipping its drop" >&2
       failures=$((failures + 1))
       continue
     fi
+    idx=$located
+
+    echo "  archiving stash@{${idx}} (${age_d}d old) -> ${ref}"
+    echo "    ${subjects[i]}"
     if ! git -C "$repo" update-ref "$ref" "$sha"; then
       echo "  ERROR: archive write failed for stash@{${idx}}; NOT dropping it" >&2
+      failures=$((failures + 1))
+      continue
+    fi
+    # Last check before the destructive step: the archive above is keyed by sha
+    # and costs nothing if this fails, but the drop is keyed by index.
+    current=$(git -C "$repo" rev-parse --verify --quiet "stash@{${idx}}") || current=""
+    if [[ $current != "$sha" ]]; then
+      echo "  ERROR: stash@{${idx}} no longer resolves to ${sha}; skipping its drop (archive ref ${ref} kept)" >&2
       failures=$((failures + 1))
       continue
     fi
