@@ -555,6 +555,51 @@ test_linked_worktrees_share_one_stash_stack() {
   pass
 }
 
+test_all_worktrees_processes_independent_repos() {
+  local out other trees
+  trees="${HOME}/trees/nixos"
+  mkdir -p "${trees}"
+  make_fixture standalone
+  other="${trees}/independent"
+  git init -q -b main "${other}"
+  init_repo_config "${other}"
+  printf '%s\n' base >"${other}/f"
+  git -C "${other}" add f
+  git -C "${other}" commit -q -m "initial commit"
+  push_stash "${other}" old-a 30
+  out="${tmpdir}/all-worktrees.out"
+
+  # The run starts outside $HOME/trees/nixos, so the enumeration is the only
+  # path by which the second repository can be reached. Invoked from a repo
+  # inside the tree, `git rev-parse --show-toplevel` would reach it anyway and
+  # the case would pass with the enumeration deleted.
+  run_sut "${out}" "${repo}" --all-worktrees
+  assert_status 0 "${out}" all-worktrees
+  assert_contains "${out}" "repo: ${repo}$" all-worktrees
+  assert_contains "${out}" "repo: ${other}$" all-worktrees
+  assert_contains "${out}" 'would archive stash@\{0\}' all-worktrees
+  pass
+}
+
+test_unreadable_repo_is_not_swept() {
+  local out
+  make_fixture unreadable-sweep
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/unreadable-sweep.out"
+
+  # Archive refs are the only copies of stashes already dropped here, so a
+  # repository this run could not read must not have them expired.
+  git -C "${repo}" update-ref refs/stash-archive/2020-01-01/aaaaaaaaaaaa HEAD
+  printf '%s\n' deadbeefdeadbeefdeadbeefdeadbeefdeadbeef >"${repo}/.git/refs/stash"
+
+  run_sut "${out}" "${repo}" --apply --sweep-archive
+  assert_status 1 "${out}" unreadable-sweep
+  assert_contains "${out}" 'ERROR: cannot read the stash list' unreadable-sweep
+  assert_not_contains "${out}" 'deleted archive ref' unreadable-sweep
+  assert_archive_count "${repo}" 1 unreadable-sweep
+  pass
+}
+
 test_dry_run_writes_nothing_on_a_stale_snapshot() {
   local out before
   make_fixture dry-run-pure
@@ -587,6 +632,8 @@ test_sweep_archive_respects_retention
 test_sweep_never_deletes_this_runs_archive
 test_zero_retention_disables_expiry
 test_linked_worktrees_share_one_stash_stack
+test_all_worktrees_processes_independent_repos
+test_unreadable_repo_is_not_swept
 test_dry_run_writes_nothing_on_a_stale_snapshot
 
 printf '%d passed\n' "${tests_passed}"

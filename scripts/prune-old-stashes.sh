@@ -194,7 +194,7 @@ prune_repo() {
   if ! listing=$(git -C "$repo" stash list --format='%gd|%ct|%H|%s'); then
     echo "  ERROR: cannot read the stash list of ${repo}" >&2
     failures=$((failures + 1))
-    return 0
+    return 1
   fi
 
   while IFS='|' read -r gd ct sha subject; do
@@ -279,6 +279,7 @@ prune_repo() {
     fi
     echo "  dropped stash@{${idx}} (recover: git stash apply ${ref})"
   done
+  return 0
 }
 
 sweep_repo() {
@@ -348,8 +349,10 @@ flock -n 200 || {
 }
 
 for repo in "${repos[@]}"; do
-  prune_repo "$repo"
-  if [[ $sweep == true ]]; then
+  # A repository whose stash list could not be read is not swept. Its archive
+  # refs are the only copies of stashes already dropped there, and expiring
+  # them is the wrong move precisely when the repository is in a failure state.
+  if prune_repo "$repo" && [[ $sweep == true ]]; then
     sweep_repo "$repo"
   fi
 done
