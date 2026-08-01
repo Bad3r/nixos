@@ -38,9 +38,14 @@ options:
                             one stash stack.
   -h, --help                Print this help.
 
+Runs are serialized by a per-user lock; a second concurrent invocation exits
+1 rather than resolving stash positions against a stack another run is
+mutating.
+
 exit codes:
   0   success (or clean dry-run)
-  1   at least one archive write or drop failed
+  1   at least one archive write or drop failed, the stash list could not be
+      read, or another instance holds the run lock
   64  usage error
 EOF
 }
@@ -288,6 +293,18 @@ sweep_repo() {
       echo "  would delete archive ref ${ref} (past ${retention_days}d retention)"
     fi
   done < <(git -C "$repo" for-each-ref --format='%(refname)' 'refs/stash-archive/')
+}
+
+# Serialize runs the way the sibling destructive helper does
+# (scripts/prune-stale-worktrees.sh): two runs over one stash stack would each
+# resolve positions against a stack the other is mutating. Dry runs take the
+# lock too, so a report is never printed against a stack being pruned.
+lock_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
+lock_file="${lock_dir}/prune-old-stashes.$(id -u).lock"
+exec 200>"${lock_file}"
+flock -n 200 || {
+  echo "${prog_name}: another instance is already running (lock: ${lock_file})" >&2
+  exit 1
 }
 
 for repo in "${repos[@]}"; do

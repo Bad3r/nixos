@@ -88,6 +88,7 @@
               runtimeInputs = [
                 pkgs.git
                 pkgs.coreutils
+                pkgs.util-linux
               ];
               text = builtins.readFile ../scripts/prune-old-stashes.sh;
             };
