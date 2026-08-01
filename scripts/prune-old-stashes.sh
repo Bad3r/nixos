@@ -31,7 +31,9 @@ options:
   --archive-retention <dur> Grace period for archive refs. Default: 90d.
   --sweep-archive           Also delete archive refs whose archive date is
                             past the retention window (dry-run without
-                            --apply).
+                            --apply). Refs written under today's date are
+                            never swept, so a single invocation cannot
+                            delete the archive of a stash it just dropped.
   --all-worktrees           Also process repositories under
                             \$HOME/trees/nixos. Roots sharing a common git
                             dir are processed once: linked worktrees share
@@ -290,6 +292,14 @@ sweep_repo() {
     [[ -n $ref ]] || continue
     date_part=${ref#refs/stash-archive/}
     date_part=${date_part%%/*}
+    # Refs bearing this run's archive date are never expired. prune_repo runs
+    # first, so with --archive-retention 0 the sweep would otherwise delete the
+    # archive of a stash dropped moments earlier and leave it irrecoverable,
+    # which is the one guarantee this tool exists to provide. Ref names carry
+    # only a date, so "written by this run" cannot be narrowed below a day.
+    if [[ $date_part == "$archive_date" ]]; then
+      continue
+    fi
     if ! epoch=$(date -u -d "$date_part" +%s 2>/dev/null); then
       echo "  skipping archive ref with unparsable date: ${ref}" >&2
       continue

@@ -44,7 +44,9 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
 - `--age <dur>`: age threshold; `14d`, `2w`, or a bare integer of days.
 - `--archive-retention <dur>`: grace period for archive refs (default `90d`).
 - `--sweep-archive`: also delete archive refs past the retention window
-  (dry-run without `--apply`).
+  (dry-run without `--apply`). Refs bearing the current run's archive date are
+  never swept, so `--apply --sweep-archive --archive-retention 0` in a single
+  invocation cannot delete the archive of a stash it just dropped.
 - `--all-worktrees`: process repositories under `$HOME/trees/nixos` in
   addition to the current repository.
 
