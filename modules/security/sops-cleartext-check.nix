@@ -24,7 +24,7 @@ let
   # the sync is enforced below against the generated .sops.yaml instead.
   extAlternation = "yaml|yml|json|env|ini|asc|md|txt";
   # `(?i)` mirrors the case-insensitive catch-all emitted to .sops.yaml.
-  catchAllLine = "- path_regex: (?i)secrets/.+\\.(${extAlternation})$";
+  catchAllLine = "- path_regex: (?i)secrets/.*\\.(${extAlternation})$";
   policySynced = lib.hasInfix catchAllLine (builtins.readFile ../../.sops.yaml);
 
   listFiles =
@@ -57,7 +57,7 @@ let
     && !(lib.hasPrefix "decrypted_" base)
     && !(lib.hasInfix ".dec." base)
     && (
-      lib.hasPrefix "fonts/" path || builtins.match ".+\\.(${extAlternation})" (lib.toLower path) != null
+      lib.hasPrefix "fonts/" path || builtins.match ".*\\.(${extAlternation})" (lib.toLower path) != null
     );
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
