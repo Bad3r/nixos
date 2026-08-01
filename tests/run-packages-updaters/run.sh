@@ -173,10 +173,32 @@ test_stops_after_first_failure() {
   pass
 }
 
+test_runs_all_updaters() {
+  local actual err out
+  make_fixture all-pass
+  export RUN_LOG="${fixture_root}/run.log"
+  write_updater 01-first first 0
+  write_updater 02-second second 0
+  out="${tmpdir}/all-pass.out"
+  err="${tmpdir}/all-pass.err"
+  run_sut "${out}" "${err}"
+
+  [[ ${sut_status} -eq 0 ]] || fail "all-pass: expected exit 0, got ${sut_status}" "${err}"
+  assert_contains "${out}" 'Package updaters: 2' 'all-pass'
+  assert_contains "${out}" 'done: packages/02-second/update.py' 'all-pass'
+  assert_empty "${err}" 'all-pass stderr'
+  [[ -f ${RUN_LOG} ]] || fail 'all-pass: updater log was not created' "${out}"
+  actual="$(<"${RUN_LOG}")"
+  [[ ${actual} == $'first\nsecond' ]] ||
+    fail "all-pass: expected both updaters, got '${actual}'" "${out}"
+  pass
+}
+
 test_help_exits_before_discovery
 test_rejects_unknown_argument
 test_rejects_extra_help_argument
 test_empty_package_root_fails
 test_stops_after_first_failure
+test_runs_all_updaters
 
 printf '%d passed\n' "${tests_passed}"
