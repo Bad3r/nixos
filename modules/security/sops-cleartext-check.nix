@@ -25,10 +25,11 @@ let
   # below against the generated .sops.yaml instead.
   extAlternation = "yaml|yml|json|env|ini|asc|md|txt";
   # `(?i)` mirrors the case-insensitive catch-all emitted to .sops.yaml.
-  catchAllLine = "- path_regex: (?i)secrets/.*\\.(${extAlternation})$";
-  fontsLine = "- path_regex: secrets/fonts/.+";
+  # Line terminators prevent a narrowed replacement from satisfying an infix check.
+  catchAllLine = "- path_regex: (?i)secrets/.*\\.(${extAlternation})$\n";
+  fontsLine = "- path_regex: secrets/fonts/.+\n";
   extensionlessPathPattern = "(.*/)?[^/.]+$";
-  extensionlessLine = "- path_regex: secrets/${extensionlessPathPattern}";
+  extensionlessLine = "- path_regex: secrets/${extensionlessPathPattern}\n";
   sopsPolicy = builtins.readFile ../../.sops.yaml;
   ruleCount = builtins.length (
     lib.filter (line: lib.hasInfix "- path_regex:" line) (lib.splitString "\n" sopsPolicy)

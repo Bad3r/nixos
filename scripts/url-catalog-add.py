@@ -297,7 +297,8 @@ def render_entry(entry: CommentedMap, yaml: YAML) -> str:
 def write_catalog(path: Path, catalog: CommentedMap, yaml: YAML) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     mode = path.stat().st_mode if path.exists() else None
-    tmp_fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    # A kill between creation and replacement must leave only an ignored local-decryption name.
+    tmp_fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f"decrypted_{path.name}.")
     temp_path = Path(tmp_name)
     try:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
