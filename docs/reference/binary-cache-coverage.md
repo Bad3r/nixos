@@ -208,7 +208,7 @@ closure to Cachix" step with a `success` conclusion on merges to `main`, and
 The publisher works; its input list does not keep itself honest. A CI service
 that enumerates flake outputs on its own needs no such list, so what the
 retired one would have contributed is that enumeration, and reproducing it is
-the remaining work. Three gaps carry it.
+the remaining work. Four gaps carry it.
 
 1. The detector and the publisher do not talk to each other
    (https://github.com/Bad3r/nixos/issues/422). `cache-roots.nix` publishes a
@@ -234,6 +234,16 @@ the remaining work. Three gaps carry it.
    is reachable only through `build.sh --cache-coverage` and `nix run`, and
    `check.yml` never invokes it, so allowlist drift and new divergences
    surface during a host switch rather than during review.
+4. Multi-output entries are published in part
+   (https://github.com/Bad3r/nixos/issues/426). `cachix push` uploads the
+   runtime closure of the `linkFarm`, so only an entry's default output reaches
+   the cache, while the detector counts a derivation as substitutable only when
+   every output is served. proton-vpn (`out`, `dist`) and nemo (`out`, `dev`,
+   `man`) report as local builds on system76 although the output hosts install
+   answers 200 from `bad3r-nixos.cachix.org` and the other answers 404
+   everywhere. Neither name belongs in the allowlist: a glob there would
+   restore coverage on paper and suppress the next real divergence on that
+   package.
 
 The unfree group remains the issue's phase 2 and stays out of scope while the
 cache is public: serving it needs a private or authenticated cache with the

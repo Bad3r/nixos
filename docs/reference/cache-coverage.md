@@ -125,7 +125,10 @@ https://github.com/Bad3r/nixos/issues/424.
   only, and those rebuilds are inherent to hydra's thin i686 coverage, not
   divergences. They surface under local-only.
 - All-outputs probing: a derivation counts as substitutable only when
-  every output is served by some probe base.
+  every output is served by some probe base. `cache-roots.nix` publishes only
+  each entry's default output, so a multi-output entry reports as a local build
+  even when the output hosts install is served
+  (https://github.com/Bad3r/nixos/issues/426).
 - Only `200` (served) and `404` (absent) are decisive probe results;
   anything else (`000` from an unreachable cache, or `429`/`403`/`503` from
   a rate-limiting or overloaded cachix/S3 base) is non-definitive and read
