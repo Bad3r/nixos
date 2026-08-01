@@ -31,7 +31,7 @@ jobs:
     # hours. Bounded above the observed 60-90 minute worst case.
     timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       # Preinstalled toolchains the build never uses; the cache-roots
