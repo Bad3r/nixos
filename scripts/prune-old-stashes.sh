@@ -64,7 +64,8 @@ exit codes:
   1   at least one archive write, drop, or archive-ref deletion failed, the
       stash list or the archive refs could not be read, a named --root is
       missing or contains no checkouts, a scanned directory is a broken
-      checkout, or another instance holds the run lock
+      checkout or is not the root of the repository it resolves to, or
+      another instance holds the run lock
   64  usage error
 EOF
 }
@@ -293,7 +294,7 @@ locate_stash_index() {
 prune_repo() {
   local repo=$1
   local -a positions=() shas=() ctimes=() subjects=()
-  local listing gd ct sha subject idx pos=0
+  local listing gd ct sha subject idx pos=0 stack_unreadable=false
 
   echo "repo: ${repo}"
 
@@ -364,6 +365,7 @@ prune_repo() {
     if ((rc == 2)); then
       echo "  ERROR: cannot re-read the stash list of ${repo}; not dropping ${sha}" >&2
       failures=$((failures + 1))
+      stack_unreadable=true
       continue
     elif ((rc != 0)); then
       echo "  ERROR: ${sha} is no longer in the stash stack of ${repo}; skipping its drop" >&2
@@ -395,6 +397,12 @@ prune_repo() {
     echo "  dropped stash@{${idx}} (recover: git stash apply ${ref})"
     dropped=$((dropped + 1))
   done
+  # Same failure state as the initial listing: a repository whose stash list
+  # this run could not read must not have its archive refs expired, since they
+  # are the only copies of stashes already dropped there.
+  if [[ $stack_unreadable == true ]]; then
+    return 1
+  fi
   return 0
 }
 

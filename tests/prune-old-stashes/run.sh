@@ -336,6 +336,16 @@ SHIM
   assert_not_contains "${out}" 'is no longer in the stash stack' live-unreadable
   assert_stash_subject_present "${repo}" old-a live-unreadable
   assert_archive_count "${repo}" 0 live-unreadable
+
+  # Same failure state as an unreadable initial listing, so the sweep must be
+  # suppressed too: those archive refs are the only copies of stashes already
+  # dropped in this repository.
+  git -C "${repo}" update-ref refs/stash-archive/2020-01-01/aaaaaaaaaaaa HEAD
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply --sweep-archive
+  assert_status 1 "${out}" live-unreadable-sweep
+  assert_contains "${out}" 'cannot re-read the stash list' live-unreadable-sweep
+  assert_not_contains "${out}" 'deleted archive ref' live-unreadable-sweep
+  assert_archive_count "${repo}" 1 live-unreadable-sweep
   pass
 }
 
