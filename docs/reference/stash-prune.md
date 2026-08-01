@@ -79,11 +79,12 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
 ## Exit Codes
 
 - `0`: success, or a dry run that changed nothing.
-- `1`: at least one archive write, drop, or archive-ref deletion failed, a
-  stash list or the archive refs could not be read, a named `--root` is
-  missing or contains no checkouts, a scanned directory is a broken checkout
-  or is not the root of the repository it resolves to, or another instance
-  holds the run lock.
+- `1`: the run did not complete everything it selected. Causes: an archive
+  write, drop, or archive-ref deletion failed; a selected stash moved or
+  vanished before its drop; a stash-list entry was unparsable; a stash list or
+  the archive refs could not be read; a named `--root` is missing, contains no
+  checkouts, or holds a broken checkout or a directory that is not the root of
+  the repository it resolves to; another instance holds the run lock.
 - `64`: usage error, including an unparsable `--age` or `--archive-retention`.
 
 ## Concurrency

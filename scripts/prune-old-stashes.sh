@@ -61,11 +61,13 @@ mutating.
 
 exit codes:
   0   success (or clean dry-run)
-  1   at least one archive write, drop, or archive-ref deletion failed, the
-      stash list or the archive refs could not be read, a named --root is
-      missing or contains no checkouts, a scanned directory is a broken
-      checkout or is not the root of the repository it resolves to, or
-      another instance holds the run lock
+  1   the run did not complete everything it selected. Causes: an archive
+      write, drop, or archive-ref deletion failed; a selected stash moved or
+      vanished before its drop; a stash-list entry was unparsable; the stash
+      list or the archive refs could not be read; a named --root is missing,
+      contains no checkouts, or holds a broken checkout or a directory that
+      is not the root of the repository it resolves to; another instance
+      holds the run lock
   64  usage error
 EOF
 }
