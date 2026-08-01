@@ -29,7 +29,8 @@ _: {
             # repository they came from, so the superproject's entries can never
             # match a submodule finding. Record a new entry with the same flags
             # this hook uses, --redact included:
-            #   gitleaks git --no-banner --redact --config .gitleaks.toml \
+            #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
+            #     --config .gitleaks.toml \
             #     --report-path .gitleaks-baseline-secrets.json secrets
             # Matching is by fingerprint, so a raw baseline would still suppress,
             # but it commits the credential in plaintext.

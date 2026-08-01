@@ -78,12 +78,27 @@
         a: lib.any (p: !lib.elem p reviewedPaths) (a.paths or [ ])
       ) allowlists;
 
+      # Pinned by key set, not only by value. [extend] also takes `path` and
+      # `url`, which load rules and allowlists from a config neither parse here
+      # reads. gitleaks 8.30.1 refuses `path` together with `useDefault`, and
+      # `path` on its own trips the useDefault test below, but `url` with
+      # useDefault = true is accepted and would otherwise pass every branch with
+      # the suppressing config living outside the repository entirely. Requiring
+      # the key set to be exactly these two also fails closed on a key a future
+      # release adds.
+      extendKeys = [
+        "useDefault"
+        "disabledRules"
+      ];
+
       weakenedExtend = lib.filter (
         p:
         let
           e = p.cfg.extend or { };
         in
-        (e.useDefault or false) != true || (e.disabledRules or [ ]) != [ ]
+        (e.useDefault or false) != true
+        || (e.disabledRules or [ ]) != [ ]
+        || lib.subtractLists extendKeys (lib.attrNames e) != [ ]
       ) parsed;
 
       # Every allowlist regex is pinned, not just the KV one. An allowlist regex
@@ -148,10 +163,12 @@
           throw (
             "gitleaks-allowlist-scope: [extend] in ${
               lib.concatStringsSep ", " (lib.unique (map (p: p.origin) weakenedExtend))
-            } drops the default ruleset or disables rules "
-            + "(useDefault must stay true, disabledRules must stay empty). That suppresses a rule across "
-            + "the whole repository, which is broader than the path-scoping this check already bans. "
-            + "Scope the false positive by content with regexTarget = \"line\" instead"
+            } drops the default ruleset, disables rules, or carries a key outside "
+            + "${lib.concatStringsSep ", " extendKeys} (useDefault must stay true, disabledRules must "
+            + "stay empty, and path or url would load rules and allowlists from a config this check "
+            + "never reads). That suppresses rules across the whole repository, which is broader than "
+            + "the path-scoping this check already bans. Scope the false positive by content with "
+            + "regexTarget = \"line\" instead"
           )
         else if unreviewedRegexes != [ ] then
           throw (
@@ -186,8 +203,7 @@
             "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist in "
             + "${describe kvUntargeted} is not scoped to ${lib.concatStringsSep ", " kvTargetRules}. "
             + "A global line-target allowlist is matched against every rule's findings, so it would "
-            + "suppress any real credential sharing a line with the KV text (modules/development/"
-            + "gitleaks.nix)"
+            + "suppress any real credential sharing a line with the KV text"
           )
         else if kvUnscoped != [ ] then
           throw (
