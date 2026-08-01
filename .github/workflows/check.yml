@@ -58,6 +58,41 @@ jobs:
             "path:.#checks.x86_64-linux" \
             --apply 'checks: builtins.mapAttrs (_: check: check.drvPath) checks'
 
+  # The scanner, not just the config guard that checks/ evaluates. Nothing ran
+  # gitleaks on the merge path: pre-commit.check.enable = false keeps
+  # hook-gitleaks out of checks, so a PR committing a live credential merged
+  # clean while a PR misconfiguring the allowlist was blocked. Runs the repo's
+  # own hook, so CI and pre-push share one binary, config and baseline rather
+  # than drifting. secrets/ is unavailable to CI and the hook guards on
+  # secrets/.git, so this covers the superproject only.
+  gitleaks-scan:
+    # Same-repo only, for the reason eval-checks carries: `nix run path:.#...`
+    # evaluates and builds from the branch with allow-import-from-derivation on,
+    # next to the access-token install-lix writes into the runner's nix.conf.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: >-
+        gitleaks-scan-${{ github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history: the hook scans commits, not just the worktree.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Scan for credentials
+        run: nix run --accept-flake-config "path:.#hook-gitleaks"
+
   flake-lock-health:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
