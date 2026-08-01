@@ -3,8 +3,8 @@
 # ENC[AES256_GCM, MAC token.
 # The pre-commit ensure-sops hook only sees superproject staged files, so a
 # cleartext commit made inside the secrets submodule bypasses it. This check
-# scans the checked-out tree the flake actually ships. Generated-file parity
-# is enforced separately by the managed-files-synced flake check.
+# scans the checked-out tree the flake actually ships. Its security contract is
+# enforced independently of generated-file parity.
 #
 # Scope: payload scanning is effective where the secrets/ submodule content is
 # checked out, such as local development trees and git hooks. CI evaluates the
@@ -18,6 +18,61 @@ let
   # An absent or empty submodule is the secretless checkout used by CI
   # (see issue #333); scanning is only meaningful when content is present.
   secretsPresent = builtins.pathExists secretsDir && builtins.readDir secretsDir != { };
+  sopsPolicy = builtins.readFile ../../.sops.yaml;
+  policyLines = lib.splitString "\n" sopsPolicy;
+
+  # Keep security-critical policy invariants independent of the generated-file
+  # comparison, so a source change cannot move both sides of the parity check.
+  rulePatterns = lib.filter (line: lib.hasPrefix "  - path_regex: " line) policyLines;
+  nestedLines = lib.filter (
+    line: lib.hasPrefix "    " line && !(lib.hasPrefix "          - " line)
+  ) policyLines;
+  recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyLines;
+  expectedNestedLines = [
+    "    encrypted_regex: \"^(github_token)$\""
+    "    key_groups:"
+    "      - age:"
+    "    key_groups:"
+    "      - age:"
+    "    key_groups:"
+    "      - age:"
+    "    key_groups:"
+    "      - age:"
+  ];
+  denyByDefaultSuffix =
+    "  - path_regex: secrets/.*\n"
+    + "    key_groups:\n"
+    + "      - age:\n"
+    + "          - *host_pub_key\n";
+  actRuleBlock =
+    "  - path_regex: secrets/act\\.yaml\n"
+    + "    encrypted_regex: \"^(github_token)$\"\n"
+    + "    key_groups:\n"
+    + "      - age:\n"
+    + "          - *host_pub_key\n\n";
+  policyFixtures = [
+    {
+      name = "creation-rule-count";
+      want = builtins.length rulePatterns == 4;
+    }
+    {
+      name = "creation-rule-directives";
+      want = nestedLines == expectedNestedLines;
+    }
+    {
+      name = "host-recipient-set";
+      want = recipientLines == lib.genList (_: "          - *host_pub_key") 4;
+    }
+    {
+      name = "act-yaml-field-policy";
+      want = lib.hasInfix actRuleBlock sopsPolicy;
+    }
+    {
+      name = "deny-by-default-last";
+      want = lib.hasSuffix denyByDefaultSuffix sopsPolicy;
+    }
+  ];
+  policyDrift = map (fixture: fixture.name) (lib.filter (fixture: !fixture.want) policyFixtures);
 
   exemptionFixtures = {
     "notes.md" = true;
@@ -55,6 +110,20 @@ let
         if type == "directory" then
           listFiles (dir + "/${name}") "${prefix}${name}/"
         else if type == "regular" || type == "symlink" then
+          [ "${prefix}${name}" ]
+        else
+          [ ]
+      ) (builtins.readDir dir)
+    );
+
+  listSymlinks =
+    dir: prefix:
+    lib.concatLists (
+      lib.mapAttrsToList (
+        name: type:
+        if type == "directory" then
+          listSymlinks (dir + "/${name}") "${prefix}${name}/"
+        else if type == "symlink" then
           [ "${prefix}${name}" ]
         else
           [ ]
@@ -167,6 +236,15 @@ let
     !(hasSopsMarkers content);
 
   secretsFiles = if secretsPresent then listFiles secretsDir "" else [ ];
+  symlinkFiles = if secretsPresent then listSymlinks secretsDir "" else [ ];
+  invalidSymlinks = lib.filter (
+    path:
+    let
+      fullPath = secretsDir + "/${path}";
+      directoryResult = builtins.tryEval (builtins.readDir fullPath);
+    in
+    !(builtins.pathExists fullPath) || directoryResult.success
+  ) symlinkFiles;
   cleartext = lib.filter isCleartext (lib.filter mustBeEncrypted secretsFiles);
   encryptedTemplates = lib.filter (
     path: lib.hasSuffix ".example" path && !(isCleartext path)
@@ -180,7 +258,13 @@ in
         # throw, not a failing derivation: CI evaluates check drvPaths with
         # --no-build, so only an eval-time failure gates it (same rationale
         # as modules/meta/ci-lix-parity.nix).
-        if exemptionDrift != [ ] then
+        if policyDrift != [ ] then
+          throw (
+            "sops-cleartext-check.nix policy security contract drifted: "
+            + lib.concatStringsSep ", " policyDrift
+            + ". Review modules/security/sops-policy.nix before accepting the change."
+          )
+        else if exemptionDrift != [ ] then
           throw (
             "sops-cleartext-check.nix mustBeEncrypted classified these paths against "
             + "the documented exemption boundary: "
@@ -190,6 +274,12 @@ in
           throw (
             "sops-cleartext-check.nix hasSopsMarkers misclassified these fixtures: "
             + lib.concatStringsSep ", " markerDrift
+          )
+        else if invalidSymlinks != [ ] then
+          throw (
+            "secrets/ contains dangling or directory symlinks that cannot be scanned: "
+            + lib.concatStringsSep ", " invalidSymlinks
+            + ". Replace them with regular files or symlinks to regular files."
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
