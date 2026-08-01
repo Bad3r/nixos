@@ -182,8 +182,11 @@ Residual local builds accepted with reasons:
   negligible build cost.
 - host config and systemd unit text derivations: cheap by design.
 - nixpkgs packages missing from `cache.nixos.org` right after a fresh
-  nixpkgs pin (Hydra lag): transient; the heaviest recurring cases (nemo,
-  planify) are pinned into cache-roots.
+  nixpkgs pin (Hydra lag): transient; planify is pinned into cache-roots for
+  that reason. nemo is not pinned. It reaches the cache only through the
+  nemo-with-extensions closure, which carries its `out` and not its `dev`, so
+  it reports local under coverage gap 4 instead of clearing on the next Hydra
+  run.
 
 ## Operator setup
 
