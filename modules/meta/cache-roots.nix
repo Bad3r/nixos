@@ -144,6 +144,11 @@ in
       # version: the key alone would miss `proton-vpn-[0-9]*` against a
       # `proton-vpn-4.16.5` derivation, and version-anchored globs are already
       # the file's convention for wrapper entries.
+      #
+      # The domain is the entries, not the closure members cache-push also
+      # serves: that closure does not exist at evaluation time. A glob written
+      # against a closure member (nemo-[0-9]* under nemo-with-extensions) still
+      # passes here; https://github.com/Bad3r/nixos/issues/428 covers it from CI.
       allowlistGlobs =
         let
           globOf =

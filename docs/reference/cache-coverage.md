@@ -108,7 +108,10 @@ asked for: the `cache-roots-allowlist-disjoint` flake check in
 offender. It matches each published entry on all three strings a glob could
 have been written against, the `linkFarm` key plus the derivation `name` and
 `pname`, so a version-anchored glob such as `proton-vpn-[0-9]*` is caught the
-same as `proton-vpn*`. It throws
+same as `proton-vpn*`. Its domain is the published entries, not the closure
+members the push also serves, because that closure does not exist at evaluation
+time; extending the check to them is
+https://github.com/Bad3r/nixos/issues/428. It throws
 during evaluation, so `nix flake check --no-build` catches it without building
 anything. Entries currently allowlisted that fail the disposition test, rather
 than the overlap test, are tracked in
