@@ -2,6 +2,11 @@
 name: Dendritic Pattern Compliance Check
 "on":
   workflow_dispatch:
+  # The flake checks carry eval-time guards that fail only when something
+  # forces checks.<system>: cache-roots-allowlist-disjoint and
+  # bootstrap-substituter-parity. On dispatch alone they enforce nothing at
+  # review time, which is when the drift they catch is introduced.
+  pull_request:
 jobs:
   flake-lock-health:
     runs-on: ubuntu-latest
