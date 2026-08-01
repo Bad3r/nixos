@@ -61,6 +61,19 @@
         "docs/nixos-manual/.*"
       ];
 
+      # gitleaks keeps a default rule only when no local rule claims its id, so a
+      # local [[rules]] entry reusing a default id with an unmatchable regex
+      # replaces that detector across the whole repository while useDefault stays
+      # true, disabledRules stays empty and no paths entry appears. Verified
+      # against 8.30.1 with id = "generic-api-key" and regex = '$^': every other
+      # branch here passed and the vault note reported nothing. Empty today,
+      # because the config only extends the default ruleset.
+      reviewedRuleIds = [ ];
+
+      unreviewedRules = lib.filter (r: !lib.elem (r.id or "<unnamed>") reviewedRuleIds) (
+        lib.concatMap (p: map (r: r // { inherit (p) origin; }) (p.cfg.rules or [ ])) parsed
+      );
+
       unreviewedPathScope = lib.filter (
         a: lib.any (p: !lib.elem p reviewedPaths) (a.paths or [ ])
       ) allowlists;
@@ -104,6 +117,14 @@
             + "(useDefault must stay true, disabledRules must stay empty). That suppresses a rule across "
             + "the whole repository, which is broader than the path-scoping this check already bans. "
             + "Scope the false positive by content with regexTarget = \"line\" instead"
+          )
+        else if unreviewedRules != [ ] then
+          throw (
+            "gitleaks-allowlist-scope: local [[rules]] ${
+              lib.concatStringsSep ", " (map (r: "${r.origin}: ${r.id or "<unnamed>"}") unreviewedRules)
+            } is not in the reviewed set. A local rule reusing a default rule id replaces that "
+            + "detector everywhere, which is broader than the path-scoping this check bans; add the "
+            + "id to reviewedRuleIds deliberately"
           )
         else if kvBlocks == [ ] then
           throw (
