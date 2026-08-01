@@ -981,6 +981,20 @@ test_root_is_repeatable_and_defaults_to_home_trees() {
   run_sut "${out}" "${repo}" --root
   assert_status 64 "${out}" multi-root-usage
   assert_contains "${out}" 'requires a value' multi-root-usage
+
+  # Same rule for a retention window that would never be applied: it is read
+  # only inside the sweep, so without --sweep-archive the operator's value is
+  # the one thing the run definitely did not honour.
+  run_sut "${out}" "${repo}" --apply --archive-retention 7
+  assert_status 64 "${out}" retention-without-sweep
+  assert_contains "${out}" 'has no effect without --sweep-archive' retention-without-sweep
+
+  run_sut "${out}" "${repo}" --sweep-archive --archive-retention 7
+  assert_status 0 "${out}" retention-with-sweep
+
+  # The default is not "explicit", so an ordinary run is unaffected.
+  run_sut "${out}" "${repo}"
+  assert_status 0 "${out}" retention-default
   pass
 }
 

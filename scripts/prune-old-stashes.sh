@@ -37,7 +37,8 @@ options:
                             selects every stash; unlike
                             --archive-retention 0 it disables nothing.
   --archive-retention <dur> Grace period for archive refs, also
-                            --archive-retention=<dur>. Default: 90d. A
+                            --archive-retention=<dur>; a usage error
+                            without --sweep-archive. Default: 90d. A
                             value of 0 disables expiry, as it does for
                             --backup-retention-days in
                             prune-stale-worktrees.
@@ -109,6 +110,7 @@ all_worktrees=false
 declare -a scan_roots=()
 age_days=14
 retention_days=90
+retention_explicit=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -154,10 +156,12 @@ while [[ $# -gt 0 ]]; do
       exit 64
     }
     retention_days=$(parse_duration_days "$2") || exit 64
+    retention_explicit=true
     shift 2
     ;;
   --archive-retention=*)
     retention_days=$(parse_duration_days "${1#*=}") || exit 64
+    retention_explicit=true
     shift
     ;;
   -h | --help)
@@ -198,6 +202,14 @@ fi
 # whole tree was covered.
 if [[ ${#scan_roots[@]} -gt 0 && $all_worktrees != true ]]; then
   echo "${prog_name}: --root has no effect without --all-worktrees" >&2
+  exit 64
+fi
+# Same rule: a retention window that is never applied is a typo, not a
+# preference. retention_days is read only inside sweep_repo, so without
+# --sweep-archive the run reports success while the archive refs the operator
+# asked to expire keep accumulating.
+if [[ $retention_explicit == true && $sweep != true ]]; then
+  echo "${prog_name}: --archive-retention has no effect without --sweep-archive" >&2
   exit 64
 fi
 if [[ $all_worktrees == true ]]; then

@@ -127,10 +127,12 @@ let
 
       Use `rip <path>` instead of `rm` for deletions so recovery stays possible. Safe
       stash operations are `git stash`, `git stash list`, `git stash show`, and
-      `git stash apply`. `prune-old-stashes --apply` is the one sanctioned drop path
+      `git stash apply`. In the nixos repo's dev shell,
+      `nix develop -c prune-old-stashes --apply` is the one sanctioned drop path
       and needs the same explicit approval as the operations forbidden above; it
       archives each stash under `refs/stash-archive/<date>/<sha>` before dropping it,
-      so what it drops stays recoverable for the retention window.
+      so what it drops stays recoverable for the retention window. Outside that
+      shell there is no sanctioned drop path.
 
       If something is deleted accidentally, stop, recover immediately from stash,
       reflog, or the `rip` graveyard, then tell the user exactly what happened and
