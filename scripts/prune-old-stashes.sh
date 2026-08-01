@@ -33,12 +33,14 @@ Recover a pruned stash within the retention window:
 options:
   --apply                   Archive and drop selected stashes.
   --age <dur>               Age threshold, also --age=<dur>. Formats: 14d,
-                            2w, bare integer (days). Default: 14d. 0
-                            selects every stash; unlike
+                            2w, bare integer (days); at most 6 digits.
+                            Default: 14d. 0 selects every stash; unlike
                             --archive-retention 0 it disables nothing.
   --archive-retention <dur> Grace period for archive refs, also
-                            --archive-retention=<dur>; a usage error
-                            without --sweep-archive. Default: 90d. A
+                            --archive-retention=<dur>; at most 6 digits; a
+                            usage error without --sweep-archive. Default:
+                            90d. Measured from the ref's date, so 1 expires
+                            refs dated two or more days before today. A
                             value of 0 disables expiry, as it does for
                             --backup-retention-days in
                             prune-stale-worktrees.

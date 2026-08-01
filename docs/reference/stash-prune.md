@@ -51,12 +51,15 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
 ## Flags
 
 - `--apply`: perform the archive and drop (dry-run without it).
-- `--age <dur>` (also `--age=<dur>`): age threshold; `14d`, `2w`, or a bare integer of days. `0`
-  selects every stash; unlike `--archive-retention 0` it disables nothing.
+- `--age <dur>` (also `--age=<dur>`): age threshold; `14d`, `2w`, or a bare
+  integer of days, at most 6 digits. `0` selects every stash; unlike
+  `--archive-retention 0` it disables nothing.
 - `--archive-retention <dur>` (also `--archive-retention=<dur>`): grace period for archive refs (default `90d`).
   `0` disables expiry, matching `--backup-retention-days 0` in
-  `scripts/prune-stale-worktrees.sh`. Use `1` to expire refs older than a day.
-  Without `--sweep-archive` it is a usage error rather than a silent no-op.
+  `scripts/prune-stale-worktrees.sh`. The window is measured from the ref's
+  date, not from when it was written, so `1` expires refs dated two or more
+  days before today. At most 6 digits. Without `--sweep-archive` it is a usage
+  error rather than a silent no-op.
 - `--sweep-archive`: also delete archive refs past the retention window
   (dry-run without `--apply`). Refs bearing the current run's archive date are
   never swept, so `--apply --sweep-archive --archive-retention 1` in a single
