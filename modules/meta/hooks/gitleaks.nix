@@ -15,7 +15,12 @@ _: {
             root=$(git rev-parse --show-toplevel)
             cd "$root"
 
-            common=(--no-banner --redact)
+            # --ignore-gitleaks-allow: without it a trailing `gitleaks:allow`
+            # comment on the leaking line drops that finding with no config edit
+            # and no fingerprint, which sits outside every field
+            # gitleaks-allowlist-scope pins and outside the baselines. Unused in
+            # this repo, so disabling it costs nothing.
+            common=(--no-banner --redact --ignore-gitleaks-allow)
             if [ -f ".gitleaks.toml" ]; then
               common+=(--config ".gitleaks.toml")
             fi
@@ -43,6 +48,15 @@ _: {
             # finding would take one push attempt per pass, each showing a third
             # of the problem.
             status=0
+
+            # .gitleaksignore is read from the repo root automatically and
+            # suppresses by fingerprint exactly like the baselines below, but
+            # with no flag and no review. Fail rather than let one appear
+            # unnoticed alongside the channels this hook wires up deliberately.
+            if [ -e ".gitleaksignore" ]; then
+              echo "hook-gitleaks: .gitleaksignore suppresses findings outside the reviewed baselines; record them in .gitleaks-baseline.json or .gitleaks-baseline-secrets.json instead" >&2
+              status=1
+            fi
 
             # History pass: catches a credential that was committed and later
             # removed, which a worktree scan can no longer see.
