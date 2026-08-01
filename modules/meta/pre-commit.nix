@@ -87,11 +87,12 @@ _: {
 
             pre-commit-hook-ensure-sops = {
               enable = true;
-              # Mirrors sensitiveExtensions and the extensionless rule in
-              # modules/security/sops-policy.nix (plus the age/enc container
-              # formats); the secrets-no-cleartext flake check is the
-              # authoritative local gate for content committed inside the submodule.
-              files = "(?i)^secrets/(.*\\.(yaml|yml|json|env|ini|age|enc|asc|md|txt)|(.*/)?[^/.]+)$";
+              # secrets is a mode-160000 gitlink, so the superproject index
+              # never presents secrets/<file> paths and this filter matches
+              # nothing today. Keep it for a future de-submoduled checkout;
+              # secrets-no-cleartext is the actual gate. Exclude local
+              # decryption, template, and Git metadata conventions.
+              files = "(?i)^secrets/(?!(?:.*/)?\\.git[^/]*(?:/.*)?$|(?:.*/)?decrypted_[^/]*$|(?:.*/)?[^/]*\\.dec\\.[^/]*$|.*\\.example$).*";
             };
 
             gitleaks = {
