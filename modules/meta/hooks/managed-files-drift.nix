@@ -19,7 +19,12 @@
             !(builtins.pathExists path) || builtins.readFile path != config.files.file.${name}.text
           ) managedFiles;
         in
-        if drift != [ ] then
+        if managedFiles == [ ] then
+          throw (
+            "managed-files-synced found no config.files.file entries, so it would "
+            + "pass without comparing .sops.yaml or any other generated file."
+          )
+        else if drift != [ ] then
           throw (
             "committed managed files differ from their files-module source: "
             + lib.concatStringsSep ", " drift
