@@ -101,9 +101,14 @@ in
     {
       checks = lib.mkIf (checkSystem == system) {
         bootstrap-substituter-parity =
-          # An empty parse means the arrays were renamed or reshaped. That must
-          # fail rather than compare nothing and pass.
-          if bootstrapSubstituters == [ ] || bootstrapKeys == [ ] then
+          # Both sides of the comparison need a floor. An empty parse means the
+          # arrays were renamed or reshaped; an empty host set means there is
+          # nothing to compare against. Either one passes vacuously otherwise,
+          # which is the failure mode this check exists to close. check.yml
+          # treats an empty host list as a failure for the same reason.
+          if config.flake.nixosConfigurations == { } then
+            throw "bootstrap-substituter-parity: no nixosConfigurations to compare against; the check would pass vacuously"
+          else if bootstrapSubstituters == [ ] || bootstrapKeys == [ ] then
             throw "bootstrap-substituter-parity: parsed no BOOTSTRAP_SUBSTITUTERS or BOOTSTRAP_TRUSTED_KEYS entries out of build.sh; a rename would make this comparison vacuous"
           else if missing != [ ] then
             throw (
