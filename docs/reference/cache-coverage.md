@@ -10,6 +10,13 @@ that patches a base package (issue
 the stylix gtksourceview overlay removed in PR 380). Evaluation and HTTP
 narinfo probes only: the script never builds anything.
 
+This file documents the detector. The publisher that puts custom derivations
+on a cache is `modules/meta/cache-roots.nix` plus
+`.github/workflows/cache-push.yml`, documented in
+`docs/reference/binary-cache-coverage.md`. The two are halves of one
+mechanism: what this report classifies as a local build is the candidate set
+the publisher should cover.
+
 ## Manual Use
 
 Report every host, fail on any unexpected divergence:
@@ -86,6 +93,22 @@ The check exits nonzero when unexpected-local entries exceed `--max-count`
 one glob per line, matched against the derivation name and pname, with a
 comment recording the reason. Both files are repo-tracked so changes go
 through review.
+
+Allowlisting and caching are mutually exclusive dispositions, not a
+preference. A glob here declares that the divergence is a permanent local
+build; a name in `cache-roots.nix` declares that CI publishes it. Choose the
+allowlist only when the package cannot be cached: `allowSubstitutes = false`
+on the expensive derivation (tor-browser, mullvad-browser), an unfree or
+non-redistributable license while the cache is public (the RAR-enabled
+p7zip), or a wrapper cheap enough that publishing it costs more CI time than
+it saves. Everything else belongs in `cache-roots.nix`, and adding it there
+means deleting the glob here in the same change. Entries currently
+allowlisted that fail that test are tracked in
+https://github.com/Bad3r/nixos/issues/422.
+
+Nothing runs this script in CI yet, so drift surfaces during a host switch
+rather than during review; `check.yml` coverage is tracked in
+https://github.com/Bad3r/nixos/issues/424.
 
 ## Caveats
 
