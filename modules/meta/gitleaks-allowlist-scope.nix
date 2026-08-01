@@ -102,6 +102,17 @@
         a: lib.any (r: !lib.elem r reviewedRegexes) (a.regexes or [ ])
       ) allowlists;
 
+      # stopwords and commits are the remaining suppression fields on an
+      # allowlist and neither is bounded by the branches above. A stopword is a
+      # case-insensitive substring test against the secret, so ["a"] silences
+      # nearly everything: verified against 8.30.1 that it hides a planted Stripe
+      # live key with no paths, no regexes and no new table. A commits entry
+      # drops every finding in that commit, which is what the baselines are for.
+      # The config carries neither, so any entry is a deliberate edit here.
+      unreviewedSuppressors = lib.filter (
+        a: (a.stopwords or [ ]) != [ ] || (a.commits or [ ]) != [ ]
+      ) allowlists;
+
       # The Cloudflare KV allowlist is a no-op unless it is line-scoped: against
       # the default target the regex is matched on the bare hex secret and never
       # sees the surrounding "keys KV:" text.
@@ -140,6 +151,14 @@
             + "outside the reviewed set. An allowlist regex is matched against every finding in the "
             + "repository, so a broad one silences rules everywhere rather than in one tree; add the "
             + "exact regex to reviewedRegexes deliberately"
+          )
+        else if unreviewedSuppressors != [ ] then
+          throw (
+            "gitleaks-allowlist-scope: allowlist ${describe unreviewedSuppressors} carries stopwords "
+            + "or commits. A stopword is a case-insensitive substring test against every secret and a "
+            + "commits entry drops every finding in that commit, so both suppress far more broadly "
+            + "than the path-scoping this check bans; scope by content with regexTarget = \"line\", "
+            + "or record the finding in the matching baseline instead"
           )
         else if unreviewedRules != [ ] then
           throw (
