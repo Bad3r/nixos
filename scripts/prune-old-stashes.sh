@@ -284,8 +284,12 @@ for root in "${roots[@]}"; do
   # which repositories are pruned. An unchecked failure yields an empty word,
   # `cd ""` stays put, and the key degrades to the worktree path, so two linked
   # worktrees of one stack would be processed as separate repositories.
+  # CDPATH is cleared because --git-common-dir returns a bare relative `.git`
+  # for a main worktree, and cd consults CDPATH for any target not starting
+  # with / ./ or ../: on a hit it lands elsewhere and echoes the resolved path,
+  # so two unrelated repositories would hash to one key.
   if ! common_dir=$(git -C "$root" rev-parse --git-common-dir) ||
-    ! common=$(cd "$root" && cd "$common_dir" && pwd -P); then
+    ! common=$(cd "$root" && CDPATH='' cd -- "$common_dir" && pwd -P); then
     echo "${prog_name}: cannot resolve the common git dir of ${root}; skipping it" >&2
     failures=$((failures + 1))
     continue
@@ -519,8 +523,15 @@ for repo in "${repos[@]}"; do
   # A repository whose stash list could not be read is not swept. Its archive
   # refs are the only copies of stashes already dropped there, and expiring
   # them is the wrong move precisely when the repository is in a failure state.
-  if prune_repo "$repo" && [[ $sweep == true ]]; then
-    sweep_repo "$repo"
+  if prune_repo "$repo"; then
+    if [[ $sweep == true ]]; then
+      sweep_repo "$repo"
+    fi
+  elif [[ $sweep == true ]]; then
+    # A sweep the operator asked for must say when it does not happen: under
+    # --all-worktrees this repository is one line in a wall of output and the
+    # closing counts would silently exclude it.
+    echo "  archive sweep skipped: the stash list of ${repo} could not be read" >&2
   fi
 done
 

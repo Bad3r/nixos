@@ -1011,6 +1011,63 @@ test_unreadable_repo_is_not_swept() {
   pass
 }
 
+test_unresolvable_common_dir_is_reported() {
+  local out shim
+  make_fixture common-dir-fail
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/common-dir-fail.out"
+
+  shim="${tmpdir}/common-dir-fail-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *" --git-common-dir "* ]]; then
+  echo "fatal: forced rev-parse failure" >&2
+  exit 1
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply
+  assert_status 1 "${out}" common-dir-fail
+  assert_contains "${out}" 'cannot resolve the common git dir' common-dir-fail
+  assert_stash_subject_present "${repo}" old-a common-dir-fail
+  assert_archive_count "${repo}" 0 common-dir-fail
+  pass
+}
+
+test_cdpath_does_not_divert_the_dedup_key() {
+  local out decoy scan other
+  make_fixture cdpath-a
+  push_stash "${repo}" old-a 30
+  scan="${tmpdir}/cdpath-roots"
+  other="${scan}/cdpath-b"
+  mkdir -p "${scan}"
+  git init -q -b main "${other}"
+  init_repo_config "${other}"
+  printf '%s\n' base >"${other}/f"
+  git -C "${other}" add f
+  git -C "${other}" commit -q -m "initial commit"
+  push_stash "${other}" old-b 30
+
+  # --git-common-dir returns a bare relative `.git` for a main worktree, and cd
+  # consults CDPATH for a target that does not start with / ./ or ../. On a hit
+  # it lands in the decoy and echoes the path, so both repositories resolve to
+  # one dedup key and the second is silently dropped from the scan set.
+  decoy="${tmpdir}/cdpath-decoy"
+  mkdir -p "${decoy}/.git"
+  out="${tmpdir}/cdpath.out"
+
+  CDPATH="${decoy}" run_sut "${out}" "${repo}" --all-worktrees --root "${scan}"
+  assert_status 0 "${out}" cdpath
+  assert_contains "${out}" "repo: ${repo}$" cdpath
+  assert_contains "${out}" "repo: ${other}$" cdpath
+  [[ $(grep -c '^repo: ' "${out}") -eq 2 ]] ||
+    fail "cdpath: the dedup key collapsed two unrelated repositories" "${out}"
+  pass
+}
+
 test_exported_git_dir_does_not_redirect_the_run() {
   local out victim
   make_fixture git-dir-target
@@ -1084,5 +1141,7 @@ test_invalid_git_dir_does_not_resolve_upward
 test_unreadable_repo_is_not_swept
 test_dry_run_writes_nothing_on_a_stale_snapshot
 test_exported_git_dir_does_not_redirect_the_run
+test_unresolvable_common_dir_is_reported
+test_cdpath_does_not_divert_the_dedup_key
 
 printf '%d passed\n' "${tests_passed}"
