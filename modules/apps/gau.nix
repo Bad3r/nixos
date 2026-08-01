@@ -10,13 +10,13 @@
     * Emits pipeline-friendly URL lists for passive endpoint discovery and fuzzing input; pairs with the active katana crawler.
 
   Options:
-    -providers <list>: Sources to query (wayback, commoncrawl, otx, urlscan).
-    -subs: Include subdomains of the target domain.
-    -blacklist <exts>: Skip URLs with the listed extensions.
-    -fp: Collapse URLs that differ only in query-parameter values.
-    -threads <n>: Number of worker threads.
-    -json: Emit JSON output.
-    -o <file>: Write results to the given file.
+    --providers <list>: Sources to query (wayback, commoncrawl, otx, urlscan).
+    --subs: Include subdomains of the target domain.
+    --blacklist <exts>: Skip URLs with the listed extensions.
+    --fp: Collapse URLs that differ only in query-parameter values.
+    --threads <n>: Number of worker threads.
+    --json: Emit JSON output.
+    --o <file>: Write results to the given file.
 */
 _:
 let

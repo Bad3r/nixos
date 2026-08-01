@@ -308,7 +308,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Repo.: <https://github.com/tomnomnom/waybackurls>
   - Docs.: <https://github.com/tomnomnom/waybackurls#readme>
   - Desc.: Stream all URLs the Wayback Machine knows for a domain.
-  - Stat.: Deprecated (v0.1.0, 2022-04-05; no commits in 3+ years; superseded by gau).
+  - Stat.: Deprecated (v0.1.0, 2022-04-05; no commits in 3+ years; superseded by [`gau` in the active toolkit](toolkit.md#web-application-testing--proxies)).
 - eyewitness
   - run..: `nix run nixpkgs#eyewitness -- --web -f urls.txt`
     - ⚠️ Failed to run: the derivation builds but `bin/eye-witness` is missing inside the store path. `nix run` fails with `No such file or directory`.
