@@ -575,6 +575,13 @@ sweep_repo() {
 # lock too, so a report is never printed against a stack being pruned.
 lock_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
 lock_file="${lock_dir}/prune-old-stashes.$(id -u).lock"
+# Checked before use: `command not found` returns 127 into the `||` below and
+# would be reported as contention with a process that does not exist, which
+# never clears no matter how long the operator waits.
+command -v flock >/dev/null 2>&1 || {
+  echo "${prog_name}: flock is required to serialize runs (install util-linux, or use the dev-shell wrapper)" >&2
+  exit 1
+}
 exec 200>"${lock_file}"
 flock -n 200 || {
   echo "${prog_name}: another instance is already running (lock: ${lock_file})" >&2

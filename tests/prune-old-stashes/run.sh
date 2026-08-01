@@ -1424,4 +1424,13 @@ test_exported_git_dir_does_not_redirect_the_run
 test_unresolvable_common_dir_is_reported
 test_cdpath_does_not_divert_the_dedup_key
 
+# A test function defined but never added to the call list above would leave
+# the suite green while guarding nothing, which is the same failure as a test
+# that can no longer fail.
+expected="$(compgen -A function 'test_' | wc -l)"
+if [[ ${tests_passed} -ne ${expected} ]]; then
+  printf 'run.sh: %d test functions defined, %d ran\n' "${expected}" "${tests_passed}" >&2
+  exit 1
+fi
+
 printf '%d passed\n' "${tests_passed}"
