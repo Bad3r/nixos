@@ -27,7 +27,9 @@ Recover a pruned stash within the retention window:
 options:
   --apply                   Archive and drop selected stashes.
   --age <dur>               Age threshold. Formats: 14d, 2w, bare integer
-                            (days). Default: 14d.
+                            (days). Default: 14d. 0 selects every stash;
+                            unlike --archive-retention 0 it disables
+                            nothing.
   --archive-retention <dur> Grace period for archive refs. Default: 90d. A
                             value of 0 disables expiry, as it does for
                             --backup-retention-days in
@@ -286,8 +288,12 @@ sweep_repo() {
   # 0 disables expiry, matching --backup-retention-days in
   # scripts/prune-stale-worktrees.sh. The same operator drives both helpers, so
   # the value must not mean "keep everything" in one and "delete everything" in
-  # the other.
-  ((retention_days > 0)) || return 0
+  # the other. Said out loud rather than returned silently: the same command
+  # deleted every archive ref before that alignment.
+  if ((retention_days == 0)); then
+    echo "  archive retention disabled (--archive-retention 0); no archive refs expired"
+    return 0
+  fi
 
   # Captured with its status for the same reason as the stash listing: a
   # for-each-ref failure inside a process substitution would look like a

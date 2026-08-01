@@ -485,11 +485,14 @@ test_zero_retention_disables_expiry() {
   run_sut "${out}" "${repo}" --sweep-archive --archive-retention 0
   assert_status 0 "${out}" zero-retention-dry
   assert_not_contains "${out}" 'would delete archive ref' zero-retention-dry
+  # A sweep the operator asked for must not be a silent no-op.
+  assert_contains "${out}" 'archive retention disabled' zero-retention-dry
   assert_contains "${out}" 'dry-run: nothing selected' zero-retention-dry
 
   run_sut "${out}" "${repo}" --sweep-archive --archive-retention 0 --apply
   assert_status 0 "${out}" zero-retention-apply
   assert_not_contains "${out}" 'deleted archive ref' zero-retention-apply
+  assert_contains "${out}" 'archive retention disabled' zero-retention-apply
   assert_archive_count "${repo}" 2 zero-retention-apply
 
   # A window of 1 still expires them, so the guard is not disabling the sweep.
