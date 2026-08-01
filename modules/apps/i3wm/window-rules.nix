@@ -16,6 +16,12 @@
         "extended"
         "enable"
       ] false osConfig;
+      codexDesktopEnabled = lib.attrByPath [
+        "programs"
+        "codex-desktop"
+        "extended"
+        "enable"
+      ] false osConfig;
 
       # Quarter-screen geometry calculations (all derived from config options)
       # Width:  screenWidth/2 - borderWidth*2  (gap on both sides of center split)
@@ -122,9 +128,21 @@
             criteria.all = true;
             command = ''border pixel ${toString cfg.borderWidth}, title_format "<b>%title</b>", title_window_icon padding 3px'';
           }
+          {
+            # Calendar popup: floating + borderless. Must sit after the
+            # catch-all so `border none` wins over its `border pixel`.
+            # Placement is handled by gsimplecal itself (mainwindow_position
+            # plus mainwindow_yoffset in config.nix), so no move here.
+            criteria.class = "(?i)^gsimplecal$";
+            command = "floating enable, border none";
+          }
         ]
         ++ lib.optional claudeDesktopEnabled {
           criteria.class = "(?i)^claude$";
+          command = "border none";
+        }
+        ++ lib.optional codexDesktopEnabled {
+          criteria.class = "(?i)^codex-desktop$";
           command = "border none";
         };
       };
