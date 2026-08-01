@@ -161,6 +161,7 @@ let
       "fuse-overlayfs".extended.enable = lib.mkOverride 1100 true;
       fzf.extended.enable = lib.mkOverride 1100 true;
       gamescope.extended.enable = lib.mkOverride 1100 false;
+      gau.extended.enable = lib.mkOverride 1100 true;
       gawk.extended.enable = lib.mkOverride 1100 true;
       gcc.extended.enable = lib.mkOverride 1100 true;
       gdb.extended.enable = lib.mkOverride 1100 true;
@@ -185,6 +186,7 @@ let
       "google-chrome".extended.enable = lib.mkOverride 1100 true;
       gopass.extended.enable = lib.mkOverride 1100 true;
       gopls.extended.enable = lib.mkOverride 1100 false;
+      gowitness.extended.enable = lib.mkOverride 1100 true;
       gparted.extended.enable = lib.mkOverride 1100 true;
       "gpg-tui".extended.enable = lib.mkOverride 1100 true;
       greenclip.extended.enable = lib.mkOverride 1100 true;
@@ -219,6 +221,7 @@ let
       "jupyter-all".extended.enable = lib.mkOverride 1100 true;
       just.extended.enable = lib.mkOverride 1100 true;
       karere.extended.enable = lib.mkOverride 1100 true;
+      katana.extended.enable = lib.mkOverride 1100 true;
       kcolorchooser.extended.enable = lib.mkOverride 1100 true;
       kdiskmark.extended.enable = lib.mkOverride 1100 true;
       keepassxc.extended.enable = lib.mkOverride 1100 true;
@@ -285,6 +288,7 @@ let
       networkmanagerapplet.extended.enable = lib.mkOverride 1100 true;
       nftables.extended.enable = lib.mkOverride 1100 true;
       nicotine.extended.enable = lib.mkOverride 1100 true;
+      nikto.extended.enable = lib.mkOverride 1100 true;
       nixd.extended.enable = lib.mkOverride 1100 true;
       nixfmt.extended.enable = lib.mkOverride 1100 true;
       niv.extended.enable = lib.mkOverride 1100 true;
@@ -460,6 +464,7 @@ let
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
       "vt-cli".extended.enable = lib.mkOverride 1100 true;
       vulnix.extended.enable = lib.mkOverride 1100 true;
+      wafw00f.extended.enable = lib.mkOverride 1100 true;
       wakaru.extended.enable = lib.mkOverride 1100 false;
       "wappalyzer-next".extended.enable = lib.mkOverride 1100 true;
       webcrack.extended.enable = lib.mkOverride 1100 false;

@@ -10,6 +10,13 @@ that patches a base package (issue
 the stylix gtksourceview overlay removed in PR 380). Evaluation and HTTP
 narinfo probes only: the script never builds anything.
 
+This file documents the detector. The publisher that puts custom derivations
+on a cache is `modules/meta/cache-roots.nix` plus
+`.github/workflows/cache-push.yml`, documented in
+`docs/reference/binary-cache-coverage.md`. The two are halves of one
+mechanism: what this report classifies as a local build is the candidate set
+the publisher should cover.
+
 ## Manual Use
 
 Report every host, fail on any unexpected divergence:
@@ -87,6 +94,38 @@ one glob per line, matched against the derivation name and pname, with a
 comment recording the reason. Both files are repo-tracked so changes go
 through review.
 
+Allowlisting and caching are mutually exclusive dispositions, not a
+preference. A glob here declares that the divergence is a permanent local
+build; a name in `cache-roots.nix` declares that CI publishes it. Choose the
+allowlist only when the package cannot be cached: `allowSubstitutes = false`
+on the expensive derivation (tor-browser, mullvad-browser), an unfree or
+non-redistributable license while the cache is public (the RAR-enabled
+p7zip), or a wrapper cheap enough that publishing it costs more CI time than
+it saves. Everything else belongs in `cache-roots.nix`, and adding it there
+means deleting the glob here in the same change. That is enforced rather than
+left to memory: the `cache-roots-allowlist-disjoint` flake check in
+`modules/meta/cache-roots.nix` reads this file and aborts evaluation naming the
+offender. It matches each published entry on the derivation `name` and `pname`,
+which are the strings this report matches globs against, so a version-anchored
+glob such as `proton-vpn-[0-9]*` is caught the same as `proton-vpn*`. The
+`linkFarm` key is checked as well: a glob spelled that way suppresses nothing
+here, since the key never reaches this report, but it declares the same
+disposition the rule forbids. Its domain is the published entries, not the closure
+members the push also serves, because that closure does not exist at evaluation
+time; extending the check to them is
+https://github.com/Bad3r/nixos/issues/428. It throws
+during evaluation, so `nix flake check --no-build` catches it without building
+anything. `check.yml` runs on `pull_request` so that this fires at review time:
+the guard is a throw inside `perSystem.checks`, which enforces nothing unless
+something forces `checks.<system>`, and that workflow's "Check flake" step is
+what does. Entries currently allowlisted that fail the disposition test, rather
+than the overlap test, are tracked in
+https://github.com/Bad3r/nixos/issues/422.
+
+Nothing runs this script in CI yet, so drift surfaces during a host switch
+rather than during review; `check.yml` coverage is tracked in
+https://github.com/Bad3r/nixos/issues/424.
+
 ## Caveats
 
 - The stock comparison resolves attributes by pname, by name minus
@@ -102,7 +141,10 @@ through review.
   only, and those rebuilds are inherent to hydra's thin i686 coverage, not
   divergences. They surface under local-only.
 - All-outputs probing: a derivation counts as substitutable only when
-  every output is served by some probe base.
+  every output is served by some probe base. `cache-roots.nix` publishes only
+  each entry's default output, so a multi-output entry reports as a local build
+  even when the output hosts install is served
+  (https://github.com/Bad3r/nixos/issues/426).
 - Only `200` (served) and `404` (absent) are decisive probe results;
   anything else (`000` from an unreachable cache, or `429`/`403`/`503` from
   a rate-limiting or overloaded cachix/S3 base) is non-definitive and read

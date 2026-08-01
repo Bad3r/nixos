@@ -13,9 +13,13 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.
 - `updater/`: shared Python library for package updater scripts. Reuse these
   helpers instead of duplicating HTTP, hash, Nix, npm, or version parsing logic.
+  Nix invocations must use spellings Lix implements: `nix hash to-sri`, not the
+  CppNix-only `nix hash convert`.
 - `prune-stale-worktrees.sh`: prunes branches with gone upstreams and their
   worktrees; wrapped by the `worktree-prune` Home Manager timer. Tests live in
   `tests/prune-stale-worktrees/run.sh`; see `docs/reference/worktree-prune.md`.
+- `run-packages-updaters.sh`: runs package updaters from the repository root;
+  fixture coverage lives in `tests/run-packages-updaters/run.sh`.
 - Top-level scripts are task-specific entrypoints. Keep them runnable from the
   repository root and avoid hidden dependencies on the current shell session.
 
@@ -28,7 +32,11 @@ commands. Prefer clear exit codes and stderr diagnostics over silent fallback.
 Python scripts should keep side effects behind `main()` style entrypoints,
 raise explicit exceptions for malformed upstream data, and use typed helpers.
 For scripts with inline dependencies, use the `uv run --script` metadata block
-pattern already used by `url-catalog-add.py`.
+pattern already used by `url-catalog-add.py`. Package updaters under
+`packages/*/update.py` instead use a `nix-shell` shebang
+(`#! nix-shell -i python3 --packages python3`) because Lix has no
+`#!/usr/bin/env nix` shebang. Add packages for commands invoked directly,
+such as `yq-go` in `packages/webcrack/update.py`.
 
 ## Validation Commands
 
