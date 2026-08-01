@@ -730,9 +730,10 @@ test_all_worktrees_processes_independent_repos() {
   assert_contains "${out}" "repo: ${other}$" all-worktrees
   assert_contains "${out}" 'would archive stash@\{0\}' all-worktrees
 
-  # Without --all-worktrees the root is not scanned at all.
+  # A --root that would never be scanned is a typo, not a preference.
   run_sut "${out}" "${repo}" --root "${trees}"
-  assert_status 0 "${out}" all-worktrees-off
+  assert_status 64 "${out}" all-worktrees-off
+  assert_contains "${out}" 'has no effect without --all-worktrees' all-worktrees-off
   assert_not_contains "${out}" "repo: ${other}$" all-worktrees-off
   pass
 }
@@ -769,6 +770,32 @@ test_root_is_repeatable_and_defaults_to_home_trees() {
   run_sut "${out}" "${repo}" --root
   assert_status 64 "${out}" multi-root-usage
   assert_contains "${out}" 'requires a value' multi-root-usage
+  pass
+}
+
+test_unusable_root_is_reported_not_expanded() {
+  local out
+  make_fixture bad-root
+  out="${tmpdir}/bad-root.out"
+
+  # An empty value makes `"$scan_root"/*/` expand to `/*/`, enumerating every
+  # top-level directory of the filesystem root and running git in each.
+  run_sut "${out}" "${repo}" --all-worktrees --root ""
+  assert_status 1 "${out}" bad-root-empty
+  assert_contains "${out}" 'root does not exist, skipping' bad-root-empty
+  [[ $(grep -c '^repo: ' "${out}") -eq 1 ]] ||
+    fail "bad-root-empty: an empty root expanded into a scan set" "${out}"
+
+  # A mistyped root matched nothing and reported a clean run over a tree that
+  # was never scanned.
+  run_sut "${out}" "${repo}" --all-worktrees --root "${tmpdir}/no-such-tree"
+  assert_status 1 "${out}" bad-root-missing
+  assert_contains "${out}" 'root does not exist, skipping' bad-root-missing
+
+  # The default root is allowed to be absent: a host may have no worktrees.
+  rm -rf "${HOME}/trees"
+  run_sut "${out}" "${repo}" --all-worktrees
+  assert_status 0 "${out}" bad-root-default
   pass
 }
 
@@ -830,6 +857,7 @@ test_non_date_archive_ref_is_not_swept
 test_linked_worktrees_share_one_stash_stack
 test_all_worktrees_processes_independent_repos
 test_root_is_repeatable_and_defaults_to_home_trees
+test_unusable_root_is_reported_not_expanded
 test_unreadable_repo_is_not_swept
 test_dry_run_writes_nothing_on_a_stale_snapshot
 

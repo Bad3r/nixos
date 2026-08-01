@@ -43,7 +43,10 @@ options:
                             Roots sharing a common git dir are processed
                             once: linked worktrees share one stash stack.
   --root <dir>              Repeatable. Directory scanned by
-                            --all-worktrees. Default: \$HOME/trees/nixos.
+                            --all-worktrees; a usage error without it.
+                            Default: \$HOME/trees/nixos. A named root that
+                            is missing is reported and counted as a
+                            failure.
   -h, --help                Print this help.
 
 Runs are serialized by a per-user lock; a second concurrent invocation exits
@@ -169,9 +172,32 @@ declare -a roots=()
 if toplevel=$(git rev-parse --show-toplevel 2>/dev/null); then
   roots+=("$toplevel")
 fi
+# A --root that is never scanned is a typo, not a preference: silently
+# ignoring it prunes only the current repository while the operator believes a
+# whole tree was covered.
+if [[ ${#scan_roots[@]} -gt 0 && $all_worktrees != true ]]; then
+  echo "${prog_name}: --root has no effect without --all-worktrees" >&2
+  exit 64
+fi
 if [[ $all_worktrees == true ]]; then
-  [[ ${#scan_roots[@]} -gt 0 ]] || scan_roots=("$HOME/trees/nixos")
+  roots_explicit=true
+  if [[ ${#scan_roots[@]} -eq 0 ]]; then
+    roots_explicit=false
+    scan_roots=("$HOME/trees/nixos")
+  fi
   for scan_root in "${scan_roots[@]}"; do
+    # An empty value makes the glob below expand to `/*/`, enumerating every
+    # top-level directory of the filesystem root; a mistyped one matches
+    # nothing and reports a clean run over a tree that was never scanned.
+    if [[ -z $scan_root || ! -d $scan_root ]]; then
+      echo "${prog_name}: root does not exist, skipping: ${scan_root}" >&2
+      # A root the operator named and misspelled belongs in the exit status.
+      # The default one simply may not exist on a host without worktrees.
+      if [[ $roots_explicit == true ]]; then
+        failures=$((failures + 1))
+      fi
+      continue
+    fi
     for dir in "$scan_root"/*/; do
       [[ -d $dir ]] || continue
       if wt_top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then

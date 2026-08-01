@@ -61,7 +61,10 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
   the current repository.
 - `--root <dir>`: repeatable; directory scanned by `--all-worktrees`. Defaults
   to `$HOME/trees/nixos`, matching `--root` in
-  `scripts/prune-stale-worktrees.sh`.
+  `scripts/prune-stale-worktrees.sh`. Without `--all-worktrees` it is a usage
+  error rather than a silent no-op. A named root that is empty or missing is
+  reported and counted as a failure; the default root is allowed to be absent,
+  since a host may have no worktrees.
 
 ## Exit Codes
 
