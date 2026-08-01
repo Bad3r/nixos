@@ -37,8 +37,17 @@ let
   encryptedRegexCount = builtins.length (
     lib.filter (line: lib.hasPrefix "    encrypted_regex: " line) policyLines
   );
+  # The recipient set decides who can decrypt, and a creation rule can be
+  # written with key_groups first or without path_regex at all. Pin every
+  # top-level list item and recipient entry, not only path-pattern lines.
+  keyAnchorLine = "  - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf";
+  hostRecipientLine = "          - *host_pub_key";
+  listItems = lib.filter (line: lib.hasPrefix "  - " line) policyLines;
+  recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyLines;
   policySynced =
     ruleCount == 4
+    && listItems == ([ keyAnchorLine ] ++ rulePatterns)
+    && recipientLines == lib.genList (_: hostRecipientLine) 4
     && lib.hasSuffix defaultRuleLine (lib.last rulePatterns)
     && lib.hasInfix actRuleBlock sopsPolicy
     && encryptedRegexCount == 1;
@@ -147,9 +156,9 @@ in
         # as modules/meta/ci-lix-parity.nix).
         if !policySynced then
           throw (
-            "sops-cleartext-check.nix policy mirror drifted from .sops.yaml (rule count, "
-            + "deny-by-default pattern, final-rule position, or act.yaml encrypted_regex "
-            + "attachment or uniqueness). A new "
+            "sops-cleartext-check.nix policy mirror drifted from .sops.yaml (recipient set, "
+            + "top-level rule-item shape, rule count, deny-by-default pattern, final-rule "
+            + "position, or act.yaml encrypted_regex attachment or uniqueness). A new "
             + "creation rule can narrow encryption via encrypted_regex or a different key group, "
             + "and this check cannot detect that from file content: review the rule against "
             + "modules/security/sops-policy.nix before raising ruleCount."
