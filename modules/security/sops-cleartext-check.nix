@@ -313,6 +313,38 @@ let
     lib.filter (fixture: hasSopsMarkers fixture.content != fixture.want) markerFixtures
   );
 
+  requiredIgnoreRules = [
+    "**/decrypted_*"
+    "*.dec.*"
+  ];
+  activeIgnoreRules =
+    content:
+    lib.filter (line: line != "" && !(lib.hasPrefix "#" line)) (
+      map (line: lib.removeSuffix "\r" line) (lib.splitString "\n" content)
+    );
+  missingIgnoreRulesFor =
+    content: lib.filter (rule: !(lib.elem rule (activeIgnoreRules content))) requiredIgnoreRules;
+  ignoreRuleFixtures = [
+    {
+      name = "active-ignore-rules";
+      content = "**/decrypted_*\n*.dec.*\n";
+      want = [ ];
+    }
+    {
+      name = "commented-ignore-rule";
+      content = "# **/decrypted_*\n*.dec.*\n";
+      want = [ "**/decrypted_*" ];
+    }
+    {
+      name = "negated-ignore-rule";
+      content = "**/decrypted_*\n!*.dec.*\n";
+      want = [ "*.dec.*" ];
+    }
+  ];
+  ignoreRuleDrift = map (fixture: fixture.name) (
+    lib.filter (fixture: missingIgnoreRulesFor fixture.content != fixture.want) ignoreRuleFixtures
+  );
+
   isCleartext =
     path:
     let
@@ -345,14 +377,7 @@ let
       builtins.readFile submoduleIgnorePath
     else
       "";
-  missingIgnoreRules =
-    if secretsPresent then
-      lib.filter (rule: !(lib.hasInfix rule submoduleIgnore)) [
-        "**/decrypted_*"
-        "*.dec.*"
-      ]
-    else
-      [ ];
+  missingIgnoreRules = if secretsPresent then missingIgnoreRulesFor submoduleIgnore else [ ];
   cleartext = lib.filter isCleartext (lib.filter mustBeEncrypted secretsFiles);
   encryptedTemplates = lib.filter (
     path: lib.hasSuffix ".example" path && !(isCleartext path)
@@ -377,6 +402,12 @@ in
             "sops-cleartext-check.nix mustBeEncrypted classified these paths against "
             + "the documented exemption boundary: "
             + lib.concatStringsSep ", " exemptionDrift
+          )
+        else if ignoreRuleDrift != [ ] then
+          throw (
+            "sops-cleartext-check.nix did not enforce active submodule ignore rules "
+            + "for these fixtures: "
+            + lib.concatStringsSep ", " ignoreRuleDrift
           )
         else if markerDrift != [ ] then
           throw (
