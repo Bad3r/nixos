@@ -370,10 +370,17 @@ let
     "**/decrypted_*"
     "*.dec.*"
   ];
+  normalizeIgnoreRule =
+    line:
+    let
+      withoutCarriageReturn = lib.removeSuffix "\r" line;
+      trimmed = builtins.head (builtins.match "(.*[^[:space:]]|)[[:space:]]*" withoutCarriageReturn);
+    in
+    if lib.hasSuffix "\\" trimmed then withoutCarriageReturn else trimmed;
   activeIgnoreRules =
     content:
     lib.filter (line: line != "" && !(lib.hasPrefix "#" line)) (
-      map (line: lib.removeSuffix "\r" line) (lib.splitString "\n" content)
+      map normalizeIgnoreRule (lib.splitString "\n" content)
     );
   hasActiveIgnoreNegation =
     content: lib.any (line: lib.hasPrefix "!" line) (activeIgnoreRules content);
@@ -413,6 +420,18 @@ let
         "*.dec.*"
       ];
       hasNegation = true;
+    }
+    {
+      name = "trailing-whitespace-ignore-rules";
+      content = "**/decrypted_*" + "  \n" + "*.dec.*" + " \n";
+      want = [ ];
+      hasNegation = false;
+    }
+    {
+      name = "escaped-trailing-space-ignore-rule";
+      content = "**/decrypted_*" + "\\ " + "\n*.dec.*\n";
+      want = [ "**/decrypted_*" ];
+      hasNegation = false;
     }
   ];
   ignoreRuleDrift = map (fixture: fixture.name) (
