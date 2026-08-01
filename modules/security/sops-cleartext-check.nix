@@ -29,16 +29,19 @@ let
   defaultRuleLine = "- path_regex: secrets/.*";
   # act.yaml is the only rule that leaves selected fields cleartext inside an
   # otherwise encrypted file. A SOPS footer cannot detect field-level drift.
-  actEncryptedRegexLine = ''encrypted_regex: "^(github_token)$"'';
+  actRuleBlock = "- path_regex: secrets/act\\.yaml\n    encrypted_regex: \"^(github_token)$\"\n";
   sopsPolicy = builtins.readFile ../../.sops.yaml;
-  rulePatterns = lib.filter (line: lib.hasInfix "- path_regex:" line) (
-    lib.splitString "\n" sopsPolicy
-  );
+  policyLines = lib.splitString "\n" sopsPolicy;
+  rulePatterns = lib.filter (line: lib.hasInfix "- path_regex:" line) policyLines;
   ruleCount = builtins.length rulePatterns;
+  encryptedRegexCount = builtins.length (
+    lib.filter (line: lib.hasInfix "encrypted_regex:" line) policyLines
+  );
   policySynced =
     ruleCount == 4
     && lib.hasSuffix defaultRuleLine (lib.last rulePatterns)
-    && lib.hasInfix actEncryptedRegexLine sopsPolicy;
+    && lib.hasInfix actRuleBlock sopsPolicy
+    && encryptedRegexCount == 1;
 
   listFiles =
     dir: prefix:
@@ -72,7 +75,7 @@ let
     in
     !(lib.hasSuffix ".example" path)
     && !(lib.hasPrefix "decrypted_" base)
-    && !(lib.hasInfix ".dec." base || (!(lib.hasInfix "/" path) && lib.hasInfix ".dec" base))
+    && !(lib.hasInfix ".dec." base)
     && !(lib.any (part: lib.elem part gitMetadataNames) (lib.splitString "/" path));
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
@@ -123,7 +126,8 @@ in
         if !policySynced then
           throw (
             "sops-cleartext-check.nix policy mirror drifted from .sops.yaml (rule count, "
-            + "deny-by-default pattern, final-rule position, or act.yaml encrypted_regex). A new "
+            + "deny-by-default pattern, final-rule position, or act.yaml encrypted_regex "
+            + "attachment or uniqueness). A new "
             + "creation rule can narrow encryption via encrypted_regex or a different key group, "
             + "and this check cannot detect that from file content: review the rule against "
             + "modules/security/sops-policy.nix before raising ruleCount."
@@ -137,7 +141,7 @@ in
             "secrets/ contains cleartext files matched by .sops.yaml creation_rules: "
             + lib.concatStringsSep ", " cleartext
             + ". Encrypt them, rename them to a *.example template, or rename a "
-            + "local decryption artifact to a top-level *.dec* or nested *.dec.* path."
+            + "local decryption artifact to a decrypted_* or nested *.dec.* path."
           )
         else
           pkgs.runCommandLocal "secrets-no-cleartext-ok" { } ''
