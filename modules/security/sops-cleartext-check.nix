@@ -192,14 +192,20 @@ let
 
   # Anchor on SOPS MAC footer fields and the configured recipient, not bare
   # cipher tokens. Prose can quote a footer without carrying policy metadata.
+  # Bound the INI regex input because splitString only bounds records, not the
+  # size of an individual line.
   hasIniMacMarker =
     s:
     let
       lines = lib.splitString "\n" s;
+      iniLineProbeSize = 512;
     in
     lib.elem "[sops]" lines
     && lib.any (
-      line: builtins.match "[[:space:]]*mac[[:space:]]*=[[:space:]]*ENC\\[AES256_GCM,.*" line != null
+      line:
+      builtins.match "[[:space:]]*mac[[:space:]]*=[[:space:]]*ENC\\[AES256_GCM,.*" (
+        builtins.substring 0 iniLineProbeSize line
+      ) != null
     ) lines;
 
   macNeedles = [
@@ -249,6 +255,11 @@ let
         + hostPubKey
         + "\n";
       want = true;
+    }
+    {
+      name = "ini-long-line-without-mac";
+      content = "[sops]\n" + lib.concatStrings (lib.genList (_: "x") 1048576);
+      want = false;
     }
     {
       name = "quoted-footer-without-recipient";
