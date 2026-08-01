@@ -227,6 +227,9 @@ test_invalid_duration_is_a_usage_error() {
 
   run_sut "${out}" "${repo}" --archive-retention 999999999999999
   assert_status 64 "${out}" bad-retention-overflow
+  # Pinned by message: the no-sweep guard also exits 64, so the status alone
+  # cannot show the duration bound is what rejected this.
+  assert_contains "${out}" "invalid duration '999999999999999'" bad-retention-overflow
 
   # The bound is on digits, not magnitude of intent: 6 digits still parse.
   run_sut "${out}" "${repo}" --age 999999
@@ -1003,6 +1006,10 @@ test_root_is_repeatable_and_defaults_to_home_trees() {
 
   run_sut "${out}" "${repo}" --archive-retention=999999999999999
   assert_status 64 "${out}" multi-root-retention-equals
+  # Three paths reach exit 64 here: the duration bound, the no-sweep guard, and
+  # the unknown-argument fallthrough a missing --archive-retention=* arm would
+  # take. Only the message distinguishes them.
+  assert_contains "${out}" "invalid duration '999999999999999'" multi-root-retention-equals
 
   run_sut "${out}" "${repo}" --age=010
   assert_status 0 "${out}" multi-root-age-equals-ok
