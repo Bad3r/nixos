@@ -48,7 +48,7 @@ run_sut() {
   out="$1"
   err="$2"
   shift 2
-  if "${fixture_root}/scripts/run-packages-updaters.sh" "$@" >"${out}" 2>"${err}"; then
+  if (cd "${tmpdir}" && "${fixture_root}/scripts/run-packages-updaters.sh" "$@") >"${out}" 2>"${err}"; then
     sut_status=0
   else
     sut_status=$?

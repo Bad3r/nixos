@@ -17,9 +17,9 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   CppNix-only `nix hash convert`.
 - `prune-stale-worktrees.sh`: prunes branches with gone upstreams and their
   worktrees; wrapped by the `worktree-prune` Home Manager timer. Tests live in
-  `tests/prune-stale-worktrees/run.sh`; see `docs/reference/worktree-prune.md`.
+  `./tests/prune-stale-worktrees/run.sh`; see `./docs/reference/worktree-prune.md`.
 - `run-packages-updaters.sh`: runs package updaters from the repository root;
-  fixture coverage lives in `../tests/run-packages-updaters/run.sh`.
+  fixture coverage lives in `./tests/run-packages-updaters/run.sh`.
 - Top-level scripts are task-specific entrypoints. Keep them runnable from the
   repository root and avoid hidden dependencies on the current shell session.
 
