@@ -698,6 +698,16 @@ SHIM
   assert_contains "${out}" 'would archive stash@\{1\}' bad-entry
   assert_not_contains "${out}" 'would archive stash@\{0\}' bad-entry
   assert_stash_count "${repo}" 3 bad-entry
+
+  # A listing this run could not fully interpret is the same failure state as
+  # one it could not read, so the sweep must be suppressed for it too.
+  git -C "${repo}" update-ref refs/stash-archive/2020-01-01/aaaaaaaaaaaa HEAD
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply --sweep-archive
+  assert_status 1 "${out}" bad-entry-sweep
+  assert_contains "${out}" 'ERROR: unparsable stash list entry' bad-entry-sweep
+  assert_not_contains "${out}" 'deleted archive ref' bad-entry-sweep
+  git -C "${repo}" show-ref --verify --quiet refs/stash-archive/2020-01-01/aaaaaaaaaaaa ||
+    fail "bad-entry-sweep: the stale archive ref was expired despite a garbled listing"
   pass
 }
 
@@ -869,6 +879,43 @@ test_broken_checkout_under_a_root_is_reported() {
   assert_contains "${out}" 'broken checkout, skipping' broken-only
   assert_not_contains "${out}" 'no checkouts directly under root' broken-only
   assert_contains "${out}" '1 failure\(s\)' broken-only
+
+  # Corruption is counted under the default root too, unlike a missing or
+  # empty root, which the default is exempt from.
+  rm -rf "${HOME}/trees"
+  mkdir -p "${HOME}/trees/nixos/broken"
+  printf 'gitdir: %s\n' "${tmpdir}/no-such-gitdir" >"${HOME}/trees/nixos/broken/.git"
+  run_sut "${out}" "${repo}" --all-worktrees
+  assert_status 1 "${out}" broken-default-root
+  assert_contains "${out}" 'broken checkout, skipping' broken-default-root
+  pass
+}
+
+test_corruption_is_not_reported_as_a_usage_error() {
+  local out scan outside
+  make_fixture usage-vs-failure
+  scan="${tmpdir}/all-broken-scan"
+  mkdir -p "${scan}/broken"
+  printf 'gitdir: %s\n' "${tmpdir}/no-such-gitdir" >"${scan}/broken/.git"
+  outside="${tmpdir}/not-a-repo"
+  mkdir -p "${outside}"
+  out="${tmpdir}/usage-vs-failure.out"
+
+  # Run from outside any repository, so `roots` ends up empty and the
+  # no-repositories branch is reached with failures already counted. Exiting 64
+  # there would report corruption inside the tree as a bad invocation and
+  # discard the failure count.
+  run_sut "${out}" "${outside}" --all-worktrees --root "${scan}"
+  assert_status 1 "${out}" usage-vs-failure
+  assert_contains "${out}" 'broken checkout, skipping' usage-vs-failure
+  assert_contains "${out}" '1 failure\(s\)' usage-vs-failure
+
+  # With nothing wrong, the same branch is still a usage error.
+  rm -rf "${scan}"
+  mkdir -p "${scan}"
+  run_sut "${out}" "${outside}" --all-worktrees --root "${scan}"
+  assert_status 1 "${out}" usage-vs-failure-empty
+  assert_contains "${out}" 'no checkouts directly under root' usage-vs-failure-empty
   pass
 }
 
@@ -1006,6 +1053,7 @@ test_root_is_repeatable_and_defaults_to_home_trees
 test_unusable_root_is_reported_not_expanded
 test_non_checkout_under_a_root_is_not_resolved_upward
 test_root_without_checkouts_is_reported
+test_corruption_is_not_reported_as_a_usage_error
 test_broken_checkout_under_a_root_is_reported
 test_invalid_git_dir_does_not_resolve_upward
 test_unreadable_repo_is_not_swept

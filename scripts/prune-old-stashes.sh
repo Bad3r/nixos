@@ -64,10 +64,10 @@ exit codes:
   1   the run did not complete everything it selected. Causes: an archive
       write, drop, or archive-ref deletion failed; a selected stash moved or
       vanished before its drop; a stash-list entry was unparsable; the stash
-      list or the archive refs could not be read; a named --root is missing,
-      contains no checkouts, or holds a broken checkout or a directory that
-      is not the root of the repository it resolves to; another instance
-      holds the run lock
+      list or the archive refs could not be read; a named --root is missing
+      or contains no checkouts; any scanned root, including the default one,
+      holds a broken checkout or a directory that is not the root of the
+      repository it resolves to; another instance holds the run lock
   64  usage error
 EOF
 }
@@ -261,6 +261,13 @@ if [[ $all_worktrees == true ]]; then
 fi
 if [[ ${#roots[@]} -eq 0 ]]; then
   echo "${prog_name}: not inside a git repository and no repositories found under the scanned roots" >&2
+  # Entries already reported as broken or misrooted are corruption inside an
+  # existing tree, not a usage error, and exiting 64 here would also discard
+  # the failure count the summary below would have printed.
+  if ((failures > 0)); then
+    echo "${prog_name}: ${failures} failure(s)" >&2
+    exit 1
+  fi
   exit 64
 fi
 
@@ -296,7 +303,7 @@ locate_stash_index() {
 prune_repo() {
   local repo=$1
   local -a positions=() shas=() ctimes=() subjects=()
-  local listing gd ct sha subject idx pos=0 stack_unreadable=false
+  local listing gd ct sha subject idx pos=0 listing_unusable=false
 
   echo "repo: ${repo}"
 
@@ -321,6 +328,9 @@ prune_repo() {
       if [[ ! $ct =~ ^[0-9]+$ || ! $sha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
         echo "  ERROR: unparsable stash list entry: ${gd}" >&2
         failures=$((failures + 1))
+        # A listing this run could not fully interpret is the same failure
+        # state as one it could not read: its archive refs must not be expired.
+        listing_unusable=true
         # A rejected entry still occupies a stack slot, so the counter has to
         # advance or every position below it is reported one too low.
         pos=$((pos + 1))
@@ -339,6 +349,9 @@ prune_repo() {
   local count=${#shas[@]}
   if ((count == 0)); then
     echo "  no stashes older than ${age_days}d"
+    if [[ $listing_unusable == true ]]; then
+      return 1
+    fi
     return 0
   fi
 
@@ -367,7 +380,7 @@ prune_repo() {
     if ((rc == 2)); then
       echo "  ERROR: cannot re-read the stash list of ${repo}; not dropping ${sha}" >&2
       failures=$((failures + 1))
-      stack_unreadable=true
+      listing_unusable=true
       continue
     elif ((rc != 0)); then
       echo "  ERROR: ${sha} is no longer in the stash stack of ${repo}; skipping its drop" >&2
@@ -399,10 +412,10 @@ prune_repo() {
     echo "  dropped stash@{${idx}} (recover: git stash apply ${ref})"
     dropped=$((dropped + 1))
   done
-  # Same failure state as the initial listing: a repository whose stash list
-  # this run could not read must not have its archive refs expired, since they
-  # are the only copies of stashes already dropped there.
-  if [[ $stack_unreadable == true ]]; then
+  # A repository whose stash list this run could not read, or could not fully
+  # interpret, must not have its archive refs expired: they are the only
+  # copies of stashes already dropped there.
+  if [[ $listing_unusable == true ]]; then
     return 1
   fi
   return 0
