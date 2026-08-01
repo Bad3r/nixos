@@ -1,16 +1,16 @@
 ---
 name: Dendritic Pattern Compliance Check
 "on":
+  # The flake checks carry eval-time guards that fail only when something
+  # forces checks.<system>: cache-roots-allowlist-disjoint and
+  # bootstrap-substituter-parity. On dispatch alone they enforce nothing at
+  # review time, which is when the drift they catch is introduced.
   pull_request:
   push:
     branches:
       - main
   workflow_dispatch:
 concurrency:
-  # The flake checks carry eval-time guards that fail only when something
-  # forces checks.<system>: cache-roots-allowlist-disjoint and
-  # bootstrap-substituter-parity. On dispatch alone they enforce nothing at
-  # review time, which is when the drift they catch is introduced.
   # Two of these jobs install Lix and run a full flake evaluation, so a
   # superseded run is pure waste. cache-push.yml opts out because its long
   # builds are worth preserving; nothing here builds.
