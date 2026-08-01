@@ -99,6 +99,15 @@
           block = "time";
           interval = 60;
           format = " $icon $timestamp.datetime(f:'%a %d/%m %R') ";
+          click = [
+            {
+              button = "left";
+              # gsimplecal-dropdown (config.nix) toggles the calendar, positions
+              # it flush under the clock, and auto-closes it after the pointer
+              # leaves (gui.i3.calendarAutocloseSeconds).
+              cmd = "gsimplecal-dropdown";
+            }
+          ];
         }
       ];
 

@@ -1,5 +1,19 @@
-_: {
+{ lib, ... }:
+let
+  sshStripKeyComment =
+    key:
+    let
+      parts = builtins.filter (s: s != "") (lib.splitString " " key);
+    in
+    if (builtins.length parts) >= 2 then
+      "${builtins.elemAt parts 0} ${builtins.elemAt parts 1}"
+    else
+      key;
+in
+{
   flake = {
+    lib.nixos.sshStripKeyComment = sshStripKeyComment;
+
     nixosModules.ssh =
       {
         lib,
@@ -41,20 +55,11 @@ _: {
               domain = config.networking.domain or "";
               fqdn = lib.optional (domain != "") "${host}.${domain}";
               hostNames = lib.unique ([ host ] ++ fqdn);
-              stripComment =
-                key:
-                let
-                  parts = builtins.filter (s: s != "") (lib.splitString " " key);
-                in
-                if (builtins.length parts) >= 2 then
-                  "${builtins.elemAt parts 0} ${builtins.elemAt parts 1}"
-                else
-                  key;
             in
             lib.optionalAttrs (host != "") {
               "${host}" = {
                 inherit hostNames;
-                publicKey = stripComment config.services.openssh.publicKey;
+                publicKey = sshStripKeyComment config.services.openssh.publicKey;
               };
             }
           );

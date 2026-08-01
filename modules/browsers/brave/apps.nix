@@ -32,6 +32,10 @@ let
     let
       cfg = config.programs.brave.extended;
 
+      # Kagi default search provider, shared verbatim with google-chrome and
+      # ungoogled-chromium so every Chromium-family browser stays symmetric.
+      inherit (import ../_chromium-policies.nix) managedDefaultSearchProvider;
+
       defaultManagedPolicies = {
         # Brave product features and promotions.
         BraveAIChatEnabled = false;
@@ -155,7 +159,8 @@ let
         # Disable online spellcheck/translate services.
         SpellCheckServiceEnabled = false;
         TranslateEnabled = false;
-      };
+      }
+      // managedDefaultSearchProvider;
     in
     {
       options.programs.brave.extended = {

@@ -35,6 +35,29 @@ let
           default = true;
           description = "Whether the i3 power-profile launcher may switch away from the enforced host profile.";
         };
+
+        # Display geometry hints consumed by the Home Manager i3 config via
+        # osConfig (window-positioning math and the calendar dropdown offset).
+        screenWidth = lib.mkOption {
+          type = lib.types.int;
+          default = 2560;
+          description = "Primary screen width in pixels for i3 window-positioning math.";
+          example = 1920;
+        };
+
+        screenHeight = lib.mkOption {
+          type = lib.types.int;
+          default = 1440;
+          description = "Primary screen height in pixels for i3 window-positioning math.";
+          example = 1080;
+        };
+
+        barHeight = lib.mkOption {
+          type = lib.types.nullOr lib.types.int;
+          default = null;
+          description = "Rendered i3bar height in pixels. null lets the Home Manager i3 config derive it from fontSize and borderWidth.";
+          example = 24;
+        };
       };
 
       config = {

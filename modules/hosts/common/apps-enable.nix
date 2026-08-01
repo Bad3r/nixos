@@ -101,7 +101,7 @@ let
       codegraph.extended.enable = lib.mkOverride 1100 true;
       "coderabbit-cli".extended.enable = lib.mkOverride 1100 true;
       codex.extended.enable = lib.mkOverride 1100 true;
-      "codex-desktop".extended.enable = lib.mkOverride 1100 true;
+      "codex-desktop".extended.enable = lib.mkOverride 1100 false;
       coreutils.extended.enable = lib.mkOverride 1100 true;
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
       cpc.extended.enable = lib.mkOverride 1100 true;
@@ -241,9 +241,9 @@ let
       localsend.extended.enable = lib.mkOverride 1100 true;
       # TODO: Test with disableGpuCompositing = false after future NVIDIA driver updates
       # Workaround for blank window with NVIDIA 580.x + PRIME sync (2026-01)
-      logseq.extended.enable = lib.mkOverride 1100 true;
-      logseq.extended.disableGpuCompositing = lib.mkOverride 1100 true;
-      "logseq-cli".extended.enable = lib.mkOverride 1100 true;
+      logseq.extended.enable = lib.mkOverride 1100 false;
+      logseq.extended.disableGpuCompositing = lib.mkOverride 1100 false;
+      "logseq-cli".extended.enable = lib.mkOverride 1100 false;
       lshw.extended.enable = lib.mkOverride 1100 true;
       lsof.extended.enable = lib.mkOverride 1100 true;
       ltrace.extended.enable = lib.mkOverride 1100 true;
@@ -265,7 +265,7 @@ let
       "media-toolchain".extended.enable = lib.mkOverride 1100 true;
       metasploit.extended.enable = lib.mkOverride 1100 true;
       "minio-client".extended.enable = lib.mkOverride 1100 true;
-      mitmproxy.extended.enable = lib.mkOverride 1100 true;
+      mitmproxy.extended.enable = lib.mkOverride 1100 false;
       mkcert.extended.enable = lib.mkOverride 1100 true;
       mlr.extended.enable = lib.mkOverride 1100 true;
       "monitor-query".extended.enable = lib.mkOverride 1100 false;
@@ -343,6 +343,7 @@ let
       pnpm.extended.enable = lib.mkOverride 1100 true;
       "poppler-utils".extended.enable = lib.mkOverride 1100 true;
       potrace.extended.enable = lib.mkOverride 1100 true;
+      powershell.extended.enable = lib.mkOverride 1100 true;
       "pre-commit".extended.enable = lib.mkOverride 1100 true;
       "prefetch-yarn-deps".extended.enable = lib.mkOverride 1100 true;
       procps.extended.enable = lib.mkOverride 1100 true;

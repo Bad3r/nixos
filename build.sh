@@ -315,7 +315,18 @@ configure_nix_config() {
   append_nix_config_line "allow-import-from-derivation = true"
   append_nix_config_line "abort-on-warn = false"
 
-  append_nix_config_line "access-tokens = github.com=$(gh auth token)"
+  # Append the token line only when a non-empty token is obtained. An empty
+  # value still sends an Authorization header that GitHub rejects with 401,
+  # so anonymous access must mean no access-tokens line at all.
+  local github_token=""
+  if command -v gh >/dev/null 2>&1; then
+    github_token="$(gh auth token 2>/dev/null)" || github_token=""
+  fi
+  if [[ -n ${github_token} ]]; then
+    append_nix_config_line "access-tokens = github.com=${github_token}"
+  else
+    status_msg "${YELLOW}" "No GitHub token from 'gh auth token'; github: inputs fetch anonymously."
+  fi
 
   append_nix_config_line "warn-dirty = false"
   append_nix_config_line "download-attempts = 3"
@@ -351,25 +362,27 @@ ensure_clean_git_tree() {
   if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
     return 0
   fi
-  if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  # Scope every git call to FLAKE_DIR: the guard protects the flake being
+  # built, not whatever repository the current directory happens to be in.
+  if command -v git >/dev/null 2>&1 && git -C "${FLAKE_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     # Refresh the index and detect any changes (staged, unstaged, untracked)
-    git update-index -q --refresh || true
-    if ! git diff --quiet --ignore-submodules=dirty -- .; then
+    git -C "${FLAKE_DIR}" update-index -q --refresh || true
+    if ! git -C "${FLAKE_DIR}" diff --quiet --ignore-submodules=dirty -- .; then
       error_msg "Git worktree has unstaged changes. Commit or stash before building."
-      git status --porcelain=v1 | sed -n '1,50p' >&2 || true
+      git -C "${FLAKE_DIR}" status --porcelain=v1 | sed -n '1,50p' >&2 || true
       printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
       exit 2
     fi
-    if ! git diff --cached --quiet --ignore-submodules=dirty -- .; then
+    if ! git -C "${FLAKE_DIR}" diff --cached --quiet --ignore-submodules=dirty -- .; then
       error_msg "Git index has staged but uncommitted changes. Commit or stash before building."
-      git status --porcelain=v1 | sed -n '1,50p' >&2 || true
+      git -C "${FLAKE_DIR}" status --porcelain=v1 | sed -n '1,50p' >&2 || true
       printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
       exit 2
     fi
     # Consider untracked files as dirty to ensure reproducibility
-    if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+    if [[ -n "$(git -C "${FLAKE_DIR}" ls-files --others --exclude-standard)" ]]; then
       error_msg "Untracked files present in the worktree. Commit, .gitignore, or remove them before building."
-      git ls-files --others --exclude-standard | sed -n '1,50p' >&2 || true
+      git -C "${FLAKE_DIR}" ls-files --others --exclude-standard | sed -n '1,50p' >&2 || true
       printf "Use --allow-dirty or ALLOW_DIRTY=1 to override.\n" >&2
       exit 2
     fi
