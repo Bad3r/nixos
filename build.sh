@@ -63,7 +63,8 @@ Options:
       --keep-going       Continue building despite failures
       --repair           Repair corrupted store paths during build
       --fallback         Build from source if binary substitutes fail
-      --bootstrap        Use extra substituters for first build
+      --bootstrap        Replace the substituter list with the bootstrap
+                         caches for a first build
       --cache-coverage   Fail before deploying when the target host closure
                          has unexpected local source builds
                          (scripts/cache-coverage.sh)

@@ -11,7 +11,7 @@ concurrency:
   # Two of these jobs install Lix and run a full flake evaluation, so a
   # superseded run is pure waste. cache-push.yml opts out because its long
   # builds are worth preserving; nothing here builds.
-  group: check-${{ github.event.pull_request.number || github.ref }}
+  group: check-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   # No job here writes. The trigger above mints this token for every pull
@@ -38,6 +38,11 @@ jobs:
 
   check-compliance:
     runs-on: ubuntu-latest
+    # Installs Lix and evaluates the whole flake. Nothing on the runner
+    # sets stalled-download-timeout, so a stuck substituter fetch would
+    # otherwise hold a runner and this concurrency slot for the 6 hour
+    # job default.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5.0.0
         with:
@@ -92,6 +97,7 @@ jobs:
 
   format-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5.0.0
         with:
