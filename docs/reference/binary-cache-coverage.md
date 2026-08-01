@@ -205,8 +205,13 @@ Completed 2026-07-17:
    `BOOTSTRAP_TRUSTED_KEYS`. That path writes `substituters =`, replacing the
    list rather than extending it, so a cache missing there is unreachable for
    the bootstrap build that runs before the host module is active: exactly the
-   fresh machine that has nothing in its store. Keep both lists in step with
-   the module.
+   fresh machine that has nothing in its store. The
+   `bootstrap-substituter-parity` check keeps the two in step: it parses both
+   arrays out of `build.sh` and aborts evaluation when a substituter or key the
+   primary host trusts is missing from them. The comparison is directional, so
+   the region mirrors and the caches app modules append through
+   `extra-substituters` do not trip it, and an empty parse fails rather than
+   comparing nothing.
 
 Confirmed operating as of 2026-07-31: `cache-push.yml` reaches the "Push
 closure to Cachix" step with a `success` conclusion on merges to `main`, and
