@@ -6,6 +6,12 @@
 # window. `git stash clear` is never used; every drop is per-stash.
 set -Eeuo pipefail
 export LC_ALL=C
+# `git -C <dir>` changes directory but does not override these: with any of them
+# exported, as a git hook or `git rebase --exec` does, every `git -C "$repo"`
+# below would read and drop stashes from that repository while the report names
+# another, and --all-worktrees would collapse to it because every root hashes to
+# the same dedup key.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_NAMESPACE
 
 prog_name="${0##*/}"
 
@@ -274,7 +280,16 @@ fi
 declare -A seen_common=()
 declare -a repos=()
 for root in "${roots[@]}"; do
-  common=$(cd "$root" && cd "$(git rev-parse --git-common-dir)" && pwd -P)
+  # The only git read whose status must not be dropped silently: it decides
+  # which repositories are pruned. An unchecked failure yields an empty word,
+  # `cd ""` stays put, and the key degrades to the worktree path, so two linked
+  # worktrees of one stack would be processed as separate repositories.
+  if ! common_dir=$(git -C "$root" rev-parse --git-common-dir) ||
+    ! common=$(cd "$root" && cd "$common_dir" && pwd -P); then
+    echo "${prog_name}: cannot resolve the common git dir of ${root}; skipping it" >&2
+    failures=$((failures + 1))
+    continue
+  fi
   [[ -n ${seen_common[$common]:-} ]] && continue
   seen_common[$common]=1
   repos+=("$root")

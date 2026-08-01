@@ -1011,6 +1011,31 @@ test_unreadable_repo_is_not_swept() {
   pass
 }
 
+test_exported_git_dir_does_not_redirect_the_run() {
+  local out victim
+  make_fixture git-dir-target
+  victim="${tmpdir}/git-dir-victim"
+  git init -q -b main "${victim}"
+  init_repo_config "${victim}"
+  printf '%s\n' base >"${victim}/f"
+  git -C "${victim}" add f
+  git -C "${victim}" commit -q -m "initial commit"
+  push_stash "${victim}" victim-stash 30
+  out="${tmpdir}/git-dir.out"
+
+  # `git -C <dir>` does not override GIT_DIR/GIT_WORK_TREE, so every git call
+  # would resolve to the victim while the report names the repository the
+  # operator is actually in.
+  GIT_DIR="${victim}/.git" GIT_WORK_TREE="${victim}" \
+    run_sut "${out}" "${repo}" --apply
+  assert_status 0 "${out}" git-dir
+  assert_not_contains "${out}" 'victim-stash' git-dir
+  assert_not_contains "${out}" "repo: ${victim}$" git-dir
+  assert_stash_count "${victim}" 1 git-dir
+  assert_archive_count "${victim}" 0 git-dir
+  pass
+}
+
 test_dry_run_writes_nothing_on_a_stale_snapshot() {
   local out before
   make_fixture dry-run-pure
@@ -1058,5 +1083,6 @@ test_broken_checkout_under_a_root_is_reported
 test_invalid_git_dir_does_not_resolve_upward
 test_unreadable_repo_is_not_swept
 test_dry_run_writes_nothing_on_a_stale_snapshot
+test_exported_git_dir_does_not_redirect_the_run
 
 printf '%d passed\n' "${tests_passed}"
