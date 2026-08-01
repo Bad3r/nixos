@@ -66,7 +66,7 @@ let
     in
     !(lib.hasSuffix ".example" path)
     && !(lib.hasPrefix "decrypted_" base)
-    && !(lib.hasInfix ".dec." base)
+    && !(lib.hasInfix ".dec" base)
     && !(lib.any (part: lib.elem part gitMetadataNames) (lib.splitString "/" path));
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
@@ -129,7 +129,7 @@ in
             "secrets/ contains cleartext files matched by .sops.yaml creation_rules: "
             + lib.concatStringsSep ", " cleartext
             + ". Encrypt them, rename them to a *.example template, or rename a "
-            + "local decryption artifact to decrypted_* or *.dec.*."
+            + "local decryption artifact to decrypted_* or *.dec*."
           )
         else
           pkgs.runCommandLocal "secrets-no-cleartext-ok" { } ''
