@@ -85,8 +85,14 @@ let
     "git stash clear"
     "git stash pop"
     "prune-old-stashes"
+    # Every spelling, mirroring the codex prompt rules: --accept-flake-config
+    # is accepted on either side of the subcommand and path:. is required only
+    # from a linked worktree, so an uncovered form would not be forced to ask.
+    "nix develop -c prune-old-stashes"
     "nix develop path:. -c prune-old-stashes"
+    "nix develop --accept-flake-config -c prune-old-stashes"
     "nix develop --accept-flake-config path:. -c prune-old-stashes"
+    "nix --accept-flake-config develop -c prune-old-stashes"
     "nix --accept-flake-config develop path:. -c prune-old-stashes"
     "git branch -d"
     "git branch -D"

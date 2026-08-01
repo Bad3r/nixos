@@ -186,42 +186,56 @@ let
       # `max()` over every matching rule (Allow < Prompt < Forbidden in
       # codex-rs/execpolicy/src/decision.rs), so these win over that allow
       # regardless of rule order.
-      promptedStashHelperRules =
-        map
-          (pattern: {
-            inherit pattern;
-            decision = "prompt";
-            justification = "Drops stashes, archive-first but still destructive; ask before running.";
-          })
-          [
-            [ "prune-old-stashes" ]
+      # Enumerated rather than written out, because every spelling the operator
+      # or an agent might type has to be covered: an uncovered one matches only
+      # the `nix develop` allow and runs unprompted. `--accept-flake-config` is
+      # accepted on either side of the subcommand, and `path:.` is required
+      # only from a linked worktree.
+      stashHelperInvocations = [
+        [ "prune-old-stashes" ]
+      ]
+      ++ (
+        let
+          nixPrefixes = [
             [
               "nix"
               "develop"
-              "path:."
-              "-c"
-              "prune-old-stashes"
             ]
             [
               "nix"
               "--accept-flake-config"
               "develop"
-              "path:."
-              "-c"
-              "prune-old-stashes"
             ]
-            # The flag can follow the subcommand too, and that is the order
-            # this repo's docs use for the sibling dev-shell command.
-            # Uncovered it matches only the plain `nix develop` allow.
             [
               "nix"
               "develop"
               "--accept-flake-config"
-              "path:."
-              "-c"
-              "prune-old-stashes"
             ]
           ];
+          installables = [
+            [ "path:." ]
+            [ ]
+          ];
+        in
+        lib.concatMap (
+          prefix:
+          map (
+            installable:
+            prefix
+            ++ installable
+            ++ [
+              "-c"
+              "prune-old-stashes"
+            ]
+          ) installables
+        ) nixPrefixes
+      );
+
+      promptedStashHelperRules = map (pattern: {
+        inherit pattern;
+        decision = "prompt";
+        justification = "Drops stashes, archive-first but still destructive; ask before running.";
+      }) stashHelperInvocations;
 
       promptedGitRules = [
         {
