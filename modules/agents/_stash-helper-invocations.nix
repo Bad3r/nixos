@@ -72,25 +72,14 @@ let
     "path:.#prune-old-stashes"
   ];
 
-  viaPackage = builtins.concatMap (
-    prefix:
-    builtins.concatMap
-      (
-        subcommand:
-        map (
-          installable:
-          prefix
-          ++ [
-            subcommand
-            installable
-          ]
-        ) packageInstallables
-      )
-      [
-        "run"
-        "shell"
-      ]
-  ) nixBases;
+  # Flags sit between the subcommand and the installable here for the same
+  # reason they do between `develop` and the command flag: nix accepts them
+  # anywhere after the subcommand, and nixBases covers only the position
+  # before it.
+  packageMiddles = arrangements [
+    "--accept-flake-config"
+    "--offline"
+  ];
 
   nixBases = [
     [ "nix" ]
@@ -99,11 +88,31 @@ let
       "--accept-flake-config"
     ]
   ];
+
+  viaPackage = builtins.concatMap (
+    prefix:
+    builtins.concatMap
+      (
+        subcommand:
+        builtins.concatMap (
+          middle: map (installable: prefix ++ [ subcommand ] ++ middle ++ [ installable ]) packageInstallables
+        ) packageMiddles
+      )
+      [
+        "run"
+        "shell"
+      ]
+  ) nixBases;
 in
 [
   [ "prune-old-stashes" ]
   [ "scripts/prune-old-stashes.sh" ]
   [ "./scripts/prune-old-stashes.sh" ]
+  # `nix build` is auto-allowed and cannot be gated by a prefix rule, since the
+  # destructive step is the second command. Gate the symlink it produces for
+  # modules/meta/prune-old-stashes-package.nix instead.
+  [ "result/bin/prune-old-stashes" ]
+  [ "./result/bin/prune-old-stashes" ]
 ]
 ++ wrapped
 ++ viaPackage

@@ -123,6 +123,12 @@ let
     "bash -lc"
     "zsh -c"
     "zsh -lc"
+    # The same bypass without a shell: these are the remaining bashAllow
+    # entries whose first operand is a program name, so `timeout 60 <cmd>`
+    # reaches every rule above without matching any of them.
+    "timeout"
+    "time"
+    "xargs"
   ];
 
   # coreutils rm bypasses the PATH shim that routes bare `rm` to trash-cli, so
