@@ -1,24 +1,4 @@
-{ lib, ... }:
-let
-  # Canonical extension set for the secrets/ encryption catch-all. The
-  # cleartext regression check (sops-cleartext-check.nix) mirrors this list and
-  # the non-extension creation rules as literals and asserts them against the
-  # generated .sops.yaml, so policy drift fails evaluation. The ensure-sops
-  # pre-commit filter (modules/meta/pre-commit.nix) mirrors this extension set
-  # and the extensionless rule too (plus the age/enc container formats) but is
-  # NOT asserted; update it by hand when this list changes.
-  sensitiveExtensions = [
-    "yaml"
-    "yml"
-    "json"
-    "env"
-    "ini"
-    "asc"
-    "md"
-    "txt"
-  ];
-in
-{
+_: {
   # Generate the canonical .sops.yaml policy via the files module
   perSystem = _: {
     files.file.".sops.yaml".text = ''
@@ -42,17 +22,7 @@ in
             - age:
                 - *host_pub_key
 
-        - path_regex: secrets/fonts/.+
-          key_groups:
-            - age:
-                - *host_pub_key
-
-        - path_regex: (?i)secrets/.*\.(${lib.concatStringsSep "|" sensitiveExtensions})$
-          key_groups:
-            - age:
-                - *host_pub_key
-
-        - path_regex: secrets/(.*/)?[^/.]+$
+        - path_regex: secrets/.*
           key_groups:
             - age:
                 - *host_pub_key

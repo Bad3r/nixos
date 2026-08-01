@@ -18,17 +18,7 @@ creation_rules:
       - age:
           - *host_pub_key
 
-  - path_regex: secrets/fonts/.+
-    key_groups:
-      - age:
-          - *host_pub_key
-
-  - path_regex: (?i)secrets/.*\.(yaml|yml|json|env|ini|asc|md|txt)$
-    key_groups:
-      - age:
-          - *host_pub_key
-
-  - path_regex: secrets/(.*/)?[^/.]+$
+  - path_regex: secrets/.*
     key_groups:
       - age:
           - *host_pub_key
