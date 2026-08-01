@@ -193,6 +193,8 @@ let
       # only from a linked worktree.
       stashHelperInvocations = [
         [ "prune-old-stashes" ]
+        [ "scripts/prune-old-stashes.sh" ]
+        [ "./scripts/prune-old-stashes.sh" ]
       ]
       ++ (
         let
@@ -206,15 +208,23 @@ let
               "--accept-flake-config"
               "develop"
             ]
+          ];
+          # Everything that can sit between `develop` and `-c`. The flag is
+          # accepted before or after the installable and both orders appear in
+          # this repo, so covering only one leaves the other matching just the
+          # `nix develop` allow.
+          installables = [
+            [ ]
+            [ "path:." ]
+            [ "--accept-flake-config" ]
             [
-              "nix"
-              "develop"
+              "path:."
               "--accept-flake-config"
             ]
-          ];
-          installables = [
-            [ "path:." ]
-            [ ]
+            [
+              "--accept-flake-config"
+              "path:."
+            ]
           ];
         in
         lib.concatMap (

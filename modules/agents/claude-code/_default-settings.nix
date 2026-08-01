@@ -84,16 +84,25 @@ let
     "git stash drop"
     "git stash clear"
     "git stash pop"
+    # Mirrors the generated codex prompt rules: the dev-shell command in every
+    # spelling, plus the script paths. The two `bash`-prefixed entries have no
+    # codex counterpart and are needed only here, because `bashAllow` carries
+    # `bash` while codex deliberately does not and inspects the inner argv.
     "prune-old-stashes"
-    # Every spelling, mirroring the codex prompt rules: --accept-flake-config
-    # is accepted on either side of the subcommand and path:. is required only
-    # from a linked worktree, so an uncovered form would not be forced to ask.
+    "scripts/prune-old-stashes.sh"
+    "./scripts/prune-old-stashes.sh"
     "nix develop -c prune-old-stashes"
     "nix develop path:. -c prune-old-stashes"
     "nix develop --accept-flake-config -c prune-old-stashes"
+    "nix develop path:. --accept-flake-config -c prune-old-stashes"
     "nix develop --accept-flake-config path:. -c prune-old-stashes"
     "nix --accept-flake-config develop -c prune-old-stashes"
     "nix --accept-flake-config develop path:. -c prune-old-stashes"
+    "nix --accept-flake-config develop --accept-flake-config -c prune-old-stashes"
+    "nix --accept-flake-config develop path:. --accept-flake-config -c prune-old-stashes"
+    "nix --accept-flake-config develop --accept-flake-config path:. -c prune-old-stashes"
+    "bash scripts/prune-old-stashes.sh"
+    "bash ./scripts/prune-old-stashes.sh"
     "git branch -d"
     "git branch -D"
     "git branch --delete"
