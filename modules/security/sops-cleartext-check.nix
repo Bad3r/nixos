@@ -31,7 +31,8 @@ let
     line: lib.hasPrefix "    " line && !(lib.hasPrefix "          - " line)
   ) policyContentLines;
   recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyContentLines;
-  hostKeyLine = "  - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf\n";
+  hostKey = "  - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf";
+  hostKeyLine = hostKey + "\n";
   expectedNestedLines = [
     "    encrypted_regex: \"^(github_token)$\""
     "    key_groups:"
@@ -69,7 +70,7 @@ let
     }
     {
       name = "host-key-anchor";
-      want = lib.hasInfix hostKeyLine sopsPolicy;
+      want = lib.hasInfix hostKeyLine policyContent;
     }
     {
       name = "act-yaml-field-policy";
@@ -78,6 +79,11 @@ let
     {
       name = "deny-by-default-last";
       want = lib.hasSuffix denyByDefaultSuffix policyContent;
+    }
+    {
+      name = "top-level-list-items";
+      want =
+        lib.filter (line: lib.hasPrefix "  - " line) policyContentLines == ([ hostKey ] ++ rulePatterns);
     }
   ];
   policyDrift = map (fixture: fixture.name) (lib.filter (fixture: !fixture.want) policyFixtures);
