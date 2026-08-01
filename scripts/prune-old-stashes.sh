@@ -373,10 +373,11 @@ prune_repo() {
 
   local count=${#shas[@]}
   if ((count == 0)); then
-    # Not the clean-stack case when nothing could be classified: reporting an
-    # age result there asserts the one thing this run could not determine.
+    # Not the clean-stack case when part of the listing was rejected: a bare
+    # age result there would report a clean read of entries this run could not
+    # interpret. The per-entry errors above carry which ones.
     if [[ $listing_unusable == true ]]; then
-      echo "  ERROR: no stash could be classified: the listing was unusable" >&2
+      echo "  ERROR: no stash older than ${age_days}d was selected, and the listing had entries this run could not interpret" >&2
       return 1
     fi
     echo "  no stashes older than ${age_days}d"

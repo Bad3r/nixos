@@ -349,6 +349,59 @@ SHIM
   pass
 }
 
+test_drop_failure_keeps_the_archive_ref() {
+  local out shim
+  make_fixture drop-fail
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/drop-fail.out"
+
+  # The only place asserting the archive ref is kept when the destructive step
+  # itself fails, which is what makes a failed drop non-lossy.
+  shim="${tmpdir}/drop-fail-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *" stash drop "* ]]; then
+  echo "fatal: forced drop failure" >&2
+  exit 1
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply
+  assert_status 1 "${out}" drop-fail
+  assert_contains "${out}" 'drop failed for stash@\{0\}.*archive ref .* kept' drop-fail
+  assert_stash_subject_present "${repo}" old-a drop-fail
+  assert_archive_count "${repo}" 1 drop-fail
+  pass
+}
+
+test_archive_ref_deletion_failure_is_reported() {
+  local out shim
+  make_fixture sweep-delete-fail
+  out="${tmpdir}/sweep-delete-fail.out"
+  git -C "${repo}" update-ref refs/stash-archive/2020-01-01/aaaaaaaaaaaa HEAD
+
+  shim="${tmpdir}/sweep-delete-fail-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *" update-ref -d "* ]]; then
+  echo "fatal: forced update-ref -d failure" >&2
+  exit 1
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply --sweep-archive
+  assert_status 1 "${out}" sweep-delete-fail
+  assert_contains "${out}" 'failed to delete archive ref' sweep-delete-fail
+  assert_archive_count "${repo}" 1 sweep-delete-fail
+  pass
+}
+
 test_sha_mismatch_gate_blocks_the_drop() {
   local out shim
   make_fixture mismatch
@@ -404,7 +457,7 @@ SHIM
   git -C "${repo}" update-ref refs/stash-archive/2020-01-01/aaaaaaaaaaaa HEAD
   PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply --sweep-archive
   assert_status 1 "${out}" all-rejected
-  assert_contains "${out}" 'no stash could be classified' all-rejected
+  assert_contains "${out}" 'no stash older than 14d was selected, and the listing had entries' all-rejected
   assert_not_contains "${out}" 'no stashes older than' all-rejected
   # The listing was read here, so the skip message must not claim otherwise.
   assert_contains "${out}" 'could not be read or interpreted' all-rejected
@@ -1180,6 +1233,8 @@ test_unreadable_stash_list_fails_loudly
 test_unreadable_archive_refs_fail_loudly
 test_failed_archive_write_aborts_the_drop
 test_sha_mismatch_gate_blocks_the_drop
+test_drop_failure_keeps_the_archive_ref
+test_archive_ref_deletion_failure_is_reported
 test_unreadable_live_stack_blocks_the_drop
 test_concurrent_push_does_not_block_pruning
 test_vanished_stash_is_skipped_not_mistaken
