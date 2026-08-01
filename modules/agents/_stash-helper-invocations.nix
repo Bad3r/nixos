@@ -26,32 +26,20 @@ let
   # Everything observed between `develop` and the command flag. The installable
   # is required only from a linked worktree, and the flags are accepted on
   # either side of it.
-  middles = [
-    [ ]
-    [ "path:." ]
-    [ "--accept-flake-config" ]
-    [ "--offline" ]
-    [
-      "path:."
-      "--accept-flake-config"
-    ]
-    [
-      "--accept-flake-config"
-      "path:."
-    ]
-    [
-      "path:."
-      "--offline"
-    ]
-    [
-      "path:."
-      "--accept-flake-config"
-      "--offline"
-    ]
-    [
-      "--accept-flake-config"
-      "--offline"
-    ]
+  # Every ordering of every subset, rather than a hand-written list. Listing
+  # them by hand produced a partial set four times in #399, each time missing a
+  # spelling that is actually typed here.
+  arrangements =
+    xs:
+    [ [ ] ]
+    ++ builtins.concatMap (
+      x: map (rest: [ x ] ++ rest) (arrangements (builtins.filter (y: y != x) xs))
+    ) xs;
+
+  middles = arrangements [
+    "path:."
+    "--accept-flake-config"
+    "--offline"
   ];
 
   # `-c` and `--command` are aliases in `nix develop`.
@@ -75,6 +63,42 @@ let
       ) commandFlags
     ) middles
   ) nixPrefixes;
+
+  # `run` and `shell` are auto-allowed subcommands too, and
+  # modules/meta/prune-old-stashes-package.nix makes the helper reachable
+  # through both as a flake package.
+  packageInstallables = [
+    ".#prune-old-stashes"
+    "path:.#prune-old-stashes"
+  ];
+
+  viaPackage = builtins.concatMap (
+    prefix:
+    builtins.concatMap
+      (
+        subcommand:
+        map (
+          installable:
+          prefix
+          ++ [
+            subcommand
+            installable
+          ]
+        ) packageInstallables
+      )
+      [
+        "run"
+        "shell"
+      ]
+  ) nixBases;
+
+  nixBases = [
+    [ "nix" ]
+    [
+      "nix"
+      "--accept-flake-config"
+    ]
+  ];
 in
 [
   [ "prune-old-stashes" ]
@@ -82,3 +106,4 @@ in
   [ "./scripts/prune-old-stashes.sh" ]
 ]
 ++ wrapped
+++ viaPackage

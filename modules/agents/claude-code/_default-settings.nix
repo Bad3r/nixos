@@ -122,6 +122,7 @@ let
     "bash -c"
     "bash -lc"
     "zsh -c"
+    "zsh -lc"
   ];
 
   # coreutils rm bypasses the PATH shim that routes bare `rm` to trash-cli, so
