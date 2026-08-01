@@ -2,8 +2,46 @@
 name: Dendritic Pattern Compliance Check
 "on":
   workflow_dispatch:
+  pull_request:
 jobs:
+  # The only job that runs on pull_request. The eval-time guards in checks/
+  # (gitleaks-allowlist-scope, ci-lix-installer-parity) are throws precisely so
+  # they gate without building, but nothing evaluated checks before merge, so a
+  # PR re-introducing what they ban merged clean and the throw first surfaced
+  # days later inside an unrelated flake-update PR. check-compliance covers the
+  # same surface plus every host closure and stays on manual dispatch.
+  eval-checks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prefer HTTPS for GitHub
+        run: |
+          URL="https://github.com/"
+          git config --global url."$URL".insteadOf git@github.com:
+          git config --global url."$URL".insteadOf ssh://git@github.com/
+      # Same two constraints as check-compliance: "path:." bypasses the git
+      # fetcher, because self.submodules = true would make a git-based self
+      # fetch pull the private secrets submodule CI cannot read; and nix eval
+      # replaces `nix flake check --no-build`, because Lix forces read-only
+      # store mode there and eval-time store writes then fail on the fresh
+      # runner store. Forcing every drvPath keeps the same eval surface.
+      - name: Force every flake check
+        run: |
+          nix eval --accept-flake-config --json \
+            "path:.#checks.x86_64-linux" \
+            --apply 'checks: builtins.mapAttrs (_: check: check.drvPath) checks'
+
   flake-lock-health:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -21,6 +59,7 @@ jobs:
             && owner == 'Bad3r'
 
   check-compliance:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -75,6 +114,7 @@ jobs:
           done
 
   format-check:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -93,6 +133,7 @@ jobs:
           "path:.#formatter.x86_64-linux" -- --ci
 
   module-validation:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     # No Nix here: every step is plain grep/awk/find over the checkout.
     steps:
