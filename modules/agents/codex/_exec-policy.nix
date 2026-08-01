@@ -210,6 +210,17 @@ let
               "-c"
               "prune-old-stashes"
             ]
+            # The flag can follow the subcommand too, and that is the order
+            # this repo's docs use for the sibling dev-shell command.
+            # Uncovered it matches only the plain `nix develop` allow.
+            [
+              "nix"
+              "develop"
+              "--accept-flake-config"
+              "path:."
+              "-c"
+              "prune-old-stashes"
+            ]
           ];
 
       promptedGitRules = [
