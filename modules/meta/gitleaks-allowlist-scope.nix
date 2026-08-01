@@ -142,6 +142,17 @@
       kvTargetRules = [ "generic-api-key" ];
       kvUntargeted = lib.filter (a: (a.targetRules or [ ]) != kvTargetRules) kvBlocks;
 
+      # The same hazard for every other allowlist, bounded by the property that
+      # causes it rather than by which entry happens to have it today. regexTarget
+      # "line" is what makes an allowlist match surrounding text instead of the
+      # secret, so any line-target entry without targetRules suppresses every
+      # rule on any line carrying its text. Adding regexTarget = "line" to the
+      # DNSCrypt entry trips nothing above: its regex is already in
+      # reviewedRegexes and it carries no "keys KV" text for kvBlocks.
+      untargetedLineScope = lib.filter (
+        a: (a.regexTarget or "secret") == "line" && (a.targetRules or [ ]) == [ ]
+      ) allowlists;
+
       bothFiles = lib.concatStringsSep " or " (map (s: s.origin) sources);
       describe =
         entries:
@@ -197,6 +208,13 @@
           throw (
             "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${bothFiles}; "
             + "drop this check along with it"
+          )
+        else if untargetedLineScope != [ ] then
+          throw (
+            "gitleaks-allowlist-scope: allowlist ${describe untargetedLineScope} is line-target with "
+            + "no targetRules. A line-target allowlist is matched against the whole line rather than "
+            + "the secret, so an untargeted one suppresses every rule's findings on any line carrying "
+            + "its text; name the rule it is meant to silence in targetRules"
           )
         else if kvUntargeted != [ ] then
           throw (
