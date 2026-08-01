@@ -67,9 +67,9 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
   into. Directories without a `.git` are skipped rather than resolved, since
   `git rev-parse --show-toplevel` walks up and would otherwise pull in the
   repository enclosing the root. Without `--all-worktrees` it is a usage error
-  rather than a silent no-op. A named root that is empty or missing is
-  reported and counted as a failure; the default root is allowed to be absent,
-  since a host may have no worktrees.
+  rather than a silent no-op. A named root that is empty, missing, or that
+  contains no checkouts directly beneath it is reported and counted as a
+  failure; the default root is exempt, since a host may have no worktrees.
 
 ## Exit Codes
 

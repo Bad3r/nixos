@@ -49,7 +49,8 @@ options:
                             directly contain the checkouts; unlike
                             prune-stale-worktrees, container directories
                             are not descended into. A named root that is
-                            missing is reported and counted as a failure.
+                            missing, or that contains no checkouts, is
+                            reported and counted as a failure.
   -h, --help                Print this help.
 
 Runs are serialized by a per-user lock; a second concurrent invocation exits
@@ -168,6 +169,8 @@ archive_date=$(date -u +%F)
 failures=0
 selected=0
 would_sweep=0
+dropped=0
+swept=0
 
 # Collect candidate roots, then deduplicate by resolved common git dir so a
 # stash stack shared by linked worktrees is only processed once.
@@ -201,6 +204,7 @@ if [[ $all_worktrees == true ]]; then
       fi
       continue
     fi
+    scanned=0
     for dir in "$scan_root"/*/; do
       [[ -d $dir ]] || continue
       # rev-parse walks up, so a directory that is not itself a checkout
@@ -210,8 +214,18 @@ if [[ $all_worktrees == true ]]; then
       [[ -e ${dir%/}/.git ]] || continue
       if wt_top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
         roots+=("$wt_top")
+        scanned=$((scanned + 1))
       fi
     done
+    # Exactly one level is scanned, so a root aimed one level too high exists,
+    # matches directories, and still registers nothing. Left silent that is the
+    # same clean report over an unscanned tree a missing root already reports.
+    if ((scanned == 0)); then
+      echo "${prog_name}: no checkouts directly under root: ${scan_root}" >&2
+      if [[ $roots_explicit == true ]]; then
+        failures=$((failures + 1))
+      fi
+    fi
   done
 fi
 if [[ ${#roots[@]} -eq 0 ]]; then
@@ -351,6 +365,7 @@ prune_repo() {
       continue
     fi
     echo "  dropped stash@{${idx}} (recover: git stash apply ${ref})"
+    dropped=$((dropped + 1))
   done
   return 0
 }
@@ -406,6 +421,7 @@ sweep_repo() {
     if [[ $apply == true ]]; then
       if git -C "$repo" update-ref -d "$ref"; then
         echo "  deleted archive ref ${ref} (past ${retention_days}d retention)"
+        swept=$((swept + 1))
       else
         echo "  ERROR: failed to delete archive ref ${ref}" >&2
         failures=$((failures + 1))
@@ -442,13 +458,18 @@ for repo in "${repos[@]}"; do
   fi
 done
 
+# Both modes close with a total. `selected` counts stashes attempted, and any
+# of the drop-loop gates can reject one, so the destructive mode is the one
+# where an operator most needs the count of what actually happened.
+echo
 if [[ $apply != true ]]; then
-  echo
   if ((selected > 0 || would_sweep > 0)); then
     echo "dry-run: ${selected} stash(es) and ${would_sweep} archive ref(s) selected; no changes made. Re-run with --apply."
   else
     echo "dry-run: nothing selected; no changes made."
   fi
+else
+  echo "applied: ${dropped} stash(es) archived and dropped, ${swept} archive ref(s) deleted."
 fi
 
 if ((failures > 0)); then

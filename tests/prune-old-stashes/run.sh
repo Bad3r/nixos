@@ -155,6 +155,8 @@ test_apply_archives_then_drops() {
   run_sut "${out}" "${repo}" --apply
   assert_status 0 "${out}" apply
   assert_contains "${out}" 'dropped stash@\{1\}' apply
+  # The destructive mode closes with a total too, not just the dry run.
+  assert_contains "${out}" 'applied: 1 stash\(es\) archived and dropped, 0 archive ref\(s\) deleted' apply
   assert_stash_count "${repo}" 1 apply
   assert_stash_subject_present "${repo}" fresh apply
   assert_stash_subject_absent "${repo}" old-a apply
@@ -773,6 +775,28 @@ test_root_is_repeatable_and_defaults_to_home_trees() {
   pass
 }
 
+test_root_without_checkouts_is_reported() {
+  local out empty_root
+  make_fixture rootless
+  empty_root="${tmpdir}/root-one-level-too-high"
+  mkdir -p "${empty_root}/container/deeper"
+  out="${tmpdir}/rootless.out"
+
+  # The root exists and matches directories, but only one level is scanned, so
+  # nothing registers. Silent, that is a clean report over an unscanned tree.
+  run_sut "${out}" "${repo}" --all-worktrees --root "${empty_root}"
+  assert_status 1 "${out}" rootless
+  assert_contains "${out}" 'no checkouts directly under root' rootless
+
+  # The default root is exempt: a host may simply have no worktrees yet.
+  rm -rf "${HOME}/trees"
+  mkdir -p "${HOME}/trees/nixos"
+  run_sut "${out}" "${repo}" --all-worktrees
+  assert_status 0 "${out}" rootless-default
+  assert_contains "${out}" 'no checkouts directly under root' rootless-default
+  pass
+}
+
 test_non_checkout_under_a_root_is_not_resolved_upward() {
   local out enclosing
   make_fixture outsider
@@ -884,6 +908,7 @@ test_all_worktrees_processes_independent_repos
 test_root_is_repeatable_and_defaults_to_home_trees
 test_unusable_root_is_reported_not_expanded
 test_non_checkout_under_a_root_is_not_resolved_upward
+test_root_without_checkouts_is_reported
 test_unreadable_repo_is_not_swept
 test_dry_run_writes_nothing_on_a_stale_snapshot
 
