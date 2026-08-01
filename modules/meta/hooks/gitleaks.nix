@@ -71,10 +71,18 @@ _: {
             # with --gitleaks-ignore-path pointed at an empty or nonexistent
             # directory, so continuing would print "no leaks found" for the very
             # findings the file hid.
-            if [ -e ".gitleaksignore" ]; then
-              echo "hook-gitleaks: .gitleaksignore suppresses findings outside the reviewed baselines and cannot be disabled; remove it and record them in .gitleaks-baseline.json or secrets/.gitleaks-baseline.json instead" >&2
-              exit 1
-            fi
+            # Both roots, because discovery is source-relative rather than
+            # flag-driven: a .gitleaksignore inside the scanned directory is
+            # honoured, so secrets/.gitleaksignore would filter the submodule
+            # pass while a root-only guard saw nothing. That is the private
+            # repository, and it now also holds secrets/.gitleaks-baseline.json,
+            # so a sibling ignore file there is the plausible shape.
+            for ignore_file in ".gitleaksignore" "secrets/.gitleaksignore"; do
+              if [ -e "$ignore_file" ]; then
+                echo "hook-gitleaks: $ignore_file suppresses findings outside the reviewed baselines and cannot be disabled; remove it and record them in .gitleaks-baseline.json or secrets/.gitleaks-baseline.json instead" >&2
+                exit 1
+              fi
+            done
 
             # History pass: catches a credential that was committed and later
             # removed, which a worktree scan can no longer see.
@@ -103,6 +111,17 @@ _: {
               (
                 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
                   GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+                # Assert the pass reached the submodule rather than trusting
+                # the enumeration above to be complete: any redirect it misses,
+                # and an initialised-but-empty submodule, both end in
+                # "0 commits scanned" and exit 0. Since gitleaks-scan made this
+                # hook the only credential gate on the merge path, that would be
+                # a green check over an unscanned repository.
+                sub_commits=$(git -C secrets rev-list --all --count)
+                if [ "$sub_commits" -eq 0 ]; then
+                  echo "hook-gitleaks: submodule pass reached 0 commits; refusing to report secrets/ clean" >&2
+                  exit 1
+                fi
                 gitleaks git "''${sub_args[@]}" secrets
               ) || status=1
             fi
