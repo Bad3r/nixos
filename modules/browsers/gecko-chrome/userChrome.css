@@ -95,12 +95,12 @@ toolbar#nav-bar::after {
 }
 /* Hide splitter, when using Tree Style Tab. */
 #sidebar-box[sidebarcommand="treestyletab_piro_sakura_ne_jp-sidebar-action"]
-	+ #sidebar-splitter {
++ #sidebar-splitter {
 	display: none !important;
 }
 /* Hide sidebar header, when using Tree Style Tab. */
 #sidebar-box[sidebarcommand="treestyletab_piro_sakura_ne_jp-sidebar-action"]
-	#sidebar-header {
+#sidebar-header {
 	visibility: collapse;
 }
 /* Shrink sidebar until hovered, when using Tree Style Tab. */
