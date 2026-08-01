@@ -38,9 +38,14 @@ _: {
             # Record a new entry with the same flags this hook uses:
             #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
             #     --config .gitleaks.toml \
+            #     --report-path .gitleaks-baseline.json .
+            #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
+            #     --config .gitleaks.toml \
             #     --report-path secrets/.gitleaks-baseline.json secrets
             # Matching is by fingerprint, so a raw baseline would still suppress,
-            # but it commits the credential in plaintext.
+            # but it commits the credential in plaintext. Dropping
+            # --ignore-gitleaks-allow instead yields a baseline without the
+            # fingerprint this hook reports, so the finding stays unsuppressable.
             git_args=("''${common[@]}")
             if [ -f ".gitleaks-baseline.json" ]; then
               git_args+=(--baseline-path ".gitleaks-baseline.json")
