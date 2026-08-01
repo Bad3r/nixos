@@ -15,9 +15,9 @@
 { lib, ... }:
 let
   secretsDir = ../../secrets;
-  # Absent on checkouts without the initialized submodule (see issue #333);
-  # scanning is only meaningful when the content is present.
-  secretsPresent = builtins.pathExists (secretsDir + "/.gitignore");
+  # An absent or empty submodule is the secretless checkout used by CI
+  # (see issue #333); scanning is only meaningful when content is present.
+  secretsPresent = builtins.pathExists secretsDir && builtins.readDir secretsDir != { };
 
   # Literal mirror of sensitiveExtensions in modules/security/sops-policy.nix.
   # Reading it through config.flake.lib recurses the flake-parts fixpoint, so
@@ -99,15 +99,15 @@ in
         # throw, not a failing derivation: CI evaluates check drvPaths with
         # --no-build, so only an eval-time failure gates it (same rationale
         # as modules/meta/ci-lix-parity.nix).
-        if !secretsPresent then
-          pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
-            echo "skipped: secrets/ submodule content not present in this checkout" > $out
-          ''
-        else if !policySynced then
+        if !policySynced then
           throw (
             "sops-cleartext-check.nix extension list drifted from the .sops.yaml catch-all rule; "
             + "update extAlternation to match modules/security/sops-policy.nix"
           )
+        else if !secretsPresent then
+          pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
+            echo "skipped: secrets/ submodule content not present in this checkout" > $out
+          ''
         else if cleartext != [ ] then
           throw (
             "secrets/ contains cleartext files matched by .sops.yaml creation_rules: "
