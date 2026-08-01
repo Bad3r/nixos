@@ -87,8 +87,9 @@ _: {
       id_*
       !id_*.pub
 
-      # If decrypting SOPS files locally, ignore any decrypted outputs in secrets/
-      secrets/*.dec.*
+      # Decrypted SOPS outputs under secrets/ are ignored by that submodule's
+      # own .gitignore (**/decrypted_*, *.dec.*); superproject rules do not
+      # apply to a gitlink, so there is nothing to declare here.
     '';
   };
 }

@@ -43,6 +43,28 @@ let
     && lib.hasInfix actRuleBlock sopsPolicy
     && encryptedRegexCount == 1;
 
+  # Content scanning only sees paths that happen to exist. Keep the
+  # path-only exemption boundary evaluated in secretless CI as well.
+  exemptionFixtures = {
+    "notes.md" = true;
+    "runbook" = true;
+    "sub/NOTES" = true;
+    ".git-credentials" = true;
+    "sub/prod.dec" = true;
+    "url_catalog.dec" = true;
+    "config.yaml.example" = false;
+    "decrypted_url_catalog.yaml" = false;
+    "sub/decrypted_x.yaml" = false;
+    "sub/x.dec.yaml" = false;
+    "x.dec.yaml" = false;
+    ".gitignore" = false;
+    ".gitkeep" = false;
+    ".git/config" = false;
+  };
+  exemptionDrift = lib.filter (path: mustBeEncrypted path != exemptionFixtures.${path}) (
+    lib.attrNames exemptionFixtures
+  );
+
   listFiles =
     dir: prefix:
     lib.concatLists (
@@ -131,6 +153,12 @@ in
             + "creation rule can narrow encryption via encrypted_regex or a different key group, "
             + "and this check cannot detect that from file content: review the rule against "
             + "modules/security/sops-policy.nix before raising ruleCount."
+          )
+        else if exemptionDrift != [ ] then
+          throw (
+            "sops-cleartext-check.nix mustBeEncrypted classified these paths against "
+            + "the documented exemption boundary: "
+            + lib.concatStringsSep ", " exemptionDrift
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
