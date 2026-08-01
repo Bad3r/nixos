@@ -152,10 +152,18 @@ in
               m = builtins.match "[[:space:]]*([^#[:space:]]+).*" line;
             in
             if m == null then null else lib.head m;
+          globs = lib.filter (glob: glob != null) (
+            map globOf (lib.splitString "\n" (builtins.readFile ../../scripts/cache-coverage-allowlist.txt))
+          );
         in
-        lib.filter (glob: glob != null) (
-          map globOf (lib.splitString "\n" (builtins.readFile ../../scripts/cache-coverage-allowlist.txt))
-        );
+        # This is a second parser of a format whose only other reader is
+        # scripts/cache-coverage.sh. A format change this regex stops matching
+        # would empty the glob list and turn the guard green rather than red,
+        # so an empty parse is the failure, not a pass.
+        if globs == [ ] then
+          throw "cache-roots: parsed no globs out of scripts/cache-coverage-allowlist.txt; the disjointness guard would pass vacuously"
+        else
+          globs;
 
       globMatches =
         name: glob:
