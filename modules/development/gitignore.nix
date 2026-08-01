@@ -88,7 +88,7 @@ _: {
       !id_*.pub
 
       # If decrypting SOPS files locally, ignore any decrypted outputs in secrets/
-      secrets/*.dec*
+      secrets/*.dec.*
     '';
   };
 }

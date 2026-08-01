@@ -32,10 +32,10 @@ let
   actRuleBlock = "- path_regex: secrets/act\\.yaml\n    encrypted_regex: \"^(github_token)$\"\n";
   sopsPolicy = builtins.readFile ../../.sops.yaml;
   policyLines = lib.splitString "\n" sopsPolicy;
-  rulePatterns = lib.filter (line: lib.hasInfix "- path_regex:" line) policyLines;
+  rulePatterns = lib.filter (line: lib.hasPrefix "  - path_regex: " line) policyLines;
   ruleCount = builtins.length rulePatterns;
   encryptedRegexCount = builtins.length (
-    lib.filter (line: lib.hasInfix "encrypted_regex:" line) policyLines
+    lib.filter (line: lib.hasPrefix "    encrypted_regex: " line) policyLines
   );
   policySynced =
     ruleCount == 4
@@ -141,7 +141,7 @@ in
             "secrets/ contains cleartext files matched by .sops.yaml creation_rules: "
             + lib.concatStringsSep ", " cleartext
             + ". Encrypt them, rename them to a *.example template, or rename a "
-            + "local decryption artifact to a decrypted_* or nested *.dec.* path."
+            + "local decryption artifact to a decrypted_* or *.dec.* path."
           )
         else
           pkgs.runCommandLocal "secrets-no-cleartext-ok" { } ''
