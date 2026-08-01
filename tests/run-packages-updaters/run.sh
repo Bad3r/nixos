@@ -44,10 +44,11 @@ make_fixture() {
 }
 
 run_sut() {
-  local out
+  local err out
   out="$1"
-  shift
-  if "${fixture_root}/scripts/run-packages-updaters.sh" "$@" >"${out}" 2>&1; then
+  err="$2"
+  shift 2
+  if "${fixture_root}/scripts/run-packages-updaters.sh" "$@" >"${out}" 2>"${err}"; then
     sut_status=0
   else
     sut_status=$?
@@ -73,6 +74,13 @@ assert_not_contains() {
   fi
 }
 
+assert_empty() {
+  local file label
+  file="$1"
+  label="$2"
+  [[ ! -s ${file} ]] || fail "${label}: output was not empty" "${file}"
+}
+
 write_updater() {
   local name label status updater
   name="$1"
@@ -90,65 +98,73 @@ write_updater() {
 }
 
 test_help_exits_before_discovery() {
-  local out
+  local err out
   make_fixture help
   out="${tmpdir}/help.out"
-  run_sut "${out}" --help
+  err="${tmpdir}/help.err"
+  run_sut "${out}" "${err}" --help
 
-  [[ ${sut_status} -eq 0 ]] || fail "help: expected exit 0, got ${sut_status}" "${out}"
+  [[ ${sut_status} -eq 0 ]] || fail "help: expected exit 0, got ${sut_status}" "${err}"
   assert_contains "${out}" 'Usage: run-packages-updaters.sh [-h|--help]' 'help'
   assert_not_contains "${out}" 'No package updaters found' 'help'
+  assert_empty "${err}" 'help stderr'
   pass
 }
 
 test_rejects_unknown_argument() {
-  local out
+  local err out
   make_fixture unknown
   out="${tmpdir}/unknown.out"
-  run_sut "${out}" --unexpected
+  err="${tmpdir}/unknown.err"
+  run_sut "${out}" "${err}" --unexpected
 
-  [[ ${sut_status} -eq 2 ]] || fail "unknown: expected exit 2, got ${sut_status}" "${out}"
-  assert_contains "${out}" 'Usage: run-packages-updaters.sh [-h|--help]' 'unknown'
-  assert_not_contains "${out}" 'Package updaters:' 'unknown'
+  [[ ${sut_status} -eq 2 ]] || fail "unknown: expected exit 2, got ${sut_status}" "${err}"
+  assert_empty "${out}" 'unknown stdout'
+  assert_contains "${err}" 'Usage: run-packages-updaters.sh [-h|--help]' 'unknown'
   pass
 }
 
 test_rejects_extra_help_argument() {
-  local out
+  local err out
   make_fixture extra-help
   out="${tmpdir}/extra-help.out"
-  run_sut "${out}" --help extra
+  err="${tmpdir}/extra-help.err"
+  run_sut "${out}" "${err}" --help extra
 
-  [[ ${sut_status} -eq 2 ]] || fail "extra-help: expected exit 2, got ${sut_status}" "${out}"
-  assert_contains "${out}" 'Usage: run-packages-updaters.sh [-h|--help]' 'extra-help'
+  [[ ${sut_status} -eq 2 ]] || fail "extra-help: expected exit 2, got ${sut_status}" "${err}"
+  assert_empty "${out}" 'extra-help stdout'
+  assert_contains "${err}" 'Usage: run-packages-updaters.sh [-h|--help]' 'extra-help'
   pass
 }
 
 test_empty_package_root_fails() {
-  local out expected
+  local err expected out
   make_fixture empty
   out="${tmpdir}/empty.out"
+  err="${tmpdir}/empty.err"
   expected="No package updaters found under ${fixture_root}/packages."
-  run_sut "${out}"
+  run_sut "${out}" "${err}"
 
-  [[ ${sut_status} -eq 1 ]] || fail "empty: expected exit 1, got ${sut_status}" "${out}"
-  assert_contains "${out}" "${expected}" 'empty'
+  [[ ${sut_status} -eq 1 ]] || fail "empty: expected exit 1, got ${sut_status}" "${err}"
+  assert_empty "${out}" 'empty stdout'
+  assert_contains "${err}" "${expected}" 'empty'
   pass
 }
 
 test_stops_after_first_failure() {
-  local out actual
+  local actual err out
   make_fixture fail-fast
   export RUN_LOG="${fixture_root}/run.log"
   write_updater 01-first first 0
   write_updater 02-failing second 7
   write_updater 03-unreached third 0
   out="${tmpdir}/fail-fast.out"
-  run_sut "${out}"
+  err="${tmpdir}/fail-fast.err"
+  run_sut "${out}" "${err}"
 
-  [[ ${sut_status} -eq 7 ]] || fail "fail-fast: expected exit 7, got ${sut_status}" "${out}"
+  [[ ${sut_status} -eq 7 ]] || fail "fail-fast: expected exit 7, got ${sut_status}" "${err}"
   assert_contains "${out}" 'Package updaters: 3' 'fail-fast'
-  assert_contains "${out}" 'failed with exit code 7' 'fail-fast'
+  assert_contains "${err}" 'failed with exit code 7' 'fail-fast'
   [[ -f ${RUN_LOG} ]] || fail 'fail-fast: updater log was not created' "${out}"
   actual="$(<"${RUN_LOG}")"
   [[ ${actual} == $'first\nsecond' ]] ||
