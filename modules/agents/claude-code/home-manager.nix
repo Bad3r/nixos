@@ -67,9 +67,13 @@
         _name: installMethods: renderWrapper { inherit installMethods; }
       ) installMethodVariants;
       wrapperPaths = lib.mapAttrs (_: wrapper: lib.getExe wrapper.claudeWrapped) variants;
-      # Hand translation of the consumer target= regex, the only piece of the
+      # Hand translations of the two consumer regexes, the only pieces of the
       # contract evaluated outside the build script below.
       targetLinePattern = ''^[[:space:]]*target=('/[^']+'|"/[^"]+"|/[^[:space:]#]+)[[:space:]]*$'';
+      shebangLinePattern = ".*[/[:space:]](bash|dash|zsh|ksh|ash|sh)([[:space:]].*)?";
+      # writeShellScriptBin prepends "#!${pkgs.runtimeShell}", so the shebang
+      # the classifier sees is never part of wrapperBody.
+      wrapperShebangLine = "#!${pkgs.runtimeShell}";
       # Every regex the build script recovers from shell-wrapper.patch. CI
       # forces each check's drvPath but never builds one
       # (.github/workflows/check.yml), so the script is unreachable in CI;
@@ -95,6 +99,8 @@
       checks."claude-code/wrapper-target-contract" =
         assert lib.assertMsg (driftedPatchRegexes == [ ])
           "packages/tweakcc/shell-wrapper.patch changed its ${lib.concatStringsSep ", " driftedPatchRegexes} regex; re-run the claude-code/wrapper-target-contract build and update modules/agents/claude-code/home-manager.nix";
+        assert lib.assertMsg (builtins.match shebangLinePattern wrapperShebangLine != null)
+          "claude-code wrapper shebang ${wrapperShebangLine} is not classified as a shell launcher by packages/tweakcc/shell-wrapper.patch, so the target= resolver is never reached";
         assert lib.assertMsg (lib.all (count: count == 1) (lib.attrValues wrapperTargetCounts))
           "claude-code wrapper lost its single standalone absolute target assignment consumed by packages/tweakcc/shell-wrapper.patch";
         pkgs.runCommandLocal "claude-code-wrapper-target-contract"
