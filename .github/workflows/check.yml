@@ -6,6 +6,9 @@ name: Dendritic Pattern Compliance Check
     branches:
       - main
   workflow_dispatch:
+concurrency:
+  group: check-compliance-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   flake-lock-health:
     runs-on: ubuntu-latest

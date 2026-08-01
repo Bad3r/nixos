@@ -23,14 +23,16 @@ let
   # modules/security/sops-policy.nix. Reading the policy through
   # config.flake.lib recurses the flake-parts fixpoint, so the sync is enforced
   # below against the generated .sops.yaml instead.
-  # The line terminator prevents a narrowed replacement from satisfying an
-  # infix check.
-  defaultRuleLine = "- path_regex: secrets/.*\n";
+  # The final rule must remain last because SOPS applies the first matching
+  # creation rule. The line is checked as a suffix of the extracted rule
+  # pattern, so a narrowed replacement cannot satisfy the parity assertion.
+  defaultRuleLine = "- path_regex: secrets/.*";
   sopsPolicy = builtins.readFile ../../.sops.yaml;
-  ruleCount = builtins.length (
-    lib.filter (line: lib.hasInfix "- path_regex:" line) (lib.splitString "\n" sopsPolicy)
+  rulePatterns = lib.filter (line: lib.hasInfix "- path_regex:" line) (
+    lib.splitString "\n" sopsPolicy
   );
-  policySynced = lib.hasInfix defaultRuleLine sopsPolicy && ruleCount == 4;
+  ruleCount = builtins.length rulePatterns;
+  policySynced = ruleCount == 4 && lib.hasSuffix defaultRuleLine (lib.last rulePatterns);
 
   listFiles =
     dir: prefix:
@@ -48,8 +50,15 @@ let
 
   # Deny by default to keep new extensions and extensionless names covered.
   # Exemptions are intentional cleartext conventions: *.example templates,
-  # local decryption artifacts, and Git metadata. The segment-based metadata
-  # check also excludes nested .git* paths.
+  # local decryption artifacts, and exact Git metadata names. A .git segment
+  # excludes its internal metadata files without exempting .git-* filenames.
+  gitMetadataNames = [
+    ".git"
+    ".gitignore"
+    ".gitattributes"
+    ".gitmodules"
+    ".gitkeep"
+  ];
   mustBeEncrypted =
     path:
     let
@@ -58,7 +67,7 @@ let
     !(lib.hasSuffix ".example" path)
     && !(lib.hasPrefix "decrypted_" base)
     && !(lib.hasInfix ".dec." base)
-    && !(lib.any (part: lib.hasPrefix ".git" part) (lib.splitString "/" path));
+    && !(lib.any (part: lib.elem part gitMetadataNames) (lib.splitString "/" path));
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
   # megabyte-scale strings (std::regex recursion; the sops-encrypted font
@@ -108,7 +117,7 @@ in
         if !policySynced then
           throw (
             "sops-cleartext-check.nix deny-by-default creation rule drifted from .sops.yaml "
-            + "(rule count or pattern); update defaultRuleLine or ruleCount to match "
+            + "(rule count, pattern, or order); update defaultRuleLine or ruleCount to match "
             + "modules/security/sops-policy.nix"
           )
         else if !secretsPresent then

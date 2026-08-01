@@ -91,8 +91,8 @@ _: {
               # never presents secrets/<file> paths and this filter matches
               # nothing today. Keep it for a future de-submoduled checkout;
               # secrets-no-cleartext is the actual gate. Exclude local
-              # decryption, template, and Git metadata conventions.
-              files = "(?i)^secrets/(?!(?:.*/)?\\.git[^/]*(?:/.*)?$|(?:.*/)?decrypted_[^/]*$|(?:.*/)?[^/]*\\.dec\\.[^/]*$|.*\\.example$).*";
+              # decryption, template, and exact Git metadata conventions.
+              files = "^secrets/(?!(?:.*/)?(?:\\.git(?:/.*)?|\\.gitignore|\\.gitattributes|\\.gitmodules|\\.gitkeep)$|(?:.*/)?decrypted_[^/]*$|(?:.*/)?[^/]*\\.dec\\.[^/]*$|.*\\.example$).*";
             };
 
             gitleaks = {
