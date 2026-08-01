@@ -8,7 +8,8 @@ test.
 
 The runtime smoke test was run on 2026-05-04 against the active flake pin at
 that time. The inventory and summary below were reconciled on 2026-08-01
-against the current `flake.lock` state and companion reference.
+against the companion reference; no run commands were re-executed on the
+current `flake.lock`.
 
 ## Summary
 
