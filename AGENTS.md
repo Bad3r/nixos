@@ -23,6 +23,7 @@ Required practices:
 - Use `rip <path>` instead of `rm` for deletions (recoverable from graveyard)
 - Use `git stash` when needed, but never drop stashes
 - Allowed stash operations are `git stash`, `git stash list`, `git stash show`, and `git stash apply`
+- The one sanctioned drop path is the operator-invoked `prune-old-stashes --apply`, which archives each stash under `refs/stash-archive/<date>/<sha>` before dropping it and keeps it recoverable for the retention window (see `docs/reference/stash-prune.md`). Never issue a bare `git stash drop` yourself
 - `git stash pop` requires explicit user approval
 - Preserve user changes; if uncertain, ask first
 - Before any potentially destructive operation, stop and ask
