@@ -43,15 +43,22 @@ _: {
               sub_args+=(--baseline-path ".gitleaks-baseline-secrets.json")
             fi
 
+            # writeShellApplication prepends set -e, so without collecting the
+            # statuses the first pass to report a finding aborts the script and
+            # the rest never run: a tree with both a superproject and a submodule
+            # finding would take one push attempt per pass, each showing a third
+            # of the problem.
+            status=0
+
             # History pass: catches a credential that was committed and later
             # removed, which a worktree scan can no longer see.
-            gitleaks git "''${git_args[@]}" .
+            gitleaks git "''${git_args[@]}" . || status=1
 
             # Worktree pass: `gitleaks git` walks superproject history, where the
             # secrets/ submodule is a gitlink and its blobs are absent, so a
             # credential committed inside that submodule was scanned by nothing.
             # `gitleaks dir` reads the filesystem, so the submodule is in scope.
-            gitleaks dir "''${dir_args[@]}" .
+            gitleaks dir "''${dir_args[@]}" . || status=1
 
             # Submodule history: the argument for the first pass applies to the
             # one tree it cannot reach. The superproject sees only the gitlink
@@ -68,8 +75,10 @@ _: {
               (
                 unset GIT_DIR GIT_WORK_TREE
                 gitleaks git "''${sub_args[@]}" secrets
-              )
+              ) || status=1
             fi
+
+            exit "$status"
           '';
       };
     };
