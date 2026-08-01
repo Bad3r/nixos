@@ -138,12 +138,15 @@ in
       # throw rather than a failing runCommand so that
       # `nix flake check --no-build` still catches it.
       #
-      # Each entry is matched on all three strings the glob could have been
-      # written against, because scripts/cache-coverage.sh matches derivation
-      # name and pname while the linkFarm key is hand-chosen and carries no
-      # version: the key alone would miss `proton-vpn-[0-9]*` against a
-      # `proton-vpn-4.16.5` derivation, and version-anchored globs are already
-      # the file's convention for wrapper entries.
+      # Matched on the derivation name and pname, which is what
+      # scripts/cache-coverage.sh matches globs against: the linkFarm key is
+      # hand-chosen and carries no version, so the key alone would miss
+      # `proton-vpn-[0-9]*` against a `proton-vpn-4.16.5` derivation, and
+      # version-anchored globs are already the file's convention for wrapper
+      # entries. The key is checked too. The detector never sees it, so a glob
+      # spelled that way suppresses nothing, but it states the same disposition
+      # this rule forbids, and it is the one candidate guaranteed to exist when
+      # a path exposes neither name nor pname.
       #
       # The domain is the entries, not the closure members cache-push also
       # serves: that closure does not exist at evaluation time. A glob written

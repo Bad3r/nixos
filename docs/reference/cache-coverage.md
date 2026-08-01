@@ -105,10 +105,12 @@ it saves. Everything else belongs in `cache-roots.nix`, and adding it there
 means deleting the glob here in the same change. That is enforced rather than
 left to memory: the `cache-roots-allowlist-disjoint` flake check in
 `modules/meta/cache-roots.nix` reads this file and aborts evaluation naming the
-offender. It matches each published entry on all three strings a glob could
-have been written against, the `linkFarm` key plus the derivation `name` and
-`pname`, so a version-anchored glob such as `proton-vpn-[0-9]*` is caught the
-same as `proton-vpn*`. Its domain is the published entries, not the closure
+offender. It matches each published entry on the derivation `name` and `pname`,
+which are the strings this report matches globs against, so a version-anchored
+glob such as `proton-vpn-[0-9]*` is caught the same as `proton-vpn*`. The
+`linkFarm` key is checked as well: a glob spelled that way suppresses nothing
+here, since the key never reaches this report, but it declares the same
+disposition the rule forbids. Its domain is the published entries, not the closure
 members the push also serves, because that closure does not exist at evaluation
 time; extending the check to them is
 https://github.com/Bad3r/nixos/issues/428. It throws
