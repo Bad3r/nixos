@@ -30,8 +30,9 @@ The reference doc flags each unavailable tool inline (the entry's `run..:`
 field carries text such as `Not in nixpkgs ...` or `Must create a custom nixpkg`); there is no dedicated section for them. The groupings below are
 this report's, collected by the underlying reason for the failure.
 
-The five tools promoted into `docs/csec/toolkit.md` are intentionally absent
-from this report because they are no longer entries in the companion reference.
+The five tools promoted into `docs/csec/toolkit.md` (katana, gau, gowitness,
+nikto, and wafw00f) are intentionally absent from this report because they are
+no longer entries in the companion reference.
 
 ## ✅ Tools that run as documented
 
