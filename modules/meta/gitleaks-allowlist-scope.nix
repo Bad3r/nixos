@@ -143,14 +143,18 @@
       kvUntargeted = lib.filter (a: (a.targetRules or [ ]) != kvTargetRules) kvBlocks;
 
       # The same hazard for every other allowlist, bounded by the property that
-      # causes it rather than by which entry happens to have it today. regexTarget
-      # "line" is what makes an allowlist match surrounding text instead of the
-      # secret, so any line-target entry without targetRules suppresses every
-      # rule on any line carrying its text. Adding regexTarget = "line" to the
-      # DNSCrypt entry trips nothing above: its regex is already in
-      # reviewedRegexes and it carries no "keys KV" text for kvBlocks.
-      untargetedLineScope = lib.filter (
-        a: (a.regexTarget or "secret") == "line" && (a.targetRules or [ ]) == [ ]
+      # causes it rather than by which entry or which target happens to have it
+      # today. Any regexTarget other than the default "secret" makes an allowlist
+      # match text outside the secret ("line" the whole line, "match" the whole
+      # rule match), so an untargeted one suppresses every rule wherever its text
+      # appears. Both are live on 8.30.1: an untargeted match-target allowlist
+      # carrying "sk_live_" hides a Stripe key that is otherwise reported. Adding
+      # either target to the DNSCrypt entry trips nothing else here, since its
+      # regex is already in reviewedRegexes and it holds no "keys KV" text for
+      # kvBlocks. Testing != "secret" also fails closed on a target a future
+      # gitleaks release adds.
+      untargetedRegexScope = lib.filter (
+        a: (a.regexTarget or "secret") != "secret" && (a.targetRules or [ ]) == [ ]
       ) allowlists;
 
       bothFiles = lib.concatStringsSep " or " (map (s: s.origin) sources);
@@ -209,12 +213,12 @@
             "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${bothFiles}; "
             + "drop this check along with it"
           )
-        else if untargetedLineScope != [ ] then
+        else if untargetedRegexScope != [ ] then
           throw (
-            "gitleaks-allowlist-scope: allowlist ${describe untargetedLineScope} is line-target with "
-            + "no targetRules. A line-target allowlist is matched against the whole line rather than "
-            + "the secret, so an untargeted one suppresses every rule's findings on any line carrying "
-            + "its text; name the rule it is meant to silence in targetRules"
+            "gitleaks-allowlist-scope: allowlist ${describe untargetedRegexScope} sets regexTarget "
+            + "with no targetRules. Any target other than the default secret is matched against text "
+            + "outside the secret, so an untargeted one suppresses every rule's findings wherever its "
+            + "text appears; name the rule it is meant to silence in targetRules"
           )
         else if kvUntargeted != [ ] then
           throw (
