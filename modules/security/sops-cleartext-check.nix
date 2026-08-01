@@ -109,7 +109,7 @@ let
         name: type:
         if type == "directory" then
           listFiles (dir + "/${name}") "${prefix}${name}/"
-        else if type == "regular" || type == "symlink" then
+        else if type == "regular" then
           [ "${prefix}${name}" ]
         else
           [ ]
@@ -237,14 +237,7 @@ let
 
   secretsFiles = if secretsPresent then listFiles secretsDir "" else [ ];
   symlinkFiles = if secretsPresent then listSymlinks secretsDir "" else [ ];
-  invalidSymlinks = lib.filter (
-    path:
-    let
-      fullPath = secretsDir + "/${path}";
-      directoryResult = builtins.tryEval (builtins.readDir fullPath);
-    in
-    !(builtins.pathExists fullPath) || directoryResult.success
-  ) symlinkFiles;
+  unsupportedSymlinks = symlinkFiles;
   cleartext = lib.filter isCleartext (lib.filter mustBeEncrypted secretsFiles);
   encryptedTemplates = lib.filter (
     path: lib.hasSuffix ".example" path && !(isCleartext path)
@@ -275,11 +268,11 @@ in
             "sops-cleartext-check.nix hasSopsMarkers misclassified these fixtures: "
             + lib.concatStringsSep ", " markerDrift
           )
-        else if invalidSymlinks != [ ] then
+        else if unsupportedSymlinks != [ ] then
           throw (
-            "secrets/ contains dangling or directory symlinks that cannot be scanned: "
-            + lib.concatStringsSep ", " invalidSymlinks
-            + ". Replace them with regular files or symlinks to regular files."
+            "secrets/ contains symlinks that cannot be scanned: "
+            + lib.concatStringsSep ", " unsupportedSymlinks
+            + ". Replace them with regular files."
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
