@@ -1,7 +1,33 @@
 _: {
   perSystem =
-    { pkgs, config, ... }:
     {
+      lib,
+      pkgs,
+      config,
+      ...
+    }:
+    {
+      checks.managed-files-synced =
+        let
+          managedFiles = lib.attrNames config.files.file;
+          drift = lib.filter (
+            name:
+            let
+              path = ../../.. + "/${name}";
+            in
+            !(builtins.pathExists path) || builtins.readFile path != config.files.file.${name}.text
+          ) managedFiles;
+        in
+        if drift != [ ] then
+          throw (
+            "committed managed files differ from their files-module source: "
+            + lib.concatStringsSep ", " drift
+            + ". Run write-files and review the change; a regenerated .sops.yaml can narrow "
+            + "encryption via encrypted_regex or a different key group."
+          )
+        else
+          pkgs.runCommandLocal "managed-files-synced-ok" { } "touch $out";
+
       packages.hook-managed-files-drift = pkgs.writeShellApplication {
         name = "hook-managed-files-drift";
         runtimeInputs = [

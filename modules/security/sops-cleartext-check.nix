@@ -3,8 +3,8 @@
 # ENC[AES256_GCM, MAC token.
 # The pre-commit ensure-sops hook only sees superproject staged files, so a
 # cleartext commit made inside the secrets submodule bypasses it. This check
-# scans the checked-out tree the flake actually ships and its policy parity
-# assertion is enforced by the compliance workflow.
+# scans the checked-out tree the flake actually ships. Generated-file parity
+# is enforced separately by the managed-files-synced flake check.
 #
 # Scope: payload scanning is effective where the secrets/ submodule content is
 # checked out, such as local development trees and git hooks. CI evaluates the
@@ -19,9 +19,6 @@ let
   # (see issue #333); scanning is only meaningful when content is present.
   secretsPresent = builtins.pathExists secretsDir && builtins.readDir secretsDir != { };
 
-  # Compare the committed artifact with the files-module source in perSystem
-  # below. Reading config.flake.lib here recurses the flake-parts fixpoint.
-  sopsPolicy = builtins.readFile ../../.sops.yaml;
   exemptionFixtures = {
     "notes.md" = true;
     "runbook" = true;
@@ -108,19 +105,33 @@ let
     in
     go 0;
 
-  hasSopsMarkers = s: (hasChunkedInfix "ENC[AES256_GCM," s) && (hasChunkedInfix "lastmodified" s);
+  # Anchor on SOPS MAC footer fields, not a bare cipher token. Prose can mention
+  # ENC[AES256_GCM, and lastmodified without containing encrypted payload data.
+  macNeedles = [
+    "mac: ENC[AES256_GCM," # YAML
+    "\"mac\": \"ENC[AES256_GCM," # JSON with a space
+    "\"mac\":\"ENC[AES256_GCM," # compact JSON
+    "sops_mac=ENC[AES256_GCM," # dotenv
+  ];
+  hasSopsMarkers =
+    s: lib.any (needle: hasChunkedInfix needle s) macNeedles && hasChunkedInfix "lastmodified" s;
 
   # Pin the detector in the secretless path so chunk boundaries and both
   # required markers remain covered without relying on submodule payloads.
   markerFixtures = [
     {
       name = "yaml-footer";
-      content = "a: ENC[AES256_GCM,data:x]\nsops:\n  lastmodified: 2026-01-01T00:00:00Z\n";
+      content = "mac: ENC[AES256_GCM,data:x]\nlastmodified: 2026-01-01T00:00:00Z\n";
+      want = true;
+    }
+    {
+      name = "json-footer";
+      content = "{\"mac\": \"ENC[AES256_GCM,data:x]\", \"lastmodified\": \"2026-01-01T00:00:00Z\"}\n";
       want = true;
     }
     {
       name = "dotenv-footer";
-      content = "A=ENC[AES256_GCM,data:x]\nsops_lastmodified=2026-01-01T00:00:00Z\n";
+      content = "sops_mac=ENC[AES256_GCM,data:x]\nsops_lastmodified=2026-01-01T00:00:00Z\n";
       want = true;
     }
     {
@@ -129,13 +140,18 @@ let
       want = false;
     }
     {
+      name = "prose-with-both-needles";
+      content = "requires the ENC[AES256_GCM, marker and sops lastmodified metadata\n";
+      want = false;
+    }
+    {
       name = "cipher-boundary";
-      content = lib.concatStrings (lib.genList (_: "x") 8185) + "ENC[AES256_GCM,lastmodified";
+      content = lib.concatStrings (lib.genList (_: "x") 8185) + "mac: ENC[AES256_GCM,lastmodified";
       want = true;
     }
     {
       name = "metadata-boundary";
-      content = "ENC[AES256_GCM," + lib.concatStrings (lib.genList (_: "x") 8183) + "lastmodified";
+      content = "mac: ENC[AES256_GCM," + lib.concatStrings (lib.genList (_: "x") 8183) + "lastmodified";
       want = true;
     }
   ];
@@ -158,23 +174,13 @@ let
 in
 {
   perSystem =
-    { config, pkgs, ... }:
-    let
-      policySynced = config.files.file.".sops.yaml".text == sopsPolicy;
-    in
+    { pkgs, ... }:
     {
       checks.secrets-no-cleartext =
         # throw, not a failing derivation: CI evaluates check drvPaths with
         # --no-build, so only an eval-time failure gates it (same rationale
         # as modules/meta/ci-lix-parity.nix).
-        if !policySynced then
-          throw (
-            "sops-cleartext-check.nix committed .sops.yaml differs from "
-            + "modules/security/sops-policy.nix files-module source. Run write-files and review "
-            + "the policy change before accepting it. A new creation rule can narrow encryption "
-            + "via encrypted_regex or a different key group, so do not regenerate blindly."
-          )
-        else if exemptionDrift != [ ] then
+        if exemptionDrift != [ ] then
           throw (
             "sops-cleartext-check.nix mustBeEncrypted classified these paths against "
             + "the documented exemption boundary: "
