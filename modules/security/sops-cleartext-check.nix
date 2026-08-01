@@ -49,7 +49,7 @@ let
         name: type:
         if type == "directory" then
           listFiles (dir + "/${name}") "${prefix}${name}/"
-        else if type == "regular" then
+        else if type == "regular" || type == "symlink" then
           [ "${prefix}${name}" ]
         else
           [ ]
@@ -140,7 +140,8 @@ in
           throw (
             "secrets/ contains cleartext files matched by .sops.yaml creation_rules: "
             + lib.concatStringsSep ", " cleartext
-            + ". Encrypt them with sops or rename them to a *.example template."
+            + ". Encrypt them with sops, rename them to a *.example template, or rename a "
+            + "local decryption artifact to decrypted_* or *.dec.*."
           )
         else
           pkgs.runCommandLocal "secrets-no-cleartext-ok" { } ''
