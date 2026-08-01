@@ -28,6 +28,7 @@ let
     line: lib.hasPrefix "    " line && !(lib.hasPrefix "          - " line)
   ) policyLines;
   recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyLines;
+  hostKeyLine = "  - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf\n";
   expectedNestedLines = [
     "    encrypted_regex: \"^(github_token)$\""
     "    key_groups:"
@@ -62,6 +63,10 @@ let
     {
       name = "host-recipient-set";
       want = recipientLines == lib.genList (_: "          - *host_pub_key") 4;
+    }
+    {
+      name = "host-key-anchor";
+      want = lib.hasInfix hostKeyLine sopsPolicy;
     }
     {
       name = "act-yaml-field-policy";
