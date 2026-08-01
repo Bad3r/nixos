@@ -94,7 +94,7 @@ _: {
               # .yaml and .json; .yml, binary, extensionless, Markdown, and
               # dotenv payloads remain with the evaluation-time gate. Exclude
               # local decryption, template, and exact Git metadata conventions.
-              files = "^secrets/(?!(?:.*/)?(?:\\.git(?:/.*)?|\\.gitignore|\\.gitattributes|\\.gitmodules|\\.gitkeep)$|(?:.*/)?decrypted_[^/]*$|(?:.*/)?[^/]*\\.dec\\.[^/]*$|.*\\.example$).*\\.(yaml|json)$";
+              files = "^secrets/(?!(?:.*/)?(?:\\.git(?:/.*)?|\\.gitignore|\\.gitattributes|\\.gitmodules|\\.gitkeep)$|(?:.*/)?decrypted_[^/]*(?:/.*)?$|(?:.*/)?[^/]*\\.dec\\.[^/]*$|.*\\.example$).*\\.(yaml|json)$";
             };
 
             gitleaks = {
