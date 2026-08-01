@@ -213,12 +213,17 @@ the remaining work. Three gaps carry it.
 1. The detector and the publisher do not talk to each other
    (https://github.com/Bad3r/nixos/issues/422). `cache-roots.nix` publishes a
    hand-maintained name list, while `scripts/cache-coverage-allowlist.txt`
-   suppresses a larger set of diverged local builds
+   suppresses diverged local builds that list never publishes
    (age-plugin-fido2prf, librepods, snixembed, subjack, cewl, normcap, zap,
-   nixos-icons, nixos-option, and the configuration wrappers). One file
-   accepts rebuilding a package forever and the other decides what to
-   publish, with nothing reconciling them, so a new custom package stays
-   uncached until somebody reads a build log.
+   system76-power, nixos-icons, nixos-option). The two sets are disjoint by
+   hand, not by construction: one file accepts rebuilding a package forever
+   and the other decides what to publish, with nothing reconciling them. So a
+   new custom package stays uncached until somebody reads a build log, and a
+   name added to the publisher leaves behind a dead glob that absorbs the next
+   regression on it. The allowlist's other entries are permanent dispositions
+   `docs/reference/cache-coverage.md` accepts rather than reconciliation debt:
+   the RAR-enabled p7zip is unfree while the cache is public, and the
+   configuration wrappers are too cheap to be worth the CI time.
 2. Only the primary host sources entries
    (https://github.com/Bad3r/nixos/issues/423). `cache-roots.nix` hardcodes
    `primaryHost`, so apps a sibling host enables and the primary does not
