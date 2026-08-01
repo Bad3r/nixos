@@ -118,6 +118,7 @@ let
     "decrypted_url_catalog.yaml" = false;
     "sub/decrypted_x.yaml" = false;
     "sub/x.dec.yaml" = false;
+    "dump.dec.d/creds.yaml" = false;
     "x.dec.yaml" = false;
     ".gitignore" = false;
     ".gitkeep" = false;
@@ -144,7 +145,8 @@ let
     dir: name: type:
     if type == "unknown" then builtins.readFileType (dir + "/${name}") else type;
 
-  shouldWalkDirectory = name: name != ".git" && !(lib.hasPrefix "decrypted_" name);
+  shouldWalkDirectory =
+    name: name != ".git" && !(lib.hasPrefix "decrypted_" name) && !(lib.hasInfix ".dec." name);
   directoryWalkFixtures = [
     {
       name = "git-directory";
@@ -154,6 +156,11 @@ let
     {
       name = "decrypted-directory";
       directory = "decrypted_dump";
+      want = false;
+    }
+    {
+      name = "dec-directory";
+      directory = "dump.dec.d";
       want = false;
     }
     {
@@ -221,7 +228,7 @@ let
     in
     !(lib.hasSuffix ".example" path)
     && !(lib.any (part: lib.hasPrefix "decrypted_" part) parts)
-    && !(lib.hasInfix ".dec." base)
+    && !(lib.any (part: lib.hasInfix ".dec." part) parts)
     && !(lib.elem base gitMetadataNames)
     && !(lib.elem ".git" parts);
 
