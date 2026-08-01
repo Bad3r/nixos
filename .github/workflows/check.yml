@@ -4,7 +4,8 @@ name: Dendritic Pattern Compliance Check
   workflow_dispatch:
   pull_request:
 jobs:
-  # The only job that runs on pull_request. The eval-time guards in checks/
+  # The Nix-running half of the pull_request gate (module-validation is the
+  # other). The eval-time guards in checks/
   # (gitleaks-allowlist-scope, ci-lix-installer-parity) are throws precisely so
   # they gate without building, but nothing evaluated checks before merge, so a
   # PR re-introducing what they ban merged clean and the throw first surfaced
@@ -150,8 +151,18 @@ jobs:
           "path:.#formatter.x86_64-linux" -- --ci
 
   module-validation:
-    if: github.event_name == 'workflow_dispatch'
+    # Also on pull_request, and without the same-repo gate eval-checks needs:
+    # this job executes nothing from the branch, since the awk program is a
+    # workflow literal and file contents are only ever data. It is the only
+    # thing enforcing the retired-namespace and literal-import rules CLAUDE.md
+    # states outright, so leaving it dispatch-only let a PR reintroduce either
+    # and surface the failure days later on an unrelated manual run.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # No Nix here: every step is plain grep/awk/find over the checkout.
     steps:
       - uses: actions/checkout@v7
