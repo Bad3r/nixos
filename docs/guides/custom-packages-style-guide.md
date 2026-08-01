@@ -45,7 +45,7 @@ Start `update.py` with a `nix-shell` shebang so the script stays runnable on its
 #! nix-shell -i python3 --packages python3
 ```
 
-Lix implements no `#!/usr/bin/env nix` shebang, so the CppNix `#! nix shell ...` form fails with `is not a recognised command`. The shebang requests only `python3`; `nix` and `nix-prefetch-url` come from the ambient Lix that runs the shebang.
+Lix implements no `#!/usr/bin/env nix` shebang, so the CppNix `#! nix shell ...` form fails with `is not a recognised command`. The shebang requests `python3`; `nix` and `nix-prefetch-url` come from the ambient Lix that runs the shebang. An updater that invokes another command directly must add its package to `--packages`, such as `yq-go` for `packages/webcrack/update.py`; otherwise it depends on the caller's `PATH`.
 
 ## Package Template
 

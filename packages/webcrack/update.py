@@ -1,5 +1,5 @@
 #!/usr/bin/env nix-shell
-#! nix-shell -i python3 --packages python3
+#! nix-shell -i python3 --packages python3 yq-go
 """Update script for webcrack."""
 
 from __future__ import annotations

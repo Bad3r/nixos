@@ -33,7 +33,8 @@ For scripts with inline dependencies, use the `uv run --script` metadata block
 pattern already used by `url-catalog-add.py`. Package updaters under
 `packages/*/update.py` instead use a `nix-shell` shebang
 (`#! nix-shell -i python3 --packages python3`) because Lix has no
-`#!/usr/bin/env nix` shebang.
+`#!/usr/bin/env nix` shebang. Add packages for commands invoked directly,
+such as `yq-go` in `packages/webcrack/update.py`.
 
 ## Validation Commands
 
