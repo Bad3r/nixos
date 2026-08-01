@@ -267,6 +267,18 @@ let
       want = false;
     }
     {
+      name = "ini-mac-past-probe-bound";
+      content =
+        "[sops]\n"
+        + lib.concatStrings (lib.genList (_: " ") 600)
+        + "mac = ENC[AES256_GCM,data:x]\n"
+        + "lastmodified = 2026-01-01T00:00:00Z\n"
+        + "age__list_0__map_recipient = "
+        + hostPubKey
+        + "\n";
+      want = false;
+    }
+    {
       name = "quoted-footer-without-recipient";
       content = "sops:\n" + "  mac: ENC[AES256_GCM,data:x]\n" + "  lastmodified: 2026-01-01T00:00:00Z\n";
       want = false;
@@ -327,6 +339,20 @@ let
     )
   );
   unsupportedSymlinks = lib.filter mustBeEncrypted symlinkFiles;
+  submoduleIgnorePath = secretsDir + "/.gitignore";
+  submoduleIgnore =
+    if secretsPresent && builtins.pathExists submoduleIgnorePath then
+      builtins.readFile submoduleIgnorePath
+    else
+      "";
+  missingIgnoreRules =
+    if secretsPresent then
+      lib.filter (rule: !(lib.hasInfix rule submoduleIgnore)) [
+        "**/decrypted_*"
+        "*.dec.*"
+      ]
+    else
+      [ ];
   cleartext = lib.filter isCleartext (lib.filter mustBeEncrypted secretsFiles);
   encryptedTemplates = lib.filter (
     path: lib.hasSuffix ".example" path && !(isCleartext path)
@@ -368,6 +394,13 @@ in
             "secrets/ contains non-exempt symlinks that cannot be scanned: "
             + lib.concatStringsSep ", " unsupportedSymlinks
             + ". Replace them with regular files."
+          )
+        else if missingIgnoreRules != [ ] then
+          throw (
+            "secrets/.gitignore is missing the active patterns required for "
+            + "the documented cleartext exemptions: "
+            + lib.concatStringsSep ", " missingIgnoreRules
+            + ". Restore those patterns before using decrypted_* or *.dec.* paths."
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
