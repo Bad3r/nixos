@@ -2,88 +2,37 @@
 name: Dendritic Pattern Compliance Check
 "on":
   workflow_dispatch:
+  # The flake checks carry eval-time guards that fail only when something
+  # forces checks.<system>: cache-roots-allowlist-disjoint and
+  # bootstrap-substituter-parity. On dispatch alone they enforce nothing at
+  # review time, which is when the drift they catch is introduced.
   pull_request:
+concurrency:
+  # Two of these jobs install Lix and run a full flake evaluation, so a
+  # superseded run is pure waste. cache-push.yml opts out because its long
+  # builds are worth preserving; nothing here builds.
+  group: check-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  # No job here writes. The trigger above mints this token for every pull
+  # request, and it reaches ./.github/actions/install-lix, which resolves
+  # from the pull request head.
+  contents: read
 jobs:
-  # The Nix-running half of the pull_request gate (module-validation is the
-  # other). The eval-time guards in checks/
-  # (gitleaks-allowlist-scope, ci-lix-installer-parity) are throws precisely so
-  # they gate without building, but nothing evaluated checks before merge, so a
-  # PR re-introducing what they ban merged clean and the throw first surfaced
-  # days later inside an unrelated flake-update PR. check-compliance covers the
-  # same surface plus every host closure and stays on manual dispatch.
-  eval-checks:
-    # Same-repo only, matching every other pull_request workflow here. This job
-    # runs `nix eval` over a PR's tree with allow-import-from-derivation = true
-    # (flake.nix), so evaluation builds derivations the branch controls, and
-    # install-lix has just written access-tokens = github.com=<token> into the
-    # runner's nix.conf. On a fork PR that is fork-controlled code executing
-    # next to a readable token, even though the token is read-only there.
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    concurrency:
-      # pull_request defaults to opened/synchronize/reopened, so without this a
-      # push mid-eval leaves the superseded run forcing every host toplevel and
-      # every IFD dev-shell check to completion on its own runner. The run_id
-      # fallback keeps any non-pull_request run in a group of its own, so this
-      # does not depend on whether an `if:`-skipped job acquires its group.
-      group: >-
-        eval-checks-${{ github.event.pull_request.number || github.run_id }}
-      cancel-in-progress: true
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - name: Install Lix
-        uses: ./.github/actions/install-lix
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Prefer HTTPS for GitHub
-        run: |
-          URL="https://github.com/"
-          git config --global url."$URL".insteadOf git@github.com:
-          git config --global url."$URL".insteadOf ssh://git@github.com/
-      # Same two constraints as check-compliance: "path:." bypasses the git
-      # fetcher, because self.submodules = true would make a git-based self
-      # fetch pull the private secrets submodule CI cannot read; and nix eval
-      # replaces `nix flake check --no-build`, because Lix forces read-only
-      # store mode there and eval-time store writes then fail on the fresh
-      # runner store. Forcing every drvPath keeps the same eval surface.
-      - name: Force every flake check
-        run: |
-          nix eval --accept-flake-config --json \
-            "path:.#checks.x86_64-linux" \
-            --apply 'checks: builtins.mapAttrs (_: check: check.drvPath) checks'
-
-  # The scanner, not just the config guard that checks/ evaluates. Nothing ran
-  # gitleaks on the merge path: pre-commit.check.enable = false keeps
-  # hook-gitleaks out of checks, so a PR committing a live credential merged
-  # clean while a PR misconfiguring the allowlist was blocked. Runs the repo's
-  # own hook, so CI and pre-push share one binary, config and baseline rather
-  # than drifting. secrets/ is unavailable to CI and the hook guards on
-  # secrets/.git, so this covers the superproject only.
+  # The scanner, not just the config guard the flake checks evaluate. Nothing
+  # ran gitleaks on the merge path: pre-commit.check.enable = false keeps
+  # hook-gitleaks out of checks, so a pull request committing a live credential
+  # merged clean while one that merely misconfigured the allowlist was blocked
+  # by gitleaks-allowlist-scope. Runs the repo's own hook, so CI and pre-push
+  # share one binary, config and baseline instead of drifting. secrets/ is
+  # unavailable to CI and the hook guards on secrets/.git, so this covers the
+  # superproject only.
   gitleaks-scan:
-    # Same-repo only, for the reason eval-checks carries: `nix run path:.#...`
-    # evaluates and builds from the branch with allow-import-from-derivation on,
-    # next to the access-token install-lix writes into the runner's nix.conf.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    concurrency:
-      group: >-
-        gitleaks-scan-${{ github.event.pull_request.number || github.run_id }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
         with:
-          # Full history: the hook scans commits, not just the worktree.
+          # Full history: the hook scans commits, not the worktree.
           fetch-depth: 0
           persist-credentials: false
       - name: Install Lix
@@ -94,7 +43,6 @@ jobs:
         run: nix run --accept-flake-config "path:.#hook-gitleaks"
 
   flake-lock-health:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -112,8 +60,12 @@ jobs:
             && owner == 'Bad3r'
 
   check-compliance:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # Installs Lix and evaluates the whole flake. Nothing on the runner
+    # sets stalled-download-timeout, so a stuck substituter fetch would
+    # otherwise hold a runner and this concurrency slot for the 6 hour
+    # job default.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -167,8 +119,8 @@ jobs:
           done
 
   format-check:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -186,18 +138,7 @@ jobs:
           "path:.#formatter.x86_64-linux" -- --ci
 
   module-validation:
-    # Also on pull_request, and without the same-repo gate eval-checks needs:
-    # this job executes nothing from the branch, since the awk program is a
-    # workflow literal and file contents are only ever data. It is the only
-    # thing enforcing the retired-namespace and literal-import rules CLAUDE.md
-    # states outright, so leaving it dispatch-only let a PR reintroduce either
-    # and surface the failure days later on an unrelated manual run.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     # No Nix here: every step is plain grep/awk/find over the checkout.
     steps:
       - uses: actions/checkout@v7
