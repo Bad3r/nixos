@@ -100,13 +100,16 @@ write_updater() {
 test_help_exits_before_discovery() {
   local err out
   make_fixture help
+  export RUN_LOG="${fixture_root}/run.log"
+  write_updater 01-first first 0
   out="${tmpdir}/help.out"
   err="${tmpdir}/help.err"
   run_sut "${out}" "${err}" --help
 
   [[ ${sut_status} -eq 0 ]] || fail "help: expected exit 0, got ${sut_status}" "${err}"
   assert_contains "${out}" 'Usage: run-packages-updaters.sh [-h|--help]' 'help'
-  assert_not_contains "${out}" 'No package updaters found' 'help'
+  assert_not_contains "${out}" 'Package updaters:' 'help'
+  [[ ! -e ${RUN_LOG} ]] || fail 'help: an updater was executed' "${out}"
   assert_empty "${err}" 'help stderr'
   pass
 }
@@ -114,6 +117,8 @@ test_help_exits_before_discovery() {
 test_rejects_unknown_argument() {
   local err out
   make_fixture unknown
+  export RUN_LOG="${fixture_root}/run.log"
+  write_updater 01-first first 0
   out="${tmpdir}/unknown.out"
   err="${tmpdir}/unknown.err"
   run_sut "${out}" "${err}" --unexpected
@@ -121,12 +126,15 @@ test_rejects_unknown_argument() {
   [[ ${sut_status} -eq 2 ]] || fail "unknown: expected exit 2, got ${sut_status}" "${err}"
   assert_empty "${out}" 'unknown stdout'
   assert_contains "${err}" 'Usage: run-packages-updaters.sh [-h|--help]' 'unknown'
+  [[ ! -e ${RUN_LOG} ]] || fail 'unknown: an updater was executed' "${out}"
   pass
 }
 
 test_rejects_extra_help_argument() {
   local err out
   make_fixture extra-help
+  export RUN_LOG="${fixture_root}/run.log"
+  write_updater 01-first first 0
   out="${tmpdir}/extra-help.out"
   err="${tmpdir}/extra-help.err"
   run_sut "${out}" "${err}" --help extra
@@ -134,6 +142,7 @@ test_rejects_extra_help_argument() {
   [[ ${sut_status} -eq 2 ]] || fail "extra-help: expected exit 2, got ${sut_status}" "${err}"
   assert_empty "${out}" 'extra-help stdout'
   assert_contains "${err}" 'Usage: run-packages-updaters.sh [-h|--help]' 'extra-help'
+  [[ ! -e ${RUN_LOG} ]] || fail 'extra-help: an updater was executed' "${out}"
   pass
 }
 
