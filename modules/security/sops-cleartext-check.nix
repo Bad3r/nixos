@@ -19,51 +19,9 @@ let
   # (see issue #333); scanning is only meaningful when content is present.
   secretsPresent = builtins.pathExists secretsDir && builtins.readDir secretsDir != { };
 
-  # Literal mirror of the deny-by-default creation rule in
-  # modules/security/sops-policy.nix. Reading the policy through
-  # config.flake.lib recurses the flake-parts fixpoint, so the sync is enforced
-  # below against the generated .sops.yaml instead.
-  # The final rule must remain last because SOPS applies the first matching
-  # creation rule. The line is checked as a suffix of the extracted rule
-  # pattern, so a narrowed replacement cannot satisfy the parity assertion.
-  defaultRuleLine = "- path_regex: secrets/.*";
-  # act.yaml is the only rule that leaves selected fields cleartext inside an
-  # otherwise encrypted file. A SOPS footer cannot detect field-level drift.
-  actRuleBlock = "- path_regex: secrets/act\\.yaml\n    encrypted_regex: \"^(github_token)$\"\n";
+  # Compare the committed artifact with the files-module source in perSystem
+  # below. Reading config.flake.lib here recurses the flake-parts fixpoint.
   sopsPolicy = builtins.readFile ../../.sops.yaml;
-  policyLines = lib.splitString "\n" sopsPolicy;
-  rulePatterns = lib.filter (line: lib.hasPrefix "  - path_regex: " line) policyLines;
-  ruleCount = builtins.length rulePatterns;
-  # Every creation-rule field directive can narrow what gets encrypted while
-  # still emitting a valid footer. Pin the complete generated nested shape.
-  nestedLines = lib.filter (
-    line: lib.hasPrefix "    " line && !(lib.hasPrefix "          - " line)
-  ) policyLines;
-  expectedNestedLines = [
-    "    encrypted_regex: \"^(github_token)$\""
-    "    key_groups:"
-    "      - age:"
-    "    key_groups:"
-    "      - age:"
-    "    key_groups:"
-    "      - age:"
-    "    key_groups:"
-    "      - age:"
-  ];
-  # The recipient set decides who can decrypt, and a creation rule can be
-  # written with key_groups first or without path_regex at all. Pin every
-  # top-level list item and recipient entry, not only path-pattern lines.
-  keyAnchorLine = "  - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf";
-  hostRecipientLine = "          - *host_pub_key";
-  listItems = lib.filter (line: lib.hasPrefix "  - " line) policyLines;
-  recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyLines;
-  policySynced =
-    ruleCount == 4
-    && listItems == ([ keyAnchorLine ] ++ rulePatterns)
-    && recipientLines == lib.genList (_: hostRecipientLine) 4
-    && nestedLines == expectedNestedLines
-    && lib.hasSuffix defaultRuleLine (lib.last rulePatterns)
-    && lib.hasInfix actRuleBlock sopsPolicy;
   exemptionFixtures = {
     "notes.md" = true;
     "runbook" = true;
@@ -150,15 +108,18 @@ let
     in
     !(hasSopsMarkers content);
 
-  cleartext =
-    if secretsPresent then
-      lib.filter isCleartext (lib.filter mustBeEncrypted (listFiles secretsDir ""))
-    else
-      [ ];
+  secretsFiles = if secretsPresent then listFiles secretsDir "" else [ ];
+  cleartext = lib.filter isCleartext (lib.filter mustBeEncrypted secretsFiles);
+  encryptedTemplates = lib.filter (
+    path: lib.hasSuffix ".example" path && !(isCleartext path)
+  ) secretsFiles;
 in
 {
   perSystem =
-    { pkgs, ... }:
+    { config, pkgs, ... }:
+    let
+      policySynced = config.files.file.".sops.yaml".text == sopsPolicy;
+    in
     {
       checks.secrets-no-cleartext =
         # throw, not a failing derivation: CI evaluates check drvPaths with
@@ -166,12 +127,10 @@ in
         # as modules/meta/ci-lix-parity.nix).
         if !policySynced then
           throw (
-            "sops-cleartext-check.nix policy mirror drifted from .sops.yaml (recipient set, "
-            + "top-level rule-item shape, nested field directives, rule count, "
-            + "deny-by-default pattern, final-rule position, or act.yaml path attachment). A new "
-            + "creation rule can narrow encryption via encrypted_regex or a different key group, "
-            + "and this check cannot detect that from file content: review the rule against "
-            + "modules/security/sops-policy.nix before raising ruleCount."
+            "sops-cleartext-check.nix committed .sops.yaml differs from "
+            + "modules/security/sops-policy.nix files-module source. Run write-files and review "
+            + "the policy change before accepting it. A new creation rule can narrow encryption "
+            + "via encrypted_regex or a different key group, so do not regenerate blindly."
           )
         else if exemptionDrift != [ ] then
           throw (
@@ -189,6 +148,13 @@ in
             + lib.concatStringsSep ", " cleartext
             + ". Encrypt them, rename them to a *.example template, or rename a "
             + "local decryption artifact to a decrypted_* or *.dec.* path."
+          )
+        else if encryptedTemplates != [ ] then
+          throw (
+            "secrets/ contains *.example templates that carry SOPS markers: "
+            + lib.concatStringsSep ", " encryptedTemplates
+            + ". The deny-by-default rule matches *.example, so `sops -e -i` on a "
+            + "template succeeds; restore the cleartext template from git."
           )
         else
           pkgs.runCommandLocal "secrets-no-cleartext-ok" { } ''
