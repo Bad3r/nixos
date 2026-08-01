@@ -15,9 +15,10 @@
       -u, --url <target>: Single URL to screenshot.
     scan file:
       -f, --file <file>: File of URLs to screenshot.
+    scan (persistent across scan subcommands):
+      --screenshot-path <dir>: Directory to write screenshots to.
+      --write-db: Persist results to the SQLite database.
     report: Serve or export the web report UI over captured results.
-    --screenshot-path <dir>: Directory to write screenshots to.
-    --write-db: Persist results to the SQLite database.
 */
 _:
 let
