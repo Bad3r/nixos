@@ -19,16 +19,21 @@ let
   # (see issue #333); scanning is only meaningful when content is present.
   secretsPresent = builtins.pathExists secretsDir && builtins.readDir secretsDir != { };
 
-  # Literal mirror of sensitiveExtensions in modules/security/sops-policy.nix.
-  # Reading it through config.flake.lib recurses the flake-parts fixpoint, so
-  # the sync is enforced below against the generated .sops.yaml instead.
+  # Literal mirrors of the non-explicit creation rules in
+  # modules/security/sops-policy.nix. Reading the policy through
+  # config.flake.lib recurses the flake-parts fixpoint, so the sync is enforced
+  # below against the generated .sops.yaml instead.
   extAlternation = "yaml|yml|json|env|ini|asc|md|txt";
   # `(?i)` mirrors the case-insensitive catch-all emitted to .sops.yaml.
   catchAllLine = "- path_regex: (?i)secrets/.*\\.(${extAlternation})$";
-  # The fonts rule is the only non-extension creation-rule surface.
   fontsLine = "- path_regex: secrets/fonts/.+";
+  extensionlessPathPattern = "(.*/)?[^/.]+$";
+  extensionlessLine = "- path_regex: secrets/${extensionlessPathPattern}";
   sopsPolicy = builtins.readFile ../../.sops.yaml;
-  policySynced = lib.hasInfix catchAllLine sopsPolicy && lib.hasInfix fontsLine sopsPolicy;
+  policySynced =
+    lib.hasInfix catchAllLine sopsPolicy
+    && lib.hasInfix fontsLine sopsPolicy
+    && lib.hasInfix extensionlessLine sopsPolicy;
 
   listFiles =
     dir: prefix:
@@ -44,11 +49,12 @@ let
       ) (builtins.readDir dir)
     );
 
-  # Mirrors the creation_rules surface: the extension catch-all plus the
-  # fonts/ any-extension rule. The extension match case-folds path to mirror
-  # the `(?i)` catch-all in .sops.yaml, so a case-variant name (Runbook.MD) is
-  # still required-encrypted (#344). Exemptions are the intentional cleartext
-  # conventions: *.example templates and the local-decryption prefixes
+  # Mirrors the creation_rules surface: the extension catch-all, the fonts/
+  # any-extension rule, and the extensionless-basename rule. The extension
+  # match case-folds path to mirror the `(?i)` catch-all in .sops.yaml, so a
+  # case-variant name (Runbook.MD) is still required-encrypted (#344).
+  # Exemptions are the intentional cleartext conventions: *.example templates
+  # and the local-decryption prefixes
   # (decrypted_*, *.dec.*), which the secrets submodule's own .gitignore
   # ignores and which reach evaluation through `path:` refs that copy
   # untracked files. Superproject ignore rules do not govern the submodule's
@@ -63,7 +69,9 @@ let
     && !(lib.hasPrefix "decrypted_" base)
     && !(lib.hasInfix ".dec." base)
     && (
-      lib.hasPrefix "fonts/" path || builtins.match ".*\\.(${extAlternation})" (lib.toLower path) != null
+      lib.hasPrefix "fonts/" path
+      || builtins.match ".*\\.(${extAlternation})" (lib.toLower path) != null
+      || builtins.match extensionlessPathPattern path != null
     );
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
@@ -114,7 +122,7 @@ in
         if !policySynced then
           throw (
             "sops-cleartext-check.nix creation-rules mirror drifted from .sops.yaml; "
-            + "update extAlternation or fontsLine to match modules/security/sops-policy.nix"
+            + "update extAlternation, fontsLine, or extensionlessLine to match modules/security/sops-policy.nix"
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''

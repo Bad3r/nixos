@@ -27,3 +27,8 @@ creation_rules:
     key_groups:
       - age:
           - *host_pub_key
+
+  - path_regex: secrets/(.*/)?[^/.]+$
+    key_groups:
+      - age:
+          - *host_pub_key

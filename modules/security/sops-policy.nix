@@ -1,9 +1,9 @@
 { lib, ... }:
 let
   # Canonical extension set for the secrets/ encryption catch-all. The
-  # cleartext regression check (sops-cleartext-check.nix) mirrors this list as
-  # a literal and asserts it against the generated .sops.yaml, so drift there
-  # fails evaluation. The ensure-sops pre-commit filter
+  # cleartext regression check (sops-cleartext-check.nix) mirrors this list and
+  # the non-extension creation rules as literals and asserts them against the
+  # generated .sops.yaml, so policy drift fails evaluation. The ensure-sops pre-commit filter
   # (modules/meta/pre-commit.nix) mirrors it too (plus the age/enc container
   # formats) but is NOT asserted; update it by hand when this list changes.
   sensitiveExtensions = [
@@ -47,6 +47,11 @@ in
                 - *host_pub_key
 
         - path_regex: (?i)secrets/.*\.(${lib.concatStringsSep "|" sensitiveExtensions})$
+          key_groups:
+            - age:
+                - *host_pub_key
+
+        - path_regex: secrets/(.*/)?[^/.]+$
           key_groups:
             - age:
                 - *host_pub_key
