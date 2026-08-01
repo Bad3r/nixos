@@ -28,7 +28,10 @@ options:
   --apply                   Archive and drop selected stashes.
   --age <dur>               Age threshold. Formats: 14d, 2w, bare integer
                             (days). Default: 14d.
-  --archive-retention <dur> Grace period for archive refs. Default: 90d.
+  --archive-retention <dur> Grace period for archive refs. Default: 90d. A
+                            value of 0 disables expiry, as it does for
+                            --backup-retention-days in
+                            prune-stale-worktrees.
   --sweep-archive           Also delete archive refs whose archive date is
                             past the retention window (dry-run without
                             --apply). Refs written under today's date are
@@ -279,6 +282,12 @@ prune_repo() {
 sweep_repo() {
   local repo=$1
   local archive_refs ref date_part epoch
+
+  # 0 disables expiry, matching --backup-retention-days in
+  # scripts/prune-stale-worktrees.sh. The same operator drives both helpers, so
+  # the value must not mean "keep everything" in one and "delete everything" in
+  # the other.
+  ((retention_days > 0)) || return 0
 
   # Captured with its status for the same reason as the stash listing: a
   # for-each-ref failure inside a process substitution would look like a

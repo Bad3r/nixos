@@ -452,10 +452,10 @@ test_sweep_never_deletes_this_runs_archive() {
   push_stash "${repo}" precious 30
   out="${tmpdir}/sweep-same-run.out"
 
-  # prune_repo runs before sweep_repo, so with a zero retention window the
-  # sweep would otherwise delete the archive of the stash just dropped and
-  # leave it irrecoverable in the same invocation.
-  run_sut "${out}" "${repo}" --apply --sweep-archive --archive-retention 0
+  # prune_repo runs before sweep_repo, so a single invocation must never expire
+  # the archive of the stash it just dropped. 1 is the most aggressive window
+  # that still expires anything.
+  run_sut "${out}" "${repo}" --apply --sweep-archive --archive-retention 1
   assert_status 0 "${out}" sweep-same-run
   assert_contains "${out}" 'dropped stash@\{0\}' sweep-same-run
   assert_not_contains "${out}" 'deleted archive ref' sweep-same-run
@@ -468,6 +468,34 @@ test_sweep_never_deletes_this_runs_archive() {
     fail "sweep-same-run: git stash apply ${ref} failed"
   grep -Fqx precious "${repo}/f" ||
     fail "sweep-same-run: the archive did not restore the dropped stash"
+  pass
+}
+
+test_zero_retention_disables_expiry() {
+  local out
+  make_fixture zero-retention
+  out="${tmpdir}/zero-retention.out"
+
+  # 0 disables expiry, as it does for --backup-retention-days in
+  # prune-stale-worktrees.sh. Read as a zero-length grace period instead, it
+  # would delete every archive ref in the repository.
+  git -C "${repo}" update-ref refs/stash-archive/2020-01-01/aaaaaaaaaaaa HEAD
+  git -C "${repo}" update-ref refs/stash-archive/2019-06-30/bbbbbbbbbbbb HEAD
+
+  run_sut "${out}" "${repo}" --sweep-archive --archive-retention 0
+  assert_status 0 "${out}" zero-retention-dry
+  assert_not_contains "${out}" 'would delete archive ref' zero-retention-dry
+  assert_contains "${out}" 'dry-run: nothing selected' zero-retention-dry
+
+  run_sut "${out}" "${repo}" --sweep-archive --archive-retention 0 --apply
+  assert_status 0 "${out}" zero-retention-apply
+  assert_not_contains "${out}" 'deleted archive ref' zero-retention-apply
+  assert_archive_count "${repo}" 2 zero-retention-apply
+
+  # A window of 1 still expires them, so the guard is not disabling the sweep.
+  run_sut "${out}" "${repo}" --sweep-archive --archive-retention 1 --apply
+  assert_status 0 "${out}" zero-retention-contrast
+  assert_archive_count "${repo}" 0 zero-retention-contrast
   pass
 }
 
@@ -554,6 +582,7 @@ test_second_instance_is_locked_out
 test_rejected_entry_does_not_shift_reported_positions
 test_sweep_archive_respects_retention
 test_sweep_never_deletes_this_runs_archive
+test_zero_retention_disables_expiry
 test_linked_worktrees_share_one_stash_stack
 test_dry_run_writes_nothing_on_a_stale_snapshot
 
