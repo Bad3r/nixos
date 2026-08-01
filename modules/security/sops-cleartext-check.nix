@@ -25,7 +25,10 @@ let
   extAlternation = "yaml|yml|json|env|ini|asc|md|txt";
   # `(?i)` mirrors the case-insensitive catch-all emitted to .sops.yaml.
   catchAllLine = "- path_regex: (?i)secrets/.*\\.(${extAlternation})$";
-  policySynced = lib.hasInfix catchAllLine (builtins.readFile ../../.sops.yaml);
+  # The fonts rule is the only non-extension creation-rule surface.
+  fontsLine = "- path_regex: secrets/fonts/.+";
+  sopsPolicy = builtins.readFile ../../.sops.yaml;
+  policySynced = lib.hasInfix catchAllLine sopsPolicy && lib.hasInfix fontsLine sopsPolicy;
 
   listFiles =
     dir: prefix:
@@ -110,8 +113,8 @@ in
         # as modules/meta/ci-lix-parity.nix).
         if !policySynced then
           throw (
-            "sops-cleartext-check.nix extension list drifted from the .sops.yaml catch-all rule; "
-            + "update extAlternation to match modules/security/sops-policy.nix"
+            "sops-cleartext-check.nix creation-rules mirror drifted from .sops.yaml; "
+            + "update extAlternation or fontsLine to match modules/security/sops-policy.nix"
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
