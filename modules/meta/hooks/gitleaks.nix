@@ -27,11 +27,18 @@ _: {
 
             # One baseline per pass, because fingerprints carry the shas of the
             # repository they came from, so the superproject's entries can never
-            # match a submodule finding. Record a new entry with the same flags
-            # this hook uses, --redact included:
+            # match a submodule finding. The submodule's baseline lives inside
+            # the submodule rather than here: a report entry carries File,
+            # Commit, Link, Author, Email, Date and the full commit Message, and
+            # --redact masks only Match and Secret, so recording a secrets/
+            # finding in this repository would publish that private history's
+            # metadata in a public one. Inside the submodule it is also reviewed
+            # in the repository whose history it describes, and only present when
+            # the submodule is checked out, which is already the pass's guard.
+            # Record a new entry with the same flags this hook uses:
             #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
             #     --config .gitleaks.toml \
-            #     --report-path .gitleaks-baseline-secrets.json secrets
+            #     --report-path secrets/.gitleaks-baseline.json secrets
             # Matching is by fingerprint, so a raw baseline would still suppress,
             # but it commits the credential in plaintext.
             git_args=("''${common[@]}")
@@ -39,8 +46,8 @@ _: {
               git_args+=(--baseline-path ".gitleaks-baseline.json")
             fi
             sub_args=("''${common[@]}")
-            if [ -f ".gitleaks-baseline-secrets.json" ]; then
-              sub_args+=(--baseline-path ".gitleaks-baseline-secrets.json")
+            if [ -f "secrets/.gitleaks-baseline.json" ]; then
+              sub_args+=(--baseline-path "secrets/.gitleaks-baseline.json")
             fi
 
             # writeShellApplication prepends set -e, so without collecting the
@@ -55,7 +62,7 @@ _: {
             # with no flag and no review. Fail rather than let one appear
             # unnoticed alongside the channels this hook wires up deliberately.
             if [ -e ".gitleaksignore" ]; then
-              echo "hook-gitleaks: .gitleaksignore suppresses findings outside the reviewed baselines; record them in .gitleaks-baseline.json or .gitleaks-baseline-secrets.json instead" >&2
+              echo "hook-gitleaks: .gitleaksignore suppresses findings outside the reviewed baselines; record them in .gitleaks-baseline.json or secrets/.gitleaks-baseline.json instead" >&2
               status=1
             fi
 
