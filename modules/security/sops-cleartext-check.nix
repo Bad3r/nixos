@@ -88,6 +88,17 @@ let
       want =
         lib.filter (line: lib.hasPrefix "  - " line) policyContentLines == ([ hostKey ] ++ rulePatterns);
     }
+    {
+      name = "policy-line-shapes";
+      want = lib.all (
+        line:
+        line == ""
+        || line == "keys:"
+        || line == "creation_rules:"
+        || lib.hasPrefix "  - " line
+        || lib.hasPrefix "    " line
+      ) policyContentLines;
+    }
   ];
   policyDrift = map (fixture: fixture.name) (lib.filter (fixture: !fixture.want) policyFixtures);
 
@@ -490,7 +501,10 @@ in
             "secrets/.gitignore is missing the active patterns required for "
             + "the documented cleartext exemptions: "
             + lib.concatStringsSep ", " missingIgnoreRules
-            + ". Restore those patterns before using decrypted_* or *.dec.* paths."
+            + ". Restore those exact lines, and remove any active '!' negation line: "
+            + "git applies gitignore rules last-match-wins, so a later re-inclusion "
+            + "can expose an exempt path and fails this check even when both "
+            + "patterns are present."
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
