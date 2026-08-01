@@ -86,6 +86,22 @@
         (e.useDefault or false) != true || (e.disabledRules or [ ]) != [ ]
       ) parsed;
 
+      # Every allowlist regex is pinned, not just the KV one. An allowlist regex
+      # is matched against every finding in the repository, so a broad one
+      # silences rules everywhere: verified against 8.30.1 that a global
+      # [[allowlists]] with regexTarget = "line" and regexes = ["."] matches
+      # every non-empty line and hides even a planted Stripe live key, which is
+      # broader than the disabledRules case the [extend] branch bans and needs no
+      # paths key to get there. Widening this is a deliberate edit here.
+      reviewedRegexes = [
+        "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"
+        "(production|preview) keys KV: [0-9a-f]{32}"
+      ];
+
+      unreviewedRegexes = lib.filter (
+        a: lib.any (r: !lib.elem r reviewedRegexes) (a.regexes or [ ])
+      ) allowlists;
+
       # The Cloudflare KV allowlist is a no-op unless it is line-scoped: against
       # the default target the regex is matched on the bare hex secret and never
       # sees the surrounding "keys KV:" text.
@@ -117,6 +133,13 @@
             + "(useDefault must stay true, disabledRules must stay empty). That suppresses a rule across "
             + "the whole repository, which is broader than the path-scoping this check already bans. "
             + "Scope the false positive by content with regexTarget = \"line\" instead"
+          )
+        else if unreviewedRegexes != [ ] then
+          throw (
+            "gitleaks-allowlist-scope: allowlist ${describe unreviewedRegexes} carries a regex "
+            + "outside the reviewed set. An allowlist regex is matched against every finding in the "
+            + "repository, so a broad one silences rules everywhere rather than in one tree; add the "
+            + "exact regex to reviewedRegexes deliberately"
           )
         else if unreviewedRules != [ ] then
           throw (
