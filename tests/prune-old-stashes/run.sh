@@ -1065,12 +1065,21 @@ test_corruption_is_not_reported_as_a_usage_error() {
   assert_contains "${out}" 'broken checkout, skipping' usage-vs-failure
   assert_contains "${out}" '1 failure\(s\)' usage-vs-failure
 
-  # With nothing wrong, the same branch is still a usage error.
+  # With nothing counted, the same branch is a usage error. Reached through the
+  # default root, which is exempt from the failure count: a named root would
+  # increment it and take the branch above, pinning nothing new.
+  rm -rf "${HOME}/trees"
+  run_sut "${out}" "${outside}" --all-worktrees
+  assert_status 64 "${out}" usage-vs-failure-empty
+  assert_contains "${out}" 'no repositories found under the scanned roots' usage-vs-failure-empty
+  assert_not_contains "${out}" 'failure\(s\)' usage-vs-failure-empty
+
+  # A named empty root does count, so it stays on the failure side.
   rm -rf "${scan}"
   mkdir -p "${scan}"
   run_sut "${out}" "${outside}" --all-worktrees --root "${scan}"
-  assert_status 1 "${out}" usage-vs-failure-empty
-  assert_contains "${out}" 'no checkouts directly under root' usage-vs-failure-empty
+  assert_status 1 "${out}" usage-vs-failure-named
+  assert_contains "${out}" 'no checkouts directly under root' usage-vs-failure-named
   pass
 }
 
