@@ -92,7 +92,7 @@ _: {
               # nothing today. Keep it for a future de-submoduled checkout;
               # secrets-no-cleartext is the actual gate. Exclude local
               # decryption, template, and exact Git metadata conventions.
-              files = "^secrets/(?!(?:.*/)?(?:\\.git(?:/.*)?|\\.gitignore|\\.gitattributes|\\.gitmodules|\\.gitkeep)$|(?:.*/)?decrypted_[^/]*$|(?:.*/)?[^/]*\\.dec[^/]*$|.*\\.example$).*";
+              files = "^secrets/(?!(?:.*/)?(?:\\.git(?:/.*)?|\\.gitignore|\\.gitattributes|\\.gitmodules|\\.gitkeep)$|(?:.*/)?decrypted_[^/]*$|(?:[^/]*\\.dec[^/]*$|(?:.*/)?[^/]*\\.dec\\.[^/]*$)|.*\\.example$).*";
             };
 
             gitleaks = {
