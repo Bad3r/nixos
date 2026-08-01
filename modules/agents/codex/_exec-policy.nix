@@ -186,70 +186,13 @@ let
       # `max()` over every matching rule (Allow < Prompt < Forbidden in
       # codex-rs/execpolicy/src/decision.rs), so these win over that allow
       # regardless of rule order.
-      # Enumerated rather than written out, because every spelling the operator
-      # or an agent might type has to be covered: an uncovered one matches only
-      # the `nix develop` allow and runs unprompted. `--accept-flake-config` is
-      # accepted on either side of the subcommand, and `path:.` is required
-      # only from a linked worktree.
-      stashHelperInvocations = [
-        [ "prune-old-stashes" ]
-        [ "scripts/prune-old-stashes.sh" ]
-        [ "./scripts/prune-old-stashes.sh" ]
-      ]
-      ++ (
-        let
-          nixPrefixes = [
-            [
-              "nix"
-              "develop"
-            ]
-            [
-              "nix"
-              "--accept-flake-config"
-              "develop"
-            ]
-          ];
-          # Everything that can sit between `develop` and `-c`. The flag is
-          # accepted before or after the installable and both orders appear in
-          # this repo, so covering only one leaves the other matching just the
-          # `nix develop` allow.
-          installables = [
-            [ ]
-            [ "path:." ]
-            [ "--accept-flake-config" ]
-            [
-              "path:."
-              "--accept-flake-config"
-            ]
-            [
-              "--accept-flake-config"
-              "path:."
-            ]
-          ];
-          commandFlags = [
-            "-c"
-            "--command"
-          ];
-        in
-        lib.concatMap (
-          prefix:
-          lib.concatMap (
-            installable:
-            # `-c` and `--command` are aliases, so nothing makes a caller
-            # prefer one and covering only the short form leaves the other
-            # matching just the `nix develop` allow.
-            map (
-              commandFlag:
-              prefix
-              ++ installable
-              ++ [
-                commandFlag
-                "prune-old-stashes"
-              ]
-            ) commandFlags
-          ) installables
-        ) nixPrefixes
-      );
+      #
+      # Shared with the claude-code `bashAsk` list; see that file for why, and
+      # the shared file for why the coverage is best-effort rather than
+      # exhaustive. Codex has no fallback here: execpolicy sees
+      # `nix develop ... -c prune-old-stashes` as one argv, so an uncovered
+      # spelling is never re-evaluated against the inner name.
+      stashHelperInvocations = import ../_stash-helper-invocations.nix;
 
       promptedStashHelperRules = map (pattern: {
         inherit pattern;
