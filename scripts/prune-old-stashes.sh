@@ -26,11 +26,12 @@ Recover a pruned stash within the retention window:
 
 options:
   --apply                   Archive and drop selected stashes.
-  --age <dur>               Age threshold. Formats: 14d, 2w, bare integer
-                            (days). Default: 14d. 0 selects every stash;
-                            unlike --archive-retention 0 it disables
-                            nothing.
-  --archive-retention <dur> Grace period for archive refs. Default: 90d. A
+  --age <dur>               Age threshold, also --age=<dur>. Formats: 14d,
+                            2w, bare integer (days). Default: 14d. 0
+                            selects every stash; unlike
+                            --archive-retention 0 it disables nothing.
+  --archive-retention <dur> Grace period for archive refs, also
+                            --archive-retention=<dur>. Default: 90d. A
                             value of 0 disables expiry, as it does for
                             --backup-retention-days in
                             prune-stale-worktrees.
@@ -42,15 +43,16 @@ options:
   --all-worktrees           Also process repositories under each --root.
                             Roots sharing a common git dir are processed
                             once: linked worktrees share one stash stack.
-  --root <dir>              Repeatable. Directory scanned by
-                            --all-worktrees; a usage error without it.
-                            Default: \$HOME/trees/nixos. Exactly one level
-                            below each root is scanned, so a root must
-                            directly contain the checkouts; unlike
-                            prune-stale-worktrees, container directories
-                            are not descended into. A named root that is
-                            missing, or that contains no checkouts, is
-                            reported and counted as a failure.
+  --root <dir>              Repeatable, also --root=<dir>. Directory
+                            scanned by --all-worktrees; a usage error
+                            without it. Default: \$HOME/trees/nixos.
+                            Exactly one level below each root is scanned,
+                            so a root must directly contain the checkouts;
+                            unlike prune-stale-worktrees, container
+                            directories are not descended into. A named
+                            root that is missing, or that contains no
+                            checkouts, is reported and counted as a
+                            failure.
   -h, --help                Print this help.
 
 Runs are serialized by a per-user lock; a second concurrent invocation exits
@@ -206,6 +208,7 @@ if [[ $all_worktrees == true ]]; then
       continue
     fi
     scanned=0
+    anomalies=0
     for dir in "$scan_root"/*/; do
       [[ -d $dir ]] || continue
       # rev-parse walks up, so a directory that is not itself a checkout
@@ -214,6 +217,17 @@ if [[ $all_worktrees == true ]]; then
       # set and prune its stashes.
       [[ -e ${dir%/}/.git ]] || continue
       if wt_top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
+        # Presence of .git is not the property being relied on; "this directory
+        # is the repository root" is. Git treats .git as a repository only when
+        # it validates, so an empty or partially deleted .git directory does not
+        # stop discovery and rev-parse walks up to the enclosing repository. A
+        # non-empty prefix says the repository found is not rooted here.
+        if [[ -n $(git -C "$dir" rev-parse --show-prefix 2>/dev/null) ]]; then
+          echo "${prog_name}: not a checkout root, skipping: ${dir%/}" >&2
+          failures=$((failures + 1))
+          anomalies=$((anomalies + 1))
+          continue
+        fi
         roots+=("$wt_top")
         scanned=$((scanned + 1))
       else
@@ -225,12 +239,16 @@ if [[ $all_worktrees == true ]]; then
         # corruption inside an existing tree is not that case.
         echo "${prog_name}: broken checkout, skipping: ${dir%/}" >&2
         failures=$((failures + 1))
+        anomalies=$((anomalies + 1))
       fi
     done
     # Exactly one level is scanned, so a root aimed one level too high exists,
     # matches directories, and still registers nothing. Left silent that is the
     # same clean report over an unscanned tree a missing root already reports.
-    if ((scanned == 0)); then
+    # Only when nothing was found at all: a root whose entries were reported as
+    # broken or misrooted does contain checkouts, and calling that an absence
+    # would both misdescribe it and count one problem twice.
+    if ((scanned == 0 && anomalies == 0)); then
       echo "${prog_name}: no checkouts directly under root: ${scan_root}" >&2
       if [[ $roots_explicit == true ]]; then
         failures=$((failures + 1))

@@ -769,9 +769,56 @@ test_root_is_repeatable_and_defaults_to_home_trees() {
   assert_contains "${out}" "repo: ${third}$" multi-root-default
   assert_not_contains "${out}" "repo: ${second}$" multi-root-default
 
+  # The --root=DIR form reaches the same handling as the two-word form.
+  run_sut "${out}" "${repo}" --all-worktrees "--root=${tmpdir}/scan-root-b"
+  assert_status 0 "${out}" multi-root-equals
+  assert_contains "${out}" "repo: ${second}$" multi-root-equals
+  assert_not_contains "${out}" "repo: ${third}$" multi-root-equals
+
+  # So do --age=DUR and --archive-retention=DUR.
+  run_sut "${out}" "${repo}" --age=3months
+  assert_status 64 "${out}" multi-root-age-equals
+  assert_contains "${out}" "invalid duration '3months'" multi-root-age-equals
+
+  run_sut "${out}" "${repo}" --archive-retention=999999999999999
+  assert_status 64 "${out}" multi-root-retention-equals
+
+  run_sut "${out}" "${repo}" --age=010
+  assert_status 0 "${out}" multi-root-age-equals-ok
+  assert_contains "${out}" 'no stashes older than 10d' multi-root-age-equals-ok
+
   run_sut "${out}" "${repo}" --root
   assert_status 64 "${out}" multi-root-usage
   assert_contains "${out}" 'requires a value' multi-root-usage
+  pass
+}
+
+test_invalid_git_dir_does_not_resolve_upward() {
+  local out enclosing
+  make_fixture fake-git
+  out="${tmpdir}/fake-git.out"
+
+  # An enclosing repository with a stash, holding the scanned root. Kept out of
+  # $HOME so this case does not depend on what other cases did to it.
+  enclosing="${tmpdir}/fake-git-enclosing"
+  git init -q -b main "${enclosing}"
+  init_repo_config "${enclosing}"
+  printf '%s\n' base >"${enclosing}/f"
+  git -C "${enclosing}" add f
+  git -C "${enclosing}" commit -q -m "initial commit"
+  push_stash "${enclosing}" precious-enclosing 30
+
+  # An empty .git *directory* passes an -e check but does not validate, so git
+  # discovery skips it and walks up. rev-parse --show-toplevel then succeeds
+  # and names the enclosing repository.
+  mkdir -p "${enclosing}/trees/fake/.git"
+
+  run_sut "${out}" "${repo}" --all-worktrees --root "${enclosing}/trees"
+  assert_status 1 "${out}" fake-git
+  assert_contains "${out}" 'not a checkout root, skipping' fake-git
+  assert_not_contains "${out}" "repo: ${enclosing}$" fake-git
+  assert_not_contains "${out}" 'precious-enclosing' fake-git
+  assert_stash_count "${enclosing}" 1 fake-git
   pass
 }
 
@@ -802,6 +849,16 @@ test_broken_checkout_under_a_root_is_reported() {
   assert_not_contains "${out}" 'no checkouts directly under root' broken-checkout
   # The healthy sibling is still processed.
   assert_contains "${out}" "repo: ${good}$" broken-checkout
+
+  # With no healthy sibling the root still contains a checkout, just an
+  # unreadable one, so calling it an absence would misdescribe it and count
+  # the same problem twice.
+  rm -rf "${good}"
+  run_sut "${out}" "${repo}" --all-worktrees --root "${scan}"
+  assert_status 1 "${out}" broken-only
+  assert_contains "${out}" 'broken checkout, skipping' broken-only
+  assert_not_contains "${out}" 'no checkouts directly under root' broken-only
+  assert_contains "${out}" '1 failure\(s\)' broken-only
   pass
 }
 
@@ -940,6 +997,7 @@ test_unusable_root_is_reported_not_expanded
 test_non_checkout_under_a_root_is_not_resolved_upward
 test_root_without_checkouts_is_reported
 test_broken_checkout_under_a_root_is_reported
+test_invalid_git_dir_does_not_resolve_upward
 test_unreadable_repo_is_not_swept
 test_dry_run_writes_nothing_on_a_stale_snapshot
 

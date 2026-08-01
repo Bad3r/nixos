@@ -47,9 +47,9 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
 ## Flags
 
 - `--apply`: perform the archive and drop (dry-run without it).
-- `--age <dur>`: age threshold; `14d`, `2w`, or a bare integer of days. `0`
+- `--age <dur>` (also `--age=<dur>`): age threshold; `14d`, `2w`, or a bare integer of days. `0`
   selects every stash; unlike `--archive-retention 0` it disables nothing.
-- `--archive-retention <dur>`: grace period for archive refs (default `90d`).
+- `--archive-retention <dur>` (also `--archive-retention=<dur>`): grace period for archive refs (default `90d`).
   `0` disables expiry, matching `--backup-retention-days 0` in
   `scripts/prune-stale-worktrees.sh`. Use `1` to expire refs older than a day.
 - `--sweep-archive`: also delete archive refs past the retention window
@@ -59,7 +59,7 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
   `--archive-retention 0` disables the sweep outright and says so.
 - `--all-worktrees`: process repositories under each `--root` in addition to
   the current repository.
-- `--root <dir>`: repeatable; directory scanned by `--all-worktrees`. Defaults
+- `--root <dir>` (also `--root=<dir>`): repeatable; directory scanned by `--all-worktrees`. Defaults
   to `$HOME/trees/nixos`, matching `--root` in
   `scripts/prune-stale-worktrees.sh`. Exactly one level below the root is
   scanned, so each root must directly contain the checkouts; unlike
