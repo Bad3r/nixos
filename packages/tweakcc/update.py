@@ -31,6 +31,7 @@ from updater import (  # noqa: E402
     calculate_url_hash,
     fetch_json,
     load_hashes,
+    nix_build,
     save_hashes,
 )
 
@@ -46,6 +47,7 @@ def latest_main_commit() -> dict[str, Any]:
 def main() -> None:
     """Update tweakcc to the latest commit on ``main``."""
     data = load_hashes(HASHES_FILE)
+    previous_data = data.copy()
     commit = latest_main_commit()
     sha = cast("str", commit["sha"])
     date = cast("str", commit["commit"]["author"]["date"])[:10]
@@ -70,13 +72,23 @@ def main() -> None:
         "pnpmDepsHash": data.get("pnpmDepsHash", ""),
     }
 
-    new_data["pnpmDepsHash"] = calculate_dependency_hash(
-        ".#tweakcc",
-        "pnpmDepsHash",
-        HASHES_FILE,
-        new_data,
-    )
-    save_hashes(HASHES_FILE, new_data)
+    committed = False
+    try:
+        new_data["pnpmDepsHash"] = calculate_dependency_hash(
+            ".#tweakcc",
+            "pnpmDepsHash",
+            HASHES_FILE,
+            new_data,
+        )
+        save_hashes(HASHES_FILE, new_data)
+
+        print("Validating package build...")
+        nix_build(".#tweakcc", no_link=True, capture_output=False)
+        committed = True
+    finally:
+        if not committed:
+            save_hashes(HASHES_FILE, previous_data)
+
     print(f"Updated to {new_data['version']} ({sha[:12]})")
 
 

@@ -12,8 +12,6 @@
   bunInstallDir,
   externalBinary,
   installMethods,
-  greptilePluginRequested,
-  greptileApiKeyPath,
 }:
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
@@ -99,6 +97,8 @@ let
     exec "$realBash" "''${originalArgs[@]}"
   '';
 
+  # Keep this assignment standalone. packages/tweakcc/shell-wrapper.patch
+  # parses it to reach the wrapped Claude executable.
   targetScript =
     if installMethods.bun.enable then
       ''
@@ -112,17 +112,6 @@ let
       ''
         target=${lib.escapeShellArg externalBinary}
       '';
-
-  greptileEnv = lib.optionalString greptilePluginRequested ''
-    secret_path="''${GREPTILE_API_KEY_FILE:-${greptileApiKeyPath}}"
-    if [ -r "$secret_path" ] && [ -s "$secret_path" ]; then
-      secret_value=$(< "$secret_path")
-      secret_value="''${secret_value//[$'\r\n']/}"
-      if [ -n "$secret_value" ]; then
-        export GREPTILE_API_KEY="$secret_value"
-      fi
-    fi
-  '';
 
   wrapperBody = ''
     set -euo pipefail
@@ -140,7 +129,6 @@ let
 
     export CLAUDE_CODE_SHELL=${lib.escapeShellArg "${claudeBashWrapper}/bin/bash"}
 
-    ${greptileEnv}
     ${targetScript}
 
     if [ ! -x "$target" ]; then
@@ -154,5 +142,5 @@ let
   claudeWrapped = pkgs.writeShellScriptBin "claude" wrapperBody;
 in
 {
-  inherit claudeWrapped;
+  inherit claudeWrapped wrapperBody;
 }

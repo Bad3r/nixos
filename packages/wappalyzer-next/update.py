@@ -127,11 +127,17 @@ def main() -> None:
         print(f"{PACKAGE_FILE.relative_to(FLAKE_ROOT)} already matches {latest}")
         return
 
-    PACKAGE_FILE.write_text(updated, encoding="utf-8")
-    print(f"Updated {PACKAGE_FILE.relative_to(FLAKE_ROOT)} to {latest}")
+    validated = False
+    try:
+        PACKAGE_FILE.write_text(updated, encoding="utf-8")
+        print(f"Updated {PACKAGE_FILE.relative_to(FLAKE_ROOT)} to {latest}")
 
-    print("Validating package build...")
-    nix_build(PACKAGE_ATTR, no_link=True)
+        print("Validating package build...")
+        nix_build(PACKAGE_ATTR, no_link=True, capture_output=False)
+        validated = True
+    finally:
+        if not validated:
+            PACKAGE_FILE.write_text(package_text, encoding="utf-8")
 
 
 if __name__ == "__main__":
