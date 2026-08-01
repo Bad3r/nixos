@@ -90,7 +90,7 @@ _: {
               # Extension list mirrors sensitiveExtensions in
               # modules/security/sops-policy.nix (plus the age/enc container
               # formats); the secrets-no-cleartext flake check is the
-              # authoritative gate for content committed inside the submodule.
+              # authoritative local gate for content committed inside the submodule.
               files = "^secrets/.*\\.(yaml|yml|json|env|ini|age|enc|asc|md|txt)$";
             };
 

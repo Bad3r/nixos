@@ -116,7 +116,7 @@ in
           )
         else
           pkgs.runCommandLocal "secrets-no-cleartext-ok" { } ''
-            echo "ok: every creation_rules-matched file under secrets/ carries ENC[ markers" > $out
+            echo "ok: every creation_rules-matched file under secrets/ carries ENC[AES256_GCM, markers" > $out
           '';
     };
 }
