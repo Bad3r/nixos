@@ -3,15 +3,19 @@
 Companion report for `docs/csec/additional-tools-reference.md`. Each tool's
 documented `run` command was invoked with a help or version flag (placeholders
 such as `$target`, `$url`, `$domain` substituted) under a 60-second timeout to
-confirm the package can launch on the current `flake.lock` state.
+confirm the package could launch on the `flake.lock` state used for the smoke
+test.
 
-Verified on 2026-05-04 against the active flake pin.
+The runtime smoke test was run on 2026-05-04 against the active flake pin at
+that time. The inventory and summary below were reconciled on 2026-08-01
+against the companion reference; no run commands were re-executed on the
+current `flake.lock`.
 
 ## Summary
 
 | Result                                                           | Count   |
 | ---------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                             | 100     |
+| ✅ Run as documented                                             | 95      |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
 | ⚠️ Build or evaluation error                                     | 9       |
 | ⚠️ Binary path mismatch in the documented attribute              | 5       |
@@ -20,11 +24,15 @@ Verified on 2026-05-04 against the active flake pin.
 | ⚠️ External (non-nixpkgs) toolchain blocked                      | 1       |
 | ⚠️ Closure too large for smoke budget                            | 1       |
 | ⚠️ Documented uvx / PyPI invocation broken                       | 2       |
-| **Total entries in the reference**                               | **132** |
+| **Total entries in the reference**                               | **127** |
 
 The reference doc flags each unavailable tool inline (the entry's `run..:`
 field carries text such as `Not in nixpkgs ...` or `Must create a custom nixpkg`); there is no dedicated section for them. The groupings below are
 this report's, collected by the underlying reason for the failure.
+
+The five tools promoted into `docs/csec/toolkit.md` (katana, gau, gowitness,
+nikto, and wafw00f) are intentionally absent from this report because they are
+no longer entries in the companion reference.
 
 ## ✅ Tools that run as documented
 
@@ -43,8 +51,6 @@ this report's, collected by the underlying reason for the failure.
 
 ### Network Reconnaissance and Enumeration
 
-- ✅ nikto
-- ✅ wafw00f
 - ✅ rustscan
 - ✅ theharvester
 - ✅ sherlock
@@ -76,9 +82,6 @@ this report's, collected by the underlying reason for the failure.
 
 - ✅ dalfox
 - ✅ arjun
-- ✅ katana
-- ✅ gau
-- ✅ gowitness (CLI subcommand `single` was renamed to `scan` in v3)
 - ✅ unfurl
 - ✅ qsreplace
 - ✅ meg
@@ -268,8 +271,6 @@ exist (or `meta.mainProgram` is wrong).
 Run-command corrections that would prevent a future smoke run from
 regressing on these entries:
 
-- `gowitness`: replace `single -u $url` with `scan -u $url` (CLI changed in
-  v3).
 - `impacket`: invoke the canonical `secretsdump.py` script names rather
   than `impacket-secretsdump`.
 - `volatility3`: invoke `vol` (or `volshell`) and prefix with
