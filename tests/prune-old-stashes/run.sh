@@ -380,6 +380,69 @@ SHIM
   pass
 }
 
+test_wholly_unusable_listing_is_not_reported_as_clean() {
+  local out shim
+  make_fixture all-rejected
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/all-rejected.out"
+
+  # Every entry rejected, so nothing can be classified. Reporting an age result
+  # here would assert the one thing the run could not determine, and the sweep
+  # message must describe the state accurately.
+  shim="${tmpdir}/all-rejected-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* ]]; then
+  printf 'stash@{0}||not-a-sha|garbage\n'
+  exit 0
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  git -C "${repo}" update-ref refs/stash-archive/2020-01-01/aaaaaaaaaaaa HEAD
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply --sweep-archive
+  assert_status 1 "${out}" all-rejected
+  assert_contains "${out}" 'no stash could be classified' all-rejected
+  assert_not_contains "${out}" 'no stashes older than' all-rejected
+  # The listing was read here, so the skip message must not claim otherwise.
+  assert_contains "${out}" 'could not be read or interpreted' all-rejected
+  assert_not_contains "${out}" 'deleted archive ref' all-rejected
+  git -C "${repo}" show-ref --verify --quiet refs/stash-archive/2020-01-01/aaaaaaaaaaaa ||
+    fail "all-rejected: the archive ref was expired despite an unusable listing"
+  pass
+}
+
+test_out_of_range_committer_date_is_rejected() {
+  local out shim
+  make_fixture huge-ct
+  push_stash "${repo}" fresh 1
+  out="${tmpdir}/huge-ct.out"
+
+  # ct feeds the same 64-bit arithmetic --age is bounded for. A value past
+  # INTMAX_MAX wraps negative and satisfies `ct <= age_cutoff` regardless of
+  # the threshold, selecting a stash pushed today for dropping.
+  shim="${tmpdir}/huge-ct-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* ]]; then
+  "${REAL_GIT}" "\$@" | awk -F'|' -v OFS='|' '{ \$2 = "9999999999999999999"; print }'
+  exit \${PIPESTATUS[0]}
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply
+  assert_status 1 "${out}" huge-ct
+  assert_contains "${out}" 'unparsable stash list entry' huge-ct
+  assert_not_contains "${out}" 'dropped stash@' huge-ct
+  assert_stash_subject_present "${repo}" fresh huge-ct
+  pass
+}
+
 test_blank_line_in_the_live_stack_does_not_shift_lookup() {
   local out shim
   make_fixture blank-live
@@ -1124,6 +1187,8 @@ test_second_instance_is_locked_out
 test_rejected_entry_does_not_shift_reported_positions
 test_blank_listing_line_is_rejected_not_skipped
 test_blank_line_in_the_live_stack_does_not_shift_lookup
+test_wholly_unusable_listing_is_not_reported_as_clean
+test_out_of_range_committer_date_is_rejected
 test_sweep_archive_respects_retention
 test_sweep_never_deletes_this_runs_archive
 test_zero_retention_disables_expiry

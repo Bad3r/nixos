@@ -344,7 +344,12 @@ prune_repo() {
       # Entries that do not have the expected shape are rejected, not treated
       # as old: an empty ct evaluates as 0 and would select the entry
       # unconditionally.
-      if [[ ! $ct =~ ^[0-9]+$ || ! $sha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
+      # ct is bounded for the reason parse_duration_days is: it feeds the same
+      # 64-bit arithmetic, and a value past INTMAX_MAX wraps. A wrap to a
+      # negative value satisfies `ct <= age_cutoff` regardless of --age, and
+      # this is the side of that comparison that decides whether a stash is
+      # dropped. Eleven digits reaches the year 5138.
+      if [[ ! $ct =~ ^[0-9]{1,11}$ || ! $sha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
         echo "  ERROR: unparsable stash list entry: ${gd}" >&2
         failures=$((failures + 1))
         # A listing this run could not fully interpret is the same failure
@@ -367,10 +372,13 @@ prune_repo() {
 
   local count=${#shas[@]}
   if ((count == 0)); then
-    echo "  no stashes older than ${age_days}d"
+    # Not the clean-stack case when nothing could be classified: reporting an
+    # age result there asserts the one thing this run could not determine.
     if [[ $listing_unusable == true ]]; then
+      echo "  ERROR: no stash could be classified: the listing was unusable" >&2
       return 1
     fi
+    echo "  no stashes older than ${age_days}d"
     return 0
   fi
 
@@ -531,7 +539,7 @@ for repo in "${repos[@]}"; do
     # A sweep the operator asked for must say when it does not happen: under
     # --all-worktrees this repository is one line in a wall of output and the
     # closing counts would silently exclude it.
-    echo "  archive sweep skipped: the stash list of ${repo} could not be read" >&2
+    echo "  archive sweep skipped: the stash list of ${repo} could not be read or interpreted" >&2
   fi
 done
 
