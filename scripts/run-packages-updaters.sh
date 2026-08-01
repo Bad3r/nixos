@@ -4,7 +4,7 @@
 set -euo pipefail
 
 usage() {
-  printf 'Usage: %s\n\nRuns every packages/*/update.py from the repository root.\n' "${0##*/}"
+  printf 'Usage: %s [-h|--help]\n\nRuns packages/*/update.py in order from the repository root, stopping at the\nfirst updater that fails and exiting with its status.\n' "${0##*/}"
 }
 
 if [ "$#" -gt 0 ]; then
