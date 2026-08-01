@@ -226,17 +226,27 @@ let
               "path:."
             ]
           ];
+          commandFlags = [
+            "-c"
+            "--command"
+          ];
         in
         lib.concatMap (
           prefix:
-          map (
+          lib.concatMap (
             installable:
-            prefix
-            ++ installable
-            ++ [
-              "-c"
-              "prune-old-stashes"
-            ]
+            # `-c` and `--command` are aliases, so nothing makes a caller
+            # prefer one and covering only the short form leaves the other
+            # matching just the `nix develop` allow.
+            map (
+              commandFlag:
+              prefix
+              ++ installable
+              ++ [
+                commandFlag
+                "prune-old-stashes"
+              ]
+            ) commandFlags
           ) installables
         ) nixPrefixes
       );
