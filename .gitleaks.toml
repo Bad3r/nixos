@@ -18,3 +18,17 @@ description = "DNSCrypt resolvers-list public minisign verification key"
 regexes = [
   "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3",
 ]
+
+[[allowlists]]
+description = "Cloudflare KV namespace IDs recorded in operational notes"
+# A namespace id is a resource identifier, not a credential; reaching the
+# namespace still needs an account id plus an API token. generic-api-key
+# fires only because the bullet names what the namespace stores ("keys").
+# Line-scoped, never path-scoped: a `paths` entry makes gitleaks skip the
+# whole file before scanning it, which would hide real leaks in the same
+# note. Anchors are omitted because regexTarget "line" does not match
+# against a bare trimmed line.
+regexTarget = "line"
+regexes = [
+  "(production|preview) keys KV: [0-9a-f]{32}",
+]
