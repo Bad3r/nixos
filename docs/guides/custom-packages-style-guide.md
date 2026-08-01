@@ -47,6 +47,8 @@ Start `update.py` with a `nix-shell` shebang so the script stays runnable on its
 
 Lix implements no `#!/usr/bin/env nix` shebang, so the CppNix `#! nix shell ...` form fails with `is not a recognised command`. The shebang requests `python3`; `nix` and `nix-prefetch-url` come from the ambient Lix that runs the shebang. An updater that invokes another command directly must add its package to `--packages`, such as `yq-go` for `packages/webcrack/update.py`; otherwise it depends on the caller's `PATH`.
 
+`--packages` resolves `<nixpkgs>` from the Nix search path rather than from this flake's inputs. Hosts configured by this repository provide it through `nix.nixPath` (`modules/base/nixpkgs.nix`, which also disables channels), so updaters run only where that path is set; on an unconfigured machine they fail with `file 'nixpkgs' was not found in the Nix search path`. Do not try to pin the flake input instead: Lix `nix-shell` rejects the CppNix `--inputs-from` flag.
+
 ## Package Template
 
 Use the appropriate builder for your package type. All packages must include a `meta` attribute set.
