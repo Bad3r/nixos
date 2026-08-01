@@ -7,19 +7,29 @@ name: Dendritic Pattern Compliance Check
       - main
   workflow_dispatch:
 concurrency:
-  group: check-compliance-${{ github.ref }}
-  cancel-in-progress: true
+  # The flake checks carry eval-time guards that fail only when something
+  # forces checks.<system>: cache-roots-allowlist-disjoint and
+  # bootstrap-substituter-parity. On dispatch alone they enforce nothing at
+  # review time, which is when the drift they catch is introduced.
+  # Two of these jobs install Lix and run a full flake evaluation, so a
+  # superseded run is pure waste. cache-push.yml opts out because its long
+  # builds are worth preserving; nothing here builds.
+  group: check-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
+  # No job here writes. The trigger above mints this token for every pull
+  # request, and it reaches ./.github/actions/install-lix, which resolves
+  # from the pull request head.
   contents: read
 jobs:
   flake-lock-health:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Check Nixpkgs lock health
-        uses: DeterminateSystems/flake-checker-action@v12
+        uses: DeterminateSystems/flake-checker-action@v13
         with:
           send-statistics: false
           fail-mode: true
@@ -31,8 +41,13 @@ jobs:
 
   check-compliance:
     runs-on: ubuntu-latest
+    # Installs Lix and evaluates the whole flake. Nothing on the runner
+    # sets stalled-download-timeout, so a stuck substituter fetch would
+    # otherwise hold a runner and this concurrency slot for the 6 hour
+    # job default.
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Install Lix
@@ -85,8 +100,9 @@ jobs:
 
   format-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Install Lix
@@ -105,7 +121,7 @@ jobs:
     runs-on: ubuntu-latest
     # No Nix here: every step is plain grep/awk/find over the checkout.
     steps:
-      - uses: actions/checkout@v5.0.0
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Validate namespaces
