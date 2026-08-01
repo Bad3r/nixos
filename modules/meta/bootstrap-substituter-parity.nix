@@ -11,8 +11,13 @@
 
   The comparison is directional. Every substituter and key the primary host
   trusts must appear in the bootstrap arrays; the reverse is not required,
-  since build.sh also carries region mirrors and the caches that app modules
-  append through extra-substituters.
+  since build.sh also carries region mirrors for other networks.
+
+  extra-substituters counts the same as substituters. configure_nix_config
+  replaces the whole list, so a cache that reaches the daemon through
+  `nix.settings.extra-substituters` (how modules/apps/doom-emacs.nix and
+  modules/apps/logseq.nix wire theirs) is exactly as unreachable during
+  bootstrap as one reaching it through `substituters`.
 */
 { config, lib, ... }:
 let
@@ -23,6 +28,12 @@ let
   # Quoted entries between `<name>=(` and its closing `)`. A commented-out
   # entry starts with `#`, so the quote match fails and a disabled mirror does
   # not count as configured.
+  #
+  # An array that is never opened or never closed throws. Without that, a
+  # closing paren gaining a comment would leave the fold collecting quoted
+  # lines to EOF, yielding a strict superset of the real array: every
+  # comparison below would then find nothing missing and pass forever. The
+  # emptiness guard cannot catch that, because the over-wide list is large.
   arrayEntries =
     name:
     let
@@ -32,7 +43,7 @@ let
           state
         else if !state.inside then
           state // { inside = line == "${name}=("; }
-        else if line == ")" then
+        else if lib.hasPrefix ")" line then
           state
           // {
             inside = false;
@@ -43,12 +54,16 @@ let
             m = builtins.match "[[:space:]]*\"([^\"]+)\".*" line;
           in
           if m == null then state else state // { entries = state.entries ++ [ (lib.head m) ]; };
+      parsed = lib.foldl' step {
+        inside = false;
+        done = false;
+        entries = [ ];
+      } buildScriptLines;
     in
-    (lib.foldl' step {
-      inside = false;
-      done = false;
-      entries = [ ];
-    } buildScriptLines).entries;
+    if parsed.done then
+      parsed.entries
+    else
+      throw "bootstrap-substituter-parity: build.sh has no closed ${name}=( ... ) array; the comparison would otherwise run against an over-wide list";
 
   # The NixOS module default contributes cache.nixos.org with a trailing slash
   # and build.sh spells it without one; they address the same store.
@@ -65,9 +80,14 @@ in
       hostSystem = config.flake.nixosConfigurations.${primaryHost}.pkgs.stdenv.hostPlatform.system;
 
       missingSubstituters = lib.subtractLists bootstrapSubstituters (
-        map normalize hostConfig.nix.settings.substituters
+        map normalize (
+          hostConfig.nix.settings.substituters ++ (hostConfig.nix.settings.extra-substituters or [ ])
+        )
       );
-      missingKeys = lib.subtractLists bootstrapKeys hostConfig.nix.settings.trusted-public-keys;
+      missingKeys = lib.subtractLists bootstrapKeys (
+        hostConfig.nix.settings.trusted-public-keys
+        ++ (hostConfig.nix.settings.extra-trusted-public-keys or [ ])
+      );
     in
     {
       checks = lib.mkIf (hostSystem == system) {

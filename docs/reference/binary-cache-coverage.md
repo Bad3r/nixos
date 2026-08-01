@@ -208,10 +208,13 @@ Completed 2026-07-17:
    fresh machine that has nothing in its store. The
    `bootstrap-substituter-parity` check keeps the two in step: it parses both
    arrays out of `build.sh` and aborts evaluation when a substituter or key the
-   primary host trusts is missing from them. The comparison is directional, so
-   the region mirrors and the caches app modules append through
-   `extra-substituters` do not trip it, and an empty parse fails rather than
-   comparing nothing.
+   primary host trusts is missing from them. `extra-substituters` counts the
+   same as `substituters`, because the bootstrap write replaces the whole list
+   and a cache wired the way `modules/apps/doom-emacs.nix` and
+   `modules/apps/logseq.nix` wire theirs is just as unreachable. The comparison
+   is directional, so the region mirrors for other networks do not trip it, and
+   an array that is missing, unclosed, or empty fails rather than comparing
+   nothing.
 
 Confirmed operating as of 2026-07-31: `cache-push.yml` reaches the "Push
 closure to Cachix" step with a `success` conclusion on merges to `main`, and
