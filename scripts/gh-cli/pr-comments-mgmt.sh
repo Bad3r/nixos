@@ -116,7 +116,8 @@ Read subcommands:
                                            inner comment pagination merged).
                                            Per thread: id, isResolved,
                                            isOutdated, isCollapsed, path,
-                                           line, diffSide, startDiffSide,
+                                           line, startLine, diffSide,
+                                           startDiffSide,
                                            subjectType, resolvedBy,
                                            viewerCan{Resolve,Unresolve,Reply}
                                            and the comment nodes.
@@ -1322,6 +1323,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
           isCollapsed
           path
           line
+          startLine
           diffSide
           startDiffSide
           subjectType
@@ -1532,6 +1534,7 @@ query($id: ID!) {
       isCollapsed
       path
       line
+      startLine
       diffSide
       startDiffSide
       subjectType
