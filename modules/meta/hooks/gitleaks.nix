@@ -95,9 +95,14 @@ _: {
               # so an inherited GIT_DIR overrides the path argument and silently
               # rescans the superproject instead. Caught by pre-push: with
               # GIT_DIR set to this linked worktree's git dir the pass reported
-              # 2971 superproject commits rather than the submodule's 51.
+              # 2971 superproject commits rather than the submodule's 51. The
+              # other four redirect git the same way and fail differently rather
+              # than not at all: GIT_COMMON_DIR or GIT_OBJECT_DIRECTORY alone
+              # yields 0 commits scanned and "no leaks found", a pass that
+              # reports success without reading anything.
               (
-                unset GIT_DIR GIT_WORK_TREE
+                unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
+                  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
                 gitleaks git "''${sub_args[@]}" secrets
               ) || status=1
             fi
