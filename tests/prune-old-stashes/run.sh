@@ -139,7 +139,7 @@ test_dry_run_reports_and_preserves() {
   assert_contains "${out}" 'would archive stash@\{2\}' dry-run
   assert_contains "${out}" 'would archive stash@\{1\}' dry-run
   assert_not_contains "${out}" 'would archive stash@\{0\}' dry-run
-  assert_contains "${out}" 'dry-run: 2 stash\(es\) selected' dry-run
+  assert_contains "${out}" 'dry-run: 2 stash\(es\) and 0 archive ref\(s\) selected' dry-run
   assert_stash_count "${repo}" 3 dry-run
   assert_archive_count "${repo}" 0 dry-run
   pass
@@ -262,6 +262,66 @@ SHIM
   pass
 }
 
+test_failed_archive_write_aborts_the_drop() {
+  local out shim
+  make_fixture archive-fail
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/archive-fail.out"
+
+  # Half of the "never drop a stash we did not archive" guarantee: if the
+  # archive ref cannot be written, the stash must survive.
+  shim="${tmpdir}/archive-fail-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *" update-ref "* && " \$* " == *"refs/stash-archive/"* ]]; then
+  echo "fatal: forced update-ref failure" >&2
+  exit 1
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply
+  assert_status 1 "${out}" archive-fail
+  assert_contains "${out}" 'archive write failed .*NOT dropping' archive-fail
+  assert_stash_subject_present "${repo}" old-a archive-fail
+  assert_stash_count "${repo}" 1 archive-fail
+  assert_archive_count "${repo}" 0 archive-fail
+  pass
+}
+
+test_sha_mismatch_gate_blocks_the_drop() {
+  local out shim
+  make_fixture mismatch
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/mismatch.out"
+
+  # The other half: the last gate before `git stash drop` re-resolves
+  # stash@{N} and must refuse when it no longer names the archived commit.
+  # The archive ref is keyed by sha and is deliberately kept.
+  shim="${tmpdir}/mismatch-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *" rev-parse "* && " \$* " == *"stash@{"* ]]; then
+  printf '%s\n' 1111111111111111111111111111111111111111
+  exit 0
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply
+  assert_status 1 "${out}" mismatch
+  assert_contains "${out}" 'no longer resolves to' mismatch
+  assert_contains "${out}" 'archive ref .* kept' mismatch
+  assert_stash_subject_present "${repo}" old-a mismatch
+  assert_stash_count "${repo}" 1 mismatch
+  assert_archive_count "${repo}" 1 mismatch
+  pass
+}
+
 test_concurrent_push_does_not_block_pruning() {
   local out shim
   make_fixture race
@@ -373,6 +433,9 @@ test_sweep_archive_respects_retention() {
   run_sut "${out}" "${repo}" --sweep-archive
   assert_status 0 "${out}" sweep-dry
   assert_contains "${out}" 'would delete archive ref refs/stash-archive/2020-01-01/' sweep-dry
+  # The closing summary is what an operator reads to decide whether --apply is
+  # worth running; a sweep-only run must not report itself as a no-op.
+  assert_contains "${out}" 'dry-run: 0 stash\(es\) and 1 archive ref\(s\) selected' sweep-dry
   assert_not_contains "${out}" "would delete archive ref refs/stash-archive/$(date -u +%F)/" sweep-dry
   assert_archive_count "${repo}" 2 sweep-dry
 
@@ -457,7 +520,7 @@ test_linked_worktrees_share_one_stash_stack() {
   # One repo header and one selected stash, not one per root.
   [[ $(grep -c '^repo: ' "${out}") -eq 1 ]] ||
     fail "shared: shared stash stack was processed more than once" "${out}"
-  assert_contains "${out}" 'dry-run: 1 stash\(es\) selected' shared
+  assert_contains "${out}" 'dry-run: 1 stash\(es\) and 0 archive ref\(s\) selected' shared
   pass
 }
 
@@ -483,6 +546,8 @@ test_age_threshold_is_parsed_base_ten
 test_invalid_duration_is_a_usage_error
 test_unreadable_stash_list_fails_loudly
 test_unreadable_archive_refs_fail_loudly
+test_failed_archive_write_aborts_the_drop
+test_sha_mismatch_gate_blocks_the_drop
 test_concurrent_push_does_not_block_pruning
 test_vanished_stash_is_skipped_not_mistaken
 test_second_instance_is_locked_out

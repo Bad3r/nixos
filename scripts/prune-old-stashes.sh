@@ -130,6 +130,7 @@ retention_cutoff=$((now - retention_days * 86400))
 archive_date=$(date -u +%F)
 failures=0
 selected=0
+would_sweep=0
 
 # Collect candidate roots, then deduplicate by resolved common git dir so a
 # stash stack shared by linked worktrees is only processed once.
@@ -314,6 +315,7 @@ sweep_repo() {
       fi
     else
       echo "  would delete archive ref ${ref} (past ${retention_days}d retention)"
+      would_sweep=$((would_sweep + 1))
     fi
   done <<<"$archive_refs"
 }
@@ -339,8 +341,8 @@ done
 
 if [[ $apply != true ]]; then
   echo
-  if ((selected > 0)); then
-    echo "dry-run: ${selected} stash(es) selected; no changes made. Re-run with --apply."
+  if ((selected > 0 || would_sweep > 0)); then
+    echo "dry-run: ${selected} stash(es) and ${would_sweep} archive ref(s) selected; no changes made. Re-run with --apply."
   else
     echo "dry-run: nothing selected; no changes made."
   fi
