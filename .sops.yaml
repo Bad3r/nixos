@@ -2,7 +2,7 @@ keys:
   - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf
 
 creation_rules:
-  - path_regex: secrets/act\.yaml
+  - path_regex: secrets/act\.yaml$
     encrypted_regex: "^(github_token)$"
     key_groups:
       - age:

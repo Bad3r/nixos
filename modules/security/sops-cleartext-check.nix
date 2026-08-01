@@ -58,7 +58,7 @@ let
     + "      - age:\n"
     + "          - *host_pub_key\n";
   actRuleBlock =
-    "  - path_regex: secrets/act\\.yaml\n"
+    "  - path_regex: secrets/act\\.yaml$\n"
     + "    encrypted_regex: \"^(github_token)$\"\n"
     + "    key_groups:\n"
     + "      - age:\n"
