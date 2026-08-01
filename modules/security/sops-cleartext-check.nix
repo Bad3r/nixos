@@ -36,7 +36,15 @@ let
     "x.dec.yaml" = false;
     ".gitignore" = false;
     ".gitkeep" = false;
+    "sub/.gitignore" = false;
+    "sub/.gitattributes" = false;
+    "sub/.gitmodules" = false;
+    "sub/.gitkeep" = false;
     ".git/config" = false;
+    ".gitignore/prod-token.yaml" = true;
+    ".gitattributes/prod-token.yaml" = true;
+    ".gitmodules/prod-token.yaml" = true;
+    ".gitkeep/prod-token.yaml" = true;
   };
   exemptionDrift = lib.filter (path: mustBeEncrypted path != exemptionFixtures.${path}) (
     lib.attrNames exemptionFixtures
@@ -58,10 +66,10 @@ let
 
   # Deny by default to keep new extensions and extensionless names covered.
   # Exemptions are intentional cleartext conventions: *.example templates,
-  # local decryption artifacts, and exact Git metadata names. A .git segment
-  # excludes its internal metadata files without exempting .git-* filenames.
+  # local decryption artifacts, exact Git metadata basenames, and .git path
+  # segments. A .git segment excludes its internal metadata files without
+  # exempting .git-* filenames.
   gitMetadataNames = [
-    ".git"
     ".gitignore"
     ".gitattributes"
     ".gitmodules"
@@ -75,7 +83,8 @@ let
     !(lib.hasSuffix ".example" path)
     && !(lib.hasPrefix "decrypted_" base)
     && !(lib.hasInfix ".dec." base)
-    && !(lib.any (part: lib.elem part gitMetadataNames) (lib.splitString "/" path));
+    && !(lib.elem base gitMetadataNames)
+    && !(lib.elem ".git" (lib.splitString "/" path));
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
   # megabyte-scale strings (std::regex recursion; the sops-encrypted font
@@ -100,6 +109,39 @@ let
     go 0;
 
   hasSopsMarkers = s: (hasChunkedInfix "ENC[AES256_GCM," s) && (hasChunkedInfix "lastmodified" s);
+
+  # Pin the detector in the secretless path so chunk boundaries and both
+  # required markers remain covered without relying on submodule payloads.
+  markerFixtures = [
+    {
+      name = "yaml-footer";
+      content = "a: ENC[AES256_GCM,data:x]\nsops:\n  lastmodified: 2026-01-01T00:00:00Z\n";
+      want = true;
+    }
+    {
+      name = "dotenv-footer";
+      content = "A=ENC[AES256_GCM,data:x]\nsops_lastmodified=2026-01-01T00:00:00Z\n";
+      want = true;
+    }
+    {
+      name = "quoted-token-only";
+      content = "docs quoting ENC[AES256_GCM,data:...] with no sops footer\n";
+      want = false;
+    }
+    {
+      name = "cipher-boundary";
+      content = lib.concatStrings (lib.genList (_: "x") 8185) + "ENC[AES256_GCM,lastmodified";
+      want = true;
+    }
+    {
+      name = "metadata-boundary";
+      content = "ENC[AES256_GCM," + lib.concatStrings (lib.genList (_: "x") 8183) + "lastmodified";
+      want = true;
+    }
+  ];
+  markerDrift = map (fixture: fixture.name) (
+    lib.filter (fixture: hasSopsMarkers fixture.content != fixture.want) markerFixtures
+  );
 
   isCleartext =
     path:
@@ -137,6 +179,11 @@ in
             "sops-cleartext-check.nix mustBeEncrypted classified these paths against "
             + "the documented exemption boundary: "
             + lib.concatStringsSep ", " exemptionDrift
+          )
+        else if markerDrift != [ ] then
+          throw (
+            "sops-cleartext-check.nix hasSopsMarkers misclassified these fixtures: "
+            + lib.concatStringsSep ", " markerDrift
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
