@@ -70,10 +70,11 @@ exit codes:
   1   the run did not complete everything it selected. Causes: an archive
       write, drop, or archive-ref deletion failed; a selected stash moved or
       vanished before its drop; a stash-list entry was unparsable; the stash
-      list or the archive refs could not be read; a named --root is missing
-      or contains no checkouts; any scanned root, including the default one,
-      holds a broken checkout or a directory that is not the root of the
-      repository it resolves to; another instance holds the run lock
+      list or the archive refs could not be read; the common git dir of a
+      repository could not be resolved; a named --root is missing or contains
+      no checkouts; any scanned root, including the default one, holds a
+      broken checkout or a directory that is not the root of the repository
+      it resolves to; another instance holds the run lock
   64  usage error
 EOF
 }
