@@ -337,6 +337,39 @@ SHIM
   pass
 }
 
+test_blank_line_in_the_live_stack_does_not_shift_lookup() {
+  local out shim
+  make_fixture blank-live
+  push_stash "${repo}" old-a 30
+  push_stash "${repo}" fresh 1
+  out="${tmpdir}/blank-live.out"
+
+  # Only the sha listing that locate_stash_index reads is shimmed, and only its
+  # first line. A blank line occupies slot 0, so old-a is still at slot 1;
+  # stepping over it would resolve old-a to slot 0 and the sha gate would then
+  # reject a drop that is perfectly valid.
+  shim="${tmpdir}/blank-live-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *"--format=%H"* ]]; then
+  printf '\n'
+  "${REAL_GIT}" "\$@" | tail -n +2
+  exit \${PIPESTATUS[0]}
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply
+  assert_status 0 "${out}" blank-live
+  assert_contains "${out}" 'dropped stash@\{1\}' blank-live
+  assert_not_contains "${out}" 'no longer resolves to' blank-live
+  assert_stash_subject_present "${repo}" fresh blank-live
+  assert_stash_subject_absent "${repo}" old-a blank-live
+  pass
+}
+
 test_concurrent_push_does_not_block_pruning() {
   local out shim
   make_fixture race
@@ -483,6 +516,49 @@ test_sweep_never_deletes_this_runs_archive() {
     fail "sweep-same-run: git stash apply ${ref} failed"
   grep -Fqx precious "${repo}/f" ||
     fail "sweep-same-run: the archive did not restore the dropped stash"
+  pass
+}
+
+test_retention_grants_a_full_window() {
+  local out yesterday
+  make_fixture retention-window
+  out="${tmpdir}/retention-window.out"
+
+  # Archive refs carry a date, so epoch is midnight of that date while the
+  # cutoff is an instant. A ref written yesterday must survive a 1-day window
+  # no matter what time of day the sweep runs.
+  yesterday="$(date -u -d '1 day ago' +%F)"
+  git -C "${repo}" update-ref "refs/stash-archive/${yesterday}/aaaaaaaaaaaa" HEAD
+
+  run_sut "${out}" "${repo}" --sweep-archive --archive-retention 1 --apply
+  assert_status 0 "${out}" retention-window
+  assert_not_contains "${out}" 'deleted archive ref' retention-window
+  assert_archive_count "${repo}" 1 retention-window
+
+  # Two days back is outside a 1-day window and still expires.
+  git -C "${repo}" update-ref "refs/stash-archive/$(date -u -d '3 days ago' +%F)/bbbbbbbbbbbb" HEAD
+  run_sut "${out}" "${repo}" --sweep-archive --archive-retention 1 --apply
+  assert_status 0 "${out}" retention-window-expires
+  assert_contains "${out}" 'deleted archive ref' retention-window-expires
+  assert_archive_count "${repo}" 1 retention-window-expires
+  pass
+}
+
+test_non_date_archive_ref_is_not_swept() {
+  local out
+  make_fixture non-date-ref
+  out="${tmpdir}/non-date-ref.out"
+
+  # `date -u -d` resolves both of these to real timestamps, so without a shape
+  # check they would drive an update-ref -d.
+  git -C "${repo}" update-ref 'refs/stash-archive/@0/aaaaaaaaaaaa' HEAD
+  git -C "${repo}" update-ref 'refs/stash-archive/yesterday/bbbbbbbbbbbb' HEAD
+
+  run_sut "${out}" "${repo}" --sweep-archive --apply
+  assert_status 0 "${out}" non-date-ref
+  assert_contains "${out}" 'skipping archive ref with a non-date component' non-date-ref
+  assert_not_contains "${out}" 'deleted archive ref' non-date-ref
+  assert_archive_count "${repo}" 2 non-date-ref
   pass
 }
 
@@ -675,9 +751,12 @@ test_vanished_stash_is_skipped_not_mistaken
 test_second_instance_is_locked_out
 test_rejected_entry_does_not_shift_reported_positions
 test_blank_listing_line_is_rejected_not_skipped
+test_blank_line_in_the_live_stack_does_not_shift_lookup
 test_sweep_archive_respects_retention
 test_sweep_never_deletes_this_runs_archive
 test_zero_retention_disables_expiry
+test_retention_grants_a_full_window
+test_non_date_archive_ref_is_not_swept
 test_linked_worktrees_share_one_stash_stack
 test_all_worktrees_processes_independent_repos
 test_unreadable_repo_is_not_swept

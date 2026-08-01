@@ -51,8 +51,9 @@ mutating.
 
 exit codes:
   0   success (or clean dry-run)
-  1   at least one archive write or drop failed, the stash list could not be
-      read, or another instance holds the run lock
+  1   at least one archive write, drop, or archive-ref deletion failed, the
+      stash list or the archive refs could not be read, or another instance
+      holds the run lock
   64  usage error
 EOF
 }
@@ -137,7 +138,12 @@ done
 
 now=$(date +%s)
 age_cutoff=$((now - age_days * 86400))
-retention_cutoff=$((now - retention_days * 86400))
+# The extra day is the one the ref name cannot express: archive refs carry a
+# date, so `epoch` is midnight of that date while the cutoff is an instant.
+# Without it, `--archive-retention N` grants only N-1 days of grace; a ref
+# written yesterday at 23:00 would be deleted by a run at 00:30 today with
+# `--archive-retention 1`, 90 minutes after it was written.
+retention_cutoff=$((now - (retention_days + 1) * 86400))
 archive_date=$(date -u +%F)
 failures=0
 selected=0
@@ -176,8 +182,12 @@ done
 locate_stash_index() {
   local repo=$1 want=$2 live listed pos=0
   live=$(git -C "$repo" stash list --format='%H') || return 2
+  # An empty stack means the commit is not there. Handled here rather than by
+  # skipping blank lines in the loop: a blank line inside a non-empty listing
+  # occupies a stack slot, and stepping over it would resolve every commit
+  # below it one index too low.
+  [[ -n $live ]] || return 1
   while IFS= read -r listed; do
-    [[ -n $listed ]] || continue
     if [[ $listed == "$want" ]]; then
       printf '%s' "$pos"
       return 0
@@ -327,6 +337,14 @@ sweep_repo() {
     # which is the one guarantee this tool exists to provide. Ref names carry
     # only a date, so "written by this run" cannot be narrowed below a day.
     if [[ $date_part == "$archive_date" ]]; then
+      continue
+    fi
+    # `date -u -d` accepts far more than a calendar date: `@0` resolves to the
+    # epoch and `yesterday` to a real timestamp, either of which would drive an
+    # update-ref -d. The shape is checked first, as everywhere else in this
+    # script that an input reaches a decision.
+    if [[ ! $date_part =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+      echo "  skipping archive ref with a non-date component: ${ref}" >&2
       continue
     fi
     if ! epoch=$(date -u -d "$date_part" +%s 2>/dev/null); then

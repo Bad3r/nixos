@@ -57,8 +57,9 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
 ## Exit Codes
 
 - `0`: success, or a dry run that changed nothing.
-- `1`: at least one archive write or drop failed, a stash list could not be
-  read, or another instance holds the run lock.
+- `1`: at least one archive write, drop, or archive-ref deletion failed, a
+  stash list or the archive refs could not be read, or another instance holds
+  the run lock.
 - `64`: usage error, including an unparsable `--age` or `--archive-retention`.
 
 ## Concurrency
