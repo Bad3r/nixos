@@ -164,6 +164,10 @@
 
 ## Reference
 
+- [reference/binary-cache-coverage.md](reference/binary-cache-coverage.md)
+  - Operator surface for serving custom derivations from a binary cache, its substituter wiring, build surface, and CI publisher.
+- [reference/cache-coverage.md](reference/cache-coverage.md)
+  - Per-host report of closure derivations that would compile locally despite a substitutable nixpkgs equivalent.
 - [reference/fork-sync-automation.md](reference/fork-sync-automation.md)
   - Scheduled upstream sync workflow installed in each flake-input fork, its conflict behavior, and the installer for adding new forks.
 - [reference/github-labels.md](reference/github-labels.md)
