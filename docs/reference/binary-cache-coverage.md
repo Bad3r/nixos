@@ -198,6 +198,12 @@ Completed 2026-07-17:
    and emits a warning instead of pushing.
 3. Common hosts trust the cache: `modules/hosts/common/nix-substituters.nix`
    carries `https://bad3r-nixos.cachix.org` and its public key.
+4. `build.sh` carries the same URL and key in `BOOTSTRAP_SUBSTITUTERS` and
+   `BOOTSTRAP_TRUSTED_KEYS`. That path writes `substituters =`, replacing the
+   list rather than extending it, so a cache missing there is unreachable for
+   the bootstrap build that runs before the host module is active: exactly the
+   fresh machine that has nothing in its store. Keep both lists in step with
+   the module.
 
 Confirmed operating as of 2026-07-31: `cache-push.yml` reaches the "Push
 closure to Cachix" step with a `success` conclusion on merges to `main`, and
