@@ -196,6 +196,9 @@ prune_repo() {
     if [[ ! $ct =~ ^[0-9]+$ || ! $sha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
       echo "  ERROR: unparsable stash list entry: ${gd}" >&2
       failures=$((failures + 1))
+      # A rejected entry still occupies a stack slot, so the counter has to
+      # advance or every position below it is reported one too low.
+      pos=$((pos + 1))
       continue
     fi
     if ((ct <= age_cutoff)); then

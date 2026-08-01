@@ -262,6 +262,40 @@ SHIM
   pass
 }
 
+test_rejected_entry_does_not_shift_reported_positions() {
+  local out shim
+  make_fixture bad-entry
+  push_stash "${repo}" old-a 30
+  push_stash "${repo}" old-b 30
+  push_stash "${repo}" old-c 30
+  out="${tmpdir}/bad-entry.out"
+
+  # A malformed entry cannot be produced through git itself, so the listing's
+  # first line is replaced with garbage. It still occupies stack slot 0.
+  shim="${tmpdir}/bad-entry-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* ]]; then
+  printf 'stash@{0}||not-a-sha|garbage\n'
+  "${REAL_GIT}" "\$@" | tail -n +2
+  exit \${PIPESTATUS[0]}
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}"
+  assert_status 1 "${out}" bad-entry
+  assert_contains "${out}" 'ERROR: unparsable stash list entry' bad-entry
+  # old-a really sits at stash@{2}; slots 1 and 2 must keep their numbering.
+  assert_contains "${out}" 'would archive stash@\{2\}' bad-entry
+  assert_contains "${out}" 'would archive stash@\{1\}' bad-entry
+  assert_not_contains "${out}" 'would archive stash@\{0\}' bad-entry
+  assert_stash_count "${repo}" 3 bad-entry
+  pass
+}
+
 test_concurrent_push_does_not_block_pruning() {
   local out shim
   make_fixture race
@@ -427,6 +461,7 @@ test_unreadable_archive_refs_fail_loudly
 test_concurrent_push_does_not_block_pruning
 test_vanished_stash_is_skipped_not_mistaken
 test_second_instance_is_locked_out
+test_rejected_entry_does_not_shift_reported_positions
 test_sweep_archive_respects_retention
 test_linked_worktrees_share_one_stash_stack
 test_dry_run_writes_nothing_on_a_stale_snapshot
