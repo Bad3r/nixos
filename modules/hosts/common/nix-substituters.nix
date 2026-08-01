@@ -8,7 +8,6 @@ let
       # exact URI strings), so it opens a second store against the same host
       # and doubles narinfo misses.
       substituters = lib.mkAfter [
-        "https://cache.garnix.io"
         "https://cache.numtide.com"
         "https://nixpkgs-unfree.cachix.org" # unfree packages (unrar, etc.)
         # CI-built custom derivations (cache-roots); see
@@ -18,7 +17,6 @@ let
         # appended by modules/apps/doom-emacs.nix when the module is enabled.
       ];
       trusted-public-keys = lib.mkAfter [
-        "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
         "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
         "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
         "bad3r-nixos.cachix.org-1:CWwJIEV6kogZP/xZPRXdT6hkKvs84haLxYgK9oF59JE="
