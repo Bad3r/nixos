@@ -3,6 +3,27 @@
 
 set -euo pipefail
 
+usage() {
+  printf 'Usage: %s\n\nRuns every packages/*/update.py from the repository root.\n' "${0##*/}"
+}
+
+if [ "$#" -gt 0 ]; then
+  case "$1" in
+  -h | --help)
+    if [ "$#" -ne 1 ]; then
+      usage >&2
+      exit 2
+    fi
+    usage
+    exit 0
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+  esac
+fi
+
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
@@ -13,8 +34,8 @@ shopt -u nullglob
 total=${#updaters[@]}
 
 if [ "$total" -eq 0 ]; then
-  printf 'No package updaters found.\n'
-  exit 0
+  printf 'No package updaters found under %s/packages.\n' "$repo_root" >&2
+  exit 1
 fi
 
 index=0
