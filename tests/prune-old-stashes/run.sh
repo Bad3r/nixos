@@ -359,6 +359,42 @@ SHIM
   pass
 }
 
+test_wrong_drop_is_caught_and_rescued() {
+  local out shim victim_sha
+  make_fixture wrong-drop
+  push_stash "${repo}" old-a 30
+  push_stash "${repo}" neighbour 1
+  out="${tmpdir}/wrong-drop.out"
+  victim_sha="$(git -C "${repo}" rev-parse 'stash@{0}')"
+
+  # git has no sha-keyed drop, so a push landing between the gate and the drop
+  # shifts stash@{idx} onto a neighbour this run never archived. git names the
+  # commit it dropped; the run must notice and make it durable rather than
+  # leaving it unreachable until gc.
+  shim="${tmpdir}/wrong-drop-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *" stash drop "* ]]; then
+  printf 'Dropped stash@{1} (%s)\n' "${victim_sha}"
+  exit 0
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply
+  assert_status 1 "${out}" wrong-drop
+  assert_contains "${out}" 'shifted before the drop' wrong-drop
+  assert_contains "${out}" "archived it as refs/stash-archive" wrong-drop
+  assert_not_contains "${out}" 'dropped stash@\{1\} \(recover' wrong-drop
+  # The commit git reported dropping is now reachable through a ref.
+  "${REAL_GIT}" -C "${repo}" show-ref --verify --quiet \
+    "refs/stash-archive/$(date -u +%F)/${victim_sha:0:12}" ||
+    fail "wrong-drop: the wrongly dropped commit was not archived"
+  pass
+}
+
 test_drop_failure_keeps_the_archive_ref() {
   local out shim
   make_fixture drop-fail
@@ -1301,6 +1337,7 @@ test_unreadable_archive_refs_fail_loudly
 test_failed_archive_write_aborts_the_drop
 test_sha_mismatch_gate_blocks_the_drop
 test_drop_failure_keeps_the_archive_ref
+test_wrong_drop_is_caught_and_rescued
 test_archive_ref_deletion_failure_is_reported
 test_unreadable_live_stack_blocks_the_drop
 test_concurrent_push_does_not_block_pruning

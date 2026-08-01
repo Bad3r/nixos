@@ -394,7 +394,7 @@ prune_repo() {
 
   # Iterate from the highest stash index down: dropping stash@{N} shifts
   # every index above N, but never the lower ones still pending.
-  local i age_d ref current located rc writes_failed=false
+  local i age_d ref current located rc drop_out dropped_sha rescue writes_failed=false
   for ((i = count - 1; i >= 0; i--)); do
     sha=${shas[i]}
     age_d=$(((now - ctimes[i]) / 86400))
@@ -442,8 +442,28 @@ prune_repo() {
       failures=$((failures + 1))
       continue
     fi
-    if ! git -C "$repo" stash drop "stash@{${idx}}" >/dev/null; then
+    if ! drop_out=$(git -C "$repo" stash drop "stash@{${idx}}"); then
       echo "  ERROR: drop failed for stash@{${idx}} (archive ref ${ref} kept)" >&2
+      failures=$((failures + 1))
+      writes_failed=true
+      continue
+    fi
+    # The gate above and this call are separate processes and git has no
+    # sha-keyed drop, so a `git stash push` in between shifts stash@{idx} onto
+    # a neighbour this run never archived. The lock excludes other runs of this
+    # tool, not the operator's shell. git names the commit it dropped, so the
+    # window cannot be closed but it can be caught: archive the commit that was
+    # actually dropped, which makes it durable rather than unreachable-until-gc.
+    if [[ $drop_out != *"${sha}"* ]]; then
+      dropped_sha=${drop_out##*\(}
+      dropped_sha=${dropped_sha%%\)*}
+      rescue="refs/stash-archive/${archive_date}/${dropped_sha:0:12}"
+      if [[ $dropped_sha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] &&
+        git -C "$repo" update-ref "$rescue" "$dropped_sha"; then
+        echo "  ERROR: stash@{${idx}} shifted before the drop: git dropped ${dropped_sha}, not ${sha}; archived it as ${rescue}" >&2
+      else
+        echo "  ERROR: stash@{${idx}} shifted before the drop: git reported '${drop_out}', not ${sha}; recover that commit before it is garbage collected" >&2
+      fi
       failures=$((failures + 1))
       writes_failed=true
       continue

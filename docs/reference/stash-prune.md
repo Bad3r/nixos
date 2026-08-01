@@ -104,6 +104,14 @@ position of each selected stash is resolved again from its recorded commit
 immediately before the drop, so a `git stash push` from another shell shifts
 indices without derailing the run or misidentifying a stash.
 
+Git offers no sha-keyed drop, so one window cannot be closed: a push landing
+between the final check and `git stash drop` shifts `stash@{N}` onto a
+neighbour. The run lock excludes other invocations of this tool, not the
+operator's own shell. `git stash drop` names the commit it removed, so the run
+compares it against the one it archived; on a mismatch it archives the commit
+that was actually dropped, making it durable instead of unreachable until the
+next `git gc`, and reports the mismatch as a failure.
+
 ## Tests
 
 ```sh
