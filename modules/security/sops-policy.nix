@@ -25,8 +25,9 @@ _: {
         # Deny by default. This rule must stay last: SOPS applies the first
         # matching creation rule, and moving it above secrets/act\.yaml would
         # drop that rule's encrypted_regex. modules/security/sops-cleartext-check.nix
-        # mirrors this line, the rule count, and the last-position requirement,
-        # and fails evaluation on drift; update it in the same change.
+        # mirrors this line, the act encrypted_regex, the rule count, and the
+        # last-position requirement, and fails evaluation on drift; update it
+        # in the same change.
         - path_regex: secrets/.*
           key_groups:
             - age:

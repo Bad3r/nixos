@@ -27,12 +27,18 @@ let
   # creation rule. The line is checked as a suffix of the extracted rule
   # pattern, so a narrowed replacement cannot satisfy the parity assertion.
   defaultRuleLine = "- path_regex: secrets/.*";
+  # act.yaml is the only rule that leaves selected fields cleartext inside an
+  # otherwise encrypted file. A SOPS footer cannot detect field-level drift.
+  actEncryptedRegexLine = ''encrypted_regex: "^(github_token)$"'';
   sopsPolicy = builtins.readFile ../../.sops.yaml;
   rulePatterns = lib.filter (line: lib.hasInfix "- path_regex:" line) (
     lib.splitString "\n" sopsPolicy
   );
   ruleCount = builtins.length rulePatterns;
-  policySynced = ruleCount == 4 && lib.hasSuffix defaultRuleLine (lib.last rulePatterns);
+  policySynced =
+    ruleCount == 4
+    && lib.hasSuffix defaultRuleLine (lib.last rulePatterns)
+    && lib.hasInfix actEncryptedRegexLine sopsPolicy;
 
   listFiles =
     dir: prefix:
@@ -116,9 +122,11 @@ in
         # as modules/meta/ci-lix-parity.nix).
         if !policySynced then
           throw (
-            "sops-cleartext-check.nix deny-by-default creation rule drifted from .sops.yaml "
-            + "(rule count, pattern, or order); update defaultRuleLine or ruleCount to match "
-            + "modules/security/sops-policy.nix"
+            "sops-cleartext-check.nix policy mirror drifted from .sops.yaml (rule count, "
+            + "deny-by-default pattern, final-rule position, or act.yaml encrypted_regex). A new "
+            + "creation rule can narrow encryption via encrypted_regex or a different key group, "
+            + "and this check cannot detect that from file content: review the rule against "
+            + "modules/security/sops-policy.nix before raising ruleCount."
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
