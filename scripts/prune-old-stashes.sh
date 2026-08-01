@@ -232,7 +232,13 @@ if [[ $all_worktrees == true ]]; then
         # it validates, so an empty or partially deleted .git directory does not
         # stop discovery and rev-parse walks up to the enclosing repository. A
         # non-empty prefix says the repository found is not rooted here.
-        if [[ -n $(git -C "$dir" rev-parse --show-prefix 2>/dev/null) ]]; then
+        # Checked, not just captured: a failed invocation yields an empty
+        # string, which is indistinguishable from "the prefix is empty" and so
+        # from "this directory is the repository root". Failing open here
+        # registers whatever --show-toplevel resolved, which is the enclosing
+        # repository in exactly the case this guard exists to catch. The two
+        # are separate invocations, so success on the first carries nothing.
+        if ! prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null) || [[ -n $prefix ]]; then
           echo "${prog_name}: not a checkout root, skipping: ${dir%/}" >&2
           failures=$((failures + 1))
           anomalies=$((anomalies + 1))

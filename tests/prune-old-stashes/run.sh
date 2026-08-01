@@ -958,6 +958,45 @@ test_invalid_git_dir_does_not_resolve_upward() {
   pass
 }
 
+test_unverifiable_checkout_root_is_skipped() {
+  local out shim enclosing
+  make_fixture prefix-fail
+  out="${tmpdir}/prefix-fail.out"
+
+  enclosing="${tmpdir}/prefix-fail-enclosing"
+  git init -q -b main "${enclosing}"
+  init_repo_config "${enclosing}"
+  printf '%s\n' base >"${enclosing}/f"
+  git -C "${enclosing}" add f
+  git -C "${enclosing}" commit -q -m "initial commit"
+  push_stash "${enclosing}" precious-enclosing 30
+  git init -q -b main "${enclosing}/trees/inner"
+  init_repo_config "${enclosing}/trees/inner"
+
+  # The guard must fail closed: a --show-prefix that cannot be run is not
+  # evidence that the directory is a repository root, and treating it as such
+  # registers whatever --show-toplevel resolved, here the enclosing repository.
+  shim="${tmpdir}/prefix-fail-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *" --show-prefix "* ]]; then
+  echo "fatal: forced show-prefix failure" >&2
+  exit 1
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}" --apply --all-worktrees --root "${enclosing}/trees"
+  assert_status 1 "${out}" prefix-fail
+  assert_contains "${out}" 'not a checkout root, skipping' prefix-fail
+  assert_not_contains "${out}" "repo: ${enclosing}$" prefix-fail
+  assert_not_contains "${out}" 'precious-enclosing' prefix-fail
+  assert_stash_count "${enclosing}" 1 prefix-fail
+  pass
+}
+
 test_broken_checkout_under_a_root_is_reported() {
   local out scan good
   make_fixture broken-checkout
@@ -1257,6 +1296,7 @@ test_non_checkout_under_a_root_is_not_resolved_upward
 test_root_without_checkouts_is_reported
 test_corruption_is_not_reported_as_a_usage_error
 test_broken_checkout_under_a_root_is_reported
+test_unverifiable_checkout_root_is_skipped
 test_invalid_git_dir_does_not_resolve_upward
 test_unreadable_repo_is_not_swept
 test_dry_run_writes_nothing_on_a_stale_snapshot
