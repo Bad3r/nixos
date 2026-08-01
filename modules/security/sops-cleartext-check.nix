@@ -128,6 +128,43 @@ let
     dir: name: type:
     if type == "unknown" then builtins.readFileType (dir + "/${name}") else type;
 
+  shouldWalkDirectory = name: name != ".git" && !(lib.hasPrefix "decrypted_" name);
+  directoryWalkFixtures = [
+    {
+      name = "git-directory";
+      directory = ".git";
+      want = false;
+    }
+    {
+      name = "decrypted-directory";
+      directory = "decrypted_dump";
+      want = false;
+    }
+    {
+      name = "gitignore-directory";
+      directory = ".gitignore";
+      want = true;
+    }
+    {
+      name = "gitattributes-directory";
+      directory = ".gitattributes";
+      want = true;
+    }
+    {
+      name = "gitmodules-directory";
+      directory = ".gitmodules";
+      want = true;
+    }
+    {
+      name = "gitkeep-directory";
+      directory = ".gitkeep";
+      want = true;
+    }
+  ];
+  directoryWalkDrift = map (fixture: fixture.name) (
+    lib.filter (fixture: shouldWalkDirectory fixture.directory != fixture.want) directoryWalkFixtures
+  );
+
   listEntries =
     dir: prefix:
     lib.concatLists (
@@ -138,7 +175,7 @@ let
           entryType = resolveEntryType dir name type;
         in
         if entryType == "directory" then
-          listEntries (dir + "/${name}") "${path}/"
+          lib.optionals (shouldWalkDirectory name) (listEntries (dir + "/${name}") "${path}/")
         else
           [
             {
@@ -323,7 +360,12 @@ let
       map (line: lib.removeSuffix "\r" line) (lib.splitString "\n" content)
     );
   missingIgnoreRulesFor =
-    content: lib.filter (rule: !(lib.elem rule (activeIgnoreRules content))) requiredIgnoreRules;
+    content:
+    let
+      active = activeIgnoreRules content;
+      hasNegatedRule = lib.any (line: lib.hasPrefix "!" line) active;
+    in
+    lib.filter (rule: hasNegatedRule || !(lib.elem rule active)) requiredIgnoreRules;
   ignoreRuleFixtures = [
     {
       name = "active-ignore-rules";
@@ -338,7 +380,18 @@ let
     {
       name = "negated-ignore-rule";
       content = "**/decrypted_*\n!*.dec.*\n";
-      want = [ "*.dec.*" ];
+      want = [
+        "**/decrypted_*"
+        "*.dec.*"
+      ];
+    }
+    {
+      name = "trailing-negated-ignore-rule";
+      content = "**/decrypted_*\n*.dec.*\n!prod.dec.yaml\n";
+      want = [
+        "**/decrypted_*"
+        "*.dec.*"
+      ];
     }
   ];
   ignoreRuleDrift = map (fixture: fixture.name) (
@@ -402,6 +455,12 @@ in
             "sops-cleartext-check.nix mustBeEncrypted classified these paths against "
             + "the documented exemption boundary: "
             + lib.concatStringsSep ", " exemptionDrift
+          )
+        else if directoryWalkDrift != [ ] then
+          throw (
+            "sops-cleartext-check.nix walked directories outside the intended scan "
+            + "boundary in these fixtures: "
+            + lib.concatStringsSep ", " directoryWalkDrift
           )
         else if ignoreRuleDrift != [ ] then
           throw (
