@@ -20,14 +20,17 @@ let
   secretsPresent = builtins.pathExists secretsDir && builtins.readDir secretsDir != { };
   sopsPolicy = builtins.readFile ../../.sops.yaml;
   policyLines = lib.splitString "\n" sopsPolicy;
+  isYamlComment = line: builtins.match "[[:space:]]*#.*" line != null;
+  policyContentLines = lib.filter (line: !isYamlComment line) policyLines;
+  policyContent = builtins.concatStringsSep "\n" policyContentLines;
 
   # Keep security-critical policy invariants independent of the generated-file
   # comparison, so a source change cannot move both sides of the parity check.
-  rulePatterns = lib.filter (line: lib.hasPrefix "  - path_regex: " line) policyLines;
+  rulePatterns = lib.filter (line: lib.hasPrefix "  - path_regex: " line) policyContentLines;
   nestedLines = lib.filter (
     line: lib.hasPrefix "    " line && !(lib.hasPrefix "          - " line)
-  ) policyLines;
-  recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyLines;
+  ) policyContentLines;
+  recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyContentLines;
   hostKeyLine = "  - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf\n";
   expectedNestedLines = [
     "    encrypted_regex: \"^(github_token)$\""
@@ -70,11 +73,11 @@ let
     }
     {
       name = "act-yaml-field-policy";
-      want = lib.hasInfix actRuleBlock sopsPolicy;
+      want = lib.hasInfix actRuleBlock policyContent;
     }
     {
       name = "deny-by-default-last";
-      want = lib.hasSuffix denyByDefaultSuffix sopsPolicy;
+      want = lib.hasSuffix denyByDefaultSuffix policyContent;
     }
   ];
   policyDrift = map (fixture: fixture.name) (lib.filter (fixture: !fixture.want) policyFixtures);
@@ -242,7 +245,7 @@ let
 
   secretsFiles = if secretsPresent then listFiles secretsDir "" else [ ];
   symlinkFiles = if secretsPresent then listSymlinks secretsDir "" else [ ];
-  unsupportedSymlinks = symlinkFiles;
+  unsupportedSymlinks = lib.filter mustBeEncrypted symlinkFiles;
   cleartext = lib.filter isCleartext (lib.filter mustBeEncrypted secretsFiles);
   encryptedTemplates = lib.filter (
     path: lib.hasSuffix ".example" path && !(isCleartext path)
@@ -275,7 +278,7 @@ in
           )
         else if unsupportedSymlinks != [ ] then
           throw (
-            "secrets/ contains symlinks that cannot be scanned: "
+            "secrets/ contains non-exempt symlinks that cannot be scanned: "
             + lib.concatStringsSep ", " unsupportedSymlinks
             + ". Replace them with regular files."
           )
