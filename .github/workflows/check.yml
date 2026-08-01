@@ -9,6 +9,8 @@ name: Dendritic Pattern Compliance Check
 concurrency:
   group: check-compliance-${{ github.ref }}
   cancel-in-progress: true
+permissions:
+  contents: read
 jobs:
   flake-lock-health:
     runs-on: ubuntu-latest
