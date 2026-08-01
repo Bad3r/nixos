@@ -15,16 +15,23 @@ _: {
             root=$(git rev-parse --show-toplevel)
             cd "$root"
 
-            args=(git --no-banner --redact)
+            common=(--no-banner --redact)
             if [ -f ".gitleaks.toml" ]; then
-              args+=(--config ".gitleaks.toml")
+              common+=(--config ".gitleaks.toml")
             fi
             if [ -f ".gitleaks-baseline.json" ]; then
-              args+=(--baseline-path ".gitleaks-baseline.json")
+              common+=(--baseline-path ".gitleaks-baseline.json")
             fi
-            args+=(".")
 
-            exec gitleaks "''${args[@]}"
+            # History pass: catches a credential that was committed and later
+            # removed, which a worktree scan can no longer see.
+            gitleaks git "''${common[@]}" .
+
+            # Worktree pass: `gitleaks git` walks superproject history, where the
+            # secrets/ submodule is a gitlink and its blobs are absent, so a
+            # credential committed inside that submodule was scanned by nothing.
+            # `gitleaks dir` reads the filesystem, so the submodule is in scope.
+            exec gitleaks dir "''${common[@]}" .
           '';
       };
     };
