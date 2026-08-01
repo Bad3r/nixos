@@ -85,14 +85,17 @@ index c0f8978..f8fb855 100644
    try {
      // Resolve symlinks to get the actual file
      const resolvedPath = await fs.realpath(filePath);
-@@ -252,6 +298,14 @@ export async function resolvePathToInstallationType(
+@@ -252,6 +298,17 @@ export async function resolvePathToInstallationType(
      debug('resolvePathToInstallationType: Using heuristic file type detection');
      const fileType = detectFileTypeHeuristic(prefix);
  
 +    if (fileType === 'shell-wrapper') {
 +      const shellTarget = await resolveShellWrapper(resolvedPath);
 +      if (shellTarget) {
-+        return resolvePathToInstallationType(shellTarget, depth + 1);
++        const resolved = await resolvePathToInstallationType(shellTarget, depth + 1);
++        if (resolved) {
++          return resolved;
++        }
 +      }
 +      return { kind: 'npm-based', resolvedPath };
 +    }
