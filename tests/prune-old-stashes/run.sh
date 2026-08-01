@@ -12,6 +12,9 @@ if [[ ! -x ${SUT} ]]; then
 fi
 
 REAL_GIT="$(command -v git)"
+# Shims are written at runtime; /usr/bin/env does not exist in a nix build
+# sandbox, so the interpreter is resolved rather than assumed.
+SHIM_SHEBANG="#!$(command -v bash)"
 
 tmpdir="$(mktemp -d)"
 cleanup() {
@@ -267,7 +270,7 @@ test_unreadable_archive_refs_fail_loudly() {
   shim="${tmpdir}/archive-unreadable-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *" for-each-ref "* && " \$* " == *"refs/stash-archive/"* ]]; then
   echo "fatal: forced for-each-ref failure" >&2
   exit 1
@@ -293,7 +296,7 @@ test_failed_archive_write_aborts_the_drop() {
   shim="${tmpdir}/archive-fail-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *" update-ref "* && " \$* " == *"refs/stash-archive/"* ]]; then
   echo "fatal: forced update-ref failure" >&2
   exit 1
@@ -334,7 +337,7 @@ test_unreadable_live_stack_blocks_the_drop() {
   shim="${tmpdir}/live-unreadable-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *"--format=%H"* ]]; then
   echo "fatal: forced stash list failure" >&2
   exit 1
@@ -377,7 +380,7 @@ test_wrong_drop_is_caught_and_rescued() {
   shim="${tmpdir}/wrong-drop-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *" stash drop "* ]]; then
   printf 'Dropped stash@{1} (%s)\n' "${victim_sha}"
   exit 0
@@ -409,7 +412,7 @@ test_drop_failure_keeps_the_archive_ref() {
   shim="${tmpdir}/drop-fail-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *" stash drop "* ]]; then
   echo "fatal: forced drop failure" >&2
   exit 1
@@ -444,7 +447,7 @@ test_archive_ref_deletion_failure_is_reported() {
   shim="${tmpdir}/sweep-delete-fail-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *" update-ref -d "* ]]; then
   echo "fatal: forced update-ref -d failure" >&2
   exit 1
@@ -472,7 +475,7 @@ test_sha_mismatch_gate_blocks_the_drop() {
   shim="${tmpdir}/mismatch-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *" rev-parse "* && " \$* " == *"stash@{"* ]]; then
   printf '%s\n' 1111111111111111111111111111111111111111
   exit 0
@@ -503,7 +506,7 @@ test_wholly_unusable_listing_is_not_reported_as_clean() {
   shim="${tmpdir}/all-rejected-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* ]]; then
   printf 'stash@{0}||not-a-sha|garbage\n'
   exit 0
@@ -537,7 +540,7 @@ test_leading_zero_committer_date_is_read_as_decimal() {
   shim="${tmpdir}/octal-ct-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* ]]; then
   "${REAL_GIT}" "\$@" | awk -F'|' -v OFS='|' '{ \$2 = "07000000000"; print }'
   exit \${PIPESTATUS[0]}
@@ -567,7 +570,7 @@ test_out_of_range_committer_date_is_rejected() {
   shim="${tmpdir}/huge-ct-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* ]]; then
   "${REAL_GIT}" "\$@" | awk -F'|' -v OFS='|' '{ \$2 = "9999999999999999999"; print }'
   exit \${PIPESTATUS[0]}
@@ -598,7 +601,7 @@ test_blank_line_in_the_live_stack_does_not_shift_lookup() {
   shim="${tmpdir}/blank-live-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *"--format=%H"* ]]; then
   printf '\n'
   "${REAL_GIT}" "\$@" | tail -n +2
@@ -629,7 +632,7 @@ test_concurrent_push_does_not_block_pruning() {
   shim="${tmpdir}/race-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 "${REAL_GIT}" "\$@"
 rc=\$?
 if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* && ! -e "${tmpdir}/raced" ]]; then
@@ -663,7 +666,7 @@ test_vanished_stash_is_skipped_not_mistaken() {
   shim="${tmpdir}/vanished-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 "${REAL_GIT}" "\$@"
 rc=\$?
 if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* && ! -e "${tmpdir}/vanish-done" ]]; then
@@ -853,7 +856,7 @@ test_blank_listing_line_is_rejected_not_skipped() {
   shim="${tmpdir}/blank-line-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* ]]; then
   printf '\n'
   "${REAL_GIT}" "\$@" | tail -n +2
@@ -884,7 +887,7 @@ test_rejected_entry_does_not_shift_reported_positions() {
   shim="${tmpdir}/bad-entry-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* ]]; then
   printf 'stash@{0}||not-a-sha|garbage\n'
   "${REAL_GIT}" "\$@" | tail -n +2
@@ -1085,7 +1088,7 @@ test_unverifiable_checkout_root_is_skipped() {
   shim="${tmpdir}/prefix-fail-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *" --show-prefix "* ]]; then
   echo "fatal: forced show-prefix failure" >&2
   exit 1
@@ -1290,7 +1293,7 @@ test_unresolvable_common_dir_is_reported() {
   shim="${tmpdir}/common-dir-fail-bin"
   mkdir -p "${shim}"
   cat >"${shim}/git" <<SHIM
-#!/usr/bin/env bash
+${SHIM_SHEBANG}
 if [[ " \$* " == *" --git-common-dir "* ]]; then
   echo "fatal: forced rev-parse failure" >&2
   exit 1
