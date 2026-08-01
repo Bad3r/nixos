@@ -39,10 +39,11 @@ options:
                             --apply). Refs written under today's date are
                             never swept, so a single invocation cannot
                             delete the archive of a stash it just dropped.
-  --all-worktrees           Also process repositories under
-                            \$HOME/trees/nixos. Roots sharing a common git
-                            dir are processed once: linked worktrees share
-                            one stash stack.
+  --all-worktrees           Also process repositories under each --root.
+                            Roots sharing a common git dir are processed
+                            once: linked worktrees share one stash stack.
+  --root <dir>              Repeatable. Directory scanned by
+                            --all-worktrees. Default: \$HOME/trees/nixos.
   -h, --help                Print this help.
 
 Runs are serialized by a per-user lock; a second concurrent invocation exits
@@ -83,6 +84,7 @@ parse_duration_days() {
 apply=false
 sweep=false
 all_worktrees=false
+declare -a scan_roots=()
 age_days=14
 retention_days=90
 
@@ -98,6 +100,18 @@ while [[ $# -gt 0 ]]; do
     ;;
   --all-worktrees)
     all_worktrees=true
+    shift
+    ;;
+  --root)
+    [[ $# -ge 2 ]] || {
+      echo "${prog_name}: --root requires a value" >&2
+      exit 64
+    }
+    scan_roots+=("$2")
+    shift 2
+    ;;
+  --root=*)
+    scan_roots+=("${1#*=}")
     shift
     ;;
   --age)
@@ -156,15 +170,18 @@ if toplevel=$(git rev-parse --show-toplevel 2>/dev/null); then
   roots+=("$toplevel")
 fi
 if [[ $all_worktrees == true ]]; then
-  for dir in "$HOME"/trees/nixos/*/; do
-    [[ -d $dir ]] || continue
-    if wt_top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
-      roots+=("$wt_top")
-    fi
+  [[ ${#scan_roots[@]} -gt 0 ]] || scan_roots=("$HOME/trees/nixos")
+  for scan_root in "${scan_roots[@]}"; do
+    for dir in "$scan_root"/*/; do
+      [[ -d $dir ]] || continue
+      if wt_top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
+        roots+=("$wt_top")
+      fi
+    done
   done
 fi
 if [[ ${#roots[@]} -eq 0 ]]; then
-  echo "${prog_name}: not inside a git repository and no repositories found under \$HOME/trees/nixos" >&2
+  echo "${prog_name}: not inside a git repository and no repositories found under the scanned roots" >&2
   exit 64
 fi
 

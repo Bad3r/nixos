@@ -28,6 +28,12 @@ prune-old-stashes --age 30d --all-worktrees --apply
 Linked worktrees share one stash stack; roots resolving to the same common
 git dir are processed once.
 
+Scan somewhere other than the default, or several places at once:
+
+```sh
+prune-old-stashes --all-worktrees --root ~/trees/nixos --root ~/work/trees
+```
+
 ## Recovery
 
 A pruned stash stays reachable through its archive ref until a sweep past
@@ -51,8 +57,11 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
   never swept, so `--apply --sweep-archive --archive-retention 1` in a single
   invocation cannot delete the archive of a stash it just dropped.
   `--archive-retention 0` disables the sweep outright and says so.
-- `--all-worktrees`: process repositories under `$HOME/trees/nixos` in
-  addition to the current repository.
+- `--all-worktrees`: process repositories under each `--root` in addition to
+  the current repository.
+- `--root <dir>`: repeatable; directory scanned by `--all-worktrees`. Defaults
+  to `$HOME/trees/nixos`, matching `--root` in
+  `scripts/prune-stale-worktrees.sh`.
 
 ## Exit Codes
 

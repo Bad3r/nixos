@@ -710,7 +710,7 @@ test_linked_worktrees_share_one_stash_stack() {
 
 test_all_worktrees_processes_independent_repos() {
   local out other trees
-  trees="${HOME}/trees/nixos"
+  trees="${tmpdir}/scan-root-a"
   mkdir -p "${trees}"
   make_fixture standalone
   other="${trees}/independent"
@@ -722,15 +722,53 @@ test_all_worktrees_processes_independent_repos() {
   push_stash "${other}" old-a 30
   out="${tmpdir}/all-worktrees.out"
 
-  # The run starts outside $HOME/trees/nixos, so the enumeration is the only
-  # path by which the second repository can be reached. Invoked from a repo
-  # inside the tree, `git rev-parse --show-toplevel` would reach it anyway and
-  # the case would pass with the enumeration deleted.
-  run_sut "${out}" "${repo}" --all-worktrees
+  # The run starts outside the scanned root, so the enumeration is the only
+  # path by which the second repository can be reached.
+  run_sut "${out}" "${repo}" --all-worktrees --root "${trees}"
   assert_status 0 "${out}" all-worktrees
   assert_contains "${out}" "repo: ${repo}$" all-worktrees
   assert_contains "${out}" "repo: ${other}$" all-worktrees
   assert_contains "${out}" 'would archive stash@\{0\}' all-worktrees
+
+  # Without --all-worktrees the root is not scanned at all.
+  run_sut "${out}" "${repo}" --root "${trees}"
+  assert_status 0 "${out}" all-worktrees-off
+  assert_not_contains "${out}" "repo: ${other}$" all-worktrees-off
+  pass
+}
+
+test_root_is_repeatable_and_defaults_to_home_trees() {
+  local out second third
+  make_fixture multi-root
+  second="${tmpdir}/scan-root-b/repo-b"
+  third="${HOME}/trees/nixos/repo-c"
+  local dir
+  for dir in "${second}" "${third}"; do
+    mkdir -p "$(dirname "${dir}")"
+    git init -q -b main "${dir}"
+    init_repo_config "${dir}"
+    printf '%s\n' base >"${dir}/f"
+    git -C "${dir}" add f
+    git -C "${dir}" commit -q -m "initial commit"
+    push_stash "${dir}" old-a 30
+  done
+  out="${tmpdir}/multi-root.out"
+
+  # Every --root is scanned, not just the last one.
+  run_sut "${out}" "${repo}" --all-worktrees --root "${tmpdir}/scan-root-b" --root "${HOME}/trees/nixos"
+  assert_status 0 "${out}" multi-root
+  assert_contains "${out}" "repo: ${second}$" multi-root
+  assert_contains "${out}" "repo: ${third}$" multi-root
+
+  # With no --root the default is $HOME/trees/nixos.
+  run_sut "${out}" "${repo}" --all-worktrees
+  assert_status 0 "${out}" multi-root-default
+  assert_contains "${out}" "repo: ${third}$" multi-root-default
+  assert_not_contains "${out}" "repo: ${second}$" multi-root-default
+
+  run_sut "${out}" "${repo}" --root
+  assert_status 64 "${out}" multi-root-usage
+  assert_contains "${out}" 'requires a value' multi-root-usage
   pass
 }
 
@@ -791,6 +829,7 @@ test_retention_grants_a_full_window
 test_non_date_archive_ref_is_not_swept
 test_linked_worktrees_share_one_stash_stack
 test_all_worktrees_processes_independent_repos
+test_root_is_repeatable_and_defaults_to_home_trees
 test_unreadable_repo_is_not_swept
 test_dry_run_writes_nothing_on_a_stale_snapshot
 
