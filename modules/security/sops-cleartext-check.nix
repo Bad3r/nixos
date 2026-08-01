@@ -34,9 +34,22 @@ let
   policyLines = lib.splitString "\n" sopsPolicy;
   rulePatterns = lib.filter (line: lib.hasPrefix "  - path_regex: " line) policyLines;
   ruleCount = builtins.length rulePatterns;
-  encryptedRegexCount = builtins.length (
-    lib.filter (line: lib.hasPrefix "    encrypted_regex: " line) policyLines
-  );
+  # Every creation-rule field directive can narrow what gets encrypted while
+  # still emitting a valid footer. Pin the complete generated nested shape.
+  nestedLines = lib.filter (
+    line: lib.hasPrefix "    " line && !(lib.hasPrefix "          - " line)
+  ) policyLines;
+  expectedNestedLines = [
+    "    encrypted_regex: \"^(github_token)$\""
+    "    key_groups:"
+    "      - age:"
+    "    key_groups:"
+    "      - age:"
+    "    key_groups:"
+    "      - age:"
+    "    key_groups:"
+    "      - age:"
+  ];
   # The recipient set decides who can decrypt, and a creation rule can be
   # written with key_groups first or without path_regex at all. Pin every
   # top-level list item and recipient entry, not only path-pattern lines.
@@ -48,12 +61,9 @@ let
     ruleCount == 4
     && listItems == ([ keyAnchorLine ] ++ rulePatterns)
     && recipientLines == lib.genList (_: hostRecipientLine) 4
+    && nestedLines == expectedNestedLines
     && lib.hasSuffix defaultRuleLine (lib.last rulePatterns)
-    && lib.hasInfix actRuleBlock sopsPolicy
-    && encryptedRegexCount == 1;
-
-  # Content scanning only sees paths that happen to exist. Keep the
-  # path-only exemption boundary evaluated in secretless CI as well.
+    && lib.hasInfix actRuleBlock sopsPolicy;
   exemptionFixtures = {
     "notes.md" = true;
     "runbook" = true;
@@ -157,8 +167,8 @@ in
         if !policySynced then
           throw (
             "sops-cleartext-check.nix policy mirror drifted from .sops.yaml (recipient set, "
-            + "top-level rule-item shape, rule count, deny-by-default pattern, final-rule "
-            + "position, or act.yaml encrypted_regex attachment or uniqueness). A new "
+            + "top-level rule-item shape, nested field directives, rule count, "
+            + "deny-by-default pattern, final-rule position, or act.yaml path attachment). A new "
             + "creation rule can narrow encryption via encrypted_regex or a different key group, "
             + "and this check cannot detect that from file content: review the rule against "
             + "modules/security/sops-policy.nix before raising ruleCount."
