@@ -62,13 +62,19 @@ parse_duration_days() {
   # by later arithmetic, where a leading zero means octal: `010` would become a
   # 10-day threshold read back as 8, and `08`/`09` abort with "value too great
   # for base".
+  #
+  # The digit run is bounded because that arithmetic is 64-bit and wraps
+  # silently: `--age 999999999999999` puts age_cutoff in the future, so every
+  # stash satisfies `ct <= age_cutoff` and a threshold asking to keep
+  # everything selects a stash pushed seconds ago. Out of range now takes the
+  # documented exit-64 path.
   local spec=$1
-  if [[ $spec =~ ^([0-9]+)d?$ ]]; then
+  if [[ $spec =~ ^([0-9]{1,6})d?$ ]]; then
     printf '%s' "$((10#${BASH_REMATCH[1]}))"
-  elif [[ $spec =~ ^([0-9]+)w$ ]]; then
+  elif [[ $spec =~ ^([0-9]{1,6})w$ ]]; then
     printf '%s' "$((10#${BASH_REMATCH[1]} * 7))"
   else
-    echo "${prog_name}: invalid duration '${spec}' (expected e.g. 14d, 2w, 30)" >&2
+    echo "${prog_name}: invalid duration '${spec}' (expected e.g. 14d, 2w, 30; at most 6 digits)" >&2
     return 64
   fi
 }
@@ -197,26 +203,32 @@ prune_repo() {
     return 1
   fi
 
-  while IFS='|' read -r gd ct sha subject; do
-    [[ -n $gd ]] || continue
-    # Entries that do not have the expected shape are rejected, not treated as
-    # old: an empty ct evaluates as 0 and would select the entry unconditionally.
-    if [[ ! $ct =~ ^[0-9]+$ || ! $sha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
-      echo "  ERROR: unparsable stash list entry: ${gd}" >&2
-      failures=$((failures + 1))
-      # A rejected entry still occupies a stack slot, so the counter has to
-      # advance or every position below it is reported one too low.
+  # An empty listing is the "no stashes" case and is handled here rather than
+  # by skipping blank lines inside the loop: a blank line in a non-empty
+  # listing occupies a stack slot like any other and must be rejected loudly,
+  # not stepped over without advancing the position.
+  if [[ -n $listing ]]; then
+    while IFS='|' read -r gd ct sha subject; do
+      # Entries that do not have the expected shape are rejected, not treated
+      # as old: an empty ct evaluates as 0 and would select the entry
+      # unconditionally.
+      if [[ ! $ct =~ ^[0-9]+$ || ! $sha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
+        echo "  ERROR: unparsable stash list entry: ${gd}" >&2
+        failures=$((failures + 1))
+        # A rejected entry still occupies a stack slot, so the counter has to
+        # advance or every position below it is reported one too low.
+        pos=$((pos + 1))
+        continue
+      fi
+      if ((ct <= age_cutoff)); then
+        positions+=("$pos")
+        shas+=("$sha")
+        ctimes+=("$ct")
+        subjects+=("$subject")
+      fi
       pos=$((pos + 1))
-      continue
-    fi
-    if ((ct <= age_cutoff)); then
-      positions+=("$pos")
-      shas+=("$sha")
-      ctimes+=("$ct")
-      subjects+=("$subject")
-    fi
-    pos=$((pos + 1))
-  done <<<"$listing"
+    done <<<"$listing"
+  fi
 
   local count=${#shas[@]}
   if ((count == 0)); then

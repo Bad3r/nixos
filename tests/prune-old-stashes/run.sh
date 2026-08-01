@@ -215,6 +215,21 @@ test_invalid_duration_is_a_usage_error() {
   run_sut "${out}" "${repo}" --age 3months
   assert_status 64 "${out}" bad-duration
   assert_contains "${out}" "invalid duration '3months'" bad-duration
+
+  # The arithmetic downstream is 64-bit and wraps silently: an unbounded digit
+  # run can put age_cutoff in the future, selecting every stash including
+  # fresh ones. Out of range must take the usage-error path instead.
+  run_sut "${out}" "${repo}" --age 999999999999999
+  assert_status 64 "${out}" bad-duration-overflow
+  assert_contains "${out}" "invalid duration '999999999999999'" bad-duration-overflow
+
+  run_sut "${out}" "${repo}" --archive-retention 999999999999999
+  assert_status 64 "${out}" bad-retention-overflow
+
+  # The bound is on digits, not magnitude of intent: 6 digits still parse.
+  run_sut "${out}" "${repo}" --age 999999
+  assert_status 0 "${out}" bad-duration-max
+  assert_contains "${out}" 'no stashes older than 999999d' bad-duration-max
   pass
 }
 
@@ -502,6 +517,37 @@ test_zero_retention_disables_expiry() {
   pass
 }
 
+test_blank_listing_line_is_rejected_not_skipped() {
+  local out shim
+  make_fixture blank-line
+  push_stash "${repo}" old-a 30
+  push_stash "${repo}" old-b 30
+  out="${tmpdir}/blank-line.out"
+
+  # A blank line occupies a stack slot like any other entry. Skipped silently
+  # it would shift every position below it, the defect the shape check guards
+  # against for garbage lines.
+  shim="${tmpdir}/blank-line-bin"
+  mkdir -p "${shim}"
+  cat >"${shim}/git" <<SHIM
+#!/usr/bin/env bash
+if [[ " \$* " == *"--format=%gd|%ct|%H|%s"* ]]; then
+  printf '\n'
+  "${REAL_GIT}" "\$@" | tail -n +2
+  exit \${PIPESTATUS[0]}
+fi
+exec "${REAL_GIT}" "\$@"
+SHIM
+  chmod +x "${shim}/git"
+
+  PATH="${shim}:${PATH}" run_sut "${out}" "${repo}"
+  assert_status 1 "${out}" blank-line
+  assert_contains "${out}" 'ERROR: unparsable stash list entry' blank-line
+  assert_contains "${out}" 'would archive stash@\{1\}' blank-line
+  assert_not_contains "${out}" 'would archive stash@\{0\}' blank-line
+  pass
+}
+
 test_rejected_entry_does_not_shift_reported_positions() {
   local out shim
   make_fixture bad-entry
@@ -628,6 +674,7 @@ test_concurrent_push_does_not_block_pruning
 test_vanished_stash_is_skipped_not_mistaken
 test_second_instance_is_locked_out
 test_rejected_entry_does_not_shift_reported_positions
+test_blank_listing_line_is_rejected_not_skipped
 test_sweep_archive_respects_retention
 test_sweep_never_deletes_this_runs_archive
 test_zero_retention_disables_expiry
