@@ -71,9 +71,12 @@ let
     else
       throw "bootstrap-substituter-parity: build.sh has no closed ${name}=( ... ) array; the comparison would otherwise run against an over-wide list";
 
-  # The NixOS module default contributes cache.nixos.org with a trailing slash
-  # and build.sh spells it without one; they address the same store.
-  normalize = lib.removeSuffix "/";
+  # Spellings that address the same store must compare equal. The NixOS module
+  # default contributes cache.nixos.org with a trailing slash while build.sh
+  # writes it without one, and per-substituter priority is set through a URL
+  # parameter, which is how this array spelled its garnix entry
+  # (`?priority=38`) before it was removed.
+  normalize = url: lib.removeSuffix "/" (lib.head (lib.splitString "?" url));
 
   bootstrapSubstituters = map normalize (arrayEntries "BOOTSTRAP_SUBSTITUTERS");
   bootstrapKeys = arrayEntries "BOOTSTRAP_TRUSTED_KEYS";
@@ -82,7 +85,15 @@ in
   perSystem =
     { pkgs, system, ... }:
     let
-      checkSystem = config.flake.nixosConfigurations.${checkHost}.pkgs.stdenv.hostPlatform.system;
+      # Resolved through the emptiness guard rather than after it. flake-parts
+      # forces this inside the mkIf condition below, so reading `.${checkHost}`
+      # off an empty attrset would throw attribute-missing first and leave a
+      # guard in the check body unreachable.
+      checkSystem =
+        if config.flake.nixosConfigurations == { } then
+          throw "bootstrap-substituter-parity: no nixosConfigurations to compare against; the check would pass vacuously"
+        else
+          config.flake.nixosConfigurations.${checkHost}.pkgs.stdenv.hostPlatform.system;
 
       missing = lib.concatLists (
         lib.mapAttrsToList (
@@ -101,14 +112,11 @@ in
     {
       checks = lib.mkIf (checkSystem == system) {
         bootstrap-substituter-parity =
-          # Both sides of the comparison need a floor. An empty parse means the
-          # arrays were renamed or reshaped; an empty host set means there is
-          # nothing to compare against. Either one passes vacuously otherwise,
-          # which is the failure mode this check exists to close. check.yml
-          # treats an empty host list as a failure for the same reason.
-          if config.flake.nixosConfigurations == { } then
-            throw "bootstrap-substituter-parity: no nixosConfigurations to compare against; the check would pass vacuously"
-          else if bootstrapSubstituters == [ ] || bootstrapKeys == [ ] then
+          # Both sides of the comparison need a floor, or the check passes
+          # vacuously, which is the failure mode it exists to close. check.yml
+          # treats an empty host list as a failure for the same reason; that
+          # side is caught above, when checkSystem resolves.
+          if bootstrapSubstituters == [ ] || bootstrapKeys == [ ] then
             throw "bootstrap-substituter-parity: parsed no BOOTSTRAP_SUBSTITUTERS or BOOTSTRAP_TRUSTED_KEYS entries out of build.sh; a rename would make this comparison vacuous"
           else if missing != [ ] then
             throw (
