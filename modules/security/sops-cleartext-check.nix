@@ -31,7 +31,8 @@ let
     line: lib.hasPrefix "    " line && !(lib.hasPrefix "          - " line)
   ) policyContentLines;
   recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyContentLines;
-  hostKey = "  - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf";
+  hostPubKey = "age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf";
+  hostKey = "  - &host_pub_key " + hostPubKey;
   hostKeyLine = hostKey + "\n";
   expectedNestedLines = [
     "    encrypted_regex: \"^(github_token)$\""
@@ -111,6 +112,8 @@ let
     ".gitattributes/prod-token.yaml" = true;
     ".gitmodules/prod-token.yaml" = true;
     ".gitkeep/prod-token.yaml" = true;
+    "decrypted_dump/creds.yaml" = false;
+    "sub/.git/config" = false;
   };
   exemptionDrift = lib.filter (path: mustBeEncrypted path != exemptionFixtures.${path}) (
     lib.attrNames exemptionFixtures
@@ -156,20 +159,21 @@ let
     path:
     let
       base = baseNameOf path;
+      parts = lib.splitString "/" path;
     in
     !(lib.hasSuffix ".example" path)
-    && !(lib.hasPrefix "decrypted_" base)
+    && !(lib.any (part: lib.hasPrefix "decrypted_" part) parts)
     && !(lib.hasInfix ".dec." base)
     && !(lib.elem base gitMetadataNames)
-    && !(lib.elem ".git" (lib.splitString "/" path));
+    && !(lib.elem ".git" parts);
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
   # megabyte-scale strings (std::regex recursion; the sops-encrypted font
   # blob is ~1 MiB), so scan each needle in bounded chunks with a needle-sized
   # overlap. SOPS 3.13.3 emits lastmodified metadata in every supported
   # encrypted format, using sops_lastmodified for dotenv and an aligned mac =
-  # field for INI, so requiring it alongside the full cipher token rejects
-  # quoted-token cleartext samples.
+  # field for INI. Requiring the configured host recipient alongside the full
+  # cipher token rejects quoted metadata excerpts without binding to policy.
   hasChunkedInfix =
     needle: s:
     let
@@ -186,8 +190,8 @@ let
     in
     go 0;
 
-  # Anchor on SOPS MAC footer fields, not a bare cipher token. Prose can mention
-  # ENC[AES256_GCM, and lastmodified without containing encrypted payload data.
+  # Anchor on SOPS MAC footer fields and the configured recipient, not bare
+  # cipher tokens. Prose can quote a footer without carrying policy metadata.
   hasIniMacMarker =
     s:
     let
@@ -207,24 +211,32 @@ let
   hasSopsMarkers =
     s:
     (lib.any (needle: hasChunkedInfix needle s) macNeedles || hasIniMacMarker s)
-    && hasChunkedInfix "lastmodified" s;
+    && hasChunkedInfix "lastmodified" s
+    && hasChunkedInfix hostPubKey s;
 
   # Pin the detector in the secretless path so chunk boundaries and both
   # required markers remain covered without relying on submodule payloads.
   markerFixtures = [
     {
       name = "yaml-footer";
-      content = "mac: ENC[AES256_GCM,data:x]\nlastmodified: 2026-01-01T00:00:00Z\n";
+      content =
+        "mac: ENC[AES256_GCM,data:x]\nlastmodified: 2026-01-01T00:00:00Z\nrecipient: " + hostPubKey + "\n";
       want = true;
     }
     {
       name = "json-footer";
-      content = "{\"mac\": \"ENC[AES256_GCM,data:x]\", \"lastmodified\": \"2026-01-01T00:00:00Z\"}\n";
+      content =
+        "{\"mac\": \"ENC[AES256_GCM,data:x]\", \"lastmodified\": \"2026-01-01T00:00:00Z\", \"recipient\": \""
+        + hostPubKey
+        + "\"}\n";
       want = true;
     }
     {
       name = "dotenv-footer";
-      content = "sops_mac=ENC[AES256_GCM,data:x]\nsops_lastmodified=2026-01-01T00:00:00Z\n";
+      content =
+        "sops_mac=ENC[AES256_GCM,data:x]\nsops_lastmodified=2026-01-01T00:00:00Z\nsops_age__list_0__map_recipient="
+        + hostPubKey
+        + "\n";
       want = true;
     }
     {
@@ -232,8 +244,16 @@ let
       content =
         "[sops]\n"
         + "lastmodified               = 2026-01-01T00:00:00Z\n"
-        + "mac                        = ENC[AES256_GCM,data:x]\n";
+        + "mac                        = ENC[AES256_GCM,data:x]\n"
+        + "age__list_0__map_recipient = "
+        + hostPubKey
+        + "\n";
       want = true;
+    }
+    {
+      name = "quoted-footer-without-recipient";
+      content = "sops:\n" + "  mac: ENC[AES256_GCM,data:x]\n" + "  lastmodified: 2026-01-01T00:00:00Z\n";
+      want = false;
     }
     {
       name = "quoted-token-only";
@@ -247,12 +267,17 @@ let
     }
     {
       name = "cipher-boundary";
-      content = lib.concatStrings (lib.genList (_: "x") 8185) + "mac: ENC[AES256_GCM,lastmodified";
+      content =
+        lib.concatStrings (lib.genList (_: "x") 8185) + "mac: ENC[AES256_GCM,lastmodified" + hostPubKey;
       want = true;
     }
     {
       name = "metadata-boundary";
-      content = "mac: ENC[AES256_GCM," + lib.concatStrings (lib.genList (_: "x") 8183) + "lastmodified";
+      content =
+        "mac: ENC[AES256_GCM,"
+        + lib.concatStrings (lib.genList (_: "x") 8183)
+        + "lastmodified"
+        + hostPubKey;
       want = true;
     }
   ];
