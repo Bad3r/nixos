@@ -10,10 +10,12 @@
     * Stores captures in a database and serves a report UI for browsing screenshots, headers, and technologies.
 
   Options:
-    scan: Screenshot targets from flags, files, CIDR ranges, or Nmap input.
+    scan: Screenshot targets using the subcommands below.
+    scan single:
+      -u, --url <target>: Single URL to screenshot.
+    scan file:
+      -f, --file <file>: File of URLs to screenshot.
     report: Serve or export the web report UI over captured results.
-    -u, --url <target>: Single URL to screenshot (under `scan`).
-    -f, --file <file>: File of URLs to screenshot (under `scan`).
     --screenshot-path <dir>: Directory to write screenshots to.
     --write-db: Persist results to the SQLite database.
 */

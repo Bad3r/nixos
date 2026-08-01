@@ -187,7 +187,7 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Desc.: Go-based directory, DNS, and vhost brute forcer.
   - Stat.: Maintained (latest release 2025-09-04).
 - gowitness
-  - run..: `gowitness scan -u $url`
+  - run..: `gowitness scan single --url $url`
   - Repo.: <https://github.com/sensepost/gowitness>
   - Docs.: <https://github.com/sensepost/gowitness/wiki>
   - Desc.: Headless-Chrome web screenshotter with a reporting UI for triaging large host lists.
