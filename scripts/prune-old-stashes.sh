@@ -46,11 +46,15 @@ EOF
 }
 
 parse_duration_days() {
+  # Digits are normalized through 10# here because the result is re-evaluated
+  # by later arithmetic, where a leading zero means octal: `010` would become a
+  # 10-day threshold read back as 8, and `08`/`09` abort with "value too great
+  # for base".
   local spec=$1
   if [[ $spec =~ ^([0-9]+)d?$ ]]; then
-    printf '%s' "${BASH_REMATCH[1]}"
+    printf '%s' "$((10#${BASH_REMATCH[1]}))"
   elif [[ $spec =~ ^([0-9]+)w$ ]]; then
-    printf '%s' "$((BASH_REMATCH[1] * 7))"
+    printf '%s' "$((10#${BASH_REMATCH[1]} * 7))"
   else
     echo "${prog_name}: invalid duration '${spec}' (expected e.g. 14d, 2w, 30)" >&2
     return 64
