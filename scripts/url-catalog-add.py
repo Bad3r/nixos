@@ -297,20 +297,19 @@ def render_entry(entry: CommentedMap, yaml: YAML) -> str:
 def write_catalog(path: Path, catalog: CommentedMap, yaml: YAML) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     mode = path.stat().st_mode if path.exists() else None
-    with tempfile.NamedTemporaryFile(
-        "w",
-        encoding="utf-8",
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        delete=False,
-    ) as tmp:
-        temp_path = Path(tmp.name)
-        yaml.dump(catalog, tmp)
-    if mode is not None:
-        # Clamp to owner-only: this writes decrypted catalog content, and a
-        # pre-existing 0644 from an ad-hoc `sops -d >` must not be preserved.
-        os.chmod(temp_path, stat.S_IMODE(mode) & 0o700)
-    os.replace(temp_path, path)
+    tmp_fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    temp_path = Path(tmp_name)
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp:
+            yaml.dump(catalog, tmp)
+        if mode is not None:
+            # Clamp to owner-only: this writes decrypted catalog content, and a
+            # pre-existing 0644 from an ad-hoc `sops -d >` must not be preserved.
+            os.chmod(temp_path, stat.S_IMODE(mode) & 0o700)
+        os.replace(temp_path, path)
+    except BaseException:
+        temp_path.unlink(missing_ok=True)
+        raise
 
 
 def target_path(args: argparse.Namespace) -> Path:

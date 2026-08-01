@@ -30,10 +30,16 @@ let
   extensionlessPathPattern = "(.*/)?[^/.]+$";
   extensionlessLine = "- path_regex: secrets/${extensionlessPathPattern}";
   sopsPolicy = builtins.readFile ../../.sops.yaml;
+  ruleCount = builtins.length (
+    lib.filter (line: lib.hasInfix "- path_regex:" line) (lib.splitString "\n" sopsPolicy)
+  );
   policySynced =
     lib.hasInfix catchAllLine sopsPolicy
     && lib.hasInfix fontsLine sopsPolicy
-    && lib.hasInfix extensionlessLine sopsPolicy;
+    && lib.hasInfix extensionlessLine sopsPolicy
+    # Three exact rules and three broad rules are currently generated. A new
+    # creation rule must be mirrored in this check before the count changes.
+    && ruleCount == 6;
 
   listFiles =
     dir: prefix:
@@ -121,8 +127,9 @@ in
         # as modules/meta/ci-lix-parity.nix).
         if !policySynced then
           throw (
-            "sops-cleartext-check.nix creation-rules mirror drifted from .sops.yaml; "
-            + "update extAlternation, fontsLine, or extensionlessLine to match modules/security/sops-policy.nix"
+            "sops-cleartext-check.nix creation-rules mirror drifted from .sops.yaml "
+            + "(rule count or pattern); update extAlternation, fontsLine, extensionlessLine, or ruleCount "
+            + "to match modules/security/sops-policy.nix"
           )
         else if !secretsPresent then
           pkgs.runCommandLocal "secrets-no-cleartext-skipped" { } ''
