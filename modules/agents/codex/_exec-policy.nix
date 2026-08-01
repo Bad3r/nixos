@@ -180,6 +180,38 @@ let
         ++ (map withAcceptFlakeConfig nixAllowedSubcommands)
         ++ [ [ "nix-instantiate" ] ];
 
+      # The archive-before-drop stash helper. `nix develop` is auto-allowed
+      # above, so without these the wrapped form would run unprompted while the
+      # bare `git stash drop` it replaces prompts. Decision is resolved by
+      # `max()` over every matching rule (Allow < Prompt < Forbidden in
+      # codex-rs/execpolicy/src/decision.rs), so these win over that allow
+      # regardless of rule order.
+      promptedStashHelperRules =
+        map
+          (pattern: {
+            inherit pattern;
+            decision = "prompt";
+            justification = "Drops stashes, archive-first but still destructive; ask before running.";
+          })
+          [
+            [ "prune-old-stashes" ]
+            [
+              "nix"
+              "develop"
+              "path:."
+              "-c"
+              "prune-old-stashes"
+            ]
+            [
+              "nix"
+              "--accept-flake-config"
+              "develop"
+              "path:."
+              "-c"
+              "prune-old-stashes"
+            ]
+          ];
+
       promptedGitRules = [
         {
           pattern = [
@@ -456,6 +488,7 @@ let
         ""
         "# Destructive git prefixes that must ask first"
       ]
+      ++ map execPolicyRule promptedStashHelperRules
       ++ map execPolicyRule promptedGitRules
       ++ [
         ""

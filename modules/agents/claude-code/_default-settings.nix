@@ -84,6 +84,8 @@ let
     "git stash drop"
     "git stash clear"
     "git stash pop"
+    "prune-old-stashes"
+    "nix develop path:. -c prune-old-stashes"
     "git branch -d"
     "git branch -D"
     "git branch --delete"
