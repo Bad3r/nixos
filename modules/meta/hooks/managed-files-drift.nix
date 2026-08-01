@@ -1,4 +1,5 @@
-_: {
+{ rootPath, ... }:
+{
   perSystem =
     {
       lib,
@@ -13,7 +14,7 @@ _: {
           drift = lib.filter (
             name:
             let
-              path = ../../.. + "/${name}";
+              path = rootPath + "/${name}";
             in
             !(builtins.pathExists path) || builtins.readFile path != config.files.file.${name}.text
           ) managedFiles;

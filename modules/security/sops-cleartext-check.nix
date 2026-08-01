@@ -12,13 +12,18 @@
 # scan is skipped there while policy parity is still checked. Initializing the
 # submodule in CI is deliberately not done: Bad3r/secrets is private and the
 # secretless-eval design keeps CI from fetching it.
-{ lib, ... }:
+{
+  lib,
+  rootPath,
+  secretsRoot,
+  ...
+}:
 let
-  secretsDir = ../../secrets;
+  secretsDir = secretsRoot;
   # An absent or empty submodule is the secretless checkout used by CI
   # (see issue #333); scanning is only meaningful when content is present.
   secretsPresent = builtins.pathExists secretsDir && builtins.readDir secretsDir != { };
-  sopsPolicy = builtins.readFile ../../.sops.yaml;
+  sopsPolicy = builtins.readFile (rootPath + "/.sops.yaml");
   policyLines = lib.splitString "\n" sopsPolicy;
   isYamlComment = line: builtins.match "[[:space:]]*#.*" line != null;
   policyContentLines = lib.filter (line: !isYamlComment line) policyLines;
