@@ -9,7 +9,20 @@ on:
     types: [created]
 
 concurrency:
-  group: gemini-pr-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  # issue_comment fires this workflow for every comment on every PR, and the
+  # workflow-level group is evaluated before the job `if:` drops those runs.
+  # One group per PR therefore let any bystander comment cancel a review that
+  # was already running: the Claude reviewer's own "Review in progress" comment
+  # killed run 30691389919 nine seconds in. Only events that will actually
+  # review share a per-PR group; every other event gets a per-run group that
+  # nothing can collide with. comment.body reaches only startsWith here, never
+  # the group name or a run: block.
+  group: >-
+    gemini-pr-review-${{
+    (github.event_name == 'pull_request' ||
+    startsWith(github.event.comment.body, '@gemini-cli /review'))
+    && format('pr-{0}', github.event.pull_request.number || github.event.issue.number)
+    || format('inert-{0}', github.run_id) }}
   cancel-in-progress: true
 
 jobs:
