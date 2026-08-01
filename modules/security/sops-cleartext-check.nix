@@ -45,9 +45,12 @@ let
   # fonts/ any-extension rule. The extension match case-folds path to mirror
   # the `(?i)` catch-all in .sops.yaml, so a case-variant name (Runbook.MD) is
   # still required-encrypted (#344). Exemptions are the intentional cleartext
-  # conventions: *.example templates and the gitignored local-decryption
-  # prefixes (decrypted_*, *.dec.*), which reach evaluation only through
-  # `path:` flake refs that copy untracked files.
+  # conventions: *.example templates and the local-decryption prefixes
+  # (decrypted_*, *.dec.*), which the secrets submodule's own .gitignore
+  # ignores and which reach evaluation through `path:` refs that copy
+  # untracked files. Superproject ignore rules do not govern the submodule's
+  # index, so these remain filename-level local exceptions, not encryption
+  # guarantees for tracked submodule content.
   mustBeEncrypted =
     path:
     let
@@ -62,28 +65,34 @@ let
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
   # megabyte-scale strings (std::regex recursion; the sops-encrypted font
-  # blob is ~1 MiB), so scan in bounded chunks with a marker-length overlap.
-  # Match the full `ENC[AES256_GCM,` MAC token, not a bare `ENC[`: cleartext
-  # containing `ENC[` (a Markdown fenced block, the #344 content type) would
-  # otherwise pass. Fails closed: a cipher change flags real ciphertext rather
-  # than admitting cleartext.
-  hasEncMarker =
-    s:
+  # blob is ~1 MiB), so scan each needle in bounded chunks with a needle-sized
+  # overlap. SOPS 3.13.3 emits `lastmodified` metadata in every supported
+  # encrypted format, using `sops_lastmodified` for dotenv, so requiring it
+  # alongside the full cipher token rejects quoted-token cleartext samples.
+  hasChunkedInfix =
+    needle: s:
     let
       len = builtins.stringLength s;
       chunkSize = 8192;
-      overlap = builtins.stringLength "ENC[AES256_GCM,";
+      overlap = builtins.stringLength needle;
+      pattern = ".*${lib.escapeRegex needle}.*";
       go =
         i:
         i < len
         && (
-          builtins.match ".*ENC\\[AES256_GCM,.*" (builtins.substring i (chunkSize + overlap) s) != null
-          || go (i + chunkSize)
+          builtins.match pattern (builtins.substring i (chunkSize + overlap) s) != null || go (i + chunkSize)
         );
     in
     go 0;
 
-  isCleartext = path: !(hasEncMarker (builtins.readFile (secretsDir + "/${path}")));
+  hasSopsMarkers = s: (hasChunkedInfix "ENC[AES256_GCM," s) && (hasChunkedInfix "lastmodified" s);
+
+  isCleartext =
+    path:
+    let
+      content = builtins.readFile (secretsDir + "/${path}");
+    in
+    !(hasSopsMarkers content);
 
   cleartext =
     if secretsPresent then
@@ -116,7 +125,7 @@ in
           )
         else
           pkgs.runCommandLocal "secrets-no-cleartext-ok" { } ''
-            echo "ok: every creation_rules-matched file under secrets/ carries ENC[AES256_GCM, markers" > $out
+            echo "ok: every creation_rules-matched file under secrets/ carries SOPS MAC and lastmodified markers" > $out
           '';
     };
 }
