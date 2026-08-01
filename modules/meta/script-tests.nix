@@ -49,6 +49,16 @@ let
       ];
       extraInputs = _: [ ];
     };
+    run-packages-updaters = {
+      dir = ../../tests/run-packages-updaters;
+      subjects = [
+        {
+          src = ../../scripts/run-packages-updaters.sh;
+          dest = "scripts/run-packages-updaters.sh";
+        }
+      ];
+      extraInputs = _: [ ];
+    };
     ci-upstream-tracker = {
       dir = ../../tests/ci-upstream-tracker;
       subjects = [
