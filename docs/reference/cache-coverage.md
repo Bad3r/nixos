@@ -102,8 +102,13 @@ on the expensive derivation (tor-browser, mullvad-browser), an unfree or
 non-redistributable license while the cache is public (the RAR-enabled
 p7zip), or a wrapper cheap enough that publishing it costs more CI time than
 it saves. Everything else belongs in `cache-roots.nix`, and adding it there
-means deleting the glob here in the same change. Entries currently
-allowlisted that fail that test are tracked in
+means deleting the glob here in the same change. That is enforced rather than
+asked for: the `cache-roots-allowlist-disjoint` flake check in
+`modules/meta/cache-roots.nix` reads this file, matches every published entry
+name against its globs, and aborts evaluation naming the offender. It throws
+during evaluation, so `nix flake check --no-build` catches it without building
+anything. Entries currently allowlisted that fail the disposition test, rather
+than the overlap test, are tracked in
 https://github.com/Bad3r/nixos/issues/422.
 
 Nothing runs this script in CI yet, so drift surfaces during a host switch

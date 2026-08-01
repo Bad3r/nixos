@@ -306,7 +306,11 @@ logs and its full runtime closure is redistributable:
 - Drop the matching glob from `scripts/cache-coverage-allowlist.txt` in the
   same change. That file records divergences accepted as permanent local
   builds; a package the cache now serves is no longer one, and leaving the
-  glob behind hides the next regression on that name.
+  glob behind hides the next regression on that name. The
+  `cache-roots-allowlist-disjoint` check enforces this: it matches every
+  published entry name against the file's globs and aborts evaluation naming
+  the offender, so forgetting the deletion fails `nix flake check` rather than
+  surfacing as a silently dead glob later.
 - Confirm derivation parity with
   `nix build --dry-run "path:.#cache-roots"` on a recently switched host:
   the new entry must not introduce rebuilds of paths the host already has.

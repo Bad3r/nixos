@@ -93,46 +93,81 @@ in
           pkg
         else
           throw "cache-roots: ${name} is not free or redistributable; refusing to publish it to the public cache";
+      entries =
+        map (name: {
+          inherit name;
+          path = assertFree name hostPkgs.${name};
+        }) hostPackageNames
+        ++ lib.mapAttrsToList (
+          name: optionPath:
+          let
+            enablePath = lib.init optionPath ++ [ "enable" ];
+          in
+          {
+            inherit name;
+            path =
+              if lib.getAttrFromPath enablePath hostConfig then
+                assertFree name (lib.getAttrFromPath optionPath hostConfig)
+              else
+                throw "cache-roots: ${name} is sourced from ${lib.concatStringsSep "." optionPath}, but that module is disabled on ${primaryHost}";
+          }
+        ) hostFinalPackagePaths
+        ++ map (name: {
+          inherit name;
+          path = assertFree name self'.packages.${name};
+        }) perSystemPackageNames
+        ++ [
+          # modules/agents/mcp.nix resolves MCP server packages from the
+          # mcp-servers-nix input; hostPkgs carries a same-named but
+          # different context7-mcp derivation no consumer runs.
+          {
+            name = "context7-mcp";
+            path = assertFree "context7-mcp" inputs'.mcp-servers-nix.packages.context7-mcp;
+          }
+          {
+            name = "codex";
+            path = assertFree "codex" inputs'.llm-agents.packages.codex;
+          }
+        ];
+
+      # A glob in scripts/cache-coverage-allowlist.txt accepts a permanent local
+      # build; a name here publishes the package instead. Holding both leaves a
+      # glob that matches nothing, which then silently absorbs the next real
+      # divergence on that name at --max-count 0. Names are read back off
+      # `entries` so the guard cannot fall behind the linkFarm. The failure is a
+      # throw rather than a failing runCommand so that
+      # `nix flake check --no-build` still catches it.
+      allowlistGlobs =
+        let
+          globOf =
+            line:
+            let
+              m = builtins.match "[[:space:]]*([^#[:space:]]+).*" line;
+            in
+            if m == null then null else lib.head m;
+        in
+        lib.filter (glob: glob != null) (
+          map globOf (lib.splitString "\n" (builtins.readFile ../../scripts/cache-coverage-allowlist.txt))
+        );
+
+      globMatches =
+        name: glob:
+        builtins.match (builtins.replaceStrings [ "." "+" "*" "?" ] [ "\\." "\\+" ".*" "." ] glob) name
+        != null;
+
+      allowlistedPublished = lib.filter (entry: lib.any (globMatches entry.name) allowlistGlobs) entries;
     in
     {
       packages = lib.mkIf (hostPkgs.stdenv.hostPlatform.system == system) {
-        cache-roots = pkgs.linkFarm "cache-roots" (
-          map (name: {
-            inherit name;
-            path = assertFree name hostPkgs.${name};
-          }) hostPackageNames
-          ++ lib.mapAttrsToList (
-            name: optionPath:
-            let
-              enablePath = lib.init optionPath ++ [ "enable" ];
-            in
-            {
-              inherit name;
-              path =
-                if lib.getAttrFromPath enablePath hostConfig then
-                  assertFree name (lib.getAttrFromPath optionPath hostConfig)
-                else
-                  throw "cache-roots: ${name} is sourced from ${lib.concatStringsSep "." optionPath}, but that module is disabled on ${primaryHost}";
-            }
-          ) hostFinalPackagePaths
-          ++ map (name: {
-            inherit name;
-            path = assertFree name self'.packages.${name};
-          }) perSystemPackageNames
-          ++ [
-            # modules/agents/mcp.nix resolves MCP server packages from the
-            # mcp-servers-nix input; hostPkgs carries a same-named but
-            # different context7-mcp derivation no consumer runs.
-            {
-              name = "context7-mcp";
-              path = assertFree "context7-mcp" inputs'.mcp-servers-nix.packages.context7-mcp;
-            }
-            {
-              name = "codex";
-              path = assertFree "codex" inputs'.llm-agents.packages.codex;
-            }
-          ]
-        );
+        cache-roots = pkgs.linkFarm "cache-roots" entries;
       };
+
+      checks.cache-roots-allowlist-disjoint =
+        if allowlistedPublished == [ ] then
+          pkgs.runCommand "cache-roots-allowlist-disjoint" { } "touch $out"
+        else
+          throw "cache-roots: ${
+            lib.concatMapStringsSep ", " (entry: entry.name) allowlistedPublished
+          } is published by cache-roots.nix and also matched by a glob in scripts/cache-coverage-allowlist.txt; allowlisting and caching are mutually exclusive dispositions. Delete the glob (docs/reference/cache-coverage.md).";
     };
 }
