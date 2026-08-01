@@ -126,8 +126,9 @@ let
       - `rm -rf` on user files or directories
 
       Use `rip <path>` instead of `rm` for deletions so recovery stays possible. Safe
-      stash operations are `git stash`, `git stash list`, `git stash show`, and
-      `git stash apply`.
+      stash operations are `git stash`, `git stash list`, `git stash show`,
+      `git stash apply`, and the operator-invoked `prune-old-stashes --apply`, which
+      archives each stash under `refs/stash-archive/<date>/<sha>` before dropping it.
 
       If something is deleted accidentally, stop, recover immediately from stash,
       reflog, or the `rip` graveyard, then tell the user exactly what happened and
