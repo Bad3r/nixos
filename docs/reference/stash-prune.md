@@ -69,14 +69,18 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
   repository enclosing the root. Without `--all-worktrees` it is a usage error
   rather than a silent no-op. A named root that is empty, missing, or that
   contains no checkouts directly beneath it is reported and counted as a
-  failure; the default root is exempt, since a host may have no worktrees.
+  failure; the default root is exempt, since a host may have no worktrees. A
+  scanned directory that has a `.git` which does not resolve is reported as a
+  broken checkout and counted under any root, since corruption inside an
+  existing tree is not the absence the default root is exempt for.
 
 ## Exit Codes
 
 - `0`: success, or a dry run that changed nothing.
 - `1`: at least one archive write, drop, or archive-ref deletion failed, a
-  stash list or the archive refs could not be read, a named `--root` does not
-  exist, or another instance holds the run lock.
+  stash list or the archive refs could not be read, a named `--root` is
+  missing or contains no checkouts, a scanned directory is a broken checkout,
+  or another instance holds the run lock.
 - `64`: usage error, including an unparsable `--age` or `--archive-retention`.
 
 ## Concurrency

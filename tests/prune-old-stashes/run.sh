@@ -775,6 +775,36 @@ test_root_is_repeatable_and_defaults_to_home_trees() {
   pass
 }
 
+test_broken_checkout_under_a_root_is_reported() {
+  local out scan good
+  make_fixture broken-checkout
+  scan="${tmpdir}/broken-scan"
+  mkdir -p "${scan}"
+  out="${tmpdir}/broken-checkout.out"
+
+  # A healthy sibling, so the run is not empty and the failure cannot hide
+  # behind the "no checkouts" message.
+  good="${scan}/good"
+  git init -q -b main "${good}"
+  init_repo_config "${good}"
+  printf '%s\n' base >"${good}/f"
+  git -C "${good}" add f
+  git -C "${good}" commit -q -m "initial commit"
+  push_stash "${good}" old-a 30
+
+  # A .git pointing at a gitdir that no longer exists.
+  mkdir -p "${scan}/broken"
+  printf 'gitdir: %s\n' "${tmpdir}/no-such-gitdir" >"${scan}/broken/.git"
+
+  run_sut "${out}" "${repo}" --all-worktrees --root "${scan}"
+  assert_status 1 "${out}" broken-checkout
+  assert_contains "${out}" 'broken checkout, skipping' broken-checkout
+  assert_not_contains "${out}" 'no checkouts directly under root' broken-checkout
+  # The healthy sibling is still processed.
+  assert_contains "${out}" "repo: ${good}$" broken-checkout
+  pass
+}
+
 test_root_without_checkouts_is_reported() {
   local out empty_root
   make_fixture rootless
@@ -909,6 +939,7 @@ test_root_is_repeatable_and_defaults_to_home_trees
 test_unusable_root_is_reported_not_expanded
 test_non_checkout_under_a_root_is_not_resolved_upward
 test_root_without_checkouts_is_reported
+test_broken_checkout_under_a_root_is_reported
 test_unreadable_repo_is_not_swept
 test_dry_run_writes_nothing_on_a_stale_snapshot
 

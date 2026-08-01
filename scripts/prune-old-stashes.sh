@@ -60,8 +60,9 @@ mutating.
 exit codes:
   0   success (or clean dry-run)
   1   at least one archive write, drop, or archive-ref deletion failed, the
-      stash list or the archive refs could not be read, a named --root does
-      not exist, or another instance holds the run lock
+      stash list or the archive refs could not be read, a named --root is
+      missing or contains no checkouts, a scanned directory is a broken
+      checkout, or another instance holds the run lock
   64  usage error
 EOF
 }
@@ -215,6 +216,15 @@ if [[ $all_worktrees == true ]]; then
       if wt_top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
         roots+=("$wt_top")
         scanned=$((scanned + 1))
+      else
+        # A .git that does not resolve is a broken checkout, not an absence:
+        # left silent it is indistinguishable from one that was processed,
+        # while its stashes stay outside the tool's reach. Counted whichever
+        # root it came from, unlike a missing or empty root: the default root
+        # is exempt because a host may legitimately have no worktrees, and
+        # corruption inside an existing tree is not that case.
+        echo "${prog_name}: broken checkout, skipping: ${dir%/}" >&2
+        failures=$((failures + 1))
       fi
     done
     # Exactly one level is scanned, so a root aimed one level too high exists,
