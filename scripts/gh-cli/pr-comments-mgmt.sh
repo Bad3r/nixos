@@ -152,7 +152,15 @@ Read subcommands:
                                            etc. LEFT/RIGHT is a thread
                                            property in GraphQL, so read it
                                            from list-threads/get-thread
-                                           (diffSide, startDiffSide).
+                                           (diffSide, startDiffSide). To get
+                                           there from a comment id:
+                                           list-threads merges inner comment
+                                           pagination, so every comment
+                                           appears under
+                                           .comments.nodes[].id; find its
+                                           thread with `list-threads | jq
+                                           'map(select(.comments.nodes[].id
+                                           == "<comment-node-id>"))'`.
   current-pr                               PR view as JSON. Fields:
                                            id, number, title, body, state,
                                            url, headRefName, baseRefName,
