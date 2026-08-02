@@ -152,7 +152,10 @@ privateDnsHostsSecretKeys = [ "signalx_hosts" ];
 
 Each key holds a hosts(5) payload (`<ip> <name> [alias...]` per line) in
 `secrets/<host>.yaml`. Adding more internal hosts is a secrets edit; adding a
-second source is one more key in the list. The module then sets
+second source is one more key in the list. Keys must stay distinct after the
+hyphen rewrite: declaring `internal_hosts` alongside `internal-hosts` fails an
+assertion instead of collapsing into one secret and dropping a payload. The
+module then sets
 `networking.networkmanager.dns = "dnsmasq"`, disables `services.resolved`, and
 writes `/etc/NetworkManager/dnsmasq.d/private-hosts.conf` with one
 `addn-hosts=` line per key. Hosts that declare no keys stay untouched.

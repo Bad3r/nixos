@@ -35,9 +35,26 @@ let
       secretName = key: "${hostName}/networking/private-hosts/${lib.replaceStrings [ "_" ] [ "-" ] key}";
       secretPath = key: "/run/secrets/${secretName key}";
       installSecretsDeps = sopsInstallSecretsDeps config;
+
+      secretNames = map secretName secretKeys;
+      collidingKeys = lib.filter (
+        key: lib.count (name: name == secretName key) secretNames > 1
+      ) secretKeys;
     in
     {
       config = lib.mkMerge [
+        (lib.mkIf declared {
+          # secretName folds _ to -, so keys differing only by separator would
+          # share one sops secret: listToAttrs keeps the last and the extra
+          # addn-hosts= line duplicates it, leaving a payload never decrypted.
+          assertions = [
+            {
+              assertion = collidingKeys == [ ];
+              message = "${hostName}: privateDnsHostsSecretKeys entries collide after the underscore-to-hyphen rewrite; rename one of ${lib.concatStringsSep ", " collidingKeys}.";
+            }
+          ];
+        })
+
         (lib.mkIf ready {
           # addn-hosts accepts repeats, so each key stays a separate file.
           environment.etc.${confName}.text = ''
