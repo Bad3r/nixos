@@ -12,7 +12,7 @@ These rules override all other instructions. Violations are unacceptable.
 
 Absolutely forbidden:
 
-- Bare `git stash drop` or `git stash clear` (the archived `nix develop path:. -c prune-old-stashes --apply` path below is the sole exception)
+- Bare `git stash drop` or `git stash clear` (the archived `prune-old-stashes --apply` routes below are the sole exception)
 - `git reset --hard` without explicit user approval
 - `git clean -fd` or similar destructive operations
 - `rm -rf` on user files or directories
