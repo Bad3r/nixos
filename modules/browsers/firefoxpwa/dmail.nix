@@ -199,6 +199,17 @@ _: {
             mode = "0400";
           };
 
+          # sops-nix creates the parent with os.ModePerm, and firefoxpwa writes
+          # config.json through File::create with no mode of its own, so the
+          # directory holding both the applied-URL marker and a config.json whose
+          # start_url is the decrypted secret would be world-readable. Same
+          # treatment and ordering as modules/home/gecko-secrets.nix.
+          home.activation.ensureFirefoxpwaSecretDir =
+            lib.hm.dag.entryBetween [ "sops-nix" ] [ "writeBoundary" ]
+              ''
+                install -d -m 700 '${config.home.homeDirectory}/.local/share/firefoxpwa'
+              '';
+
           systemd.user.services.firefoxpwa-dmail = {
             Unit = {
               Description = "Install the DMail web app (firefoxpwa)";
