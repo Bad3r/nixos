@@ -119,7 +119,11 @@
         '';
       };
 
-      secretDir = "/tmp/firefoxpwa-dmail-check";
+      # Relative to the check's build directory. An absolute /tmp path is shared
+      # mutable state once sandboxing is off: a leftover or differently-owned
+      # directory fails `install -d -m 700`, parallel builds overwrite each
+      # other's config.json, and the decrypted-URL stand-ins outlive the build.
+      secretDir = "firefoxpwa-dmail-check";
 
       # Deliberately not $XDG_DATA_HOME/firefoxpwa: passing a directory the
       # script could not have guessed proves it uses the parameter rather than
