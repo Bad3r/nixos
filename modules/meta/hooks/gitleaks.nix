@@ -107,7 +107,7 @@ _: {
             # and gitleaks-scan is the only credential gate on the merge path.
             # A --depth working copy does the same to every local pre-push.
             if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then
-              echo "hook-gitleaks: shallow superproject hides the history this pass covers; refusing to report the repository clean" >&2
+              echo "hook-gitleaks: shallow superproject hides the history this pass covers; refusing to report the repository clean (run 'git fetch --unshallow' locally, or set fetch-depth: 0 on the checkout step in CI)" >&2
               exit 1
             fi
 
@@ -151,7 +151,7 @@ _: {
                 sub_commits=$(git -C secrets rev-list --all --count)
                 sub_shallow=$(git -C secrets rev-parse --is-shallow-repository)
                 if [ "$sub_commits" -eq 0 ] || [ "$sub_shallow" != "false" ]; then
-                  echo "hook-gitleaks: submodule pass would read an incomplete history (commits=$sub_commits, shallow=$sub_shallow); refusing to report secrets/ clean" >&2
+                  echo "hook-gitleaks: submodule pass would read an incomplete history (commits=$sub_commits, shallow=$sub_shallow); refusing to report secrets/ clean (run 'git submodule update --init secrets', and 'git -C secrets fetch --unshallow' if it was cloned shallow)" >&2
                   exit 1
                 fi
                 gitleaks git "''${sub_args[@]}" secrets
