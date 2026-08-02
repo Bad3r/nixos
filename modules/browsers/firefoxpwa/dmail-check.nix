@@ -40,7 +40,10 @@
           pkgs.coreutils
         ];
         text = ''
-          config_file="''${XDG_DATA_HOME:?}/firefoxpwa/config.json"
+          # Set by the check to the same directory the installer is given, so
+          # the stub cannot accidentally agree with a path the installer
+          # re-derived on its own.
+          config_file="''${STUB_CONFIG:?}"
           [ -f "$config_file" ] || echo '{"sites":{}}' >"$config_file"
 
           normalize() {
@@ -115,9 +118,15 @@
 
       secretDir = "/tmp/firefoxpwa-dmail-check";
 
+      # Deliberately not $XDG_DATA_HOME/firefoxpwa: passing a directory the
+      # script could not have guessed proves it uses the parameter rather than
+      # re-deriving a path of its own.
+      dataDir = "${secretDir}/data";
+
       installer = (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
         firefoxpwa = stub;
         urlPath = "${secretDir}/url";
+        inherit dataDir;
       };
     in
     {
@@ -133,20 +142,23 @@
             set -o errexit -o nounset -o pipefail
 
             export HOME="$PWD/home"
-            export XDG_DATA_HOME="$PWD/data"
+            # Points somewhere the installer must not use: it is given data_dir
+            # explicitly, so anything landing under here is a re-derived path.
+            export XDG_DATA_HOME="$PWD/xdg"
             secret_dir=${lib.escapeShellArg secretDir}
             url_file="$secret_dir/url"
-            data_dir="$XDG_DATA_HOME/firefoxpwa"
+            data_dir=${lib.escapeShellArg dataDir}
             config_file="$data_dir/config.json"
             marker="$data_dir/dmail-applied-url"
-            install -d "$HOME" "$secret_dir"
+            export STUB_CONFIG="$config_file"
+            install -d "$HOME" "$XDG_DATA_HOME" "$secret_dir"
 
             installer=${lib.getExe installer}
             failures=0
 
             reset() {
               rm -rf "$data_dir"
-              install -d "$data_dir"
+              install -d -m 700 "$data_dir"
             }
 
             set_url() { printf '%s\n' "$1" >"$url_file"; }
@@ -211,6 +223,17 @@
             set_url 'https://other.example.org/x'
             expect "cross-origin rotation refuses" 1 "does not match the installed origin"
             expect "cross-origin refusal repeats" 1 "does not match the installed origin"
+            # Deleting the marker skips the guard rather than satisfying it, so
+            # the refusal must not offer that as a way out. Captured first rather
+            # than piped: the installer exits 1 here, and under pipefail that
+            # status would decide the `if` no matter what grep found.
+            refusal=$("$installer" 2>&1 || true)
+            if printf '%s' "$refusal" | grep -q 'remove.*dmail-applied-url'; then
+              echo "FAIL  refusal suggests removing the marker, which bypasses the guard"
+              failures=$((failures + 1))
+            else
+              echo "PASS  refusal does not suggest removing the marker"
+            fi
             set_url 'not-a-url'
             expect "unparsable secret refuses" 1 "cannot derive an origin"
             : >"$url_file"
@@ -288,6 +311,25 @@
               "$(jq -r '.sites["01STUB"].manifest.scope' "$config_file")" \
               'https://mail.example.com/'
             assert_equal "marker is owner-only" "$(stat -c '%a' "$marker")" 600
+            assert_equal "marker holds the secret verbatim" \
+              "$(cat "$marker")" 'https://mail.example.com?q=1'
+            # Hygiene only. record_applied's atomicity is not asserted here: an
+            # in-place write leaves no sibling either, and telling the two apart
+            # needs a fault injected between truncation and write.
+            if [ -e "$marker.next" ]; then
+              echo "FAIL  marker temporary file left behind"
+              failures=$((failures + 1))
+            else
+              echo "PASS  marker write leaves no temporary"
+            fi
+
+            echo "-- the installer uses the directory it is given --"
+            if [ -e "$XDG_DATA_HOME/firefoxpwa" ]; then
+              echo "FAIL  installer re-derived a path under XDG_DATA_HOME"
+              failures=$((failures + 1))
+            else
+              echo "PASS  nothing written outside the configured data directory"
+            fi
 
             echo
             if [ "$failures" -ne 0 ]; then

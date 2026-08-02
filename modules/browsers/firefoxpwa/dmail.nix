@@ -45,9 +45,15 @@ _: {
       # name means the app is already installed.
       appName = "DMail";
 
+      # Single source for the secret, the marker, firefoxpwa's config.json and
+      # the 0700 hardening below. Derived twice they drift apart as soon as
+      # xdg.dataHome moves, leaving the two files that hold the decrypted URL
+      # outside the directory the hardening applies to.
+      dataDir = "${config.xdg.dataHome}/firefoxpwa";
+
       installScript = (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
         firefoxpwa = firefoxpwaPackage;
-        inherit urlPath appName;
+        inherit urlPath dataDir appName;
       };
     in
     {
@@ -56,7 +62,7 @@ _: {
           sops.secrets.${secretName} = {
             sopsFile = geckoFile;
             key = "gecko_work_bookmark_url_1";
-            path = "${config.home.homeDirectory}/.local/share/firefoxpwa/dmail-url";
+            path = "${dataDir}/dmail-url";
             mode = "0400";
           };
 
@@ -68,7 +74,7 @@ _: {
           home.activation.ensureFirefoxpwaSecretDir =
             lib.hm.dag.entryBetween [ "sops-nix" ] [ "writeBoundary" ]
               ''
-                install -d -m 700 '${config.home.homeDirectory}/.local/share/firefoxpwa'
+                install -d -m 700 '${dataDir}'
               '';
 
           systemd.user.services.firefoxpwa-dmail = {

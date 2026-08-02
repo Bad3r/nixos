@@ -19,6 +19,7 @@
 {
   firefoxpwa,
   urlPath,
+  dataDir,
   appName ? "DMail",
 }:
 writeShellApplication {
@@ -31,7 +32,11 @@ writeShellApplication {
   text = ''
     url_file=${lib.escapeShellArg urlPath}
     app_name=${lib.escapeShellArg appName}
-    data_dir="''${XDG_DATA_HOME:-$HOME/.local/share}/firefoxpwa"
+    # Passed in rather than re-derived from XDG_DATA_HOME: the caller uses this
+    # same value for the sops secret path and the 0700 activation step, and a
+    # second rule here would put the marker and config.json outside the
+    # directory those protect whenever xdg.dataHome is not at its default.
+    data_dir=${lib.escapeShellArg dataDir}
     config_file="$data_dir/config.json"
 
     # firefoxpwa deserializes start_url into the Rust url crate's Url
@@ -74,11 +79,16 @@ writeShellApplication {
     }
 
     # The marker holds the decrypted secret, so it is created owner-only.
+    # Written through a sibling and renamed: truncating in place would leave a
+    # partial marker if the write is interrupted, and a truncated URL yields
+    # either a wrong origin or none, which the cross-origin guard below reports
+    # as a mismatch on every run with no way back.
     record_applied() {
       (
         umask 077
-        printf '%s' "$url" >"$applied_file"
+        printf '%s' "$url" >"$applied_file.next"
       )
+      mv "$applied_file.next" "$applied_file"
     }
 
     # Manifest scope is a prefix match and site update cannot rewrite it,
@@ -112,10 +122,15 @@ writeShellApplication {
       # punycodes an IDN host and fills in an empty path, so a raw-against-
       # normalized test refuses rotations that are in fact same-origin. Both
       # sides here are secrets this script wrote, so only case can differ.
+      # Uninstalling is the only remedy offered on purpose. Deleting the marker
+      # would skip this guard rather than satisfy it, and the run after that
+      # would apply and then latch the cross-origin start URL. The marker is
+      # absent only right after an install that registered the site and failed,
+      # where the site already carries this same origin.
       if [ -r "$applied_file" ]; then
         applied_origin=$(url_origin "$(<"$applied_file")")
         if [ "''${applied_origin,,}" != "''${origin,,}" ]; then
-          echo "firefoxpwa-dmail: rotated URL origin '$origin' does not match the installed origin '$applied_origin'; uninstall the '$app_name' site, or remove $applied_file if it is stale, so this unit can reinstall it" >&2
+          echo "firefoxpwa-dmail: rotated URL origin '$origin' does not match the installed origin '$applied_origin'; uninstall the '$app_name' site so this unit can reinstall it at the new origin" >&2
           exit 1
         fi
       fi
