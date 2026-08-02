@@ -66,22 +66,41 @@
         }
       ];
 
-      # Which configs are judged at all, pinned like reviewedPaths and the rest.
-      # Every branch quantifies over whatever sources happens to hold and every
-      # fixture builds its own list through `fixture`, so dropping an entry here
-      # leaves the real verdict null and every fixture green while that file
-      # becomes unbounded: paths = ["private-ops/.*"] in the config governing the
-      # submodule pass would throw nothing. Both spellings of both managed
+      # Which source contracts are judged, pinned as origin, reviewedPaths and
+      # kvAllowed together. Every branch quantifies over whatever sources happens
+      # to hold and every fixture builds its own list through `fixture`, so
+      # dropping a contract here leaves the real verdict null and every fixture
+      # green while that file becomes unbounded. Both spellings of both managed
       # configs, because a source edit that skipped write-files and a direct
       # artifact edit are separate bypass directions.
       reviewedSources = [
-        "modules/development/gitleaks.nix"
-        ".gitleaks.toml"
-        "modules/development/gitleaks.nix (.gitleaks-secrets.toml)"
-        ".gitleaks-secrets.toml"
+        {
+          origin = "modules/development/gitleaks.nix";
+          reviewedPaths = superprojectPaths;
+          kvAllowed = false;
+        }
+        {
+          origin = ".gitleaks.toml";
+          reviewedPaths = superprojectPaths;
+          kvAllowed = false;
+        }
+        {
+          origin = "modules/development/gitleaks.nix (.gitleaks-secrets.toml)";
+          reviewedPaths = [ ];
+          kvAllowed = true;
+        }
+        {
+          origin = ".gitleaks-secrets.toml";
+          reviewedPaths = [ ];
+          kvAllowed = true;
+        }
       ];
 
-      unjudgedSources = lib.subtractLists (map (s: s.origin) sources) reviewedSources;
+      sourceContract = s: {
+        inherit (s) origin reviewedPaths kvAllowed;
+      };
+
+      unjudgedSources = lib.subtractLists (map sourceContract sources) reviewedSources;
 
       # gitleaks keeps a default rule only when no local rule claims its id, so a
       # local [[rules]] entry reusing a default id with an unmatchable regex
@@ -862,7 +881,9 @@
       checks.gitleaks-allowlist-scope =
         if unjudgedSources != [ ] then
           throw (
-            "gitleaks-allowlist-scope: ${lib.concatStringsSep ", " unjudgedSources} is no longer "
+            "gitleaks-allowlist-scope: ${
+              lib.concatStringsSep ", " (map (s: s.origin) unjudgedSources)
+            } is no longer "
             + "judged by this check, so every suppression field in it is unbounded; restore it to "
             + "sources rather than narrowing reviewedSources"
           )
