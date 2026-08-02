@@ -109,8 +109,11 @@ _: {
           # rotation) out of scope and into the external browser. site update
           # cannot change scope, so an origin scope also keeps the rotation
           # refresh above self-consistent.
+          # The host match stops at ? and # as well as /: a root URL carrying a
+          # query or fragment (https://host?token=...) would otherwise fold the
+          # query into the origin and scope the app to one token.
           origin=$(jq -rn --arg u "$url" \
-            '$u | capture("^(?<o>[a-z][a-z0-9+.-]*://[^/]+)").o // ""')
+            '$u | capture("^(?<o>[a-z][a-z0-9+.-]*://[^/?#]+)").o // ""')
           if [ -z "$origin" ]; then
             echo "firefoxpwa-dmail: cannot derive an origin from '$url'" >&2
             exit 1
