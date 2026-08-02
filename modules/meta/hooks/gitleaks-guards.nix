@@ -412,10 +412,10 @@ _: {
             # every rule's finding on that line and the Stripe key disappears.
             echo "hook-gitleaks-guards: 17/18 the KV allowlist suppresses only its own rule"
             new_repo "$work/kv-scope"
+            git init -q --initial-branch=main "$work/kv-sub"
             kv_note='# production'
             kv_note+=" keys"
             kv_note+=" KV: 00000000000000000000000000000000"
-            git init -q --initial-branch=main "$work/kv-sub"
             stripe_prefix=sk_live
             stripe_body=4eC39HqLyjWDarjtT1zdp7dc
             printf '%s\n' "$kv_note" > "$work/kv-sub/notes.md"
