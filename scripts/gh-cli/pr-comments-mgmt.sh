@@ -1258,6 +1258,7 @@ query($id: ID!, $cursor: String) {
           databaseId
           author { login }
           body
+          createdAt
           diffHunk
           originalLine
           originalStartLine
@@ -1346,6 +1347,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
               databaseId
               author { login }
               body
+              createdAt
               diffHunk
               originalLine
               originalStartLine
@@ -1557,6 +1559,7 @@ query($id: ID!) {
           databaseId
           author { login }
           body
+          createdAt
           diffHunk
           originalLine
           originalStartLine
