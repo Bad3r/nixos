@@ -155,13 +155,18 @@ _: {
           fi
 
           # A data: manifest keeps the install self-contained: firefoxpwa does not
-          # have to fetch or parse a manifest from the target site. --document-url
-          # is required whenever the manifest URL is a data: URL, and it gets the
-          # origin rather than the secret: site update cannot rewrite that field,
-          # so a rotating value stored there could never be retired, and the
-          # manifest's own URLs are absolute, leaving it only a resolution base.
-          manifest=$(jq -nc --arg u "$url" --arg s "$origin" --arg n "$app_name" \
-            '{name: $n, scope: $s, start_url: $u, display: "standalone"}')
+          # have to fetch or parse a manifest from the target site.
+          #
+          # Nothing here carries the secret. The manifest is embedded verbatim in
+          # the manifest URL, which firefoxpwa persists as config.manifest_url,
+          # and --document-url lands in config.document_url; site update can
+          # rewrite neither, so a token stored in either could never be retired.
+          # Both take the origin instead, leaving --start-url below as the only
+          # place the secret goes and the only field rotation has to reach.
+          # Site::url prefers config.start_url over the manifest's, so the app
+          # still opens the full URL.
+          manifest=$(jq -nc --arg s "$origin" --arg n "$app_name" \
+            '{name: $n, scope: $s, start_url: $s, display: "standalone"}')
           manifest_url="data:application/manifest+json;base64,$(printf '%s' "$manifest" | base64 -w0)"
 
           for attempt in 1 2 3; do
