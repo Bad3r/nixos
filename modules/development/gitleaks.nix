@@ -6,13 +6,15 @@ _: {
     let
       # Shared by both configs: content-scoped only, so nothing here depends on
       # which repository's path space the scan is rooted in.
-      contentAllowlists = ''
+      sharedContentAllowlists = ''
         [[allowlists]]
         description = "DNSCrypt resolvers-list public minisign verification key"
         regexes = [
           "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3",
         ]
+      '';
 
+      secretOnlyAllowlists = ''
         [[allowlists]]
         description = "Cloudflare KV namespace IDs recorded in operational notes"
         # A namespace id is a resource identifier, not a credential; reaching the
@@ -64,19 +66,17 @@ _: {
           "^docs/nixos-manual/",
         ]
 
-        ${contentAllowlists}
+        ${sharedContentAllowlists}
       '';
 
-      # The submodule pass's config. Anchoring the two documentation paths pins
-      # them to the top of the tree being scanned, and for `gitleaks git secrets`
-      # that tree is the submodule: File comes back as "nixos-manual/leak.txt",
-      # not "secrets/nixos-manual/leak.txt", so a shared config would skip a
-      # top-level nixos-manual/ inside the private repository before scanning it.
-      # That is reachable by creating a directory there, with no config edit and
-      # nothing visible from this repository, which is the reachability anchoring
-      # the paths was meant to remove. No paths key at all here, and
-      # gitleaks-allowlist-scope pins that with an empty reviewed set for this
-      # origin.
+      # The submodule pass's config is the only config that carries the KV
+      # namespace allowlist, because the operational note lives in that private
+      # repository and the superproject must not gain a content-based suppression
+      # channel for public files.
+      # No paths key at all here: a paths entry would be matched against the
+      # private repository's own path space, which no reviewer of this repository
+      # can see. gitleaks-allowlist-scope pins that with an empty reviewed set for
+      # this origin.
       files.file.".gitleaks-secrets.toml".text = ''
         # Read only by the submodule pass in modules/meta/hooks/gitleaks.nix.
         # Content-scoped allowlists only: a paths entry here would be matched
@@ -85,7 +85,8 @@ _: {
         [extend]
         useDefault = true
 
-        ${contentAllowlists}
+        ${sharedContentAllowlists}
+        ${secretOnlyAllowlists}
       '';
     };
 }

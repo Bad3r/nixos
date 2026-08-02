@@ -44,21 +44,25 @@
           origin = "modules/development/gitleaks.nix";
           text = config.files.file.".gitleaks.toml".text;
           reviewedPaths = superprojectPaths;
+          kvAllowed = false;
         }
         {
           origin = ".gitleaks.toml";
           text = builtins.readFile ../../.gitleaks.toml;
           reviewedPaths = superprojectPaths;
+          kvAllowed = false;
         }
         {
           origin = "modules/development/gitleaks.nix (.gitleaks-secrets.toml)";
           text = config.files.file.".gitleaks-secrets.toml".text;
           reviewedPaths = [ ];
+          kvAllowed = true;
         }
         {
           origin = ".gitleaks-secrets.toml";
           text = builtins.readFile ../../.gitleaks-secrets.toml;
           reviewedPaths = [ ];
+          kvAllowed = true;
         }
       ];
 
@@ -152,7 +156,7 @@
 
           allowlists = lib.concatMap (
             p:
-            map (a: a // { inherit (p) origin reviewedPaths; }) (
+            map (a: a // { inherit (p) origin reviewedPaths kvAllowed; }) (
               tablesOf p.cfg ++ lib.concatMap tablesOf (p.cfg.rules or [ ])
             )
           ) parsed;
@@ -202,6 +206,7 @@
           allowlistKeys = [
             "origin"
             "reviewedPaths"
+            "kvAllowed"
             "description"
             "paths"
             "regexes"
@@ -221,13 +226,13 @@
           # secret and never sees the surrounding "keys KV:" text.
           kvBlocks = lib.filter (a: lib.any (lib.hasInfix "keys KV") (a.regexes or [ ])) allowlists;
 
-          # Per source, not merely somewhere. allowlists spans every parsed
-          # config, so an existence test is satisfied by any one of them: the KV
-          # entry could vanish from both .gitleaks-secrets.toml copies, the only
-          # config governing the tree the note it exists for lives in, while the
-          # superproject copies kept it. contentAllowlists sharing the block is a
-          # source convention this check does not otherwise assert.
-          kvMissingIn = lib.filter (p: !lib.any (a: a.origin == p.origin) kvBlocks) parsed;
+          # The KV note exists only in the private submodule, so its allowlist is
+          # permitted only in the two sources governing that pass. Check both
+          # directions: a missing private entry breaks the false-positive fix,
+          # while an unexpected superproject entry creates a suppression channel
+          # for public files that the note does not justify.
+          kvMissingIn = lib.filter (p: p.kvAllowed && !lib.any (a: a.origin == p.origin) kvBlocks) parsed;
+          kvUnexpectedIn = lib.filter (p: !p.kvAllowed && lib.any (a: a.origin == p.origin) kvBlocks) parsed;
           kvUnscoped = lib.filter (a: (a.regextarget or "secret") != "line") kvBlocks;
 
           # A global line-target allowlist is evaluated against every finding of
@@ -346,14 +351,23 @@
               + "detector everywhere, which is broader than the path-scoping this check bans; add the "
               + "id to reviewedRuleIds deliberately";
           }
+        else if kvUnexpectedIn != [ ] then
+          {
+            id = "kv-unexpected";
+            message =
+              "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is present in "
+              + "${lib.concatStringsSep ", " (map (p: p.origin) kvUnexpectedIn)} even though those "
+              + "sources scan public superproject files. Keep this content-scoped suppression in the "
+              + "two .gitleaks-secrets.toml sources that scan the private operational note";
+          }
         else if kvMissingIn != [ ] then
           {
             id = "kv-missing";
             message =
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${
                 lib.concatStringsSep ", " (map (p: p.origin) kvMissingIn)
-              }. Both configs carry it through the shared contentAllowlists binding, and the note it "
-              + "exists for is scanned only through .gitleaks-secrets.toml; drop this check along with it";
+              }. The entry belongs in the .gitleaks-secrets.toml sources because the note it exists for "
+              + "is scanned only through the private submodule pass";
           }
         else if untargetedRegexScope != [ ] then
           {
@@ -491,6 +505,7 @@
           {
             inherit origin;
             reviewedPaths = c.reviewedPaths or superprojectPaths;
+            kvAllowed = c.kvAllowed or true;
             cfg = lowerKeys origin (builtins.fromTOML toml);
           }
         ) (c.tomls or [ c.toml ]);
@@ -688,6 +703,15 @@
           toml = ''
             ${okExtend}
             ${okAllowlists}
+          '';
+        }
+        {
+          id = "kv-unexpected";
+          kvAllowed = false;
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            ${okKv}
           '';
         }
         # Per source, not merely somewhere: one config keeping the KV block
