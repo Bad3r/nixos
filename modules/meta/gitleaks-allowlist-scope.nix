@@ -168,6 +168,30 @@
             a: (a.stopwords or [ ]) != [ ] || (a.commits or [ ]) != [ ]
           ) allowlists;
 
+          # Pinned by key set as well as by value, for the reason extendKeys
+          # gives. The branches here enumerate the suppression fields gitleaks
+          # 8.30.1 has, and every one of them was added only after review found
+          # it being a live bypass: stopwords and commits, then targetRules. A
+          # field a future release adds would pass all of them, and `condition`
+          # already exists unlisted on 8.30.1, where it switches an allowlist
+          # from OR to AND across its own fields. origin is injected above, not a
+          # config key.
+          allowlistKeys = [
+            "origin"
+            "description"
+            "paths"
+            "regexes"
+            "regextarget"
+            "targetrules"
+            "stopwords"
+            "commits"
+            "condition"
+          ];
+
+          unknownAllowlistKeys = lib.filter (
+            a: lib.subtractLists allowlistKeys (lib.attrNames a) != [ ]
+          ) allowlists;
+
           # The Cloudflare KV allowlist is a no-op unless it is line-scoped:
           # against the default target the regex is matched on the bare hex
           # secret and never sees the surrounding "keys KV:" text.
@@ -227,7 +251,16 @@
             a: (a.regextarget or "secret") != "secret" && !(lib.elem a kvExact)
           ) allowlists;
         in
-        if unreviewedPathScope != [ ] then
+        if unknownAllowlistKeys != [ ] then
+          {
+            id = "allowlist-keys";
+            message =
+              "gitleaks-allowlist-scope: allowlist ${describe unknownAllowlistKeys} carries a key "
+              + "outside ${lib.concatStringsSep ", " allowlistKeys}. Every field bounded above was "
+              + "added after it was found to suppress findings, so an unrecognised one is an "
+              + "unreviewed suppression channel; bound it here before allowing it";
+          }
+        else if unreviewedPathScope != [ ] then
           {
             id = "path-scope";
             message =
@@ -433,6 +466,22 @@
       '';
 
       cases = [
+        # First, matching the branch order: an unrecognised field is bounded by
+        # nothing else, so a later placement would let any enumerated branch mask
+        # it. The key is deliberately not `condition`, which is enumerated: this
+        # stands in for the field a future release adds, which is the case the
+        # branch exists for.
+        {
+          id = "allowlist-keys";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            ${okKv}
+            [[allowlists]]
+            description = "field this check does not enumerate"
+            unreviewedSuppressionField = ["anything"]
+          '';
+        }
         {
           id = "path-scope";
           toml = ''
