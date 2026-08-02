@@ -36,10 +36,10 @@ export GIT_TERMINAL_PROMPT=0
 export TMPDIR="${tmpdir}"
 export XDG_RUNTIME_DIR="${tmpdir}"
 
-tests_passed=0
+declare -a tests_ran=()
 
 pass() {
-  tests_passed=$((tests_passed + 1))
+  tests_ran+=("${FUNCNAME[1]}")
 }
 
 fail() {
@@ -1508,11 +1508,14 @@ test_cdpath_does_not_divert_the_dedup_key
 
 # A test function defined but never added to the call list above would leave
 # the suite green while guarding nothing, which is the same failure as a test
-# that can no longer fail.
-expected="$(compgen -A function 'test_' | wc -l)"
-if [[ ${tests_passed} -ne ${expected} ]]; then
-  printf 'run.sh: %d test functions defined, %d ran\n' "${expected}" "${tests_passed}" >&2
+# that can no longer fail. Compared as sets, not counts: one function listed
+# twice and another omitted keeps the totals equal.
+expected="$(compgen -A function 'test_' | sort)"
+ran="$(printf '%s\n' "${tests_ran[@]}" | sort -u)"
+if [[ ${ran} != "${expected}" ]]; then
+  printf 'run.sh: defined but never ran:\n%s\n' \
+    "$(comm -23 <(printf '%s\n' "${expected}") <(printf '%s\n' "${ran}"))" >&2
   exit 1
 fi
 
-printf '%d passed\n' "${tests_passed}"
+printf '%d passed\n' "${#tests_ran[@]}"
