@@ -348,8 +348,8 @@
       # and re-inserts each key while ranging over a Go map, so which value
       # survives there is iteration-order dependent. No fold can pick the same
       # winner the scanner will, which makes refusing the only sound option.
-      # Throws in the parse rather than returning a verdict id, so it cannot be
-      # driven from cases.
+      # Throws in the parse rather than returning a verdict id, so `cases` cannot
+      # reach it; collisionCases below drives it through tryEval instead.
       lowerKeys =
         v:
         if lib.isAttrs v then
@@ -588,11 +588,46 @@
         if v == null then "nothing" else v.id;
 
       missed = lib.filter (c: caseResult c != c.id) cases;
+
+      # The collision refusal throws inside lowerKeys rather than returning a
+      # verdict, so `cases` cannot reach it. throw is catchable, so tryEval
+      # drives it the same way, and deepSeq forces the nested tables where a
+      # collision actually fires: a top-level-only check, or `<` in place of
+      # `!=`, leaves every other fixture green.
+      collisionCases = [
+        # Inside an allowlist table, which is the shape that bypasses the branches.
+        ''
+          ${okExtend}
+          ${okKv}
+          [[allowlists]]
+          description = "one table, two spellings of the same key"
+          Paths = ["nixos-manual/.*"]
+          paths = ["secrets/.*"]
+        ''
+        # And at the top level, where the colliding tables are lists.
+        ''
+          ${okExtend}
+          ${okKv}
+          [[Allowlists]]
+          description = "capital table beside the lowercase one"
+          paths = ["private-ops/.*"]
+        ''
+      ];
+
+      collisionsAccepted = lib.filter (
+        toml: (builtins.tryEval (builtins.deepSeq (lowerKeys (builtins.fromTOML toml)) true)).success
+      ) collisionCases;
     in
     {
       checks.gitleaks-allowlist-scope =
         if realVerdict != null then
           throw realVerdict.message
+        else if collisionsAccepted != [ ] then
+          throw (
+            "gitleaks-allowlist-scope: lowerKeys accepted a table carrying keys that differ only in "
+            + "case. gitleaks folds them through viper and which value survives is iteration-order "
+            + "dependent, so every branch here may be inspecting the spelling that is not in effect"
+          )
         else if missed != [ ] then
           throw (
             "gitleaks-allowlist-scope: the branch a bypass is meant to trip no longer rejects it: ${
