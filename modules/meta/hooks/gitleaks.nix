@@ -21,9 +21,23 @@ _: {
             # gitleaks-allowlist-scope pins and outside the baselines. Unused in
             # this repo, so disabling it costs nothing.
             common=(--no-banner --redact --ignore-gitleaks-allow)
-            if [ -f ".gitleaks.toml" ]; then
-              common+=(--config ".gitleaks.toml")
+
+            # Every field gitleaks-allowlist-scope pins is a field of this file,
+            # so scanning without it silently drops the whole reviewed ruleset:
+            # both passes fall back to gitleaks' built-in defaults and still end
+            # in "no leaks found" and exit 0. Dropping --config is also the one
+            # condition under which gitleaks resolves a config per source, so
+            # secrets/.gitleaks.toml would govern the submodule pass: verified
+            # on 8.30.1 that a source-directory .gitleaks.toml suppresses a
+            # finding the defaults report. That is a ruleset in the private
+            # repository deciding what the public one reports, the same reach
+            # the .gitleaksignore guard below refuses. write-files owns this
+            # file, so its absence is a broken checkout, never a state to scan.
+            if [ ! -f ".gitleaks.toml" ]; then
+              echo "hook-gitleaks: .gitleaks.toml is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; regenerate it with 'nix develop --accept-flake-config -c write-files' instead of scanning unreviewed" >&2
+              exit 1
             fi
+            common+=(--config ".gitleaks.toml")
 
             # One baseline per pass, because fingerprints carry the shas of the
             # repository they came from, so the superproject's entries can never
