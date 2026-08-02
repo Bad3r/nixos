@@ -58,13 +58,10 @@ let
     "source"
     "tail"
     "tee"
-    "time"
-    "timeout"
     "touch"
     "uniq"
     "uv"
     "wc"
-    "xargs"
     "zsh"
   ];
 
@@ -123,9 +120,16 @@ let
     "bash -lc"
     "zsh -c"
     "zsh -lc"
-    # The same bypass without a shell: these are the remaining bashAllow
-    # entries whose first operand is a program name, so `timeout 60 <cmd>`
-    # reaches every rule above without matching any of them.
+    # The same bypass without a shell: each takes a program name as its first
+    # operand, so `timeout 60 <cmd>` reaches every rule above without matching
+    # any of them. Gated here and absent from bashAllow, since ask wins and an
+    # allow entry for the same prefix would only be a dead rule claiming the
+    # opposite.
+    #
+    # Best-effort, like the shared invocation list: `find -exec`, `python`,
+    # `make`, `nvim` and `source` reach an arbitrary program too and stay
+    # allowed, because gating them would prompt on this repo's ordinary use of
+    # each. The three below are the ones whose only purpose is to run one.
     "timeout"
     "time"
     "xargs"
@@ -153,7 +157,16 @@ let
     "Read(**)"
     "Edit(**)"
   ];
+
+  # Both lists become `Bash(<cmd> *)`, and ask is evaluated first, so a prefix
+  # present in both leaves an allow rule that can never match while stating the
+  # opposite of the one that does. Exact strings only: `bash` in bashAllow and
+  # `bash -c` in bashAsk are different rules, and both are live.
+  deadAllow = builtins.filter (cmd: builtins.elem cmd bashAsk) bashAllow;
 in
+assert
+  deadAllow == [ ]
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " deadAllow} are in both bashAllow and bashAsk; ask wins, so drop them from bashAllow rather than leaving the two lists disagreeing";
 {
   claudeSettingsBase = {
     cleanupPeriodDays = 30;
