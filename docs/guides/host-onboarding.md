@@ -88,7 +88,7 @@ _: {
 
     # Values consumed by modules/hosts/common/*.
     extraHomeApps = [ ];
-    firewallDnsInterfaces = [ "<real-interface-name>" ];
+    firewallDnsInterfaces = [ ]; # only if the host serves DNS/DHCP; see below
     # firewallExtraTcpPortRanges = [ { from = 8000; to = 8999; } ];
     # duplicatiStateDirReadable = true;
     # secrets/<host>.yaml keys holding hosts(5) payloads that dnsmasq serves
@@ -98,8 +98,60 @@ _: {
 }
 ```
 
-Use the host's real interface names (`ip link` on the target) for
-`firewallDnsInterfaces`. If the new host becomes the primary fleet endpoint,
+`firewallDnsInterfaces` is required: `modules/hosts/common/firewall.nix` throws
+when the key is absent, so a misspelling cannot fall back to no rule silently.
+Leave it empty, as both current hosts now do, unless the host actually serves
+DNS or DHCP to the network. It opens inbound UDP 53/67 and
+TCP 53, and NetworkManager's `dns = "dnsmasq"` mode is not a reason to set it:
+that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
+`::1` with no `dhcp-range`, so it never listens on a link.
+
+When the host does have such a listener, use its real interface names, read from
+`ip link` on the target **after** its first boot on this configuration.
+`shareCommon` hosts boot with `net.ifnames=0`, so the names are `eth0`, `eth1`,
+and `wlan0` rather than the `enp*` and `wlp*` names an installer shows.
+`modules/hosts/common/firewall.nix` rejects an `enp*`/`wlp*` name on such a host
+with an assertion, and warns when a name is neither kernel-assigned nor created
+by a declaration on the host. Neither guard catches a kernel name that is simply
+wrong for this machine: that emits a `networking.firewall.interfaces.<name>`
+entry for a device that never appears, so the opening silently does nothing.
+
+On a host with two interfaces of the same class, or with a removable adapter,
+the `eth0` and `eth1` numbering follows kernel discovery order and can move
+between devices. Do not point `firewallDnsInterfaces` at a name that can
+change: the rule opens UDP 53/67 and TCP 53 on whichever device holds the name
+that boot. Pin the intended device first, as `modules/system76/networking.nix`
+does, then use the pinned name:
+
+```sh
+ip -br link
+for dev in /sys/class/net/*; do
+  udevadm info -q property -p "$dev" \
+    | grep -E '^(INTERFACE|ID_NET_DRIVER|ID_PATH)='
+done
+```
+
+```nix
+_: {
+  configurations.nixos.<host>.module = {
+    systemd.network.links."10-lan0" = {
+      matchConfig.Path = "<ID_PATH value>";
+      linkConfig = {
+        Name = "lan0";
+        # The pin displaces 99-default.link for this device, so restore the
+        # alternative names it would otherwise supply. Its "mac" token is left
+        # out: that derives an altname from the factory hardware address.
+        AlternativeNamesPolicy = "database onboard slot path";
+      };
+    };
+  };
+}
+```
+
+`docs/networking/README.md` covers why the pinned name stays outside the
+kernel's `eth*` namespace and why the match uses the path rather than a MAC.
+
+If the new host becomes the primary fleet endpoint,
 move `primary = true` and `tailnetIp` from the current primary host's
 `policy.nix`: `modules/networking/ssh-hosts.nix` aliases and the tailscale
 SSH default follow that registry data automatically.

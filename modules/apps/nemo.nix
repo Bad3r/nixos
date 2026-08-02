@@ -112,9 +112,22 @@ let
           default = true;
           description = "Whether to install video and XApp thumbnail generators for media previews.";
         };
+
+        # modules/meta/cache-roots.nix pushes this instead of the bare
+        # pkgs.nemo-with-extensions attribute: the extension override produces a
+        # different derivation, so the bare attribute's closure never matches.
+        # Defined only under config, never as a default, so reading it while the
+        # module is off fails instead of resolving to a package no host installs.
+        finalPackage = lib.mkOption {
+          type = lib.types.package;
+          readOnly = true;
+          description = "Resolved Nemo package installed by this module, including enabled extensions.";
+        };
       };
 
       config = lib.mkIf cfg.enable {
+        programs.nemo.extended.finalPackage = configuredPackage;
+
         assertions = [
           {
             assertion = nemoExtensionPackages == [ ] || canWrapPackage || canExtendWrappedPackage;
@@ -123,7 +136,7 @@ let
         ];
 
         environment.systemPackages = [
-          configuredPackage
+          cfg.finalPackage
         ]
         ++ lib.optionals cfg.thumbnailers.enable [
           pkgs.ffmpegthumbnailer
@@ -133,7 +146,7 @@ let
 
         services = {
           dbus.packages = [
-            configuredPackage
+            cfg.finalPackage
           ]
           ++ lib.optionals cfg.seahorse.enable [
             pkgs.libcryptui

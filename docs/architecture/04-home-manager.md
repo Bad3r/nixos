@@ -6,14 +6,14 @@ This document covers the Home Manager aggregator namespace and app loading mecha
 
 Home Manager modules feed into `flake.homeManagerModules` for user-level configuration:
 
-| Key                                                                                    | Type             | Description                                                                  |
-| -------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
-| `base`                                                                                 | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
-| `gui`                                                                                  | Deferred module  | Reserved GUI aggregation point (currently an empty merge root)               |
-| `apps.<name>`                                                                          | Deferred module  | Individual app modules loaded by key                                         |
-| `browsers.<name>`                                                                      | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                  |
-| `sopsRuntime`                                                                          | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
-| `context7Secrets`, `geckoSecrets`, `greptileSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules (each guarded by `builtins.pathExists`) |
+| Key                                                                 | Type             | Description                                                                  |
+| ------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `base`                                                              | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
+| `gui`                                                               | Deferred module  | Reserved GUI aggregation point (currently an empty merge root)               |
+| `apps.<name>`                                                       | Deferred module  | Individual app modules loaded by key                                         |
+| `browsers.<name>`                                                   | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                  |
+| `sopsRuntime`                                                       | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
+| `context7Secrets`, `geckoSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules (each guarded by `builtins.pathExists`) |
 
 ## Contributing to Namespaces
 
@@ -99,15 +99,14 @@ The shared HM base and secret defaults live in
 `modules/hosts/common/imports.nix`; host-owned modules add only the overrides
 that diverge. As a current snapshot:
 
-| HM toggle           | system76 default                       | tpnix default                          | Notes                                                                                                                                                                             |
-| ------------------- | -------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `context7Secrets`   | `mkDefault true`                       | `mkDefault true`                       | Context7 API key rendering.                                                                                                                                                       |
-| `geckoSecrets`      | `mkDefault true`                       | `mkDefault true`                       | The common baseline enables Gecko bookmark secret rendering for both hosts; rendering still requires the secret file.                                                             |
-| `greptileSecrets`   | `mkForce false`                        | `mkDefault true`                       | Greptile secret rendering tied to the Greptile Claude Code plugin/MCP integration; system76 forces it off while tpnix defaults it on (rendered only when the secret file exists). |
-| `virustotalSecrets` | `mkDefault true`                       | `mkDefault true`                       | VirusTotal API key rendering.                                                                                                                                                     |
-| `r2Secrets`         | `mkDefault true`                       | `mkDefault true`                       | Renders `~/.config/cloudflare/r2/env` when the secret file exists; the common baseline also defaults NixOS-side `security.r2CloudSecrets.enable` on.                              |
-| `repoGpg`           | `mkDefault true` (when module present) | `mkDefault true` (when module present) | The common baseline conditionally imports `inputs.self.homeManagerModules.repoGpg` and gates `repoGpg.enable` on the same module-existence check.                                 |
-| `services.espanso`  | (inherits HM upstream)                 | `x11Support = mkForce true`            | system76 leaves espanso's session-backend defaults alone; tpnix forces X11 via `home-manager.sharedModules` because it runs i3 on X11.                                            |
+| HM toggle           | system76 default                       | tpnix default                          | Notes                                                                                                                                                |
+| ------------------- | -------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `context7Secrets`   | `mkDefault true`                       | `mkDefault true`                       | Context7 API key rendering.                                                                                                                          |
+| `geckoSecrets`      | `mkDefault true`                       | `mkDefault true`                       | The common baseline enables Gecko bookmark secret rendering for both hosts; rendering still requires the secret file.                                |
+| `virustotalSecrets` | `mkDefault true`                       | `mkDefault true`                       | VirusTotal API key rendering.                                                                                                                        |
+| `r2Secrets`         | `mkDefault true`                       | `mkDefault true`                       | Renders `~/.config/cloudflare/r2/env` when the secret file exists; the common baseline also defaults NixOS-side `security.r2CloudSecrets.enable` on. |
+| `repoGpg`           | `mkDefault true` (when module present) | `mkDefault true` (when module present) | The common baseline conditionally imports `inputs.self.homeManagerModules.repoGpg` and gates `repoGpg.enable` on the same module-existence check.    |
+| `services.espanso`  | (inherits HM upstream)                 | `x11Support = mkForce true`            | system76 leaves espanso's session-backend defaults alone; tpnix forces X11 via `home-manager.sharedModules` because it runs i3 on X11.               |
 
 On the NixOS side, both hosts default `security.repoSecrets.enable` and
 `security.r2CloudSecrets.enable` to `mkDefault true`, so the repo-managed SOPS

@@ -68,6 +68,7 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support) and host-specific enables                    |
 | `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs` and `min-free` overrides                                                               |
+| `modules/system76/networking.nix`             | `.link` unit pinning the USB ethernet adapter to `lan0` by USB path                                              |
 | `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                    |
 | `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                      |
 | `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                                                                   |
@@ -92,6 +93,7 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | `modules/tpnix/firmware-manager-fix.nix` | tpnix-only `services.fwupd.enable = true;` override                                                                             |
 | `modules/tpnix/fingerprint.nix`          | Fingerprint auth (`services.fprintd`) and PAM service wiring (tpnix-only)                                                       |
 | `modules/tpnix/fonts.nix`                | Arabic fontconfig rules through the `host.fontconfig.extraRules` option                                                         |
+| `modules/tpnix/networking.nix`           | `.link` unit pinning the internal Wi-Fi card to `wifi0` by PCI path                                                             |
 | `modules/tpnix/printing.nix`             | Printer provisioning with a SOPS-managed device URI (tpnix-only)                                                                |
 | `modules/tpnix/r2-runtime.nix`           | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                              |
 | `modules/tpnix/hardware-config.nix`      | Filesystems, firmware, loader entry limit, low-level hardware settings                                                          |
@@ -131,7 +133,7 @@ in
 }
 ```
 
-Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers read the path with `lib.hasAttrByPath` or `or` fallbacks to stay safe across hosts. Current per-host value keys consumed by `modules/hosts/common/*`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallDnsInterfaces`, `firewallExtraTcpPortRanges`, and `privateDnsHostsSecretKeys`. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
+Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers read the path with `lib.hasAttrByPath` or `or` fallbacks to stay safe across hosts. Current per-host value keys consumed by `modules/hosts/common/*`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallDnsInterfaces`, `firewallExtraTcpPortRanges`, and `privateDnsHostsSecretKeys`. `firewallDnsInterfaces` is the exception to the fallback rule: `modules/hosts/common/firewall.nix` throws when it is absent, so every host must set it explicitly (`[ ]` when the host serves no DNS or DHCP), because a misspelled key would otherwise emit no firewall rule and trip none of that module's guards. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
 
 ### Private DNS Host Pinning
 

@@ -5,14 +5,18 @@
 #
 # Keep every entry tied to its owning module and remove the entry together
 # with the override so real regressions stay visible.
+#
+# A glob here and a name in modules/meta/cache-roots.nix are mutually
+# exclusive: this file accepts a permanent local build, that list publishes
+# the package instead. Adding a name there means deleting the glob here in
+# the same change, or the dead glob absorbs the next regression on that name.
+# The cache-roots-allowlist-disjoint flake check fails evaluation when a name
+# appears in both. See docs/reference/cache-coverage.md.
 
 # Fork or version pins carried as custom overlays
 # (modules/custom-overlays/<name>.nix).
 age-plugin-fido2prf*
-electron-mail*
-firefoxpwa* # covers firefoxpwa and firefoxpwa-unwrapped
 librepods*
-proton-vpn*
 snixembed*
 subjack*
 
