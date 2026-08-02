@@ -517,6 +517,12 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
 
 ## Auditing & Vulnerability Assessment
 
+- audiness
+  - run..: `audiness --access-key $access_key --secret-key $secret_key --url https://nessus.example:8834 scans --help`
+  - Repo.: <https://github.com/audius/audiness>
+  - Docs.: <https://github.com/audius/audiness#readme>
+  - Desc.: Nessus API helper CLI for managing folders, policies, scans, servers, and software without the web interface.
+  - Stat.: Maintained (latest release 1.0.1, 2026-05-27).
 - lynis
   - run..: `lynis audit system`
   - Repo.: <https://github.com/CISOfy/lynis>
