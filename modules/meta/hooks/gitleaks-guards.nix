@@ -165,6 +165,16 @@ _: {
             git -C "$work/leak" commit -qm "commit a credential"
             cd "$work/leak" && run_hook
             expect_finding "committed credential"
+            # gitleaks-scan prints this output into a public job log, so no
+            # secret may reach it. Measured on 8.30.1: the console carries
+            # Finding and Secret only under -v, which this hook does not pass,
+            # so dropping --redact alone changes nothing today and this asserts
+            # the pair rather than the flag. It fires the moment -v is added
+            # without --redact, which is the combination that would publish the
+            # credential the scan just found.
+            if printf '%s' "$hook_out" | grep -q "''${pat_prefix}_''${pat_body}"; then
+              fail "committed credential: the secret reached the output, so --redact is not in effect"
+            fi
 
             echo "hook-gitleaks-guards: 7/11 clean full clone"
             new_repo "$work/clean"
