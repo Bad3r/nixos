@@ -79,11 +79,15 @@ _: {
               git_args+=(--baseline-path ".gitleaks-baseline.json")
               echo "hook-gitleaks: superproject pass filtered by .gitleaks-baseline.json" >&2
             fi
-            sub_args=("''${common[@]}" --config ".gitleaks-secrets.toml")
-            if [ -f "secrets/.gitleaks-baseline.json" ]; then
-              sub_args+=(--baseline-path "secrets/.gitleaks-baseline.json")
-              echo "hook-gitleaks: submodule pass filtered by secrets/.gitleaks-baseline.json, reviewed only in the private repository" >&2
-            fi
+
+            # Derived from the index rather than naming secrets/, the one
+            # enumeration left in this file after round 16 replaced the GIT_*
+            # unsets with an assertion. A second gitlink was scanned by neither
+            # pass, its .gitleaksignore was not refused, and the run still
+            # printed "no leaks found" and exited 0: the silent partial coverage
+            # the absent-checkout warning below exists to prevent, one level up.
+            # With one gitlink today the behaviour is unchanged.
+            mapfile -t submodules < <(git ls-files -s | awk '$1 == "160000" { print $4 }')
 
             # writeShellApplication prepends set -e, so without collecting the
             # statuses the first pass to report a finding aborts the script and
@@ -107,9 +111,9 @@ _: {
             # pass while a root-only guard saw nothing. That is the private
             # repository, and it now also holds secrets/.gitleaks-baseline.json,
             # so a sibling ignore file there is the plausible shape.
-            for ignore_file in ".gitleaksignore" "secrets/.gitleaksignore"; do
+            for ignore_file in ".gitleaksignore" "''${submodules[@]/%//.gitleaksignore}"; do
               if [ -e "$ignore_file" ]; then
-                echo "hook-gitleaks: $ignore_file suppresses findings outside the reviewed baselines and cannot be disabled; remove it and record them in .gitleaks-baseline.json or secrets/.gitleaks-baseline.json instead" >&2
+                echo "hook-gitleaks: $ignore_file suppresses findings outside the reviewed baselines and cannot be disabled; remove it and record them in .gitleaks-baseline.json or the matching <submodule>/.gitleaks-baseline.json instead" >&2
                 exit 1
               fi
             done
@@ -152,7 +156,13 @@ _: {
             # pushed is committed, so the git passes already cover it. Guarded
             # because the submodule may not be checked out; .git is a file there,
             # not a directory, so -e not -d.
-            if [ -e "secrets/.git" ]; then
+            for sm in "''${submodules[@]}"; do
+            sub_args=("''${common[@]}" --config ".gitleaks-secrets.toml")
+            if [ -f "$sm/.gitleaks-baseline.json" ]; then
+              sub_args+=(--baseline-path "$sm/.gitleaks-baseline.json")
+              echo "hook-gitleaks: submodule pass filtered by $sm/.gitleaks-baseline.json, reviewed only in the private repository" >&2
+            fi
+            if [ -e "$sm/.git" ]; then
               # git exports GIT_DIR to its hooks and gitleaks shells out to git,
               # so an inherited GIT_DIR overrides the path argument and silently
               # rescans the superproject instead. Caught by pre-push: with
@@ -175,13 +185,13 @@ _: {
                 # --shallow-submodules, and submodule.secrets.shallow in
                 # .gitmodules or local config, each leave a one-commit clone
                 # that satisfies any lower bound while hiding the other fifty.
-                sub_commits=$(git -C secrets rev-list --all --count)
-                sub_shallow=$(git -C secrets rev-parse --is-shallow-repository)
+                sub_commits=$(git -C "$sm" rev-list --all --count)
+                sub_shallow=$(git -C "$sm" rev-parse --is-shallow-repository)
                 if [ "$sub_commits" -eq 0 ] || [ "$sub_shallow" != "false" ]; then
-                  echo "hook-gitleaks: submodule pass would read an incomplete history (commits=$sub_commits, shallow=$sub_shallow); refusing to report secrets/ clean (run 'git submodule update --init secrets', and 'git -C secrets fetch --unshallow' if it was cloned shallow)" >&2
+                  echo "hook-gitleaks: submodule pass would read an incomplete history (commits=$sub_commits, shallow=$sub_shallow); refusing to report $sm/ clean (run 'git submodule update --init $sm', and 'git -C $sm fetch --unshallow' if it was cloned shallow)" >&2
                   exit 1
                 fi
-                gitleaks git "''${sub_args[@]}" secrets
+                gitleaks git "''${sub_args[@]}" "$sm"
               ) || status=1
             else
               # Say so rather than let a partial run read as full coverage: the
@@ -191,8 +201,9 @@ _: {
               # never checks the submodule out, and in every fresh
               # `git worktree add` tree, which this repo's workflow requires per
               # change.
-              echo "hook-gitleaks: secrets/ is not checked out; its history was NOT scanned and this run covers the superproject only (run 'git submodule update --init secrets' to cover it)" >&2
+              echo "hook-gitleaks: $sm/ is not checked out; its history was NOT scanned and this run covers the superproject only (run 'git submodule update --init $sm' to cover it)" >&2
             fi
+            done
 
             exit "$status"
           '';
