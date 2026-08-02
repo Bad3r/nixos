@@ -80,6 +80,20 @@
 
       kvTargetRules = [ "generic-api-key" ];
 
+      # targetRules values are bounded for every allowlist, not only for the KV
+      # one through kvUntargeted. untargetedRegexScope rejects a non-default
+      # regexTarget only while targetRules is empty, so naming any rule there
+      # passes it, and the values were pinned nowhere else: regexTarget = "line"
+      # plus targetRules = ["stripe-access-token"] on the reviewed DNSCrypt entry
+      # passes all nine other branches and silences stripe-access-token on every
+      # line carrying the minisign key text. Same shape as reviewedPaths,
+      # reviewedRegexes and reviewedRuleIds.
+      # Deliberately not an alias of kvTargetRules despite the equal value:
+      # kvUntargeted tests the KV entry for exact equality with kvTargetRules, so
+      # widening the repo-wide reviewed set through an alias would silently
+      # change what that branch demands of the KV entry.
+      reviewedTargetRules = [ "generic-api-key" ];
+
       bothFiles = lib.concatStringsSep " or " (map (s: s.origin) sources);
       describe =
         entries:
@@ -171,6 +185,10 @@
           untargetedRegexScope = lib.filter (
             a: (a.regexTarget or "secret") != "secret" && (a.targetRules or [ ]) == [ ]
           ) allowlists;
+
+          unreviewedTargetRules = lib.filter (
+            a: lib.any (r: !lib.elem r reviewedTargetRules) (a.targetRules or [ ])
+          ) allowlists;
         in
         if unreviewedPathScope != [ ] then
           {
@@ -256,6 +274,19 @@
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist in "
               + "${describe kvUnscoped} lost regexTarget = \"line\", so its regex is matched against the "
               + "bare secret, never fires, and silently stops suppressing anything";
+          }
+        # Last, after kv-untargeted: that branch's fixture names a rule outside
+        # the reviewed set to get past untargeted-scope, so an earlier placement
+        # here would reject it first and mask the branch it exists to cover.
+        else if unreviewedTargetRules != [ ] then
+          {
+            id = "target-rules";
+            message =
+              "gitleaks-allowlist-scope: allowlist ${describe unreviewedTargetRules} targets a rule "
+              + "outside the reviewed set ${lib.concatStringsSep ", " reviewedTargetRules}. A "
+              + "non-default regexTarget matches text outside the secret, so naming a rule here "
+              + "silences that rule wherever the allowlist text appears; add the rule id to "
+              + "reviewedTargetRules deliberately";
           }
         else
           null;
@@ -400,6 +431,24 @@
             description = "kv matched against the bare secret"
             targetRules = ["generic-api-key"]
             regexes = ["(production|preview) keys KV: [0-9a-f]{32}"]
+          '';
+        }
+        # The reviewed DNSCrypt entry with two keys added rather than one. Every
+        # other branch passes it: no paths, [extend] untouched, its regex already
+        # reviewed, no stopwords or commits, no local rule, kvBlocks still
+        # present and still correctly targeted, and untargeted-scope skips it
+        # because targetRules is non-empty. It silences stripe-access-token on
+        # every line carrying the minisign key text.
+        {
+          id = "target-rules";
+          toml = ''
+            ${okExtend}
+            ${okKv}
+            [[allowlists]]
+            description = "reviewed regex aimed at an unreviewed rule"
+            regexTarget = "line"
+            targetRules = ["stripe-access-token"]
+            regexes = ["RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"]
           '';
         }
       ];
