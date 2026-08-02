@@ -174,12 +174,13 @@ _: {
               exit 0
             fi
             # A failed attempt can still register the site before erroring (for
-            # example on desktop integration); re-checking the name keeps the
-            # retry from creating a second "DMail" entry.
+            # example on desktop integration), so retrying install here would
+            # create a second "DMail" entry. Fail without writing the marker: the
+            # next activation takes the refresh branch, whose site update re-runs
+            # system integration and records the marker only once it succeeds.
             if ulid=$(site_ulid) && [ -n "$ulid" ]; then
-              record_applied
-              echo "firefoxpwa-dmail: '$app_name' registered despite a failed attempt; not retrying"
-              exit 0
+              echo "firefoxpwa-dmail: '$app_name' was registered by a failed install; not retrying install, the next activation repairs it with site update" >&2
+              exit 1
             fi
             echo "firefoxpwa-dmail: install attempt $attempt failed; retrying" >&2
             sleep 5
