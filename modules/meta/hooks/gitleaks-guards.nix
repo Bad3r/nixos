@@ -197,7 +197,16 @@ _: {
             git -C "$work/sub-leak" -c protocol.file.allow=always \
               submodule add -q "file://$work/subup" secrets
             git -C "$work/sub-leak" commit -qm "add submodule"
-            cd "$work/sub-leak" && run_hook
+            cd "$work/sub-leak"
+            # Exported, because git exports GIT_DIR to its hooks and that is how
+            # the redirect reached this pass in the first place. With a clean
+            # environment the five unsets are asserted by nothing: deleting them
+            # leaves every fixture passing while the pass silently rescans the
+            # superproject, counts its commits as the submodule's, and reports
+            # secrets/ clean.
+            export GIT_DIR="$work/sub-leak/.git" GIT_WORK_TREE="$work/sub-leak"
+            run_hook
+            unset GIT_DIR GIT_WORK_TREE
             # The superproject pass sees only the gitlink, so a "leaks found:" line
             # can only have come from the submodule pass.
             expect_finding "submodule credential"
