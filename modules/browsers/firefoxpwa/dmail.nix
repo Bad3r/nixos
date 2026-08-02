@@ -12,7 +12,8 @@
       site installs without the target having to serve a web manifest.
     * The install is idempotent: a site already carrying the managed name is
       refreshed in place when the decrypted URL has rotated and otherwise left
-      untouched, so the service is safe to run on every login.
+      untouched, so the service is safe to run on every login. Rotation is
+      detected against a dmail-applied-url marker written next to config.json.
     * firefoxpwa system integration writes the launcher .desktop entry and icon,
       making the app discoverable from the desktop menu.
 */
@@ -54,7 +55,15 @@ _: {
         text = ''
           url_file=${lib.escapeShellArg urlPath}
           app_name=${lib.escapeShellArg appName}
-          config_file="''${XDG_DATA_HOME:-$HOME/.local/share}/firefoxpwa/config.json"
+          data_dir="''${XDG_DATA_HOME:-$HOME/.local/share}/firefoxpwa"
+          config_file="$data_dir/config.json"
+
+          # firefoxpwa deserializes start_url into the Rust url crate's Url
+          # (native/src/components/site.rs) and serde writes back its normalized
+          # form, so config.json can hold https://host/ for a secret that reads
+          # https://host. Comparing against a marker this script writes keeps the
+          # idempotency check byte-exact instead of racing that normalization.
+          applied_file="$data_dir/dmail-applied-url"
 
           if [ ! -r "$url_file" ]; then
             echo "firefoxpwa-dmail: secret not readable at $url_file" >&2
@@ -77,26 +86,26 @@ _: {
               "$config_file" 2>/dev/null | head -n1
           }
 
-          # The --start-url override lands at .config.start_url; firefoxpwa
-          # prefers it over the manifest start URL when launching. Emits the
-          # stored value, or nothing.
-          site_start_url() {
-            [ -f "$config_file" ] || return 0
-            jq -r --arg n "$app_name" \
-              '(.sites // {}) | to_entries[] | select(.value.config.name == $n) | (.value.config.start_url // "")' \
-              "$config_file" 2>/dev/null | head -n1
+          # The marker holds the decrypted secret, so it is created owner-only.
+          record_applied() {
+            (
+              umask 077
+              printf '%s' "$url" >"$applied_file"
+            )
           }
 
           # Already installed. The start URL is read at runtime from the rotating
-          # secret, so refresh it in place when the stored value drifts instead of
-          # leaving the app pinned to the URL captured at first install.
+          # secret, so refresh it in place when the marker drifts instead of
+          # leaving the app pinned to the URL captured at first install. A site
+          # installed before the marker existed takes one refresh, then no-ops.
           if ulid=$(site_ulid) && [ -n "$ulid" ]; then
-            if [ "$(site_start_url)" = "$url" ]; then
+            if [ -r "$applied_file" ] && [ "$(<"$applied_file")" = "$url" ]; then
               echo "firefoxpwa-dmail: '$app_name' already installed with current URL"
               exit 0
             fi
             echo "firefoxpwa-dmail: refreshing start URL for '$app_name' ($ulid)"
             if firefoxpwa site update "$ulid" --start-url "$url" --no-manifest-updates; then
+              record_applied
               echo "firefoxpwa-dmail: updated start URL for '$app_name'"
               exit 0
             fi
@@ -131,6 +140,7 @@ _: {
               --document-url "$url" \
               --start-url "$url" \
               --name "$app_name"; then
+              record_applied
               echo "firefoxpwa-dmail: installed '$app_name'"
               exit 0
             fi
@@ -138,6 +148,7 @@ _: {
             # example on desktop integration); re-checking the name keeps the
             # retry from creating a second "DMail" entry.
             if [ -n "$(site_ulid)" ]; then
+              record_applied
               echo "firefoxpwa-dmail: '$app_name' registered despite a failed attempt; not retrying"
               exit 0
             fi
