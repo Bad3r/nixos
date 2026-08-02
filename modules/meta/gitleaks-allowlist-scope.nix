@@ -432,6 +432,35 @@
             paths = ["private-ops/.*"]
           '';
         }
+        # The singular table gitleaks still accepts, and a rule-scoped allowlist.
+        # Both are folded in by tablesOf and neither is reachable through a
+        # top-level [[allowlists]], so dropping either fold is otherwise
+        # invisible here. Both land on path-scope, the first branch, so the rule
+        # in the second does not reach unreviewedRules.
+        {
+          id = "path-scope";
+          toml = ''
+            ${okExtend}
+            ${okKv}
+            [allowlist]
+            description = "path-scoped through the singular table"
+            paths = ["private-ops/.*"]
+          '';
+        }
+        {
+          id = "path-scope";
+          toml = ''
+            ${okExtend}
+            ${okKv}
+            [[rules]]
+            id = "fixture-rule"
+            description = "carries a rule-scoped allowlist"
+            regex = "$^"
+            [[rules.allowlists]]
+            description = "path-scoped under a rule"
+            paths = ["private-ops/.*"]
+          '';
+        }
         # The same entry with the capitalisation viper accepts and fromTOML does
         # not fold, in both the table name and the key. Fails the moment
         # lowerKeys stops normalising either one. No lowercase allowlist table
@@ -456,6 +485,29 @@
             ${okKv}
           '';
         }
+        # weakenedExtend is a three-way disjunction and missed proves only that
+        # the branch is reachable. These two carry the vectors measured live:
+        # useDefault = false drops the ruleset outright, disabledRules silences a
+        # rule repo-wide with the file still scanned.
+        {
+          id = "extend";
+          toml = ''
+            [extend]
+            useDefault = false
+            ${okAllowlists}
+            ${okKv}
+          '';
+        }
+        {
+          id = "extend";
+          toml = ''
+            [extend]
+            useDefault = true
+            disabledRules = ["generic-api-key"]
+            ${okAllowlists}
+            ${okKv}
+          '';
+        }
         {
           id = "regex";
           toml = ''
@@ -476,6 +528,20 @@
             [[allowlists]]
             description = "substring test against every secret"
             stopwords = ["a"]
+          '';
+        }
+        # The other disjunct: a commits entry drops every finding in that commit
+        # from the history pass, which is what the reviewed baselines do, minus
+        # the review.
+        {
+          id = "suppressors";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            ${okKv}
+            [[allowlists]]
+            description = "drops every finding in a commit"
+            commits = ["0000000000000000000000000000000000000000"]
           '';
         }
         {
