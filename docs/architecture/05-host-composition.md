@@ -158,7 +158,10 @@ assertion instead of collapsing into one secret and dropping a payload. The
 module then sets
 `networking.networkmanager.dns = "dnsmasq"`, disables `services.resolved`, and
 writes `/etc/NetworkManager/dnsmasq.d/private-hosts.conf` with one
-`addn-hosts=` line per key. Hosts that declare no keys stay untouched.
+`addn-hosts=` line per key. Hosts that declare no keys stay untouched. A host
+that declares keys while `sopsRuntimeReady = false` (the onboarding default) or
+before `secrets/<host>.yaml` exists gets none of this either: the module emits a
+warning and leaves the host on `systemd-resolved` until both are in place.
 
 NetworkManager spawns dnsmasq without `--user`, so the snippet pins
 `user=nm-dnsmasq` / `group=nm-dnsmasq` and each secret is `root:nm-dnsmasq`
