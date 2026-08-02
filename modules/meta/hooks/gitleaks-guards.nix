@@ -433,17 +433,21 @@ _: {
 
             # Additional gitlinks, which is the whole point of deriving the list:
             # with secrets/ hardcoded these repositories were scanned by neither
-            # pass and the run still printed "no leaks found" and exited 0. The
-            # credential is planted only in the non-ASCII path.
+            # pass and the run still printed "no leaks found" and exited 0. Both
+            # the non-ASCII and the space-containing path carry a credential, and
+            # the count is asserted rather than the presence of one: with a single
+            # planted credential a parser that mangles the other path drops it
+            # into the not-checked-out warning and the run still exits 1 on the
+            # remaining finding, leaving the regression invisible.
             echo "hook-gitleaks-guards: 18/18 every gitlink is scanned, not just the first"
             git init -q --initial-branch=main "$work/second-up"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/second-up/tok.txt"
             git -C "$work/second-up" add -A
             git -C "$work/second-up" commit -qm "credential in the non-ASCII submodule"
             git init -q --initial-branch=main "$work/space-up"
-            echo ordinary > "$work/space-up/file.txt"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/space-up/tok.txt"
             git -C "$work/space-up" add -A
-            git -C "$work/space-up" commit -qm "clean submodule with a space-containing path"
+            git -C "$work/space-up" commit -qm "credential in the space-containing submodule"
             new_repo "$work/two-subs"
             unicode_path=$(printf 'vendeur-\303\251')
             git -C "$work/two-subs" -c protocol.file.allow=always \
@@ -455,6 +459,8 @@ _: {
             git -C "$work/two-subs" commit -qm "two submodules"
             cd "$work/two-subs" && run_hook
             expect_finding "second submodule"
+            lines=$(printf '%s\n' "$hook_out" | grep -c 'leaks found:' || true)
+            [ "$lines" -eq 2 ] || fail "second submodule: expected 2 result lines, got $lines"
 
             echo "hook-gitleaks-guards: all 18 fixtures passed"
             touch $out
