@@ -112,7 +112,6 @@
       # change what that branch demands of the KV entry.
       reviewedTargetRules = [ "generic-api-key" ];
 
-      bothFiles = lib.concatStringsSep " or " (map (s: s.origin) sources);
       describe =
         entries:
         lib.concatStringsSep ", " (
@@ -204,6 +203,14 @@
           # against the default target the regex is matched on the bare hex
           # secret and never sees the surrounding "keys KV:" text.
           kvBlocks = lib.filter (a: lib.any (lib.hasInfix "keys KV") (a.regexes or [ ])) allowlists;
+
+          # Per source, not merely somewhere. allowlists spans every parsed
+          # config, so an existence test is satisfied by any one of them: the KV
+          # entry could vanish from both .gitleaks-secrets.toml copies, the only
+          # config governing the tree the note it exists for lives in, while the
+          # superproject copies kept it. contentAllowlists sharing the block is a
+          # source convention this check does not otherwise assert.
+          kvMissingIn = lib.filter (p: !lib.any (a: a.origin == p.origin) kvBlocks) parsed;
           kvUnscoped = lib.filter (a: (a.regextarget or "secret") != "line") kvBlocks;
 
           # A global line-target allowlist is evaluated against every finding of
@@ -322,12 +329,14 @@
               + "detector everywhere, which is broader than the path-scoping this check bans; add the "
               + "id to reviewedRuleIds deliberately";
           }
-        else if kvBlocks == [ ] then
+        else if kvMissingIn != [ ] then
           {
             id = "kv-missing";
             message =
-              "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${bothFiles}; "
-              + "drop this check along with it";
+              "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${
+                lib.concatStringsSep ", " (map (p: p.origin) kvMissingIn)
+              }. Both configs carry it through the shared contentAllowlists binding, and the note it "
+              + "exists for is scanned only through .gitleaks-secrets.toml; drop this check along with it";
           }
         else if untargetedRegexScope != [ ] then
           {
@@ -445,11 +454,16 @@
       # one: kv-untargeted names a rule other than generic-api-key rather than
       # dropping targetRules, because an empty targetRules trips untargeted-scope
       # first, and kv-unscoped keeps targetRules so it reaches the last branch.
-      fixture = toml: [
+      # Takes the case, not just its toml, so a case can drive the empty reviewed
+      # set that .gitleaks-secrets.toml carries. Hardcoding superprojectPaths
+      # here left the per-source split asserted by nothing: reverting it to a
+      # single global binding kept every fixture green, because the real submodule
+      # config happens to carry no paths key.
+      fixture = c: [
         {
           origin = "fixture";
-          reviewedPaths = superprojectPaths;
-          cfg = lowerKeys "fixture" (builtins.fromTOML toml);
+          reviewedPaths = c.reviewedPaths or superprojectPaths;
+          cfg = lowerKeys "fixture" (builtins.fromTOML c.toml);
         }
       ];
 
@@ -501,6 +515,20 @@
             [[allowlists]]
             description = "reaches a tree it does not name"
             paths = ["private-ops/.*"]
+          '';
+        }
+        # The reviewed superproject scope, in a source whose reviewed set is
+        # empty. Only the per-source split rejects this: with reviewedPaths
+        # global again it is the approved pattern and passes.
+        {
+          id = "path-scope";
+          reviewedPaths = [ ];
+          toml = ''
+            ${okExtend}
+            ${okKv}
+            [[allowlists]]
+            description = "superproject documentation scope in the submodule config"
+            paths = ["^nixos-manual/"]
           '';
         }
         # The singular table gitleaks still accepts, and a rule-scoped allowlist.
@@ -725,7 +753,7 @@
       caseResult =
         c:
         let
-          v = verdict (fixture c.toml);
+          v = verdict (fixture c);
         in
         if v == null then "nothing" else v.id;
 

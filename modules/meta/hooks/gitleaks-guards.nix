@@ -303,7 +303,7 @@ _: {
               submodule add -q "file://$work/subup" secrets
             git -C "$work/sub-baselined" commit -qm "add submodule carrying the credential"
             gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-              --config "$work/sub-baselined/.gitleaks.toml" \
+              --config "$work/sub-baselined/.gitleaks-secrets.toml" \
               --report-path "$work/sub-baselined/secrets/.gitleaks-baseline.json" \
               "$work/sub-baselined/secrets" || true
             cd "$work/sub-baselined" && run_hook

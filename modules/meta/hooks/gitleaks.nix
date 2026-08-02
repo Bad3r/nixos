@@ -63,7 +63,7 @@ _: {
             #     --config .gitleaks.toml \
             #     --report-path .gitleaks-baseline.json .
             #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-            #     --config .gitleaks.toml \
+            #     --config .gitleaks-secrets.toml \
             #     --report-path secrets/.gitleaks-baseline.json secrets
             # Matching is by fingerprint, so a raw baseline would still suppress,
             # but it commits the credential in plaintext. Dropping
