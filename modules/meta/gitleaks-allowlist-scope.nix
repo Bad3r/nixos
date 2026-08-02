@@ -322,7 +322,10 @@
             message =
               "gitleaks-allowlist-scope: allowlist ${describe unreviewedPathScope} carries a paths entry "
               + "outside the reviewed set for its file (${
-                lib.concatStringsSep ", " (lib.unique (lib.concatMap (a: a.reviewedPaths) unreviewedPathScope))
+                let
+                  reviewed = lib.unique (lib.concatMap (a: a.reviewedPaths) unreviewedPathScope);
+                in
+                if reviewed == [ ] then "none permitted in this file" else lib.concatStringsSep ", " reviewed
               }). A paths entry makes "
               + "gitleaks skip those files entirely, hiding real leaks in them, and entries are unanchored "
               + "regexes so one can reach a tree it does not name. Scope by content with "
