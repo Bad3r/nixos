@@ -5,6 +5,9 @@ export LC_ALL=C
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUT="${SCRIPT_DIR}/../../scripts/run-packages-updaters.sh"
+# Fixtures are written at runtime; /usr/bin/env does not exist in a nix build
+# sandbox, so the interpreter is resolved rather than assumed.
+FIXTURE_SHELL="$(command -v bash)"
 
 if [[ ! -x ${SUT} ]]; then
   printf 'run.sh: SUT not executable at %s\n' "${SUT}" >&2
@@ -90,7 +93,7 @@ write_updater() {
 
   mkdir -p "$(dirname "${updater}")"
   printf '%s\n' \
-    '#!/usr/bin/env bash' \
+    "#!${FIXTURE_SHELL}" \
     'set -euo pipefail' \
     "printf '%s\\n' '${label}' >> \"\${RUN_LOG}\"" \
     "exit ${status}" >"${updater}"
