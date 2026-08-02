@@ -20,6 +20,7 @@ case "$REPO_ROOT" in
 esac
 
 MANUAL_DIR="$REPO_ROOT/docs/nixos-manual"
+MANUAL_PATHSPEC=':(literal,top)docs/nixos-manual'
 # TMP_PARENT is owned jointly by the success path (which clears it inline and
 # resets it to "") and the EXIT trap (which cleans up early exits). The empty
 # reset is what keeps the trap from double-acting after a successful run.
@@ -117,17 +118,21 @@ else
   echo "Non-interactive shell; skipped commit prompt."
 fi
 if [[ $response =~ ^[Yy]$ ]]; then
-  git add -A -- "$MANUAL_DIR"
-  # Pathspec-limited commit: pre-staged content outside MANUAL_DIR stays in
-  # the index instead of riding into the manual-refresh commit.
-  git commit -m "$(
-    cat <<EOF
+  git add -A -- "$MANUAL_PATHSPEC"
+  if git diff --cached --quiet -- "$MANUAL_PATHSPEC"; then
+    echo "⏭️  No manual changes to commit"
+  else
+    # Pathspec-limited commit: pre-staged content outside MANUAL_DIR stays in
+    # the index instead of riding into the manual-refresh commit.
+    git commit -m "$(
+      cat <<EOF
 docs(nixos-manual): update from nixpkgs@${NIXPKGS_REV_SHORT}
 
 Source: https://github.com/NixOS/nixpkgs/tree/${NIXPKGS_REV}/nixos/doc/manual
 EOF
-  )" -- "$MANUAL_DIR"
-  echo "✅ Committed"
+    )" -- "$MANUAL_PATHSPEC"
+    echo "✅ Committed"
+  fi
 else
   echo "⏭️  Skipped commit"
 fi
