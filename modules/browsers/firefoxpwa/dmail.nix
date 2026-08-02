@@ -79,11 +79,14 @@ _: {
           # firefoxpwa stores the managed site under .sites.<ulid> and the
           # launcher name set with --name lands at .config.name, so a site
           # carrying this name is our install. Emits the ulid, or nothing.
+          # Taking the first match inside jq keeps the exit status jq's own:
+          # piping to `head -n1` lets head close the pipe first and SIGPIPE jq,
+          # which pipefail then reports as failure.
           site_ulid() {
             [ -f "$config_file" ] || return 0
             jq -r --arg n "$app_name" \
-              '(.sites // {}) | to_entries[] | select(.value.config.name == $n) | .key' \
-              "$config_file" 2>/dev/null | head -n1
+              'first((.sites // {}) | to_entries[] | select(.value.config.name == $n) | .key) // empty' \
+              "$config_file" 2>/dev/null
           }
 
           # The marker holds the decrypted secret, so it is created owner-only.
@@ -147,7 +150,7 @@ _: {
             # A failed attempt can still register the site before erroring (for
             # example on desktop integration); re-checking the name keeps the
             # retry from creating a second "DMail" entry.
-            if [ -n "$(site_ulid)" ]; then
+            if ulid=$(site_ulid) && [ -n "$ulid" ]; then
               record_applied
               echo "firefoxpwa-dmail: '$app_name' registered despite a failed attempt; not retrying"
               exit 0
