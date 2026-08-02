@@ -200,8 +200,20 @@
           # for, on every line carrying the minisign key text. The KV entry is
           # the only one reviewed to match outside the secret, and kvUntargeted
           # and kvUnscoped already pin its target and its rule.
+          # Exempt by exact regex list, not by kvBlocks membership: kvBlocks is an
+          # infix test over one regex, so an entry carrying the KV regex
+          # alongside another reviewed regex inherits the exemption and matches
+          # off the secret for that text too. Appending the KV regex to the
+          # DNSCrypt entry, with regexTarget and targetRules, otherwise clears
+          # every branch while silencing generic-api-key on every line holding
+          # the minisign key. Derived from reviewedRegexes so the pattern is not
+          # duplicated here.
+          kvExact = lib.filter (
+            a: (a.regexes or [ ]) == lib.filter (lib.hasInfix "keys KV") reviewedRegexes
+          ) kvBlocks;
+
           unreviewedRegexScope = lib.filter (
-            a: (a.regexTarget or "secret") != "secret" && !(lib.elem a kvBlocks)
+            a: (a.regexTarget or "secret") != "secret" && !(lib.elem a kvExact)
           ) allowlists;
         in
         if unreviewedPathScope != [ ] then
@@ -491,6 +503,25 @@
             regexTarget = "line"
             targetRules = ["generic-api-key"]
             regexes = ["RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"]
+          '';
+        }
+        # The same reach taken by bundling rather than by adding a key: carrying
+        # the KV regex makes the entry a kvBlock, which is what the exemption was
+        # keyed on. Same id as the case above because both must be rejected by
+        # the same branch; missed compares per case, so ids need not be unique.
+        {
+          id = "regex-scope";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            [[allowlists]]
+            description = "kv regex bundled with a second reviewed regex"
+            regexTarget = "line"
+            targetRules = ["generic-api-key"]
+            regexes = [
+              "(production|preview) keys KV: [0-9a-f]{32}",
+              "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3",
+            ]
           '';
         }
       ];
