@@ -179,13 +179,22 @@ _: {
               Description = "Install the DMail web app (firefoxpwa)";
               After = [ "sops-nix.service" ];
               Wants = [ "sops-nix.service" ];
+              # RemainAfterExit leaves the unit active, so nothing would restart
+              # it after a rotation: its own text does not change. sops-nix's
+              # Home Manager activation always runs `systemctl restart --user
+              # sops-nix`, so binding to that unit is what makes the refresh
+              # branch reachable on switch rather than only at next login.
+              PartOf = [ "sops-nix.service" ];
             };
             Service = {
               Type = "oneshot";
               RemainAfterExit = true;
               ExecStart = lib.getExe installScript;
             };
-            Install.WantedBy = [ "default.target" ];
+            Install.WantedBy = [
+              "default.target"
+              "sops-nix.service"
+            ];
           };
         })
 
