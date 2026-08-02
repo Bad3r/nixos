@@ -45,6 +45,7 @@ writeShellApplication {
     # https://host. Comparing against a marker this script writes keeps the
     # idempotency check byte-exact instead of racing that normalization.
     applied_file="$data_dir/dmail-applied-url"
+    origin_file="$data_dir/dmail-applied-origin"
 
     if [ ! -r "$url_file" ]; then
       echo "firefoxpwa-dmail: secret not readable at $url_file" >&2
@@ -91,6 +92,18 @@ writeShellApplication {
       mv "$applied_file.next" "$applied_file"
     }
 
+    # Recorded separately because the two are written on different occasions: an
+    # install that registers the site and then fails has established the scope
+    # but has no applied URL to record, and the secret can rotate before the
+    # repair run. Without this the guard below would have nothing to test then.
+    record_origin() {
+      (
+        umask 077
+        printf '%s' "$origin" >"$origin_file.next"
+      )
+      mv "$origin_file.next" "$origin_file"
+    }
+
     # Manifest scope is a prefix match and site update cannot rewrite it,
     # so it must be the bare origin: anything longer pushes same-origin
     # navigation and every later URL rotation into the external browser.
@@ -105,7 +118,9 @@ writeShellApplication {
     # Already installed. The start URL is read at runtime from the rotating
     # secret, so refresh it in place when the marker drifts instead of
     # leaving the app pinned to the URL captured at first install. A site
-    # installed before the marker existed takes one refresh, then no-ops.
+    # carrying this name that neither record accounts for is refused rather
+    # than refreshed: its scope is unknown, so it cannot be shown to still
+    # contain the current URL.
     if ulid=$(site_ulid) && [ -n "$ulid" ]; then
       if [ -r "$applied_file" ] && [ "$(<"$applied_file")" = "$url" ]; then
         echo "firefoxpwa-dmail: '$app_name' already installed with current URL"
@@ -114,30 +129,36 @@ writeShellApplication {
 
       # A rotation that crosses to a new origin cannot be applied: scope is
       # fixed at install time, so the new start URL would sit outside it and
-      # every navigation would go to the external browser. Refuse loudly
-      # rather than let record_applied mark that state as current.
+      # every navigation would go to the external browser. Refuse loudly rather
+      # than let record_applied mark that state as current.
       #
-      # Compared against the marker, not .manifest.scope: firefoxpwa stores
-      # the scope through the url crate, which also drops a default port,
-      # punycodes an IDN host and fills in an empty path, so a raw-against-
-      # normalized test refuses rotations that are in fact same-origin. Both
-      # sides here are secrets this script wrote, so only case can differ.
-      # Uninstalling is the only remedy offered on purpose. Deleting the marker
-      # would skip this guard rather than satisfy it, and the run after that
-      # would apply and then latch the cross-origin start URL. The marker is
-      # absent only right after an install that registered the site and failed,
-      # where the site already carries this same origin.
+      # Compared against what this script recorded, never against
+      # .manifest.scope: firefoxpwa stores the scope through the url crate,
+      # which drops a default port, punycodes an IDN host and fills in an empty
+      # path, so a raw-against-normalized test refuses same-origin rotations.
+      #
+      # Uninstalling is the only remedy offered on purpose. Deleting a record
+      # would skip the comparison rather than satisfy it, so no record at all is
+      # refused too: the site's scope is then unknown, and a secret that rotated
+      # since would otherwise be applied and latched.
+      guard_origin=""
       if [ -r "$applied_file" ]; then
-        applied_origin=$(url_origin "$(<"$applied_file")")
-        if [ "''${applied_origin,,}" != "''${origin,,}" ]; then
-          echo "firefoxpwa-dmail: rotated URL origin '$origin' does not match the installed origin '$applied_origin'; uninstall the '$app_name' site so this unit can reinstall it at the new origin" >&2
-          exit 1
-        fi
+        guard_origin=$(url_origin "$(<"$applied_file")")
+      elif [ -r "$origin_file" ]; then
+        guard_origin=$(<"$origin_file")
+      else
+        echo "firefoxpwa-dmail: '$app_name' exists but nothing records the origin it was installed at; uninstall the site so this unit can reinstall it" >&2
+        exit 1
+      fi
+      if [ "''${guard_origin,,}" != "''${origin,,}" ]; then
+        echo "firefoxpwa-dmail: rotated URL origin '$origin' does not match the installed origin '$guard_origin'; uninstall the '$app_name' site so this unit can reinstall it at the new origin" >&2
+        exit 1
       fi
 
       echo "firefoxpwa-dmail: refreshing start URL for '$app_name' ($ulid)"
       if firefoxpwa site update "$ulid" --start-url "$url" --no-manifest-updates; then
         record_applied
+        record_origin
         echo "firefoxpwa-dmail: updated start URL for '$app_name'"
         exit 0
       fi
@@ -166,6 +187,7 @@ writeShellApplication {
         --start-url "$url" \
         --name "$app_name"; then
         record_applied
+        record_origin
         echo "firefoxpwa-dmail: installed '$app_name'"
         exit 0
       fi
@@ -175,6 +197,9 @@ writeShellApplication {
       # next activation takes the refresh branch, whose site update re-runs
       # system integration and records the marker only once it succeeds.
       if ulid=$(site_ulid) && [ -n "$ulid" ]; then
+        # The scope is established even though the install did not finish, and
+        # the secret can rotate before the repair run, so record it now.
+        record_origin
         echo "firefoxpwa-dmail: '$app_name' was registered by a failed install; not retrying install, the next activation repairs it with site update" >&2
         exit 1
       fi

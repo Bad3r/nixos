@@ -291,6 +291,23 @@
             expect "next activation repairs the partial install" 0 "updated start URL"
             expect "repaired install then no-ops" 0 "already installed with current URL"
 
+            # A partial install leaves no applied-URL marker, so the origin it
+            # established is the only thing the guard can test against.
+            reset
+            set_url 'https://mail.example.com/x'
+            STUB_FAIL_AFTER_REGISTER=1 "$installer" >/dev/null 2>&1 || true
+            set_url 'https://other.example.org/x'
+            expect "rotation after a partial install refuses" 1 "does not match the installed origin"
+
+            # A site carrying the managed name that neither record accounts for:
+            # its scope is unknown, so refreshing it could put start_url outside.
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            rm -f "$marker" "$data_dir/dmail-applied-origin"
+            set_url 'https://mail.example.com/y'
+            expect "unrecorded site refuses" 1 "nothing records the origin"
+
             echo "-- the secret reaches only the field rotation can rewrite --"
             reset
             set_url 'https://mail.example.com/inbox?token=TOK_FIRST'
