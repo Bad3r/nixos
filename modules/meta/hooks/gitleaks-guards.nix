@@ -431,20 +431,27 @@ _: {
             printf '%s' "$hook_out" | grep -q 'leaks found: 1' \
               || fail "kv target scope: expected exactly one finding, the Stripe key"
 
-            # A second gitlink, which is the whole point of deriving the list:
-            # with secrets/ hardcoded this repository's other submodule was
-            # scanned by neither pass and the run still printed "no leaks found"
-            # and exited 0. The credential is planted only in the second one.
+            # Additional gitlinks, which is the whole point of deriving the list:
+            # with secrets/ hardcoded these repositories were scanned by neither
+            # pass and the run still printed "no leaks found" and exited 0. The
+            # credential is planted only in the non-ASCII path.
             echo "hook-gitleaks-guards: 18/18 every gitlink is scanned, not just the first"
             git init -q --initial-branch=main "$work/second-up"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/second-up/tok.txt"
             git -C "$work/second-up" add -A
-            git -C "$work/second-up" commit -qm "credential in the second submodule"
+            git -C "$work/second-up" commit -qm "credential in the non-ASCII submodule"
+            git init -q --initial-branch=main "$work/space-up"
+            echo ordinary > "$work/space-up/file.txt"
+            git -C "$work/space-up" add -A
+            git -C "$work/space-up" commit -qm "clean submodule with a space-containing path"
             new_repo "$work/two-subs"
+            unicode_path=$(printf 'vendeur-\303\251')
             git -C "$work/two-subs" -c protocol.file.allow=always \
               submodule add -q "file://$work/subup-clean" secrets
             git -C "$work/two-subs" -c protocol.file.allow=always \
-              submodule add -q "file://$work/second-up" "vendor with space"
+              submodule add -q "file://$work/second-up" "$unicode_path"
+            git -C "$work/two-subs" -c protocol.file.allow=always \
+              submodule add -q "file://$work/space-up" "vendor with space"
             git -C "$work/two-subs" commit -qm "two submodules"
             cd "$work/two-subs" && run_hook
             expect_finding "second submodule"
