@@ -117,14 +117,11 @@ _: {
             exit 1
           fi
 
-          # Manifest scope is a prefix match, so it must be the URL origin: a
-          # full-URL scope pushes same-origin navigation (and any path or token
-          # rotation) out of scope and into the external browser. site update
-          # cannot change scope, so an origin scope also keeps the rotation
-          # refresh above self-consistent.
-          # The host match stops at ? and # as well as /: a root URL carrying a
-          # query or fragment (https://host?token=...) would otherwise fold the
-          # query into the origin and scope the app to one token.
+          # Manifest scope is a prefix match and site update cannot rewrite it,
+          # so it must be the bare origin: anything longer pushes same-origin
+          # navigation and every later URL rotation into the external browser.
+          # Hence the host match stops at ? and # as well as /, or a root URL
+          # like https://host?token=... would scope the app to one token.
           origin=$(jq -rn --arg u "$url" \
             '$u | capture("^(?<o>[a-z][a-z0-9+.-]*://[^/?#]+)").o // ""')
           if [ -z "$origin" ]; then
