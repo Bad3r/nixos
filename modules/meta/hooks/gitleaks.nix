@@ -87,7 +87,7 @@ _: {
             # printed "no leaks found" and exited 0: the silent partial coverage
             # the absent-checkout warning below exists to prevent, one level up.
             # With one gitlink today the behaviour is unchanged.
-            mapfile -t submodules < <(git ls-files -s | awk '$1 == "160000" { print $4 }')
+            mapfile -t submodules < <(git ls-files -s | awk -F '\t' '$1 ~ /^160000 / { print $2 }')
 
             # writeShellApplication prepends set -e, so without collecting the
             # statuses the first pass to report a finding aborts the script and

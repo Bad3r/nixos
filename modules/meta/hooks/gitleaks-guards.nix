@@ -402,25 +402,30 @@ _: {
 
             # The KV allowlist's targetRules, which gitleaks-allowlist-scope
             # pins in config text and explicitly cannot verify: the vector is
-            # triggered by file content, so only a real scan reaches it. Two
-            # lines, one carrying the KV note alone and one carrying a Stripe
-            # live key followed by the same note. The first must be suppressed,
-            # which is what the entry exists for; the second must still be
-            # reported, which is what targetRules = ["generic-api-key"] buys.
-            # Without it the line-target match drops every rule's finding on that
-            # line and the Stripe key disappears.
+            # triggered by file content, so only a real scan reaches it. The
+            # note belongs in the private submodule, which is the only pass
+            # governed by .gitleaks-secrets.toml. Two lines, one carrying the KV
+            # note alone and one carrying a Stripe live key followed by the same
+            # note. The first must be suppressed, which is what the entry exists
+            # for; the second must still be reported, which is what targetRules =
+            # ["generic-api-key"] buys. Without it the line-target match drops
+            # every rule's finding on that line and the Stripe key disappears.
             echo "hook-gitleaks-guards: 17/18 the KV allowlist suppresses only its own rule"
             new_repo "$work/kv-scope"
             kv_note='# production'
             kv_note+=" keys"
             kv_note+=" KV: 00000000000000000000000000000000"
+            git init -q --initial-branch=main "$work/kv-sub"
             stripe_prefix=sk_live
             stripe_body=4eC39HqLyjWDarjtT1zdp7dc
-            printf '%s\n' "$kv_note" > "$work/kv-scope/notes.md"
+            printf '%s\n' "$kv_note" > "$work/kv-sub/notes.md"
             printf '%s_%s %s\n' "$stripe_prefix" "$stripe_body" "$kv_note" \
-              >> "$work/kv-scope/notes.md"
-            git -C "$work/kv-scope" add -A
-            git -C "$work/kv-scope" commit -qm "kv note, and a live key sharing a line with one"
+              >> "$work/kv-sub/notes.md"
+            git -C "$work/kv-sub" add -A
+            git -C "$work/kv-sub" commit -qm "kv note, and a live key sharing a line with one"
+            git -C "$work/kv-scope" -c protocol.file.allow=always \
+              submodule add -q "file://$work/kv-sub" secrets
+            git -C "$work/kv-scope" commit -qm "add private operational note"
             cd "$work/kv-scope" && run_hook
             expect_finding "kv target scope"
             printf '%s' "$hook_out" | grep -q 'leaks found: 1' \
@@ -439,7 +444,7 @@ _: {
             git -C "$work/two-subs" -c protocol.file.allow=always \
               submodule add -q "file://$work/subup-clean" secrets
             git -C "$work/two-subs" -c protocol.file.allow=always \
-              submodule add -q "file://$work/second-up" vendor
+              submodule add -q "file://$work/second-up" "vendor with space"
             git -C "$work/two-subs" commit -qm "two submodules"
             cd "$work/two-subs" && run_hook
             expect_finding "second submodule"
