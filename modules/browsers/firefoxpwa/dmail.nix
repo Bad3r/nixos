@@ -90,6 +90,20 @@ _: {
               "$config_file" 2>/dev/null
           }
 
+          # scope is web_app_manifest's Url enum, which is #[serde(untagged)], so
+          # it lands in config.json as a plain string (or null when unresolved).
+          site_scope() {
+            jq -r --arg i "$1" '.sites[$i].manifest.scope // empty' \
+              "$config_file" 2>/dev/null
+          }
+
+          # RFC 3986 3.1: the scheme is case-insensitive, and the authority ends
+          # at the first /, ? or #. Emits the origin, or nothing.
+          url_origin() {
+            [[ $1 =~ ^([A-Za-z][A-Za-z0-9+.-]*://[^/?#]+) ]] || return 0
+            printf '%s' "''${BASH_REMATCH[1]}"
+          }
+
           # The marker holds the decrypted secret, so it is created owner-only.
           record_applied() {
             (
@@ -97,6 +111,15 @@ _: {
               printf '%s' "$url" >"$applied_file"
             )
           }
+
+          # Manifest scope is a prefix match and site update cannot rewrite it,
+          # so it must be the bare origin: anything longer pushes same-origin
+          # navigation and every later URL rotation into the external browser.
+          origin=$(url_origin "$url")
+          if [ -z "$origin" ]; then
+            echo "firefoxpwa-dmail: cannot derive an origin from '$url'" >&2
+            exit 1
+          fi
 
           # Already installed. The start URL is read at runtime from the rotating
           # secret, so refresh it in place when the marker drifts instead of
@@ -107,6 +130,23 @@ _: {
               echo "firefoxpwa-dmail: '$app_name' already installed with current URL"
               exit 0
             fi
+
+            # A rotation that crosses to a new origin cannot be applied: scope is
+            # fixed at install time, so the new start URL would sit outside it and
+            # every navigation would go to the external browser. Refuse loudly
+            # rather than let record_applied mark that state as current. Compared
+            # case-insensitively because the url crate lowercases the stored scope
+            # while the secret keeps whatever case it was written in.
+            if ! scope=$(site_scope "$ulid"); then
+              echo "firefoxpwa-dmail: cannot read the installed scope for '$app_name' ($ulid)" >&2
+              exit 1
+            fi
+            scope_origin=$(url_origin "$scope")
+            if [ -n "$scope_origin" ] && [ "''${scope_origin,,}" != "''${origin,,}" ]; then
+              echo "firefoxpwa-dmail: rotated URL origin '$origin' is outside the installed scope '$scope'; uninstall the '$app_name' site to let this unit reinstall it" >&2
+              exit 1
+            fi
+
             echo "firefoxpwa-dmail: refreshing start URL for '$app_name' ($ulid)"
             if firefoxpwa site update "$ulid" --start-url "$url" --no-manifest-updates; then
               record_applied
@@ -114,18 +154,6 @@ _: {
               exit 0
             fi
             echo "firefoxpwa-dmail: failed to update start URL for '$app_name'" >&2
-            exit 1
-          fi
-
-          # Manifest scope is a prefix match and site update cannot rewrite it,
-          # so it must be the bare origin: anything longer pushes same-origin
-          # navigation and every later URL rotation into the external browser.
-          # Hence the host match stops at ? and # as well as /, or a root URL
-          # like https://host?token=... would scope the app to one token.
-          origin=$(jq -rn --arg u "$url" \
-            '$u | capture("^(?<o>[a-z][a-z0-9+.-]*://[^/?#]+)").o // ""')
-          if [ -z "$origin" ]; then
-            echo "firefoxpwa-dmail: cannot derive an origin from '$url'" >&2
             exit 1
           fi
 
