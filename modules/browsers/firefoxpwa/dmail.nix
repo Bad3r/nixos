@@ -110,7 +110,9 @@ _: {
           # navigation and every later URL rotation into the external browser.
           origin=$(url_origin "$url")
           if [ -z "$origin" ]; then
-            echo "firefoxpwa-dmail: cannot derive an origin from '$url'" >&2
+            # Names the file, not the value: this runs in a user unit, so stderr
+            # reaches the journal, which outlives and outreaches the 0600 secret.
+            echo "firefoxpwa-dmail: cannot derive an origin from the decrypted URL in $url_file" >&2
             exit 1
           fi
 
