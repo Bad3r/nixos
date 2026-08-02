@@ -350,27 +350,32 @@
       # winner the scanner will, which makes refusing the only sound option.
       # Throws in the parse rather than returning a verdict id, so `cases` cannot
       # reach it; collisionCases below drives it through tryEval instead.
+      # Origin-carrying like every verdict message, because lowerKeys runs over
+      # both sources: a collision present only in the artifact would otherwise
+      # send the reader to modules/development/gitleaks.nix, where the entry is
+      # absent, and the artifact-only edit is the direction this check was
+      # extended to cover in the first place.
       lowerKeys =
-        v:
+        origin: v:
         if lib.isAttrs v then
           let
             names = lib.attrNames v;
           in
           if builtins.length (lib.unique (map lib.toLower names)) != builtins.length names then
             throw (
-              "gitleaks-allowlist-scope: a table carries keys differing only in case "
-              + "(${lib.concatStringsSep ", " names}). gitleaks folds them to one key through "
+              "gitleaks-allowlist-scope: ${origin} carries a table with keys differing only in "
+              + "case (${lib.concatStringsSep ", " names}). gitleaks folds them to one key through "
               + "viper and which value survives is iteration-order dependent, so no branch here "
               + "can be trusted to have inspected the one in effect; spell each key once"
             )
           else
-            lib.mapAttrs' (n: x: lib.nameValuePair (lib.toLower n) (lowerKeys x)) v
+            lib.mapAttrs' (n: x: lib.nameValuePair (lib.toLower n) (lowerKeys origin x)) v
         else if lib.isList v then
-          map lowerKeys v
+          map (lowerKeys origin) v
         else
           v;
 
-      real = map (s: s // { cfg = lowerKeys (builtins.fromTOML s.text); }) sources;
+      real = map (s: s // { cfg = lowerKeys s.origin (builtins.fromTOML s.text); }) sources;
       realVerdict = verdict real;
 
       # One synthetic config per branch, each the reviewed config with a single
@@ -389,7 +394,7 @@
       fixture = toml: [
         {
           origin = "fixture";
-          cfg = lowerKeys (builtins.fromTOML toml);
+          cfg = lowerKeys "fixture" (builtins.fromTOML toml);
         }
       ];
 
@@ -615,7 +620,8 @@
       ];
 
       collisionsAccepted = lib.filter (
-        toml: (builtins.tryEval (builtins.deepSeq (lowerKeys (builtins.fromTOML toml)) true)).success
+        toml:
+        (builtins.tryEval (builtins.deepSeq (lowerKeys "fixture" (builtins.fromTOML toml)) true)).success
       ) collisionCases;
     in
     {
