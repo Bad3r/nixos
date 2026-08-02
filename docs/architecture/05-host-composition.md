@@ -140,8 +140,10 @@ Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<h
 Internal name-to-IP mappings stay encrypted instead of living in the public
 system config. `modules/hosts/common/private-dns-hosts.nix` turns every key
 listed in `flake.lib.nixos.hosts.<host>.privateDnsHostsSecretKeys` into a sops
-secret at `/run/secrets/<host>/networking/private-hosts/<key>` and serves it
-through NetworkManager's dnsmasq:
+secret at `/run/secrets/<host>/networking/private-hosts/<key>` (underscores in
+the key become hyphens in the runtime path, so `signalx_hosts` lands at
+`.../private-hosts/signalx-hosts`) and serves it through NetworkManager's
+dnsmasq:
 
 ```nix
 # modules/<host>/policy.nix
