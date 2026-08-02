@@ -13,9 +13,14 @@ _: {
       [[allowlists]]
       description = "Documentation examples with placeholder secrets"
       paths = [
-        # Keep the old root-level path because gitleaks scans historical commits.
-        "nixos-manual/.*",
-        "docs/nixos-manual/.*",
+        # Anchored: gitleaks matches paths unanchored against a repo-relative
+        # File, so "nixos-manual/.*" also skips secrets/private-ops/nixos-manual
+        # and every other directory of that name, making the one reviewed
+        # path-scope reachable by creating a directory instead of by editing
+        # config. Keep the old root-level path because gitleaks scans historical
+        # commits.
+        "^nixos-manual/",
+        "^docs/nixos-manual/",
       ]
 
       [[allowlists]]

@@ -39,9 +39,20 @@
         }
       ];
 
+      # Anchored, because gitleaks matches paths unanchored: Allowlist.PathAllowed
+      # runs regexp.MatchString over the finding's File, which git mode reports
+      # repo-relative with no prefix, so "nixos-manual/.*" also skips
+      # secrets/private-ops/nixos-manual and any other directory of that name in
+      # either scanned repository. Measured on 8.30.1: unanchored skips both a
+      # planted credential under secrets/private-ops/nixos-manual/ and the real
+      # tree, anchored skips only the real tree and reports the planted one. That
+      # made the single path-scope this check blesses reachable by creating a
+      # directory, with no config edit and no reviewer reading this file, and it
+      # made docs/nixos-manual/.* dead because the first pattern already covered
+      # it.
       reviewedPaths = [
-        "nixos-manual/.*"
-        "docs/nixos-manual/.*"
+        "^nixos-manual/"
+        "^docs/nixos-manual/"
       ];
 
       # gitleaks keeps a default rule only when no local rule claims its id, so a
@@ -401,7 +412,7 @@
       okAllowlists = ''
         [[allowlists]]
         description = "docs"
-        paths = ["nixos-manual/.*", "docs/nixos-manual/.*"]
+        paths = ["^nixos-manual/", "^docs/nixos-manual/"]
 
         [[allowlists]]
         description = "dnscrypt"
