@@ -44,6 +44,16 @@ jobs:
         uses: ./.github/actions/install-lix
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      # Before the scan, because the scan's green result only means anything if
+      # the hook still refuses the cases that would make it vacuous. The
+      # check-compliance job forces drvPaths and never builds check outputs, so
+      # naming this in `checks` is not enough to run it; it has to be built.
+      # Cheap: git and the hook are already in this job's closure, and the
+      # fixtures are small local repositories.
+      - name: Verify hook refusal branches
+        run: |
+          nix build --accept-flake-config --no-link \
+            "path:.#checks.x86_64-linux.hook-gitleaks-guards"
       - name: Scan for credentials
         run: nix run --accept-flake-config "path:.#hook-gitleaks"
 
