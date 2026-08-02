@@ -60,13 +60,20 @@ _: {
             # but it commits the credential in plaintext. Dropping
             # --ignore-gitleaks-allow instead yields a baseline without the
             # fingerprint this hook reports, so the finding stays unsuppressable.
+            # Announced, because a baseline is the one suppression channel this
+            # hook keeps: a pass that filtered findings prints the same "no leaks
+            # found" as one that filtered none, and for the submodule the list
+            # doing the filtering lives in the private repository, so a reviewer
+            # here cannot see what a clean result was measured against.
             git_args=("''${common[@]}")
             if [ -f ".gitleaks-baseline.json" ]; then
               git_args+=(--baseline-path ".gitleaks-baseline.json")
+              echo "hook-gitleaks: superproject pass filtered by .gitleaks-baseline.json" >&2
             fi
             sub_args=("''${common[@]}")
             if [ -f "secrets/.gitleaks-baseline.json" ]; then
               sub_args+=(--baseline-path "secrets/.gitleaks-baseline.json")
+              echo "hook-gitleaks: submodule pass filtered by secrets/.gitleaks-baseline.json, reviewed only in the private repository" >&2
             fi
 
             # writeShellApplication prepends set -e, so without collecting the
