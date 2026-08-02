@@ -1,0 +1,300 @@
+/*
+  Check: DMail installer behaviour (packages/firefoxpwa-dmail-install).
+
+  The installer is a shell script with seven outcomes, and several of its
+  branches guard states that only appear after firefoxpwa has rewritten
+  config.json. Parsing and shellcheck cannot see any of that, so this builds the
+  real derivation against a stub firefoxpwa and drives the script through the
+  states that have actually regressed:
+
+  - the url crate normalizes what it stores (default port dropped, IDN
+    punycoded, empty path filled in, host and scheme lowercased), so any check
+    comparing a raw secret against a value read back from config.json is wrong,
+  - site update accepts neither --document-url nor --manifest-url, so those
+    fields are immutable and must never receive the rotating secret,
+  - an install can register the site and still fail, which must not be recorded
+    as applied.
+
+  The stub is passed as the firefoxpwa package rather than placed on PATH:
+  writeShellApplication prepends runtimeInputs, so a PATH stub would be shadowed
+  by the real binary.
+*/
+{
+  lib,
+  ...
+}:
+{
+  perSystem =
+    { pkgs, ... }:
+    let
+      idnHost = "mail.exämple.com";
+      idnPunycode = "mail.xn--exmple-cua.com";
+
+      # Emulates the parts of the url crate's serialization that the installer
+      # has to stay clear of. Not a URL parser: it only has to be wrong in the
+      # same ways the real one is.
+      stub = pkgs.writeShellApplication {
+        name = "firefoxpwa";
+        runtimeInputs = [
+          pkgs.jq
+          pkgs.coreutils
+        ];
+        text = ''
+          config_file="''${XDG_DATA_HOME:?}/firefoxpwa/config.json"
+          [ -f "$config_file" ] || echo '{"sites":{}}' >"$config_file"
+
+          normalize() {
+            local url="$1" scheme rest host tail
+            scheme="''${url%%://*}"
+            rest="''${url#*://}"
+            host="''${rest%%[/?#]*}"
+            tail="''${rest#"$host"}"
+            scheme="''${scheme,,}"
+            host="''${host,,}"
+            case "$scheme:$host" in
+              https:*:443) host="''${host%:443}" ;;
+              http:*:80) host="''${host%:80}" ;;
+            esac
+            host="''${host/${idnHost}/${idnPunycode}}"
+            [ -n "$tail" ] || tail="/"
+            printf '%s://%s%s' "$scheme" "$host" "$tail"
+          }
+
+          write_site() {
+            jq --arg n "$3" --arg s "$(normalize "$2")" --arg d "$(normalize "$4")" \
+              --arg m "$1" --arg sc "$(normalize "$5")" \
+              '.sites["01STUB"] = {
+                 config: {name: $n, start_url: $s, document_url: $d, manifest_url: $m},
+                 manifest: {scope: $sc}
+               }' "$config_file" >"$config_file.next"
+            mv "$config_file.next" "$config_file"
+          }
+
+          [ "''${1:-}" = "site" ] || exit 64
+
+          case "''${2:-}" in
+            install)
+              manifest_url="$3"
+              start_url="" document_url="" name=""
+              while [ $# -gt 0 ]; do
+                case "$1" in
+                  --start-url) start_url="$2" ;;
+                  --document-url) document_url="$2" ;;
+                  --name) name="$2" ;;
+                esac
+                shift
+              done
+              scope=$(printf '%s' "''${manifest_url#*base64,}" | base64 -d | jq -r .scope)
+              write_site "$manifest_url" "$start_url" "$name" "$document_url" "$scope"
+              # Reproduces an install that registers the site and then fails, for
+              # example when desktop integration errors after storage.write.
+              [ -z "''${STUB_FAIL_AFTER_REGISTER:-}" ] || exit 1
+              ;;
+            update)
+              ulid="$3"
+              start_url=""
+              while [ $# -gt 0 ]; do
+                case "$1" in
+                  --start-url) start_url="$2" ;;
+                  # SiteUpdateCommand carries neither, so clap would reject them.
+                  --document-url | --manifest-url)
+                    echo "stub: unexpected argument '$1'" >&2
+                    exit 2
+                    ;;
+                esac
+                shift
+              done
+              jq --arg i "$ulid" --arg s "$(normalize "$start_url")" \
+                '.sites[$i].config.start_url = $s' "$config_file" >"$config_file.next"
+              mv "$config_file.next" "$config_file"
+              ;;
+            *) exit 64 ;;
+          esac
+        '';
+      };
+
+      secretDir = "/tmp/firefoxpwa-dmail-check";
+
+      installer = (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
+        firefoxpwa = stub;
+        urlPath = "${secretDir}/url";
+      };
+    in
+    {
+      checks."browsers/firefoxpwa-dmail" =
+        pkgs.runCommand "firefoxpwa-dmail-check"
+          {
+            nativeBuildInputs = [
+              pkgs.jq
+              pkgs.coreutils
+            ];
+          }
+          ''
+            set -o errexit -o nounset -o pipefail
+
+            export HOME="$PWD/home"
+            export XDG_DATA_HOME="$PWD/data"
+            secret_dir=${lib.escapeShellArg secretDir}
+            url_file="$secret_dir/url"
+            data_dir="$XDG_DATA_HOME/firefoxpwa"
+            config_file="$data_dir/config.json"
+            marker="$data_dir/dmail-applied-url"
+            install -d "$HOME" "$secret_dir"
+
+            installer=${lib.getExe installer}
+            failures=0
+
+            reset() {
+              rm -rf "$data_dir"
+              install -d "$data_dir"
+            }
+
+            set_url() { printf '%s\n' "$1" >"$url_file"; }
+
+            # Runs the installer and checks exit status and a message fragment.
+            expect() {
+              local label="$1" want_rc="$2" want_text="$3" out rc=0
+              out=$("$installer" 2>&1) || rc=$?
+              if [ "$rc" = "$want_rc" ] && printf '%s' "$out" | grep -qF "$want_text"; then
+                echo "PASS  $label"
+              else
+                echo "FAIL  $label (rc=$rc, expected $want_rc)"
+                printf '%s\n' "$out" | sed 's/^/      /'
+                failures=$((failures + 1))
+              fi
+            }
+
+            assert_equal() {
+              if [ "$2" = "$3" ]; then
+                echo "PASS  $1"
+              else
+                echo "FAIL  $1: got '$2', expected '$3'"
+                failures=$((failures + 1))
+              fi
+            }
+
+            # config.json with the data: manifest expanded. The manifest is stored
+            # base64-encoded in manifest_url, so a plain grep over config.json
+            # cannot see a secret that leaked into it.
+            decoded_manifest() {
+              local manifest_url
+              manifest_url=$(jq -r '.sites["01STUB"].config.manifest_url // ""' "$config_file")
+              case "$manifest_url" in
+                *base64,*) printf '%s' "''${manifest_url#*base64,}" | base64 -d ;;
+              esac
+            }
+
+            decoded_config() {
+              cat "$config_file"
+              decoded_manifest
+            }
+
+            assert_absent() {
+              if decoded_config | grep -qF "$2"; then
+                echo "FAIL  $1: '$2' still reachable from config.json"
+                failures=$((failures + 1))
+              else
+                echo "PASS  $1"
+              fi
+            }
+
+            echo "-- install, idempotence, same-origin rotation --"
+            reset
+            set_url '  https://mail.example.com '
+            expect "whitespace-padded secret installs" 0 "installed 'DMail'"
+            expect "second run no-ops" 0 "already installed with current URL"
+            set_url 'https://mail.example.com/u/1?tok=a'
+            expect "same-origin rotation refreshes" 0 "updated start URL"
+            expect "no-op after rotation" 0 "already installed with current URL"
+
+            echo "-- refusals --"
+            set_url 'https://other.example.org/x'
+            expect "cross-origin rotation refuses" 1 "does not match the installed origin"
+            expect "cross-origin refusal repeats" 1 "does not match the installed origin"
+            set_url 'not-a-url'
+            expect "unparsable secret refuses" 1 "cannot derive an origin"
+            : >"$url_file"
+            expect "empty secret refuses" 1 "decrypted URL is empty"
+            rm -f "$url_file"
+            expect "missing secret refuses" 1 "secret not readable"
+
+            echo "-- url crate normalizations must not refuse same-origin rotations --"
+            reset
+            set_url 'HTTPS://Mail.Example.COM/a'
+            expect "uppercase scheme and host install" 0 "installed 'DMail'"
+            set_url 'HTTPS://Mail.Example.COM/b'
+            expect "uppercase rotation refreshes" 0 "updated start URL"
+            set_url 'https://mail.example.com/c'
+            expect "case-changed secret refreshes" 0 "updated start URL"
+
+            reset
+            set_url 'https://mail.example.com:443/a'
+            "$installer" >/dev/null
+            set_url 'https://mail.example.com:443/b'
+            expect "explicit default port refreshes" 0 "updated start URL"
+
+            reset
+            set_url 'https://${idnHost}/a'
+            "$installer" >/dev/null
+            assert_equal "IDN scope is punycoded by the stub" \
+              "$(jq -r '.sites["01STUB"].manifest.scope' "$config_file")" \
+              'https://${idnPunycode}/'
+            set_url 'https://${idnHost}/b'
+            expect "IDN host refreshes" 0 "updated start URL"
+
+            echo "-- a partial install must not be recorded as applied --"
+            reset
+            set_url 'https://mail.example.com/x'
+            STUB_FAIL_AFTER_REGISTER=1 "$installer" >/dev/null 2>&1 && {
+              echo "FAIL  failed install reported success"
+              failures=$((failures + 1))
+            }
+            if [ -e "$marker" ]; then
+              echo "FAIL  failed install wrote the applied marker"
+              failures=$((failures + 1))
+            else
+              echo "PASS  failed install left no marker"
+            fi
+            expect "next activation repairs the partial install" 0 "updated start URL"
+            expect "repaired install then no-ops" 0 "already installed with current URL"
+
+            echo "-- the secret reaches only the field rotation can rewrite --"
+            reset
+            set_url 'https://mail.example.com/inbox?token=TOK_FIRST'
+            "$installer" >/dev/null
+            assert_equal "token lands only in start_url" \
+              "$(jq -r '.sites["01STUB"].config | to_entries | map(select(.value | tostring | test("TOK_FIRST")) | .key) | join(",")' "$config_file")" \
+              'start_url'
+            assert_equal "document_url holds the origin" \
+              "$(jq -r '.sites["01STUB"].config.document_url' "$config_file")" \
+              'https://mail.example.com/'
+            # start_url is the only field site update can rewrite, so the decoded
+            # manifest must not carry the token either: manifest_url is immutable.
+            if decoded_manifest | grep -qF TOK_FIRST; then
+              echo "FAIL  manifest URL carries the token"
+              failures=$((failures + 1))
+            else
+              echo "PASS  manifest URL carries no token"
+            fi
+            set_url 'https://mail.example.com/inbox?token=TOK_SECOND'
+            "$installer" >/dev/null
+            assert_absent "rotation retires the previous token" TOK_FIRST
+
+            echo "-- scope is the bare origin even for a root URL with a query --"
+            reset
+            set_url 'https://mail.example.com?q=1'
+            "$installer" >/dev/null
+            assert_equal "scope is origin-only" \
+              "$(jq -r '.sites["01STUB"].manifest.scope' "$config_file")" \
+              'https://mail.example.com/'
+            assert_equal "marker is owner-only" "$(stat -c '%a' "$marker")" 600
+
+            echo
+            if [ "$failures" -ne 0 ]; then
+              echo "$failures assertion(s) failed"
+              exit 1
+            fi
+            echo "all assertions passed" >"$out"
+          '';
+    };
+}
