@@ -181,6 +181,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Serialize runs the way the sibling destructive helper does
+# (scripts/prune-stale-worktrees.sh). Checked here, ahead of every repository
+# read and ahead of the empty-roots exit below, so a host without util-linux
+# names the missing tool instead of exiting 64 for "not inside a git
+# repository" or reporting per-checkout failures from a run that cannot start.
+# `command not found` returns 127 into the `flock -n` `||` branch further down
+# and would otherwise be reported as contention with a process that does not
+# exist, which never clears no matter how long the operator waits.
+command -v flock >/dev/null 2>&1 || {
+  echo "${prog_name}: flock is required to serialize runs (install util-linux, or use the dev-shell wrapper)" >&2
+  exit 1
+}
+
 now=$(date +%s)
 age_cutoff=$((now - age_days * 86400))
 # The extra day is the one the ref name cannot express: archive refs carry a
@@ -572,17 +585,10 @@ sweep_repo() {
   return 0
 }
 
-# Serialize runs the way the sibling destructive helper does
-# (scripts/prune-stale-worktrees.sh): two runs over one stash stack would each
-# resolve positions against a stack the other is mutating. Dry runs take the
-# lock too, so a report is never printed against a stack being pruned.
-# Checked before anything is created: `command not found` returns 127 into the
-# `flock -n` `||` below and would be reported as contention with a process that
-# does not exist, which never clears no matter how long the operator waits.
-command -v flock >/dev/null 2>&1 || {
-  echo "${prog_name}: flock is required to serialize runs (install util-linux, or use the dev-shell wrapper)" >&2
-  exit 1
-}
+# Two runs over one stash stack would each resolve positions against a stack the
+# other is mutating. Dry runs take the lock too, so a report is never printed
+# against a stack being pruned. The flock availability check is hoisted to
+# argument parsing; only the lock itself is taken here.
 lock_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/prune-old-stashes.$(id -u)"
 # The last fallback is /tmp, which is world-writable, and `exec 200>` below
 # follows symlinks and truncates: with neither XDG_RUNTIME_DIR nor TMPDIR set,

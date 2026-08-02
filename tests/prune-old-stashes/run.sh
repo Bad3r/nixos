@@ -843,9 +843,20 @@ test_missing_flock_is_reported_as_itself() {
   assert_contains "${out}" 'flock is required to serialize runs' no-flock
   assert_not_contains "${out}" 'another instance is already running' no-flock
 
-  # The guard runs before any repository is touched.
+  # The guard runs before any repository is read, so nothing was touched.
   assert_stash_count "${repo}" 1 no-flock
   assert_archive_count "${repo}" 0 no-flock
+
+  # From outside a repository the missing tool must still be what is reported.
+  # With the guard placed after repository resolution this is exit 64 for "not
+  # inside a git repository", which names neither the cause nor the fix.
+  local outside
+  outside="${tmpdir}/no-flock-outside"
+  mkdir -p "${outside}"
+  PATH="${shim}" run_sut "${out}" "${outside}" --apply
+  assert_status 1 "${out}" no-flock-outside
+  assert_contains "${out}" 'flock is required to serialize runs' no-flock-outside
+  assert_not_contains "${out}" 'not inside a git repository' no-flock-outside
   pass
 }
 
