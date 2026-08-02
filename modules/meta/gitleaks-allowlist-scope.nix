@@ -459,13 +459,24 @@
       # here left the per-source split asserted by nothing: reverting it to a
       # single global binding kept every fixture green, because the real submodule
       # config happens to carry no paths key.
-      fixture = c: [
-        {
-          origin = "fixture";
-          reviewedPaths = c.reviewedPaths or superprojectPaths;
-          cfg = lowerKeys "fixture" (builtins.fromTOML c.toml);
-        }
-      ];
+      # A case may supply several sources through `tomls`. kvMissingIn is the one
+      # predicate that quantifies across them, and a single-source fixture cannot
+      # tell it apart from the global existence test it replaced: the kv-missing
+      # case carries no KV block at all, so kvBlocks is empty under both
+      # spellings and both return kv-missing.
+      fixture =
+        c:
+        lib.imap0 (
+          i: toml:
+          let
+            origin = "fixture-${toString i}";
+          in
+          {
+            inherit origin;
+            reviewedPaths = c.reviewedPaths or superprojectPaths;
+            cfg = lowerKeys origin (builtins.fromTOML toml);
+          }
+        ) (c.tomls or [ c.toml ]);
 
       okAllowlists = ''
         [[allowlists]]
@@ -661,6 +672,23 @@
             ${okExtend}
             ${okAllowlists}
           '';
+        }
+        # Per source, not merely somewhere: one config keeping the KV block
+        # satisfies a global existence test while the config governing the tree
+        # the note lives in has lost it.
+        {
+          id = "kv-missing";
+          tomls = [
+            ''
+              ${okExtend}
+              ${okAllowlists}
+              ${okKv}
+            ''
+            ''
+              ${okExtend}
+              ${okAllowlists}
+            ''
+          ];
         }
         {
           id = "untargeted-scope";

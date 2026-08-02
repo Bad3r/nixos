@@ -108,7 +108,7 @@ _: {
               git -C "$1" commit -qm "base"
             }
 
-            echo "hook-gitleaks-guards: 1/13 missing .gitleaks.toml"
+            echo "hook-gitleaks-guards: 1/14 missing .gitleaks.toml"
             new_repo "$work/no-config"
             git -C "$work/no-config" rm -q --cached .gitleaks.toml
             rm "$work/no-config/.gitleaks.toml"
@@ -116,7 +116,7 @@ _: {
             cd "$work/no-config" && run_hook
             expect_refusal "missing .gitleaks.toml" 'gitleaks.toml is missing'
 
-            echo "hook-gitleaks-guards: 2/13 .gitleaksignore at the repository root"
+            echo "hook-gitleaks-guards: 2/14 .gitleaksignore at the repository root"
             new_repo "$work/ignore-root"
             touch "$work/ignore-root/.gitleaksignore"
             cd "$work/ignore-root" && run_hook
@@ -125,14 +125,14 @@ _: {
             # Discovery is source-relative, so this file would filter the submodule
             # pass while a root-only guard saw nothing. No submodule is needed to
             # reach the branch: it tests the path, not the checkout.
-            echo "hook-gitleaks-guards: 3/13 .gitleaksignore inside secrets/"
+            echo "hook-gitleaks-guards: 3/14 .gitleaksignore inside secrets/"
             new_repo "$work/ignore-sub"
             mkdir -p "$work/ignore-sub/secrets"
             touch "$work/ignore-sub/secrets/.gitleaksignore"
             cd "$work/ignore-sub" && run_hook
             expect_refusal "secrets/.gitleaksignore" 'secrets/\.gitleaksignore suppresses findings'
 
-            echo "hook-gitleaks-guards: 4/13 shallow superproject"
+            echo "hook-gitleaks-guards: 4/14 shallow superproject"
             new_repo "$work/deep"
             echo second > "$work/deep/second.txt"
             git -C "$work/deep" add -A
@@ -143,7 +143,7 @@ _: {
 
             # rev-list --all --count returns 1 here, so a lower bound of one commit
             # passes while the history stays hidden.
-            echo "hook-gitleaks-guards: 5/13 shallow submodule at secrets/"
+            echo "hook-gitleaks-guards: 5/14 shallow submodule at secrets/"
             git init -q --initial-branch=main "$work/subup"
             for n in 1 2 3; do
               echo "s$n" > "$work/subup/s$n.txt"
@@ -166,7 +166,7 @@ _: {
             # load-bearing: without that flag this line is suppressed with no config
             # edit, no fingerprint and no review. The flag is unconditional, so the
             # credential must still be reported.
-            echo "hook-gitleaks-guards: 6/13 committed credential is still reported"
+            echo "hook-gitleaks-guards: 6/14 committed credential is still reported"
             new_repo "$work/leak"
             pat_prefix=ghp
             pat_body=A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8
@@ -186,7 +186,7 @@ _: {
               fail "committed credential: the secret reached the output, so --redact is not in effect"
             fi
 
-            echo "hook-gitleaks-guards: 7/13 clean full clone"
+            echo "hook-gitleaks-guards: 7/14 clean full clone"
             new_repo "$work/clean"
             cd "$work/clean" && run_hook
             expect_clean "clean repository"
@@ -194,7 +194,7 @@ _: {
             # Warned, not refused: CI never checks secrets/ out, so refusing would
             # fail gitleaks-scan on every run. The warning is the only thing keeping
             # a partial run from reading as full coverage.
-            echo "hook-gitleaks-guards: 8/13 absent submodule warns and still scans"
+            echo "hook-gitleaks-guards: 8/14 absent submodule warns and still scans"
             new_repo "$work/absent"
             git -C "$work/absent" update-index --add \
               --cacheinfo 160000,0000000000000000000000000000000000000001,secrets
@@ -209,7 +209,7 @@ _: {
             # arm, and the rest carry no gitlink. secrets/ is absent in
             # gitleaks-scan too, so this is the only place the sub_args wiring, the
             # five unsets and the scan itself are exercised.
-            echo "hook-gitleaks-guards: 9/13 credential inside a full-depth submodule"
+            echo "hook-gitleaks-guards: 9/14 credential inside a full-depth submodule"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/subup/token.txt"
             git -C "$work/subup" add -A
             git -C "$work/subup" commit -qm "commit a credential in the submodule"
@@ -245,7 +245,7 @@ _: {
             # finding in at most one pass, so that regression still exits 1 and
             # leaves them all green while the run covers one repository and
             # reports half the problem.
-            echo "hook-gitleaks-guards: 10/13 both passes report in one run"
+            echo "hook-gitleaks-guards: 10/14 both passes report in one run"
             new_repo "$work/both-leak"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/both-leak/token.txt"
             git -C "$work/both-leak" add -A
@@ -272,7 +272,7 @@ _: {
             # to the built-in defaults and reports the credential
             # .gitleaks-secrets.toml allowlists. A clean result therefore proves
             # that config reached a pass that could not have discovered it.
-            echo "hook-gitleaks-guards: 11/13 the repository config reaches both passes"
+            echo "hook-gitleaks-guards: 11/14 the repository config reaches both passes"
             new_repo "$work/configured"
             # Both configs: .gitleaks-secrets.toml is what must reach the
             # submodule pass, and it is also an ordinary committed file that the
@@ -297,7 +297,7 @@ _: {
             # that filtered findings otherwise prints the same "no leaks found"
             # as one that filtered none, and for this pass the filtering list is
             # reviewed only in the private repository.
-            echo "hook-gitleaks-guards: 12/13 submodule baseline filters and says so"
+            echo "hook-gitleaks-guards: 12/14 submodule baseline filters and says so"
             new_repo "$work/sub-baselined"
             git -C "$work/sub-baselined" -c protocol.file.allow=always \
               submodule add -q "file://$work/subup" secrets
@@ -318,7 +318,7 @@ _: {
             # config would skip a top-level nixos-manual/ inside the private
             # repository before scanning it, reachable by creating a directory
             # and invisible from here.
-            echo "hook-gitleaks-guards: 13/13 superproject paths do not reach the submodule"
+            echo "hook-gitleaks-guards: 13/14 superproject paths do not reach the submodule"
             git init -q --initial-branch=main "$work/docs-sub"
             mkdir -p "$work/docs-sub/nixos-manual"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/docs-sub/nixos-manual/leak.txt"
@@ -331,7 +331,28 @@ _: {
             cd "$work/path-scoped" && run_hook
             expect_finding "submodule path scope"
 
-            echo "hook-gitleaks-guards: all 13 fixtures passed"
+            # The superproject half of the same pair. Dropping the baseline flag
+            # is caught elsewhere, because the committed .gitleaks-baseline.json
+            # has seven entries and gitleaks-scan fails without it, but nothing
+            # caught dropping the announcement beside it: no other fixture
+            # creates a repo-root baseline, so a superproject pass that filtered
+            # findings printed the same "no leaks found" as one that filtered
+            # none.
+            echo "hook-gitleaks-guards: 14/14 superproject baseline filters and says so"
+            new_repo "$work/baselined"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/baselined/token.txt"
+            git -C "$work/baselined" add -A
+            git -C "$work/baselined" commit -qm "commit a credential"
+            gitleaks git --no-banner --redact --ignore-gitleaks-allow \
+              --config "$work/baselined/.gitleaks.toml" \
+              --report-path "$work/baselined/.gitleaks-baseline.json" \
+              "$work/baselined" || true
+            cd "$work/baselined" && run_hook
+            expect_clean "superproject baseline"
+            printf '%s' "$hook_out" | grep -q 'superproject pass filtered by' \
+              || fail "superproject baseline: filtering was not announced"
+
+            echo "hook-gitleaks-guards: all 14 fixtures passed"
             touch $out
           '';
     };
