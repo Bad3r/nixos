@@ -327,6 +327,16 @@
             STUB_FAIL_AFTER_REGISTER=1 "$installer" >/dev/null 2>&1 || true
             expect "reinstall at the new origin is not blocked by the old URL" 0 "updated start URL"
 
+            # A first install killed after the site was registered but before the
+            # script recorded anything. A switch restarts sops-nix and PartOf
+            # stops this unit, so the window is routine; the run after it must
+            # repair rather than refuse for want of a record.
+            reset
+            set_url 'https://mail.example.com/x'
+            STUB_FAIL_AFTER_REGISTER=1 "$installer" >/dev/null 2>&1 || true
+            rm -f "$marker"
+            expect "install interrupted before recording still repairs" 0 "updated start URL"
+
             echo "-- the secret reaches only the field rotation can rewrite --"
             reset
             set_url 'https://mail.example.com/inbox?token=TOK_FIRST'

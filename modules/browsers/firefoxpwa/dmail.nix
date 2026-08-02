@@ -77,6 +77,14 @@ _: {
                 install -d -m 700 '${dataDir}'
               '';
 
+          # The unit pin below covers the installer only. The generated .desktop
+          # launcher runs `firefoxpwa site launch`, and the browser extension
+          # starts `firefoxpwa connector`; both resolve this directory the same
+          # way and neither is started by that unit. xdg.enable is off here, so
+          # nothing else puts XDG_DATA_HOME into the session, and a non-default
+          # xdg.dataHome would leave them reading a directory with no site in it.
+          home.sessionVariables.FFPWA_USERDATA = dataDir;
+
           systemd.user.services.firefoxpwa-dmail = {
             Unit = {
               Description = "Install the DMail web app (firefoxpwa)";

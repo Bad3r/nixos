@@ -162,8 +162,8 @@ writeShellApplication {
 
       echo "firefoxpwa-dmail: refreshing start URL for '$app_name' ($ulid)"
       if firefoxpwa site update "$ulid" --start-url "$url" --no-manifest-updates; then
-        record_applied
         record_origin
+        record_applied
         echo "firefoxpwa-dmail: updated start URL for '$app_name'"
         exit 0
       fi
@@ -186,13 +186,21 @@ writeShellApplication {
       '{name: $n, scope: $s, start_url: $s, display: "standalone"}')
     manifest_url="data:application/manifest+json;base64,$(printf '%s' "$manifest" | base64 -w0)"
 
+    # Recorded before the attempt, not after: the origin is already fixed and
+    # validated above, and this branch is only reachable when no site exists, so
+    # the record cannot be stale relative to a live site. Recording afterwards
+    # left a registered site with no record at all when the script was killed
+    # mid-install, which the guard above then refuses on every run. A switch
+    # restarts sops-nix, and PartOf stops this unit, so that kill is routine.
+    record_origin
+
     for attempt in 1 2 3; do
       if firefoxpwa site install "$manifest_url" \
         --document-url "$origin" \
         --start-url "$url" \
         --name "$app_name"; then
-        record_applied
         record_origin
+        record_applied
         echo "firefoxpwa-dmail: installed '$app_name'"
         exit 0
       fi
@@ -202,9 +210,6 @@ writeShellApplication {
       # next activation takes the refresh branch, whose site update re-runs
       # system integration and records the marker only once it succeeds.
       if ulid=$(site_ulid) && [ -n "$ulid" ]; then
-        # The scope is established even though the install did not finish, and
-        # the secret can rotate before the repair run, so record it now.
-        record_origin
         echo "firefoxpwa-dmail: '$app_name' was registered by a failed install; not retrying install, the next activation repairs it with site update" >&2
         exit 1
       fi
