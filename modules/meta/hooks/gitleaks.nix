@@ -124,15 +124,20 @@ _: {
               (
                 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
                   GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
-                # Assert the pass reached the submodule rather than trusting
-                # the enumeration above to be complete: any redirect it misses,
-                # and an initialised-but-empty submodule, both end in
+                # Assert the pass reads the submodule's history rather than
+                # trusting the enumeration above to be complete: any redirect it
+                # misses, and an initialised-but-empty submodule, both end in
                 # "0 commits scanned" and exit 0. Since gitleaks-scan made this
                 # hook the only credential gate on the merge path, that would be
-                # a green check over an unscanned repository.
+                # a green check over an unscanned repository. Shallow too, and
+                # not because a count of zero implies it: clone
+                # --shallow-submodules, and submodule.secrets.shallow in
+                # .gitmodules or local config, each leave a one-commit clone
+                # that satisfies any lower bound while hiding the other fifty.
                 sub_commits=$(git -C secrets rev-list --all --count)
-                if [ "$sub_commits" -eq 0 ]; then
-                  echo "hook-gitleaks: submodule pass reached 0 commits; refusing to report secrets/ clean" >&2
+                sub_shallow=$(git -C secrets rev-parse --is-shallow-repository)
+                if [ "$sub_commits" -eq 0 ] || [ "$sub_shallow" != "false" ]; then
+                  echo "hook-gitleaks: submodule pass would read an incomplete history (commits=$sub_commits, shallow=$sub_shallow); refusing to report secrets/ clean" >&2
                   exit 1
                 fi
                 gitleaks git "''${sub_args[@]}" secrets
