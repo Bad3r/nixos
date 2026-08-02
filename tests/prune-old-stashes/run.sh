@@ -763,6 +763,63 @@ test_lock_leaf_is_not_a_predictable_name_in_the_base() {
   pass
 }
 
+test_planted_lock_leaf_is_refused_not_followed() {
+  local out victim base dir
+  make_fixture lock-planted
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/lock-planted.out"
+
+  # A run interrupted before the chmod leaves the directory writable under a
+  # loose umask, so the leaf can be planted afterwards and outlives the chmod.
+  # The directory checks inspect the directory, not what is in it.
+  base="${tmpdir}/planted-base"
+  victim="${tmpdir}/planted-target"
+  dir="${base}/prune-old-stashes.$(id -u)"
+  mkdir -p "${dir}"
+  chmod 777 "${dir}"
+  printf 'important\n' >"${victim}"
+  ln -s "${victim}" "${dir}/lock"
+
+  TMPDIR="${base}" XDG_RUNTIME_DIR="${base}" run_sut "${out}" "${repo}" --apply
+  assert_status 1 "${out}" lock-planted
+  assert_contains "${out}" 'lock path is a symlink, refusing to open it' lock-planted
+  [[ -s ${victim} ]] || fail "lock-planted: the run followed the planted leaf and truncated it" "${out}"
+  assert_stash_count "${repo}" 1 lock-planted
+  assert_archive_count "${repo}" 0 lock-planted
+  pass
+}
+
+test_lock_dir_is_created_private_not_chmodded_later() {
+  local out base dir shim mode prev_umask
+  make_fixture lock-umask
+  out="${tmpdir}/lock-umask.out"
+
+  base="${tmpdir}/umask-base"
+  dir="${base}/prune-old-stashes.$(id -u)"
+  mkdir -p "${base}"
+
+  # A no-op chmod leaves the directory exactly as mkdir made it, which is the
+  # state a run interrupted before the chmod leaves behind. Asserting the mode
+  # after a real chmod would read 700 whichever way it was created, so it would
+  # pass with the private umask removed.
+  shim="${tmpdir}/umask-bin"
+  mkdir -p "${shim}"
+  printf '%s\nexit 0\n' "${SHIM_SHEBANG}" >"${shim}/chmod"
+  chmod +x "${shim}/chmod"
+
+  # Not a subshell: run_sut sets sut_status, which would not survive one.
+  prev_umask="$(umask)"
+  umask 000
+  PATH="${shim}:${PATH}" TMPDIR="${base}" XDG_RUNTIME_DIR="${base}" \
+    run_sut "${out}" "${repo}"
+  umask "${prev_umask}"
+
+  assert_status 0 "${out}" lock-umask
+  mode="$(stat -c '%a' "${dir}")"
+  [[ ${mode} == 700 ]] || fail "lock-umask: lock directory created with mode ${mode}, expected 700 before any chmod" "${out}"
+  pass
+}
+
 test_missing_flock_is_reported_as_itself() {
   local out shim tool tool_path
   make_fixture no-flock
@@ -1479,6 +1536,8 @@ test_second_instance_is_locked_out
 test_missing_flock_is_reported_as_itself
 test_hostile_lock_dir_is_refused_not_followed
 test_lock_leaf_is_not_a_predictable_name_in_the_base
+test_planted_lock_leaf_is_refused_not_followed
+test_lock_dir_is_created_private_not_chmodded_later
 test_rejected_entry_does_not_shift_reported_positions
 test_blank_listing_line_is_rejected_not_skipped
 test_blank_line_in_the_live_stack_does_not_shift_lookup

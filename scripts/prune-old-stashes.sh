@@ -81,8 +81,8 @@ exit codes:
       missing or contains no checkouts; any scanned root, including the default
       one, holds a broken checkout or a directory that is not the root of the
       repository it resolves to; flock is not installed; the lock directory
-      could not be created, or exists and is not a directory this user owns;
-      another instance holds the run lock
+      could not be created, or exists and is not a directory this user owns, or
+      the lock path is a symlink; another instance holds the run lock
   64  usage error
 EOF
 }
@@ -591,7 +591,11 @@ lock_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/prune-old-stashes.$(id -u)"
 # before any guard here runs. The sticky bit does not help, since nothing is
 # being replaced. A private directory this run confirmed it owns takes the leaf
 # out of reach.
-mkdir -p -- "${lock_dir}" || {
+# Created under a private umask rather than the ambient one: the chmod below
+# does not remove entries already inside, so a directory left group- or
+# world-writable by a run interrupted before it lets another user plant the
+# leaf at leisure, and the redirect below then follows it.
+(umask 077 && mkdir -p -- "${lock_dir}") || {
   echo "${prog_name}: could not create the lock directory ${lock_dir}" >&2
   exit 1
 }
@@ -603,10 +607,17 @@ if [[ -L ${lock_dir} || ! -d ${lock_dir} || ! -O ${lock_dir} ]]; then
 fi
 # Set after the check, not through `mkdir -m`: with -p that applies only to the
 # deepest component created and never to a directory that already existed, so a
-# run under umask 000 would otherwise leave a world-writable directory and put
-# the leaf back within reach.
+# directory from an earlier run under a looser umask stays reachable otherwise.
 chmod 700 -- "${lock_dir}"
 lock_file="${lock_dir}/lock"
+# The checks above cover the directory, not what is in it: a leaf planted while
+# the directory was still writable outlives the chmod. Not a race, since the
+# directory is 700 and owned by this user by now, so no one else can swap the
+# entry between here and the redirect.
+if [[ -L ${lock_file} ]]; then
+  echo "${prog_name}: lock path is a symlink, refusing to open it: ${lock_file}" >&2
+  exit 1
+fi
 exec 200>"${lock_file}"
 flock -n 200 || {
   echo "${prog_name}: another instance is already running (lock: ${lock_file})" >&2

@@ -107,8 +107,8 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
   contains no checkouts; any scanned root, including the default one, holds a
   broken checkout or a directory that is not the root of the repository it
   resolves to; `flock` is not installed; the lock directory could not be
-  created, or exists and is not a directory this user owns; another instance
-  holds the run lock.
+  created, or exists and is not a directory this user owns, or the lock path is
+  a symlink; another instance holds the run lock.
 - `64`: usage error, including an unparsable `--age` or `--archive-retention`.
 
 ## Concurrency
@@ -119,9 +119,13 @@ guard `scripts/prune-stale-worktrees.sh` uses. Dry runs take the lock too, so a
 plan is never printed against a stack another run is pruning. A second
 concurrent invocation exits 1 without touching anything.
 
-The lock file sits inside a per-user directory created with mode 700 rather
+The lock file sits inside a per-user directory created under `umask 077` rather
 than directly under the base directory, and the run exits 1 if that directory
-is a symlink, is not a directory, or is not owned by this user. Without
+is a symlink, is not a directory, or is not owned by this user, or if the lock
+path itself is a symlink. The directory is created private rather than chmodded
+afterwards because a chmod does not remove entries already inside it: a run
+interrupted between the two under `umask 002` or `000` would leave a writable
+directory in which another user could plant the leaf at leisure. Without
 `XDG_RUNTIME_DIR` or `TMPDIR` (a cron entry, `ssh host 'scripts/...'`, a
 container) the base is `/tmp`: opening a predictable leaf there follows
 symlinks and truncates, so another user who creates that name first can empty
