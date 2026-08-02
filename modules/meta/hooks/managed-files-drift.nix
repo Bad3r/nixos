@@ -27,7 +27,11 @@ _: {
             # keeps this hook independent of the writer script's emitted shape.
             manifest="${config.files.writer.filesJson}"
 
-            mapfile -t pairs < <(jq -r '.[] | "\(.source)\t\(.path)"' "$manifest")
+            if ! manifest_lines=$(jq -r '.[] | "\(.source)\t\(.path)"' "$manifest"); then
+              echo "✗ Failed to read manifest (jq error): $manifest" >&2
+              exit 1
+            fi
+            mapfile -t pairs < <(printf '%s' "$manifest_lines")
             # This repo always manages a non-empty artifact set; zero parsed
             # entries means the files-input manifest shape changed. Fail closed
             # instead of reporting a vacuous pass with nothing verified.
