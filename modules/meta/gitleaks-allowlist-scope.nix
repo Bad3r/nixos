@@ -62,8 +62,8 @@
       # the key set to be exactly these two also fails closed on a key a future
       # release adds.
       extendKeys = [
-        "useDefault"
-        "disabledRules"
+        "usedefault"
+        "disabledrules"
       ];
 
       # Every allowlist regex is pinned, not just the KV one. An allowlist regex
@@ -136,8 +136,8 @@
             let
               e = p.cfg.extend or { };
             in
-            (e.useDefault or false) != true
-            || (e.disabledRules or [ ]) != [ ]
+            (e.usedefault or false) != true
+            || (e.disabledrules or [ ]) != [ ]
             || lib.subtractLists extendKeys (lib.attrNames e) != [ ]
           ) parsed;
 
@@ -161,14 +161,14 @@
           # against the default target the regex is matched on the bare hex
           # secret and never sees the surrounding "keys KV:" text.
           kvBlocks = lib.filter (a: lib.any (lib.hasInfix "keys KV") (a.regexes or [ ])) allowlists;
-          kvUnscoped = lib.filter (a: (a.regexTarget or "secret") != "line") kvBlocks;
+          kvUnscoped = lib.filter (a: (a.regextarget or "secret") != "line") kvBlocks;
 
           # A global line-target allowlist is evaluated against every finding of
           # every rule, so without targetRules the KV entry hides any real
           # credential that shares a line with its text. That vector is triggered
           # by file content rather than config, so nothing else here can catch
           # it; pinning the scope is the only guard available.
-          kvUntargeted = lib.filter (a: (a.targetRules or [ ]) != kvTargetRules) kvBlocks;
+          kvUntargeted = lib.filter (a: (a.targetrules or [ ]) != kvTargetRules) kvBlocks;
 
           # The same hazard for every other allowlist, bounded by the property
           # that causes it rather than by which entry or which target happens to
@@ -183,11 +183,11 @@
           # != "secret" also fails closed on a target a future gitleaks release
           # adds.
           untargetedRegexScope = lib.filter (
-            a: (a.regexTarget or "secret") != "secret" && (a.targetRules or [ ]) == [ ]
+            a: (a.regextarget or "secret") != "secret" && (a.targetrules or [ ]) == [ ]
           ) allowlists;
 
           unreviewedTargetRules = lib.filter (
-            a: lib.any (r: !lib.elem r reviewedTargetRules) (a.targetRules or [ ])
+            a: lib.any (r: !lib.elem r reviewedTargetRules) (a.targetrules or [ ])
           ) allowlists;
 
           # Which entries may reach outside the secret at all, not only which
@@ -213,7 +213,7 @@
           ) kvBlocks;
 
           unreviewedRegexScope = lib.filter (
-            a: (a.regexTarget or "secret") != "secret" && !(lib.elem a kvExact)
+            a: (a.regextarget or "secret") != "secret" && !(lib.elem a kvExact)
           ) allowlists;
         in
         if unreviewedPathScope != [ ] then
@@ -330,7 +330,25 @@
         else
           null;
 
-      real = map (s: s // { cfg = builtins.fromTOML s.text; }) sources;
+      # gitleaks reads its config through viper, which lowercases every key
+      # before mapstructure decodes it, so Paths, RegexTarget and [[Allowlists]]
+      # are all honoured while builtins.fromTOML keeps the spelling verbatim.
+      # Verified on 8.30.1: a capital [[Allowlists]] table, and a capital Paths
+      # key under the lowercase table, each suppress a github-pat the defaults
+      # report. Folding the case here rather than at each lookup is what keeps a
+      # single capital letter from hiding an entry from every branch at once.
+      # Values are left alone: a capitalised "Line" fails the equality tests
+      # below rather than passing them, so it fails closed.
+      lowerKeys =
+        v:
+        if lib.isAttrs v then
+          lib.mapAttrs' (n: x: lib.nameValuePair (lib.toLower n) (lowerKeys x)) v
+        else if lib.isList v then
+          map lowerKeys v
+        else
+          v;
+
+      real = map (s: s // { cfg = lowerKeys (builtins.fromTOML s.text); }) sources;
       realVerdict = verdict real;
 
       # One synthetic config per branch, each the reviewed config with a single
@@ -349,7 +367,7 @@
       fixture = toml: [
         {
           origin = "fixture";
-          cfg = builtins.fromTOML toml;
+          cfg = lowerKeys (builtins.fromTOML toml);
         }
       ];
 
@@ -385,6 +403,19 @@
             [[allowlists]]
             description = "reaches a tree it does not name"
             paths = ["private-ops/.*"]
+          '';
+        }
+        # The same entry with the capitalisation viper accepts and fromTOML does
+        # not fold. Perturbs nothing else, so it fails the moment lowerKeys stops
+        # normalising either the table name or the key.
+        {
+          id = "path-scope";
+          toml = ''
+            ${okExtend}
+            ${okKv}
+            [[Allowlists]]
+            description = "path-scoped through a capital letter"
+            Paths = ["private-ops/.*"]
           '';
         }
         {
