@@ -73,10 +73,15 @@ writeShellApplication {
     }
 
     # RFC 3986 3.1: the scheme is case-insensitive, and the authority ends
-    # at the first /, ? or #. Emits the origin, or nothing.
+    # at the first /, ? or #. Userinfo is dropped (3.2.1 puts it before @, and
+    # it is not part of an origin): the result feeds --document-url and the
+    # embedded manifest, neither of which site update can rewrite, so
+    # credentials left there would outlive every rotation. Stripped as a suffix
+    # rather than a third group, so nothing depends on how the regex engine
+    # splits two adjacent [^/?#] runs. Emits the origin, or nothing.
     url_origin() {
-      [[ $1 =~ ^([A-Za-z][A-Za-z0-9+.-]*://[^/?#]+) ]] || return 0
-      printf '%s' "''${BASH_REMATCH[1]}"
+      [[ $1 =~ ^([A-Za-z][A-Za-z0-9+.-]*://)([^/?#]+) ]] || return 0
+      printf '%s' "''${BASH_REMATCH[1]}''${BASH_REMATCH[2]##*@}"
     }
 
     # The marker holds the decrypted secret, so it is created owner-only.

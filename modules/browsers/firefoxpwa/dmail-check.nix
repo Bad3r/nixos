@@ -140,6 +140,11 @@
       checks."browsers/firefoxpwa-dmail" =
         pkgs.runCommand "firefoxpwa-dmail-check"
           {
+            # Opts this check into the build step in .github/workflows/check.yml.
+            # Its assertions run in the derivation, so forcing drvPath proves
+            # nothing; the marker keeps that opt-in at the definition site
+            # instead of hardcoding a name in the workflow.
+            runtimeCheck = true;
             nativeBuildInputs = [
               pkgs.jq
               pkgs.coreutils
@@ -360,6 +365,17 @@
             set_url 'https://mail.example.com/inbox?token=TOK_SECOND'
             "$installer" >/dev/null
             assert_absent "rotation retires the previous token" TOK_FIRST
+
+            # Userinfo is part of the authority but not of an origin, and the
+            # origin feeds document_url and the embedded manifest, neither of
+            # which site update can rewrite.
+            reset
+            set_url 'https://user:TOK_USERINFO@mail.example.com/inbox'
+            "$installer" >/dev/null
+            assert_absent "credentials never reach the immutable fields" TOK_USERINFO
+            assert_equal "userinfo is stripped from document_url" \
+              "$(jq -r '.sites["01STUB"].config.document_url' "$config_file")" \
+              'https://mail.example.com/'
 
             echo "-- scope is the bare origin even for a root URL with a query --"
             reset
