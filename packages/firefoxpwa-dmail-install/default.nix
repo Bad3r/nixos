@@ -141,11 +141,16 @@ writeShellApplication {
       # would skip the comparison rather than satisfy it, so no record at all is
       # refused too: the site's scope is then unknown, and a secret that rotated
       # since would otherwise be applied and latched.
+      # origin_file first: it is written on every success and also when an
+      # install registers the site and then fails, so it is never staler than
+      # applied_file. Reading applied_file first would let the origin of a site
+      # the user has since uninstalled outrank the one just registered, and the
+      # refusal would then loop through its own uninstall remedy forever.
       guard_origin=""
-      if [ -r "$applied_file" ]; then
-        guard_origin=$(url_origin "$(<"$applied_file")")
-      elif [ -r "$origin_file" ]; then
+      if [ -r "$origin_file" ]; then
         guard_origin=$(<"$origin_file")
+      elif [ -r "$applied_file" ]; then
+        guard_origin=$(url_origin "$(<"$applied_file")")
       else
         echo "firefoxpwa-dmail: '$app_name' exists but nothing records the origin it was installed at; uninstall the site so this unit can reinstall it" >&2
         exit 1

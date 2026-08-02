@@ -211,13 +211,19 @@
               decoded_manifest
             }
 
+            # Captured, not piped into grep: the runCommand sets pipefail, so a
+            # SIGPIPE on the producer when grep -q exits early would make the if
+            # read false and pass an assertion whose token is present.
             assert_absent() {
-              if decoded_config | grep -qF "$2"; then
-                echo "FAIL  $1: '$2' still reachable from config.json"
-                failures=$((failures + 1))
-              else
-                echo "PASS  $1"
-              fi
+              local haystack
+              haystack=$(decoded_config)
+              case "$haystack" in
+                *"$2"*)
+                  echo "FAIL  $1: '$2' still reachable from config.json"
+                  failures=$((failures + 1))
+                  ;;
+                *) echo "PASS  $1" ;;
+              esac
             }
 
             echo "-- install, idempotence, same-origin rotation --"
@@ -308,6 +314,19 @@
             set_url 'https://mail.example.com/y'
             expect "unrecorded site refuses" 1 "nothing records the origin"
 
+            # Following the refusal's own remedy: installed at A, rotated to B,
+            # site uninstalled, then the reinstall registers and fails. The
+            # applied URL still names A while the origin record names B, so
+            # preferring the stale URL would refuse forever.
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            set_url 'https://other.example.org/x'
+            expect "cross-origin rotation refuses before the uninstall" 1 "does not match the installed origin"
+            jq '.sites = {}' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
+            STUB_FAIL_AFTER_REGISTER=1 "$installer" >/dev/null 2>&1 || true
+            expect "reinstall at the new origin is not blocked by the old URL" 0 "updated start URL"
+
             echo "-- the secret reaches only the field rotation can rewrite --"
             reset
             set_url 'https://mail.example.com/inbox?token=TOK_FIRST'
@@ -320,12 +339,14 @@
               'https://mail.example.com/'
             # start_url is the only field site update can rewrite, so the decoded
             # manifest must not carry the token either: manifest_url is immutable.
-            if decoded_manifest | grep -qF TOK_FIRST; then
-              echo "FAIL  manifest URL carries the token"
-              failures=$((failures + 1))
-            else
-              echo "PASS  manifest URL carries no token"
-            fi
+            manifest_text=$(decoded_manifest)
+            case "$manifest_text" in
+              *TOK_FIRST*)
+                echo "FAIL  manifest URL carries the token"
+                failures=$((failures + 1))
+                ;;
+              *) echo "PASS  manifest URL carries no token" ;;
+            esac
             set_url 'https://mail.example.com/inbox?token=TOK_SECOND'
             "$installer" >/dev/null
             assert_absent "rotation retires the previous token" TOK_FIRST
