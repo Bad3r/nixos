@@ -78,27 +78,27 @@ jobs:
           nix eval --accept-flake-config --json \
             "path:.#checks.x86_64-linux" \
             --apply 'checks: builtins.mapAttrs (_: check: check.drvPath) checks'
-      # The step above only forces drvPaths, so the shell test suites would
-      # never execute. Build just those checks by name: they are small and
+      # The step above only forces drvPaths, so checks that assert at run time
+      # would never execute. Build just those by name: they are small and
       # sandbox-clean, unlike the host toplevels the exclusion above exists
-      # for. The suite list comes from the flake, so a new one is covered
+      # for. The list comes from the flake, so a new script suite is covered
       # without editing this workflow; an empty list fails rather than
       # passing vacuously.
-      - name: Run script test suites
+      - name: Run runtime check suites
         run: |
           suites=$(nix eval --accept-flake-config --json \
             "path:.#checks.x86_64-linux" --apply 'checks:
               builtins.filter
-                (n: builtins.match "script-tests-.*" n != null)
+                (n: builtins.match "(script-tests-.*|browsers/firefoxpwa-dmail)" n != null)
                 (builtins.attrNames checks)' \
             | jq -r '.[]')
           if [ -z "$suites" ]; then
-            echo "no script-tests-* checks found" >&2
+            echo "no runtime checks found" >&2
             exit 1
           fi
           installables=()
           for s in $suites; do
-            installables+=("path:.#checks.x86_64-linux.$s")
+            installables+=("path:.#checks.x86_64-linux.\"$s\"")
           done
           nix build --accept-flake-config --no-link \
             --print-build-logs "${installables[@]}"
