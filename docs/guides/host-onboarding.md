@@ -91,6 +91,9 @@ _: {
     firewallDnsInterfaces = [ "<real-interface-name>" ];
     # firewallExtraTcpPortRanges = [ { from = 8000; to = 8999; } ];
     # duplicatiStateDirReadable = true;
+    # secrets/<host>.yaml keys holding hosts(5) payloads that dnsmasq serves
+    # as addn-hosts files (modules/hosts/common/private-dns-hosts.nix).
+    # privateDnsHostsSecretKeys = [ "internal_hosts" ];
   };
 }
 ```

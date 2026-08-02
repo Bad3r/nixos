@@ -9,5 +9,9 @@ _: {
     # Per-host values consumed by modules/hosts/common/*.
     extraHomeApps = [ "libreoffice" ];
     firewallDnsInterfaces = [ "wlp0s20f3" ];
+
+    # secrets/tpnix.yaml keys served as dnsmasq addn-hosts files by
+    # modules/hosts/common/private-dns-hosts.nix.
+    privateDnsHostsSecretKeys = [ "signalx_hosts" ];
   };
 }
