@@ -84,6 +84,19 @@ _: {
               fi
             done
 
+            # gitleaks git reads whatever the clone has, so a shallow
+            # superproject scans only the fetched tip and exits 0 with "no
+            # leaks found": the same vacuous green the submodule assertion
+            # below guards against, on a cheaper trigger. The only thing
+            # keeping the CI scan honest is fetch-depth: 0 in
+            # .github/workflows/check.yml, which nothing verifies stays set,
+            # and gitleaks-scan is the only credential gate on the merge path.
+            # A --depth working copy does the same to every local pre-push.
+            if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then
+              echo "hook-gitleaks: shallow superproject hides the history this pass covers; refusing to report the repository clean" >&2
+              exit 1
+            fi
+
             # History pass: catches a credential that was committed and later
             # removed, which a worktree scan can no longer see.
             gitleaks git "''${git_args[@]}" . || status=1
