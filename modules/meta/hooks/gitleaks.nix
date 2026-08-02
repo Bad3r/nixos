@@ -163,6 +163,15 @@ _: {
                 fi
                 gitleaks git "''${sub_args[@]}" secrets
               ) || status=1
+            else
+              # Say so rather than let a partial run read as full coverage: the
+              # index records a gitlink at secrets/, so an absent checkout means
+              # its history was not scanned, not that it is clean. Warned and not
+              # refused because this is the state in CI, where gitleaks-scan
+              # never checks the submodule out, and in every fresh
+              # `git worktree add` tree, which this repo's workflow requires per
+              # change.
+              echo "hook-gitleaks: secrets/ is not checked out; its history was NOT scanned and this run covers the superproject only (run 'git submodule update --init secrets' to cover it)" >&2
             fi
 
             exit "$status"
