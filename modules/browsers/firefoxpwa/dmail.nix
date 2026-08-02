@@ -90,13 +90,6 @@ _: {
               "$config_file" 2>/dev/null
           }
 
-          # scope is web_app_manifest's Url enum, which is #[serde(untagged)], so
-          # it lands in config.json as a plain string (or null when unresolved).
-          site_scope() {
-            jq -r --arg i "$1" '.sites[$i].manifest.scope // empty' \
-              "$config_file" 2>/dev/null
-          }
-
           # RFC 3986 3.1: the scheme is case-insensitive, and the authority ends
           # at the first /, ? or #. Emits the origin, or nothing.
           url_origin() {
@@ -134,17 +127,19 @@ _: {
             # A rotation that crosses to a new origin cannot be applied: scope is
             # fixed at install time, so the new start URL would sit outside it and
             # every navigation would go to the external browser. Refuse loudly
-            # rather than let record_applied mark that state as current. Compared
-            # case-insensitively because the url crate lowercases the stored scope
-            # while the secret keeps whatever case it was written in.
-            if ! scope=$(site_scope "$ulid"); then
-              echo "firefoxpwa-dmail: cannot read the installed scope for '$app_name' ($ulid)" >&2
-              exit 1
-            fi
-            scope_origin=$(url_origin "$scope")
-            if [ -n "$scope_origin" ] && [ "''${scope_origin,,}" != "''${origin,,}" ]; then
-              echo "firefoxpwa-dmail: rotated URL origin '$origin' is outside the installed scope '$scope'; uninstall the '$app_name' site to let this unit reinstall it" >&2
-              exit 1
+            # rather than let record_applied mark that state as current.
+            #
+            # Compared against the marker, not .manifest.scope: firefoxpwa stores
+            # the scope through the url crate, which also drops a default port,
+            # punycodes an IDN host and fills in an empty path, so a raw-against-
+            # normalized test refuses rotations that are in fact same-origin. Both
+            # sides here are secrets this script wrote, so only case can differ.
+            if [ -r "$applied_file" ]; then
+              applied_origin=$(url_origin "$(<"$applied_file")")
+              if [ "''${applied_origin,,}" != "''${origin,,}" ]; then
+                echo "firefoxpwa-dmail: rotated URL origin '$origin' does not match the installed origin '$applied_origin'; uninstall the '$app_name' site, or remove $applied_file if it is stale, so this unit can reinstall it" >&2
+                exit 1
+              fi
             fi
 
             echo "firefoxpwa-dmail: refreshing start URL for '$app_name' ($ulid)"
