@@ -70,7 +70,8 @@ _: {
             exit 1
           fi
 
-          url=$(tr -d '[:space:]' < "$url_file")
+          url=$(<"$url_file")
+          url="''${url//[[:space:]]/}"
           if [ -z "$url" ]; then
             echo "firefoxpwa-dmail: decrypted URL is empty" >&2
             exit 1
