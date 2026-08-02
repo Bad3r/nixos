@@ -50,12 +50,26 @@
           [ -f "$config_file" ] || echo '{"sites":{}}' >"$config_file"
 
           normalize() {
-            local url="$1" scheme rest host tail
+            local url="$1" scheme rest authority userinfo host tail
             scheme="''${url%%://*}"
             rest="''${url#*://}"
-            host="''${rest%%[/?#]*}"
-            tail="''${rest#"$host"}"
+            authority="''${rest%%[/?#]*}"
+            tail="''${rest#"$authority"}"
             scheme="''${scheme,,}"
+            # Userinfo sits before @ in the authority and the real url crate
+            # preserves its case, lowercasing only the host. Splitting it off
+            # before ''${host,,} keeps the stub honest about that: folding the
+            # whole authority would hide a leak the installer stops passing on.
+            case "$authority" in
+              *@*)
+                userinfo="''${authority%%@*}@"
+                host="''${authority#*@}"
+                ;;
+              *)
+                userinfo=""
+                host="$authority"
+                ;;
+            esac
             host="''${host,,}"
             case "$scheme:$host" in
               https:*:443) host="''${host%:443}" ;;
@@ -63,7 +77,7 @@
             esac
             host="''${host/${idnHost}/${idnPunycode}}"
             [ -n "$tail" ] || tail="/"
-            printf '%s://%s%s' "$scheme" "$host" "$tail"
+            printf '%s://%s%s%s' "$scheme" "$userinfo" "$host" "$tail"
           }
 
           write_site() {
@@ -366,16 +380,21 @@
             "$installer" >/dev/null
             assert_absent "rotation retires the previous token" TOK_FIRST
 
-            # Userinfo is part of the authority but not of an origin, and the
-            # origin feeds document_url and the embedded manifest, neither of
-            # which site update can rewrite.
+            # A credentials-bearing secret cannot be installed consistently:
+            # url_origin drops userinfo for scope/document_url, so start_url
+            # (which must keep the secret for navigation) would fall outside
+            # its own scope, and site update can rewrite neither field
+            # afterwards. Refused rather than silently installed in that
+            # inconsistent state.
             reset
             set_url 'https://user:TOK_USERINFO@mail.example.com/inbox'
-            "$installer" >/dev/null
-            assert_absent "credentials never reach the immutable fields" TOK_USERINFO
-            assert_equal "userinfo is stripped from document_url" \
-              "$(jq -r '.sites["01STUB"].config.document_url' "$config_file")" \
-              'https://mail.example.com/'
+            expect "credentials-bearing secret refuses" 1 "embeds credentials"
+            if [ -e "$config_file" ]; then
+              echo "FAIL  refused secret still wrote config.json"
+              failures=$((failures + 1))
+            else
+              echo "PASS  refused secret wrote nothing"
+            fi
 
             echo "-- scope is the bare origin even for a root URL with a query --"
             reset

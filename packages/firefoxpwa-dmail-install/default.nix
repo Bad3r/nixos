@@ -59,6 +59,16 @@ writeShellApplication {
       exit 1
     fi
 
+    # Refused rather than installed: url_origin drops userinfo, so the scope
+    # derived from it cannot be a prefix of a start URL that keeps it, and
+    # site update cannot rewrite scope afterwards. Carrying the credentials in
+    # scope instead is not an option: manifest_url is immutable, so they could
+    # never be retired by a rotation.
+    if [[ $url =~ ^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]*@ ]]; then
+      echo "firefoxpwa-dmail: the decrypted URL in $url_file embeds credentials; store it without them" >&2
+      exit 1
+    fi
+
     # firefoxpwa stores the managed site under .sites.<ulid> and the
     # launcher name set with --name lands at .config.name, so a site
     # carrying this name is our install. Emits the ulid, or nothing.
@@ -204,7 +214,6 @@ writeShellApplication {
         --document-url "$origin" \
         --start-url "$url" \
         --name "$app_name"; then
-        record_origin
         record_applied
         echo "firefoxpwa-dmail: installed '$app_name'"
         exit 0
