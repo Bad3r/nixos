@@ -6,15 +6,24 @@ commit is archived under `refs/stash-archive/<YYYY-MM-DD>/<short-sha>`
 before the drop, and archive refs are only deleted by an explicit
 `--sweep-archive` past the retention window (default 90 days). The tool
 never runs `git stash clear`; every drop is per-stash, and a failed archive
-write aborts that stash's drop and fails the run. The dev shell installs the
-same script as `prune-old-stashes` on `PATH`. Issue tracking:
+write aborts that stash's drop and fails the run. It is packaged as
+`prune-old-stashes`, which the dev shell puts on `PATH`. Issue tracking:
 `https://github.com/Bad3r/nixos/issues/202`.
 
 ## Manual Use
 
-The command lives in this repository's dev shell. In a linked worktree the
-`path:.` installable is required, since Lix cannot fetch a clean linked
-worktree as a `git+file` flake; it works in the main checkout too.
+The command ships with this repository, from its dev shell or as the
+`prune-old-stashes` flake package. In a linked worktree the `path:.`
+installable is required, since Lix cannot fetch a clean linked worktree as a
+`git+file` flake; it works in the main checkout too.
+
+The dev shell installs that same package, so the two routes are one derivation
+and either supplies `flock`:
+
+```sh
+nix run path:.#prune-old-stashes -- --apply
+nix shell path:.#prune-old-stashes -c prune-old-stashes --apply
+```
 
 Dry-run report for the current repository (default, changes nothing):
 

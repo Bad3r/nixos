@@ -23,7 +23,7 @@ Required practices:
 - Use `rip <path>` instead of `rm` for deletions (recoverable from graveyard)
 - Use `git stash` when needed; never drop a stash except through the sanctioned path below
 - Allowed stash operations are `git stash`, `git stash list`, `git stash show`, and `git stash apply`
-- The one sanctioned drop path is `nix develop path:. -c prune-old-stashes --apply` run from the repository root, which archives each stash under `refs/stash-archive/<date>/<sha>` before dropping it and keeps it recoverable for the retention window (see `docs/reference/stash-prune.md`). It exists only in this repository's dev shell; outside that shell there is no sanctioned drop path. Like `git stash pop`, it requires explicit user approval before you run it; never issue a bare `git stash drop` yourself
+- The one sanctioned drop path is `nix develop path:. -c prune-old-stashes --apply` run from the repository root, which archives each stash under `refs/stash-archive/<date>/<sha>` before dropping it and keeps it recoverable for the retention window (see `docs/reference/stash-prune.md`). It ships only with this repository, either from its dev shell or as the flake package (`nix run path:.#prune-old-stashes -- --apply`); no drop path outside this repository is sanctioned. Like `git stash pop`, it requires explicit user approval before you run it; never issue a bare `git stash drop` yourself
 - `git stash pop` requires explicit user approval
 - Preserve user changes; if uncertain, ask first
 - Before any potentially destructive operation, stop and ask
