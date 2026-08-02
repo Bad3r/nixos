@@ -3,7 +3,7 @@
 #     Keys in secrets/<host>.yaml, each holding a hosts(5) payload that
 #     NetworkManager's dnsmasq serves as an addn-hosts file. Name-to-IP
 #     mappings for internal hosts stay out of the public system config.
-{ config, ... }:
+{ config, lib, ... }:
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
   inherit (config.flake.lib.security) sopsInstallSecretsDeps;
@@ -16,6 +16,22 @@ let
   # owns org.freedesktop.NetworkManager.dnsmasq as root before setuid(), so the
   # name stays under NetworkManager's root-scoped policy grant.
   runtimeUser = "nm-dnsmasq";
+
+  # Path component the secret name is built from. sops-nix names stay
+  # hyphenated, so the fold is not injective.
+  keyComponent = key: lib.replaceStrings [ "_" ] [ "-" ] key;
+
+  # Keys sharing a component with another key. Both consumers lose data on a
+  # collision: listToAttrs keeps only the last secret, and the duplicate
+  # addn-hosts= line points at it, so one payload is never decrypted and never
+  # served. Exported so private-dns-hosts-checks.nix covers the shipped
+  # expression instead of a copy of it.
+  collidingKeysOf =
+    keys:
+    let
+      components = map keyComponent keys;
+    in
+    lib.filter (key: lib.count (component: component == keyComponent key) components > 1) keys;
 
   body =
     {
@@ -32,21 +48,15 @@ let
       declared = secretKeys != [ ];
       ready = declared && (hostFlags.sopsRuntimeReady or false) && builtins.pathExists secretFile;
 
-      secretName = key: "${hostName}/networking/private-hosts/${lib.replaceStrings [ "_" ] [ "-" ] key}";
+      secretName = key: "${hostName}/networking/private-hosts/${keyComponent key}";
       secretPath = key: "/run/secrets/${secretName key}";
       installSecretsDeps = sopsInstallSecretsDeps config;
 
-      secretNames = map secretName secretKeys;
-      collidingKeys = lib.filter (
-        key: lib.count (name: name == secretName key) secretNames > 1
-      ) secretKeys;
+      collidingKeys = collidingKeysOf secretKeys;
     in
     {
       config = lib.mkMerge [
         (lib.mkIf declared {
-          # secretName folds _ to -, so keys differing only by separator would
-          # share one sops secret: listToAttrs keeps the last and the extra
-          # addn-hosts= line duplicates it, leaving a payload never decrypted.
           assertions = [
             {
               assertion = collidingKeys == [ ];
@@ -124,5 +134,8 @@ let
     };
 in
 {
-  flake.nixosModules.hosts-common.imports = [ body ];
+  flake = {
+    lib.nixos._privateDnsCollidingKeysOf = collidingKeysOf;
+    nixosModules.hosts-common.imports = [ body ];
+  };
 }
