@@ -339,10 +339,32 @@
       # single capital letter from hiding an entry from every branch at once.
       # Values are left alone: a capitalised "Line" fails the equality tests
       # below rather than passing them, so it fails closed.
+      # Collisions are refused rather than folded. TOML keys are case-sensitive,
+      # so one table may carry both spellings, and mapAttrs' is listToAttrs over
+      # attrNames, which keeps the first: attrNames sorts "Paths" before "paths"
+      # (0x50 < 0x70), so a reviewed Paths would survive and a malicious
+      # lowercase paths would be discarded before any branch saw it. gitleaks
+      # resolves the same table through viper's insensitiviseMap, which deletes
+      # and re-inserts each key while ranging over a Go map, so which value
+      # survives there is iteration-order dependent. No fold can pick the same
+      # winner the scanner will, which makes refusing the only sound option.
+      # Throws in the parse rather than returning a verdict id, so it cannot be
+      # driven from cases.
       lowerKeys =
         v:
         if lib.isAttrs v then
-          lib.mapAttrs' (n: x: lib.nameValuePair (lib.toLower n) (lowerKeys x)) v
+          let
+            names = lib.attrNames v;
+          in
+          if builtins.length (lib.unique (map lib.toLower names)) != builtins.length names then
+            throw (
+              "gitleaks-allowlist-scope: a table carries keys differing only in case "
+              + "(${lib.concatStringsSep ", " names}). gitleaks folds them to one key through "
+              + "viper and which value survives is iteration-order dependent, so no branch here "
+              + "can be trusted to have inspected the one in effect; spell each key once"
+            )
+          else
+            lib.mapAttrs' (n: x: lib.nameValuePair (lib.toLower n) (lowerKeys x)) v
         else if lib.isList v then
           map lowerKeys v
         else
@@ -406,13 +428,14 @@
           '';
         }
         # The same entry with the capitalisation viper accepts and fromTOML does
-        # not fold. Perturbs nothing else, so it fails the moment lowerKeys stops
-        # normalising either the table name or the key.
+        # not fold, in both the table name and the key. Fails the moment
+        # lowerKeys stops normalising either one. No lowercase allowlist table
+        # here on purpose: mixing spellings is the collision lowerKeys refuses
+        # outright, which would mask this case behind a parse error.
         {
           id = "path-scope";
           toml = ''
             ${okExtend}
-            ${okKv}
             [[Allowlists]]
             description = "path-scoped through a capital letter"
             Paths = ["private-ops/.*"]
