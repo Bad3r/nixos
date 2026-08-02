@@ -92,6 +92,15 @@ _: {
             Service = {
               Type = "oneshot";
               RemainAfterExit = true;
+              # firefoxpwa resolves its own user data directory at runtime, from
+              # FFPWA_USERDATA or else $XDG_DATA_HOME/firefoxpwa. User units do
+              # not source hm-session-vars.sh, so without this a non-default
+              # xdg.dataHome sends firefoxpwa's config.json somewhere the script
+              # never reads: the site lookup would come back empty every run and
+              # install another "DMail" on each activation. FFPWA_USERDATA rather
+              # than XDG_DATA_HOME because it names the directory outright,
+              # instead of relying on the "firefoxpwa" suffix the crate appends.
+              Environment = [ "FFPWA_USERDATA=${dataDir}" ];
               ExecStart = lib.getExe installScript;
             };
             Install.WantedBy = [

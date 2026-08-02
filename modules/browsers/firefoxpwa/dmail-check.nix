@@ -40,10 +40,13 @@
           pkgs.coreutils
         ];
         text = ''
-          # Set by the check to the same directory the installer is given, so
-          # the stub cannot accidentally agree with a path the installer
-          # re-derived on its own.
-          config_file="''${STUB_CONFIG:?}"
+          # Resolved the way the real binary does (native/src/directories.rs):
+          # FFPWA_USERDATA if set, else the XDG data directory plus a firefoxpwa
+          # suffix. The stub must not be told the path directly, or it would
+          # agree with an installer that picked its own and hide the mismatch.
+          userdata="''${FFPWA_USERDATA:-''${XDG_DATA_HOME:-$HOME/.local/share}/firefoxpwa}"
+          mkdir -p "$userdata"
+          config_file="$userdata/config.json"
           [ -f "$config_file" ] || echo '{"sites":{}}' >"$config_file"
 
           normalize() {
@@ -150,7 +153,10 @@
             data_dir=${lib.escapeShellArg dataDir}
             config_file="$data_dir/config.json"
             marker="$data_dir/dmail-applied-url"
-            export STUB_CONFIG="$config_file"
+            # Mirrors the unit's Environment=. The stub resolves its own data
+            # directory from this, exactly as firefoxpwa does, so the installer
+            # and the binary agree only while both are pinned to it.
+            export FFPWA_USERDATA="$data_dir"
             install -d "$HOME" "$XDG_DATA_HOME" "$secret_dir"
 
             installer=${lib.getExe installer}
