@@ -106,15 +106,27 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
   dir of a repository could not be resolved; a named `--root` is missing or
   contains no checkouts; any scanned root, including the default one, holds a
   broken checkout or a directory that is not the root of the repository it
-  resolves to; `flock` is not installed; another instance holds the run lock.
+  resolves to; `flock` is not installed; the lock directory could not be
+  created, or exists and is not a directory this user owns; another instance
+  holds the run lock.
 - `64`: usage error, including an unparsable `--age` or `--archive-retention`.
 
 ## Concurrency
 
-Runs are serialized by `${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/prune-old-stashes.<uid>.lock`,
-the same guard `scripts/prune-stale-worktrees.sh` uses. Dry runs take the lock
-too, so a plan is never printed against a stack another run is pruning. A
-second concurrent invocation exits 1 without touching anything.
+Runs are serialized by
+`${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/prune-old-stashes.<uid>/lock`, the same
+guard `scripts/prune-stale-worktrees.sh` uses. Dry runs take the lock too, so a
+plan is never printed against a stack another run is pruning. A second
+concurrent invocation exits 1 without touching anything.
+
+The lock file sits inside a per-user directory created with mode 700 rather
+than directly under the base directory, and the run exits 1 if that directory
+is a symlink, is not a directory, or is not owned by this user. Without
+`XDG_RUNTIME_DIR` or `TMPDIR` (a cron entry, `ssh host 'scripts/...'`, a
+container) the base is `/tmp`: opening a predictable leaf there follows
+symlinks and truncates, so another user who creates that name first can empty
+any file this uid can write. The sticky bit does not prevent it, since the name
+does not exist yet and nothing is being replaced.
 
 The lock is taken with `flock`, so util-linux is a hard requirement rather than
 an optimization. The dev-shell wrapper and the `prune-old-stashes` flake package

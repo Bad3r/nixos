@@ -691,7 +691,8 @@ test_second_instance_is_locked_out() {
   make_fixture lock
   push_stash "${repo}" old-a 30
   out="${tmpdir}/lock.out"
-  lock="${XDG_RUNTIME_DIR}/prune-old-stashes.$(id -u).lock"
+  lock="${XDG_RUNTIME_DIR}/prune-old-stashes.$(id -u)/lock"
+  mkdir -p "$(dirname "${lock}")"
 
   # The test shell holds the lock itself, so contention is deterministic rather
   # than a race against a background holder.
@@ -713,6 +714,55 @@ test_second_instance_is_locked_out() {
   pass
 }
 
+test_hostile_lock_dir_is_refused_not_followed() {
+  local out victim base
+  make_fixture lock-dir
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/lock-dir.out"
+
+  # The attack the private lock directory exists to stop: another user creates
+  # the predictable name first, pointing it somewhere this uid can write. The
+  # run must refuse rather than open a leaf under it.
+  base="${tmpdir}/hostile-base"
+  victim="${tmpdir}/hostile-target"
+  mkdir -p "${base}" "${victim}"
+  ln -s "${victim}" "${base}/prune-old-stashes.$(id -u)"
+
+  TMPDIR="${base}" XDG_RUNTIME_DIR="${base}" run_sut "${out}" "${repo}" --apply
+  assert_status 1 "${out}" lock-dir
+  assert_contains "${out}" 'lock directory is not a directory this user owns' lock-dir
+  assert_not_contains "${out}" 'another instance is already running' lock-dir
+
+  # Refused before the lock was opened, so nothing was written through the
+  # symlink and no repository was touched.
+  [[ ! -e ${victim}/lock ]] || fail "lock-dir: the run opened a lock through the symlink"
+  assert_stash_count "${repo}" 1 lock-dir
+  assert_archive_count "${repo}" 0 lock-dir
+  pass
+}
+
+test_lock_leaf_is_not_a_predictable_name_in_the_base() {
+  local out victim base
+  make_fixture lock-leaf
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/lock-leaf.out"
+
+  # The regression this replaced: a symlink at the old leaf name was followed
+  # by `exec 200>` and truncated. That name is no longer opened at all, so a
+  # file planted there survives a full run.
+  base="${tmpdir}/leaf-base"
+  victim="${tmpdir}/leaf-target"
+  mkdir -p "${base}"
+  printf 'important\n' >"${victim}"
+  ln -s "${victim}" "${base}/prune-old-stashes.$(id -u).lock"
+
+  TMPDIR="${base}" XDG_RUNTIME_DIR="${base}" run_sut "${out}" "${repo}" --apply
+  assert_status 0 "${out}" lock-leaf
+  [[ -s ${victim} ]] || fail "lock-leaf: the old leaf name was still opened and truncated" "${out}"
+  assert_stash_count "${repo}" 0 lock-leaf
+  pass
+}
+
 test_missing_flock_is_reported_as_itself() {
   local out shim tool tool_path
   make_fixture no-flock
@@ -725,7 +775,7 @@ test_missing_flock_is_reported_as_itself() {
   # process that never exits, which the negative assertion below catches.
   shim="${tmpdir}/no-flock-bin"
   mkdir -p "${shim}"
-  for tool in bash sh env git date id cat; do
+  for tool in bash sh env git date id cat mkdir; do
     tool_path="$(command -v "${tool}")" || continue
     ln -s "${tool_path}" "${shim}/${tool}"
   done
@@ -1427,6 +1477,8 @@ test_concurrent_push_does_not_block_pruning
 test_vanished_stash_is_skipped_not_mistaken
 test_second_instance_is_locked_out
 test_missing_flock_is_reported_as_itself
+test_hostile_lock_dir_is_refused_not_followed
+test_lock_leaf_is_not_a_predictable_name_in_the_base
 test_rejected_entry_does_not_shift_reported_positions
 test_blank_listing_line_is_rejected_not_skipped
 test_blank_line_in_the_live_stack_does_not_shift_lookup

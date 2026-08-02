@@ -80,8 +80,9 @@ exit codes:
       common git dir of a repository could not be resolved; a named --root is
       missing or contains no checkouts; any scanned root, including the default
       one, holds a broken checkout or a directory that is not the root of the
-      repository it resolves to; flock is not installed; another instance holds
-      the run lock
+      repository it resolves to; flock is not installed; the lock directory
+      could not be created, or exists and is not a directory this user owns;
+      another instance holds the run lock
   64  usage error
 EOF
 }
@@ -575,15 +576,37 @@ sweep_repo() {
 # (scripts/prune-stale-worktrees.sh): two runs over one stash stack would each
 # resolve positions against a stack the other is mutating. Dry runs take the
 # lock too, so a report is never printed against a stack being pruned.
-lock_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
-lock_file="${lock_dir}/prune-old-stashes.$(id -u).lock"
-# Checked before use: `command not found` returns 127 into the `||` below and
-# would be reported as contention with a process that does not exist, which
-# never clears no matter how long the operator waits.
+# Checked before anything is created: `command not found` returns 127 into the
+# `flock -n` `||` below and would be reported as contention with a process that
+# does not exist, which never clears no matter how long the operator waits.
 command -v flock >/dev/null 2>&1 || {
   echo "${prog_name}: flock is required to serialize runs (install util-linux, or use the dev-shell wrapper)" >&2
   exit 1
 }
+lock_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/prune-old-stashes.$(id -u)"
+# The last fallback is /tmp, which is world-writable, and `exec 200>` below
+# follows symlinks and truncates: with neither XDG_RUNTIME_DIR nor TMPDIR set,
+# the leaf name is predictable, so another user who creates it first as a
+# symlink redirects the open onto any file this uid can write and empties it
+# before any guard here runs. The sticky bit does not help, since nothing is
+# being replaced. A private directory this run confirmed it owns takes the leaf
+# out of reach.
+mkdir -p -- "${lock_dir}" || {
+  echo "${prog_name}: could not create the lock directory ${lock_dir}" >&2
+  exit 1
+}
+# mkdir -p succeeds on a pre-existing symlink to a directory, so ownership and
+# type are checked rather than assumed.
+if [[ -L ${lock_dir} || ! -d ${lock_dir} || ! -O ${lock_dir} ]]; then
+  echo "${prog_name}: lock directory is not a directory this user owns: ${lock_dir}" >&2
+  exit 1
+fi
+# Set after the check, not through `mkdir -m`: with -p that applies only to the
+# deepest component created and never to a directory that already existed, so a
+# run under umask 000 would otherwise leave a world-writable directory and put
+# the leaf back within reach.
+chmod 700 -- "${lock_dir}"
+lock_file="${lock_dir}/lock"
 exec 200>"${lock_file}"
 flock -n 200 || {
   echo "${prog_name}: another instance is already running (lock: ${lock_file})" >&2
