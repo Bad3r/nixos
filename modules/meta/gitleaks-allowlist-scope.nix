@@ -189,6 +189,20 @@
           unreviewedTargetRules = lib.filter (
             a: lib.any (r: !lib.elem r reviewedTargetRules) (a.targetRules or [ ])
           ) allowlists;
+
+          # Which entries may reach outside the secret at all, not only which
+          # rules they may name. The two branches above are each escapable by
+          # satisfying the other: a non-default regexTarget is rejected only
+          # while targetRules is empty, and targetRules values are checked only
+          # against the reviewed set, so regexTarget = "line" plus
+          # targetRules = ["generic-api-key"] on the DNSCrypt entry clears both
+          # at once and silences generic-api-key, the rule that allowlist exists
+          # for, on every line carrying the minisign key text. The KV entry is
+          # the only one reviewed to match outside the secret, and kvUntargeted
+          # and kvUnscoped already pin its target and its rule.
+          unreviewedRegexScope = lib.filter (
+            a: (a.regexTarget or "secret") != "secret" && !(lib.elem a kvBlocks)
+          ) allowlists;
         in
         if unreviewedPathScope != [ ] then
           {
@@ -287,6 +301,19 @@
               + "non-default regexTarget matches text outside the secret, so naming a rule here "
               + "silences that rule wherever the allowlist text appears; add the rule id to "
               + "reviewedTargetRules deliberately";
+          }
+        # Last, after target-rules: the untargeted-scope and target-rules
+        # fixtures are both non-KV entries carrying a non-default regexTarget, so
+        # any earlier placement rejects them here first and masks both branches.
+        else if unreviewedRegexScope != [ ] then
+          {
+            id = "regex-scope";
+            message =
+              "gitleaks-allowlist-scope: allowlist ${describe unreviewedRegexScope} sets a non-default "
+              + "regexTarget outside the Cloudflare KV entry, which is the only one reviewed to match "
+              + "off the secret. Any other target makes the entry match text the credential does not "
+              + "contain, so it suppresses its targeted rules wherever that text appears; scope the "
+              + "false positive against the secret instead";
           }
         else
           null;
@@ -448,6 +475,21 @@
             description = "reviewed regex aimed at an unreviewed rule"
             regexTarget = "line"
             targetRules = ["stripe-access-token"]
+            regexes = ["RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"]
+          '';
+        }
+        # Everything reviewed taken one at a time: reviewed regex, reviewed
+        # target rule, and the two branches above each satisfied by what clears
+        # the other. Only the entry's identity is left to reject it on.
+        {
+          id = "regex-scope";
+          toml = ''
+            ${okExtend}
+            ${okKv}
+            [[allowlists]]
+            description = "reviewed regex and reviewed rule, matched off the secret"
+            regexTarget = "line"
+            targetRules = ["generic-api-key"]
             regexes = ["RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"]
           '';
         }
