@@ -31,6 +31,7 @@ let
             gtk3
             gdk-pixbuf
             pango
+            harfbuzz
             cairo
             atk
             at-spi2-core
