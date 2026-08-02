@@ -68,18 +68,20 @@ options:
 
 Runs are serialized by a per-user lock; a second concurrent invocation exits
 1 rather than resolving stash positions against a stack another run is
-mutating.
+mutating. The lock needs flock from util-linux, which the dev-shell wrapper
+and the flake package supply; a run started any other way exits 1 without it.
 
 exit codes:
   0   success (or clean dry-run)
-  1   the run did not complete everything it selected. Causes: an archive
-      write, drop, or archive-ref deletion failed; a selected stash moved or
-      vanished before its drop; a stash-list entry was unparsable; the stash
-      list or the archive refs could not be read; the common git dir of a
-      repository could not be resolved; a named --root is missing or contains
-      no checkouts; any scanned root, including the default one, holds a
-      broken checkout or a directory that is not the root of the repository
-      it resolves to; another instance holds the run lock
+  1   the run did not complete everything it selected, or could not start at
+      all. Causes: an archive write, drop, or archive-ref deletion failed; a
+      selected stash moved or vanished before its drop; a stash-list entry was
+      unparsable; the stash list or the archive refs could not be read; the
+      common git dir of a repository could not be resolved; a named --root is
+      missing or contains no checkouts; any scanned root, including the default
+      one, holds a broken checkout or a directory that is not the root of the
+      repository it resolves to; flock is not installed; another instance holds
+      the run lock
   64  usage error
 EOF
 }

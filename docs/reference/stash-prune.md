@@ -90,14 +90,14 @@ git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
 ## Exit Codes
 
 - `0`: success, or a dry run that changed nothing.
-- `1`: the run did not complete everything it selected. Causes: an archive
-  write, drop, or archive-ref deletion failed; a selected stash moved or
-  vanished before its drop; a stash-list entry was unparsable; a stash list or
-  the archive refs could not be read; the common git dir of a repository could
-  not be resolved; a named `--root` is missing or contains no checkouts; any
-  scanned root, including the default one, holds a broken checkout or a
-  directory that is not the root of the repository it resolves to; another
-  instance holds the run lock.
+- `1`: the run did not complete everything it selected, or could not start at
+  all. Causes: an archive write, drop, or archive-ref deletion failed; a
+  selected stash moved or vanished before its drop; a stash-list entry was
+  unparsable; a stash list or the archive refs could not be read; the common git
+  dir of a repository could not be resolved; a named `--root` is missing or
+  contains no checkouts; any scanned root, including the default one, holds a
+  broken checkout or a directory that is not the root of the repository it
+  resolves to; `flock` is not installed; another instance holds the run lock.
 - `64`: usage error, including an unparsable `--age` or `--archive-retention`.
 
 ## Concurrency
@@ -106,6 +106,14 @@ Runs are serialized by `${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/prune-old-stashes.<u
 the same guard `scripts/prune-stale-worktrees.sh` uses. Dry runs take the lock
 too, so a plan is never printed against a stack another run is pruning. A
 second concurrent invocation exits 1 without touching anything.
+
+The lock is taken with `flock`, so util-linux is a hard requirement rather than
+an optimization. The dev-shell wrapper and the `prune-old-stashes` flake package
+both carry it in `runtimeInputs`; running `scripts/prune-old-stashes.sh` directly
+on a host without it exits 1 naming the missing tool, before any repository is
+read. It is checked explicitly because a missing `flock` would otherwise return
+127 into the contention branch and be reported as a conflict with a process that
+does not exist.
 
 Within a run, stack positions are treated as a snapshot, not as identity: the
 position of each selected stash is resolved again from its recorded commit

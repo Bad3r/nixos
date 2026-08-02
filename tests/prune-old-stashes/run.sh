@@ -713,6 +713,35 @@ test_second_instance_is_locked_out() {
   pass
 }
 
+test_missing_flock_is_reported_as_itself() {
+  local out shim tool tool_path
+  make_fixture no-flock
+  push_stash "${repo}" old-a 30
+  out="${tmpdir}/no-flock.out"
+
+  # An exclusive PATH rather than a prepended shim: absence is what is under
+  # test, so flock has to be unreachable, not shadowed. Folding the guard back
+  # into the `flock -n` `||` branch turns the message into contention with a
+  # process that never exits, which the negative assertion below catches.
+  shim="${tmpdir}/no-flock-bin"
+  mkdir -p "${shim}"
+  for tool in bash sh env git date id cat; do
+    tool_path="$(command -v "${tool}")" || continue
+    ln -s "${tool_path}" "${shim}/${tool}"
+  done
+  [[ ! -e ${shim}/flock ]] || fail "no-flock: the shim resolved a flock it must not have"
+
+  PATH="${shim}" run_sut "${out}" "${repo}" --apply
+  assert_status 1 "${out}" no-flock
+  assert_contains "${out}" 'flock is required to serialize runs' no-flock
+  assert_not_contains "${out}" 'another instance is already running' no-flock
+
+  # The guard runs before any repository is touched.
+  assert_stash_count "${repo}" 1 no-flock
+  assert_archive_count "${repo}" 0 no-flock
+  pass
+}
+
 test_sweep_archive_respects_retention() {
   local out
   make_fixture sweep
@@ -1397,6 +1426,7 @@ test_unreadable_live_stack_blocks_the_drop
 test_concurrent_push_does_not_block_pruning
 test_vanished_stash_is_skipped_not_mistaken
 test_second_instance_is_locked_out
+test_missing_flock_is_reported_as_itself
 test_rejected_entry_does_not_shift_reported_positions
 test_blank_listing_line_is_rejected_not_skipped
 test_blank_line_in_the_live_stack_does_not_shift_lookup
