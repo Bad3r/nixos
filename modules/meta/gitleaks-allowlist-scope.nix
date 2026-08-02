@@ -28,31 +28,38 @@
       # managed-files-drift closes neither gap here, being a pre-commit hook
       # rather than a CI gate. Each entry keeps its origin so a throw names the
       # file that carries it rather than the one a reader would expect.
+      # reviewedPaths is per source, not global: a paths pattern is matched
+      # against a File rooted at the tree being scanned, and the submodule pass
+      # scans secrets/, where File comes back submodule-relative. The two
+      # documentation patterns are superproject trees, so the config that governs
+      # the submodule pass may carry no paths entry at all and its reviewed set
+      # is empty.
+      superprojectPaths = [
+        "^nixos-manual/"
+        "^docs/nixos-manual/"
+      ];
+
       sources = [
         {
           origin = "modules/development/gitleaks.nix";
           text = config.files.file.".gitleaks.toml".text;
+          reviewedPaths = superprojectPaths;
         }
         {
           origin = ".gitleaks.toml";
           text = builtins.readFile ../../.gitleaks.toml;
+          reviewedPaths = superprojectPaths;
         }
-      ];
-
-      # Anchored, because gitleaks matches paths unanchored: Allowlist.PathAllowed
-      # runs regexp.MatchString over the finding's File, which git mode reports
-      # repo-relative with no prefix, so "nixos-manual/.*" also skips
-      # secrets/private-ops/nixos-manual and any other directory of that name in
-      # either scanned repository. Measured on 8.30.1: unanchored skips both a
-      # planted credential under secrets/private-ops/nixos-manual/ and the real
-      # tree, anchored skips only the real tree and reports the planted one. That
-      # made the single path-scope this check blesses reachable by creating a
-      # directory, with no config edit and no reviewer reading this file, and it
-      # made docs/nixos-manual/.* dead because the first pattern already covered
-      # it.
-      reviewedPaths = [
-        "^nixos-manual/"
-        "^docs/nixos-manual/"
+        {
+          origin = "modules/development/gitleaks.nix (.gitleaks-secrets.toml)";
+          text = config.files.file.".gitleaks-secrets.toml".text;
+          reviewedPaths = [ ];
+        }
+        {
+          origin = ".gitleaks-secrets.toml";
+          text = builtins.readFile ../../.gitleaks-secrets.toml;
+          reviewedPaths = [ ];
+        }
       ];
 
       # gitleaks keeps a default rule only when no local rule claims its id, so a
@@ -129,7 +136,7 @@
 
           allowlists = lib.concatMap (
             p:
-            map (a: a // { inherit (p) origin; }) (
+            map (a: a // { inherit (p) origin reviewedPaths; }) (
               tablesOf p.cfg ++ lib.concatMap tablesOf (p.cfg.rules or [ ])
             )
           ) parsed;
@@ -139,7 +146,7 @@
           );
 
           unreviewedPathScope = lib.filter (
-            a: lib.any (p: !lib.elem p reviewedPaths) (a.paths or [ ])
+            a: lib.any (p: !lib.elem p a.reviewedPaths) (a.paths or [ ])
           ) allowlists;
 
           weakenedExtend = lib.filter (
@@ -178,6 +185,7 @@
           # config key.
           allowlistKeys = [
             "origin"
+            "reviewedPaths"
             "description"
             "paths"
             "regexes"
@@ -265,7 +273,9 @@
             id = "path-scope";
             message =
               "gitleaks-allowlist-scope: allowlist ${describe unreviewedPathScope} carries a paths entry "
-              + "outside the reviewed set ${lib.concatStringsSep ", " reviewedPaths}. A paths entry makes "
+              + "outside the reviewed set for its file (${
+                lib.concatStringsSep ", " (lib.unique (lib.concatMap (a: a.reviewedPaths) unreviewedPathScope))
+              }). A paths entry makes "
               + "gitleaks skip those files entirely, hiding real leaks in them, and entries are unanchored "
               + "regexes so one can reach a tree it does not name. Scope by content with "
               + "regexTarget = \"line\" instead, or widen reviewedPaths deliberately";
@@ -438,6 +448,7 @@
       fixture = toml: [
         {
           origin = "fixture";
+          reviewedPaths = superprojectPaths;
           cfg = lowerKeys "fixture" (builtins.fromTOML toml);
         }
       ];

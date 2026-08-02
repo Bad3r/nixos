@@ -39,6 +39,7 @@ let
       "gitattributes"
       "gitignore"
       "gitmodules"
+      "gitleaks-secrets.toml"
       "gitleaks.toml"
       "hgignore"
       "pre-commit-config.yaml"

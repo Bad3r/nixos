@@ -70,6 +70,7 @@ The following files are defined in Nix and generated via [mightyiam/files](https
 - `.actrc`
 - `.githooks/post-checkout`
 - `.gitignore`
+- `.gitleaks-secrets.toml`
 - `.gitleaks.toml`
 - `.sops.yaml`
 - `README.md`

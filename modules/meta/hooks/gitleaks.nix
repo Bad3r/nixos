@@ -33,11 +33,20 @@ _: {
             # repository deciding what the public one reports, the same reach
             # the .gitleaksignore guard below refuses. write-files owns this
             # file, so its absence is a broken checkout, never a state to scan.
-            if [ ! -f ".gitleaks.toml" ]; then
-              echo "hook-gitleaks: .gitleaks.toml is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; regenerate it with 'nix develop --accept-flake-config -c write-files' instead of scanning unreviewed" >&2
-              exit 1
-            fi
-            common+=(--config ".gitleaks.toml")
+            # One config per pass, because a paths allowlist is matched against a
+            # File rooted at the tree being scanned: for `gitleaks git secrets`
+            # that root is the submodule, so File comes back as
+            # "nixos-manual/leak.txt" and the superproject's anchored
+            # "^nixos-manual/" would skip a top-level directory of that name
+            # inside the private repository, before scanning it and invisibly
+            # from here. .gitleaks-secrets.toml carries the content-scoped
+            # allowlists and no paths key at all.
+            for config_file in ".gitleaks.toml" ".gitleaks-secrets.toml"; do
+              if [ ! -f "$config_file" ]; then
+                echo "hook-gitleaks: $config_file is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; regenerate it with 'nix develop --accept-flake-config -c write-files' instead of scanning unreviewed" >&2
+                exit 1
+              fi
+            done
 
             # One baseline per pass, because fingerprints carry the shas of the
             # repository they came from, so the superproject's entries can never
@@ -65,12 +74,12 @@ _: {
             # found" as one that filtered none, and for the submodule the list
             # doing the filtering lives in the private repository, so a reviewer
             # here cannot see what a clean result was measured against.
-            git_args=("''${common[@]}")
+            git_args=("''${common[@]}" --config ".gitleaks.toml")
             if [ -f ".gitleaks-baseline.json" ]; then
               git_args+=(--baseline-path ".gitleaks-baseline.json")
               echo "hook-gitleaks: superproject pass filtered by .gitleaks-baseline.json" >&2
             fi
-            sub_args=("''${common[@]}")
+            sub_args=("''${common[@]}" --config ".gitleaks-secrets.toml")
             if [ -f "secrets/.gitleaks-baseline.json" ]; then
               sub_args+=(--baseline-path "secrets/.gitleaks-baseline.json")
               echo "hook-gitleaks: submodule pass filtered by secrets/.gitleaks-baseline.json, reviewed only in the private repository" >&2
