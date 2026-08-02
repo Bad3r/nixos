@@ -39,23 +39,6 @@
         }
       ];
 
-      # Structural parse rather than string splitting, because `paths=[` without
-      # spaces, a reordered key, or an inline table all defeat an infix search,
-      # and a guard that a whitespace change disarms is not a guard.
-      parsed = map (s: s // { cfg = builtins.fromTOML s.text; }) sources;
-
-      # gitleaks honours the singular [allowlist] table and rule-scoped
-      # allowlists as well; cfg.rules is absent while the config only extends the
-      # default ruleset, which makes that term inert until a rule is added.
-      tablesOf = t: (t.allowlists or [ ]) ++ lib.optional (t ? allowlist) t.allowlist;
-
-      allowlists = lib.concatMap (
-        p:
-        map (a: a // { inherit (p) origin; }) (
-          tablesOf p.cfg ++ lib.concatMap tablesOf (p.cfg.rules or [ ])
-        )
-      ) parsed;
-
       reviewedPaths = [
         "nixos-manual/.*"
         "docs/nixos-manual/.*"
@@ -70,14 +53,6 @@
       # because the config only extends the default ruleset.
       reviewedRuleIds = [ ];
 
-      unreviewedRules = lib.filter (r: !lib.elem (r.id or "<unnamed>") reviewedRuleIds) (
-        lib.concatMap (p: map (r: r // { inherit (p) origin; }) (p.cfg.rules or [ ])) parsed
-      );
-
-      unreviewedPathScope = lib.filter (
-        a: lib.any (p: !lib.elem p reviewedPaths) (a.paths or [ ])
-      ) allowlists;
-
       # Pinned by key set, not only by value. [extend] also takes `path` and
       # `url`, which load rules and allowlists from a config neither parse here
       # reads. gitleaks 8.30.1 refuses `path` together with `useDefault`, and
@@ -91,16 +66,6 @@
         "disabledRules"
       ];
 
-      weakenedExtend = lib.filter (
-        p:
-        let
-          e = p.cfg.extend or { };
-        in
-        (e.useDefault or false) != true
-        || (e.disabledRules or [ ]) != [ ]
-        || lib.subtractLists extendKeys (lib.attrNames e) != [ ]
-      ) parsed;
-
       # Every allowlist regex is pinned, not just the KV one. An allowlist regex
       # is matched against every finding in the repository, so a broad one
       # silences rules everywhere: verified against 8.30.1 that a global
@@ -113,49 +78,7 @@
         "(production|preview) keys KV: [0-9a-f]{32}"
       ];
 
-      unreviewedRegexes = lib.filter (
-        a: lib.any (r: !lib.elem r reviewedRegexes) (a.regexes or [ ])
-      ) allowlists;
-
-      # stopwords and commits are the remaining suppression fields on an
-      # allowlist and neither is bounded by the branches above. A stopword is a
-      # case-insensitive substring test against the secret, so ["a"] silences
-      # nearly everything: verified against 8.30.1 that it hides a planted Stripe
-      # live key with no paths, no regexes and no new table. A commits entry
-      # drops every finding in that commit, which is what the baselines are for.
-      # The config carries neither, so any entry is a deliberate edit here.
-      unreviewedSuppressors = lib.filter (
-        a: (a.stopwords or [ ]) != [ ] || (a.commits or [ ]) != [ ]
-      ) allowlists;
-
-      # The Cloudflare KV allowlist is a no-op unless it is line-scoped: against
-      # the default target the regex is matched on the bare hex secret and never
-      # sees the surrounding "keys KV:" text.
-      kvBlocks = lib.filter (a: lib.any (lib.hasInfix "keys KV") (a.regexes or [ ])) allowlists;
-      kvUnscoped = lib.filter (a: (a.regexTarget or "secret") != "line") kvBlocks;
-
-      # A global line-target allowlist is evaluated against every finding of
-      # every rule, so without targetRules the KV entry hides any real credential
-      # that shares a line with its text. That vector is triggered by file
-      # content rather than config, so nothing else here can catch it; pinning
-      # the scope is the only guard available.
       kvTargetRules = [ "generic-api-key" ];
-      kvUntargeted = lib.filter (a: (a.targetRules or [ ]) != kvTargetRules) kvBlocks;
-
-      # The same hazard for every other allowlist, bounded by the property that
-      # causes it rather than by which entry or which target happens to have it
-      # today. Any regexTarget other than the default "secret" makes an allowlist
-      # match text outside the secret ("line" the whole line, "match" the whole
-      # rule match), so an untargeted one suppresses every rule wherever its text
-      # appears. Both are live on 8.30.1: an untargeted match-target allowlist
-      # carrying "sk_live_" hides a Stripe key that is otherwise reported. Adding
-      # either target to the DNSCrypt entry trips nothing else here, since its
-      # regex is already in reviewedRegexes and it holds no "keys KV" text for
-      # kvBlocks. Testing != "secret" also fails closed on a target a future
-      # gitleaks release adds.
-      untargetedRegexScope = lib.filter (
-        a: (a.regexTarget or "secret") != "secret" && (a.targetRules or [ ]) == [ ]
-      ) allowlists;
 
       bothFiles = lib.concatStringsSep " or " (map (s: s.origin) sources);
       describe =
@@ -163,75 +86,343 @@
         lib.concatStringsSep ", " (
           lib.unique (map (a: "${a.origin}: ${a.description or "<undescribed>"}") entries)
         );
+
+      # A function of the parsed configs rather than a closure over the two real
+      # ones, so the branches can be driven by fixtures below. Returns the id and
+      # message of the first branch to reject, or null when every branch passes.
+      # The id is what makes the fixtures load-bearing: asserting only that some
+      # branch rejected would let an earlier branch cover for a later one that
+      # had stopped working.
+      verdict =
+        parsed:
+        let
+          # gitleaks honours the singular [allowlist] table and rule-scoped
+          # allowlists as well; cfg.rules is absent while the config only extends
+          # the default ruleset, which makes that term inert until a rule is
+          # added.
+          tablesOf = t: (t.allowlists or [ ]) ++ lib.optional (t ? allowlist) t.allowlist;
+
+          allowlists = lib.concatMap (
+            p:
+            map (a: a // { inherit (p) origin; }) (
+              tablesOf p.cfg ++ lib.concatMap tablesOf (p.cfg.rules or [ ])
+            )
+          ) parsed;
+
+          unreviewedRules = lib.filter (r: !lib.elem (r.id or "<unnamed>") reviewedRuleIds) (
+            lib.concatMap (p: map (r: r // { inherit (p) origin; }) (p.cfg.rules or [ ])) parsed
+          );
+
+          unreviewedPathScope = lib.filter (
+            a: lib.any (p: !lib.elem p reviewedPaths) (a.paths or [ ])
+          ) allowlists;
+
+          weakenedExtend = lib.filter (
+            p:
+            let
+              e = p.cfg.extend or { };
+            in
+            (e.useDefault or false) != true
+            || (e.disabledRules or [ ]) != [ ]
+            || lib.subtractLists extendKeys (lib.attrNames e) != [ ]
+          ) parsed;
+
+          unreviewedRegexes = lib.filter (
+            a: lib.any (r: !lib.elem r reviewedRegexes) (a.regexes or [ ])
+          ) allowlists;
+
+          # stopwords and commits are the remaining suppression fields on an
+          # allowlist and neither is bounded by the branches above. A stopword is
+          # a case-insensitive substring test against the secret, so ["a"]
+          # silences nearly everything: verified against 8.30.1 that it hides a
+          # planted Stripe live key with no paths, no regexes and no new table. A
+          # commits entry drops every finding in that commit, which is what the
+          # baselines are for. The config carries neither, so any entry is a
+          # deliberate edit here.
+          unreviewedSuppressors = lib.filter (
+            a: (a.stopwords or [ ]) != [ ] || (a.commits or [ ]) != [ ]
+          ) allowlists;
+
+          # The Cloudflare KV allowlist is a no-op unless it is line-scoped:
+          # against the default target the regex is matched on the bare hex
+          # secret and never sees the surrounding "keys KV:" text.
+          kvBlocks = lib.filter (a: lib.any (lib.hasInfix "keys KV") (a.regexes or [ ])) allowlists;
+          kvUnscoped = lib.filter (a: (a.regexTarget or "secret") != "line") kvBlocks;
+
+          # A global line-target allowlist is evaluated against every finding of
+          # every rule, so without targetRules the KV entry hides any real
+          # credential that shares a line with its text. That vector is triggered
+          # by file content rather than config, so nothing else here can catch
+          # it; pinning the scope is the only guard available.
+          kvUntargeted = lib.filter (a: (a.targetRules or [ ]) != kvTargetRules) kvBlocks;
+
+          # The same hazard for every other allowlist, bounded by the property
+          # that causes it rather than by which entry or which target happens to
+          # have it today. Any regexTarget other than the default "secret" makes
+          # an allowlist match text outside the secret ("line" the whole line,
+          # "match" the whole rule match), so an untargeted one suppresses every
+          # rule wherever its text appears. Both are live on 8.30.1: an
+          # untargeted match-target allowlist carrying "sk_live_" hides a Stripe
+          # key that is otherwise reported. Adding either target to the DNSCrypt
+          # entry trips nothing else here, since its regex is already in
+          # reviewedRegexes and it holds no "keys KV" text for kvBlocks. Testing
+          # != "secret" also fails closed on a target a future gitleaks release
+          # adds.
+          untargetedRegexScope = lib.filter (
+            a: (a.regexTarget or "secret") != "secret" && (a.targetRules or [ ]) == [ ]
+          ) allowlists;
+        in
+        if unreviewedPathScope != [ ] then
+          {
+            id = "path-scope";
+            message =
+              "gitleaks-allowlist-scope: allowlist ${describe unreviewedPathScope} carries a paths entry "
+              + "outside the reviewed set ${lib.concatStringsSep ", " reviewedPaths}. A paths entry makes "
+              + "gitleaks skip those files entirely, hiding real leaks in them, and entries are unanchored "
+              + "regexes so one can reach a tree it does not name. Scope by content with "
+              + "regexTarget = \"line\" instead, or widen reviewedPaths deliberately";
+          }
+        else if weakenedExtend != [ ] then
+          {
+            id = "extend";
+            message =
+              "gitleaks-allowlist-scope: [extend] in ${
+                lib.concatStringsSep ", " (lib.unique (map (p: p.origin) weakenedExtend))
+              } drops the default ruleset, disables rules, or carries a key outside "
+              + "${lib.concatStringsSep ", " extendKeys} (useDefault must stay true, disabledRules must "
+              + "stay empty, and path or url would load rules and allowlists from a config this check "
+              + "never reads). That suppresses rules across the whole repository, which is broader than "
+              + "the path-scoping this check already bans. Scope the false positive by content with "
+              + "regexTarget = \"line\" instead";
+          }
+        else if unreviewedRegexes != [ ] then
+          {
+            id = "regex";
+            message =
+              "gitleaks-allowlist-scope: allowlist ${describe unreviewedRegexes} carries a regex "
+              + "outside the reviewed set. An allowlist regex is matched against every finding in the "
+              + "repository, so a broad one silences rules everywhere rather than in one tree; add the "
+              + "exact regex to reviewedRegexes deliberately";
+          }
+        else if unreviewedSuppressors != [ ] then
+          {
+            id = "suppressors";
+            message =
+              "gitleaks-allowlist-scope: allowlist ${describe unreviewedSuppressors} carries stopwords "
+              + "or commits. A stopword is a case-insensitive substring test against every secret and a "
+              + "commits entry drops every finding in that commit, so both suppress far more broadly "
+              + "than the path-scoping this check bans; scope by content with regexTarget = \"line\", "
+              + "or record the finding in the matching baseline instead";
+          }
+        else if unreviewedRules != [ ] then
+          {
+            id = "local-rule";
+            message =
+              "gitleaks-allowlist-scope: local [[rules]] ${
+                lib.concatStringsSep ", " (map (r: "${r.origin}: ${r.id or "<unnamed>"}") unreviewedRules)
+              } is not in the reviewed set. A local rule reusing a default rule id replaces that "
+              + "detector everywhere, which is broader than the path-scoping this check bans; add the "
+              + "id to reviewedRuleIds deliberately";
+          }
+        else if kvBlocks == [ ] then
+          {
+            id = "kv-missing";
+            message =
+              "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${bothFiles}; "
+              + "drop this check along with it";
+          }
+        else if untargetedRegexScope != [ ] then
+          {
+            id = "untargeted-scope";
+            message =
+              "gitleaks-allowlist-scope: allowlist ${describe untargetedRegexScope} sets regexTarget "
+              + "with no targetRules. Any target other than the default secret is matched against text "
+              + "outside the secret, so an untargeted one suppresses every rule's findings wherever its "
+              + "text appears; name the rule it is meant to silence in targetRules";
+          }
+        else if kvUntargeted != [ ] then
+          {
+            id = "kv-untargeted";
+            message =
+              "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist in "
+              + "${describe kvUntargeted} is not scoped to ${lib.concatStringsSep ", " kvTargetRules}. "
+              + "A global line-target allowlist is matched against every rule's findings, so it would "
+              + "suppress any real credential sharing a line with the KV text";
+          }
+        else if kvUnscoped != [ ] then
+          {
+            id = "kv-unscoped";
+            message =
+              "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist in "
+              + "${describe kvUnscoped} lost regexTarget = \"line\", so its regex is matched against the "
+              + "bare secret, never fires, and silently stops suppressing anything";
+          }
+        else
+          null;
+
+      real = map (s: s // { cfg = builtins.fromTOML s.text; }) sources;
+      realVerdict = verdict real;
+
+      # One synthetic config per branch, each the reviewed config with a single
+      # field perturbed, so a branch that stops rejecting its own bypass fails on
+      # the pull request that narrows it. Every guard this check has carried was
+      # verified once by hand-editing the real config, running write-files and
+      # reverting, and four of them (hasInfix "secrets", hasInfix "nixos-manual",
+      # the entry-scoped targetRules test, the regexTarget == "line" test) were
+      # later found bypassable anyway; a procedure that re-runs on nobody's
+      # machine cannot catch that.
+      #
+      # Each fixture must reach its own branch, so it has to pass every earlier
+      # one: kv-untargeted names a rule other than generic-api-key rather than
+      # dropping targetRules, because an empty targetRules trips untargeted-scope
+      # first, and kv-unscoped keeps targetRules so it reaches the last branch.
+      fixture = toml: [
+        {
+          origin = "fixture";
+          cfg = builtins.fromTOML toml;
+        }
+      ];
+
+      okAllowlists = ''
+        [[allowlists]]
+        description = "docs"
+        paths = ["nixos-manual/.*", "docs/nixos-manual/.*"]
+
+        [[allowlists]]
+        description = "dnscrypt"
+        regexes = ["RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"]
+      '';
+
+      okKv = ''
+        [[allowlists]]
+        description = "kv"
+        regexTarget = "line"
+        targetRules = ["generic-api-key"]
+        regexes = ["(production|preview) keys KV: [0-9a-f]{32}"]
+      '';
+
+      okExtend = ''
+        [extend]
+        useDefault = true
+      '';
+
+      cases = [
+        {
+          id = "path-scope";
+          toml = ''
+            ${okExtend}
+            ${okKv}
+            [[allowlists]]
+            description = "reaches a tree it does not name"
+            paths = ["private-ops/.*"]
+          '';
+        }
+        {
+          id = "extend";
+          toml = ''
+            [extend]
+            useDefault = true
+            url = "https://example.invalid/rules.toml"
+            ${okAllowlists}
+            ${okKv}
+          '';
+        }
+        {
+          id = "regex";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            ${okKv}
+            [[allowlists]]
+            description = "matches every secret"
+            regexes = ["."]
+          '';
+        }
+        {
+          id = "suppressors";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            ${okKv}
+            [[allowlists]]
+            description = "substring test against every secret"
+            stopwords = ["a"]
+          '';
+        }
+        {
+          id = "local-rule";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            ${okKv}
+            [[rules]]
+            id = "generic-api-key"
+            description = "shadows the default detector"
+            regex = "$^"
+          '';
+        }
+        {
+          id = "kv-missing";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+          '';
+        }
+        {
+          id = "untargeted-scope";
+          toml = ''
+            ${okExtend}
+            ${okKv}
+            [[allowlists]]
+            description = "match-target with no targetRules"
+            regexTarget = "match"
+            regexes = ["RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"]
+          '';
+        }
+        {
+          id = "kv-untargeted";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            [[allowlists]]
+            description = "kv scoped to the wrong rule"
+            regexTarget = "line"
+            targetRules = ["stripe-access-token"]
+            regexes = ["(production|preview) keys KV: [0-9a-f]{32}"]
+          '';
+        }
+        {
+          id = "kv-unscoped";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            [[allowlists]]
+            description = "kv matched against the bare secret"
+            targetRules = ["generic-api-key"]
+            regexes = ["(production|preview) keys KV: [0-9a-f]{32}"]
+          '';
+        }
+      ];
+
+      caseResult =
+        c:
+        let
+          v = verdict (fixture c.toml);
+        in
+        if v == null then "nothing" else v.id;
+
+      missed = lib.filter (c: caseResult c != c.id) cases;
     in
     {
       checks.gitleaks-allowlist-scope =
-        if unreviewedPathScope != [ ] then
+        if realVerdict != null then
+          throw realVerdict.message
+        else if missed != [ ] then
           throw (
-            "gitleaks-allowlist-scope: allowlist ${describe unreviewedPathScope} carries a paths entry "
-            + "outside the reviewed set ${lib.concatStringsSep ", " reviewedPaths}. A paths entry makes "
-            + "gitleaks skip those files entirely, hiding real leaks in them, and entries are unanchored "
-            + "regexes so one can reach a tree it does not name. Scope by content with "
-            + "regexTarget = \"line\" instead, or widen reviewedPaths deliberately"
-          )
-        else if weakenedExtend != [ ] then
-          throw (
-            "gitleaks-allowlist-scope: [extend] in ${
-              lib.concatStringsSep ", " (lib.unique (map (p: p.origin) weakenedExtend))
-            } drops the default ruleset, disables rules, or carries a key outside "
-            + "${lib.concatStringsSep ", " extendKeys} (useDefault must stay true, disabledRules must "
-            + "stay empty, and path or url would load rules and allowlists from a config this check "
-            + "never reads). That suppresses rules across the whole repository, which is broader than "
-            + "the path-scoping this check already bans. Scope the false positive by content with "
-            + "regexTarget = \"line\" instead"
-          )
-        else if unreviewedRegexes != [ ] then
-          throw (
-            "gitleaks-allowlist-scope: allowlist ${describe unreviewedRegexes} carries a regex "
-            + "outside the reviewed set. An allowlist regex is matched against every finding in the "
-            + "repository, so a broad one silences rules everywhere rather than in one tree; add the "
-            + "exact regex to reviewedRegexes deliberately"
-          )
-        else if unreviewedSuppressors != [ ] then
-          throw (
-            "gitleaks-allowlist-scope: allowlist ${describe unreviewedSuppressors} carries stopwords "
-            + "or commits. A stopword is a case-insensitive substring test against every secret and a "
-            + "commits entry drops every finding in that commit, so both suppress far more broadly "
-            + "than the path-scoping this check bans; scope by content with regexTarget = \"line\", "
-            + "or record the finding in the matching baseline instead"
-          )
-        else if unreviewedRules != [ ] then
-          throw (
-            "gitleaks-allowlist-scope: local [[rules]] ${
-              lib.concatStringsSep ", " (map (r: "${r.origin}: ${r.id or "<unnamed>"}") unreviewedRules)
-            } is not in the reviewed set. A local rule reusing a default rule id replaces that "
-            + "detector everywhere, which is broader than the path-scoping this check bans; add the "
-            + "id to reviewedRuleIds deliberately"
-          )
-        else if kvBlocks == [ ] then
-          throw (
-            "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${bothFiles}; "
-            + "drop this check along with it"
-          )
-        else if untargetedRegexScope != [ ] then
-          throw (
-            "gitleaks-allowlist-scope: allowlist ${describe untargetedRegexScope} sets regexTarget "
-            + "with no targetRules. Any target other than the default secret is matched against text "
-            + "outside the secret, so an untargeted one suppresses every rule's findings wherever its "
-            + "text appears; name the rule it is meant to silence in targetRules"
-          )
-        else if kvUntargeted != [ ] then
-          throw (
-            "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist in "
-            + "${describe kvUntargeted} is not scoped to ${lib.concatStringsSep ", " kvTargetRules}. "
-            + "A global line-target allowlist is matched against every rule's findings, so it would "
-            + "suppress any real credential sharing a line with the KV text"
-          )
-        else if kvUnscoped != [ ] then
-          throw (
-            "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist in "
-            + "${describe kvUnscoped} lost regexTarget = \"line\", so its regex is matched against the "
-            + "bare secret, never fires, and silently stops suppressing anything"
+            "gitleaks-allowlist-scope: the branch a bypass is meant to trip no longer rejects it: ${
+              lib.concatStringsSep ", " (map (c: "${c.id} fixture rejected by ${caseResult c}") missed)
+            }. Either the branch was narrowed and now misses the case it was added for, or an earlier "
+            + "branch changed and is masking it; fix the branch rather than the fixture"
           )
         else
           pkgs.runCommandLocal "gitleaks-allowlist-scope-ok" { } ''
