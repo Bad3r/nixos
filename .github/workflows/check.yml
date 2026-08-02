@@ -8,9 +8,10 @@ name: Dendritic Pattern Compliance Check
   # review time, which is when the drift they catch is introduced.
   pull_request:
 concurrency:
-  # Two of these jobs install Lix and run a full flake evaluation, so a
-  # superseded run is pure waste. cache-push.yml opts out because its long
-  # builds are worth preserving; nothing here builds.
+  # Three of these jobs install Lix and run a full flake evaluation, so a
+  # superseded run is pure waste. gitleaks-scan also builds (the hook and its
+  # fixture suite), but those are small and cheap to redo; cache-push.yml opts
+  # out because its long builds are worth preserving.
   group: check-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:

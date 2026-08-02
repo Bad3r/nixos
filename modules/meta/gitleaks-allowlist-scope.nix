@@ -62,6 +62,23 @@
         }
       ];
 
+      # Which configs are judged at all, pinned like reviewedPaths and the rest.
+      # Every branch quantifies over whatever sources happens to hold and every
+      # fixture builds its own list through `fixture`, so dropping an entry here
+      # leaves the real verdict null and every fixture green while that file
+      # becomes unbounded: paths = ["private-ops/.*"] in the config governing the
+      # submodule pass would throw nothing. Both spellings of both managed
+      # configs, because a source edit that skipped write-files and a direct
+      # artifact edit are separate bypass directions.
+      reviewedSources = [
+        "modules/development/gitleaks.nix"
+        ".gitleaks.toml"
+        "modules/development/gitleaks.nix (.gitleaks-secrets.toml)"
+        ".gitleaks-secrets.toml"
+      ];
+
+      unjudgedSources = lib.subtractLists (map (s: s.origin) sources) reviewedSources;
+
       # gitleaks keeps a default rule only when no local rule claims its id, so a
       # local [[rules]] entry reusing a default id with an unmatchable regex
       # replaces that detector across the whole repository while useDefault stays
@@ -819,7 +836,13 @@
     in
     {
       checks.gitleaks-allowlist-scope =
-        if realVerdict != null then
+        if unjudgedSources != [ ] then
+          throw (
+            "gitleaks-allowlist-scope: ${lib.concatStringsSep ", " unjudgedSources} is no longer "
+            + "judged by this check, so every suppression field in it is unbounded; restore it to "
+            + "sources rather than narrowing reviewedSources"
+          )
+        else if realVerdict != null then
           throw realVerdict.message
         else if collisionsAccepted != [ ] then
           throw (
