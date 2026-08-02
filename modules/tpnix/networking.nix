@@ -26,6 +26,7 @@ in
     { config, ... }:
     let
       installSecretsDeps = sopsInstallSecretsDeps config;
+      signalxSecret = config.sops.secrets.${signalxSecretName};
     in
     {
       # NetworkManager/DHCP base comes from modules/hosts/common/networking.nix;
@@ -69,7 +70,13 @@ in
             # change, and environment.etc entries are not restart triggers on
             # their own, so a switch that edits the conf snippet alone would
             # leave dnsmasq running under its previous privilege-drop identity.
-            restartTriggers = [ config.environment.etc.${signalxConfName}.source ];
+            # The ownership triple is triggered too: dnsmasq loads addn-hosts
+            # only at startup and on SIGHUP, so a permissions-only edit that
+            # restores access would otherwise not reach the running process.
+            restartTriggers = [
+              config.environment.etc.${signalxConfName}.source
+              "${signalxSecret.owner}:${signalxSecret.group}:${signalxSecret.mode}"
+            ];
           };
         })
 
