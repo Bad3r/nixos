@@ -295,10 +295,12 @@ _: {
             export GIT_DIR="$work/sub-leak/.git" GIT_WORK_TREE="$work/sub-leak" \
               GIT_COMMON_DIR="$work/sub-leak/.git" \
               GIT_OBJECT_DIRECTORY="$work/sub-leak/.git/objects" \
-              GIT_ALTERNATE_OBJECT_DIRECTORIES="$work/sub-leak/.git/objects"
+              GIT_ALTERNATE_OBJECT_DIRECTORIES="$work/sub-leak/.git/objects" \
+              GIT_INDEX_FILE="$work/sub-leak/.git/index"
             run_hook
             unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
-              GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+              GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+              GIT_INDEX_FILE
             # The superproject pass sees only the gitlink, so a "leaks found:" line
             # can only have come from the submodule pass.
             expect_finding "submodule credential"
@@ -534,9 +536,10 @@ _: {
             git -C "$work/ambient-git-dir" add -A
             git -C "$work/ambient-git-dir" commit -qm "commit a credential"
             new_repo "$work/decoy-git-dir"
-            export GIT_DIR="$work/decoy-git-dir/.git"
+            export GIT_DIR="$work/decoy-git-dir/.git" \
+              GIT_WORK_TREE="$work/decoy-git-dir"
             cd "$work/ambient-git-dir" && run_hook
-            unset GIT_DIR
+            unset GIT_DIR GIT_WORK_TREE
             expect_finding "valid alternate GIT_DIR"
 
             echo "hook-gitleaks-guards: all 22 fixtures passed"

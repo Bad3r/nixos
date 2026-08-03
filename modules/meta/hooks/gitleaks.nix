@@ -12,7 +12,12 @@ _: {
           ''
             set -euo pipefail
 
-            root=$(git rev-parse --show-toplevel)
+            root=$(
+              unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
+                GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+                GIT_INDEX_FILE
+              git rev-parse --show-toplevel
+            )
             cd "$root"
 
             # --ignore-gitleaks-allow: without it a trailing `gitleaks:allow`
