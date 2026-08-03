@@ -269,13 +269,14 @@ writeShellApplication {
     done
 
     # Reached only through the break above, with $ulid last seen empty: no
-    # attempt registered a site, so origin_file's record of a site that does
-    # not exist must not survive it. Left in place, it would outrank the
-    # "nothing records the origin" refusal for whatever later comes to carry
-    # this name (for example a site installed by hand from the browser
-    # extension), letting the guard adopt a site whose scope this script
-    # never established.
-    rm -f "$origin_file"
+    # attempt registered a site, so neither record can describe one that
+    # exists. Both must go together, not just origin_file: a stale
+    # applied_file left from an earlier install (uninstalling the site does
+    # not clear this script's own markers) would otherwise let the elif
+    # fallback derive a guard_origin from it, and if that happens to match
+    # the current secret's origin the guard adopts whatever later comes to
+    # carry this name just as readily as a stale origin_file would.
+    rm -f "$origin_file" "$applied_file"
     echo "firefoxpwa-dmail: install failed after 3 attempts" >&2
     exit 1
   '';

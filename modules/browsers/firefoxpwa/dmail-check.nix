@@ -386,6 +386,33 @@
             expect "site installed after exhausted retries is not adopted" 1 \
               "nothing records the origin"
 
+            # The sibling case above runs after reset, so applied_file was
+            # never written and the elif fallback it exercises is reached
+            # with nothing there either. A stale applied_file specifically,
+            # left behind by an earlier install that "firefoxpwa site
+            # uninstall" does not clear (removal is one-way, per this
+            # option's own description), must not survive exhausted retries
+            # any more than origin_file does: otherwise the elif branch would
+            # derive a guard_origin from it, and a same-origin rotation would
+            # match and adopt whatever comes to carry this name next.
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            jq '.sites = {}' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
+            set_url 'https://mail.example.com/y'
+            STUB_FAIL_BEFORE_REGISTER=1 "$installer" >/dev/null 2>&1 || true
+            jq '.sites["01FOREIGN"] = {
+                  config: {
+                    name: "DMail",
+                    start_url: "https://other.example.org/u/0/",
+                    document_url: "https://other.example.org/u/0/",
+                    manifest_url: "data:,"
+                  },
+                  manifest: {scope: "https://other.example.org/u/0/"}
+                }' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
+            expect "stale applied-URL marker does not adopt a site after exhausted retries" 1 \
+              "nothing records the origin"
+
             # A site carrying the managed name that neither record accounts for:
             # its scope is unknown, so refreshing it could put start_url outside.
             reset
