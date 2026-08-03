@@ -115,7 +115,10 @@ _: {
               # unreadable index would leave this repository's gitlinks empty and
               # the run would report every repository below it clean without
               # scanning or warning about any of them.
-              git_in_repo "$repo" ls-files -s -z >/dev/null
+              if ! git_in_repo "$repo" ls-files -s -z >/dev/null; then
+                echo "hook-gitleaks: cannot read the index of $repo; refusing to scan, since an unreadable index leaves its gitlinks unenumerated and every repository below it unscanned" >&2
+                exit 1
+              fi
               mapfile -d "" -t index_entries < <(git_in_repo "$repo" ls-files -s -z)
               for entry in "''${index_entries[@]}"; do
                 case "$entry" in

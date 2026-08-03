@@ -19,6 +19,11 @@ _: {
       pkgs,
       ...
     }:
+    let
+      managedConfigNames = lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
+        lib.attrNames config.files.file
+      );
+    in
     {
       checks.hook-gitleaks-guards =
         pkgs.runCommandLocal "hook-gitleaks-guards"
@@ -92,6 +97,16 @@ _: {
               [ "$rc" -eq 1 ] || fail "$1: expected exit 1, got $rc"
               printf '%s' "$hook_out" | grep -q 'leaks found:' || fail "$1: credential went undetected"
             }
+
+            # The source contract check quantifies over generated files, while
+            # the hook selects configs through shell literals. Keep the two
+            # directions load-bearing: a generated config with a contract must
+            # reach a --config branch or it would read as reviewed while
+            # governing no scan.
+            for cfg in ${lib.escapeShellArgs managedConfigNames}; do
+              grep -qF -- "$cfg" ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
+                || fail "managed config $cfg is generated but never reaches a --config branch"
+            done
 
             # The configs that actually ship, not a stand-in. gitleaks-allowlist-scope
             # can only pin the config text, and states so: the KV entry's
@@ -507,7 +522,7 @@ _: {
             mv "$work/broken-index/.git/index" "$work/broken-index/.git/index.saved"
             mkdir "$work/broken-index/.git/index"
             cd "$work/broken-index" && run_hook
-            expect_refusal "unreadable index" 'index'
+            expect_refusal "unreadable index" 'cannot read the index'
 
             echo "hook-gitleaks-guards: all 21 fixtures passed"
             touch $out
