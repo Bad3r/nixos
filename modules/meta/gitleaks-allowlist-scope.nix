@@ -187,9 +187,14 @@
 
           allowlists = lib.concatMap (
             p:
-            map (a: a // { inherit (p) origin reviewedPaths kvAllowed; }) (
-              tablesOf p.cfg ++ lib.concatMap tablesOf (p.cfg.rules or [ ])
-            )
+            map (
+              a:
+              a
+              // {
+                tomlKeys = lib.attrNames a;
+                inherit (p) origin reviewedPaths kvAllowed;
+              }
+            ) (tablesOf p.cfg ++ lib.concatMap tablesOf (p.cfg.rules or [ ]))
           ) parsed;
 
           unreviewedRules = lib.filter (r: !lib.elem (r.id or "<unnamed>") reviewedRuleIds) (
@@ -232,12 +237,9 @@
           # it being a live bypass: stopwords and commits, then targetRules. A
           # field a future release adds would pass all of them, and `condition`
           # already exists unlisted on 8.30.1, where it switches an allowlist
-          # from OR to AND across its own fields. origin is injected above, not a
-          # config key.
+          # from OR to AND across its own fields. Compare against the TOML key
+          # set captured before the source contract metadata is injected.
           allowlistKeys = [
-            "origin"
-            "reviewedPaths"
-            "kvAllowed"
             "description"
             "paths"
             "regexes"
@@ -248,9 +250,7 @@
             "condition"
           ];
 
-          unknownAllowlistKeys = lib.filter (
-            a: lib.subtractLists allowlistKeys (lib.attrNames a) != [ ]
-          ) allowlists;
+          unknownAllowlistKeys = lib.filter (a: lib.subtractLists allowlistKeys a.tomlKeys != [ ]) allowlists;
 
           # The Cloudflare KV allowlist is a no-op unless it is line-scoped:
           # against the default target the regex is matched on the bare hex
@@ -602,6 +602,20 @@
             [[allowlists]]
             description = "field this check does not enumerate"
             unreviewedSuppressionField = ["anything"]
+          '';
+        }
+        # `origin` is metadata injected after parsing, but it is also a valid
+        # TOML spelling a future gitleaks release could add. It must remain
+        # visible to the pre-injection key-set check.
+        {
+          id = "allowlist-keys";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            ${okKv}
+            [[allowlists]]
+            description = "metadata name used as a future TOML field"
+            origin = "future-field"
           '';
         }
         {
