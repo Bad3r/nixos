@@ -561,10 +561,14 @@ pre_dirs="${scope_dir}/pre-dirs"
 : >"$restore_marker"
 find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"
 
+# comm must run under the same collation as the sort that produced both
+# streams: GNU comm compares with xmemcoll, not memcmp, whenever LC_COLLATE is
+# not C, so a UTF-8 caller locale reads the C-sorted inputs as out of order,
+# stops pairing pre-existing directories, and emits them as newly created.
 restored_entries() {
   find "$restore_path" -mindepth 1 -type f -cnewer "$restore_marker" -print0
   find "$restore_path" -mindepth 1 -type d -cnewer "$restore_marker" -print0 |
-    LC_ALL=C sort -z | comm -z -23 - "$pre_dirs"
+    LC_ALL=C sort -z | LC_ALL=C comm -z -23 - "$pre_dirs"
 }
 
 declare -a restore_args=(
