@@ -230,18 +230,24 @@ writeShellApplication {
       # creates would otherwise inherit them. The ulid firefoxpwa assigned
       # this script's own install is the one thing that does.
       if [ ! -r "$ulid_file" ] || [ "$(<"$ulid_file")" != "$ulid" ]; then
-        # A pending_file with no ulid_file means an install this script
-        # itself started did not finish recording its ulid, not a foreign
-        # site: adopt it now instead of refusing a site the unit did
-        # install. A mismatched (not just missing) ulid_file is never
-        # given this benefit: that is a different, already-identified site.
+        # ulid_file missing or stale both land here, and both are repaired
+        # the same way: firefoxpwa site uninstall (the remedy every refusal
+        # below names) clears none of these records, so a later install that
+        # registers a new site under this name but does not reach
+        # record_ulid, for example the config.json read race below, ends
+        # with a stale ulid_file, not an absent one, just as often as an
+        # actual kill leaves it missing. Neither case is a foreign site: the
+        # marker's content is what proves that, not whether ulid_file
+        # happens to exist.
+        #
         # pending_file's mere presence is not enough: it is written before
         # site install runs, so a kill before storage.write leaves it with
         # no site registered at all, and a foreign same-named site appearing
-        # later would otherwise pass this check too. Its content, the
+        # later would otherwise pass a presence check too. Its content, the
         # manifest_url this attempt used, is compared against the discovered
         # site's own record of it instead; only an install through this
-        # script's synthetic data: manifest could match.
+        # script's synthetic data: manifest could match, which already
+        # authenticates the site regardless of ulid_file's state.
         #
         # -s, not -r: the write below truncates in place rather than
         # renaming a sibling into place, so a kill between open and printf
@@ -251,7 +257,7 @@ writeShellApplication {
         # adopt regardless. Requiring non-empty here is enough on its own:
         # equality against a non-empty marker already implies the jq read
         # produced that same non-empty value.
-        if [ -s "$pending_file" ] && [ ! -r "$ulid_file" ] \
+        if [ -s "$pending_file" ] \
           && [ "$(jq -r --arg u "$ulid" '.sites[$u].config.manifest_url // empty' \
                 "$config_file" 2>/dev/null)" = "$(<"$pending_file")" ]; then
           record_ulid

@@ -605,6 +605,33 @@
             expect "interrupted ulid recording repairs instead of refusing" 0 \
               "updated start URL"
 
+            # ulid_file can also be stale, not just missing: firefoxpwa site
+            # uninstall (the remedy every refusal here names) clears none of
+            # this script's own records, so a later install that registers a
+            # new site under this name but does not reach record_ulid, for
+            # example the retry loop's own config.json read race, ends with
+            # the previous ulid still on disk rather than no ulid at all.
+            # That is not a foreign site either: the marker's content is
+            # what proves it, the same as when ulid_file is absent, so the
+            # repair must not require ulid_file to be missing specifically.
+            reset
+            set_url 'https://mail.example.com/x'
+            jq -n --arg s 'https://mail.example.com/' \
+              '.sites["01NEW"] = {
+                 config: {
+                   name: "DMail",
+                   start_url: "https://mail.example.com/x",
+                   document_url: $s,
+                   manifest_url: "data:,"
+                 },
+                 manifest: {scope: $s}
+               }' >"$config_file"
+            printf '%s' 'https://mail.example.com' >"$data_dir/dmail-applied-origin"
+            printf '%s' '01OLD' >"$data_dir/dmail-applied-ulid"
+            printf '%s' 'data:,' >"$data_dir/dmail-installing"
+            expect "stale ulid_file from an earlier install still repairs" 0 \
+              "updated start URL"
+
             # The repair above must not extend to a genuine foreign site:
             # without a pending_file, a missing ulid_file still refuses.
             reset
