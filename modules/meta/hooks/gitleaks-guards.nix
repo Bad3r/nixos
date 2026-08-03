@@ -129,10 +129,18 @@ _: {
             # instead, since nix develop's -c is short for --command, so no
             # remaining text in the hook contains an unrelated -c to collide
             # with matching both quoting styles.
+            # -c[ =]* alone, without also requiring the flag to start a
+            # shell word, would match inside --count on the two rev-list
+            # --all --count lines below (the '-c' at its second and third
+            # characters), yielding a spurious "ount" token; gitleaks' own
+            # -c is a pflag shorthand, which also takes an attached value
+            # with no separator ("-c\".gitleaks-rogue.toml\""), so a bare
+            # [ =]+ requirement would miss it the same way the unquoted case
+            # was missed above.
             hook_config_args=$(
               grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
-                | grep -oE -- '(--config|-c)[ =]+("[^"]*"|[^[:space:];&|)]+)' \
-                | sed -E 's/^(--config|-c)[ =]*//' | sort -u || true
+                | grep -oE -- '(^|[[:space:]("])(--config[ =]+|-c[ =]*)("[^"]*"|[^[:space:];&|)]+)' \
+                | sed -E 's/^[[:space:]("]*(--config|-c)[ =]*//' | sort -u || true
             )
             expected_config_args=$(printf '%s\n' '".gitleaks.toml"' '"$submodule_config"' | sort -u)
             [ "$hook_config_args" = "$expected_config_args" ] \
@@ -159,6 +167,22 @@ _: {
               printf '%s\n' ${lib.escapeShellArgs managedConfigNames} | grep -qFx -- "$val" \
                 || fail "hook assigns $val to a *_config variable, which no source contract in gitleaks-allowlist-scope judges"
             done
+
+            # Both checks above bound --config/-c as gitleaks receives it
+            # from this hook's own argv construction; they do not, and are
+            # not meant to, bound every mechanism gitleaks itself accepts a
+            # config through. `gitleaks git --help` documents an env var,
+            # GITLEAKS_CONFIG, as a lower-precedence alternative to
+            # --config/-c: an added `export GITLEAKS_CONFIG=...` or inline
+            # `GITLEAKS_CONFIG=... gitleaks ...` would reach gitleaks by a
+            # path neither check inspects. Closing that, or any further
+            # argv-quoting spelling beyond the ones already found across
+            # several review rounds, is out of scope here: every change to
+            # this file already goes through the same PR review that would
+            # need to introduce such a line in the first place, which is the
+            # threat these two checks harden against a hand-edit slipping
+            # past, not an adversary who can commit here unreviewed.
+
 
             # Which gitlinks may be scanned with the private config, not only
             # which configs exist: .gitleaks-secrets.toml carries a
