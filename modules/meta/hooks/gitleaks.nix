@@ -87,27 +87,53 @@ _: {
               echo "hook-gitleaks: superproject pass filtered by .gitleaks-baseline.json" >&2
             fi
 
-            # Derived from the index rather than naming secrets/, the one
-            # enumeration left in this file after round 16 replaced the GIT_*
-            # unsets with an assertion. A second gitlink was scanned by neither
-            # pass, its .gitleaksignore was not refused, and the run still
-            # printed "no leaks found" and exited 0: the silent partial coverage
-            # the absent-checkout warning below exists to prevent, one level up.
-            # With one gitlink today the behaviour is unchanged.
+            # Derived from each repository's index rather than naming secrets/.
+            # A second gitlink was scanned by neither pass, its .gitleaksignore
+            # was not refused, and the run still printed "no leaks found" and
+            # exited 0. Recurse through checked-out gitlinks so the same coverage
+            # rules apply to nested repositories.
             tab=$'\t'
-            # Not mapfile straight from process substitution: a failure there is
-            # invisible to set -e and mapfile succeeds on empty input, so an
-            # unreadable index would leave submodules empty and the run would
-            # report every gitlink clean without scanning or warning about any
-            # of them.
-            git ls-files -s -z >/dev/null
-            mapfile -d "" -t index_entries < <(git ls-files -s -z)
             submodules=()
-            for entry in "''${index_entries[@]}"; do
-              case "$entry" in
-                "160000 "*) submodules+=("''${entry#*"$tab"}") ;;
-              esac
-            done
+            git_in_repo() {
+              local repo=$1
+              shift
+              (
+                unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
+                  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+                git -C "$repo" "$@"
+              )
+            }
+            append_submodules() {
+              local repo=$1
+              local prefix=$2
+              local entry path full_path
+              local -a index_entries=()
+
+              # Not mapfile straight from process substitution: a failure there
+              # is invisible to set -e and mapfile succeeds on empty input, so an
+              # unreadable index would leave this repository's gitlinks empty and
+              # the run would report every repository below it clean without
+              # scanning or warning about any of them.
+              git_in_repo "$repo" ls-files -s -z >/dev/null
+              mapfile -d "" -t index_entries < <(git_in_repo "$repo" ls-files -s -z)
+              for entry in "''${index_entries[@]}"; do
+                case "$entry" in
+                  "160000 "*)
+                    path="''${entry#*"$tab"}"
+                    if [ -n "$prefix" ]; then
+                      full_path="$prefix/$path"
+                    else
+                      full_path="$path"
+                    fi
+                    submodules+=("$full_path")
+                    if [ -e "$full_path/.git" ]; then
+                      append_submodules "$full_path" "$full_path"
+                    fi
+                    ;;
+                esac
+              done
+            }
+            append_submodules . ""
 
             # Only this private gitlink owns the operational note covered by
             # .gitleaks-secrets.toml. Every other gitlink gets the generic

@@ -442,10 +442,11 @@ _: {
             # with secrets/ hardcoded these repositories were scanned by neither
             # pass and the run still printed "no leaks found" and exited 0. Both
             # the non-ASCII and the space-containing path carry a credential, and
-            # the count is asserted rather than the presence of one: with a single
-            # planted credential a parser that mangles the other path drops it
-            # into the not-checked-out warning and the run still exits 1 on the
-            # remaining finding, leaving the regression invisible.
+            # the non-ASCII repository carries a nested gitlink too. The count is
+            # asserted rather than the presence of one: with a single planted
+            # credential a parser that mangles another path drops it into the
+            # not-checked-out warning and the run still exits 1 on the remaining
+            # finding, leaving the regression invisible.
             echo "hook-gitleaks-guards: 19/20 every gitlink is scanned, not just the first"
             git init -q --initial-branch=main "$work/second-up"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/second-up/tok.txt"
@@ -455,8 +456,14 @@ _: {
             other_kv_value_end=0123456789abcdef
             other_kv_note+=" KV: $other_kv_value_start$other_kv_value_end"
             printf '%s\n' "$other_kv_note" > "$work/second-up/kv.txt"
+            git init -q --initial-branch=main "$work/nested-up"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/nested-up/nested-tok.txt"
+            git -C "$work/nested-up" add -A
+            git -C "$work/nested-up" commit -qm "credential in the nested gitlink"
+            git -C "$work/second-up" -c protocol.file.allow=always \
+              submodule add -q "file://$work/nested-up" "nested with space"
             git -C "$work/second-up" add -A
-            git -C "$work/second-up" commit -qm "credential in the non-ASCII submodule"
+            git -C "$work/second-up" commit -qm "credential in the nested gitlink parent"
             git init -q --initial-branch=main "$work/space-up"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/space-up/tok.txt"
             printf '%s\n' "$other_kv_note" > "$work/space-up/kv.txt"
@@ -469,12 +476,16 @@ _: {
             git -C "$work/two-subs" -c protocol.file.allow=always \
               submodule add -q "file://$work/second-up" "$unicode_path"
             git -C "$work/two-subs" -c protocol.file.allow=always \
+              submodule update -q --init --recursive -- "$unicode_path"
+            git -C "$work/two-subs" -c protocol.file.allow=always \
               submodule add -q "file://$work/space-up" "vendor with space"
             git -C "$work/two-subs" commit -qm "two submodules"
             cd "$work/two-subs" && run_hook
             expect_finding "second submodule"
             lines=$(printf '%s\n' "$hook_out" | grep -c 'leaks found:' || true)
-            [ "$lines" -eq 2 ] || fail "second submodule: expected 2 result lines, got $lines"
+            [ "$lines" -eq 3 ] || fail "second submodule: expected 3 result lines, got $lines"
+            printf '%s' "$hook_out" | grep -q 'leaks found: 1' \
+              || fail "nested gitlink: expected a separate finding result"
             printf '%s' "$hook_out" | grep -q 'leaks found: 2' \
               || fail "generic gitlink config: the second submodule KV note was suppressed"
 
