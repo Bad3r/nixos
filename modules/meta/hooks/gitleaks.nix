@@ -264,10 +264,6 @@ _: {
             done
             sub_args=("''${common[@]}" --config "$submodule_config")
             if [ -e "$sm/.git" ]; then
-              if [ -f "$sm/.gitleaks-baseline.json" ]; then
-                sub_args+=(--baseline-path "$sm/.gitleaks-baseline.json")
-                echo "hook-gitleaks: submodule pass filtered by $sm/.gitleaks-baseline.json, reviewed only in that gitlink's own repository" >&2
-              fi
               # git exports GIT_DIR to its hooks and gitleaks shells out to git,
               # so an inherited GIT_DIR overrides the path argument and silently
               # rescans the superproject instead. Caught by pre-push: with
@@ -296,6 +292,16 @@ _: {
                 if [ "$sub_commits" -eq 0 ] || [ "$sub_shallow" != "false" ]; then
                   echo "hook-gitleaks: submodule pass would read an incomplete history (commits=$sub_commits, shallow=$sub_shallow); refusing to report $sm/ clean (run 'git submodule update --init $sm', and 'git -C $sm fetch --unshallow' if it was cloned shallow)" >&2
                   exit 1
+                fi
+                # Built after the history guard above rather than before it, for
+                # the reason the superproject's announcement moved below its own
+                # guards: a shallow gitlink can still carry a committed
+                # .gitleaks-baseline.json, so announcing first would claim a
+                # filtered scan ran ahead of a refusal saying the pass never ran
+                # at all.
+                if [ -f "$sm/.gitleaks-baseline.json" ]; then
+                  sub_args+=(--baseline-path "$sm/.gitleaks-baseline.json")
+                  echo "hook-gitleaks: submodule pass filtered by $sm/.gitleaks-baseline.json, reviewed only in that gitlink's own repository" >&2
                 fi
                 gitleaks git "''${sub_args[@]}" "$sm"
               ) || status=1
