@@ -112,6 +112,23 @@ _: {
                 || fail "managed config $cfg is generated but never reaches a --config branch"
             done
 
+            # The converse direction: every config the hook actually selects
+            # must be one gitleaks-allowlist-scope judges. The loop above only
+            # quantifies over generated files, so a hardcoded --config naming
+            # an ungenerated file passes it, passes unjudgedSources (which
+            # also quantifies over config.files.file, not over the hook), and
+            # ships a scan governed by a config where paths, regexes,
+            # regexTarget, targetRules, stopwords, commits, [extend] and
+            # [[rules]] are all unbounded.
+            hook_configs=$(
+              grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
+                | grep -oE '\.gitleaks[A-Za-z0-9._-]*\.toml' | sort -u
+            )
+            for cfg in $hook_configs; do
+              printf '%s\n' ${lib.escapeShellArgs managedConfigNames} | grep -qFx -- "$cfg" \
+                || fail "hook selects $cfg, which no source contract in gitleaks-allowlist-scope judges"
+            done
+
             # The configs that actually ship, not a stand-in. gitleaks-allowlist-scope
             # can only pin the config text, and states so: the KV entry's
             # targetRules exists against a vector triggered by file content,
