@@ -157,16 +157,25 @@ _: {
             # unquoted or $-valued right-hand side rather than excluding
             # them: neither can equal a literal managed name below, so the
             # membership test rejects both on its own, the same way it
-            # already rejects any other unreviewed literal.
+            # already rejects any other unreviewed literal. Pinned by exact
+            # set, like the argument check above, rather than a membership
+            # loop over the extraction: every other check in this file fails
+            # closed on broken extraction because it is an equality test, but
+            # a membership loop over an empty result runs zero iterations and
+            # reports success. Renaming submodule_config to a name not ending
+            # in _config would have emptied this extraction while the
+            # argument pin and the generated->hook loop both stayed green,
+            # since neither reads this variable's name. The unquoted `for val
+            # in $hook_config_values` this replaces was also subject to glob
+            # expansion against the build directory's own files.
             hook_config_values=$(
               grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
                 | grep -oE -- '[A-Za-z_]*_config=[^[:space:];&|)]+' \
                 | sed -E 's/^[A-Za-z_]*_config=//' | tr -d '"' | sort -u || true
             )
-            for val in $hook_config_values; do
-              printf '%s\n' ${lib.escapeShellArgs managedConfigNames} | grep -qFx -- "$val" \
-                || fail "hook assigns $val to a *_config variable, which no source contract in gitleaks-allowlist-scope judges"
-            done
+            expected_config_values=$(printf '%s\n' ".gitleaks-gitlink.toml" ".gitleaks-secrets.toml" | sort -u)
+            [ "$hook_config_values" = "$expected_config_values" ] \
+              || fail "hook assigns a *_config variable outside the reviewed set: $hook_config_values"
 
             # Both checks above bound --config/-c as gitleaks receives it
             # from this hook's own argv construction; they do not, and are
