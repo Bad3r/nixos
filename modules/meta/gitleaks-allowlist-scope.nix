@@ -71,11 +71,9 @@
       ]) managedConfigs;
 
       # Quantified over the files write-files actually emits, not over
-      # managedConfigs: reviewedSources is derived from the same list, so
-      # subtracting one from the other is empty for every possible value and
-      # dropping a contract removes it from both at once. Keyed on the file name
-      # so a new .gitleaks-*.toml has to gain a contract here before it can be
-      # scanned with, and removing a contract while the file still ships throws.
+      # managedConfigs: removing a contract while the file still ships must
+      # throw, and a new .gitleaks-*.toml must gain a contract before it can be
+      # scanned with.
       managedGitleaksFiles = lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
         lib.attrNames config.files.file
       );
@@ -171,6 +169,21 @@
           # the default ruleset, which makes that term inert until a rule is
           # added.
           tablesOf = t: (t.allowlists or [ ]) ++ lib.optional (t ? allowlist) t.allowlist;
+
+          # Pinned by key set because only these tables are parsed below. A
+          # top-level key a future release adds could otherwise become a
+          # suppression channel without any branch inspecting it.
+          configKeys = [
+            "title"
+            "extend"
+            "rules"
+            "allowlist"
+            "allowlists"
+          ];
+
+          unknownConfigKeys = lib.filter (
+            p: lib.subtractLists configKeys (lib.attrNames p.cfg) != [ ]
+          ) parsed;
 
           allowlists = lib.concatMap (
             p:
@@ -306,7 +319,17 @@
             a: (a.regextarget or "secret") != "secret" && !(lib.elem a kvExact)
           ) allowlists;
         in
-        if unknownAllowlistKeys != [ ] then
+        if unknownConfigKeys != [ ] then
+          {
+            id = "config-keys";
+            message =
+              "gitleaks-allowlist-scope: ${
+                lib.concatStringsSep ", " (map (p: p.origin) unknownConfigKeys)
+              } carries a top-level key outside ${lib.concatStringsSep ", " configKeys}. Only the "
+              + "tables listed here are parsed below, so an unrecognised key is an unreviewed "
+              + "suppression channel; bound it here before allowing it";
+          }
+        else if unknownAllowlistKeys != [ ] then
           {
             id = "allowlist-keys";
             message =
@@ -557,9 +580,19 @@
       cases = [
         # First, matching the branch order: an unrecognised field is bounded by
         # nothing else, so a later placement would let any enumerated branch mask
-        # it. The key is deliberately not `condition`, which is enumerated: this
-        # stands in for the field a future release adds, which is the case the
-        # branch exists for.
+        # it. The top-level case stands in for a table a future release adds.
+        {
+          id = "config-keys";
+          toml = ''
+            ${okExtend}
+            ${okAllowlists}
+            ${okKv}
+            [futureSuppression]
+            enabled = true
+          '';
+        }
+        # The key is deliberately not `condition`, which is enumerated: this
+        # stands in for the field a future release adds inside an allowlist.
         {
           id = "allowlist-keys";
           toml = ''
