@@ -136,7 +136,18 @@ writeShellApplication {
     # carrying this name that neither record accounts for is refused rather
     # than refreshed: its scope is unknown, so it cannot be shown to still
     # contain the current URL.
-    if ulid=$(site_ulid) && [ -n "$ulid" ]; then
+    if ! ulid=$(site_ulid); then
+      # Separated from "no site": jq exits non-zero on an unreadable or
+      # partially written config.json (firefoxpwa writes it through
+      # File::create with no rename, and firefoxpwa connector can be mid-write
+      # when this unit runs), and treating that as absent would register a
+      # second site under the same name. jq's stderr stays dropped because a
+      # parse error echoes back the line it choked on, which is where
+      # start_url lives.
+      echo "firefoxpwa-dmail: cannot read $config_file; not installing a second '$app_name'" >&2
+      exit 1
+    fi
+    if [ -n "$ulid" ]; then
       if [ -r "$applied_file" ] && [ "$(<"$applied_file")" = "$url" ]; then
         echo "firefoxpwa-dmail: '$app_name' already installed with current URL"
         exit 0
@@ -228,7 +239,15 @@ writeShellApplication {
       # create a second "DMail" entry. Fail without writing the marker: the
       # next activation takes the refresh branch, whose site update re-runs
       # system integration and records the marker only once it succeeds.
-      if ulid=$(site_ulid) && [ -n "$ulid" ]; then
+      #
+      # site_ulid's own failure is separated from "not registered" for the
+      # same reason as the check above it: retrying past a config.json read
+      # error the script cannot interpret risks the same duplicate.
+      if ! ulid=$(site_ulid); then
+        echo "firefoxpwa-dmail: cannot read $config_file; not retrying install" >&2
+        exit 1
+      fi
+      if [ -n "$ulid" ]; then
         echo "firefoxpwa-dmail: '$app_name' was registered by a failed install; not retrying install, the next activation repairs it with site update" >&2
         exit 1
       fi

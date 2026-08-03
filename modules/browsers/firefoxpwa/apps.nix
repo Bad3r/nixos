@@ -48,6 +48,13 @@ let
           through firefoxpwa. The start URL is read at runtime from the
           SOPS-encrypted gecko work-bookmark secret. Requires
           programs.firefoxpwa.extended.enable.
+
+          One-way. Setting this back to false stops managing the site but does
+          not uninstall it: the firefoxpwa profile, the launcher entry and the
+          dmail-applied-url and dmail-applied-origin records under
+          xdg.dataHome survive, and clearing them is a manual
+          `firefoxpwa site uninstall`. Deliberate, because an automatic
+          uninstall would destroy the PWA profile and its session state.
         '';
       };
 

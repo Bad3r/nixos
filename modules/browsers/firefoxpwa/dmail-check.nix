@@ -345,6 +345,25 @@
             set_url 'https://mail.example.com/y'
             expect "unrecorded site refuses" 1 "nothing records the origin"
 
+            # firefoxpwa writes config.json through File::create with no
+            # rename, and firefoxpwa connector can be rewriting it when this
+            # unit runs (PartOf reruns it on every switch). site_ulid failing
+            # to parse the file must not read as "no site": falling through to
+            # install would register a second one under the same name.
+            # Matched on the "installing a second" wording specifically, not
+            # just "cannot read": the retry loop's own site_ulid call has an
+            # identical guard and a similarly worded message, and the stub's
+            # write_site parses the same file, so a malformed config.json
+            # that reaches firefoxpwa site install fails there too. A generic
+            # substring would pass on that fallthrough and prove nothing
+            # about this check specifically.
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            printf 'not valid json' >"$config_file"
+            expect "unreadable config.json refuses rather than risking a duplicate" 1 \
+              "not installing a second"
+
             # Following the refusal's own remedy: installed at A, rotated to B,
             # site uninstalled, then the reinstall registers and fails. The
             # applied URL still names A while the origin record names B, so
