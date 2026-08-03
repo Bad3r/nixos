@@ -62,6 +62,15 @@ writeShellApplication {
     # recorded origin is not necessarily the site this script installed.
     # This records which one is, independent of origin bookkeeping.
     ulid_file="$data_dir/dmail-applied-ulid"
+    # record_ulid cannot move before the install the way record_origin did:
+    # the ulid does not exist until firefoxpwa returns, so a kill in that
+    # window (routine: a switch restarts sops-nix, and PartOf stops this
+    # unit) or a site_ulid read racing firefoxpwa connector right after
+    # install can leave a site this script genuinely installed with no
+    # ulid_file. This says an install by this script was in flight, so that
+    # state is repaired rather than refused. Cleared on every path that ends
+    # one, so an ordinary uninstall never leaves it behind.
+    pending_file="$data_dir/dmail-installing"
 
     if [ ! -r "$url_file" ]; then
       echo "firefoxpwa-dmail: secret not readable at $url_file" >&2
@@ -221,8 +230,18 @@ writeShellApplication {
       # creates would otherwise inherit them. The ulid firefoxpwa assigned
       # this script's own install is the one thing that does.
       if [ ! -r "$ulid_file" ] || [ "$(<"$ulid_file")" != "$ulid" ]; then
-        echo "firefoxpwa-dmail: '$app_name' ($ulid) is not the site this unit installed; uninstall it so this unit can reinstall its own" >&2
-        exit 1
+        # A pending_file with no ulid_file means an install this script
+        # itself started did not finish recording its ulid, not a foreign
+        # site: adopt it now instead of refusing a site the unit did
+        # install. A mismatched (not just missing) ulid_file is never
+        # given this benefit: that is a different, already-identified site.
+        if [ -r "$pending_file" ] && [ ! -r "$ulid_file" ]; then
+          record_ulid
+          rm -f "$pending_file"
+        else
+          echo "firefoxpwa-dmail: '$app_name' ($ulid) is not the site this unit installed; uninstall it so this unit can reinstall its own" >&2
+          exit 1
+        fi
       fi
       if [ "''${guard_origin,,}" != "''${origin,,}" ]; then
         echo "firefoxpwa-dmail: rotated URL origin '$origin' does not match the installed origin '$guard_origin'; uninstall the '$app_name' site so this unit can reinstall it at the new origin" >&2
@@ -262,6 +281,7 @@ writeShellApplication {
     # mid-install, which the guard above then refuses on every run. A switch
     # restarts sops-nix, and PartOf stops this unit, so that kill is routine.
     record_origin
+    (umask 077; : >"$pending_file")
 
     for attempt in 1 2 3; do
       # The decrypted URL is passed to firefoxpwa on argv, so it is visible in
@@ -282,6 +302,7 @@ writeShellApplication {
           exit 1
         fi
         record_ulid
+        rm -f "$pending_file"
         record_applied
         echo "firefoxpwa-dmail: installed '$app_name'"
         exit 0
@@ -301,6 +322,7 @@ writeShellApplication {
       fi
       if [ -n "$ulid" ]; then
         record_ulid
+        rm -f "$pending_file"
         echo "firefoxpwa-dmail: '$app_name' was registered by a failed install; not retrying install, the next activation repairs it with site update" >&2
         exit 1
       fi
@@ -310,12 +332,14 @@ writeShellApplication {
     done
 
     # Reached only through the break above, with $ulid last seen empty: no
-    # attempt registered a site, so none of the three records can describe
+    # attempt registered a site, so none of the four records can describe
     # one that exists. A stale applied_file or ulid_file left from an earlier
     # install (uninstalling a site does not clear this script's own markers)
     # would otherwise let the elif fallback or the ulid check above
-    # authenticate a site this script never installed.
-    rm -f "$origin_file" "$applied_file" "$ulid_file"
+    # authenticate a site this script never installed; a stale pending_file
+    # would let that same check adopt a future foreign site instead of
+    # refusing it.
+    rm -f "$origin_file" "$applied_file" "$ulid_file" "$pending_file"
     echo "firefoxpwa-dmail: install failed after 3 attempts" >&2
     exit 1
   '';

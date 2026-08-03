@@ -530,6 +530,50 @@
             expect "foreign site with an unrotated secret is not treated as a no-op" 1 \
               "is not the site this unit installed"
 
+            # ulid_file can go missing for a site this script genuinely
+            # installed: a kill between firefoxpwa site install succeeding
+            # and record_ulid completing, or a site_ulid read racing
+            # firefoxpwa connector right after install. Simulated directly,
+            # since a real kill mid-script cannot be induced through the
+            # stub: config.json carries the site and origin_file and
+            # pending_file are what the pre-loop writes leave behind, but
+            # ulid_file was never reached. pending_file must let this repair
+            # rather than refuse a site the unit did install.
+            reset
+            set_url 'https://mail.example.com/x'
+            jq -n --arg s 'https://mail.example.com/' \
+              '.sites["01STUB"] = {
+                 config: {
+                   name: "DMail",
+                   start_url: "https://mail.example.com/x",
+                   document_url: $s,
+                   manifest_url: "data:,"
+                 },
+                 manifest: {scope: $s}
+               }' >"$config_file"
+            printf '%s' 'https://mail.example.com' >"$data_dir/dmail-applied-origin"
+            : >"$data_dir/dmail-installing"
+            expect "interrupted ulid recording repairs instead of refusing" 0 \
+              "updated start URL"
+
+            # The repair above must not extend to a genuine foreign site:
+            # without a pending_file, a missing ulid_file still refuses.
+            reset
+            set_url 'https://mail.example.com/x'
+            jq -n --arg s 'https://mail.example.com/' \
+              '.sites["01FOREIGN"] = {
+                 config: {
+                   name: "DMail",
+                   start_url: "https://mail.example.com/x",
+                   document_url: $s,
+                   manifest_url: "data:,"
+                 },
+                 manifest: {scope: $s}
+               }' >"$config_file"
+            printf '%s' 'https://mail.example.com' >"$data_dir/dmail-applied-origin"
+            expect "foreign site with no pending install still refuses" 1 \
+              "is not the site this unit installed"
+
             echo "-- the secret reaches only the field rotation can rewrite --"
             reset
             set_url 'https://mail.example.com/inbox?token=TOK_FIRST'

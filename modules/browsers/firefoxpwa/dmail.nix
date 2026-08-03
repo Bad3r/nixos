@@ -10,10 +10,12 @@
     * A oneshot user service ordered after sops-nix.service decrypts the URL and
       runs `firefoxpwa site install` with a synthetic data: manifest, so the
       site installs without the target having to serve a web manifest.
-    * The install is idempotent: a site already carrying the managed name is
-      refreshed in place when the decrypted URL has rotated and otherwise left
-      untouched, so the service is safe to run on every login. Rotation is
-      detected against a dmail-applied-url marker written next to config.json.
+    * The install is idempotent, but only for the site this unit installed: the
+      ulid firefoxpwa assigned it, the origin and the applied URL are recorded
+      next to config.json, and a site merely carrying the managed name that
+      those records do not account for is refused rather than adopted. A
+      rotation within the recorded origin is applied in place; one that crosses
+      origins is refused, because the manifest scope is fixed at install time.
     * firefoxpwa system integration writes the launcher .desktop entry and icon,
       making the app discoverable from the desktop menu.
 */
