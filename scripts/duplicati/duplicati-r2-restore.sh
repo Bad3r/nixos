@@ -555,10 +555,24 @@ mkdir -p "$restore_path"
 # pre-existing directories it writes into, so those are excluded through the
 # inventory instead of being re-owned as a side effect.
 scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX)
-trap 'rm -rf "$scope_dir"' EXIT
-restore_marker="${scope_dir}/marker"
+restore_marker=$(mktemp "${restore_path}/.duplicati-restore-marker.XXXXXX")
+restore_probe="${restore_marker}.probe"
+trap 'rm -rf "$scope_dir"; rm -f "$restore_marker" "$restore_probe"' EXIT
 pre_dirs="${scope_dir}/pre-dirs"
-: >"$restore_marker"
+
+# The marker lives on the target filesystem so its mtime carries the same
+# granularity as the ctimes it is compared against; one in $TMPDIR would carry
+# tmpfs nanoseconds and sort newer than every ctime a coarser target records.
+# -cnewer is strict and the kernel hands out one cached timestamp per tick, so
+# entries written in the marker's own tick compare equal and drop out of the
+# scope: wait for the target's clock to pass the marker before the restore runs.
+for _ in {1..40}; do
+  : >"$restore_probe"
+  [[ $restore_probe -nt $restore_marker ]] && break
+  sleep 0.1
+done
+rm -f "$restore_probe"
+
 find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"
 
 # comm must run under the same collation as the sort that produced both
