@@ -40,6 +40,14 @@ writeShellApplication {
     # second rule here would put the marker and config.json outside the
     # directory those protect whenever xdg.dataHome is not at its default.
     data_dir=${lib.escapeShellArg dataDir}
+    # Exported, not just read: firefoxpwa resolves its own userdata tree from
+    # this variable, so pinning it from the value the caller already passed
+    # for data_dir makes the binary and this script agree by construction,
+    # rather than depending on a systemd unit's Environment= staying in sync
+    # with this file from the outside. XDG_DATA_HOME has no equivalent here:
+    # system integration resolves it through a different mechanism
+    # (directories::BaseDirs), one this script never reads from either.
+    export FFPWA_USERDATA="$data_dir"
     config_file="$data_dir/config.json"
     retry_delay=${lib.escapeShellArg (toString retryDelay)}
 
@@ -260,6 +268,14 @@ writeShellApplication {
       sleep "$retry_delay"
     done
 
+    # Reached only through the break above, with $ulid last seen empty: no
+    # attempt registered a site, so origin_file's record of a site that does
+    # not exist must not survive it. Left in place, it would outrank the
+    # "nothing records the origin" refusal for whatever later comes to carry
+    # this name (for example a site installed by hand from the browser
+    # extension), letting the guard adopt a site whose scope this script
+    # never established.
+    rm -f "$origin_file"
     echo "firefoxpwa-dmail: install failed after 3 attempts" >&2
     exit 1
   '';

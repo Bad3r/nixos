@@ -368,6 +368,24 @@
               echo "PASS  exhausted retries left no marker"
             fi
 
+            # origin_file must not survive exhausted retries either: it would
+            # describe a site that was never created, and later outrank the
+            # "nothing records the origin" refusal for whatever comes to carry
+            # this name next, for example a site installed by hand from the
+            # browser extension. Simulated directly, since the stub has no
+            # install path for that.
+            jq '.sites["01FOREIGN"] = {
+                  config: {
+                    name: "DMail",
+                    start_url: "https://mail.example.com/u/0/",
+                    document_url: "https://mail.example.com/u/0/",
+                    manifest_url: "data:,"
+                  },
+                  manifest: {scope: "https://mail.example.com/u/0/"}
+                }' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
+            expect "site installed after exhausted retries is not adopted" 1 \
+              "nothing records the origin"
+
             # A site carrying the managed name that neither record accounts for:
             # its scope is unknown, so refreshing it could put start_url outside.
             reset
