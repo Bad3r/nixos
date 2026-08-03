@@ -103,8 +103,12 @@ _: {
             # directions load-bearing: a generated config with a contract must
             # reach a --config branch or it would read as reviewed while
             # governing no scan.
+            hook_selections=$(
+              grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
+                | grep -E -- '--config|_config=' || true
+            )
             for cfg in ${lib.escapeShellArgs managedConfigNames}; do
-              grep -qF -- "$cfg" ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
+              printf '%s\n' "$hook_selections" | grep -qF -- "$cfg" \
                 || fail "managed config $cfg is generated but never reaches a --config branch"
             done
 
