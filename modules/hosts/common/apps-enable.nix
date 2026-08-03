@@ -483,7 +483,7 @@ let
       "worker-build".extended.enable = lib.mkOverride 1100 true;
       "workers-rs-sdk".extended.enable = lib.mkOverride 1100 false;
       wpscan.extended.enable = lib.mkOverride 1100 true;
-      wpsoffice.extended.enable = lib.mkOverride 1100 true;
+      wpsoffice.extended.enable = lib.mkOverride 1100 false;
       wrangler.extended.enable = lib.mkOverride 1100 true;
       xbacklight.extended.enable = lib.mkOverride 1100 true;
       xclip.extended.enable = lib.mkOverride 1100 true;
