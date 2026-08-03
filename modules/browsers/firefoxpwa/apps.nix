@@ -50,12 +50,15 @@ let
           programs.firefoxpwa.extended.enable.
 
           One-way. Setting this back to false stops managing the site but does
-          not uninstall it: the firefoxpwa profile, the launcher entry and the
+          not uninstall it. Removing the site is a manual
+          `firefoxpwa site uninstall`, which deletes the PWA profile and the
+          launcher entry but none of this module's own records: the
           dmail-applied-url, dmail-applied-origin, dmail-applied-ulid and
-          dmail-installing records under xdg.dataHome survive, and clearing
-          them is a manual
-          `firefoxpwa site uninstall`. Deliberate, because an automatic
-          uninstall would destroy the PWA profile and its session state.
+          dmail-installing files under xdg.dataHome have to be deleted
+          separately, and a leftover dmail-applied-ulid makes the next site to
+          carry this name refused rather than adopted. Not automated, because
+          an automatic uninstall would destroy the PWA profile and its
+          session state.
 
           Rotating the secret to a URL on a different origin is also not
           applied automatically. The manifest scope is fixed at install time
