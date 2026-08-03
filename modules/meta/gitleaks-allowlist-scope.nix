@@ -156,12 +156,16 @@
         );
 
       # A function of the parsed configs rather than a closure over the two real
-      # ones, so the branches can be driven by fixtures below. Returns the id and
-      # message of the first branch to reject, or null when every branch passes.
-      # The id is what makes the fixtures load-bearing: asserting only that some
+      # ones, so the branches can be driven by fixtures below. Each branch pairs
+      # an id and message with the hits list that fires it, so branchIds below
+      # is derived from this same list instead of restating it: a branch added
+      # here without also extending branchIds by hand is the one drift a
+      # hand-maintained id list could not catch. verdict returns the first
+      # branch whose hits are non-empty, or null when every branch passes. The
+      # id is what makes the fixtures load-bearing: asserting only that some
       # branch rejected would let an earlier branch cover for a later one that
       # had stopped working.
-      verdict =
+      branchesFor =
         parsed:
         let
           # gitleaks honours the singular [allowlist] table and rule-scoped
@@ -319,9 +323,10 @@
             a: (a.regextarget or "secret") != "secret" && !(lib.elem a kvExact)
           ) allowlists;
         in
-        if unknownConfigKeys != [ ] then
+        [
           {
             id = "config-keys";
+            hits = unknownConfigKeys;
             message =
               "gitleaks-allowlist-scope: ${
                 lib.concatStringsSep ", " (map (p: p.origin) unknownConfigKeys)
@@ -329,18 +334,18 @@
               + "tables listed here are parsed below, so an unrecognised key is an unreviewed "
               + "suppression channel; bound it here before allowing it";
           }
-        else if unknownAllowlistKeys != [ ] then
           {
             id = "allowlist-keys";
+            hits = unknownAllowlistKeys;
             message =
               "gitleaks-allowlist-scope: allowlist ${describe unknownAllowlistKeys} carries a key "
               + "outside ${lib.concatStringsSep ", " allowlistKeys}. Every field bounded above was "
               + "added after it was found to suppress findings, so an unrecognised one is an "
               + "unreviewed suppression channel; bound it here before allowing it";
           }
-        else if unreviewedPathScope != [ ] then
           {
             id = "path-scope";
+            hits = unreviewedPathScope;
             message =
               "gitleaks-allowlist-scope: allowlist ${describe unreviewedPathScope} carries a paths entry "
               + "outside the reviewed set for its file (${
@@ -353,9 +358,9 @@
               + "regexes so one can reach a tree it does not name. Scope by content with "
               + "regexTarget = \"line\" instead, or widen reviewedPaths deliberately";
           }
-        else if weakenedExtend != [ ] then
           {
             id = "extend";
+            hits = weakenedExtend;
             message =
               "gitleaks-allowlist-scope: [extend] in ${
                 lib.concatStringsSep ", " (lib.unique (map (p: p.origin) weakenedExtend))
@@ -366,18 +371,18 @@
               + "the path-scoping this check already bans. Scope the false positive by content with "
               + "regexTarget = \"line\" instead";
           }
-        else if unreviewedRegexes != [ ] then
           {
             id = "regex";
+            hits = unreviewedRegexes;
             message =
               "gitleaks-allowlist-scope: allowlist ${describe unreviewedRegexes} carries a regex "
               + "outside the reviewed set. An allowlist regex is matched against every finding in the "
               + "repository, so a broad one silences rules everywhere rather than in one tree; add the "
               + "exact regex to reviewedRegexes deliberately";
           }
-        else if unreviewedSuppressors != [ ] then
           {
             id = "suppressors";
+            hits = unreviewedSuppressors;
             message =
               "gitleaks-allowlist-scope: allowlist ${describe unreviewedSuppressors} carries stopwords "
               + "or commits. A stopword is a case-insensitive substring test against every secret and a "
@@ -385,9 +390,9 @@
               + "than the path-scoping this check bans; scope by content with regexTarget = \"line\", "
               + "or record the finding in the matching baseline instead";
           }
-        else if unreviewedRules != [ ] then
           {
             id = "local-rule";
+            hits = unreviewedRules;
             message =
               "gitleaks-allowlist-scope: local [[rules]] ${
                 lib.concatStringsSep ", " (map (r: "${r.origin}: ${r.id or "<unnamed>"}") unreviewedRules)
@@ -395,56 +400,56 @@
               + "detector everywhere, which is broader than the path-scoping this check bans; add the "
               + "id to reviewedRuleIds deliberately";
           }
-        else if kvUnexpectedIn != [ ] then
           {
             id = "kv-unexpected";
+            hits = kvUnexpectedIn;
             message =
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is present in "
               + "${lib.concatStringsSep ", " (map (p: p.origin) kvUnexpectedIn)} even though those "
               + "sources scan public superproject files. Keep this content-scoped suppression in the "
               + "two .gitleaks-secrets.toml sources that scan the private operational note";
           }
-        else if kvMissingIn != [ ] then
           {
             id = "kv-missing";
+            hits = kvMissingIn;
             message =
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${
                 lib.concatStringsSep ", " (map (p: p.origin) kvMissingIn)
               }. The entry belongs in the .gitleaks-secrets.toml sources because the note it exists for "
               + "is scanned only through the private submodule pass";
           }
-        else if untargetedRegexScope != [ ] then
           {
             id = "untargeted-scope";
+            hits = untargetedRegexScope;
             message =
               "gitleaks-allowlist-scope: allowlist ${describe untargetedRegexScope} sets regexTarget "
               + "with no targetRules. Any target other than the default secret is matched against text "
               + "outside the secret, so an untargeted one suppresses every rule's findings wherever its "
               + "text appears; name the rule it is meant to silence in targetRules";
           }
-        else if kvUntargeted != [ ] then
           {
             id = "kv-untargeted";
+            hits = kvUntargeted;
             message =
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist in "
               + "${describe kvUntargeted} is not scoped to ${lib.concatStringsSep ", " kvTargetRules}. "
               + "A global line-target allowlist is matched against every rule's findings, so it would "
               + "suppress any real credential sharing a line with the KV text";
           }
-        else if kvUnscoped != [ ] then
           {
             id = "kv-unscoped";
+            hits = kvUnscoped;
             message =
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist in "
               + "${describe kvUnscoped} lost regexTarget = \"line\", so its regex is matched against the "
               + "bare secret, never fires, and silently stops suppressing anything";
           }
-        # Last, after kv-untargeted: that branch's fixture names a rule outside
-        # the reviewed set to get past untargeted-scope, so an earlier placement
-        # here would reject it first and mask the branch it exists to cover.
-        else if unreviewedTargetRules != [ ] then
+          # Last, after kv-untargeted: that branch's fixture names a rule outside
+          # the reviewed set to get past untargeted-scope, so an earlier placement
+          # here would reject it first and mask the branch it exists to cover.
           {
             id = "target-rules";
+            hits = unreviewedTargetRules;
             message =
               "gitleaks-allowlist-scope: allowlist ${describe unreviewedTargetRules} targets a rule "
               + "outside the reviewed set ${lib.concatStringsSep ", " reviewedTargetRules}. A "
@@ -452,12 +457,12 @@
               + "silences that rule wherever the allowlist text appears; add the rule id to "
               + "reviewedTargetRules deliberately";
           }
-        # Last, after target-rules: the untargeted-scope and target-rules
-        # fixtures are both non-KV entries carrying a non-default regexTarget, so
-        # any earlier placement rejects them here first and masks both branches.
-        else if unreviewedRegexScope != [ ] then
+          # Last, after target-rules: the untargeted-scope and target-rules
+          # fixtures are both non-KV entries carrying a non-default regexTarget, so
+          # any earlier placement rejects them here first and masks both branches.
           {
             id = "regex-scope";
+            hits = unreviewedRegexScope;
             message =
               "gitleaks-allowlist-scope: allowlist ${describe unreviewedRegexScope} sets a non-default "
               + "regexTarget outside the Cloudflare KV entry, which is the only one reviewed to match "
@@ -465,8 +470,9 @@
               + "contain, so it suppresses its targeted rules wherever that text appears; scope the "
               + "false positive against the secret instead";
           }
-        else
-          null;
+        ];
+
+      verdict = parsed: lib.findFirst (b: b.hits != [ ]) null (branchesFor parsed);
 
       # gitleaks reads its config through viper, which lowercases every key
       # before mapstructure decodes it, so Paths, RegexTarget and [[Allowlists]]
@@ -899,23 +905,12 @@
       # The inverse contract: missed proves each fixture reaches its own
       # branch, while this list proves every verdict branch has a fixture. A
       # branch added without a case would otherwise be unasserted from the
-      # commit that adds it.
-      branchIds = [
-        "config-keys"
-        "allowlist-keys"
-        "path-scope"
-        "extend"
-        "regex"
-        "suppressors"
-        "local-rule"
-        "kv-unexpected"
-        "kv-missing"
-        "untargeted-scope"
-        "kv-untargeted"
-        "kv-unscoped"
-        "target-rules"
-        "regex-scope"
-      ];
+      # commit that adds it. Derived from branchesFor rather than restated, so
+      # a branch added to the chain cannot omit itself from this list the way
+      # a hand-maintained one could; branchesFor is called with [ ] rather
+      # than a real parsed config because only the static ids are read here,
+      # and every hits list is lazy, so building it costs nothing.
+      branchIds = map (b: b.id) (branchesFor [ ]);
 
       uncoveredBranches = lib.subtractLists (map (c: c.id) cases) branchIds;
 
