@@ -99,7 +99,8 @@ _: {
               shift
               (
                 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
-                  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+                  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+                  GIT_INDEX_FILE
                 git -C "$repo" "$@"
               )
             }
@@ -227,13 +228,14 @@ _: {
               # rescans the superproject instead. Caught by pre-push: with
               # GIT_DIR set to this linked worktree's git dir the pass reported
               # 2971 superproject commits rather than the submodule's 51. The
-              # other four redirect git the same way and fail differently rather
+              # other five redirect git the same way and fail differently rather
               # than not at all: GIT_COMMON_DIR or GIT_OBJECT_DIRECTORY alone
               # yields 0 commits scanned and "no leaks found", a pass that
               # reports success without reading anything.
               (
                 unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
-                  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+                  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+                  GIT_INDEX_FILE
                 # Assert the pass reads the submodule's history rather than
                 # trusting the enumeration above to be complete: any redirect it
                 # misses, and an initialised-but-empty submodule, both end in
