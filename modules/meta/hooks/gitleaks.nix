@@ -149,8 +149,32 @@ _: {
             # scans it exactly once regardless of how many stages named it,
             # since only the path, never the recorded mode or object id, is
             # read from an entry above.
+            #
+            # In place, not through printf/awk: a newline is as legal in a
+            # git path as the non-ASCII and space-containing names fixtures
+            # 19 and 25 already cover, and round-tripping through
+            # newline-delimited text split one such gitlink into two
+            # entries that exist on neither disk nor index, so the real one
+            # was scanned by nothing while the run printed two spurious
+            # "not checked out" warnings and exited 0. A subprocess
+            # pipeline behind mapfile also fails silently: mapfile succeeds
+            # on empty input regardless of the process substitution's exit
+            # status, verified directly (mapfile -t a < <(true | false)
+            # leaves a empty and does not trip set -e), and awk was not in
+            # runtimeInputs, so it depended on the ambient PATH besides.
+            # ''${var+set} tests key presence rather than truthiness, which
+            # stays correct for a path whose content would otherwise be
+            # mistaken for an array-index expression.
             if [ "''${#submodules[@]}" -gt 0 ]; then
-              mapfile -t submodules < <(printf '%s\n' "''${submodules[@]}" | awk '!seen[$0]++')
+              declare -A submodule_seen=()
+              deduped_submodules=()
+              for candidate in "''${submodules[@]}"; do
+                if [ -z "''${submodule_seen[$candidate]+set}" ]; then
+                  submodule_seen[$candidate]=1
+                  deduped_submodules+=("$candidate")
+                fi
+              done
+              submodules=("''${deduped_submodules[@]}")
             fi
 
             # Only this private gitlink owns the operational note covered by
