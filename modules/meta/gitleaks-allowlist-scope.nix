@@ -39,87 +39,63 @@
         "^docs/nixos-manual/"
       ];
 
-      sources = [
+      managedConfigs = [
         {
-          origin = "modules/development/gitleaks.nix";
-          text = config.files.file.".gitleaks.toml".text;
+          file = ".gitleaks.toml";
           reviewedPaths = superprojectPaths;
           kvAllowed = false;
         }
         {
-          origin = ".gitleaks.toml";
-          text = builtins.readFile ../../.gitleaks.toml;
-          reviewedPaths = superprojectPaths;
-          kvAllowed = false;
-        }
-        {
-          origin = "modules/development/gitleaks.nix (.gitleaks-secrets.toml)";
-          text = config.files.file.".gitleaks-secrets.toml".text;
+          file = ".gitleaks-secrets.toml";
           reviewedPaths = [ ];
           kvAllowed = true;
         }
         {
-          origin = ".gitleaks-secrets.toml";
-          text = builtins.readFile ../../.gitleaks-secrets.toml;
-          reviewedPaths = [ ];
-          kvAllowed = true;
-        }
-        {
-          origin = "modules/development/gitleaks.nix (.gitleaks-gitlink.toml)";
-          text = config.files.file.".gitleaks-gitlink.toml".text;
-          reviewedPaths = [ ];
-          kvAllowed = false;
-        }
-        {
-          origin = ".gitleaks-gitlink.toml";
-          text = builtins.readFile ../../.gitleaks-gitlink.toml;
+          file = ".gitleaks-gitlink.toml";
           reviewedPaths = [ ];
           kvAllowed = false;
         }
       ];
 
-      # Which source contracts are judged, pinned as origin, reviewedPaths and
-      # kvAllowed together. Every branch quantifies over whatever sources happens
-      # to hold and every fixture builds its own list through `fixture`, so
-      # dropping a contract here leaves the real verdict null and every fixture
-      # green while that file becomes unbounded. Both spellings of both managed
-      # configs, because a source edit that skipped write-files and a direct
-      # artifact edit are separate bypass directions.
-      reviewedSources = [
+      sources = lib.concatMap (c: [
         {
-          origin = "modules/development/gitleaks.nix";
-          reviewedPaths = superprojectPaths;
-          kvAllowed = false;
+          origin = "modules/development/gitleaks.nix (${c.file})";
+          text = config.files.file.${c.file}.text;
+          inherit (c) file reviewedPaths kvAllowed;
         }
         {
-          origin = ".gitleaks.toml";
-          reviewedPaths = superprojectPaths;
-          kvAllowed = false;
+          origin = c.file;
+          text = builtins.readFile (lib.path.append ../.. c.file);
+          inherit (c) file reviewedPaths kvAllowed;
+        }
+      ]) managedConfigs;
+
+      # Which source contracts are judged, pinned as origin, file,
+      # reviewedPaths and kvAllowed together. Every branch quantifies over
+      # whatever sources happens to hold and every fixture builds its own list
+      # through `fixture`, so dropping a contract here leaves the real verdict
+      # null and every fixture green while that file becomes unbounded. Both
+      # spellings of every managed config are covered, because a source edit
+      # that skipped write-files and a direct artifact edit are separate bypass
+      # directions.
+      reviewedSources = lib.concatMap (c: [
+        {
+          origin = "modules/development/gitleaks.nix (${c.file})";
+          inherit (c) file reviewedPaths kvAllowed;
         }
         {
-          origin = "modules/development/gitleaks.nix (.gitleaks-secrets.toml)";
-          reviewedPaths = [ ];
-          kvAllowed = true;
+          origin = c.file;
+          inherit (c) file reviewedPaths kvAllowed;
         }
-        {
-          origin = ".gitleaks-secrets.toml";
-          reviewedPaths = [ ];
-          kvAllowed = true;
-        }
-        {
-          origin = "modules/development/gitleaks.nix (.gitleaks-gitlink.toml)";
-          reviewedPaths = [ ];
-          kvAllowed = false;
-        }
-        {
-          origin = ".gitleaks-gitlink.toml";
-          reviewedPaths = [ ];
-          kvAllowed = false;
-        }
-      ];
+      ]) managedConfigs;
 
       sourceContract = s: {
-        inherit (s) origin reviewedPaths kvAllowed;
+        inherit (s)
+          origin
+          file
+          reviewedPaths
+          kvAllowed
+          ;
       };
 
       unjudgedSources = lib.subtractLists (map sourceContract sources) reviewedSources;
@@ -489,8 +465,8 @@
       # Throws in the parse rather than returning a verdict id, so `cases` cannot
       # reach it; collisionCases below drives it through tryEval instead.
       # Origin-carrying like every verdict message, because lowerKeys runs over
-      # both sources: a collision present only in the artifact would otherwise
-      # send the reader to modules/development/gitleaks.nix, where the entry is
+      # all managed source and artifact entries: a collision present only in the
+      # artifact would otherwise send the reader to modules/development/gitleaks.nix, where the entry is
       # absent, and the artifact-only edit is the direction this check was
       # extended to cover in the first place.
       lowerKeys =

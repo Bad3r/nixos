@@ -65,6 +65,13 @@ _: {
             #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
             #     --config .gitleaks-secrets.toml \
             #     --report-path secrets/.gitleaks-baseline.json secrets
+            # Any gitlink outside private_config_gitlinks is scanned with
+            # .gitleaks-gitlink.toml, so record its baseline with that config:
+            # .gitleaks-secrets.toml suppresses the KV note the generic pass
+            # reports, and the resulting baseline would lack that fingerprint.
+            #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
+            #     --config .gitleaks-gitlink.toml \
+            #     --report-path <gitlink>/.gitleaks-baseline.json <gitlink>
             # Matching is by fingerprint, so a raw baseline would still suppress,
             # but it commits the credential in plaintext. Dropping
             # --ignore-gitleaks-allow instead yields a baseline without the

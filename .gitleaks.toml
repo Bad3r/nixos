@@ -2,9 +2,11 @@
 # allowlists for documentation-only directories that contain
 # example secrets, and for well-known public keys used for
 # upstream signature verification.
-# Superproject pass only. The submodule pass reads
-# .gitleaks-secrets.toml, because path patterns are matched against a
-# File rooted at whichever tree is being scanned.
+# Superproject pass only. Gitlink passes read
+# .gitleaks-secrets.toml for the pinned private gitlinks and
+# .gitleaks-gitlink.toml for every other gitlink, because path
+# patterns are matched against a File rooted at whichever tree is
+# being scanned.
 [extend]
 useDefault = true
 

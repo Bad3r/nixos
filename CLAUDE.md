@@ -128,7 +128,8 @@ relationships.
 - Secrets: `secrets/`
   Encrypted payloads managed through `sops.secrets`.
 - Generated artifacts: `.actrc`, `.githooks/post-checkout`, `.gitignore`,
-  `.gitleaks-secrets.toml`, `.gitleaks.toml`, `.sops.yaml`, `README.md`
+  `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`,
+  `.sops.yaml`, `README.md`
   Owned by the files module. Update source definitions instead of editing
   generated output directly.
 
