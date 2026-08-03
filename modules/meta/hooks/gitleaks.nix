@@ -183,24 +183,29 @@ _: {
             # and gitleaks-scan is the only credential gate on the merge path.
             # A --depth working copy does the same to every local pre-push.
             # The commit count as well as the shallow test, matching the
-            # submodule assertion below. The count is the half that catches a
-            # redirect: GIT_COMMON_DIR or GIT_OBJECT_DIRECTORY pointed away from
-            # the repository yields "0 commits scanned", "no leaks found" and
-            # exit 0 while is-shallow-repository still reports false. This pass
-            # runs in the ambient environment, where those variables live, and
-            # unlike the submodule pass it cannot unset them without also
-            # redirecting itself, so the pass gitleaks-scan always runs had the
-            # weaker precondition of the two.
-            super_commits=$(git rev-list --all --count)
-            super_shallow=$(git rev-parse --is-shallow-repository)
+            # submodule assertion below. Clear Git's redirect variables first:
+            # a valid alternate repository gives a large non-zero count with
+            # shallow=false, so the count alone cannot prove which history the
+            # pass will scan.
+            super_commits=$(git_in_repo . rev-list --all --count)
+            super_shallow=$(git_in_repo . rev-parse --is-shallow-repository)
             if [ "$super_commits" -eq 0 ] || [ "$super_shallow" != "false" ]; then
               echo "hook-gitleaks: superproject pass would read an incomplete history (commits=$super_commits, shallow=$super_shallow); refusing to report the repository clean (run 'git fetch --unshallow' locally, or set fetch-depth: 0 on the checkout step in CI)" >&2
               exit 1
             fi
 
             # History pass: catches a credential that was committed and later
-            # removed, which a worktree scan can no longer see.
-            gitleaks git "''${git_args[@]}" . || status=1
+            # removed, which a worktree scan can no longer see. Clear the same
+            # six variables as the submodule pass: cd "$root" pins the tree,
+            # so clearing them restores discovery from that tree, while a
+            # GIT_DIR pointed at another repository would otherwise make this
+            # pass scan the wrong history.
+            (
+              unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
+                GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+                GIT_INDEX_FILE
+              gitleaks git "''${git_args[@]}" .
+            ) || status=1
 
             # Submodule history: the superproject pass sees only the gitlink, so
             # nothing here covered secrets/ before this. Deliberately git and not
