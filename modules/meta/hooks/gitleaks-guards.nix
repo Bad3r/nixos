@@ -137,12 +137,9 @@ _: {
             # reachable at all, and a stand-in config left it asserted by
             # nothing.
             write_config() {
-              printf '%s' ${lib.escapeShellArg config.files.file.".gitleaks.toml".text} \
-                > "$1/.gitleaks.toml"
-              printf '%s' ${lib.escapeShellArg config.files.file.".gitleaks-secrets.toml".text} \
-                > "$1/.gitleaks-secrets.toml"
-              printf '%s' ${lib.escapeShellArg config.files.file.".gitleaks-gitlink.toml".text} \
-                > "$1/.gitleaks-gitlink.toml"
+              ${lib.concatMapStringsSep "\n              " (
+                n: "printf '%s' ${lib.escapeShellArg config.files.file.${n}.text} > \"$1/${n}\""
+              ) managedConfigNames}
             }
 
             # A repository the hook reports clean: config committed, one ordinary
