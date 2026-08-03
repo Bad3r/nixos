@@ -1,6 +1,11 @@
 _: {
   perSystem =
-    { pkgs, config, ... }:
+    {
+      pkgs,
+      config,
+      lib,
+      ...
+    }:
     {
       packages.hook-managed-files-drift = pkgs.writeShellApplication {
         name = "hook-managed-files-drift";
@@ -40,6 +45,26 @@ _: {
               echo "  The files input changed its manifest shape; update hook-managed-files-drift." >&2
               exit 1
             fi
+
+            # A manifest that parses but silently drops entries must still fail
+            # closed instead of verifying a partial set. Pin coverage to the
+            # files actually declared in Nix (same config.files.file read as
+            # modules/files.nix:63), not just a non-empty parsed count.
+            expected=(${lib.escapeShellArgs (builtins.attrNames config.files.file)})
+            for want in "''${expected[@]}"; do
+              found=0
+              for line in "''${pairs[@]}"; do
+                if [ "''${line#*$'\t'}" = "$want" ]; then
+                  found=1
+                  break
+                fi
+              done
+              if [ "$found" -eq 0 ]; then
+                echo "✗ Declared managed file absent from manifest: $want" >&2
+                echo "  The files input manifest no longer covers every files.file entry." >&2
+                exit 1
+              fi
+            done
 
             drift=0
             declare -a update_paths=()
