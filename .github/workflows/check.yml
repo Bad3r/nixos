@@ -26,8 +26,8 @@ jobs:
   # merged clean while one that merely misconfigured the allowlist was blocked
   # by gitleaks-allowlist-scope. Runs the repo's own hook, so CI and pre-push
   # share one binary, config and baseline instead of drifting. secrets/ is
-  # unavailable to CI and the hook guards on secrets/.git, so this covers the
-  # superproject only.
+  # unavailable to CI and the hook skips each gitlink the index names when its
+  # own .git is absent, so this covers the superproject only.
   gitleaks-scan:
     runs-on: ubuntu-latest
     # Installs Lix and builds the hook from the branch's flake. Nothing on the
