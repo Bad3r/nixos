@@ -19,8 +19,9 @@ case "$REPO_ROOT" in
   ;;
 esac
 
-MANUAL_DIR="$REPO_ROOT/docs/nixos-manual"
-MANUAL_PATHSPEC=':(literal,top)docs/nixos-manual'
+MANUAL_RELPATH='docs/nixos-manual'
+MANUAL_DIR="$REPO_ROOT/$MANUAL_RELPATH"
+MANUAL_PATHSPEC=":(literal,top)$MANUAL_RELPATH"
 # TMP_PARENT is owned jointly by the success path (which clears it inline and
 # resets it to "") and the EXIT trap (which cleans up early exits). The empty
 # reset is what keeps the trap from double-acting after a successful run.
@@ -112,7 +113,7 @@ echo ""
 
 # Ask for commit approval
 if [[ -t 0 ]]; then
-  read -rp "📝 Commit changes? [y/N] " response
+  read -rp "📝 Commit changes? [y/N] " response || response=""
 else
   response=""
   echo "Non-interactive shell; skipped commit prompt."
