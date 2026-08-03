@@ -574,6 +574,31 @@
             expect "foreign site with no pending install still refuses" 1 \
               "is not the site this unit installed"
 
+            # A kill before any attempt registers a site (record_origin runs
+            # unconditionally before the loop, so origin_file exists; nothing
+            # else does) must not leave anything that later licenses adopting
+            # a foreign same-named site appearing at that origin.
+            # pending_file is deliberately absent from this setup: writing it
+            # inside the install loop's success branch, not before the loop,
+            # is what this case exists to prove, since a pending_file present
+            # here would adopt regardless of that fix (the check above it
+            # does not distinguish why the file exists, only that it does).
+            reset
+            set_url 'https://mail.example.com/x'
+            printf '%s' 'https://mail.example.com' >"$data_dir/dmail-applied-origin"
+            jq -n --arg s 'https://mail.example.com/' \
+              '.sites["01FOREIGN"] = {
+                 config: {
+                   name: "DMail",
+                   start_url: "https://mail.example.com/x",
+                   document_url: $s,
+                   manifest_url: "data:,"
+                 },
+                 manifest: {scope: $s}
+               }' >"$config_file"
+            expect "foreign site after a kill before registration still refuses" 1 \
+              "is not the site this unit installed"
+
             echo "-- the secret reaches only the field rotation can rewrite --"
             reset
             set_url 'https://mail.example.com/inbox?token=TOK_FIRST'

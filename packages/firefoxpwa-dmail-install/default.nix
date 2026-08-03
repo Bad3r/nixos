@@ -281,7 +281,6 @@ writeShellApplication {
     # mid-install, which the guard above then refuses on every run. A switch
     # restarts sops-nix, and PartOf stops this unit, so that kill is routine.
     record_origin
-    (umask 077; : >"$pending_file")
 
     for attempt in 1 2 3; do
       # The decrypted URL is passed to firefoxpwa on argv, so it is visible in
@@ -293,6 +292,13 @@ writeShellApplication {
         --document-url "$origin" \
         --start-url "$url" \
         --name "$app_name"; then
+        # Written here, not before the loop: this marker licenses adopting a
+        # site with no ulid record, so it must cover only the window it
+        # names, between this install succeeding and record_ulid completing.
+        # Before the loop it would also cover attempts that registered
+        # nothing, and a foreign same-named site appearing after a kill in
+        # that wider window would then be adopted the same way.
+        (umask 077; : >"$pending_file")
         if ! ulid=$(site_ulid); then
           echo "firefoxpwa-dmail: cannot read $config_file after installing '$app_name'" >&2
           exit 1
