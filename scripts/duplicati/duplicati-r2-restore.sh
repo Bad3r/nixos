@@ -26,7 +26,9 @@ Options:
                            unless --force is given.
   --chown <user:group>     Chown applied to the entries this restore wrote
                            (files restored and directories created), never to
-                           pre-existing content. Default: vx:users.
+                           pre-existing content. The --restore-path root is
+                           included only when it started out empty or absent.
+                           Default: vx:users.
                            Pass 'none' to skip the chown step.
   --force                  Allow restoring into a pre-existing non-empty
                            --restore-path. Restored entries can overwrite
@@ -531,20 +533,27 @@ if [[ ! -r $db_path ]]; then
   echo
 fi
 
-restore_path_preexisting=false
+# Tracks pre-existing content, not mere existence: an empty directory holds
+# nothing to protect, so the restore-path root stays eligible for the chown and
+# chmod below. Leaving it out would hand the chown target a tree it cannot add
+# to or clean up, under a root the script never touches.
+restore_path_populated=false
 if [[ -e $restore_path ]]; then
   if [[ ! -d $restore_path ]]; then
     echo "--restore-path exists and is not a directory: $restore_path" >&2
     exit 64
   fi
-  restore_path_preexisting=true
-  if [[ -n $(find "$restore_path" -mindepth 1 -print -quit) && $force != true ]]; then
-    echo "refusing: --restore-path '$restore_path' already exists and is not empty." >&2
-    echo "  A restore into it can overwrite files (per --overwrite) and the post-restore" >&2
-    echo "  ownership/permission pass would mix with pre-existing content." >&2
-    echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
-    exit 64
+  if [[ -n $(find "$restore_path" -mindepth 1 -print -quit) ]]; then
+    restore_path_populated=true
   fi
+fi
+
+if [[ $restore_path_populated == true && $force != true ]]; then
+  echo "refusing: --restore-path '$restore_path' already exists and is not empty." >&2
+  echo "  A restore into it can overwrite files (per --overwrite) and the post-restore" >&2
+  echo "  ownership/permission pass would mix with pre-existing content." >&2
+  echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
+  exit 64
 fi
 
 mkdir -p "$restore_path"
@@ -625,7 +634,7 @@ if [[ $chown_spec != "none" ]]; then
   echo
   echo "Applying chown ${chown_spec} to restored entries under ${restore_path}..."
   restored_entries | xargs -0 -r chown "$chown_spec"
-  if [[ $restore_path_preexisting == false ]]; then
+  if [[ $restore_path_populated == false ]]; then
     chown "$chown_spec" "$restore_path"
   fi
 fi
@@ -639,7 +648,7 @@ fi
 # restored entries so pre-existing content keeps its modes.
 echo "Resetting permissions to u+rwX,go-rwx on restored entries under ${restore_path}..."
 restored_entries | xargs -0 -r chmod u+rwX,go-rwx
-if [[ $restore_path_preexisting == false ]]; then
+if [[ $restore_path_populated == false ]]; then
   chmod u+rwX,go-rwx "$restore_path"
 fi
 
