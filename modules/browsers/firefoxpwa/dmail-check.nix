@@ -313,6 +313,21 @@
             expect "same-origin rotation refreshes" 0 "updated start URL"
             expect "no-op after rotation" 0 "already installed with current URL"
 
+            # A marker surviving a kill between record_ulid and its own
+            # removal must not persist once ulid_file already names this
+            # site: neither the no-op path above nor the refresh path below
+            # ever touches it otherwise, so it would sit on disk for the
+            # life of the install.
+            : >"$data_dir/dmail-installing"
+            expect "a marker surviving past record_ulid still no-ops" 0 \
+              "already installed with current URL"
+            if [ -e "$data_dir/dmail-installing" ]; then
+              echo "FAIL  no-op clears a marker left behind by an earlier kill"
+              failures=$((failures + 1))
+            else
+              echo "PASS  no-op clears a marker left behind by an earlier kill"
+            fi
+
             # site update itself failing (for example storage.write erroring
             # on the rewrite) must be reported, not silently swallowed.
             set_url 'https://mail.example.com/u/2?tok=b'

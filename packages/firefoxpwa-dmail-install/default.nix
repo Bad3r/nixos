@@ -184,6 +184,16 @@ writeShellApplication {
       exit 1
     fi
     if [ -n "$ulid" ]; then
+      # The pending marker only licenses adopting a site whose identity is
+      # not yet recorded. Once ulid_file names this site, whether from an
+      # earlier run or from the repair just below, it has no further job:
+      # a marker left behind by a kill between record_ulid and its own
+      # removal would otherwise never be cleared, since every later run
+      # takes the no-op or refresh exit here, and neither touches it.
+      if [ -r "$ulid_file" ] && [ "$(<"$ulid_file")" = "$ulid" ]; then
+        rm -f "$pending_file"
+      fi
+
       # Gated on ulid_file too, not just the URL: without it, a foreign
       # same-named site the browser extension created after an uninstall
       # would silently pass as a no-op whenever the secret has not rotated,
