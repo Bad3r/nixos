@@ -39,9 +39,6 @@ let
       "gitattributes"
       "gitignore"
       "gitmodules"
-      "gitleaks-secrets.toml"
-      "gitleaks-gitlink.toml"
-      "gitleaks.toml"
       "hgignore"
       "pre-commit-config.yaml"
       "sops.yaml"
@@ -70,7 +67,18 @@ in
       treefmt = {
         projectRootFile = "flake.nix";
 
-        settings.global.excludes = treefmtGlobalExcludes;
+        # The managed .gitleaks*.toml names are generated from config.files.file
+        # rather than hand-typed here, the same way modules/meta/hooks/gitleaks.nix,
+        # modules/meta/hooks/gitleaks-guards.nix and
+        # modules/meta/gitleaks-allowlist-scope.nix already derive theirs: a
+        # name missing from a hand-typed copy here would be formatted by
+        # taplo, so write-files and the formatter would disagree and
+        # managed-files-drift would report churn on a file nobody edited.
+        settings.global.excludes =
+          treefmtGlobalExcludes
+          ++ lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
+            lib.attrNames config.files.file
+          );
 
         programs = {
           nixfmt.enable = true;
