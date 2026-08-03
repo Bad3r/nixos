@@ -1,12 +1,16 @@
 /*
-  firefoxpwa: DMail web app
-  Description: Installs the primary user's work mail site as a standalone
+  firefoxpwa: userdata directory pinning and the DMail web app
+  Description: Two independent scopes. Whenever programs.firefoxpwa.extended.enable
+    is set, pins the firefoxpwa userdata directory into the session and hardens
+    it to 0700, for every site the browser extension installs, not just DMail.
+    Additionally, whenever programs.firefoxpwa.dmail.enable is also set and
+    gecko.yaml exists, installs the primary user's work mail site as a standalone
     Progressive Web App through the firefoxpwa CLI. The start URL is never
     written to the Nix store: it is read at runtime from the SOPS-encrypted
     work-bookmark secret that modules/home/gecko-secrets.nix already stores
     (gecko.yaml key gecko_work_bookmark_url_1).
 
-  Mechanism:
+  DMail mechanism:
     * A oneshot user service ordered after sops-nix.service decrypts the URL and
       runs `firefoxpwa site install` with a synthetic data: manifest, so the
       site installs without the target having to serve a web manifest.
