@@ -9,7 +9,35 @@ on:
     types: [created]
 
 concurrency:
-  group: gemini-pr-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  # issue_comment fires this workflow for every comment on every PR, and the
+  # workflow-level group is evaluated before the job `if:` drops those runs, so
+  # a group keyed only on the PR number let any bystander cancel a review that
+  # was already running: the Claude reviewer's own "Review in progress" comment
+  # killed run 30691389919 nine seconds in. Only events that will actually pass
+  # the job `if:` share a per-PR group; everything else gets a per-run group
+  # that nothing can collide with. The predicate below duplicates the job `if:`
+  # because GitHub offers no way to share one expression between the two; keep
+  # them in sync, since any condition dropped here is a cancel-in-progress that
+  # an untrusted commenter or a fork PR can aim at a running review.
+  # Declaring `concurrency` on the job instead would remove the duplication if a
+  # job dropped by `if:` never acquires its group, but GitHub documents no such
+  # guarantee, and if it is wrong the regression is silent and is exactly this
+  # bug. Confirm it on a throwaway PR before trading this predicate away.
+  # comment.body reaches only startsWith: the group is always pr-<number> or
+  # inert-<run_id>, so no untrusted text lands in it.
+  group: >-
+    gemini-pr-review-${{
+    ((github.event_name == 'pull_request' &&
+    github.event.pull_request.draft == false &&
+    github.event.pull_request.head.repo.full_name == github.repository &&
+    (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) ||
+    github.event.pull_request.user.login == 'dependabot[bot]')) ||
+    (github.event_name == 'issue_comment' &&
+    github.event.issue.pull_request &&
+    startsWith(github.event.comment.body, '@gemini-cli /review') &&
+    contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)))
+    && format('pr-{0}', github.event.pull_request.number || github.event.issue.number)
+    || format('inert-{0}', github.run_id) }}
   cancel-in-progress: true
 
 jobs:

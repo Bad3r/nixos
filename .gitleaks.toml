@@ -2,15 +2,27 @@
 # allowlists for documentation-only directories that contain
 # example secrets, and for well-known public keys used for
 # upstream signature verification.
+# Superproject pass only. Gitlink passes read
+# .gitleaks-secrets.toml for the pinned private gitlinks and
+# .gitleaks-gitlink.toml for every other gitlink, because path
+# patterns are matched against a File rooted at whichever tree is
+# being scanned.
 [extend]
 useDefault = true
 
 [[allowlists]]
 description = "Documentation examples with placeholder secrets"
 paths = [
-  # Keep the old root-level path because gitleaks scans historical commits.
-  "nixos-manual/.*",
-  "docs/nixos-manual/.*",
+  # Anchored: gitleaks matches paths unanchored against a repo-relative
+  # File, so "nixos-manual/.*" also skips secrets/private-ops/nixos-manual
+  # and every other directory of that name, making the one reviewed
+  # path-scope reachable by creating a directory instead of by editing
+  # config. No root-level "^nixos-manual/" entry: that directory does
+  # not exist in the worktree, so the pattern's only live effect would
+  # be to exempt one a future commit creates, before gitleaks ever
+  # reads its contents. The three historical findings under the old
+  # root path are already in .gitleaks-baseline.json by fingerprint.
+  "^docs/nixos-manual/",
 ]
 
 [[allowlists]]
@@ -18,3 +30,4 @@ description = "DNSCrypt resolvers-list public minisign verification key"
 regexes = [
   "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3",
 ]
+

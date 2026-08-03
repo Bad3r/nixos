@@ -11,9 +11,10 @@ name: Dendritic Pattern Compliance Check
       - main
   workflow_dispatch:
 concurrency:
-  # Two of these jobs install Lix and run a full flake evaluation, so a
-  # superseded run is pure waste. cache-push.yml opts out because its long
-  # builds are worth preserving; nothing here builds.
+  # Three of these jobs install Lix and run a full flake evaluation, so a
+  # superseded run is pure waste. gitleaks-scan also builds (the hook and its
+  # fixture suite), but those are small and cheap to redo; cache-push.yml opts
+  # out because its long builds are worth preserving.
   group: check-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
@@ -22,6 +23,44 @@ permissions:
   # from the pull request head.
   contents: read
 jobs:
+  # The scanner, not just the config guard the flake checks evaluate. Nothing
+  # ran gitleaks on the merge path: pre-commit.check.enable = false keeps
+  # hook-gitleaks out of checks, so a pull request committing a live credential
+  # merged clean while one that merely misconfigured the allowlist was blocked
+  # by gitleaks-allowlist-scope. Runs the repo's own hook, so CI and pre-push
+  # share one binary, config and baseline instead of drifting. secrets/ is
+  # unavailable to CI and the hook skips each gitlink the index names when its
+  # own .git is absent, so this covers the superproject only.
+  gitleaks-scan:
+    runs-on: ubuntu-latest
+    # Installs Lix and builds the hook from the branch's flake. Nothing on the
+    # runner sets stalled-download-timeout, so a stuck substituter fetch would
+    # otherwise hold a runner, and this workflow's shared concurrency slot, for
+    # the six hour job default.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history: the hook scans commits, not the worktree.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # Before the scan, because the scan's green result only means anything if
+      # the hook still refuses the cases that would make it vacuous. The
+      # check-compliance job forces drvPaths and never builds check outputs, so
+      # naming this in `checks` is not enough to run it; it has to be built.
+      # Cheap: git and the hook are already in this job's closure, and the
+      # fixtures are small local repositories.
+      - name: Verify hook refusal branches
+        run: |
+          nix build --accept-flake-config --no-link \
+            "path:.#checks.x86_64-linux.hook-gitleaks-guards"
+      - name: Scan for credentials
+        run: nix run --accept-flake-config "path:.#hook-gitleaks"
+
   flake-lock-health:
     runs-on: ubuntu-latest
     steps:
