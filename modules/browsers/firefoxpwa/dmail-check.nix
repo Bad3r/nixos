@@ -109,7 +109,12 @@
               # site is never registered, unlike STUB_FAIL_AFTER_REGISTER.
               [ -z "''${STUB_FAIL_BEFORE_REGISTER:-}" ] || exit 1
               scope=$(printf '%s' "''${manifest_url#*base64,}" | base64 -d | jq -r .scope)
-              write_site "$manifest_url" "$start_url" "$name" "$document_url" "$scope"
+              # Reproduces firefoxpwa reporting success while storage.write
+              # never lands, for example a write racing firefoxpwa
+              # connector's own use of config.json: site_ulid then finds
+              # nothing under $app_name despite the 0 exit, unlike
+              # STUB_FAIL_BEFORE_REGISTER, which reports failure.
+              [ -n "''${STUB_LOSE_REGISTRATION:-}" ] || write_site "$manifest_url" "$start_url" "$name" "$document_url" "$scope"
               # Reproduces an install that registers the site and then fails, for
               # example when desktop integration errors after storage.write.
               [ -z "''${STUB_FAIL_AFTER_REGISTER:-}" ] || exit 1
@@ -597,6 +602,31 @@
                  manifest: {scope: $s}
                }' >"$config_file"
             expect "foreign site after a kill before registration still refuses" 1 \
+              "is not the site this unit installed"
+
+            # firefoxpwa can report success while site_ulid finds nothing
+            # under $app_name (for example a read racing firefoxpwa
+            # connector's own write to config.json). That exit must not
+            # leave anything that later licenses adopting a foreign
+            # same-named site appearing at the recorded origin, the same
+            # reasoning as the exhausted-retries cleanup: pending_file was
+            # written for an install this run cannot prove happened.
+            reset
+            set_url 'https://mail.example.com/x'
+            STUB_LOSE_REGISTRATION=1 expect \
+              "install reporting success with no registered site still fails" 1 \
+              "reported installed but is not in"
+            jq -n --arg s 'https://mail.example.com/' \
+              '.sites["01FOREIGN"] = {
+                 config: {
+                   name: "DMail",
+                   start_url: "https://mail.example.com/x",
+                   document_url: $s,
+                   manifest_url: "data:,"
+                 },
+                 manifest: {scope: $s}
+               }' >"$config_file"
+            expect "foreign site after a lost registration still refuses" 1 \
               "is not the site this unit installed"
 
             echo "-- the secret reaches only the field rotation can rewrite --"

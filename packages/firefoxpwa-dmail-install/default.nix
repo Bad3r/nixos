@@ -304,6 +304,10 @@ writeShellApplication {
           exit 1
         fi
         if [ -z "$ulid" ]; then
+          # No site of ours exists, so this marker could only license adopting
+          # a foreign same-named site appearing at the recorded origin before
+          # the next run. Same reasoning as the exhausted-retries cleanup.
+          rm -f "$pending_file"
           echo "firefoxpwa-dmail: '$app_name' reported installed but is not in $config_file" >&2
           exit 1
         fi
