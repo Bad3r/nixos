@@ -58,6 +58,10 @@ writeShellApplication {
     # idempotency check byte-exact instead of racing that normalization.
     applied_file="$data_dir/dmail-applied-url"
     origin_file="$data_dir/dmail-applied-origin"
+    # Origin alone does not authenticate identity: a same-named site at the
+    # recorded origin is not necessarily the site this script installed.
+    # This records which one is, independent of origin bookkeeping.
+    ulid_file="$data_dir/dmail-applied-ulid"
 
     if [ ! -r "$url_file" ]; then
       echo "firefoxpwa-dmail: secret not readable at $url_file" >&2
@@ -131,6 +135,17 @@ writeShellApplication {
       mv "$origin_file.next" "$origin_file"
     }
 
+    # Authenticates the site itself, not just its origin: a same-named site
+    # at the recorded origin can still be a different site the browser
+    # extension created, one this script never installed and must not adopt.
+    record_ulid() {
+      (
+        umask 077
+        printf '%s' "$ulid" >"$ulid_file.next"
+      )
+      mv "$ulid_file.next" "$ulid_file"
+    }
+
     # Manifest scope is a prefix match and site update cannot rewrite it,
     # so it must be the bare origin: anything longer pushes same-origin
     # navigation and every later URL rotation into the external browser.
@@ -193,6 +208,15 @@ writeShellApplication {
         echo "firefoxpwa-dmail: '$app_name' exists but nothing records the origin it was installed at; uninstall the site so this unit can reinstall it" >&2
         exit 1
       fi
+      # Origin bookkeeping alone cannot tell this site apart from a
+      # different one at the same origin: uninstalling a site does not clear
+      # these records, and a same-named site the browser extension later
+      # creates would otherwise inherit them. The ulid firefoxpwa assigned
+      # this script's own install is the one thing that does.
+      if [ ! -r "$ulid_file" ] || [ "$(<"$ulid_file")" != "$ulid" ]; then
+        echo "firefoxpwa-dmail: '$app_name' ($ulid) is not the site this unit installed; uninstall it so this unit can reinstall its own" >&2
+        exit 1
+      fi
       if [ "''${guard_origin,,}" != "''${origin,,}" ]; then
         echo "firefoxpwa-dmail: rotated URL origin '$origin' does not match the installed origin '$guard_origin'; uninstall the '$app_name' site so this unit can reinstall it at the new origin" >&2
         exit 1
@@ -242,6 +266,15 @@ writeShellApplication {
         --document-url "$origin" \
         --start-url "$url" \
         --name "$app_name"; then
+        if ! ulid=$(site_ulid); then
+          echo "firefoxpwa-dmail: cannot read $config_file after installing '$app_name'" >&2
+          exit 1
+        fi
+        if [ -z "$ulid" ]; then
+          echo "firefoxpwa-dmail: '$app_name' reported installed but is not in $config_file" >&2
+          exit 1
+        fi
+        record_ulid
         record_applied
         echo "firefoxpwa-dmail: installed '$app_name'"
         exit 0
@@ -260,6 +293,7 @@ writeShellApplication {
         exit 1
       fi
       if [ -n "$ulid" ]; then
+        record_ulid
         echo "firefoxpwa-dmail: '$app_name' was registered by a failed install; not retrying install, the next activation repairs it with site update" >&2
         exit 1
       fi
@@ -269,14 +303,12 @@ writeShellApplication {
     done
 
     # Reached only through the break above, with $ulid last seen empty: no
-    # attempt registered a site, so neither record can describe one that
-    # exists. Both must go together, not just origin_file: a stale
-    # applied_file left from an earlier install (uninstalling the site does
-    # not clear this script's own markers) would otherwise let the elif
-    # fallback derive a guard_origin from it, and if that happens to match
-    # the current secret's origin the guard adopts whatever later comes to
-    # carry this name just as readily as a stale origin_file would.
-    rm -f "$origin_file" "$applied_file"
+    # attempt registered a site, so none of the three records can describe
+    # one that exists. A stale applied_file or ulid_file left from an earlier
+    # install (uninstalling a site does not clear this script's own markers)
+    # would otherwise let the elif fallback or the ulid check above
+    # authenticate a site this script never installed.
+    rm -f "$origin_file" "$applied_file" "$ulid_file"
     echo "firefoxpwa-dmail: install failed after 3 attempts" >&2
     exit 1
   '';

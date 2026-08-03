@@ -193,10 +193,13 @@
             data_dir=${lib.escapeShellArg dataDir}
             config_file="$data_dir/config.json"
             marker="$data_dir/dmail-applied-url"
-            # Mirrors the unit's Environment=. The stub resolves its own data
-            # directory from this, exactly as firefoxpwa does, so the installer
-            # and the binary agree only while both are pinned to it.
-            export FFPWA_USERDATA="$data_dir"
+            # Deliberately not exported here: the installer pins FFPWA_USERDATA
+            # itself from the data_dir it is given, and the stub resolves it
+            # the way firefoxpwa does. Setting it in this environment would
+            # supply the pin the installer is supposed to provide, so dropping
+            # the installer's own export would still pass; the stub would then
+            # fall back to $XDG_DATA_HOME/firefoxpwa, which "the installer uses
+            # the directory it is given" below already requires to stay empty.
             install -d "$HOME" "$XDG_DATA_HOME" "$secret_dir"
 
             installer=${lib.getExe installer}
@@ -480,6 +483,30 @@
             jq '.sites = {}' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
             STUB_FAIL_AFTER_REGISTER=1 "$installer" >/dev/null 2>&1 || true
             expect "reinstall at the new origin is not blocked by the old URL" 0 "updated start URL"
+
+            # Origin bookkeeping alone never authenticated the site, only
+            # where it claims to be installed. Uninstalling a site does not
+            # clear these records (one-way, per this option's own docs), so
+            # a same-named site created by hand afterward, at the SAME
+            # origin, would pass every origin check that exists and still be
+            # a site this script never installed. ulid_file is the guard
+            # that actually distinguishes them.
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            jq '.sites = {}' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
+            jq '.sites["01FOREIGN"] = {
+                  config: {
+                    name: "DMail",
+                    start_url: "https://mail.example.com/u/0/",
+                    document_url: "https://mail.example.com/u/0/",
+                    manifest_url: "data:,"
+                  },
+                  manifest: {scope: "https://mail.example.com/u/0/"}
+                }' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
+            set_url 'https://mail.example.com/z'
+            expect "foreign site after an ordinary uninstall is not adopted" 1 \
+              "is not the site this unit installed"
 
             echo "-- the secret reaches only the field rotation can rewrite --"
             reset
