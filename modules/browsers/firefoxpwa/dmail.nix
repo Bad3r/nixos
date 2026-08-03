@@ -79,24 +79,6 @@ _: {
                 install -d -m 700 '${dataDir}'
               '';
 
-          # The unit pins below cover the installer's own writes: config.json,
-          # and, since it also runs system integration, the .desktop entry and
-          # icon under xdg.dataHome/applications. Both variables are exported
-          # to the session too, for two different readers. FFPWA_USERDATA: the
-          # generated .desktop launcher runs `firefoxpwa site launch`, and the
-          # browser extension starts `firefoxpwa connector`, neither of which
-          # the unit starts. XDG_DATA_HOME: the desktop menu that has to find
-          # that launcher entry resolves the directory to scan independently
-          # of what the unit wrote it with, so writer and reader agree only if
-          # both sides are pinned to the same value. xdg.enable is off here, so
-          # nothing else puts either variable into the session, and a
-          # non-default xdg.dataHome would otherwise leave one side, or both,
-          # resolving a directory with nothing in it.
-          home.sessionVariables = {
-            FFPWA_USERDATA = dataDir;
-            XDG_DATA_HOME = config.xdg.dataHome;
-          };
-
           systemd.user.services.firefoxpwa-dmail = {
             Unit = {
               Description = "Install the DMail web app (firefoxpwa)";
@@ -139,6 +121,27 @@ _: {
               "default.target"
               "sops-nix.service"
             ];
+          };
+        })
+
+        (lib.mkIf firefoxpwaEnabled {
+          # firefoxpwa resolves its userdata tree, and system integration its
+          # applications/ directory, from the session environment: the
+          # generated .desktop launcher runs `firefoxpwa site launch`, the
+          # browser extension starts `firefoxpwa connector`, and the desktop
+          # menu that has to find a launcher entry resolves the directory to
+          # scan independently of what wrote it. Pinned for every firefoxpwa
+          # consumer here, not folded into the DMail-specific block above:
+          # both readers are shared with every other site, installed from the
+          # browser extension or otherwise, so tying the directory to a
+          # per-site toggle would move it out from under those sites whenever
+          # that toggle changed. xdg.enable is off here, so nothing else puts
+          # either variable into the session, and a non-default xdg.dataHome
+          # would otherwise leave one side, or both, resolving a directory
+          # with nothing in it.
+          home.sessionVariables = {
+            FFPWA_USERDATA = dataDir;
+            XDG_DATA_HOME = config.xdg.dataHome;
           };
         })
 
