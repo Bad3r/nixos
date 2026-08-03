@@ -71,20 +71,18 @@
             echo "📝 Writing managed files..."
             echo ""
 
-            # Run the actual writer
-            ${config.files.writer.drv}/bin/write-files "$@"
-            exit_code=$?
-
-            if [ $exit_code -eq 0 ]; then
+            # Condition form: writeShellApplication enables errexit, so a bare
+            # invocation would abort here and leave the failure branch dead.
+            if ${config.files.writer.drv}/bin/${config.files.writer.exeFilename} "$@"; then
               echo ""
               echo "✅ Successfully wrote ${toString (builtins.length managedFiles)} file(s):"
               echo "${managedFilesList}"
             else
+              exit_code=$?
               echo ""
               echo "❌ write-files failed with exit code $exit_code"
+              exit "$exit_code"
             fi
-
-            exit $exit_code
           '';
         };
       in
