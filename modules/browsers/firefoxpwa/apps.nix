@@ -62,6 +62,12 @@ let
           refuses the rotation and the user service fails on every switch and
           login until the site is removed with `firefoxpwa site uninstall`.
           Rotations within the same origin are applied in place.
+
+          A secret whose URL embeds credentials (`https://user:pass@host/...`)
+          is refused outright, before any site lookup, because the manifest
+          scope derived from it drops the userinfo and could then never contain
+          the start URL. `firefoxpwa site uninstall` does not clear that one:
+          the secret itself has to be stored without the credentials.
         '';
       };
 

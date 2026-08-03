@@ -167,8 +167,15 @@
             # Opts this check into the build step in .github/workflows/check.yml.
             # Its assertions run in the derivation, so forcing drvPath proves
             # nothing; the marker keeps that opt-in at the definition site
-            # instead of hardcoding a name in the workflow.
-            runtimeCheck = true;
+            # instead of hardcoding a name in the workflow. passthru, not a
+            # plain attr: runCommand's second argument becomes derivationArgs,
+            # so a plain attr here would be a real (unread) build environment
+            # variable and part of the derivation hash, rebuilding the check on
+            # every CI-selection change. passthru is merged onto the
+            # derivation value by lib.extendDerivation instead, which is what
+            # check.yml's (builtins.getAttr n checks).runtimeCheck or false
+            # reads.
+            passthru.runtimeCheck = true;
             nativeBuildInputs = [
               pkgs.jq
               pkgs.coreutils
