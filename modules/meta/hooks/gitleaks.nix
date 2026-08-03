@@ -112,19 +112,29 @@ _: {
             append_submodules() {
               local repo=$1
               local prefix=$2
-              local entry path full_path
+              local entry path full_path last_index
               local -a index_entries=()
 
-              # Not mapfile straight from process substitution: a failure there
-              # is invisible to set -e and mapfile succeeds on empty input, so an
-              # unreadable index would leave this repository's gitlinks empty and
+              # Validate the read whose output is consumed, not a separate
+              # probe: the exit status of the process substitution is invisible
+              # to set -e and mapfile succeeds on empty input, so a failure of
+              # this invocation would leave the repository's gitlinks empty and
               # the run would report every repository below it clean without
-              # scanning or warning about any of them.
-              if ! git_in_repo "$repo" ls-files -s -z >/dev/null; then
+              # scanning or warning about any of them. An index entry always
+              # begins with a six-digit mode, so the sentinel cannot collide.
+              mapfile -d "" -t index_entries < <(
+                git_in_repo "$repo" ls-files -s -z && printf 'ok\0'
+              )
+              if [ "''${#index_entries[@]}" -eq 0 ]; then
                 echo "hook-gitleaks: cannot read the index of $repo; refusing to scan, since an unreadable index leaves its gitlinks unenumerated and every repository below it unscanned" >&2
                 exit 1
               fi
-              mapfile -d "" -t index_entries < <(git_in_repo "$repo" ls-files -s -z)
+              last_index=$((''${#index_entries[@]} - 1))
+              if [ "''${index_entries[$last_index]}" != "ok" ]; then
+                echo "hook-gitleaks: cannot read the index of $repo; refusing to scan, since an unreadable index leaves its gitlinks unenumerated and every repository below it unscanned" >&2
+                exit 1
+              fi
+              unset "index_entries[$last_index]"
               for entry in "''${index_entries[@]}"; do
                 case "$entry" in
                   "160000 "*)
@@ -231,11 +241,11 @@ _: {
               fi
             done
             sub_args=("''${common[@]}" --config "$submodule_config")
-            if [ -f "$sm/.gitleaks-baseline.json" ]; then
-              sub_args+=(--baseline-path "$sm/.gitleaks-baseline.json")
-              echo "hook-gitleaks: submodule pass filtered by $sm/.gitleaks-baseline.json, reviewed only in that gitlink's own repository" >&2
-            fi
             if [ -e "$sm/.git" ]; then
+              if [ -f "$sm/.gitleaks-baseline.json" ]; then
+                sub_args+=(--baseline-path "$sm/.gitleaks-baseline.json")
+                echo "hook-gitleaks: submodule pass filtered by $sm/.gitleaks-baseline.json, reviewed only in that gitlink's own repository" >&2
+              fi
               # git exports GIT_DIR to its hooks and gitleaks shells out to git,
               # so an inherited GIT_DIR overrides the path argument and silently
               # rescans the superproject instead. Caught by pre-push: with
