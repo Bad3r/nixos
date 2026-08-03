@@ -42,51 +42,65 @@ _: {
       '';
     in
     {
-      files.file.".gitleaks.toml".text = ''
-        # Inherit the upstream default ruleset and extend with repo-local
-        # allowlists for documentation-only directories that contain
-        # example secrets, and for well-known public keys used for
-        # upstream signature verification.
-        # Superproject pass only. The submodule pass reads
-        # .gitleaks-secrets.toml, because path patterns are matched against a
-        # File rooted at whichever tree is being scanned.
-        [extend]
-        useDefault = true
+      files.file = {
+        ".gitleaks.toml".text = ''
+          # Inherit the upstream default ruleset and extend with repo-local
+          # allowlists for documentation-only directories that contain
+          # example secrets, and for well-known public keys used for
+          # upstream signature verification.
+          # Superproject pass only. The submodule pass reads
+          # .gitleaks-secrets.toml, because path patterns are matched against a
+          # File rooted at whichever tree is being scanned.
+          [extend]
+          useDefault = true
 
-        [[allowlists]]
-        description = "Documentation examples with placeholder secrets"
-        paths = [
-          # Anchored: gitleaks matches paths unanchored against a repo-relative
-          # File, so "nixos-manual/.*" also skips secrets/private-ops/nixos-manual
-          # and every other directory of that name, making the one reviewed
-          # path-scope reachable by creating a directory instead of by editing
-          # config. Keep the old root-level path because gitleaks scans historical
-          # commits.
-          "^nixos-manual/",
-          "^docs/nixos-manual/",
-        ]
+          [[allowlists]]
+          description = "Documentation examples with placeholder secrets"
+          paths = [
+            # Anchored: gitleaks matches paths unanchored against a repo-relative
+            # File, so "nixos-manual/.*" also skips secrets/private-ops/nixos-manual
+            # and every other directory of that name, making the one reviewed
+            # path-scope reachable by creating a directory instead of by editing
+            # config. Keep the old root-level path because gitleaks scans historical
+            # commits.
+            "^nixos-manual/",
+            "^docs/nixos-manual/",
+          ]
 
-        ${sharedContentAllowlists}
-      '';
+          ${sharedContentAllowlists}
+        '';
 
-      # The submodule pass's config is the only config that carries the KV
-      # namespace allowlist, because the operational note lives in that private
-      # repository and the superproject must not gain a content-based suppression
-      # channel for public files.
-      # No paths key at all here: a paths entry would be matched against the
-      # private repository's own path space, which no reviewer of this repository
-      # can see. gitleaks-allowlist-scope pins that with an empty reviewed set for
-      # this origin.
-      files.file.".gitleaks-secrets.toml".text = ''
-        # Read only by the submodule pass in modules/meta/hooks/gitleaks.nix.
-        # Content-scoped allowlists only: a paths entry here would be matched
-        # against the private repository's own path space, which no reviewer of
-        # this repository can see.
-        [extend]
-        useDefault = true
+        # The submodule pass's config is the only config that carries the KV
+        # namespace allowlist, because the operational note lives in that private
+        # repository and the superproject must not gain a content-based suppression
+        # channel for public files.
+        # No paths key at all here: a paths entry would be matched against the
+        # private repository's own path space, which no reviewer of this repository
+        # can see. gitleaks-allowlist-scope pins that with an empty reviewed set for
+        # this origin.
+        ".gitleaks-secrets.toml".text = ''
+          # Read only by the submodule pass in modules/meta/hooks/gitleaks.nix.
+          # Content-scoped allowlists only: a paths entry here would be matched
+          # against the private repository's own path space, which no reviewer of
+          # this repository can see.
+          [extend]
+          useDefault = true
 
-        ${sharedContentAllowlists}
-        ${secretOnlyAllowlists}
-      '';
+          ${sharedContentAllowlists}
+          ${secretOnlyAllowlists}
+        '';
+
+        # Other gitlinks use a content-only config without the private operational
+        # note allowlist. The hook selects .gitleaks-secrets.toml only for the
+        # pinned private gitlinks and this file for every other gitlink.
+        ".gitleaks-gitlink.toml".text = ''
+          # Read by gitlink passes that do not own the private operational note.
+          # Content-scoped allowlists only: no gitlink path is reviewed here.
+          [extend]
+          useDefault = true
+
+          ${sharedContentAllowlists}
+        '';
+      };
     };
 }

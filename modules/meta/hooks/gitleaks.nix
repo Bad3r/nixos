@@ -41,7 +41,7 @@ _: {
             # inside the private repository, before scanning it and invisibly
             # from here. .gitleaks-secrets.toml carries the content-scoped
             # allowlists and no paths key at all.
-            for config_file in ".gitleaks.toml" ".gitleaks-secrets.toml"; do
+            for config_file in ".gitleaks.toml" ".gitleaks-secrets.toml" ".gitleaks-gitlink.toml"; do
               if [ ! -f "$config_file" ]; then
                 echo "hook-gitleaks: $config_file is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; regenerate it with 'nix develop --accept-flake-config -c write-files' instead of scanning unreviewed" >&2
                 exit 1
@@ -101,6 +101,12 @@ _: {
                 "160000 "*) submodules+=("''${entry#*"$tab"}") ;;
               esac
             done
+
+            # Only this private gitlink owns the operational note covered by
+            # .gitleaks-secrets.toml. Every other gitlink gets the generic
+            # content-only config, so a future repository cannot inherit the
+            # private KV suppression by appearing in the index.
+            private_config_gitlinks=(secrets)
 
             # writeShellApplication prepends set -e, so without collecting the
             # statuses the first pass to report a finding aborts the script and
@@ -170,7 +176,14 @@ _: {
             # because the submodule may not be checked out; .git is a file there,
             # not a directory, so -e not -d.
             for sm in "''${submodules[@]}"; do
-            sub_args=("''${common[@]}" --config ".gitleaks-secrets.toml")
+            submodule_config=".gitleaks-gitlink.toml"
+            for private_gitlink in "''${private_config_gitlinks[@]}"; do
+              if [ "$sm" = "$private_gitlink" ]; then
+                submodule_config=".gitleaks-secrets.toml"
+                break
+              fi
+            done
+            sub_args=("''${common[@]}" --config "$submodule_config")
             if [ -f "$sm/.gitleaks-baseline.json" ]; then
               sub_args+=(--baseline-path "$sm/.gitleaks-baseline.json")
               echo "hook-gitleaks: submodule pass filtered by $sm/.gitleaks-baseline.json, reviewed only in the private repository" >&2

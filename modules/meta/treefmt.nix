@@ -40,6 +40,7 @@ let
       "gitignore"
       "gitmodules"
       "gitleaks-secrets.toml"
+      "gitleaks-gitlink.toml"
       "gitleaks.toml"
       "hgignore"
       "pre-commit-config.yaml"

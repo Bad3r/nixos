@@ -64,6 +64,18 @@
           reviewedPaths = [ ];
           kvAllowed = true;
         }
+        {
+          origin = "modules/development/gitleaks.nix (.gitleaks-gitlink.toml)";
+          text = config.files.file.".gitleaks-gitlink.toml".text;
+          reviewedPaths = [ ];
+          kvAllowed = false;
+        }
+        {
+          origin = ".gitleaks-gitlink.toml";
+          text = builtins.readFile ../../.gitleaks-gitlink.toml;
+          reviewedPaths = [ ];
+          kvAllowed = false;
+        }
       ];
 
       # Which source contracts are judged, pinned as origin, reviewedPaths and
@@ -93,6 +105,16 @@
           origin = ".gitleaks-secrets.toml";
           reviewedPaths = [ ];
           kvAllowed = true;
+        }
+        {
+          origin = "modules/development/gitleaks.nix (.gitleaks-gitlink.toml)";
+          reviewedPaths = [ ];
+          kvAllowed = false;
+        }
+        {
+          origin = ".gitleaks-gitlink.toml";
+          reviewedPaths = [ ];
+          kvAllowed = false;
         }
       ];
 

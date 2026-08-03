@@ -1,0 +1,10 @@
+# Read by gitlink passes that do not own the private operational note.
+# Content-scoped allowlists only: no gitlink path is reviewed here.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "DNSCrypt resolvers-list public minisign verification key"
+regexes = [
+  "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3",
+]

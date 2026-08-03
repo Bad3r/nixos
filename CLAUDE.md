@@ -230,7 +230,8 @@ nix develop --accept-flake-config -c write-files --offline
 ```
 
 Post-check: review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`,
-`.gitleaks-secrets.toml`, `.gitleaks.toml`, `.sops.yaml`, and `README.md`.
+`.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`,
+`.sops.yaml`, and `README.md`.
 
 ## Validation
 
