@@ -54,11 +54,11 @@ let
           `firefoxpwa site uninstall`, which deletes the PWA profile and the
           launcher entry but none of this module's own records: the
           dmail-applied-url, dmail-applied-origin, dmail-applied-ulid and
-          dmail-installing files under xdg.dataHome have to be deleted
-          separately, and a leftover dmail-applied-ulid makes the next site to
-          carry this name refused rather than adopted. Not automated, because
-          an automatic uninstall would destroy the PWA profile and its
-          session state.
+          dmail-installing files under `''${xdg.dataHome}/firefoxpwa` have to
+          be deleted separately, and a leftover dmail-applied-ulid makes the
+          next site to carry this name refused rather than adopted. Not
+          automated, because an automatic uninstall would destroy the PWA
+          profile and its session state.
 
           Rotating the secret to a URL on a different origin is also not
           applied automatically. The manifest scope is fixed at install time
