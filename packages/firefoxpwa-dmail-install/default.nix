@@ -210,6 +210,11 @@ writeShellApplication {
     record_origin
 
     for attempt in 1 2 3; do
+      # The decrypted URL is passed to firefoxpwa on argv, so it is visible in
+      # /proc/<pid>/cmdline to any local user while site install or site update
+      # runs. firefoxpwa takes the start URL no other way, so this is the one
+      # disclosure channel the 0400 secret, 0600 marker, 0700 directory and
+      # journal-safe diagnostics do not close.
       if firefoxpwa site install "$manifest_url" \
         --document-url "$origin" \
         --start-url "$url" \

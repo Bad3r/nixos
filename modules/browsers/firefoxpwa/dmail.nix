@@ -106,9 +106,21 @@ _: {
               # xdg.dataHome sends firefoxpwa's config.json somewhere the script
               # never reads: the site lookup would come back empty every run and
               # install another "DMail" on each activation. FFPWA_USERDATA rather
-              # than XDG_DATA_HOME because it names the directory outright,
-              # instead of relying on the "firefoxpwa" suffix the crate appends.
-              Environment = [ "FFPWA_USERDATA=${dataDir}" ];
+              # than XDG_DATA_HOME for this path because it names the directory
+              # outright, instead of relying on the "firefoxpwa" suffix the crate
+              # appends.
+              #
+              # System integration resolves a second, unrelated directory through
+              # directories::BaseDirs (native/src/integrations/implementation/linux.rs),
+              # which only reads XDG_DATA_HOME and has no FFPWA_USERDATA override.
+              # The .desktop entry and icon land under its applications/, so
+              # without this a non-default xdg.dataHome writes them where the
+              # desktop menu does not scan: the install succeeds and the launcher
+              # entry never appears.
+              Environment = [
+                "FFPWA_USERDATA=${dataDir}"
+                "XDG_DATA_HOME=${config.xdg.dataHome}"
+              ];
               ExecStart = lib.getExe installScript;
             };
             Install.WantedBy = [
