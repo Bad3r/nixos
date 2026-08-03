@@ -1,5 +1,5 @@
-#!/usr/bin/env nix
-#! nix shell --inputs-from .# nixpkgs#python3 --command python3
+#!/usr/bin/env nix-shell
+#! nix-shell -i python3 --packages python3
 """Update script for searchfox-cli."""
 
 from __future__ import annotations

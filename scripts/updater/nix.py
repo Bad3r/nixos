@@ -129,6 +129,7 @@ def nix_build(
     *,
     check: bool = True,
     no_link: bool = False,
+    capture_output: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     """Build a Nix package.
 
@@ -136,6 +137,7 @@ def nix_build(
         attr: Flake attribute to build (e.g., ".#package")
         check: Whether to raise exception on build failure
         no_link: Whether to avoid creating a result symlink
+        capture_output: Whether to capture stdout/stderr
 
     Returns:
         CompletedProcess with build results
@@ -144,7 +146,7 @@ def nix_build(
     args = ["build", "--log-format", "bar-with-logs", attr]
     if no_link:
         args.append("--no-link")
-    return nix_command(args, check=check)
+    return nix_command(args, check=check, capture_output=capture_output)
 
 
 def nix_hash_file(path: Path, hash_type: str = "sha256") -> str:
@@ -216,7 +218,7 @@ def nix_prefetch_url(url: str, *, unpack: bool = False) -> str:
     # nix-prefetch-url returns base32-encoded hash, convert to SRI
     hash_b32 = result.stdout.strip()
 
-    # Convert to SRI format by using nix hash convert
-    convert_args = ["hash", "convert", "--hash-algo", "sha256", hash_b32]
+    # `nix hash convert` is CppNix-only; Lix spells this `nix hash to-sri`.
+    convert_args = ["hash", "to-sri", "--type", "sha256", hash_b32]
     convert_result = nix_command(convert_args)
     return convert_result.stdout.strip()

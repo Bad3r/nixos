@@ -68,6 +68,7 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support) and host-specific enables                    |
 | `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs` and `min-free` overrides                                                               |
+| `modules/system76/networking.nix`             | `.link` unit pinning the USB ethernet adapter to `lan0` by USB path                                              |
 | `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                    |
 | `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                      |
 | `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                                                                   |
@@ -92,18 +93,18 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | `modules/tpnix/firmware-manager-fix.nix` | tpnix-only `services.fwupd.enable = true;` override                                                                             |
 | `modules/tpnix/fingerprint.nix`          | Fingerprint auth (`services.fprintd`) and PAM service wiring (tpnix-only)                                                       |
 | `modules/tpnix/fonts.nix`                | Arabic fontconfig rules through the `host.fontconfig.extraRules` option                                                         |
-| `modules/tpnix/networking.nix`           | SignalX DNS routing layered on the common NetworkManager base                                                                   |
+| `modules/tpnix/networking.nix`           | `.link` unit pinning the internal Wi-Fi card to `wifi0` by PCI path                                                             |
 | `modules/tpnix/printing.nix`             | Printer provisioning with a SOPS-managed device URI (tpnix-only)                                                                |
 | `modules/tpnix/r2-runtime.nix`           | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                              |
 | `modules/tpnix/hardware-config.nix`      | Filesystems, firmware, loader entry limit, low-level hardware settings                                                          |
 | `modules/tpnix/host-id.nix`              | `networking.hostId`                                                                                                             |
 | `modules/tpnix/state-version.nix`        | Install-time `system.stateVersion` constant                                                                                     |
 | `modules/tpnix/support.nix`              | Stub for future tpnix hardware-support hooks                                                                                    |
-| `modules/tpnix/policy.nix`               | Registry data under `flake.lib.nixos.hosts.tpnix` (readiness gates, per-host values)                                            |
+| `modules/tpnix/policy.nix`               | Registry data under `flake.lib.nixos.hosts.tpnix` (readiness gates, per-host values, private DNS host secret keys)              |
 | `modules/tpnix/power.nix`                | GPU profile over `flake.nixosModules.nvidia-gpu` plus display and power services (`power-profiles-daemon`, logind lid handling) |
 | `modules/tpnix/services.nix`             | Host-divergent services (printing, power-profiles-daemon stack, espanso X11 override)                                           |
 
-Cross-host baselines (imports skeleton, boot, base services, networking base, firewall, fonts, duplicati wiring, color-profile, default-apps, mirrors, nix-ld, sudo, zsh, ssh, nix-substituters, packages, home-manager-apps, virtualization, ...) live in `modules/hosts/common/` and contribute to `flake.nixosModules.hosts-common`. The host constructor imports that aggregate before each host-specific module when `flake.lib.nixos.hosts.<host>.shareCommon = true`.
+Cross-host baselines (imports skeleton, boot, base services, networking base, firewall, private DNS hosts, fonts, duplicati wiring, color-profile, default-apps, mirrors, nix-ld, sudo, zsh, ssh, nix-substituters, packages, home-manager-apps, virtualization, ...) live in `modules/hosts/common/` and contribute to `flake.nixosModules.hosts-common`. The host constructor imports that aggregate before each host-specific module when `flake.lib.nixos.hosts.<host>.shareCommon = true`.
 
 General Nix daemon and evaluator settings live in `modules/base/nix-settings.nix`.
 The common `nix-substituters` module owns cache topology and download retry
@@ -132,7 +133,42 @@ in
 }
 ```
 
-Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers read the path with `lib.hasAttrByPath` or `or` fallbacks to stay safe across hosts. Current per-host value keys consumed by `modules/hosts/common/*`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallDnsInterfaces`, and `firewallExtraTcpPortRanges`. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
+Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers read the path with `lib.hasAttrByPath` or `or` fallbacks to stay safe across hosts. Current per-host value keys consumed by `modules/hosts/common/*`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallDnsInterfaces`, `firewallExtraTcpPortRanges`, and `privateDnsHostsSecretKeys`. `firewallDnsInterfaces` is the exception to the fallback rule: `modules/hosts/common/firewall.nix` throws when it is absent, so every host must set it explicitly (`[ ]` when the host serves no DNS or DHCP), because a misspelled key would otherwise emit no firewall rule and trip none of that module's guards. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
+
+### Private DNS Host Pinning
+
+Internal name-to-IP mappings stay encrypted instead of living in the public
+system config. `modules/hosts/common/private-dns-hosts.nix` turns every key
+listed in `flake.lib.nixos.hosts.<host>.privateDnsHostsSecretKeys` into a sops
+secret at `/run/secrets/<host>/networking/private-hosts/<key>` (underscores in
+the key become hyphens in the runtime path, so `signalx_hosts` lands at
+`.../private-hosts/signalx-hosts`) and serves it through NetworkManager's
+dnsmasq:
+
+```nix
+# modules/<host>/policy.nix
+privateDnsHostsSecretKeys = [ "signalx_hosts" ];
+```
+
+Each key holds a hosts(5) payload (`<ip> <name> [alias...]` per line) in
+`secrets/<host>.yaml`. Adding more internal hosts is a secrets edit; adding a
+second source is one more key in the list. Keys must stay distinct after the
+hyphen rewrite: declaring `internal_hosts` alongside `internal-hosts` fails an
+assertion instead of collapsing into one secret and dropping a payload. The
+module then sets
+`networking.networkmanager.dns = "dnsmasq"`, disables `services.resolved`, and
+writes `/etc/NetworkManager/dnsmasq.d/private-hosts.conf` with one
+`addn-hosts=` line per key. Hosts that declare no keys stay untouched. A host
+that declares keys while `sopsRuntimeReady = false` (the onboarding default) or
+before `secrets/<host>.yaml` exists gets none of this either: the module emits a
+warning and leaves the host on `systemd-resolved` until both are in place.
+
+NetworkManager spawns dnsmasq without `--user`, so the snippet pins
+`user=nm-dnsmasq` / `group=nm-dnsmasq` and each secret is `root:nm-dnsmasq`
+mode `0440`, readable after the privilege drop and on SIGHUP re-reads.
+`systemd.services.NetworkManager.restartTriggers` carries the snippet plus each
+secret's ownership triple, because sops-nix restarts units only when decrypted
+bytes change.
 
 Registry entries also carry fleet endpoint data. `modules/system76/policy.nix` marks the host `primary = true` and records its `tailnetIp`; `modules/networking/ssh-hosts.nix` derives one `<host>.local` SSH alias per registered host (excluding self), and `modules/apps/tailscale.nix` defaults `sshHostName` to the primary host's `tailnetIp`. Promoting another host to primary is a policy.nix data change, not a module edit.
 
