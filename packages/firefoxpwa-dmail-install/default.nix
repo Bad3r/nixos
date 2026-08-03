@@ -283,6 +283,14 @@ writeShellApplication {
     record_origin
 
     for attempt in 1 2 3; do
+      # Written before the call, not after it returns: firefoxpwa registers
+      # the site through storage.write partway through site install, so a
+      # kill during the call (routine, a switch restarts sops-nix and PartOf
+      # stops this unit) leaves a site this script installed with no ulid
+      # record, which the identity check above then refuses on every run.
+      # Cleared again below on an attempt that registered nothing, so it
+      # never outlives a call that was actually in flight.
+      (umask 077; : >"$pending_file")
       # The decrypted URL is passed to firefoxpwa on argv, so it is visible in
       # /proc/<pid>/cmdline to any local user while site install or site update
       # runs. firefoxpwa takes the start URL no other way, so this is the one
@@ -292,13 +300,6 @@ writeShellApplication {
         --document-url "$origin" \
         --start-url "$url" \
         --name "$app_name"; then
-        # Written here, not before the loop: this marker licenses adopting a
-        # site with no ulid record, so it must cover only the window it
-        # names, between this install succeeding and record_ulid completing.
-        # Before the loop it would also cover attempts that registered
-        # nothing, and a foreign same-named site appearing after a kill in
-        # that wider window would then be adopted the same way.
-        (umask 077; : >"$pending_file")
         if ! ulid=$(site_ulid); then
           echo "firefoxpwa-dmail: cannot read $config_file after installing '$app_name'" >&2
           exit 1
@@ -319,9 +320,11 @@ writeShellApplication {
       fi
       # A failed attempt can still register the site before erroring (for
       # example on desktop integration), so retrying install here would
-      # create a second "DMail" entry. Fail without writing the marker: the
-      # next activation takes the refresh branch, whose site update re-runs
-      # system integration and records the marker only once it succeeds.
+      # create a second "DMail" entry. The marker written before this attempt
+      # is cleared below when nothing came of it, so retrying never carries
+      # forward a marker for an attempt that is over; the next activation
+      # takes the refresh branch, whose site update re-runs system
+      # integration and records the marker only once it succeeds.
       #
       # site_ulid's own failure is separated from "not registered" for the
       # same reason as the check above it: retrying past a config.json read
@@ -339,6 +342,10 @@ writeShellApplication {
         echo "firefoxpwa-dmail: '$app_name' was registered by a failed install; not retrying install, the next activation repairs it with site update" >&2
         exit 1
       fi
+      # Nothing came of this attempt: the marker written before it no longer
+      # licenses adopting anything, the same reasoning the exhausted-retries
+      # cleanup and the reported-installed-but-absent case above apply.
+      rm -f "$pending_file"
       [ "$attempt" -lt 3 ] || break
       echo "firefoxpwa-dmail: install attempt $attempt failed; retrying" >&2
       sleep "$retry_delay"

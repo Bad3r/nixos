@@ -108,6 +108,15 @@
               # runs, for example a network error fetching the manifest: the
               # site is never registered, unlike STUB_FAIL_AFTER_REGISTER.
               [ -z "''${STUB_FAIL_BEFORE_REGISTER:-}" ] || exit 1
+              # Recorded at the same point storage.write runs in the real
+              # binary, before this stub's own write below: a check can then
+              # assert default.nix's pending_file already exists here, the
+              # instant registration happens, rather than only after this
+              # call returns. A kill exactly here, between this line and the
+              # real storage.write, is the window c30d6ce's marker exists to
+              # cover.
+              { [ -e "$userdata/dmail-installing" ] && echo present || echo absent; } \
+                >"$userdata/.pending-file-at-register"
               scope=$(printf '%s' "''${manifest_url#*base64,}" | base64 -d | jq -r .scope)
               # Reproduces firefoxpwa reporting success while storage.write
               # never lands, for example a write racing firefoxpwa
@@ -280,6 +289,17 @@
             reset
             set_url '  https://mail.example.com '
             expect "whitespace-padded secret installs" 0 "installed 'DMail'"
+            # A kill during firefoxpwa site install, after its own
+            # storage.write registers the site but before this call returns,
+            # is the window the pending marker exists to cover: it must
+            # already be written by the time registration happens, not only
+            # after the call returns.
+            if [ "$(cat "$data_dir/.pending-file-at-register")" = present ]; then
+              echo "PASS  pending marker exists before the site is registered"
+            else
+              echo "FAIL  pending marker exists before the site is registered"
+              failures=$((failures + 1))
+            fi
             expect "second run no-ops" 0 "already installed with current URL"
             set_url 'https://mail.example.com/u/1?tok=a'
             expect "same-origin rotation refreshes" 0 "updated start URL"
