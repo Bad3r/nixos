@@ -6,8 +6,8 @@
 # went undetected. Entries are compiled as unanchored regexes, so a pattern
 # neither has to name the tree it reaches ("private-ops/.*" skips the same file)
 # nor stop at one tree ("nixos-manual/.*|secrets/.*" reaches both). The guard is
-# therefore an exact-match allowlist: only the two reviewed nixos-manual
-# patterns may path-scope, and every other false positive is scoped by content.
+# therefore an exact-match allowlist: only the reviewed nixos-manual pattern
+# may path-scope, and every other false positive is scoped by content.
 # [extend] is covered too, because it suppresses more broadly than any paths
 # entry: disabledRules silences a rule across the whole repo and
 # useDefault = false drops the default ruleset outright.
@@ -30,12 +30,17 @@
       # file that carries it rather than the one a reader would expect.
       # reviewedPaths is per source, not global: a paths pattern is matched
       # against a File rooted at the tree being scanned, and the submodule pass
-      # scans secrets/, where File comes back submodule-relative. The two
-      # documentation patterns are superproject trees, so the config that governs
+      # scans secrets/, where File comes back submodule-relative. The
+      # documentation pattern is a superproject tree, so the config that governs
       # the submodule pass may carry no paths entry at all and its reviewed set
       # is empty.
+      #
+      # No "^nixos-manual/" root-level entry: that directory does not exist in
+      # the worktree, so the pattern's only live effect would be to path-scope
+      # one a future commit creates, before gitleaks ever reads its contents.
+      # The three historical findings under the old root path are already in
+      # .gitleaks-baseline.json by fingerprint.
       superprojectPaths = [
-        "^nixos-manual/"
         "^docs/nixos-manual/"
       ];
 
@@ -563,7 +568,7 @@
       okAllowlists = ''
         [[allowlists]]
         description = "docs"
-        paths = ["^nixos-manual/", "^docs/nixos-manual/"]
+        paths = ["^docs/nixos-manual/"]
 
         [[allowlists]]
         description = "dnscrypt"
@@ -645,7 +650,7 @@
             ${okKv}
             [[allowlists]]
             description = "superproject documentation scope in the submodule config"
-            paths = ["^nixos-manual/"]
+            paths = ["^docs/nixos-manual/"]
           '';
         }
         # The singular table gitleaks still accepts, and a rule-scoped allowlist.

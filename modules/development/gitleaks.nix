@@ -63,9 +63,11 @@ _: {
             # File, so "nixos-manual/.*" also skips secrets/private-ops/nixos-manual
             # and every other directory of that name, making the one reviewed
             # path-scope reachable by creating a directory instead of by editing
-            # config. Keep the old root-level path because gitleaks scans historical
-            # commits.
-            "^nixos-manual/",
+            # config. No root-level "^nixos-manual/" entry: that directory does
+            # not exist in the worktree, so the pattern's only live effect would
+            # be to exempt one a future commit creates, before gitleaks ever
+            # reads its contents. The three historical findings under the old
+            # root path are already in .gitleaks-baseline.json by fingerprint.
             "^docs/nixos-manual/",
           ]
 
