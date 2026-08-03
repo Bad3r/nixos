@@ -88,6 +88,12 @@ _: {
             # the absent-checkout warning below exists to prevent, one level up.
             # With one gitlink today the behaviour is unchanged.
             tab=$'\t'
+            # Not mapfile straight from process substitution: a failure there is
+            # invisible to set -e and mapfile succeeds on empty input, so an
+            # unreadable index would leave submodules empty and the run would
+            # report every gitlink clean without scanning or warning about any
+            # of them.
+            git ls-files -s -z >/dev/null
             mapfile -d "" -t index_entries < <(git ls-files -s -z)
             submodules=()
             for entry in "''${index_entries[@]}"; do

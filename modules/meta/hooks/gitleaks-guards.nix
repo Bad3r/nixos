@@ -459,7 +459,15 @@ _: {
             lines=$(printf '%s\n' "$hook_out" | grep -c 'leaks found:' || true)
             [ "$lines" -eq 2 ] || fail "second submodule: expected 2 result lines, got $lines"
 
-            echo "hook-gitleaks-guards: all 18 fixtures passed"
+            echo "hook-gitleaks-guards: 19/19 unreadable index refuses before enumeration"
+            new_repo "$work/broken-index"
+            mkdir "$work/broken-index/index-dir"
+            export GIT_INDEX_FILE="$work/broken-index/index-dir"
+            cd "$work/broken-index" && run_hook
+            unset GIT_INDEX_FILE
+            expect_refusal "unreadable index" 'unable to map index file'
+
+            echo "hook-gitleaks-guards: all 19 fixtures passed"
             touch $out
           '';
     };
