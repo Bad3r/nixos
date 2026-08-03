@@ -1,6 +1,24 @@
 _: {
   perSystem =
-    { pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      # Generated rather than restated: gitleaks-guards.nix derives the same
+      # list from config.files.file for its managed-config contract, and
+      # gitleaks-allowlist-scope.nix derives managedGitleaksFiles the same
+      # way. A fourth managed config left out of a hand-typed copy here would
+      # never be checked for presence; for a gitlink pass, which never
+      # executes in CI, its absence would produce no error and no diagnostic,
+      # so the run would stay green with the config that governs that pass
+      # gone from the tree.
+      managedConfigNames = lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
+        lib.attrNames config.files.file
+      );
+    in
     {
       packages.hook-gitleaks = pkgs.writeShellApplication {
         name = "hook-gitleaks";
@@ -46,7 +64,7 @@ _: {
             # inside the private repository, before scanning it and invisibly
             # from here. .gitleaks-secrets.toml carries the content-scoped
             # allowlists and no paths key at all.
-            for config_file in ".gitleaks.toml" ".gitleaks-secrets.toml" ".gitleaks-gitlink.toml"; do
+            for config_file in ${lib.escapeShellArgs managedConfigNames}; do
               if [ ! -f "$config_file" ]; then
                 echo "hook-gitleaks: $config_file is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; regenerate it with 'nix develop --accept-flake-config -c write-files' instead of scanning unreviewed" >&2
                 exit 1
