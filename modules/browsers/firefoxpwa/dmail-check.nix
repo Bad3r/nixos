@@ -345,6 +345,26 @@
             set_url 'https://mail.example.com/y'
             expect "unrecorded site refuses" 1 "nothing records the origin"
 
+            # Only the origin record is gone: the guard must fall back to
+            # re-deriving the origin from the applied URL (the elif branch in
+            # default.nix). Covers a site installed before dmail-applied-origin
+            # existed; record_origin running unconditionally before every
+            # install since means origin_file is otherwise always present, and
+            # nothing else in this file removes only it.
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            rm -f "$data_dir/dmail-applied-origin"
+            set_url 'https://mail.example.com/y'
+            expect "origin recovered from the applied URL refreshes" 0 "updated start URL"
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            rm -f "$data_dir/dmail-applied-origin"
+            set_url 'https://other.example.org/x'
+            expect "origin recovered from the applied URL still refuses" 1 \
+              "does not match the installed origin"
+
             # firefoxpwa writes config.json through File::create with no
             # rename, and firefoxpwa connector can be rewriting it when this
             # unit runs (PartOf reruns it on every switch). site_ulid failing
@@ -376,16 +396,6 @@
             jq '.sites = {}' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
             STUB_FAIL_AFTER_REGISTER=1 "$installer" >/dev/null 2>&1 || true
             expect "reinstall at the new origin is not blocked by the old URL" 0 "updated start URL"
-
-            # A first install killed after the site was registered but before the
-            # script recorded anything. A switch restarts sops-nix and PartOf
-            # stops this unit, so the window is routine; the run after it must
-            # repair rather than refuse for want of a record.
-            reset
-            set_url 'https://mail.example.com/x'
-            STUB_FAIL_AFTER_REGISTER=1 "$installer" >/dev/null 2>&1 || true
-            rm -f "$marker"
-            expect "install interrupted before recording still repairs" 0 "updated start URL"
 
             echo "-- the secret reaches only the field rotation can rewrite --"
             reset
