@@ -71,45 +71,6 @@ _: {
               fi
             done
 
-            # One baseline per pass, because fingerprints carry the shas of the
-            # repository they came from, so the superproject's entries can never
-            # match a submodule finding. The submodule's baseline lives inside
-            # the submodule rather than here: a report entry carries File,
-            # Commit, Link, Author, Email, Date and the full commit Message, and
-            # --redact masks only Match and Secret, so recording a secrets/
-            # finding in this repository would publish that private history's
-            # metadata in a public one. Inside the submodule it is also reviewed
-            # in the repository whose history it describes, and only present when
-            # the submodule is checked out, which is already the pass's guard.
-            # Record a new entry with the same flags this hook uses:
-            #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-            #     --config .gitleaks.toml \
-            #     --report-path .gitleaks-baseline.json .
-            #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-            #     --config .gitleaks-secrets.toml \
-            #     --report-path secrets/.gitleaks-baseline.json secrets
-            # Any gitlink outside private_config_gitlinks is scanned with
-            # .gitleaks-gitlink.toml, so record its baseline with that config:
-            # .gitleaks-secrets.toml suppresses the KV note the generic pass
-            # reports, and the resulting baseline would lack that fingerprint.
-            #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-            #     --config .gitleaks-gitlink.toml \
-            #     --report-path <gitlink>/.gitleaks-baseline.json <gitlink>
-            # Matching is by fingerprint, so a raw baseline would still suppress,
-            # but it commits the credential in plaintext. Dropping
-            # --ignore-gitleaks-allow instead yields a baseline without the
-            # fingerprint this hook reports, so the finding stays unsuppressable.
-            # Announced, because a baseline is the one suppression channel this
-            # hook keeps: a pass that filtered findings prints the same "no leaks
-            # found" as one that filtered none, and for the submodule the list
-            # doing the filtering lives in the private repository, so a reviewer
-            # here cannot see what a clean result was measured against.
-            git_args=("''${common[@]}" --config ".gitleaks.toml")
-            if [ -f ".gitleaks-baseline.json" ]; then
-              git_args+=(--baseline-path ".gitleaks-baseline.json")
-              echo "hook-gitleaks: superproject pass filtered by .gitleaks-baseline.json" >&2
-            fi
-
             # Derived from each repository's index rather than naming secrets/.
             # A second gitlink was scanned by neither pass, its .gitleaksignore
             # was not refused, and the run still printed "no leaks found" and
@@ -225,6 +186,49 @@ _: {
             if [ "$super_commits" -eq 0 ] || [ "$super_shallow" != "false" ]; then
               echo "hook-gitleaks: superproject pass would read an incomplete history (commits=$super_commits, shallow=$super_shallow); refusing to report the repository clean (run 'git fetch --unshallow' locally, or set fetch-depth: 0 on the checkout step in CI)" >&2
               exit 1
+            fi
+
+            # One baseline per pass, because fingerprints carry the shas of the
+            # repository they came from, so the superproject's entries can never
+            # match a submodule finding. The submodule's baseline lives inside
+            # the submodule rather than here: a report entry carries File,
+            # Commit, Link, Author, Email, Date and the full commit Message, and
+            # --redact masks only Match and Secret, so recording a secrets/
+            # finding in this repository would publish that private history's
+            # metadata in a public one. Inside the submodule it is also reviewed
+            # in the repository whose history it describes, and only present when
+            # the submodule is checked out, which is already the pass's guard.
+            # Record a new entry with the same flags this hook uses:
+            #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
+            #     --config .gitleaks.toml \
+            #     --report-path .gitleaks-baseline.json .
+            #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
+            #     --config .gitleaks-secrets.toml \
+            #     --report-path secrets/.gitleaks-baseline.json secrets
+            # Any gitlink outside private_config_gitlinks is scanned with
+            # .gitleaks-gitlink.toml, so record its baseline with that config:
+            # .gitleaks-secrets.toml suppresses the KV note the generic pass
+            # reports, and the resulting baseline would lack that fingerprint.
+            #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
+            #     --config .gitleaks-gitlink.toml \
+            #     --report-path <gitlink>/.gitleaks-baseline.json <gitlink>
+            # Matching is by fingerprint, so a raw baseline would still suppress,
+            # but it commits the credential in plaintext. Dropping
+            # --ignore-gitleaks-allow instead yields a baseline without the
+            # fingerprint this hook reports, so the finding stays unsuppressable.
+            # Announced, because a baseline is the one suppression channel this
+            # hook keeps: a pass that filtered findings prints the same "no leaks
+            # found" as one that filtered none, and for the submodule the list
+            # doing the filtering lives in the private repository, so a reviewer
+            # here cannot see what a clean result was measured against.
+            # Built after the enumeration, ignore and history guards above
+            # rather than before them: all three exit 1 without running this
+            # pass, and announcing a filtered scan first would print that line
+            # ahead of a refusal saying the pass never ran at all.
+            git_args=("''${common[@]}" --config ".gitleaks.toml")
+            if [ -f ".gitleaks-baseline.json" ]; then
+              git_args+=(--baseline-path ".gitleaks-baseline.json")
+              echo "hook-gitleaks: superproject pass filtered by .gitleaks-baseline.json" >&2
             fi
 
             # History pass: catches a credential that was committed and later
