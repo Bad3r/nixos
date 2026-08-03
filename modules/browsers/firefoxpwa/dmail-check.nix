@@ -104,6 +104,10 @@
                 esac
                 shift
               done
+              # Reproduces an install that fails before storage.write ever
+              # runs, for example a network error fetching the manifest: the
+              # site is never registered, unlike STUB_FAIL_AFTER_REGISTER.
+              [ -z "''${STUB_FAIL_BEFORE_REGISTER:-}" ] || exit 1
               scope=$(printf '%s' "''${manifest_url#*base64,}" | base64 -d | jq -r .scope)
               write_site "$manifest_url" "$start_url" "$name" "$document_url" "$scope"
               # Reproduces an install that registers the site and then fails, for
@@ -124,6 +128,9 @@
                 esac
                 shift
               done
+              # Reproduces site update itself failing, for example storage.write
+              # erroring on the rewrite: config.json must stay exactly as it was.
+              [ -z "''${STUB_FAIL_UPDATE:-}" ] || exit 1
               jq --arg i "$ulid" --arg s "$(normalize "$start_url")" \
                 '.sites[$i].config.start_url = $s' "$config_file" >"$config_file.next"
               mv "$config_file.next" "$config_file"
@@ -148,6 +155,9 @@
         firefoxpwa = stub;
         urlPath = "${secretDir}/url";
         inherit dataDir;
+        # Exercises the retry loop's control flow without three real 5-second
+        # sleeps per check run.
+        retryDelay = 0;
       };
     in
     {
@@ -260,6 +270,12 @@
             expect "same-origin rotation refreshes" 0 "updated start URL"
             expect "no-op after rotation" 0 "already installed with current URL"
 
+            # site update itself failing (for example storage.write erroring
+            # on the rewrite) must be reported, not silently swallowed.
+            set_url 'https://mail.example.com/u/2?tok=b'
+            STUB_FAIL_UPDATE=1 expect "site update failure reports" 1 \
+              "failed to update start URL"
+
             echo "-- refusals --"
             set_url 'https://other.example.org/x'
             expect "cross-origin rotation refuses" 1 "does not match the installed origin"
@@ -335,6 +351,22 @@
             STUB_FAIL_AFTER_REGISTER=1 "$installer" >/dev/null 2>&1 || true
             set_url 'https://other.example.org/x'
             expect "rotation after a partial install refuses" 1 "does not match the installed origin"
+
+            # All three attempts fail before the site is ever registered:
+            # retryDelay = 0 in this check keeps this real (no sleep), unlike
+            # a bare reading of the retry loop's control flow. The loop must
+            # give up after the third attempt, not print a fourth "retrying"
+            # that never happens, and record_applied must never run.
+            reset
+            set_url 'https://mail.example.com/x'
+            STUB_FAIL_BEFORE_REGISTER=1 expect "exhausted retries fail" 1 \
+              "install failed after 3 attempts"
+            if [ -e "$marker" ]; then
+              echo "FAIL  exhausted retries wrote the applied marker"
+              failures=$((failures + 1))
+            else
+              echo "PASS  exhausted retries left no marker"
+            fi
 
             # A site carrying the managed name that neither record accounts for:
             # its scope is unknown, so refreshing it could put start_url outside.

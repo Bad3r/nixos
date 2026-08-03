@@ -55,6 +55,13 @@ let
           xdg.dataHome survive, and clearing them is a manual
           `firefoxpwa site uninstall`. Deliberate, because an automatic
           uninstall would destroy the PWA profile and its session state.
+
+          Rotating the secret to a URL on a different origin is also not
+          applied automatically. The manifest scope is fixed at install time
+          and `firefoxpwa site update` cannot rewrite it, so the installer
+          refuses the rotation and the user service fails on every switch and
+          login until the site is removed with `firefoxpwa site uninstall`.
+          Rotations within the same origin are applied in place.
         '';
       };
 

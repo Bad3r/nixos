@@ -21,6 +21,9 @@
   urlPath,
   dataDir,
   appName ? "DMail",
+  # 0 in the regression check, which needs the retry loop's control flow, not
+  # three real 5-second sleeps per run.
+  retryDelay ? 5,
 }:
 writeShellApplication {
   name = "firefoxpwa-install-dmail";
@@ -38,6 +41,7 @@ writeShellApplication {
     # directory those protect whenever xdg.dataHome is not at its default.
     data_dir=${lib.escapeShellArg dataDir}
     config_file="$data_dir/config.json"
+    retry_delay=${lib.escapeShellArg (toString retryDelay)}
 
     # firefoxpwa deserializes start_url into the Rust url crate's Url
     # (native/src/components/site.rs) and serde writes back its normalized
@@ -253,7 +257,7 @@ writeShellApplication {
       fi
       [ "$attempt" -lt 3 ] || break
       echo "firefoxpwa-dmail: install attempt $attempt failed; retrying" >&2
-      sleep 5
+      sleep "$retry_delay"
     done
 
     echo "firefoxpwa-dmail: install failed after 3 attempts" >&2
