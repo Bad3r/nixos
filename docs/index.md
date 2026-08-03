@@ -25,6 +25,8 @@
   - Technical manual for SKILL.md files covering frontmatter fields, invocation methods, execution lifecycle, and best practices.
 - [claude-code/writing-CLAUDE.md](claude-code/writing-CLAUDE.md)
   - How to write CLAUDE.md files: persistent, always-active agent instructions loaded at session start.
+- [claude-code/scratchpad.md](claude-code/scratchpad.md)
+  - scratchpad
 
 ## Cloudflare
 
