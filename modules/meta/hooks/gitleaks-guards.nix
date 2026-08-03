@@ -129,6 +129,21 @@ _: {
                 || fail "hook selects $cfg, which no source contract in gitleaks-allowlist-scope judges"
             done
 
+            # Which gitlinks may be scanned with the private config, not only
+            # which configs exist: .gitleaks-secrets.toml carries a
+            # content-triggered suppression that kvUnexpectedIn keeps out of
+            # every other source, and the hook's own recipient list is
+            # bounded by nothing else. Appending a name here would hand that
+            # suppression to another gitlink with no fixture and no eval
+            # branch noticing, since nothing else reads this array. Widening
+            # it is a deliberate edit to this check.
+            hook_private=$(
+              grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
+                | grep -oE 'private_config_gitlinks=\([^)]*\)'
+            )
+            [ "$hook_private" = "private_config_gitlinks=(secrets)" ] \
+              || fail "hook grants the private config to an unreviewed gitlink set: $hook_private"
+
             # The configs that actually ship, not a stand-in. gitleaks-allowlist-scope
             # can only pin the config text, and states so: the KV entry's
             # targetRules exists against a vector triggered by file content,
