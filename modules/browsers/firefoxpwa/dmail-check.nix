@@ -508,6 +508,28 @@
             expect "foreign site after an ordinary uninstall is not adopted" 1 \
               "is not the site this unit installed"
 
+            # Same scenario, secret left unrotated: the no-op fast path ran
+            # before any identity check, so applied_file matching the
+            # unchanged URL would silently report success for a foreign
+            # site, the steady state rather than an edge case, unlike the
+            # sibling case above which only ever exercises the path where
+            # the no-op is skipped by a rotation.
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            jq '.sites = {}' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
+            jq '.sites["01FOREIGN"] = {
+                  config: {
+                    name: "DMail",
+                    start_url: "https://mail.example.com/u/0/",
+                    document_url: "https://mail.example.com/u/0/",
+                    manifest_url: "data:,"
+                  },
+                  manifest: {scope: "https://mail.example.com/u/0/"}
+                }' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
+            expect "foreign site with an unrotated secret is not treated as a no-op" 1 \
+              "is not the site this unit installed"
+
             echo "-- the secret reaches only the field rotation can rewrite --"
             reset
             set_url 'https://mail.example.com/inbox?token=TOK_FIRST'

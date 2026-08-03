@@ -175,7 +175,14 @@ writeShellApplication {
       exit 1
     fi
     if [ -n "$ulid" ]; then
-      if [ -r "$applied_file" ] && [ "$(<"$applied_file")" = "$url" ]; then
+      # Gated on ulid_file too, not just the URL: without it, a foreign
+      # same-named site the browser extension created after an uninstall
+      # would silently pass as a no-op whenever the secret has not rotated,
+      # the steady state, reporting success on every switch and login while
+      # the launcher points at whatever that foreign site carries. A
+      # mismatch falls through to the ulid check below, which refuses loudly.
+      if [ -r "$ulid_file" ] && [ "$(<"$ulid_file")" = "$ulid" ] \
+        && [ -r "$applied_file" ] && [ "$(<"$applied_file")" = "$url" ]; then
         echo "firefoxpwa-dmail: '$app_name' already installed with current URL"
         exit 0
       fi
