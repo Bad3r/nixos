@@ -264,19 +264,22 @@
             set_url 'https://other.example.org/x'
             expect "cross-origin rotation refuses" 1 "does not match the installed origin"
             expect "cross-origin refusal repeats" 1 "does not match the installed origin"
-            # Deleting the marker skips the guard rather than satisfying it, so
-            # the refusal must not offer that as a way out. Captured first and
-            # matched with case, not piped into grep: the installer exits 1
-            # here, and under pipefail either its own status or a SIGPIPE from
-            # grep -q exiting early would decide the `if` no matter what the
-            # text was.
+            # Deleting either record skips the guard rather than satisfying it,
+            # so the refusal must not name a path whose removal offers that as
+            # a way out. Matched on the filename alone, not a verb: "remove",
+            # "delete" and "rm" are all the same bypass, and naming the marker
+            # under any wording is the failure this assertion exists to catch.
+            # Captured first and matched with case, not piped into grep: the
+            # installer exits 1 here, and under pipefail either its own status
+            # or a SIGPIPE from grep -q exiting early would decide the `if` no
+            # matter what the text was.
             refusal=$("$installer" 2>&1 || true)
             case "$refusal" in
-              *remove*dmail-applied-url*)
-                echo "FAIL  refusal suggests removing the marker, which bypasses the guard"
+              *dmail-applied-url*)
+                echo "FAIL  refusal names the marker, whose removal bypasses the guard"
                 failures=$((failures + 1))
                 ;;
-              *) echo "PASS  refusal does not suggest removing the marker" ;;
+              *) echo "PASS  refusal does not name the marker" ;;
             esac
             set_url 'not-a-url'
             expect "unparsable secret refuses" 1 "cannot derive an origin"
