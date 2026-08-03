@@ -232,6 +232,7 @@ writeShellApplication {
         echo "firefoxpwa-dmail: '$app_name' was registered by a failed install; not retrying install, the next activation repairs it with site update" >&2
         exit 1
       fi
+      [ "$attempt" -lt 3 ] || break
       echo "firefoxpwa-dmail: install attempt $attempt failed; retrying" >&2
       sleep 5
     done

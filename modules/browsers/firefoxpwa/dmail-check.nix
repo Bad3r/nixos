@@ -193,10 +193,16 @@
             set_url() { printf '%s\n' "$1" >"$url_file"; }
 
             # Runs the installer and checks exit status and a message fragment.
+            # Matched with case, not piped into grep: under pipefail, grep -q
+            # exiting on first match can SIGPIPE the producer and flip a real
+            # match into a reported failure.
             expect() {
-              local label="$1" want_rc="$2" want_text="$3" out rc=0
+              local label="$1" want_rc="$2" want_text="$3" out rc=0 ok=1
               out=$("$installer" 2>&1) || rc=$?
-              if [ "$rc" = "$want_rc" ] && printf '%s' "$out" | grep -qF "$want_text"; then
+              case "$out" in
+                *"$want_text"*) [ "$rc" = "$want_rc" ] && ok=0 ;;
+              esac
+              if [ "$ok" = 0 ]; then
                 echo "PASS  $label"
               else
                 echo "FAIL  $label (rc=$rc, expected $want_rc)"
@@ -259,16 +265,19 @@
             expect "cross-origin rotation refuses" 1 "does not match the installed origin"
             expect "cross-origin refusal repeats" 1 "does not match the installed origin"
             # Deleting the marker skips the guard rather than satisfying it, so
-            # the refusal must not offer that as a way out. Captured first rather
-            # than piped: the installer exits 1 here, and under pipefail that
-            # status would decide the `if` no matter what grep found.
+            # the refusal must not offer that as a way out. Captured first and
+            # matched with case, not piped into grep: the installer exits 1
+            # here, and under pipefail either its own status or a SIGPIPE from
+            # grep -q exiting early would decide the `if` no matter what the
+            # text was.
             refusal=$("$installer" 2>&1 || true)
-            if printf '%s' "$refusal" | grep -q 'remove.*dmail-applied-url'; then
-              echo "FAIL  refusal suggests removing the marker, which bypasses the guard"
-              failures=$((failures + 1))
-            else
-              echo "PASS  refusal does not suggest removing the marker"
-            fi
+            case "$refusal" in
+              *remove*dmail-applied-url*)
+                echo "FAIL  refusal suggests removing the marker, which bypasses the guard"
+                failures=$((failures + 1))
+                ;;
+              *) echo "PASS  refusal does not suggest removing the marker" ;;
+            esac
             set_url 'not-a-url'
             expect "unparsable secret refuses" 1 "cannot derive an origin"
             : >"$url_file"
