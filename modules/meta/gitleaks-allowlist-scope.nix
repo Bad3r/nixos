@@ -920,7 +920,8 @@
               lib.concatStringsSep ", " (map (s: s.origin) unjudgedSources)
             } is no longer "
             + "judged by this check, so every suppression field in it is unbounded; restore it to "
-            + "sources rather than narrowing reviewedSources"
+            + "managedConfigs with its reviewedPaths and kvAllowed declarations rather than dropping "
+            + "the file from write-files"
           )
         else if missedManagedConfigCases != [ ] then
           throw (
