@@ -464,7 +464,10 @@ if "$dry_run"; then
   # read-only and imports the matching IDs into a temp table. Capture output
   # and status separately: a here-string read would succeed on the empty line
   # a failed sqlite3 leaves behind and report garbage counts as a clean run.
-  if ! impact_output=$(
+  # `|| impact_status=$?` rather than `if ! ...`, whose `!` leaves $? at the
+  # negated value (always 0) inside the branch.
+  impact_status=0
+  impact_output=$(
     sqlite3 -separator ' ' -noheader <<SQL
 ATTACH DATABASE '${src_uri}' AS src;
 CREATE TEMP TABLE matching_ids (ID INTEGER PRIMARY KEY);
@@ -488,8 +491,10 @@ SELECT
   COALESCE((SELECT SUM(Size) FROM matching_blocks), 0),
   (SELECT COUNT(*) FROM matching_blocks WHERE State = 'Uploaded');
 SQL
-  ); then
-    echo "impact analysis query failed (sqlite3 exit $?); db locked, corrupt, or schema drift?" >&2
+  ) || impact_status=$?
+
+  if [[ $impact_status -ne 0 ]]; then
+    echo "impact analysis query failed (sqlite3 exit ${impact_status}); db locked, corrupt, or schema drift?" >&2
     exit 66
   fi
 
