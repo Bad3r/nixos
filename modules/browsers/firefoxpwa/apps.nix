@@ -51,8 +51,9 @@ let
 
           One-way. Setting this back to false stops managing the site but does
           not uninstall it: the firefoxpwa profile, the launcher entry and the
-          dmail-applied-url, dmail-applied-origin and dmail-applied-ulid
-          records under xdg.dataHome survive, and clearing them is a manual
+          dmail-applied-url, dmail-applied-origin, dmail-applied-ulid and
+          dmail-installing records under xdg.dataHome survive, and clearing
+          them is a manual
           `firefoxpwa site uninstall`. Deliberate, because an automatic
           uninstall would destroy the PWA profile and its session state.
 
