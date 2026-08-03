@@ -303,7 +303,13 @@ _: {
                   sub_args+=(--baseline-path "$sm/.gitleaks-baseline.json")
                   echo "hook-gitleaks: submodule pass filtered by $sm/.gitleaks-baseline.json, reviewed only in that gitlink's own repository" >&2
                 fi
-                gitleaks git "''${sub_args[@]}" "$sm"
+                # ./ rather than a bare "$sm": every earlier use of $sm is
+                # either git -C's argument, which binds unconditionally, or
+                # string concatenation, but this is a bare positional, so a
+                # gitlink named e.g. "-v" would parse as a flag, leave the
+                # command with no source, and silently rescan the superproject
+                # this pass already covers instead of $sm.
+                gitleaks git "''${sub_args[@]}" "./$sm"
               ) || status=1
             else
               # Say so rather than let a partial run read as full coverage: the
