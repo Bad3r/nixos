@@ -46,6 +46,11 @@
           # agree with an installer that picked its own and hide the mismatch.
           userdata="''${FFPWA_USERDATA:-''${XDG_DATA_HOME:-$HOME/.local/share}/firefoxpwa}"
           mkdir -p "$userdata"
+          # Recorded on every invocation: a check can assert this equals the
+          # xdgDataHome the installer was given, proving it pins system
+          # integration's directory from that parameter rather than from
+          # whatever XDG_DATA_HOME the caller's environment happens to hold.
+          printf '%s' "$XDG_DATA_HOME" >"$userdata/.xdg-data-home-seen"
           config_file="$userdata/config.json"
           [ -f "$config_file" ] || echo '{"sites":{}}' >"$config_file"
 
@@ -130,6 +135,13 @@
               # nothing under $app_name despite the 0 exit, unlike
               # STUB_FAIL_BEFORE_REGISTER, which reports failure.
               [ -n "''${STUB_LOSE_REGISTRATION:-}" ] || write_site "$manifest_url" "$start_url" "$name" "$document_url" "$scope"
+              # Reproduces config.json racing firefoxpwa connector's own
+              # rewrite right after this call registers the site: site_ulid's
+              # read of it, whether from this call's own success branch or a
+              # subsequent failed-attempt branch, then fails rather than
+              # finding nothing, unlike STUB_LOSE_REGISTRATION, which leaves
+              # valid JSON with no site in it.
+              [ -z "''${STUB_CORRUPT_AFTER_REGISTER:-}" ] || printf 'not json' >"$config_file"
               # Reproduces an install that registers the site and then fails, for
               # example when desktop integration errors after storage.write.
               [ -z "''${STUB_FAIL_AFTER_REGISTER:-}" ] || exit 1
@@ -171,9 +183,18 @@
       # re-deriving a path of its own.
       dataDir = "${secretDir}/data";
 
+      # A third, distinct path: the build environment's own XDG_DATA_HOME
+      # (set below) is deliberately wrong, so pinning system integration's
+      # directory from this parameter instead, and asserting the stub sees
+      # this value rather than the environment's, proves the installer's own
+      # export takes effect rather than merely passing the ambient value
+      # through unread.
+      pinnedXdgDataHome = "${secretDir}/xdg-pinned";
+
       installer = (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
         firefoxpwa = stub;
         urlPath = "${secretDir}/url";
+        xdgDataHome = pinnedXdgDataHome;
         inherit dataDir;
         # Exercises the retry loop's control flow without three real 5-second
         # sleeps per check run.
@@ -205,21 +226,17 @@
             set -o errexit -o nounset -o pipefail
 
             export HOME="$PWD/home"
-            # Points somewhere the installer must not use: it is given data_dir
-            # explicitly, so anything landing under here is a re-derived path.
+            # Points somewhere the installer must not use: it pins both
+            # FFPWA_USERDATA and XDG_DATA_HOME itself, from data_dir and
+            # xdgDataHome, so anything landing under here is a re-derived
+            # path rather than one this parameter set actually named.
             export XDG_DATA_HOME="$PWD/xdg"
             secret_dir=${lib.escapeShellArg secretDir}
             url_file="$secret_dir/url"
             data_dir=${lib.escapeShellArg dataDir}
+            pinned_xdg_data_home=${lib.escapeShellArg pinnedXdgDataHome}
             config_file="$data_dir/config.json"
             marker="$data_dir/dmail-applied-url"
-            # Deliberately not exported here: the installer pins FFPWA_USERDATA
-            # itself from the data_dir it is given, and the stub resolves it
-            # the way firefoxpwa does. Setting it in this environment would
-            # supply the pin the installer is supposed to provide, so dropping
-            # the installer's own export would still pass; the stub would then
-            # fall back to $XDG_DATA_HOME/firefoxpwa, which "the installer uses
-            # the directory it is given" below already requires to stay empty.
             install -d "$HOME" "$XDG_DATA_HOME" "$secret_dir"
 
             installer=${lib.getExe installer}
@@ -306,6 +323,17 @@
               echo "PASS  pending marker holds this attempt's manifest before the site is registered"
             else
               echo "FAIL  pending marker holds this attempt's manifest before the site is registered"
+              failures=$((failures + 1))
+            fi
+            # site install's own system integration resolves the .desktop
+            # entry and icon directory from XDG_DATA_HOME, so the installer
+            # must pin it from xdgDataHome itself rather than leave it to
+            # whatever the caller's environment happens to hold; this
+            # environment's own XDG_DATA_HOME (above) is deliberately wrong.
+            if [ "$(cat "$data_dir/.xdg-data-home-seen")" = "$pinned_xdg_data_home" ]; then
+              echo "PASS  XDG_DATA_HOME is pinned from xdgDataHome, not the caller's environment"
+            else
+              echo "FAIL  XDG_DATA_HOME is pinned from xdgDataHome, not the caller's environment"
               failures=$((failures + 1))
             fi
             expect "second run no-ops" 0 "already installed with current URL"
@@ -734,6 +762,67 @@
                }' >"$config_file"
             expect "foreign site with no manifest_url still refuses" 1 \
               "is not the site this unit installed"
+
+            # config.json can race firefoxpwa connector's own rewrite right
+            # after this call registers the site: site_ulid then fails to
+            # read it rather than finding nothing (STUB_LOSE_REGISTRATION's
+            # case). pending_file and origin_file must survive this exit,
+            # the opposite of the neighbouring [ -z "$ulid" ] branch, so a
+            # later run with config.json readable again repairs the site
+            # this call did register instead of refusing it or installing
+            # a duplicate.
+            reset
+            set_url 'https://mail.example.com/x'
+            STUB_CORRUPT_AFTER_REGISTER=1 expect \
+              "install succeeding with an unreadable config.json fails" 1 \
+              "after installing"
+            if [ -r "$data_dir/dmail-applied-origin" ] && [ -s "$data_dir/dmail-installing" ]; then
+              echo "PASS  origin_file and pending_file survive an unreadable config.json"
+            else
+              echo "FAIL  origin_file and pending_file survive an unreadable config.json"
+              failures=$((failures + 1))
+            fi
+            jq -n --arg m "$(cat "$data_dir/dmail-installing")" --arg s 'https://mail.example.com/' \
+              '.sites["01STUB"] = {
+                 config: {
+                   name: "DMail",
+                   start_url: "https://mail.example.com/x",
+                   document_url: $s,
+                   manifest_url: $m
+                 },
+                 manifest: {scope: $s}
+               }' >"$config_file"
+            expect "repair after config.json becomes readable again" 0 \
+              "updated start URL"
+
+            # The same race can also land on a failed attempt: firefoxpwa
+            # site install itself fails, but the site it registered before
+            # failing (the window STUB_FAIL_AFTER_REGISTER alone tests) is
+            # then unreadable rather than absent. pending_file and
+            # origin_file must survive here too, for the same reason.
+            reset
+            set_url 'https://mail.example.com/x'
+            STUB_CORRUPT_AFTER_REGISTER=1 STUB_FAIL_AFTER_REGISTER=1 expect \
+              "failed install with an unreadable config.json does not retry" 1 \
+              "not retrying install"
+            if [ -r "$data_dir/dmail-applied-origin" ] && [ -s "$data_dir/dmail-installing" ]; then
+              echo "PASS  origin_file and pending_file survive a failed attempt's unreadable config.json"
+            else
+              echo "FAIL  origin_file and pending_file survive a failed attempt's unreadable config.json"
+              failures=$((failures + 1))
+            fi
+            jq -n --arg m "$(cat "$data_dir/dmail-installing")" --arg s 'https://mail.example.com/' \
+              '.sites["01STUB"] = {
+                 config: {
+                   name: "DMail",
+                   start_url: "https://mail.example.com/x",
+                   document_url: $s,
+                   manifest_url: $m
+                 },
+                 manifest: {scope: $s}
+               }' >"$config_file"
+            expect "repair after a failed attempt's config.json becomes readable" 0 \
+              "updated start URL"
 
             # firefoxpwa can report success while site_ulid finds nothing
             # under $app_name (for example a read racing firefoxpwa

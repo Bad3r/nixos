@@ -59,6 +59,7 @@ _: {
 
       installScript = (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
         firefoxpwa = firefoxpwaPackage;
+        xdgDataHome = config.xdg.dataHome;
         inherit urlPath dataDir appName;
       };
     in

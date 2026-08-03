@@ -20,6 +20,7 @@
   firefoxpwa,
   urlPath,
   dataDir,
+  xdgDataHome,
   appName ? "DMail",
   # 0 in the regression check, which needs the retry loop's control flow, not
   # three real 5-second sleeps per run.
@@ -41,13 +42,15 @@ writeShellApplication {
     # directory those protect whenever xdg.dataHome is not at its default.
     data_dir=${lib.escapeShellArg dataDir}
     # Exported, not just read: firefoxpwa resolves its own userdata tree from
-    # this variable, so pinning it from the value the caller already passed
-    # for data_dir makes the binary and this script agree by construction,
-    # rather than depending on a systemd unit's Environment= staying in sync
-    # with this file from the outside. XDG_DATA_HOME has no equivalent here:
-    # system integration resolves it through a different mechanism
-    # (directories::BaseDirs), one this script never reads from either.
+    # FFPWA_USERDATA and, separately, its system-integration directory (the
+    # .desktop entry and icon, through directories::BaseDirs) from
+    # XDG_DATA_HOME. Neither is read by this script, but both are read by the
+    # site install / site update calls it makes below, so pinning them from
+    # the values the caller already chose makes the binary and this script
+    # agree by construction, rather than depending on a systemd unit's
+    # Environment= staying in sync with this file from the outside.
     export FFPWA_USERDATA="$data_dir"
+    export XDG_DATA_HOME=${lib.escapeShellArg xdgDataHome}
     config_file="$data_dir/config.json"
     retry_delay=${lib.escapeShellArg (toString retryDelay)}
 
