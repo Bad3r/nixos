@@ -117,19 +117,21 @@ _: {
             # tokens, rather than trying to enumerate every spelling that
             # could produce an unreviewed one. A literal not ending in
             # .toml, a variable whose name does not end in _config, a second
-            # variable also named *_config, or gitleaks' own -c shorthand
-            # for --config all defeated earlier attempts at this check that
-            # tried to extract and judge the value instead of pinning the
-            # argument token itself. This bounds which variable may reach
-            # --config/-c; it does not bound what that variable is assigned,
-            # which the next check covers. Requires a double-quoted value
-            # immediately after the connector: the presence-check message
-            # below names "nix develop --accept-flake-config -c write-files"
-            # as prose, and an unanchored -c match reads its unquoted
-            # "write-files" as a second reviewed token.
+            # variable also named *_config, gitleaks' own -c shorthand for
+            # --config, or dropping the quotes around the value all defeated
+            # earlier attempts at this check that tried to extract and judge
+            # the value instead of pinning the argument token itself. This
+            # bounds which variable may reach --config/-c; it does not bound
+            # what that variable is assigned, which the next check covers.
+            # Matching an unquoted value here once misread the presence-check
+            # message's "nix develop --accept-flake-config -c write-files" as
+            # a second -c token; that instruction is spelled --command below
+            # instead, since nix develop's -c is short for --command, so no
+            # remaining text in the hook contains an unrelated -c to collide
+            # with matching both quoting styles.
             hook_config_args=$(
               grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
-                | grep -oE -- '(--config|-c)[ =]+"[^"]*"' \
+                | grep -oE -- '(--config|-c)[ =]+("[^"]*"|[^[:space:];&|)]+)' \
                 | sed -E 's/^(--config|-c)[ =]*//' | sort -u || true
             )
             expected_config_args=$(printf '%s\n' '".gitleaks.toml"' '"$submodule_config"' | sort -u)
@@ -143,11 +145,15 @@ _: {
             # submodule_config="ci/rogue.toml" passes the pin above (the
             # token is still "$submodule_config") and the generated->hook
             # loop before it (both existing managed names still reach a
-            # branch), so nothing else catches it.
+            # branch), so nothing else catches it. Extraction accepts an
+            # unquoted or $-valued right-hand side rather than excluding
+            # them: neither can equal a literal managed name below, so the
+            # membership test rejects both on its own, the same way it
+            # already rejects any other unreviewed literal.
             hook_config_values=$(
               grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
-                | grep -oE -- '[A-Za-z_]*_config="[^"$]+"' \
-                | grep -oE '"[^"]+"' | tr -d '"' | sort -u || true
+                | grep -oE -- '[A-Za-z_]*_config=[^[:space:];&|)]+' \
+                | sed -E 's/^[A-Za-z_]*_config=//' | tr -d '"' | sort -u || true
             )
             for val in $hook_config_values; do
               printf '%s\n' ${lib.escapeShellArgs managedConfigNames} | grep -qFx -- "$val" \

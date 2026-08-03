@@ -66,7 +66,7 @@ _: {
             # allowlists and no paths key at all.
             for config_file in ${lib.escapeShellArgs managedConfigNames}; do
               if [ ! -f "$config_file" ]; then
-                echo "hook-gitleaks: $config_file is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; regenerate it with 'nix develop --accept-flake-config -c write-files' instead of scanning unreviewed" >&2
+                echo "hook-gitleaks: $config_file is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; regenerate it with 'nix develop --accept-flake-config --command write-files' instead of scanning unreviewed" >&2
                 exit 1
               fi
             done
