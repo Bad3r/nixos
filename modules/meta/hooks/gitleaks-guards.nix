@@ -122,7 +122,8 @@ _: {
             # [[rules]] are all unbounded.
             hook_configs=$(
               grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
-                | grep -oE '\.gitleaks[A-Za-z0-9._-]*\.toml' | sort -u
+                | grep -oE -- '(--config|[A-Za-z_]*_config=) *"[^"$]+"' \
+                | grep -oE '"[^"]+"' | tr -d '"' | sort -u
             )
             for cfg in $hook_configs; do
               printf '%s\n' ${lib.escapeShellArgs managedConfigNames} | grep -qFx -- "$cfg" \
@@ -139,7 +140,7 @@ _: {
             # it is a deliberate edit to this check.
             hook_private=$(
               grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
-                | grep -oE 'private_config_gitlinks=\([^)]*\)'
+                | grep -oE 'private_config_gitlinks[^ ]*=[^;&|]*'
             )
             [ "$hook_private" = "private_config_gitlinks=(secrets)" ] \
               || fail "hook grants the private config to an unreviewed gitlink set: $hook_private"
