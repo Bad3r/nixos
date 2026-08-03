@@ -1,0 +1,8 @@
+# Fixture for modules/browsers/firefoxpwa/module-check.nix.
+#
+# Not a real sops file: nothing here is decrypted, only hashed by sops-nix's
+# own validateSopsFiles check at evaluation time. Its only job is to exist, so
+# builtins.pathExists (secretsRoot + "/gecko.yaml") takes the same branch in
+# this eval-only check that it takes on a real host with the secrets
+# submodule present.
+{}
