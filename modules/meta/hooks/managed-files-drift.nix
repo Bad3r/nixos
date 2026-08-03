@@ -101,8 +101,17 @@
               dst_rel=''${line#*$'\t'}
 
               if [ -z "$src" ] || [ -z "$dst_rel" ] || [ "$src" = "null" ] \
-                || [ "$dst_rel" = "null" ] || [ ! -e "$src" ]; then
+                || [ "$dst_rel" = "null" ]; then
                 echo "✗ Unparsable manifest entry (source/path missing): $line" >&2
+                exit 1
+              fi
+
+              # Kept separate from the shape check so the message names the real
+              # cause. A directory would pass -e, then make cmp exit 2, which the
+              # comparison below cannot distinguish from real drift.
+              if [ ! -f "$src" ]; then
+                echo "✗ Manifest source is not a regular file: $src" >&2
+                echo "  The store path is missing (unrealized or garbage-collected) or is not a file." >&2
                 exit 1
               fi
 
