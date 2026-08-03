@@ -68,17 +68,6 @@ _: {
             mode = "0400";
           };
 
-          # sops-nix creates the parent with os.ModePerm, and firefoxpwa writes
-          # config.json through File::create with no mode of its own, so the
-          # directory holding both the applied-URL marker and a config.json whose
-          # start_url is the decrypted secret would be world-readable. Same
-          # treatment and ordering as modules/home/gecko-secrets.nix.
-          home.activation.ensureFirefoxpwaSecretDir =
-            lib.hm.dag.entryBetween [ "sops-nix" ] [ "writeBoundary" ]
-              ''
-                install -d -m 700 '${dataDir}'
-              '';
-
           systemd.user.services.firefoxpwa-dmail = {
             Unit = {
               Description = "Install the DMail web app (firefoxpwa)";
@@ -143,6 +132,19 @@ _: {
             FFPWA_USERDATA = dataDir;
             XDG_DATA_HOME = config.xdg.dataHome;
           };
+
+          # Same scope as the variables above, not folded into the
+          # DMail-specific block: config.json under dataDir holds start_url
+          # for every site the browser extension installs, not just DMail,
+          # and firefoxpwa writes it through File::create with no mode of its
+          # own, under a parent left at whatever created dataDir. Gating this
+          # on dmailEnabled would leave that file world-readable on every
+          # host with firefoxpwa.extended.enable but not dmail.enable.
+          home.activation.ensureFirefoxpwaSecretDir =
+            lib.hm.dag.entryBetween [ "sops-nix" ] [ "writeBoundary" ]
+              ''
+                install -d -m 700 '${dataDir}'
+              '';
         })
 
         (lib.mkIf (dmailEnabled && firefoxpwaEnabled && !geckoFileExists) {
