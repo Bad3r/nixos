@@ -113,7 +113,8 @@ echo ""
 
 # Ask for commit approval
 if [[ -t 0 ]]; then
-  read -rp "📝 Commit changes? [y/N] " response || response=""
+  response=""
+  read -rp "📝 Commit changes? [y/N] " response || true
 else
   response=""
   echo "Non-interactive shell; skipped commit prompt."
