@@ -6,15 +6,14 @@ This document covers the Home Manager aggregator namespace and app loading mecha
 
 Home Manager modules feed into `flake.homeManagerModules` for user-level configuration:
 
-| Key                                                                 | Type             | Description                                                                                                                                                                                                                 |
-| ------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `base`                                                              | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                                                                                                                                                                       |
-| `gui`                                                               | Deferred module  | Reserved GUI aggregation point (currently an empty merge root)                                                                                                                                                              |
-| `apps.<name>`                                                       | Deferred module  | Individual app modules loaded by key                                                                                                                                                                                        |
-| `browsers.<name>`                                                   | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                                                                                                                                                                 |
-| `sopsRuntime`                                                       | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                                                                                                                                                                      |
-| `context7Secrets`, `geckoSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules (each guarded by `builtins.pathExists`)                                                                                                                                                |
-| `firefoxpwaDmail`                                                   | Deferred module  | Pins the firefoxpwa data directory and hardens it to 0700 whenever `programs.firefoxpwa.extended.enable` is set; additionally installs the DMail PWA when `programs.firefoxpwa.dmail.enable` is set and `gecko.yaml` exists |
+| Key                                                                 | Type             | Description                                                                  |
+| ------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `base`                                                              | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
+| `gui`                                                               | Deferred module  | Reserved GUI aggregation point (currently an empty merge root)               |
+| `apps.<name>`                                                       | Deferred module  | Individual app modules loaded by key                                         |
+| `browsers.<name>`                                                   | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                  |
+| `sopsRuntime`                                                       | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
+| `context7Secrets`, `geckoSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules (each guarded by `builtins.pathExists`) |
 
 ## Contributing to Namespaces
 
@@ -92,7 +91,7 @@ defaultAppImports = [
 
 ### Browser Modules
 
-Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix`. `modules/hosts/common/home-manager-apps.nix` resolves the shared browser set from that namespace directly into `home-manager.sharedModules`; browser names never go through `extraAppImports`, which only resolves the `apps` namespace and the `modules/hm-apps/` fallback path.
+Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix`. `modules/hosts/common/home-manager-apps.nix` resolves the shared browser set from that namespace directly into `home-manager.sharedModules`; browser names never go through `extraAppImports`, which only resolves the `apps` namespace and the `modules/hm-apps/` fallback path. A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/firefoxpwa/home.nix` pins the userdata directory for every firefoxpwa site, and `modules/browsers/firefoxpwa/dmail.nix` layers the DMail-specific install onto the same `browsers.firefoxpwa` key.
 
 ### Per-Host Divergences
 

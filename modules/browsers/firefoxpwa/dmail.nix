@@ -1,16 +1,14 @@
 /*
-  firefoxpwa: userdata directory pinning and the DMail web app
-  Description: Two independent scopes. Whenever programs.firefoxpwa.extended.enable
-    is set, pins the firefoxpwa userdata directory into the session and hardens
-    it to 0700, for every site the browser extension installs, not just DMail.
-    Additionally, whenever programs.firefoxpwa.dmail.enable is also set and
-    gecko.yaml exists, installs the primary user's work mail site as a standalone
+  firefoxpwa: DMail web app
+  Description: Installs the primary user's work mail site as a standalone
     Progressive Web App through the firefoxpwa CLI. The start URL is never
     written to the Nix store: it is read at runtime from the SOPS-encrypted
     work-bookmark secret that modules/home/gecko-secrets.nix already stores
-    (gecko.yaml key gecko_work_bookmark_url_1).
+    (gecko.yaml key gecko_work_bookmark_url_1). The userdata directory this
+    site shares with every other firefoxpwa site is pinned and hardened by
+    ./home.nix, not here.
 
-  DMail mechanism:
+  Mechanism:
     * A oneshot user service ordered after sops-nix.service decrypts the URL and
       runs `firefoxpwa site install` with a synthetic data: manifest, so the
       site installs without the target having to serve a web manifest.
@@ -24,7 +22,7 @@
       making the app discoverable from the desktop menu.
 */
 _: {
-  flake.homeManagerModules.firefoxpwaDmail =
+  flake.homeManagerModules.browsers.firefoxpwa =
     {
       config,
       lib,
@@ -51,10 +49,9 @@ _: {
       # name means the app is already installed.
       appName = "DMail";
 
-      # Single source for the secret, the marker, firefoxpwa's config.json and
-      # the 0700 hardening below. Derived twice they drift apart as soon as
-      # xdg.dataHome moves, leaving the two files that hold the decrypted URL
-      # outside the directory the hardening applies to.
+      # Same directory ./home.nix pins and hardens to 0700. Derived twice they
+      # drift apart as soon as xdg.dataHome moves, leaving the marker and
+      # config.json outside the directory that hardening applies to.
       dataDir = "${config.xdg.dataHome}/firefoxpwa";
 
       installScript = (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
@@ -88,23 +85,11 @@ _: {
             Service = {
               Type = "oneshot";
               RemainAfterExit = true;
-              # firefoxpwa resolves its own user data directory at runtime, from
-              # FFPWA_USERDATA or else $XDG_DATA_HOME/firefoxpwa. User units do
-              # not source hm-session-vars.sh, so without this a non-default
-              # xdg.dataHome sends firefoxpwa's config.json somewhere the script
-              # never reads: the site lookup would come back empty every run and
-              # install another "DMail" on each activation. FFPWA_USERDATA rather
-              # than XDG_DATA_HOME for this path because it names the directory
-              # outright, instead of relying on the "firefoxpwa" suffix the crate
-              # appends.
-              #
-              # System integration resolves a second, unrelated directory through
-              # directories::BaseDirs (native/src/integrations/implementation/linux.rs),
-              # which only reads XDG_DATA_HOME and has no FFPWA_USERDATA override.
-              # The .desktop entry and icon land under its applications/, so
-              # without this a non-default xdg.dataHome writes them where the
-              # desktop menu does not scan: the install succeeds and the launcher
-              # entry never appears.
+              # FFPWA_USERDATA (the userdata tree, ProjectDirs) and
+              # XDG_DATA_HOME (system integration's applications/ directory,
+              # BaseDirs) are exported by the installer itself from the same
+              # dataDir/xdgDataHome passed to it below, so the binary and the
+              # script agree by construction rather than through this unit.
               Environment = [
                 "FFPWA_USERDATA=${dataDir}"
                 "XDG_DATA_HOME=${config.xdg.dataHome}"
@@ -116,40 +101,6 @@ _: {
               "sops-nix.service"
             ];
           };
-        })
-
-        (lib.mkIf firefoxpwaEnabled {
-          # firefoxpwa resolves its userdata tree, and system integration its
-          # applications/ directory, from the session environment: the
-          # generated .desktop launcher runs `firefoxpwa site launch`, the
-          # browser extension starts `firefoxpwa connector`, and the desktop
-          # menu that has to find a launcher entry resolves the directory to
-          # scan independently of what wrote it. Pinned for every firefoxpwa
-          # consumer here, not folded into the DMail-specific block above:
-          # both readers are shared with every other site, installed from the
-          # browser extension or otherwise, so tying the directory to a
-          # per-site toggle would move it out from under those sites whenever
-          # that toggle changed. xdg.enable is off here, so nothing else puts
-          # either variable into the session, and a non-default xdg.dataHome
-          # would otherwise leave one side, or both, resolving a directory
-          # with nothing in it.
-          home.sessionVariables = {
-            FFPWA_USERDATA = dataDir;
-            XDG_DATA_HOME = config.xdg.dataHome;
-          };
-
-          # Same scope as the variables above, not folded into the
-          # DMail-specific block: config.json under dataDir holds start_url
-          # for every site the browser extension installs, not just DMail,
-          # and firefoxpwa writes it through File::create with no mode of its
-          # own, under a parent left at whatever created dataDir. Gating this
-          # on dmailEnabled would leave that file world-readable on every
-          # host with firefoxpwa.extended.enable but not dmail.enable.
-          home.activation.ensureFirefoxpwaSecretDir =
-            lib.hm.dag.entryBetween [ "sops-nix" ] [ "writeBoundary" ]
-              ''
-                install -d -m 700 '${dataDir}'
-              '';
         })
 
         (lib.mkIf (dmailEnabled && firefoxpwaEnabled && !geckoFileExists) {
