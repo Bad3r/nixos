@@ -896,6 +896,29 @@
 
       missed = lib.filter (c: caseResult c != c.id) cases;
 
+      # The inverse contract: missed proves each fixture reaches its own
+      # branch, while this list proves every verdict branch has a fixture. A
+      # branch added without a case would otherwise be unasserted from the
+      # commit that adds it.
+      branchIds = [
+        "config-keys"
+        "allowlist-keys"
+        "path-scope"
+        "extend"
+        "regex"
+        "suppressors"
+        "local-rule"
+        "kv-unexpected"
+        "kv-missing"
+        "untargeted-scope"
+        "kv-untargeted"
+        "kv-unscoped"
+        "target-rules"
+        "regex-scope"
+      ];
+
+      uncoveredBranches = lib.subtractLists (map (c: c.id) cases) branchIds;
+
       # The collision refusal throws inside lowerKeys rather than returning a
       # verdict, so `cases` cannot reach it. throw is catchable, so tryEval
       # drives it the same way, and deepSeq forces the nested tables where a
@@ -941,6 +964,11 @@
           throw (
             "gitleaks-allowlist-scope: managed config coverage fixture(s) no longer detect a missing contract: "
             + lib.concatStringsSep ", " (map (c: c.id) missedManagedConfigCases)
+          )
+        else if uncoveredBranches != [ ] then
+          throw (
+            "gitleaks-allowlist-scope: verdict branch(es) have no regression fixture: "
+            + lib.concatStringsSep ", " uncoveredBranches
           )
         else if realVerdict != null then
           throw realVerdict.message
