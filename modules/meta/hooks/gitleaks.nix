@@ -133,6 +133,26 @@ _: {
             }
             append_submodules . ""
 
+            # git ls-files -s lists a conflicted gitlink once per merge
+            # stage (1, 2 and 3), all with mode 160000, and git push is not
+            # blocked by an unresolved index, so a pointer conflict on a
+            # submodule would otherwise append the same path three times
+            # above and scan and announce that repository three times in
+            # one pre-push run. Matching stage 0 only was tried and
+            # reverted: verified against a real modify/delete conflict that
+            # the side which deleted the path carries no entry at its own
+            # stage at all (stage 2 absent here, "ours" having deleted it),
+            # so no single stage number is guaranteed present across every
+            # conflict shape, and requiring one can drop a conflicted
+            # gitlink from submodules entirely, the silent-skip this hook
+            # exists to refuse elsewhere. Deduplicating after collection
+            # scans it exactly once regardless of how many stages named it,
+            # since only the path, never the recorded mode or object id, is
+            # read from an entry above.
+            if [ "''${#submodules[@]}" -gt 0 ]; then
+              mapfile -t submodules < <(printf '%s\n' "''${submodules[@]}" | awk '!seen[$0]++')
+            fi
+
             # Only this private gitlink owns the operational note covered by
             # .gitleaks-secrets.toml. Every other gitlink gets the generic
             # content-only config, so a future repository cannot inherit the
