@@ -112,24 +112,47 @@ _: {
                 || fail "managed config $cfg is generated but never reaches a --config branch"
             done
 
-            # The converse direction: every --config argument the hook passes
-            # must be one of the two reviewed forms, rather than trying to
-            # enumerate every spelling that could produce an unreviewed one.
-            # A literal not ending in .toml, a variable whose name does not
-            # end in _config, or a second variable also named *_config all
-            # defeated earlier attempts at this check that tried to extract
-            # and judge the value instead of pinning the argument token
-            # itself. --config "$submodule_config" is a reviewed token here
-            # precisely because that name's own literals are judged
-            # separately by the _config= extraction above; a differently
-            # named variable is not, and is refused here by name instead.
+            # The converse direction, argument side: every --config/-c
+            # argument the hook passes must be one of the two reviewed
+            # tokens, rather than trying to enumerate every spelling that
+            # could produce an unreviewed one. A literal not ending in
+            # .toml, a variable whose name does not end in _config, a second
+            # variable also named *_config, or gitleaks' own -c shorthand
+            # for --config all defeated earlier attempts at this check that
+            # tried to extract and judge the value instead of pinning the
+            # argument token itself. This bounds which variable may reach
+            # --config/-c; it does not bound what that variable is assigned,
+            # which the next check covers. Requires a double-quoted value
+            # immediately after the connector: the presence-check message
+            # below names "nix develop --accept-flake-config -c write-files"
+            # as prose, and an unanchored -c match reads its unquoted
+            # "write-files" as a second reviewed token.
             hook_config_args=$(
               grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
-                | grep -oE -- '--config[ =]+[^ )]+' | sed 's/^--config[ =]*//' | sort -u
+                | grep -oE -- '(--config|-c)[ =]+"[^"]*"' \
+                | sed -E 's/^(--config|-c)[ =]*//' | sort -u || true
             )
             expected_config_args=$(printf '%s\n' '".gitleaks.toml"' '"$submodule_config"' | sort -u)
             [ "$hook_config_args" = "$expected_config_args" ] \
-              || fail "hook passes --config arguments outside the reviewed set: $hook_config_args"
+              || fail "hook passes --config/-c arguments outside the reviewed set: $hook_config_args"
+
+            # The converse direction, value side: the argument pin above
+            # proves only that $submodule_config is the reviewed variable
+            # reaching --config, not that every value ever assigned to it is
+            # a managed config. A third branch assigning
+            # submodule_config="ci/rogue.toml" passes the pin above (the
+            # token is still "$submodule_config") and the generated->hook
+            # loop before it (both existing managed names still reach a
+            # branch), so nothing else catches it.
+            hook_config_values=$(
+              grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
+                | grep -oE -- '[A-Za-z_]*_config="[^"$]+"' \
+                | grep -oE '"[^"]+"' | tr -d '"' | sort -u || true
+            )
+            for val in $hook_config_values; do
+              printf '%s\n' ${lib.escapeShellArgs managedConfigNames} | grep -qFx -- "$val" \
+                || fail "hook assigns $val to a *_config variable, which no source contract in gitleaks-allowlist-scope judges"
+            done
 
             # Which gitlinks may be scanned with the private config, not only
             # which configs exist: .gitleaks-secrets.toml carries a
