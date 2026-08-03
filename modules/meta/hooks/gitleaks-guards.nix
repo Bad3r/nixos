@@ -367,13 +367,10 @@ _: {
             cd "$work/path-scoped" && run_hook
             expect_finding "submodule path scope"
 
-            # The superproject half of the same pair. Dropping the baseline flag
-            # is caught elsewhere, because the committed .gitleaks-baseline.json
-            # has seven entries and gitleaks-scan fails without it, but nothing
-            # caught dropping the announcement beside it: no other fixture
-            # creates a repo-root baseline, so a superproject pass that filtered
-            # findings printed the same "no leaks found" as one that filtered
-            # none.
+            # The baseline flag and its announcement are both load-bearing here.
+            # Without the flag the planted credential remains, while without the
+            # announcement a filtered result is indistinguishable from a clean
+            # scan in the hook output.
             echo "hook-gitleaks-guards: 15/18 superproject baseline filters and says so"
             new_repo "$work/baselined"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/baselined/token.txt"
