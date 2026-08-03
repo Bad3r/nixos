@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """HTTP utilities for fetching data from URLs."""
 
 import json
@@ -6,7 +8,7 @@ import urllib.parse
 import urllib.request
 from typing import cast
 
-type JsonValue = None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
+type JsonValue = bool | int | float | str | list[JsonValue] | dict[str, JsonValue] | None
 type JsonObject = dict[str, JsonValue]
 type JsonArray = list[JsonValue]
 

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """Nix command wrappers for package updates."""
 
 import json

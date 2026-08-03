@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """NPM package utilities for Nix package updates."""
 
 import os

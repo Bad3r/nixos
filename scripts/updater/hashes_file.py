@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """Hashes file I/O utilities for Nix package updaters."""
 
 import json

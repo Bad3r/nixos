@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """Hash calculation utilities for Nix packages."""
 
 import base64

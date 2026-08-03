@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """Dependency hash calculation utilities for Nix package updaters.
 
 This module provides utilities for calculating dependency hashes

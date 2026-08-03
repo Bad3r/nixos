@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """Bun package utilities for Nix package updates.
 
 Provides helpers for regenerating bun.nix lockfiles using bun2nix,

@@ -69,13 +69,16 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+
 class Item(BaseModel):
     name: str
     value: float
 
+
 @app.get("/api/health")
 async def health():
     return {"status": "healthy"}
+
 
 @app.post("/api/process")
 async def process(item: Item):
@@ -159,24 +162,23 @@ import json
 import requests
 from datetime import datetime
 
+
 def run_job():
     print(f"Job started at {datetime.now()}")
 
     # Fetch data from external API
-    response = requests.get(os.environ['DATA_SOURCE_URL'])
+    response = requests.get(os.environ["DATA_SOURCE_URL"])
     data = response.json()
 
     # Process data
-    processed = [
-        {"id": item["id"], "value": item["value"] * 2}
-        for item in data
-    ]
+    processed = [{"id": item["id"], "value": item["value"] * 2} for item in data]
 
     # Store results (would use R2 or external storage)
     print(f"Processed {len(processed)} items")
 
     # Signal completion
     print("Job completed successfully")
+
 
 if __name__ == "__main__":
     run_job()
@@ -530,29 +532,28 @@ import torch
 app = FastAPI()
 
 # Load model once at startup
-classifier = pipeline(
-    "sentiment-analysis",
-    device=0 if torch.cuda.is_available() else -1
-)
+classifier = pipeline("sentiment-analysis", device=0 if torch.cuda.is_available() else -1)
+
 
 class TextInput(BaseModel):
     text: str
 
+
 class BatchInput(BaseModel):
     texts: list[str]
+
 
 @app.post("/predict")
 async def predict(input: TextInput):
     result = classifier(input.text)[0]
-    return {
-        "label": result["label"],
-        "score": result["score"]
-    }
+    return {"label": result["label"], "score": result["score"]}
+
 
 @app.post("/batch")
 async def batch_predict(input: BatchInput):
     results = classifier(input.texts)
     return {"results": results}
+
 
 @app.get("/health")
 async def health():

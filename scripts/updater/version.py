@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """Version fetching from various sources (GitHub, npm, custom APIs)."""
 
 import re
