@@ -110,13 +110,19 @@
               [ -z "''${STUB_FAIL_BEFORE_REGISTER:-}" ] || exit 1
               # Recorded at the same point storage.write runs in the real
               # binary, before this stub's own write below: a check can then
-              # assert default.nix's pending_file already exists here, the
-              # instant registration happens, rather than only after this
-              # call returns. A kill exactly here, between this line and the
-              # real storage.write, is the window c30d6ce's marker exists to
-              # cover.
-              { [ -e "$userdata/dmail-installing" ] && echo present || echo absent; } \
-                >"$userdata/.pending-file-at-register"
+              # assert default.nix's pending_file already holds this exact
+              # manifest_url here, the instant registration happens, rather
+              # than only after this call returns, and rather than an empty
+              # marker the adopt check's content match would then always
+              # refuse for a genuine repair. A kill exactly here, between
+              # this line and the real storage.write, is the window c30d6ce's
+              # marker exists to cover.
+              if [ -e "$userdata/dmail-installing" ] \
+                && [ "$(cat "$userdata/dmail-installing")" = "$manifest_url" ]; then
+                echo match >"$userdata/.pending-file-at-register"
+              else
+                echo mismatch >"$userdata/.pending-file-at-register"
+              fi
               scope=$(printf '%s' "''${manifest_url#*base64,}" | base64 -d | jq -r .scope)
               # Reproduces firefoxpwa reporting success while storage.write
               # never lands, for example a write racing firefoxpwa
@@ -292,12 +298,14 @@
             # A kill during firefoxpwa site install, after its own
             # storage.write registers the site but before this call returns,
             # is the window the pending marker exists to cover: it must
-            # already be written by the time registration happens, not only
-            # after the call returns.
-            if [ "$(cat "$data_dir/.pending-file-at-register")" = present ]; then
-              echo "PASS  pending marker exists before the site is registered"
+            # already hold this attempt's manifest_url by the time
+            # registration happens, not only after the call returns, and not
+            # as an empty marker the adopt check's content match would then
+            # always refuse for a genuine repair.
+            if [ "$(cat "$data_dir/.pending-file-at-register")" = match ]; then
+              echo "PASS  pending marker holds this attempt's manifest before the site is registered"
             else
-              echo "FAIL  pending marker exists before the site is registered"
+              echo "FAIL  pending marker holds this attempt's manifest before the site is registered"
               failures=$((failures + 1))
             fi
             expect "second run no-ops" 0 "already installed with current URL"
@@ -577,7 +585,9 @@
             # stub: config.json carries the site and origin_file and
             # pending_file are what the pre-loop writes leave behind, but
             # ulid_file was never reached. pending_file must let this repair
-            # rather than refuse a site the unit did install.
+            # rather than refuse a site the unit did install: its content
+            # here matches the site's own manifest_url, the same match the
+            # adopt check requires.
             reset
             set_url 'https://mail.example.com/x'
             jq -n --arg s 'https://mail.example.com/' \
@@ -591,7 +601,7 @@
                  manifest: {scope: $s}
                }' >"$config_file"
             printf '%s' 'https://mail.example.com' >"$data_dir/dmail-applied-origin"
-            : >"$data_dir/dmail-installing"
+            printf '%s' 'data:,' >"$data_dir/dmail-installing"
             expect "interrupted ulid recording repairs instead of refusing" 0 \
               "updated start URL"
 
@@ -613,18 +623,18 @@
             expect "foreign site with no pending install still refuses" 1 \
               "is not the site this unit installed"
 
-            # A kill before any attempt registers a site (record_origin runs
-            # unconditionally before the loop, so origin_file exists; nothing
-            # else does) must not leave anything that later licenses adopting
-            # a foreign same-named site appearing at that origin.
-            # pending_file is deliberately absent from this setup: writing it
-            # inside the install loop's success branch, not before the loop,
-            # is what this case exists to prove, since a pending_file present
-            # here would adopt regardless of that fix (the check above it
-            # does not distinguish why the file exists, only that it does).
+            # A kill before storage.write registers a site (record_origin
+            # and pending_file are both written before every attempt, so
+            # both exist; nothing else does) must not leave anything that
+            # later licenses adopting a foreign same-named site appearing at
+            # that origin. pending_file is empty here, matching a marker
+            # written moments before such a kill: it cannot equal any real
+            # manifest_url, so the adopt check's match requirement refuses
+            # regardless of what the foreign site's own manifest_url is.
             reset
             set_url 'https://mail.example.com/x'
             printf '%s' 'https://mail.example.com' >"$data_dir/dmail-applied-origin"
+            : >"$data_dir/dmail-installing"
             jq -n --arg s 'https://mail.example.com/' \
               '.sites["01FOREIGN"] = {
                  config: {
@@ -636,6 +646,27 @@
                  manifest: {scope: $s}
                }' >"$config_file"
             expect "foreign site after a kill before registration still refuses" 1 \
+              "is not the site this unit installed"
+
+            # pending_file's content must match, not just exist: a foreign
+            # site with its own manifest_url is not adopted merely because
+            # this script left a marker behind for a different attempt.
+            reset
+            set_url 'https://mail.example.com/x'
+            printf '%s' 'https://mail.example.com' >"$data_dir/dmail-applied-origin"
+            printf '%s' 'data:application/manifest+json;base64,e30=' \
+              >"$data_dir/dmail-installing"
+            jq -n --arg s 'https://mail.example.com/' \
+              '.sites["01FOREIGN"] = {
+                 config: {
+                   name: "DMail",
+                   start_url: "https://mail.example.com/x",
+                   document_url: $s,
+                   manifest_url: "data:,"
+                 },
+                 manifest: {scope: $s}
+               }' >"$config_file"
+            expect "foreign site with a mismatched manifest still refuses" 1 \
               "is not the site this unit installed"
 
             # firefoxpwa can report success while site_ulid finds nothing

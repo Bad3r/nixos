@@ -235,7 +235,16 @@ writeShellApplication {
         # site: adopt it now instead of refusing a site the unit did
         # install. A mismatched (not just missing) ulid_file is never
         # given this benefit: that is a different, already-identified site.
-        if [ -r "$pending_file" ] && [ ! -r "$ulid_file" ]; then
+        # pending_file's mere presence is not enough: it is written before
+        # site install runs, so a kill before storage.write leaves it with
+        # no site registered at all, and a foreign same-named site appearing
+        # later would otherwise pass this check too. Its content, the
+        # manifest_url this attempt used, is compared against the discovered
+        # site's own record of it instead; only an install through this
+        # script's synthetic data: manifest could match.
+        if [ -r "$pending_file" ] && [ ! -r "$ulid_file" ] \
+          && [ "$(jq -r --arg u "$ulid" '.sites[$u].config.manifest_url // empty' \
+                "$config_file" 2>/dev/null)" = "$(<"$pending_file")" ]; then
           record_ulid
           rm -f "$pending_file"
         else
@@ -290,7 +299,16 @@ writeShellApplication {
       # record, which the identity check above then refuses on every run.
       # Cleared again below on an attempt that registered nothing, so it
       # never outlives a call that was actually in flight.
-      (umask 077; : >"$pending_file")
+      #
+      # Holds manifest_url, not just a presence flag: site install does
+      # profile setup before storage.write, so a kill in that earlier window
+      # leaves this marker with no site registered at all. An empty marker
+      # could not tell that state apart from "our install was in flight" the
+      # next time a same-named site appears; the adopt check below requires
+      # the discovered site's own config.manifest_url to equal this content,
+      # which only an install through this script's synthetic data: manifest
+      # could produce.
+      (umask 077; printf '%s' "$manifest_url" >"$pending_file")
       # The decrypted URL is passed to firefoxpwa on argv, so it is visible in
       # /proc/<pid>/cmdline to any local user while site install or site update
       # runs. firefoxpwa takes the start URL no other way, so this is the one
