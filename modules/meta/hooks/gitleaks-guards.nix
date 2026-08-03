@@ -122,8 +122,8 @@ _: {
             # [[rules]] are all unbounded.
             hook_configs=$(
               grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
-                | grep -oE -- '(--config|[A-Za-z_]*_config=) *"[^"$]+"' \
-                | grep -oE '"[^"]+"' | tr -d '"' | sort -u
+                | grep -oE -- '(--config[ =]+|[A-Za-z_]*_config=)"?[^"$[:space:]]+' \
+                | grep -oE '[^ ="]+$' | sort -u
             )
             for cfg in $hook_configs; do
               printf '%s\n' ${lib.escapeShellArgs managedConfigNames} | grep -qFx -- "$cfg" \
@@ -140,10 +140,22 @@ _: {
             # it is a deliberate edit to this check.
             hook_private=$(
               grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
-                | grep -oE 'private_config_gitlinks[^ ]*=[^;&|]*'
+                | grep -oE 'private_config_gitlinks[^ ]*=[^;&|]*' || true
             )
             [ "$hook_private" = "private_config_gitlinks=(secrets)" ] \
               || fail "hook grants the private config to an unreviewed gitlink set: $hook_private"
+            # Bound by statement count as well, because populating a bash array
+            # needs no = adjacent to the name: read -a private_config_gitlinks
+            # or mapfile -t private_config_gitlinks would leave the equality
+            # above true while holding an entry nothing reviewed. The reviewed
+            # script names the array on exactly two lines: the assignment
+            # above and the for loop that reads it.
+            hook_private_mentions=$(
+              grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
+                | grep -c 'private_config_gitlinks' || true
+            )
+            [ "$hook_private_mentions" -eq 2 ] \
+              || fail "hook names private_config_gitlinks on $hook_private_mentions lines; only the reviewed assignment and its read are permitted"
 
             # The configs that actually ship, not a stand-in. gitleaks-allowlist-scope
             # can only pin the config text, and states so: the KV entry's
