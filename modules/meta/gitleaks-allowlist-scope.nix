@@ -70,35 +70,36 @@
         }
       ]) managedConfigs;
 
-      # Which source contracts are judged, pinned as origin, file,
-      # reviewedPaths and kvAllowed together. Every branch quantifies over
-      # whatever sources happens to hold and every fixture builds its own list
-      # through `fixture`, so dropping a contract here leaves the real verdict
-      # null and every fixture green while that file becomes unbounded. Both
-      # spellings of every managed config are covered, because a source edit
-      # that skipped write-files and a direct artifact edit are separate bypass
-      # directions.
-      reviewedSources = lib.concatMap (c: [
+      # Quantified over the files write-files actually emits, not over
+      # managedConfigs: reviewedSources is derived from the same list, so
+      # subtracting one from the other is empty for every possible value and
+      # dropping a contract removes it from both at once. Keyed on the file name
+      # so a new .gitleaks-*.toml has to gain a contract here before it can be
+      # scanned with, and removing a contract while the file still ships throws.
+      managedGitleaksFiles = lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
+        lib.attrNames config.files.file
+      );
+
+      managedConfigCoverage = configs: lib.subtractLists (map (c: c.file) configs) managedGitleaksFiles;
+
+      unjudgedSources = map (file: { origin = file; }) (managedConfigCoverage managedConfigs);
+
+      managedConfigCases = [
         {
-          origin = "modules/development/gitleaks.nix (${c.file})";
-          inherit (c) file reviewedPaths kvAllowed;
+          id = "all-managed";
+          configs = managedConfigs;
+          expected = [ ];
         }
         {
-          origin = c.file;
-          inherit (c) file reviewedPaths kvAllowed;
+          id = "missing-secrets-contract";
+          configs = lib.filter (c: c.file != ".gitleaks-secrets.toml") managedConfigs;
+          expected = [ ".gitleaks-secrets.toml" ];
         }
-      ]) managedConfigs;
+      ];
 
-      sourceContract = s: {
-        inherit (s)
-          origin
-          file
-          reviewedPaths
-          kvAllowed
-          ;
-      };
-
-      unjudgedSources = lib.subtractLists (map sourceContract sources) reviewedSources;
+      missedManagedConfigCases = lib.filter (
+        c: managedConfigCoverage c.configs != c.expected
+      ) managedConfigCases;
 
       # gitleaks keeps a default rule only when no local rule claims its id, so a
       # local [[rules]] entry reusing a default id with an unmatchable regex
@@ -887,6 +888,11 @@
             } is no longer "
             + "judged by this check, so every suppression field in it is unbounded; restore it to "
             + "sources rather than narrowing reviewedSources"
+          )
+        else if missedManagedConfigCases != [ ] then
+          throw (
+            "gitleaks-allowlist-scope: managed config coverage fixture(s) no longer detect a missing contract: "
+            + lib.concatStringsSep ", " (map (c: c.id) missedManagedConfigCases)
           )
         else if realVerdict != null then
           throw realVerdict.message

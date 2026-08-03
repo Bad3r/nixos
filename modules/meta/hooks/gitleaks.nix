@@ -193,7 +193,7 @@ _: {
             sub_args=("''${common[@]}" --config "$submodule_config")
             if [ -f "$sm/.gitleaks-baseline.json" ]; then
               sub_args+=(--baseline-path "$sm/.gitleaks-baseline.json")
-              echo "hook-gitleaks: submodule pass filtered by $sm/.gitleaks-baseline.json, reviewed only in the private repository" >&2
+              echo "hook-gitleaks: submodule pass filtered by $sm/.gitleaks-baseline.json, reviewed only in that gitlink's own repository" >&2
             fi
             if [ -e "$sm/.git" ]; then
               # git exports GIT_DIR to its hooks and gitleaks shells out to git,
