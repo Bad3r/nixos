@@ -77,13 +77,23 @@ _: {
                 install -d -m 700 '${dataDir}'
               '';
 
-          # The unit pin below covers the installer only. The generated .desktop
-          # launcher runs `firefoxpwa site launch`, and the browser extension
-          # starts `firefoxpwa connector`; both resolve this directory the same
-          # way and neither is started by that unit. xdg.enable is off here, so
-          # nothing else puts XDG_DATA_HOME into the session, and a non-default
-          # xdg.dataHome would leave them reading a directory with no site in it.
-          home.sessionVariables.FFPWA_USERDATA = dataDir;
+          # The unit pins below cover the installer's own writes: config.json,
+          # and, since it also runs system integration, the .desktop entry and
+          # icon under xdg.dataHome/applications. Both variables are exported
+          # to the session too, for two different readers. FFPWA_USERDATA: the
+          # generated .desktop launcher runs `firefoxpwa site launch`, and the
+          # browser extension starts `firefoxpwa connector`, neither of which
+          # the unit starts. XDG_DATA_HOME: the desktop menu that has to find
+          # that launcher entry resolves the directory to scan independently
+          # of what the unit wrote it with, so writer and reader agree only if
+          # both sides are pinned to the same value. xdg.enable is off here, so
+          # nothing else puts either variable into the session, and a
+          # non-default xdg.dataHome would otherwise leave one side, or both,
+          # resolving a directory with nothing in it.
+          home.sessionVariables = {
+            FFPWA_USERDATA = dataDir;
+            XDG_DATA_HOME = config.xdg.dataHome;
+          };
 
           systemd.user.services.firefoxpwa-dmail = {
             Unit = {
