@@ -332,7 +332,10 @@ writeShellApplication {
       fi
       if [ -n "$ulid" ]; then
         record_ulid
-        rm -f "$pending_file"
+        # applied_file too: a stale marker left by an earlier install of this
+        # same URL would otherwise satisfy the no-op fast path on the next run
+        # and skip the site update this branch defers the repair to.
+        rm -f "$pending_file" "$applied_file"
         echo "firefoxpwa-dmail: '$app_name' was registered by a failed install; not retrying install, the next activation repairs it with site update" >&2
         exit 1
       fi

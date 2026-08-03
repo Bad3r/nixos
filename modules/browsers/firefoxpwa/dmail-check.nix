@@ -359,6 +359,20 @@
             expect "next activation repairs the partial install" 0 "updated start URL"
             expect "repaired install then no-ops" 0 "already installed with current URL"
 
+            # A stale applied_file surviving a full install from before the
+            # site was removed outside this unit (uninstalling does not clear
+            # this script's records) can already equal the unrotated secret,
+            # so the failed-after-register branch must drop it too: otherwise
+            # the no-op fast path matches ulid_file and the stale marker both,
+            # and the site update this branch exists to schedule never runs.
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            jq '.sites = {}' "$config_file" >"$config_file.tmp" && mv "$config_file.tmp" "$config_file"
+            STUB_FAIL_AFTER_REGISTER=1 "$installer" >/dev/null 2>&1 || true
+            expect "failed-after-register repairs rather than no-ops on a stale marker" 0 \
+              "updated start URL"
+
             # A partial install leaves no applied-URL marker, so the origin it
             # established is the only thing the guard can test against.
             reset
