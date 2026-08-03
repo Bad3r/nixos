@@ -242,7 +242,16 @@ writeShellApplication {
         # manifest_url this attempt used, is compared against the discovered
         # site's own record of it instead; only an install through this
         # script's synthetic data: manifest could match.
-        if [ -r "$pending_file" ] && [ ! -r "$ulid_file" ] \
+        #
+        # -s, not -r: the write below truncates in place rather than
+        # renaming a sibling into place, so a kill between open and printf
+        # leaves an empty, readable marker. An empty marker paired with a
+        # config.json read racing firefoxpwa connector's own rewrite (jq
+        # then yields empty output too) would otherwise compare "" = "" and
+        # adopt regardless. Requiring non-empty here is enough on its own:
+        # equality against a non-empty marker already implies the jq read
+        # produced that same non-empty value.
+        if [ -s "$pending_file" ] && [ ! -r "$ulid_file" ] \
           && [ "$(jq -r --arg u "$ulid" '.sites[$u].config.manifest_url // empty' \
                 "$config_file" 2>/dev/null)" = "$(<"$pending_file")" ]; then
           record_ulid

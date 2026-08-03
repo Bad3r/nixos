@@ -669,6 +669,30 @@
             expect "foreign site with a mismatched manifest still refuses" 1 \
               "is not the site this unit installed"
 
+            # Both sides of the content match can independently land on an
+            # empty string: an empty marker (a kill between this attempt's
+            # truncating write and the printf that follows it) and a
+            # manifest_url jq cannot find at all (missing from the foreign
+            # site's own config, or a config.json read racing firefoxpwa
+            # connector's rewrite). Together they satisfied "" = "" under a
+            # presence check; requiring the marker itself to be non-empty
+            # refuses regardless of what jq reads on the other side.
+            reset
+            set_url 'https://mail.example.com/x'
+            printf '%s' 'https://mail.example.com' >"$data_dir/dmail-applied-origin"
+            : >"$data_dir/dmail-installing"
+            jq -n --arg s 'https://mail.example.com/' \
+              '.sites["01FOREIGN"] = {
+                 config: {
+                   name: "DMail",
+                   start_url: "https://mail.example.com/x",
+                   document_url: $s
+                 },
+                 manifest: {scope: $s}
+               }' >"$config_file"
+            expect "foreign site with no manifest_url still refuses" 1 \
+              "is not the site this unit installed"
+
             # firefoxpwa can report success while site_ulid finds nothing
             # under $app_name (for example a read racing firefoxpwa
             # connector's own write to config.json). That exit must not
