@@ -15,13 +15,21 @@ dropped its `future` dependency (closure is netifaces / scapy / twisted only)
 and `maigret` migrated the insecure `pypdf2-3.0.1` to `pypdf-6.14.2`, clearing
 the two evaluation blocks recorded earlier.
 
+Every entry that the 2026-05-04 snapshot recorded under "build or evaluation
+error" was re-run on 2026-08-04 against the current pin (python3 3.14.6). Two
+outcomes changed: `dc3dd` now builds and runs, and `patator` still fails but on
+a different dependency than the one recorded. The `maltego` and `waybackurls`
+entries were never build defects and now have their own category, because both
+build and run once the unfree gate is opened.
+
 ## Summary
 
 | Result                                                           | Count   |
 | ---------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                             | 97      |
+| ✅ Run as documented                                             | 98      |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
-| ⚠️ Build or evaluation error                                     | 7       |
+| ⚠️ Build or evaluation error                                     | 4       |
+| ⚠️ Blocked by the unfree license gate                            | 2       |
 | ⚠️ Binary path mismatch in the documented attribute              | 5       |
 | ⚠️ Documented attribute resolves to a different upstream project | 2       |
 | ⚠️ Documented smoke flag incompatible with the binary            | 2       |
@@ -129,6 +137,7 @@ no longer entries in the companion reference.
 - ✅ dcfldd
 - ✅ safecopy
 - ✅ chainsaw
+- ✅ dc3dd
 
 ### Cryptography, Stego and CTF
 
@@ -192,22 +201,39 @@ The reference itself flags these. Listed for completeness.
 
 ### Build or evaluation error
 
-- ⚠️ evil-winrm: Ruby 3.4 LoadError, `csv` gem missing then `winrm-fs` cannot
-  load. Upstream nixpkgs build is currently broken.
-- ⚠️ maltego: unfree license. Requires `allowUnfree = true` and inclusion in
-  `modules/meta/nixpkgs-allowed-unfree.nix`.
-- ⚠️ waybackurls: marked unfree in nixpkgs. Refuses to evaluate without
-  `NIXPKGS_ALLOW_UNFREE=1` and `--impure` (or an entry in
-  `modules/meta/nixpkgs-allowed-unfree.nix`).
-- ⚠️ droopescan (uvx): runtime crash, `cement 2.6.2` imports the removed
-  `imp` module on Python 3.12+.
-- ⚠️ patator (uvx): build of transitive `cx-oracle 8.3.0` fails, its build
-  backend depends on `pkg_resources` without declaring it.
-- ⚠️ python3Packages.angr: nixpkgs build fails, `setuptools-rust` missing
-  from `nativeBuildInputs` during wheel preparation.
-- ⚠️ dc3dd: nixpkgs compile failure with modern gcc,
-  `argmatch.c:63: too many arguments to function 'usage'` (legacy macro
-  mismatch).
+Re-verified 2026-08-04 under python3 3.14.6.
+
+- ⚠️ evil-winrm: the derivation builds, but the binary aborts at startup with
+  `cannot load such file -- csv (LoadError)`, cascading to
+  `cannot load such file -- winrm-fs`. Ruby 3.4 removed `csv` from the default
+  gems, and the package's `Gemfile` adds `stringio`, `logger` and `fileutils`
+  for that same reason but not `csv`. Reproduces identically on
+  `nixpkgs-unstable`; no upstream issue is open for it.
+- ⚠️ droopescan (uvx): runtime crash, `cement 2.6.2` imports the `imp` module
+  that Python 3.12 removed. Unchanged under 3.14.
+- ⚠️ patator (uvx): the recorded `cx-oracle` cause no longer applies. The
+  install now fails building transitive `mysqlclient 2.2.8`, whose setup
+  script aborts with `Can not find valid pkg-config name` because no MySQL
+  client library is on the `uvx` build path.
+- ⚠️ python3Packages.angr: wheel preparation aborts with
+  `angr requires setuptools-rust to build`, which is missing from
+  `nativeBuildInputs`. Tracked upstream as
+  [NixOS/nixpkgs#501379](https://github.com/NixOS/nixpkgs/issues/501379),
+  which covers the `python314Packages.angr` job.
+
+### Blocked by the unfree license gate
+
+Both packages build and run; the only blocker is policy. Add them to
+`modules/meta/nixpkgs-allowed-unfree.nix` for repo configs, or pass
+`NIXPKGS_ALLOW_UNFREE=1` with `--impure` for a one-off. Re-verified
+2026-08-04.
+
+- ⚠️ maltego: unfree license. `NIXPKGS_ALLOW_UNFREE=1 nix build --impure nixpkgs#maltego` completes.
+- ⚠️ waybackurls: marked unfree in nixpkgs.
+  `NIXPKGS_ALLOW_UNFREE=1 nix run --impure nixpkgs#waybackurls -- -h` prints
+  full help. The license attribute is the bare `unfree` placeholder
+  (`fullName: "Unfree"`) rather than a named license, which is likely a
+  mislabel for an MIT-licensed Go tool.
 
 ### Binary path mismatch in the documented attribute
 

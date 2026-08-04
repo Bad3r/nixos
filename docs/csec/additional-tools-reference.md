@@ -40,7 +40,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintained (v3.2.2.0, 2026-01-26).
 - evil-winrm
   - run..: `nix run nixpkgs#evil-winrm -- -i $ip -u $user -p $pass`
-    - ⚠️ Failed to run: Ruby 3.4 LoadError. The `csv` gem is missing and `winrm-fs` fails to load. Upstream nixpkgs build is currently broken.
+    - ⚠️ Failed to run: the derivation builds, but startup aborts with `cannot load such file -- csv (LoadError)`, cascading to `winrm-fs`. Ruby 3.4 removed `csv` from the default gems and the nixpkgs `Gemfile` does not add it back.
   - Repo.: <https://github.com/Hackplayers/evil-winrm>
   - Docs.: <https://github.com/Hackplayers/evil-winrm#readme>
   - Desc.: Interactive WinRM shell with built-in upload/download, AMSI bypass scaffolding, and PowerShell pass-through.
@@ -434,7 +434,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Deprecated (no formal releases; last commit 2018-03-14; Python 2 vintage, abandoned 7+ years).
 - patator
   - run..: `uvx patator $module host=$target ...`
-    - ⚠️ Failed to run: build of the transitive `cx-oracle 8.3.0` dependency fails. The build backend depends on `pkg_resources` without declaring it.
+    - ⚠️ Failed to run: build of the transitive `mysqlclient 2.2.8` dependency fails. Its setup script aborts with `Can not find valid pkg-config name` because no MySQL client library is on the `uvx` build path.
   - Repo.: <https://github.com/lanjelot/patator>
   - Docs.: <https://github.com/lanjelot/patator/wiki>
   - Desc.: Multi-purpose modular brute-forcer covering services hydra/medusa miss (Telnet, finger, MySQL, custom). Not in nixpkgs.
@@ -519,7 +519,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintained (2026.02.18, 2026-02-18).
 - angr
   - run..: `nix shell nixpkgs#python3Packages.angr -c python3`
-    - ⚠️ Failed to run: nixpkgs build fails. `setuptools-rust` is missing from `nativeBuildInputs` during wheel preparation.
+    - ⚠️ Failed to run: nixpkgs build fails. `setuptools-rust` is missing from `nativeBuildInputs` during wheel preparation. Tracked upstream as <https://github.com/NixOS/nixpkgs/issues/501379>.
   - Repo.: <https://github.com/angr/angr>
   - Docs.: <https://docs.angr.io/>
   - Desc.: Symbolic-execution and binary-analysis framework for CFG recovery, taint tracking, and concolic exploration.
@@ -578,7 +578,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Deprecated (no formal releases; last commit 2021-03-26; maintainers state effort abandoned).
 - dc3dd
   - run..: `nix run nixpkgs#dc3dd -- if=$src hof=$dst hash=sha256`
-    - ⚠️ Failed to run: nixpkgs compile failure with modern gcc. `argmatch.c:63: too many arguments to function 'usage'` (legacy macro mismatch).
   - Repo.: <https://sourceforge.net/projects/dc3dd/>
   - Docs.: <https://sourceforge.net/projects/dc3dd/files/>
   - Desc.: Forensic-focused dd patch with hashing-on-the-fly, progress reporting, and split output.
