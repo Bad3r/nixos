@@ -87,14 +87,16 @@ keyed `<host>/<package>/<output>`.
   `nix build --dry-run "path:.#cache-roots"` on a host that has switched
   recently should report no unexpected package rebuilds; that is the
   derivation-parity check.
-- Option-sourced entries (`hostOptionPackages`) read the attribute path holding
-  the resolved package, for packages the bare package-set attribute never
-  produces or that never reach `environment.systemPackages` at all. A path may
-  reach past the option into the value it holds, for derivations that hang off
-  a package rather than being an output of it: `hardware.nvidia.package.mod` is
-  the kernel module built against `boot.kernelPackages` and installed through
-  `boot.extraModulePackages`, and `hardware.nvidia.package.settings` is
-  nvidia-settings. Linking every output does not reach either. Each entry carries
+- Option-sourced entries (`hostOptionPackages`) resolve the package from the
+  host config, for packages the bare package-set attribute never produces or
+  that never reach `environment.systemPackages` at all. Resolution is a
+  function rather than an option path, because it can mean reaching past the
+  option into the value it holds, or choosing between derivations by another
+  option's value: `hardware.nvidia.package.mod` is the kernel module built
+  against `boot.kernelPackages` and installed through
+  `boot.extraModulePackages`, `hardware.nvidia.package.settings` is
+  nvidia-settings, and neither is an output, so linking every output does not
+  reach them. Each entry carries
   its own `installed` predicate rather than deriving a sibling `enable` from
   the option path, because these options do not share one shape:
   `programs.nemo.extended.finalPackage` is assigned inside
@@ -175,21 +177,27 @@ enables the last six.
 | ventoy-full         | system76        |
 | veracrypt           | system76        |
 
-Option-sourced entries, resolved from the option that holds the installed
+Option-sourced entries, resolved from the host config that holds the installed
 package:
 
-| Package               | Option                                | Hosts           |
+| Package               | Resolved from                         | Hosts           |
 | --------------------- | ------------------------------------- | --------------- |
 | nemo-with-extensions  | `programs.nemo.extended.finalPackage` | system76, tpnix |
 | nvidia-x11            | `hardware.nvidia.package`             | system76, tpnix |
-| nvidia-kernel-modules | `hardware.nvidia.package.mod`         | system76, tpnix |
+| nvidia-kernel-modules | `hardware.nvidia.package.{open,mod}`  | system76, tpnix |
 | nvidia-settings       | `hardware.nvidia.package.settings`    | system76, tpnix |
 | steam                 | `programs.steam.package`              | system76        |
 
-`nvidia-kernel-modules` is gated on `hardware.nvidia.open != true`, matching
-upstream's `boot.extraModulePackages = if useOpenModules then [ nvidia_x11.open ] else [ nvidia_x11.mod ]`, and `nvidia-settings` on
-`hardware.nvidia.nvidiaSettings`. Both hosts set `open = false` and
-`nvidiaSettings = true`, so both publish both.
+`nvidia-kernel-modules` selects the module flavor the host installs rather than
+gating on one of them, mirroring upstream's
+`boot.extraModulePackages = if useOpenModules then [ nvidia_x11.open ] else [ nvidia_x11.mod ]`
+with `useOpenModules = cfg.open == true`. Gating on one flavor would drop
+coverage silently on a host that flips `hardware.nvidia.open`, which
+`modules/hardware/nvidia-gpu.nix` documents as required on Blackwell and newer,
+and a symmetric second entry cannot exist while no host sets it: the
+unused-name throw would abort on it. `nvidia-settings` is gated on
+`hardware.nvidia.nvidiaSettings`. Both hosts currently set `open = false` and
+`nvidiaSettings = true`.
 
 `steam` is option-sourced because `modules/apps/steam.nix` installs nothing
 itself: it sets `programs.steam.enable` with `extraCompatPackages` and

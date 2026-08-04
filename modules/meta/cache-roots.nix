@@ -72,10 +72,11 @@ let
   nvidiaLoaded = hostConfig: lib.elem "nvidia" hostConfig.services.xserver.videoDrivers;
 
   # Packages the bare package-set attribute never produces, or that never
-  # reach environment.systemPackages at all. Each entry names the attribute
-  # path holding the resolved package and the condition under which the host
-  # actually installs it. A path may reach past the option into the value it
-  # holds, for derivations that hang off a package rather than being one.
+  # reach environment.systemPackages at all. Each entry resolves the package
+  # from the host config and states the condition under which the host
+  # actually installs it. `path` is a function rather than an option path
+  # because resolving can mean reaching past the option into the value it
+  # holds, or choosing between derivations by another option's value.
   #
   # The condition is explicit rather than derived from the option path
   # because these options do not share one shape. nemo.extended.finalPackage
@@ -87,44 +88,39 @@ let
   # upstream programs.steam.enable are what actually install them.
   hostOptionPackages = {
     nemo-with-extensions = {
-      path = [
-        "programs"
-        "nemo"
-        "extended"
-        "finalPackage"
-      ];
+      path = hostConfig: hostConfig.programs.nemo.extended.finalPackage;
       installed = hostConfig: hostConfig.programs.nemo.extended.enable;
     };
     nvidia-x11 = {
-      path = [
-        "hardware"
-        "nvidia"
-        "package"
-      ];
+      path = hostConfig: hostConfig.hardware.nvidia.package;
       installed = nvidiaLoaded;
     };
     # Two derivations hanging off hardware.nvidia.package rather than outputs
-    # of it, so linking every output does not reach them. `mod` is the kernel
-    # module built against boot.kernelPackages, which upstream puts in
-    # boot.extraModulePackages whenever hardware.nvidia.open is not true, and
-    # is the expensive half of the driver. `settings` is nvidia-settings,
-    # added to environment.systemPackages under hardware.nvidia.nvidiaSettings.
+    # of it, so linking every output does not reach them.
+    #
+    # The kernel module is the expensive half of the driver, and which
+    # derivation carries it depends on the module flavor: upstream's
+    # `useOpenModules = cfg.open == true` selects `open` over `mod` for
+    # boot.extraModulePackages. Selecting the same way keeps the entry
+    # publishing whatever the host installs. Gating on one flavor instead would
+    # drop coverage silently on a host that flips
+    # `hardware.nvidia.open`, which modules/hardware/nvidia-gpu.nix documents as
+    # required on Blackwell and newer, and a symmetric second entry cannot exist
+    # while no host sets it: the unused-name throw below would abort on it.
+    #
+    # `settings` is nvidia-settings, which upstream adds to
+    # environment.systemPackages under hardware.nvidia.nvidiaSettings.
     nvidia-kernel-modules = {
-      path = [
-        "hardware"
-        "nvidia"
-        "package"
-        "mod"
-      ];
-      installed = hostConfig: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.open != true;
+      path =
+        hostConfig:
+        if hostConfig.hardware.nvidia.open == true then
+          hostConfig.hardware.nvidia.package.open
+        else
+          hostConfig.hardware.nvidia.package.mod;
+      installed = nvidiaLoaded;
     };
     nvidia-settings = {
-      path = [
-        "hardware"
-        "nvidia"
-        "package"
-        "settings"
-      ];
+      path = hostConfig: hostConfig.hardware.nvidia.package.settings;
       installed = hostConfig: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.nvidiaSettings;
     };
     # modules/apps/steam.nix installs nothing itself: it sets
@@ -135,11 +131,7 @@ let
     # and protonup-rs live inside it; pkgs.steam is a different derivation
     # missing exactly the part that costs a switch.
     steam = {
-      path = [
-        "programs"
-        "steam"
-        "package"
-      ];
+      path = hostConfig: hostConfig.programs.steam.package;
       installed = hostConfig: hostConfig.programs.steam.enable;
     };
   };
@@ -183,7 +175,7 @@ in
         ++ lib.mapAttrsToList (name: entry: {
           key = "${hostName}/${name}";
           pkgName = name;
-          path = lib.getAttrFromPath entry.path hostConfig;
+          path = entry.path hostConfig;
         }) (lib.filterAttrs (_: entry: entry.installed hostConfig) hostOptionPackages);
 
       hostConfigs = map (nixos: nixos.config) (lib.attrValues hosts);
