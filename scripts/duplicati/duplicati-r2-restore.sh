@@ -53,7 +53,8 @@ Environment variables:
 Exit codes:
   0    success (or dry-run completed)
   64   usage error (bad arguments, mutually exclusive options, bad regex,
-       pre-existing non-empty --restore-path without --force)
+       --restore-path is a symlink or not a directory, pre-existing non-empty
+       --restore-path without --force)
   66   manifest, env file, or db unreadable; target missing or disabled;
        impact-analysis query failed or returned non-numeric output;
        --restore-path timestamps too coarse to scope the ownership pass
@@ -541,6 +542,19 @@ fi
 # the chown/chmod below; otherwise a `mkdir` beforehand would leave the target
 # root-owned and unusable by --chown's user.
 restore_path_populated=false
+# A symlink target would be scanned and written through inconsistently: find
+# defaults to -P and reports the link as empty, so the populated guard, the
+# directory inventory, and the scoped passes all see nothing, while the root
+# chown/chmod have no -h and follow the link onto the real tree. Refuse rather
+# than resolve, so the operator names the tree the restore actually writes to.
+# -L is tested before -e because -e is false for a dangling link, which would
+# otherwise reach mkdir -p and fail there with "File exists".
+if [[ -L $restore_path ]]; then
+  echo "--restore-path must not be a symlink: $restore_path" >&2
+  echo "  Pass the resolved directory so the scoping scans and the root chown/chmod" >&2
+  echo "  operate on the same tree the restore writes to." >&2
+  exit 64
+fi
 if [[ -e $restore_path ]]; then
   if [[ ! -d $restore_path ]]; then
     echo "--restore-path exists and is not a directory: $restore_path" >&2
@@ -563,7 +577,9 @@ fi
 # 0700 root:root and block --chown's user from traversing to its own restore.
 # Only the intermediates are widened; the leaf holds the restored data and
 # stays 0700 for the whole run rather than being re-tightened at the end.
-(umask 022 && mkdir -p "$(dirname "$restore_path")")
+# 066 grants traverse without read, so 0711: --chown's user reaches a path it
+# was told, and a shared /tmp does not expose the <slug>-<ts> names to a listing.
+(umask 066 && mkdir -p "$(dirname "$restore_path")")
 mkdir -p "$restore_path"
 
 # Marker plus pre-existing-directory inventory scope the post-restore chown
@@ -661,17 +677,24 @@ if [[ $rc -ne 0 ]]; then
   exit "$rc"
 fi
 
+# Walk the tree once and reuse the result: both passes below must act on the
+# same set, and re-running the scans would traverse a populated --restore-path
+# four more times and could pick up entries another writer added in between.
+restored_list="${scope_dir}/restored"
+restored_links="${scope_dir}/restored-links"
+restored_entries >"$restored_list"
+# Symlinks stay out of restored_entries because the chmod pass below follows
+# them and would rewrite modes on targets outside the tree. Ownership still has
+# to reach them: the replaced `chown -R` covered links, since GNU chown
+# traverses with FTS_PHYSICAL and lchowns each one it meets. -h restores that
+# without touching referents.
+find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 >"$restored_links"
+
 if [[ $chown_spec != "none" ]]; then
   echo
   echo "Applying chown ${chown_spec} to restored entries under ${restore_path}..."
-  restored_entries | xargs -0 -r chown "$chown_spec"
-  # Symlinks stay out of restored_entries because the chmod pass below follows
-  # them and would rewrite modes on targets outside the tree. Ownership still
-  # has to reach them: the replaced `chown -R` covered links, since GNU chown
-  # traverses with FTS_PHYSICAL and lchowns each one it meets. -h restores that
-  # without touching referents.
-  find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 |
-    xargs -0 -r chown -h "$chown_spec"
+  xargs -0 -r chown "$chown_spec" <"$restored_list"
+  xargs -0 -r chown -h "$chown_spec" <"$restored_links"
   if [[ $restore_path_populated == false ]]; then
     chown "$chown_spec" "$restore_path"
   fi
@@ -685,7 +708,7 @@ fi
 # so the tree is usable post-chown without widening exposure. Scoped to the
 # restored entries so pre-existing content keeps its modes.
 echo "Resetting permissions to u+rwX,go-rwx on restored entries under ${restore_path}..."
-restored_entries | xargs -0 -r chmod u+rwX,go-rwx
+xargs -0 -r chmod u+rwX,go-rwx <"$restored_list"
 if [[ $restore_path_populated == false ]]; then
   chmod u+rwX,go-rwx "$restore_path"
 fi
