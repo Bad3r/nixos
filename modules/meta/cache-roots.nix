@@ -31,6 +31,8 @@ let
     "john"
     "planify"
     "proton-vpn"
+    "searchfox-cli"
+    "source-map-explorer"
     "tweakcc"
     "upscayl"
     "wappalyzer-next"
@@ -118,11 +120,16 @@ in
         }) perSystemPackageNames
         ++ [
           # modules/agents/mcp.nix resolves MCP server packages from the
-          # mcp-servers-nix input; hostPkgs carries a same-named but
-          # different context7-mcp derivation no consumer runs.
+          # mcp-servers-nix input; hostPkgs carries same-named but different
+          # context7-mcp and mcp-server-sequential-thinking derivations no
+          # consumer runs.
           {
             name = "context7-mcp";
             path = assertFree "context7-mcp" inputs'.mcp-servers-nix.packages.context7-mcp;
+          }
+          {
+            name = "mcp-server-sequential-thinking";
+            path = assertFree "mcp-server-sequential-thinking" inputs'.mcp-servers-nix.packages.mcp-server-sequential-thinking;
           }
           {
             name = "codex";

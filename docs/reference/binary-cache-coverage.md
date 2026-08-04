@@ -86,9 +86,9 @@ of free, redistribution-safe packages:
   surfacing a bare "was accessed but has no value defined".
 - perSystem-sourced entries (codeburn, restringer) are consumed through
   the devshell surface and build from the perSystem nixpkgs instance.
-- Input-sourced entries (context7-mcp, codex) come from the flake input the
-  consuming module resolves them from, because the host package set can
-  carry a same-named but different derivation.
+- Input-sourced entries (context7-mcp, mcp-server-sequential-thinking, codex)
+  come from the flake input the consuming module resolves them from, because
+  the host package set can carry a same-named but different derivation.
 
 The allowlist is explicit because `cachix push` publishes the full runtime
 closure to a public cache. Every entry's closure must be redistributable. An
@@ -100,36 +100,41 @@ this output) instead of reaching the cache. The guard reads the entry's own
 separately licensed packages still needs the manual check under
 "Extending the allowlist".
 
-## Classification (2026-07-17 build logs)
+## Classification (2026-07-17 and 2026-08-03 build logs)
 
 License fields read from each package's `meta.license` on the surface that
 entry is sourced from, per the rule under "Extending the allowlist": the
 primary host's package set for host-sourced entries,
 `programs.nemo.extended.finalPackage` for nemo-with-extensions, the owning
-flake input for context7-mcp and codex, and `self'.packages` for codeburn
-and restringer.
+flake input for context7-mcp, mcp-server-sequential-thinking, and codex, and
+`self'.packages` for codeburn and restringer.
 
 Cached via cache-roots (free, redistributable):
 
-| Package              | License            |
-| -------------------- | ------------------ |
-| codeburn             | MIT                |
-| codex                | Apache-2.0         |
-| context7-mcp         | MIT                |
-| electron-mail        | GPL-3.0            |
-| firefoxpwa           | MPL-2.0            |
-| john                 | GPL-2.0-or-later   |
-| nemo-with-extensions | GPL-2.0 + LGPL-2.0 |
-| planify              | GPL-3.0-or-later   |
-| proton-vpn           | GPL-3.0-only       |
-| restringer           | MIT                |
-| tweakcc              | MIT                |
-| upscayl              | AGPL-3.0-or-later  |
-| wappalyzer-next      | GPL-3.0-only       |
+| Package                        | License            |
+| ------------------------------ | ------------------ |
+| codeburn                       | MIT                |
+| codex                          | Apache-2.0         |
+| context7-mcp                   | MIT                |
+| electron-mail                  | GPL-3.0            |
+| firefoxpwa                     | MPL-2.0            |
+| john                           | GPL-2.0-or-later   |
+| mcp-server-sequential-thinking | MIT                |
+| nemo-with-extensions           | GPL-2.0 + LGPL-2.0 |
+| planify                        | GPL-3.0-or-later   |
+| proton-vpn                     | GPL-3.0-only       |
+| restringer                     | MIT                |
+| searchfox-cli                  | Apache-2.0 + MIT   |
+| source-map-explorer            | Apache-2.0         |
+| tweakcc                        | MIT                |
+| upscayl                        | AGPL-3.0-or-later  |
+| wappalyzer-next                | GPL-3.0-only       |
 
-context7-mcp is sourced from the `mcp-servers-nix` input, matching the
-consumer in `modules/agents/mcp.nix`; the host package set carries a
-same-named but different derivation no consumer runs. nemo-with-extensions
+context7-mcp and mcp-server-sequential-thinking are sourced from the
+`mcp-servers-nix` input, matching the consumer in `modules/agents/mcp.nix`,
+which resolves every server's package through
+`inputs.mcp-servers-nix.packages.<system>`; the host package set carries
+same-named but different derivations no consumer runs. nemo-with-extensions
 is sourced from `programs.nemo.extended.finalPackage` for the same reason:
 `modules/apps/nemo.nix` re-wraps nemo with an explicit extension list, so
 the bare `pkgs.nemo-with-extensions` attribute is a derivation no host
