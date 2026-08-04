@@ -742,9 +742,12 @@ restore_lock=""
 cleanup_scope() {
   [[ -n $scope_dir ]] && rm -rf "$scope_dir"
   [[ -n $restore_marker ]] && rm -f "$restore_marker" "${restore_marker}.probe"
-  if [[ -n $restore_lock ]] && ! rmdir "$restore_lock" 2>/dev/null; then
-    echo "WARNING: could not remove the restore lock at '$restore_lock'." >&2
-    echo "  The next run against this path refuses with exit 64 until it is gone." >&2
+  if [[ -n $restore_lock ]]; then
+    local rmdir_err
+    rmdir_err=$(rmdir "$restore_lock" 2>&1) || {
+      echo "WARNING: could not remove the restore lock at '$restore_lock': ${rmdir_err}" >&2
+      echo "  The next run against this path refuses with exit 64 until it is gone." >&2
+    }
   fi
   return 0
 }
