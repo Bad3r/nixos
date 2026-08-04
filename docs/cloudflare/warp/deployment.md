@@ -56,8 +56,6 @@ Each host opts in through a small file that enables the wrapper in Full mode:
 
 - `modules/system76/cloudflare-warp.nix` sets `enable = true` directly; system76
   has runtime SOPS decryption.
-- `modules/system76/cloudflare-warp.nix` sets `enable = true` directly; system76
-  has runtime SOPS decryption.
 - `modules/tpnix/cloudflare-warp.nix` sets `enable = sopsRuntimeReady`, gating on
   `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady` (`modules/tpnix/policy.nix`) like
   the other tpnix sops consumers (`duplicati.nix`, `printing.nix`, `fonts.nix`).
@@ -106,6 +104,7 @@ in
     };
   };
 }
+```
 
 ## 4. Validate and deploy
 
