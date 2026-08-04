@@ -7,7 +7,7 @@
 
   Summary:
     * Provides a single environment with `jupyter`, `jupyter-lab`, `jupyter-notebook`, `jupyter-console`, `jupyter-nbconvert`, and `ipython` entry points.
-    * Ships Clojure (Clojupyter), Octave, R (Ark), and Ruby (IRuby) kernels in addition to the default Python kernel via the nixpkgs override.
+    * Ships Clojure (Clojupyter), Octave, R (Ark), and Ruby (IRuby) kernels through the nixpkgs override; the Python kernelspec comes from ipykernel in the environment itself, not from the override.
 
   Options:
     notebook: Launch the classic web-based Jupyter Notebook server.
@@ -57,17 +57,18 @@ let
 
             wrapperData=$(${cfg.package}/bin/jupyter --paths --json | jq -r '.data[0]')
 
+            # jupyter_path() lists JUPYTER_PATH ahead of sys.prefix, so data[0]
+            # landing on the environment itself means the injected entry is
+            # gone and the copy below would re-export ipykernel's relative-argv
+            # spec and nothing else.
+            if [ "$wrapperData" = "${cfg.package}/share/jupyter" ]; then
+              echo "jupyter --paths resolved data[0] to the environment ($wrapperData), not the wrapper kernel dir" >&2
+              exit 1
+            fi
+
             install -d "$out/share/jupyter"
             cp -R "$wrapperData/kernels" "$out/share/jupyter/kernels"
             chmod -R u+w "$out/share/jupyter/kernels"
-
-            # The override output holds only the non-Python kernels, so a
-            # python3-only tree means .data[0] resolved to the environment's
-            # own share/jupyter and the override kernels were missed.
-            if [ "$(find "$out/share/jupyter/kernels" -mindepth 1 -maxdepth 1 -not -name python3 | wc -l)" -eq 0 ]; then
-              echo "no non-Python kernelspec under $wrapperData/kernels" >&2
-              exit 1
-            fi
 
             install -d "$out/share/jupyter/kernels/python3"
             jq --arg interpreter '${cfg.package}/bin/python' '.argv[0] = $interpreter' \
@@ -99,9 +100,11 @@ let
           # reachable only through the wrapped `jupyter` binary, which sets
           # JUPYTER_PATH itself. Exported through sessionVariables
           # (PAM-initialised) rather than variables (shell-profile only) so
-          # editors started from the desktop inherit it.
+          # editors started from the desktop inherit it. A singleton list so a
+          # second definition merges into the colon-joined value instead of
+          # conflicting.
           pathsToLink = [ "/share/jupyter" ];
-          sessionVariables.JUPYTER_PATH = "/run/current-system/sw/share/jupyter";
+          sessionVariables.JUPYTER_PATH = [ "/run/current-system/sw/share/jupyter" ];
         };
       };
     };
