@@ -74,7 +74,7 @@ Exit codes:
        --restore-path without --force, --chown user or group unresolvable,
        another restore already holds --restore-path)
   66   manifest, env file, or db unreadable; target missing or disabled;
-       fileset selector or scan query failed;
+       fileset selector, timestamp, or scan query failed;
        impact-analysis query failed or returned non-numeric output;
        --restore-path timestamps too coarse to scope the ownership pass;
        pre-existing directories under --restore-path could not be inventoried;
@@ -502,13 +502,21 @@ if "$dry_run"; then
   ids_file="${scratch}/ids.tsv"
 
   echo "Scanning fileset for matching paths..."
-  if ! sqlite3 -separator $'\t' -noheader "$src_uri" "
+  set +e
+  sqlite3 -separator $'\t' -noheader "$src_uri" "
     SELECT f.ID, f.Path
     FROM File f
     JOIN FilesetEntry fse ON fse.FileID = f.ID
     WHERE fse.FilesetID = ${fileset_id};
-  " | awk -v re="$user_regex" -F'\t' '{ id=$1; sub(/^[^\t]*\t/, ""); if ($0 ~ re) print id }' >"$ids_file"; then
-    echo "fileset scan query failed; db locked, corrupt, or schema drift?" >&2
+  " | awk -v re="$user_regex" -F'\t' '{ id=$1; sub(/^[^\t]*\t/, ""); if ($0 ~ re) print id }' >"$ids_file"
+  scan_stages=("${PIPESTATUS[@]}")
+  set -e
+  if [[ ${scan_stages[0]} -ne 0 ]]; then
+    echo "fileset scan query failed (sqlite3 exit ${scan_stages[0]}); db locked, corrupt, or schema drift?" >&2
+    exit 66
+  fi
+  if [[ ${scan_stages[1]} -ne 0 ]]; then
+    echo "fileset scan filter failed (awk exit ${scan_stages[1]}); could not write '$ids_file'?" >&2
     exit 66
   fi
 
