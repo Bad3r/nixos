@@ -36,11 +36,12 @@
     seeding (for bisync, --resync also lets the local side win conflicts).
     Normal one-way runs refuse an empty source and pass --max-delete=25 as an
     absolute 25-file deletion cap; --resync skips the cap after the operator
-    confirms a nonempty source, while --force-resync also permits an empty
-    source. Normal bisync runs pass the same value as rclone's 25-percent
-    deletion check; bisync --resync establishes the initial baseline without
-    that check. Bisync listings live under this module's state directory beside
-    the tuple marker.
+    confirms a nonempty source unless the previous one-way run hit exit 7. After
+    that abort, --resync retains the cap and --force-resync is required to
+    bypass it; --force-resync also permits an empty source. Normal bisync runs
+    pass the same value as rclone's 25-percent deletion check; bisync --resync
+    establishes the initial baseline without that check. Bisync listings live
+    under this module's state directory beside the tuple marker.
 
     Per-invocation overrides:
       PROTON_DRIVE_LOCAL=/path proton-drive-sync
@@ -51,7 +52,7 @@
 
     proton-drive-sync            # run the configured sync immediately
     proton-drive-sync --resync   # establish (or rebuild) a nonempty baseline
-    proton-drive-sync --force-resync # explicitly permit an empty one-way source
+    proton-drive-sync --force-resync # override the abort cap or permit an empty source
 
   Multi-host caveat:
     services.protonDriveSync.enable is off by default and should be enabled on
@@ -106,7 +107,7 @@ _: {
           state_dir=''${XDG_STATE_HOME:-$HOME/.local/state}/proton-drive-sync
           state_key=$(printf '%s\0%s\0%s' "$direction" "$local_path" "$remote" | sha256sum | cut -c1-16)
           marker="$state_dir/initialized-$state_key"
-          mkdir -p "$state_dir" "$local_path"
+          aborted="$state_dir/aborted-$state_key"
 
           resync=0
           force=0
@@ -124,12 +125,19 @@ _: {
             esac
           done
 
+          if [ "$direction" = "up" ] && [ ! -d "$local_path" ]; then
+            echo "proton-drive-sync: '$local_path' does not exist; refusing to create it and mirror an empty local onto '$remote'." >&2
+            exit 1
+          fi
+          mkdir -p "$state_dir" "$local_path"
+
           extra=(${lib.escapeShellArgs cfg.extraArgs})
           common=(--protondrive-enable-caching=false --transfers=4 --checkers=8 --log-level INFO)
-          # The cap protects unattended timer runs. --resync is the explicit
-          # operator confirmation that a full one-way reconciliation is intended.
+          # The cap protects unattended timer runs. --resync lifts it for a
+          # confirmed one-way reconciliation unless the previous run aborted
+          # fatally; --force-resync is then required to bypass the latch.
           delete_cap=(--max-delete=25)
-          if [ "$resync" -eq 1 ]; then
+          if [ "$resync" -eq 1 ] && { [ "$force" -eq 1 ] || [ ! -e "$aborted" ]; }; then
             delete_cap=()
           fi
 
@@ -140,7 +148,8 @@ _: {
               # rclone can delete up to --max-delete files before returning
               # this fatal error. Clear the marker so the timer cannot repeat.
               rm -f -- "$marker"
-              echo "proton-drive-sync: rclone aborted fatally (exit $rc); cleared the baseline so the timer stops. Inspect '$local_path' and '$remote', then re-run 'proton-drive-sync --resync' to resume." >&2
+              touch "$aborted"
+              echo "proton-drive-sync: rclone aborted fatally (exit $rc); cleared the baseline so the timer stops. Verify '$local_path' and '$remote' are complete, then re-run 'proton-drive-sync --resync' with the cap or '--force-resync' to bypass it." >&2
             fi
             return "$rc"
           }
@@ -165,6 +174,7 @@ _: {
               fi
               sync_one_way "$local_path" "$remote" --create-empty-src-dirs "''${delete_cap[@]}" "''${common[@]}" "''${extra[@]}"
               touch "$marker"
+              rm -f -- "$aborted"
               ;;
             down)
               # rclone sync mirrors remote -> local and deletes local-only
@@ -183,6 +193,7 @@ _: {
               fi
               sync_one_way "$remote" "$local_path" --create-empty-src-dirs "''${delete_cap[@]}" "''${common[@]}" "''${extra[@]}"
               touch "$marker"
+              rm -f -- "$aborted"
               ;;
             bisync)
               if [ "$resync" -eq 1 ]; then
