@@ -133,7 +133,11 @@ let
                     '';
                   };
                   url = lib.mkOption {
-                    type = lib.types.str;
+                    # Constrained to a scheme the installer can parse an origin
+                    # from: a scheme-less or misspelled entry is otherwise
+                    # accepted here and only surfaces as a refusal in a user
+                    # unit's journal after a switch.
+                    type = lib.types.strMatching "https?://[^[:space:]]+";
                     description = ''
                       Start URL. The installed manifest scope is its origin, so
                       same-origin navigation stays inside the app and anything
