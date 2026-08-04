@@ -73,6 +73,7 @@ Exit codes:
        pre-existing directories under --restore-path could not be inventoried;
        --restore-path emptiness could not be determined;
        restore parent or --restore-path could not be created;
+       restore parent's mode could not be set;
        the restore lock could not be created
   75   restore completed but the ownership/permission pass was incomplete
   77   not running as root
@@ -684,7 +685,10 @@ if [[ $restore_path_defaulted == true ]]; then
   # earlier invocation would still block --chown's user, so set the mode rather
   # than inherit whatever created it. Root-owned per the check above, not a
   # symlink per the check before it, and dedicated to this script.
-  chmod 0711 "$restore_parent"
+  if ! chmod 0711 "$restore_parent"; then
+    echo "could not set the mode on restore parent '$restore_parent'; chmod's diagnostic is above." >&2
+    exit 66
+  fi
 fi
 if ! mkdir -p "$restore_path"; then
   echo "could not create restore path '$restore_path'; mkdir's diagnostic is above." >&2
