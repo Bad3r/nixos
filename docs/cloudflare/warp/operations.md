@@ -55,8 +55,12 @@ re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
   `cloudflare-warp.service` carries `after`/`requires` on the sops secret-install
   dependency (`config.flake.lib.security.sopsInstallSecretsDeps`), so on
   systemd-activation hosts the rendered template is present before `warp-svc`
-  starts. Activation-script hosts decrypt secrets before any unit ordering, and
-  `warp-svc` has `Restart=always`, so a transient miss self-heals either way.
+  starts. Activation-script hosts decrypt secrets before any unit ordering. The
+  connect oneshot waits for the daemon and retries `warp-cli connect` for up to
+  30 seconds because the IPC socket can answer before managed registration
+  completes. If it logs `connect never succeeded`, inspect the daemon logs and
+  rerun `systemctl restart cloudflare-warp-connect.service` after enrollment is
+  ready.
 - **No connectivity with strict rp_filter.** The module sets
   `networking.firewall.checkReversePath = "loose"` by default. If a host firewall
   module forces `strict`, the `CloudflareWARP` interface drops return traffic.

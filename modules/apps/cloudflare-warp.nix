@@ -255,22 +255,22 @@ let
               };
               script = ''
                 ${unenrolledGuard}
-                # Wait for the warp-svc IPC socket to answer before connecting.
+                # The IPC socket can answer before mdm.xml service-token registration
+                # completes, so retry connect during the bounded readiness window.
+                connected=""
                 for _ in {1..30}; do
-                  if ${cfg.package}/bin/warp-cli status >/dev/null 2>&1; then
+                  if ${cfg.package}/bin/warp-cli status >/dev/null 2>&1 \
+                    && ${cfg.package}/bin/warp-cli --accept-tos connect; then
+                    connected=1
+                    echo "cloudflare-warp-connect: connect requested"
                     break
                   fi
                   sleep 1
                 done
-                # When enrolling, mdm.xml (service token) has already registered the
-                # device and accepted ToS, so no interactive `warp-cli registration
-                # new` is needed. This connect is best-effort: log the outcome and
-                # exit 0 so a user who legitimately keeps WARP off does not leave
-                # the unit failed.
-                if ${cfg.package}/bin/warp-cli --accept-tos connect; then
-                  echo "cloudflare-warp-connect: connect requested"
-                else
-                  echo "cloudflare-warp-connect: connect returned non-zero (already connected or daemon still settling)"
+                # Best-effort: log the outcome and exit 0 so a user who legitimately
+                # keeps WARP off does not leave the unit failed.
+                if [ -z "$connected" ]; then
+                  echo "cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
                 fi
                 ${cfg.package}/bin/warp-cli status || echo "cloudflare-warp-connect: status unavailable"
               '';
