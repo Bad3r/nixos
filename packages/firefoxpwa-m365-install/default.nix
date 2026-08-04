@@ -239,6 +239,19 @@ writeShellApplication {
         return
       fi
 
+      # A rename keeps the key and changes the launcher name, so the lookup
+      # above misses the site this key already installed and this branch would
+      # register a second one under the new name while overwriting the only
+      # record of the first, leaving the original PWA and its .desktop entry
+      # with nothing pointing at them. Told apart from the documented uninstall,
+      # which leaves the record behind but takes the site with it, by the site
+      # still being there.
+      if [ -r "$ulid_file" ] \
+        && jq -e --arg u "$(<"$ulid_file")" '.sites[$u]' "$config_file" >/dev/null 2>&1; then
+        refuse "'$name' is a new name for the site this unit installed as $(<"$ulid_file"); uninstall that site so this unit can reinstall it under the new name"
+        return
+      fi
+
       # A data: manifest keeps the install self-contained: firefoxpwa does not
       # have to fetch or parse a manifest from the target site, which for these
       # apps sits behind a sign-in redirect. Site::url prefers config.start_url

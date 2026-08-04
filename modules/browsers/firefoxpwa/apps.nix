@@ -109,6 +109,12 @@ let
               restarts that follow it, and at every login after that. The
               remaining entries are still installed, so one refusal does not hold
               up the rest of the suite.
+
+              Renaming an entry while keeping its `key` is refused on the same
+              terms. `name` is the idempotency key, so the installer would
+              otherwise register a second site under the new name and overwrite
+              the record naming the first, leaving the original app and its
+              launcher entry with nothing pointing at them.
             '';
           };
 

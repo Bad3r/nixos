@@ -102,9 +102,16 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
               if [ "''${STUB_FAIL_NAME:-}" = "$name" ] && [ -n "''${STUB_FAIL_BEFORE_REGISTER:-}" ]; then
                 exit 1
               fi
-              # Sites are keyed by insertion order, so several can coexist and
-              # a check can tell one entry's site from another's.
-              ulid="01STUB$(jq -r '(.sites // {}) | length' "$config_file")"
+              # Allocated from a counter rather than the site count, so several
+              # can coexist, a check can tell one entry's site from another's,
+              # and an id is never handed out twice: a real ulid is unique for
+              # the life of the profile, while a count reuses the id of a site
+              # that was uninstalled and would silently overwrite its successor.
+              seq_file="$userdata/.stub-ulid-seq"
+              seq=0
+              [ ! -f "$seq_file" ] || seq=$(<"$seq_file")
+              ulid="01STUB$seq"
+              printf '%s' "$((seq + 1))" >"$seq_file"
               jq --arg u "$ulid" --arg n "$name" --arg m "$manifest_url" \
                 --arg s "$(normalize "$start_url")" --arg d "$(normalize "$document_url")" \
                 '.sites[$u] = {
@@ -207,6 +214,21 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
       # is the only thing that proves the catalog survives escapeShellArg,
       # shellcheck and a real run, since no host enables the toggle yet.
       shipped = mkInstaller catalog;
+      # Alpha's launcher name edited while its key stays: the lookup misses the
+      # site the key installed, so the fresh-install branch has to refuse rather
+      # than register a second one.
+      renamed = mkInstaller [
+        {
+          key = "alpha";
+          name = "Alpha Renamed";
+          url = "https://alpha.example/";
+        }
+        {
+          key = "beta";
+          name = "Beta";
+          url = "https://beta.example/";
+        }
+      ];
       credentials = mkInstaller [
         {
           key = "alpha";
@@ -251,6 +273,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             shipped=${lib.getExe shipped}
             moved=${lib.getExe moved}
             cross_origin=${lib.getExe crossOrigin}
+            renamed=${lib.getExe renamed}
             credentials=${lib.getExe credentials}
             failures=0
 
@@ -359,6 +382,23 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
               "$(start_url_of Alpha)" "https://alpha.example/"
             assert_equal "beta record untouched" \
               "$(cat "$data_dir/m365-beta-applied-url")" "https://beta.example/"
+
+            echo
+            echo "-- renaming an entry is refused rather than orphaning its site --"
+            reset
+            "$declared" >/dev/null
+            expect "rename refused" "$renamed" 1 "is a new name for the site this unit installed"
+            assert_equal "no second site registered under the new name" "$(site_count)" 2
+            assert_equal "the ulid record still names the original site" \
+              "$(cat "$data_dir/m365-alpha-applied-ulid")" "01STUB0"
+            assert_equal "the applied record still names the original entry" \
+              "$(cat "$data_dir/m365-alpha-applied-url")" "https://alpha.example/"
+            # An uninstall leaves the same stale record but takes the site, and
+            # that case must still reinstall: the guard is on the site being
+            # there, not on the record existing.
+            jq 'del(.sites["01STUB0"])' "$config_file" >"$config_file.next"
+            mv "$config_file.next" "$config_file"
+            expect "an uninstalled site is reinstalled under the new name" "$renamed" 0 "installed 'Alpha Renamed'"
 
             echo
             echo "-- a start URL with credentials is refused before any site lookup --"
