@@ -247,6 +247,7 @@ let
               description = "Cloudflare WARP connect on boot";
               after = [ "cloudflare-warp.service" ];
               requires = [ "cloudflare-warp.service" ];
+              partOf = [ "cloudflare-warp.service" ];
               wantedBy = [ "multi-user.target" ];
               serviceConfig = {
                 Type = "oneshot";
