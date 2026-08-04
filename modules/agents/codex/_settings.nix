@@ -40,7 +40,7 @@ let
   # Existing non-default values (kept as-is).
   codexSettingsOverrides = {
     # Core settings
-    model = "gpt-5.6-sol";
+    model = "gpt-5.6-terra";
     review_model = "gpt-5.6-sol";
     commit_attribution = "";
     approval_policy = "on-request";
@@ -69,8 +69,8 @@ let
 
     # Reasoning settings
     # model_supports_reasoning_summaries = true; # Avoid sending reasoning.summary.
-    model_reasoning_effort = "high";
-    plan_mode_reasoning_effort = "high"; # none|minimal|low|medium|high|xhigh|max|ultra
+    model_reasoning_effort = "max";
+    plan_mode_reasoning_effort = "max"; # none|minimal|low|medium|high|xhigh|max|ultra
     model_verbosity = "high";
 
     # Reasoning visibility

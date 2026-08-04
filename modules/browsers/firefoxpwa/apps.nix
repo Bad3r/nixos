@@ -36,6 +36,45 @@ let
         package = lib.mkPackageOption pkgs "firefoxpwa" { };
       };
 
+      # Per-site install toggles are declared here (NixOS scope) so the common
+      # app catalog and per-host apps-enable files can layer them like any other
+      # app, and the Home Manager installer in ./dmail.nix can read them through
+      # `osConfig`.
+      options.programs.firefoxpwa.dmail.enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Install the primary user's work mail Progressive Web App (DMail)
+          through firefoxpwa. The start URL is read at runtime from the
+          SOPS-encrypted gecko work-bookmark secret. Requires
+          programs.firefoxpwa.extended.enable.
+
+          One-way. Setting this back to false stops managing the site but does
+          not uninstall it. Removing the site is a manual
+          `firefoxpwa site uninstall`, which deletes the PWA profile and the
+          launcher entry but none of this module's own records: the
+          dmail-applied-url, dmail-applied-origin, dmail-applied-ulid and
+          dmail-installing files under `''${xdg.dataHome}/firefoxpwa` have to
+          be deleted separately, and a leftover dmail-applied-ulid makes the
+          next site to carry this name refused rather than adopted. Not
+          automated, because an automatic uninstall would destroy the PWA
+          profile and its session state.
+
+          Rotating the secret to a URL on a different origin is also not
+          applied automatically. The manifest scope is fixed at install time
+          and `firefoxpwa site update` cannot rewrite it, so the installer
+          refuses the rotation and the user service fails on every switch and
+          login until the site is removed with `firefoxpwa site uninstall`.
+          Rotations within the same origin are applied in place.
+
+          A secret whose URL embeds credentials (`https://user:pass@host/...`)
+          is refused outright, before any site lookup, because the manifest
+          scope derived from it drops the userinfo and could then never contain
+          the start URL. `firefoxpwa site uninstall` does not clear that one:
+          the secret itself has to be stored without the credentials.
+        '';
+      };
+
       config = lib.mkIf cfg.enable {
         # The connector is launched via the native-messaging manifest's absolute
         # path, but the `firefoxpwa` CLI must also be on PATH so the management
