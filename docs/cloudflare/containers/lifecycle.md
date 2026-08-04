@@ -269,10 +269,12 @@ process.on("SIGTERM", async () => {
 import signal
 import sys
 
+
 def handle_sigterm(signum, frame):
     print("SIGTERM received, shutting down gracefully")
     # Cleanup code here
     sys.exit(0)
+
 
 signal.signal(signal.SIGTERM, handle_sigterm)
 ```

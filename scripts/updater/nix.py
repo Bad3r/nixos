@@ -1,9 +1,15 @@
+# Copyright (c) 2026 Bad3r
+
 """Nix command wrappers for package updates."""
+
+from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class NixCommandError(Exception):

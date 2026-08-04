@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """Nix package updater library.
 
 This library provides utilities for updating Nix packages in flakes,
