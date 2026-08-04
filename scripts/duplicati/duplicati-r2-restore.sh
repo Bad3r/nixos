@@ -24,8 +24,10 @@ Options:
                            Default: /tmp/duplicati-restore/<slug>-<utc-ts>
                            A pre-existing non-empty directory is refused
                            unless --force is given. Parent directories this
-                           run creates are made traversable (0711); the
-                           restore directory itself stays 0700.
+                           run creates are made traversable (0711); for the
+                           default path the parent's mode is set to 0711 even
+                           when it already exists. The restore directory
+                           itself stays 0700.
   --chown <user:group>     Chown applied to the entries written during the
                            restore (files restored, directories created),
                            selected by ctime rather than by asking duplicati,
@@ -582,6 +584,14 @@ if [[ -e $restore_path ]]; then
   # directory the script created and emptied read as populated, so the rerun
   # would demand --force and then skip the root chown/chmod that a freshly
   # created path is supposed to get.
+  # Ignoring them is not the same as cleaning them up, and cleanup_scope only
+  # unlinks the marker this run created. Removing the rest here would break a
+  # concurrent run against the same path, so say they are there instead.
+  if [[ -n $(find "$restore_path" -mindepth 1 -maxdepth 1 -name '.duplicati-restore-marker.*' -print -quit) ]]; then
+    echo "NOTE: orphaned restore markers are present under '$restore_path'." >&2
+    echo "  They are ignored by the emptiness check and are not removed automatically;" >&2
+    echo "  delete .duplicati-restore-marker.* by hand once no restore is running." >&2
+  fi
   if [[ -n $(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ]]; then
     restore_path_populated=true
   fi
@@ -612,6 +622,18 @@ if [[ -L $restore_parent ]]; then
   exit 64
 fi
 (umask 066 && mkdir -p "$restore_parent")
+# Re-test after the create. A link planted between the test above and this call
+# is entered silently by mkdir -p, and everything downstream dereferences: -O
+# would stat a root-owned target and pass, chmod 0711 would land on that target
+# rather than on a container of ours, and the leaf would be created on the far
+# side. Retesting here is decisive, because an attacker who cannot create a
+# root-owned real directory has no substitution left, and once mkdir -p has put
+# one under a sticky /tmp they cannot unlink or rename it either.
+if [[ -L $restore_parent ]]; then
+  echo "--restore-path parent must not be a symlink: $restore_parent" >&2
+  echo "  It was created or replaced while this run was starting." >&2
+  exit 64
+fi
 # Only the default path gets the ownership check. Its parent is a fixed name
 # under a world-writable /tmp, so any local user can own it before a root run
 # and then swap the leaf. An explicit --restore-path is the operator's choice
