@@ -21,9 +21,53 @@
     * `jupyter-all` is `jupyter.override` from nixpkgs that swaps the default kernel definition set for the Clojure, Octave, R, and Ruby ones.
     * The Wolfram kernel is intentionally excluded upstream because it is unfree.
     * Every kernelspec the wrapper can reach is re-exported on JUPYTER_PATH so external clients such as the VS Code Jupyter extension can launch them.
+    * JUPYTER_PATH precedes the user data dir in `jupyter_path()` and the first kernelspec of a given name wins, so this `python3` shadows a user-installed `~/.local/share/jupyter/kernels/python3`.
 */
 _:
 let
+  # The kernels named in the override land in a standalone
+  # jupyter-kernel.create output that only the wrapped `jupyter` binary knows
+  # about, through its own JUPYTER_PATH. Resolve that directory through the
+  # wrapper instead of restating upstream's definition list.
+  #
+  # python3 is absent from that set when the override supplies no python
+  # definition: replacing the definitions rather than extending them drops
+  # jupyter-kernel.default and its absolute interpreter argv, leaving
+  # ipykernel's own kernelspec, whose argv[0] is the bare string "python".
+  # That resolves through PATH, and outside the wrapper PATH yields
+  # programs.python.extended's hiPrio python313, which has no ipykernel. Only
+  # kernel.json needs rewriting; buildEnv unfolds the python3 directory and
+  # links ipykernel's logos next to it.
+  mkKernelspecs =
+    pkgs: package:
+    pkgs.runCommand "jupyter-all-kernelspecs"
+      {
+        nativeBuildInputs = [ pkgs.jq ];
+      }
+      ''
+        ${package}/bin/python -c 'import ipykernel_launcher'
+
+        wrapperData=$(${package}/bin/jupyter --paths --json | jq -r '.data[0]')
+
+        # jupyter_path() lists JUPYTER_PATH ahead of sys.prefix, so data[0]
+        # landing on the environment itself means the injected entry is gone
+        # and the copy below would re-export ipykernel's relative-argv spec
+        # and nothing else.
+        if [ "$wrapperData" = "${package}/share/jupyter" ]; then
+          echo "jupyter --paths resolved data[0] to the environment ($wrapperData), not the wrapper kernel dir" >&2
+          exit 1
+        fi
+
+        install -d "$out/share/jupyter"
+        cp -R "$wrapperData/kernels" "$out/share/jupyter/kernels"
+        chmod -R u+w "$out/share/jupyter/kernels"
+
+        install -d "$out/share/jupyter/kernels/python3"
+        jq --arg interpreter '${package}/bin/python' '.argv[0] = $interpreter' \
+          ${package}/share/jupyter/kernels/python3/kernel.json \
+          > "$out/share/jupyter/kernels/python3/kernel.json"
+      '';
+
   JupyterAllModule =
     {
       config,
@@ -33,48 +77,7 @@ let
     }:
     let
       cfg = config.programs."jupyter-all".extended;
-
-      # The kernels named in the override land in a standalone
-      # jupyter-kernel.create output that only the wrapped `jupyter` binary
-      # knows about, through its own JUPYTER_PATH. Resolve that directory
-      # through the wrapper instead of restating upstream's definition list.
-      #
-      # python3 is absent from that set: jupyter-all replaces the definitions
-      # instead of extending them, so upstream drops jupyter-kernel.default
-      # and its absolute interpreter argv. The only surviving Python
-      # kernelspec is ipykernel's own, whose argv[0] is the bare string
-      # "python". That resolves through PATH, and outside the wrapper PATH
-      # yields programs.python.extended's hiPrio python313, which has no
-      # ipykernel. Only kernel.json needs rewriting; buildEnv unfolds the
-      # python3 directory and links ipykernel's logos next to it.
-      kernelspecs =
-        pkgs.runCommand "jupyter-all-kernelspecs"
-          {
-            nativeBuildInputs = [ pkgs.jq ];
-          }
-          ''
-            ${cfg.package}/bin/python -c 'import ipykernel_launcher'
-
-            wrapperData=$(${cfg.package}/bin/jupyter --paths --json | jq -r '.data[0]')
-
-            # jupyter_path() lists JUPYTER_PATH ahead of sys.prefix, so data[0]
-            # landing on the environment itself means the injected entry is
-            # gone and the copy below would re-export ipykernel's relative-argv
-            # spec and nothing else.
-            if [ "$wrapperData" = "${cfg.package}/share/jupyter" ]; then
-              echo "jupyter --paths resolved data[0] to the environment ($wrapperData), not the wrapper kernel dir" >&2
-              exit 1
-            fi
-
-            install -d "$out/share/jupyter"
-            cp -R "$wrapperData/kernels" "$out/share/jupyter/kernels"
-            chmod -R u+w "$out/share/jupyter/kernels"
-
-            install -d "$out/share/jupyter/kernels/python3"
-            jq --arg interpreter '${cfg.package}/bin/python' '.argv[0] = $interpreter' \
-              ${cfg.package}/share/jupyter/kernels/python3/kernel.json \
-              > "$out/share/jupyter/kernels/python3/kernel.json"
-          '';
+      kernelspecs = mkKernelspecs pkgs cfg.package;
     in
     {
       options.programs."jupyter-all".extended = {
@@ -111,4 +114,51 @@ let
 in
 {
   flake.nixosModules.apps.jupyter-all = JupyterAllModule;
+
+  perSystem =
+    { pkgs, ... }:
+    {
+      # system.path merges with ignoreCollisions = true, so a lost hiPrio race
+      # degrades to a scrolled-past warning and a relative-argv kernel.json,
+      # which is the bug this module exists to fix. Rebuild the same merge with
+      # collisions fatal and assert the outcome. No runtimeCheck: realising the
+      # merge pulls jupyter-all's 2.7 GiB closure, which is the weight
+      # check.yml excludes host toplevels for.
+      checks.jupyter-all-kernelspecs =
+        let
+          package = pkgs.jupyter-all;
+          merged = pkgs.buildEnv {
+            name = "jupyter-all-kernelspec-merge";
+            paths = [
+              package
+              (pkgs.lib.hiPrio (mkKernelspecs pkgs package))
+            ];
+            pathsToLink = [ "/share/jupyter" ];
+            ignoreCollisions = false;
+          };
+        in
+        pkgs.runCommand "jupyter-all-kernelspecs-valid"
+          {
+            nativeBuildInputs = [ pkgs.jq ];
+          }
+          ''
+            kernels=${merged}/share/jupyter/kernels
+
+            argv0=$(jq -r '.argv[0]' "$kernels/python3/kernel.json")
+            case "$argv0" in
+              ${builtins.storeDir}/*) ;;
+              *)
+                echo "python3 argv[0] is '$argv0': the merge kept the relative-argv kernel.json from ${package.name}" >&2
+                exit 1
+                ;;
+            esac
+
+            if [ "$(find "$kernels" -mindepth 1 -maxdepth 1 -not -name python3 | wc -l)" -eq 0 ]; then
+              echo "only python3 reached $kernels; the override kernels were not re-exported" >&2
+              exit 1
+            fi
+
+            touch $out
+          '';
+    };
 }
