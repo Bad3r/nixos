@@ -37,6 +37,16 @@ assert lib.assertMsg (
 assert lib.assertMsg (lib.all (
   app: lib.hasPrefix "https://" app.url
 ) catalog) "browsers/firefoxpwa-m365: every _m365-apps.nix start URL must be https";
+# The catalog is the option's default, and an option's type is checked only
+# when its value is forced: ./m365.nix reaches apps behind `m365Enabled &&`,
+# no host sets that, and ./module-check.nix passes osConfig as a plain attrset,
+# so nothing anywhere applies the key's strMatching to these entries. Restated
+# rather than read back from the option because reaching the type needs a NixOS
+# evaluation this file does not do; a widened alphabet fails here loudly, which
+# is the safe direction for the drift.
+assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key != null)
+  catalog
+) "browsers/firefoxpwa-m365: every _m365-apps.nix key must match the option's path-safe alphabet";
 {
   perSystem =
     { pkgs, ... }:
