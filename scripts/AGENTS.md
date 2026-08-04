@@ -38,6 +38,15 @@ pattern already used by `url-catalog-add.py`. Package updaters under
 `#!/usr/bin/env nix` shebang. Add packages for commands invoked directly,
 such as `yq-go` in `packages/webcrack/update.py`.
 
+A new `#!/usr/bin/env python3` script here also needs an entry in
+`[tool.ruff.per-file-target-version]` in `pyproject.toml`. Its interpreter comes
+from the invoker's `PATH` rather than the flake, and `ubuntu-latest` still ships
+3.12, so at the repo-wide `py314` target `ruff format` will rewrite portable
+code such as `except (KeyError, ValueError):` into the PEP 758 unbracketed form
+and break the script where it actually runs. The floor does not apply to the
+`uv run --script` and `nix-shell` shebangs above, which pin their own
+interpreter.
+
 ## Validation Commands
 
 Validate the exact entrypoint changed before broader hooks:
