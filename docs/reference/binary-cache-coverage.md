@@ -77,10 +77,10 @@ keyed `<host>/<package>/<output>`.
   override keeps `extended.enable = true`, so the gate stays green while the
   published derivation is one nobody builds, and the symptom is a cache miss
   rather than an error. Every registered
-  host that builds for the current system contributes its own entries, keyed
-  `<host>/<package>`, so an app only a sibling host enables still reaches the
-  cache and each host's distinct closure is published separately (nvidia-x11
-  is 580.173.02 on system76 and 595.84 on tpnix).
+  host that builds for the current system contributes its own entries, so an
+  app only a sibling host enables still reaches the cache and each host's
+  distinct closure is published separately (nvidia-x11 is 580.173.02 on
+  system76 and 595.84 on tpnix).
   Entries are gated per host on `programs.<name>.extended.enable`, so a host
   that turns an app off contributes nothing for it and the cache never carries
   a closure that host will not install (which is why wfuzz is not listed).
@@ -159,6 +159,7 @@ enables the last six.
 | john                | system76, tpnix |
 | nomachine-client    | system76, tpnix |
 | obsidian            | system76, tpnix |
+| p7zip-rar           | system76, tpnix |
 | planify             | system76, tpnix |
 | proton-vpn          | system76, tpnix |
 | searchfox-cli       | system76, tpnix |

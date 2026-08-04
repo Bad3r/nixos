@@ -55,6 +55,7 @@ let
     "kiro-fhs"
     "nomachine-client"
     "obsidian"
+    "p7zip-rar"
     "planify"
     "proton-vpn"
     "searchfox-cli"

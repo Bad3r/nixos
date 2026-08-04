@@ -101,7 +101,7 @@ allowlist only when the package cannot be cached: `allowSubstitutes = false`
 on the expensive derivation (tor-browser, mullvad-browser), or a wrapper cheap
 enough that publishing it costs more CI time than it saves. A license is not a
 reason; `cache-roots.nix` publishes unfree packages too, so the RAR-enabled
-p7zip is now an unclaimed candidate rather than a permanent local build.
+p7zip belongs there, and its glob left this file in the same change.
 Everything else belongs in `cache-roots.nix`, and adding it there
 means deleting the glob here in the same change. That is enforced rather than
 left to memory: the `cache-roots-allowlist-disjoint` flake check in
