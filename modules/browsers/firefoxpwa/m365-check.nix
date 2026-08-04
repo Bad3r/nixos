@@ -120,6 +120,10 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
               ;;
             update)
               ulid="$3"
+              # Reproduces an update that fails without touching the site, the
+              # one failure the installer counts as a refusal rather than a
+              # fault, and the repair every other branch defers to.
+              [ -z "''${STUB_FAIL_UPDATE:-}" ] || exit 1
               start_url=""
               while [ $# -gt 0 ]; do
                 case "$1" in
@@ -330,6 +334,17 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             assert_equal "alpha start URL updated" "$(start_url_of Alpha)" "https://alpha.example/deep/link"
             assert_equal "alpha applied record updated" \
               "$(cat "$data_dir/m365-alpha-applied-url")" "https://alpha.example/deep/link"
+            # A failed update must leave the applied record where it was: the
+            # record is what the no-op fast path compares against, so advancing
+            # it here would make the next run agree the URL is already applied
+            # and never retry. The move back below is that retry.
+            export STUB_FAIL_UPDATE=1
+            expect "failed update refused" "$declared" 1 "failed to update start URL for 'Alpha'"
+            unset STUB_FAIL_UPDATE
+            assert_equal "alpha applied record not advanced past a failed update" \
+              "$(cat "$data_dir/m365-alpha-applied-url")" "https://alpha.example/deep/link"
+            assert_equal "alpha start URL untouched by a failed update" \
+              "$(start_url_of Alpha)" "https://alpha.example/deep/link"
             # The declared URL is a bare origin while config.json holds the
             # url crate's trailing-slash form, so a no-op here would mean the
             # installer compared against config.json instead of its record.
