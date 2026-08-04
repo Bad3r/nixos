@@ -66,6 +66,22 @@ _: {
             nativeBuildInputs = [ config.packages.hook-statix ];
           }
           ''
+            set -o errexit -o nounset -o pipefail
+
+            # Planted before the tree is trusted, the way ../build-time-shell.nix
+            # plants its own fixture: nothing else calls hook-statix without
+            # arguments (../pre-commit.nix sets pass_filenames), so a clean $out
+            # here would otherwise be indistinguishable from a run that walked
+            # nothing.
+            planted="$PWD/planted"
+            mkdir -p "$planted"
+            # W02, an empty let-in.
+            printf 'let in 1\n' >"$planted/fixture.nix"
+            if (cd "$planted" && hook-statix); then
+              echo "statix-tree: hook-statix reported nothing on a planted lint, so the tree scan below would pass regardless" >&2
+              exit 1
+            fi
+
             cd ${nixSources}
             hook-statix
             echo "statix reported nothing across the tree" >"$out"
