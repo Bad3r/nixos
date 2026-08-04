@@ -705,10 +705,16 @@ find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 >"$re
 if [[ $chown_spec != "none" ]]; then
   echo
   echo "Applying chown ${chown_spec} to restored entries under ${restore_path}..."
-  xargs -0 -r chown "$chown_spec" <"$restored_list"
+  # -h on both: find classified these paths with -P at scan time, but chown
+  # resolves each operand when it runs, so a writer in the tree could swap a
+  # listed path for a symlink in between and have root re-own the referent
+  # outside --restore-path. lchown(2) is identical to chown(2) for the regular
+  # files and directories actually in the list, and the `chown -R` this replaced
+  # was immune for the same reason (FTS_PHYSICAL, never dereferences).
+  xargs -0 -r chown -h "$chown_spec" <"$restored_list"
   xargs -0 -r chown -h "$chown_spec" <"$restored_links"
   if [[ $restore_path_populated == false ]]; then
-    chown "$chown_spec" "$restore_path"
+    chown -h "$chown_spec" "$restore_path"
   fi
 fi
 
@@ -719,10 +725,14 @@ fi
 # gates the unix-mode/uid/gid path. Re-grant owner rwX and strip group/other
 # so the tree is usable post-chown without widening exposure. Scoped to the
 # restored entries so pre-existing content keeps its modes.
+# -h for the same reason as the chown pass: the list was classified at scan
+# time, and chmod resolves each operand when it runs. GNU chmod skips a symlink
+# operand under -h instead of reaching its referent, so a path swapped in the
+# window is a no-op rather than a mode rewrite outside --restore-path.
 echo "Resetting permissions to u+rwX,go-rwx on restored entries under ${restore_path}..."
-xargs -0 -r chmod u+rwX,go-rwx <"$restored_list"
+xargs -0 -r chmod -h u+rwX,go-rwx <"$restored_list"
 if [[ $restore_path_populated == false ]]; then
-  chmod u+rwX,go-rwx "$restore_path"
+  chmod -h u+rwX,go-rwx "$restore_path"
 fi
 
 echo
