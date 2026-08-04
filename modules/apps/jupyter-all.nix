@@ -45,8 +45,6 @@ let
         nativeBuildInputs = [ pkgs.jq ];
       }
       ''
-        ${package}/bin/python -c 'import ipykernel_launcher'
-
         wrapperData=$(${package}/bin/jupyter --paths --json | jq -r '.data[0]')
 
         # jupyter_path() lists JUPYTER_PATH ahead of sys.prefix, so data[0]
@@ -67,6 +65,7 @@ let
         # and env, and jupyter-kernel.create already writes it with an
         # absolute argv.
         if [ ! -e "$out/share/jupyter/kernels/python3/kernel.json" ]; then
+          ${package}/bin/python -c 'import ipykernel_launcher'
           install -d "$out/share/jupyter/kernels/python3"
           jq --arg interpreter '${package}/bin/python' '.argv[0] = $interpreter' \
             ${package}/share/jupyter/kernels/python3/kernel.json \
