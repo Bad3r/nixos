@@ -75,6 +75,7 @@ Exit codes:
        another restore already holds --restore-path)
   66   manifest, env file, or db unreadable; target missing or disabled;
        fileset selector, timestamp, or scan query failed;
+       fileset scan filter failed to write the matching-ID file;
        impact-analysis query failed or returned non-numeric output;
        --restore-path timestamps too coarse to scope the ownership pass;
        pre-existing directories under --restore-path could not be inventoried;
